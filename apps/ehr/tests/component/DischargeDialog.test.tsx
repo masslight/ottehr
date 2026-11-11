@@ -12,10 +12,12 @@ const handleDischarge = vi.fn().mockResolvedValue(undefined);
 const enqueueSnackbar = vi.fn();
 const makePatientInstructionsPdf = vi.fn().mockResolvedValue({ presignedURL: 'https://example.test/instructions' });
 const makeProgressNotePdf = vi.fn().mockResolvedValue({ presignedURL: 'https://example.test/progress-note' });
+const createImmunizationRecord = vi.fn().mockResolvedValue({ message: 'ok', documentId: 'doc-imm-1' });
 
 vi.mock('src/api/api', () => ({
   makePatientInstructionsPdf: (...args: unknown[]) => makePatientInstructionsPdf(...args),
   makeProgressNotePdf: (...args: unknown[]) => makeProgressNotePdf(...args),
+  createImmunizationRecord: (...args: unknown[]) => createImmunizationRecord(...args),
 }));
 
 vi.mock('notistack', () => ({
@@ -127,6 +129,47 @@ describe('DischargeDialog', () => {
 
     await user.click(checkbox(dataTestIds.dischargeDialog.signProgressNoteCheckbox));
     expect(confirmButton()).toHaveTextContent('Discharge');
+  });
+
+  it('offers the Immunization Record unticked, and prints it from its filed document when ticked', async () => {
+    const user = userEvent.setup();
+    render(<DischargeDialog {...baseProps} />);
+
+    const immunizationRecord = checkbox(dataTestIds.dischargeDialog.printImmunizationRecordCheckbox);
+    expect(immunizationRecord).toBeEnabled();
+    expect(immunizationRecord).not.toBeChecked();
+
+    // Only the record: clear the documents ticked by default.
+    await user.click(checkbox(dataTestIds.dischargeDialog.printDischargeSummaryCheckbox));
+    await user.click(checkbox(dataTestIds.dischargeDialog.printWorkNoteCheckbox));
+    await user.click(checkbox(dataTestIds.dischargeDialog.printSchoolNoteCheckbox));
+    expect(confirmButton()).toHaveTextContent('Discharge');
+    await user.click(immunizationRecord);
+    expect(confirmButton()).toHaveTextContent('Discharge & Print');
+
+    await user.click(confirmButton());
+
+    await waitFor(() => expect(handleDischarge).toHaveBeenCalledWith('encounter-1', expect.anything()));
+    expect(createImmunizationRecord).toHaveBeenCalledWith(expect.anything(), { appointmentId: 'appointment-1' });
+    expect(openedTabs).toHaveLength(1);
+    expect(downloadDocument).toHaveBeenCalledWith('doc-imm-1', { skipRelated: true, targetTab: openedTabs[0] });
+    expect(createAndOpenDischargeSummary).not.toHaveBeenCalled();
+  });
+
+  it('closes the reserved tab and does not discharge when the Immunization Record cannot be created', async () => {
+    createImmunizationRecord.mockRejectedValueOnce(new Error('boom'));
+    const user = userEvent.setup();
+    render(<DischargeDialog {...baseProps} />);
+
+    await user.click(checkbox(dataTestIds.dischargeDialog.printImmunizationRecordCheckbox));
+    await user.click(confirmButton());
+
+    await waitFor(() =>
+      expect(enqueueSnackbar).toHaveBeenCalledWith('An error occurred. Please try again.', { variant: 'error' })
+    );
+    const recordTab = openedTabs[openedTabs.length - 1];
+    expect(recordTab.close).toHaveBeenCalled();
+    expect(handleDischarge).not.toHaveBeenCalled();
   });
 
   it('holds supervisor approval closed until the note is being signed', async () => {

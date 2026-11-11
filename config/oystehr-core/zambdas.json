@@ -1762,6 +1762,20 @@
       "src": "src/ehr/immunization/get-patient-immunizations/index",
       "zip": ".dist/zips/get-patient-immunizations.zip"
     },
+    "GET-IMMUNIZATION-FORECAST": {
+      "name": "get-immunization-forecast",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/immunization/get-forecast/index",
+      "zip": ".dist/zips/get-immunization-forecast.zip"
+    },
+    "CREATE-IMMUNIZATION-RECORD": {
+      "name": "create-immunization-record",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-immunization-record/index",
+      "zip": ".dist/zips/create-immunization-record.zip"
+    },
     "CANCEL-IMMUNIZATION_ORDER": {
       "name": "cancel-immunization-order",
       "type": "http_auth",

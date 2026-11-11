@@ -19,6 +19,7 @@ import { AppointmentContext } from 'utils/lib/config-helpers/patient-record';
 import { FollowupReason } from 'utils/lib/fhir/encounter';
 import { Gender } from 'utils/lib/fhir/helpers';
 import { VitalsVisitNoteData } from 'utils/lib/helpers/vitals/vitals-visit-note-data.types';
+import { ImmunizationForecast } from 'utils/lib/immunization-forecast/types';
 import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   REFUSAL_OF_EMS_TRANSPORT_FIELD,
@@ -28,6 +29,7 @@ import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
 import { ExternalLabOrderResult, InHouseLabResult as InHouseLabResultPdfData } from 'utils/lib/types/api/lab';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import { GetPatientImmunizationsResponse } from 'utils/lib/types/data/immunization/types';
 import { QuantityDataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
 import { SupportedObsImgAttachmentTypes } from 'utils/lib/types/data/labs/labs.constants';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
@@ -1156,7 +1158,39 @@ export interface DischargeSummaryData extends PdfData {
   physician: PhysicianData;
   workSchoolExcuse?: WorkSchoolExcuseData;
   upcomingVisits: UpcomingVisitsData;
+  immunizationOrders?: ImmunizationOrders;
   documentsAttached?: boolean;
+}
+
+export interface ImmunizationRecordInput {
+  appointmentPackage: FullAppointmentResourcePackage;
+  records: GetPatientImmunizationsResponse;
+  forecast: ImmunizationForecast;
+  serviceCategories?: ServiceCategoryCatalogEntry[];
+}
+
+/** One vaccine group of the immunization record, its lines already worded. */
+export interface ImmunizationRecordGroup {
+  /** "Hep B — Up to date" */
+  title: string;
+  /** "Target: 3" */
+  target?: string;
+  doses: string[];
+  /** "Declined 11/10/2026 by J. Nurse" */
+  mark?: string;
+  /** "Next: dose 3 — earliest …, recommended …, past due …" */
+  next?: string;
+  notes: string[];
+}
+
+export interface ImmunizationRecordData extends PdfData {
+  patient: PatientInfoForDischargeSummary;
+  visit: VisitInfo;
+  groups: ImmunizationRecordGroup[];
+  /** Doses no group holds: without a CVX, or a CVX the forecast does not cover. */
+  otherDoses: string[];
+  /** "As of 11/11/2026" */
+  asOf: string;
 }
 /**
  * Data for the generated first page of an outbound fax packet.

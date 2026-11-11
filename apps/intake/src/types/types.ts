@@ -39,6 +39,7 @@ export type EmailUserValue = 'Patient (Self)' | 'Parent/Guardian';
 export const visitFileTypes = {
   visitNote: 'visit-note',
   dischargeSummary: 'discharge-summary',
+  immunizationRecord: 'immunization-record',
   statement: 'statement',
   school: 'school',
   work: 'work',
