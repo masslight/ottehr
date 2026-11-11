@@ -58,6 +58,21 @@ Requests (async jobs / pages) for a year: ideal 52 / 221 / 139, current 165 / 25
 5. **Report Studio's cost is in its runner, not in its plans.** Its visits step takes 32–34 s for a year in 11 large jobs, and its scoped steps send 250 ids per paged batch (228 requests for temperatures against 87 in ideal). The plans themselves are close to the ideal searches.
 6. **The floor is ~6 s for 60 days and ~18–28 s for a year on local.** FHIR has no joins, so a report reads the visits and then makes a second pass by their ids, and every async job costs ~2.5 s.
 
+## Heavy reports: visits with patients data (a year)
+
+Two more reports, each reading several layers and patient-level data at once — in this version, encounter layers plus foreign `patients.*` layers. Same bench, warm cache, a year (43 588 appointments, 56 794 encounters, 341 patients).
+
+| Report | Reads | ideal | current | studio |
+|---|---|---|---|---|
+| r4 — per month: visits, with a temperature, with a diagnosis, of a patient with a known allergy | visits + vitals + diagnoses + patient allergies | 32.6 | 48.8 (1.5×) | 43.4 (1.3×) |
+| r5 — per location: visits, of new patients, with a CPT code; top 10 problems of the visits' patients | visits + CPT + patient problems, allergies, visit history | 30.2 | 42.7 (1.4×) | 45.5 (1.5×) |
+
+Both results matched the ideal one. Requests: ideal 188 / 188, current 342 / 257, studio 352 / 353. The warm-up runs agreed within ~10% (ideal 30.5 / 35.6, current 46.4 / 45.1, studio 45.4 / 43.5 s).
+
+- **Under more load the picture holds**: both engines stay at 1.3–1.5× the ideal, and neither wins on both reports.
+- **Joining patients data costs little**: r4 and r5 take 2–8 s more than the single-layer reports of the same year (r3: 40.8 s for this version). The patient-level searches return little and run beside the rest; the time is still in the visits and in sharing the job pool.
+- **In this version the layers wait for the pool**, not for the data: vitals 27 s and codes 22 s here, against 6–10 s before the root lookups ran beside them (appendix A): they share the same 16 slots with those ~130 jobs on local's dangling ids.
+
 ## Takeaway
 
 - On **short ranges** Report Studio is slightly ahead (60 days: 1.2–1.5× the ideal against 1.4–1.6×, a difference of ~1–2 s): a per-report plan reads only what that report needs, while this version always loads the dataset's base row.
