@@ -276,11 +276,13 @@ async function sendDraft(
     throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status}, expected open`);
   }
 
-  // Save the status before SMS so retries do not resend either message.
+  // Save the status before SMS so retries do not resend either message. Outreach is counted from
+  // the issue date, so the date is set here, once, when the invoice stops being a draft.
   const hostedUrl = stripeInvoice.hosted_invoice_url;
   invoice = await updateInvoice(oystehr, {
     ...(hostedUrl ? withHostedInvoiceUrl(invoice, hostedUrl) : invoice),
     status: invoiceStatusFromStripe(stripeInvoice.status),
+    date: DateTime.now().toUTC().toISO()!,
   });
   if (stripeInvoice.status === 'paid') return { invoice };
 

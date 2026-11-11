@@ -268,8 +268,26 @@ describe('create-billing-invoice', () => {
     await performEffect(oystehr, stripe, params, agent);
 
     expect(mockProduceOutreach).toHaveBeenCalledWith(oystehr, invoices[0]);
+    expect(invoices[0].date).toBe('2026-10-01T00:00:00.000Z');
     expect(stripeInvoices.sendInvoice).not.toHaveBeenCalled();
     expect(execute).not.toHaveBeenCalledWith(expect.objectContaining({ id: SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY }));
+  });
+
+  it('counts outreach from when the invoice is sent, not from when its draft was created', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-01T07:00:00.000Z'));
+    try {
+      const { oystehr, invoices } = makeOystehr(makeClaim(), [existingInvoice('draft', 'key-1')]);
+      const { stripe } = makeStripe({ id: 'in_old', status: 'draft', lines: { data: [{}] } });
+
+      await performEffect(oystehr, stripe, params, agent);
+
+      expect(invoices[0].status).toBe('issued');
+      expect(invoices[0].date).toBe('2026-10-01T07:00:00.000Z');
+      expect(mockProduceOutreach).toHaveBeenCalledWith(oystehr, invoices[0]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('schedules no outreach for an invoice Stripe reports as already paid', async () => {

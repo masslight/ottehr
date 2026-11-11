@@ -23,8 +23,7 @@ export async function produceBillingInvoiceIssuedOutreach(
     triggerEvent: 'invoice-issued',
     patient: invoice.subject,
     focus: { reference: `Invoice/${invoice.id}` },
-    // The date saved when the draft was created rather than the current time, so a repeat
-    // schedules the same times.
+    // The saved issue date rather than the current time, so a repeat schedules the same times.
     eventTimestamp: invoice.date,
     oystehr,
     stripeAccount: getStripeInvoiceLink(invoice)?.stripeAccount ?? OUTREACH_PLATFORM_STRIPE_ACCOUNT,
