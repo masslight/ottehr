@@ -54,7 +54,7 @@ import {
   EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM,
   findBillingClaimForEncounter,
   findPaymentNotice,
-  isPendingEhrPaymentNotice,
+  isActivatedEhrPaymentNotice,
   paymentNoticeHistoryRequest,
   pendingEhrPaymentNotice,
   reconcilePaymentNoticesForClaim,
@@ -233,7 +233,7 @@ const recordCardPayment = async (
     console.log(`Several reservations hold EHR payment ${ehrPaymentId}; waiting for the one that charged`);
     return waitForRecordedPayment(billingOystehr, ehrPaymentId);
   }
-  if (!isPendingEhrPaymentNotice(pending)) {
+  if (isActivatedEhrPaymentNotice(pending)) {
     console.log('idempotent replay detected; the reserved payment is already recorded', pending.id);
     return pending;
   }
@@ -248,12 +248,13 @@ const recordCardPayment = async (
       reservationId: pending.id!,
     });
   } catch (error) {
-    const lost = error instanceof ReservationLostError;
-    await cancelPendingPaymentNotice(billingOystehr, pending, { release: lost });
-    if (lost) {
-      console.log(`Reservation PaymentNotice/${pending.id} lost the charge to another request for the payment`);
+    if (error instanceof IdempotencyConflictError) {
+      // Another request holds the key, and its charge may name this very reservation (a replay reuses
+      // it), so the reservation is left as it is: whichever request charged records the payment.
+      console.log(`Another request is charging EHR payment ${ehrPaymentId}; waiting for it to record the payment`);
       return waitForRecordedPayment(billingOystehr, ehrPaymentId);
     }
+    await cancelPendingPaymentNotice(billingOystehr, pending);
     throw error;
   }
   const chargeId =
@@ -289,7 +290,9 @@ const activatePendingPaymentNotice = (
       attempt === 1
         ? pending
         : await billingOystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: noticeId });
-    if (!isPendingEhrPaymentNotice(existing)) {
+    // the charge named this reservation, so it records the payment even if a request whose charge failed
+    // cancelled it meanwhile; only an activated one is left to merge into
+    if (isActivatedEhrPaymentNotice(existing)) {
       return { notice: existing, activated: false };
     }
     const activated: PaymentNotice = { ...desiredNotice, id: noticeId, meta: existing.meta };
@@ -316,14 +319,9 @@ const activatePendingPaymentNotice = (
 // A charge that failed leaves its reservation cancelled. Only a draft is cancelled: should the charge
 // have gone through after all, the webhook activates the reservation, and that is kept. Failing to
 // cancel is logged rather than thrown so the caller sees the charge error; no payment reader lists
-// the draft either way. A reservation that lost the charge to another request's (`release`) also gives
-// up its identifier, leaving it to the notice that records the payment; a declined charge's keeps it,
-// so a replay finds it and gets the decline Stripe kept for the key.
-const cancelPendingPaymentNotice = async (
-  billingOystehr: Oystehr,
-  pending: PaymentNotice,
-  { release }: { release: boolean }
-): Promise<void> => {
+// the draft either way. The identifier stays, so a replay reuses the reservation and gets the decline
+// Stripe kept for the key.
+const cancelPendingPaymentNotice = async (billingOystehr: Oystehr, pending: PaymentNotice): Promise<void> => {
   const noticeId = pending.id;
   if (!noticeId) return;
   try {
@@ -332,7 +330,7 @@ const cancelPendingPaymentNotice = async (
         attempt === 1
           ? pending
           : await billingOystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id: noticeId });
-      if (!isPendingEhrPaymentNotice(existing) || existing.status !== 'draft') return;
+      if (isActivatedEhrPaymentNotice(existing) || existing.status !== 'draft') return;
       await billingOystehr.fhir.transaction<FhirResource>({
         requests: [
           {
@@ -341,11 +339,6 @@ const cancelPendingPaymentNotice = async (
             resource: {
               ...existing,
               status: 'cancelled',
-              identifier: release
-                ? existing.identifier?.filter(
-                    (identifier) => identifier.system !== EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM
-                  )
-                : existing.identifier,
               contained: existing.contained?.map((resource) =>
                 resource.resourceType === 'PaymentReconciliation' ? { ...resource, status: 'cancelled' } : resource
               ),
@@ -382,11 +375,12 @@ const isPreconditionFailed = (error: unknown): boolean => {
   return code === 412 || statusCode === 412;
 };
 
-// Another request for the same payment charged the card under its own reservation.
-class ReservationLostError extends Error {
+// Another request for the same payment holds the idempotency key: it is charging, or charged the card
+// with other parameters (its own reservation, or a changed amount).
+class IdempotencyConflictError extends Error {
   constructor() {
-    super('Another request for this payment charged the card under its own reservation');
-    this.name = 'ReservationLostError';
+    super('Another request for this payment holds its idempotency key');
+    this.name = 'IdempotencyConflictError';
   }
 }
 
@@ -400,7 +394,7 @@ const isIdempotencyConflict = (error: unknown): boolean => {
   );
 };
 
-// How long a request whose reservation lost the charge waits for the winner to record the payment,
+// How long a request that met another one charging the payment waits for it to record the payment,
 // which it does right after its charge returns.
 export const RECORDED_PAYMENT_POLL = { attempts: 15, intervalMs: 1000 };
 
@@ -424,8 +418,8 @@ const waitForRecordedPayment = async (billingOystehr: Oystehr, ehrPaymentId: str
 // The charge carries the id of this request's reservation, under the client's idempotency key. Stripe
 // keeps one PaymentIntent per key and refuses the key with different parameters, so of requests that
 // reserved separate notices for one payment exactly one charges the card; the others get
-// ReservationLostError. The resource id is what makes the parameters differ, as nothing in FHIR keeps
-// two concurrent reservations from being stored.
+// IdempotencyConflictError. The resource id is what makes the parameters differ, as nothing in FHIR
+// keeps two concurrent reservations from being stored.
 const chargeSavedCard = async (
   input: EffectInput,
   card: {
@@ -468,7 +462,7 @@ const chargeSavedCard = async (
       }
     );
   } catch (e) {
-    if (isIdempotencyConflict(e)) throw new ReservationLostError();
+    if (isIdempotencyConflict(e)) throw new IdempotencyConflictError();
     throw parseStripeError(e);
   }
   if (paymentIntent.status !== 'succeeded') {

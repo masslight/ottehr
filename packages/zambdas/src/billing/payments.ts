@@ -58,15 +58,15 @@ export const EHR_PATIENT_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('ehr-patient
 // instead of reserving it a second time.
 export const EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('ehr-pending-patient-payment-id');
 
-// A reservation not activated yet, whether a draft or cancelled after its charge failed. An activated
-// payment is never pending again, also once voided (which cancels it).
-export const isPendingEhrPaymentNotice = (notice: PaymentNotice): boolean => {
-  const identifiers = notice.identifier ?? [];
-  return (
-    identifiers.some((identifier) => identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM) &&
-    !identifiers.some((identifier) => identifier.system === EHR_PATIENT_PAYMENT_ID_SYSTEM)
-  );
-};
+// Activation, and only activation, gives a reservation the EHR payment id; a payment stays activated
+// whatever happens to it later, also once voided (which cancels it).
+export const isActivatedEhrPaymentNotice = (notice: PaymentNotice): boolean =>
+  (notice.identifier ?? []).some((identifier) => identifier.system === EHR_PATIENT_PAYMENT_ID_SYSTEM);
+
+// A reservation not activated yet, whether a draft or cancelled after its charge failed.
+export const isPendingEhrPaymentNotice = (notice: PaymentNotice): boolean =>
+  !isActivatedEhrPaymentNotice(notice) &&
+  (notice.identifier ?? []).some((identifier) => identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM);
 
 // The reservation of a card payment the EHR is about to take: the notice it will record, as a draft no
 // payment reader can find.
@@ -82,14 +82,20 @@ export const pendingEhrPaymentNotice = (notice: PaymentNotice, ehrPaymentId: str
   };
 };
 
-// An activated reservation is also known by the EHR payment id, which payment readers search by.
-export const withActivatedEhrPaymentId = (identifiers: Identifier[] | undefined): Identifier[] => {
+// An activated reservation is known by the EHR payment id, which payment readers search by, and keeps
+// the reservation identifier replays reserve by.
+export const withActivatedEhrPaymentId = (
+  identifiers: Identifier[] | undefined,
+  ehrPaymentId: string | undefined
+): Identifier[] => {
   const all = identifiers ?? [];
-  const reservation = all.find((identifier) => identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM);
-  if (!reservation?.value || all.some((identifier) => identifier.system === EHR_PATIENT_PAYMENT_ID_SYSTEM)) {
-    return all;
-  }
-  return [...all, { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: reservation.value }];
+  const value =
+    ehrPaymentId ?? all.find((identifier) => identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM)?.value;
+  if (!value) return all;
+  const missing = [EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, EHR_PATIENT_PAYMENT_ID_SYSTEM].filter(
+    (system) => !all.some((identifier) => identifier.system === system)
+  );
+  return [...all, ...missing.map((system) => ({ system, value }))];
 };
 
 const PAYMENT_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/payment-type';

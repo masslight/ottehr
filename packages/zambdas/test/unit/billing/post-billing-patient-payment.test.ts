@@ -454,7 +454,7 @@ describe('post-billing-patient-payment', () => {
         Object.assign(RECORDED_PAYMENT_POLL, pollDefaults);
       });
 
-      it('records the payment once: the reservation that lost the charge is cancelled', async () => {
+      it('records the payment once: the reservation that lost the charge stays an unlisted draft', async () => {
         const stored = useNoticeStore({ concurrent: true });
         useStripeIdempotency();
 
@@ -464,17 +464,11 @@ describe('post-billing-patient-payment', () => {
         expect(notices).toHaveLength(2);
         const active = notices.filter((notice) => notice.status === 'active');
         expect(active).toHaveLength(1);
-        expect(notices.filter((notice) => notice.status === 'cancelled')).toHaveLength(1);
+        expect(notices.filter((notice) => notice.status === 'draft')).toHaveLength(1);
         // both requests answer with the one payment
         expect(JSON.parse(first.body).notice.id).toBe(active[0].id);
         expect(JSON.parse(second.body).notice.id).toBe(active[0].id);
         expect(historyEntries()).toHaveLength(1);
-        // the losing reservation gives up the payment's reservation identifier to the winner
-        const holders = notices.filter(
-          (notice) =>
-            notice.identifier?.some((identifier) => identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM)
-        );
-        expect(holders.map((notice) => notice.id)).toEqual([active[0].id]);
       });
 
       // Regression: a third request that passed the idempotency guard before the payment was recorded
@@ -521,6 +515,97 @@ describe('post-billing-patient-payment', () => {
         expect(stored.size).toBe(2);
       });
 
+      // Regression: a replay reused the reservation of the request it overlapped, met that request's
+      // charge under the key, and cancelled the shared reservation; the other request's charge then
+      // succeeded and returned the cancelled notice.
+      describe('a replay sharing the reservation of the request it overlaps', () => {
+        const sharedReservation = (over: Partial<PaymentNotice> = {}): PaymentNotice =>
+          ({
+            resourceType: 'PaymentNotice',
+            id: 'pn-shared',
+            meta: { versionId: '1' },
+            status: 'draft',
+            amount: { value: 40, currency: 'USD' },
+            identifier: [{ system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE }],
+            ...over,
+          }) as PaymentNotice;
+        // the other request records the payment on the shared reservation after this one's charge fails
+        const recordPaymentAfterFirstWait = (stored: Map<string, PaymentNotice>, amount: number): void => {
+          const storeSearch = billingSearch.getMockImplementation()!;
+          let paymentSearches = 0;
+          billingSearch.mockImplementation(async (query: { resourceType: string }) => {
+            if (query.resourceType === 'PaymentNotice' && ++paymentSearches === 2) {
+              stored.set(
+                'pn-shared',
+                sharedReservation({
+                  status: 'active',
+                  amount: { value: amount, currency: 'USD' },
+                  identifier: [
+                    { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
+                    { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
+                    { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+                  ],
+                })
+              );
+            }
+            return storeSearch(query);
+          });
+        };
+
+        it('leaves the reservation to the request charging under the key', async () => {
+          const stored = useNoticeStore({ concurrent: false });
+          stored.set('pn-shared', sharedReservation());
+          paymentIntentsCreate.mockRejectedValue(
+            Object.assign(new Error('There is currently another in-progress request using this Idempotent Key'), {
+              type: 'StripeIdempotencyError',
+              code: 'idempotency_key_in_use',
+            })
+          );
+          recordPaymentAfterFirstWait(stored, 40);
+
+          const result = await postCard();
+
+          expect(merges()).toEqual([]);
+          expect(JSON.parse(result.body).notice.id).toBe('pn-shared');
+          expect(stored.get('pn-shared')?.status).toBe('active');
+        });
+
+        it('leaves it to the request that charged it for another amount, returning that payment', async () => {
+          const stored = useNoticeStore({ concurrent: false });
+          stored.set('pn-shared', sharedReservation());
+          paymentIntentsCreate.mockRejectedValue(
+            Object.assign(new Error('Keys for idempotent requests can only be used with the same parameters'), {
+              type: 'StripeIdempotencyError',
+              rawType: 'idempotency_error',
+            })
+          );
+          recordPaymentAfterFirstWait(stored, 50);
+
+          const result = await postCard();
+
+          expect(merges()).toEqual([]);
+          expect(JSON.parse(result.body).notice.amount.value).toBe(50);
+        });
+
+        it('activates the reservation its charge named although another request cancelled it', async () => {
+          const stored = useNoticeStore({ concurrent: false });
+          stored.set('pn-shared', sharedReservation({ status: 'cancelled' }));
+
+          const result = await postCard();
+
+          const notice = stored.get('pn-shared')!;
+          expect(notice.status).toBe('active');
+          expect(notice.identifier).toEqual(
+            expect.arrayContaining([
+              { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
+              { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
+            ])
+          );
+          expect(historyEntries()[0].activity?.coding?.[0]).toEqual(CLAIM_PROVENANCE_ACTIVITY.create);
+          expect(JSON.parse(result.body).notice.status).toBe('active');
+        });
+      });
+
       it('does not report a failure the user could retry when the payment is not recorded in time', async () => {
         RECORDED_PAYMENT_POLL.attempts = 2;
         const stored = useNoticeStore({ concurrent: true });
@@ -533,7 +618,8 @@ describe('post-billing-patient-payment', () => {
         await expect(postCard()).rejects.toMatchObject({
           message: expect.stringContaining('already being processed'),
         });
-        expect([...stored.values()].map((notice) => notice.status)).toEqual(['cancelled']);
+        // the charge that holds the key may name this reservation, so it is left for that request
+        expect([...stored.values()].map((notice) => notice.status)).toEqual(['draft']);
       });
     });
 

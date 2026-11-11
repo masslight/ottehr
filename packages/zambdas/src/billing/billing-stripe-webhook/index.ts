@@ -31,6 +31,7 @@ import {
   findBillingClaimForEncounter,
   findPaymentNotice,
   findPaymentNoticeByAnyIdentifier,
+  isActivatedEhrPaymentNotice,
   isPendingEhrPaymentNotice,
   paymentActor,
   paymentNoticeHistoryRequest,
@@ -264,7 +265,10 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
   if (!found && ehrPaymentId) {
     throw new EhrPaymentReservationNotFoundError(charge.id, ehrPaymentId);
   }
-  if (found && isPendingEhrPaymentNotice(found) && charge.status !== 'succeeded') {
+  // the reservation the charge names is its record unless activated already, also if a request whose
+  // charge failed cancelled it meanwhile
+  const ehrReservation = ehrReservationOf({ reservationId, ehrPaymentId });
+  if (found && ehrReservation.isUnactivated(found) && charge.status !== 'succeeded') {
     console.log(`Charge ${charge.id} is ${charge.status}; leaving the EHR's reservation PaymentNotice/${found.id}`);
     return;
   }
@@ -310,16 +314,42 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
 
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId, createIfMissing, {
     knownNotice: found ?? null,
+    ehrReservation,
   });
 };
 
+interface EhrReservation {
+  // a reservation of the EHR's not activated yet, which the charge records as the payment
+  isUnactivated: (notice: PaymentNotice) => boolean;
+  ehrPaymentId: string | undefined;
+}
+
+// The charge names its reservation; a charge from before it did is matched by the reservation identifier.
+const ehrReservationOf = ({
+  reservationId,
+  ehrPaymentId,
+}: {
+  reservationId: string | undefined;
+  ehrPaymentId: string | undefined;
+}): EhrReservation => ({
+  isUnactivated: (notice) =>
+    reservationId
+      ? notice.id === reservationId && !isActivatedEhrPaymentNotice(notice)
+      : isPendingEhrPaymentNotice(notice),
+  ehrPaymentId,
+});
+
 // The EHR's reservation of a charge that went through, recorded as the payment: what Stripe owns is
 // refreshed as on any notice, and it gains the EHR payment id readers search by.
-const activateEhrReservation = (pending: PaymentNotice, desiredNotice: PaymentNotice): PaymentNotice => {
+const activateEhrReservation = (
+  pending: PaymentNotice,
+  desiredNotice: PaymentNotice,
+  ehrPaymentId: string | undefined
+): PaymentNotice => {
   const refreshed = mergeStripeOwnedFields(pending, desiredNotice);
   return {
     ...refreshed,
-    identifier: withActivatedEhrPaymentId(refreshed.identifier),
+    identifier: withActivatedEhrPaymentId(refreshed.identifier, ehrPaymentId),
   };
 };
 
@@ -367,9 +397,13 @@ const persistPaymentNoticeUpsert = async (
     refundedByReference?: string;
     // the notice the caller already looked up (null: looked up and found none), saving a second search
     knownNotice?: PaymentNotice | null;
+    // for a charge: the EHR reservation it records, when the notice is one
+    ehrReservation?: EhrReservation;
   } = {}
 ): Promise<void> => {
   const { refundedByReference, knownNotice } = options;
+  const ehrReservation =
+    options.ehrReservation ?? ehrReservationOf({ reservationId: undefined, ehrPaymentId: undefined });
   const dedupIdentifier = {
     system: STRIPE_PAYMENT_ID_SYSTEM,
     value: dedupStripeId,
@@ -416,9 +450,9 @@ const persistPaymentNoticeUpsert = async (
               });
         // the EHR may not have activated its reservation: the charge went through, so it is recorded
         // here as the payment's creation, by whoever took it
-        const activating = isPendingEhrPaymentNotice(existing);
+        const activating = ehrReservation.isUnactivated(existing);
         const refreshed = activating
-          ? activateEhrReservation(existing, desiredNotice)
+          ? activateEhrReservation(existing, desiredNotice, ehrReservation.ehrPaymentId)
           : mergeStripeOwnedFields(existing, desiredNotice);
         const submitter = activating ? getPaymentNoticeSubmitterRef(existing) : undefined;
         const history = paymentNoticeHistoryRequest({

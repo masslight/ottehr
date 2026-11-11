@@ -1093,6 +1093,37 @@ describe('billing-stripe-webhook charges the EHR reserved a notice for', () => {
     ]);
   });
 
+  it('activates the reservation the charge names although it was cancelled without its identifier', async () => {
+    const cancelled = { ...reservation(), id: 'pn-named', status: 'cancelled', identifier: [] } as PaymentNotice;
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [cancelled]);
+
+    await performEffect(oystehr, {
+      event: makeEvent(
+        'charge.succeeded',
+        ehrCharge({
+          metadata: {
+            oystehr_encounter_id: 'enc-1',
+            oystehr_ehr_payment_id: EHR_PAYMENT_ID,
+            oystehr_ehr_payment_notice_id: 'pn-named',
+          },
+        })
+      ),
+      secrets,
+    });
+
+    const [activated] = refreshedNotices(transaction);
+    expect(activated.status).toBe('active');
+    expect(activated.identifier).toEqual(
+      expect.arrayContaining([
+        { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+        { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+      ])
+    );
+    expect(claimHistoryEntries(transaction.mock.calls[0][0].requests)[0].activity?.coding).toEqual([
+      CLAIM_PROVENANCE_ACTIVITY.create,
+    ]);
+  });
+
   it('asks for redelivery when the reservation the charge names is not found', async () => {
     const { oystehr, transaction } = makeOystehr([[claim]]);
 
