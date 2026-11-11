@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import {
@@ -31,6 +31,7 @@ const RESULT_FILE = { presignedUrl: 'https://presigned.example/result.pdf', desc
 const IN_HOUSE_RESULT: ReviewedRadiologyResult = {
   studyType: '73600 — Ankle, left, 2 views',
   report: 'No acute fracture.',
+  performedBy: 'Demo Admin, MD',
   files: [],
 };
 
@@ -64,9 +65,9 @@ describe('VisitDetails radiology results', () => {
     vi.clearAllMocks();
   });
 
-  test('shows the read of in-house studies and opens the files of external ones', async () => {
+  test('keeps the read of in-house studies hidden until the patient shows it', async () => {
     mockUseGetVisitDetails.mockReturnValue({
-      data: visitDetails({ reviewedRadiologyResults: [IN_HOUSE_RESULT, EXTERNAL_RESULT] }),
+      data: visitDetails({ reviewedRadiologyResults: [IN_HOUSE_RESULT] }),
       isLoading: false,
       error: null,
     });
@@ -75,8 +76,28 @@ describe('VisitDetails radiology results', () => {
 
     expect(screen.getByText('Radiology')).toBeTruthy();
     expect(screen.getByText(IN_HOUSE_RESULT.studyType)).toBeTruthy();
-    expect(screen.getByText(IN_HOUSE_RESULT.report)).toBeTruthy();
+    expect(screen.queryByText(`Final Read: ${IN_HOUSE_RESULT.report}`)).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show final report' }));
+    expect(screen.getByText(`Performed by: ${IN_HOUSE_RESULT.performedBy}`)).toBeTruthy();
+    expect(screen.getByText(`Final Read: ${IN_HOUSE_RESULT.report}`)).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Hide final report' }));
+    await waitFor(() => expect(screen.queryByText(`Final Read: ${IN_HOUSE_RESULT.report}`)).toBeNull());
+    expect(screen.getByRole('button', { name: 'Show final report' })).toBeTruthy();
+  });
+
+  test('opens the files of external studies, which have no report toggle', async () => {
+    mockUseGetVisitDetails.mockReturnValue({
+      data: visitDetails({ reviewedRadiologyResults: [EXTERNAL_RESULT] }),
+      isLoading: false,
+      error: null,
+    });
+
+    renderVisitDetails();
+
     expect(screen.getByText(EXTERNAL_RESULT.studyType)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Show final report' })).toBeNull();
 
     await userEvent.click(screen.getByText(RESULT_FILE.description));
     expect(mockOpenExternalLink).toHaveBeenCalledWith(RESULT_FILE.presignedUrl);
