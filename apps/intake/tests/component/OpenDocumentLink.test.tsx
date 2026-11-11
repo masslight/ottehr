@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import OpenDocumentLink, { OPEN_DOCUMENT_LINK_ZAMBDA_ID } from '../../src/pages/OpenDocumentLink';
+import OpenDocumentLink, {
+  moveDocumentLinkTokenOutOfUrl,
+  OPEN_DOCUMENT_LINK_ZAMBDA_ID,
+} from '../../src/pages/OpenDocumentLink';
 
 const mockExecutePublic = vi.fn();
 vi.mock('../../src/hooks/useUCZambdaClient', () => ({
@@ -17,30 +19,59 @@ vi.mock('../../src/telemed/features/common/LoadingScreen', () => ({
   LoadingScreen: () => <div>loading</div>,
 }));
 
-const renderAt = (token: string): ReturnType<typeof render> =>
-  render(
-    <StrictMode>
-      <MemoryRouter initialEntries={[`/documents#${token}`]}>
-        <Routes>
-          <Route path="/documents" element={<OpenDocumentLink />} />
-        </Routes>
-      </MemoryRouter>
-    </StrictMode>
-  );
-
 describe('OpenDocumentLink', () => {
   const replace = vi.fn();
   const originalLocation = window.location;
 
-  beforeEach(() => {
-    vi.clearAllMocks();
+  const setLocation = (pathname: string, hash: string): void => {
     Object.defineProperty(window, 'location', {
       configurable: true,
-      value: { ...originalLocation, replace },
+      value: { ...originalLocation, pathname, search: '', hash, replace },
     });
+  };
+
+  /** Opens the emailed URL the way the app does: the token leaves the URL at startup, then the page renders. */
+  const renderAt = (token: string): ReturnType<typeof render> => {
+    setLocation('/documents', `#${token}`);
+    moveDocumentLinkTokenOutOfUrl();
+    return render(
+      <StrictMode>
+        <OpenDocumentLink />
+      </StrictMode>
+    );
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setLocation('/', '');
   });
   afterEach(() => {
+    vi.restoreAllMocks();
+    window.history.replaceState(null, '');
     Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+  });
+
+  // Sentry reads location.href into every event, and GTM tags see the full URL; the token is a live credential.
+  test('moves the token out of the URL into the history entry, before telemetry can record it', () => {
+    const replaceState = vi.spyOn(window.history, 'replaceState');
+    setLocation('/documents', '#tok.en.value');
+
+    moveDocumentLinkTokenOutOfUrl();
+
+    expect(replaceState).toHaveBeenCalledWith(
+      expect.objectContaining({ documentLinkToken: 'tok.en.value' }),
+      '',
+      '/documents'
+    );
+  });
+
+  test("leaves other pages' URLs alone", () => {
+    const replaceState = vi.spyOn(window.history, 'replaceState');
+    setLocation('/home', '#section');
+
+    moveDocumentLinkTokenOutOfUrl();
+
+    expect(replaceState).not.toHaveBeenCalled();
   });
 
   test('exchanges the path token once, redirects to the document and offers a fallback button', async () => {

@@ -1,7 +1,12 @@
+import Oystehr from '@oystehr/sdk';
 import { DocumentReference, Location, Task } from 'fhir/r4b';
 import { SignJWT } from 'jose';
 import { OUTBOUND_DELIVERY_OUTPUT_CODES } from 'utils/lib/fhir/constants';
-import { getOutboundDeliveryOutput, makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
+import {
+  getOutboundDeliveryOutput,
+  makeOutboundDeliveryAttempt,
+  makeOutboundDeliveryOutput,
+} from 'utils/lib/fhir/outbound-delivery';
 import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/fax.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -35,6 +40,7 @@ vi.mock('../../src/shared/document-link-email', async (importOriginal) => ({
 
 import { index } from '../../src/patient/open-document-link';
 import { mintDocumentLinkToken } from '../../src/shared/document-link-email';
+import { MAX_RESEND_CHAIN_SIZE } from '../../src/shared/outbound-delivery';
 
 const secrets = {
   ...createMockSecrets(),
@@ -138,6 +144,35 @@ describe('open-document-link', () => {
     expect(mockSendDocumentLinkEmailAttempt).not.toHaveBeenCalled();
   });
 
+  it('keeps both audit records when two first opens race to create the output list', async () => {
+    const otherOpen = makeOutboundDeliveryOutput(OUTBOUND_DELIVERY_OUTPUT_CODES.linkOpened, {
+      valueDateTime: '2026-11-10T10:00:00.000Z',
+    });
+    let taskReads = 0;
+    mockFhirGet.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+      if (resourceType === 'DocumentReference') return packet;
+      taskReads++;
+      return taskReads === 1
+        ? emailAttempt({ meta: { versionId: '1' } })
+        : emailAttempt({ meta: { versionId: '2' }, output: [otherOpen] });
+    });
+    mockFhirPatch
+      .mockRejectedValueOnce(
+        new Oystehr.OystehrFHIRError({ code: 412, error: { resourceType: 'OperationOutcome', issue: [] } })
+      )
+      .mockResolvedValue({});
+
+    const output = await call(await mintDocumentLinkToken('attempt-1', secrets));
+
+    expect(output.status).toBe('ok');
+    expect(mockFhirPatch).toHaveBeenCalledTimes(2);
+    expect(mockFhirPatch.mock.calls[0][0].operations[0].path).toBe('/output');
+    expect(mockFhirPatch.mock.calls[0][1]).toEqual({ optimisticLockingVersionId: '1' });
+    // After the conflict the list exists, so this open is appended next to the other one instead of replacing it.
+    expect(mockFhirPatch.mock.calls[1][0].operations[0].path).toBe('/output/-');
+    expect(mockFhirPatch.mock.calls[1][1]).toEqual({ optimisticLockingVersionId: '2' });
+  });
+
   it('still returns the URL when the link-opened audit record cannot be written', async () => {
     mockFhirPatch.mockRejectedValue(new Error('patch failed'));
 
@@ -212,6 +247,42 @@ describe('open-document-link', () => {
     expect(mockSendDocumentLinkEmailAttempt).toHaveBeenCalledWith(
       expect.objectContaining({ parentAttemptId: 'attempt-2' })
     );
+  });
+
+  describe('at the resend chain bound', () => {
+    /** The original send plus `size - 1` re-sends, each `partOf` the one before, every link expired. */
+    const mockExpiredChain = (size: number): void => {
+      const children = Array.from({ length: size - 1 }, (_, index) =>
+        childAttempt(`attempt-${index + 2}`, `attempt-${index + 1}`, hoursAgo(1.9 - index * 0.01))
+      );
+      mockFhirSearch.mockImplementation(
+        async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => ({
+          unbundle: () =>
+            resourceType === 'Appointment'
+              ? [location]
+              : children.filter((child) => child.partOf?.[0]?.reference === params[0].value),
+        })
+      );
+    };
+
+    it('still sends the link that fills the chain up to the bound', async () => {
+      mockExpiredChain(MAX_RESEND_CHAIN_SIZE - 1);
+
+      const output = await call(await expiredToken());
+
+      expect(output).toEqual({ status: 'expired', resent: true });
+      expect(mockSendDocumentLinkEmailAttempt).toHaveBeenCalledWith(
+        expect.objectContaining({ parentAttemptId: `attempt-${MAX_RESEND_CHAIN_SIZE - 1}` })
+      );
+    });
+
+    // Opening and revoking walk the chain only up to the bound, so a link sent past it could be neither.
+    it('sends no further link once the chain is full', async () => {
+      mockExpiredChain(MAX_RESEND_CHAIN_SIZE);
+
+      await expect(call(await expiredToken())).rejects.toMatchObject({ statusCode: 410 });
+      expect(mockSendDocumentLinkEmailAttempt).not.toHaveBeenCalled();
+    });
   });
 
   it('finds a live link on another branch of the send, not only after the opened link', async () => {

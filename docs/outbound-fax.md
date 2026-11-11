@@ -97,16 +97,19 @@ phone, the packet page count and the list of documents that went into it.
 
 ## Sending by email
 
-Each recipient row has a Fax / Email toggle. An email recipient gets the same packet, cover sheet included, but
-as a link rather than an attachment: `shared/document-link-email.ts` emails a signed token that expires after
-`DOCUMENT_LINK_TTL_MINUTES` (60). The link opens the intake page `OpenDocumentLink`, which calls the public
-`open-document-link` zambda:
+Each recipient row has a Fax / Email toggle while `sendgridEnabled` is on. An email recipient gets the same packet,
+cover sheet included, but as a link rather than an attachment: `shared/document-link-email.ts` emails a signed token
+that expires after `DOCUMENT_LINK_TTL_MINUTES` (60). The token rides in the URL fragment, and intake moves it into the
+history entry before Sentry or GTM start, so no server log or telemetry records it. The link opens the intake page
+`OpenDocumentLink`, which calls the public `open-document-link` zambda:
 
 - A live token returns a short-lived download URL and records a `link-opened` output on the attempt Task.
 - An expired token re-sends a fresh link to the recipient recorded on the Task (never to an address from the
   request). The new attempt is `partOf` the one it replaces, and there is one live link per send: while any link
   in the chain is still live or still being sent, nothing is re-sent, and concurrent opens of one expired link
-  claim a single successor, so only one new link goes out.
+  claim a single successor, so only one new link goes out. A send stops re-sending at `MAX_RESEND_CHAIN_SIZE`
+  (50) links, the most that opening and revoking walk, and its expired links then ask the recipient to contact the
+  practice.
 - Revoking a link from Action Logs (`revoke-action-log`) cancels every attempt in its resend chain, from the
   original send on, so no link of that send opens or re-sends again.
 

@@ -1,7 +1,6 @@
 import { Button, Card, Typography, useTheme } from '@mui/material';
 import { Box, Container } from '@mui/system';
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
 import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
 import { LoadingScreen } from 'src/telemed/features/common/LoadingScreen';
@@ -9,6 +8,22 @@ import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { OpenDocumentLinkOutput } from 'utils/lib/types/api/fax.types';
 
 export const OPEN_DOCUMENT_LINK_ZAMBDA_ID = 'open-document-link';
+export const OPEN_DOCUMENT_LINK_PATH = '/documents';
+const LINK_TOKEN_HISTORY_KEY = 'documentLinkToken';
+
+/**
+ * The token rides in the fragment so it never reaches a server log. Called before telemetry starts, this moves it
+ * out of the URL, where Sentry and GTM would record it, into the history entry, where a reload still finds it.
+ */
+export const moveDocumentLinkTokenOutOfUrl = (): void => {
+  const { pathname, search, hash } = window.location;
+  if (pathname !== OPEN_DOCUMENT_LINK_PATH || hash.length <= 1) return;
+  window.history.replaceState(
+    { ...window.history.state, [LINK_TOKEN_HISTORY_KEY]: hash.slice(1) },
+    '',
+    pathname + search
+  );
+};
 
 type LinkState =
   | { status: 'loading' }
@@ -25,8 +40,7 @@ const localTime = (iso: string): string => new Date(iso).toLocaleTimeString([], 
  * download URL and navigates to it; an expired token has already triggered a fresh email server-side.
  */
 const OpenDocumentLink = (): JSX.Element => {
-  // The token rides in the fragment so it never reaches a server log; only this page ever reads it.
-  const linkToken = useLocation().hash.replace(/^#/, '') || undefined;
+  const [linkToken] = useState<string | undefined>(() => window.history.state?.[LINK_TOKEN_HISTORY_KEY] || undefined);
   const zambdaClient = useUCZambdaClient({ tokenless: true });
   const theme = useTheme();
   const [state, setState] = useState<LinkState>({ status: 'loading' });

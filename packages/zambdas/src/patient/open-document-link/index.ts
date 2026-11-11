@@ -31,6 +31,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
   collectResendChain,
   collectResendChainAncestors,
+  MAX_RESEND_CHAIN_SIZE,
   requireOutboundDeliveryValue,
 } from '../../shared/outbound-delivery';
 import { wrapHandler } from '../../shared/sentry';
@@ -44,6 +45,7 @@ let m2mToken: string;
 const LINK_NOT_FOUND = { ...FHIR_RESOURCE_NOT_FOUND('Task'), statusCode: 404 };
 /** Extension on a `link-opened` output naming the client that opened it. */
 const LINK_OPENED_CLIENT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/link-opened-client';
+const LINK_OPENED_WRITE_ATTEMPTS = 3;
 
 export interface LinkClient {
   ip?: string;
@@ -129,11 +131,14 @@ export async function performEffect(args: {
   if ([task, ...ancestors].some((attempt) => attempt.status === 'cancelled')) throw FHIR_RESOURCE_IS_GONE();
 
   if (expired) {
+    const chain = await collectResendChain(oystehr, ancestors.at(-1) ?? task);
     // One live link per send: an old link re-sends only once the newest link has expired too.
-    const newest = await findNewestAttempt(oystehr, ancestors.at(-1) ?? task);
+    const newest = findNewestAttempt(chain);
     if (newest.id !== task.id && isLinkLive(newest)) {
       return { status: 'expired', resent: false, sentAt: newest.authoredOn! };
     }
+    // Opening and revoking walk the chain only up to its bound, so a link past it could be neither.
+    if (chain.length >= MAX_RESEND_CHAIN_SIZE) throw FHIR_RESOURCE_IS_GONE();
     await resendDocumentLink(newest, documentReferenceId, oystehr, secrets);
     return { status: 'expired', resent: true };
   }
@@ -159,8 +164,7 @@ async function loadLinkAttempt(oystehr: Oystehr, attemptId: string): Promise<Tas
 }
 
 /** The most recent attempt in this send's resend chain, across every branch of it. */
-async function findNewestAttempt(oystehr: Oystehr, root: Task): Promise<Task> {
-  const chain = await collectResendChain(oystehr, root);
+function findNewestAttempt(chain: Task[]): Task {
   return chain.reduce((newest, attempt) => ((attempt.authoredOn ?? '') > (newest.authoredOn ?? '') ? attempt : newest));
 }
 
@@ -182,13 +186,29 @@ async function recordLinkOpened(oystehr: Oystehr, task: Task, client?: LinkClien
     ...(clientText && { extension: [{ url: LINK_OPENED_CLIENT_EXTENSION_URL, valueString: clientText }] }),
   };
   try {
-    await oystehr.fhir.patch<Task>({
-      resourceType: 'Task',
-      id: task.id!,
-      operations: [
-        task.output ? { op: 'add', path: '/output/-', value: opened } : { op: 'add', path: '/output', value: [opened] },
-      ],
-    });
+    let current = task;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        // `add /output` replaces a list a concurrent first open has just written, so every write is version-checked.
+        await oystehr.fhir.patch<Task>(
+          {
+            resourceType: 'Task',
+            id: task.id!,
+            operations: [
+              current.output
+                ? { op: 'add', path: '/output/-', value: opened }
+                : { op: 'add', path: '/output', value: [opened] },
+            ],
+          },
+          { optimisticLockingVersionId: current.meta?.versionId }
+        );
+        return;
+      } catch (error) {
+        const conflict = error instanceof Oystehr.OystehrFHIRError && error.code === 412;
+        if (!conflict || attempt >= LINK_OPENED_WRITE_ATTEMPTS) throw error;
+        current = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: task.id! });
+      }
+    }
   } catch (error) {
     console.error(`Could not record link-opened on Task/${task.id}`, error);
     captureException(error);

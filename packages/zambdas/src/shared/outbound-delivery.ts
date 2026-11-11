@@ -119,7 +119,7 @@ async function patchAttemptWithRetry(
  * Bounds the FHIR round trips of a chain walk. A walk that would pass it fails instead of returning part of the
  * chain, so a revoke never reports success over links it did not reach.
  */
-const MAX_RESEND_CHAIN_SIZE = 50;
+export const MAX_RESEND_CHAIN_SIZE = 50;
 
 const resendChainTooLong = (attempt: Task): Error =>
   new Error(`The resend chain of Task/${attempt.id} is longer than ${MAX_RESEND_CHAIN_SIZE} attempts`);
