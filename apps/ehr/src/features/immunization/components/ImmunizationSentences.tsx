@@ -26,6 +26,7 @@ import {
   Vaccine,
 } from 'utils/lib/types/data/immunization/types';
 import { ImmunizationDiagnosisOption, useImmunizationDiagnosisOptions } from '../hooks/useImmunizationDiagnosisOptions';
+import { LineQuickPicks } from './DueTodayBox';
 import { formatImmunizationCptCode, ImmunizationLine, OutsideDoseValues, toggleOutside } from './immunizationLines';
 import { IMMUNIZATION_MENU_PAPER_SX, ImmunizationMenu } from './ImmunizationMenu';
 
@@ -345,6 +346,11 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
     updateAdministration({ administeredDateTime: merged?.toISO() ?? undefined });
   };
   const cptCodes = administrationDetails.cptCodes ?? [];
+  // A vaccine the practice gives several ways, with nothing filled in yet: the line asks which quick pick.
+  const vaccineQuickPicks = details.medication
+    ? quickPicks.filter((quickPick) => quickPick.vaccine?.id === details.medication?.id)
+    : [];
+  const asksQuickPick = !readOnly && vaccineQuickPicks.length > 1 && !details.dose && !details.units && !details.route;
   // On its own row under the line's last sentence, once the line has a vaccine to save.
   const saveButton = onSaveQuickPick && !readOnly && details.medication && (
     <Button size="small" startIcon={<SaveOutlined />} onClick={onSaveQuickPick} sx={{ alignSelf: 'flex-start' }}>
@@ -370,6 +376,13 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
 
   return (
     <Box sx={LINE_SX} data-testid={dataTestIds.orderVaccinePage.line}>
+      {asksQuickPick && (
+        <LineQuickPicks
+          vaccineName={details.medication!.name}
+          quickPicks={vaccineQuickPicks}
+          onQuickPick={onQuickPick}
+        />
+      )}
       <Sentence onRemove={onRemove} removeLabel={`Remove immunization ${index + 1}`}>
         <ImmunizationBlank
           value={details.medication?.name}

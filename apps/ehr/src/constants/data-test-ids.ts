@@ -397,6 +397,7 @@ export const dataTestIds = {
     printSchoolNoteCheckbox: 'discharge-dialog-print-school-note-checkbox',
     printPatientInstructionsCheckbox: 'discharge-dialog-print-patient-instructions-checkbox',
     printProgressNoteCheckbox: 'discharge-dialog-print-progress-note-checkbox',
+    printImmunizationRecordCheckbox: 'discharge-dialog-print-immunization-record-checkbox',
     signProgressNoteCheckbox: 'discharge-dialog-sign-progress-note-checkbox',
     supervisorApprovalCheckbox: 'discharge-dialog-supervisor-approval-checkbox',
     signDisabledReason: 'discharge-dialog-sign-disabled-reason',
@@ -897,6 +898,11 @@ export const dataTestIds = {
     outsidePlace: 'order-vaccine-outside-place',
     outsideSource: 'order-vaccine-outside-source',
     outsideLot: 'order-vaccine-outside-lot',
+    dueTodayBox: 'order-vaccine-due-today',
+    dueTodayRow: 'order-vaccine-due-today-row',
+    dueTodayAddAll: 'order-vaccine-due-today-add-all',
+    coverage: 'order-vaccine-coverage',
+    lineQuickPicks: 'order-vaccine-line-quick-picks',
   },
 
   immunizationPage: {

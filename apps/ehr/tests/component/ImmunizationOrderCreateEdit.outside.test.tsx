@@ -63,6 +63,8 @@ vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
   useCreateUpdateImmunizationOrder: () => ({ mutateAsync: mockCreateUpdateOrder, isPending: false }),
   useRecordOutsideImmunization: () => ({ mutateAsync: mockRecordOutside, isPending: false }),
   useGetImmunizationOrders: () => ({ data: undefined, isLoading: false }),
+  useGetImmunizationForecast: () => ({ data: undefined, isLoading: false, isError: false }),
+  useGetVaccines: () => ({ data: [], isLoading: false }),
 }));
 vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({ OrderHistoryTable: () => <div /> }));
 

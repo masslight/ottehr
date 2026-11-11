@@ -103,6 +103,8 @@ vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
     isPending: false,
   }),
   useGetImmunizationOrders: () => ({ data: undefined, isLoading: false }),
+  useGetImmunizationForecast: () => ({ data: undefined, isLoading: false, isError: false }),
+  useGetVaccines: () => ({ data: [], isLoading: false }),
 }));
 
 vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({

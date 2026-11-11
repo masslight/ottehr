@@ -27,13 +27,25 @@ import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
 import {
   useCancelImmunizationOrder,
   useCreateUpdateImmunizationOrder,
+  useGetImmunizationForecast,
   useGetImmunizationOrders,
+  useGetVaccines,
   useRecordOutsideImmunization,
 } from '../../visits/in-person/hooks/useImmunization';
+import {
+  buildDueToday,
+  coverageOf,
+  fillFromDueToday,
+  StockedVaccine,
+  stockedVaccines,
+  vaccinesToAddAll,
+} from '../components/dueToday';
+import { CoverageStrip, DueTodayBox } from '../components/DueTodayBox';
 import {
   applyImmunizationQuickPick,
   applyQuickPickToOutsideLine,
@@ -60,6 +72,19 @@ const COLUMN_GAP_PX = 16;
 const SIDE_COLUMN_QUERY = `@container (min-width: ${FORM_COLUMN_MIN_WIDTH + COLUMN_GAP_PX + SIDE_COLUMN_MIN_WIDTH}px)`;
 
 const ROUNDED_BUTTON_SX = { borderRadius: '20px', textTransform: 'none' } as const;
+
+/** A vaccine from the Due today box fills the first line without a vaccine, else a new line (as a quick pick does). */
+const addVaccineToLines = (
+  lines: ImmunizationLine[],
+  vaccine: StockedVaccine,
+  quickPick: ImmunizationQuickPickData | undefined,
+  orderedProvider: InputImmunizationOrderDetails['orderedProvider'] | undefined
+): ImmunizationLine[] => {
+  const target = lines.find((line) => !line.outside && !line.details.medication);
+  return target
+    ? lines.map((line) => (line === target ? fillFromDueToday(line, vaccine, quickPick) : line))
+    : [...lines, fillFromDueToday(emptyImmunizationLine(orderedProvider), vaccine, quickPick)];
+};
 
 interface ImmunizationOrderCreateEditProps {
   orderId?: string;
@@ -227,6 +252,35 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   );
   usePendingQuickPick('immunizations', handlePendingQuickPick, !isOrderLoading);
 
+  // The Due today box: the forecast run on the server for this visit, the vaccines the practice gives, their quick picks.
+  const {
+    data: forecastResponse,
+    isLoading: forecastLoading,
+    isError: forecastError,
+  } = useGetImmunizationForecast({ patientId: isCreating ? patient?.id : undefined, encounterId: encounter?.id });
+  const { data: vaccines } = useGetVaccines();
+  const stocked = useMemo(() => stockedVaccines(vaccines, mergedQuickPicks), [vaccines, mergedQuickPicks]);
+  const dueToday = useMemo(
+    () => forecastResponse && buildDueToday(forecastResponse.forecast, stocked, forecastResponse.cvxGroups),
+    [forecastResponse, stocked]
+  );
+  const coverage = useMemo(
+    () => (dueToday && forecastResponse ? coverageOf(dueToday.due, lines, stocked, forecastResponse.cvxGroups) : []),
+    [dueToday, forecastResponse, lines, stocked]
+  );
+  const addFromDueToday = (vaccine: StockedVaccine, quickPick?: ImmunizationQuickPickData): void =>
+    changeLines((current) => addVaccineToLines(current, vaccine, quickPick, defaultProvider));
+  // The fewest-shot set; a vaccine given several ways is added without a quick pick, and its line asks which.
+  const addAllDue = (): void =>
+    changeLines((current) =>
+      dueToday
+        ? vaccinesToAddAll(dueToday, current).reduce(
+            (lines, vaccine) => addVaccineToLines(lines, vaccine, undefined, defaultProvider),
+            current
+          )
+        : current
+    );
+
   // The create endpoint takes one order, so each line is sent in turn (an external line to the history instead); a
   // sent line leaves the form, so a failure part-way leaves exactly the unsent ones (and their draft) to try again.
   const order = async (): Promise<void> => {
@@ -321,6 +375,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
             <AccordionCard>
               <Stack spacing={1.5} style={{ padding: '24px' }}>
                 <ImmunizationSectionLabel>Immunizations</ImmunizationSectionLabel>
+                {isCreating && <CoverageStrip coverage={coverage} />}
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {lines.map((line, index) => (
                     <ImmunizationSentences
@@ -430,12 +485,25 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
             </AccordionCard>
 
             <Box sx={{ [SIDE_COLUMN_QUERY]: { position: 'sticky', top: 16 } }}>
-              <AccordionCard>
-                <Stack spacing={1.5} style={{ padding: '24px' }}>
-                  <AllergiesContainer />
-                  <MedicationsContainer />
-                </Stack>
-              </AccordionCard>
+              <Stack spacing={2}>
+                {isCreating && (
+                  <DueTodayBox
+                    dueToday={dueToday}
+                    loading={forecastLoading}
+                    error={forecastError}
+                    lines={lines}
+                    readOnly={isReadOnly}
+                    onAdd={addFromDueToday}
+                    onAddAll={addAllDue}
+                  />
+                )}
+                <AccordionCard>
+                  <Stack spacing={1.5} style={{ padding: '24px' }}>
+                    <AllergiesContainer />
+                    <MedicationsContainer />
+                  </Stack>
+                </AccordionCard>
+              </Stack>
             </Box>
           </Box>
         </Box>
