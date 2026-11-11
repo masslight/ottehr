@@ -42,6 +42,14 @@ const nio: NonInsuranceOrganizationItem = {
   covers: [
     {
       category: 'occupational-medicine',
+      submission: {
+        preferredMechanism: 'fax',
+        fax: '555-0199',
+      },
+    },
+    {
+      category: 'other',
+      name: 'Medical Clearance',
     },
     {
       category: 'workers-comp',
@@ -105,7 +113,7 @@ describe('NIO invoice dialog', () => {
     URL.revokeObjectURL = originalRevokeObjectURL;
   });
 
-  it('previews the invoice with the delivery details of the first coverage that has them', async () => {
+  it('previews the invoice with the delivery details of every coverage that has them', async () => {
     renderDialog();
 
     const preview = await screen.findByTitle('Invoice preview');
@@ -118,8 +126,14 @@ describe('NIO invoice dialog', () => {
     expect(mocks.searchNios).toHaveBeenCalledWith(mocks.client, {
       nioId: 'nio-1',
     });
-    expect(screen.getByText('555-0100')).toBeInTheDocument();
-    expect(screen.getByText('Email')).toBeInTheDocument();
+    const occupationalMedicine = screen.getByText('Occupational Medicine').parentElement!;
+    expect(occupationalMedicine).toHaveTextContent('Preferred method: Fax');
+    expect(occupationalMedicine).toHaveTextContent('Fax: 555-0199');
+    const workersComp = screen.getByText('Workers Comp').parentElement!;
+    expect(workersComp).toHaveTextContent('Preferred method: Email');
+    expect(workersComp).toHaveTextContent('Email: billing@acme.example');
+    expect(workersComp).toHaveTextContent('Fax: 555-0100');
+    expect(screen.queryByText('Medical Clearance')).not.toBeInTheDocument();
   });
 
   it('creates the invoice, downloads its PDF and closes', async () => {

@@ -17,6 +17,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { NioSubmission } from 'utils/lib/types/data/billing/non-insurance-org.schemas';
+import { NIO_COVERAGE_CATEGORY_LABELS, NioCoverageDetail } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { createBillingNioInvoice, previewBillingNioInvoice, searchBillingNonInsuranceOrgs } from '../api/api';
 import { formatNioAddress, NIO_SUBMISSION_MECHANISM_LABELS } from '../constants/nonInsuranceOrg';
 import { useApiClients } from '../hooks/useAppClients';
@@ -36,6 +37,11 @@ function deliveryDetails(submission: NioSubmission): [string, string][] {
   return details.filter((detail): detail is [string, string] => !!detail[1]);
 }
 
+function coverageLabel(coverage: NioCoverageDetail): string {
+  if (coverage.category === 'other' && coverage.name) return coverage.name;
+  return NIO_COVERAGE_CATEGORY_LABELS[coverage.category];
+}
+
 function DeliveryInfo({ nioId, nioName }: { nioId: string; nioName: string }): ReactElement {
   const { oystehrZambda } = useApiClients();
   const nio = useQuery({
@@ -50,8 +56,16 @@ function DeliveryInfo({ nioId, nioName }: { nioId: string; nioName: string }): R
       ).organizations[0] ?? null,
   });
 
-  const submission = nio.data?.covers.find((coverage) => coverage.submission)?.submission;
-  const details = submission ? deliveryDetails(submission) : [];
+  const deliveries = (nio.data?.covers ?? []).flatMap((coverage) => {
+    const details = coverage.submission ? deliveryDetails(coverage.submission) : [];
+    if (details.length === 0) return [];
+    return [
+      {
+        label: coverageLabel(coverage),
+        details,
+      },
+    ];
+  });
 
   return (
     <Box
@@ -81,14 +95,21 @@ function DeliveryInfo({ nioId, nioName }: { nioId: string; nioName: string }): R
             defaultError: 'Failed to load the delivery details',
           })}
         </Alert>
-      ) : details.length === 0 ? (
+      ) : deliveries.length === 0 ? (
         <Typography variant="body2">No delivery details on file.</Typography>
       ) : (
-        <Stack spacing={0.5}>
-          {details.map(([label, value]) => (
-            <Typography key={label} variant="body2">
-              <strong>{label}:</strong> {value}
-            </Typography>
+        <Stack spacing={1.5}>
+          {deliveries.map(({ label: coverage, details }) => (
+            <Stack key={coverage} spacing={0.5}>
+              <Typography variant="body2" fontWeight="bold">
+                {coverage}
+              </Typography>
+              {details.map(([label, value]) => (
+                <Typography key={label} variant="body2">
+                  <strong>{label}:</strong> {value}
+                </Typography>
+              ))}
+            </Stack>
           ))}
         </Stack>
       )}
