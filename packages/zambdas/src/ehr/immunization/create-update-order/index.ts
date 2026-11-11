@@ -55,11 +55,26 @@ async function createImmunizationOrder(
   input: CreateUpdateImmunizationOrderRequest,
   userPractitionerId: string
 ): Promise<CreateUpdateImmunizationOrderResponse> {
-  const { encounterId, details, administrationDetails } = input;
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',
-    id: encounterId,
+    id: input.encounterId,
   });
+  const medicationAdministration = await buildImmunizationOrder(oystehr, input, encounter, userPractitionerId);
+  const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
+  return {
+    orderId: createdMedicationAdministration.id!,
+  };
+}
+
+/** A new in-progress order on the encounter, ordered by the practitioner at `orderedAt` (now, from the endpoint). */
+export async function buildImmunizationOrder(
+  oystehr: Oystehr,
+  input: CreateUpdateImmunizationOrderRequest,
+  encounter: Encounter,
+  userPractitionerId: string,
+  orderedAt: DateTime = DateTime.now()
+): Promise<MedicationAdministration> {
+  const { details, administrationDetails } = input;
   if (!encounter.subject) {
     throw new Error(`Encounter ${encounter.id} has no subject`);
   }
@@ -81,11 +96,11 @@ async function createImmunizationOrder(
         },
       },
     ],
-    effectiveDateTime: DateTime.now().toISO(),
+    effectiveDateTime: orderedAt.toISO()!,
     extension: [
       {
         url: IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
-        valueDateTime: DateTime.now().toISO(),
+        valueDateTime: orderedAt.toISO()!,
       },
     ],
     meta: fillMeta('immunization', 'immunization'),
@@ -93,10 +108,7 @@ async function createImmunizationOrder(
   await updateOrderDetails(medicationAdministration, details, oystehr);
   applyOrderAdministrationDetails(medicationAdministration, administrationDetails);
   applyVaccineDoseFunding(medicationAdministration, administrationDetails);
-  const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
-  return {
-    orderId: createdMedicationAdministration.id!,
-  };
+  return medicationAdministration;
 }
 
 export async function updateImmunizationOrder(
