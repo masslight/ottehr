@@ -228,10 +228,22 @@ const recordCardPayment = async (
     }));
   } catch (error) {
     // The reservation create sends no version, so a 412 means its condition matched several notices:
-    // requests that reserved the payment at the same moment are still settling which one charges.
+    // requests reserved the payment at the same moment. Whether one of them charged, is charging, or all
+    // failed, it is safe to go on with any of the reservations, as Stripe settles which charge stands:
+    // the key returns the PaymentIntent a charge naming the same reservation made (or its decline), and
+    // refuses one naming another, which this request then waits for.
     if (!isPreconditionFailed(error)) throw error;
-    console.log(`Several reservations hold EHR payment ${ehrPaymentId}; waiting for the one that charged`);
-    return waitForRecordedPayment(billingOystehr, ehrPaymentId);
+    const reservations = await findReservations(billingOystehr, reservationIdentifier);
+    const recorded = reservations.find(isActivatedEhrPaymentNotice);
+    if (recorded) {
+      console.log('idempotent replay detected; the reserved payment is already recorded', recorded.id);
+      return recorded;
+    }
+    // the same pick for every request, so concurrent retries name the same reservation
+    const [first] = reservations.sort((a, b) => (a.id ?? '').localeCompare(b.id ?? ''));
+    if (!first) throw error;
+    console.log(`Several reservations hold EHR payment ${ehrPaymentId}; going on with PaymentNotice/${first.id}`);
+    pending = first;
   }
   if (isActivatedEhrPaymentNotice(pending)) {
     console.log('idempotent replay detected; the reserved payment is already recorded', pending.id);
@@ -369,6 +381,14 @@ const savedCardCustomer = async (
   }
   return { customerId, stripeAccount };
 };
+
+const findReservations = async (billingOystehr: Oystehr, reservationIdentifier: Identifier): Promise<PaymentNotice[]> =>
+  (
+    await billingOystehr.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [{ name: 'identifier', value: `${reservationIdentifier.system}|${reservationIdentifier.value}` }],
+    })
+  ).unbundle();
 
 const isPreconditionFailed = (error: unknown): boolean => {
   const { code, statusCode } = (error ?? {}) as { code?: number; statusCode?: number };

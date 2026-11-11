@@ -474,7 +474,7 @@ describe('post-billing-patient-payment', () => {
       // Regression: a third request that passed the idempotency guard before the payment was recorded
       // reserved while the two reservations held the same identifier, and the 412 the conditional create
       // answered with was reported as a failure although the card was charged.
-      it('lets a request reserving while several reservations hold the payment wait for the one that charged', async () => {
+      it('returns the payment recorded on one of several reservations holding it', async () => {
         const stored = useNoticeStore({ concurrent: false });
         useStripeIdempotency();
         const reservedAs = (id: string): PaymentNotice =>
@@ -503,7 +503,8 @@ describe('post-billing-patient-payment', () => {
         const storeSearch = billingSearch.getMockImplementation()!;
         let paymentSearches = 0;
         billingSearch.mockImplementation(async (query: { resourceType: string }) => {
-          // the first is the idempotency guard; the winner records the payment after it
+          // the first is the idempotency guard; the winner records the payment after it, before this
+          // request loads the reservations
           if (query.resourceType === 'PaymentNotice' && ++paymentSearches === 2) recordWinner();
           return storeSearch(query);
         });
@@ -513,6 +514,70 @@ describe('post-billing-patient-payment', () => {
         expect(JSON.parse(result.body).notice.id).toBe('pn-winner');
         expect(paymentIntentsCreate).not.toHaveBeenCalled();
         expect(stored.size).toBe(2);
+      });
+
+      // Regression: requests that reserved the payment at the same moment all failed before charging, and
+      // every retry with the client's key then met the 412 of the duplicate reservations and waited for a
+      // payment nothing would record.
+      describe('when every request that reserved the payment failed before charging', () => {
+        const abandoned = (id: string): PaymentNotice =>
+          ({
+            resourceType: 'PaymentNotice',
+            id,
+            meta: { versionId: '1' },
+            status: 'cancelled',
+            amount: { value: 40, currency: 'USD' },
+            identifier: [{ system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE }],
+          }) as PaymentNotice;
+
+        it('charges under one of the reservations and records the payment on it', async () => {
+          const stored = useNoticeStore({ concurrent: false });
+          stored.set('pn-b', abandoned('pn-b'));
+          stored.set('pn-a', abandoned('pn-a'));
+          useStripeIdempotency();
+
+          const result = await postCard();
+
+          expect(paymentIntentsCreate).toHaveBeenCalledTimes(1);
+          expect(paymentIntentsCreate.mock.calls[0][0].metadata.oystehr_ehr_payment_notice_id).toBe('pn-a');
+          expect(stored.get('pn-a')?.status).toBe('active');
+          expect(stored.get('pn-b')?.status).toBe('cancelled');
+          expect(JSON.parse(result.body).notice.id).toBe('pn-a');
+        });
+
+        it('waits for the payment a charge under the key recorded on another reservation', async () => {
+          const stored = useNoticeStore({ concurrent: false });
+          stored.set('pn-b', abandoned('pn-b'));
+          stored.set('pn-a', abandoned('pn-a'));
+          // a request charged naming pn-b before it failed; the webhook records the payment on pn-b
+          paymentIntentsCreate.mockRejectedValue(
+            Object.assign(new Error('Keys for idempotent requests can only be used with the same parameters'), {
+              type: 'StripeIdempotencyError',
+              rawType: 'idempotency_error',
+            })
+          );
+          const storeSearch = billingSearch.getMockImplementation()!;
+          let paymentSearches = 0;
+          billingSearch.mockImplementation(async (query: { resourceType: string }) => {
+            // the idempotency guard, the reservations, then the wait
+            if (query.resourceType === 'PaymentNotice' && ++paymentSearches === 3) {
+              stored.set('pn-b', {
+                ...abandoned('pn-b'),
+                status: 'active',
+                identifier: [
+                  { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
+                  { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
+                ],
+              });
+            }
+            return storeSearch(query);
+          });
+
+          const result = await postCard();
+
+          expect(JSON.parse(result.body).notice.id).toBe('pn-b');
+          expect(merges()).toEqual([]);
+        });
       });
 
       // Regression: a replay reused the reservation of the request it overlapped, met that request's
