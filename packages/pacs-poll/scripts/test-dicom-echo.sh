@@ -151,7 +151,7 @@ else
         fail "storescu exited $RC; its output below says why"
       fi
       if grep -q 'A-ASSOCIATE-AC timeout expired' "$TMP/storescu.out"; then
-        HINT='the port accepted the TCP connection but nothing answered the association. Usual causes: AE titles or a source IP the SCP silently ignores, a proxy in front of a dead backend, or a TLS-only listener (retry with: -- --tls)'
+        HINT='the port accepted the TCP connection but nothing answered the association. Usual causes: the port is not a DICOM listener at all (an HL7/MLLP listener waits silently for a 0x0B start byte), a proxy in front of a dead backend, a hung SCP, a TLS-only listener (retry with: -- --tls), or AE titles or a source IP the SCP silently ignores. If openssl s_client to the port also hangs, TLS is ruled out'
       elif grep -q 'A-ASSOCIATE-RJ' "$TMP/storescu.out"; then
         HINT='the SCP rejected the association; the reason above usually names the AE title it did not accept'
       elif grep -q -i -E 'connection refused|timed out|unreachable' "$TMP/storescu.out"; then
