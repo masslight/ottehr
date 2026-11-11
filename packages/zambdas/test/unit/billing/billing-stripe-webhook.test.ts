@@ -51,7 +51,12 @@ vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
   resolveClaimActor: vi.fn(async () => SYSTEM_AGENT),
 }));
 
-import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
+import {
+  DeferredToEhrError,
+  EHR_PAYMENT_RECORDING_WINDOW_MS,
+  index,
+  performEffect,
+} from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
 import { stripeAccountExtension } from '../../../src/billing/payments';
 import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
@@ -1005,6 +1010,120 @@ describe('billing-stripe-webhook', () => {
         }),
       ],
     ]);
+  });
+});
+
+// Regression: the EHR (post-billing-patient-payment) and this webhook both recorded a saved-card
+// charge at the same moment; neither conditional create saw the other's notice, so the charge was
+// recorded twice.
+describe('billing-stripe-webhook charges the EHR records itself', () => {
+  const EHR_PAYMENT_ID = 'enc-1_key';
+  const nowSeconds = (): number => Math.floor(Date.now() / 1000);
+  const ehrCharge = (createdSecondsAgo: number): Stripe.Charge =>
+    makeCharge({
+      created: nowSeconds() - createdSecondsAgo,
+      metadata: {
+        oystehr_encounter_id: 'enc-1',
+        oystehr_ehr_payment_id: EHR_PAYMENT_ID,
+      },
+    });
+  const ehrNotice = (identifiers: { system: string; value: string }[]): PaymentNotice =>
+    ({
+      resourceType: 'PaymentNotice',
+      id: 'pn-ehr',
+      status: 'active',
+      amount: { value: 10, currency: 'USD' },
+      identifier: identifiers,
+    }) as PaymentNotice;
+
+  it('leaves a fresh charge the EHR has not recorded yet to the EHR, writing nothing', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]]);
+
+    await expect(
+      performEffect(oystehr, { event: makeEvent('charge.succeeded', ehrCharge(5)), secrets })
+    ).rejects.toBeInstanceOf(DeferredToEhrError);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('answers a deferred event with a retryable status so stripe redelivers it', async () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
+    (createBillingClient as Mock).mockReturnValue(oystehr);
+
+    const result = await (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(
+      signedInput(makeEvent('charge.succeeded', ehrCharge(5)))
+    );
+
+    expect(result.statusCode).toBe(503);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('merges into the notice the EHR recorded for the charge', async () => {
+    const { oystehr, transaction } = makeOystehr(
+      [[claim]],
+      [],
+      [
+        ehrNotice([
+          { system: ottehrIdentifierSystem('ehr-patient-payment-id'), value: EHR_PAYMENT_ID },
+          { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+          { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+        ]),
+      ]
+    );
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', ehrCharge(5)), secrets });
+
+    expect(createdNotices(transaction)).toEqual([]);
+    expect(refreshedNotices(transaction).map((notice) => notice.id)).toEqual(['pn-ehr']);
+  });
+
+  it('finds the EHR notice by its payment id when it lacks the charge id, adding the charge id', async () => {
+    const { oystehr, transaction } = makeOystehr(
+      [[claim]],
+      [],
+      [ehrNotice([{ system: ottehrIdentifierSystem('ehr-patient-payment-id'), value: EHR_PAYMENT_ID }])]
+    );
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', ehrCharge(5)), secrets });
+
+    expect(createdNotices(transaction)).toEqual([]);
+    const [merged] = refreshedNotices(transaction);
+    expect(merged.id).toBe('pn-ehr');
+    expect(merged.identifier).toContainEqual({ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' });
+  });
+
+  it('records a charge the EHR left unrecorded once the window has passed', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('charge.succeeded', ehrCharge(EHR_PAYMENT_RECORDING_WINDOW_MS / 1000 + 60)),
+      secrets,
+    });
+
+    expect(createdNotices(transaction)).toHaveLength(1);
+  });
+
+  it('does not defer when only refreshing, since nothing would be created', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('charge.succeeded', ehrCharge(5)),
+      secrets: { ...secrets, BILLING_INTEGRATION: 'candid' },
+    });
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('records a fresh charge the EHR did not take right away', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('charge.succeeded', makeCharge({ created: nowSeconds() - 5 })),
+      secrets,
+    });
+
+    expect(createdNotices(transaction)).toHaveLength(1);
   });
 });
 

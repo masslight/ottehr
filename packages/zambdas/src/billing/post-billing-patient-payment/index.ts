@@ -36,7 +36,12 @@ import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../shared
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
-import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM, stripeEncounterMetadata } from '../../shared/stripeIntegration';
+import {
+  getStripeClient,
+  STRIPE_METADATA_KEYS,
+  STRIPE_PAYMENT_ID_SYSTEM,
+  stripeEncounterMetadata,
+} from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { ensurePaymentTaskForNotice, unionIdentifiers } from '../patient-payments';
@@ -129,7 +134,7 @@ const performEffect = async (
 
   const stripePayment =
     paymentDetails.paymentMethod === 'card'
-      ? await chargeSavedCard(input, paymentDetails.paymentMethodId, clinicalOystehr)
+      ? await chargeSavedCard(input, paymentDetails.paymentMethodId, dedupValue, clinicalOystehr)
       : undefined;
   const paymentIntent = stripePayment?.paymentIntent;
   const chargeId =
@@ -155,10 +160,12 @@ const performEffect = async (
     ],
   });
 
-  // The billing stripe webhook records the same charge, keyed by the charge id, and may get there
-  // first: both writers dedup on that id and merge into whichever notice exists, and whichever
-  // stores it first records the payment in claim history. Without a charge, the conditional create
-  // closes the window where two replays race past the guard above.
+  // The billing stripe webhook sees the same charge. It leaves charges tagged with our payment id to
+  // this write until we are long done (two concurrent conditional creates can both store a notice),
+  // so normally it finds ours and merges into it. Should it have recorded the charge first (this
+  // request replayed after the window), the dedup on the charge id merges ours into its notice.
+  // Without a charge, the conditional create closes the window where two replays race past the
+  // guard above.
   const agent = humanClaimActor(input.submitterRef);
   const stored = await createPaymentNotice({
     oystehr: billingOystehr,
@@ -196,6 +203,7 @@ const performEffect = async (
 const chargeSavedCard = async (
   input: EffectInput,
   paymentMethodId: string,
+  ehrPaymentId: string,
   clinicalOystehr: Oystehr
 ): Promise<{ paymentIntent: Stripe.PaymentIntent; stripeAccount: string | undefined }> => {
   const { patientId, encounterId, paymentDetails, secrets } = input;
@@ -219,7 +227,11 @@ const chargeSavedCard = async (
         payment_method: paymentMethodId,
         description: paymentDetails.description || `Payment for encounter ${encounterId}`,
         confirm: true,
-        metadata: stripeEncounterMetadata({ encounterId, patientId }),
+        metadata: {
+          ...stripeEncounterMetadata({ encounterId, patientId }),
+          // tells the billing webhook this payment is recorded here, so it does not race our write
+          [STRIPE_METADATA_KEYS.ehrPaymentId]: ehrPaymentId,
+        },
         automatic_payment_methods: {
           enabled: true,
           allow_redirects: 'never',

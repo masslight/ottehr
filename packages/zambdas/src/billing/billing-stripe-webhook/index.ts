@@ -12,6 +12,7 @@ import { shouldUseOttehrBilling } from '../../shared/candid';
 import { wrapHandler } from '../../shared/sentry';
 import {
   applyRefundsToPaymentNoticeWithRetry,
+  ehrPaymentIdFromStripeMetadata,
   encounterIdFromStripeMetadata,
   getStripeClient,
   STRIPE_PAYMENT_ID_SYSTEM,
@@ -24,6 +25,7 @@ import {
   billingProviderRefForStripeAccount,
   claimRequestFor,
   createPaymentNotice,
+  EHR_PATIENT_PAYMENT_ID_SYSTEM,
   findBillingClaimForEncounter,
   findPaymentNotice,
   paymentActor,
@@ -50,13 +52,40 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  await performEffect(oystehr, params);
+  try {
+    await performEffect(oystehr, params);
+  } catch (error) {
+    if (error instanceof DeferredToEhrError) {
+      // expected while the EHR records its own charge: answered without an error report, and the
+      // non-2xx status makes Stripe redeliver the event later
+      console.log(error.message);
+      return {
+        statusCode: 503,
+        body: JSON.stringify({ message: error.message }),
+      };
+    }
+    throw error;
+  }
 
   return {
     statusCode: 200,
     body: JSON.stringify({}),
   };
 });
+
+// The EHR charges a saved card and records the payment itself (post-billing-patient-payment), so a
+// charge it took is left to it for longer than that zambda can run. Recording it here as well could
+// race the EHR's write, and the conditional create does not stop two concurrent writers: both see
+// no notice and both store one, leaving the charge recorded twice. Past the window the EHR is done
+// or gone, and the webhook records a charge it left unrecorded.
+export const EHR_PAYMENT_RECORDING_WINDOW_MS = 15 * 60 * 1000;
+
+export class DeferredToEhrError extends Error {
+  constructor(chargeId: string) {
+    super(`Charge ${chargeId} was taken in the EHR and is not recorded yet; deferring to the EHR's write`);
+    this.name = 'DeferredToEhrError';
+  }
+}
 
 // Patient payments live in billing whatever BILLING_INTEGRATION says, so their Stripe-owned state
 // and refund stamps are always kept current. Only Ottehr billing records Stripe activity the EHR did
@@ -203,6 +232,28 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     return;
   }
 
+  const chargeNotice = await findPaymentNotice(oystehr, {
+    system: STRIPE_PAYMENT_ID_SYSTEM,
+    value: charge.id,
+  });
+  const ehrPaymentId = ehrPaymentIdFromStripeMetadata(charge.metadata);
+  const knownNotice =
+    chargeNotice ??
+    (ehrPaymentId
+      ? await findPaymentNotice(oystehr, {
+          system: EHR_PATIENT_PAYMENT_ID_SYSTEM,
+          value: ehrPaymentId,
+        })
+      : undefined);
+  if (
+    !knownNotice &&
+    createIfMissing &&
+    ehrPaymentId &&
+    Date.now() - charge.created * 1000 < EHR_PAYMENT_RECORDING_WINDOW_MS
+  ) {
+    throw new DeferredToEhrError(charge.id);
+  }
+
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
   const billingProviderRef = await billingProviderRefForStripeAccount(oystehr, stripeAccount, secrets);
 
@@ -242,7 +293,9 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
     outcome: charge.paid ? 'complete' : 'partial',
   });
 
-  await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId, createIfMissing);
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, charge.id, claim, encounterId, createIfMissing, {
+    knownNotice: knownNotice ?? null,
+  });
 };
 
 // The claim link is the stored one: only reconcile adds it, so the history recorded before it comes along.
@@ -285,13 +338,19 @@ const persistPaymentNoticeUpsert = async (
   encounterId: string,
   // false refreshes a notice that already exists and writes nothing otherwise
   createIfMissing: boolean,
-  refundedByReference?: string
+  options: {
+    refundedByReference?: string;
+    // the notice the caller already looked up (null: looked up and found none), saving a second search
+    knownNotice?: PaymentNotice | null;
+  } = {}
 ): Promise<void> => {
+  const { refundedByReference, knownNotice } = options;
   const dedupIdentifier = {
     system: STRIPE_PAYMENT_ID_SYSTEM,
     value: dedupStripeId,
   };
-  const found = await findPaymentNotice(oystehr, dedupIdentifier);
+  const found =
+    knownNotice === undefined ? await findPaymentNotice(oystehr, dedupIdentifier) : knownNotice ?? undefined;
   if (!found && !createIfMissing) {
     console.log(`No billing PaymentNotice records ${dedupStripeId}; nothing to refresh`);
     return;
@@ -420,15 +479,9 @@ const upsertPaymentNoticeForRefund = async (
     cancelled: failed,
   });
 
-  await persistPaymentNoticeUpsert(
-    oystehr,
-    desiredNotice,
-    refund.id,
-    claim,
-    encounterId,
-    true,
-    refund.metadata?.refundedByReference
-  );
+  await persistPaymentNoticeUpsert(oystehr, desiredNotice, refund.id, claim, encounterId, true, {
+    refundedByReference: refund.metadata?.refundedByReference,
+  });
 
   await markBillingNoticesForRefundedCharge(oystehr, charge, stripeAccount, secrets);
 };

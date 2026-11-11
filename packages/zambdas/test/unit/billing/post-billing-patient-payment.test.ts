@@ -234,6 +234,8 @@ describe('post-billing-patient-payment', () => {
     });
 
     expect(paymentIntentsCreate.mock.calls[0][1]).toMatchObject({ idempotencyKey: IDEMPOTENCY_KEY });
+    // tags the charge so the billing webhook leaves recording it to this write instead of racing it
+    expect(paymentIntentsCreate.mock.calls[0][0].metadata).toMatchObject({ oystehr_ehr_payment_id: DEDUP_VALUE });
     const [{ ifNoneExist }] = noticeCreates();
     const notice = createdNotice();
     expect(notice.identifier).toEqual([
