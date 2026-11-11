@@ -1,3 +1,5 @@
+import { ImmunizationForecast } from '../../../immunization-forecast/types';
+
 export interface ImmunizationOrderDetails {
   medication: {
     id: string;
@@ -217,4 +219,17 @@ export interface ImmunizationMark {
 export interface GetPatientImmunizationsResponse {
   immunizations: PatientImmunizationRecord[];
   marks: ImmunizationMark[];
+}
+
+export interface GetImmunizationForecastRequest {
+  patientId: string;
+  /** Assessment date, ISO yyyy-mm-dd in the user's local time zone; the server's today when absent. */
+  asOf?: string;
+}
+
+/** The forecast computed server-side from the patient's records, with the records it was computed from. */
+export interface GetImmunizationForecastResponse extends GetPatientImmunizationsResponse {
+  forecast: ImmunizationForecast;
+  /** The patient's date of birth, ISO yyyy-mm-dd; the timeline places doses by age. */
+  dob: string;
 }
