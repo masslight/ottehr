@@ -115,3 +115,104 @@ export interface Vaccine {
 export interface GetVaccinesResponse {
   vaccines: Vaccine[];
 }
+
+// ── Immunization records (FHIR Immunization): doses given here, outside doses and per-vaccine marks ──
+
+/** Where an outside dose's information came from: the CDC NIP001 list registries take for historical doses. */
+export type ImmunizationOutsideSource =
+  | 'written-record'
+  | 'other-provider'
+  | 'recall'
+  | 'other-registry'
+  | 'school-record'
+  | 'birth-certificate'
+  | 'public-agency';
+
+/** A dose administered externally, as the order screen's external line holds it. Only the vaccine is required. */
+export interface OutsideImmunizationDetails {
+  vaccine: { id?: string; name: string };
+  cvx?: string;
+  /** ISO date; absent when the exact date is not known. */
+  dateGiven?: string;
+  place?: string;
+  source?: ImmunizationOutsideSource;
+  lot?: string;
+  manufacturer?: string;
+  mvx?: string;
+}
+
+export interface RecordOutsideImmunizationRequest extends OutsideImmunizationDetails {
+  encounterId: string;
+}
+
+export interface RecordOutsideImmunizationResponse {
+  immunizationId: string;
+}
+
+export type ImmunizationMarkType = 'immune' | 'contraindicated' | 'declined';
+
+export interface SaveImmunizationMarkRequest {
+  patientId: string;
+  /** A vaccine group code from VACCINE_GROUPS. */
+  vaccineGroup: string;
+  mark: ImmunizationMarkType;
+  note?: string;
+}
+
+export interface SaveImmunizationMarkResponse {
+  markId: string;
+}
+
+export interface ClearImmunizationMarkRequest {
+  markId: string;
+}
+
+export interface ClearImmunizationMarkResponse {
+  markId: string;
+}
+
+export interface GetPatientImmunizationsRequest {
+  patientId: string;
+}
+
+export interface ImmunizationActor {
+  id?: string;
+  name: string;
+}
+
+/** One dose in the patient's immunization history: given here (from an administered order) or outside. */
+export interface PatientImmunizationRecord {
+  id: string;
+  vaccineName: string;
+  cvx?: string;
+  outside: boolean;
+  /** ISO date-time (given here) or date (outside); absent when the date is unknown. */
+  dateGiven?: string;
+  dateUnknown: boolean;
+  administeredBy?: ImmunizationActor;
+  place?: string;
+  source?: ImmunizationOutsideSource | 'unspecified';
+  lot?: string;
+  expirationDate?: string;
+  manufacturer?: string;
+  mvx?: string;
+  medicationAdministrationId?: string;
+  encounterId?: string;
+  recorded?: string;
+}
+
+/** A per-vaccine mark with its history: a cleared mark stays, with who cleared it and when. */
+export interface ImmunizationMark {
+  id: string;
+  vaccineGroup: { code: string; display: string };
+  mark: ImmunizationMarkType;
+  markedAt: string;
+  markedBy: ImmunizationActor;
+  note?: string;
+  cleared?: { at: string; by: ImmunizationActor };
+}
+
+export interface GetPatientImmunizationsResponse {
+  immunizations: PatientImmunizationRecord[];
+  marks: ImmunizationMark[];
+}

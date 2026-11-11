@@ -14,6 +14,7 @@ import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/h
 import { makeOrderDeleteRequests } from '../../../shared/medication-order-delete';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { immunizationSyncRequest } from '../records';
 
 let m2mToken: string;
 
@@ -50,10 +51,16 @@ async function cancelImmunizationOrder(
   const patchOperations = [replaceOperation('/status', mapOrderStatusToFhir('cancelled'))];
 
   const cleanup = await makeOrderDeleteRequests(oystehr, billingOystehr, medicationAdministration);
+  // an administered order's Immunization record is entered in error with the cancellation
+  const immunizationRequest = await immunizationSyncRequest(oystehr, {
+    ...medicationAdministration,
+    status: mapOrderStatusToFhir('cancelled'),
+  });
   await oystehr.fhir.transaction({
     requests: [
       getPatchBinary({ resourceType: 'MedicationAdministration', resourceId: orderId, patchOperations }),
       ...cleanup.requests,
+      ...(immunizationRequest ? [immunizationRequest] : []),
     ],
   });
   return { retainedCptCodes: cleanup.retainedCptCodes, billingReviewRequired: cleanup.billingReviewRequired };

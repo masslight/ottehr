@@ -25,6 +25,7 @@ import {
   validateAdministrationDetailsValues,
   validateOrderDetails,
 } from '../common';
+import { immunizationSyncRequest } from '../records';
 
 let m2mToken: string;
 
@@ -113,6 +114,9 @@ export async function updateImmunizationOrder(
   await updateOrderDetails(medicationAdministration, details, oystehr);
   applyOrderAdministrationDetails(medicationAdministration, administrationDetails);
   await oystehr.fhir.update(medicationAdministration);
+  // an administered order's Immunization record takes the edited dose, route and site
+  const immunizationRequest = await immunizationSyncRequest(oystehr, medicationAdministration);
+  if (immunizationRequest) await oystehr.fhir.transaction({ requests: [immunizationRequest] });
   return {
     orderId: medicationAdministration.id!,
   };

@@ -48,6 +48,7 @@ import {
   validateAdministrationDetailsValues,
   validateOrderDetails,
 } from '../common';
+import { immunizationSyncRequest } from '../records';
 
 let m2mToken: string;
 
@@ -164,6 +165,10 @@ export async function administerImmunizationOrder(
       ),
     });
   }
+
+  // the dose's Immunization record follows the administration: created, updated or entered in error with it
+  const immunizationRequest = await immunizationSyncRequest(oystehr, medicationAdministration);
+  if (immunizationRequest) transactionRequests.push(immunizationRequest);
 
   console.log('Transaction requests: ', JSON.stringify(transactionRequests));
   const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
