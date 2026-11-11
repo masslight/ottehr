@@ -1,14 +1,20 @@
 /**
  * seed-immunization-demo.ts — the two demo patients of the vaccine-schedule mockups, each with an open in-person
  * visit today, plus the vaccine catalog and VFC / private lots on hand at the visit's location. For the synth
- * project only; idempotent (a re-run finds what it made before and prints the same visit URLs).
+ * project, or the shared development project with --allow-shared-env; any other environment is refused. Idempotent
+ * (a re-run finds what it made before and prints the same visit URLs).
  *
- * Run from the repo root, with the synth zambdas reachable (dabrams's local zambda server on :3000 serves them;
- * pass --zambda-api to use another):
+ * Run from the repo root. On synth, with the synth zambdas reachable (dabrams's local zambda server on :3000 serves
+ * them; pass --zambda-api to use another):
  *
  *   ENV=synth npx env-cmd -f packages/zambdas/.env/synth.json \
  *     npx tsx scripts/synthetic-patient-data/seed-immunization-demo.ts [--location "<Location name>"] \
  *     [--zambda-api http://localhost:3000/local]
+ *
+ * On development, against the deployed zambdas (pass --zambda-api to use another), once the branch is deployed there:
+ *
+ *   ENV=development npx env-cmd -f packages/zambdas/.env/development.json \
+ *     npx tsx scripts/synthetic-patient-data/seed-immunization-demo.ts --allow-shared-env [--location "<Location name>"]
  *
  * What it makes:
  *   - Catalog entries (type virtual-vaccine-inventory, one per CVX) for Pentacel, Prevnar 20, RotaTeq, Quadracel,
@@ -75,7 +81,7 @@ import { VaccineFundingSource, VfcEligibilityCode } from 'utils/lib/types/data/i
 import { administerImmunizationOrder } from '../../packages/zambdas/src/ehr/immunization/administer-order';
 import { buildImmunizationOrder } from '../../packages/zambdas/src/ehr/immunization/create-update-order';
 import { buildImmunizationMark, buildOutsideImmunization } from '../../packages/zambdas/src/ehr/immunization/records';
-import { arg } from './shared/cli';
+import { arg, flag } from './shared/cli';
 import { SYNTHETIC_PATIENT_ID_SYSTEM } from './shared/constants';
 import { createOystehrFromToken, mintAccessToken, need } from './shared/oystehr-client';
 import { ZambdaCtx, zambdaExecute } from './shared/zambda';
@@ -83,7 +89,10 @@ import { ZambdaCtx, zambdaExecute } from './shared/zambda';
 /** Marks every Immunization this script writes, so a re-run finds it. */
 const DEMO_IMMUNIZATION_SYSTEM = 'https://fhir.ottehr.com/sid/synth-immunization-demo';
 
-const EHR_URL = 'http://localhost:4002';
+// Where the printed links open: the deployed development EHR on development, dabrams's local EHR on synth.
+const EHR_URL = process.env.ENV === 'development' ? 'https://development-ehr.ottehr.com' : 'http://localhost:4002';
+// The SDK's default zambda API: the deployed zambdas of the project the token is for.
+const DEPLOYED_ZAMBDA_API = 'https://zambda-api.zapehr.com/v1';
 
 /** The demo catalog: the CVX names the vaccine; the product picks the NDC from the CDC crosswalk. */
 const DEMO_VACCINES: { cvx: string; product: RegExp }[] = [
@@ -800,13 +809,21 @@ async function ensureVfcEligibility(
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  if (process.env.ENV !== 'synth') {
-    throw new Error('This seeds demo data on the synth project only: run with ENV=synth and the synth env file.');
+  // the env file says which project it is for: ENV=development with another project's file is refused too
+  const shared = process.env.ENV === 'development' && process.env.ENVIRONMENT === 'development';
+  if (process.env.ENV !== 'synth' && !(shared && flag('--allow-shared-env'))) {
+    throw new Error(
+      'This seeds demo data on the synth project, or on development with --allow-shared-env: run with ENV=synth ' +
+        'and the synth env file, or ENV=development, the development env file and --allow-shared-env.'
+    );
   }
   const accessToken = await mintAccessToken();
   const oystehr = createOystehrFromToken(accessToken);
   const ctx: ZambdaCtx = {
-    zambdaApi: arg('--zambda-api', process.env.ZAMBDA_API ?? 'http://localhost:3000/local'),
+    zambdaApi: arg(
+      '--zambda-api',
+      process.env.ZAMBDA_API ?? (shared ? DEPLOYED_ZAMBDA_API : 'http://localhost:3000/local')
+    ),
     accessToken,
     projectId: need('PROJECT_ID'),
   };
