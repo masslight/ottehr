@@ -83,10 +83,7 @@ export async function performEffect({
 }): Promise<CreateBillingNioInvoiceResponse> {
   const resumed = await findInvoiceByIdempotencyKey(oystehr, idempotencyKey);
   if (resumed) {
-    if (getBillingInvoiceKind(resumed) !== 'nio') {
-      throw INVALID_INPUT_ERROR('This idempotency key was already used for a patient invoice');
-    }
-    assertSameClaims(resumed, claimIds);
+    assertKeyIsForTheseClaims(resumed, claimIds);
     const documentReference = await findInvoicePdf(oystehr, resumed.id!);
     if (documentReference) {
       return toResponse({
@@ -149,7 +146,10 @@ async function findInvoiceByIdempotencyKey(oystehr: Oystehr, idempotencyKey: str
   return invoices[0];
 }
 
-function assertSameClaims(invoice: Invoice, claimIds: string[]): void {
+function assertKeyIsForTheseClaims(invoice: Invoice, claimIds: string[]): void {
+  if (getBillingInvoiceKind(invoice) !== 'nio') {
+    throw INVALID_INPUT_ERROR('This idempotency key was already used for a patient invoice');
+  }
   const invoiceClaimIds = new Set(getBillingInvoiceClaims(invoice).map(({ claimId }) => claimId));
   if (invoiceClaimIds.size !== claimIds.length || !claimIds.every((claimId) => invoiceClaimIds.has(claimId))) {
     throw INVALID_INPUT_ERROR('This idempotency key was already used to invoice other claims');
@@ -190,7 +190,7 @@ async function createNioInvoice({
   if (getBillingInvoiceIdempotencyKey(saved) !== idempotencyKey) {
     throw BILLING_INVOICE_CONFLICT_ERROR(CLAIMS_ALREADY_INVOICED);
   }
-  assertSameClaims(saved, claimIds);
+  assertKeyIsForTheseClaims(saved, claimIds);
   await withdrawIfOutnumbered(oystehr, saved);
   return saved;
 }

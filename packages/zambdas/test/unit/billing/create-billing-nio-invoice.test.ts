@@ -433,6 +433,32 @@ describe('create-billing-nio-invoice', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it('refuses when a concurrent patient invoice with the same key and claims is returned', async () => {
+    mockCreateInvoiceUnlessClaimsHaveOne.mockResolvedValue({
+      ...buildBillingInvoice({
+        ...draft.invoice,
+        status: 'draft',
+        recipient: {
+          reference: 'Patient/patient-1',
+        },
+      }),
+      id: 'invoice-patient',
+      identifier: [
+        {
+          system: BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM,
+          value: KEY,
+        },
+      ],
+    });
+    const { oystehr, create } = setup();
+
+    await expect(run(oystehr)).rejects.toMatchObject({
+      message: 'This idempotency key was already used for a patient invoice',
+    });
+    expect(renderNioInvoicePdf).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('refuses with a conflict when several invoices already hold the claims', async () => {
     mockCreateInvoiceUnlessClaimsHaveOne.mockRejectedValue(
       new Oystehr.OystehrSdkError({
