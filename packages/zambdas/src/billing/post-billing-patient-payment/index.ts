@@ -29,6 +29,7 @@ import {
   GENERIC_STRIPE_PAYMENT_ERROR,
   NOT_AUTHORIZED,
   parseStripeError,
+  SPECIFIC_STRIPE_PAYMENT_ERROR,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
 } from 'utils/lib/types/errors';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
@@ -52,6 +53,7 @@ import {
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
   EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM,
   findBillingClaimForEncounter,
+  findPaymentNotice,
   isPendingEhrPaymentNotice,
   paymentNoticeHistoryRequest,
   pendingEhrPaymentNotice,
@@ -212,7 +214,9 @@ const recordCardPayment = async (
 
   // A replay reuses the reservation of the attempt it repeats. One that overlapped that attempt passed
   // the idempotency guard before the payment was activated; activation keeps the reservation
-  // identifier, so the payment is found here and returned without charging the card again.
+  // identifier, so the payment is found here and returned without charging the card again. Requests
+  // reserving at the same moment can each store a reservation (the conditional create does not make
+  // them unique); the charge settles which one records the payment, see chargeSavedCard.
   const reservationIdentifier = { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId };
   const { notice: pending } = await createPaymentNotice({
     oystehr: billingOystehr,
@@ -227,9 +231,19 @@ const recordCardPayment = async (
 
   let paymentIntent: Stripe.PaymentIntent;
   try {
-    paymentIntent = await chargeSavedCard(input, { paymentMethodId, customerId, stripeAccount, ehrPaymentId });
+    paymentIntent = await chargeSavedCard(input, {
+      paymentMethodId,
+      customerId,
+      stripeAccount,
+      ehrPaymentId,
+      reservationId: pending.id!,
+    });
   } catch (error) {
     await cancelPendingPaymentNotice(billingOystehr, pending);
+    if (error instanceof ReservationLostError) {
+      console.log(`Reservation PaymentNotice/${pending.id} lost the charge to another request for the payment`);
+      return waitForRecordedPayment(billingOystehr, ehrPaymentId);
+    }
     throw error;
   }
   const chargeId =
@@ -342,12 +356,62 @@ const savedCardCustomer = async (
   return { customerId, stripeAccount };
 };
 
+// Another request for the same payment charged the card under its own reservation.
+class ReservationLostError extends Error {
+  constructor() {
+    super('Another request for this payment charged the card under its own reservation');
+    this.name = 'ReservationLostError';
+  }
+}
+
+// Stripe refuses a key that another request is using, or used with other parameters.
+const isIdempotencyConflict = (error: unknown): boolean => {
+  const stripeError = error as { type?: string; rawType?: string; code?: string } | undefined;
+  return (
+    stripeError?.type === 'StripeIdempotencyError' ||
+    stripeError?.rawType === 'idempotency_error' ||
+    stripeError?.code === 'idempotency_key_in_use'
+  );
+};
+
+// How long a request whose reservation lost the charge waits for the winner to record the payment,
+// which it does right after its charge returns.
+export const RECORDED_PAYMENT_POLL = { attempts: 15, intervalMs: 1000 };
+
+const waitForRecordedPayment = async (billingOystehr: Oystehr, ehrPaymentId: string): Promise<PaymentNotice> => {
+  for (let attempt = 1; attempt <= RECORDED_PAYMENT_POLL.attempts; attempt++) {
+    const recorded = await findPaymentNotice(billingOystehr, {
+      system: EHR_PATIENT_PAYMENT_ID_SYSTEM,
+      value: ehrPaymentId,
+    });
+    if (recorded) return recorded;
+    if (attempt < RECORDED_PAYMENT_POLL.attempts) {
+      await new Promise((resolve) => setTimeout(resolve, RECORDED_PAYMENT_POLL.intervalMs));
+    }
+  }
+  // the card may well have been charged, so the user must not be told the payment failed
+  throw SPECIFIC_STRIPE_PAYMENT_ERROR(
+    'This payment is already being processed. Refresh the page to see it before trying again.'
+  );
+};
+
+// The charge carries the id of this request's reservation, under the client's idempotency key. Stripe
+// keeps one PaymentIntent per key and refuses the key with different parameters, so of requests that
+// reserved separate notices for one payment exactly one charges the card; the others get
+// ReservationLostError. The resource id is what makes the parameters differ, as nothing in FHIR keeps
+// two concurrent reservations from being stored.
 const chargeSavedCard = async (
   input: EffectInput,
-  card: { paymentMethodId: string; customerId: string; stripeAccount: string | undefined; ehrPaymentId: string }
+  card: {
+    paymentMethodId: string;
+    customerId: string;
+    stripeAccount: string | undefined;
+    ehrPaymentId: string;
+    reservationId: string;
+  }
 ): Promise<Stripe.PaymentIntent> => {
   const { patientId, encounterId, paymentDetails, secrets } = input;
-  const { paymentMethodId, customerId, stripeAccount, ehrPaymentId } = card;
+  const { paymentMethodId, customerId, stripeAccount, ehrPaymentId, reservationId } = card;
 
   let paymentIntent: Stripe.PaymentIntent;
   try {
@@ -361,8 +425,9 @@ const chargeSavedCard = async (
         confirm: true,
         metadata: {
           ...stripeEncounterMetadata({ encounterId, patientId }),
-          // Stripe copies it to the charge, where the billing webhook finds the reservation by it
+          // Stripe copies them to the charge, where the billing webhook finds the reservation by them
           [STRIPE_METADATA_KEYS.ehrPaymentId]: ehrPaymentId,
+          [STRIPE_METADATA_KEYS.ehrPaymentNoticeId]: reservationId,
         },
         automatic_payment_methods: {
           enabled: true,
@@ -377,6 +442,7 @@ const chargeSavedCard = async (
       }
     );
   } catch (e) {
+    if (isIdempotencyConflict(e)) throw new ReservationLostError();
     throw parseStripeError(e);
   }
   if (paymentIntent.status !== 'succeeded') {

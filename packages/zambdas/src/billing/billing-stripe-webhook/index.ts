@@ -13,6 +13,7 @@ import { wrapHandler } from '../../shared/sentry';
 import {
   applyRefundsToPaymentNoticeWithRetry,
   ehrPaymentIdFromStripeMetadata,
+  ehrPaymentNoticeIdFromStripeMetadata,
   encounterIdFromStripeMetadata,
   getStripeClient,
   STRIPE_PAYMENT_ID_SYSTEM,
@@ -193,6 +194,16 @@ const buildBillingPaymentNotice = (params: {
   };
 };
 
+const getPaymentNoticeIfExists = async (oystehr: Oystehr, id: string): Promise<PaymentNotice | undefined> => {
+  try {
+    return await oystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id });
+  } catch (error) {
+    const { code, statusCode } = (error ?? {}) as { code?: number; statusCode?: number };
+    if ([code, statusCode].some((status) => status === 404 || status === 410)) return undefined;
+    throw error;
+  }
+};
+
 const chargeInvoiceId = (charge: Stripe.Charge): string | undefined =>
   (typeof charge.invoice === 'string' ? charge.invoice : charge.invoice?.id) || undefined;
 
@@ -236,15 +247,20 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
   }
 
   const ehrPaymentId = ehrPaymentIdFromStripeMetadata(charge.metadata);
-  const found = await findPaymentNoticeByAnyIdentifier(oystehr, [
-    { system: STRIPE_PAYMENT_ID_SYSTEM, value: charge.id },
-    ...(ehrPaymentId
-      ? [
-          { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId },
-          { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId },
-        ]
-      : []),
-  ]);
+  // The charge names the reservation that won it: requests reserving the payment at the same moment can
+  // each store one, and only the winner's is the payment, so it is read by id rather than searched for.
+  const reservationId = ehrPaymentNoticeIdFromStripeMetadata(charge.metadata);
+  const found = reservationId
+    ? await getPaymentNoticeIfExists(oystehr, reservationId)
+    : await findPaymentNoticeByAnyIdentifier(oystehr, [
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: charge.id },
+        ...(ehrPaymentId
+          ? [
+              { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId },
+              { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId },
+            ]
+          : []),
+      ]);
   if (!found && ehrPaymentId) {
     throw new EhrPaymentReservationNotFoundError(charge.id, ehrPaymentId);
   }

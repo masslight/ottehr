@@ -5,7 +5,7 @@ import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fh
 import { getPaymentNoticeSubmitterRef, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks (hoisted before imports) ─────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ import {
   reconcilePaymentNoticesForClaim,
   stripeAccountExtension,
 } from '../../../src/billing/payments';
-import { index } from '../../../src/billing/post-billing-patient-payment';
+import { index, RECORDED_PAYMENT_POLL } from '../../../src/billing/post-billing-patient-payment';
 import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
@@ -261,7 +261,11 @@ describe('post-billing-patient-payment', () => {
         paymentIntentsCreate.mock.invocationCallOrder[0]
       );
       // the charge names the reservation, so the billing webhook finds it instead of creating a notice
-      expect(paymentIntentsCreate.mock.calls[0][0].metadata).toMatchObject({ oystehr_ehr_payment_id: DEDUP_VALUE });
+      // the reservation's id makes a concurrent request's charge differ, which Stripe refuses under the key
+      expect(paymentIntentsCreate.mock.calls[0][0].metadata).toMatchObject({
+        oystehr_ehr_payment_id: DEDUP_VALUE,
+        oystehr_ehr_payment_notice_id: 'pn-1',
+      });
       expect(paymentIntentsCreate.mock.calls[0][1]).toMatchObject({ idempotencyKey: IDEMPOTENCY_KEY });
     });
 
@@ -359,9 +363,10 @@ describe('post-billing-patient-payment', () => {
       expect(JSON.parse(result.body).notice.id).toBe('pn-1');
     });
 
-    it('records one payment when a replay passed the idempotency guard before the first attempt finished', async () => {
-      // a store answering conditional creates by identifier, as the FHIR server does once the first
-      // attempt's writes have landed
+    // PaymentNotices in memory, written by transactions and searched by identifier. Conditional creates
+    // match a stored notice unless `concurrent`, which stores every create as the FHIR server does for
+    // creates that land at the same moment.
+    const useNoticeStore = ({ concurrent }: { concurrent: boolean }): Map<string, PaymentNotice> => {
       const stored = new Map<string, PaymentNotice>();
       let nextId = 0;
       const hasIdentifier = (notice: PaymentNotice, token: string): boolean =>
@@ -370,19 +375,15 @@ describe('post-billing-patient-payment', () => {
         const results = requests.map((request) => {
           if (request.method === 'POST' && request.url === '/PaymentNotice') {
             const token = request.ifNoneExist?.[0]?.value ?? '';
-            const match = [...stored.values()].find((notice) => hasIdentifier(notice, token));
+            const match = concurrent ? undefined : [...stored.values()].find((notice) => hasIdentifier(notice, token));
             if (match) return { resource: match, status: '200 OK' };
-            const created = {
-              ...(request.resource as PaymentNotice),
-              id: `pn-${++nextId}`,
-              meta: { versionId: '1' },
-            };
+            const created = { ...(request.resource as PaymentNotice), id: `pn-${++nextId}`, meta: { versionId: '1' } };
             stored.set(created.id, created);
             return { resource: created, status: '201 Created' };
           }
           if (request.method === 'PUT') {
             const updated = request.resource as PaymentNotice;
-            stored.set(updated.id!, updated);
+            stored.set(updated.id!, { ...updated, meta: { versionId: String(Number(updated.meta?.versionId) + 1) } });
           }
           return { resource: request.resource, status: '200 OK' };
         });
@@ -391,6 +392,42 @@ describe('post-billing-patient-payment', () => {
           unbundle: () => results.map(({ resource }) => resource),
         };
       });
+      billingSearch.mockImplementation(
+        async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => {
+          if (resourceType === 'Organization')
+            return { unbundle: () => [{ resourceType: 'Organization', id: 'stripe-org' }] };
+          const token = params.find((param) => param.name === 'identifier')?.value ?? '';
+          return { unbundle: () => [...stored.values()].filter((notice) => hasIdentifier(notice, token)) };
+        }
+      );
+      billingGet.mockImplementation(async ({ id }: { id: string }) => stored.get(id));
+      return stored;
+    };
+
+    // Stripe keeps one PaymentIntent per idempotency key and refuses the key with other parameters
+    const useStripeIdempotency = (): void => {
+      const byKey = new Map<string, { reservationId: string; paymentIntent: unknown }>();
+      paymentIntentsCreate.mockImplementation(
+        async (params: { metadata: Record<string, string> }, options: { idempotencyKey: string }) => {
+          const reservationId = params.metadata.oystehr_ehr_payment_notice_id;
+          const existing = byKey.get(options.idempotencyKey);
+          if (existing && existing.reservationId !== reservationId) {
+            throw Object.assign(new Error('Keys for idempotent requests can only be used with the same parameters'), {
+              type: 'StripeIdempotencyError',
+              rawType: 'idempotency_error',
+            });
+          }
+          if (existing) return existing.paymentIntent;
+          const paymentIntent = { id: 'pi_1', status: 'succeeded', latest_charge: 'ch_1' };
+          byKey.set(options.idempotencyKey, { reservationId, paymentIntent });
+          return paymentIntent;
+        }
+      );
+    };
+
+    it('records one payment when a replay passed the idempotency guard before the first attempt finished', async () => {
+      const stored = useNoticeStore({ concurrent: false });
+      useStripeIdempotency();
 
       // the second request's guard search ran before the first activated the payment, so it found nothing
       const first = await postCard();
@@ -399,6 +436,50 @@ describe('post-billing-patient-payment', () => {
       expect(paymentIntentsCreate).toHaveBeenCalledTimes(1);
       expect(stored.size).toBe(1);
       expect(JSON.parse(second.body).notice.id).toBe(JSON.parse(first.body).notice.id);
+    });
+
+    // Regression: requests reserving the payment at the same moment each stored a reservation, got the
+    // same PaymentIntent from Stripe and activated their own notice, recording the charge twice.
+    describe('requests reserving the payment at the same moment', () => {
+      const pollDefaults = { ...RECORDED_PAYMENT_POLL };
+      beforeEach(() => {
+        RECORDED_PAYMENT_POLL.intervalMs = 1;
+      });
+      afterEach(() => {
+        Object.assign(RECORDED_PAYMENT_POLL, pollDefaults);
+      });
+
+      it('records the payment once: the reservation that lost the charge is cancelled', async () => {
+        const stored = useNoticeStore({ concurrent: true });
+        useStripeIdempotency();
+
+        const [first, second] = await Promise.all([postCard(), postCard()]);
+
+        const notices = [...stored.values()];
+        expect(notices).toHaveLength(2);
+        const active = notices.filter((notice) => notice.status === 'active');
+        expect(active).toHaveLength(1);
+        expect(notices.filter((notice) => notice.status === 'cancelled')).toHaveLength(1);
+        // both requests answer with the one payment
+        expect(JSON.parse(first.body).notice.id).toBe(active[0].id);
+        expect(JSON.parse(second.body).notice.id).toBe(active[0].id);
+        expect(historyEntries()).toHaveLength(1);
+      });
+
+      it('does not report a failure the user could retry when the payment is not recorded in time', async () => {
+        RECORDED_PAYMENT_POLL.attempts = 2;
+        const stored = useNoticeStore({ concurrent: true });
+        paymentIntentsCreate.mockRejectedValue(
+          Object.assign(new Error('Keys for idempotent requests can only be used with the same parameters'), {
+            type: 'StripeIdempotencyError',
+          })
+        );
+
+        await expect(postCard()).rejects.toMatchObject({
+          message: expect.stringContaining('already being processed'),
+        });
+        expect([...stored.values()].map((notice) => notice.status)).toEqual(['cancelled']);
+      });
     });
 
     it('links an activated notice through reconcile when the claim appeared after the charge', async () => {

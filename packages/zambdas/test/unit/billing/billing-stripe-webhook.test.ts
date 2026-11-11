@@ -1069,6 +1069,51 @@ describe('billing-stripe-webhook charges the EHR reserved a notice for', () => {
     ]);
   });
 
+  it('activates the reservation the charge names, not another one stored for the same payment', async () => {
+    const loser = { ...reservation(), id: 'pn-loser', status: 'cancelled' } as PaymentNotice;
+    const winner = { ...reservation(), id: 'pn-winner' };
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [loser, winner]);
+
+    await performEffect(oystehr, {
+      event: makeEvent(
+        'charge.succeeded',
+        ehrCharge({
+          metadata: {
+            oystehr_encounter_id: 'enc-1',
+            oystehr_ehr_payment_id: EHR_PAYMENT_ID,
+            oystehr_ehr_payment_notice_id: 'pn-winner',
+          },
+        })
+      ),
+      secrets,
+    });
+
+    expect(refreshedNotices(transaction).map((notice) => [notice.id, notice.status])).toEqual([
+      ['pn-winner', 'active'],
+    ]);
+  });
+
+  it('asks for redelivery when the reservation the charge names is not found', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]]);
+
+    await expect(
+      performEffect(oystehr, {
+        event: makeEvent(
+          'charge.succeeded',
+          ehrCharge({
+            metadata: {
+              oystehr_encounter_id: 'enc-1',
+              oystehr_ehr_payment_id: EHR_PAYMENT_ID,
+              oystehr_ehr_payment_notice_id: 'pn-missing',
+            },
+          })
+        ),
+        secrets,
+      })
+    ).rejects.toBeInstanceOf(EhrPaymentReservationNotFoundError);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('never creates a notice for a charge whose reservation is not found, asking for redelivery', async () => {
     const { oystehr, transaction } = makeOystehr([[claim]]);
 
