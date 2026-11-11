@@ -134,10 +134,22 @@ describe('ImmunizationTimeline', () => {
     const pcv = screen.getByTestId('immunization-lane-pcv');
     const next = within(pcv).getByRole('button', { name: /^PCV.* dose 2 \(next\)$/ });
     expect(next).toHaveTextContent('2');
-    expect(next).toHaveStyle({ border: '2px dashed #8A96A3', backgroundColor: '#fff', zIndex: '3' });
+    expect(next).toHaveStyle({
+      border: '2px dashed #7A8794',
+      backgroundColor: '#fff',
+      color: '#4A5561',
+      fontWeight: '600',
+      zIndex: '3',
+    });
     const later = within(pcv).getByRole('button', { name: /^PCV.* dose 3 \(projected\)$/ });
     expect(later).toHaveTextContent('3');
-    expect(later).toHaveStyle({ border: '2px dashed #8A96A3', backgroundColor: '#fff', zIndex: '3' });
+    expect(later).toHaveStyle({
+      border: '2px dashed #7A8794',
+      backgroundColor: '#fff',
+      color: '#4A5561',
+      fontWeight: '600',
+      zIndex: '3',
+    });
     // given-dose dots stay distinct: filled navy, under the numbers
     expect(within(pcv).getByRole('button', { name: /dose 1$/ })).not.toHaveStyle({ backgroundColor: '#fff' });
   });
@@ -178,6 +190,7 @@ describe('ImmunizationTimeline', () => {
       'When it was due',
       'Given here',
       'Outside',
+      'Not given yet',
       'Allowed but early',
       'Recommended',
       'Past due',
@@ -185,6 +198,18 @@ describe('ImmunizationTimeline', () => {
     ]);
     fireEvent.click(screen.getByLabelText('Show windows for given doses'));
     expect(screen.queryByText(/When it was due/)).not.toBeInTheDocument();
+  });
+
+  it('fills given doses (navy here, light blue outside) and leaves doses not given yet dashed', () => {
+    render(<ImmunizationTimelineContainer patientId="maya" />);
+    const hepb = screen.getByTestId('immunization-lane-hepb');
+    expect(within(hepb).getByRole('button', { name: 'Hep B dose 1' })).toHaveStyle({
+      border: '2px solid #A9BCD9',
+      backgroundColor: '#A9BCD9',
+    });
+    const here = within(screen.getByTestId('immunization-lane-pcv')).getByRole('button', { name: /dose 1$/ });
+    expect(here).toHaveStyle({ borderStyle: 'solid' });
+    expect(here).not.toHaveStyle({ backgroundColor: '#A9BCD9' });
   });
 
   it('renders one lane per vaccine group with its status icon, doses, undated dose and mark', async () => {

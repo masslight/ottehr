@@ -184,6 +184,11 @@ const CHIP_COLORS: Record<ImmunizationGroupStatus, { bg: string; text: string; b
 
 const NEXT_ORANGE = '#F0A04B';
 const PROJECTED_GRAY = '#8A96A3';
+/** A dose not given yet (next or projected): a dashed circle, darker than the outline bars so its number reads. */
+const FUTURE_CIRCLE_BORDER = '#7A8794';
+const FUTURE_CIRCLE_TEXT = '#4A5561';
+/** A dose given outside: filled like one given here, in a light navy tint. */
+const OUTSIDE_FILL = '#A9BCD9';
 const EARLIEST_STRIPES = 'repeating-linear-gradient(45deg, #A9B4C0 0 3px, #EEF1F4 3px 7px)';
 const SEGMENT_STYLE: Record<
   TimelineSegment['kind'],
@@ -313,11 +318,18 @@ const Dose = ({
           borderRadius: '50%',
           fontSize: 10,
           fontWeight: 600,
-          border: `2px ${outside ? 'dashed' : 'solid'} ${
-            late ? theme.palette.error.main : dose.counted ? theme.palette.primary.dark : theme.palette.text.disabled
+          // filled = given (navy here, light blue outside); a not-counted dose is a gray outline
+          border: `2px solid ${
+            late
+              ? theme.palette.error.main
+              : !dose.counted
+              ? theme.palette.text.disabled
+              : outside
+              ? OUTSIDE_FILL
+              : theme.palette.primary.dark
           }`,
-          bgcolor: outside || !dose.counted ? '#fff' : theme.palette.primary.dark,
-          color: outside ? theme.palette.primary.dark : dose.counted ? '#fff' : theme.palette.text.secondary,
+          bgcolor: !dose.counted ? '#fff' : outside ? OUTSIDE_FILL : theme.palette.primary.dark,
+          color: !dose.counted ? theme.palette.text.secondary : outside ? theme.palette.primary.dark : '#fff',
           boxShadow: selected ? `0 0 0 3px ${theme.palette.primary.light}` : 'none',
           zIndex: 2,
         }}
@@ -361,9 +373,9 @@ const DoseNumber = ({
         fontSize: 10,
         fontWeight: 600,
         boxSizing: 'border-box',
-        border: `2px dashed ${PROJECTED_GRAY}`,
+        border: `2px dashed ${FUTURE_CIRCLE_BORDER}`,
         bgcolor: '#fff',
-        color: PROJECTED_GRAY,
+        color: FUTURE_CIRCLE_TEXT,
         opacity: dim ? 0.45 : 1,
         zIndex: 3,
       }}
@@ -839,15 +851,23 @@ export const ImmunizationTimeline = ({
             [
               <LegendSwatch
                 key="o"
+                sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: OUTSIDE_FILL, boxSizing: 'border-box' }}
+              />,
+              'Outside',
+            ],
+            [
+              <LegendSwatch
+                key="n"
                 sx={{
                   width: 14,
                   height: 14,
                   borderRadius: '50%',
                   bgcolor: '#fff',
-                  border: `2px dashed ${theme.palette.primary.dark}`,
+                  border: `2px dashed ${FUTURE_CIRCLE_BORDER}`,
+                  boxSizing: 'border-box',
                 }}
               />,
-              'Outside',
+              'Not given yet',
             ],
             [
               <LegendSwatch
