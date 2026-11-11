@@ -324,7 +324,10 @@ All in `packages/zambdas`, read-only against Oystehr, `<env>` is a file in `conf
 |---|---|
 | `npm run adhoc-bench-compare -- <env> [days] [layers] [rounds]` | checks the old code out in a temporary worktree, runs the encounters fetch in both, alternately on the same range; prints the time of each and whether the rows are identical (and which columns differ). Both get network retries and no 13-minute budget; a run over the budget is flagged |
 | `npx tsx src/scripts/adhoc-bench.ts <env> <start> <end> <layers> <out.json>` | the current code only: time, rows, settings used; the log has the `encounters timing` line |
+| `npm run adhoc-bench-reports -- <env> [ranges] [reports]` | three typical reports fetched three ways (this version, ideal searches, Report Studio from a worktree of its branch); time, requests, errors, whether the result matches the ideal one, where the time went |
 | `npm run adhoc-m0-spike -- <env> [days]` | compares each root window and a by-id search with an exact count; prints `MISSING` on any loss |
+
+Comparison of this version with hand-written ideal searches and Report Studio on three typical reports: [adhoc-bench-reports.md](adhoc-bench-reports.md).
 
 Measured on local (encounters dataset with codes, vitals, medications, labs, signing; server-side fetch only):
 
