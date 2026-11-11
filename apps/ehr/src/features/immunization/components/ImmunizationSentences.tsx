@@ -190,8 +190,9 @@ interface OutsideImmunizationSentencesProps
 }
 
 /** A dose administered externally, on the same line: "[vaccine] administered externally × on [date given] at [where],
- * from [source]", plus the lot and manufacturer when known. The × turns it back into an order line. Saved straight
- * into the history: no order, no stock, no billing. */
+ * from [source]", plus the lot and manufacturer (by MVX, as on an order line) when known. The × turns it back into an
+ * order line. Saved straight into the history: no order, no stock, no billing, so the lot is typed, never picked
+ * from inventory. */
 const OutsideImmunizationSentences: FC<OutsideImmunizationSentencesProps> = ({
   line,
   index,
@@ -207,7 +208,7 @@ const OutsideImmunizationSentences: FC<OutsideImmunizationSentencesProps> = ({
   const updateOutside = (patch: OutsideDoseValues): void => onChange({ ...line, outside: { ...outside, ...patch } });
   // The lot sentence is offered as a link, like the instructions, and stays once opened or filled.
   const [lotOpen, setLotOpen] = useState(false);
-  const lotShown = lotOpen || !!administrationDetails.lot || !!details.manufacturer;
+  const lotShown = lotOpen || !!administrationDetails.lot || !!details.manufacturer || !!administrationDetails.mvx;
 
   return (
     <Box sx={{ ...LINE_SX, borderColor: 'text.disabled' }} data-testid={dataTestIds.orderVaccinePage.outsideLine}>
@@ -269,11 +270,21 @@ const OutsideImmunizationSentences: FC<OutsideImmunizationSentencesProps> = ({
             dataTestId={dataTestIds.orderVaccinePage.outsideLot}
           />
           , made by{' '}
-          <TextBlank
-            label="manufacturer"
-            value={details.manufacturer}
-            onChange={(manufacturer) => onChange({ ...line, details: { ...details, manufacturer } })}
+          <SelectBlank
+            label="manufacturer (MVX)"
+            title="Manufacturer"
+            options={MVX_OPTIONS}
+            value={administrationDetails.mvx || undefined}
+            onChange={(mvx) =>
+              onChange({
+                ...line,
+                details: { ...details, manufacturer: getMvxManufacturer(mvx ?? undefined)?.name },
+                administrationDetails: { ...administrationDetails, mvx: mvx ?? '' },
+              })
+            }
             readOnly={readOnly}
+            clearable
+            verbatim
             dataTestId={dataTestIds.orderVaccinePage.manufacturer}
           />
           .
@@ -285,7 +296,7 @@ const OutsideImmunizationSentences: FC<OutsideImmunizationSentencesProps> = ({
                 onChange({
                   ...line,
                   details: { ...details, manufacturer: '' },
-                  administrationDetails: { ...administrationDetails, lot: '' },
+                  administrationDetails: { ...administrationDetails, lot: '', mvx: '' },
                 });
               }}
             />
