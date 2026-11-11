@@ -23,7 +23,12 @@ export const filterLabOptions = (
     location.enabledLabs.flatMap(({ labGuid, labName }) => (labGuid && labName ? [{ labGuid, labName }] : []))
   );
   const labsInOptions = options.map((option) => option.lab);
-  const candidateLabs = [...new Map([...configuredLabs, ...labsInOptions].map((lab) => [lab.labName, lab])).values()];
+  // dedupe on guid and name together:
+  // two labs can share a name with different guids (theoretically, in practice I haven't seen this happen)
+  // generic labs share a guid with different names, and every one of them has to stay matchable
+  const candidateLabs = [
+    ...new Map([...configuredLabs, ...labsInOptions].map((lab) => [`${lab.labGuid}|${lab.labName}`, lab])).values(),
+  ];
   const { testSearch, matchedLabs } = parseLabSearch(state.inputValue, candidateLabs);
   if (!matchedLabs.length) return defaultLabOptionsFilter(options, state);
 

@@ -91,6 +91,17 @@ describe('filterLabOptions', () => {
     ]);
   });
 
+  it('keeps every lab sharing the named lab name, even with different guids', () => {
+    const otherQuest = { labGuid: 'quest-guid-2', labName: QUEST.labName };
+    const otherQuestTsh = makeOption('TSH', '1101', otherQuest);
+    const orderingLocations = [locationWithLabs(QUEST, otherQuest, LABCORP)];
+
+    expect(filterLabOptions([questTsh, otherQuestTsh, labCorpTsh], stateFor('TSH quest'), orderingLocations)).toEqual([
+      questTsh,
+      otherQuestTsh,
+    ]);
+  });
+
   it('narrows static compendium results to the named generic lab', () => {
     const acme = { labGuid: STATIC_COMPENDIUM_LAB_GUID, labName: 'Acme Labs' };
     const beta = { labGuid: STATIC_COMPENDIUM_LAB_GUID, labName: 'Beta Labs' };
