@@ -1,4 +1,4 @@
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import CheckIcon from '@mui/icons-material/Check';
 import {
   Box,
   Button,
@@ -8,7 +8,10 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControlLabel,
+  ListItemIcon,
+  ListSubheader,
   Menu,
   MenuItem,
   Paper,
@@ -45,7 +48,7 @@ import {
   givenDoseWindowSegments,
   lastProjectedMonths,
   markHistoryText,
-  markRecordedText,
+  markText,
   nextDoseSegments,
   projectedDoseSegments,
   projectedDoseText,
@@ -80,7 +83,92 @@ const MARK_OPTIONS: { value: ImmunizationMarkType; label: string }[] = [
   { value: 'contraindicated', label: 'Contraindicated' },
   { value: 'declined', label: 'Declined' },
 ];
-const MARK_ICONS: Record<ImmunizationMarkType, string> = { immune: '✓', contraindicated: '⚠', declined: '⊘' };
+/** The lane's status icon: a 22px circle with a glyph (shapes and colors from the approved mockup). */
+const ICON_GLYPHS = {
+  check: <path d="M9.5 15.6 6 12.1l1.4-1.4 2.1 2.1 5.1-5.1 1.4 1.4z" fill="currentColor" />,
+  clock: <path d="M12 7v5.2l3.4 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />,
+  bang: <path d="M11 7h2v6h-2zm0 8h2v2h-2z" fill="currentColor" />,
+  dash: <path d="M8 11h8v2H8z" fill="currentColor" />,
+  block: <path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />,
+  warn: (
+    <path
+      transform="translate(12 12) scale(.72) translate(-12 -12.5)"
+      d="M12 6 5.5 17.5h13zM11.2 10h1.6v4h-1.6zm0 5h1.6v1.4h-1.6z"
+      fill="currentColor"
+      fillRule="evenodd"
+    />
+  ),
+  shield: (
+    <path
+      transform="translate(12 12) scale(.8) translate(-12 -11.75)"
+      d="M12 5.5 7 7.5v4c0 3 2.1 5.6 5 6.5 2.9-.9 5-3.5 5-6.5v-4z"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    />
+  ),
+};
+const STATUS_ICONS: Record<
+  ImmunizationGroupStatus,
+  { glyph: keyof typeof ICON_GLYPHS; fg: string; ring: string; fill: string; tip: string }
+> = {
+  uptodate: {
+    glyph: 'check',
+    fg: '#2E7D32',
+    ring: '#2E7D32',
+    fill: '#fff',
+    tip: 'Up to date: the doses due so far are done; more come later.',
+  },
+  complete: { glyph: 'check', fg: '#fff', ring: '#2E7D32', fill: '#2E7D32', tip: 'Complete: the series is done.' },
+  due: {
+    glyph: 'clock',
+    fg: '#fff',
+    ring: '#E8A04A',
+    fill: '#E8A04A',
+    tip: 'Due today: the next dose is in its recommended period.',
+  },
+  pastdue: { glyph: 'bang', fg: '#fff', ring: '#D32F2F', fill: '#D32F2F', tip: 'Past due: the next dose is overdue.' },
+  notyet: {
+    glyph: 'clock',
+    fg: '#9AA4AE',
+    ring: '#9AA4AE',
+    fill: '#fff',
+    tip: 'Not yet due: the first or next dose is later.',
+  },
+  notroutine: {
+    glyph: 'dash',
+    fg: '#9AA4AE',
+    ring: '#C5CCD3',
+    fill: '#fff',
+    tip: 'Not routine: aged out or not routinely recommended.',
+  },
+  declined: { glyph: 'block', fg: '#616161', ring: '#616161', fill: '#fff', tip: 'Declined' },
+  contraindicated: { glyph: 'warn', fg: '#C62828', ring: '#C62828', fill: '#fff', tip: 'Contraindicated' },
+  immune: { glyph: 'shield', fg: '#2E7D32', ring: '#2E7D32', fill: '#fff', tip: 'Immune' },
+};
+const ICON_SIZE = 22;
+/** The key's order: the statuses, then the exceptions. */
+const ICON_KEY: ImmunizationGroupStatus[] = [
+  'uptodate',
+  'complete',
+  'due',
+  'pastdue',
+  'notyet',
+  'notroutine',
+  'declined',
+  'contraindicated',
+  'immune',
+];
+
+const StatusIcon = ({ status }: { status: ImmunizationGroupStatus }): ReactElement => {
+  const icon = STATUS_ICONS[status];
+  return (
+    <svg viewBox="0 0 24 24" width={ICON_SIZE} height={ICON_SIZE} aria-hidden="true" style={{ display: 'block' }}>
+      <circle cx="12" cy="12" r="10" fill={icon.fill} stroke={icon.ring} strokeWidth="1.6" />
+      <g style={{ color: icon.fg }}>{ICON_GLYPHS[icon.glyph]}</g>
+    </svg>
+  );
+};
 
 const CHIP_COLORS: Record<ImmunizationGroupStatus, { bg: string; text: string; border?: string }> = {
   complete: { bg: '#C8E6C9', text: '#1B5E20' },
@@ -111,7 +199,11 @@ const SEGMENT_STYLE: Record<
   'projected-pastdue': { top: 11, height: 12, background: 'transparent', border: '1.5px solid #E57373' },
 };
 const LATE_WINDOW_BACKGROUND = '#F3DADA';
-const LABEL_WIDTH = 380;
+/** The frozen left column: status icon + vaccine name. */
+const LABEL_WIDTH = 170;
+/** The plot's minimum width: a base plus some per year of the range, so long ranges scroll instead of squeezing. */
+const PLOT_MIN_WIDTH = 480;
+const PLOT_WIDTH_PER_YEAR = 24;
 /** Room left of age 0, so a birth dose's circle clears the lane's Mark button. */
 const PLOT_INSET = 16;
 
@@ -281,6 +373,49 @@ const DoseNumber = ({
   </Tooltip>
 );
 
+/**
+ * The lane's status, or its exception when one is set, as an icon left of the vaccine name. Clicking it opens the
+ * exception menu; Complete (and a read-only timeline) shows a plain icon.
+ */
+const LaneStatusIcon = ({
+  group,
+  mark,
+  clickable,
+  busy,
+  onClick,
+}: {
+  group: ImmunizationGroupForecast;
+  mark: ImmunizationMark | undefined;
+  clickable: boolean;
+  busy?: boolean;
+  onClick: (anchor: HTMLElement) => void;
+}): ReactElement => {
+  const shown = mark?.mark ?? group.status;
+  const what = mark ? markText(mark) : STATUS_ICONS[shown].tip;
+  const tip = clickable
+    ? `${what}${mark ? '.' : ''} ${mark ? 'Click to change or clear.' : 'Click to add an exception.'}`
+    : what;
+  return (
+    <Tooltip title={tip} placement="top">
+      {clickable ? (
+        <ButtonBase
+          aria-label={`Exception for ${group.label}`}
+          aria-haspopup="menu"
+          disabled={busy}
+          onClick={(event) => onClick(event.currentTarget)}
+          sx={{ flex: 'none', borderRadius: '50%', '&.Mui-focusVisible': { outline: '2px solid #2169F5' } }}
+        >
+          <StatusIcon status={shown} />
+        </ButtonBase>
+      ) : (
+        <Box component="span" role="img" tabIndex={0} aria-label={`${group.label}: ${what}`} sx={{ flex: 'none' }}>
+          <StatusIcon status={shown} />
+        </Box>
+      )}
+    </Tooltip>
+  );
+};
+
 const sourceLabel = (record: PatientImmunizationRecord): string =>
   IMMUNIZATION_OUTSIDE_SOURCES.find((source) => source.value === record.source)?.label ??
   IMMUNIZATION_SOURCE_UNSPECIFIED.label;
@@ -425,16 +560,22 @@ export const ImmunizationTimeline = ({
     );
   };
 
+  // Frozen like a spreadsheet's first column: stays put, opaque and above the bars, while the plot scrolls sideways.
   const laneLabelSx = {
     width: LABEL_WIDTH,
     flex: 'none',
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1fr) 136px 72px',
+    display: 'flex',
     alignItems: 'center',
-    columnGap: 1,
+    gap: 1,
     py: 0.25,
-    pr: 1.25,
-  };
+    pr: 1,
+    position: 'sticky',
+    left: 0,
+    zIndex: 4,
+    bgcolor: theme.palette.background.paper,
+    borderRight: `1px solid ${theme.palette.divider}`,
+  } as const;
+  const menuMark = menu ? activeMark(marks, menu.group.group) : undefined;
 
   return (
     <Stack spacing={1.5}>
@@ -462,236 +603,221 @@ export const ImmunizationTimeline = ({
       </Stack>
 
       <Paper variant="outlined" sx={{ px: 2, pt: 1, pb: 1.5 }}>
-        <Box sx={{ display: 'flex' }}>
-          <Box sx={laneLabelSx} />
-          <Box sx={{ flex: 1, position: 'relative', height: 40, ml: `${PLOT_INSET}px` }}>
-            {ticks.map((tick) => (
-              <Typography
-                key={tick.months}
-                variant="caption"
-                color="text.secondary"
-                sx={{ position: 'absolute', top: 18, left: `${x(tick.months)}%`, transform: 'translateX(-50%)' }}
-              >
-                {tick.label}
-              </Typography>
-            ))}
-            {todayVisible && (
-              <Typography
-                variant="caption"
-                color="primary"
-                sx={{
-                  // above the age scale, so it hides no tick label
-                  position: 'absolute',
-                  top: 0,
-                  left: `${x(todayMonths)}%`,
-                  transform: 'translateX(-50%)',
-                  fontWeight: 600,
-                  bgcolor: '#fff',
-                  px: 0.5,
-                }}
-              >
-                Today
-              </Typography>
-            )}
-          </Box>
-        </Box>
-
-        {forecast.groups.map((group) => {
-          const mark = activeMark(marks, group.group);
-          const dim = group.status === 'declined';
-          const nextSegments = nextDoseSegments(group, dob, forecast.asOf, maxMonths);
-          const nextLabelAt = doseLabelMonths(nextSegments);
-          const laterDoses = (projections?.[group.group] ?? []).map((projected) => {
-            const segments = projectedDoseSegments(projected, group.label, dob, maxMonths);
-            return { projected, segments, labelAt: doseLabelMonths(segments) };
-          });
-          const undated = group.doses.find((dose) => !dose.date);
-          return (
-            <Box
-              key={group.group}
-              sx={{ display: 'flex', alignItems: 'stretch', minHeight: 36 }}
-              data-testid={`immunization-lane-${group.group}`}
-            >
-              <Box sx={laneLabelSx}>
-                <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                  <ButtonBase
-                    onClick={() => setSelection({ kind: 'lane', group: group.group })}
-                    sx={{ justifyContent: 'flex-start', textAlign: 'left', fontSize: 13, fontWeight: 500 }}
-                  >
-                    {group.label}
-                  </ButtonBase>
-                  {mark && (
-                    <Typography variant="caption" color="text.secondary" noWrap>
-                      {markRecordedText(mark)}
-                    </Typography>
-                  )}
-                </Box>
-                <Box>
-                  <StatusChip status={group.status} />
-                </Box>
-                <Box>
-                  {!readOnly &&
-                    (mark ? (
-                      <Button size="small" disabled={busy} onClick={() => onClear(mark.id)}>
-                        Clear
-                      </Button>
-                    ) : (
-                      <Button
-                        size="small"
-                        disabled={busy}
-                        endIcon={<ArrowDropDownIcon />}
-                        aria-haspopup="menu"
-                        aria-label={`Exception for ${group.label}`}
-                        onClick={(event) => setMenu({ group, anchor: event.currentTarget })}
-                      >
-                        Exception
-                      </Button>
-                    ))}
-                </Box>
-              </Box>
-
-              <Box
-                sx={{
-                  flex: 1,
-                  position: 'relative',
-                  ml: `${PLOT_INSET}px`,
-                  borderBottom: `1px solid ${theme.palette.divider}`,
-                }}
-              >
+        <Box sx={{ overflowX: 'auto' }} data-testid="immunization-timeline-scroll">
+          <Box sx={{ minWidth: LABEL_WIDTH + PLOT_INSET + PLOT_MIN_WIDTH + (PLOT_WIDTH_PER_YEAR * maxMonths) / 12 }}>
+            <Box sx={{ display: 'flex' }}>
+              <Box sx={laneLabelSx} />
+              <Box sx={{ flex: 1, position: 'relative', height: 40, ml: `${PLOT_INSET}px` }}>
                 {ticks.map((tick) => (
-                  <Box
+                  <Typography
                     key={tick.months}
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      bottom: 0,
-                      width: 1,
-                      left: `${x(tick.months)}%`,
-                      bgcolor: '#F4F6F8',
-                    }}
-                  />
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ position: 'absolute', top: 18, left: `${x(tick.months)}%`, transform: 'translateX(-50%)' }}
+                  >
+                    {tick.label}
+                  </Typography>
                 ))}
                 {todayVisible && (
-                  <Box
+                  <Typography
+                    variant="caption"
+                    color="primary"
                     sx={{
+                      // above the age scale, so it hides no tick label
                       position: 'absolute',
                       top: 0,
-                      bottom: 0,
-                      width: 2,
                       left: `${x(todayMonths)}%`,
-                      bgcolor: theme.palette.primary.main,
-                      opacity: 0.5,
-                    }}
-                  />
-                )}
-                {nextSegments.map((segment) => (
-                  <Segment
-                    key={segment.kind}
-                    segment={segment}
-                    maxMonths={maxMonths}
-                    dim={dim}
-                    onClick={() => setSelection({ kind: 'next', group: group.group })}
-                  />
-                ))}
-                {laterDoses.flatMap(({ projected, segments }) =>
-                  segments.map((segment) => (
-                    <Segment
-                      key={`projected-${projected.n}-${segment.kind}`}
-                      segment={segment}
-                      maxMonths={maxMonths}
-                      dim={dim}
-                      onClick={() => setSelection({ kind: 'projected', group: group.group, n: projected.n })}
-                    />
-                  ))
-                )}
-                {showWindows &&
-                  group.doses.flatMap((dose) =>
-                    givenDoseWindowSegments(dose, dob, maxMonths, group.label).map((segment) => (
-                      <Segment key={`${dose.id}-${segment.kind}`} segment={segment} maxMonths={maxMonths} />
-                    ))
-                  )}
-                {group.doses
-                  .filter((dose) => dose.date && ageInMonths(dob, dose.date) <= maxMonths)
-                  .map((dose) => (
-                    <Dose
-                      key={dose.id}
-                      dose={dose}
-                      laneLabel={group.label}
-                      record={recordsById.get(dose.id)}
-                      left={x(ageInMonths(dob, dose.date!))}
-                      selected={selection?.kind === 'dose' && selection.id === dose.id}
-                      details={detailsFor({ kind: 'dose', group: group.group, id: dose.id })}
-                      onClick={() => setSelection({ kind: 'dose', group: group.group, id: dose.id })}
-                    />
-                  ))}
-                {group.next && nextLabelAt !== null && (
-                  <DoseNumber
-                    n={group.next.n}
-                    label={`${group.label} dose ${group.next.n} (next)`}
-                    details={detailsFor({ kind: 'next', group: group.group })}
-                    left={x(nextLabelAt)}
-                    dim={dim}
-                    onClick={() => setSelection({ kind: 'next', group: group.group })}
-                  />
-                )}
-                {laterDoses.map(({ projected, labelAt }) =>
-                  labelAt === null ? null : (
-                    <DoseNumber
-                      key={`projected-${projected.n}-number`}
-                      n={projected.n}
-                      label={`${group.label} dose ${projected.n} (projected)`}
-                      details={detailsFor({ kind: 'projected', group: group.group, n: projected.n })}
-                      left={x(labelAt)}
-                      dim={dim}
-                      onClick={() => setSelection({ kind: 'projected', group: group.group, n: projected.n })}
-                    />
-                  )
-                )}
-                {undated && (
-                  <ButtonBase
-                    onClick={() => setSelection({ kind: 'dose', group: group.group, id: undated.id })}
-                    sx={{
-                      position: 'absolute',
-                      right: 4,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      fontSize: 11,
-                      color: 'text.secondary',
+                      transform: 'translateX(-50%)',
+                      fontWeight: 600,
                       bgcolor: '#fff',
                       px: 0.5,
                     }}
                   >
-                    Outside · Date unknown · not counted
-                  </ButtonBase>
-                )}
-                {mark && (
-                  <ButtonBase
-                    onClick={() => setSelection({ kind: 'lane', group: group.group })}
-                    title={markHistoryText(marks, group.group)}
-                    aria-label={`${group.label} exception`}
-                    sx={{
-                      position: 'absolute',
-                      top: 7,
-                      left: `${x(ageInMonths(dob, mark.markedAt))}%`,
-                      transform: 'translateX(-50%)',
-                      width: 20,
-                      height: 20,
-                      borderRadius: 1,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      bgcolor: '#fff',
-                      border: `1px solid ${mark.mark === 'contraindicated' ? '#EF9A9A' : '#BFC2C6'}`,
-                      color: mark.mark === 'contraindicated' ? theme.palette.error.main : theme.palette.text.secondary,
-                      zIndex: 2,
-                    }}
-                  >
-                    {MARK_ICONS[mark.mark]}
-                  </ButtonBase>
+                    Today
+                  </Typography>
                 )}
               </Box>
             </Box>
-          );
-        })}
+
+            {forecast.groups.map((group) => {
+              const mark = activeMark(marks, group.group);
+              const dim = group.status === 'declined';
+              const nextSegments = nextDoseSegments(group, dob, forecast.asOf, maxMonths);
+              const nextLabelAt = doseLabelMonths(nextSegments);
+              const laterDoses = (projections?.[group.group] ?? []).map((projected) => {
+                const segments = projectedDoseSegments(projected, group.label, dob, maxMonths);
+                return { projected, segments, labelAt: doseLabelMonths(segments) };
+              });
+              const undated = group.doses.find((dose) => !dose.date);
+              return (
+                <Box
+                  key={group.group}
+                  sx={{ display: 'flex', alignItems: 'stretch', minHeight: 36 }}
+                  data-testid={`immunization-lane-${group.group}`}
+                >
+                  <Box sx={laneLabelSx}>
+                    <LaneStatusIcon
+                      group={group}
+                      mark={mark}
+                      clickable={!readOnly && group.status !== 'complete'}
+                      busy={busy}
+                      onClick={(anchor) => setMenu({ group, anchor })}
+                    />
+                    <ButtonBase
+                      onClick={() => setSelection({ kind: 'lane', group: group.group })}
+                      sx={{
+                        minWidth: 0,
+                        justifyContent: 'flex-start',
+                        textAlign: 'left',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        display: 'block',
+                      }}
+                    >
+                      {group.label}
+                    </ButtonBase>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      flex: 1,
+                      position: 'relative',
+                      ml: `${PLOT_INSET}px`,
+                      borderBottom: `1px solid ${theme.palette.divider}`,
+                    }}
+                  >
+                    {ticks.map((tick) => (
+                      <Box
+                        key={tick.months}
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          bottom: 0,
+                          width: 1,
+                          left: `${x(tick.months)}%`,
+                          bgcolor: '#F4F6F8',
+                        }}
+                      />
+                    ))}
+                    {todayVisible && (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          bottom: 0,
+                          width: 2,
+                          left: `${x(todayMonths)}%`,
+                          bgcolor: theme.palette.primary.main,
+                          opacity: 0.5,
+                        }}
+                      />
+                    )}
+                    {nextSegments.map((segment) => (
+                      <Segment
+                        key={segment.kind}
+                        segment={segment}
+                        maxMonths={maxMonths}
+                        dim={dim}
+                        onClick={() => setSelection({ kind: 'next', group: group.group })}
+                      />
+                    ))}
+                    {laterDoses.flatMap(({ projected, segments }) =>
+                      segments.map((segment) => (
+                        <Segment
+                          key={`projected-${projected.n}-${segment.kind}`}
+                          segment={segment}
+                          maxMonths={maxMonths}
+                          dim={dim}
+                          onClick={() => setSelection({ kind: 'projected', group: group.group, n: projected.n })}
+                        />
+                      ))
+                    )}
+                    {showWindows &&
+                      group.doses.flatMap((dose) =>
+                        givenDoseWindowSegments(dose, dob, maxMonths, group.label).map((segment) => (
+                          <Segment key={`${dose.id}-${segment.kind}`} segment={segment} maxMonths={maxMonths} />
+                        ))
+                      )}
+                    {group.doses
+                      .filter((dose) => dose.date && ageInMonths(dob, dose.date) <= maxMonths)
+                      .map((dose) => (
+                        <Dose
+                          key={dose.id}
+                          dose={dose}
+                          laneLabel={group.label}
+                          record={recordsById.get(dose.id)}
+                          left={x(ageInMonths(dob, dose.date!))}
+                          selected={selection?.kind === 'dose' && selection.id === dose.id}
+                          details={detailsFor({ kind: 'dose', group: group.group, id: dose.id })}
+                          onClick={() => setSelection({ kind: 'dose', group: group.group, id: dose.id })}
+                        />
+                      ))}
+                    {group.next && nextLabelAt !== null && (
+                      <DoseNumber
+                        n={group.next.n}
+                        label={`${group.label} dose ${group.next.n} (next)`}
+                        details={detailsFor({ kind: 'next', group: group.group })}
+                        left={x(nextLabelAt)}
+                        dim={dim}
+                        onClick={() => setSelection({ kind: 'next', group: group.group })}
+                      />
+                    )}
+                    {laterDoses.map(({ projected, labelAt }) =>
+                      labelAt === null ? null : (
+                        <DoseNumber
+                          key={`projected-${projected.n}-number`}
+                          n={projected.n}
+                          label={`${group.label} dose ${projected.n} (projected)`}
+                          details={detailsFor({ kind: 'projected', group: group.group, n: projected.n })}
+                          left={x(labelAt)}
+                          dim={dim}
+                          onClick={() => setSelection({ kind: 'projected', group: group.group, n: projected.n })}
+                        />
+                      )
+                    )}
+                    {undated && (
+                      <ButtonBase
+                        onClick={() => setSelection({ kind: 'dose', group: group.group, id: undated.id })}
+                        sx={{
+                          position: 'absolute',
+                          right: 4,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          fontSize: 11,
+                          color: 'text.secondary',
+                          bgcolor: '#fff',
+                          px: 0.5,
+                        }}
+                      >
+                        Outside · Date unknown · not counted
+                      </ButtonBase>
+                    )}
+                    {mark && (
+                      <ButtonBase
+                        onClick={() => setSelection({ kind: 'lane', group: group.group })}
+                        title={markHistoryText(marks, group.group)}
+                        aria-label={`${group.label} exception`}
+                        sx={{
+                          position: 'absolute',
+                          top: 6,
+                          left: `${x(ageInMonths(dob, mark.markedAt))}%`,
+                          transform: 'translateX(-50%)',
+                          borderRadius: '50%',
+                          zIndex: 2,
+                        }}
+                      >
+                        <StatusIcon status={mark.mark} />
+                      </ButtonBase>
+                    )}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
 
         <Stack direction="row" flexWrap="wrap" useFlexGap spacing={2} sx={{ mt: 1.25, alignItems: 'center' }}>
           {[
@@ -747,14 +873,6 @@ export const ImmunizationTimeline = ({
                   ],
                 ]
               : []),
-            [<span key="d">{MARK_ICONS.declined}</span>, 'Declined'],
-            [
-              <span key="c" style={{ color: theme.palette.error.main }}>
-                {MARK_ICONS.contraindicated}
-              </span>,
-              'Contraindicated',
-            ],
-            [<span key="i">{MARK_ICONS.immune}</span>, 'Immune'],
           ].map(([swatch, label]) => (
             <Typography
               key={String(label)}
@@ -763,6 +881,26 @@ export const ImmunizationTimeline = ({
               sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
             >
               {swatch} {label}
+            </Typography>
+          ))}
+        </Stack>
+
+        <Stack
+          direction="row"
+          flexWrap="wrap"
+          useFlexGap
+          spacing={2}
+          sx={{ mt: 0.75, alignItems: 'center' }}
+          data-testid="immunization-status-key"
+        >
+          {ICON_KEY.map((status) => (
+            <Typography
+              key={status}
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
+            >
+              <StatusIcon status={status} /> {STATUS_LABELS[status]}
             </Typography>
           ))}
         </Stack>
@@ -785,11 +923,27 @@ export const ImmunizationTimeline = ({
       </Paper>
 
       <Menu open={menu !== null} anchorEl={menu?.anchor} onClose={() => setMenu(null)}>
+        <ListSubheader sx={{ lineHeight: '28px' }}>Exception</ListSubheader>
         {MARK_OPTIONS.map((option) => (
           <MenuItem key={option.value} onClick={() => openDialog(option.value)}>
+            <ListItemIcon>
+              {menuMark?.mark === option.value && <CheckIcon fontSize="small" color="primary" />}
+            </ListItemIcon>
             {option.label}
           </MenuItem>
         ))}
+        {menuMark && <Divider />}
+        {menuMark && (
+          <MenuItem
+            onClick={() => {
+              onClear(menuMark.id);
+              setMenu(null);
+            }}
+          >
+            <ListItemIcon />
+            Clear
+          </MenuItem>
+        )}
       </Menu>
 
       <Dialog open={dialog !== null} onClose={() => setDialog(null)} fullWidth maxWidth="xs">

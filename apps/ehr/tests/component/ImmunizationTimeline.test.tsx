@@ -160,17 +160,24 @@ describe('ImmunizationTimeline', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent(/Earliest: .* · Recommended: .* · Past due:/);
   });
 
-  it('renders one lane per vaccine group with its status, doses, undated dose and mark', () => {
+  it('renders one lane per vaccine group with its status icon, doses, undated dose and mark', async () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
     for (const group of fixture.forecast.groups) {
       expect(screen.getByTestId(`immunization-lane-${group.group}`)).toBeInTheDocument();
     }
     const dtap = screen.getByTestId('immunization-lane-dtap');
     expect(within(dtap).getByRole('button', { name: 'DTaP/Tdap/Td dose 1' })).toBeInTheDocument();
-    expect(within(dtap).getByText('Due today')).toBeInTheDocument();
-    const rota = screen.getByTestId('immunization-lane-rota');
-    expect(within(rota).getByText('Declined')).toBeInTheDocument();
-    expect(within(rota).getByText(/· recorded by J\. Nurse/)).toBeInTheDocument();
+    fireEvent.mouseOver(within(dtap).getByRole('button', { name: 'Exception for DTaP/Tdap/Td' }));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'Due today: the next dose is in its recommended period. Click to add an exception.'
+    );
+    // a lane with an exception shows it, with who recorded it
+    fireEvent.mouseOver(
+      within(screen.getByTestId('immunization-lane-rota')).getByRole('button', { name: 'Exception for Rotavirus' })
+    );
+    expect(
+      await screen.findByText(/^Declined 11\/10\/2026 · recorded by J\. Nurse\. Click to change or clear\.$/)
+    ).toBeInTheDocument();
     expect(
       within(screen.getByTestId('immunization-lane-mmr')).getByText('Outside · Date unknown · not counted')
     ).toBeInTheDocument();
@@ -218,16 +225,50 @@ describe('ImmunizationTimeline', () => {
     });
   });
 
-  it('Clear clears the active mark through the hook', () => {
+  it('the exception menu checks the current exception and offers Clear, which clears it through the hook', () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
-    fireEvent.click(within(screen.getByTestId('immunization-lane-rota')).getByRole('button', { name: 'Clear' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Exception for Rotavirus' }));
+    const menu = screen.getByRole('menu');
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent)
+    ).toEqual(['Immune', 'Contraindicated', 'Declined', 'Clear']);
+    expect(
+      within(within(menu).getByRole('menuitem', { name: 'Declined' })).getByTestId('CheckIcon')
+    ).toBeInTheDocument();
+    expect(within(within(menu).getByRole('menuitem', { name: 'Immune' })).queryByTestId('CheckIcon')).toBeNull();
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Clear' }));
     expect(clearMutate).toHaveBeenCalledWith({ markId: 'mark-rota' });
+  });
+
+  it('keys all nine icons and freezes the icon + name column while the plot scrolls sideways', () => {
+    render(<ImmunizationTimelineContainer patientId="maya" />);
+    const key = screen.getByTestId('immunization-status-key');
+    expect(key.querySelectorAll('svg')).toHaveLength(9);
+    for (const label of [
+      'Up to date',
+      'Complete',
+      'Due today',
+      'Past due',
+      'Not yet due',
+      'Not routine',
+      'Declined',
+      'Contraindicated',
+      'Immune',
+    ]) {
+      expect(within(key).getByText(new RegExp(`^\\s*${label}$`))).toBeInTheDocument();
+    }
+    expect(screen.getByTestId('immunization-timeline-scroll')).toHaveStyle({ overflowX: 'auto' });
+    const icon = screen.getByRole('button', { name: 'Exception for PCV' });
+    expect(icon.parentElement).toHaveStyle({ position: 'sticky', left: '0px', zIndex: '4', width: '170px' });
+    expect(icon.nextElementSibling).toHaveTextContent(/^PCV/);
   });
 
   it('hides Exception and Clear in a read-only context', () => {
     render(<ImmunizationTimelineContainer patientId="maya" readOnly />);
     expect(screen.queryByRole('button', { name: /^Exception for / })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('img', { name: /^Rotavirus: Declined/ }).length).toBe(1);
     expect(screen.getByTestId('immunization-lane-rota')).toBeInTheDocument();
   });
 });
