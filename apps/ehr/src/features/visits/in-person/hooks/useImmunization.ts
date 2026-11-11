@@ -131,7 +131,7 @@ export const useGetVaccines = (): UseQueryResult<Vaccine[], Error> => {
   });
 };
 
-const GET_PATIENT_IMMUNIZATIONS_KEY = 'get-patient-immunizations';
+export const GET_PATIENT_IMMUNIZATIONS_KEY = 'get-patient-immunizations';
 
 /** The patient's Immunization records: doses given here and outside, and the per-vaccine marks. */
 export const useGetPatientImmunizations = (
