@@ -192,6 +192,8 @@ export interface PatientImmunizationRecord {
   administeredBy?: ImmunizationActor;
   place?: string;
   source?: ImmunizationOutsideSource | 'unspecified';
+  /** The CDC NIP001 code behind `source` ('04' = recall), as the forecast engine reads it. */
+  sourceCode?: string;
   lot?: string;
   expirationDate?: string;
   manufacturer?: string;

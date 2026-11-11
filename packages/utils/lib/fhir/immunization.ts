@@ -274,6 +274,10 @@ export function immunizationToRecord(immunization: Immunization): PatientImmuniz
     administeredBy: performerActor(immunization, IMMUNIZATION_ADMINISTERING_PROVIDER_CODE),
     place: immunization.location?.display,
     source: outside ? sourceFromReportOrigin(immunization) ?? 'unspecified' : undefined,
+    sourceCode: outside
+      ? getCoding(immunization.reportOrigin, IMMUNIZATION_INFORMATION_SOURCE_SYSTEM)?.code ??
+        IMMUNIZATION_SOURCE_UNSPECIFIED.code
+      : undefined,
     lot: immunization.lotNumber,
     expirationDate: immunization.expirationDate,
     manufacturer: immunization.manufacturer?.display,

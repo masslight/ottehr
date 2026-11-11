@@ -256,12 +256,19 @@ describe('outside doses', () => {
     expect(undated.reportOrigin).toMatchObject({ coding: [{ code: '01' }], text: 'source unspecified' });
 
     const record = immunizationToRecord({ ...undated, id: 'imm-2' });
-    expect(record).toMatchObject({ outside: true, dateUnknown: true, dateGiven: undefined, source: 'unspecified' });
+    expect(record).toMatchObject({
+      outside: true,
+      dateUnknown: true,
+      dateGiven: undefined,
+      source: 'unspecified',
+      sourceCode: '01',
+    });
     expect(immunizationToRecord({ ...dated, id: 'imm-3' })).toMatchObject({
       outside: true,
       dateGiven: '2026-03-02',
       place: 'Mercy Pediatrics',
       source: 'written-record',
+      sourceCode: '03',
     });
   });
 });
