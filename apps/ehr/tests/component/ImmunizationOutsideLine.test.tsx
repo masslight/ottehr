@@ -15,6 +15,11 @@ vi.mock('src/features/immunization/hooks/useImmunizationDiagnosisOptions', () =>
 vi.mock('src/components/input/EmployeeSelectInput', () => ({
   useEmployeeOptions: () => ({ options: [], isLoading: false }),
 }));
+vi.mock('src/features/immunization/hooks/useVaccineInventory', () => ({
+  useVfcEligibility: () => ({ data: undefined, isLoading: false }),
+  useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useVaccineLotsOnHand: () => ({ data: [] }),
+}));
 vi.mock('src/components/input/CptCodesInput', () => ({
   CptCodesInput: () => <div data-testid="cpt-codes-input" />,
 }));

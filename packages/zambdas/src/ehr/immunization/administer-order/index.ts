@@ -31,6 +31,7 @@ import {
   CreateUpdateImmunizationOrderResponse,
   ImmunizationEmergencyContact,
 } from 'utils/lib/types/data/immunization/types';
+import { cptCodesToBillForDose } from 'utils/lib/types/data/immunization/vfc';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, fillMeta, validateJsonBody } from '../../../shared/helpers';
@@ -49,6 +50,7 @@ import {
   validateOrderDetails,
 } from '../common';
 import { immunizationSyncRequest } from '../records';
+import { applyVaccineDoseFunding, fillVfcEligibilityFromVisit, syncVaccineStockAndBorrowing } from '../vaccine-stock';
 
 let m2mToken: string;
 
@@ -141,6 +143,8 @@ export async function administerImmunizationOrder(
   }
 
   updateVaccineMedicationDetails(medication, administrationDetails);
+  await fillVfcEligibilityFromVisit(oystehr, medicationAdministration, administrationDetails);
+  applyVaccineDoseFunding(medicationAdministration, administrationDetails);
 
   const transactionRequests: BatchInputRequest<FhirResource>[] = [
     {
@@ -174,9 +178,16 @@ export async function administerImmunizationOrder(
   const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
   console.log('Transaction result: ', JSON.stringify(transactionResult));
 
-  // Add CPT codes to chart data (assessment) on administration
+  // The dose comes off its inventory lot (or goes back), and a borrowed VFC dose is logged.
+  await syncVaccineStockAndBorrowing(oystehr, medicationAdministration, `Practitioner/${userPractitioner.id}`);
+
+  // Add CPT codes to chart data (assessment) on administration. A dose from VFC or state stock bills only the
+  // administration codes: the vaccine itself was supplied free.
   if (['administered', 'administered-partly'].includes(input.type)) {
-    const cptCodesToAdd = administrationDetails.cptCodes ?? [];
+    const cptCodesToAdd = cptCodesToBillForDose(
+      administrationDetails.cptCodes ?? [],
+      administrationDetails.fundingSource
+    );
     if (cptCodesToAdd.length > 0) {
       const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
       const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');

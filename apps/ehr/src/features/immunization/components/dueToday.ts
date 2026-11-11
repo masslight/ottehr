@@ -169,23 +169,25 @@ export const isVaccineAdded = (vaccine: StockedVaccine, lines: ImmunizationFormV
 
 /**
  * What ⊕ fills (option B): a vaccine with one quick pick fills the whole line from it; a quick pick picked in the
- * box fills from that one; otherwise only the vaccine (and its CVX when it has just one), and the line asks.
+ * box fills from that one; otherwise only the vaccine, and the line asks. The CVX is the vaccine's own when it has
+ * just one (a quick pick carries none).
  */
 export const fillFromDueToday = <T extends ImmunizationFormValues>(
   line: T,
   vaccine: StockedVaccine,
   quickPick: ImmunizationQuickPickData | undefined = vaccine.quickPicks.length === 1 ? vaccine.quickPicks[0] : undefined
-): T =>
-  quickPick
+): T => {
+  const filled = quickPick
     ? applyImmunizationQuickPick(line, quickPick, true)
-    : {
-        ...line,
-        details: { ...line.details, medication: { id: vaccine.id, name: vaccine.name } },
-        administrationDetails: {
-          ...line.administrationDetails,
-          cvx: vaccine.cvxCodes.length === 1 ? vaccine.cvxCodes[0] : line.administrationDetails.cvx,
-        },
-      };
+    : { ...line, details: { ...line.details, medication: { id: vaccine.id, name: vaccine.name } } };
+  return {
+    ...filled,
+    administrationDetails: {
+      ...filled.administrationDetails,
+      cvx: vaccine.cvxCodes.length === 1 ? vaccine.cvxCodes[0] : filled.administrationDetails.cvx,
+    },
+  };
+};
 
 /** The fewest-shot set "Add all due" adds: each row's lead that is not on the page yet. */
 export const vaccinesToAddAll = (dueToday: DueToday, lines: ImmunizationFormValues[]): StockedVaccine[] =>

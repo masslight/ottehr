@@ -1,4 +1,5 @@
 import { ImmunizationForecast, ImmunizationGroupId } from '../../../immunization-forecast/types';
+import { VaccineFundingSource, VfcEligibilityCode } from './vfc';
 
 export interface ImmunizationOrderDetails {
   medication: {
@@ -45,6 +46,12 @@ export interface ImmunizationOrderAdministrationDetails {
   cvx: string;
   cptCodes?: ImmunizationCptCode[];
   ndc: string;
+  /** The stock the dose came from, when the lot was picked from inventory. */
+  fundingSource?: VaccineFundingSource;
+  /** The patient's VFC eligibility on the day. */
+  vfcEligibility?: VfcEligibilityCode;
+  /** Why the dose was taken from the other stock (VFC stock for a non-eligible patient or the reverse). */
+  borrowingReason?: string;
   administeredProvider: {
     id: string;
     name: string;
@@ -112,6 +119,8 @@ export interface CancelImmunizationOrderResponse {
 export interface Vaccine {
   id: string;
   name: string;
+  /** From the vaccine's catalog entry; fills the dose's CVX. */
+  cvx?: string;
 }
 
 export interface GetVaccinesResponse {

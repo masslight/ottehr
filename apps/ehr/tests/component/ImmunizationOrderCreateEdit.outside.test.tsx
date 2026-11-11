@@ -66,6 +66,11 @@ vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
   useGetImmunizationForecast: () => ({ data: undefined, isLoading: false, isError: false }),
   useGetVaccines: () => ({ data: [], isLoading: false }),
 }));
+vi.mock('../../src/features/immunization/hooks/useVaccineInventory', () => ({
+  useVfcEligibility: () => ({ data: undefined, isLoading: false }),
+  useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useVaccineLotsOnHand: () => ({ data: [] }),
+}));
 vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({ OrderHistoryTable: () => <div /> }));
 
 // Each line shows whether it is an external one, its vaccine and errors

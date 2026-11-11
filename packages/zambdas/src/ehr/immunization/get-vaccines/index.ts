@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Identifier, Medication } from 'fhir/r4b';
+import { getMedicationCvx } from 'utils/lib/fhir/medication-inventory';
 import {
   INVENTORY_VACCINE_TYPE_CODE,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
@@ -26,12 +27,19 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-/** The vaccines in the inventory by name, sorted. The search is fixed here: the request carries nothing. */
+/**
+ * The vaccines the practice has switched on in the catalog (active, with a CVX code), by name. The 26 config
+ * vaccines that predate the catalog have no CVX and are left out; old orders keep their own copy of the name.
+ * The search is fixed here: the request carries nothing.
+ */
 export async function getVaccines(oystehr: Oystehr): Promise<GetVaccinesResponse> {
   const medications = (
     await oystehr.fhir.search<Medication>({
       resourceType: 'Medication',
-      params: [{ name: 'identifier', value: INVENTORY_VACCINE_TYPE_CODE }],
+      params: [
+        { name: 'identifier', value: INVENTORY_VACCINE_TYPE_CODE },
+        { name: 'status', value: 'active' },
+      ],
     })
   ).unbundle();
   return {
@@ -40,8 +48,9 @@ export async function getVaccines(oystehr: Oystehr): Promise<GetVaccinesResponse
         const identifier = medication.identifier?.find(
           (identifier: Identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
         );
-        if (identifier?.value && medication.id) {
-          return [{ id: medication.id, name: identifier.value }];
+        const cvx = getMedicationCvx(medication);
+        if (identifier?.value && medication.id && cvx) {
+          return [{ id: medication.id, name: identifier.value, cvx }];
         }
         return [];
       })

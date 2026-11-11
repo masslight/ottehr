@@ -65,6 +65,7 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () =>
 
 vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
   useGetVaccines: () => ({ data: [], isLoading: false }),
+  useGetImmunizationForecast: () => ({ data: undefined, isLoading: false, isError: false }),
   useAdministerImmunizationOrder: () => ({ mutateAsync: vi.fn() }),
   useCancelImmunizationOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRecordOutsideImmunization: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -202,6 +203,12 @@ vi.mock('../../src/features/visits/in-person/components/medication-administratio
 
 vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({
   OrderHistoryTable: () => <div />,
+}));
+
+vi.mock('../../src/features/immunization/hooks/useVaccineInventory', () => ({
+  useVfcEligibility: () => ({ data: undefined, isLoading: false }),
+  useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useVaccineLotsOnHand: () => ({ data: [] }),
 }));
 
 vi.mock('../../src/features/immunization/components/ImmunizationSentences', () => ({

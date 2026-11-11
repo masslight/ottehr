@@ -112,6 +112,12 @@ vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({
 }));
 
 // Mock the line to expose its dose and lot
+vi.mock('../../src/features/immunization/hooks/useVaccineInventory', () => ({
+  useVfcEligibility: () => ({ data: undefined, isLoading: false }),
+  useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useVaccineLotsOnHand: () => ({ data: [] }),
+}));
+
 vi.mock('../../src/features/immunization/components/ImmunizationSentences', () => ({
   ImmunizationSectionLabel: ({ children }: any) => <h3>{children}</h3>,
   ImmunizationSentences: ({ line }: any) => (

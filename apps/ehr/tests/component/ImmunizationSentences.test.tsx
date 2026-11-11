@@ -22,6 +22,12 @@ vi.mock('src/components/input/EmployeeSelectInput', () => ({
   useEmployeeOptions: () => ({ options: [{ id: 'prov-1', name: 'Dr. Test' }], isLoading: false }),
 }));
 
+vi.mock('src/features/immunization/hooks/useVaccineInventory', () => ({
+  useVfcEligibility: () => ({ data: undefined, isLoading: false }),
+  useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useVaccineLotsOnHand: () => ({ data: [] }),
+}));
+
 vi.mock('src/components/input/CptCodesInput', () => ({
   CptCodesInput: () => <div data-testid="cpt-codes-input" />,
 }));
@@ -78,8 +84,9 @@ describe('ImmunizationSentences', () => {
     expect(isNeeded(dataTestIds.orderVaccinePage.associatedDx)).toBe(false);
     expect(isNeeded(dataTestIds.orderVaccinePage.route)).toBe(false);
     expect(isNeeded(dataTestIds.orderVaccinePage.location)).toBe(false);
-    expect(isNeeded(dataTestIds.orderVaccinePage.manufacturer)).toBe(false);
     expect(isNeeded(dataTestIds.vaccineDetailsPage.lotNumber)).toBe(false);
+    // the manufacturer is no longer typed: it comes from the lot picked from stock (or the MVX pick)
+    expect(screen.queryByTestId(dataTestIds.orderVaccinePage.manufacturer)).not.toBeInTheDocument();
   });
 
   it('picking a vaccine from the menu fills only the vaccine', async () => {
@@ -134,8 +141,9 @@ describe('ImmunizationSentences', () => {
 
     expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.lotNumber)).toHaveValue('L-42');
     expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.ndcCode)).toHaveValue('00006-4681-00');
-    expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.cvxCode)).toHaveValue('03');
-    expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.mvxCode)).toHaveValue('MSD');
+    // the CVX is the vaccine's own and reads as text; the manufacturer is picked by MVX and shows its name
+    expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.cvxCode)).toHaveTextContent('03');
+    expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.mvxCode)).toHaveTextContent('Merck and Co., Inc. (MSD)');
     expect(screen.getByRole('heading', { name: 'Administration' })).toBeInTheDocument();
   });
 });

@@ -62,7 +62,9 @@ import {
 } from '../components/immunizationLines';
 import { ImmunizationSectionLabel, ImmunizationSentences } from '../components/ImmunizationSentences';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
+import { VfcEligibilityBox } from '../components/VfcEligibilityBox';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
+import { useVfcEligibility } from '../hooks/useVaccineInventory';
 
 // Layout from the eRx order form: the side column sits beside the form once the page is wide enough.
 const SIDE_COLUMN_WIDTH = 340;
@@ -100,11 +102,14 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const { id: appointmentId, orderId: orderIdFromUrl } = useParams();
   const orderId = orderIdProp ?? orderIdFromUrl;
   const {
-    resources: { encounter, patient },
+    resources: { encounter, patient, location },
   } = useAppointmentData(appointmentId);
 
   const isCreating = !orderId;
   const encounterId = encounter?.id ?? '';
+  // The lot list puts the patient's stock first once eligibility is confirmed for the visit.
+  const vfcEligibility = useVfcEligibility(encounterId || undefined).data?.confirmed?.code;
+  const patientFirstName = patient?.firstName;
 
   const { setDraft, clearDraft, hasDraft, getDraft } = useImmunizationOrderStore();
   const draft = getDraft(encounterId);
@@ -374,6 +379,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
           >
             <AccordionCard>
               <Stack spacing={1.5} style={{ padding: '24px' }}>
+                <VfcEligibilityBox encounterId={encounterId || undefined} variant="strip" readOnly={isReadOnly} />
                 <ImmunizationSectionLabel>Immunizations</ImmunizationSectionLabel>
                 {isCreating && <CoverageStrip coverage={coverage} />}
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -400,6 +406,9 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                       onSaveQuickPick={isAdmin && !line.outside ? () => openSaveQuickPickDialog(line) : undefined}
                       errors={orderAttempted ? lineErrors(line) : []}
                       readOnly={isReadOnly}
+                      locationId={location?.id}
+                      vfcEligibility={vfcEligibility}
+                      patientFirstName={patientFirstName}
                     />
                   ))}
                 </Box>

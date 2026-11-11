@@ -61,8 +61,6 @@ export const useImmunizationQuickPickManagement = ({
       parts.push(routeName ?? route);
     }
     if (values.details?.location?.name) parts.push(values.details.location.name);
-    if (values.administrationDetails?.lot) parts.push(`lot: ${values.administrationDetails.lot}`);
-    if (values.administrationDetails?.expDate) parts.push(`exp: ${values.administrationDetails.expDate}`);
     setQuickPickName(parts.join(' | '));
     setQuickPickDialogOpen(true);
   };
@@ -84,14 +82,9 @@ export const useImmunizationQuickPickManagement = ({
         units: values.details?.units,
         route: values.details?.route,
         location: values.details?.location,
-        manufacturer: values.details?.manufacturer,
         instructions: values.details?.instructions,
-        cvx: values.administrationDetails?.cvx,
-        mvx: values.administrationDetails?.mvx,
+        // the lot, NDC, manufacturer and MVX come from the lot picked from stock, the CVX from the vaccine
         cptCodes: values.administrationDetails?.cptCodes,
-        ndc: values.administrationDetails?.ndc,
-        lot: values.administrationDetails?.lot,
-        expDate: values.administrationDetails?.expDate,
       };
 
       if (overwriteId) {

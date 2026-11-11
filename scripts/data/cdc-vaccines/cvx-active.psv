@@ -1,0 +1,103 @@
+# CDC CVX code set, VACCINES section, rows with status Active, as published at
+# https://www2a.cdc.gov/vaccines/iis/iisstandards/vaccines.asp?rpt=cvx (read 2026-11-10).
+# code|short description|full name|notes
+143|Adenovirus types 4 and 7|Adenovirus, type 4 and type 7, live, oral|This vaccine is administered as 2 tablets.
+318|Anthrax, post-exposure prophylaxis|Anthrax vaccine, adsorbed, adjuvanted, post-exposure prophylaxis|National stockpile vaccine (Cyfendus)
+24|Anthrax, pre-exposure prophylaxis, post-exposure prophylaxis|Anthrax vaccine, adsorbed, pre-exposure and post-exposure prophylaxis|
+19|BCG|Bacillus Calmette-Guerin vaccine|
+317|Chikungunya live attenuated vaccine, 0.5 mL, PF|Chikungunya, live attenuated vaccine, 0.5 mL, preservative free|
+329|Chikungunya Vaccine|Chikungunya, virus-like particle (VLP), recombinant vaccine, 0.8 mL, preservative free|
+174|cholera, live attenuated|cholera, live attenuated|
+334|COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 10 mcg/0.2 mL dose|Moderna monovalent new formulation mNEXSPIKE, starting Fall 2025, ages 12 yrs and older, BLA
+311|COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 25 mcg/0.25 mL dose|Moderna Fall Seasonal 6 months through 11 years of age
+312|COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, 50 mcg/0.5 mL dose|Moderna Fall Seasonal 12 years and older
+310|COVID-19, mRNA, LNP-S, PF, tris-sucrose, 10 mcg/0.3 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, tris-sucrose, 10 mcg/0.3 mL dose|Pfizer Fall Seasonal 5 years through 11 years of age
+309|COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL|SARS-COV-2 (COVID-19) vaccine, mRNA, spike protein, LNP, preservative free, tris-sucrose, 30 mcg/0.3 mL dose|Pfizer Fall Seasonal 12 years and older
+313|COVID-19, subunit, rS-nanoparticle, adjuvanted, PF, 5 mcg/0.5 mL|SARS-COV-2 (COVID-19) vaccine, subunit, recombinant spike protein-nanoparticle+Matrix-M1 Adjuvant, preservative free, 5 mcg/0.5 mL dose|Novavax Fall Seasonal 12 years and older
+56|dengue fever tetravalent|dengue fever vaccine, tetravalent|Applies to tetravalent product (e.g. DENGVAXIA)
+20|DTaP|diphtheria, tetanus toxoids and acellular pertussis vaccine|
+106|DTaP, 5 pertussis antigens|diphtheria, tetanus toxoids and acellular pertussis vaccine, 5 pertussis antigens|
+146|DTaP,IPV,Hib,HepB|Diphtheria and Tetanus Toxoids and Acellular Pertussis Adsorbed, Inactivated Poliovirus, Haemophilus b Conjugate (Meningococcal Protein Conjugate), and Hepatitis B (Recombinant) Vaccine.|This vaccine is different from CVX 132.
+110|DTaP-Hep B-IPV|DTaP-hepatitis B and poliovirus vaccine|
+120|DTaP-Hib-IPV|diphtheria, tetanus toxoids and acellular pertussis vaccine, Haemophilus influenzae type b conjugate, and poliovirus vaccine, inactivated (DTaP-Hib-IPV)|
+130|DTaP-IPV|Diphtheria, tetanus toxoids and acellular pertussis vaccine, and poliovirus vaccine, inactivated|
+204|Ebola Zaire vaccine, live, recombinant, 1mL dose|Ebola Zaire vaccine, live, recombinant, 1mL dose|FDA Approved ERVEBO Vaccine.
+52|Hep A, adult|hepatitis A vaccine, adult dosage|
+83|Hep A, ped/adol, 2 dose|hepatitis A vaccine, pediatric/adolescent dosage, 2 dose schedule|
+104|Hep A-Hep B|hepatitis A and hepatitis B vaccine|
+08|Hep B, adolescent or pediatric|hepatitis B vaccine, pediatric or pediatric/adolescent dosage|Any standard pediatric formulation of Hepatitis B vaccine. Use code 43 for the 2-dose adolescent schedule.
+43|Hep B, adult|hepatitis B vaccine, adult dosage|Any standard adult dose and schedule, including the Recombivax HB 2-dose adolescent schedule.
+44|Hep B, high-dosage, dialysis or IC|Hepatitis B vaccine (Hep B), high-dosage, dialysis or immunocompromised patient|
+189|HepB-CpG|Hepatitis B vaccine (recombinant), CpG adjuvanted|
+49|Hib (PRP-OMP)|Haemophilus influenzae type b vaccine, PRP-OMP conjugate|
+48|Hib (PRP-T)|Haemophilus influenzae type b vaccine, PRP-T conjugate|
+62|HPV, quadrivalent|human papilloma virus vaccine, quadrivalent|
+165|HPV9|Human Papillomavirus 9-valent vaccine|
+160|Influenza A monovalent (H5N1), ADJUVANTED-2013|Influenza A monovalent (H5N1), adjuvanted, National stockpile 2013|National stockpile
+205|Influenza, adjuvanted, quadrivalent, PF|Influenza, adjuvanted, inactivated, quadrivalent, injectable, preservative free|
+168|Influenza, adjuvanted, trivalent, PF|Influenza, adjuvanted, inactivated, trivalent, injectable, preservative free|
+197|Influenza, high-dose, quadrivalent, PF|Influenza, high-dose, split virus, quadrivalent, injectable, preservative free|
+135|Influenza, high-dose, trivalent, PF|Influenza, high-dose, split virus, trivalent, injectable, preservative free|
+161|Influenza, injectable, quadrivalent, preservative free, pediatric|Influenza, injectable, quadrivalent, preservative free, pediatric|
+149|Influenza, live, quadrivalent, intranasal|Influenza, live, quadrivalent, intranasal|
+111|Influenza, live, trivalent, intranasal, PF|Influenza, live, trivalent, intranasal, preservative free|HCP administered
+333|Influenza, live, trivalent, intranasal, self/caregiver admin, PF|Influenza, live, trivalent, intranasal, self or caregiver administered, preservative free|Self or caregiver administered
+171|Influenza, MDCK, quadrivalent, PF|Influenza, Madin Darby Canine Kidney, subunit, quadrivalent, injectable, preservative free|
+186|Influenza, MDCK, quadrivalent, preservative|Influenza, Madin Darby Canine Kidney, subunit, quadrivalent, injectable, contains preservative|
+153|Influenza, MDCK, trivalent, PF|Influenza, Madin Darby Canine Kidney, subunit, trivalent, injectable, preservative free|
+320|Influenza, MDCK, trivalent, preservative|Influenza, Madin Darby Canine Kidney, subunit, trivalent, injectable, contains preservative|
+338|Influenza, mRNA, trivalent, PF|Influenza, mRNA lipid nanoparticle, trivalent, injectable, 0.38 mL dose, preservative-free|FDA approved 08/05/2026, starting with the 2026/2027 season
+185|Influenza, recombinant, quadrivalent, PF|Influenza, recombinant, quadrivalent, injectable, preservative free|
+155|Influenza, recombinant, trivalent, PF|Influenza, recombinant, trivalent, injectable, preservative free|
+231|influenza, Southern Hemisphere, high-dose, quadrivalent|influenza, seasonal, Southern Hemisphere, high-dose, quadrivalent, 0.7mL dose, preservative free|Southern Hemisphere
+337|Influenza, Southern Hemisphere, high-dose, trivalent, PF|Influenza, Southern Hemisphere, high-dose, split virus, trivalent, 0.5 mL, injectable, preservative free|Southern Hemisphere
+200|influenza, Southern Hemisphere, pediatric, preservative free|influenza, seasonal, Southern Hemisphere, quadrivalent, pediatric 0.25mL dose, preservative free|Southern Hemisphere
+201|Influenza, Southern Hemisphere, quadrivalent, PF|Influenza, seasonal, Southern Hemisphere, quadrivalent, 0.5 mL dose, preservative free|Southern Hemisphere
+202|influenza, Southern Hemisphere, quadrivalent, with preservative|influenza, seasonal, Southern Hemisphere, quadrivalent, 0.5mL dose, with preservative|Southern Hemisphere
+331|Influenza, Southern Hemisphere, trivalent, PF|Influenza, seasonal, Southern Hemisphere, trivalent, 0.5 mL dose, preservative free|Southern Hemisphere
+150|Influenza, split virus, quadrivalent, PF|Influenza, split virus, quadrivalent, injectable, preservative free|
+158|Influenza, split virus, quadrivalent, preservative|Influenza, split virus, quadrivalent, injectable, contains preservative|
+140|Influenza, split virus, trivalent, PF|Influenza, split virus, trivalent, injectable, preservative free|
+141|Influenza, split virus, trivalent, preservative|Influenza, split virus, trivalent, injectable, contains preservative|
+321|Influenza-avian, H5N8, monovalent, PF|Influenza-avian, H5N8, viral-vector, monovalent, injectable, preservative free|Novel Bird Flu H5N8 Vaccine 2024
+322|Influenza-avian, H5N8, monovalent, preservative|Influenza-avian, H5N8, viral-vector, monovalent, injectable, contains preservative|Novel Bird Flu H5N8 Vaccine 2024
+10|IPV|poliovirus vaccine, inactivated|
+134|Japanese Encephalitis IM|Japanese Encephalitis vaccine for intramuscular administration|
+163|meningococcal B, OMV|meningococcal B vaccine, recombinant, OMV, adjuvanted|
+162|meningococcal B, recombinant|meningococcal B vaccine, fully recombinant|
+203|meningococcal conjugate quadrivalent, MenACWY-TT (MCV4)|meningococcal polysaccharide (groups A, C, Y, W-135) tetanus toxoid conjugate vaccine 0.5mL dose, preservative free|
+136|Meningococcal MCV4O|meningococcal oligosaccharide (groups A, C, Y and W-135) diphtheria toxoid conjugate vaccine (MCV4O)|
+114|meningococcal MCV4P|meningococcal polysaccharide (groups A, C, Y and W-135) diphtheria toxoid conjugate vaccine (MCV4P)|
+328|Meningococcal oligosaccharide (MenACWY), (MenB), PF|Meningococcal oligosaccharide conjugated (groups A, C, W, Y) and group B, 0.5 mL, preservative free|Meningococcal pentavalent vaccine strains ABCW and Y
+316|Meningococcal polysaccharide (MenACWY-TT conjugate), (MenB), PF|Meningococcal polysaccharide (groups A, C, Y, W) tetanus toxoid conjugate, meningococcal B recombinant vaccine, 0.5mL, preservative free|Meningococcal pentavalent vaccine strains ABCW and Y
+03|MMR|measles, mumps and rubella virus vaccine|
+94|MMRV|measles, mumps, rubella, and varicella virus vaccine|
+133|Pneumococcal conjugate PCV 13|pneumococcal conjugate vaccine, 13 valent|
+215|Pneumococcal conjugate PCV15, polysaccharide CRM197 conjugate, adjuvant, PF|Pneumococcal conjugate vaccine 15-valent (PCV15), polysaccharide CRM197 conjugate, adjuvant, preservative free|
+216|Pneumococcal conjugate PCV20, polysaccharide CRM197 conjugate, adjuvant, PF|Pneumococcal conjugate vaccine 20-valent (PCV20), polysaccharide CRM197 conjugate, adjuvant, preservative free|
+327|Pneumococcal conjugate PCV21, polysaccharide CRM197 conjugate, PF|Pneumococcal conjugate vaccine, 21 valent (PCV21), polysaccharide CRM197 conjugate, preservative free|
+33|pneumococcal polysaccharide PPV23|pneumococcal polysaccharide vaccine, 23 valent|
+175|Rabies - IM Diploid cell culture|Human Rabies vaccine from human diploid cell culture|
+176|Rabies - IM fibroblast culture|Human rabies vaccine from Chicken fibroblast culture|
+119|rotavirus, monovalent|rotavirus, live, monovalent vaccine|
+116|rotavirus, pentavalent|rotavirus, live, pentavalent vaccine|
+305|RSV, bivalent, protein subunit RSVpreF, diluent reconstituted, 0.5 mL, PF|Respiratory syncytial virus (RSV), vaccine, bivalent, protein subunit RSV prefusion F, diluent reconstituted, 0.5 mL, preservative free|Adults 60 years and older, pregnant individuals
+332|RSV, mAb, clesrovimab-cfor, 0.7 mL, neonate and infant, PF|Respiratory syncytial virus (RSV), monoclonal antibody, IgG1κ, (clesrovimab-cfor), 0.7 mL, neonate and infant, preservative free|RSV mAb for neonates and infants (Enflonsia)
+306|RSV, mAb, nirsevimab-alip, 0.5 mL, neonate to 24 months|Respiratory syncytial virus (RSV) monoclonal antibody, IgG1κ, (nirsevimab-alip), 0.5 mL, neonates and children to 24 months|RSV monoclonal antibody (Beyfortus)
+307|RSV, mAb, nirsevimab-alip, 1 mL, neonate to 24 months|Respiratory syncytial virus (RSV) monoclonal antibody, IgG1κ, (nirsevimab-alip), 1 mL, neonates and children to 24 months|RSV monoclonal antibody (Beyfortus)
+326|RSV, mRNA, injectable, PF|Respiratory syncytial virus (RSV), mRNA, injectable, preservative free|mRNA RSV vaccine added 2024
+303|RSV, recombinant, protein subunit RSVpreF, adjuvant reconstituted, 0.5 mL, PF|Respiratory syncytial virus (RSV), vaccine, recombinant, protein subunit RSV prefusion F, adjuvant reconstituted, 0.5 mL, preservative free|Adults 60 years and older
+09|Td (adult), 2 Lf tetanus toxoid, preservative free, adsorbed|tetanus and diphtheria toxoids, adsorbed, preservative free, for adult use (2 Lf of tetanus toxoid and 2 Lf of diphtheria toxoid)|
+113|Td (adult), 5 Lf tetanus toxoid, preservative free, adsorbed|tetanus and diphtheria toxoids, adsorbed, preservative free, for adult use (5 Lf of tetanus toxoid and 2 Lf of diphtheria toxoid)|
+196|Td, adsorbed, preservative free, adult use, Lf unspecified|tetanus and diphtheria toxoids, adsorbed, preservative free, for adult use, Lf unspecified|Used when Td Lf specification is unknown
+115|Tdap|tetanus toxoid, reduced diphtheria toxoid, and acellular pertussis vaccine, adsorbed|
+223|Tick-borne encephalitis, inactivated, PF, 0.25mL|Tick-borne encephalitis vaccine, inactivated, preservative free, 0.25mL dose|Pediatric dose vaccine
+224|Tick-borne encephalitis, inactivated, PF, 0.5mL|Tick-borne encephalitis vaccine, inactivated, preservative free, 0.5mL dose|Adult dose vaccine
+25|typhoid, oral|typhoid vaccine, live, oral|
+101|typhoid, ViCPs|typhoid Vi capsular polysaccharide vaccine|
+75|Vaccinia (smallpox, monkeypox), live|Vaccinia (smallpox, monkeypox) vaccine, live|
+206|Vaccinia, smallpox monkeypox vaccine live, PF, SQ or ID injection|Vaccinia, smallpox monkeypox vaccine, live attenuated, preservative free, subcutaneous or intradermal injection|JYNNEOS
+21|varicella|varicella virus vaccine|
+37|yellow fever live|yellow fever vaccine live|
+183|Yellow fever vaccine live - alt|Yellow fever vaccine live - alternative formulation for vaccine shortage|FDA unapproved drug for use during a shortage
+187|zoster recombinant|zoster vaccine recombinant|

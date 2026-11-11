@@ -31,16 +31,20 @@ import Loading from 'src/components/Loading';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from 'src/hooks/useEvolveUser';
+import { getCatalogMedicationType } from 'utils/lib/fhir/medication-inventory';
+import { CatalogMedicationType } from 'utils/lib/types/api/config/in-house-medications';
 import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
 import { RoleType } from 'utils/lib/types/api/user.types';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
+type TypeFilter = 'all' | CatalogMedicationType;
 
 interface PageState {
   pageNumber: number;
   rowsPerPage: number;
   searchText: string;
   statusFilter: StatusFilter;
+  typeFilter: TypeFilter;
 }
 
 export default function MedicationsConfigurationPage(): ReactElement {
@@ -52,6 +56,7 @@ export default function MedicationsConfigurationPage(): ReactElement {
     rowsPerPage: 10,
     searchText: '',
     statusFilter: 'active',
+    typeFilter: 'all',
   });
   const handlePageStateChange = useCallback((newPageState: Partial<PageState>): void => {
     setPageState((prev) => ({ ...prev, ...newPageState }));
@@ -78,6 +83,7 @@ export default function MedicationsConfigurationPage(): ReactElement {
         rowsPerPage={pageState.rowsPerPage}
         searchText={pageState.searchText}
         statusFilter={pageState.statusFilter}
+        typeFilter={pageState.typeFilter}
         onPageStateChange={handlePageStateChange}
         onRefresh={fetchMedications}
       />
@@ -92,6 +98,7 @@ interface MedicationsTableProps {
   rowsPerPage: number;
   searchText: string;
   statusFilter: StatusFilter;
+  typeFilter: TypeFilter;
   onPageStateChange: (newPageState: Partial<PageState>) => void;
   onRefresh: () => Promise<void>;
 }
@@ -103,6 +110,7 @@ function MedicationsTable({
   rowsPerPage,
   searchText,
   statusFilter,
+  typeFilter,
   onPageStateChange,
   onRefresh,
 }: MedicationsTableProps): ReactElement {
@@ -118,6 +126,7 @@ function MedicationsTable({
           const isActive = (medication.status ?? 'active') === 'active';
           if (statusFilter === 'active' && !isActive) return false;
           if (statusFilter === 'inactive' && isActive) return false;
+          if (typeFilter !== 'all' && getCatalogMedicationType(medication) !== typeFilter) return false;
           const name = medication.identifier?.find(
             (identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
           )?.value;
@@ -134,7 +143,7 @@ function MedicationsTable({
           b.identifier?.find((i) => i.system === MEDICATION_IDENTIFIER_NAME_SYSTEM)?.value?.toLowerCase() ?? '';
         return nameA.localeCompare(nameB);
       }),
-    [medications, searchText, statusFilter]
+    [medications, searchText, statusFilter, typeFilter]
   );
 
   const pageMedications: Medication[] = useMemo(
@@ -170,6 +179,13 @@ function MedicationsTable({
     [onPageStateChange]
   );
 
+  const handleChangeTypeFilter = useCallback(
+    (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>): void => {
+      onPageStateChange({ typeFilter: event.target.value as TypeFilter, pageNumber: 0 });
+    },
+    [onPageStateChange]
+  );
+
   const handleChangeStatusFilter = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>): void => {
       onPageStateChange({ statusFilter: event.target.value as StatusFilter, pageNumber: 0 });
@@ -200,7 +216,7 @@ function MedicationsTable({
         {currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ? (
           <Link to={`/admin/medications/add`}>
             <Button variant="contained" startIcon={<Add />}>
-              Add medication
+              Add medication or vaccine
             </Button>
           </Link>
         ) : (
@@ -226,14 +242,21 @@ function MedicationsTable({
               sx={{ width: '100%', paddingRight: 2 }}
             />
           </Grid>
-          <Grid item xs={3}>
+          <Grid item xs={2} sx={{ paddingRight: 2 }}>
+            <TextField select label="Type" value={typeFilter} onChange={handleChangeTypeFilter} fullWidth>
+              <MenuItem value="all">All types</MenuItem>
+              <MenuItem value="medication">Medications</MenuItem>
+              <MenuItem value="vaccine">Vaccines</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={2}>
             <TextField select label="Status" value={statusFilter} onChange={handleChangeStatusFilter} fullWidth>
               <MenuItem value="all">All statuses</MenuItem>
               <MenuItem value="active">Active</MenuItem>
               <MenuItem value="inactive">Inactive</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={3}>
+          <Grid item xs={2}>
             {medications === undefined && (
               <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
                 <Loading />
@@ -246,7 +269,8 @@ function MedicationsTable({
           <TableHead>
             <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', textAlign: 'left' } }}>
               <TableCell sx={{ width: '40%' }}>Name</TableCell>
-              <TableCell sx={{ width: '30%' }}>Status</TableCell>
+              <TableCell sx={{ width: '15%' }}>Type</TableCell>
+              <TableCell sx={{ width: '15%' }}>Status</TableCell>
               {isAdmin && <TableCell sx={{ width: '30%' }}>Actions</TableCell>}
             </TableRow>
           </TableHead>
@@ -272,6 +296,7 @@ function MedicationsTable({
                       {name}
                     </Link>
                   </TableCell>
+                  <TableCell>{getCatalogMedicationType(medication) === 'vaccine' ? 'Vaccine' : 'Medication'}</TableCell>
                   <TableCell>
                     <Chip
                       label={capitalize(status)}

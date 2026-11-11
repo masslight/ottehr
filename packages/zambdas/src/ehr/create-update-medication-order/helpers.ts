@@ -1,4 +1,5 @@
 import Oystehr, { TerminologySearchCptResponse, TerminologySearchHcpcsResponse } from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
 import {
@@ -9,7 +10,11 @@ import {
   searchRouteByCode,
 } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
-import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  INVENTORY_MEDICATION_TYPE_CODE,
+  INVENTORY_VACCINE_TYPE_CODE,
+  MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import {
   inHouseMedicationsMedicationApplianceRoutes,
   IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK,
@@ -20,6 +25,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.types';
 import { CPTCodeOption } from 'utils/lib/types/common';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { reconcileAdministrationStock } from '../../shared/medication-inventory';
 import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
@@ -34,10 +40,21 @@ export function createMedicationCopy(
   const resourceCopy = { ...inventoryMedication };
   delete resourceCopy.id;
   delete resourceCopy.meta;
-  // deleting identifier with code that indicates that this medication is inventory one
+  // deleting identifier with code that indicates that this medication (or vaccine) is a catalog one
   const typeIdentifierArrId =
-    resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;
-  if (typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
+    resourceCopy.identifier?.findIndex(
+      (idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE || idn.value === INVENTORY_VACCINE_TYPE_CODE
+    ) ?? -1;
+  if (typeIdentifierArrId >= 0) {
+    resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
+    // the copy keeps the catalog drug's id so inventory can find the drug without matching by name
+    if (inventoryMedication.id) {
+      resourceCopy.identifier = [
+        ...(resourceCopy.identifier ?? []),
+        { system: MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM, value: inventoryMedication.id },
+      ];
+    }
+  }
   if (newStatus !== MedicationOrderStatuses['administered-not'] && (orderData.lotNumber || orderData.expDate)) {
     resourceCopy.batch = {
       lotNumber: orderData.lotNumber || undefined,
@@ -174,6 +191,24 @@ export async function getCptHcpcsCodesToAddToChartData(
   });
 
   return codesOptionsToAdd;
+}
+
+/**
+ * Keeps the stock ledger in step with the order after it was written (requirements 4 and 5). Best-effort by
+ * design: administration is never blocked by inventory, so a failure here is logged and reported, never
+ * thrown, mirroring manageAdditionalCptCodesForOrder.
+ */
+export async function syncInventoryForOrder(oystehr: Oystehr, orderId: string, practitionerId: string): Promise<void> {
+  try {
+    const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
+      resourceType: 'MedicationAdministration',
+      id: orderId,
+    });
+    await reconcileAdministrationStock(oystehr, medicationAdministration, `Practitioner/${practitionerId}`);
+  } catch (e) {
+    console.log('Error in syncInventoryForOrder: ', e, JSON.stringify(e));
+    captureException(e);
+  }
 }
 
 export function getEncounterIdFromMA(medicationAdministration: MedicationAdministration): string | undefined {

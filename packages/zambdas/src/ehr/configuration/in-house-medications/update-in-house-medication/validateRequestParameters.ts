@@ -1,7 +1,10 @@
-import { UpdateInHouseMedicationInput } from 'utils/lib/types/api/config/in-house-medications';
+import {
+  InHouseMedicationInventorySchema,
+  UpdateInHouseMedicationInput,
+} from 'utils/lib/types/api/config/in-house-medications';
 import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../../../shared/types/common';
-import { safeJsonParse } from '../../../../shared/validation';
+import { safeJsonParse, safeValidate } from '../../../../shared/validation';
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -12,7 +15,9 @@ export function validateRequestParameters(
     throw INVALID_INPUT_ERROR('No request body provided');
   }
 
-  const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions } = safeJsonParse(input.body);
+  const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions, inventory } = safeJsonParse(
+    input.body
+  );
 
   if (!medicationID) {
     throw MISSING_REQUIRED_PARAMETERS(['medicationID']);
@@ -28,6 +33,12 @@ export function validateRequestParameters(
     }
   }
 
+  // undefined leaves the inventory setup alone and null clears it; anything else must be a full setup
+  const validatedInventory =
+    inventory === undefined || inventory === null
+      ? inventory
+      : safeValidate(InHouseMedicationInventorySchema, inventory);
+
   console.groupEnd();
   console.debug('validateRequestParameters success');
 
@@ -38,6 +49,7 @@ export function validateRequestParameters(
     ndc,
     medispanID,
     medispanIDForInteractions,
+    inventory: validatedInventory,
     secrets: input.secrets,
   };
 }

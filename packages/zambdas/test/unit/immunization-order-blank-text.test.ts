@@ -53,8 +53,8 @@ const mockOystehr = (order: MedicationAdministration): { oystehr: Oystehr; trans
   const get = vi.fn(async ({ resourceType }: { resourceType: string }) =>
     resourceType === 'MedicationAdministration' ? order : practitioner
   );
-  // the administration looks for its Immunization record before the transaction; none exists here
-  const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
+  // the Immunization record lookup, the VFC eligibility read and the stock reads all find nothing here
+  const search = vi.fn().mockResolvedValue({ unbundle: () => [], entry: [] });
   return { oystehr: { fhir: { get, search, transaction } } as unknown as Oystehr, transaction };
 };
 

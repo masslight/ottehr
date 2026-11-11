@@ -47,6 +47,8 @@ const staffNavbarItems: NavbarItems = {
 const providerNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
+  // Providers and clinicians reach the admin area for Inventory only (the sidebar hides the rest).
+  Admin: { urls: ['/admin'] },
   Tasks: { urls: ['/tasks', '/inbound-fax'] },
   Reports: { urls: ['/reports'] },
 };
