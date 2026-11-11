@@ -21,6 +21,18 @@ const mockOystehr = {
   fhir: { get: mockFhirGet, search: mockFhirSearch, patch: mockFhirPatch },
 } as unknown as Oystehr;
 
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    FEATURE_FLAGS_CONFIG: {
+      ...(actual.FEATURE_FLAGS_CONFIG as Record<string, unknown>),
+      ottehrBillingInvoicingEnabled: true,
+      automatedPatientOutreachEnabled: true,
+    },
+  };
+});
+
 vi.mock('../../../src/rcm/scheduled-outreach/producers/shared/list-outreach-stripe-accounts', () => ({
   listOutreachStripeAccounts: (...args: unknown[]) => mockListStripeAccounts(...args),
 }));
@@ -131,6 +143,8 @@ describe('produceInvoiceDueOutreach Stripe account fan-out', () => {
       // Platform ownership is recorded explicitly, not left blank
       expect.objectContaining({ focus: { reference: 'Encounter/enc-p' }, stripeAccount: 'platform' })
     );
+    // The billing-app marker is only looked up while outreach runs in the billing app.
+    expect(mockFhirSearch).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Basic' }));
   });
 
   it('does not cancel pending tasks whose open invoice lives on a connected account', async () => {
@@ -206,5 +220,40 @@ describe('produceInvoiceDueOutreach Stripe account fan-out', () => {
     expect(result.errors).toBe(0);
     expect(result.tasksCreated).toBe(0);
     expect(mockProduceOutreachTasks).not.toHaveBeenCalled();
+  });
+});
+
+describe('produceInvoiceDueOutreach with outreach in the billing app', () => {
+  it('skips visits invoiced from the billing app and keeps their pending Tasks', async () => {
+    mockListStripeAccounts.mockResolvedValue([undefined]);
+    mockInvoicesList.mockResolvedValue({
+      data: [makeInvoice('in_marked', 'enc-marked'), makeInvoice('in_ehr', 'enc-ehr')],
+      has_more: false,
+    });
+    mockFhirSearch.mockImplementation(
+      async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => ({
+        unbundle: () => {
+          if (resourceType === 'Basic') {
+            const marked = params.some((param) => param.value === 'Encounter/enc-marked');
+            return marked ? [{ resourceType: 'Basic', id: 'marker-1' }] : [];
+          }
+          return [
+            { resourceType: 'Task', id: 'task-marked', status: 'draft', focus: { reference: 'Encounter/enc-marked' } },
+          ];
+        },
+      })
+    );
+
+    const result = await produceInvoiceDueOutreach(mockOystehr, {
+      BILLING_INTEGRATION: 'ottehr',
+      INVOICING_IN_BILLING_APP: 'true',
+    } as Secrets);
+
+    expect(mockProduceOutreachTasks).toHaveBeenCalledTimes(1);
+    expect(mockProduceOutreachTasks).toHaveBeenCalledWith(
+      expect.objectContaining({ focus: { reference: 'Encounter/enc-ehr' } })
+    );
+    expect(result.tasksCancelled).toBe(0);
+    expect(mockFhirPatch).not.toHaveBeenCalled();
   });
 });

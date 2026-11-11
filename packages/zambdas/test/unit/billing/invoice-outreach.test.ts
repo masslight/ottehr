@@ -1,11 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { Invoice, PlanDefinition, Task } from 'fhir/r4b';
-import { buildBillingInvoice, withStripeInvoiceLink } from 'utils/lib/fhir/billing-invoice';
+import { DateTime } from 'luxon';
+import { buildBillingInvoice, withInvoiceUncollectible, withStripeInvoiceLink } from 'utils/lib/fhir/billing-invoice';
 import { OutreachAction } from 'utils/lib/types/api/scheduled-outreach.types';
 import { BILLING_OUTREACH_TASK_CODE_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   cancelPendingInvoiceOutreach,
+  produceBillingInvoiceDueOutreach,
   produceBillingInvoiceIssuedOutreach,
 } from '../../../src/billing/invoice-outreach';
 import {
@@ -35,34 +37,50 @@ const planDefinition = {
   ...buildPlanDefinitionFromActions([
     notification('issued-3', 'invoice-issued', 3),
     notification('due-1', 'invoice-due', 1),
+    { id: 'due-log', trigger: { event: 'invoice-due', daysAfter: 0 }, actionType: 'log' },
   ]),
   id: 'plan-1',
 } as PlanDefinition;
 
-const makeInvoice = (over: { recipient?: string; subject?: string | null; stripeAccount?: string } = {}): Invoice => {
-  const { recipient = 'Patient/billing-pat-1', subject = 'Patient/billing-pat-1', stripeAccount } = over;
+const makeInvoice = (
+  over: { id?: string; dueDate?: string; recipient?: string; subject?: string | null; stripeAccount?: string } = {}
+): Invoice => {
+  const {
+    id = 'inv-1',
+    dueDate = '2026-11-30',
+    recipient = 'Patient/billing-pat-1',
+    subject = 'Patient/billing-pat-1',
+    stripeAccount,
+  } = over;
   return {
     ...withStripeInvoiceLink(
       buildBillingInvoice({
         status: 'issued',
         date: '2026-11-02T15:00:00.000Z',
-        dueDate: '2026-11-30',
+        dueDate,
         recipient: { reference: recipient },
         subject: subject ? { reference: subject } : undefined,
         claims: [{ claimId: 'claim-1', amountCents: 9000 }],
       }),
       { stripeInvoiceId: 'in_1', stripeAccount }
     ),
-    id: 'inv-1',
+    id,
   };
 };
 
 const makeOystehr = (
-  tasks: Task[] = []
+  tasks: Task[] = [],
+  invoices: Invoice[] = [],
+  plan: PlanDefinition = planDefinition
 ): { oystehr: Oystehr; search: ReturnType<typeof vi.fn>; patch: ReturnType<typeof vi.fn>; created: Task[] } => {
   const created: Task[] = [];
+  const resultsByType: Record<string, (PlanDefinition | Task | Invoice)[]> = {
+    PlanDefinition: [plan],
+    Task: tasks,
+    Invoice: invoices,
+  };
   const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
-    unbundle: () => (resourceType === 'PlanDefinition' ? [planDefinition] : tasks),
+    unbundle: () => resultsByType[resourceType],
   }));
   const transaction = vi.fn(async ({ requests }: { requests: { resource: Task }[] }) => {
     created.push(requests[0].resource);
@@ -132,6 +150,15 @@ describe('billing invoice outreach', () => {
     expect(search).not.toHaveBeenCalled();
   });
 
+  it('schedules nothing for an invoice Stripe marked uncollectible', async () => {
+    const { oystehr, created } = makeOystehr();
+
+    const result = await produceBillingInvoiceIssuedOutreach(oystehr, withInvoiceUncollectible(makeInvoice()));
+
+    expect(result).toEqual({ created: [], skipped: [] });
+    expect(created).toHaveLength(0);
+  });
+
   it('rejects a patient invoice with no patient or no date', async () => {
     const { oystehr } = makeOystehr();
 
@@ -169,6 +196,117 @@ describe('billing invoice outreach', () => {
         { op: 'replace', path: '/status', value: 'cancelled' },
         { op: 'add', path: '/statusReason', value: { text: 'Invoice was paid' } },
       ],
+    });
+  });
+
+  describe('produceBillingInvoiceDueOutreach', () => {
+    beforeEach(() => vi.useFakeTimers({ now: new Date('2026-12-05T12:00:00Z'), toFake: ['Date'] }));
+    afterEach(() => vi.useRealTimers());
+
+    it('schedules the elapsed invoice-due action on a past-due invoice, counted from the due date', async () => {
+      const { oystehr, search, created } = makeOystehr([], [makeInvoice({ stripeAccount: 'acct_1' })]);
+
+      const result = await produceBillingInvoiceDueOutreach(oystehr);
+
+      expect(result).toEqual({ invoicesEvaluated: 1, tasksCreated: 1, tasksSkipped: 0, errors: 0 });
+      expect(search).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resourceType: 'Invoice',
+          params: expect.arrayContaining([{ name: 'status', value: 'issued' }]),
+        })
+      );
+      // due-1 is a notification, and its milestone day (Dec 1) has passed.
+      expect(created).toHaveLength(1);
+      const [task] = created;
+      expect(task.focus).toEqual({ reference: 'Invoice/inv-1' });
+      expect(task.meta?.tag).toContainEqual({ system: OUTREACH_TASK_TAG_SYSTEM, code: 'invoice-due' });
+      expect(task.code?.coding?.[0]).toMatchObject({ system: BILLING_OUTREACH_TASK_CODE_SYSTEM, code: 'log' });
+      expect(stripeAccountOf(task)).toBe('acct_1');
+      expect(new Date(task.executionPeriod!.start!).getTime()).toBe(DateTime.fromISO('2026-11-30').toMillis());
+    });
+
+    it('skips invoices not yet due, due before the cutoff, or billed to an organization', async () => {
+      const plan = { ...planDefinition, meta: { ...planDefinition.meta, lastUpdated: '2026-11-20T12:00:00Z' } };
+      const invoices = [
+        makeInvoice({ id: 'inv-future', dueDate: '2026-12-20' }),
+        makeInvoice({ id: 'inv-old', dueDate: '2026-11-10' }),
+        makeInvoice({ id: 'inv-org', recipient: 'Organization/org-1' }),
+      ];
+      const { oystehr, created } = makeOystehr([], invoices, plan);
+
+      const result = await produceBillingInvoiceDueOutreach(oystehr);
+
+      expect(result).toEqual({ invoicesEvaluated: 1, tasksCreated: 0, tasksSkipped: 0, errors: 0 });
+      expect(created).toHaveLength(0);
+    });
+
+    it('runs the actions set at 0 days on the due date, and not a later one', async () => {
+      const plan = {
+        ...buildPlanDefinitionFromActions([
+          notification('due-0-notify', 'invoice-due', 0),
+          notification('due-1-notify', 'invoice-due', 1),
+          {
+            id: 'due-0-charge',
+            trigger: { event: 'invoice-due', daysAfter: 0, timeUnit: 'days', direction: 'after' },
+            actionType: 'charge-card',
+            chargeCardConfig: {
+              retryAttempts: 3,
+              retryIntervalDays: 2,
+              onSuccess: { enabled: true, mediums: ['sms'], smsTemplate: 'Payment processed!', emailTemplate: '' },
+              onFailure: { enabled: false, mediums: [], smsTemplate: '', emailTemplate: '' },
+            },
+          },
+        ]),
+        id: 'plan-1',
+      } as PlanDefinition;
+      const dueDate = DateTime.now().toISODate()!;
+      const invoice = makeInvoice({ id: 'inv-due-today', dueDate });
+      const { oystehr, created } = makeOystehr([], [invoice], plan);
+
+      const result = await produceBillingInvoiceDueOutreach(oystehr);
+
+      expect(result).toEqual({ invoicesEvaluated: 1, tasksCreated: 2, tasksSkipped: 0, errors: 0 });
+      expect(created.map((task) => task.code?.coding?.[0]?.code).sort()).toEqual(['charge-card', 'send-notification']);
+      const actionIds = created.map(
+        (task) => task.meta?.tag?.find((tag) => tag.system === `${OUTREACH_TASK_TAG_SYSTEM}/action-id`)?.code
+      );
+      expect(actionIds.sort()).toEqual(['due-0-charge', 'due-0-notify']);
+      expect(actionIds).not.toContain('due-1-notify');
+      for (const task of created) {
+        expect(new Date(task.executionPeriod!.start!).getTime()).toBe(DateTime.fromISO(dueDate).toMillis());
+      }
+    });
+
+    it('schedules nothing for an invoice Stripe marked uncollectible', async () => {
+      const { oystehr, created } = makeOystehr([], [withInvoiceUncollectible(makeInvoice())]);
+
+      const result = await produceBillingInvoiceDueOutreach(oystehr);
+
+      expect(result).toEqual({ invoicesEvaluated: 1, tasksCreated: 0, tasksSkipped: 0, errors: 0 });
+      expect(created).toHaveLength(0);
+    });
+
+    it('counts a failed invoice and goes on with the next one', async () => {
+      const invoices = [makeInvoice({ id: 'inv-no-patient', subject: null }), makeInvoice({ id: 'inv-2' })];
+      const { oystehr, created } = makeOystehr([], invoices);
+
+      const result = await produceBillingInvoiceDueOutreach(oystehr);
+
+      expect(result).toEqual({ invoicesEvaluated: 2, tasksCreated: 1, tasksSkipped: 0, errors: 1 });
+      expect(created.map((task) => task.focus?.reference)).toEqual(['Invoice/inv-2']);
+    });
+
+    it('does not search invoices when no invoice-due action is configured', async () => {
+      const plan = {
+        ...buildPlanDefinitionFromActions([notification('issued-3', 'invoice-issued', 3)]),
+        id: 'plan-1',
+      } as PlanDefinition;
+      const { oystehr, search } = makeOystehr([], [makeInvoice()], plan);
+
+      const result = await produceBillingInvoiceDueOutreach(oystehr);
+
+      expect(result).toEqual({ invoicesEvaluated: 0, tasksCreated: 0, tasksSkipped: 0, errors: 0 });
+      expect(search).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Invoice' }));
     });
   });
 });

@@ -714,6 +714,17 @@
         "expression": "cron(0,15,30,45 * * * ? *)"
       }
     },
+    "PRODUCE-BILLING-INVOICE-DUE-OUTREACH": {
+      "name": "produce-billing-invoice-due-outreach",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "timeout": "595",
+      "src": "src/cron/produce-billing-invoice-due-outreach/index",
+      "zip": ".dist/zips/produce-billing-invoice-due-outreach.zip",
+      "schedule": {
+        "expression": "cron(0 15 * * ? *)"
+      }
+    },
     "CLEANUP-BILLING-CLAIM-EXPORTS": {
       "name": "cleanup-billing-claim-exports",
       "type": "cron",

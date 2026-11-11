@@ -23,6 +23,7 @@ export const INVOICE_CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice
 export const INVOICE_FACILITY_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-facility-id';
 export const INVOICE_DUE_DATE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-due-date';
 export const INVOICE_HOSTED_URL_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-hosted-url';
+export const INVOICE_UNCOLLECTIBLE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-uncollectible';
 export const INVOICE_NUMBER_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-number';
 export const BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('billing-invoice-idempotency-key');
 export const INVOICE_PAYMENT_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-payment';
@@ -113,6 +114,18 @@ export function withHostedInvoiceUrl(invoice: Invoice, url: string): Invoice {
 
 export const getHostedInvoiceUrl = (invoice: Invoice): string | undefined =>
   invoice.extension?.find((ext) => ext.url === INVOICE_HOSTED_URL_EXTENSION_URL)?.valueUrl;
+
+// FHIR has no uncollectible status, so the invoice stays issued and this marker tells outreach to leave it alone.
+export function withInvoiceUncollectible(invoice: Invoice): Invoice {
+  if (isInvoiceUncollectible(invoice)) return invoice;
+  return {
+    ...invoice,
+    extension: [...(invoice.extension ?? []), { url: INVOICE_UNCOLLECTIBLE_EXTENSION_URL, valueBoolean: true }],
+  };
+}
+
+export const isInvoiceUncollectible = (invoice: Invoice): boolean =>
+  invoice.extension?.find((ext) => ext.url === INVOICE_UNCOLLECTIBLE_EXTENSION_URL)?.valueBoolean === true;
 
 // The FHIR statuses billing invoices use; entered-in-error is never set.
 export const BILLING_INVOICE_STATUSES = ['draft', 'issued', 'balanced', 'cancelled'] as const;

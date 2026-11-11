@@ -5,7 +5,9 @@ import Stripe from 'stripe';
 import {
   buildBillingInvoice,
   getHostedInvoiceUrl,
+  isInvoiceUncollectible,
   STRIPE_INVOICE_ID_SYSTEM,
+  withInvoiceUncollectible,
   withStripeInvoiceLink,
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
@@ -1400,6 +1402,57 @@ describe('billing-stripe-webhook billing app invoices', () => {
       performEffect(oystehr, { event: makeEvent('invoice.paid', makeInvoice({ charge: 'ch_1' })), secrets })
     ).rejects.toBe(failure);
     expect(update.mock.calls[0][0].status).toBe('balanced');
+  });
+
+  it('marks an issued invoice uncollectible, keeps it issued and cancels pending outreach', async () => {
+    const { oystehr, update, patch } = makeInvoiceOystehr([billingInvoice('issued')], [pendingTask]);
+    const stripeInvoice = makeInvoice({ status: 'uncollectible', hosted_invoice_url: 'https://pay.test/in_1' });
+
+    await performEffect(oystehr, { event: makeEvent('invoice.marked_uncollectible', stripeInvoice), secrets });
+
+    const [saved, options] = update.mock.calls[0];
+    expect(saved.status).toBe('issued');
+    expect(isInvoiceUncollectible(saved)).toBe(true);
+    expect(getHostedInvoiceUrl(saved)).toBe('https://pay.test/in_1');
+    expect(options).toEqual({ optimisticLockingVersionId: '3' });
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was marked uncollectible'));
+  });
+
+  it('issues a draft invoice and marks it uncollectible when the send request stopped before saving its status', async () => {
+    const { oystehr, update } = makeInvoiceOystehr([billingInvoice('draft')]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.marked_uncollectible', makeInvoice({ status: 'uncollectible' })),
+      secrets,
+    });
+
+    const [saved] = update.mock.calls[0];
+    expect(saved.status).toBe('issued');
+    expect(isInvoiceUncollectible(saved)).toBe(true);
+  });
+
+  it('finishes cancelling outreach when the uncollectible event is delivered again', async () => {
+    const marked = withInvoiceUncollectible(billingInvoice('issued'));
+    const { oystehr, update, patch } = makeInvoiceOystehr([marked], [pendingTask]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.marked_uncollectible', makeInvoice({ status: 'uncollectible' })),
+      secrets,
+    });
+
+    expect(update).not.toHaveBeenCalled();
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was marked uncollectible'));
+  });
+
+  it('leaves an invoice that is already paid when a late uncollectible event arrives', async () => {
+    const { oystehr, update } = makeInvoiceOystehr([billingInvoice('balanced')]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.marked_uncollectible', makeInvoice({ status: 'uncollectible' })),
+      secrets,
+    });
+
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('skips a Stripe invoice the billing app did not create', async () => {
