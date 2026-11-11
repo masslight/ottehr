@@ -24,7 +24,7 @@ const ZAMBDA_NAME = 'save-immunization-mark';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedParameters = validateRequestParameters(input);
-  await assertImmunizationStaff(input, 'mark immunizations');
+  await assertImmunizationStaff(input, 'record immunization exceptions');
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   const recorder = await resolveCallerPractitionerRef(getUserToken(input), validatedParameters.secrets, oystehr);

@@ -164,7 +164,7 @@ export function validateImmunizationMarkInput(body: any): SaveImmunizationMarkRe
   }
   const mark = body?.mark;
   if (!mark) throw MISSING_REQUIRED_PARAMETERS(['mark']);
-  if (!(mark in IMMUNIZATION_MARKS)) throw INVALID_INPUT_ERROR(`Unknown mark "${String(mark)}"`);
+  if (!(mark in IMMUNIZATION_MARKS)) throw INVALID_INPUT_ERROR(`Unknown exception "${String(mark)}"`);
   return { patientId, vaccineGroup, mark: mark as ImmunizationMarkType, note: optionalText(body?.note, 'note') };
 }
 
@@ -200,8 +200,8 @@ export function clearImmunizationMark(
   clearedBy: Reference,
   now: DateTime = DateTime.now()
 ): Immunization {
-  if (!isImmunizationMark(mark)) throw INVALID_INPUT_ERROR('The record is not an immunization mark');
-  if (isImmunizationMarkCleared(mark)) throw INVALID_INPUT_ERROR('The mark is already cleared');
+  if (!isImmunizationMark(mark)) throw INVALID_INPUT_ERROR('The record is not an immunization exception');
+  if (isImmunizationMarkCleared(mark)) throw INVALID_INPUT_ERROR('The exception is already cleared');
   return {
     ...mark,
     extension: [

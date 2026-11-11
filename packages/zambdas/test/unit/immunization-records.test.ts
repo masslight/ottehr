@@ -322,7 +322,7 @@ describe('per-vaccine marks', () => {
       validateImmunizationMarkInput({ patientId: 'maya', vaccineGroup: 'unicorn', mark: 'declined' })
     ).toThrow(/Unknown vaccine group/);
     expect(() => validateImmunizationMarkInput({ patientId: 'maya', vaccineGroup: 'rota', mark: 'meh' })).toThrow(
-      /Unknown mark/
+      /Unknown exception/
     );
     expect(validateImmunizationMarkInput({ ...input, note: '  ' })).toEqual({ ...input, note: undefined });
   });
@@ -361,7 +361,7 @@ describe('per-vaccine marks', () => {
     expect(activeMarkForGroup([cleared], 'rota')).toBeUndefined();
     expect(() => clearImmunizationMark(cleared, doctor, later)).toThrow(/already cleared/);
     expect(() => clearImmunizationMark({ ...mark, status: 'completed' }, doctor, later)).toThrow(
-      /not an immunization mark/
+      /not an immunization exception/
     );
   });
 

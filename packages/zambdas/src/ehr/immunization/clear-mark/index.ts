@@ -16,7 +16,7 @@ const ZAMBDA_NAME = 'clear-immunization-mark';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedParameters = validateRequestParameters(input);
-  await assertImmunizationStaff(input, 'clear immunization marks');
+  await assertImmunizationStaff(input, 'clear immunization exceptions');
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   const clearedBy = await resolveCallerPractitionerRef(getUserToken(input), validatedParameters.secrets, oystehr);

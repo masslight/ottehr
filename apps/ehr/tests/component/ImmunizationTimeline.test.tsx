@@ -133,7 +133,7 @@ describe('ImmunizationTimeline', () => {
 
   it('shows the mark history, cleared marks included, when the lane is selected', () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Rotavirus mark' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rotavirus exception' }));
     expect(
       screen.getByText(
         /Declined 11\/10\/2026 · recorded by J\. Nurse; Contraindicated 09\/09\/2026 · recorded by Dr\. Patel, cleared 10\/01\/2026 by J\. Nurse/
@@ -141,9 +141,9 @@ describe('ImmunizationTimeline', () => {
     ).toBeInTheDocument();
   });
 
-  it('Mark → Declined saves the mark through the hook, with the optional note', () => {
+  it('Exception → Declined saves the mark through the hook, with the optional note', () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Mark Hep B' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Exception for Hep B' }));
     const menu = screen.getByRole('menu');
     expect(
       within(menu)
@@ -151,7 +151,7 @@ describe('ImmunizationTimeline', () => {
         .map((item) => item.textContent)
     ).toEqual(['Immune', 'Contraindicated', 'Declined']);
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Declined' }));
-    expect(screen.getByText('Mark Hep B as Declined')).toBeInTheDocument();
+    expect(screen.getByText('Hep B exception: Declined')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Note (optional)'), { target: { value: '  Parent declined  ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(saveMutate).toHaveBeenCalledWith({
@@ -168,9 +168,9 @@ describe('ImmunizationTimeline', () => {
     expect(clearMutate).toHaveBeenCalledWith({ markId: 'mark-rota' });
   });
 
-  it('hides Mark and Clear in a read-only context', () => {
+  it('hides Exception and Clear in a read-only context', () => {
     render(<ImmunizationTimelineContainer patientId="maya" readOnly />);
-    expect(screen.queryByRole('button', { name: /^Mark / })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Exception for / })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
     expect(screen.getByTestId('immunization-lane-rota')).toBeInTheDocument();
   });

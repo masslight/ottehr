@@ -328,7 +328,7 @@ export const ImmunizationTimeline = ({
           {history && (
             <>
               <br />
-              Marks: {history}
+              Exceptions: {history}
             </>
           )}
         </Typography>
@@ -466,10 +466,10 @@ export const ImmunizationTimeline = ({
                         disabled={busy}
                         endIcon={<ArrowDropDownIcon />}
                         aria-haspopup="menu"
-                        aria-label={`Mark ${group.label}`}
+                        aria-label={`Exception for ${group.label}`}
                         onClick={(event) => setMenu({ group, anchor: event.currentTarget })}
                       >
-                        Mark
+                        Exception
                       </Button>
                     ))}
                 </Box>
@@ -558,7 +558,7 @@ export const ImmunizationTimeline = ({
                   <ButtonBase
                     onClick={() => setSelection({ kind: 'lane', group: group.group })}
                     title={markHistoryText(marks, group.group)}
-                    aria-label={`${group.label} mark`}
+                    aria-label={`${group.label} exception`}
                     sx={{
                       position: 'absolute',
                       top: 7,
@@ -677,7 +677,7 @@ export const ImmunizationTimeline = ({
         {dialog && (
           <>
             <DialogTitle>
-              Mark {dialog.group.label} as {MARK_OPTIONS.find((option) => option.value === dialog.mark)?.label}
+              {dialog.group.label} exception: {MARK_OPTIONS.find((option) => option.value === dialog.mark)?.label}
             </DialogTitle>
             <DialogContent>
               <TextField
