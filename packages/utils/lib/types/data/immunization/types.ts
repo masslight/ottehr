@@ -1,3 +1,5 @@
+import { ImmunizationForecast, ImmunizationGroupId } from '../../../immunization-forecast/types';
+
 export interface ImmunizationOrderDetails {
   medication: {
     id: string;
@@ -217,4 +219,27 @@ export interface ImmunizationMark {
 export interface GetPatientImmunizationsResponse {
   immunizations: PatientImmunizationRecord[];
   marks: ImmunizationMark[];
+}
+
+// ── Forecast (the engine run server-side) and the immunization record PDF ──
+
+export interface GetImmunizationForecastRequest {
+  patientId: string;
+  /** The visit the forecast is for: its date is the assessment date. Today without it. */
+  encounterId?: string;
+}
+
+export interface GetImmunizationForecastResponse {
+  forecast: ImmunizationForecast;
+  /** Every CVX code the rules know → the groups it covers, so the Due today box can map stocked vaccines. */
+  cvxGroups: Record<string, ImmunizationGroupId[]>;
+}
+
+export interface CreateImmunizationRecordRequest {
+  appointmentId: string;
+}
+
+export interface CreateImmunizationRecordResponse {
+  message: string;
+  documentId: string;
 }

@@ -7,6 +7,8 @@ import {
   CancelImmunizationOrderResponse,
   CreateUpdateImmunizationOrderRequest,
   CreateUpdateImmunizationOrderResponse,
+  GetImmunizationForecastRequest,
+  GetImmunizationForecastResponse,
   GetImmunizationOrdersRequest,
   GetImmunizationOrdersResponse,
   GetPatientImmunizationsResponse,
@@ -151,6 +153,26 @@ export const useGetPatientImmunizations = (
   });
 };
 
+const GET_IMMUNIZATION_FORECAST_KEY = 'get-immunization-forecast';
+
+/** The engine's forecast for the patient as of the visit, run on the server; refreshed with the records. */
+export const useGetImmunizationForecast = (
+  input: Partial<GetImmunizationForecastRequest>
+): UseQueryResult<GetImmunizationForecastResponse, Error> => {
+  const { oystehrZambda } = useApiClients();
+  return useQuery({
+    queryKey: [GET_IMMUNIZATION_FORECAST_KEY, input.patientId, input.encounterId],
+    queryFn: async () => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      const response = await oystehrZambda.zambda.execute({ ...input, id: 'get-immunization-forecast' });
+      return chooseJson(response);
+    },
+    enabled: oystehrZambda != null && Boolean(input.patientId),
+    retry: 2,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
 /** Saves a dose administered externally straight into the patient's history. */
 export const useRecordOutsideImmunization = (): UseMutationResult<
   RecordOutsideImmunizationResponse,
@@ -167,6 +189,7 @@ export const useRecordOutsideImmunization = (): UseMutationResult<
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [GET_PATIENT_IMMUNIZATIONS_KEY], exact: false });
+      await queryClient.invalidateQueries({ queryKey: [GET_IMMUNIZATION_FORECAST_KEY], exact: false });
     },
   });
 };
