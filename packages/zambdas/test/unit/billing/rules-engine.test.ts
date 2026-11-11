@@ -18,7 +18,7 @@ import {
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_TAG_SYSTEM, X12_ADJUSTMENT_GROUP_CODE } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
 import { ChargeItemDefinitionDefault } from 'utils/lib/types/data/billing/billing.types';
 import { CUSTOM_INSURANCE_ORG_KIND_CODE } from 'utils/lib/types/data/billing/custom-insurance-org.types';
@@ -30,14 +30,22 @@ import {
 import { RULES_ENGINE_TYPES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   collectSetPayerIds,
+  ERA_CARC_PROPERTY_CATALOG,
+  ERA_SERVICE_LINE_PROPERTY_CATALOG,
   RULE_FIELD_CATALOG,
   SERVICE_LINE_PROPERTY_CATALOG,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { describe, expect, it } from 'vitest';
+import { OYSTEHR_ADJUDICATION_SYSTEM, X12_ADJUSTMENT_GROUP_SYSTEM } from '../../../src/billing/claim-amounts';
+import { CARC_REASON_SYSTEM } from '../../../src/billing/manual-era';
 import {
+  ERA_CARC_READABLE_PROPERTY_IDS,
+  ERA_SERVICE_LINE_READABLE_PROPERTY_IDS,
   READABLE_FIELD_IDS,
+  readEraCarcProperty,
+  readEraServiceLineProperty,
   readField,
   readServiceLineProperty,
   resolveDateValue,
@@ -75,6 +83,7 @@ import {
   BILLING_WORKING_COPY_TAG,
   buildNoCoverageStub,
   CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM,
+  ERA_ITEM_PROCEDURE_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
   EXTENSION_CLAIM_FREQUENCY_CODE,
@@ -186,6 +195,91 @@ const makeModel = (): RulesEngineClaimModel => ({
       gender: 'male',
     },
   ],
+  claimResponses: [
+    {
+      resourceType: 'ClaimResponse',
+      id: 'cr-1',
+      insurer: { reference: getPayerUrl('222222') },
+      created: '2026-01-02',
+      status: 'active',
+      outcome: 'complete',
+      patient: { reference: 'Patient/p1' },
+      use: 'claim',
+      type: { coding: [] },
+      total: [
+        {
+          category: { coding: [{ system: OYSTEHR_ADJUDICATION_SYSTEM, code: 'paid' }] },
+          amount: {
+            value: 25,
+            currency: 'USD',
+          },
+        },
+      ],
+      item: [
+        {
+          itemSequence: 1,
+          adjudication: [
+            {
+              category: { coding: [{ system: OYSTEHR_ADJUDICATION_SYSTEM, code: 'paid' }] },
+              amount: {
+                value: 25,
+                currency: 'USD',
+              },
+            },
+            {
+              category: { coding: [{ system: OYSTEHR_ADJUDICATION_SYSTEM, code: 'allowed' }] },
+              amount: {
+                value: 100,
+                currency: 'USD',
+              },
+            },
+            {
+              // allowed
+              category: {
+                coding: [
+                  { system: X12_ADJUSTMENT_GROUP_SYSTEM, code: X12_ADJUSTMENT_GROUP_CODE.contractualObligation },
+                ],
+              },
+              reason: { coding: [{ system: CARC_REASON_SYSTEM, code: 'B6' }] },
+              amount: {
+                value: 100,
+                currency: 'USD',
+              },
+            },
+          ],
+          extension: [{ url: ERA_ITEM_PROCEDURE_CODE_EXTENSION, valueString: '99213' }],
+        },
+      ],
+      addItem: [
+        {
+          productOrService: {
+            coding: [{ system: X12_ADJUSTMENT_GROUP_SYSTEM, code: X12_ADJUSTMENT_GROUP_CODE.contractualObligation }],
+          },
+          adjudication: [
+            {
+              // allowed
+              category: {
+                coding: [
+                  { system: X12_ADJUSTMENT_GROUP_SYSTEM, code: X12_ADJUSTMENT_GROUP_CODE.contractualObligation },
+                ],
+              },
+              reason: { coding: [{ system: CARC_REASON_SYSTEM, code: 'B6' }] },
+              amount: {
+                value: 100,
+                currency: 'USD',
+              },
+            },
+          ],
+        },
+      ],
+      extension: [
+        {
+          url: 'https://extensions.fhir.oystehr.com/era-outpatient-remark-code-1',
+          valueString: 'M1',
+        },
+      ],
+    },
+  ],
 });
 
 const claimTags = (model: RulesEngineClaimModel): string[] =>
@@ -206,6 +300,20 @@ describe('field catalog / claim-model pairing', () => {
     expect([...SERVICE_LINE_READABLE_PROPERTY_IDS].sort()).toEqual([...propertyIds].sort());
     const settableIds = SERVICE_LINE_PROPERTY_CATALOG.filter((p) => p.settable).map((p) => p.id);
     expect([...SERVICE_LINE_WRITABLE_PROPERTY_IDS].sort()).toEqual([...settableIds].sort());
+  });
+
+  it('every ERA CARC property has a reader, and exactly the settable ones have writers', () => {
+    const propertyIds = ERA_CARC_PROPERTY_CATALOG.map((p) => p.id);
+    expect([...ERA_CARC_READABLE_PROPERTY_IDS].sort()).toEqual([...propertyIds].sort());
+    const settableIds = ERA_CARC_PROPERTY_CATALOG.filter((p) => p.settable).map((p) => p.id);
+    expect([]).toEqual([...settableIds].sort());
+  });
+
+  it('every ERA service line property has a reader, and exactly the settable ones have writers', () => {
+    const propertyIds = ERA_SERVICE_LINE_PROPERTY_CATALOG.map((p) => p.id);
+    expect([...ERA_SERVICE_LINE_READABLE_PROPERTY_IDS].sort()).toEqual([...propertyIds].sort());
+    const settableIds = ERA_SERVICE_LINE_PROPERTY_CATALOG.filter((p) => p.settable).map((p) => p.id);
+    expect([]).toEqual([...settableIds].sort());
   });
 });
 
@@ -311,13 +419,25 @@ describe('rules-engine evaluator', () => {
   it('evaluates the canonical "a CPT code in the 9938x range" condition', () => {
     const m = makeModel();
     expect(
-      evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'matches', value: '^992[01][0-9]$' }, m)
+      evaluateCondition(
+        { type: 'field', field: 'cptCodes', operator: 'matches', value: '^992[01][0-9]$' },
+        RULE_FIELD_CATALOG,
+        m
+      )
     ).toBe(true);
-    expect(evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'matches', value: '^9938[1-7]$' }, m)).toBe(
-      false
-    );
     expect(
-      evaluateCondition({ type: 'field', field: 'cptCodes', operator: 'notMatches', value: '^9938[1-7]$' }, m)
+      evaluateCondition(
+        { type: 'field', field: 'cptCodes', operator: 'matches', value: '^9938[1-7]$' },
+        RULE_FIELD_CATALOG,
+        m
+      )
+    ).toBe(false);
+    expect(
+      evaluateCondition(
+        { type: 'field', field: 'cptCodes', operator: 'notMatches', value: '^9938[1-7]$' },
+        RULE_FIELD_CATALOG,
+        m
+      )
     ).toBe(true);
   });
 
@@ -325,10 +445,18 @@ describe('rules-engine evaluator', () => {
     const m = makeModel();
     m.coverages[0].subscriberId = 'XKD-889-12';
     expect(
-      evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'XKD' }, m)
+      evaluateCondition(
+        { type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'XKD' },
+        RULE_FIELD_CATALOG,
+        m
+      )
     ).toBe(true);
     expect(
-      evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'ZZZ' }, m)
+      evaluateCondition(
+        { type: 'field', field: 'insurance.memberId', operator: 'startsWith', value: 'ZZZ' },
+        RULE_FIELD_CATALOG,
+        m
+      )
     ).toBe(false);
   });
 
@@ -367,10 +495,16 @@ describe('rules-engine evaluator', () => {
     // End to end: evaluateCondition passes the flag for the number-typed billed amount.
     const m = makeModel();
     expect(readField(m, 'billed')).toBe('125.5');
-    expect(evaluateCondition({ type: 'field', field: 'billed', operator: 'eq', value: '125.50' }, m)).toBe(true);
-    expect(evaluateCondition({ type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'MEM-123' }, m)).toBe(
-      true
-    );
+    expect(
+      evaluateCondition({ type: 'field', field: 'billed', operator: 'eq', value: '125.50' }, RULE_FIELD_CATALOG, m)
+    ).toBe(true);
+    expect(
+      evaluateCondition(
+        { type: 'field', field: 'insurance.memberId', operator: 'eq', value: 'MEM-123' },
+        RULE_FIELD_CATALOG,
+        m
+      )
+    ).toBe(true);
   });
 
   it('reads logical fields that span resources', () => {
@@ -785,6 +919,49 @@ describe('rules-engine evaluator', () => {
 
     expect(writeField(m, 'billingProvider.taxonomy', '207Q')).toBe(false);
     expect(writeField(m, 'billingProvider.taxId', '12-3456789')).toBe(false);
+  });
+
+  it('reads era-level fields', () => {
+    const m = makeModel();
+    expect(readField(m, 'era.paid')).toBe('25');
+    expect(readField(m, 'era.allowed')).toBe('100');
+    expect(readField(m, 'era.rarcs')).toEqual(['M1']);
+    expect(readField(m, 'era.payerId')).toBe('222222');
+    expect(readField(m, 'era.insurance')).toBe('secondary');
+  });
+
+  it('reads era CARC fields', () => {
+    const m = makeModel();
+    expect(readEraCarcProperty(m.claimResponses![0]!.addItem![0]!.adjudication![0], 'groupCode')).toBe('CO');
+    expect(readEraCarcProperty(m.claimResponses![0]!.addItem![0]!.adjudication![0], 'reasonCode')).toBe('B6');
+    expect(readEraCarcProperty(m.claimResponses![0]!.addItem![0]!.adjudication![0], 'amount')).toBe('100');
+  });
+
+  it('reads era line-level fields', () => {
+    const m = makeModel();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'cptCode')).toBe('99213');
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'modifiers')).toEqual([]);
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'units')).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'charges')).toBe('125.5');
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'placeOfService')).toBe('20');
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'serviceDate')).toBe('2026-01-05');
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'revenueCode')).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'allowed')).toBe('100');
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'coinsurance')).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'copay')).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'deductible')).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'paid')).toBe('25');
+    expect(
+      readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'patientResponsibility')
+    ).toBeUndefined();
+    expect(readEraServiceLineProperty(m.claim, m.claimResponses![0]!.item![0], 'rarc')).toBeUndefined();
+  });
+
+  it('reads era line-level CARC fields', () => {
+    const m = makeModel();
+    expect(readEraCarcProperty(m.claimResponses![0]!.item![0]!.adjudication![2], 'groupCode')).toBe('CO');
+    expect(readEraCarcProperty(m.claimResponses![0]!.item![0]!.adjudication![2], 'reasonCode')).toBe('B6');
+    expect(readEraCarcProperty(m.claimResponses![0]!.item![0]!.adjudication![2], 'amount')).toBe('100');
   });
 });
 
@@ -1745,14 +1922,30 @@ describe('custom insurance organization payers', () => {
   it('matches conditions on a custom insurance organization id', () => {
     const m = makeModel();
     m.coverages[0].payor = [{ reference: `Organization/${CUSTOM_ORG_ID}` }];
-    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: CUSTOM_ORG_ID }, m)).toBe(true);
     expect(
-      evaluateCondition({ type: 'field', field: 'payerId', operator: 'in', value: ['123456', CUSTOM_ORG_ID] }, m)
+      evaluateCondition(
+        { type: 'field', field: 'payerId', operator: 'eq', value: CUSTOM_ORG_ID },
+        RULE_FIELD_CATALOG,
+        m
+      )
     ).toBe(true);
-    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'neq', value: CUSTOM_ORG_ID }, m)).toBe(
-      false
-    );
-    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: '123456' }, m)).toBe(false);
+    expect(
+      evaluateCondition(
+        { type: 'field', field: 'payerId', operator: 'in', value: ['123456', CUSTOM_ORG_ID] },
+        RULE_FIELD_CATALOG,
+        m
+      )
+    ).toBe(true);
+    expect(
+      evaluateCondition(
+        { type: 'field', field: 'payerId', operator: 'neq', value: CUSTOM_ORG_ID },
+        RULE_FIELD_CATALOG,
+        m
+      )
+    ).toBe(false);
+    expect(
+      evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: '123456' }, RULE_FIELD_CATALOG, m)
+    ).toBe(false);
   });
 
   it('sets the primary payer to a prefetched custom insurance organization by direct reference', () => {
@@ -2100,8 +2293,10 @@ describe('primary coverage from patient swap', () => {
 describe('rules-engine rule execution', () => {
   it('evaluateCondition handles all / field / and / or groups', () => {
     const m = makeModel();
-    expect(evaluateCondition({ type: 'all' }, m)).toBe(true);
-    expect(evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: '123456' }, m)).toBe(true);
+    expect(evaluateCondition({ type: 'all' }, RULE_FIELD_CATALOG, m)).toBe(true);
+    expect(
+      evaluateCondition({ type: 'field', field: 'payerId', operator: 'eq', value: '123456' }, RULE_FIELD_CATALOG, m)
+    ).toBe(true);
     expect(
       evaluateCondition(
         {
@@ -2112,6 +2307,7 @@ describe('rules-engine rule execution', () => {
             { type: 'field', field: 'serviceFacility.state', operator: 'eq', value: 'CA' },
           ],
         },
+        RULE_FIELD_CATALOG,
         m
       )
     ).toBe(true);
@@ -2125,6 +2321,7 @@ describe('rules-engine rule execution', () => {
             { type: 'field', field: 'serviceFacility.state', operator: 'eq', value: 'CA' },
           ],
         },
+        RULE_FIELD_CATALOG,
         m
       )
     ).toBe(true);

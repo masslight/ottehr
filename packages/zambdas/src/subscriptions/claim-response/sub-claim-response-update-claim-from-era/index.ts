@@ -22,6 +22,10 @@ import {
   SECONDARY_SUBMISSION_TAG_NAME,
 } from 'utils/lib/types/data/billing/system-tags';
 import {
+  OYSTEHR_INPATIENT_REMARK_CODE_EXTENSION_PREFIX,
+  OYSTEHR_OUTPATIENT_REMARK_CODE_EXTENSION_PREFIX,
+} from '../../../billing/claim-amounts';
+import {
   claimEventProvenanceRequest,
   claimHistoryHasEntryFor,
   claimMetaTagsWithProvenanceRequests,
@@ -312,8 +316,8 @@ export function claimWasForwarded(claimResponse: ClaimResponse): boolean {
   const medicareRemarkCodes = (claimResponse.extension ?? [])
     .filter(
       (ext) =>
-        ext.url.startsWith('https://extensions.fhir.oystehr.com/era-inpatient-remark-code-') ||
-        ext.url.startsWith('https://extensions.fhir.oystehr.com/era-outpatient-remark-code-')
+        ext.url.startsWith(OYSTEHR_INPATIENT_REMARK_CODE_EXTENSION_PREFIX) ||
+        ext.url.startsWith(OYSTEHR_OUTPATIENT_REMARK_CODE_EXTENSION_PREFIX)
     )
     .map((ext) => ext.valueString)
     .filter((val): val is string => !!val);

@@ -1,7 +1,12 @@
 import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { RulesEngineInsurance, RulesEngineSubmissionType } from 'utils/lib/types/data/billing/rules-engine.constants';
-import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import {
+  FieldCatalog,
+  getFieldDef,
+  getServiceLinePropertyDef,
+  RULE_FIELD_CATALOG,
+} from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
   DiagnosisPointerMode,
@@ -160,23 +165,42 @@ export const evaluateOperator = (
       return matchesPattern();
     case 'notMatches':
       return !matchesPattern();
+    case 'itemMatches':
+      throw new Error('CW TODO should not be here');
     default:
-      return false;
+      // CW TODO: can this be exhaustive instead?
+      // return false;
+      throw operator satisfies never;
   }
 };
 
-export function evaluateCondition(condition: RuleCondition, model: RulesEngineClaimModel): boolean {
+export function evaluateCondition(
+  condition: RuleCondition,
+  catalog: FieldCatalog,
+  model: RulesEngineClaimModel
+): boolean {
   switch (condition.type) {
     case RULE_CONDITION_TYPE.all:
       return true;
     case RULE_CONDITION_TYPE.group: {
-      const results = condition.conditions.map((c) => evaluateCondition(c, model));
+      const results = condition.conditions.map((c) => evaluateCondition(c, catalog, model));
       return condition.logic === 'and' ? results.every(Boolean) : results.some(Boolean);
     }
-    case RULE_CONDITION_TYPE.field:
+    case RULE_CONDITION_TYPE.field: {
+      const fieldDef = getFieldDef(condition.field, catalog);
+      if (condition.operator === 'itemMatches') {
+        if (!condition.itemCondition) {
+          throw new Error('CW TODO missing sub condition');
+        }
+        if (!fieldDef || !('itemCatalog' in fieldDef) || !fieldDef.itemCatalog) {
+          throw new Error('CW TODO schema mismatch');
+        }
+        return evaluateCondition(condition.itemCondition, fieldDef.itemCatalog as FieldCatalog, model);
+      }
       return evaluateOperator(condition.operator, readField(model, condition.field), condition.value, {
-        numeric: getRuleFieldDef(condition.field)?.valueType === 'number',
+        numeric: fieldDef?.valueType === 'number',
       });
+    }
     default:
       return false;
   }
@@ -187,7 +211,7 @@ export function evaluateCondition(condition: RuleCondition, model: RulesEngineCl
 // `otherwise` when no branch matches, or to [] (do nothing) when there is no else.
 export function resolveConditionalActions(conditional: RuleConditional, model: RulesEngineClaimModel): RuleAction[] {
   for (const branch of conditional.branches) {
-    if (evaluateCondition(branch.condition, model)) {
+    if (evaluateCondition(branch.condition, RULE_FIELD_CATALOG, model)) {
       return resolveOutcomeActions(branch.outcome, model);
     }
   }

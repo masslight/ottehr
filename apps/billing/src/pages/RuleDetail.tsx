@@ -10,6 +10,7 @@ import {
   RULES_ENGINES,
   RulesEngineType,
 } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { FieldCatalog, RULE_FIELD_CATALOG } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { BillingRule, BillingRuleInput, RuleConditional } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { getBillingRules, saveBillingRules } from '../api/api';
 import { TextInput } from '../components/input/TextInput';
@@ -24,11 +25,11 @@ interface RuleFormValues {
   conditional: RuleConditional;
 }
 
-const blankForm = (): RuleFormValues => ({
+const blankForm = (catalog: FieldCatalog): RuleFormValues => ({
   name: '',
   description: '',
   enabled: true,
-  conditional: newRuleConditional(),
+  conditional: newRuleConditional(catalog),
 });
 
 export default function RuleDetail(): ReactElement {
@@ -54,7 +55,7 @@ function RuleDetailForEngine({ engine }: { engine: RulesEngineType }): ReactElem
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const methods = useForm<RuleFormValues>({ defaultValues: blankForm() });
+  const methods = useForm<RuleFormValues>({ defaultValues: blankForm(RULE_FIELD_CATALOG) });
   const { control, handleSubmit, reset } = methods;
 
   const load = useCallback(async () => {
@@ -66,7 +67,7 @@ function RuleDetailForEngine({ engine }: { engine: RulesEngineType }): ReactElem
       setAllRules(data.rules);
       setVersionId(data.versionId);
       if (isNew) {
-        reset(blankForm());
+        reset(blankForm(RULE_FIELD_CATALOG));
         setFound(true);
       } else {
         const existing = data.rules.find((r) => r.id === id);
@@ -174,7 +175,7 @@ function RuleDetailForEngine({ engine }: { engine: RulesEngineType }): ReactElem
                 <Typography variant="h6" color="primary.dark" fontWeight={600} sx={{ mt: 1 }}>
                   Logic
                 </Typography>
-                <ConditionalEditor name="conditional" engine={engine} />
+                <ConditionalEditor name="conditional" engine={engine} catalog={RULE_FIELD_CATALOG} />
 
                 <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                   <Button variant="contained" onClick={() => void onSave()} disabled={saving}>

@@ -3,6 +3,10 @@ import {
   Address,
   ChargeItemDefinition,
   Claim,
+  ClaimInsurance,
+  ClaimResponse,
+  ClaimResponseItem,
+  ClaimResponseItemAdjudication,
   Coverage,
   HumanName,
   Location,
@@ -19,8 +23,17 @@ import {
   setCoveragePlanType,
 } from 'utils/lib/fhir/billing';
 import { SUBSCRIBER_RELATIONSHIP_CODE_MAP } from 'utils/lib/fhir/constants';
-import { codeableConcept, getCoding, getExtension, getNPI, getTaxID, setNpi } from 'utils/lib/fhir/helpers';
+import {
+  codeableConcept,
+  getCoding,
+  getExtension,
+  getExtensionValue,
+  getNPI,
+  getTaxID,
+  setNpi,
+} from 'utils/lib/fhir/helpers';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from 'utils/lib/fhir/insurance';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   extractPayerIdFromUrl,
   getPayerUrl,
@@ -44,13 +57,18 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
 } from 'utils/lib/helpers/rcm/constants';
 import { STATE_CODES } from 'utils/lib/types/common';
-import { CLAIM_TAG_SYSTEM, PERSON_GENDER_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
+import {
+  CLAIM_TAG_SYSTEM,
+  PERSON_GENDER_OPTIONS,
+  X12_ADJUSTMENT_GROUP_CODE,
+} from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInsuranceType } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BILLING_INSURANCE_TYPE_OPTIONS,
   BillingProviderLicense,
   ClaimCoverageType,
 } from 'utils/lib/types/data/billing/billing.types';
+import { PATIENT_RESP_CARC } from 'utils/lib/types/data/billing/carc';
 import {
   CLAIM_STATUS_FIELD_KEYS,
   CLAIM_STATUS_FIELDS_BY_KEY,
@@ -63,6 +81,13 @@ import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-en
 import { ServiceLineSetOperation, ServiceLineSetValue } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
 import { removeExtension, updateExtension } from '../../shared/helpers';
+import {
+  claimResponseRemarkCodes,
+  extractClaimResponseAmounts,
+  OYSTEHR_ADJUDICATION_SYSTEM,
+  X12_ADJUSTMENT_GROUP_SYSTEM,
+} from '../claim-amounts';
+import { CARC_REASON_SYSTEM } from '../manual-era';
 import { getCLIA, getPlaceOfServiceCode } from '../service-facility.helpers';
 import {
   attachCoverageToClaim,
@@ -71,6 +96,7 @@ import {
   claimHasRealCoverage,
   CODE_SYSTEM_NUBC_REVENUE,
   copySourceRef,
+  ERA_ITEM_REMARK_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
   EXTENSION_CLAIM_FREQUENCY_CODE,
@@ -137,6 +163,8 @@ export interface RulesEngineClaimModel {
   // Inactive (soft-deleted) organizations are kept, so the writer can fail the action instead of
   // mistaking the id for an RCM payer.
   customInsuranceOrganizations?: Map<string, Organization>;
+  // ERAs for the claim.
+  claimResponses?: ClaimResponse[];
   // Local placeholder ids of working copies minted by writers during this run. persistModel
   // POSTs them (fullUrl urn:uuid:<id>) in the same transaction as the claim's update; the
   // server resolves the claim's temporary urn references to the created ids, and the model
@@ -345,6 +373,192 @@ export const resolveDateValue = (
   return literal ? { value: literal } : resolveFirstServiceLineDate(model);
 };
 
+// --- ERAs ---
+
+// ERA-level readers
+const eraReaders = (
+  resolve: (m: RulesEngineClaimModel) => { claim: Claim; coverages: Coverage[]; cr: ClaimResponse | undefined }
+): Record<string, FieldReader> => ({
+  'era.paid': (m) => {
+    const { cr } = resolve(m);
+    if (!cr) return undefined;
+    const amounts = extractClaimResponseAmounts(cr);
+    return String(amounts.paid);
+  },
+  'era.allowed': (m) => {
+    const { cr } = resolve(m);
+    if (!cr) return undefined;
+    const amounts = extractClaimResponseAmounts(cr);
+    return String(amounts.allowed ?? '');
+  },
+  // top-level remark codes, e.g. M18
+  'era.rarcs': (m) => {
+    const { cr } = resolve(m);
+    if (!cr) return undefined;
+    return claimResponseRemarkCodes(cr);
+  },
+  // the payer id
+  'era.payerId': (m) => {
+    const { cr } = resolve(m);
+    if (!cr) return undefined;
+    return extractPayerIdFromCoverageRef(cr.insurer.reference);
+  },
+  // the insurance ordinal, e.g. `tertiary`
+  'era.insurance': (m) => {
+    const { claim, coverages, cr } = resolve(m);
+    if (!cr) return undefined;
+    const matchingInsurances = claim.insurance
+      .map<[ClaimInsurance, Coverage | undefined]>((ins) => {
+        return [ins, coverages.find((cov) => cov.id === getIdFromReference(ins.coverage.reference))];
+      })
+      .filter(
+        (rec): rec is [ClaimInsurance, Coverage] => !!rec[1] && rec[1].payor[0].reference === cr.insurer.reference
+      );
+    if (matchingInsurances.length === 0) {
+      return undefined;
+    }
+    let match: [ClaimInsurance, Coverage] | undefined = matchingInsurances[0];
+    if (matchingInsurances.length > 1) {
+      // Dig into the only place RCM service saves subscriberId to disambiguate multiple coverages with the same payer
+      const crCoverage = cr.contained?.find(
+        (res): res is Coverage => res.resourceType === 'Coverage' && res.id === 'coverage'
+      );
+      match = matchingInsurances.find(([_, cov]) => cov.subscriberId === crCoverage?.subscriberId);
+    }
+    if (!match) {
+      return undefined;
+    }
+    const [ins] = match;
+    return ins.sequence === 1
+      ? 'primary'
+      : ins.sequence === 2
+      ? 'secondary'
+      : ins.sequence === 3
+      ? 'tertiary'
+      : 'quaternary';
+  },
+});
+
+// -- ERA CARCs --
+export type EraCarc = ClaimResponseItemAdjudication;
+
+type EraCarcReader = (carc: EraCarc) => string | string[] | undefined;
+
+const ERA_CARC_READERS: Record<string, EraCarcReader> = {
+  groupCode: (adj) => adj.category.coding?.find((cod) => cod.system === X12_ADJUSTMENT_GROUP_SYSTEM)?.code,
+  reasonCode: (adj) => adj.reason?.coding?.find((cod) => cod.system === CARC_REASON_SYSTEM)?.code,
+  amount: (adj) => String(adj.amount?.value),
+};
+
+export const readEraCarcProperty = (line: EraCarc, propertyId: string): string | string[] | undefined =>
+  ERA_CARC_READERS[propertyId]?.(line);
+
+export const ERA_CARC_READABLE_PROPERTY_IDS: string[] = Object.keys(ERA_CARC_READERS);
+
+// -- ERA Service Lines --
+export type EraServiceLine = ClaimResponseItem;
+
+type EraServiceLineReader = (claim: Claim, line: EraServiceLine) => string | string[] | undefined;
+
+const ERA_SERVICE_LINE_READERS: Record<string, EraServiceLineReader> = {
+  cptCode: (claim, line) => {
+    const claimLine = claim.item?.find((item) => item.sequence === line.itemSequence);
+    return claimLine ? lineCptCode(claimLine) : undefined;
+  },
+  modifiers: (claim, line) => {
+    const claimLine = claim.item?.find((item) => item.sequence === line.itemSequence);
+    return claimLine ? lineModifiers(claimLine) : undefined;
+  },
+  units: (claim, line) => {
+    const claimLine = claim.item?.find((item) => item.sequence === line.itemSequence);
+    return claimLine ? (claimLine.quantity?.value != null ? String(claimLine.quantity.value) : undefined) : undefined;
+  },
+  charges: (claim, line) => {
+    const claimLine = claim.item?.find((item) => item.sequence === line.itemSequence);
+    return claimLine ? (claimLine.net?.value != null ? String(claimLine.net.value) : undefined) : undefined;
+  },
+  placeOfService: (claim, line) => {
+    const claimLine = claim.item?.find((item) => item.sequence === line.itemSequence);
+    return claimLine ? claimLine.locationCodeableConcept?.coding?.[0]?.code : undefined;
+  },
+  serviceDate: (claim, line) => {
+    const claimLine = claim.item?.find((item) => item.sequence === line.itemSequence);
+    return claimLine ? claimLine.servicedPeriod?.start ?? claimLine.servicedDate : undefined;
+  },
+  revenueCode: (claim, line) => {
+    const claimLine = claim.item?.find((item) => item.sequence === line.itemSequence);
+    return claimLine ? getCoding(claimLine.revenue, CODE_SYSTEM_NUBC_REVENUE)?.code : undefined;
+  },
+  allowed: (_, line) => {
+    const value = line
+      ? line.adjudication.find((adj) => getCoding(adj.category, OYSTEHR_ADJUDICATION_SYSTEM)?.code === 'allowed')
+          ?.amount?.value
+      : undefined;
+    return value ? String(value) : undefined;
+  },
+  coinsurance: (_, line) => {
+    const value = line
+      ? line.adjudication.find(
+          (adj) =>
+            getCoding(adj.category, X12_ADJUSTMENT_GROUP_SYSTEM)?.code ===
+              X12_ADJUSTMENT_GROUP_CODE.patientResponsibility &&
+            getCoding(adj.reason, CARC_REASON_SYSTEM)?.code === PATIENT_RESP_CARC.coinsurance
+        )?.amount?.value
+      : undefined;
+    return value ? String(value) : undefined;
+  },
+  copay: (_, line) => {
+    const value = line
+      ? line.adjudication.find(
+          (adj) =>
+            getCoding(adj.category, X12_ADJUSTMENT_GROUP_SYSTEM)?.code ===
+              X12_ADJUSTMENT_GROUP_CODE.patientResponsibility &&
+            getCoding(adj.reason, CARC_REASON_SYSTEM)?.code === PATIENT_RESP_CARC.copay
+        )?.amount?.value
+      : undefined;
+    return value ? String(value) : undefined;
+  },
+  deductible: (_, line) => {
+    const value = line
+      ? line.adjudication.find(
+          (adj) =>
+            getCoding(adj.category, X12_ADJUSTMENT_GROUP_SYSTEM)?.code ===
+              X12_ADJUSTMENT_GROUP_CODE.patientResponsibility &&
+            getCoding(adj.reason, CARC_REASON_SYSTEM)?.code === PATIENT_RESP_CARC.deductible
+        )?.amount?.value
+      : undefined;
+    return value ? String(value) : undefined;
+  },
+  paid: (_, line) => {
+    const value = line
+      ? line.adjudication.find((adj) => getCoding(adj.category, OYSTEHR_ADJUDICATION_SYSTEM)?.code === 'paid')?.amount
+          ?.value
+      : undefined;
+    return value ? String(value) : undefined;
+  },
+  patientResponsibility: (_, line) => {
+    const value = line
+      ? line.adjudication.find(
+          (adj) =>
+            getCoding(adj.category, X12_ADJUSTMENT_GROUP_SYSTEM)?.code ===
+            X12_ADJUSTMENT_GROUP_CODE.patientResponsibility
+        )?.amount?.value
+      : undefined;
+    return value ? String(value) : undefined;
+  },
+  rarc: (_, line) => {
+    return getExtensionValue(line, ERA_ITEM_REMARK_CODE_EXTENSION, 'valueString');
+  },
+};
+
+export const readEraServiceLineProperty = (
+  claim: Claim,
+  line: EraServiceLine,
+  propertyId: string
+): string | string[] | undefined => ERA_SERVICE_LINE_READERS[propertyId]?.(claim, line);
+
+export const ERA_SERVICE_LINE_READABLE_PROPERTY_IDS: string[] = Object.keys(ERA_SERVICE_LINE_READERS);
+
 // Resolve the facilityPlaceOfService derived source: the CMS place-of-service code configured on the
 // claim's service facility (model.serviceFacility, prefetched from Claim.facility). Unlike
 // resolveDateValue there is no blank-fallback — a claim without a service facility, or a facility
@@ -548,9 +762,20 @@ const READERS: Record<string, FieldReader> = {
   'serviceFacility.zip': (m) => m.serviceFacility?.address?.postalCode,
 
   tags: (m) => getClaimTagCodes(m.claim),
+
+  ...eraReaders((m) => ({ claim: m.claim, coverages: m.coverages, cr: m.claimResponses?.[0] })),
+  eraCount: (m) => {
+    return String((m.claimResponses ?? []).length);
+  },
+  eraCountForLatestPayer: (m) => {
+    const insRef = m.claimResponses?.[0]?.insurer.reference;
+    if (!insRef) return String(0);
+    return String((m.claimResponses ?? []).filter((cr) => cr.insurer.reference === insRef).length);
+  },
 };
 
 export const readField = (model: RulesEngineClaimModel, fieldId: string): string | string[] | undefined =>
+  // CW TODO: we need to know which reader catalog to use. how is the catalog persisted?
   READERS[fieldId]?.(model);
 
 // --- writers ---

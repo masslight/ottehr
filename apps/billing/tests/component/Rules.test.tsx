@@ -4,6 +4,7 @@ import { ReactElement } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { RULE_FIELD_CATALOG } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   AddServiceLineInput,
   BillingRule,
@@ -129,7 +130,7 @@ function ConditionalForm({
   const methods = useForm<{ conditional: RuleConditional }>({ defaultValues: { conditional } });
   return (
     <FormProvider {...methods}>
-      <ConditionalEditor name="conditional" engine={engine} />
+      <ConditionalEditor name="conditional" engine={engine} catalog={RULE_FIELD_CATALOG} />
       <button onClick={() => void methods.handleSubmit((data) => onValid?.(data))()}>Save</button>
     </FormProvider>
   );
