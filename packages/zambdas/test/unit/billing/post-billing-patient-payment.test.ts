@@ -363,9 +363,9 @@ describe('post-billing-patient-payment', () => {
       expect(JSON.parse(result.body).notice.id).toBe('pn-1');
     });
 
-    // PaymentNotices in memory, written by transactions and searched by identifier. Conditional creates
-    // match a stored notice unless `concurrent`, which stores every create as the FHIR server does for
-    // creates that land at the same moment.
+    // PaymentNotices in memory, written by transactions and searched by identifier. A conditional create
+    // returns the one notice it matches and fails with 412 when it matches several, as the FHIR server
+    // does; `concurrent` stores every create instead, as the server does for creates landing at once.
     const useNoticeStore = ({ concurrent }: { concurrent: boolean }): Map<string, PaymentNotice> => {
       const stored = new Map<string, PaymentNotice>();
       let nextId = 0;
@@ -375,8 +375,13 @@ describe('post-billing-patient-payment', () => {
         const results = requests.map((request) => {
           if (request.method === 'POST' && request.url === '/PaymentNotice') {
             const token = request.ifNoneExist?.[0]?.value ?? '';
-            const match = concurrent ? undefined : [...stored.values()].find((notice) => hasIdentifier(notice, token));
-            if (match) return { resource: match, status: '200 OK' };
+            const matches = concurrent ? [] : [...stored.values()].filter((notice) => hasIdentifier(notice, token));
+            if (matches.length > 1) {
+              throw Object.assign(new Error('Precondition failed: condition matches more than one result.'), {
+                code: 412,
+              });
+            }
+            if (matches.length === 1) return { resource: matches[0], status: '200 OK' };
             const created = { ...(request.resource as PaymentNotice), id: `pn-${++nextId}`, meta: { versionId: '1' } };
             stored.set(created.id, created);
             return { resource: created, status: '201 Created' };
@@ -464,6 +469,56 @@ describe('post-billing-patient-payment', () => {
         expect(JSON.parse(first.body).notice.id).toBe(active[0].id);
         expect(JSON.parse(second.body).notice.id).toBe(active[0].id);
         expect(historyEntries()).toHaveLength(1);
+        // the losing reservation gives up the payment's reservation identifier to the winner
+        const holders = notices.filter(
+          (notice) =>
+            notice.identifier?.some((identifier) => identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM)
+        );
+        expect(holders.map((notice) => notice.id)).toEqual([active[0].id]);
+      });
+
+      // Regression: a third request that passed the idempotency guard before the payment was recorded
+      // reserved while the two reservations held the same identifier, and the 412 the conditional create
+      // answered with was reported as a failure although the card was charged.
+      it('lets a request reserving while several reservations hold the payment wait for the one that charged', async () => {
+        const stored = useNoticeStore({ concurrent: false });
+        useStripeIdempotency();
+        const reservedAs = (id: string): PaymentNotice =>
+          ({
+            resourceType: 'PaymentNotice',
+            id,
+            meta: { versionId: '1' },
+            status: 'draft',
+            identifier: [{ system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE }],
+          }) as PaymentNotice;
+        // the two requests that reserved at the same moment; the winner records the payment while this
+        // request waits
+        stored.set('pn-winner', reservedAs('pn-winner'));
+        stored.set('pn-loser', reservedAs('pn-loser'));
+        const recordWinner = (): void => {
+          stored.set('pn-winner', {
+            ...reservedAs('pn-winner'),
+            status: 'active',
+            identifier: [
+              { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
+              { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: DEDUP_VALUE },
+              { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+            ],
+          });
+        };
+        const storeSearch = billingSearch.getMockImplementation()!;
+        let paymentSearches = 0;
+        billingSearch.mockImplementation(async (query: { resourceType: string }) => {
+          // the first is the idempotency guard; the winner records the payment after it
+          if (query.resourceType === 'PaymentNotice' && ++paymentSearches === 2) recordWinner();
+          return storeSearch(query);
+        });
+
+        const result = await postCard();
+
+        expect(JSON.parse(result.body).notice.id).toBe('pn-winner');
+        expect(paymentIntentsCreate).not.toHaveBeenCalled();
+        expect(stored.size).toBe(2);
       });
 
       it('does not report a failure the user could retry when the payment is not recorded in time', async () => {

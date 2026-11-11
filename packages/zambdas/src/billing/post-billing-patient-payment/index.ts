@@ -218,12 +218,21 @@ const recordCardPayment = async (
   // reserving at the same moment can each store a reservation (the conditional create does not make
   // them unique); the charge settles which one records the payment, see chargeSavedCard.
   const reservationIdentifier = { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId };
-  const { notice: pending } = await createPaymentNotice({
-    oystehr: billingOystehr,
-    notice: pendingEhrPaymentNotice(noticeFor(undefined, []), ehrPaymentId),
-    dedupIdentifier: reservationIdentifier,
-    agent: undefined,
-  });
+  let pending: PaymentNotice;
+  try {
+    ({ notice: pending } = await createPaymentNotice({
+      oystehr: billingOystehr,
+      notice: pendingEhrPaymentNotice(noticeFor(undefined, []), ehrPaymentId),
+      dedupIdentifier: reservationIdentifier,
+      agent: undefined,
+    }));
+  } catch (error) {
+    // The reservation create sends no version, so a 412 means its condition matched several notices:
+    // requests that reserved the payment at the same moment are still settling which one charges.
+    if (!isPreconditionFailed(error)) throw error;
+    console.log(`Several reservations hold EHR payment ${ehrPaymentId}; waiting for the one that charged`);
+    return waitForRecordedPayment(billingOystehr, ehrPaymentId);
+  }
   if (!isPendingEhrPaymentNotice(pending)) {
     console.log('idempotent replay detected; the reserved payment is already recorded', pending.id);
     return pending;
@@ -239,8 +248,9 @@ const recordCardPayment = async (
       reservationId: pending.id!,
     });
   } catch (error) {
-    await cancelPendingPaymentNotice(billingOystehr, pending);
-    if (error instanceof ReservationLostError) {
+    const lost = error instanceof ReservationLostError;
+    await cancelPendingPaymentNotice(billingOystehr, pending, { release: lost });
+    if (lost) {
       console.log(`Reservation PaymentNotice/${pending.id} lost the charge to another request for the payment`);
       return waitForRecordedPayment(billingOystehr, ehrPaymentId);
     }
@@ -306,8 +316,14 @@ const activatePendingPaymentNotice = (
 // A charge that failed leaves its reservation cancelled. Only a draft is cancelled: should the charge
 // have gone through after all, the webhook activates the reservation, and that is kept. Failing to
 // cancel is logged rather than thrown so the caller sees the charge error; no payment reader lists
-// the draft either way.
-const cancelPendingPaymentNotice = async (billingOystehr: Oystehr, pending: PaymentNotice): Promise<void> => {
+// the draft either way. A reservation that lost the charge to another request's (`release`) also gives
+// up its identifier, leaving it to the notice that records the payment; a declined charge's keeps it,
+// so a replay finds it and gets the decline Stripe kept for the key.
+const cancelPendingPaymentNotice = async (
+  billingOystehr: Oystehr,
+  pending: PaymentNotice,
+  { release }: { release: boolean }
+): Promise<void> => {
   const noticeId = pending.id;
   if (!noticeId) return;
   try {
@@ -325,6 +341,11 @@ const cancelPendingPaymentNotice = async (billingOystehr: Oystehr, pending: Paym
             resource: {
               ...existing,
               status: 'cancelled',
+              identifier: release
+                ? existing.identifier?.filter(
+                    (identifier) => identifier.system !== EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM
+                  )
+                : existing.identifier,
               contained: existing.contained?.map((resource) =>
                 resource.resourceType === 'PaymentReconciliation' ? { ...resource, status: 'cancelled' } : resource
               ),
@@ -354,6 +375,11 @@ const savedCardCustomer = async (
     throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
   }
   return { customerId, stripeAccount };
+};
+
+const isPreconditionFailed = (error: unknown): boolean => {
+  const { code, statusCode } = (error ?? {}) as { code?: number; statusCode?: number };
+  return code === 412 || statusCode === 412;
 };
 
 // Another request for the same payment charged the card under its own reservation.
