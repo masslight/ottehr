@@ -120,6 +120,7 @@ export async function getReviewedRadiologyResults(
         return {
           studyType: order.studyType,
           report: radiologyReportText(order.finalReport),
+          performedBy: order.performedBy?.name,
           files: await Promise.all(
             resultDocRefs.map(async (docRef) => ({
               presignedUrl: await makePresignedURLFromDocumentReference(docRef, oystehrToken, secrets),

@@ -53,6 +53,7 @@ export interface FollowUpDetails {
 export interface ReviewedRadiologyResult {
   studyType: string;
   report: string;
+  performedBy?: string;
   files: FileURLInfo[];
 }
 
