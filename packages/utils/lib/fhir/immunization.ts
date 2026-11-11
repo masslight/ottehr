@@ -1,4 +1,6 @@
 import { Coding, Extension, Immunization, MedicationAdministration, Organization, Reference } from 'fhir/r4b';
+import { FORECAST_GROUPS } from '../immunization-forecast/groups';
+import { ImmunizationGroupId } from '../immunization-forecast/types';
 import {
   CVX_CODE_SYSTEM_URL,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
@@ -14,12 +16,11 @@ import {
   ImmunizationOutsideSource,
   PatientImmunizationRecord,
 } from '../types/data/immunization/types';
-import { FORECAST_GROUPS } from '../immunization-forecast/groups';
-import { ImmunizationGroupId } from '../immunization-forecast/types';
 import { getCoding } from './helpers';
 import { getMedicationName } from './medication-administration';
 import { getIdFromReference } from './reference';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
+import { getVaccineDoseFunding, immunizationFundingFields } from './vfc';
 
 /**
  * The FHIR Immunization record of a dose. The order/MAR workflow keeps its MedicationAdministration; a dose given here
@@ -241,6 +242,8 @@ export function immunizationFromMedicationAdministration(
       ...(administeredBy ? [immunizationPerformer(administeredBy, IMMUNIZATION_ADMINISTERING_PROVIDER_CODE)] : []),
       ...(orderedBy ? [immunizationPerformer(orderedBy, IMMUNIZATION_ORDERING_PROVIDER_CODE)] : []),
     ],
+    // the stock the dose came from and the patient's VFC eligibility that day, as registries read them
+    ...immunizationFundingFields(getVaccineDoseFunding(medicationAdministration)),
   };
 }
 

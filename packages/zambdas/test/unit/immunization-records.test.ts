@@ -14,6 +14,7 @@ import {
   VACCINE_GROUP_CODE_SYSTEM,
 } from 'utils/lib/fhir/immunization';
 import { IMMUNIZATION_ORDER_TAG_CODE, IMMUNIZATION_ORDER_TAG_SYSTEM } from 'utils/lib/fhir/medication-administration';
+import { VFC_ELIGIBILITY_CODE_SYSTEM, withVaccineDoseFunding } from 'utils/lib/fhir/vfc';
 import {
   CVX_CODE_SYSTEM_URL,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
@@ -144,6 +145,24 @@ describe('Immunization alongside an administered order', () => {
       medicationAdministrationId: 'order-1',
       encounterId: 'enc-1',
     });
+  });
+
+  it('carries the stock the dose came from and the VFC eligibility that day; nothing when the order has none', () => {
+    const vfcDose = immunizationFromMedicationAdministration(
+      withVaccineDoseFunding(administeredOrder(), { fundingSource: 'vfc', vfcEligibility: 'V02' })
+    );
+    expect(vfcDose.programEligibility).toEqual([{ coding: [{ system: VFC_ELIGIBILITY_CODE_SYSTEM, code: 'V02' }] }]);
+    expect(vfcDose.fundingSource?.coding?.[0]).toMatchObject({ code: 'public' });
+
+    const privateDose = immunizationFromMedicationAdministration(
+      withVaccineDoseFunding(administeredOrder(), { fundingSource: 'private' })
+    );
+    expect(privateDose.programEligibility).toBeUndefined();
+    expect(privateDose.fundingSource?.coding?.[0]).toMatchObject({ code: 'private' });
+
+    const untracked = immunizationFromMedicationAdministration(administeredOrder());
+    expect(untracked.programEligibility).toBeUndefined();
+    expect(untracked.fundingSource).toBeUndefined();
   });
 
   it('is created on administration, updated in place on re-administration and entered in error when undone', async () => {
