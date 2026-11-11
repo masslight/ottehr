@@ -21,10 +21,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/create-billing-invoice';
 import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
-const { mockApplyClaimStatusField, mockGetOrCreateInvoicingConfig } = vi.hoisted(() => ({
-  mockApplyClaimStatusField: vi.fn(),
-  mockGetOrCreateInvoicingConfig: vi.fn(),
-}));
+const { mockApplyClaimStatusField, mockGetOrCreateInvoicingConfig, mockProduceOutreach, mockSendErrors } = vi.hoisted(
+  () => ({
+    mockApplyClaimStatusField: vi.fn(),
+    mockGetOrCreateInvoicingConfig: vi.fn(),
+    mockProduceOutreach: vi.fn(),
+    mockSendErrors: vi.fn(),
+  })
+);
 
 vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -37,6 +41,13 @@ vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
 vi.mock('../../../src/rcm/invoice-config/helpers', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   getOrCreateInvoicingConfig: (...args: unknown[]) => mockGetOrCreateInvoicingConfig(...args),
+}));
+vi.mock('../../../src/shared/errors', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  sendErrors: (...args: unknown[]) => mockSendErrors(...args),
+}));
+vi.mock('../../../src/billing/invoice-outreach', () => ({
+  produceBillingInvoiceIssuedOutreach: (...args: unknown[]) => mockProduceOutreach(...args),
 }));
 
 const CLAIM_ID = '11111111-1111-4111-8111-111111111111';
@@ -234,6 +245,41 @@ describe('create-billing-invoice', () => {
       message: 'Pay here https://pay.test/in_new',
     });
     expect(mockApplyClaimStatusField).toHaveBeenCalledWith(oystehr, claim, 'patientArStatus', 'invoiced', agent);
+    expect(mockProduceOutreach).toHaveBeenCalledWith(oystehr, invoices[0]);
+  });
+
+  it('reports the invoice as sent when scheduling outreach fails', async () => {
+    const outreachError = new Error('FHIR unavailable');
+    mockProduceOutreach.mockRejectedValueOnce(outreachError);
+    const { oystehr, invoices } = makeOystehr(makeClaim());
+
+    const result = await performEffect(oystehr, makeStripe().stripe, params, agent);
+
+    expect(result).toEqual({ invoiceId: 'inv-1', stripeInvoiceId: 'in_new', smsSent: true });
+    expect(invoices[0].status).toBe('issued');
+    expect(mockApplyClaimStatusField).toHaveBeenCalled();
+    expect(mockSendErrors).toHaveBeenCalledWith(outreachError, 'local', { invoiceId: 'inv-1' });
+  });
+
+  it('schedules missed outreach when a sent invoice is retried, without sending it again', async () => {
+    const { oystehr, invoices, execute } = makeOystehr(makeClaim('invoiced'), [existingInvoice('issued', 'key-1')]);
+    const { stripe, invoices: stripeInvoices } = makeStripe();
+
+    await performEffect(oystehr, stripe, params, agent);
+
+    expect(mockProduceOutreach).toHaveBeenCalledWith(oystehr, invoices[0]);
+    expect(stripeInvoices.sendInvoice).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalledWith(expect.objectContaining({ id: SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY }));
+  });
+
+  it('schedules no outreach for an invoice Stripe reports as already paid', async () => {
+    const { oystehr, invoices } = makeOystehr(makeClaim(), [existingInvoice('draft', 'key-1')]);
+    const { stripe } = makeStripe({ id: 'in_old', status: 'paid', lines: { data: [{}] } });
+
+    await performEffect(oystehr, stripe, params, agent);
+
+    expect(invoices[0].status).toBe('balanced');
+    expect(mockProduceOutreach).not.toHaveBeenCalled();
   });
 
   it('resumes its own draft without creating another Stripe invoice or item', async () => {

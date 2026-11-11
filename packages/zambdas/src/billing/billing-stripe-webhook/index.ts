@@ -29,6 +29,7 @@ import {
 } from '../../shared/stripeIntegration';
 import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
+import { cancelPendingInvoiceOutreach } from '../invoice-outreach';
 import { unionIdentifiers } from '../patient-payments';
 import {
   billingProviderRefForStripeAccount,
@@ -570,14 +571,23 @@ const updateBillingInvoiceStatus = async (
       params: [{ name: 'identifier', value: `${STRIPE_INVOICE_ID_SYSTEM}|${stripeInvoice.id}` }],
     })
   ).unbundle();
-  // Ignore duplicate events and preserve paid or cancelled status.
-  if (!invoice || (invoice.status !== 'draft' && invoice.status !== 'issued')) return;
+  if (!invoice) return;
 
-  // Fills in the link when the send request stopped before saving it.
-  const hostedUrl = stripeInvoice.hosted_invoice_url;
-  await oystehr.fhir.update<Invoice>(
-    { ...(hostedUrl ? withHostedInvoiceUrl(invoice, hostedUrl) : invoice), status },
-    { optimisticLockingVersionId: invoice.meta?.versionId }
+  // Ignore duplicate events and preserve paid or cancelled status.
+  if (invoice.status === 'draft' || invoice.status === 'issued') {
+    // Fills in the link when the send request stopped before saving it.
+    const hostedUrl = stripeInvoice.hosted_invoice_url;
+    await oystehr.fhir.update<Invoice>(
+      { ...(hostedUrl ? withHostedInvoiceUrl(invoice, hostedUrl) : invoice), status },
+      { optimisticLockingVersionId: invoice.meta?.versionId }
+    );
+    console.log(`Invoice/${invoice.id} is now ${status}`);
+  }
+
+  // Not limited to the first event, so a redelivery finishes a cancellation that failed part way.
+  await cancelPendingInvoiceOutreach(
+    oystehr,
+    invoice.id!,
+    status === 'balanced' ? 'Invoice was paid' : 'Invoice was voided'
   );
-  console.log(`Invoice/${invoice.id} is now ${status}`);
 };
