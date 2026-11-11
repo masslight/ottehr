@@ -2,7 +2,8 @@
 # Three typical reports (src/scripts/adhoc-bench-reports.ts), each fetched three ways — this version ("current"),
 # hand-written minimal searches ("ideal") and Report Studio's runner ("studio") — over 60 days and a year. Prints, per
 # report and range, the time, request count, errors and whether the result matches the ideal one, then where each
-# way spent its time. READ-ONLY against Oystehr.
+# way spent its time. READ-ONLY against Oystehr. Each range first runs a warm-up pass that is not counted
+# (ADHOC_BENCH_WARMUP=0 skips it).
 #
 #   packages/zambdas/scripts/adhoc-bench-reports.sh <env> [ranges="60 365"] [reports="r1 r2 r3"]
 #
@@ -47,10 +48,10 @@ cp "$CORE/packages/zambdas/src/scripts/adhoc-bench-reports.ts" "$STUDIO/packages
 
 echo "results print as each run ends; logs: $OUT"
 
-run() { # <way> <report> <days> <start> <end>
+run() { # <way> <report> <days> <start> <end> [name prefix]
   local tree="$CORE"
   [ "$1" = studio ] && tree="$STUDIO"
-  local name="$2-$3d-$1"
+  local name="${6:-}$2-$3d-$1"
   (cd "$tree/packages/zambdas" && NODE_OPTIONS='--preserve-symlinks' npx tsx src/scripts/adhoc-bench-reports.ts \
     "$ENV_NAME" "$1" "$2" "$4" "$5" "$OUT/$name.json" >"$OUT/$name.log" 2>&1) ||
     echo "{\"error\":\"the run crashed, see $OUT/$name.log\"}" >"$OUT/$name.json"
@@ -63,6 +64,15 @@ for days in $RANGES; do
   END=$(node -e 'console.log(new Date().toISOString())')
   START=$(node -e "console.log(new Date(Date.now() - $days * 86400000).toISOString())")
   echo "== $days days: $START .. $END"
+  # Warm-up: every report and way once, not counted. The database keeps what it has just read in memory, so the
+  # first read of a range is 1.6–3× slower; without this the first run of each range pays for everyone.
+  if [ "${ADHOC_BENCH_WARMUP:-1}" != 0 ]; then
+    echo "  warm-up (not counted):"
+    for report in $REPORTS; do
+      for way in ideal current studio; do run "$way" "$report" "$days" "$START" "$END" warmup-; done
+    done
+    echo "  measured:"
+  fi
   for report in $REPORTS; do
     # The order rotates, so a warm database cache does not always help the same way.
     case $((i % 3)) in
