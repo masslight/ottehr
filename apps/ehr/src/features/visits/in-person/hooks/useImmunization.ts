@@ -153,15 +153,16 @@ export const useGetPatientImmunizations = (
   });
 };
 
-const GET_IMMUNIZATION_FORECAST_KEY = 'get-immunization-forecast';
+export const GET_IMMUNIZATION_FORECAST_KEY = 'get-immunization-forecast';
 
-/** The engine's forecast for the patient as of the visit, run on the server; refreshed with the records. */
+/** The engine's forecast for the patient as of the visit (else the given day, else today), run on the server with
+ * the records it ran on; refreshed with the records. The Due today box and the timeline both read it. */
 export const useGetImmunizationForecast = (
   input: Partial<GetImmunizationForecastRequest>
 ): UseQueryResult<GetImmunizationForecastResponse, Error> => {
   const { oystehrZambda } = useApiClients();
   return useQuery({
-    queryKey: [GET_IMMUNIZATION_FORECAST_KEY, input.patientId, input.encounterId],
+    queryKey: [GET_IMMUNIZATION_FORECAST_KEY, input.patientId, input.encounterId, input.asOf],
     queryFn: async () => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
       const response = await oystehrZambda.zambda.execute({ ...input, id: 'get-immunization-forecast' });

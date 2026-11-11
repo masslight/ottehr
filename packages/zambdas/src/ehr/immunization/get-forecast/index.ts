@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter } from 'fhir/r4b';
+import { Encounter, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { cvxToGroups } from 'utils/lib/immunization-forecast/cvx-groups';
 import {
@@ -9,6 +10,7 @@ import {
   GetImmunizationForecastResponse,
 } from 'utils/lib/types/data/immunization/types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -34,7 +36,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 /**
  * The engine run for the patient as of the visit's day (else the given day, else today), with the records it ran
- * on (the timeline) and the CVX → group map (the Due today box).
+ * on (the timeline) and the CVX → group map (the Due today box). With a visit, dates are calendar days in its
+ * location's time zone; without one, in the zone each record carries.
  */
 export async function getImmunizationForecast(
   oystehr: Oystehr,
@@ -44,8 +47,11 @@ export async function getImmunizationForecast(
   const encounter = input.encounterId
     ? await readPatientEncounter(oystehr, input.patientId, input.encounterId)
     : undefined;
-  const asOf = encounter ? assessmentDate(encounter, now) : input.asOf ?? now.toISODate()!;
-  const { patient, records, forecast } = await loadPatientForecast(oystehr, input.patientId, asOf);
+  const timezone = encounter ? await readEncounterTimezone(oystehr, encounter) : undefined;
+  const asOf = encounter
+    ? assessmentDate(encounter, timezone ? now.setZone(timezone) : now, timezone)
+    : input.asOf ?? now.toISODate()!;
+  const { patient, records, forecast } = await loadPatientForecast(oystehr, input.patientId, asOf, timezone);
   return { ...records, forecast, cvxGroups: cvxToGroups(), dob: patient.birthDate! };
 }
 
@@ -61,6 +67,18 @@ async function readPatientEncounter(oystehr: Oystehr, patientId: string, encount
     throw INVALID_INPUT_ERROR('The encounter is not a visit of this patient');
   }
   return encounter;
+}
+
+/** The visit location's time zone; none when the visit has no location (dates then keep their own offset). */
+async function readEncounterTimezone(oystehr: Oystehr, encounter: Encounter): Promise<string | undefined> {
+  const locationId = getEncounterLocationId(encounter);
+  if (!locationId) return undefined;
+  try {
+    return getTimezone(await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }));
+  } catch (error) {
+    console.error('Failed to read the visit location for its time zone:', error);
+    throw FHIR_RESOURCE_NOT_FOUND('Location');
+  }
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;

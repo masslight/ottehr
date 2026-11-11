@@ -10,8 +10,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { saveMutate, clearMutate } = vi.hoisted(() => ({ saveMutate: vi.fn(), clearMutate: vi.fn() }));
 
-vi.mock('../../src/features/immunization/hooks/useImmunizationForecast', () => ({
+vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
   useGetImmunizationForecast: () => ({ data: fixture, isLoading: false, error: null }),
+}));
+vi.mock('../../src/features/immunization/hooks/useImmunizationForecast', () => ({
   useSaveImmunizationMark: () => ({ mutate: saveMutate, isPending: false, error: null }),
   useClearImmunizationMark: () => ({ mutate: clearMutate, isPending: false, error: null }),
 }));

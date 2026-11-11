@@ -64,7 +64,7 @@ export const Immunization: React.FC<ImmunizationProps> = ({ tab, onTabChange, on
   const [inlineScrollTo, setInlineScrollTo] = useState<string | undefined>(undefined);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const {
-    resources: { patient },
+    resources: { patient, encounter },
   } = useAppointmentData(appointmentId);
 
   const onNewOrderClick = (): void => {
@@ -191,7 +191,9 @@ export const Immunization: React.FC<ImmunizationProps> = ({ tab, onTabChange, on
         </TabContent>
         <TabContent isActive={tabName === 'vaccine-details'}>{content.details}</TabContent>
         <TabContent isActive={tabName === 'schedule'}>
-          {tabName === 'schedule' && <ImmunizationTimelineContainer patientId={patient?.id} readOnly={isReadOnly} />}
+          {tabName === 'schedule' && (
+            <ImmunizationTimelineContainer patientId={patient?.id} encounterId={encounter?.id} readOnly={isReadOnly} />
+          )}
         </TabContent>
       </Box>
     </Stack>

@@ -1,19 +1,18 @@
 import { Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { ReactElement } from 'react';
+import { useGetImmunizationForecast } from 'src/features/visits/in-person/hooks/useImmunization';
 import { Loader } from 'src/features/visits/shared/components/Loader';
-import {
-  useClearImmunizationMark,
-  useGetImmunizationForecast,
-  useSaveImmunizationMark,
-} from '../hooks/useImmunizationForecast';
+import { useClearImmunizationMark, useSaveImmunizationMark } from '../hooks/useImmunizationForecast';
 import { ImmunizationTimeline } from './ImmunizationTimeline';
 
 interface ImmunizationTimelineContainerProps {
   patientId: string | undefined;
   /** A signed visit: the timeline shows no Mark or Clear controls. */
   readOnly?: boolean;
-  /** Assessment date, ISO yyyy-mm-dd; today in the browser's zone when absent. */
+  /** The visit the timeline is read in: its day is the assessment date. */
+  encounterId?: string;
+  /** Assessment date without a visit, ISO yyyy-mm-dd; today in the browser's zone when absent. */
   asOf?: string;
 }
 
@@ -21,11 +20,12 @@ interface ImmunizationTimelineContainerProps {
 export const ImmunizationTimelineContainer = ({
   patientId,
   readOnly = false,
+  encounterId,
   asOf,
 }: ImmunizationTimelineContainerProps): ReactElement => {
   const { data, isLoading, error } = useGetImmunizationForecast({
     patientId,
-    asOf: asOf ?? DateTime.now().toISODate()!,
+    ...(encounterId ? { encounterId } : { asOf: asOf ?? DateTime.now().toISODate()! }),
   });
   const saveMark = useSaveImmunizationMark();
   const clearMark = useClearImmunizationMark();

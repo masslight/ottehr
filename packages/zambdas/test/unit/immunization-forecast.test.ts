@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { Encounter, Immunization, Patient } from 'fhir/r4b';
+import { Encounter, Immunization, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
   IMMUNIZATION_ENTERING_PROVIDER_CODE,
   IMMUNIZATION_INFORMATION_SOURCE_SYSTEM,
@@ -10,36 +11,25 @@ import {
   VACCINE_GROUP_CODE_SYSTEM,
 } from 'utils/lib/fhir/immunization';
 import { CVX_CODE_SYSTEM_URL } from 'utils/lib/types/api/medication-administration.constants';
-import {
-  GetPatientImmunizationsResponse,
-  ImmunizationMark,
-  PatientImmunizationRecord,
-} from 'utils/lib/types/data/immunization/types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
-import { describe, expect, it, vi } from 'vitest';
-import { assessmentDate, isoDateOf, toForecastInput } from '../../src/ehr/immunization/forecast';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { assessmentDate } from '../../src/ehr/immunization/forecast';
 import { getImmunizationForecast, validateRequestParameters } from '../../src/ehr/immunization/get-forecast';
+import { assertImmunizationStaff, IMMUNIZATION_STAFF_ROLES } from '../../src/ehr/immunization/records';
 import { createMockZambdaInput } from './validate-request-parameters/helpers';
 
-const { mockGetAllPages } = vi.hoisted(() => ({ mockGetAllPages: vi.fn() }));
+const { mockGetAllPages, mockCallerHasRole } = vi.hoisted(() => ({
+  mockGetAllPages: vi.fn(),
+  mockCallerHasRole: vi.fn(),
+}));
 vi.mock('utils/lib/fhir/getAllFhirSearchPages', () => ({ getAllFhirSearchPages: mockGetAllPages }));
+vi.mock('../../src/shared/auth', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  callerHasRole: mockCallerHasRole,
+}));
 
 const TZ = 'America/New_York';
-
-const record = (overrides: Partial<PatientImmunizationRecord> & { id: string }): PatientImmunizationRecord => ({
-  vaccineName: 'Vaccine',
-  outside: false,
-  dateUnknown: !overrides.dateGiven,
-  ...overrides,
-});
-
-const mark = (overrides: Partial<ImmunizationMark> & { id: string; group: string }): ImmunizationMark => ({
-  vaccineGroup: { code: overrides.group, display: overrides.group },
-  mark: 'declined',
-  markedAt: '2026-11-10T15:00:00.000Z',
-  markedBy: { name: 'J. Nurse' },
-  ...overrides,
-});
 
 const maya: Patient = { resourceType: 'Patient', id: 'pat-maya', birthDate: '2026-07-08', gender: 'female' };
 
@@ -51,58 +41,6 @@ const thrown = (fn: () => unknown): any => {
   }
   throw new Error('expected a throw');
 };
-
-describe('toForecastInput', () => {
-  it('maps dated doses to ISO days in the practice zone, keeps undated and outside doses, drops doses without a CVX', () => {
-    const records: GetPatientImmunizationsResponse = {
-      immunizations: [
-        record({ id: 'here', cvx: '08', dateGiven: '2026-08-11T02:30:00.000Z' }), // 10:30 pm on the 10th in New York
-        record({ id: 'outside', cvx: '20', outside: true, dateGiven: '2026-10-01', sourceCode: '03' }),
-        record({ id: 'undated', cvx: '20', outside: true, sourceCode: '01' }),
-        record({ id: 'no-cvx', vaccineName: 'Mystery shot', dateGiven: '2026-09-01' }),
-      ],
-      marks: [],
-    };
-
-    const input = toForecastInput(maya, records, '2026-11-10', TZ);
-
-    expect(input).toMatchObject({ dob: '2026-07-08', sex: 'female', asOf: '2026-11-10' });
-    expect(input.doses).toEqual([
-      { id: 'here', cvx: '08', date: '2026-08-10', source: 'administered' },
-      { id: 'outside', cvx: '20', date: '2026-10-01', source: 'outside', outsideSource: '03' },
-      { id: 'undated', cvx: '20', date: null, source: 'outside', outsideSource: '01' },
-    ]);
-  });
-
-  it('keeps one active mark per group (the newest), ignoring cleared marks and unknown groups', () => {
-    const records: GetPatientImmunizationsResponse = {
-      immunizations: [],
-      marks: [
-        mark({ id: 'm-newest', group: 'rota', markedAt: '2026-11-10T15:00:00.000Z', note: 'Parents declined' }),
-        mark({ id: 'm-older', group: 'rota', mark: 'contraindicated', markedAt: '2026-09-01T15:00:00.000Z' }),
-        mark({
-          id: 'm-cleared',
-          group: 'dtap',
-          cleared: { at: '2026-10-01T00:00:00.000Z', by: { name: 'Dr. Patel' } },
-        }),
-        mark({ id: 'm-unknown', group: 'not-a-group' }),
-      ],
-    };
-
-    const input = toForecastInput(maya, records, '2026-11-10', TZ);
-
-    expect(input.marks).toEqual({
-      rota: { type: 'declined', date: '2026-11-10', by: 'J. Nurse', note: 'Parents declined' },
-    });
-  });
-
-  it('refuses a patient without a date of birth', () => {
-    const error = thrown(() =>
-      toForecastInput({ resourceType: 'Patient' }, { immunizations: [], marks: [] }, '2026-11-10')
-    );
-    expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
-  });
-});
 
 describe('assessmentDate', () => {
   it("is the visit's day in the practice zone when the encounter has started, else today", () => {
@@ -118,7 +56,6 @@ describe('assessmentDate', () => {
     expect(assessmentDate(encounter, now)).toBe('2026-11-11');
     expect(assessmentDate(undefined, now)).toBe('2026-12-01');
     expect(assessmentDate({ ...encounter, period: undefined }, now)).toBe('2026-12-01');
-    expect(isoDateOf('not a date')).toBeUndefined();
   });
 });
 
@@ -164,22 +101,30 @@ const mockOystehr = (resources: Record<string, unknown>): Oystehr =>
   }) as unknown as Oystehr;
 
 describe('getImmunizationForecast', () => {
+  const clinic: Location = {
+    resourceType: 'Location',
+    id: 'loc-ny',
+    extension: [{ url: TIMEZONE_EXTENSION_URL, valueString: TZ }],
+  };
+  // 11:30 pm on the 10th in New York: the visit's day is the 10th, not the UTC 11th
   const visit: Encounter = {
     resourceType: 'Encounter',
     id: 'enc-1',
     status: 'in-progress',
     class: { code: 'AMB' },
     subject: { reference: 'Patient/pat-maya' },
-    period: { start: '2026-11-10T14:00:00.000Z' },
+    location: [{ location: { reference: 'Location/loc-ny' } }],
+    period: { start: '2026-11-11T04:30:00.000Z' },
   };
 
-  it("runs the engine on the patient's records as of the visit and returns the CVX → group map", async () => {
+  it("runs the engine on the patient's records as of the visit's day in its location's zone, and returns them with the CVX → group map and the dob", async () => {
     mockGetAllPages.mockResolvedValue([
       outsideDose('hepb-1', '08', '2026-07-08'),
-      { ...outsideDose('hepb-2', '08', '2026-08-10'), primarySource: true, reportOrigin: undefined },
+      // 10:30 pm on Aug 10 in New York: the second dose is 33 days after the first, not 34
+      { ...outsideDose('hepb-2', '08', '2026-08-11T02:30:00.000Z'), primarySource: true, reportOrigin: undefined },
       declinedRota,
     ]);
-    const oystehr = mockOystehr({ 'Patient/pat-maya': maya, 'Encounter/enc-1': visit });
+    const oystehr = mockOystehr({ 'Patient/pat-maya': maya, 'Encounter/enc-1': visit, 'Location/loc-ny': clinic });
 
     const response = await getImmunizationForecast(oystehr, { patientId: 'pat-maya', encounterId: 'enc-1' });
 
@@ -188,8 +133,12 @@ describe('getImmunizationForecast', () => {
       oystehr
     );
     expect(response.forecast.asOf).toBe('2026-11-10');
+    expect(response.dob).toBe('2026-07-08');
+    expect(response.immunizations.map((record) => record.id)).toEqual(['hepb-2', 'hepb-1']);
+    expect(response.marks.map((mark) => mark.id)).toEqual(['mark-rota']);
     const byGroup = Object.fromEntries(response.forecast.groups.map((group) => [group.group, group]));
     expect(byGroup.hepb.doses.map((dose) => dose.doseNumber)).toEqual([1, 2]);
+    expect(byGroup.hepb.doses[1].date).toBe('2026-08-10');
     expect(byGroup.hepb.status).toBe('uptodate');
     expect(byGroup.rota.status).toBe('declined');
     expect(byGroup.rota.mark).toMatchObject({ type: 'declined', by: 'J. Nurse' });
@@ -202,6 +151,23 @@ describe('getImmunizationForecast', () => {
     expect(response.cvxGroups['146']).toEqual(expect.arrayContaining(['dtap', 'hib', 'ipv', 'hepb']));
   });
 
+  it('takes the given day without a visit, and today without either', async () => {
+    mockGetAllPages.mockResolvedValue([]);
+    const oystehr = mockOystehr({ 'Patient/pat-maya': maya });
+    const now = DateTime.fromISO('2026-12-01T12:00:00', { zone: TZ });
+
+    expect(
+      (await getImmunizationForecast(oystehr, { patientId: 'pat-maya', asOf: '2026-11-20' }, now)).forecast.asOf
+    ).toBe('2026-11-20');
+    expect((await getImmunizationForecast(oystehr, { patientId: 'pat-maya' }, now)).forecast.asOf).toBe('2026-12-01');
+  });
+
+  it('says not found when the patient cannot be read', async () => {
+    await expect(getImmunizationForecast(mockOystehr({}), { patientId: 'pat-maya' })).rejects.toMatchObject({
+      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+    });
+  });
+
   it("refuses an encounter that is not the patient's", async () => {
     const oystehr = mockOystehr({
       'Patient/pat-maya': maya,
@@ -212,6 +178,19 @@ describe('getImmunizationForecast', () => {
       getImmunizationForecast(oystehr, { patientId: 'pat-maya', encounterId: 'enc-other' })
     ).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
     expect(mockGetAllPages).not.toHaveBeenCalledWith(expect.anything(), oystehr);
+  });
+
+  it('accepts an optional yyyy-mm-dd asOf and rejects anything else', () => {
+    expect(validateRequestParameters(createMockZambdaInput({ patientId: 'maya', asOf: '2026-11-10' }))).toEqual({
+      patientId: 'maya',
+      asOf: '2026-11-10',
+      secrets: null,
+    });
+    for (const asOf of ['11/10/2026', '2026-13-01', '2026-11-10T00:00:00Z', 5]) {
+      expect(thrown(() => validateRequestParameters(createMockZambdaInput({ patientId: 'maya', asOf }))).code).toBe(
+        APIErrorCode.INVALID_INPUT
+      );
+    }
   });
 
   it('validates the ids and takes the encounter as optional', () => {
@@ -231,5 +210,32 @@ describe('getImmunizationForecast', () => {
       thrown(() => validateRequestParameters(createMockZambdaInput({ patientId: 'pat-1', encounterId: 'Encounter/x' })))
         .code
     ).toBe(APIErrorCode.INVALID_INPUT);
+  });
+});
+
+describe('get-immunization-forecast role check', () => {
+  beforeEach(() => mockCallerHasRole.mockReset());
+  const input = (body: unknown): any => ({
+    body: JSON.stringify(body),
+    headers: { Authorization: 'Bearer user-token' },
+    secrets: null,
+  });
+
+  it('allows every staff role, Customer Support included', () => {
+    expect(IMMUNIZATION_STAFF_ROLES).toEqual(
+      expect.arrayContaining([RoleType.Provider, RoleType.Clinician, RoleType.Staff, RoleType.CustomerSupport])
+    );
+  });
+
+  it('refuses a caller without a staff role and lets a staff caller through', async () => {
+    mockCallerHasRole.mockResolvedValue(false);
+    await expect(assertImmunizationStaff(input({ patientId: 'maya' }), 'read immunization forecasts')).rejects.toEqual(
+      expect.objectContaining({ code: APIErrorCode.NOT_AUTHORIZED })
+    );
+    expect(mockCallerHasRole).toHaveBeenCalledWith('Bearer user-token', null, IMMUNIZATION_STAFF_ROLES);
+    mockCallerHasRole.mockResolvedValue(true);
+    await expect(
+      assertImmunizationStaff(input({ patientId: 'maya' }), 'read immunization forecasts')
+    ).resolves.toBeUndefined();
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ImmunizationMark, PatientImmunizationRecord } from '../types/data/immunization/types';
 import { forecastImmunizations } from './engine';
-import { activeMarksByGroup, buildForecastInput } from './forecast-input';
+import { activeMarksByGroup, buildForecastInput, isoDateOf } from './forecast-input';
 
 const dose = (overrides: Partial<PatientImmunizationRecord>): PatientImmunizationRecord => ({
   id: 'd',
@@ -64,6 +64,23 @@ describe('buildForecastInput', () => {
       rota: { type: 'declined', date: '2026-11-10', by: 'J. Nurse', note: 'Parent declined' },
       hepb: { type: 'contraindicated', date: '2026-11-10', by: 'J. Nurse' },
     });
+  });
+
+  it('takes the calendar day in the visit zone, not the UTC day: 10:30 pm in New York is still that day', () => {
+    const tz = 'America/New_York';
+    const input = buildForecastInput(
+      { dob: '2026-07-08', asOf: '2026-11-10' },
+      [dose({ id: 'late', cvx: '08', dateGiven: '2026-08-11T02:30:00.000Z' })],
+      [mark({ markedAt: '2026-11-11T03:30:00.000Z' })],
+      tz
+    );
+    expect(input.doses[0].date).toBe('2026-08-10');
+    expect(input.marks?.rota?.date).toBe('2026-11-10');
+    // without a zone the value's own offset decides; a plain date stays itself
+    expect(isoDateOf('2026-08-11T02:30:00.000Z')).toBe('2026-08-11');
+    expect(isoDateOf('2026-08-10T22:30:00.000-04:00')).toBe('2026-08-10');
+    expect(isoDateOf('2026-10-01', tz)).toBe('2026-10-01');
+    expect(isoDateOf('not a date')).toBeUndefined();
   });
 
   it('produces input the engine accepts: a declined mark overrides the group status', () => {
