@@ -39,6 +39,7 @@ import {
   MedicationInteractions,
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
+  vaccineSiteLocations,
 } from '../types/api/medication-administration.types';
 import { getCoding } from './helpers';
 
@@ -147,9 +148,12 @@ export function getLocationFromMedicationAdministration(
   );
   if (!coding?.code) return undefined;
   // Match (code, display) to keep left/right apart; fall back to code-only on display drift.
+  // A vaccine site is saved with its name as display.
   const match =
     medicationApplianceLocations.find((l) => l.code === coding.code && l.display === coding.display) ??
-    medicationApplianceLocations.find((l) => l.code === coding.code);
+    vaccineSiteLocations.find((l) => l.code === coding.code && l.name === coding.display) ??
+    medicationApplianceLocations.find((l) => l.code === coding.code) ??
+    vaccineSiteLocations.find((l) => l.code === coding.code);
   if (!match?.name) return undefined;
   return { code: match.code, name: match.name };
 }
@@ -225,7 +229,8 @@ export function searchMedicationLocation(
   code: string | undefined,
   name?: string | undefined
 ): MedicationApplianceLocation | undefined {
-  return medicationApplianceLocations.find(
+  // the vaccine sentences' short list is searched too, so their sites save
+  return [...medicationApplianceLocations, ...vaccineSiteLocations].find(
     (location) => location.code === code && (name ? location.name === name : true)
   );
 }

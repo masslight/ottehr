@@ -149,6 +149,27 @@ describe('ImmunizationSentences', () => {
     expect(screen.getByRole('heading', { name: 'Administration' })).toBeInTheDocument();
   });
 
+  it('offers the vaccine site list, and a site saved from the medication list still reads', async () => {
+    renderLine({
+      ...emptyImmunizationLine(),
+      details: { location: { code: '206007', name: 'Left Gluteus Maximus' } },
+    });
+    const location = screen.getByTestId(dataTestIds.orderVaccinePage.location);
+    expect(location).toHaveTextContent(/left gluteus maximus/i);
+
+    await userEvent.setup().click(location);
+    for (const site of [
+      'Left deltoid',
+      'Left thigh (vastus lateralis)',
+      'Right gluteus',
+      'Nose (intranasal)',
+      'Other',
+    ]) {
+      expect(screen.getByRole('option', { name: site })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole('option', { name: 'given via nebulizer' })).not.toBeInTheDocument();
+  });
+
   it('a typed given date keeps the date and opens at the current time', async () => {
     // Browsers give the years typed on the way to 2026 (0002, 0020, 0202) offsets with seconds (-04:56:02);
     // an IANA default zone does the same here, where Node's system zone rounds them to whole minutes.

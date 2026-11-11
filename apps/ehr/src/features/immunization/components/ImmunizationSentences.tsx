@@ -15,7 +15,7 @@ import {
 } from 'src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
 import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
-import { BASE_ROUTE_OPTIONS, LOCATION_OPTIONS } from 'src/shared/utils/options';
+import { BASE_ROUTE_OPTIONS, VACCINE_SITE_OPTIONS } from 'src/shared/utils/options';
 import { IMMUNIZATION_OUTSIDE_SOURCES } from 'utils/lib/fhir/immunization';
 import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
@@ -46,7 +46,7 @@ export const SAVE_QUICK_PICK_LABEL = 'Save as quick pick';
 
 const UNIT_OPTIONS = BASE_UNIT_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
 const ROUTE_OPTIONS = BASE_ROUTE_OPTIONS.map((option) => ({ value: option.code, label: option.name }));
-const LOCATION_BLANK_OPTIONS = LOCATION_OPTIONS.map((option) => ({ value: option.code, label: option.name }));
+const LOCATION_BLANK_OPTIONS = VACCINE_SITE_OPTIONS.map((option) => ({ value: option.code, label: option.name }));
 const VIS_OPTIONS = [
   { value: 'given', label: 'given' },
   { value: 'not given', label: 'not given' },
@@ -443,6 +443,12 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
       : current.set({ hour: next.hour, minute: next.minute, second: 0, millisecond: 0 });
     updateAdministration({ administeredDateTime: merged?.toISO() ?? undefined });
   };
+  // A site saved from the longer medication list before vaccines had their own still reads by its name.
+  const savedLocation = details.location;
+  const locationOptions =
+    savedLocation && !LOCATION_BLANK_OPTIONS.some((option) => option.value === savedLocation.code)
+      ? [...LOCATION_BLANK_OPTIONS, { value: savedLocation.code, label: savedLocation.name }]
+      : LOCATION_BLANK_OPTIONS;
   const cptCodes = administrationDetails.cptCodes ?? [];
   // A vaccine the practice gives several ways, with nothing filled in yet: the line asks which quick pick.
   const vaccineQuickPicks = details.medication
@@ -554,9 +560,15 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
         <SelectBlank
           label="location"
           title="Location"
-          options={LOCATION_BLANK_OPTIONS}
+          options={locationOptions}
           value={details.location?.code}
-          onChange={(code) => update({ location: LOCATION_OPTIONS.find((option) => option.code === code) })}
+          onChange={(code) =>
+            update({
+              location:
+                VACCINE_SITE_OPTIONS.find((option) => option.code === code) ??
+                (code === details.location?.code ? details.location : undefined),
+            })
+          }
           readOnly={readOnly}
           clearable
           dataTestId={dataTestIds.orderVaccinePage.location}
