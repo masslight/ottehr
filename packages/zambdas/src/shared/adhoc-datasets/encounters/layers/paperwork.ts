@@ -16,15 +16,17 @@ export const paperworkLayer = defineEncounterLayer<{
     // The tracking board's other paperwork input: the patient's current Photo ID / insurance card DocumentReferences.
     const [paperworkQrByEncounterId, docRefs] = await Promise.all([
       ctx.shared.paperwork(),
-      fetchScopedResources<DocumentReference>(
-        ctx.oystehr,
-        'DocumentReference',
-        'related',
-        ctx.encRefs.length ? Array.from(ctx.root.patientMap.keys()) : [],
-        [
-          { name: 'status', value: 'current' },
-          { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
-        ]
+      ctx.rootLookups().then(() =>
+        fetchScopedResources<DocumentReference>(
+          ctx.oystehr,
+          'DocumentReference',
+          'related',
+          ctx.encRefs.length ? Array.from(ctx.root.patientMap.keys()) : [],
+          [
+            { name: 'status', value: 'current' },
+            { name: 'type', value: `${INSURANCE_CARD_CODE},${PHOTO_ID_CARD_CODE}` },
+          ]
+        )
       ),
     ]);
 

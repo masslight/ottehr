@@ -533,10 +533,43 @@ const participantIds = (appointments: Appointment[], type: 'Patient' | 'Location
     )
   );
 
+/** The appointments of the range with their encounters (`_revinclude`), one async job per window. */
+export async function fetchReportAppointments(
+  oystehr: Oystehr,
+  opts: {
+    dateRange: { start: string; end: string };
+    extraParams?: { name: string; value: string }[];
+    statuses?: string;
+  }
+): Promise<(Appointment | Encounter)[]> {
+  const params: SearchParam[] = [
+    { name: 'status', value: opts.statuses ?? REPORT_APPOINTMENT_STATUSES },
+    { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
+    { name: '_revinclude', value: 'Encounter:appointment' },
+    ...(opts.extraParams ?? []),
+  ];
+  const entries = reportWindows(opts.dateRange).map((window) => windowEntry('Appointment', 'date', window, params));
+  return runEntries<Appointment | Encounter>(oystehr, entries, 'Appointment by date');
+}
+
+/** The patients, locations and attending / intake practitioners of the appointments and encounters, by id. */
+export async function fetchReportRootLookups(
+  oystehr: Oystehr,
+  root: FhirResource[]
+): Promise<{ patients: Patient[]; locations: Location[]; practitioners: Practitioner[] }> {
+  const appointments = root.filter((r): r is Appointment => r.resourceType === 'Appointment');
+  const [patients, locations, practitioners] = await Promise.all([
+    fetchScopedResources<Patient>(oystehr, 'Patient', '_id', participantIds(appointments, 'Patient')),
+    fetchScopedResources<Location>(oystehr, 'Location', '_id', participantIds(appointments, 'Location')),
+    fetchAttendingPractitioners<Practitioner>(oystehr, root),
+  ]);
+  return { patients, locations, practitioners };
+}
+
 /**
- * The report's root: the appointments of the range with their encounters (`_revinclude`), then their
- * patients, locations and attending / intake practitioners by id — once each for the whole report, not as
- * an `_include` in every window. Returns all of them in one list, as before.
+ * The report's root: the appointments of the range with their encounters, then their patients, locations and
+ * attending / intake practitioners by id — once each for the whole report, not as an `_include` in every window.
+ * Returns all of them in one list. (The encounters dataset runs the two parts itself, the lookups next to its layers.)
  */
 export async function fetchAppointmentReportResources<T extends FhirResource>(
   oystehr: Oystehr,
@@ -547,25 +580,10 @@ export async function fetchAppointmentReportResources<T extends FhirResource>(
   }
 ): Promise<T[]> {
   const startedAt = Date.now();
-  const params: SearchParam[] = [
-    { name: 'status', value: opts.statuses ?? REPORT_APPOINTMENT_STATUSES },
-    { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
-    { name: '_revinclude', value: 'Encounter:appointment' },
-    ...(opts.extraParams ?? []),
-  ];
-  const entries = reportWindows(opts.dateRange).map((window) => windowEntry('Appointment', 'date', window, params));
-
-  const root = await runEntries<Appointment | Encounter>(oystehr, entries, 'Appointment by date');
-  const appointments = root.filter((r): r is Appointment => r.resourceType === 'Appointment');
-
-  const [patients, locations, practitioners] = await Promise.all([
-    fetchScopedResources<Patient>(oystehr, 'Patient', '_id', participantIds(appointments, 'Patient')),
-    fetchScopedResources<Location>(oystehr, 'Location', '_id', participantIds(appointments, 'Location')),
-    fetchAttendingPractitioners<Practitioner>(oystehr, root),
-  ]);
-
+  const root = await fetchReportAppointments(oystehr, opts);
+  const { patients, locations, practitioners } = await fetchReportRootLookups(oystehr, root);
   const out = [...root, ...patients, ...locations, ...practitioners] as T[];
-  console.log(`[adhoc] report root: windows=${entries.length} resources=${out.length} ms=${Date.now() - startedAt}`);
+  console.log(`[adhoc] report root: resources=${out.length} ms=${Date.now() - startedAt}`);
   return out;
 }
 

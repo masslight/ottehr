@@ -2,7 +2,7 @@
 // root-only lookups the base row needs (registrar names, location schedules, provider groups).
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
-import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner, Schedule } from 'fhir/r4b';
+import { Appointment, Encounter, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
 import {
   appointmentTypeForAppointment,
   getAppointmentRoom,
@@ -28,7 +28,8 @@ import { getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
   buildEncounterRowContext,
-  fetchAppointmentReportResources,
+  fetchReportAppointments,
+  fetchReportRootLookups,
   fetchScopedResources,
   knownValueOrNull,
 } from '../../adhoc-report';
@@ -36,49 +37,41 @@ import { EncounterRoot, EncounterRowInput } from './context';
 import { groupIdOf, minutesBetween, openHoursOnDay, practitionerDisplayName } from './helpers';
 
 /**
- * The appointments of the range with their encounters, patients, locations and attending / intake
- * practitioners. The Encounters dataset also walks Encounter:part-of so a follow-up encounter resolves to its
- * parent's appointment.
+ * The appointments of the range with their encounters. The Encounters dataset also walks Encounter:part-of so a
+ * follow-up encounter resolves to its parent's appointment. Patients, locations and the attending / intake
+ * practitioners come later, next to the layers (loadEncounterRootLookups).
  */
 export async function fetchEncounterRoot(
   oystehr: Oystehr,
   dateRange: { start: string; end: string }
-): Promise<{ root: EncounterRoot; practitioners: Practitioner[] }> {
-  type ReportResource = Appointment | Encounter | Patient | Location | Practitioner;
-  const allResources = await fetchAppointmentReportResources<ReportResource>(oystehr, {
+): Promise<EncounterRoot> {
+  const resources = await fetchReportAppointments(oystehr, {
     dateRange,
     extraParams: [{ name: '_revinclude:iterate', value: 'Encounter:part-of' }],
   });
 
   const root: EncounterRoot = {
+    resources,
     appointmentMap: new Map(),
     patientMap: new Map(),
     locationMap: new Map(),
     encounterById: new Map(),
   };
-  const practitioners: Practitioner[] = [];
 
-  for (const r of allResources) {
-    switch (r.resourceType) {
-      case 'Appointment':
-        if (r.id) root.appointmentMap.set(`Appointment/${r.id}`, r);
-        break;
-      case 'Patient':
-        if (r.id) root.patientMap.set(`Patient/${r.id}`, r);
-        break;
-      case 'Location':
-        if (r.id) root.locationMap.set(`Location/${r.id}`, r);
-        break;
-      case 'Practitioner':
-        practitioners.push(r);
-        break;
-      case 'Encounter':
-        if (r.id) root.encounterById.set(r.id, r);
-        break;
-    }
+  for (const r of resources) {
+    if (r.resourceType === 'Appointment' && r.id) root.appointmentMap.set(`Appointment/${r.id}`, r);
+    if (r.resourceType === 'Encounter' && r.id) root.encounterById.set(r.id, r);
   }
 
-  return { root, practitioners };
+  return root;
+}
+
+/** Fills the root's patients and locations and returns its attending / intake practitioners. */
+export async function loadEncounterRootLookups(oystehr: Oystehr, root: EncounterRoot): Promise<Practitioner[]> {
+  const { patients, locations, practitioners } = await fetchReportRootLookups(oystehr, root.resources);
+  for (const p of patients) if (p.id) root.patientMap.set(`Patient/${p.id}`, p);
+  for (const l of locations) if (l.id) root.locationMap.set(`Location/${l.id}`, l);
+  return practitioners;
 }
 
 async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string>> {
@@ -124,8 +117,12 @@ export interface EncounterBaseLookups {
   groupNameById: Map<string, string>;
 }
 
-/** Runs next to the layers, not after them: it needs only the root. */
-export async function fetchEncounterBaseLookups(oystehr: Oystehr, root: EncounterRoot): Promise<EncounterBaseLookups> {
+/** Runs next to the layers, not after them: it needs only the root (the schedules wait for its locations). */
+export async function fetchEncounterBaseLookups(
+  oystehr: Oystehr,
+  root: EncounterRoot,
+  rootLookups: () => Promise<unknown>
+): Promise<EncounterBaseLookups> {
   const groupIds = Array.from(
     new Set(
       Array.from(root.appointmentMap.values())
@@ -137,13 +134,15 @@ export async function fetchEncounterBaseLookups(oystehr: Oystehr, root: Encounte
   const [staffNames, schedules, groups] = await Promise.all([
     getStaffNameByEmail(oystehr),
     // Each location's Schedule, for the operating hours on the visit day.
-    fetchScopedResources<Schedule>(
-      oystehr,
-      'Schedule',
-      'actor',
-      Array.from(root.locationMap.values())
-        .filter((loc) => loc.id)
-        .map((loc) => `Location/${loc.id}`)
+    rootLookups().then(() =>
+      fetchScopedResources<Schedule>(
+        oystehr,
+        'Schedule',
+        'actor',
+        Array.from(root.locationMap.values())
+          .filter((loc) => loc.id)
+          .map((loc) => `Location/${loc.id}`)
+      )
     ),
     // Visits booked through a provider group carry the group (HealthcareService) as a participant.
     fetchScopedResources<HealthcareService>(oystehr, 'HealthcareService', '_id', groupIds, [

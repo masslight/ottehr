@@ -21,6 +21,7 @@ export const employerLayer = defineEncounterLayer<{
     // The visit details face sheet's inputs: the patient's account picture and, for pre-op visits, the
     // Organization the visit's employer selection points at.
     if (!ctx.encRefs.length) return { accountsByPatient: new Map(), visitEmployerOrgById: new Map() };
+    await ctx.rootLookups();
 
     const visitEmployerOrgIds = Array.from(
       new Set(

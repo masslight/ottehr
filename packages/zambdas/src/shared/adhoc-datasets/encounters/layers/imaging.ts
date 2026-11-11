@@ -40,6 +40,8 @@ export const imagingLayer = defineEncounterLayer<ImagingOut>({
         radiologyParams
       ));
 
+    // Practitioners from the radiology search land after the root's own (rootLookups).
+    await ctx.rootLookups();
     const requests: ServiceRequest[] = [];
 
     for (const r of radiology) {

@@ -27,11 +27,13 @@ import { ByIdLoader, byIdLoader, once } from '../memo';
 import { indexByEncounter, stripEnc } from './helpers';
 
 export interface EncounterRoot {
+  /** The appointments and encounters as fetched. */
+  resources: (Appointment | Encounter)[];
   /** Keyed `Appointment/{id}`. */
   appointmentMap: Map<string, Appointment>;
-  /** Keyed `Patient/{id}`. */
+  /** Keyed `Patient/{id}`. Filled by `rootLookups()`. */
   patientMap: Map<string, Patient>;
-  /** Keyed `Location/{id}`. */
+  /** Keyed `Location/{id}`. Filled by `rootLookups()`. */
   locationMap: Map<string, Location>;
   /** Keyed by id. */
   encounterById: Map<string, Encounter>;
@@ -49,9 +51,15 @@ export interface EncounterReportContext {
   environment: string;
   requested: ReadonlySet<EncounterLayerId>;
   root: EncounterRoot;
+  /**
+   * Loads the root's patients, locations and attending / intake practitioners, once. It runs next to the layers;
+   * a layer that reads root.patientMap / locationMap while fetching awaits it first. The practitioner loader and the
+   * shared searches that add practitioners await it themselves, so the root's practitioners always land first.
+   */
+  rootLookups(): Promise<void>;
   /** `Encounter/{id}` of every encounter of the report. */
   encRefs: string[];
-  /** Keyed by id. Seeded with the attending / intake practitioners of the root. */
+  /** Keyed by id. The attending / intake practitioners of the root land first (rootLookups). */
   practitioners: ByIdLoader<Practitioner>;
   /** Keyed by id: diagnoses and the conditions drugs were given for. */
   conditions: ByIdLoader<Condition>;
@@ -99,15 +107,26 @@ export function createEncounterContext(params: {
   environment: string;
   requested: ReadonlySet<EncounterLayerId>;
   root: EncounterRoot;
-  practitioners: Practitioner[];
+  /** Loads the root's patients and locations, returns its practitioners. */
+  loadRootLookups: () => Promise<Practitioner[]>;
 }): EncounterReportContext {
   const { oystehr, root, requested, environment } = params;
   const encRefs = Array.from(root.encounterById.keys()).map((id) => `Encounter/${id}`);
 
-  const practitioners = byIdLoader<Practitioner>((ids) =>
+  const loader = byIdLoader<Practitioner>((ids) =>
     fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids, [{ name: '_elements', value: 'id,name' }])
   );
-  practitioners.add(params.practitioners);
+  const rootLookups = once(async () => {
+    loader.add(await params.loadRootLookups());
+  });
+  const practitioners: ByIdLoader<Practitioner> = {
+    map: loader.map,
+    add: loader.add,
+    load: async (ids) => {
+      await rootLookups();
+      await loader.load(ids);
+    },
+  };
 
   const conditions = byIdLoader<Condition>((ids) => fetchScopedResources<Condition>(oystehr, 'Condition', '_id', ids));
 
@@ -165,6 +184,7 @@ export function createEncounterContext(params: {
           : []
       );
 
+      await rootLookups();
       practitioners.add(
         resources.filter((r): r is Practitioner => r.resourceType === 'Practitioner'),
         { overwrite: true }
@@ -201,15 +221,16 @@ export function createEncounterContext(params: {
       return byEncounter;
     }),
 
-    encounterOrders: once(() =>
-      fetchEncounterOrders(oystehr, {
+    encounterOrders: once(async () => {
+      await rootLookups();
+      return fetchEncounterOrders(oystehr, {
         encounters: Array.from(root.encounterById.values()),
         practitioners: Array.from(practitioners.map.values()),
         environment,
         includeLabs: requested.has('labs'),
         includeNursing: requested.has('nursing'),
-      })
-    ),
+      });
+    }),
   };
 
   return {
@@ -218,6 +239,7 @@ export function createEncounterContext(params: {
     environment,
     requested,
     root,
+    rootLookups,
     encRefs,
     practitioners,
     conditions,

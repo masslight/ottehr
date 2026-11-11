@@ -30,7 +30,13 @@ import { resultsLayer } from './layers/results';
 import { signingLayer } from './layers/signing';
 import { timingLayer } from './layers/timing';
 import { vitalsLayer } from './layers/vitals';
-import { buildEncounterBaseRow, fetchEncounterBaseLookups, fetchEncounterRoot, timezoneLookup } from './root';
+import {
+  buildEncounterBaseRow,
+  fetchEncounterBaseLookups,
+  fetchEncounterRoot,
+  loadEncounterRootLookups,
+  timezoneLookup,
+} from './root';
 
 /** Every layer module of the dataset, by layer id. A layer listed in ENCOUNTER_LAYERS must have one. */
 export const ENCOUNTER_LAYER_MODULES: Record<EncounterLayerId, AnyEncounterLayerModule> = {
@@ -73,9 +79,9 @@ export async function fetchAdHocEncounterRows(
   const requested = requestedEncounterLayers(params);
   const modules = requested.map((id) => ENCOUNTER_LAYER_MODULES[id]);
 
-  // 1. Root: appointments + encounters of the range, then patients / locations / practitioners by id.
+  // 1. Root: the appointments of the range with their encounters.
   const startedAt = Date.now();
-  const { root, practitioners } = await fetchEncounterRoot(oystehr, dateRange);
+  const root = await fetchEncounterRoot(oystehr, dateRange);
   const rootMs = Date.now() - startedAt;
 
   const ctx = createEncounterContext({
@@ -84,29 +90,31 @@ export async function fetchAdHocEncounterRows(
     environment: options.environment ?? '',
     requested: new Set(requested),
     root,
-    practitioners,
+    loadRootLookups: () => loadEncounterRootLookups(oystehr, root),
   });
 
-  // 2. The base lookups and every requested layer, all at once: each needs only the root. The fetch helpers'
-  //    job pool limits the requests, not the layers.
-  //    The foreign patient layers (`patients.*`) run with them, for the patients of the root.
+  // 2. All at once, each needing only the root: its patients / locations / practitioners by id (rootLookups — a
+  //    layer that reads them waits for it), the base lookups, every requested layer and the foreign patient
+  //    layers (`patients.*`). The fetch helpers' job pool limits the requests, not these.
   const fetchMs = new Map<string, number>();
-  const [lookups, outs, foreignColumns] = await Promise.all([
-    fetchEncounterBaseLookups(oystehr, root),
-    Promise.all(
-      modules.map(async (module) => {
-        const fetchStartedAt = Date.now();
-        const out = await module.fetch(ctx);
-        fetchMs.set(module.id, Date.now() - fetchStartedAt);
-        return out;
+  const timed = async <T>(id: string, run: () => Promise<T>): Promise<T> => {
+    const fetchStartedAt = Date.now();
+    const out = await run();
+    fetchMs.set(id, Date.now() - fetchStartedAt);
+    return out;
+  };
+  const [, lookups, outs, foreignColumns] = await Promise.all([
+    timed('rootLookups', () => ctx.rootLookups()),
+    fetchEncounterBaseLookups(oystehr, root, ctx.rootLookups),
+    Promise.all(modules.map((module) => timed(module.id, () => module.fetch(ctx)))),
+    ctx.rootLookups().then(() =>
+      fetchForeignPatientColumns(oystehr, {
+        dateRange,
+        patients: Array.from(root.patientMap.values()),
+        foreign: ENCOUNTER_FOREIGN_LAYERS,
+        requested: requestedForeignPatientLayers(ENCOUNTER_FOREIGN_LAYERS, params),
       })
     ),
-    fetchForeignPatientColumns(oystehr, {
-      dateRange,
-      patients: Array.from(root.patientMap.values()),
-      foreign: ENCOUNTER_FOREIGN_LAYERS,
-      requested: requestedForeignPatientLayers(ENCOUNTER_FOREIGN_LAYERS, params),
-    }),
   ]);
 
   // 3. One row per encounter: the base, then each layer's columns.
@@ -144,7 +152,9 @@ export async function fetchAdHocEncounterRows(
   console.log(
     `[adhoc] encounters timing: rows=${rows.length} root ms=${rootMs} layers ms=${fetchedAt - startedAt - rootMs} ` +
       `map ms=${Date.now() - fetchedAt} | ` +
-      modules.map((m, i) => `${m.id}: fetch ${fetchMs.get(m.id) ?? 0} map ${mapMs[i]}`).join(', ')
+      [`rootLookups: fetch ${fetchMs.get('rootLookups') ?? 0} map 0`]
+        .concat(modules.map((m, i) => `${m.id}: fetch ${fetchMs.get(m.id) ?? 0} map ${mapMs[i]}`))
+        .join(', ')
   );
 
   return rows;
