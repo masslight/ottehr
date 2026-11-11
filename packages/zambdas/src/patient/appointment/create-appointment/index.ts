@@ -337,7 +337,7 @@ export async function createAppointment(
     listRequests,
     newPatientDob: (createPatientRequest?.resource as Patient | undefined)?.birthDate,
     createdBy,
-    createdByCode: !m2m && isEHRUser ? user?.profile : undefined,
+    createdByCode: !m2m && isEHRUser ? user?.id : undefined,
     slot,
     appointmentMetadata,
     followUpOptions: input.followUpOptions,
@@ -419,7 +419,7 @@ interface TransactionInput {
   oystehr: Oystehr;
   secrets: Secrets | null;
   createdBy: string;
-  /** Stable Practitioner reference of the staff creator (EHR users only); lets the activity log show their current name. */
+  /** Stable user id of the staff creator (EHR users only); lets the activity log show their current name. */
   createdByCode?: string;
   verifiedPhoneNumber: string | undefined;
   contactInfo: { phone: string; email: string; noEmail?: boolean };

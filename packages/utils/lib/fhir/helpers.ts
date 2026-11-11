@@ -611,17 +611,20 @@ export const STATUS_UPDATE_TAG_SYSTEM = 'status-update';
  */
 export const FOLLOWUP_CONVERSION_TAG_SYSTEM = 'converted-to-follow-up';
 
+/**
+ * Who made a critical update. `display` is the human-readable snapshot stored on the tag; `code` is the
+ * editor's stable Oystehr user id, which — unlike an email or a name — never changes, so the activity log
+ * can resolve the editor's current name from it.
+ */
 export interface CriticalUpdateBy {
   display: string;
   code?: string;
 }
 
 /** Describes a staff (EHR) user as the author of a critical update. */
-export const getStaffCriticalUpdateBy = (
-  user: Pick<User, 'id' | 'email' | 'profile'> | undefined
-): CriticalUpdateBy => ({
+export const getStaffCriticalUpdateBy = (user: Pick<User, 'id' | 'email'> | undefined): CriticalUpdateBy => ({
   display: `Staff ${user?.email ? user.email : `(${user?.id})`}`,
-  code: user?.profile || undefined,
+  code: user?.id || undefined,
 });
 
 export const createCriticalUpdateTag = (updateBy: string | CriticalUpdateBy): Coding => {

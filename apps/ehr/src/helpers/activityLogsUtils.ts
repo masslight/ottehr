@@ -34,7 +34,7 @@ export interface ActivityLogData {
   activityName: ActivityName;
   activityNameSupplement?: string;
   activityBy: string;
-  /** Stable Practitioner reference of the staff member who made the change, when the tag recorded one. */
+  /** Stable user id of the staff member who made the change, when the tag recorded one. */
   activityByCode?: string;
   activityLink?: string;
   moreDetails?: {
@@ -264,7 +264,7 @@ export const formatPaperworkStartedLog = (paperworkStartedFlag: Flag, timezone: 
 const STAFF_EMAIL_PATTERN = /^Staff\s+(\S+@\S+)$/;
 
 interface StaffDirectoryEntry {
-  profile?: string;
+  id?: string;
   email?: string;
   firstName?: string;
   lastName?: string;
@@ -274,8 +274,8 @@ interface StaffDirectoryEntry {
 /**
  * Shows each staff member's current first and last name in the "Made by" column.
  *
- * Tags record the editor's Practitioner reference as `code`, which survives email/name changes, so it is
- * matched against the employee's `profile`. Tags written before `code` existed only carry `Staff <email>`;
+ * Tags record the editor's user id as `code`, which survives email/name changes, so it is
+ * matched against the employee's `id`. Tags written before `code` existed only carry `Staff <email>`;
  * those are matched by email as a best effort. Anything unresolved keeps its stored text.
  */
 export const resolveStaffNames = (
@@ -283,19 +283,19 @@ export const resolveStaffNames = (
   employees: StaffDirectoryEntry[] | undefined
 ): ActivityLogData[] => {
   if (!employees?.length) return logs;
-  const namesByProfile = new Map<string, string>();
+  const namesById = new Map<string, string>();
   const namesByEmail = new Map<string, string>();
   employees.forEach((employee) => {
     const fullName = `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() || employee.name?.trim();
     if (!fullName) return;
-    if (employee.profile) namesByProfile.set(employee.profile, fullName);
+    if (employee.id) namesById.set(employee.id, fullName);
     const email = employee.email?.trim().toLowerCase();
     if (email) namesByEmail.set(email, fullName);
   });
   return logs.map((log) => {
     const email = log.activityBy.match(STAFF_EMAIL_PATTERN)?.[1]?.toLowerCase();
     const fullName =
-      (log.activityByCode ? namesByProfile.get(log.activityByCode) : undefined) ??
+      (log.activityByCode ? namesById.get(log.activityByCode) : undefined) ??
       (email ? namesByEmail.get(email) : undefined);
     return fullName ? { ...log, activityBy: fullName } : log;
   });

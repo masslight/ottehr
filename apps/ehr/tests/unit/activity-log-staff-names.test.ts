@@ -11,13 +11,13 @@ const makeLog = (activityBy: string, activityByCode?: string): ActivityLogData =
 });
 
 const employees = [
-  { profile: 'Practitioner/1', email: 'new.email@example.com', firstName: 'Jane', lastName: 'Smith' },
-  { profile: 'Practitioner/2', email: 'bob@example.com', firstName: '', lastName: '', name: 'Bob Jones' },
+  { id: 'user-1', email: 'new.email@example.com', firstName: 'Jane', lastName: 'Smith' },
+  { id: 'user-2', email: 'bob@example.com', firstName: '', lastName: '', name: 'Bob Jones' },
 ];
 
 describe('resolveStaffNames', () => {
-  it('resolves by Practitioner reference even after the email changed', () => {
-    const [log] = resolveStaffNames([makeLog('Staff old.email@example.com', 'Practitioner/1')], employees);
+  it('resolves by user id even after the email changed', () => {
+    const [log] = resolveStaffNames([makeLog('Staff old.email@example.com', 'user-1')], employees);
     expect(log.activityBy).toBe('Jane Smith');
   });
 
@@ -27,7 +27,7 @@ describe('resolveStaffNames', () => {
   });
 
   it('keeps the stored text when nothing matches', () => {
-    const logs = [makeLog('Staff nobody@example.com', 'Practitioner/99'), makeLog('Patient (555) 123-4567')];
+    const logs = [makeLog('Staff nobody@example.com', 'user-99'), makeLog('Patient (555) 123-4567')];
     expect(resolveStaffNames(logs, employees).map((l) => l.activityBy)).toEqual([
       'Staff nobody@example.com',
       'Patient (555) 123-4567',
@@ -41,15 +41,13 @@ describe('resolveStaffNames', () => {
 });
 
 describe('critical update tag', () => {
-  it('records the staff profile as code', () => {
-    const tag = createCriticalUpdateTag(
-      getStaffCriticalUpdateBy({ id: 'u1', email: 'a@b.com', profile: 'Practitioner/1' })
-    );
-    expect(tag).toMatchObject({ system: 'critical-update-by', code: 'Practitioner/1', display: 'Staff a@b.com' });
+  it('records the staff user id as code', () => {
+    const tag = createCriticalUpdateTag(getStaffCriticalUpdateBy({ id: 'u1', email: 'a@b.com' }));
+    expect(tag).toMatchObject({ system: 'critical-update-by', code: 'u1', display: 'Staff a@b.com' });
   });
 
-  it('omits code for string authors and users without a profile', () => {
+  it('omits code for string authors and users without an email', () => {
     expect(createCriticalUpdateTag('Patient 1')).not.toHaveProperty('code');
-    expect(getStaffCriticalUpdateBy({ id: 'u1', email: '', profile: '' }).display).toBe('Staff (u1)');
+    expect(getStaffCriticalUpdateBy({ id: 'u1', email: '' }).display).toBe('Staff (u1)');
   });
 });
