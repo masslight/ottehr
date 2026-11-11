@@ -165,6 +165,30 @@ describe('DueTodayBox', () => {
     expect(screen.getByText(/Pentacel/)).toBeInTheDocument();
   });
 
+  it('grays out an out-of-stock vaccine with an "Out of stock" hover, and ⊕ still adds it', async () => {
+    const prevnarOut = stocked.map((vaccine) =>
+      vaccine.id === 'prevnar' ? { ...vaccine, outOfStock: true, quickPicks: [] } : vaccine
+    );
+    render(
+      <DueTodayBox
+        dueToday={buildDueToday(forecast, prevnarOut, cvxGroups)}
+        loading={false}
+        error={false}
+        lines={[]}
+        readOnly={false}
+        onAdd={onAdd}
+        onAddAll={onAddAll}
+      />
+    );
+    const row = screen.getAllByTestId(dataTestIds.orderVaccinePage.dueTodayRow)[1];
+    const name = within(row).getByText('Prevnar 20').parentElement!;
+    expect(name).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.hover(name);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Out of stock');
+    await userEvent.click(within(row).getByRole('button', { name: 'Add Prevnar 20' }));
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ id: 'prevnar' }));
+  });
+
   it('says when the forecast is loading or unavailable', () => {
     const { rerender } = render(
       <DueTodayBox

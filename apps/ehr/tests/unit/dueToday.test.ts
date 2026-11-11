@@ -161,16 +161,52 @@ describe('stockedVaccines', () => {
     expect(stockedVaccines([vaccine('e', 'Engerix', '8')], [])[0].cvxCodes).toEqual(['08']);
   });
 
-  it('with vaccine lots on hand, stocked means a lot on hand at the visit’s location', () => {
+  it('offers every vaccine: tracked with none on hand is out of stock, never tracked counts as available', () => {
     const inventory = [
       stockRow('pentacel', [lot('p1'), lot('p0', { onHand: 0 })]),
       stockRow('daptacel', [lot('d0', { catalogMedicationId: 'daptacel', onHand: 0 })]),
     ];
     const stockedHere = stockedVaccines(VACCINES, QUICK_PICKS, inventory);
-    expect(stockedHere.map((v) => v.id)).toEqual(['pentacel']);
-    expect(stockedHere[0].lots.map((l) => l.id)).toEqual(['p1']);
-    // lots set up but none on hand anywhere: back to the vaccine list
-    expect(stockedVaccines(VACCINES, QUICK_PICKS, [inventory[1]]).map((v) => v.id)).toEqual(VACCINES.map((v) => v.id));
+    expect(stockedHere.map((v) => v.id)).toEqual(VACCINES.map((v) => v.id));
+    const here = (id: string): StockedVaccine => stockedHere.find((v) => v.id === id)!;
+    expect(here('pentacel')).toMatchObject({ outOfStock: false });
+    expect(here('pentacel').lots.map((l) => l.id)).toEqual(['p1']);
+    expect(here('daptacel')).toMatchObject({ outOfStock: true, lots: [] });
+    // no lots ever entered for it: not tracked in Ottehr, so available
+    expect(here('ipol')).toMatchObject({ outOfStock: false, lots: [] });
+  });
+});
+
+describe('buildDueToday — out of stock', () => {
+  it('leads with an in-stock vaccine and keeps the out-of-stock combination under "Other ways"', () => {
+    const inventory = [stockRow('pentacel', [lot('p0', { onHand: 0 })])];
+    const withPentacelOut = buildDueToday(
+      forecast,
+      stockedVaccines(
+        VACCINES.filter((v) => ['pentacel', 'daptacel', 'acthib', 'ipol'].includes(v.id)),
+        [],
+        inventory
+      ),
+      cvxGroups
+    );
+    expect(withPentacelOut.rows.map((row) => row.lead.vaccine.name)).toEqual(['ActHIB', 'Daptacel', 'IPOL']);
+    expect(withPentacelOut.rows[0].alternatives.map((c) => [c.vaccine.name, c.vaccine.outOfStock])).toEqual([
+      ['Pentacel', true],
+    ]);
+  });
+
+  it('still leads with an out-of-stock vaccine when nothing else covers the group', () => {
+    const inventory = [stockRow('prevnar', [lot('v0', { catalogMedicationId: 'prevnar', onHand: 0 })])];
+    const row = buildDueToday(
+      forecast,
+      stockedVaccines(
+        VACCINES.filter((v) => v.id === 'prevnar'),
+        [],
+        inventory
+      ),
+      cvxGroups
+    ).rows[0];
+    expect([row.lead.vaccine.name, row.lead.vaccine.outOfStock]).toEqual(['Prevnar 20', true]);
   });
 });
 

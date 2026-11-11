@@ -17,6 +17,8 @@ export interface StockedVaccine {
   quickPicks: ImmunizationQuickPickData[];
   /** On hand at the visit's location; empty when inventory is not set up for it. */
   lots: InventoryLot[];
+  /** Its lots are tracked in inventory and none is on hand: still offered, grayed out (it may be a false negative). */
+  outOfStock: boolean;
 }
 
 /** A group due today or past due, and the CVX codes the forecast allows for its next dose. */
@@ -66,29 +68,27 @@ const onHand = (lots: InventoryLot[]): InventoryLot[] => lots.filter((lot) => lo
 
 /**
  * The vaccines the practice can give today, each with the CVX of its catalog entry and its quick picks; this is the
- * one place that decides what "stocked" means. With vaccine lots on hand anywhere, stocked means a lot on hand at
- * the visit's location; with no inventory set up at all, the practice's vaccine list (get-vaccines) is the stock.
+ * one place that decides what "stocked" means. Every vaccine on the practice's list (get-vaccines) is offered. One
+ * whose lots are tracked at the visit's location but none is on hand is out of stock; one with no lots ever entered
+ * is not tracked in Ottehr, so it counts as available.
  */
 export const stockedVaccines = (
   vaccines: Vaccine[] | undefined,
   quickPicks: ImmunizationQuickPickData[],
   inventory?: InventoryDrugRow[]
-): StockedVaccine[] => {
-  const anyStock = (inventory ?? []).some((row) => onHand(row.lots).length > 0);
-  return (vaccines ?? []).flatMap((vaccine) => {
-    const lots = onHand(inventory?.find((row) => row.medicationId === vaccine.id)?.lots ?? []);
-    if (anyStock && !lots.length) return [];
-    return [
-      {
-        id: vaccine.id,
-        name: vaccine.name,
-        cvxCodes: vaccine.cvx?.trim() ? [normalizeCvx(vaccine.cvx)] : [],
-        quickPicks: quickPicks.filter((quickPick) => quickPick.vaccine?.id === vaccine.id),
-        lots,
-      },
-    ];
+): StockedVaccine[] =>
+  (vaccines ?? []).map((vaccine) => {
+    const allLots = inventory?.find((row) => row.medicationId === vaccine.id)?.lots ?? [];
+    const lots = onHand(allLots);
+    return {
+      id: vaccine.id,
+      name: vaccine.name,
+      cvxCodes: vaccine.cvx?.trim() ? [normalizeCvx(vaccine.cvx)] : [],
+      quickPicks: quickPicks.filter((quickPick) => quickPick.vaccine?.id === vaccine.id),
+      lots,
+      outOfStock: allLots.length > 0 && lots.length === 0,
+    };
   });
-};
 
 export const dueGroups = (forecast: ImmunizationForecast): DueGroup[] =>
   forecast.groups.flatMap((group) =>
@@ -124,9 +124,11 @@ const candidatesFor = (
 const soonestExpiration = (candidate: DueTodayCandidate): string =>
   candidate.vaccine.lots.map((lot) => lot.expirationDate.slice(0, 10)).sort()[0] ?? '9999-12-31';
 
-/** The tie rule (decision #8): fewest shots for what's due, then nothing given that isn't due, then the lot that
- * expires soonest. The name settles what is left, so the box reads the same every time. */
+/** The tie rule (decision #8), after in stock before out of stock: fewest shots for what's due, then nothing given
+ * that isn't due, then the lot that expires soonest. The name settles what is left, so the box reads the same every
+ * time. */
 const rank = (a: DueTodayCandidate, b: DueTodayCandidate, gain: (c: DueTodayCandidate) => number): number =>
+  Number(a.vaccine.outOfStock) - Number(b.vaccine.outOfStock) ||
   gain(b) - gain(a) ||
   a.extras.length - b.extras.length ||
   soonestExpiration(a).localeCompare(soonestExpiration(b)) ||

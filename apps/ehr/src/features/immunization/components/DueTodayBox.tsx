@@ -81,13 +81,21 @@ const VaccineRow: FC<VaccineRowProps> = ({ candidate, labelOf, added, readOnly, 
     <Box data-testid={dataTestIds.orderVaccinePage.dueTodayRow}>
       <Box sx={ROW_SX}>
         <Typography variant="body2" sx={{ flex: 1, lineHeight: 1.8 }}>
-          <Box component="span" sx={{ fontWeight: 500 }}>
-            {vaccine.name}
-          </Box>{' '}
-          <Typography component="span" variant="caption" color="text.secondary">
-            covers {covers.map(labelOf).join(' · ')}
-          </Typography>
-          {extras.length > 0 && <Caption>also gives {extras.map(labelOf).join(' · ')} (not due)</Caption>}
+          <Tooltip title={vaccine.outOfStock ? 'Out of stock' : ''} placement="top-start">
+            <Box
+              component="span"
+              sx={vaccine.outOfStock ? { opacity: 0.5 } : undefined}
+              aria-disabled={vaccine.outOfStock || undefined}
+            >
+              <Box component="span" sx={{ fontWeight: 500 }}>
+                {vaccine.name}
+              </Box>{' '}
+              <Typography component="span" variant="caption" color="text.secondary">
+                covers {covers.map(labelOf).join(' · ')}
+              </Typography>
+              {extras.length > 0 && <Caption>also gives {extras.map(labelOf).join(' · ')} (not due)</Caption>}
+            </Box>
+          </Tooltip>
           {children}
         </Typography>
         <Box sx={{ mt: '2.6px', flex: 'none' }}>
