@@ -171,6 +171,18 @@ const MOCK_VISITS = {
       type: 'walk-in',
       serviceMode: 'in-person',
       dateTime: '2026-03-01T15:00:00Z',
+      // Scheduled follow-ups are only listed here, never as top-level visits.
+      followUps: [
+        {
+          encounterId: 'enc-fu',
+          originalEncounterId: 'enc-1',
+          originalAppointmentId: 'appt-1',
+          appointmentId: 'appt-fu',
+          followupSubtype: 'scheduled',
+          type: 'Follow-up Encounter',
+          dateTime: '2026-03-08T15:00:00Z',
+        },
+      ],
     },
     // No encounter: nothing a document could be attached to.
     {
@@ -651,7 +663,7 @@ describe('InboundFaxMatch page', () => {
       await user.click(saveButton!);
     };
 
-    it('offers only visits that have an encounter, and attaches the document to the chosen one', async () => {
+    it('offers visits that have an encounter, and attaches the document to the chosen one', async () => {
       mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-1' });
       const user = userEvent.setup();
       renderPage();
@@ -659,7 +671,7 @@ describe('InboundFaxMatch page', () => {
       await selectPatientAndFolder(user);
       expect(mockUseGetPatientVisitHistory).toHaveBeenCalledWith('patient-123');
       await user.click(within(screen.getByTestId('inbound-fax-visit-select')).getByRole('combobox'));
-      expect(await screen.findAllByRole('option')).toHaveLength(1);
+      expect(await screen.findAllByRole('option')).toHaveLength(2);
       await user.click(screen.getByRole('option', { name: /Walk-in In Person Visit/ }));
       await save(user);
 
@@ -670,6 +682,23 @@ describe('InboundFaxMatch page', () => {
         );
       });
       expect(mockFileInboundFax.mock.calls[0][1]).not.toHaveProperty('reviewTaskAssignee');
+    });
+
+    it("offers a visit's follow-ups too", async () => {
+      mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-1' });
+      const user = userEvent.setup();
+      renderPage();
+
+      await selectPatientAndFolder(user);
+      await chooseOption(user, 'inbound-fax-visit-select', /Follow-up Encounter/);
+      await save(user);
+
+      await waitFor(() => {
+        expect(mockFileInboundFax).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ encounterId: 'enc-fu' })
+        );
+      });
     });
 
     it('drops the chosen visit when the patient changes, since it belongs to the previous patient', async () => {

@@ -215,23 +215,28 @@ export const InboundFaxMatch: React.FC = () => {
   );
 
   const { data: visitHistory, isLoading: visitsLoading } = useGetPatientVisitHistory(confirmedSelectedPatient?.id);
-  const visitOptions = useMemo(
-    () =>
-      (visitHistory?.visits ?? []).flatMap((visit) =>
-        visit.encounterId
-          ? [
-              {
-                encounterId: visit.encounterId,
-                label: `${getVisitTypeLabelForTypeAndServiceMode({
-                  type: visit.type,
-                  serviceMode: visit.serviceMode,
-                })} ${visit.dateTime ? formatISOStringToDateAndTime(visit.dateTime) : ''}`,
-              },
-            ]
-          : []
-      ),
-    [visitHistory]
-  );
+  // Follow-ups, scheduled ones included, are only listed under their original visit.
+  const visitOptions = useMemo(() => {
+    const dateLabel = (dateTime: string | undefined): string =>
+      dateTime ? formatISOStringToDateAndTime(dateTime) : '';
+    return (visitHistory?.visits ?? []).flatMap((visit) => [
+      ...(visit.encounterId
+        ? [
+            {
+              encounterId: visit.encounterId,
+              label: `${getVisitTypeLabelForTypeAndServiceMode({
+                type: visit.type,
+                serviceMode: visit.serviceMode,
+              })} ${dateLabel(visit.dateTime)}`,
+            },
+          ]
+        : []),
+      ...(visit.followUps ?? []).map((followUp) => ({
+        encounterId: followUp.encounterId,
+        label: `${followUp.type ?? '-'} ${dateLabel(followUp.dateTime)}`,
+      })),
+    ]);
+  }, [visitHistory]);
 
   // Auto-confirm on radio select — no intermediate "Select" button step needed
   const handlePatientSelect = useCallback(

@@ -1,5 +1,6 @@
-import { Task as FhirTask } from 'fhir/r4b';
+import { Encounter, Task as FhirTask } from 'fhir/r4b';
 import { TASK_INPUT_SYSTEM } from 'utils/lib/fhir/constants';
+import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('utils/lib/frontend/sentry', () => ({
@@ -35,6 +36,25 @@ describe('inbound fax review task', () => {
     const task = fhirTaskToTask(makeReviewTask([input('appointment-id', 'appt-1')]));
 
     expect(task.action).toEqual({ name: VIEW_FAX, link: '/in-person/appt-1/documents' });
+  });
+
+  it("opens a follow-up's Documents tab through its original visit", () => {
+    const followUp: Encounter = {
+      resourceType: 'Encounter',
+      id: 'enc-fu',
+      status: 'in-progress',
+      class: { code: 'AMB' },
+      type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+      partOf: { reference: 'Encounter/enc-1' },
+    };
+    const reviewTask = {
+      ...makeReviewTask([input('appointment-id', 'appt-1')]),
+      encounter: { reference: 'Encounter/enc-fu' },
+    };
+
+    const task = fhirTaskToTask(reviewTask, new Map([['enc-fu', followUp]]));
+
+    expect(task.action).toEqual({ name: VIEW_FAX, link: '/in-person/appt-1/documents?encounterId=enc-fu' });
   });
 
   it('opens the patient Docs folder the fax was filed into when no visit was chosen', () => {

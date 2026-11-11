@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { DocumentReference, Encounter, FhirResource, List, Patient, Reference, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
@@ -100,19 +101,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // create the per-patient folder List, which a rejection afterwards would leave behind.
     let appointmentId: string | undefined;
     if (encounterId) {
-      const encounter = (
+      const encounters = (
         await oystehr.fhir.search<Encounter>({
           resourceType: 'Encounter',
           params: [
             { name: '_id', value: encounterId },
             { name: 'subject', value: `Patient/${patientId}` },
+            { name: '_include', value: 'Encounter:part-of' },
           ],
         })
-      ).unbundle()[0];
+      ).unbundle();
+      const encounter = encounters.find((candidate) => candidate.id === encounterId);
       if (!encounter) {
         throw INVALID_INPUT_ERROR(`Encounter/${encounterId} not found for Patient/${patientId}`);
       }
-      appointmentId = getIdFromReference(encounter.appointment?.[0]?.reference, 'Appointment');
+      // A follow-up's chart is opened through its original visit's appointment.
+      const visitEncounter = isFollowupEncounter(encounter)
+        ? encounters.find((candidate) => `Encounter/${candidate.id}` === encounter.partOf?.reference)
+        : encounter;
+      appointmentId = getIdFromReference(visitEncounter?.appointment?.[0]?.reference, 'Appointment');
     }
     const reviewTaskContext = reviewTaskAssignee
       ? await Promise.all([

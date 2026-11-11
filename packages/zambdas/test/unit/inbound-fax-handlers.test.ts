@@ -84,6 +84,7 @@ vi.mock('@sentry/node-core/light', async (importOriginal) => {
 });
 
 import { OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
 import { getUiTaskCategoryForCode } from 'utils/lib/types/api/provider-notifications';
 import { FAX_TASK } from 'utils/lib/types/data/tasks/types';
 import { APIErrorCode } from 'utils/lib/types/errors';
@@ -490,6 +491,7 @@ describe('file-inbound-fax visit link and review task', () => {
       params: [
         { name: '_id', value: 'enc-1' },
         { name: 'subject', value: 'Patient/patient-789' },
+        { name: '_include', value: 'Encounter:part-of' },
       ],
     });
     const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
@@ -540,6 +542,29 @@ describe('file-inbound-fax visit link and review task', () => {
     // The fax's own match task is found by `based-on Communication/…` (match page, ingestion idempotency).
     expect(reviewTask.basedOn).toBeUndefined();
     expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+  });
+
+  it("points a follow-up's review task at its original visit, where the follow-up's chart opens", async () => {
+    const followUp: Encounter = {
+      ...encounter,
+      id: 'enc-fu',
+      type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+      partOf: { reference: 'Encounter/enc-1' },
+      appointment: [{ reference: 'Appointment/appt-fu' }],
+    };
+    mockReads({ encounters: [followUp, encounter] });
+
+    const result = await fileInboundFax(
+      makeInput({ ...fileBody, encounterId: 'enc-fu', reviewTaskAssignee: assignee })
+    );
+
+    expect(result.statusCode).toBe(200);
+    const { requests } = mockOystehr.fhir.transaction.mock.calls[0][0];
+    const docRefPost = requests.find((r: any) => r.method === 'POST' && r.url === '/DocumentReference');
+    const reviewTask: Task = requests.find((r: any) => r.method === 'POST' && r.url === '/Task').resource;
+    expect(docRefPost.resource.context).toEqual({ encounter: [{ reference: 'Encounter/enc-fu' }] });
+    expect(reviewTask.encounter).toEqual({ reference: 'Encounter/enc-fu' });
+    expect(inputValue(reviewTask, 'appointment-id')).toBe('appt-1');
   });
 
   it('points a review task without a visit at the patient folder only', async () => {
