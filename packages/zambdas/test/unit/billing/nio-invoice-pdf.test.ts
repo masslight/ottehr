@@ -147,6 +147,17 @@ describe('renderNioInvoicePdf', () => {
     expect(text).toContain('claim-59');
   });
 
+  it('keeps patient details out of the logs', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await render(data());
+
+    const logged = log.mock.calls.flat().map(String).join('\n');
+    log.mockRestore();
+    expect(logged).not.toContain('Jordan Pruitt');
+    expect(logged).not.toContain('Office Visit');
+  });
+
   it('refuses to render an invoice with no claims', async () => {
     await expect(renderNioInvoicePdf(data({ lines: [] }))).rejects.toThrow('at least one claim line');
   });

@@ -301,10 +301,10 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     }
 
     if (bounds) {
-      console.log(`Drawing at xPos: ${leftBound}. String to draw is ${text}`);
+      console.log(`Drawing at xPos: ${leftBound}`);
       drawTextSequential(text, textStyle, { leftBound, rightBound });
     } else {
-      console.log(`Drawing at xPos: ${currXPos}. String to draw is ${text}`);
+      console.log(`Drawing at xPos: ${currXPos}`);
       drawTextSequential(text, textStyle, { leftBound: currXPos, rightBound: pageRightBound });
     }
 
@@ -330,8 +330,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     const rightBound = bounds?.rightBound !== undefined ? bounds.rightBound : pageRightBound;
 
     if (bounds?.leftBound !== undefined) currXPos = leftBound;
-    console.log(`Text is '${text}'\n
-      lineWidth is ${lineWidth}\n
+    console.log(`lineWidth is ${lineWidth}\n
       lineHeight is ${lineHeight}\n
       currXpos is ${currXPos}\n
       leftBound is ${leftBound}\n
@@ -343,7 +342,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       console.log('Found return character in text. recursively drawing each line');
       const lines = text.split('\n');
       for (let i = 0; i < lines.length; i++) {
-        console.log(`Drawing split line: '${lines[i]}'`);
+        console.log(`Drawing split line ${i + 1} of ${lines.length}`);
         drawTextSequential(lines[i], textStyle, bounds);
         if (i < lines.length - 1) {
           newLine(lineHeight + spacing + 2);
@@ -409,7 +408,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
 
       // APPROACH 2: if the first word is itself bigger than the total width (rightBound - leftBound), then we need a different approach
       // it's ok just to check the first word, because if subsequent words are too long, we recurse anyway
-      console.log(`words[0] is ${words[0]}. firstWordWidth is ${firstWordWidth}`);
+      console.log(`firstWordWidth is ${firstWordWidth}`);
       if (firstWordWidth + widthOfSeparator > totalWidth) {
         splitMethodIsWords = false;
         elements = remainingText.split('');
@@ -816,7 +815,12 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     console.log(`before columns. maxPageIndex: ${maxPageIndex}. minYPos: ${minYPos}`);
 
     columns.forEach((col, idx) => {
-      console.log(`\n\n>>>Drawing column ${idx} for ${JSON.stringify({ ...col, textStyle: undefined })}`);
+      const loggedColumn = {
+        ...col,
+        textStyle: undefined,
+        content: undefined,
+      };
+      console.log(`\n\n>>>Drawing column ${idx} for ${JSON.stringify(loggedColumn)}`);
       // if a new page got added on a previous column, we need the next column to go back to the previous page
       // continue writing, and if that column needs to run onto a new page, it needs to run onto the pre-existing new page
       console.log(`Starting column on page index ${startPageIndex}`);
@@ -828,14 +832,12 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       currYPos = yPosStartOfColumn;
 
       const { content, textStyle, width, startXPos } = col;
-      console.log(`This is getY at start of column ${currYPos} for col ${col.content}`);
+      console.log(`This is getY at start of column ${currYPos} for col ${idx}`);
       drawTextSequential(`${content}`, textStyle, {
         leftBound: startXPos,
         rightBound: startXPos + width,
       });
-      console.log(
-        `This is getY at end of column ${currYPos} for col ${col.content}. currentPageIndex is ${currentPageIndex}`
-      );
+      console.log(`This is getY at end of column ${currYPos} for col ${idx}. currentPageIndex is ${currentPageIndex}`);
 
       // if a column took us to the top of the next page, we want to track that, because when we're done writing columns, page index and y need to go back there
       if (maxPageIndex === undefined) {
