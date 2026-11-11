@@ -1,19 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { Task } from 'fhir/r4b';
-import { SignJWT } from 'jose';
 import { OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import { makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
 import { escapeHtml, formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
-import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { GenericOutreachTemplateData } from 'utils/lib/ottehr-config/sendgrid';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { Secrets } from 'utils/lib/secrets';
 import { OutboundDeliveryAttemptData } from 'utils/lib/types/api/action-logs.types';
-import {
-  DOCUMENT_LINK_AUDIENCE,
-  DOCUMENT_LINK_TTL,
-  DOCUMENT_LINK_TTL_MINUTES,
-} from 'utils/lib/types/api/document-packet.types';
+import { DOCUMENT_LINK_TTL_MINUTES } from 'utils/lib/types/api/document-link.types';
 import { EmailSendOptions, getEmailClient } from './communication';
+import { makeDocumentLinkUrl, mintDocumentLinkToken, requireDocumentLinkSigningKey } from './document-link-token';
 import {
   completeOutboundDeliveryAttempt,
   createOutboundDeliveryAttempt,
@@ -55,42 +51,6 @@ export interface DocumentLinkEmailClient {
     options?: EmailSendOptions
   ): Promise<void>;
 }
-
-const MIN_DOCUMENT_LINK_SECRET_LENGTH = 32;
-
-/** An unset `#{var/DOCUMENT_LINK_SECRET}` deploys as its own literal text, a key anyone can read in the repo. */
-export function requireDocumentLinkSigningKey(secrets: Secrets | null): Uint8Array {
-  const secret = getSecret(SecretsKeys.DOCUMENT_LINK_SECRET, secrets);
-  if (secret.length < MIN_DOCUMENT_LINK_SECRET_LENGTH) {
-    throw new Error(
-      `DOCUMENT_LINK_SECRET must be a random string of at least ${MIN_DOCUMENT_LINK_SECRET_LENGTH} characters`
-    );
-  }
-  return new TextEncoder().encode(secret);
-}
-
-/**
- * The emailed link carries only this token. Its subject is the attempt Task, from which `open-document-link`
- * resolves the document and the recipient; the HMAC signature is what makes the URL unguessable.
- */
-export async function mintDocumentLinkToken(attemptTaskId: string, secrets: Secrets | null): Promise<string> {
-  const secret = requireDocumentLinkSigningKey(secrets);
-  return new SignJWT({})
-    .setProtectedHeader({ alg: 'HS256' })
-    .setSubject(attemptTaskId)
-    .setIssuer(PROJECT_WEBSITE)
-    .setAudience(DOCUMENT_LINK_AUDIENCE)
-    .setIssuedAt()
-    .setExpirationTime(DOCUMENT_LINK_TTL)
-    .sign(secret);
-}
-
-/**
- * The token travels in the URL fragment: it never reaches the intake host's access logs, proxies or error
- * telemetry, and the intake client treats a `?token=` query parameter as a bearer token.
- */
-export const makeDocumentLinkUrl = (token: string, secrets: Secrets | null): string =>
-  `${getSecret(SecretsKeys.WEBSITE_URL, secrets)}/documents#${token}`;
 
 const NOTICE_STYLE = 'margin: 0 0 1em; font-size: 13px; line-height: 18px; color: #333333;';
 

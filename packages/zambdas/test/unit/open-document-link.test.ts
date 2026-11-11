@@ -8,7 +8,7 @@ import {
   makeOutboundDeliveryOutput,
 } from 'utils/lib/fhir/outbound-delivery';
 import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
-import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/document-packet.types';
+import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/document-link.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockSecrets, createMockZambdaInput } from './validate-request-parameters/helpers';
 
@@ -39,7 +39,7 @@ vi.mock('../../src/shared/document-link-email', async (importOriginal) => ({
 }));
 
 import { index } from '../../src/patient/open-document-link';
-import { mintDocumentLinkToken } from '../../src/shared/document-link-email';
+import { mintDocumentLinkToken } from '../../src/shared/document-link-token';
 import { MAX_RESEND_CHAIN_SIZE } from '../../src/shared/outbound-delivery';
 
 const secrets = {

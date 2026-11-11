@@ -88,7 +88,7 @@ export const deliverDocumentPacket = async (args: {
       packets.push(await buildPacketForRecipient({ body, recipient, coverSheet, sourceType: plan.sourceType }));
     } catch (error) {
       if (error instanceof DocumentPacketTooLargeError) throw error;
-      console.log(`[document-packet] failed to send to ${recipient.faxNumber ?? 'an email recipient'}`, error);
+      console.log(`[document-packet] failed to send to ${recipientLogLabel(recipient)}`, error);
       captureException(error);
       packets.push(undefined);
     }
@@ -121,57 +121,80 @@ export const deliverDocumentPacket = async (args: {
         listResources: plan.listResources,
       });
 
-      if (isEmailRecipient(recipient)) {
-        await sendDocumentLinkEmailAttempt({
-          oystehr,
-          secrets,
-          patientId,
-          appointmentId,
-          email: recipient.email,
-          recipientName: formatRecipientName(recipient),
-          recipientOrganization: recipient.organization,
-          recipientPhone: recipient.phoneNumber,
-          documentReferenceId: uploaded.documentReference.id!,
-          packetPageCount: uploaded.pageCount,
-          packetParts: body.parts.map((part) => part.title),
-          organizationId,
-          contactPhone: getLocationContactPhone(plan.location),
-          senderDisplay: getFullestAvailableName(senderPractitioner),
-          requesterReference: senderPractitioner.id ? `Practitioner/${senderPractitioner.id}` : undefined,
-          senderId: senderUserId,
-        });
-      } else {
-        await sendFaxAttempt(
-          {
-            appointmentId,
-            faxNumber: recipient.faxNumber,
-            organizationId,
-            patientId,
-            media: uploaded.pdfInfo.uploadURL,
-            documentReferenceId: uploaded.documentReference.id!,
-            userPractitioner: senderPractitioner,
-            recipientName: formatRecipientName(recipient),
-            recipientOrganization: recipient.organization,
-            recipientPhone: recipient.phoneNumber,
-            packetPageCount: uploaded.pageCount,
-            packetParts: body.parts.map((part) => part.title),
-            senderId: senderUserId,
-          },
-          oystehr
-        );
-      }
+      await sendPacketToRecipient({
+        oystehr,
+        secrets,
+        recipient,
+        uploaded,
+        partTitles: body.parts.map((part) => part.title),
+        plan,
+        senderPractitioner,
+        senderUserId,
+        organizationId,
+      });
 
       results.push({ ...base, status: 'sent' });
     } catch (error) {
       // The raw cause stays server-side; the UI only ever learns sent/failed.
-      // An email address identifies a person, so only a fax number goes to the logs.
-      console.error(`[document-packet] failed to send to ${recipient.faxNumber ?? 'an email recipient'}`, error);
+      console.error(`[document-packet] failed to send to ${recipientLogLabel(recipient)}`, error);
       captureException(error);
       results.push(base);
     }
   }
 
   return results;
+};
+
+/** An email address identifies a person, so only a fax number goes to the logs. */
+const recipientLogLabel = (recipient: DocumentPacketRecipient): string => recipient.faxNumber ?? 'an email recipient';
+
+/** Delivers an uploaded packet over the recipient's channel: an emailed link, or a fax. */
+const sendPacketToRecipient = async (args: {
+  oystehr: Oystehr;
+  secrets: Secrets | null;
+  recipient: DocumentPacketRecipient;
+  uploaded: Awaited<ReturnType<typeof uploadDocumentPacket>>;
+  partTitles: string[];
+  plan: DocumentPacketPlan;
+  senderPractitioner: Practitioner;
+  senderUserId: string;
+  organizationId: string;
+}): Promise<void> => {
+  const { oystehr, secrets, recipient, uploaded, plan, senderPractitioner } = args;
+  const attempt = {
+    patientId: plan.patient.id!,
+    appointmentId: plan.appointmentId,
+    organizationId: args.organizationId,
+    documentReferenceId: uploaded.documentReference.id!,
+    recipientName: formatRecipientName(recipient),
+    recipientOrganization: recipient.organization,
+    recipientPhone: recipient.phoneNumber,
+    packetPageCount: uploaded.pageCount,
+    packetParts: args.partTitles,
+    senderId: args.senderUserId,
+  };
+
+  if (isEmailRecipient(recipient)) {
+    await sendDocumentLinkEmailAttempt({
+      ...attempt,
+      oystehr,
+      secrets,
+      email: recipient.email,
+      contactPhone: getLocationContactPhone(plan.location),
+      senderDisplay: getFullestAvailableName(senderPractitioner),
+      requesterReference: senderPractitioner.id ? `Practitioner/${senderPractitioner.id}` : undefined,
+    });
+    return;
+  }
+  await sendFaxAttempt(
+    {
+      ...attempt,
+      faxNumber: recipient.faxNumber,
+      media: uploaded.pdfInfo.uploadURL,
+      userPractitioner: senderPractitioner,
+    },
+    oystehr
+  );
 };
 
 /** The From block and the timestamp: everything on the cover that is the same for every section. */

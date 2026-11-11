@@ -3,7 +3,7 @@ import { decodeJwt, jwtVerify } from 'jose';
 import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import { getOutboundDeliveryInput, getOutboundDeliveryPacketSnapshot } from 'utils/lib/fhir/outbound-delivery';
 import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
-import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/document-packet.types';
+import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/document-link.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockSendEmail, mockGetFeatureFlag, mockGetEmailClient } = vi.hoisted(() => {
@@ -20,10 +20,9 @@ vi.mock('../../src/shared/communication', () => ({ getEmailClient: mockGetEmailC
 import {
   buildDocumentLinkEmail,
   DocumentLinkEmailInput,
-  makeDocumentLinkUrl,
-  mintDocumentLinkToken,
   sendDocumentLinkEmailAttempt,
 } from '../../src/shared/document-link-email';
+import { makeDocumentLinkUrl, mintDocumentLinkToken } from '../../src/shared/document-link-token';
 
 const secrets = {
   DOCUMENT_LINK_SECRET: 'test-document-link-secret-with-enough-length',

@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Location, Task } from 'fhir/r4b';
-import { decodeJwt, errors, jwtVerify } from 'jose';
 import { DateTime } from 'luxon';
 import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_OUTPUT_CODES } from 'utils/lib/fhir/constants';
 import {
@@ -15,18 +14,17 @@ import {
 } from 'utils/lib/fhir/outbound-delivery';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import {
-  DOCUMENT_LINK_AUDIENCE,
   DOCUMENT_LINK_TTL_MINUTES,
   OpenDocumentLinkInputSchema,
   OpenDocumentLinkOutput,
-} from 'utils/lib/types/api/document-packet.types';
-import { FHIR_RESOURCE_IS_GONE, FHIR_RESOURCE_NOT_FOUND, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+} from 'utils/lib/types/api/document-link.types';
+import { FHIR_RESOURCE_IS_GONE, FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { getLocationContactPhone } from 'utils/lib/utils/support-dialog';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { requireDocumentLinkSigningKey, sendDocumentLinkEmailAttempt } from '../../shared/document-link-email';
+import { sendDocumentLinkEmailAttempt } from '../../shared/document-link-email';
+import { verifyDocumentLinkToken } from '../../shared/document-link-token';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
   collectResendChain,
@@ -79,26 +77,6 @@ export const index = wrapHandler(
   // The body is the link token, a bearer credential for the patient's documents.
   { redactInputBody: true }
 );
-
-export async function verifyDocumentLinkToken(
-  token: string,
-  secrets: Secrets | null
-): Promise<{ attemptId: string; expired: boolean }> {
-  const secret = requireDocumentLinkSigningKey(secrets);
-  try {
-    const { payload } = await jwtVerify(token, secret, { issuer: PROJECT_WEBSITE, audience: DOCUMENT_LINK_AUDIENCE });
-    if (!payload.sub) throw NOT_AUTHORIZED;
-    return { attemptId: payload.sub, expired: false };
-  } catch (error) {
-    // jose checks the signature before the claims, so an expired token is still provably ours.
-    if (error instanceof errors.JWTExpired) {
-      const { sub } = decodeJwt(token);
-      if (sub) return { attemptId: sub, expired: true };
-    }
-    console.error('Document link token rejected:', error instanceof Error ? error.message : error);
-    throw NOT_AUTHORIZED;
-  }
-}
 
 /** The caller's address and browser, as API Gateway forwards them. Best effort: absent when not forwarded. */
 export function readLinkClient(headers: Record<string, unknown> | null | undefined): LinkClient {
