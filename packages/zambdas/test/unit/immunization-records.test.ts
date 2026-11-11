@@ -301,6 +301,15 @@ describe('outside doses', () => {
       source: 'written-record',
       sourceCode: '03',
     });
+    // NIP001 is CDC code system 2.16.840.1.114222.4.5.293 (PHIN VADS value set 2.16.840.1.114222.4.11.7450)
+    expect(IMMUNIZATION_INFORMATION_SOURCE_SYSTEM).toBe('urn:oid:2.16.840.1.114222.4.5.293');
+    // a dose saved under the wrong OID used before still reads its source
+    const legacy = {
+      ...dated,
+      id: 'imm-4',
+      reportOrigin: { coding: [{ system: 'urn:oid:2.16.840.1.114222.4.5.274', code: '03' }] },
+    };
+    expect(immunizationToRecord(legacy)).toMatchObject({ source: 'written-record', sourceCode: '03' });
   });
 });
 

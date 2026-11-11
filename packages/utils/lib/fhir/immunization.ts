@@ -39,8 +39,15 @@ export const IMMUNIZATION_ORDERING_PROVIDER_CODE = 'OP';
 /** Who recorded a mark; v2-0443 "Entering Provider". */
 export const IMMUNIZATION_ENTERING_PROVIDER_CODE = 'EP';
 
-/** CDC NIP001 "Immunization Information Source": what registries take in RXA-9 for historical doses. */
-export const IMMUNIZATION_INFORMATION_SOURCE_SYSTEM = 'urn:oid:2.16.840.1.114222.4.5.274';
+/** CDC NIP001 "Immunization Information Source" (codes 00–08, PHIN VADS value set 2.16.840.1.114222.4.11.7450):
+ * what registries take in RXA-9 for historical doses. */
+export const IMMUNIZATION_INFORMATION_SOURCE_SYSTEM = 'urn:oid:2.16.840.1.114222.4.5.293';
+/** The OID first written by mistake (it is CDC's PHC code system); doses saved with it still read. */
+const LEGACY_IMMUNIZATION_INFORMATION_SOURCE_SYSTEM = 'urn:oid:2.16.840.1.114222.4.5.274';
+
+const informationSourceCode = (immunization: Immunization): string | undefined =>
+  getCoding(immunization.reportOrigin, IMMUNIZATION_INFORMATION_SOURCE_SYSTEM)?.code ??
+  getCoding(immunization.reportOrigin, LEGACY_IMMUNIZATION_INFORMATION_SOURCE_SYSTEM)?.code;
 
 /** HL7 Immunization Origin: FHIR's own, coarser list for reportOrigin, written next to the NIP001 code. */
 export const IMMUNIZATION_ORIGIN_SYSTEM = 'http://terminology.hl7.org/CodeSystem/immunization-origin';
@@ -259,7 +266,7 @@ export function immunizationFromMedicationAdministration(
 }
 
 const sourceFromReportOrigin = (immunization: Immunization): PatientImmunizationRecord['source'] | undefined => {
-  const code = getCoding(immunization.reportOrigin, IMMUNIZATION_INFORMATION_SOURCE_SYSTEM)?.code;
+  const code = informationSourceCode(immunization);
   if (!code) return undefined;
   return IMMUNIZATION_OUTSIDE_SOURCES.find((source) => source.code === code)?.value ?? 'unspecified';
 };
@@ -279,10 +286,7 @@ export function immunizationToRecord(immunization: Immunization): PatientImmuniz
     administeredBy: performerActor(immunization, IMMUNIZATION_ADMINISTERING_PROVIDER_CODE),
     place: immunization.location?.display,
     source: outside ? sourceFromReportOrigin(immunization) ?? 'unspecified' : undefined,
-    sourceCode: outside
-      ? getCoding(immunization.reportOrigin, IMMUNIZATION_INFORMATION_SOURCE_SYSTEM)?.code ??
-        IMMUNIZATION_SOURCE_UNSPECIFIED.code
-      : undefined,
+    sourceCode: outside ? informationSourceCode(immunization) ?? IMMUNIZATION_SOURCE_UNSPECIFIED.code : undefined,
     lot: immunization.lotNumber,
     expirationDate: immunization.expirationDate,
     manufacturer: immunization.manufacturer?.display,
