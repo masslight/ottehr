@@ -131,6 +131,9 @@ export function NioInvoiceDialog({
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [notDownloadedInvoiceNumber, setNotDownloadedInvoiceNumber] = useState<string | null>(null);
+  const close = notDownloadedInvoiceNumber ? onCreated : onClose;
+  const idleLabel = notDownloadedInvoiceNumber ? 'Download Again' : 'Create Invoice';
 
   const preview = useQuery({
     queryKey: ['billing-nio-invoice-preview', claimIds],
@@ -163,14 +166,14 @@ export function NioInvoiceDialog({
       });
       try {
         await downloadUrl(`${invoice.invoiceNumber}.pdf`, invoice.pdfUrl);
-        enqueueSnackbar(`Invoice ${invoice.invoiceNumber} created`, {
-          variant: 'success',
-        });
       } catch {
-        enqueueSnackbar(`Invoice ${invoice.invoiceNumber} was created, but its PDF didn't download`, {
-          variant: 'warning',
-        });
+        setNotDownloadedInvoiceNumber(invoice.invoiceNumber);
+        setCreating(false);
+        return;
       }
+      enqueueSnackbar(`Invoice ${invoice.invoiceNumber} created`, {
+        variant: 'success',
+      });
       onCreated();
     } catch (error) {
       setCreateError(
@@ -186,7 +189,7 @@ export function NioInvoiceDialog({
   return (
     <Dialog
       open
-      onClose={creating ? undefined : onClose}
+      onClose={creating ? undefined : close}
       maxWidth={false}
       PaperProps={{
         sx: {
@@ -216,7 +219,7 @@ export function NioInvoiceDialog({
             {claimIds.length} claim(s)
           </Typography>
         </Box>
-        <IconButton size="small" onClick={onClose} disabled={creating} aria-label="Close">
+        <IconButton size="small" onClick={close} disabled={creating} aria-label="Close">
           <CloseIcon fontSize="small" />
         </IconButton>
       </DialogTitle>
@@ -228,6 +231,11 @@ export function NioInvoiceDialog({
       >
         <Stack spacing={2}>
           {createError && <Alert severity="error">{createError}</Alert>}
+          {notDownloadedInvoiceNumber && (
+            <Alert severity="warning">
+              Invoice {notDownloadedInvoiceNumber} was created, but its PDF didn't download.
+            </Alert>
+          )}
           {preview.isPending ? (
             <Box
               sx={{
@@ -269,13 +277,13 @@ export function NioInvoiceDialog({
         }}
       >
         <Button
-          onClick={onClose}
+          onClick={close}
           disabled={creating}
           sx={{
             color: 'text.secondary',
           }}
         >
-          Cancel
+          {notDownloadedInvoiceNumber ? 'Close' : 'Cancel'}
         </Button>
         <Button
           variant="contained"
@@ -283,7 +291,7 @@ export function NioInvoiceDialog({
           disabled={!preview.data || creating}
           onClick={() => void create()}
         >
-          {creating ? 'Creating...' : 'Create Invoice'}
+          {creating ? 'Creating...' : idleLabel}
         </Button>
       </DialogActions>
     </Dialog>

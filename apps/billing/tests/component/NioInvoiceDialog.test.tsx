@@ -174,7 +174,28 @@ describe('NIO invoice dialog', () => {
     expect(retry.idempotencyKey).toBe(firstAttempt.idempotencyKey);
   });
 
-  it('still closes when the invoice was created but its PDF did not download', async () => {
+  it('stays open to download again with the same key when the invoice was created but its PDF did not download', async () => {
+    const user = userEvent.setup();
+    mocks.downloadUrl.mockRejectedValueOnce(new Error('Failed to download INV-00007.pdf: 403'));
+    const { onCreated } = renderDialog();
+
+    const createButton = await screen.findByRole('button', { name: 'Create Invoice' });
+    await waitFor(() => expect(createButton).toBeEnabled());
+    await user.click(createButton);
+
+    expect(await screen.findByText("Invoice INV-00007 was created, but its PDF didn't download.")).toBeInTheDocument();
+    expect(onCreated).not.toHaveBeenCalled();
+
+    const downloadAgain = screen.getByRole('button', { name: 'Download Again' });
+    await user.click(downloadAgain);
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    const [[, firstAttempt], [, retry]] = mocks.create.mock.calls;
+    expect(retry.idempotencyKey).toBe(firstAttempt.idempotencyKey);
+    expect(mocks.downloadUrl).toHaveBeenCalledTimes(2);
+  });
+
+  it('reloads the claims when closed after the invoice was created but its PDF did not download', async () => {
     const user = userEvent.setup();
     mocks.downloadUrl.mockRejectedValue(new Error('Failed to download INV-00007.pdf: 403'));
     const { onCreated } = renderDialog();
@@ -183,10 +204,13 @@ describe('NIO invoice dialog', () => {
     await waitFor(() => expect(createButton).toBeEnabled());
     await user.click(createButton);
 
-    await waitFor(() => expect(onCreated).toHaveBeenCalled());
-    expect(mocks.snackbar).toHaveBeenCalledWith("Invoice INV-00007 was created, but its PDF didn't download", {
-      variant: 'warning',
+    await screen.findByText("Invoice INV-00007 was created, but its PDF didn't download.");
+    const close = screen.getByText('Close', {
+      selector: 'button',
     });
+    await user.click(close);
+
+    expect(onCreated).toHaveBeenCalled();
   });
 
   it('shows a failed preview and does not allow creating', async () => {
