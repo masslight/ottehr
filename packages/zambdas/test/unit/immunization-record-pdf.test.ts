@@ -155,7 +155,7 @@ describe('immunization record PDF — groups', () => {
         title: 'Rotavirus — Declined',
         target: 'Target: 3',
         doses: [],
-        mark: 'Declined 11/10/2026 by J. Nurse — Parents declined',
+        mark: 'Declined 11/10/2026 · recorded by J. Nurse — Parents declined',
         next: undefined,
         notes: [],
       },

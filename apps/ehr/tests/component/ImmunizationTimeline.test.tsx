@@ -104,7 +104,7 @@ describe('ImmunizationTimeline', () => {
     expect(within(dtap).getByText('Due today')).toBeInTheDocument();
     const rota = screen.getByTestId('immunization-lane-rota');
     expect(within(rota).getByText('Declined')).toBeInTheDocument();
-    expect(within(rota).getByText(/by J\. Nurse/)).toBeInTheDocument();
+    expect(within(rota).getByText(/· recorded by J\. Nurse/)).toBeInTheDocument();
     expect(
       within(screen.getByTestId('immunization-lane-mmr')).getByText('Outside · Date unknown · not counted')
     ).toBeInTheDocument();
@@ -126,7 +126,7 @@ describe('ImmunizationTimeline', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Rotavirus mark' }));
     expect(
       screen.getByText(
-        /Declined 11\/10\/2026 by J\. Nurse; Contraindicated 09\/09\/2026 by Dr\. Patel, cleared 10\/01\/2026 by J\. Nurse/
+        /Declined 11\/10\/2026 · recorded by J\. Nurse; Contraindicated 09\/09\/2026 · recorded by Dr\. Patel, cleared 10\/01\/2026 by J\. Nurse/
       )
     ).toBeInTheDocument();
   });

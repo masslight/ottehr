@@ -80,9 +80,9 @@ export const doseLine = (
 
 const markLine = (group: ImmunizationGroupForecast): string | undefined =>
   group.mark &&
-  `${STATUS_TEXT[group.mark.type]} ${formatDay(group.mark.date)} by ${group.mark.by}${
-    group.mark.note ? ` — ${group.mark.note}` : ''
-  }`;
+  `${STATUS_TEXT[group.mark.type]} ${formatDay(group.mark.date)}${
+    group.mark.by?.trim() ? ` · recorded by ${group.mark.by}` : ''
+  }${group.mark.note ? ` — ${group.mark.note}` : ''}`;
 
 const nextLine = (group: ImmunizationGroupForecast): string | undefined =>
   group.next

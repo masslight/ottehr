@@ -193,10 +193,16 @@ export const STATUS_LABELS: Record<ImmunizationGroupStatus, string> = {
 
 const MARK_LABELS = { immune: 'Immune', contraindicated: 'Contraindicated', declined: 'Declined' } as const;
 
-/** "Declined 11/10/2026 by J. Nurse", plus ", cleared 12/08/2026 by Dr. Patel" once cleared. */
+/** "11/10/2026 · recorded by J. Nurse": who recorded the mark, not who declined; a blank name drops that part. */
+export const markRecordedText = (mark: ImmunizationMark): string =>
+  `${formatDate(mark.markedAt)}${mark.markedBy.name.trim() ? ` · recorded by ${mark.markedBy.name}` : ''}`;
+
+/** "Declined 11/10/2026 · recorded by J. Nurse", plus ", cleared 12/08/2026 by Dr. Patel" once cleared. */
 export const markText = (mark: ImmunizationMark): string =>
-  `${MARK_LABELS[mark.mark]} ${formatDate(mark.markedAt)} by ${mark.markedBy.name}` +
-  (mark.cleared ? `, cleared ${formatDate(mark.cleared.at)} by ${mark.cleared.by.name}` : '');
+  `${MARK_LABELS[mark.mark]} ${markRecordedText(mark)}` +
+  (mark.cleared
+    ? `, cleared ${formatDate(mark.cleared.at)}${mark.cleared.by.name.trim() ? ` by ${mark.cleared.by.name}` : ''}`
+    : '');
 
 /** Every mark ever made on the group, newest first, as the history line of the details box. */
 export const markHistoryText = (marks: ImmunizationMark[], group: ImmunizationGroupId): string =>

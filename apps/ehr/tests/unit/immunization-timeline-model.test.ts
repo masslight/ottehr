@@ -165,8 +165,15 @@ describe('detail texts', () => {
         markedBy: { name: 'X' },
       },
     ];
-    expect(markHistoryText(marks, 'rota')).toBe('Declined 11/10/2026 by J. Nurse, cleared 12/08/2026 by Dr. Patel');
+    expect(markHistoryText(marks, 'rota')).toBe(
+      'Declined 11/10/2026 · recorded by J. Nurse, cleared 12/08/2026 by Dr. Patel'
+    );
     expect(markHistoryText(marks, 'var')).toBe('');
+    // a blank name drops the "by" parts
+    const unnamed = [
+      { ...marks[0], markedBy: { name: ' ' }, cleared: { at: '2026-12-08T15:00:00.000Z', by: { name: '' } } },
+    ];
+    expect(markHistoryText(unnamed, 'rota')).toBe('Declined 11/10/2026, cleared 12/08/2026');
   });
 
   it('names the other lanes a combination shot counted in', () => {

@@ -41,6 +41,7 @@ import {
   formatDate,
   givenDoseWindowSegments,
   markHistoryText,
+  markRecordedText,
   nextDoseSegments,
   sameShotText,
   STATUS_LABELS,
@@ -442,7 +443,7 @@ export const ImmunizationTimeline = ({
                   </ButtonBase>
                   {mark && (
                     <Typography variant="caption" color="text.secondary" noWrap>
-                      {formatDate(mark.markedAt)} by {mark.markedBy.name}
+                      {markRecordedText(mark)}
                     </Typography>
                   )}
                 </Box>
