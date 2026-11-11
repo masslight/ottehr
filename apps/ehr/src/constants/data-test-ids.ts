@@ -901,7 +901,7 @@ export const dataTestIds = {
     dueTodayBox: 'order-vaccine-due-today',
     dueTodayRow: 'order-vaccine-due-today-row',
     dueTodayAddAll: 'order-vaccine-due-today-add-all',
-    coverage: 'order-vaccine-coverage',
+    duplicateWarning: 'order-vaccine-duplicate-warning',
     lineQuickPicks: 'order-vaccine-line-quick-picks',
   },
 

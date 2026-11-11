@@ -341,6 +341,8 @@ interface ImmunizationSentencesProps {
   /** The patient's VFC eligibility for the visit, once confirmed: the matching stock lists first. */
   vfcEligibility?: VfcEligibilityCode;
   patientFirstName?: string;
+  /** "Hep B is also in Pediarix above.": under the vaccine, while the line can be edited. Never blocks saving. */
+  duplicateWarning?: string;
 }
 
 /** The Lot blank with the vaccine's lots on hand; a plain blank for a vaccine not set up for inventory. */
@@ -402,6 +404,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
   locationId,
   vfcEligibility,
   patientFirstName,
+  duplicateWarning,
 }) => {
   const { details, administrationDetails } = line;
   const update = (patch: Partial<InputImmunizationOrderDetails>): void =>
@@ -522,6 +525,16 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
         )}
         .
       </Sentence>
+      {duplicateWarning && !readOnly && (
+        <Typography
+          variant="caption"
+          color="warning.main"
+          sx={{ mt: -0.5 }}
+          data-testid={dataTestIds.orderVaccinePage.duplicateWarning}
+        >
+          {duplicateWarning}
+        </Typography>
+      )}
 
       <Sentence>
         Give{' '}

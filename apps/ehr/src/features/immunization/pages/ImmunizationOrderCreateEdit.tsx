@@ -40,14 +40,15 @@ import {
 } from '../../visits/in-person/hooks/useImmunization';
 import {
   buildDueToday,
-  coverageOf,
   DueTodayLotPick,
+  duplicateGroupsByLine,
+  duplicateWarningText,
   fillFromDueToday,
   StockedVaccine,
   stockedVaccines,
   vaccinesToAddAll,
 } from '../components/dueToday';
-import { CoverageStrip, DueTodayBox } from '../components/DueTodayBox';
+import { DueTodayBox } from '../components/DueTodayBox';
 import {
   applyImmunizationQuickPick,
   applyQuickPickToOutsideLine,
@@ -282,9 +283,9 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     () => forecastResponse && buildDueToday(forecastResponse.forecast, stocked, forecastResponse.cvxGroups),
     [forecastResponse, stocked]
   );
-  const coverage = useMemo(
-    () => (dueToday && forecastResponse ? coverageOf(dueToday.due, lines, stocked, forecastResponse.cvxGroups) : []),
-    [dueToday, forecastResponse, lines, stocked]
+  const duplicates = useMemo(
+    () => duplicateGroupsByLine(lines, stocked, forecastResponse?.cvxGroups ?? {}),
+    [lines, stocked, forecastResponse]
   );
   const addFromDueToday = (vaccine: StockedVaccine, quickPick?: ImmunizationQuickPickData): void =>
     changeLines((current) => addVaccineToLines(current, vaccine, quickPick, defaultProvider, lotPick));
@@ -394,7 +395,6 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
               <Stack spacing={1.5} style={{ padding: '24px' }}>
                 <VfcEligibilityBox encounterId={encounterId || undefined} variant="strip" readOnly={isReadOnly} />
                 <ImmunizationSectionLabel>Immunizations</ImmunizationSectionLabel>
-                {isCreating && <CoverageStrip coverage={coverage} />}
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {lines.map((line, index) => (
                     <ImmunizationSentences
@@ -422,6 +422,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                       locationId={location?.id}
                       vfcEligibility={vfcEligibility}
                       patientFirstName={patientFirstName}
+                      duplicateWarning={isReadOnly ? undefined : duplicateWarningText(duplicates[index])}
                     />
                   ))}
                 </Box>

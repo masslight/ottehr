@@ -1,11 +1,10 @@
 import { AddCircleOutline, CheckCircle } from '@mui/icons-material';
-import { Box, Button, Chip, IconButton, Tooltip, Typography } from '@mui/material';
+import { Box, Button, IconButton, Tooltip, Typography } from '@mui/material';
 import { FC, ReactNode, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { BASE_ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
-  Coverage,
   DueToday,
   DueTodayCandidate,
   isVaccineAdded,
@@ -211,34 +210,6 @@ export const DueTodayBox: FC<DueTodayBoxProps> = ({ dueToday, loading, error, li
       ))}
       {dueToday?.notSuggested.map((text) => <Caption key={text}>Not suggested: {text}</Caption>)}
       {dueToday && dueToday.upcoming.length > 0 && <Caption>{dueToday.upcoming.join(' · ')}</Caption>}
-    </Box>
-  );
-};
-
-/** The strip over the lines: each due disease needed, covered, or about to be given twice. */
-export const CoverageStrip: FC<{ coverage: Coverage[] }> = ({ coverage }) => {
-  if (!coverage.length) return null;
-  return (
-    <Box
-      sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}
-      aria-label="Coverage"
-      data-testid={dataTestIds.orderVaccinePage.coverage}
-    >
-      {coverage.map(({ group, count }) => (
-        <Chip
-          key={group.id}
-          size="small"
-          variant="outlined"
-          color={count === 0 ? 'warning' : count === 1 ? 'success' : 'error'}
-          label={
-            count === 0
-              ? `${group.label} needed`
-              : count === 1
-              ? `${group.label} ✓`
-              : `${group.label} ×${count} (twice)`
-          }
-        />
-      ))}
     </Box>
   );
 };

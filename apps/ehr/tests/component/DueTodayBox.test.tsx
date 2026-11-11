@@ -8,8 +8,8 @@ import {
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dataTestIds } from '../../src/constants/data-test-ids';
-import { buildDueToday, coverageOf, stockedVaccines } from '../../src/features/immunization/components/dueToday';
-import { CoverageStrip, DueTodayBox, LineQuickPicks } from '../../src/features/immunization/components/DueTodayBox';
+import { buildDueToday, stockedVaccines } from '../../src/features/immunization/components/dueToday';
+import { DueTodayBox, LineQuickPicks } from '../../src/features/immunization/components/DueTodayBox';
 import { ImmunizationFormValues } from '../../src/features/immunization/components/immunizationLines';
 
 const group = (
@@ -222,17 +222,6 @@ describe('DueTodayBox', () => {
       />
     );
     expect(screen.getByText('The forecast is not available right now.')).toBeInTheDocument();
-  });
-});
-
-describe('CoverageStrip', () => {
-  it('warns when a disease is given twice', () => {
-    const coverage = coverageOf(dueToday.due, [line('pentacel', '120'), line('daptacel', '20')], stocked, cvxGroups);
-    render(<CoverageStrip coverage={coverage} />);
-    const strip = screen.getByTestId(dataTestIds.orderVaccinePage.coverage);
-    expect(within(strip).getByText('DTaP/Tdap/Td ×2 (twice)')).toBeInTheDocument();
-    expect(within(strip).getByText('Hib ✓')).toBeInTheDocument();
-    expect(within(strip).getByText('PCV needed')).toBeInTheDocument();
   });
 });
 

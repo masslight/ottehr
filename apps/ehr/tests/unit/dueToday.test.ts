@@ -9,8 +9,9 @@ import { Vaccine } from 'utils/lib/types/data/immunization/types';
 import { describe, expect, it } from 'vitest';
 import {
   buildDueToday,
-  coverageOf,
   CvxGroups,
+  duplicateGroupsByLine,
+  duplicateWarningText,
   fillFromDueToday,
   isVaccineAdded,
   lotToPrePick,
@@ -361,24 +362,44 @@ describe('what ⊕ fills — option B', () => {
   });
 });
 
-describe('coverageOf — the coverage strip', () => {
-  it('counts how many lines give each due disease, by the typed CVX or the vaccine’s', () => {
-    const dueToday = buildDueToday(forecast, stocked, cvxGroups);
-    const base = emptyImmunizationLine();
-    const lines: ImmunizationFormValues[] = [
-      fillFromDueToday(base, byId('pentacel')),
-      { ...base, details: { medication: { id: 'daptacel', name: 'Daptacel' } }, administrationDetails: { cvx: '20' } },
-      { ...base, details: { medication: { id: 'typed', name: 'Some IPV' } }, administrationDetails: { cvx: '10' } },
-      { ...base, details: { medication: { id: 'rotateq', name: 'RotaTeq' } }, administrationDetails: {}, outside: {} },
-    ];
-    const coverage = coverageOf(dueToday.due, lines, stocked, cvxGroups);
-    expect(coverage.map(({ group, count }) => [group.id, count])).toEqual([
-      ['rota', 0],
-      ['dtap', 2],
-      ['hib', 1],
-      ['pcv', 0],
-      ['ipv', 2],
-      ['menb', 0],
-    ]);
+describe('duplicateGroupsByLine — the duplicate warning on a later line', () => {
+  const base = emptyImmunizationLine();
+  const typed = (id: string, name: string, cvx: string): ImmunizationFormValues => ({
+    ...base,
+    details: { medication: { id, name } },
+    administrationDetails: { cvx },
+  });
+
+  it('warns on the later line about each disease an earlier line already gives, due or not', () => {
+    const lines = [typed('pediarix', 'Pediarix', '110'), typed('engerix', 'Engerix-B', '08')];
+    const duplicates = duplicateGroupsByLine(lines, stocked, cvxGroups);
+    expect(duplicates).toEqual([[], [{ vaccine: 'Pediarix', groups: ['Hep B'] }]]);
+    expect(duplicateWarningText(duplicates[1])).toBe('Hep B is also in Pediarix above.');
+    const twice = duplicateGroupsByLine(
+      [typed('pediarix', 'Pediarix', '110'), typed('vaxelis', 'Vaxelis', '146')],
+      stocked,
+      cvxGroups
+    );
+    expect(duplicateWarningText(twice[1])).toBe('DTaP/Tdap/Td, Polio, Hep B are also in Pediarix above.');
+  });
+
+  it('says nothing for different diseases, outside lines or lines without a vaccine', () => {
+    expect(
+      duplicateGroupsByLine([typed('engerix', 'Engerix-B', '08'), typed('ipol', 'IPOL', '10')], stocked, cvxGroups)
+    ).toEqual([[], []]);
+    expect(
+      duplicateGroupsByLine(
+        [{ ...typed('engerix', 'Engerix-B', '08'), outside: {} }, typed('engerix2', 'Engerix-B', '08'), base],
+        stocked,
+        cvxGroups
+      )
+    ).toEqual([[], [], []]);
+  });
+
+  it('finds the CVX from the stocked vaccine when none is typed', () => {
+    const lines = [fillFromDueToday(base, byId('pentacel')), typed('ipol', 'IPOL', '10')];
+    expect(duplicateWarningText(duplicateGroupsByLine(lines, stocked, cvxGroups)[1])).toBe(
+      'Polio is also in Pentacel above.'
+    );
   });
 });

@@ -76,6 +76,28 @@ describe('ImmunizationSentences', () => {
     vi.clearAllMocks();
   });
 
+  it('shows the duplicate warning under the vaccine as plain text, and none when read-only', () => {
+    const line = { ...emptyImmunizationLine(), details: { medication: { id: 'engerix', name: 'Engerix-B' } } };
+    const props = {
+      line,
+      index: 1,
+      onChange: vi.fn(),
+      quickPicks: [],
+      onQuickPick: vi.fn(),
+      errors: [],
+      duplicateWarning: 'Hep B is also in <b>Pediarix</b> above.',
+    };
+    const { unmount } = render(<ImmunizationSentences {...props} readOnly={false} />);
+    const warning = screen.getByTestId(dataTestIds.orderVaccinePage.duplicateWarning);
+    expect(warning).toHaveTextContent('Hep B is also in <b>Pediarix</b> above.');
+    expect(warning.querySelector('b')).toBeNull();
+    // under the vaccine sentence, before the dose sentence
+    expect(warning.previousElementSibling).toHaveTextContent(/Engerix-B/);
+    unmount();
+    render(<ImmunizationSentences {...props} readOnly />);
+    expect(screen.queryByTestId(dataTestIds.orderVaccinePage.duplicateWarning)).not.toBeInTheDocument();
+  });
+
   it('marks the blanks the order requires, and only those', () => {
     renderLine(emptyImmunizationLine());
 

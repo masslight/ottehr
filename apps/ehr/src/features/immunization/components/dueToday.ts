@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { FORECAST_GROUPS } from 'utils/lib/immunization-forecast/groups';
 import { ImmunizationForecast, ImmunizationGroupId } from 'utils/lib/immunization-forecast/types';
 import { InventoryDrugRow, InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
@@ -241,28 +242,58 @@ export const fillFromDueToday = <T extends ImmunizationFormValues>(
 export const vaccinesToAddAll = (dueToday: DueToday, lines: ImmunizationFormValues[]): StockedVaccine[] =>
   dueToday.rows.map((row) => row.lead.vaccine).filter((vaccine) => !isVaccineAdded(vaccine, lines));
 
-export interface Coverage {
-  group: DueGroup;
-  /** How many lines would give the group: 0 needed, 1 covered, 2+ twice. */
-  count: number;
+/** The diseases (forecast groups) a line gives: by the CVX typed on it, else those of the stocked vaccine it names. */
+const lineGroups = (
+  line: ImmunizationFormValues,
+  stocked: StockedVaccine[],
+  cvxGroups: CvxGroups
+): Set<ImmunizationGroupId> => {
+  const typed = line.administrationDetails.cvx?.trim();
+  const codes = typed
+    ? [normalizeCvx(typed)]
+    : stocked.find((vaccine) => vaccine.id === line.details.medication?.id)?.cvxCodes ?? [];
+  return new Set(codes.flatMap((cvx) => cvxGroups[cvx] ?? []));
+};
+
+export interface DuplicateGroups {
+  /** The earlier line's vaccine, by its display name. */
+  vaccine: string;
+  /** The diseases this line gives again, by their labels. */
+  groups: string[];
 }
 
-/** The coverage strip: how many of the page's order lines give each due disease. A line's CVX is the one typed on
- * it, else those of the stocked vaccine it names. */
-export const coverageOf = (
-  due: DueGroup[],
+/**
+ * For each order line, the diseases an earlier line on the page already gives, any disease (due or not), grouped by
+ * that earlier line. Outside lines and lines without a vaccine are left out. Informs only: never blocks saving.
+ */
+export const duplicateGroupsByLine = (
   lines: ImmunizationFormValues[],
   stocked: StockedVaccine[],
   cvxGroups: CvxGroups
-): Coverage[] => {
-  const lineGroups = lines
-    .filter((line) => !line.outside && line.details.medication)
-    .map((line) => {
-      const typed = line.administrationDetails.cvx?.trim();
-      const codes = typed
-        ? [normalizeCvx(typed)]
-        : stocked.find((vaccine) => vaccine.id === line.details.medication?.id)?.cvxCodes ?? [];
-      return new Set(codes.flatMap((cvx) => cvxGroups[cvx] ?? []));
-    });
-  return due.map((group) => ({ group, count: lineGroups.filter((groups) => groups.has(group.id)).length }));
+): DuplicateGroups[][] => {
+  const given = lines.map((line) =>
+    !line.outside && line.details.medication ? lineGroups(line, stocked, cvxGroups) : new Set<ImmunizationGroupId>()
+  );
+  return lines.map((_, index) => {
+    // each disease is named once, against the first earlier line that gives it
+    const named = new Set<ImmunizationGroupId>();
+    const duplicates: DuplicateGroups[] = [];
+    for (let earlier = 0; earlier < index; earlier++) {
+      const groups = [...given[index]].filter((group) => given[earlier].has(group) && !named.has(group));
+      groups.forEach((group) => named.add(group));
+      if (groups.length) {
+        duplicates.push({ vaccine: lines[earlier].details.medication!.name, groups: groups.map(groupLabel) });
+      }
+    }
+    return duplicates;
+  });
 };
+
+const groupLabel = (group: ImmunizationGroupId): string =>
+  FORECAST_GROUPS.find((definition) => definition.id === group)?.label ?? group;
+
+/** "Hep B is also in Pediarix above." / "Hep B, Polio are also in Pediarix above." */
+export const duplicateWarningText = (duplicates: DuplicateGroups[]): string =>
+  duplicates
+    .map(({ vaccine, groups }) => `${groups.join(', ')} ${groups.length > 1 ? 'are' : 'is'} also in ${vaccine} above.`)
+    .join(' ');
