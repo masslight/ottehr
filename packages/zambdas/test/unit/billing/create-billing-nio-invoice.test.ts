@@ -347,6 +347,27 @@ describe('create-billing-nio-invoice', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it('refuses an idempotency key that a patient invoice already used for the same claims', async () => {
+    const { oystehr } = setup({
+      invoicesByKey: [
+        savedInvoice({
+          input: {
+            ...draft.invoice,
+            recipient: {
+              reference: 'Patient/patient-1',
+            },
+          },
+        }),
+      ],
+      pdfs: [invoicePdf('invoice-1')],
+    });
+
+    await expect(run(oystehr)).rejects.toMatchObject({
+      message: 'This idempotency key was already used for a patient invoice',
+    });
+    expect(mockAssembleNioInvoice).not.toHaveBeenCalled();
+  });
+
   it('refuses an idempotency key that already invoiced other claims', async () => {
     const { oystehr } = setup({
       invoicesByKey: [

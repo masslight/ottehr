@@ -9,6 +9,7 @@ import {
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
   getBillingInvoiceIdempotencyKey,
+  getBillingInvoiceKind,
   getInvoiceNumber,
   INVOICE_NUMBER_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
@@ -81,6 +82,9 @@ export async function performEffect({
 }): Promise<CreateBillingNioInvoiceResponse> {
   const resumed = await findInvoiceByIdempotencyKey(oystehr, idempotencyKey);
   if (resumed) {
+    if (getBillingInvoiceKind(resumed) !== 'nio') {
+      throw INVALID_INPUT_ERROR('This idempotency key was already used for a patient invoice');
+    }
     assertSameClaims(resumed, claimIds);
     const documentReference = await findInvoicePdf(oystehr, resumed.id!);
     if (documentReference) {
