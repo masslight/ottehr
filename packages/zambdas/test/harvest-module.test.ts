@@ -15,6 +15,7 @@ import {
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   SUBSCRIBER_RELATIONSHIP_SYSTEM,
 } from 'utils/lib/fhir/constants';
+import { getSubscriberRelationshipCodeableConcept } from 'utils/lib/fhir/helpers';
 import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
 import { INSURANCE_PAY_OPTION } from 'utils/lib/ottehr-config/value-sets';
@@ -1834,11 +1835,12 @@ describe('Harvest Module', () => {
         });
         expect(result).toBeDefined();
         assert(result);
-        const { contained, guarantors } = result;
+        const { contained, guarantors, guarantorPatch } = result;
         expect(contained).toBeUndefined();
         expect(guarantors).toBeDefined();
         expect(guarantors?.length).toBe(1);
         expect(guarantors).toEqual([existingGuarantorReference]);
+        expect(guarantorPatch).toBeUndefined();
       });
       it('should create a new contained RelatedPerson when existing account guarantor is a persisted RelatedPerson that does not match the questionnaire responsible party', () => {
         const existingGuarantorId = uuidV4();
@@ -2052,6 +2054,72 @@ describe('Harvest Module', () => {
         expect(guarantors?.length).toBe(4);
         expect(guarantors).toEqual(expectedGuarantorArray);
         expect(contained).toEqual([expectedAccountGuarantorFromQR1]);
+      });
+    });
+
+    describe('should persist an edited "Other" relationship text for standalone subscribers and guarantors', () => {
+      const oldOtherRelationship = getSubscriberRelationshipCodeableConcept('Other', 'Stepchild');
+      const newOtherRelationship = getSubscriberRelationshipCodeableConcept('Other', 'Grandchild');
+      const relationshipPatch = [{ op: 'replace', path: '/relationship', value: newOtherRelationship }];
+
+      it('patches Coverage.relationship when the existing primary coverage has a matching standalone subscriber', () => {
+        const existingPrimary = { ...primary, relationship: oldOtherRelationship };
+        const result = resolveCoverageUpdates({
+          patient: newPatient1,
+          existingCoverages: { primary: existingPrimary, primarySubscriber },
+          newCoverages: { ...coverages, primary: { ...coverages.primary!, relationship: newOtherRelationship } },
+        });
+        expect(result.coverageUpdates).toEqual({ [existingPrimary.id!]: relationshipPatch });
+        expect(Object.values(result.relatedPersonUpdates).flat()).toHaveLength(0);
+      });
+
+      it('patches Coverage.relationship when the existing secondary coverage has a matching standalone subscriber', () => {
+        const existingSecondary = { ...secondary, relationship: oldOtherRelationship };
+        const result = resolveCoverageUpdates({
+          patient: newPatient1,
+          existingCoverages: { secondary: existingSecondary, secondarySubscriber },
+          newCoverages: { ...coverages, secondary: { ...coverages.secondary!, relationship: newOtherRelationship } },
+        });
+        expect(result.coverageUpdates).toEqual({ [existingSecondary.id!]: relationshipPatch });
+        expect(Object.values(result.relatedPersonUpdates).flat()).toHaveLength(0);
+      });
+
+      it('patches Coverage.relationship when a coverage with a matching standalone subscriber moves to the other slot', () => {
+        const existingPrimary = { ...primary, relationship: oldOtherRelationship };
+        const result = resolveCoverageUpdates({
+          patient: newPatient1,
+          existingCoverages: { primary: existingPrimary, primarySubscriber },
+          newCoverages: { secondary: { ...coverages.primary!, relationship: newOtherRelationship } },
+        });
+        expect(result.suggestedNewCoverageObject).toEqual([
+          { coverage: { reference: `Coverage/${existingPrimary.id}` }, priority: 2 },
+        ]);
+        expect(result.coverageUpdates).toEqual({ [existingPrimary.id!]: relationshipPatch });
+      });
+
+      it('patches the relationship of an existing standalone guarantor that matches the responsible party', () => {
+        const existingGuarantorId = uuidV4();
+        const existingGuarantorReference = { party: { reference: `RelatedPerson/${existingGuarantorId}` } };
+        const guarantorFromQuestionnaire = {
+          ...accountGuarantor,
+          relationship: 'Other' as const,
+          otherRelationship: 'Grandparent',
+        };
+        const result = resolveGuarantor({
+          patientId: newPatient1.id!,
+          guarantorFromQuestionnaire,
+          existingGuarantorResource: { ...expectedAccountGuarantorFromQR1, id: existingGuarantorId },
+          existingGuarantorReferences: [existingGuarantorReference],
+        });
+        const expectedRelationship = createContainedGuarantor(guarantorFromQuestionnaire, newPatient1.id!)
+          .relationship?.[0];
+        expect(expectedRelationship?.text).toBe('Grandparent');
+        expect(result.guarantors).toEqual([existingGuarantorReference]);
+        expect(result.contained).toBeUndefined();
+        expect(result.guarantorPatch).toEqual({
+          relatedPersonId: existingGuarantorId,
+          operations: [{ op: 'replace', path: '/relationship/0', value: expectedRelationship }],
+        });
       });
     });
   });
