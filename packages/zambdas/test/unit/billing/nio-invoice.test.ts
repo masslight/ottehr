@@ -353,6 +353,44 @@ describe('assembleNioInvoice', () => {
     });
   });
 
+  it('rejects claims from distinct service facilities that share a name and address', async () => {
+    const oystehr = setup({
+      claims: [
+        makeClaim({
+          id: 'claim-1',
+        }),
+        makeClaim({
+          id: 'claim-2',
+          facilityId: 'facility-copy-2',
+        }),
+      ],
+      extra: [facilityCopy('facility-copy-2', 'facility-2')],
+    });
+
+    await expect(assemble(oystehr, ['claim-1', 'claim-2'])).rejects.toMatchObject({
+      message: 'All claims must have the same service facility',
+    });
+  });
+
+  it('groups claims at one service facility across its working copies', async () => {
+    const oystehr = setup({
+      claims: [
+        makeClaim({
+          id: 'claim-1',
+        }),
+        makeClaim({
+          id: 'claim-2',
+          facilityId: 'facility-copy-1b',
+        }),
+      ],
+      extra: [facilityCopy('facility-copy-1b', 'facility-1')],
+    });
+
+    const { invoice } = await assemble(oystehr, ['claim-1', 'claim-2']);
+
+    expect(invoice.facilityId).toBe('facility-1');
+  });
+
   it('groups by billing provider when configured, leaving the facility filter unset', async () => {
     mockReadInvoicingConfig.mockResolvedValue({
       ...parseInvoiceConfigFromQR(undefined),

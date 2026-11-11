@@ -111,7 +111,11 @@ export async function assembleNioInvoice({
   ]);
 
   const issuers = claims.map((claim) => resolveClaimInvoiceIssuer(claim, resources, invoiceIssuerSource));
-  if (!issuers.every((issuer) => isSameInvoiceIssuer(issuer, issuers[0]))) {
+  const facilityIds = new Set(
+    claims.map((claim) => copySourceId(findRef<Location>(resources, claim.facility?.reference)))
+  );
+  const sameFacility = invoiceIssuerSource !== 'service-facility' || facilityIds.size === 1;
+  if (!sameFacility || !issuers.every((issuer) => isSameInvoiceIssuer(issuer, issuers[0]))) {
     throw INVALID_INPUT_ERROR(`All claims must have the same ${ISSUER_SOURCE_LABELS[invoiceIssuerSource]}`);
   }
 
@@ -135,9 +139,6 @@ export async function assembleNioInvoice({
 
   if (!nio.name) throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR(`Non-insurance payer ${nioId} has no name`);
 
-  const facilityIds = new Set(
-    claims.map((claim) => copySourceId(findRef<Location>(resources, claim.facility?.reference)))
-  );
   const [facilityId] = facilityIds;
   const issueDate = now.toISODate()!;
   const dueDate = now.plus({ days: dueDaysFromGeneration }).toISODate()!;
