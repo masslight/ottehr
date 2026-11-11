@@ -605,12 +605,14 @@ export const EditableMedicationCard: React.FC<{
   }, []);
 
   // Lot suggestions (requirement 3): the order's catalog drug at the visit's location. An existing order's
-  // medicationId is the contained-copy sentinel, so the catalog drug is found by name, as quick picks do.
+  // medicationId is the contained-copy sentinel, so the catalog drug is the one the copy records, or found by name
+  // for orders saved before the copy recorded it, as quick picks do.
   const medicationIdValue = getFieldValue('medicationId');
   const catalogMedicationId =
     medicationIdValue && medicationIdValue !== IN_HOUSE_CONTAINED_MEDICATION_ID
       ? medicationIdValue
-      : selectsOptions.medicationId.options.find((option) => option.label === medication?.medicationName)?.value;
+      : medication?.catalogMedicationId ??
+        selectsOptions.medicationId.options.find((option) => option.label === medication?.medicationName)?.value;
   const { data: inventoryLots } = useInventoryLotsOnHand({
     catalogMedicationId,
     locationId: resources.location?.id,

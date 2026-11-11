@@ -46,7 +46,10 @@ const savedOrder: ExtendedMedicationDataForResponse = {
   dateTimeCreated: DateTime.now().toISO()!,
 };
 
-const { updateMedication } = vi.hoisted(() => ({ updateMedication: vi.fn() }));
+const { updateMedication, lotsRequestedFor } = vi.hoisted(() => ({
+  updateMedication: vi.fn(),
+  lotsRequestedFor: vi.fn(),
+}));
 
 vi.mock('react-router-dom', async () => ({
   ...(await vi.importActual('react-router-dom')),
@@ -83,7 +86,10 @@ vi.mock('src/components/input/CptCodesInput', () => ({
   designateMedicationCptCode: (codes: unknown[]) => codes,
 }));
 vi.mock('../../src/features/admin/inventory/inventory.queries', () => ({
-  useInventoryLotsOnHand: () => ({ data: [lotWithoutManufacturer] }),
+  useInventoryLotsOnHand: (params: { catalogMedicationId?: string }) => {
+    lotsRequestedFor(params.catalogMedicationId);
+    return { data: [lotWithoutManufacturer] };
+  },
 }));
 vi.mock('../../src/features/visits/in-person/components/InPersonModal', () => ({
   InPersonModal: ({ open, handleConfirm, entity }: any) =>
@@ -110,7 +116,11 @@ vi.mock('../../src/features/visits/in-person/hooks/useGetFieldOptions', () => ({
     new Proxy(
       {
         medicationId: {
-          options: [{ value: 'med-1', label: 'Medication One' }],
+          options: [
+            { value: 'med-same-name', label: 'Medication One' },
+            { value: 'med-1', label: 'Medication One' },
+            { value: 'med-2', label: 'Medication Two' },
+          ],
           status: 'loaded',
           ndcToMedicationId: {},
           medispanCodeToMedicationId: {},
@@ -147,5 +157,21 @@ describe('EditableMedicationCard - picking an inventory lot on a saved order', (
     const sent = JSON.parse(JSON.stringify(updateMedication.mock.calls[0][0]));
     expect(sent.orderData).toMatchObject({ lotNumber: 'B456', ndc: 'ndc-B456' });
     expect(sent.orderData).toHaveProperty('manufacturer', '');
+  });
+
+  it('suggests lots of the catalog drug the order was made from when another drug has the same name', () => {
+    lotsRequestedFor.mockClear();
+    render(
+      <EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, catalogMedicationId: 'med-1' }} />
+    );
+    expect(lotsRequestedFor).toHaveBeenLastCalledWith('med-1');
+  });
+
+  it('suggests lots of the drug with the order name when the order has no catalog drug recorded', () => {
+    lotsRequestedFor.mockClear();
+    render(
+      <EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, medicationName: 'Medication Two' }} />
+    );
+    expect(lotsRequestedFor).toHaveBeenLastCalledWith('med-2');
   });
 });

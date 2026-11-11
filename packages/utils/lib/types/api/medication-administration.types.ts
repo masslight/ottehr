@@ -109,6 +109,7 @@ export interface ExtendedMedicationDataForResponse extends MedicationData {
   id: string;
   status: MedicationOrderStatusesType;
   medicationName: string;
+  catalogMedicationId?: string;
   providerCreatedTheOrder: string;
   providerCreatedTheOrderId: string;
   dateTimeCreated: string;
