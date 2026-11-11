@@ -2,18 +2,32 @@
 // time, request count and correctness. READ-ONLY. Run by scripts/adhoc-bench-reports.sh, which runs this same file in
 // the current checkout ("current", "ideal") and in a worktree of the Report Studio branch ("studio").
 //
-//   npx tsx src/scripts/adhoc-bench-reports.ts <env> <current|ideal|studio> <r1|r2|r3> <startISO> <endISO> <out.json>
+//   npx tsx src/scripts/adhoc-bench-reports.ts <env> <current|ideal|studio> <r1…r5> <startISO> <endISO> <out.json>
 //
 // Reports (a visit = an Appointment of the range with an Ottehr module tag, and its encounter that is not a follow-up
 // note):
 //   r1  visits per month per attending provider
 //   r2  per location: visits, visits with a temperature, average latest temperature (°F)
 //   r3  visits, visits with a diagnosis, visits with a CPT code, top 10 ICD-10 codes by visits
+//   r4  heavy, visits + patients data: per month, visits, visits with a temperature, with a diagnosis, of a patient
+//       with a known allergy (encounters + vitals + codes + patients.allergies)
+//   r5  heavy, visits + patients data: per location, visits, visits of new patients (no appointment before the
+//       range), visits with a CPT code; top 10 problems of the visits' patients (encounters + codes +
+//       patients.problems + patients.allergies + patients.visitHistory)
 // Ways:
 //   current  this version: fetchAdHocEncounterRows with the layer the report needs, result computed from its rows
 //   ideal    hand-written minimal searches (only the fields the report reads), one async job per search, 16 at once
 //   studio   Report Studio's runner (runFetchPlan) with a plan written the way its data map recommends
-import { Appointment, Condition, Encounter, FhirResource, Observation, Procedure } from 'fhir/r4b';
+import {
+  AllergyIntolerance,
+  Appointment,
+  Condition,
+  Encounter,
+  FhirResource,
+  Observation,
+  Patient,
+  Procedure,
+} from 'fhir/r4b';
 import { writeFileSync } from 'fs';
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
@@ -24,7 +38,7 @@ import { performEffectWithEnvFile } from './helpers';
 type Oystehr = ReturnType<typeof createClinicalOystehrClient>;
 type Param = { name: string; value: string };
 type Range = { start: string; end: string };
-type ReportId = 'r1' | 'r2' | 'r3';
+type ReportId = 'r1' | 'r2' | 'r3' | 'r4' | 'r5';
 
 const STATUSES = 'proposed,pending,booked,arrived,fulfilled,checked-in,waitlist,cancelled,noshow';
 const MODULE_TAGS = 'OTTEHR-TM,OTTEHR-IP';
@@ -54,6 +68,10 @@ globalThis.fetch = async (
 interface RawData {
   appointments: Appointment[];
   encounters: Encounter[];
+  patients?: Patient[];
+  allergies?: AllergyIntolerance[];
+  problems?: Condition[];
+  priorAppointments?: Appointment[];
   observations?: Observation[];
   conditions?: Condition[];
   procedures?: Procedure[];
@@ -161,6 +179,7 @@ function computeRaw(report: ReportId, data: RawData): Record<string, unknown> {
     }
     return locationResult(byLocation);
   }
+  if (report === 'r4' || report === 'r5') return computeHeavyRaw(report, data, visits);
   const conditionById = new Map((data.conditions ?? []).map((c) => [c.id, c]));
   const cptByEncounter = new Map<string, string[]>();
   for (const p of data.procedures ?? []) {
@@ -204,8 +223,129 @@ function computeRows(report: ReportId, allRows: Row[]): Record<string, unknown> 
     }
     return locationResult(byLocation);
   }
+  if (report === 'r4' || report === 'r5') return heavyRows(report, rows);
   return codesResult(rows.map((r) => ({ icd: (r.icdCodes as string[]) ?? [], cpt: (r.cptCodes as string[]) ?? [] })));
 }
+
+// ---- r4 / r5: visits joined with their patients' data ------------------------------------------------------------
+
+type HeavyVisit = {
+  month: string;
+  location: string;
+  temperature: boolean;
+  icd: string[];
+  cpt: string[];
+  allergic: boolean;
+  isNew: boolean;
+  problems: string[];
+};
+
+const ref = (r: string | undefined, type: string): string | undefined =>
+  r?.startsWith(`${type}/`) ? r.slice(type.length + 1) : undefined;
+
+function heavyResult(report: 'r4' | 'r5', visits: HeavyVisit[]): Record<string, unknown> {
+  if (report === 'r4') {
+    const byMonth: Record<string, Record<string, number>> = {};
+    for (const v of visits) {
+      const m = (byMonth[v.month] ??= { visits: 0, withTemperature: 0, withDiagnosis: 0, withAllergicPatient: 0 });
+      m.visits++;
+      if (v.temperature) m.withTemperature++;
+      if (v.icd.length) m.withDiagnosis++;
+      if (v.allergic) m.withAllergicPatient++;
+    }
+    return sortKeys(byMonth);
+  }
+  const out: Record<string, unknown> = {};
+  const problemVisits = new Map<string, number>();
+  for (const v of visits) {
+    const key = `location ${v.location}`;
+    const l = ((out[key] as Record<string, number>) ??= { visits: 0, newPatientVisits: 0, withCpt: 0 });
+    l.visits++;
+    if (v.isNew) l.newPatientVisits++;
+    if (v.cpt.length) l.withCpt++;
+    for (const p of new Set(v.problems)) problemVisits.set(p, (problemVisits.get(p) ?? 0) + 1);
+  }
+  out.topProblems = Array.from(problemVisits)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 10);
+  return sortKeys(out);
+}
+
+function computeHeavyRaw(
+  report: 'r4' | 'r5',
+  data: RawData,
+  visits: { encounter: Encounter; appointment: Appointment }[]
+): Record<string, unknown> {
+  const loaded = new Set((data.patients ?? []).map((p) => p.id));
+  const allergic = new Set<string>();
+  for (const a of data.allergies ?? []) {
+    const id = ref(a.patient?.reference, 'Patient');
+    if (id && a.code?.coding?.[0]?.display) allergic.add(id);
+  }
+  const problemsByPatient = new Map<string, Set<string>>();
+  for (const c of data.problems ?? []) {
+    const id = ref(c.subject?.reference, 'Patient');
+    const label = c.code?.coding?.[0]?.display || c.code?.coding?.[0]?.code;
+    if (id && label) problemsByPatient.set(id, (problemsByPatient.get(id) ?? new Set()).add(label));
+  }
+  const withPrior = new Set<string>();
+  for (const a of data.priorAppointments ?? []) {
+    const id = ref(a.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference, 'Patient');
+    if (id) withPrior.add(id);
+  }
+  const conditionById = new Map((data.conditions ?? []).map((c) => [c.id, c]));
+  const cptByEncounter = new Map<string, string[]>();
+  for (const p of data.procedures ?? []) {
+    const id = ref(p.encounter?.reference, 'Encounter');
+    const code = p.code?.coding?.[0]?.code;
+    if (id && code) cptByEncounter.set(id, [...(cptByEncounter.get(id) ?? []), code]);
+  }
+  const obsByEncounter = new Map<string, Observation[]>();
+  for (const o of data.observations ?? []) {
+    const id = ref(o.encounter?.reference, 'Encounter');
+    if (id) obsByEncounter.set(id, [...(obsByEncounter.get(id) ?? []), o]);
+  }
+
+  return heavyResult(
+    report,
+    visits.map(({ encounter, appointment }) => {
+      // As this version's rows: the visit's patient is the encounter's subject, when that patient exists.
+      const subject = ref(encounter.subject?.reference, 'Patient');
+      const patient = subject && loaded.has(subject) ? subject : undefined;
+      return {
+        month: month(appointment.start),
+        location:
+          ref(
+            appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor?.reference,
+            'Location'
+          ) ?? 'none',
+        temperature: latestTemperatureF(obsByEncounter.get(encounter.id!) ?? []) !== null,
+        icd: (encounter.diagnosis ?? [])
+          .map((d) => icdOf(conditionById.get(ref(d.condition?.reference, 'Condition'))))
+          .filter((c): c is string => !!c),
+        cpt: cptByEncounter.get(encounter.id!) ?? [],
+        allergic: !!patient && allergic.has(patient),
+        isNew: !!patient && !withPrior.has(patient),
+        problems: patient ? Array.from(problemsByPatient.get(patient) ?? []) : [],
+      };
+    })
+  );
+}
+
+const heavyRows = (report: 'r4' | 'r5', rows: Row[]): Record<string, unknown> =>
+  heavyResult(
+    report,
+    rows.map((r) => ({
+      month: month(r.startTime as string),
+      location: (r.locationId as string) || 'none',
+      temperature: typeof r.temperatureF === 'number',
+      icd: (r.icdCodes as string[]) ?? [],
+      cpt: (r.cptCodes as string[]) ?? [],
+      allergic: ((r.allergyCount as number) ?? 0) > 0,
+      isNew: r.patientStatus === 'new',
+      problems: (r.problems as string[]) ?? [],
+    }))
+  );
 
 // ---- Groups: where the time went -----------------------------------------------------------------------------------
 
@@ -296,6 +436,32 @@ const dedupe = <T extends FhirResource>(items: FhirResource[]): T[] => {
   }) as T[];
 };
 
+/** What each report reads besides the visits. */
+const NEEDS: Record<
+  ReportId,
+  Partial<
+    Record<
+      | 'practitioners'
+      | 'locations'
+      | 'participants'
+      | 'temperatures'
+      | 'diagnoses'
+      | 'cpt'
+      | 'patients'
+      | 'allergies'
+      | 'problems'
+      | 'priorVisits',
+      boolean
+    >
+  >
+> = {
+  r1: { practitioners: true },
+  r2: { participants: true, temperatures: true, locations: true },
+  r3: { diagnoses: true, cpt: true },
+  r4: { participants: true, temperatures: true, diagnoses: true, patients: true, allergies: true },
+  r5: { participants: true, cpt: true, patients: true, problems: true, allergies: true, priorVisits: true },
+};
+
 async function runIdeal(
   oystehr: Oystehr,
   report: ReportId,
@@ -352,19 +518,21 @@ async function runIdeal(
     });
 
   // Stage 1: the visits — appointments and their encounters by the appointment's date, side by side, trimmed.
+  const need = NEEDS[report];
   const encounterElements = [
     'id',
     'appointment',
     'type',
     'partOf',
     'participant',
-    ...(report === 'r3' ? ['diagnosis'] : []),
+    ...(need.diagnoses ? ['diagnosis'] : []),
+    ...(need.patients ? ['subject'] : []),
   ];
   const [appointments, encounters] = await Promise.all([
     byWindows('appointments', 'Appointment', 'date', [
       { name: 'status', value: STATUSES },
       { name: '_tag', value: MODULE_TAGS },
-      { name: '_elements', value: report === 'r2' ? 'id,start,participant' : 'id,start' },
+      { name: '_elements', value: need.participants ? 'id,start,participant' : 'id,start' },
     ]) as Promise<Appointment[]>,
     byWindows('encounters', 'Encounter', 'appointment.date', [
       { name: '_elements', value: encounterElements.join(',') },
@@ -374,46 +542,68 @@ async function runIdeal(
   const visits = rawVisits(data);
   const encounterRefs = visits.map((v) => `Encounter/${v.encounter.id}`);
 
-  // Stage 2: what the report reads besides the visits, by the visits' ids.
-  if (report === 'r1') {
-    await byIds(
-      'practitioners',
-      'Practitioner',
-      '_id',
-      visits.map((v) => getAttendingPractitionerId(v.encounter) ?? '').filter(Boolean),
-      [{ name: '_elements', value: 'id,name' }]
-    );
-  }
-  if (report === 'r2') {
-    const locationIds = visits
-      .map((v) => v.appointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor?.reference)
-      .filter((r): r is string => !!r)
-      .map((r) => r.replace('Location/', ''));
-    const [observations] = await Promise.all([
+  // Stage 2: what the report reads besides the visits, by the visits' ids, all side by side.
+  const participantIds = (type: string): string[] =>
+    visits
+      .map((v) =>
+        ref(v.appointment.participant?.find((p) => p.actor?.reference?.startsWith(`${type}/`))?.actor?.reference, type)
+      )
+      .filter((id): id is string => !!id);
+  const conditionIds = visits.flatMap((v) =>
+    (v.encounter.diagnosis ?? []).map((d) => ref(d.condition?.reference, 'Condition') ?? '').filter(Boolean)
+  );
+  await Promise.all([
+    need.practitioners &&
+      byIds(
+        'practitioners',
+        'Practitioner',
+        '_id',
+        visits.map((v) => getAttendingPractitionerId(v.encounter) ?? '').filter(Boolean),
+        [{ name: '_elements', value: 'id,name' }]
+      ),
+    need.locations &&
+      byIds('locations', 'Location', '_id', participantIds('Location'), [{ name: '_elements', value: 'id,name' }]),
+    need.temperatures &&
       byIds('temperatures', 'Observation', 'encounter', encounterRefs, [
         { name: '_tag', value: 'vital-temperature' },
         { name: '_elements', value: 'id,encounter,valueQuantity,effectiveDateTime' },
-      ]) as Promise<Observation[]>,
-      byIds('locations', 'Location', '_id', locationIds, [{ name: '_elements', value: 'id,name' }]),
-    ]);
-    data.observations = observations;
-  }
-  if (report === 'r3') {
-    const conditionIds = visits.flatMap((v) =>
-      (v.encounter.diagnosis ?? []).map((d) => d.condition?.reference?.replace('Condition/', '') ?? '').filter(Boolean)
-    );
-    const [conditions, procedures] = await Promise.all([
-      byIds('diagnoses', 'Condition', '_id', conditionIds, [{ name: '_elements', value: 'id,code' }]) as Promise<
-        Condition[]
-      >,
+      ]).then((r) => (data.observations = r as Observation[])),
+    need.diagnoses &&
+      byIds('diagnoses', 'Condition', '_id', conditionIds, [{ name: '_elements', value: 'id,code' }]).then(
+        (r) => (data.conditions = r as Condition[])
+      ),
+    need.cpt &&
       byIds('cpt codes', 'Procedure', 'encounter', encounterRefs, [
         { name: '_tag', value: 'cpt-code' },
         { name: '_elements', value: 'id,encounter,code' },
-      ]) as Promise<Procedure[]>,
-    ]);
-    data.conditions = conditions;
-    data.procedures = procedures;
-  }
+      ]).then((r) => (data.procedures = r as Procedure[])),
+    need.patients &&
+      (async () => {
+        // Patients first (which exist), then their data by patient, side by side.
+        const ids = participantIds('Patient');
+        data.patients = (await byIds('patients', 'Patient', '_id', ids, [
+          { name: '_elements', value: 'id' },
+        ])) as Patient[];
+        const patientRefs = data.patients.map((p) => `Patient/${p.id}`);
+        await Promise.all([
+          need.allergies &&
+            byIds('allergies', 'AllergyIntolerance', 'patient', patientRefs, [
+              { name: '_tag', value: 'known-allergy' },
+              { name: '_elements', value: 'id,patient,code' },
+            ]).then((r) => (data.allergies = r as AllergyIntolerance[])),
+          need.problems &&
+            byIds('problems', 'Condition', 'patient', patientRefs, [
+              { name: '_tag', value: 'medical-condition' },
+              { name: '_elements', value: 'id,subject,code' },
+            ]).then((r) => (data.problems = r as Condition[])),
+          need.priorVisits &&
+            byIds('prior appointments', 'Appointment', 'patient', patientRefs, [
+              { name: 'date', value: `lt${range.start}` },
+              { name: '_elements', value: 'id,participant' },
+            ]).then((r) => (data.priorAppointments = r as Appointment[])),
+        ]);
+      })(),
+  ]);
 
   return { result: computeRaw(report, data), groups, requests: groups.reduce((n, g) => n + (g.requests ?? 0), 0) };
 }
@@ -421,6 +611,7 @@ async function runIdeal(
 // ---- studio: Report Studio's runner with plans written the way its data map recommends ------------------------------
 
 const studioPlan = (report: ReportId): unknown => {
+  const need = NEEDS[report];
   const steps: Record<string, unknown>[] = [
     {
       id: 'visits',
@@ -431,7 +622,7 @@ const studioPlan = (report: ReportId): unknown => {
         { name: 'status', value: STATUSES },
         { name: '_tag', value: MODULE_TAGS },
       ],
-      elements: report === 'r2' ? ['id', 'start', 'participant'] : ['id', 'start'],
+      elements: need.participants ? ['id', 'start', 'participant'] : ['id', 'start'],
     },
     {
       id: 'encounters',
@@ -440,51 +631,91 @@ const studioPlan = (report: ReportId): unknown => {
         { name: 'appointment.date', value: 'ge{{start}}' },
         { name: 'appointment.date', value: 'le{{end}}' },
       ],
-      elements: ['id', 'appointment', 'type', 'partOf', 'participant', ...(report === 'r3' ? ['diagnosis'] : [])],
+      elements: [
+        'id',
+        'appointment',
+        'type',
+        'partOf',
+        'participant',
+        ...(need.diagnoses ? ['diagnosis'] : []),
+        ...(need.patients ? ['subject'] : []),
+      ],
     },
   ];
-  if (report === 'r1') {
+  const byEncounter = (id: string, resourceType: string, tag: string, elements: string[]): Record<string, unknown> => ({
+    id,
+    resourceType,
+    params: [{ name: '_tag', value: tag }],
+    from: { step: 'encounters', path: 'id', param: 'encounter' },
+    elements,
+  });
+  const byPatient = (
+    id: string,
+    resourceType: string,
+    params: Param[],
+    elements: string[]
+  ): Record<string, unknown> => ({
+    id,
+    resourceType,
+    params,
+    from: { step: 'patients', path: 'id', param: 'patient' },
+    elements,
+  });
+  if (need.practitioners)
     steps.push({
       id: 'practitioners',
       resourceType: 'Practitioner',
       from: { step: 'encounters', path: 'participant.individual.reference', param: '_id', keepType: 'Practitioner' },
       elements: ['id', 'name'],
     });
-  }
-  if (report === 'r2') {
+  if (need.temperatures)
     steps.push(
-      {
-        id: 'temperatures',
-        resourceType: 'Observation',
-        params: [{ name: '_tag', value: 'vital-temperature' }],
-        from: { step: 'encounters', path: 'id', param: 'encounter' },
-        elements: ['id', 'encounter', 'valueQuantity', 'effectiveDateTime'],
-      },
-      {
-        id: 'locations',
-        resourceType: 'Location',
-        from: { step: 'visits', path: 'participant.actor.reference', param: '_id', keepType: 'Location' },
-        elements: ['id', 'name'],
-      }
+      byEncounter('temperatures', 'Observation', 'vital-temperature', [
+        'id',
+        'encounter',
+        'valueQuantity',
+        'effectiveDateTime',
+      ])
     );
-  }
-  if (report === 'r3') {
+  if (need.locations)
+    steps.push({
+      id: 'locations',
+      resourceType: 'Location',
+      from: { step: 'visits', path: 'participant.actor.reference', param: '_id', keepType: 'Location' },
+      elements: ['id', 'name'],
+    });
+  if (need.diagnoses)
+    steps.push({
+      id: 'diagnoses',
+      resourceType: 'Condition',
+      from: { step: 'encounters', path: 'diagnosis.condition.reference', param: '_id', keepType: 'Condition' },
+      elements: ['id', 'code'],
+    });
+  if (need.cpt) steps.push(byEncounter('cptCodes', 'Procedure', 'cpt-code', ['id', 'encounter', 'code']));
+  if (need.patients)
+    steps.push({
+      id: 'patients',
+      resourceType: 'Patient',
+      from: { step: 'visits', path: 'participant.actor.reference', param: '_id', keepType: 'Patient' },
+      elements: ['id'],
+    });
+  if (need.allergies)
     steps.push(
-      {
-        id: 'diagnoses',
-        resourceType: 'Condition',
-        from: { step: 'encounters', path: 'diagnosis.condition.reference', param: '_id', keepType: 'Condition' },
-        elements: ['id', 'code'],
-      },
-      {
-        id: 'cptCodes',
-        resourceType: 'Procedure',
-        params: [{ name: '_tag', value: 'cpt-code' }],
-        from: { step: 'encounters', path: 'id', param: 'encounter' },
-        elements: ['id', 'encounter', 'code'],
-      }
+      byPatient(
+        'allergies',
+        'AllergyIntolerance',
+        [{ name: '_tag', value: 'known-allergy' }],
+        ['id', 'patient', 'code']
+      )
     );
-  }
+  if (need.problems)
+    steps.push(
+      byPatient('problems', 'Condition', [{ name: '_tag', value: 'medical-condition' }], ['id', 'subject', 'code'])
+    );
+  if (need.priorVisits)
+    steps.push(
+      byPatient('priorAppointments', 'Appointment', [{ name: 'date', value: 'lt{{start}}' }], ['id', 'participant'])
+    );
   return { version: 1, steps };
 };
 
@@ -519,6 +750,10 @@ async function runStudio(
     observations: resources.temperatures as Observation[] | undefined,
     conditions: resources.diagnoses as Condition[] | undefined,
     procedures: resources.cptCodes as Procedure[] | undefined,
+    patients: resources.patients as Patient[] | undefined,
+    allergies: resources.allergies as AllergyIntolerance[] | undefined,
+    problems: resources.problems as Condition[] | undefined,
+    priorAppointments: resources.priorAppointments as Appointment[] | undefined,
   });
   return {
     result,
@@ -536,7 +771,18 @@ async function runCurrent(
   environment: string
 ): Promise<{ result: Record<string, unknown>; groups: Group[]; requests: number }> {
   const dataset = await load('../shared/adhoc-datasets/encounters');
-  const flags = report === 'r2' ? { includeVitals: true } : report === 'r3' ? { includeCodes: true } : {};
+  const flags: Record<string, boolean> = {
+    r1: {},
+    r2: { includeVitals: true },
+    r3: { includeCodes: true },
+    r4: { includeVitals: true, includeCodes: true, 'includePatients.allergies': true },
+    r5: {
+      includeCodes: true,
+      'includePatients.problems': true,
+      'includePatients.allergies': true,
+      'includePatients.visitHistory': true,
+    },
+  }[report];
 
   // This version logs its own breakdown; keep it, and count its jobs.
   let timing = '';

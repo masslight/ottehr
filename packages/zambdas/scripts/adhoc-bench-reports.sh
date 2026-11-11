@@ -5,7 +5,7 @@
 # way spent its time. READ-ONLY against Oystehr. Each range first runs a warm-up pass that is not counted
 # (ADHOC_BENCH_WARMUP=0 skips it).
 #
-#   packages/zambdas/scripts/adhoc-bench-reports.sh <env> [ranges="60 365"] [reports="r1 r2 r3"]
+#   packages/zambdas/scripts/adhoc-bench-reports.sh <env> [ranges="60 365"] [reports="r1 r2 r3"]   (r4, r5: heavy, visits + patients data)
 #
 # <env> is a file in config/.env (e.g. local). Report Studio runs from a temporary git worktree of
 # ADHOC_BENCH_STUDIO (default dabrams/report-studio-task); the other two run from this checkout.
@@ -89,7 +89,13 @@ node - "$OUT" "$RANGES" "$REPORTS" <<'EOF'
 const fs = require('fs');
 const [dir, ranges, reports] = [process.argv[2], process.argv[3].split(' '), process.argv[4].split(' ')];
 const ways = ['ideal', 'current', 'studio'];
-const names = { r1: 'visits per month per provider', r2: 'temperature by location', r3: 'diagnoses and CPT codes' };
+const names = {
+  r1: 'visits per month per provider',
+  r2: 'temperature by location',
+  r3: 'diagnoses and CPT codes',
+  r4: 'heavy: visits + vitals + diagnoses + patient allergies, by month',
+  r5: 'heavy: visits + CPT + patient problems, allergies, new vs existing, by location',
+};
 const read = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return { error: 'no result' }; } };
 const s = (ms) => (ms === undefined ? '-' : `${(ms / 1000).toFixed(1)} s`);
 
