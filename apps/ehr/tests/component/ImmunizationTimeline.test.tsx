@@ -129,15 +129,15 @@ describe('ImmunizationTimeline', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('numbers the next dose (orange circle) and each later dose (dashed gray circle), above the bars', () => {
+  it('numbers the next dose and each later dose in the same dashed gray circle, above the bars', () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
     const pcv = screen.getByTestId('immunization-lane-pcv');
     const next = within(pcv).getByRole('button', { name: /^PCV.* dose 2 \(next\)$/ });
     expect(next).toHaveTextContent('2');
-    expect(next).toHaveStyle({ borderStyle: 'solid', backgroundColor: '#fff', zIndex: '3' });
+    expect(next).toHaveStyle({ border: '2px dashed #8A96A3', backgroundColor: '#fff', zIndex: '3' });
     const later = within(pcv).getByRole('button', { name: /^PCV.* dose 3 \(projected\)$/ });
     expect(later).toHaveTextContent('3');
-    expect(later).toHaveStyle({ borderStyle: 'dashed', zIndex: '3' });
+    expect(later).toHaveStyle({ border: '2px dashed #8A96A3', backgroundColor: '#fff', zIndex: '3' });
     // given-dose dots stay distinct: filled navy, under the numbers
     expect(within(pcv).getByRole('button', { name: /dose 1$/ })).not.toHaveStyle({ backgroundColor: '#fff' });
   });

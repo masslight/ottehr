@@ -95,7 +95,6 @@ const CHIP_COLORS: Record<ImmunizationGroupStatus, { bg: string; text: string; b
 };
 
 const NEXT_ORANGE = '#F0A04B';
-const NEXT_ORANGE_TEXT = '#8A4B00';
 const PROJECTED_GRAY = '#8A96A3';
 const EARLIEST_STRIPES = 'repeating-linear-gradient(45deg, #A9B4C0 0 3px, #EEF1F4 3px 7px)';
 const SEGMENT_STYLE: Record<
@@ -238,12 +237,11 @@ const Dose = ({
 };
 
 /** The number of a dose still to come, at the start of its bar's recommended part: a hollow circle the size of a
- * given-dose dot, orange for the next dose and dashed gray for a projected one, drawn above the bars. */
+ * given-dose dot with a dashed gray outline (next and projected doses alike), drawn above the bars. */
 const DoseNumber = ({
   n,
   label,
   details,
-  projected,
   left,
   dim,
   onClick,
@@ -252,7 +250,6 @@ const DoseNumber = ({
   label: string;
   /** The same details the box below shows when the circle is clicked. */
   details: ReactNode;
-  projected: boolean;
   left: number;
   dim?: boolean;
   onClick: () => void;
@@ -272,9 +269,9 @@ const DoseNumber = ({
         fontSize: 10,
         fontWeight: 600,
         boxSizing: 'border-box',
-        border: projected ? `2px dashed ${PROJECTED_GRAY}` : `2px solid ${NEXT_ORANGE}`,
+        border: `2px dashed ${PROJECTED_GRAY}`,
         bgcolor: '#fff',
-        color: projected ? PROJECTED_GRAY : NEXT_ORANGE_TEXT,
+        color: PROJECTED_GRAY,
         opacity: dim ? 0.45 : 1,
         zIndex: 3,
       }}
@@ -632,7 +629,6 @@ export const ImmunizationTimeline = ({
                     n={group.next.n}
                     label={`${group.label} dose ${group.next.n} (next)`}
                     details={detailsFor({ kind: 'next', group: group.group })}
-                    projected={false}
                     left={x(nextLabelAt)}
                     dim={dim}
                     onClick={() => setSelection({ kind: 'next', group: group.group })}
@@ -645,7 +641,6 @@ export const ImmunizationTimeline = ({
                       n={projected.n}
                       label={`${group.label} dose ${projected.n} (projected)`}
                       details={detailsFor({ kind: 'projected', group: group.group, n: projected.n })}
-                      projected
                       left={x(labelAt)}
                       dim={dim}
                       onClick={() => setSelection({ kind: 'projected', group: group.group, n: projected.n })}
