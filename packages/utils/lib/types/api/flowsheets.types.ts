@@ -38,6 +38,8 @@ export interface FlowsheetVisit {
   /** The visit location's IANA time zone, for calendar-day math; absent when the visit has no location. */
   timezone?: string;
   isFollowUp: boolean;
+  /** An unlinked outside result (matched to the patient, not to a visit): a column of its own, dated by the result. */
+  isOutsideResult?: boolean;
   visitType: string;
   reason: string;
   primaryDiagnosis: string;

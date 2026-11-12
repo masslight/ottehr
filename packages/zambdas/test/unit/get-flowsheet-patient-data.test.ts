@@ -21,13 +21,14 @@ import {
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils/lib/types/data/in-house/in-house.constants';
-import { OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { LAB_DR_TYPE_TAG, OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { describe, expect, test } from 'vitest';
 import {
   buildLabResults,
   buildMedications,
   buildVisitDiagnoses,
   labFlagOf,
+  unlinkedResultKey,
 } from '../../src/ehr/get-flowsheet/patient-data';
 
 const PATIENT = 'Patient/p1';
@@ -227,6 +228,18 @@ describe('buildLabResults', () => {
       meta: { tag: [{ system: ABNORMAL_RESULT_DR_TAG.system, code: ABNORMAL_RESULT_DR_TAG.code }] },
       effectiveDateTime: '2026-06-20T12:00:00.000Z',
     },
+    // An unsolicited result matched to the patient without a visit: no order, no encounter.
+    {
+      resourceType: 'DiagnosticReport',
+      id: 'dr-unlinked',
+      status: 'final',
+      code: { text: 'TSH' },
+      subject: { reference: PATIENT },
+      meta: { tag: [{ system: LAB_DR_TYPE_TAG.system, code: LAB_DR_TYPE_TAG.code.unsolicited }] },
+      result: [{ reference: 'Observation/o-tsh' }],
+      effectiveDateTime: '2026-07-01T09:00:00.000Z',
+      issued: '2026-07-02T09:00:00.000Z',
+    },
     {
       resourceType: 'DiagnosticReport',
       id: 'dr-cancelled',
@@ -255,6 +268,13 @@ describe('buildLabResults', () => {
       valueQuantity: { value: 8.1, unit: '%' },
       interpretation: [{ coding: [{ code: 'H' }] }],
       referenceRange: [{ text: '4.0-5.6' }],
+    },
+    {
+      resourceType: 'Observation',
+      id: 'o-tsh',
+      status: 'final',
+      code: { coding: [{ system: 'http://loinc.org', code: '3016-3', display: 'TSH' }], text: 'TSH' },
+      valueQuantity: { value: 4.2, unit: 'mIU/L' },
     },
     {
       resourceType: 'Observation',
@@ -329,8 +349,25 @@ describe('buildLabResults', () => {
     ]);
   });
 
+  test('an unlinked outside result (no order, no visit) gets its own key, dated by the report', () => {
+    expect(labs[unlinkedResultKey('dr-unlinked')]).toEqual([
+      {
+        analyte: 'TSH',
+        loincCodes: ['3016-3'],
+        value: 4.2,
+        valueText: '4.2',
+        unit: 'mIU/L',
+        referenceRange: '',
+        interpretation: '',
+        flag: undefined,
+        resultedAt: '2026-07-01T09:00:00.000Z',
+        source: 'external',
+      },
+    ]);
+  });
+
   test('ignores cancelled reports and results that are not present', () => {
-    expect(Object.keys(labs)).toEqual(['e1', 'e2']);
+    expect(Object.keys(labs)).toEqual(['e1', 'e2', unlinkedResultKey('dr-unlinked')]);
   });
 
   test('maps only saved interpretation codes to grid flags', () => {

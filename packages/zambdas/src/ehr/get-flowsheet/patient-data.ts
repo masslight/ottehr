@@ -31,7 +31,7 @@ import {
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils/lib/types/data/in-house/in-house.constants';
-import { OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { LAB_DR_TYPE_TAG, OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { makePrescribedMedicationDTO } from '../../shared/chart-data';
 import { fetchVisits, fetchVitals, VisitResources } from './helpers';
 
@@ -206,6 +206,11 @@ export const buildMedications = ({
 
 // ---- Lab results ---------------------------------------------------------------------------------------------
 
+// An unlinked outside result (an unsolicited report matched to the patient but to no visit) is its own column,
+// keyed by its report rather than by an encounter.
+export const unlinkedResultKey = (reportId: string): string => `unlinked:${reportId}`;
+export const isUnlinkedResultKey = (key: string): boolean => key.startsWith('unlinked:');
+
 export interface LabResources {
   serviceRequests: ServiceRequest[];
   reports: DiagnosticReport[];
@@ -223,7 +228,16 @@ const fetchLabResults = async (oystehr: Oystehr, patientId: string): Promise<Rec
       { name: '_revinclude', value: 'DiagnosticReport:based-on' },
       { name: '_include:iterate', value: 'DiagnosticReport:result' },
     ]);
-  const resources = (await Promise.all([orders(IN_HOUSE_TEST_CODE_SYSTEM), orders(OYSTEHR_LAB_OI_CODE_SYSTEM)])).flat();
+  // Unsolicited results matched to the patient without a visit have no order to be reached from; the ones matched
+  // to a visit come back from both searches and are de-duplicated by id below.
+  const unlinked = search<DiagnosticReport | Observation>(oystehr, 'DiagnosticReport', [
+    { name: 'subject', value: `Patient/${patientId}` },
+    { name: '_tag', value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.unsolicited}` },
+    { name: '_include', value: 'DiagnosticReport:result' },
+  ]);
+  const resources = (
+    await Promise.all([orders(IN_HOUSE_TEST_CODE_SYSTEM), orders(OYSTEHR_LAB_OI_CODE_SYSTEM), unlinked])
+  ).flat();
   const serviceRequests = resources.filter((r): r is ServiceRequest => r.resourceType === 'ServiceRequest');
 
   const canonicals = new Set(
@@ -279,6 +293,7 @@ const rangeText = (range: { text?: string; low?: Quantity; high?: Quantity } | u
   return '';
 };
 
+/** Results by visit; an unlinked outside result's results are under its own key (see unlinkedResultKey). */
 export const buildLabResults = ({
   serviceRequests,
   reports,
@@ -286,14 +301,19 @@ export const buildLabResults = ({
   activityDefinitions,
 }: LabResources): Record<string, FlowsheetLabResult[]> => {
   const byEncounter: Record<string, FlowsheetLabResult[]> = {};
+  const seen = new Set<string>();
   reports.forEach((report) => {
     if (report.status === 'entered-in-error' || report.status === 'cancelled') return;
+    if (!report.id || seen.has(report.id)) return;
+    seen.add(report.id);
     const orderId = report.basedOn
       ?.map((r) => getIdFromReference(r.reference, 'ServiceRequest'))
       .find((id): id is string => !!id);
     const order = serviceRequests.find((sr) => sr.id === orderId);
     const encounterId = getIdFromReference(order?.encounter?.reference ?? report.encounter?.reference, 'Encounter');
-    if (!encounterId) return;
+    // A report ordered here but whose order was not fetched (revoked, entered in error) stays off the flowsheet.
+    const key = encounterId ?? (orderId ? undefined : unlinkedResultKey(report.id));
+    if (!key) return;
 
     const isInHouse = !!order && isInHouseLabServiceRequest(order);
     const definition = isInHouse
@@ -320,7 +340,7 @@ export const buildLabResults = ({
       const coded = obs.valueCodeableConcept;
       // The in-house flag lives on the result Observation; older results only carry it as a tag on the report.
       const interpretation = obs.interpretation?.[0]?.coding?.[0]?.code ?? (reportAbnormal ? 'A' : '');
-      pushTo(byEncounter, encounterId, {
+      pushTo(byEncounter, key, {
         analyte: code?.text ?? code?.coding?.find((c) => c.display)?.display ?? testName,
         loincCodes: (code?.coding ?? []).flatMap((c) => (c.system === LOINC_SYSTEM && c.code ? [c.code] : [])),
         value,

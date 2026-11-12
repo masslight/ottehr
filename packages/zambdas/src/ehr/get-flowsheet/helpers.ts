@@ -150,6 +150,16 @@ export const describeVisit = (
   };
 };
 
+/** The column header of an unlinked outside result: no visit fields; the flowsheet dates it by the result. */
+export const describeOutsideResult = (): Omit<FlowsheetVisit, 'values' | 'start'> & { start?: string } => ({
+  isFollowUp: false,
+  isOutsideResult: true,
+  visitType: 'Outside result',
+  reason: '',
+  primaryDiagnosis: '',
+  attending: '',
+});
+
 export const newestFirst = (visits: FlowsheetVisit[]): FlowsheetVisit[] =>
   visits.sort((a, b) => Date.parse(b.start) - Date.parse(a.start));
 
