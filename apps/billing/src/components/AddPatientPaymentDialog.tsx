@@ -36,6 +36,7 @@ import { DISPLAY_DATE_AND_TIME_FORMAT } from 'utils/lib/utils/dateUtils';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { listBillingPatientPaymentMethods, postBillingPatientPayment, recordBillingManualPayment } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
+import { cardBrandName } from '../utils/format';
 import { DateInput } from './DateInput';
 
 // mirrors the EHR visit-details payment dialog; a card reader payment is keyed in like cash here,
@@ -94,9 +95,8 @@ const visitSummary = (visit: BillingPatientVisit): string => {
 };
 
 const cardLabel = (card: BillingPatientCard): string => {
-  const brand = card.brand ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1) : 'Card';
   const expiry = `${String(card.expMonth).padStart(2, '0')}/${String(card.expYear).slice(-2)}`;
-  return `${brand} •••• ${card.lastFour} (exp ${expiry})${card.default ? ' — Primary' : ''}`;
+  return `${cardBrandName(card.brand)} •••• ${card.lastFour} (exp ${expiry})${card.default ? ' — Primary' : ''}`;
 };
 
 // The day is recorded in the practice's timezone; noon there keeps it on that day whatever the

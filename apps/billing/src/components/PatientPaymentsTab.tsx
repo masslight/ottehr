@@ -1,5 +1,5 @@
 import { Add as AddIcon } from '@mui/icons-material';
-import { Alert, Box, Button, capitalize, Link, Tooltip, Typography } from '@mui/material';
+import { Alert, Box, Button, Link, Tooltip, Typography } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { MouseEvent, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
@@ -15,7 +15,7 @@ import {
 import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import { listBillingPatientAccountPayments } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
-import { formatDate } from '../utils/format';
+import { cardBrandName, formatDate } from '../utils/format';
 import { AddPatientPaymentDialog } from './AddPatientPaymentDialog';
 import { dataGridSlots, dataGridSx } from './BillingDataGrid';
 
@@ -29,13 +29,6 @@ export const METHOD_LABELS: Record<BillingPatientPaymentMethod, string> = {
   check: 'Check',
   invoice: 'Invoice',
   other: 'Other',
-};
-
-const CARD_BRAND_NAMES: Record<string, string> = {
-  visa: 'Visa',
-  mastercard: 'Mastercard',
-  amex: 'American Express',
-  discover: 'Discover',
 };
 
 const PAGE_SIZE = 25;
@@ -58,8 +51,7 @@ export const paymentDetailPath = (patientId: string, payment: BillingPatientAcco
 export const paymentMethodLabel = (payment: BillingPatientAccountPayment): string => {
   const label = METHOD_LABELS[payment.method];
   if (!payment.cardLast4) return label;
-  const brand = payment.cardBrand ? CARD_BRAND_NAMES[payment.cardBrand] ?? capitalize(payment.cardBrand) : 'Card';
-  return `${label} — ${brand} •••• ${payment.cardLast4}`;
+  return `${label} — ${cardBrandName(payment.cardBrand)} •••• ${payment.cardLast4}`;
 };
 
 // links inside a row must not also open the payment the row links to
