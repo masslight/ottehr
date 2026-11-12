@@ -127,7 +127,6 @@ import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/er
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { sendErrors } from '../shared/errors';
-import { fetchAllPages } from '../shared/fhir';
 import {
   getCustomInsuranceOrgBusinessId,
   isCustomInsuranceOrganization,
@@ -294,8 +293,6 @@ export const STRIPE_ACCOUNT_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing
 
 export const CHARGE_ITEM_DEFINITION_TYPE_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-type';
 export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/billing/charge-item-definition-default';
-
-const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
 
 // A working copy can itself be copied, so a copy is not always one hop from its main Patient
 export const MAX_COPY_CHAIN_HOPS = 10;
@@ -575,35 +572,31 @@ export async function searchPatientsByClinicalIds({
     ...(friendlyId ? [identifierSearchToken(clinicalFriendlyIdIdentifier(friendlyId))] : []),
   ];
 
-  if (identifierTokens.length > 0) {
-    const indexed = await oystehr.fhir.search<Patient>({
-      resourceType: 'Patient',
-      params: [
-        ...baseSearchParams,
-        {
-          name: 'identifier',
-          value: identifierTokens.join(','),
-        },
-        {
-          name: '_count',
-          value: String(pageSize),
-        },
-        {
-          name: '_offset',
-          value: String(offset),
-        },
-      ],
-    });
-    const results = indexed.unbundle();
-    if (results.length > 0) {
-      return {
-        total: indexed.total ?? results.length,
-        results,
-      };
-    }
-  }
+  if (identifierTokens.length === 0) return { total: 0, results: [] };
 
-  return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
+  const indexed = await oystehr.fhir.search<Patient>({
+    resourceType: 'Patient',
+    params: [
+      ...baseSearchParams,
+      {
+        name: 'identifier',
+        value: identifierTokens.join(','),
+      },
+      {
+        name: '_count',
+        value: String(pageSize),
+      },
+      {
+        name: '_offset',
+        value: String(offset),
+      },
+    ],
+  });
+  const results = indexed.unbundle();
+  return {
+    total: indexed.total ?? results.length,
+    results,
+  };
 }
 
 export interface ClinicalPatientIds {
@@ -670,43 +663,6 @@ async function findMainPatientOfWorkingCopy({
 function noMainPatient(patient: Patient, reason: string): undefined {
   console.warn(`No main billing Patient resolved for working copy Patient/${patient.id}: ${reason}`);
   return undefined;
-}
-
-export async function searchOnClinicalIDs(
-  oystehr: Oystehr,
-  baseSearchParams: SearchParam[],
-  baseOffset: number,
-  basePageSize: number,
-  uuid?: string,
-  friendlyId?: string
-): Promise<{ total: number; results: Patient[] }> {
-  let results: Patient[] = [];
-  await fetchAllPages(async (offset, count) => {
-    const response = oystehr.fhir.search<Patient>({
-      resourceType: 'Patient',
-      params: [
-        ...baseSearchParams,
-        {
-          name: '_count',
-          value: String(count),
-        },
-        {
-          name: '_offset',
-          value: String(offset),
-        },
-      ],
-    });
-    results.push(...(await response).unbundle());
-    return response;
-  }, CLINICAL_ID_SCAN_PAGE_SIZE);
-  if (uuid || friendlyId) {
-    results = results.filter(
-      (p) => (!!uuid && copySourceId(p) === uuid) || (!!friendlyId && clinicalFriendlyIdOfCopy(p) === friendlyId)
-    );
-  }
-  const total = results.length;
-  results = results.slice(baseOffset, baseOffset + basePageSize);
-  return { total, results };
 }
 
 export function billingCopyMatches<T extends Resource>(stored: T, copy: T): boolean {
