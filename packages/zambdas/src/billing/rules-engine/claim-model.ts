@@ -761,7 +761,7 @@ const setCoverageFromPatient = (
 
   const payorRef = copy.payor?.[0]?.reference;
   const payerLabel = coveragePayerDisplay(copy) ?? extractPayerIdFromUrl(payorRef);
-  attachCoverageToClaim({
+  const attachedIsFocal = attachCoverageToClaim({
     claim: model.claim,
     coverageReference: reference,
     type: coverageType,
@@ -771,8 +771,9 @@ const setCoverageFromPatient = (
     display: payerLabel ?? `Coverage/${entry.coverage.id}`,
     payerReference: payorRef,
   });
-  // The insurer carries the payer label alone — never the coverage-reference fallback.
-  if (payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
+  // The insurer carries the payer label alone — never the coverage-reference fallback — and names
+  // the focal payer only, so a coverage attached behind an existing primary leaves it alone.
+  if (attachedIsFocal && payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
   return true;
 };
 
