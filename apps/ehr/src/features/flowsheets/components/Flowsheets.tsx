@@ -120,12 +120,13 @@ export const cellOf = (row: FlowsheetRow, visit: FlowsheetVisit): Cell => {
   const readings = row.keys.map((key) => visit.values[key]).filter((reading) => reading !== undefined);
   if (readings.length < row.keys.length) return { text: '', history: [] };
   // Numbers show exactly the row's digits (3.10, not 3.1); text (a drug name, a coded lab result) is shown as saved.
-  const formatOne = ({ value, unit }: FlowsheetReading): string => {
+  const formatOne = ({ value, unit, note }: FlowsheetReading): string => {
     const text =
       typeof value === 'number' && row.digits !== undefined
         ? roundNumberToDecimalPlaces(value, row.digits).toFixed(row.digits)
         : String(value);
-    return unit ? `${text} ${unit}` : text;
+    const withUnit = unit ? `${text} ${unit}` : text;
+    return note ? `${withUnit} (${note})` : withUnit;
   };
   const format = (at: FlowsheetReading[]): string => at.map(formatOne).join('/');
   // A two-key row (blood pressure) reads both keys from one Observation, so the readings pair up by index.
@@ -134,6 +135,26 @@ export const cellOf = (row: FlowsheetRow, visit: FlowsheetVisit): Cell => {
     return { time: at[0].time, text: format(at), flag: worstFlag(at.map((reading) => reading.flag)) };
   });
   return { text: format(readings), flag: worstFlag(readings.map((reading) => reading.flag)), history };
+};
+
+export interface GroupHeading {
+  heading: string;
+}
+
+/**
+ * The grid's rows in order, with a heading before each run of grouped rows. A hide-empty flowsheet shows only the
+ * rows some column has a value for, so a heading whose rows are all empty goes too.
+ */
+export const rowsToShow = (
+  definition: FlowsheetDefinition,
+  visits: FlowsheetVisit[]
+): (FlowsheetRow | GroupHeading)[] => {
+  const rows = definition.hideEmptyRows
+    ? definition.rows.filter((row) => visits.some((visit) => cellOf(row, visit).text))
+    : definition.rows;
+  return rows.flatMap((row, i) =>
+    row.group && row.group !== rows[i - 1]?.group ? [{ heading: row.group }, row] : [row]
+  );
 };
 
 const FlagMark = ({ flag }: { flag?: VitalAlertCriticality }): ReactElement | null => {
@@ -209,6 +230,7 @@ const FlowsheetBody = ({
 }): ReactElement => {
   const theme = useTheme();
   const columns = useMemo(() => toColumns(visits), [visits]);
+  const rows = useMemo(() => rowsToShow(definition, visits), [definition, visits]);
   // The open visit's own (main) column; its follow-up columns are not it.
   const isCurrent = (visit: VisitColumn): boolean =>
     !!currentAppointmentId && visit.appointmentId === currentAppointmentId && !visit.isFollowUp;
@@ -278,28 +300,39 @@ const FlowsheetBody = ({
             </TableRow>
           </TableHead>
           <TableBody>
-            {definition.rows.map((row) => (
-              <TableRow key={row.label}>
-                <TableCell sx={{ ...pinned, fontWeight: 600 }}>{row.label}</TableCell>
-                {columns.map((visit, i) => {
-                  const cell = cellOf(row, visit);
-                  return (
-                    <TableCell
-                      key={`${visit.start}-${i}`}
-                      align="right"
-                      sx={{
-                        whiteSpace: 'nowrap',
-                        color: flagColor(cell.flag) ?? (cell.text ? 'text.primary' : 'text.disabled'),
-                        ...currentSx(visit),
-                      }}
-                    >
-                      <CellValue cell={cell} />
-                      <FlagMark flag={cell.flag} />
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))}
+            {rows.map((row) =>
+              'heading' in row ? (
+                <TableRow key={row.heading}>
+                  <TableCell
+                    colSpan={columns.length + 1}
+                    sx={{ ...pinned, fontWeight: 700, color: 'primary.dark', backgroundColor: 'action.hover' }}
+                  >
+                    {row.heading}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                <TableRow key={`${row.group ?? ''}-${row.label}`}>
+                  <TableCell sx={{ ...pinned, fontWeight: 600 }}>{row.label}</TableCell>
+                  {columns.map((visit, i) => {
+                    const cell = cellOf(row, visit);
+                    return (
+                      <TableCell
+                        key={`${visit.start}-${i}`}
+                        align="right"
+                        sx={{
+                          whiteSpace: 'nowrap',
+                          color: flagColor(cell.flag) ?? (cell.text ? 'text.primary' : 'text.disabled'),
+                          ...currentSx(visit),
+                        }}
+                      >
+                        <CellValue cell={cell} />
+                        <FlagMark flag={cell.flag} />
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              )
+            )}
           </TableBody>
         </Table>
       </TableContainer>

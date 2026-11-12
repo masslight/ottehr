@@ -6,6 +6,8 @@ export interface FlowsheetRow {
   keys: string[];
   /** Decimal places for numeric values; text values (e.g. medication names) and unrounded numbers omit it. */
   digits?: number;
+  /** The panel heading the row sits under; consecutive rows with the same group share one heading. */
+  group?: string;
 }
 
 export interface FlowsheetChart {
@@ -19,6 +21,8 @@ export interface FlowsheetDefinition {
   title: string;
   rows: FlowsheetRow[];
   charts: FlowsheetChart[];
+  /** Show only the rows the patient has a value for (and only the headings that keep a row). */
+  hideEmptyRows?: boolean;
 }
 
 const vitals: FlowsheetDefinition = {
@@ -96,7 +100,115 @@ const newbornBilirubin: FlowsheetDefinition = {
   ],
 };
 
+const panel = (group: string, rows: [string, string][]): FlowsheetRow[] =>
+  rows.map(([label, key]) => ({ label, keys: [key], group }));
+
+// Rows in the requirements' order: panels, then standalone tests from most to least ordered. Rows without a result
+// for the patient are hidden, panel headings with them.
+const labResults: FlowsheetDefinition = {
+  id: 'labResults',
+  title: 'Lab results',
+  hideEmptyRows: true,
+  rows: [
+    ...panel('CBC', [
+      ['Hemoglobin', 'hemoglobin'],
+      ['Hematocrit', 'hematocrit'],
+      ['MCV', 'mcv'],
+      ['MCH', 'mch'],
+      ['MCHC', 'mchc'],
+      ['RBC', 'rbc'],
+      ['WBC', 'wbc'],
+      ['Platelets', 'platelets'],
+      ['Neutrophils (%)', 'neutrophilsPercent'],
+      ['Lymphocytes (%)', 'lymphocytesPercent'],
+      ['Monocytes (%)', 'monocytesPercent'],
+      ['Eosinophils (%)', 'eosinophilsPercent'],
+      ['Basophils (%)', 'basophilsPercent'],
+      ['Neutrophils (absolute)', 'neutrophilsAbsolute'],
+      ['Lymphocytes (absolute)', 'lymphocytesAbsolute'],
+    ]),
+    ...panel('CMP/BMP', [
+      ['Glucose', 'glucose'],
+      ['BUN', 'bun'],
+      ['Creatinine', 'creatinine'],
+      ['eGFR', 'egfr'],
+      ['BUN/Creatinine ratio', 'bunCreatinineRatio'],
+      ['Sodium', 'sodium'],
+      ['Potassium', 'potassium'],
+      ['Chloride', 'chloride'],
+      ['Bicarbonate (CO2)', 'bicarbonate'],
+      ['Calcium', 'calcium'],
+    ]),
+    ...panel('CMP', [
+      ['Total protein', 'totalProtein'],
+      ['Albumin', 'albumin'],
+      ['Globulin', 'globulin'],
+      ['Albumin/Globulin ratio', 'albuminGlobulinRatio'],
+      ['Total bilirubin', 'totalBilirubin'],
+      ['Alkaline phosphatase', 'alkalinePhosphatase'],
+      ['AST', 'ast'],
+      ['ALT', 'alt'],
+    ]),
+    ...panel('Lipid panel', [
+      ['Total cholesterol', 'totalCholesterol'],
+      ['LDL cholesterol', 'ldlCholesterol'],
+      ['HDL cholesterol', 'hdlCholesterol'],
+      ['Triglycerides', 'triglycerides'],
+      ['Non-HDL cholesterol', 'nonHdlCholesterol'],
+    ]),
+    ...panel('Thyroid', [
+      ['TSH', 'tsh'],
+      ['Free T4', 'freeT4'],
+    ]),
+    ...panel('Iron panel', [
+      ['Iron', 'iron'],
+      ['TIBC', 'tibc'],
+      ['Transferrin saturation', 'transferrinSaturation'],
+      ['Ferritin', 'ferritin'],
+    ]),
+    { label: 'HbA1c', keys: ['hba1c'] },
+    { label: 'Vitamin D, 25-hydroxy', keys: ['vitaminD'] },
+    ...panel('Urinalysis', [
+      ['Color', 'uaColor'],
+      ['Appearance', 'uaAppearance'],
+      ['Specific gravity', 'uaSpecificGravity'],
+      ['pH', 'uaPh'],
+      ['Protein', 'uaProtein'],
+      ['Glucose', 'uaGlucose'],
+      ['Ketones', 'uaKetones'],
+      ['Bilirubin', 'uaBilirubin'],
+      ['Blood', 'uaBlood'],
+      ['Nitrite', 'uaNitrite'],
+      ['Leukocyte esterase', 'uaLeukocyteEsterase'],
+      ['Urobilinogen', 'uaUrobilinogen'],
+    ]),
+    { label: 'Vitamin B12', keys: ['vitaminB12'] },
+    { label: 'Urine albumin/creatinine ratio', keys: ['urineAlbuminCreatinineRatio'] },
+    { label: 'PSA', keys: ['psa'] },
+    { label: 'Magnesium', keys: ['magnesium'] },
+    { label: 'CRP', keys: ['crp'] },
+    { label: 'hs-CRP', keys: ['hsCrp'] },
+    { label: 'Urine culture', keys: ['urineCulture'] },
+    { label: 'HIV Ag/Ab', keys: ['hivAgAb'] },
+    { label: 'Hepatitis C antibody', keys: ['hepatitisCAntibody'] },
+    { label: 'ESR', keys: ['esr'] },
+    { label: 'Uric acid', keys: ['uricAcid'] },
+    { label: 'Folate', keys: ['folate'] },
+    { label: 'Testosterone, total', keys: ['testosterone'] },
+    { label: 'Urine pregnancy (hCG)', keys: ['urineHcg'] },
+    { label: 'PTH', keys: ['pth'] },
+    { label: 'Phosphorus', keys: ['phosphorus'] },
+  ],
+  charts: [
+    { title: 'HbA1c', unit: '%', lines: [{ name: 'HbA1c', key: 'hba1c' }] },
+    { title: 'Creatinine', unit: 'mg/dL', lines: [{ name: 'Creatinine', key: 'creatinine' }] },
+    { title: 'eGFR', unit: 'mL/min/1.73m²', lines: [{ name: 'eGFR', key: 'egfr' }] },
+    { title: 'LDL cholesterol', unit: 'mg/dL', lines: [{ name: 'LDL cholesterol', key: 'ldlCholesterol' }] },
+    { title: 'Hemoglobin', unit: 'g/dL', lines: [{ name: 'Hemoglobin', key: 'hemoglobin' }] },
+  ],
+};
+
 /** Every flowsheet the EHR offers, in side-list (alphabetical) order. */
-export const FLOWSHEETS: FlowsheetDefinition[] = [newbornBilirubin, thyroid, vitals].sort((a, b) =>
+export const FLOWSHEETS: FlowsheetDefinition[] = [labResults, newbornBilirubin, thyroid, vitals].sort((a, b) =>
   a.title.localeCompare(b.title)
 );
