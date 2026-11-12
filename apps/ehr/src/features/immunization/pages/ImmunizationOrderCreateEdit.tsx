@@ -502,11 +502,6 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                   </Box>
                 )}
 
-                <WarningBlock
-                  title="Safety Alert"
-                  text="Vaccine orders do not automatically check for patient allergies (unlike medication orders). Before proceeding, please manually review the patient's allergies and confirm there is no risk of allergy to the vaccine or its components."
-                />
-
                 <Divider orientation="horizontal" />
 
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -577,6 +572,10 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                 {suggestedLines.length > 0 && (
                   <QuestionsBox lines={suggestedLines} answers={counseling} onChange={answerCounseling} />
                 )}
+                <WarningBlock
+                  title="Safety Alert"
+                  text="Vaccine orders do not automatically check for patient allergies (unlike medication orders). Before proceeding, please manually review the patient's allergies and confirm there is no risk of allergy to the vaccine or its components."
+                />
                 <AccordionCard>
                   <Stack spacing={1.5} style={{ padding: '24px' }}>
                     <AllergiesContainer />
