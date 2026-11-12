@@ -116,4 +116,12 @@ describe('cptCodesToBillForDose', () => {
     const adult = [{ code: '90471' }, { code: '90472' }, { code: 'G0008' }, { code: '90656' }];
     expect(cptCodesToBillForDose(adult, 'vfc').map((cpt) => cpt.code)).toEqual(['90471', '90472', 'G0008']);
   });
+
+  it('keeps the RSV monoclonal antibody administration codes for a VFC dose (nirsevimab 90380 is the product)', () => {
+    const nirsevimab = [{ code: '90380' }, { code: '96380' }];
+    expect(cptCodesToBillForDose(nirsevimab, 'vfc').map((cpt) => cpt.code)).toEqual(['96380']);
+    expect(cptCodesToBillForDose([{ code: '90381' }, { code: '96381' }], 'state').map((cpt) => cpt.code)).toEqual([
+      '96381',
+    ]);
+  });
 });

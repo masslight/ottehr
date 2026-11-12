@@ -145,6 +145,13 @@ export const sortVaccineLotsForPatient = <T extends VaccineLotLike>(
 
 // ─── Billing ──────────────────────────────────────────────────────────────────
 
+/**
+ * RSV monoclonal antibodies (nirsevimab CVX 306 and 307, clesrovimab 332): given and recorded like a vaccine, but
+ * their administration is 96380 (with counseling) or 96381, never 90460/90461 or 90471/90472, which are for vaccine
+ * and toxoid products only (AAP, Coding and payment for RSV immunizations).
+ */
+export const RSV_MONOCLONAL_ANTIBODY_CVX_CODES = new Set(['306', '307', '332']);
+
 /** Immunization administration CPT/HCPCS codes: billed whatever stock the vaccine came from. */
 export const VACCINE_ADMINISTRATION_CPT_CODES = new Set([
   '90460',
@@ -153,6 +160,8 @@ export const VACCINE_ADMINISTRATION_CPT_CODES = new Set([
   '90472',
   '90473',
   '90474',
+  '96380',
+  '96381',
   'G0008',
   'G0009',
   'G0010',

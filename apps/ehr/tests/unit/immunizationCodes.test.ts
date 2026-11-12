@@ -116,6 +116,18 @@ describe('suggestCptCodes', () => {
     ]);
   });
 
+  it('an RSV monoclonal antibody takes 96380 / 96381, never a vaccine admin code, and is not the first vaccine', () => {
+    const rsv = [line('Beyfortus', '306'), line('Prevnar 20', '216')];
+    expect(suggestCptCodes(rsv, { pediatric: true, counseledFor: all(true) }).map(text)).toEqual(['96380', '90460']);
+    expect(suggestCptCodes(rsv, { pediatric: true, counseledFor: all(false) }).map(text)).toEqual(['96381', '90471']);
+    expect(
+      suggestCptCodes([line('Enflonsia', '332'), line('Beyfortus', '307')], {
+        pediatric: true,
+        counseledFor: all(false),
+      }).map(text)
+    ).toEqual(['96381', '96381']);
+  });
+
   it('nasal or oral flu takes 90473, then 90474', () => {
     expect(
       text(suggestCptCodes([line('FluMist', '111', NASAL)], { pediatric: false, counseledFor: all(true) })[0])
