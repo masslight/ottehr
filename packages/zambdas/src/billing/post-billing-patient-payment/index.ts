@@ -261,7 +261,7 @@ const recordCardPayment = async (
       reservationId: pending.id!,
     });
   } catch (error) {
-    if (error instanceof IdempotencyConflictError) {
+    if (isIdempotencyConflict(error)) {
       // Another request holds the key, and its charge may name this very reservation (a replay reuses
       // it), so the reservation is left as it is: whichever request charged records the payment.
       console.log(`Another request is charging EHR payment ${ehrPaymentId}; waiting for it to record the payment`);
@@ -391,16 +391,8 @@ const findReservations = async (billingOystehr: Oystehr, reservationIdentifier: 
     })
   ).unbundle();
 
-// Another request for the same payment holds the idempotency key: it is charging, or charged the card
-// with other parameters (its own reservation, or a changed amount).
-class IdempotencyConflictError extends Error {
-  constructor() {
-    super('Another request for this payment holds its idempotency key');
-    this.name = 'IdempotencyConflictError';
-  }
-}
-
-// Stripe refuses a key that another request is using, or used with other parameters.
+// Stripe refuses a key that another request is using, or used with other parameters: that request is
+// charging the payment, or charged the card with other parameters (its own reservation, or a changed amount).
 const isIdempotencyConflict = (error: unknown): boolean => {
   const stripeError = error as { type?: string; rawType?: string; code?: string } | undefined;
   return (
@@ -434,7 +426,7 @@ const waitForRecordedPayment = async (billingOystehr: Oystehr, ehrPaymentId: str
 // The charge carries the id of this request's reservation, under the client's idempotency key. Stripe
 // keeps one PaymentIntent per key and refuses the key with different parameters, so of requests that
 // reserved separate notices for one payment exactly one charges the card; the others get
-// IdempotencyConflictError. The resource id is what makes the parameters differ, as nothing in FHIR
+// Stripe's idempotency error. The resource id is what makes the parameters differ, as nothing in FHIR
 // keeps two concurrent reservations from being stored.
 const chargeSavedCard = async (
   input: EffectInput,
@@ -478,8 +470,8 @@ const chargeSavedCard = async (
       }
     );
   } catch (e) {
-    if (isIdempotencyConflict(e)) throw new IdempotencyConflictError();
-    throw parseStripeError(e);
+    // the idempotency error is passed on as it is, for the caller to wait for the request that holds the key
+    throw isIdempotencyConflict(e) ? e : parseStripeError(e);
   }
   if (paymentIntent.status !== 'succeeded') {
     throw GENERIC_STRIPE_PAYMENT_ERROR;

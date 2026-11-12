@@ -11,7 +11,7 @@ import {
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
 } from 'utils/lib/types/data/billing/claim-history';
-import { INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
+import { APIErrorCode, INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 import { claimHistoryEntries, provenanceChanges } from './claim-history-fixtures';
 
@@ -51,7 +51,7 @@ vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
   resolveClaimActor: vi.fn(async () => SYSTEM_AGENT),
 }));
 
-import { EhrPaymentReservationNotFoundError, index, performEffect } from '../../../src/billing/billing-stripe-webhook';
+import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
 import {
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
@@ -1141,7 +1141,7 @@ describe('billing-stripe-webhook charges the EHR reserved a notice for', () => {
         ),
         secrets,
       })
-    ).rejects.toBeInstanceOf(EhrPaymentReservationNotFoundError);
+    ).rejects.toMatchObject({ code: APIErrorCode.EHR_PAYMENT_RESERVATION_NOT_FOUND });
     expect(transaction).not.toHaveBeenCalled();
   });
 
@@ -1202,7 +1202,7 @@ describe('billing-stripe-webhook charges the EHR reserved a notice for', () => {
 
     await expect(
       performEffect(oystehr, { event: makeEvent('charge.succeeded', ehrCharge()), secrets })
-    ).rejects.toBeInstanceOf(EhrPaymentReservationNotFoundError);
+    ).rejects.toMatchObject({ code: APIErrorCode.EHR_PAYMENT_RESERVATION_NOT_FOUND });
 
     expect(transaction).not.toHaveBeenCalled();
   });
@@ -1212,11 +1212,12 @@ describe('billing-stripe-webhook charges the EHR reserved a notice for', () => {
     const { oystehr, transaction } = makeOystehr([[claim]]);
     (createBillingClient as Mock).mockReturnValue(oystehr);
 
-    const result = await (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(
-      signedInput(makeEvent('charge.succeeded', ehrCharge()))
-    );
-
-    expect(result.statusCode).toBe(503);
+    // wrapHandler is mocked away; its top level catch answers an APIError with the error's status
+    await expect(
+      (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(
+        signedInput(makeEvent('charge.succeeded', ehrCharge()))
+      )
+    ).rejects.toMatchObject({ code: APIErrorCode.EHR_PAYMENT_RESERVATION_NOT_FOUND, statusCode: 503 });
     expect(transaction).not.toHaveBeenCalled();
   });
 

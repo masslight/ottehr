@@ -8,6 +8,7 @@ import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'uti
 import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation, getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
+import { EHR_PAYMENT_RESERVATION_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseOttehrBilling } from '../../shared/candid';
 import { isFhirNotFoundError } from '../../shared/errors';
@@ -61,39 +62,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
 
-  try {
-    await performEffect(oystehr, params);
-  } catch (error) {
-    if (error instanceof EhrPaymentReservationNotFoundError) {
-      // answered without an error report: the non-2xx status makes Stripe redeliver the event later
-      console.warn(error.message);
-      return {
-        statusCode: 503,
-        body: JSON.stringify({ message: error.message }),
-      };
-    }
-    throw error;
-  }
+  await performEffect(oystehr, params);
 
   return {
     statusCode: 200,
     body: JSON.stringify({}),
   };
 });
-
-// The EHR reserves a card payment's notice before charging the card and tags the charge with the
-// reservation's id, so the notice of such a charge is always there to activate or refresh, and the
-// webhook never creates one: a create could race the EHR's activation of its reservation, and two
-// concurrent conditional creates can both store a notice, recording the charge twice. A reservation
-// not found yet is waited for by having Stripe redeliver the event.
-export class EhrPaymentReservationNotFoundError extends Error {
-  constructor(chargeId: string, ehrPaymentId: string) {
-    super(
-      `No PaymentNotice reserves EHR payment ${ehrPaymentId} of charge ${chargeId} yet; asking Stripe to redeliver`
-    );
-    this.name = 'EhrPaymentReservationNotFoundError';
-  }
-}
 
 // Patient payments live in billing whatever BILLING_INTEGRATION says, so their Stripe-owned state
 // and refund stamps are always kept current. Only Ottehr billing records Stripe activity the EHR did
@@ -265,7 +240,7 @@ const upsertPaymentNoticeOnBillingClaimForCharge = async (
           : []),
       ]);
   if (!found && ehrPaymentId) {
-    throw new EhrPaymentReservationNotFoundError(charge.id, ehrPaymentId);
+    throw EHR_PAYMENT_RESERVATION_NOT_FOUND_ERROR(charge.id, ehrPaymentId);
   }
   // the reservation the charge names is its record unless activated already, also if a request whose
   // charge failed cancelled it meanwhile
