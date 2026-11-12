@@ -107,7 +107,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  // the receipt / Candid sync Task is a clinical work item, written with the clinical client
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the visit's Encounter and schedules the payment Task, a clinical work item
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
   const effectInput = await complexValidation(input, params, oystehr);
   const response = await performEffect(oystehr, clinicalOystehr, effectInput);
