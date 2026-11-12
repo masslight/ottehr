@@ -1,0 +1,55 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Task } from 'fhir/r4b';
+import {
+  DOCUMENT_PACKET_FAILURE_TASK_OUTPUT,
+  DOCUMENT_PACKET_RESULTS_TASK_OUTPUT,
+  DocumentPacketJobStatus,
+  DocumentPacketRecipientResult,
+  GetDocumentPacketStatusOutput,
+} from 'utils/lib/types/api/document-packet.types';
+import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'get-document-packet-status';
+
+let m2mToken: string;
+
+/** Terminal FHIR Task statuses map to the two job outcomes; everything else is still pending. */
+const toJobStatus = (taskStatus: Task['status']): DocumentPacketJobStatus => {
+  if (taskStatus === 'completed') return 'completed';
+  if (taskStatus === 'failed' || taskStatus === 'cancelled' || taskStatus === 'rejected') return 'failed';
+  return 'pending';
+};
+
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const { taskId, secrets } = validateRequestParameters(input);
+
+  await getUser(input.headers.Authorization.replace('Bearer ', ''), secrets);
+
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+  const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
+
+  const findOutput = (target: { system: string; code: string }): string | undefined =>
+    task.output?.find(
+      (entry) => entry.type?.coding?.some((coding) => coding.system === target.system && coding.code === target.code)
+    )?.valueString;
+
+  const resultsJson = findOutput(DOCUMENT_PACKET_RESULTS_TASK_OUTPUT);
+
+  const recipients: DocumentPacketRecipientResult[] = resultsJson
+    ? (JSON.parse(resultsJson) as DocumentPacketRecipientResult[])
+    : [];
+
+  const jobStatus = toJobStatus(task.status);
+  const rawFailureReason = jobStatus === 'failed' ? findOutput(DOCUMENT_PACKET_FAILURE_TASK_OUTPUT) : undefined;
+  const failureReason = rawFailureReason === 'too-large' ? rawFailureReason : undefined;
+
+  const output: GetDocumentPacketStatusOutput = { jobStatus, recipients, failureReason };
+
+  return { statusCode: 200, body: JSON.stringify(output) };
+});

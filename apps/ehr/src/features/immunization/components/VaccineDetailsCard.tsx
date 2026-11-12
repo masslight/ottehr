@@ -109,7 +109,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   };
 
   const onSubmit = async (data: any): Promise<void> => {
-    if (data.otherReason) {
+    if (data.otherReason?.trim()) {
       data.reason = data.otherReason;
     }
     try {
@@ -139,7 +139,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   };
 
   const requiredForAdministration = (value: string | undefined): boolean | string => {
-    if (administrationTypeRef.current !== NOT_ADMINISTERED && (!value || value.length === 0)) {
+    if (administrationTypeRef.current !== NOT_ADMINISTERED && (typeof value === 'string' ? !value.trim() : !value)) {
       return REQUIRED_FIELD_ERROR_MESSAGE;
     }
     return true;

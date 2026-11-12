@@ -125,7 +125,7 @@ const AskThePatient = (): React.ReactElement => {
 
       if (field.noteField && field.noteField.id in watchedValues) {
         const noteValue = watchedValues[field.noteField.id] as string;
-        (updatedObservation as ObservationDTO & { note?: string }).note = noteValue || undefined;
+        (updatedObservation as ObservationDTO & { note?: string }).note = noteValue?.trim() ? noteValue : undefined;
       }
 
       return updatedObservation;

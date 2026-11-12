@@ -1,4 +1,5 @@
 import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { optionalTextSchema, requiredTextSchema } from 'utils/lib/types/text-schemas';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
@@ -17,13 +18,13 @@ export interface UpdateFeeScheduleParams {
 
 const UpdateFeeScheduleBodySchema = z.object({
   feeScheduleId: z.string().uuid(),
-  name: z.string().min(1),
+  name: requiredTextSchema,
   effectiveDate: z.string().min(1).optional(),
-  description: z.string().optional(),
+  description: optionalTextSchema,
   status: z.enum(['active', 'retired']).optional(),
   designation: z.union([z.literal('case-rate'), z.null()]).optional(),
   caseRateAmount: z.number().min(0).optional(),
-  caseRateComment: z.string().optional(),
+  caseRateComment: optionalTextSchema,
 });
 
 export function validateRequestParameters(input: ZambdaInput): UpdateFeeScheduleParams {

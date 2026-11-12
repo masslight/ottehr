@@ -1,12 +1,13 @@
 import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { optionalTextSchema, requiredTextSchema } from 'utils/lib/types/text-schemas';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 const CreateFeeScheduleBodySchema = z.object({
-  name: z.string().min(1),
+  name: requiredTextSchema,
   effectiveDate: z.string().min(1),
-  description: z.string().optional(),
+  description: optionalTextSchema,
 });
 
 export interface CreateFeeScheduleParams {

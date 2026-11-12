@@ -19,9 +19,12 @@ import {
   RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM,
   RadiologyOrderFormInput,
 } from '../../../shared/pdf/radiology-order-form-pdf';
+import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 /** The identifying bits of a resource an order form was rendered from. */
 export type OrderFormSource = Pick<Resource, 'resourceType' | 'id' | 'meta'>;
+
+const RADIOLOGY_ORDER_FORM_TEMPLATE_VERSION = 2;
 
 export interface RadiologyOrderFormResources {
   input: RadiologyOrderFormInput;
@@ -55,13 +58,14 @@ export const gatherRadiologyOrderFormInput = async (
   const practitionerId =
     getAttendingPractitionerId(encounter) ?? getIdFromReference(serviceRequest.requester?.reference);
 
-  const [patient, practitioner, location, weightObservation] = await Promise.all([
+  const [patient, practitioner, location, weightObservation, { account, coverages }] = await Promise.all([
     oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
     practitionerId
       ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId })
       : Promise.resolve(undefined),
     locationId ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }) : Promise.resolve(undefined),
     fetchLatestWeightObservation(encounterId, oystehr),
+    getAccountAndCoverageResourcesForPatient(patientId, oystehr),
   ]);
 
   const timezone =
@@ -71,11 +75,19 @@ export const gatherRadiologyOrderFormInput = async (
   const weight = quantity?.value != null ? { value: quantity.value, unit: quantity.unit ?? 'kg' } : undefined;
 
   return {
-    input: { serviceRequest, patient, practitioner, location, timezone, weight, oystehr },
+    input: { serviceRequest, patient, practitioner, location, timezone, weight, coverages, oystehr },
     refs: { patientId, encounterId, serviceRequestId },
-    sources: [serviceRequest, encounter, patient, practitioner, location, weightObservation].flatMap((resource) =>
-      resource ? [resource] : []
-    ),
+    sources: [
+      serviceRequest,
+      encounter,
+      patient,
+      practitioner,
+      location,
+      weightObservation,
+      account,
+      coverages.primary,
+      coverages.secondary,
+    ].flatMap((resource) => (resource ? [resource] : [])),
   };
 };
 
@@ -121,6 +133,11 @@ export const makeRadiologyOrderFormSourceVersion = (sources: OrderFormSource[]):
   return versions.sort().join('|');
 };
 
+export const makeRadiologyOrderFormVersion = (sources: OrderFormSource[]): string | undefined => {
+  const sourceVersion = makeRadiologyOrderFormSourceVersion(sources);
+  return sourceVersion && `template@${RADIOLOGY_ORDER_FORM_TEMPLATE_VERSION}|${sourceVersion}`;
+};
+
 /** The source version stamped on a stored order form, if any. */
 export const getStoredOrderFormSourceVersion = (docRef: DocumentReference): string | undefined =>
   docRef.identifier?.find((identifier) => identifier.system === RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM)?.value;
@@ -146,7 +163,7 @@ export const getOrCreateRadiologyOrderForm = async (
     gatherRadiologyOrderFormInput(serviceRequestId, oystehr),
   ]);
 
-  const sourceVersion = makeRadiologyOrderFormSourceVersion(sources);
+  const sourceVersion = makeRadiologyOrderFormVersion(sources);
   const existingMediaUrl = existingDocRef?.content?.[0]?.attachment?.url;
 
   if (

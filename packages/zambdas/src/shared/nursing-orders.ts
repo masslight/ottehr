@@ -74,7 +74,7 @@ export const makeNursingOrderTransactionRequests = ({
       ],
     }),
     meta: fillMeta('nursing order', 'order-type-tag'),
-    ...(notes && { note: [{ text: notes }] }),
+    ...(notes?.trim() && { note: [{ text: notes }] }),
     ...(coverageId && { insurance: [{ reference: `Coverage/${coverageId}` }] }),
     ...(supportingInfoReferences?.length && {
       supportingInfo: supportingInfoReferences.map((reference) => ({ reference })),

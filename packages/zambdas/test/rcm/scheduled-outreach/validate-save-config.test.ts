@@ -390,4 +390,112 @@ describe('save-scheduled-outreach-config validateRequestParameters', () => {
       )
     ).toThrow('actions[0].sendNotificationConfig.statementType must be one of: standard, past-due, final-notice');
   });
+  it.each(['', '  ', '\n\n'])('throws when a selected SMS template is blank (%j)', (smsTemplate) => {
+    expect(() =>
+      validateRequestParameters(
+        makeInput({
+          actions: [
+            validSendNotificationAction({
+              sendNotificationConfig: { mediums: ['sms'], smsTemplate, emailTemplate: '' },
+            }),
+          ],
+        })
+      )
+    ).toThrow('actions[0].sendNotificationConfig.smsTemplate is required when sms is selected');
+  });
+
+  it('throws when a selected email template is whitespace-only', () => {
+    expect(() =>
+      validateRequestParameters(
+        makeInput({
+          actions: [
+            validSendNotificationAction({
+              sendNotificationConfig: { mediums: ['email'], smsTemplate: '', emailTemplate: '\n' },
+            }),
+          ],
+        })
+      )
+    ).toThrow('actions[0].sendNotificationConfig.emailTemplate is required when email is selected');
+  });
+
+  it('throws when a selected send-notification template is missing', () => {
+    expect(() =>
+      validateRequestParameters(
+        makeInput({ actions: [validSendNotificationAction({ sendNotificationConfig: { mediums: ['email'] } })] })
+      )
+    ).toThrow('actions[0].sendNotificationConfig.emailTemplate is required when email is selected');
+  });
+
+  it('throws when an enabled charge-card notification has a blank email template for a selected medium', () => {
+    expect(() =>
+      validateRequestParameters(
+        makeInput({
+          actions: [
+            validChargeCardAction({
+              chargeCardConfig: {
+                retryAttempts: 0,
+                retryIntervalDays: 0,
+                onSuccess: { enabled: true, mediums: ['email'], smsTemplate: '', emailTemplate: ' \n ' },
+                onFailure: { enabled: false, mediums: [], smsTemplate: '', emailTemplate: '' },
+              },
+            }),
+          ],
+        })
+      )
+    ).toThrow('actions[0].chargeCardConfig.onSuccess.emailTemplate is required when email is selected');
+  });
+
+  it('accepts blank templates on a disabled charge-card notification and on unselected mediums', () => {
+    const result = validateRequestParameters(
+      makeInput({
+        actions: [
+          validChargeCardAction({
+            chargeCardConfig: {
+              retryAttempts: 0,
+              retryIntervalDays: 0,
+              onSuccess: { enabled: true, mediums: ['sms'], smsTemplate: 'Charged', emailTemplate: '\n' },
+              onFailure: { enabled: false, mediums: ['email'], smsTemplate: '', emailTemplate: '' },
+            },
+          }),
+        ],
+      })
+    );
+    expect(result.actions).toHaveLength(1);
+  });
+
+  it('accepts blank templates on a disabled action, which the producers skip', () => {
+    const result = validateRequestParameters(
+      makeInput({
+        actions: [
+          validSendNotificationAction({
+            enabled: false,
+            sendNotificationConfig: { mediums: ['sms'], smsTemplate: '\n', emailTemplate: '' },
+          }),
+          validChargeCardAction({
+            id: 'charge-2',
+            enabled: false,
+            chargeCardConfig: {
+              retryAttempts: 0,
+              retryIntervalDays: 0,
+              onSuccess: { enabled: true, mediums: ['email'], smsTemplate: '', emailTemplate: ' ' },
+              onFailure: { enabled: false, mediums: [], smsTemplate: '', emailTemplate: '' },
+            },
+          }),
+        ],
+      })
+    );
+    expect(result.actions).toHaveLength(2);
+  });
+
+  it('keeps surrounding newlines of a real template', () => {
+    const smsTemplate = '\nHello {{patient-full-name}}\n';
+    const result = validateRequestParameters(
+      makeInput({
+        actions: [
+          validSendNotificationAction({ sendNotificationConfig: { mediums: ['sms'], smsTemplate, emailTemplate: '' } }),
+        ],
+      })
+    );
+    expect(result.actions[0].sendNotificationConfig?.smsTemplate).toBe(smsTemplate);
+  });
 });
