@@ -21,7 +21,11 @@ import {
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils/lib/types/data/in-house/in-house.constants';
-import { LAB_DR_TYPE_TAG, OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import {
+  LAB_DR_TYPE_TAG,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
+} from 'utils/lib/types/data/labs/labs.constants';
 import { describe, expect, test } from 'vitest';
 import {
   buildLabResults,
@@ -209,7 +213,8 @@ describe('buildLabResults', () => {
       resourceType: 'DiagnosticReport',
       id: 'dr-ext',
       status: 'final',
-      code: { text: 'CMP' },
+      code: { coding: [{ system: 'http://loinc.org', code: '24323-8' }], text: 'CMP' },
+      extension: [{ url: OYSTEHR_LABS_FASTING_STATUS_EXT_URL, valueString: 'Fasting' }],
       basedOn: [{ reference: 'ServiceRequest/sr-ext' }],
       result: [
         { reference: 'Observation/o-glucose' },
@@ -308,6 +313,9 @@ describe('buildLabResults', () => {
       {
         analyte: 'Glucose',
         loincCodes: ['2345-7'],
+        testName: 'Comprehensive metabolic panel',
+        testLoincCodes: ['24323-8'],
+        fasting: true,
         value: 212,
         valueText: '212',
         unit: 'mg/dL',
@@ -320,6 +328,9 @@ describe('buildLabResults', () => {
       {
         analyte: 'Hemoglobin A1c',
         loincCodes: ['4548-4'],
+        testName: 'Comprehensive metabolic panel',
+        testLoincCodes: ['24323-8'],
+        fasting: true,
         value: 8.1,
         valueText: '8.1',
         unit: '%',
@@ -337,6 +348,9 @@ describe('buildLabResults', () => {
       {
         analyte: 'Influenza A antigen',
         loincCodes: ['104730-7'],
+        testName: 'Flu A',
+        testLoincCodes: [],
+        fasting: undefined,
         value: undefined,
         valueText: 'Detected',
         unit: '',
@@ -354,6 +368,9 @@ describe('buildLabResults', () => {
       {
         analyte: 'TSH',
         loincCodes: ['3016-3'],
+        testName: 'TSH',
+        testLoincCodes: [],
+        fasting: undefined,
         value: 4.2,
         valueText: '4.2',
         unit: 'mIU/L',

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { VitalAlertCriticality } from './chart-data/chart-data.constants';
 
 /** The flowsheets the EHR registry offers; the get-flowsheet zambda accepts nothing else. */
-export const FLOWSHEET_IDS = ['newbornBilirubin', 'thyroid', 'vitals'] as const;
+export const FLOWSHEET_IDS = ['labResults', 'newbornBilirubin', 'thyroid', 'vitals'] as const;
 export type FlowsheetId = (typeof FLOWSHEET_IDS)[number];
 
 export const GetFlowsheetInputSchema = z.object({
@@ -21,6 +21,8 @@ export interface FlowsheetReading {
   value: number | string;
   /** Shown after the value when the row label does not carry the unit (lab units vary by lab). */
   unit?: string;
+  /** A fixed qualifier shown in parentheses after the value, e.g. "fasting" on a fasting glucose. */
+  note?: string;
   /** The criticality saved on the Observation; never recomputed. */
   flag?: VitalAlertCriticality;
 }
@@ -76,6 +78,11 @@ export interface FlowsheetMedication {
 export interface FlowsheetLabResult {
   analyte: string;
   loincCodes: string[];
+  /** The ordered test (or, unordered, the report), which places results the lab did not code (culture organisms). */
+  testName: string;
+  testLoincCodes: string[];
+  /** The report's fasting status says the patient was fasting. */
+  fasting?: boolean;
   /** Numeric result; absent for text or coded results (see valueText). */
   value?: number;
   valueText: string;

@@ -33,7 +33,6 @@ describe('LAB_ROW_LOINC_CODES', () => {
       '5385-0', // Thyrotropin receptor Ab in Serum
       '3015-5', // Thyrotropin in Blood
       '14999-7', // Thyrotropin --baseline
-      '5770-3', // Bilirubin in Urine
       '42719-5', // Bilirubin.total in Blood
       '1971-1', // Bilirubin.indirect
       '3017-1', // Thyrotropin binding inhibitory immunoglobulins
@@ -50,6 +49,8 @@ describe('labRowFor', () => {
   const lab = (analyte: string, loincCodes: string[]): FlowsheetLabResult => ({
     analyte,
     loincCodes,
+    testName: '',
+    testLoincCodes: [],
     value: 1,
     valueText: '1',
     unit: '',
@@ -59,14 +60,14 @@ describe('labRowFor', () => {
   });
 
   test('a coded result lands by code alone, whatever its name says', () => {
-    expect(labRowFor(rows, lab('Thyroxine (T4)', ['14920-3']))).toBe('freeT4');
-    expect(labRowFor(rows, lab('Free T4', ['3026-2']))).toBe('totalT4');
-    expect(labRowFor(rows, lab('Free T4', ['99999-9']))).toBeUndefined();
+    expect(labRowFor(rows, lab('Thyroxine (T4)', ['14920-3']))?.key).toBe('freeT4');
+    expect(labRowFor(rows, lab('Free T4', ['3026-2']))?.key).toBe('totalT4');
+    expect(labRowFor(rows, lab('Free T4', ['99999-9']))?.key).toBeUndefined();
   });
 
   test('an uncoded result lands by name, first row whose pattern fits and whose exclusion does not', () => {
-    expect(labRowFor(rows, lab('Thyroxine (T4), free', []))).toBe('freeT4');
-    expect(labRowFor(rows, lab('Thyroxine (T4)', []))).toBe('totalT4');
-    expect(labRowFor(rows, lab('TSH', []))).toBeUndefined();
+    expect(labRowFor(rows, lab('Thyroxine (T4), free', []))?.key).toBe('freeT4');
+    expect(labRowFor(rows, lab('Thyroxine (T4)', []))?.key).toBe('totalT4');
+    expect(labRowFor(rows, lab('TSH', []))?.key).toBeUndefined();
   });
 });

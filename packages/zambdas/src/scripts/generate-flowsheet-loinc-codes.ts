@@ -2,10 +2,11 @@
 // LOINC code whose component, specimen and method match the rule.
 //
 // Source: the NLM Clinical Tables LOINC API (https://clinicaltables.nlm.nih.gov/apidoc/loinc/v3/doc.html), a copy of
-// the LOINC table. Its records expose COMPONENT and METHOD_TYP but not SYSTEM or STATUS, so those two are read from
-// the long common name, which LOINC builds as "<component> [<property>] in <system> by <method>" and prefixes with
-// "Deprecated" for deprecated codes. The COMPONENT filter is applied here, exactly, because the API's own field query
-// is a text match (COMPONENT:"Thyrotropin" also returns "Thyrotropin releasing hormone").
+// the LOINC table. Its records expose METHOD_TYP but not SYSTEM or STATUS, and its COMPONENT field does not follow
+// LOINC's (MCHC comes back as "Hemoglobin", hematocrit as "Erythrocyte/Blood"), so component, specimen and timing
+// are read from the long common name, which LOINC builds as "<component> [<property>] in|of <system> by <method>
+// --<timing>" (the property and system are sometimes left out: "MCH [Entitic mass]", "Color of Urine") and prefixes
+// with "Deprecated" for deprecated codes. The API's word search is only a first cut; every filter is applied here.
 //
 // Run from packages/zambdas: npx tsx src/scripts/generate-flowsheet-loinc-codes.ts
 // Rerun after a LOINC release and review the diff.
@@ -21,49 +22,75 @@ const OUTPUT = path.resolve(__dirname, '../ehr/get-flowsheet/lab-loinc-codes.gen
 interface LoincItem {
   code: string;
   component: string;
+  /** The bracketed property ('Mass/volume'); '' when the name has none. */
+  property: string;
+  system: string;
   method: string;
   longName: string;
-  system: string;
   deprecated: boolean;
+  /** A timed or challenge sample ("--1 hour post dose glucose", "--baseline"), which no row takes. */
+  challenge: boolean;
 }
 
-// "Thyrotropin [Units/volume] in Serum or Plasma by Detection limit <= 0.005 mIU/L" -> "Serum or Plasma"
-const systemOf = (longName: string): string => /\] (?:in|of) (.+?)(?: by .+| --.*)?$/.exec(longName)?.[1] ?? '';
+// "Thyrotropin [Units/volume] in Serum or Plasma by Detection limit <= 0.005 mIU/L" -> Thyrotropin / Serum or Plasma
+// "Specific gravity of Urine by Test strip" -> Specific gravity / Urine; "MCH [Entitic mass]" -> MCH / ''
+const toItem = ([code, method, longName]: string[]): LoincItem => {
+  const name = longName.replace(/^Deprecated /, '');
+  // The component ends at the property's "[" or, without a property, before the specimen's "in"/"of".
+  const end = name.includes(' [') ? name.indexOf(' [') : name.search(/ (?:in|of) /);
+  const component = end >= 0 ? name.slice(0, end) : name;
+  const property = end >= 0 ? /^ \[([^\]]*)\]/.exec(name.slice(end))?.[1] ?? '' : '';
+  const rest = end >= 0 ? name.slice(end).replace(/^ \[[^\]]*\]/, '') : '';
+  const system = /^ (?:in|of) (.+?)(?: by .+| --.*)?$/.exec(rest)?.[1] ?? '';
+  return {
+    code,
+    component,
+    property,
+    system,
+    method,
+    longName,
+    deprecated: longName.startsWith('Deprecated '),
+    challenge: / --/.test(name),
+  };
+};
 
-const toItem = ([code, component, method, longName]: string[]): LoincItem => ({
-  code,
-  component,
-  method,
-  longName,
-  system: systemOf(longName),
-  deprecated: longName.startsWith('Deprecated '),
-});
-
-/** Every LOINC record whose COMPONENT is exactly `component`. */
-const fetchComponent = async (component: string): Promise<LoincItem[]> => {
+/**
+ * Every LOINC record whose long common name contains the word `term`, in pages. `terms` alone also searches
+ * synonyms ("globulin" finds every immunoglobulin, 12,000 records) and the API refuses offsets past ~8,000.
+ */
+const fetchTerm = async (term: string): Promise<LoincItem[]> => {
   const items: LoincItem[] = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const url = new URL(API);
     url.search = new URLSearchParams({
-      // `terms` is required and matched word by word; the first word of the component narrows the table enough.
-      terms: component.split(/[^A-Za-z0-9]/)[0],
-      q: `COMPONENT:"${component}"`,
-      df: 'LOINC_NUM,COMPONENT,METHOD_TYP,LONG_COMMON_NAME',
+      terms: term,
+      q: `LONG_COMMON_NAME:${term}`,
+      df: 'LOINC_NUM,METHOD_TYP,LONG_COMMON_NAME',
       count: String(PAGE_SIZE),
       offset: String(offset),
     }).toString();
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`${response.status} from the LOINC API for component "${component}"`);
+    if (!response.ok) throw new Error(`${response.status} from the LOINC API for "${term}"`);
     const [total, , , rows] = (await response.json()) as [number, string[], unknown, string[][]];
     items.push(...rows.map(toItem));
     if (rows.length === 0 || offset + PAGE_SIZE >= total) break;
   }
-  return items.filter((item) => item.component === component);
+  return items;
+};
+
+// The search word for a component: its first word of three or more letters ("Hydroxyvitamin" for
+// "25-Hydroxyvitamin D3+..."), else its first word ("pH").
+const termOf = (component: string): string => {
+  const words = component.split(/[^A-Za-z0-9]+/).filter(Boolean);
+  return (words.find((word) => /^[A-Za-z]{3}/.test(word)) ?? words[0]).toLowerCase();
 };
 
 const matches = (rule: LabRowRule, item: LoincItem): boolean =>
   !item.deprecated &&
+  !item.challenge &&
+  rule.components.includes(item.component) &&
   rule.systems.includes(item.system) &&
+  (!rule.properties || rule.properties.includes(item.property)) &&
   (!rule.methods || rule.methods.includes(item.method)) &&
   !rule.excludeMethods?.includes(item.method);
 
@@ -71,9 +98,9 @@ const matches = (rule: LabRowRule, item: LoincItem): boolean =>
 const byNumber = (a: LoincItem, b: LoincItem): number => parseInt(a.code, 10) - parseInt(b.code, 10);
 
 const main = async (): Promise<void> => {
-  const byComponent = new Map<string, LoincItem[]>();
-  for (const component of new Set(Object.values(LAB_ROW_RULES).flatMap((rule) => rule.components))) {
-    byComponent.set(component, await fetchComponent(component));
+  const byTerm = new Map<string, LoincItem[]>();
+  for (const term of new Set(Object.values(LAB_ROW_RULES).flatMap((rule) => rule.components.map(termOf)))) {
+    byTerm.set(term, await fetchTerm(term));
   }
 
   const year = new Date().getFullYear();
@@ -92,10 +119,11 @@ const main = async (): Promise<void> => {
     'export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {',
   ];
   Object.entries(LAB_ROW_RULES).forEach(([key, rule]) => {
-    const items = rule.components
-      .flatMap((component) => byComponent.get(component) ?? [])
-      .filter((item) => matches(rule, item))
-      .sort(byNumber);
+    // Two components can share a search word, so the matches are de-duplicated by code.
+    const matched = rule.components
+      .flatMap((component) => byTerm.get(termOf(component)) ?? [])
+      .filter((item) => matches(rule, item));
+    const items = [...new Map(matched.map((item) => [item.code, item])).values()].sort(byNumber);
     if (items.length === 0) throw new Error(`No LOINC codes match the "${key}" row; check its rule`);
     lines.push(`  ${key}: [`, ...items.map((item) => `    '${item.code}', // ${item.longName}`), '  ],');
     console.log(`${key}: ${items.length} codes`);

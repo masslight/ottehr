@@ -47,6 +47,8 @@ const lab = (
 ): FlowsheetLabResult => ({
   analyte,
   loincCodes,
+  testName: '',
+  testLoincCodes: [],
   value,
   valueText: value === undefined ? 'Negative' : String(value),
   unit,

@@ -4,21 +4,41 @@ import { LAB_ROW_LOINC_CODES } from './lab-loinc-codes.generated';
 import { FlowsheetData, isUnlinkedResultKey } from './patient-data';
 
 /**
- * A lab row. A result with LOINC codes lands on the row whose generated code list (from lab-row-rules.ts) has one of
- * them, by code alone; a result without any code lands on the first row whose `analyte` pattern matches its name and
- * whose `exclude` pattern does not.
+ * A lab row. A result with LOINC codes lands on the first row whose generated code list (from lab-row-rules.ts) has
+ * one of them, by code alone; a result without any code lands on the first row whose `analyte` pattern matches its
+ * name, whose `exclude` pattern does not, and whose `test` patterns fit the test it came from.
  */
 export interface LabRow {
+  /** The measure key the readings are stored under; several rows may share it (fasting and other glucose). */
   key: string;
+  /** The lab-row-rules.ts rule whose codes this row takes; the key when absent. */
+  rule?: string;
   analyte: RegExp;
   exclude?: RegExp;
+  /** Name matching only: patterns the test name plus analyte must (`test`) or must not (`excludeTest`) match. */
+  test?: RegExp;
+  excludeTest?: RegExp;
+  /** Also take results without a number (e.g. "Negative", "Yellow"), shown as the lab's text. */
+  text?: boolean;
+  /** Mark a result the lab reports as fasting with the "fasting" note. */
+  fasting?: boolean;
 }
 
-export const labRowFor = (rows: LabRow[], lab: FlowsheetLabResult): string | undefined =>
-  (lab.loincCodes.length > 0
-    ? rows.find((row) => lab.loincCodes.some((code) => LAB_ROW_LOINC_CODES[row.key]?.includes(code)))
-    : rows.find((row) => row.analyte.test(lab.analyte) && !row.exclude?.test(lab.analyte))
-  )?.key;
+const FASTING_NOTE = 'fasting';
+
+export const labRowFor = (rows: LabRow[], lab: FlowsheetLabResult): LabRow | undefined => {
+  if (lab.loincCodes.length > 0) {
+    return rows.find((row) => lab.loincCodes.some((code) => LAB_ROW_LOINC_CODES[row.rule ?? row.key]?.includes(code)));
+  }
+  const test = `${lab.testName} ${lab.analyte}`;
+  return rows.find(
+    (row) =>
+      row.analyte.test(lab.analyte) &&
+      !row.exclude?.test(lab.analyte) &&
+      (!row.test || row.test.test(test)) &&
+      !row.excludeTest?.test(test)
+  );
+};
 
 const byResultedAt = (a: FlowsheetLabResult, b: FlowsheetLabResult): number =>
   (a.resultedAt ?? '').localeCompare(b.resultedAt ?? '');
@@ -27,7 +47,7 @@ export interface ConditionColumns {
   /** The column for an encounter id or an unlinked-result key, made on first use and dated by `fallbackStart`. */
   columnFor: (key: string, fallbackStart: string | undefined) => FlowsheetVisit | undefined;
   addReading: (column: FlowsheetVisit, key: string, reading: FlowsheetReading) => void;
-  /** Every numeric lab result that lands on one of `rows`, in its visit's or outside result's column. */
+  /** Every lab result that lands on one of `rows` (text ones only on rows that take text), in its column. */
   addLabs: (rows: LabRow[]) => void;
   /** The columns that hold one of the condition's own items, newest first. */
   list: () => FlowsheetVisit[];
@@ -62,22 +82,22 @@ export const conditionColumns = (data: FlowsheetData, vitalKeys: string[]): Cond
   const addLabs: ConditionColumns['addLabs'] = (rows) =>
     Object.entries(data.labs ?? {}).forEach(([key, labs]) => {
       // Oldest first, so the latest result of each row in the column is the cell value; every one is kept.
-      // Only numeric results are shown.
       const matched = labs
-        .filter((lab) => lab.value !== undefined)
         .flatMap((lab) => {
           const row = labRowFor(rows, lab);
-          return row ? [{ row, lab }] : [];
+          const value = lab.value ?? (row?.text && lab.valueText ? lab.valueText : undefined);
+          return row && value !== undefined ? [{ row, lab, value }] : [];
         })
         .sort((a, b) => byResultedAt(a.lab, b.lab));
       if (matched.length === 0) return;
       const column = columnFor(key, matched[0].lab.resultedAt);
       if (!column) return;
-      matched.forEach(({ row, lab }) => {
-        addReading(column, row, {
+      matched.forEach(({ row, lab, value }) => {
+        addReading(column, row.key, {
           time: lab.resultedAt ?? column.start,
-          value: lab.value as number,
+          value,
           unit: lab.unit || undefined,
+          note: row.fasting && lab.fasting ? FASTING_NOTE : undefined,
           flag: lab.flag,
         });
       });

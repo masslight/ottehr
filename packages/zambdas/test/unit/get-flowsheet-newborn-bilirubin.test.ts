@@ -47,6 +47,8 @@ const lab = (
 ): FlowsheetLabResult => ({
   analyte,
   loincCodes,
+  testName: '',
+  testLoincCodes: [],
   value,
   valueText: value === undefined ? 'Hemolyzed' : String(value),
   unit: 'mg/dL',

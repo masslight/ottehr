@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import {
   ActivityDefinition,
+  CodeableConcept,
   DiagnosticReport,
   FhirResource,
   MedicationAdministration,
@@ -31,7 +32,11 @@ import {
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
   IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils/lib/types/data/in-house/in-house.constants';
-import { LAB_DR_TYPE_TAG, OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import {
+  LAB_DR_TYPE_TAG,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
+} from 'utils/lib/types/data/labs/labs.constants';
 import { makePrescribedMedicationDTO } from '../../shared/chart-data';
 import { fetchVisits, fetchVitals, VisitResources } from './helpers';
 
@@ -283,6 +288,12 @@ export const labFlagOf = (interpretation: string): VitalAlertCriticality | undef
   }
 };
 
+const loincCodesOf = (code: CodeableConcept | undefined): string[] =>
+  (code?.coding ?? []).flatMap((c) => (c.system === LOINC_SYSTEM && c.code ? [c.code] : []));
+
+// The fasting-status extension holds the lab's free text; these spellings say the patient was fasting.
+const FASTING_STATUS = /^(y|yes|true|fasting)$/i;
+
 const rangeText = (range: { text?: string; low?: Quantity; high?: Quantity } | undefined): string => {
   if (range?.text) return range.text;
   const low = range?.low?.value;
@@ -323,9 +334,13 @@ export const buildLabResults = ({
       (c): c is ObservationDefinition => c.resourceType === 'ObservationDefinition'
     );
     const testName = order?.code?.text ?? report.code?.text ?? '';
+    const testLoincCodes = loincCodesOf(order?.code).concat(loincCodesOf(report.code));
     const reportAbnormal = report.meta?.tag?.some(
       (t) => t.system === ABNORMAL_RESULT_DR_TAG.system && t.code === ABNORMAL_RESULT_DR_TAG.code
     );
+    // The lab's fasting status for the report, as the result PDF prints it ("Fasting Status: ...").
+    const fastingStatus = report.extension?.find((e) => e.url === OYSTEHR_LABS_FASTING_STATUS_EXT_URL)?.valueString;
+    const fasting = FASTING_STATUS.test(fastingStatus ?? '') || undefined;
 
     (report.result ?? []).forEach((ref) => {
       const obs = observations.find((o) => o.id === getIdFromReference(ref.reference, 'Observation'));
@@ -342,7 +357,10 @@ export const buildLabResults = ({
       const interpretation = obs.interpretation?.[0]?.coding?.[0]?.code ?? (reportAbnormal ? 'A' : '');
       pushTo(byEncounter, key, {
         analyte: code?.text ?? code?.coding?.find((c) => c.display)?.display ?? testName,
-        loincCodes: (code?.coding ?? []).flatMap((c) => (c.system === LOINC_SYSTEM && c.code ? [c.code] : [])),
+        loincCodes: loincCodesOf(code),
+        testName,
+        testLoincCodes,
+        fasting,
         value,
         valueText:
           value !== undefined

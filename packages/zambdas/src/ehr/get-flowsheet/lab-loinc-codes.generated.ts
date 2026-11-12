@@ -80,4 +80,528 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '58941-6', // Bilirubin [Mass/volume] in Skin
     '72898-0', // Bilirubin [Moles/volume] in Skin
   ],
+  hemoglobin: [
+    '717-9', // Hemoglobin [Presence] in Blood
+    '718-7', // Hemoglobin [Mass/volume] in Blood
+    '20509-6', // Hemoglobin [Mass/volume] in Blood by calculation
+    '55782-7', // Hemoglobin [Mass/volume] in Blood by Oximetry
+    '59260-0', // Hemoglobin [Moles/volume] in Blood
+    '110885-1', // Hemoglobin [Measurement] in Blood
+  ],
+  hematocrit: [
+    '4544-3', // Hematocrit [Volume Fraction] of Blood by Automated count
+    '4545-0', // Hematocrit [Volume Fraction] of Blood by Centrifugation
+    '20570-8', // Hematocrit [Volume Fraction] of Blood by calculation
+    '31100-1', // Hematocrit [Volume Fraction] of Blood by Impedance
+    '48703-3', // Hematocrit [Volume Fraction] of Blood by Estimated
+    '71833-8', // Hematocrit [Pure volume fraction] of Blood by Automated count
+    '104826-3', // Hematocrit [Pure volume fraction] of Blood by calculation
+  ],
+  mcv: [
+    '787-2', // MCV [Entitic mean volume] in Red Blood Cells by Automated count
+    '30428-7', // MCV [Entitic mean volume] in Red Blood Cells
+  ],
+  mch: [
+    '785-6', // MCH [Entitic mass] by Automated count
+    '28539-5', // MCH [Entitic mass]
+    '59468-9', // MCH [Entitic substance]
+  ],
+  mchc: [
+    '786-4', // MCHC [Entitic Mass/volume] in Red Blood Cells by Automated count
+    '28540-3', // MCHC [Entitic Mass/volume] in Red Blood Cells
+    '59467-1', // MCHC [Entitic Moles/volume] in Red Blood Cells
+  ],
+  rbc: [
+    '789-8', // Erythrocytes [#/volume] in Blood by Automated count
+    '790-6', // Erythrocytes [#/volume] in Blood by Manual count
+    '11273-0', // Erythrocytes [Morphology] in Blood by Automated count
+    '26453-1', // Erythrocytes [#/volume] in Blood
+  ],
+  wbc: [
+    '804-5', // Leukocytes [#/volume] in Blood by Manual count
+    '6690-2', // Leukocytes [#/volume] in Blood by Automated count
+    '11156-7', // Leukocytes [Morphology] in Blood
+    '26464-8', // Leukocytes [#/volume] in Blood
+    '49498-9', // Leukocytes [#/volume] in Blood by Estimate
+  ],
+  platelets: [
+    '777-3', // Platelets [#/volume] in Blood by Automated count
+    '778-1', // Platelets [#/volume] in Blood by Manual count
+    '11125-2', // Platelets [Morphology] in Blood
+    '26515-7', // Platelets [#/volume] in Blood
+    '49497-1', // Platelets [#/volume] in Blood by Estimate
+    '79427-1', // Platelets [#/area] in Blood by Microscopy high power field
+    '97995-5', // Platelets [#/volume] in Blood by Automated count.optical
+    '104705-9', // Platelets [Presence] in Blood
+    '111353-9', // Platelets [Measurement] in Blood
+  ],
+  neutrophilsPercent: [
+    '770-8', // Neutrophils/Leukocytes in Blood by Automated count
+    '23761-0', // Neutrophils/Leukocytes in Blood by Manual count
+    '26511-6', // Neutrophils/Leukocytes in Blood
+    '71671-2', // Neutrophils/Leukocytes [Pure number fraction] in Blood by Manual count
+    '71676-1', // Neutrophils/Leukocytes [Pure number fraction] in Blood by Automated count
+  ],
+  lymphocytesPercent: [
+    '736-9', // Lymphocytes/Leukocytes in Blood by Automated count
+    '737-7', // Lymphocytes/Leukocytes in Blood by Manual count
+    '26478-8', // Lymphocytes/Leukocytes in Blood
+    '30365-1', // Lymphocytes/Leukocytes in Blood by Flow cytometry (FC)
+    '71673-8', // Lymphocytes/Leukocytes [Pure number fraction] in Blood by Manual count
+    '71678-7', // Lymphocytes/Leukocytes [Pure number fraction] in Blood by Automated count
+  ],
+  monocytesPercent: [
+    '744-3', // Monocytes/Leukocytes in Blood by Manual count
+    '5905-5', // Monocytes/Leukocytes in Blood by Automated count
+    '26485-3', // Monocytes/Leukocytes in Blood
+    '71672-0', // Monocytes/Leukocytes [Pure number fraction] in Blood by Manual count
+    '71677-9', // Monocytes/Leukocytes [Pure number fraction] in Blood by Automated count
+    '101147-7', // Monocytes/Leukocytes in Blood by Flow cytometry (FC)
+  ],
+  eosinophilsPercent: [
+    '713-8', // Eosinophils/Leukocytes in Blood by Automated count
+    '714-6', // Eosinophils/Leukocytes in Blood by Manual count
+    '26450-7', // Eosinophils/Leukocytes in Blood
+    '71674-6', // Eosinophils/Leukocytes [Pure number fraction] in Blood by Manual count
+    '71679-5', // Eosinophils/Leukocytes [Pure number fraction] in Blood by Automated count
+  ],
+  basophilsPercent: [
+    '706-2', // Basophils/Leukocytes in Blood by Automated count
+    '707-0', // Basophils/Leukocytes in Blood by Manual count
+    '30180-4', // Basophils/Leukocytes in Blood
+    '71675-3', // Basophils/Leukocytes [Pure number fraction] in Blood by Manual count
+    '71680-3', // Basophils/Leukocytes [Pure number fraction] in Blood by Automated count
+  ],
+  neutrophilsAbsolute: [
+    '751-8', // Neutrophils [#/volume] in Blood by Automated count
+    '753-4', // Neutrophils [#/volume] in Blood by Manual count
+    '26499-4', // Neutrophils [#/volume] in Blood
+  ],
+  lymphocytesAbsolute: [
+    '731-0', // Lymphocytes [#/volume] in Blood by Automated count
+    '732-8', // Lymphocytes [#/volume] in Blood by Manual count
+    '26474-7', // Lymphocytes [#/volume] in Blood
+    '30364-4', // Lymphocytes [#/volume] in Blood by Flow cytometry (FC)
+  ],
+  glucose: [
+    '2345-7', // Glucose [Mass/volume] in Serum or Plasma
+    '14749-6', // Glucose [Moles/volume] in Serum or Plasma
+    '35211-2', // Glucose [Mass or Moles/volume] in Serum or Plasma
+    '110283-9', // Glucose [Measurement] in Serum or Plasma
+  ],
+  fastingGlucose: [
+    '1558-6', // Fasting glucose [Mass/volume] in Serum or Plasma
+    '14771-0', // Fasting glucose [Moles/volume] in Serum or Plasma
+    '35184-1', // Fasting glucose [Mass or Moles/volume] in Serum or Plasma
+  ],
+  bun: [
+    '3094-0', // Urea nitrogen [Mass/volume] in Serum or Plasma
+    '14937-7', // Urea nitrogen [Moles/volume] in Serum or Plasma
+    '35234-4', // Urea nitrogen [Mass or Moles/volume] in Serum or Plasma
+    '108689-1', // Urea nitrogen [Measurement] in Serum or Plasma
+  ],
+  creatinine: [
+    '2160-0', // Creatinine [Mass/volume] in Serum or Plasma
+    '14682-9', // Creatinine [Moles/volume] in Serum or Plasma
+    '35203-9', // Creatinine [Mass or Moles/volume] in Serum or Plasma
+    '103616-9', // Creatinine [Moles/volume] in Serum or Plasma by LC/MS/MS
+    '110658-2', // Creatinine [Measurement] in Serum or Plasma
+  ],
+  egfr2021: [
+    '98979-8', // Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI 2021)/1.73 sq M
+    '98980-6', // Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine and Cystatin C-based formula (CKD-EPI 2021)/1.73 sq M
+  ],
+  egfr: [
+    '33914-3', // Glomerular filtration rate [Volume Rate/Area] in Serum or Plasma by Creatinine-based formula (MDRD)/1.73 sq M
+    '50044-7', // Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (MDRD)/1.73 sq M among female population
+    '50210-4', // Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Cystatin C-based formula/1.73 sq M
+    '50384-7', // Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (Schwartz)/1.73 sq M
+    '62238-1', // Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (CKD-EPI)/1.73 sq M
+    '69405-9', // Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by based on 1.73 sq M
+    '70969-1', // Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (MDRD)/1.73 sq M among male population
+    '77147-7', // Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine-based formula (MDRD)/1.73 sq M
+    '94677-2', // Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine and Cystatin C-based formula (CKD-EPI)/1.73 sq M
+    '102097-3', // Glomerular filtration rate [Volume Rate/Area] in Serum, Plasma or Blood by Creatinine, Cystatin C and Urea-based formula (CKiD)/1.73 sq M
+  ],
+  bunCreatinineRatio: [
+    '3097-3', // Urea nitrogen/Creatinine [Mass Ratio] in Serum or Plasma
+  ],
+  sodium: [
+    '2951-2', // Sodium [Moles/volume] in Serum or Plasma
+    '42570-2', // Sodium [Mass or Moles/volume] in Serum or Plasma
+  ],
+  potassium: [
+    '2823-3', // Potassium [Moles/volume] in Serum or Plasma
+    '22760-3', // Potassium [Mass/volume] in Serum or Plasma
+    '42569-4', // Potassium [Mass or Moles/volume] in Serum or Plasma
+    '108797-2', // Potassium [Measurement] in Serum or Plasma
+  ],
+  chloride: [
+    '2075-0', // Chloride [Moles/volume] in Serum or Plasma
+  ],
+  bicarbonate: [
+    '2028-9', // Carbon dioxide, total [Moles/volume] in Serum or Plasma
+    '57922-7', // Carbon dioxide, total [Moles/volume] in Serum or Plasma by calculation
+  ],
+  calcium: [
+    '2000-8', // Calcium [Moles/volume] in Serum or Plasma
+    '17861-6', // Calcium [Mass/volume] in Serum or Plasma
+    '35246-8', // Calcium [Mass or Moles/volume] in Serum or Plasma
+    '108758-4', // Calcium [Measurement] in Serum or Plasma
+  ],
+  totalProtein: [
+    '2885-2', // Protein [Mass/volume] in Serum or Plasma
+  ],
+  albumin: [
+    '1751-7', // Albumin [Mass/volume] in Serum or Plasma
+    '2862-1', // Albumin [Mass/volume] in Serum or Plasma by Electrophoresis
+    '43712-9', // Albumin [Presence] in Serum or Plasma
+    '54347-0', // Albumin [Moles/volume] in Serum or Plasma
+    '61151-7', // Albumin [Mass/volume] in Serum or Plasma by Bromocresol green (BCG) dye binding method
+    '61152-5', // Albumin [Mass/volume] in Serum or Plasma by Bromocresol purple (BCP) dye binding method
+    '62234-0', // Albumin [Moles/volume] in Serum or Plasma by Bromocresol purple (BCP) dye binding method
+    '62235-7', // Albumin [Moles/volume] in Serum or Plasma by Bromocresol green (BCG) dye binding method
+    '101198-0', // Albumin [Mass/volume] in Serum or Plasma by Nephelometry
+    '103577-3', // Albumin [Mass/volume] in Serum by Immunoassay
+    '111419-8', // Albumin [Measurement] in Serum or Plasma
+  ],
+  globulin: [
+    '2336-6', // Globulin [Mass/volume] in Serum
+    '10834-0', // Globulin [Mass/volume] in Serum by calculation
+    '13536-8', // Globulin [Mass/volume] in Plasma
+  ],
+  albuminGlobulinRatio: [
+    '1759-0', // Albumin/Globulin [Mass Ratio] in Serum or Plasma
+    '44429-9', // Albumin/Globulin [Mass Ratio] in Serum or Plasma by Electrophoresis
+  ],
+  alkalinePhosphatase: [
+    '6768-6', // Alkaline phosphatase [Enzymatic activity/volume] in Serum or Plasma
+  ],
+  ast: [
+    '1920-8', // Aspartate aminotransferase [Enzymatic activity/volume] in Serum or Plasma
+    '27344-1', // Aspartate aminotransferase [Presence] in Serum or Plasma
+    '30239-8', // Aspartate aminotransferase [Enzymatic activity/volume] in Serum or Plasma by With P-5'-P
+    '88112-8', // Aspartate aminotransferase [Enzymatic activity/volume] in Serum or Plasma by No addition of P-5'-P
+    '110764-8', // Aspartate aminotransferase [Measurement] in Serum or Plasma
+  ],
+  alt: [
+    '1742-6', // Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma
+    '1743-4', // Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma by With P-5'-P
+    '1744-2', // Alanine aminotransferase [Enzymatic activity/volume] in Serum or Plasma by No addition of P-5'-P
+    '110094-0', // Alanine aminotransferase [Measurement] in Serum or Plasma
+  ],
+  totalCholesterol: [
+    '2093-3', // Cholesterol [Mass/volume] in Serum or Plasma
+    '14647-2', // Cholesterol [Moles/volume] in Serum or Plasma
+    '35200-5', // Cholesterol [Mass or Moles/volume] in Serum or Plasma
+    '110258-1', // Cholesterol [Measurement] in Serum or Plasma
+  ],
+  ldlCholesterol: [
+    '2089-1', // Cholesterol in LDL [Mass/volume] in Serum or Plasma
+    '12773-8', // Cholesterol in LDL [Units/volume] in Serum or Plasma by Electrophoresis
+    '13457-7', // Cholesterol in LDL [Mass/volume] in Serum or Plasma by calculation
+    '18262-6', // Cholesterol in LDL [Mass/volume] in Serum or Plasma by Direct assay
+    '22748-8', // Cholesterol in LDL [Moles/volume] in Serum or Plasma
+    '35198-1', // Cholesterol in LDL [Mass or Moles/volume] in Serum or Plasma
+    '39469-2', // Cholesterol in LDL [Moles/volume] in Serum or Plasma by calculation
+    '49132-4', // Cholesterol in LDL [Mass/volume] in Serum or Plasma by Electrophoresis
+    '69419-0', // Cholesterol in LDL [Moles/volume] in Serum or Plasma by Direct assay
+    '96258-9', // Cholesterol in LDL [Moles/volume] in Serum or Plasma by Calculated by Martin-Hopkins
+    '96259-7', // Cholesterol in LDL [Mass/volume] in Serum or Plasma by Calculated by Martin-Hopkins
+    '108018-3', // Cholesterol in LDL [Measurement] in Serum or Plasma
+  ],
+  hdlCholesterol: [
+    '2085-9', // Cholesterol in HDL [Mass/volume] in Serum or Plasma
+    '12771-2', // Cholesterol in HDL [Presence] in Serum or Plasma by Electrophoresis
+    '12772-0', // Cholesterol in HDL [Units/volume] in Serum or Plasma by Electrophoresis
+    '14646-4', // Cholesterol in HDL [Moles/volume] in Serum or Plasma
+    '27340-9', // Cholesterol in HDL [Presence] in Serum or Plasma
+    '35197-3', // Cholesterol in HDL [Mass or Moles/volume] in Serum or Plasma
+    '49130-8', // Cholesterol in HDL [Mass/volume] in Serum or Plasma by Electrophoresis
+    '111273-9', // Cholesterol in HDL [Measurement] in Serum or Plasma
+  ],
+  triglycerides: [
+    '2571-8', // Triglyceride [Mass/volume] in Serum or Plasma
+    '12951-0', // Triglyceride [Mass/volume] in Serum or Plasma by calculation
+    '14927-8', // Triglyceride [Moles/volume] in Serum or Plasma
+    '28554-4', // Triglyceride [Presence] in Serum or Plasma
+    '35217-9', // Triglyceride [Mass or Moles/volume] in Serum or Plasma
+    '111065-9', // Triglyceride [Measurement] in Serum or Plasma
+  ],
+  nonHdlCholesterol: [
+    '43396-1', // Cholesterol non HDL [Mass/volume] in Serum or Plasma
+    '70204-3', // Cholesterol non HDL [Moles/volume] in Serum or Plasma
+  ],
+  iron: [
+    '2498-4', // Iron [Mass/volume] in Serum or Plasma
+    '14797-5', // Iron [Interpretation] in Serum or Plasma
+    '14798-3', // Iron [Moles/volume] in Serum or Plasma
+    '35214-6', // Iron [Mass or Moles/volume] in Serum or Plasma
+    '44326-7', // Iron [Presence] in Serum or Plasma
+    '110269-8', // Iron [Measurement] in Serum or Plasma
+  ],
+  tibc: [
+    '2500-7', // Iron binding capacity [Mass/volume] in Serum or Plasma
+    '14800-7', // Iron binding capacity [Moles/volume] in Serum or Plasma
+    '35215-3', // Iron binding capacity [Mass or Moles/volume] in Serum or Plasma
+    '108738-6', // Iron binding capacity [Measurement] in Serum or Plasma
+  ],
+  transferrinSaturation: [
+    '2502-3', // Iron saturation [Mass Fraction] in Serum or Plasma
+    '14801-5', // Iron saturation [Molar fraction] in Serum or Plasma
+  ],
+  ferritin: [
+    '2276-4', // Ferritin [Mass/volume] in Serum or Plasma
+    '14723-1', // Ferritin [Moles/volume] in Serum or Plasma
+    '20567-4', // Ferritin [Mass/volume] in Serum or Plasma by Immunoassay
+    '35209-6', // Ferritin [Mass or Moles/volume] in Serum or Plasma
+    '110280-5', // Ferritin [Measurement] in Serum or Plasma
+  ],
+  hba1c: [
+    '4548-4', // Hemoglobin A1c/Hemoglobin.total in Blood
+    '4549-2', // Hemoglobin A1c/Hemoglobin.total in Blood by Electrophoresis
+    '17855-8', // Hemoglobin A1c/Hemoglobin.total in Blood by calculation
+    '17856-6', // Hemoglobin A1c/Hemoglobin.total in Blood by HPLC
+    '62388-4', // Hemoglobin A1c/Hemoglobin.total in Blood by JDS/JSCC protocol
+    '71875-9', // Hemoglobin A1c/Hemoglobin.total [Pure mass fraction] in Blood
+  ],
+  vitaminD: [
+    '1989-3', // 25-hydroxyvitamin D3 [Mass/volume] in Serum or Plasma
+    '14635-7', // 25-hydroxyvitamin D3 [Moles/volume] in Serum or Plasma
+    '35196-5', // 25-hydroxyvitamin D3 [Mass or Moles/volume] in Serum or Plasma
+    '62292-8', // 25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum or Plasma
+    '68438-1', // 25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Moles/volume] in Serum or Plasma
+    '83070-3', // 25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Mass/volume] in Serum or Plasma by Immunoassay
+    '83071-1', // 25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Moles/volume] in Serum or Plasma by Immunoassay
+    '109073-7', // 25-hydroxyvitamin D3 [Measurement] in Serum or Plasma
+    '110260-7', // 25-Hydroxyvitamin D3+25-Hydroxyvitamin D2 [Measurement] in Serum or Plasma
+  ],
+  vitaminB12: [
+    '2132-9', // Cobalamin (Vitamin B12) [Mass/volume] in Serum or Plasma
+    '14685-2', // Cobalamin (Vitamin B12) [Moles/volume] in Serum or Plasma
+    '35201-3', // Cobalamin (Vitamin B12) [Mass or Moles/volume] in Serum
+  ],
+  urineAlbuminCreatinineRatio: [
+    '9318-7', // Albumin/Creatinine [Mass Ratio] in Urine
+    '14585-4', // Albumin/Creatinine [Molar ratio] in Urine
+    '14959-1', // Microalbumin/Creatinine [Mass Ratio] in Urine
+    '20621-9', // Albumin/Creatinine [Mass Ratio] in Urine by Test strip
+    '30000-4', // Microalbumin/Creatinine [Ratio] in Urine
+    '30001-2', // Microalbumin/Creatinine [Ratio] in Urine by Test strip
+    '32294-1', // Albumin/Creatinine [Ratio] in Urine
+    '77253-3', // Microalbumin/Creatinine [Ratio] in Urine by Detection limit <= 1.0 mg/L
+    '89998-9', // Microalbumin/Creatinine [Ratio] in Urine by Detection limit <= 3.0 mg/L
+    '111467-7', // Albumin/Creatinine [Measurement] in Urine
+  ],
+  psa: [
+    '2857-1', // Prostate specific Ag [Mass/volume] in Serum or Plasma
+    '19195-7', // Prostate specific Ag [Units/volume] in Serum or Plasma
+    '19197-3', // Prostate specific Ag [Moles/volume] in Serum or Plasma
+    '35741-8', // Prostate specific Ag [Mass/volume] in Serum or Plasma by Detection limit <= 0.01 ng/mL
+    '83112-3', // Prostate specific Ag [Mass/volume] in Serum or Plasma by Immunoassay
+    '110671-5', // Prostate specific Ag [Measurement] in Serum or Plasma
+  ],
+  magnesium: [
+    '2601-3', // Magnesium [Moles/volume] in Serum or Plasma
+    '19123-9', // Magnesium [Mass/volume] in Serum or Plasma
+    '35249-2', // Magnesium [Mass or Moles/volume] in Serum or Plasma
+    '108834-3', // Magnesium [Measurement] in Serum or Plasma
+  ],
+  crp: [
+    '1988-5', // C reactive protein [Mass/volume] in Serum or Plasma
+    '11039-5', // C reactive protein [Presence] in Serum or Plasma
+    '14634-0', // C reactive protein [Titer] in Serum or Plasma
+    '76485-2', // C reactive protein [Moles/volume] in Serum or Plasma
+    '111006-3', // C reactive protein [Measurement] in Serum or Plasma
+  ],
+  hsCrp: [
+    '30522-7', // C reactive protein [Mass/volume] in Serum or Plasma by High sensitivity method
+    '35648-5', // C reactive protein [Quintile] in Serum or Plasma by High sensitivity method
+    '76486-0', // C reactive protein [Moles/volume] in Serum or Plasma by High sensitivity method
+  ],
+  urineCulture: [
+    '630-4', // Bacteria identified in Urine by Culture
+  ],
+  hivAgAb: [
+    '56888-1', // HIV 1+2 Ab+HIV1 p24 Ag [Presence] in Serum or Plasma by Immunoassay
+    '58900-2', // HIV 1+2 Ab+HIV1 p24 Ag [Units/volume] in Serum or Plasma by Immunoassay
+    '105080-6', // HIV 1+2 Ab+HIV1 p24 Ag [Presence] in Serum or Plasma
+    '108720-4', // HIV 1+2 Ab+HIV1 p24 Ag [Measurement] in Serum or Plasma
+    '112693-7', // HIV 1+2 Ab and HIV1 p24 Ag [Identifier] in Serum
+  ],
+  hepatitisCAntibody: [
+    '5198-7', // Hepatitis C virus Ab [Units/volume] in Serum by Immunoassay
+    '5199-5', // Hepatitis C virus Ab [Presence] in Serum by Immunoblot
+    '13955-0', // Hepatitis C virus Ab [Presence] in Serum or Plasma by Immunoassay
+    '16128-1', // Hepatitis C virus Ab [Presence] in Serum
+    '22327-1', // Hepatitis C virus Ab [Units/volume] in Serum
+    '95237-4', // Hepatitis C virus Ab [Interpretation] in Serum or Plasma
+    '109963-9', // Hepatitis C virus Ab [Measurement] in Serum
+  ],
+  esr: [
+    '4537-7', // Erythrocyte [Sedimentation Rate] in Blood by Westergren method
+    '4538-5', // Erythrocyte [Sedimentation Rate] in Blood by Wintrobe method
+    '4539-3', // Erythrocyte [Sedimentation Rate] in Blood by Zetafuge
+    '18184-2', // Erythrocyte [Sedimentation Rate] in Blood by 2H Westergren method
+    '30341-2', // Erythrocyte [Sedimentation Rate] in Blood
+    '43402-7', // Erythrocyte [Sedimentation Rate] in Blood by 15 minute reading
+    '82477-1', // Erythrocyte [Sedimentation Rate] in Blood by Photometric method
+  ],
+  uricAcid: [
+    '3084-1', // Urate [Mass/volume] in Serum or Plasma
+    '14933-6', // Urate [Moles/volume] in Serum or Plasma
+    '35232-8', // Urate [Mass or Moles/volume] in Serum or Plasma
+    '108691-7', // Urate [Measurement] in Serum or Plasma
+  ],
+  folate: [
+    '2284-8', // Folate [Mass/volume] in Serum or Plasma
+    '14732-2', // Folate [Moles/volume] in Serum or Plasma
+    '35210-4', // Folate [Mass or Moles/volume] in Serum or Plasma
+    '108704-8', // Folate [Measurement] in Serum or Plasma
+  ],
+  testosterone: [
+    '2986-8', // Testosterone [Mass/volume] in Serum or Plasma
+    '14913-8', // Testosterone [Moles/volume] in Serum or Plasma
+    '35224-5', // Testosterone [Mass or Moles/volume] in Serum or Plasma
+    '49041-7', // Testosterone [Mass/volume] in Serum or Plasma by Detection limit <= 1.0 ng/dL
+    '70239-9', // Testosterone [Moles/volume] in Serum or Plasma by Detection limit <= 3.47 pmol/L
+    '83115-6', // Testosterone [Moles/volume] in Serum or Plasma by Immunoassay
+    '83116-4', // Testosterone [Mass/volume] in Serum or Plasma by Immunoassay
+    '105121-8', // Testosterone [Mass/volume] in Serum or Plasma by LC/MS/MS
+    '111385-1', // Testosterone [Measurement] in Serum or Plasma
+  ],
+  urineHcg: [
+    '2106-3', // Choriogonadotropin [Presence] in Urine
+    '2107-1', // Choriogonadotropin [Moles/volume] in Urine
+    '2112-1', // Choriogonadotropin.beta subunit [Presence] in Urine
+    '2114-7', // Choriogonadotropin.beta subunit [Moles/volume] in Urine
+    '25372-4', // Choriogonadotropin [Units/volume] in Urine
+    '80384-1', // Choriogonadotropin [Presence] in Urine by Rapid immunoassay
+    '99104-2', // Choriogonadotropin [Mass/volume] in Urine
+    '110413-2', // Choriogonadotropin.beta subunit [Measurement] in Urine
+    '110541-0', // Choriogonadotropin [Measurement] in Urine
+  ],
+  pth: [
+    '2731-8', // Parathyrin.intact [Mass/volume] in Serum or Plasma
+    '14866-8', // Parathyrin.intact [Moles/volume] in Serum or Plasma
+    '35219-5', // Parathyrin.intact [Mass or Moles/volume] in Serum or Plasma
+    '90741-0', // Parathyrin.intact [Mass/volume] in Serum or Plasma by Immunoassay
+    '95768-8', // Parathyrin.intact [Moles/volume] in Serum or Plasma by Immunoassay
+    '108803-8', // Parathyrin.intact [Measurement] in Serum or Plasma
+  ],
+  phosphorus: [
+    '2777-1', // Phosphate [Mass/volume] in Serum or Plasma
+    '14879-1', // Phosphate [Moles/volume] in Serum or Plasma
+    '35221-1', // Phosphate [Mass or Moles/volume] in Serum or Plasma
+    '108801-2', // Phosphate [Measurement] in Serum or Plasma
+  ],
+  uaColor: [
+    '5778-6', // Color of Urine
+    '50553-7', // Color of Urine by Auto
+  ],
+  uaAppearance: [
+    '5767-9', // Appearance of Urine
+    '32167-9', // Clarity of Urine
+    '50552-9', // Clarity in Urine by Refractometry automated
+  ],
+  uaSpecificGravity: [
+    '2965-2', // Specific gravity of Urine
+    '5810-7', // Specific gravity of Urine by Refractometry
+    '5811-5', // Specific gravity of Urine by Test strip
+    '49959-0', // Specific gravity of Urine by Adjustment to pH 7.4
+    '50562-8', // Specific gravity of Urine by Refractometry automated
+    '53326-5', // Specific gravity of Urine by Automated test strip
+  ],
+  uaPh: [
+    '2756-5', // pH of Urine
+    '5803-2', // pH of Urine by Test strip
+    '50560-2', // pH of Urine by Automated test strip
+    '106930-1', // pH of Urine by pH-meter
+  ],
+  uaProtein: [
+    '2887-8', // Protein [Presence] in Urine
+    '2888-6', // Protein [Mass/volume] in Urine
+    '5804-0', // Protein [Mass/volume] in Urine by Test strip
+    '20454-5', // Protein [Presence] in Urine by Test strip
+    '27298-9', // Protein [Units/volume] in Urine
+    '50561-0', // Protein [Mass/volume] in Urine by Automated test strip
+    '50749-1', // Protein [Interpretation] in Urine
+    '53525-2', // Protein [Presence] in Urine by SSA method
+    '57735-3', // Protein [Presence] in Urine by Automated test strip
+    '108021-7', // Protein [Measurement] in Urine
+  ],
+  uaGlucose: [
+    '2349-9', // Glucose [Presence] in Urine
+    '2350-7', // Glucose [Mass/volume] in Urine
+    '5792-7', // Glucose [Mass/volume] in Urine by Test strip
+    '15076-3', // Glucose [Moles/volume] in Urine
+    '22705-8', // Glucose [Moles/volume] in Urine by Test strip
+    '25428-4', // Glucose [Presence] in Urine by Test strip
+    '35212-0', // Glucose [Mass or Moles/volume] in Urine
+    '50555-2', // Glucose [Presence] in Urine by Automated test strip
+    '53328-1', // Glucose [Mass/volume] in Urine by Automated test strip
+    '59156-0', // Glucose [Moles/volume] in Urine by Automated test strip
+    '108027-4', // Glucose [Measurement] in Urine
+  ],
+  uaKetones: [
+    '2514-8', // Ketones [Presence] in Urine by Test strip
+    '5797-6', // Ketones [Mass/volume] in Urine by Test strip
+    '22702-5', // Ketones [Moles/volume] in Urine by Test strip
+    '33903-6', // Ketones [Presence] in Urine
+    '49779-2', // Ketones [Mass/volume] in Urine
+    '50557-8', // Ketones [Mass/volume] in Urine by Automated test strip
+    '57734-6', // Ketones [Presence] in Urine by Automated test strip
+    '59158-6', // Ketones [Moles/volume] in Urine by Automated test strip
+    '111413-1', // Ketones [Measurement] in Urine
+  ],
+  uaBilirubin: [
+    '1977-8', // Bilirubin.total [Presence] in Urine
+    '1978-6', // Bilirubin.total [Mass/volume] in Urine
+    '5770-3', // Bilirubin.total [Presence] in Urine by Test strip
+    '20505-4', // Bilirubin.total [Mass/volume] in Urine by Test strip
+    '41016-7', // Bilirubin.total [Moles/volume] in Urine by Test strip
+    '50551-1', // Bilirubin.total [Presence] in Urine by Automated test strip
+    '53327-3', // Bilirubin.total [Mass/volume] in Urine by Automated test strip
+    '58450-8', // Bilirubin [Presence] in Urine by Confirmatory method
+    '68367-2', // Bilirubin.total [Moles/volume] in Urine by Automated test strip
+    '70199-5', // Bilirubin.total [Moles/volume] in Urine
+    '108015-9', // Bilirubin.total [Measurement] in Urine
+  ],
+  uaBlood: [
+    '725-2', // Hemoglobin [Presence] in Urine
+    '726-0', // Hemoglobin [Mass/volume] in Urine
+    '5794-3', // Hemoglobin [Presence] in Urine by Test strip
+    '49137-3', // Hemoglobin [Mass/volume] in Urine by Test strip
+    '50559-4', // Hemoglobin [Mass/volume] in Urine by Automated test strip
+    '57751-0', // Hemoglobin [Presence] in Urine by Automated test strip
+  ],
+  uaNitrite: [
+    '2657-5', // Nitrite [Mass/volume] in Urine
+    '5802-4', // Nitrite [Presence] in Urine by Test strip
+    '20407-3', // Nitrite [Mass/volume] in Urine by Test strip
+    '32710-6', // Nitrite [Presence] in Urine
+    '50558-6', // Nitrite [Presence] in Urine by Automated test strip
+  ],
+  uaLeukocyteEsterase: [
+    '5799-2', // Leukocyte esterase [Presence] in Urine by Test strip
+    '27297-1', // Leukocyte esterase [Units/volume] in Urine
+    '60026-2', // Leukocyte esterase [Presence] in Urine by Automated test strip
+    '105103-6', // Leukocyte esterase [Presence] in Urine
+    '110367-0', // Leukocyte esterase [Measurement] in Urine
+  ],
+  uaUrobilinogen: [
+    '3107-0', // Urobilinogen [Mass/volume] in Urine
+    '5818-0', // Urobilinogen [Presence] in Urine by Test strip
+    '13658-0', // Urobilinogen [Presence] in Urine
+    '19161-9', // Urobilinogen [Units/volume] in Urine by Test strip
+    '20405-7', // Urobilinogen [Mass/volume] in Urine by Test strip
+    '32727-0', // Urobilinogen [Units/volume] in Urine
+    '34927-4', // Urobilinogen [Moles/volume] in Urine
+    '34928-2', // Urobilinogen [Moles/volume] in Urine by Test strip
+    '35236-9', // Urobilinogen [Mass or Moles/volume] in Urine
+    '50563-6', // Urobilinogen [Mass/volume] in Urine by Automated test strip
+    '60025-4', // Urobilinogen [Moles/volume] in Urine by Automated test strip
+    '62487-4', // Urobilinogen [Presence] in Urine by Automated test strip
+    '108002-7', // Urobilinogen [Measurement] in Urine
+  ],
 };
