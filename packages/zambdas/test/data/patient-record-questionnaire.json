@@ -1383,29 +1383,6 @@
         ]
       },
       {
-        "linkId": "patient-relationship-to-insured-other",
-        "type": "string",
-        "text": "Other relationship",
-        "required": false,
-        "enableWhen": [
-          {
-            "question": "patient-relationship-to-insured",
-            "operator": "=",
-            "answerString": "Other"
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
-            "valueString": "Please specify"
-          }
-        ]
-      },
-      {
         "linkId": "insurance-additional-information",
         "type": "string",
         "text": "Additional insurance information",
@@ -2029,29 +2006,6 @@
         ]
       },
       {
-        "linkId": "patient-relationship-to-insured-other-2",
-        "type": "string",
-        "text": "Other relationship",
-        "required": false,
-        "enableWhen": [
-          {
-            "question": "patient-relationship-to-insured-2",
-            "operator": "=",
-            "answerString": "Other"
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
-            "valueString": "Please specify"
-          }
-        ]
-      },
-      {
         "linkId": "insurance-additional-information-2",
         "type": "string",
         "text": "Additional insurance information",
@@ -2069,42 +2023,6 @@
         "type": "boolean",
         "text": "Patient doesn't have a PCP at this time",
         "required": false
-      },
-      {
-        "linkId": "pcp-practice",
-        "type": "string",
-        "text": "Practice name",
-        "required": false,
-        "enableWhen": [
-          {
-            "question": "pcp-active",
-            "operator": "=",
-            "answerBoolean": true
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                "valueString": "pcp-active"
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                "valueString": "="
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                "valueBoolean": true
-              }
-            ]
-          }
-        ]
       },
       {
         "linkId": "pcp-first",
@@ -2141,6 +2059,42 @@
           {
             "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
             "valueString": "hidden"
+          }
+        ]
+      },
+      {
+        "linkId": "pcp-practice",
+        "type": "string",
+        "text": "Practice name",
+        "required": false,
+        "enableWhen": [
+          {
+            "question": "pcp-active",
+            "operator": "=",
+            "answerBoolean": true
+          }
+        ],
+        "extension": [
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+            "valueString": "hidden"
+          },
+          {
+            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
+                "valueString": "pcp-active"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
+                "valueString": "="
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
+                "valueBoolean": true
+              }
+            ]
           }
         ]
       },
@@ -2236,29 +2190,6 @@
           },
           {
             "valueString": "Other"
-          }
-        ]
-      },
-      {
-        "linkId": "responsible-party-relationship-other",
-        "type": "string",
-        "text": "Other relationship",
-        "required": false,
-        "enableWhen": [
-          {
-            "question": "responsible-party-relationship",
-            "operator": "=",
-            "answerString": "Other"
-          }
-        ],
-        "extension": [
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
-            "valueString": "hidden"
-          },
-          {
-            "url": "https://fhir.zapehr.com/r4/StructureDefinitions/placeholder",
-            "valueString": "Please specify"
           }
         ]
       },
