@@ -1,6 +1,6 @@
 import { Location } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { TIMEZONE_EXTENSION_URL } from '../types/constants';
+import { TIMEZONE_EXTENSION_URL } from '../fhir/constants';
 import { InsuranceEligibilityCheckStatus } from '../types/data/paperwork/paperwork.types';
 import { mapEligibilityCheckResultToSimpleStatus } from '../types/data/telemed/eligibility.types';
 import { getLocalDateOfService } from './scheduleUtils';
