@@ -318,10 +318,10 @@ export default function ReceiveShipmentDialog({
             {isVaccine ? (
               <Grid item xs={3}>
                 <FormControl fullWidth required>
-                  <InputLabel id="receive-funding-source-label">Stock</InputLabel>
+                  <InputLabel id="receive-funding-source-label">Recipient Type</InputLabel>
                   <Select
                     labelId="receive-funding-source-label"
-                    label="Stock"
+                    label="Recipient Type"
                     value={form.fundingSource}
                     onChange={(e) => setField('fundingSource', e.target.value as VaccineFundingSource)}
                     inputProps={{ 'data-testid': dataTestIds.receiveShipmentDialog.fundingSourceSelect }}

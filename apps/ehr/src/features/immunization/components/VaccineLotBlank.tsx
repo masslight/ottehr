@@ -116,9 +116,9 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
 
   const eligible = vfcEligibility ? VFC_ELIGIBILITY_LABELS[vfcEligibility].vfc : false;
   const borrowingTitle = eligible
-    ? `Use ${VACCINE_FUNDING_SOURCE_LABELS[
+    ? `Use a ${VACCINE_FUNDING_SOURCE_LABELS[
         pending?.fundingSource ?? 'private'
-      ].toLowerCase()} stock for a VFC-eligible child?`
+      ].toLowerCase()} lot for a VFC-eligible child?`
     : 'Use VFC stock for a patient who is not VFC eligible?';
   const borrowingBody = eligible
     ? `${who} is VFC eligible. Giving lot ${pending?.lotNumber} counts as borrowing: it goes on the Vaccine Borrowing Report, and the dose must be paid back from VFC stock.`

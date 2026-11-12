@@ -34,7 +34,7 @@ export const VACCINE_FUNDING_SOURCES = ['vfc', 'private', 'state'] as const;
 export type VaccineFundingSource = (typeof VACCINE_FUNDING_SOURCES)[number];
 export const VACCINE_FUNDING_SOURCE_LABELS: Record<VaccineFundingSource, string> = {
   vfc: 'VFC',
-  private: 'Private',
+  private: 'Privately Insured',
   state: 'State program',
 };
 export const VaccineFundingSourceSchema = z.enum(VACCINE_FUNDING_SOURCES);
