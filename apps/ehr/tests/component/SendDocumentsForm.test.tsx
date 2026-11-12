@@ -166,13 +166,29 @@ describe('SendDocumentsForm recipient picker', () => {
 });
 
 describe('SendDocumentsForm delivery channel', () => {
-  it('offers only fax when SendGrid is off, since an emailed link could never be sent', () => {
+  it('disables Email when SendGrid is off, since an emailed link could never be sent, and says why on hover', async () => {
     flags.sendgridEnabled = false;
+    const user = userEvent.setup();
     renderForm();
 
-    expect(screen.queryByRole('radio', { name: 'Email' })).toBeNull();
-    expect(screen.queryByRole('radiogroup', { name: 'Send by' })).toBeNull();
+    expect(screen.getByRole('radio', { name: 'Email' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: 'Fax' })).toBeChecked();
     expect(screen.getByLabelText(/Recipient Fax/)).toBeVisible();
+
+    // The disabled radio itself takes no pointer events, so the hover lands on its label.
+    await user.hover(screen.getByText('Email'));
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Email sending feature is not enabled');
+  });
+
+  it('shows no hint on Email when SendGrid is on', async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    expect(screen.getByRole('radio', { name: 'Email' })).toBeEnabled();
+    await user.hover(screen.getByText('Email'));
+
+    expect(screen.queryByRole('tooltip')).toBeNull();
   });
 
   it('starts on fax and swaps in an email field when Email is chosen', async () => {

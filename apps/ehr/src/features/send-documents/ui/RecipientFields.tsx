@@ -1,5 +1,5 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { Box, Checkbox, FormControlLabel, IconButton, Radio, RadioGroup } from '@mui/material';
+import { Box, Checkbox, FormControlLabel, IconButton, Radio, RadioGroup, Tooltip } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { PhoneInput } from 'src/components/input/PhoneInput';
@@ -81,25 +81,34 @@ export const RecipientFields: FC<RecipientFieldsProps> = ({ index, isPcp, onSave
         </Box>
       </Box>
 
-      {FEATURE_FLAGS.SENDGRID_ENABLED && (
-        <Controller
-          name={field('channel')}
-          control={control}
-          render={({ field }) => (
-            <RadioGroup
-              row
-              value={field.value}
-              aria-label="Send by"
-              data-testid={`${dataTestIds.sendDocumentsDialog.channel}-${index}`}
-              // Both addresses stay in the form while the user switches; only the chosen channel's is sent.
-              onChange={(event) => field.onChange(event.target.value as DeliveryChannel)}
+      <Controller
+        name={field('channel')}
+        control={control}
+        render={({ field }) => (
+          <RadioGroup
+            row
+            value={field.value}
+            aria-label="Send by"
+            data-testid={`${dataTestIds.sendDocumentsDialog.channel}-${index}`}
+            // Both addresses stay in the form while the user switches; only the chosen channel's is sent.
+            onChange={(event) => field.onChange(event.target.value as DeliveryChannel)}
+          >
+            <FormControlLabel value="fax" control={<Radio size="small" />} label="Fax" />
+            <Tooltip
+              title={FEATURE_FLAGS.SENDGRID_ENABLED ? '' : 'Email sending feature is not enabled'}
+              placement="top"
+              describeChild
             >
-              <FormControlLabel value="fax" control={<Radio size="small" />} label="Fax" />
-              <FormControlLabel value="email" control={<Radio size="small" />} label="Email" />
-            </RadioGroup>
-          )}
-        />
-      )}
+              <FormControlLabel
+                value="email"
+                control={<Radio size="small" />}
+                label="Email"
+                disabled={!FEATURE_FLAGS.SENDGRID_ENABLED}
+              />
+            </Tooltip>
+          </RadioGroup>
+        )}
+      />
 
       {channel === 'email' ? (
         <TextInput

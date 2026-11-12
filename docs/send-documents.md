@@ -100,7 +100,8 @@ Fax attempts are listed on the Fax Logs tab, with per-recipient retry.
 
 ### Email
 
-Each recipient row has a Fax / Email toggle while `sendgridEnabled` is on. An email recipient gets the same packet,
+Each recipient row has a Fax / Email toggle. While `sendgridEnabled` is off, Email is disabled and its tooltip says
+why. An email recipient gets the same packet,
 cover sheet included, but as a link rather than an attachment: `shared/document-link-email.ts` emails a token signed
 by `shared/document-link-token.ts` that expires after `DOCUMENT_LINK_TTL_MINUTES` (60). The token rides in the URL
 fragment, and intake moves it into the history entry before Sentry or GTM start, so no server log or telemetry
