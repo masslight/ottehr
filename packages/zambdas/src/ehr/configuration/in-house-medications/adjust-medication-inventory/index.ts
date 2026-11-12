@@ -88,7 +88,7 @@ export const performEffect = async (
   );
 
   const parsedLot = parseInventoryLot(written.lot);
-  const parsedEntry = parseInventoryStockEntry(written.entry);
+  const parsedEntry = written.entry && parseInventoryStockEntry(written.entry);
   if (!parsedLot || !parsedEntry) throw new Error('Stock entry was written but could not be read back');
   return { lot: parsedLot, entry: parsedEntry };
 };

@@ -106,7 +106,7 @@ export const performEffect = async (
     effectiveDateTime: DateTime.now().toUTC().toISO(),
     vendor,
   };
-  let written: { lot: Medication; entry: Observation };
+  let written: { lot: Medication; entry: Observation | undefined };
   if (otherExpiration && confirmedLot && params.expirationConflict === 'correct-existing') {
     const previous = confirmedLot.batch?.expirationDate ?? '';
     const corrected: StockEntryWrite = {
@@ -141,7 +141,7 @@ export const performEffect = async (
   }
 
   const parsedLot = parseInventoryLot(written.lot);
-  const parsedEntry = parseInventoryStockEntry(written.entry);
+  const parsedEntry = written.entry && parseInventoryStockEntry(written.entry);
   if (!parsedLot || !parsedEntry) throw new Error('Stock entry was written but could not be read back');
   return { lot: parsedLot, entry: parsedEntry };
 };

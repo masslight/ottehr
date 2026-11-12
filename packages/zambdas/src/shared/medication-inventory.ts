@@ -139,13 +139,16 @@ export type StockEntryWrite = Omit<InventoryStockEntryInput, 'lotReference'>;
 export async function writeInventoryStockEntry(
   oystehr: Oystehr,
   lot: Medication,
-  entry: StockEntryWrite | StockEntryWrite[] | ((onHand: number) => StockEntryWrite),
+  entry:
+    | StockEntryWrite
+    | StockEntryWrite[]
+    | ((onHand: number, lotEntries: Observation[]) => StockEntryWrite | undefined),
   reviseLot: (lot: Medication) => Medication = (lot) => lot
-): Promise<{ lot: Medication; entry: Observation }> {
-  const entriesAt = (onHand: number): StockEntryWrite[] =>
-    typeof entry === 'function' ? [entry(onHand)] : Array.isArray(entry) ? entry : [entry];
+): Promise<{ lot: Medication; entry: Observation | undefined }> {
+  const entriesAt = (onHand: number, lotEntries: Observation[]): StockEntryWrite[] =>
+    typeof entry === 'function' ? [entry(onHand, lotEntries) ?? []].flat() : Array.isArray(entry) ? entry : [entry];
   if (!lot.id) {
-    const entries = entriesAt(0);
+    const entries = entriesAt(0, []);
     const quantity = entries.reduce((total, written) => total + written.quantity, 0);
     const lotUrn = `urn:uuid:${randomUUID()}`;
     const createLot: BatchInputPostRequest<Medication> = {
@@ -179,7 +182,8 @@ export async function writeInventoryStockEntry(
       }
       const existingEntries = await getInventoryLotEntries(oystehr, lotId);
       const balance = sumStockEntries(existingEntries);
-      const entries = entriesAt(balance);
+      const entries = entriesAt(balance, existingEntries);
+      if (entries.length === 0) return { lot: current, entry: undefined };
       const onHand = balance + entries.reduce((total, written) => total + written.quantity, 0);
       const createEntries = entries.map(
         (written): BatchInputPostRequest<Observation> => ({
@@ -354,20 +358,29 @@ export async function reconcileAdministrationStock(
         : await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: change.lotId });
     const parsedLot = parseInventoryLot(lot);
     if (!parsedLot) throw new Error(`Medication/${change.lotId} is not an inventory lot`);
-    await writeInventoryStockEntry(oystehr, lot, {
-      locationId: parsedLot.locationId,
-      type: change.type,
-      ...(change.waste ? { reason: 'partial-dose-waste' } : {}),
-      quantity: change.quantity,
-      unit: parsedLot.unit,
-      performerReference,
-      effectiveDateTime: DateTime.now().toUTC().toISO(),
-      medicationAdministrationId,
-      reversesEntryId: change.reversesEntryId,
-      administrationDeleted: change.administrationDeleted,
-      ...(change.waste
-        ? { components: [{ code: 'waste-amount', value: change.waste.amount, unit: change.waste.unit }] }
-        : {}),
+    await writeInventoryStockEntry(oystehr, lot, (_onHand, lotEntries) => {
+      const recorded = lotEntries
+        .flatMap((entry) => parseInventoryStockEntry(entry) ?? [])
+        .filter((entry) => entry.medicationAdministrationId === medicationAdministrationId);
+      const current = planAdministrationStockChanges(target, recorded).find(
+        (planned) => planned.lotId === change.lotId
+      );
+      if (!current) return undefined;
+      return {
+        locationId: parsedLot.locationId,
+        type: current.type,
+        ...(current.waste ? { reason: 'partial-dose-waste' } : {}),
+        quantity: current.quantity,
+        unit: parsedLot.unit,
+        performerReference,
+        effectiveDateTime: DateTime.now().toUTC().toISO(),
+        medicationAdministrationId,
+        reversesEntryId: current.reversesEntryId,
+        administrationDeleted: current.administrationDeleted,
+        ...(current.waste
+          ? { components: [{ code: 'waste-amount', value: current.waste.amount, unit: current.waste.unit }] }
+          : {}),
+      };
     });
   }
 }

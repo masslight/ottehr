@@ -6,6 +6,7 @@ import {
   makeInventoryLot,
   makeInventoryStockEntry,
   makeMedicationInventoryExtension,
+  parseInventoryLot,
   parseInventoryStockEntry,
   planAdministrationStockChanges,
   sortInventoryLotsForPicking,
@@ -440,6 +441,50 @@ describe('reconcileAdministrationStock', () => {
       ['Medication/lot-1', 1, 'administration-reversed'],
       ['Medication/lot-2', -1, 'administered'],
     ]);
+  });
+
+  it('writes nothing more when a concurrent save of the same order took the dose and the lot write conflicted', async () => {
+    const ledger: Observation[] = [];
+    const oystehr = makeMockOystehr({ ledger });
+    oystehr.fhir.transaction.mockImplementationOnce(() => {
+      ledger.push(ledgerEntry('e-other-save', { quantity: -1 }, 2));
+      throw Object.assign(new Error('412 Precondition Failed'), { code: 412 });
+    });
+
+    await reconcileAdministrationStock(oystehr, makeOrder(), 'Practitioner/nurse-1');
+
+    expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes nothing when a concurrent save of the same order took the dose after this save read the order entries', async () => {
+    const ledger: Observation[] = [];
+    const oystehr = makeMockOystehr({ ledger });
+    oystehr.fhir.get.mockImplementationOnce(() => {
+      ledger.push(ledgerEntry('e-other-save', { quantity: -1 }, 2));
+      return encounter;
+    });
+
+    await reconcileAdministrationStock(oystehr, makeOrder(), 'Practitioner/nurse-1');
+
+    expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it("still takes the dose when the lot's ledger holds another order's administration", async () => {
+    const oystehr = makeMockOystehr({
+      lots: [makeLot('lot-1', 'A123', 9)],
+      ledger: [
+        ledgerEntry('e-received', { type: 'received', quantity: 10, medicationAdministrationId: undefined }),
+        ledgerEntry('e-other-order', { quantity: -1, medicationAdministrationId: 'ma-2' }),
+      ],
+    });
+
+    await reconcileAdministrationStock(oystehr, makeOrder({ dose: 4 }), 'Practitioner/nurse-1');
+
+    const { requests } = oystehr.fhir.transaction.mock.calls[0][0];
+    expect(postedEntries(oystehr).map((e) => [e.partOf?.[0]?.reference, e.valueQuantity?.value])).toEqual([
+      ['MedicationAdministration/ma-1', -1],
+    ]);
+    expect(parseInventoryLot(requests[1].resource)?.onHand).toBe(8);
   });
 });
 
