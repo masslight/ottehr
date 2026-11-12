@@ -10,6 +10,7 @@ import { getContainedReconciliation, getPaymentNoticeSubmitterRef } from 'utils/
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseOttehrBilling } from '../../shared/candid';
+import { isFhirNotFoundError } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
 import {
   applyRefundsToPaymentNoticeWithRetry,
@@ -201,8 +202,7 @@ const getPaymentNoticeIfExists = async (oystehr: Oystehr, id: string): Promise<P
   try {
     return await oystehr.fhir.get<PaymentNotice>({ resourceType: 'PaymentNotice', id });
   } catch (error) {
-    const { code, statusCode } = (error ?? {}) as { code?: number; statusCode?: number };
-    if ([code, statusCode].some((status) => status === 404 || status === 410)) return undefined;
+    if (isFhirNotFoundError(error) || (error as { code?: unknown })?.code === 410) return undefined;
     throw error;
   }
 };

@@ -17,6 +17,7 @@ import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL, PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
   getStripeCustomerIdFromAccount,
+  isVersionConflictError,
   makeOptimisticLockIfMatchHeader,
   withVersionConflictRetries,
 } from 'utils/lib/fhir/helpers';
@@ -232,7 +233,7 @@ const recordCardPayment = async (
     // failed, it is safe to go on with any of the reservations, as Stripe settles which charge stands:
     // the key returns the PaymentIntent a charge naming the same reservation made (or its decline), and
     // refuses one naming another, which this request then waits for.
-    if (!isPreconditionFailed(error)) throw error;
+    if (!isVersionConflictError(error)) throw error;
     const reservations = await findReservations(billingOystehr, reservationIdentifier);
     const recorded = reservations.find(isActivatedEhrPaymentNotice);
     if (recorded) {
@@ -389,11 +390,6 @@ const findReservations = async (billingOystehr: Oystehr, reservationIdentifier: 
       params: [{ name: 'identifier', value: `${reservationIdentifier.system}|${reservationIdentifier.value}` }],
     })
   ).unbundle();
-
-const isPreconditionFailed = (error: unknown): boolean => {
-  const { code, statusCode } = (error ?? {}) as { code?: number; statusCode?: number };
-  return code === 412 || statusCode === 412;
-};
 
 // Another request for the same payment holds the idempotency key: it is charging, or charged the card
 // with other parameters (its own reservation, or a changed amount).
