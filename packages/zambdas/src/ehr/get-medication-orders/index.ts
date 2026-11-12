@@ -23,6 +23,7 @@ import {
   getReasonAndOtherReasonForNotAdministeredOrder,
   mapFhirToOrderStatus,
 } from 'utils/lib/fhir/medication-administration';
+import { getOrderCatalogMedicationId } from 'utils/lib/fhir/medication-inventory';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isDeletedMedicationOrder } from 'utils/lib/helpers/order-status.helper';
@@ -100,6 +101,7 @@ export function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): Exten
     encounterId: medicationAdministration.context?.reference?.replace('Encounter/', '') ?? '',
     medicationId: medication?.id,
     medicationName: (medication && getMedicationName(medication)) ?? '',
+    catalogMedicationId: getOrderCatalogMedicationId(medication),
     dose: dosageUnitsRoute.dose ?? -1,
     route: dosageUnitsRoute.route ?? '',
     units: dosageUnitsRoute.units,

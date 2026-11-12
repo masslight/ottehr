@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Medication } from 'fhir/r4b';
+import { Medication, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   getMedicationInventoryConfig,
@@ -23,7 +23,11 @@ import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/er
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
-import { findInventoryLotsByNumber, writeInventoryStockEntry } from '../../../../shared/medication-inventory';
+import {
+  findInventoryLotsByNumber,
+  StockEntryWrite,
+  writeInventoryStockEntry,
+} from '../../../../shared/medication-inventory';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { validateWithSchema } from '../../../../shared/validation';
@@ -81,7 +85,16 @@ export const performEffect = async (
     locationId,
     lotNumber,
   });
-  let existingLot = sameNumber.find((lot) => lot.batch?.expirationDate === expirationDate);
+  const existingLot = sameNumber.find((lot) => lot.batch?.expirationDate === expirationDate);
+  const confirmedLot = sameNumber.find((lot) => lot.id === params.lotId);
+  if (
+    params.expirationConflict === 'correct-existing' &&
+    (!confirmedLot || (existingLot && existingLot !== confirmedLot))
+  ) {
+    throw INVALID_INPUT_ERROR(
+      `Lot ${lotNumber} changed after it was shown. Cancel and receive the shipment again to review it.`
+    );
+  }
 
   // Same number, different expiration: staff decide whether that is a second lot or a typo in the first one.
   const otherExpiration = existingLot ? undefined : sameNumber.find((lot) => lot.batch?.expirationDate);
@@ -91,29 +104,40 @@ export const performEffect = async (
     const { id: lotId, expirationDate: existingDate, onHand, unit } = parsed;
     return { expirationConflict: { lotId, expirationDate: existingDate, onHand, unit } };
   }
-  if (otherExpiration && params.expirationConflict === 'correct-existing') {
-    const previous = otherExpiration.batch?.expirationDate ?? '';
-    const corrected = await writeInventoryStockEntry(
-      oystehr,
-      otherExpiration,
-      {
-        locationId,
-        type: 'adjustment',
-        reason: 'expiration-corrected',
-        quantity: 0,
-        unit: inventory.countedAs,
-        performerReference,
-        effectiveDateTime: DateTime.now().toUTC().toISO(),
-        note: `Expiration changed from ${formatDateForDisplay(previous)} to ${formatDateForDisplay(expirationDate)}`,
-      },
-      (lot) => ({ ...lot, batch: { ...lot.batch, expirationDate } })
-    );
-    existingLot = corrected.lot;
-  }
 
-  const lot = existingLot
-    ? withLotDetails(existingLot, { vendor, fundingSource })
-    : makeInventoryLot(catalog, {
+  const received: StockEntryWrite = {
+    locationId,
+    type: 'received',
+    quantity,
+    unit: inventory.countedAs,
+    performerReference,
+    effectiveDateTime: DateTime.now().toUTC().toISO(),
+    vendor,
+  };
+  let written: { lot: Medication; entry: Observation | undefined };
+  if (otherExpiration && confirmedLot && params.expirationConflict === 'correct-existing') {
+    const previous = confirmedLot.batch?.expirationDate ?? '';
+    const corrected: StockEntryWrite = {
+      locationId,
+      type: 'adjustment',
+      reason: 'expiration-corrected',
+      quantity: 0,
+      unit: inventory.countedAs,
+      performerReference,
+      effectiveDateTime: received.effectiveDateTime,
+      note: `Expiration changed from ${formatDateForDisplay(previous)} to ${formatDateForDisplay(expirationDate)}`,
+    };
+    written = await writeInventoryStockEntry(oystehr, confirmedLot, [corrected, received], (lot) =>
+      withLotDetails({ ...lot, batch: { ...lot.batch, expirationDate } }, { vendor, fundingSource })
+    );
+  } else if (existingLot) {
+    written = await writeInventoryStockEntry(oystehr, existingLot, received, (lot) =>
+      withLotDetails(lot, { vendor, fundingSource })
+    );
+  } else {
+    written = await writeInventoryStockEntry(
+      oystehr,
+      makeInventoryLot(catalog, {
         locationId,
         lotNumber,
         expirationDate,
@@ -123,20 +147,13 @@ export const performEffect = async (
         vendor,
         fundingSource,
         unit: inventory.countedAs,
-      });
-
-  const written = await writeInventoryStockEntry(oystehr, lot, {
-    locationId,
-    type: 'received',
-    quantity,
-    unit: inventory.countedAs,
-    performerReference,
-    effectiveDateTime: DateTime.now().toUTC().toISO(),
-    vendor,
-  });
+      }),
+      received
+    );
+  }
 
   const parsedLot = parseInventoryLot(written.lot);
-  const parsedEntry = parseInventoryStockEntry(written.entry);
+  const parsedEntry = written.entry && parseInventoryStockEntry(written.entry);
   if (!parsedLot || !parsedEntry) throw new Error('Stock entry was written but could not be read back');
   return { lot: parsedLot, entry: parsedEntry };
 };

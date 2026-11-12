@@ -6,6 +6,7 @@ import {
   makeInventoryLot,
   makeInventoryStockEntry,
   makeMedicationInventoryExtension,
+  parseInventoryLot,
   parseInventoryStockEntry,
   planAdministrationStockChanges,
   sortInventoryLotsForPicking,
@@ -26,7 +27,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect as getInventoryPerformEffect } from '../../src/ehr/configuration/in-house-medications/get-medication-inventory/index';
 import { syncInventoryForOrder } from '../../src/ehr/create-update-medication-order/helpers';
-import { reconcileAdministrationStock } from '../../src/shared/medication-inventory';
+import { administrationStockChanged, reconcileAdministrationStock } from '../../src/shared/medication-inventory';
 
 vi.mock('@sentry/node-core/light', () => ({ captureException: vi.fn() }));
 
@@ -441,6 +442,50 @@ describe('reconcileAdministrationStock', () => {
       ['Medication/lot-2', -1, 'administered'],
     ]);
   });
+
+  it('writes nothing more when a concurrent save of the same order took the dose and the lot write conflicted', async () => {
+    const ledger: Observation[] = [];
+    const oystehr = makeMockOystehr({ ledger });
+    oystehr.fhir.transaction.mockImplementationOnce(() => {
+      ledger.push(ledgerEntry('e-other-save', { quantity: -1 }, 2));
+      throw Object.assign(new Error('412 Precondition Failed'), { code: 412 });
+    });
+
+    await reconcileAdministrationStock(oystehr, makeOrder(), 'Practitioner/nurse-1');
+
+    expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes nothing when a concurrent save of the same order took the dose after this save read the order entries', async () => {
+    const ledger: Observation[] = [];
+    const oystehr = makeMockOystehr({ ledger });
+    oystehr.fhir.get.mockImplementationOnce(() => {
+      ledger.push(ledgerEntry('e-other-save', { quantity: -1 }, 2));
+      return encounter;
+    });
+
+    await reconcileAdministrationStock(oystehr, makeOrder(), 'Practitioner/nurse-1');
+
+    expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it("still takes the dose when the lot's ledger holds another order's administration", async () => {
+    const oystehr = makeMockOystehr({
+      lots: [makeLot('lot-1', 'A123', 9)],
+      ledger: [
+        ledgerEntry('e-received', { type: 'received', quantity: 10, medicationAdministrationId: undefined }),
+        ledgerEntry('e-other-order', { quantity: -1, medicationAdministrationId: 'ma-2' }),
+      ],
+    });
+
+    await reconcileAdministrationStock(oystehr, makeOrder({ dose: 4 }), 'Practitioner/nurse-1');
+
+    const { requests } = oystehr.fhir.transaction.mock.calls[0][0];
+    expect(postedEntries(oystehr).map((e) => [e.partOf?.[0]?.reference, e.valueQuantity?.value])).toEqual([
+      ['MedicationAdministration/ma-1', -1],
+    ]);
+    expect(parseInventoryLot(requests[1].resource)?.onHand).toBe(8);
+  });
 });
 
 // ─── never block the administration ───────────────────────────────────────────
@@ -451,7 +496,7 @@ describe('syncInventoryForOrder', () => {
   it('reports an inventory failure and resolves, so the administration still saves', async () => {
     const oystehr = makeMockOystehr();
     oystehr.fhir.get.mockRejectedValue(new Error('FHIR is down'));
-    await expect(syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1')).resolves.toBeUndefined();
+    await expect(syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1', makeOrder())).resolves.toBeUndefined();
     expect(captureException).toHaveBeenCalledTimes(1);
   });
 
@@ -463,9 +508,44 @@ describe('syncInventoryForOrder', () => {
       if (resourceType === 'Encounter') return encounter;
       return id === 'med-catalog' ? makeCatalog(singleUseVial) : makeLot('lot-1', 'A123', 25);
     });
-    await syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1');
+    await syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1', makeOrder({ status: 'in-progress' }));
     expect(postedEntries(oystehr)[0]?.performer).toEqual([{ reference: 'Practitioner/nurse-1' }]);
     expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, InHouseMedicationInventory | undefined, Observation[], number]>([
+    ['tracking was turned off', undefined, [ledgerEntry('e-1', { quantity: -1 }, 2)], 2],
+    [
+      'each-contains changed from 4 mg to 1 mg',
+      { ...singleUseVial, eachContains: { amount: 1, unit: 'mg' } },
+      [ledgerEntry('e-1', { quantity: -2 }, 2)],
+      6,
+    ],
+    ['tracking was turned on after it was given', singleUseVial, [], 2],
+  ])(
+    'leaves stock alone when an administered order is re-saved without a stock change after %s',
+    async (_label, inventory, ledger, dose) => {
+      const oystehr = makeMockOystehr({ catalog: makeCatalog(inventory), ledger });
+      const before = makeOrder({ dose });
+      oystehr.fhir.get.mockImplementation(({ resourceType, id }: { resourceType: string; id: string }) => {
+        if (resourceType === 'MedicationAdministration') return { ...before, note: [{ text: 'Charted late' }] };
+        if (resourceType === 'Encounter') return encounter;
+        return id === 'med-catalog' ? makeCatalog(inventory) : makeLot('lot-1', 'A123', 25);
+      });
+
+      await syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1', before);
+
+      expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+      expect(captureException).not.toHaveBeenCalled();
+    }
+  );
+});
+
+describe('administrationStockChanged', () => {
+  it('treats a switch to another catalog drug with the same name, lot and expiration as a stock change', () => {
+    expect(
+      administrationStockChanged(makeOrder({ catalogId: 'med-catalog' }), makeOrder({ catalogId: 'med-other' }))
+    ).toBe(true);
   });
 });
 
@@ -505,5 +585,61 @@ describe('get-medication-inventory with a location', () => {
         ['X', true],
       ]
     );
+  });
+});
+
+describe('syncInventoryForOrder after the lot expiration was corrected', () => {
+  beforeEach(() => vi.mocked(captureException).mockClear());
+
+  const correctedLot = makeLot('lot-1', 'A123', 24, '2027-04-30');
+  const sameNumberLot = makeLot('lot-1b', 'A123', 9, '2028-01-01');
+  const given = ledgerEntry('e-1', { quantity: -1 }, 2);
+  const givenBeforeCorrection = makeOrder({ dose: 2, expirationDate: '2027-03-31' });
+
+  const resave = async (
+    after: MedicationAdministration,
+    lots = [correctedLot, sameNumberLot]
+  ): Promise<MockOystehr> => {
+    const oystehr = makeMockOystehr({ lots, ledger: [given] });
+    oystehr.fhir.get.mockImplementation(({ resourceType, id }: { resourceType: string; id: string }) => {
+      if (resourceType === 'MedicationAdministration') return after;
+      if (resourceType === 'Encounter') return encounter;
+      return id === 'med-catalog' ? makeCatalog(singleUseVial) : lots.find((lot) => lot.id === id);
+    });
+    await syncInventoryForOrder(oystehr, 'ma-1', 'nurse-1', givenBeforeCorrection);
+    return oystehr;
+  };
+
+  it('takes the extra vial from the lot the dose came from when only the dose changes', async () => {
+    const oystehr = await resave(makeOrder({ dose: 6, expirationDate: '2027-03-31' }));
+    expect(
+      postedEntries(oystehr).map((e) => [e.subject?.reference, e.valueQuantity?.value, e.code?.coding?.[0]?.code])
+    ).toEqual([['Medication/lot-1', -1, 'administered']]);
+  });
+
+  it('keeps charging that lot when another lot with the number has the old expiration', async () => {
+    const oldExpirationLot = makeLot('lot-2', 'A123', 9, '2027-03-31');
+    const oystehr = await resave(makeOrder({ dose: 6, expirationDate: '2027-03-31' }), [
+      correctedLot,
+      oldExpirationLot,
+    ]);
+    expect(
+      postedEntries(oystehr).map((e) => [e.subject?.reference, e.valueQuantity?.value, e.code?.coding?.[0]?.code])
+    ).toEqual([['Medication/lot-1', -1, 'administered']]);
+  });
+
+  it.each([
+    ['an expiration no lot has', makeOrder({ dose: 2, expirationDate: '2029-01-01' })],
+    ['a lot number that is not in inventory', makeOrder({ dose: 2, lotNumber: 'SAMPLE-1' })],
+  ])('puts the vial back when staff change the order to %s', async (_label, after) => {
+    const oystehr = await resave(after);
+    const [entry] = postedEntries(oystehr);
+    expect(postedEntries(oystehr)).toHaveLength(1);
+    expect(entry.subject).toEqual({ reference: 'Medication/lot-1' });
+    expect(parseInventoryStockEntry({ ...entry, id: 'x' })).toMatchObject({
+      type: 'administration-reversed',
+      quantity: 1,
+      administrationDeleted: true,
+    });
   });
 });

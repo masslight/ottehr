@@ -1,0 +1,263 @@
+import { z } from 'zod';
+import { MedicalRecordDateRangeSchema } from '../data/get-patient-medical-record.types';
+
+/**
+ * Outbound document packet contract.
+ *
+ * A "document packet" is the single PDF that is actually sent, by fax or as an emailed link: a generated cover
+ * sheet followed by the selected visit documents merged together. Oystehr's fax service accepts exactly one
+ * document per call, so everything the provider selects has to be merged into one file before sending.
+ */
+
+/** Documents that can be selected for a document packet. Prescriptions and patient instructions are not listed
+ * here on purpose: they are sections of the visit/progress note and travel with it. */
+export const PacketDocumentKindSchema = z.enum([
+  'progress-note',
+  'discharge-summary',
+  'lab-results',
+  'radiology-results',
+  'patient-education',
+]);
+export type PacketDocumentKind = z.infer<typeof PacketDocumentKindSchema>;
+
+/** Merge order inside the packet. */
+export const PACKET_DOCUMENT_ORDER: PacketDocumentKind[] = [
+  'progress-note',
+  'discharge-summary',
+  'lab-results',
+  'radiology-results',
+  'patient-education',
+];
+
+export const PACKET_DOCUMENT_LABELS: Record<PacketDocumentKind, string> = {
+  'progress-note': 'Visit/Progress Note',
+  'discharge-summary': 'Discharge Summary',
+  'lab-results': 'Lab Results',
+  'radiology-results': 'Radiology Results',
+  'patient-education': 'Patient Education',
+};
+
+/**
+ * Rows rendered underneath "Visit/Progress Note" in the document selector. They are always checked and always
+ * disabled: the content is part of the note itself, so it cannot be selected or deselected independently.
+ */
+export const PACKET_PROGRESS_NOTE_INCLUDED_LABELS = ['Prescriptions', 'Patient Instructions'] as const;
+export const PACKET_PROGRESS_NOTE_INCLUDED_HINT = 'Included in Visit/Progress Note';
+
+export const DOCUMENT_PACKET_MAX_RECIPIENTS = 5;
+/** Visits a single patient-record fax may carry; each one adds its own cover sheet and documents. */
+export const DOCUMENT_PACKET_MAX_VISITS = 10;
+export const DOCUMENT_PACKET_MAX_PAGES = 100;
+export const DOCUMENT_PACKET_MAX_BYTES = 20 * 1024 * 1024;
+
+export const HIPAA_CONFIDENTIALITY_STATEMENT =
+  'This document contains protected health information (PHI) intended solely for the named recipient. If you ' +
+  'received this in error, please notify us immediately at the phone number provided and destroy all copies. ' +
+  'Unauthorized use, disclosure, or copying is strictly prohibited.';
+
+export const RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE = 'A credential needs a recipient name';
+
+const PacketRecipientBaseSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  // Professional credential shown after the name ("MD", "DO").
+  credential: z.string().trim().min(1).optional(),
+  // Practice or facility the recipient belongs to. Maps to the PCP's `practice-name` extension.
+  organization: z.string().trim().min(1).optional(),
+  phoneNumber: z.string().optional(),
+  // Persist this recipient as the patient's primary care physician. At most one recipient may set it.
+  saveAsPcp: z.boolean().optional(),
+});
+
+const PacketEmailSchema = z.string().trim().toLowerCase().email();
+
+export const isPacketEmailValid = (email: string): boolean => PacketEmailSchema.safeParse(email).success;
+
+/**
+ * One delivery channel per recipient: a fax number, or an email address that receives an expiring link to
+ * the packet. Never both.
+ */
+export const DocumentPacketRecipientSchema = z
+  .union([
+    PacketRecipientBaseSchema.extend({ faxNumber: z.string().min(1), email: z.undefined() }),
+    PacketRecipientBaseSchema.extend({ email: PacketEmailSchema, faxNumber: z.undefined() }),
+  ])
+  // The credential is shown after the name ("Jane Doe, MD"); without a name it would be dropped silently.
+  .refine((recipient) => !recipient.credential || !!recipient.name, {
+    message: RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE,
+    path: ['credential'],
+  });
+
+export type DocumentPacketRecipient = z.infer<typeof DocumentPacketRecipientSchema>;
+export type EmailRecipient = Extract<DocumentPacketRecipient, { email: string }>;
+
+export const isEmailRecipient = (recipient: DocumentPacketRecipient): recipient is EmailRecipient =>
+  typeof recipient.email === 'string';
+
+/** How a recipient is addressed on the cover sheet and in the logs: "Jane Doe, MD", or the name alone. */
+export const formatRecipientName = (
+  recipient: Pick<DocumentPacketRecipient, 'name' | 'credential'>
+): string | undefined =>
+  recipient.name && recipient.credential ? `${recipient.name}, ${recipient.credential}` : recipient.name;
+
+/**
+ * What the packet is built from. Each variant is one entry point in the EHR:
+ * - `visit`: the encounter header's "Send Documents", which sends one visit's package.
+ * - `visits`: "Send Patient Docs" on the patient record; each visit gets its own cover sheet.
+ * - `medical-record`: the Medical Record menu, i.e. every document on file for the patient.
+ * - `document`: a single row of the patient's Docs table.
+ */
+export const DocumentPacketSourceSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('visit'), appointmentId: z.string().uuid() }),
+  z.object({
+    type: z.literal('visits'),
+    patientId: z.string().uuid(),
+    appointmentIds: z
+      .array(z.string().uuid())
+      .min(1)
+      .max(DOCUMENT_PACKET_MAX_VISITS)
+      .refine((appointmentIds) => new Set(appointmentIds).size === appointmentIds.length, {
+        message: 'Each visit can only be selected once',
+      }),
+  }),
+  z.object({
+    type: z.literal('medical-record'),
+    patientId: z.string().uuid(),
+    dateRange: MedicalRecordDateRangeSchema,
+  }),
+  z.object({ type: z.literal('document'), patientId: z.string().uuid(), documentReferenceId: z.string().uuid() }),
+]);
+export type DocumentPacketSource = z.infer<typeof DocumentPacketSourceSchema>;
+
+const CurrentSendDocumentPacketInputSchema = z.object({
+  source: DocumentPacketSourceSchema,
+  recipients: z.array(DocumentPacketRecipientSchema).min(1).max(DOCUMENT_PACKET_MAX_RECIPIENTS),
+});
+
+/**
+ * Browser tabs opened before the source contract was deployed still submit `appointmentId`.
+ * Normalize that request at the boundary so a rolling deployment does not break an in-progress visit.
+ */
+export const SendDocumentPacketInputSchema = z
+  .preprocess((value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    const request = value as Record<string, unknown>;
+    if (request.source || typeof request.appointmentId !== 'string') return value;
+    return {
+      ...request,
+      source: { type: 'visit', appointmentId: request.appointmentId },
+    };
+  }, CurrentSendDocumentPacketInputSchema)
+  .refine(
+    (value) => value.recipients.filter((recipient) => recipient.saveAsPcp).length <= 1,
+    'Only one recipient can be saved as the patient PCP'
+  );
+export type SendDocumentPacketInput = z.infer<typeof SendDocumentPacketInputSchema>;
+
+/** The send is queued as a Task; the caller polls its status with `get-document-packet-status`. */
+export interface SendDocumentPacketOutput {
+  taskId: string;
+}
+
+export type DocumentPacketDeliveryStatus = 'sent' | 'failed';
+
+/** One recipient's outcome, surfaced to the UI. No raw error text — details live in server logs only. */
+export interface DocumentPacketRecipientResult {
+  name?: string;
+  organization?: string;
+  faxNumber?: string;
+  email?: string;
+  phoneNumber?: string;
+  status: DocumentPacketDeliveryStatus;
+}
+
+export type DocumentPacketJobStatus = 'pending' | 'completed' | 'failed';
+
+export type DocumentPacketJobFailureReason = 'too-large';
+
+export const GetDocumentPacketStatusInputSchema = z.object({
+  taskId: z.string().uuid(),
+});
+export type GetDocumentPacketStatusInput = z.infer<typeof GetDocumentPacketStatusInputSchema>;
+
+export interface GetDocumentPacketStatusOutput {
+  /** `pending` while the Task is requested/in-progress; `completed` once it ran (recipients may still have
+   * failed individually); `failed` when the whole job could not run. */
+  jobStatus: DocumentPacketJobStatus;
+  /** Per-recipient outcomes once the job has run. Empty while pending or on a hard failure. */
+  recipients: DocumentPacketRecipientResult[];
+  failureReason?: DocumentPacketJobFailureReason;
+}
+
+export const GetDocumentPacketPreviewInputSchema = z.object({
+  /**
+   * The visit whose document checklist and PCP prefill the dialog needs. Omitted by the patient-level
+   * dialogs, which send a fixed set of documents: the response then carries only the parts of the
+   * preview that are not visit-specific, i.e. the sender's fax number.
+   */
+  appointmentId: z.string().uuid().optional(),
+  medicalRecord: z.object({ patientId: z.string().uuid(), dateRange: MedicalRecordDateRangeSchema }).optional(),
+});
+
+export type GetDocumentPacketPreviewInput = z.infer<typeof GetDocumentPacketPreviewInputSchema>;
+
+export interface PacketDocumentAvailability {
+  kind: PacketDocumentKind;
+  available: boolean;
+  /** How many source documents back this row, e.g. 3 lab results. */
+  count?: number;
+  /** Shown as a tooltip on the disabled checkbox. */
+  unavailableReason?: string;
+}
+
+export interface GetDocumentPacketPreviewOutput {
+  /** Empty when the request named no visit — only a single-visit packet has a document checklist. */
+  documents: PacketDocumentAvailability[];
+  /** Prefill for the first recipient, taken from the patient's PCP when one is on file. */
+  pcp?: DocumentPacketRecipient;
+  /** Drives the default state of the "Save as patient's PCP" checkbox. */
+  hasSavedPcp: boolean;
+  /** The number the packet is transmitted from, i.e. the sending organization's fax telecom. Shown to the
+   * user so they know which number the recipient will call back. Absent when none is configured. */
+  senderFaxNumber?: string;
+  documentCount?: number;
+}
+
+export const PACKET_DOCUMENT_UNAVAILABLE_REASONS: Record<PacketDocumentKind, string> = {
+  'progress-note': '',
+  'discharge-summary': 'No discharge summary for this visit',
+  'lab-results': 'No reviewed lab results for this visit',
+  'radiology-results': 'No radiology results for this visit',
+  'patient-education': 'No patient education documents for this visit',
+};
+
+/** Patient education pages are physically merged into the discharge summary PDF when one is generated, so
+ * attaching both would duplicate them. */
+export const PACKET_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON = 'Included in Discharge Summary';
+
+/** Request payload (JSON) carried on the document-packet Task, read by the subscription that does the work.
+ * The appointment is on `Task.focus` and the patient on `Task.for`; this holds the rest. */
+export interface DocumentPacketTaskPayload {
+  /** What to build the packet from; absent on tasks queued before sources existed (visit only). */
+  source?: DocumentPacketSource;
+  recipients: DocumentPacketRecipient[];
+  /** Practitioner reference of the requesting user, used as the fax sender / cover-sheet sender. */
+  senderPractitionerId: string;
+  /** User id of the requester, recorded on each delivery attempt. */
+  senderUserId: string;
+}
+
+export const DOCUMENT_PACKET_REQUEST_TASK_INPUT = {
+  system: 'https://fhir.ottehr.com/CodeSystem/fax-packet-task-input',
+  code: 'request',
+} as const;
+
+/** Per-recipient results (JSON) the subscription writes back onto the Task for the status poll. */
+export const DOCUMENT_PACKET_RESULTS_TASK_OUTPUT = {
+  system: 'https://fhir.ottehr.com/CodeSystem/fax-packet-task-output',
+  code: 'results',
+} as const;
+
+export const DOCUMENT_PACKET_FAILURE_TASK_OUTPUT = {
+  system: 'https://fhir.ottehr.com/CodeSystem/fax-packet-task-output',
+  code: 'failure-reason',
+} as const;

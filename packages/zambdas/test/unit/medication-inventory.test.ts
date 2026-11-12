@@ -430,6 +430,23 @@ describe('receive-medication-shipment - performEffect', () => {
     expect(parseInventoryStockEntry({ ...requests[0].resource, id: 'x' })?.vendor).toBe(vendor);
   });
 
+  it("keeps the receipt's vendor on the lot when the write is retried after a version conflict", async () => {
+    const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
+    oystehr.fhir.get.mockImplementation(async ({ id }: { id: string }) =>
+      id === 'lot-1' ? { ...existingLot, meta: { versionId: '4' } } : catalog
+    );
+    oystehr.fhir.transaction.mockRejectedValueOnce(Object.assign(new Error('412 Precondition Failed'), { code: 412 }));
+
+    const result = written(
+      await receivePerformEffect(oystehr, { ...receiveBody, quantity: 10, vendor: 'Henry Schein' }, performer)
+    );
+
+    const retry = oystehr.fhir.transaction.mock.calls[1][0].requests;
+    expect(retry[1].ifMatch).toBe('W/"4"');
+    expect(parseInventoryLot(retry[1].resource)?.vendor).toBe('Henry Schein');
+    expect(result.lot.vendor).toBe('Henry Schein');
+  });
+
   describe('same lot number with a different expiration date', () => {
     const newDate = { ...receiveBody, quantity: 10, expirationDate: '2028-01-01' };
 
@@ -456,35 +473,72 @@ describe('receive-medication-shipment - performEffect', () => {
       expect(result).not.toMatchObject({ lot: { id: 'lot-1' } });
     });
 
-    it('correct-existing changes the expiration, records it as a zero entry, then receives into the lot', async () => {
+    it('correct-existing changes the expiration, records it as a zero entry and receives into the lot in one transaction', async () => {
       const oystehr = makeMockOystehr({ lots: [existingLot], ledger: [entry(25)] });
       oystehr.fhir.get.mockResolvedValue(catalog);
       const result = await receivePerformEffect(
         oystehr,
-        { ...newDate, expirationConflict: 'correct-existing' },
+        { ...newDate, expirationConflict: 'correct-existing', lotId: 'lot-1' },
         performer
       );
 
-      expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(2);
-      const correction = oystehr.fhir.transaction.mock.calls[0][0].requests;
-      expect(correction.map((r: any) => r.method)).toEqual(['POST', 'PUT']);
-      expect(parseInventoryStockEntry({ ...correction[0].resource, id: 'x' })).toMatchObject({
+      expect(oystehr.fhir.transaction).toHaveBeenCalledTimes(1);
+      const requests = oystehr.fhir.transaction.mock.calls[0][0].requests;
+      expect(requests.map((r: any) => r.method)).toEqual(['POST', 'POST', 'PUT']);
+      expect(parseInventoryStockEntry({ ...requests[0].resource, id: 'x' })).toMatchObject({
         type: 'adjustment',
         reason: 'expiration-corrected',
         quantity: 0,
         note: 'Expiration changed from 03/31/2027 to 01/01/2028',
         performerReference: performer,
       });
-      expect(correction[1].ifMatch).toBe('W/"3"');
-      expect(correction[1].resource.batch).toEqual({ lotNumber: 'A123', expirationDate: '2028-01-01' });
-
-      const receipt = oystehr.fhir.transaction.mock.calls[1][0].requests;
-      expect(receipt.map((r: any) => r.method)).toEqual(['POST', 'PUT']);
-      expect(receipt[0].resource.subject).toEqual({ reference: 'Medication/lot-1' });
+      expect(parseInventoryStockEntry({ ...requests[1].resource, id: 'y' })).toMatchObject({
+        type: 'received',
+        quantity: 10,
+        lotId: 'lot-1',
+      });
+      expect(requests[2].ifMatch).toBe('W/"3"');
+      expect(requests[2].resource.batch).toEqual({ lotNumber: 'A123', expirationDate: '2028-01-01' });
       expect(result).toMatchObject({
         lot: { id: 'lot-1', expirationDate: '2028-01-01', onHand: 35 },
         entry: { type: 'received', quantity: 10 },
       });
+    });
+
+    it('correct-existing corrects the lot the confirmation showed, even when another lot with that number now comes first', async () => {
+      const lots = [existingLot];
+      const oystehr = makeMockOystehr({ lots, ledger: [entry(25)] });
+      oystehr.fhir.get.mockResolvedValue(catalog);
+      const shown = await receivePerformEffect(oystehr, newDate, performer);
+      if (!('expirationConflict' in shown)) throw new Error('expected the expiration conflict');
+
+      lots.unshift({ ...existingLot, id: 'lot-0', batch: { lotNumber: 'A123', expirationDate: '2027-09-30' } });
+      const confirmed = {
+        ...newDate,
+        expirationConflict: 'correct-existing' as const,
+        lotId: shown.expirationConflict.lotId,
+      };
+      await receivePerformEffect(oystehr, confirmed, performer);
+
+      const lotWrite = oystehr.fhir.transaction.mock.calls[0][0].requests.find((r: any) => r.method === 'PUT');
+      expect(lotWrite.url).toBe('/Medication/lot-1');
+      expect(lotWrite.resource.batch).toEqual({ lotNumber: 'A123', expirationDate: '2028-01-01' });
+    });
+
+    it.each([
+      ['the confirmed lot is not one of the lots with that number', [existingLot], 'lot-gone'],
+      [
+        'another lot with that number now has the entered expiration',
+        [existingLot, { ...existingLot, id: 'lot-2', batch: { lotNumber: 'A123', expirationDate: '2028-01-01' } }],
+        'lot-1',
+      ],
+    ])('correct-existing writes nothing when %s', async (_label, lots, lotId) => {
+      const oystehr = makeMockOystehr({ lots, ledger: [entry(25)] });
+      oystehr.fhir.get.mockResolvedValue(catalog);
+      await expect(
+        receivePerformEffect(oystehr, { ...newDate, expirationConflict: 'correct-existing', lotId }, performer)
+      ).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+      expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
     });
 
     it('adds to the lot with the matching expiration when the location holds the number under two dates', async () => {

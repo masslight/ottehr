@@ -2,8 +2,11 @@ import Oystehr from '@oystehr/sdk';
 import { Medication } from 'fhir/r4b';
 import {
   getMedicationInventoryConfig,
+  INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM,
+  makeInventoryLot,
   makeMedicationInventoryExtension,
   MEDICATION_INVENTORY_EXTENSION_URL,
+  withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_HL7_HCPCS, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { InHouseMedicationInventory } from 'utils/lib/types/api/config/in-house-medications';
@@ -14,6 +17,7 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect as createPerformEffect } from '../../src/ehr/configuration/in-house-medications/create-in-house-medication/index';
 import { validateRequestParameters as createValidate } from '../../src/ehr/configuration/in-house-medications/create-in-house-medication/validateRequestParameters';
@@ -363,11 +367,18 @@ describe('update-in-house-medication - inventory validation', () => {
   });
 });
 
+const lotSearchBundle = (lots: Medication[]): unknown => ({
+  entry: lots.map((resource) => ({ resource, search: { mode: 'match' } })),
+  total: lots.length,
+  unbundle: () => lots,
+});
+
 describe('update-in-house-medication - inventory persistence', () => {
   const makeMockOystehr = (existing: Medication): Oystehr => {
     const mockGet = vi.fn().mockResolvedValue(existing);
     const mockPatch = vi.fn().mockResolvedValue(existing);
-    return { fhir: { get: mockGet, patch: mockPatch } } as unknown as Oystehr;
+    const mockSearch = vi.fn().mockResolvedValue(lotSearchBundle([]));
+    return { fhir: { get: mockGet, patch: mockPatch, search: mockSearch } } as unknown as Oystehr;
   };
   const otherExtension = { url: 'https://example.com/other', valueString: 'keep me' };
   const trackedMedication: Medication = {
@@ -437,5 +448,113 @@ describe('update-in-house-medication - inventory persistence', () => {
     const neverTracked = makeMockOystehr(existingMedication);
     await updatePerformEffect(neverTracked, { medicationID: 'med-123', inventory: null });
     expect(neverTracked.fhir.patch).not.toHaveBeenCalled();
+  });
+});
+
+describe('update-in-house-medication - Counting Unit after inventory has been recorded', () => {
+  const trackedCatalog = {
+    ...existingMedication,
+    extension: [makeMedicationInventoryExtension(inventory)],
+  } as Medication & { id: string };
+  const lotAt = (locationId: string, onHand: number): Medication => ({
+    ...withLotOnHand(
+      makeInventoryLot(trackedCatalog, {
+        locationId,
+        lotNumber: 'A123',
+        expirationDate: '2027-03-31',
+        ndc: '12345-678-90',
+        unit: 'vial',
+      }),
+      onHand
+    ),
+    id: `lot-${locationId}`,
+  });
+  const makeMockOystehr = (catalog: Medication, lots: Medication[]): Oystehr =>
+    ({
+      fhir: {
+        get: vi.fn().mockResolvedValue(catalog),
+        patch: vi.fn().mockResolvedValue(catalog),
+        search: vi.fn().mockResolvedValue(lotSearchBundle(lots)),
+      },
+    }) as unknown as Oystehr;
+  const asTablets: InHouseMedicationInventory = { ...inventory, countedAs: 'tablet' };
+  const rejected = { code: APIErrorCode.INVALID_INPUT };
+
+  it('changes the unit when no inventory has been recorded', async () => {
+    const oystehr = makeMockOystehr(trackedCatalog, []);
+    await updatePerformEffect(oystehr, { medicationID: 'med-123', inventory: asTablets });
+
+    const { operations } = vi.mocked(oystehr.fhir.patch).mock.calls[0][0] as any;
+    expect(operations).toEqual([
+      { op: 'replace', path: '/extension', value: [makeMedicationInventoryExtension(asTablets)] },
+    ]);
+  });
+
+  it('rejects a unit change once a receipt has been recorded', async () => {
+    const oystehr = makeMockOystehr(trackedCatalog, [lotAt('loc-main', 10)]);
+    await expect(updatePerformEffect(oystehr, { medicationID: 'med-123', inventory: asTablets })).rejects.toMatchObject(
+      rejected
+    );
+    expect(oystehr.fhir.patch).not.toHaveBeenCalled();
+  });
+
+  it('rejects a unit change after the stock has been used up', async () => {
+    const oystehr = makeMockOystehr(trackedCatalog, [lotAt('loc-main', 0)]);
+    await expect(updatePerformEffect(oystehr, { medicationID: 'med-123', inventory: asTablets })).rejects.toMatchObject(
+      rejected
+    );
+    expect(oystehr.fhir.patch).not.toHaveBeenCalled();
+  });
+
+  it('counts inventory recorded at any location', async () => {
+    const oystehr = makeMockOystehr(trackedCatalog, [lotAt('loc-north', 10)]);
+    await expect(updatePerformEffect(oystehr, { medicationID: 'med-123', inventory: asTablets })).rejects.toMatchObject(
+      rejected
+    );
+
+    const { params } = vi.mocked(oystehr.fhir.search).mock.calls[0][0] as any;
+    expect(params).toContainEqual({ name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|med-123` });
+    expect(params.some((param: { name: string }) => param.name === '_tag')).toBe(false);
+  });
+
+  it('saves the same unit with inventory recorded, without searching for it', async () => {
+    const oystehr = makeMockOystehr(trackedCatalog, [lotAt('loc-main', 10)]);
+    const sameUnit: InHouseMedicationInventory = { ...inventory, use: 'multi-use', reorderLevels: [] };
+    await updatePerformEffect(oystehr, { medicationID: 'med-123', inventory: sameUnit });
+
+    expect(oystehr.fhir.patch).toHaveBeenCalledOnce();
+    expect(oystehr.fhir.search).not.toHaveBeenCalled();
+  });
+
+  it('edits other medication fields with inventory recorded', async () => {
+    const oystehr = makeMockOystehr(trackedCatalog, [lotAt('loc-main', 10)]);
+    await updatePerformEffect(oystehr, {
+      medicationID: 'med-123',
+      name: 'Ibuprofen 400mg',
+      ndc: 'new-ndc',
+      inventory,
+    });
+
+    expect(oystehr.fhir.patch).toHaveBeenCalledOnce();
+    expect(oystehr.fhir.search).not.toHaveBeenCalled();
+  });
+
+  it('rejects changing a configured unit to match its lots when the two already differ', async () => {
+    const tabletCatalog = { ...existingMedication, extension: [makeMedicationInventoryExtension(asTablets)] };
+    const oystehr = makeMockOystehr(tabletCatalog, [lotAt('loc-main', 10)]);
+    await expect(updatePerformEffect(oystehr, { medicationID: 'med-123', inventory })).rejects.toMatchObject(rejected);
+    expect(oystehr.fhir.patch).not.toHaveBeenCalled();
+  });
+
+  it('after tracking was turned off, accepts only the unit the inventory was recorded in', async () => {
+    const differentUnit = makeMockOystehr(existingMedication, [lotAt('loc-main', 10)]);
+    await expect(
+      updatePerformEffect(differentUnit, { medicationID: 'med-123', inventory: asTablets })
+    ).rejects.toMatchObject(rejected);
+    expect(differentUnit.fhir.patch).not.toHaveBeenCalled();
+
+    const recordedUnit = makeMockOystehr(existingMedication, [lotAt('loc-main', 10)]);
+    await updatePerformEffect(recordedUnit, { medicationID: 'med-123', inventory });
+    expect(recordedUnit.fhir.patch).toHaveBeenCalledOnce();
   });
 });

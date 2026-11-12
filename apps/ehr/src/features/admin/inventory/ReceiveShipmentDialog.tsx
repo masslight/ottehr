@@ -143,6 +143,7 @@ export default function ReceiveShipmentDialog({
         vendor: form.vendor.trim() || undefined,
         ...(isVaccine ? { fundingSource: form.fundingSource } : {}),
         expirationConflict,
+        lotId: expirationConflict === 'correct-existing' ? conflict?.lotId : undefined,
       });
       if ('expirationConflict' in result) {
         setConflict(result.expirationConflict);
@@ -381,6 +382,7 @@ export default function ReceiveShipmentDialog({
               type="submit"
               variant="contained"
               loading={saving}
+              disabled={lookup.status === 'loading'}
               sx={inventoryButtonSx}
               data-testid={dataTestIds.receiveShipmentDialog.receiveButton}
             >

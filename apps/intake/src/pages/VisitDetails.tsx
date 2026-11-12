@@ -1,13 +1,19 @@
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import DownloadIcon from '@mui/icons-material/Download';
-import { Box, Button, CircularProgress, Divider, Link, Stack, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Collapse, Divider, Link, Stack, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
+import { useState } from 'react';
 import { generatePath, useNavigate, useParams } from 'react-router-dom';
 import { useGetVisitDetails } from 'src/telemed/features/appointments/appointment.queries';
 import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
 import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import { VisitFiles, VisitFileType, visitFileTypes } from 'src/types/types';
 import { FileURLs } from 'utils/lib/types/common';
-import { GetVisitDetailsResponse } from 'utils/lib/types/data/telemed/appointments/appointments.types';
+import {
+  GetVisitDetailsResponse,
+  ReviewedRadiologyResult,
+} from 'utils/lib/types/data/telemed/appointments/appointments.types';
 import { intakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
@@ -38,6 +44,48 @@ const FILE_SECTIONS: {
   { key: visitFileTypes.receipt, label: 'Receipt' },
   { key: visitFileTypes.statement, label: 'Statement' },
 ];
+
+const RadiologyResultItem = ({
+  result,
+  openExternalLink,
+}: {
+  result: ReviewedRadiologyResult;
+  openExternalLink: (link: string) => void;
+}): JSX.Element => {
+  const [showReport, setShowReport] = useState(false);
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', rowGap: 0.5 }}>
+      <Typography>{result.studyType}</Typography>
+      {!!result.report && (
+        <>
+          <Button
+            variant="text"
+            aria-expanded={showReport}
+            endIcon={showReport ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
+            onClick={() => setShowReport((shown) => !shown)}
+            sx={{ p: 0, minWidth: 0, color: 'primary.light' }}
+          >
+            {showReport ? 'Hide final report' : 'Show final report'}
+          </Button>
+          <Collapse in={showReport} unmountOnExit>
+            {!!result.performedBy && <Typography variant="body2">{`Performed by: ${result.performedBy}`}</Typography>}
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+              {`Final Read: ${result.report}`}
+            </Typography>
+          </Collapse>
+        </>
+      )}
+      {result.files.map((file, fileIdx) => (
+        <Box key={fileIdx}>
+          <Link sx={{ cursor: 'pointer' }} onClick={() => openExternalLink(file.presignedUrl || '')}>
+            {file.description}
+          </Link>
+        </Box>
+      ))}
+    </Box>
+  );
+};
 
 const VisitDetailsContent = ({
   data,
@@ -124,26 +172,12 @@ const VisitDetailsContent = ({
       )}
 
       {!!data?.reviewedRadiologyResults?.length && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', rowGap: 2 }}>
           <Typography variant="subtitle1" color="primary.dark">
             Radiology
           </Typography>
           {data.reviewedRadiologyResults.map((radiologyResult, idx) => (
-            <Box key={idx}>
-              <Typography>{radiologyResult.studyType}</Typography>
-              {!!radiologyResult.report && (
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                  {radiologyResult.report}
-                </Typography>
-              )}
-              {radiologyResult.files.map((file, fileIdx) => (
-                <Box key={fileIdx}>
-                  <Link sx={{ cursor: 'pointer' }} onClick={() => openExternalLink(file.presignedUrl || '')}>
-                    {file.description}
-                  </Link>
-                </Box>
-              ))}
-            </Box>
+            <RadiologyResultItem key={idx} result={radiologyResult} openExternalLink={openExternalLink} />
           ))}
         </Box>
       )}

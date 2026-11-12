@@ -97,6 +97,7 @@ import {
   patientFieldPaths,
   PatientMasterRecordResource,
   relatedPersonFieldPaths,
+  RELATIONSHIP_OPTIONS,
 } from 'utils/lib/fhir/patientMasterRecord';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
@@ -204,6 +205,7 @@ interface ResponsiblePartyContact {
   firstName: string;
   lastName: string;
   relationship: 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
+  otherRelationship?: string;
   address: Address;
   email: string;
   number?: string;
@@ -233,6 +235,7 @@ interface PolicyHolder {
   lastName: string;
   memberId: string;
   relationship: SubscriberRelationship;
+  otherRelationship?: string;
 
   number?: string;
   email?: string;
@@ -1982,6 +1985,7 @@ const extractPolicyHolder = (
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueBoolean;
 
   const suffix = keySuffix ? `${keySuffix}` : '';
+  const relationship = findAnswer(`patient-relationship-to-insured${suffix}`) as SubscriberRelationship;
   const contact: any = {
     birthSex: findAnswer(`policy-holder-birth-sex${suffix}`) as 'Male' | 'Female' | 'Intersex',
     dob: findAnswer(`policy-holder-date-of-birth${suffix}`) ?? '',
@@ -1991,7 +1995,11 @@ const extractPolicyHolder = (
     number: findAnswer(`policy-holder-number${suffix}`),
     email: findAnswer(`policy-holder-email${suffix}`),
     memberId: findAnswer(`insurance-member-id${suffix}`) ?? '',
-    relationship: findAnswer(`patient-relationship-to-insured${suffix}`) as SubscriberRelationship,
+    relationship,
+    otherRelationship:
+      relationship === RELATIONSHIP_OPTIONS.Other
+        ? findAnswer(`patient-relationship-to-insured-other${suffix}`)
+        : undefined,
   };
 
   const sameAsPatient = findBooleanAnswer(`policy-holder-address-as-patient${suffix}`) === true;
@@ -2060,17 +2068,15 @@ export function extractAccountGuarantor(
     };
   }
 
+  const relationship = findAnswer('responsible-party-relationship') as ResponsiblePartyContact['relationship'];
   const contact: ResponsiblePartyContact = {
     birthSex: findAnswer('responsible-party-birth-sex') as 'Male' | 'Female' | 'Intersex',
     dob: findAnswer('responsible-party-date-of-birth') ?? '',
     firstName: findAnswer('responsible-party-first-name') ?? '',
     lastName: findAnswer('responsible-party-last-name') ?? '',
-    relationship: findAnswer('responsible-party-relationship') as
-      | 'Self'
-      | 'Spouse'
-      | 'Parent'
-      | 'Legal Guardian'
-      | 'Other',
+    relationship,
+    otherRelationship:
+      relationship === RELATIONSHIP_OPTIONS.Other ? findAnswer('responsible-party-relationship-other') : undefined,
     address: guarantorAddress,
     email: findAnswer('responsible-party-email') ?? '',
     number: findAnswer('responsible-party-number'),
@@ -2630,7 +2636,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
     type: typeCode !== undefined ? { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: typeCode }] } : undefined,
     payor: [{ reference: payorReference }],
     subscriberId: policyHolder.memberId,
-    relationship: getSubscriberRelationshipCodeableConcept(policyHolder.relationship),
+    relationship: getSubscriberRelationshipCodeableConcept(policyHolder.relationship, policyHolder.otherRelationship),
     class: [
       {
         type: {
@@ -2932,13 +2938,20 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     });
     accountPost = newAccount;
   } else {
-    const { guarantors, contained } = resolveGuarantor({
+    const { guarantors, contained, guarantorPatch } = resolveGuarantor({
       patientId: patient.id!,
       guarantorFromQuestionnaire: guarantorData,
       existingGuarantorResource: existingGuarantorResource ?? patient,
       existingGuarantorReferences: existingAccount.guarantor ?? [],
       existingContained: existingAccount.contained ?? [],
     });
+    if (guarantorPatch) {
+      patch.push({
+        method: 'PATCH',
+        url: `RelatedPerson/${guarantorPatch.relatedPersonId}`,
+        operations: guarantorPatch.operations,
+      });
+    }
 
     const updatedAccount: Account = {
       ...existingAccount,
@@ -3340,6 +3353,16 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
     relatedPersonUpdates[key] = [...existing, ...updates];
   };
 
+  // A matching standalone subscriber is patched in place and the rest of its Coverage is left alone (patching it from
+  // the form would repoint the subscriber to a contained one), but Coverage.relationship, which also holds the "Other"
+  // relationship text, still has to follow the form.
+  const addCoverageRelationshipUpdate = (source: Coverage, target: Coverage | undefined): void => {
+    if (!target?.id || !source.relationship || _.isEqual(source.relationship, target.relationship)) return;
+    addCoverageUpdates(target.id, [
+      { op: target.relationship ? 'replace' : 'add', path: '/relationship', value: source.relationship },
+    ]);
+  };
+
   const primaryCoverageFromPaperwork = newCoverages.primary;
   let secondaryCoverageFromPaperwork = newCoverages.secondary;
 
@@ -3391,6 +3414,7 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
           target: existingPrimarySubscriber,
         });
         addRelatedPersonUpdates(existingPrimarySubscriber.id, ops);
+        addCoverageRelationshipUpdate(primaryCoverageFromPaperwork, existingPrimaryCoverage);
       } else if (existingPrimaryCoverage?.id) {
         const ops = patchOpsForCoverage({
           source: primaryCoverageFromPaperwork,
@@ -3416,6 +3440,7 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
           target: existingSecondarySubscriber,
         });
         addRelatedPersonUpdates(existingSecondarySubscriber.id, ops);
+        addCoverageRelationshipUpdate(primaryCoverageFromPaperwork, existingSecondaryCoverage);
       } else if (existingSecondaryCoverage?.id) {
         const ops = patchOpsForCoverage({
           source: primaryCoverageFromPaperwork,
@@ -3473,6 +3498,7 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
           target: existingSecondarySubscriber,
         });
         addRelatedPersonUpdates(existingSecondarySubscriber.id, ops);
+        addCoverageRelationshipUpdate(secondaryCoverageFromPaperwork, existingSecondaryCoverage);
       } else if (existingSecondaryCoverage?.id) {
         const ops = patchOpsForCoverage({
           source: secondaryCoverageFromPaperwork,
@@ -3498,6 +3524,7 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
           target: existingPrimarySubscriber,
         });
         addRelatedPersonUpdates(existingPrimarySubscriber.id, ops);
+        addCoverageRelationshipUpdate(secondaryCoverageFromPaperwork, existingPrimaryCoverage);
       } else if (existingPrimaryCoverage?.id) {
         const ops = patchOpsForCoverage({
           source: secondaryCoverageFromPaperwork,
@@ -3624,6 +3651,8 @@ interface ResolveGuarantorInput {
 interface ResolveGuarantorOutput {
   guarantors: AccountGuarantor[];
   contained: FhirResource[] | undefined;
+  // patch for the current guarantor when it's a standalone RelatedPerson that stays the guarantor
+  guarantorPatch?: { relatedPersonId: string; operations: Operation[] };
 }
 // exporting for testing purposes
 export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantorOutput => {
@@ -3667,10 +3696,20 @@ export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantor
   const rpFromGuarantorData = createContainedGuarantor(guarantorFromQuestionnaire, patientId);
   if (existingResourceType === 'RelatedPerson') {
     if (existingResourceIsPersisted && relatedPersonsAreSame(existingGuarantorResource!, rpFromGuarantorData)) {
-      // we won't bother with trying to update the existing RelatedPerson resource
+      // we won't bother with trying to update the rest of the existing RelatedPerson resource, but its relationship
+      // (read back from relationship[0], including any "Other" relationship text) follows the form
+      const existingRelationship = (existingGuarantorResource as RelatedPerson).relationship;
+      const newRelationship = rpFromGuarantorData.relationship?.[0];
+      let operations: Operation[] = [];
+      if (!existingRelationship?.length) {
+        operations = [{ op: 'add', path: '/relationship', value: rpFromGuarantorData.relationship }];
+      } else if (newRelationship && !_.isEqual(existingRelationship[0], newRelationship)) {
+        operations = [{ op: 'replace', path: '/relationship/0', value: newRelationship }];
+      }
       return {
         guarantors: existingGuarantorReferences,
         contained: existingContained,
+        guarantorPatch: operations.length ? { relatedPersonId: existingGuarantorResource!.id!, operations } : undefined,
       };
     } else if (relatedPersonsAreSame(existingGuarantorResource!, rpFromGuarantorData)) {
       const contained = existingContained?.map((c) => {
@@ -3933,6 +3972,7 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
             display: guarantor.relationship,
           },
         ],
+        ...(guarantor.otherRelationship ? { text: guarantor.otherRelationship } : {}),
       },
     ],
   };

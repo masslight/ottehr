@@ -898,14 +898,8 @@ export class PagedQuestionnaireFlowHelper {
     // Track current form values for enableWhen evaluation
     const currentValues: Record<string, QuestionnaireResponseItem> = {};
 
-    // Fill trigger fields first and track their values
-    for (const [linkId, value] of triggerFields) {
-      await this.fillFieldWithSpecialHandling(linkId, value);
-      currentValues[linkId] = this.buildResponseItem(linkId, value);
-    }
-
-    // Fill dependent fields if they're still enabled
-    for (const [linkId, value] of dependentFields) {
+    // Fill enabled triggers before their dependent fields; triggers can themselves be conditional.
+    for (const [linkId, value] of [...triggerFields, ...dependentFields]) {
       // Check if field is enabled based on current trigger values
       if (!this.isFieldEnabled(linkId, currentValues)) {
         // The enableWhen may hinge on a value the app filled itself (e.g. the hidden

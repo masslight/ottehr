@@ -2,6 +2,7 @@ import type { PatientRecordConfig, PatientRecordFormFields } from 'config-types/
 import type { FormFieldTrigger, QuestionnaireBase } from 'config-types/config/questionnaire';
 import { Questionnaire } from 'fhir/r4b';
 import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
+import { RELATIONSHIP_OPTIONS } from '../../fhir/patientMasterRecord';
 import { VALUE_SETS as formValueSets } from '../value-sets';
 
 const insurancePlanTypeOptions = formValueSets.insuranceTypeOptions.map((option) => ({
@@ -393,6 +394,21 @@ const FormFields: PatientRecordFormFields = {
           label: "Patient's relationship to insured",
           options: formValueSets.relationshipToInsuredOptions,
         },
+        otherRelationship: {
+          key: 'patient-relationship-to-insured-other',
+          type: 'string',
+          label: 'Other relationship',
+          placeholder: 'Please specify',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-relationship-to-insured',
+              effect: ['enable'],
+              operator: '=',
+              answerString: RELATIONSHIP_OPTIONS.Other,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
         additionalInformation: {
           key: 'insurance-additional-information',
           type: 'string',
@@ -526,6 +542,21 @@ const FormFields: PatientRecordFormFields = {
           label: "Patient's relationship to insured",
           options: formValueSets.relationshipToInsuredOptions,
         },
+        otherRelationship: {
+          key: 'patient-relationship-to-insured-other-2',
+          type: 'string',
+          label: 'Other relationship',
+          placeholder: 'Please specify',
+          triggers: [
+            {
+              targetQuestionLinkId: 'patient-relationship-to-insured-2',
+              effect: ['enable'],
+              operator: '=',
+              answerString: RELATIONSHIP_OPTIONS.Other,
+            },
+          ],
+          disabledDisplay: 'hidden',
+        },
         additionalInformation: {
           key: 'insurance-additional-information-2',
           type: 'string',
@@ -627,6 +658,21 @@ const FormFields: PatientRecordFormFields = {
         type: 'choice',
         label: 'Relationship to the patient',
         options: formValueSets.relationshipOptions,
+      },
+      otherRelationship: {
+        key: 'responsible-party-relationship-other',
+        type: 'string',
+        label: 'Other relationship',
+        placeholder: 'Please specify',
+        triggers: [
+          {
+            targetQuestionLinkId: 'responsible-party-relationship',
+            effect: ['enable'],
+            operator: '=',
+            answerString: RELATIONSHIP_OPTIONS.Other,
+          },
+        ],
+        disabledDisplay: 'hidden',
       },
       firstName: {
         key: 'responsible-party-first-name',

@@ -201,6 +201,7 @@ export const ReceiveMedicationShipmentInputSchema = z.object({
    * it the zambda writes nothing and answers with `expirationConflict` so staff can choose.
    */
   expirationConflict: z.enum(['separate-lot', 'correct-existing']).optional(),
+  lotId: z.string().uuid().optional(),
 });
 export type ReceiveMedicationShipmentInput = z.infer<typeof ReceiveMedicationShipmentInputSchema>;
 

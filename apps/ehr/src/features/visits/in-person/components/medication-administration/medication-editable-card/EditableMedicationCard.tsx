@@ -290,8 +290,9 @@ export const EditableMedicationCard: React.FC<{
     ]
   );
 
+  const catalogLoaded = selectsOptions.medicationId.inventoryTrackedIds !== undefined;
   const commandPaletteItems = useMemo(() => {
-    if (typeFromProps !== 'order-new' || isReadOnly) {
+    if (typeFromProps !== 'order-new' || isReadOnly || !catalogLoaded) {
       return [];
     }
 
@@ -301,7 +302,7 @@ export const EditableMedicationCard: React.FC<{
       category: 'Add Medication',
       onSelect: () => handleFhirQuickPickSelect(quickPick),
     }));
-  }, [fhirQuickPicks, handleFhirQuickPickSelect, isReadOnly, typeFromProps]);
+  }, [fhirQuickPicks, handleFhirQuickPickSelect, isReadOnly, typeFromProps, catalogLoaded]);
   useCommandPaletteSource('in-house-medication-quick-picks', commandPaletteItems);
 
   const handlePendingInHouseMedication = useCallback(
@@ -314,7 +315,7 @@ export const EditableMedicationCard: React.FC<{
     },
     [handleFhirQuickPickSelect, isReadOnly]
   );
-  usePendingQuickPick('in-house-medications', handlePendingInHouseMedication);
+  usePendingQuickPick('in-house-medications', handlePendingInHouseMedication, catalogLoaded);
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;
@@ -605,12 +606,14 @@ export const EditableMedicationCard: React.FC<{
   }, []);
 
   // Lot suggestions (requirement 3): the order's catalog drug at the visit's location. An existing order's
-  // medicationId is the contained-copy sentinel, so the catalog drug is found by name, as quick picks do.
+  // medicationId is the contained-copy sentinel, so the catalog drug is the one the copy records, or found by name
+  // for orders saved before the copy recorded it, as quick picks do.
   const medicationIdValue = getFieldValue('medicationId');
   const catalogMedicationId =
     medicationIdValue && medicationIdValue !== IN_HOUSE_CONTAINED_MEDICATION_ID
       ? medicationIdValue
-      : selectsOptions.medicationId.options.find((option) => option.label === medication?.medicationName)?.value;
+      : medication?.catalogMedicationId ??
+        selectsOptions.medicationId.options.find((option) => option.label === medication?.medicationName)?.value;
   const { data: inventoryLots } = useInventoryLotsOnHand({
     catalogMedicationId,
     locationId: resources.location?.id,
@@ -625,7 +628,7 @@ export const EditableMedicationCard: React.FC<{
         lotNumber: lot.lotNumber,
         expDate: lot.expirationDate ? DateTime.fromISO(lot.expirationDate).toISO() ?? undefined : undefined,
         ndc: lot.ndc,
-        manufacturer: lot.manufacturer,
+        manufacturer: lot.manufacturer ?? '',
       }));
     },
     [setLocalValues]
@@ -831,8 +834,8 @@ export const EditableMedicationCard: React.FC<{
         onQuickPickSelect={
           typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleQuickPickSelect : undefined
         }
-        fhirQuickPicks={fhirQuickPicks}
-        fhirQuickPicksLoading={fhirQuickPicksLoading}
+        fhirQuickPicks={catalogLoaded ? fhirQuickPicks : []}
+        fhirQuickPicksLoading={fhirQuickPicksLoading || selectsOptions.medicationId.status === 'loading'}
         onFhirQuickPickSelect={handleFhirQuickPickSelect}
         showQuickPickAddOption
         isAdmin={isAdmin}

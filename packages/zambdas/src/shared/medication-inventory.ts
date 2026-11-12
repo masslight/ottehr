@@ -127,38 +127,49 @@ export async function getInventoryLotHistoryResources(oystehr: Oystehr, lotId: s
 export type StockEntryWrite = Omit<InventoryStockEntryInput, 'lotReference'>;
 
 /**
- * Appends one entry to a lot's ledger and refreshes the lot's on-hand cache in a single transaction.
+ * Appends entries to a lot's ledger and refreshes the lot's on-hand cache in a single transaction.
  *
  * `lot` is either an existing lot (has an id; its current version guards the write with If-Match and the
  * write retries from a fresh read on a 412, at most 3 attempts) or a lot built with `makeInventoryLot` that
  * does not exist yet (created in the same bundle; the entry references it by transaction-local urn).
- * On hand is recomputed from every entry of the lot plus this one, never incremented. `reviseLot` changes
+ * On hand is recomputed from every entry of the lot plus these, never incremented. `reviseLot` changes
  * other lot fields (e.g. `batch.expirationDate`) in the same write; it is applied to whichever version of
  * the lot is written, so a retry from a fresh read keeps the change.
  */
 export async function writeInventoryStockEntry(
   oystehr: Oystehr,
   lot: Medication,
-  entry: StockEntryWrite,
+  entry:
+    | StockEntryWrite
+    | StockEntryWrite[]
+    | ((onHand: number, lotEntries: Observation[]) => StockEntryWrite | undefined),
   reviseLot: (lot: Medication) => Medication = (lot) => lot
-): Promise<{ lot: Medication; entry: Observation }> {
+): Promise<{ lot: Medication; entry: Observation | undefined }> {
+  const entriesAt = (onHand: number, lotEntries: Observation[]): StockEntryWrite[] =>
+    typeof entry === 'function' ? [entry(onHand, lotEntries) ?? []].flat() : Array.isArray(entry) ? entry : [entry];
   if (!lot.id) {
+    const entries = entriesAt(0, []);
+    const quantity = entries.reduce((total, written) => total + written.quantity, 0);
     const lotUrn = `urn:uuid:${randomUUID()}`;
     const createLot: BatchInputPostRequest<Medication> = {
       method: 'POST',
       url: '/Medication',
       fullUrl: lotUrn,
-      resource: withLotOnHand(lot, entry.quantity),
+      resource: withLotOnHand(lot, quantity),
     };
-    const createEntry: BatchInputPostRequest<Observation> = {
-      method: 'POST',
-      url: '/Observation',
-      resource: makeInventoryStockEntry({ ...entry, lotReference: lotUrn }),
-    };
-    const result = await oystehr.fhir.transaction<Medication | Observation>({ requests: [createLot, createEntry] });
+    const createEntries = entries.map(
+      (written): BatchInputPostRequest<Observation> => ({
+        method: 'POST',
+        url: '/Observation',
+        resource: makeInventoryStockEntry({ ...written, lotReference: lotUrn }),
+      })
+    );
+    const result = await oystehr.fhir.transaction<Medication | Observation>({
+      requests: [createLot, ...createEntries],
+    });
     return {
       lot: result.entry?.[0]?.resource as Medication,
-      entry: result.entry?.[1]?.resource as Observation,
+      entry: result.entry?.[entries.length]?.resource as Observation,
     };
   }
 
@@ -170,22 +181,29 @@ export async function writeInventoryStockEntry(
         current = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: lotId });
       }
       const existingEntries = await getInventoryLotEntries(oystehr, lotId);
-      const onHand = sumStockEntries(existingEntries) + entry.quantity;
-      const createEntry: BatchInputPostRequest<Observation> = {
-        method: 'POST',
-        url: '/Observation',
-        resource: makeInventoryStockEntry({ ...entry, lotReference: `Medication/${lotId}` }),
-      };
+      const balance = sumStockEntries(existingEntries);
+      const entries = entriesAt(balance, existingEntries);
+      if (entries.length === 0) return { lot: current, entry: undefined };
+      const onHand = balance + entries.reduce((total, written) => total + written.quantity, 0);
+      const createEntries = entries.map(
+        (written): BatchInputPostRequest<Observation> => ({
+          method: 'POST',
+          url: '/Observation',
+          resource: makeInventoryStockEntry({ ...written, lotReference: `Medication/${lotId}` }),
+        })
+      );
       const updateLot: BatchInputPutRequest<Medication> = {
         method: 'PUT',
         url: `/Medication/${lotId}`,
         resource: withLotOnHand(reviseLot(current), onHand),
         ifMatch: makeOptimisticLockIfMatchHeader(current),
       };
-      const result = await oystehr.fhir.transaction<Medication | Observation>({ requests: [createEntry, updateLot] });
+      const result = await oystehr.fhir.transaction<Medication | Observation>({
+        requests: [...createEntries, updateLot],
+      });
       return {
-        entry: result.entry?.[0]?.resource as Observation,
-        lot: result.entry?.[1]?.resource as Medication,
+        entry: result.entry?.[entries.length - 1]?.resource as Observation,
+        lot: result.entry?.[entries.length]?.resource as Medication,
       };
     },
     {
@@ -247,7 +265,8 @@ async function findOrderCatalogMedication(
  */
 export async function findAdministrationInventoryLot(
   oystehr: Oystehr,
-  medicationAdministration: MedicationAdministration
+  medicationAdministration: MedicationAdministration,
+  heldLotIds: string[] = []
 ): Promise<{ lot: Medication & { id: string }; inventory: InHouseMedicationInventory } | undefined> {
   const contained = getMedicationFromMA(medicationAdministration);
   const lotNumber = contained?.batch?.lotNumber?.trim();
@@ -273,7 +292,8 @@ export async function findAdministrationInventoryLot(
   const lot =
     sameNumber.length === 1
       ? sameNumber[0]
-      : sameNumber.find((candidate) => candidate.batch?.expirationDate === expirationDate);
+      : sameNumber.find((candidate) => candidate.id && heldLotIds.includes(candidate.id)) ??
+        sameNumber.find((candidate) => candidate.batch?.expirationDate === expirationDate);
   return lot?.id ? { lot: { ...lot, id: lot.id }, inventory } : undefined;
 }
 
@@ -281,22 +301,45 @@ export async function findAdministrationInventoryLot(
  * What an administration should have off the shelf right now: the lot of its drug at the visit's location
  * with the lot number on the order, and what the dose takes from it. Undefined when nothing should be off:
  * the order isn't administered, the drug isn't tracked, the lot was typed (not in inventory), or the drug
- * is multi-use.
+ * is multi-use. `heldLotIds`: the lots the dose already holds, which win when two lots share its number.
  */
 async function resolveAdministrationStockTarget(
   oystehr: Oystehr,
-  medicationAdministration: MedicationAdministration
+  medicationAdministration: MedicationAdministration,
+  heldLotIds: string[]
 ): Promise<(AdministrationStockTarget & { lot: Medication }) | undefined> {
   const status = mapFhirToOrderStatus(medicationAdministration);
   if (status !== 'administered' && status !== 'administered-partly') return undefined;
   const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
   if (dose === undefined || !units) return undefined;
 
-  const found = await findAdministrationInventoryLot(oystehr, medicationAdministration);
+  const found = await findAdministrationInventoryLot(oystehr, medicationAdministration, heldLotIds);
   const taken = found ? stockTakenForDose(found.inventory, dose, units) : undefined;
   if (!found || !taken) return undefined;
   return { lotId: found.lot.id, lot: found.lot, ...taken };
 }
+
+const administrationLotKey = (medicationAdministration: MedicationAdministration): string => {
+  const contained = getMedicationFromMA(medicationAdministration);
+  return JSON.stringify([
+    getOrderCatalogMedicationId(contained),
+    getMedicationName(contained),
+    contained?.batch?.lotNumber?.trim(),
+    contained?.batch?.expirationDate?.slice(0, 10),
+  ]);
+};
+
+const administrationStockBasis = (medicationAdministration: MedicationAdministration): string | undefined => {
+  const status = mapFhirToOrderStatus(medicationAdministration);
+  if (status !== 'administered' && status !== 'administered-partly') return undefined;
+  const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
+  return JSON.stringify([administrationLotKey(medicationAdministration), dose, units]);
+};
+
+export const administrationStockChanged = (
+  before: MedicationAdministration,
+  after: MedicationAdministration
+): boolean => administrationStockBasis(before) !== administrationStockBasis(after);
 
 /**
  * Brings the stock ledger in line with an administration (requirements 4 and 5): writes the difference
@@ -306,18 +349,23 @@ async function resolveAdministrationStockTarget(
 export async function reconcileAdministrationStock(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,
-  performerReference: string
+  performerReference: string,
+  previous?: MedicationAdministration
 ): Promise<void> {
   const medicationAdministrationId = medicationAdministration.id;
   if (!medicationAdministrationId) return;
-  const [existing, target] = await Promise.all([
-    getAdministrationStockEntries(oystehr, medicationAdministrationId),
-    resolveAdministrationStockTarget(oystehr, medicationAdministration),
-  ]);
-  const changes = planAdministrationStockChanges(
-    target,
-    existing.flatMap((entry) => parseInventoryStockEntry(entry) ?? [])
+  const existing = (await getAdministrationStockEntries(oystehr, medicationAdministrationId)).flatMap(
+    (entry) => parseInventoryStockEntry(entry) ?? []
   );
+  const sameLotAsBefore =
+    previous !== undefined && administrationLotKey(previous) === administrationLotKey(medicationAdministration);
+  const heldLotIds = sameLotAsBefore
+    ? [...new Set(existing.map((entry) => entry.lotId))].filter(
+        (lotId) => existing.reduce((sum, entry) => sum + (entry.lotId === lotId ? entry.quantity : 0), 0) < 0
+      )
+    : [];
+  const target = await resolveAdministrationStockTarget(oystehr, medicationAdministration, heldLotIds);
+  const changes = planAdministrationStockChanges(target, existing);
   for (const change of changes) {
     const lot =
       change.lotId === target?.lotId
@@ -325,20 +373,29 @@ export async function reconcileAdministrationStock(
         : await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: change.lotId });
     const parsedLot = parseInventoryLot(lot);
     if (!parsedLot) throw new Error(`Medication/${change.lotId} is not an inventory lot`);
-    await writeInventoryStockEntry(oystehr, lot, {
-      locationId: parsedLot.locationId,
-      type: change.type,
-      ...(change.waste ? { reason: 'partial-dose-waste' } : {}),
-      quantity: change.quantity,
-      unit: parsedLot.unit,
-      performerReference,
-      effectiveDateTime: DateTime.now().toUTC().toISO(),
-      medicationAdministrationId,
-      reversesEntryId: change.reversesEntryId,
-      administrationDeleted: change.administrationDeleted,
-      ...(change.waste
-        ? { components: [{ code: 'waste-amount', value: change.waste.amount, unit: change.waste.unit }] }
-        : {}),
+    await writeInventoryStockEntry(oystehr, lot, (_onHand, lotEntries) => {
+      const recorded = lotEntries
+        .flatMap((entry) => parseInventoryStockEntry(entry) ?? [])
+        .filter((entry) => entry.medicationAdministrationId === medicationAdministrationId);
+      const current = planAdministrationStockChanges(target, recorded).find(
+        (planned) => planned.lotId === change.lotId
+      );
+      if (!current) return undefined;
+      return {
+        locationId: parsedLot.locationId,
+        type: current.type,
+        ...(current.waste ? { reason: 'partial-dose-waste' } : {}),
+        quantity: current.quantity,
+        unit: parsedLot.unit,
+        performerReference,
+        effectiveDateTime: DateTime.now().toUTC().toISO(),
+        medicationAdministrationId,
+        reversesEntryId: current.reversesEntryId,
+        administrationDeleted: current.administrationDeleted,
+        ...(current.waste
+          ? { components: [{ code: 'waste-amount', value: current.waste.amount, unit: current.waste.unit }] }
+          : {}),
+      };
     });
   }
 }
