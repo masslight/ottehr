@@ -116,11 +116,18 @@ interface Cell {
   history: { time: string; text: string; flag?: VitalAlertCriticality }[];
 }
 
-const cellOf = (row: FlowsheetRow, visit: FlowsheetVisit): Cell => {
+export const cellOf = (row: FlowsheetRow, visit: FlowsheetVisit): Cell => {
   const readings = row.keys.map((key) => visit.values[key]).filter((reading) => reading !== undefined);
   if (readings.length < row.keys.length) return { text: '', history: [] };
-  const format = (at: FlowsheetReading[]): string =>
-    at.map((reading) => String(roundNumberToDecimalPlaces(reading.value, row.digits))).join('/');
+  // Numbers show exactly the row's digits (3.10, not 3.1); text (a drug name, a coded lab result) is shown as saved.
+  const formatOne = ({ value, unit }: FlowsheetReading): string => {
+    const text =
+      typeof value === 'number' && row.digits !== undefined
+        ? roundNumberToDecimalPlaces(value, row.digits).toFixed(row.digits)
+        : String(value);
+    return unit ? `${text} ${unit}` : text;
+  };
+  const format = (at: FlowsheetReading[]): string => at.map(formatOne).join('/');
   // A two-key row (blood pressure) reads both keys from one Observation, so the readings pair up by index.
   const history = readings[0].readings.map((_, i) => {
     const at = readings.map((reading) => reading.readings[i]).filter((reading) => reading !== undefined);
@@ -234,7 +241,8 @@ const FlowsheetBody = ({
         .reverse()
         .flatMap((visit) => {
           const reading = visit.values[line.key];
-          if (!reading) return [];
+          // Only numeric readings plot; a text value (e.g. a coded lab result) has no point.
+          if (!reading || typeof reading.value !== 'number') return [];
           const color = flagColor(reading.flag);
           const point = { value: [Date.parse(visit.start), reading.value] };
           return [
@@ -244,7 +252,7 @@ const FlowsheetBody = ({
     })),
   });
   const hasPoints = (chart: FlowsheetChart): boolean =>
-    chart.lines.some((line) => columns.some((visit) => visit.values[line.key] !== undefined));
+    chart.lines.some((line) => columns.some((visit) => typeof visit.values[line.key]?.value === 'number'));
 
   return (
     <>

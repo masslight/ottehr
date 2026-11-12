@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Appointment, Condition, Encounter, Observation, Practitioner } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
@@ -15,7 +16,7 @@ import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, test, vi } from 'vitest';
-import { buildVitalsFlowsheet } from '../../src/ehr/get-flowsheet/helpers';
+import { buildVitalsFlowsheet, describeVisit, fetchVisits } from '../../src/ehr/get-flowsheet/helpers';
 import { index } from '../../src/ehr/get-flowsheet/index';
 
 // wrapHandler's Sentry plumbing is not under test; make `index` the bare handler so its errors surface.
@@ -190,6 +191,66 @@ describe('buildVitalsFlowsheet', () => {
       attending: '',
     });
     expect(visits[3]).toMatchObject({ appointmentId: undefined, encounterId: undefined, visitType: '' });
+  });
+});
+
+describe('fetchVisits', () => {
+  // A follow-up charted without an appointment (save-followup-encounter only links one when given an appointment id).
+  const followUp: Encounter = {
+    resourceType: 'Encounter',
+    id: 'e-fu',
+    status: 'finished',
+    class: { code: 'VR' },
+    subject: { reference: PATIENT },
+    type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+    diagnosis: [{ condition: { reference: 'Condition/c1' } }],
+    participant: [{ type: [{ coding: PRACTITIONER_CODINGS.Attender }], individual: { reference: 'Practitioner/dr1' } }],
+  };
+  const bundle = (matches: unknown[], includes: unknown[] = []): unknown => ({
+    total: matches.length,
+    entry: [
+      ...matches.map((resource) => ({ resource, search: { mode: 'match' } })),
+      ...includes.map((resource) => ({ resource, search: { mode: 'include' } })),
+    ],
+    unbundle: () => [...matches, ...includes],
+  });
+  const has = (params: { name: string; value: string }[], name: string, value: string): boolean =>
+    params.some((p) => p.name === name && p.value === value);
+  const search = vi.fn(
+    async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => {
+      switch (resourceType) {
+        case 'Appointment':
+          return bundle([appointments[0]], [encounters[0], encounters[2]]);
+        case 'Encounter':
+          // Only a server-built query by this patient and the follow-up type reaches the unlinked follow-up.
+          return bundle(
+            has(params, 'subject', PATIENT) &&
+              has(params, 'type', `${FOLLOWUP_SYSTEMS.type.url}|${FOLLOWUP_SYSTEMS.type.code}`)
+              ? [encounters[2], followUp]
+              : []
+          );
+        case 'Condition':
+          return bundle(conditions);
+        case 'Practitioner':
+          return bundle(practitioners);
+        default:
+          return bundle([]);
+      }
+    }
+  );
+  const oystehr = { fhir: { search } } as unknown as Oystehr;
+
+  test('reaches a follow-up with no appointment, so its column is described', async () => {
+    const resources = await fetchVisits(oystehr, 'p1');
+    expect(resources.encounters.map((e) => e.id)).toEqual(['e1', 'e3', 'e-fu']);
+    expect(describeVisit('e-fu', resources)).toMatchObject({
+      encounterId: 'e-fu',
+      appointmentId: undefined,
+      isFollowUp: true,
+      start: undefined,
+      primaryDiagnosis: 'J06.9 — Acute URI',
+      attending: 'Ada Lovelace',
+    });
   });
 });
 
