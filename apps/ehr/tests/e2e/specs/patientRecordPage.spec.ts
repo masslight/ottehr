@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import { waitForResponseWithData } from 'test-utils/lib/e2e/response-utils';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import { unpackFhirResponse } from 'utils/lib/fhir/helpers';
+import { RELATIONSHIP_OPTIONS } from 'utils/lib/fhir/patientMasterRecord';
 import {
   DEMO_VISIT_CITY,
   DEMO_VISIT_MARKETING_MESSAGING,
@@ -772,10 +773,8 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
         );
       });
 
-      await test.step('When relationship is "Self", all triggered fields should be disabled', async () => {
+      await test.step('Relationship fields follow their configured visibility', async () => {
         test.skip(ResponsiblePartyHidden, 'responsible party section is hidden');
-        // Get all fields triggered by the relationship field that are NOT also triggered by address checkbox
-        // (we want fields that only depend on relationship, not the address fields which have enableBehavior: 'all')
         const relationshipOnlyFields = getConditionalFields(responsibleParty, responsibleParty.relationship.key).filter(
           (field) =>
             !getConditionalFields(responsibleParty, responsibleParty.addressSameAsPatient.key).some(
@@ -783,24 +782,21 @@ test.describe('Patient Record Page tests', { tag: '@smoke' }, () => {
             )
         );
 
-        // Change relationship to "Self"
-        await patientInformationPage.selectFieldOption(responsibleParty.relationship.key, 'Self');
-
-        // Verify all triggered fields are disabled (by checking they're not enabled)
-        for (const field of relationshipOnlyFields) {
-          const fieldElement = patientInformationPage.inputByName(field.key);
-          await test.expect(fieldElement).toBeDisabled();
-        }
-
-        // Change back to a different relationship and verify fields are enabled again
-        await patientInformationPage.selectFieldOption(
-          responsibleParty.relationship.key,
-          NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER
-        );
-
-        for (const field of relationshipOnlyFields) {
-          const fieldElement = patientInformationPage.inputByName(field.key);
-          await test.expect(fieldElement).toBeEnabled();
+        for (const relationship of [
+          RELATIONSHIP_OPTIONS.Self,
+          RELATIONSHIP_OPTIONS.Other,
+          NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER,
+        ]) {
+          await patientInformationPage.selectFieldOption(responsibleParty.relationship.key, relationship);
+          for (const field of relationshipOnlyFields) {
+            const fieldElement = patientInformationPage.inputByName(field.key);
+            const formValues = { [responsibleParty.relationship.key]: relationship };
+            if (isFieldHidden(field.key, PATIENT_RECORD_CONFIG.FormFields.responsibleParty, formValues)) {
+              await test.expect(fieldElement).toBeHidden();
+            } else {
+              await test.expect(fieldElement).toBeEnabled();
+            }
+          }
         }
       });
 

@@ -6,6 +6,8 @@ import { z } from 'zod';
 
 export const GetPatientPaymentVisitsInputSchema = z.object({
   patientId: z.string().min(1),
+  // narrows the response to this one visit of the patient's
+  encounterId: z.string().min(1).optional(),
 });
 
 export type GetPatientPaymentVisitsInput = z.infer<typeof GetPatientPaymentVisitsInputSchema>;

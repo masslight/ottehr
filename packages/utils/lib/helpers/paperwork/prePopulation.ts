@@ -937,6 +937,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let primarySubscriberLastName = '';
   let primarySubscriberMiddleName = '';
   const relationshipToInsured = primary?.relationship?.coding?.[0].display;
+  const otherRelationshipToInsured = primary?.relationship?.text;
   const policyHolderAddress = primarySubscriber?.address?.[0];
   const policyHolderAddressAsPatient = patientAddress && areAddressesEqual(policyHolderAddress, patientAddress);
   const policyHolderZip = policyHolderAddress?.postalCode;
@@ -962,6 +963,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let secondarySubscriberLastName: string | undefined;
   let secondarySubscriberMiddleName: string | undefined;
   const secondaryRelationshipToInsured = secondary?.relationship?.coding?.[0].display;
+  const secondaryOtherRelationshipToInsured = secondary?.relationship?.text;
   const secondaryPolicyHolderAddress = secondarySubscriber?.address?.[0];
   const secondaryPolicyHolderAddressAsPatient =
     patientAddress && areAddressesEqual(secondaryPolicyHolderAddress, patientAddress);
@@ -1059,6 +1061,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       if (linkId === 'patient-relationship-to-insured' && relationshipToInsured) {
         answer = makeAnswer(relationshipToInsured);
       }
+      if (linkId === 'patient-relationship-to-insured-other' && otherRelationshipToInsured) {
+        answer = makeAnswer(otherRelationshipToInsured);
+      }
       if (linkId === 'policy-holder-zip' && policyHolderZip) {
         answer = makeAnswer(policyHolderZip);
       }
@@ -1082,6 +1087,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       }
       if (linkId === 'patient-relationship-to-insured-2' && secondaryRelationshipToInsured) {
         answer = makeAnswer(secondaryRelationshipToInsured);
+      }
+      if (linkId === 'patient-relationship-to-insured-other-2' && secondaryOtherRelationshipToInsured) {
+        answer = makeAnswer(secondaryOtherRelationshipToInsured);
       }
       if (linkId === 'policy-holder-zip-2' && secondaryPolicyHolderZip) {
         answer = makeAnswer(secondaryPolicyHolderZip);
@@ -1400,6 +1408,7 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
     lastName = getLastName(guarantorResource) ?? '';
   }
   let relationship: string | undefined;
+  let otherRelationship: string | undefined;
   if (guarantorResource && guarantorResource.resourceType === 'Patient') {
     relationship = 'Self';
   } else if (guarantorResource) {
@@ -1412,6 +1421,7 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
       if (coding && coding.display) {
         relationship = coding.display;
       }
+      otherRelationship = cc.text;
     }
   }
 
@@ -1437,6 +1447,9 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuarantorItemsInput)
 
     if (linkId === 'responsible-party-relationship' && relationship) {
       answer = makeAnswer(relationship);
+    }
+    if (linkId === 'responsible-party-relationship-other' && otherRelationship) {
+      answer = makeAnswer(otherRelationship);
     }
     if (linkId === 'responsible-party-first-name' && firstName) {
       answer = makeAnswer(firstName);

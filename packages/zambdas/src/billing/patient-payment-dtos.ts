@@ -1,9 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import { Account, PaymentNotice, Practitioner } from 'fhir/r4b';
+import { Account, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { getStripeCustomerIdFromAccount } from 'utils/lib/fhir/helpers';
-import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import {
   isLocallyRecordedRefund,
   isPendingReservation,
@@ -20,6 +19,7 @@ import {
   checkForStripeCustomerDeletedError,
   SCHEDULE_NOT_FOUND_ERROR,
 } from 'utils/lib/types/errors';
+import { fetchPractitionerFirstLastNames } from '../shared/practitioners';
 import {
   applyRefundsToPaymentNotice,
   stripeEncounterMetadataQuery,
@@ -54,27 +54,12 @@ export const fhirClinicalPaymentLookups = (
 ): ClinicalPaymentLookups => ({
   scheduleStripeAccount: (encounterId) => getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr),
   stripeCustomerId: (stripeAccount) => (account ? getStripeCustomerIdFromAccount(account, stripeAccount) : undefined),
-  practitionerNames: async (practitionerIds) => {
-    const practitioners = (
-      await clinicalOystehr.fhir.search<Practitioner>({
-        resourceType: 'Practitioner',
-        params: [{ name: '_id', value: practitionerIds.join(',') }],
-      })
-    ).unbundle();
-    return new Map(
-      practitioners
-        // first + last only, matching the display stamped at write time
-        .map((practitioner) => [
-          practitioner.id ?? '',
-          [getFirstName(practitioner), getLastName(practitioner)].filter(Boolean).join(' '),
-        ])
-        .filter((entry): entry is [string, string] => Boolean(entry[0] && entry[1]))
-    );
-  },
+  // first + last only, matching the display stamped at write time
+  practitionerNames: (practitionerIds) => fetchPractitionerFirstLastNames(clinicalOystehr, practitionerIds),
 });
 
 interface GetPaymentsForEncounterInput {
-  // reads Account, Encounter, Practitioner and legacy EHR PaymentNotices
+  // reads Account, Encounter and legacy EHR PaymentNotices
   clinicalOystehr: Oystehr;
   // reads billing PaymentNotices and keeps their refund stamps current
   billingOystehr: Oystehr;
@@ -86,6 +71,8 @@ interface GetPaymentsForEncounterInput {
   fhirPaymentNotices?: PaymentNotice[];
   // the EHR visit list shows at most CARD_PAYMENT_LIMIT card payments; listings that must be complete lift the cap
   uncappedCardPayments?: boolean;
+  // replaces the clinical FHIR Practitioner lookup; billing endpoints pass the EHR zambda's
+  practitionerNames?: ClinicalPaymentLookups['practitionerNames'];
 }
 
 const CARD_PAYMENT_LIMIT = 20;
@@ -102,7 +89,10 @@ export const getPaymentsForEncounter = async (input: GetPaymentsForEncounterInpu
 
   return listEncounterPayments({
     ...input,
-    clinical: fhirClinicalPaymentLookups(clinicalOystehr, account),
+    clinical: {
+      ...fhirClinicalPaymentLookups(clinicalOystehr, account),
+      ...(input.practitionerNames ? { practitionerNames: input.practitionerNames } : {}),
+    },
     fhirPaymentNotices,
   });
 };
@@ -117,6 +107,10 @@ export const listEncounterPayments = async (input: {
   fhirPaymentNotices: PaymentNotice[];
   // the EHR visit list shows at most CARD_PAYMENT_LIMIT card payments; listings that must be complete lift the cap
   uncappedCardPayments?: boolean;
+  // Skips prefetching the encounter's payment intents and the customer's cards, two bulk Stripe calls
+  // that save a lookup per payment when listing many. With one payment they only add latency and a way
+  // to fail: its intent and card are retrieved by id instead.
+  skipEncounterPrefetch?: boolean;
 }): Promise<PatientPaymentDTO[]> => {
   const { clinical, billingOystehr, stripeClient, encounterId, fhirPaymentNotices } = input;
 
@@ -141,7 +135,8 @@ export const listEncounterPayments = async (input: {
       : () => clinical.scheduleStripeAccount(encounterId),
   });
 
-  const customerId = scheduleFound ? clinical.stripeCustomerId(stripeAccount) : undefined;
+  const customerId =
+    scheduleFound && !input.skipEncounterPrefetch ? clinical.stripeCustomerId(stripeAccount) : undefined;
   if (customerId) {
     try {
       const [paymentIntents, pms] = await Promise.all([
@@ -298,7 +293,7 @@ const resolveRefundsForPaymentNotice = async (
   stripeClient: Stripe,
   stripeAccount: string | undefined,
   billingOystehr: Oystehr
-): Promise<PaymentRefundDTO[] | undefined> => {
+): Promise<{ refunds: PaymentRefundDTO[] | undefined; stripeLookupFailed?: boolean }> => {
   // legacy EHR notices are read-only here; their state is re-derived from Stripe on every read
   const persistRefunds = async (refunds: PaymentRefundDTO[], removeIds: string[]): Promise<void> => {
     if (!isBillingPaymentNotice(paymentNotice)) return;
@@ -326,7 +321,7 @@ const resolveRefundsForPaymentNotice = async (
         console.error('Error clearing stale refund reservations on notice', paymentNotice.id, error);
       }
     }
-    return activeStored;
+    return { refunds: activeStored };
   }
 
   // skip the Stripe round-trip when the stamped state is provably current and nothing needs cleanup
@@ -340,7 +335,7 @@ const resolveRefundsForPaymentNotice = async (
     storedAreTerminal &&
     settledRefundTotalInCents(storedStripeRefunds) === latestCharge.amount_refunded
   ) {
-    return storedRefunds;
+    return { refunds: storedRefunds };
   }
 
   try {
@@ -353,10 +348,10 @@ const resolveRefundsForPaymentNotice = async (
     const allStaleIds = staleReservationIds([...(storedRefunds ?? []), ...stripeDTOs]);
     const refunds = mergeStripeRefundsWithStored(storedRefunds, stripeDTOs, allStaleIds);
     await persistRefunds(refunds, allStaleIds);
-    return refunds;
+    return { refunds };
   } catch (error) {
     console.error('Error fetching refunds for payment intent', paymentIntent.id, error);
-    return activeStored;
+    return { refunds: activeStored, stripeLookupFailed: true };
   }
 };
 
@@ -431,7 +426,7 @@ const buildChargeOnlyPaymentDTOs = async (
 
   const refunds = (
     await resolveRefundsForPaymentNotice(paymentNotice, undefined, stripeClient, stripeAccount, billingOystehr)
-  )?.filter((refund) => !isPendingReservation(refund));
+  ).refunds?.filter((refund) => !isPendingReservation(refund));
   const common = {
     amountInCents: Math.round((paymentNotice.amount.value ?? 0) * 100),
     dateISO,
@@ -528,13 +523,15 @@ async function buildPaymentDTOs(
         return [];
       }
 
-      const refunds = await resolveRefundsForPaymentNotice(
+      const { refunds, stripeLookupFailed } = await resolveRefundsForPaymentNotice(
         paymentNotice,
         paymentIntent,
         stripeClient,
         stripeAccount,
         billingOystehr
       );
+      // without the intent (its lookup failed) or its refund list, only the recorded refunds are known
+      const unconfirmedField = !paymentIntent || stripeLookupFailed ? { refundsUnconfirmed: true } : {};
       // in-flight reservations stay on the notice but are not refunds to show or count
       const displayRefunds = refunds?.filter((refund) => !isPendingReservation(refund));
       const refundFields = displayRefunds?.length
@@ -556,6 +553,7 @@ async function buildPaymentDTOs(
             dateISO,
             ...takenByField,
             ...refundFields,
+            ...unconfirmedField,
           },
         ];
       }
@@ -573,6 +571,7 @@ async function buildPaymentDTOs(
           dateISO,
           ...takenByField,
           ...refundFields,
+          ...unconfirmedField,
         },
       ];
     })

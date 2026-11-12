@@ -1,5 +1,6 @@
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { optionalTextSchema } from 'utils/lib/types/text-schemas';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
@@ -12,7 +13,7 @@ const allCancellationReasons = [...patientReasons, ...providerReasons] as [strin
 const TelemedCancelAppointmentBodySchema = z.object({
   appointmentID: z.string().uuid(),
   cancellationReason: z.enum(allCancellationReasons),
-  cancellationReasonAdditional: z.string().optional(),
+  cancellationReasonAdditional: optionalTextSchema,
 });
 
 export function validateRequestParameters(input: ZambdaInput): CancelTelemedAppointmentInputValidated {

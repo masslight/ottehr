@@ -1165,6 +1165,7 @@ export default function VisitDetailsPage(): ReactElement {
           id={patientId}
           encounterId={encounter?.id}
           fallbackPatient={patient}
+          linkNameToPatientRecord
         />
       }
     >
@@ -1358,7 +1359,7 @@ export default function VisitDetailsPage(): ReactElement {
             {/* page title row */}
             <Grid container direction="row" marginTop={1}>
               {/* The patient is in the header above, so the page is titled by what it shows. */}
-              <Typography variant="h2" color="primary.dark">
+              <Typography variant="h3" color="primary.dark">
                 Visit Details
               </Typography>
 
@@ -1480,10 +1481,7 @@ export default function VisitDetailsPage(): ReactElement {
             )}
 
             <Grid container item direction="column">
-              <Grid item container sx={{ padding: '10px' }} marginBottom={2}>
-                <Typography variant="h3" color="primary.dark">
-                  About this visit
-                </Typography>
+              <Grid item container sx={{ paddingY: '10px' }} marginBottom={2}>
                 <Grid container item direction="row" spacing={3}>
                   <Grid container item direction="column" xs={12} sm={6}>
                     <Grid item>
@@ -1664,7 +1662,7 @@ export default function VisitDetailsPage(): ReactElement {
                 </Grid>
               </Grid>
             </Grid>
-            <Grid item paddingY="10px" sx={{ padding: '10px' }} marginBottom={2}>
+            <Grid item sx={{ paddingY: '10px' }} marginBottom={2}>
               <Typography variant="h3" color="primary.dark" marginBottom={2}>
                 About this patient
               </Typography>

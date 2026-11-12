@@ -5,6 +5,7 @@ import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
+import { getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/ehr/shared/harvest', () => ({
@@ -23,6 +24,10 @@ const searchClient = (byType: Record<string, FhirResource[]>): Oystehr =>
       })),
     },
   }) as unknown as Oystehr;
+
+const encounterSearchParams = (oystehr: Oystehr): { name: string; value: string }[] =>
+  (vi.mocked(oystehr.fhir.search).mock.calls.find(([params]) => params.resourceType === 'Encounter')?.[0].params ??
+    []) as { name: string; value: string }[];
 
 const withStripeAccount = (stripeAccount: string): { extension: Extension[] } => ({
   extension: [{ url: SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL, valueString: stripeAccount }],
@@ -187,6 +192,97 @@ describe('getPatientPaymentVisits', () => {
     expect(visits).toEqual([
       expect.objectContaining({ encounterId: 'enc-1', scheduleOwner: { stripeAccount: 'acct_clinic' } }),
     ]);
+  });
+
+  it("narrows to one of the patient's visits and looks up only its payments", async () => {
+    const encounter = (id: string): FhirResource => ({
+      resourceType: 'Encounter',
+      id,
+      status: 'finished',
+      class: { code: 'AMB' },
+    });
+    // what FHIR returns for the search narrowed to enc-2
+    const oystehr = searchClient({
+      Encounter: [encounter('enc-2')],
+      PaymentNotice: [],
+    });
+
+    const { visits } = await getPatientPaymentVisits(oystehr, 'patient-1', 'enc-2');
+
+    expect(visits.map((visit) => visit.encounterId)).toEqual(['enc-2']);
+    // the visit is searched by id among the patient's, not picked out of their whole history
+    expect(encounterSearchParams(oystehr)).toEqual(
+      expect.arrayContaining([
+        { name: 'subject', value: 'Patient/patient-1' },
+        { name: '_id', value: 'enc-2' },
+      ])
+    );
+    const noticeSearch = vi
+      .mocked(oystehr.fhir.search)
+      .mock.calls.find(([params]) => params.resourceType === 'PaymentNotice')?.[0];
+    expect(noticeSearch?.params).toContainEqual({ name: 'request', value: 'Encounter/enc-2' });
+  });
+
+  it('names payment submitters stored without a display name', async () => {
+    const legacyNotice = (id: string, submitter: { reference: string; display?: string }): FhirResource =>
+      ({
+        resourceType: 'PaymentNotice',
+        id,
+        status: 'active',
+        created: '',
+        request: { reference: 'Encounter/enc-1' },
+        contained: [
+          {
+            resourceType: 'PaymentReconciliation',
+            status: 'active',
+            created: '',
+            paymentDate: '',
+            paymentAmount: { value: 1 },
+            detail: [{ type: { text: 'payment' }, submitter }],
+          },
+        ],
+      }) as FhirResource;
+    const oystehr = searchClient({
+      Encounter: [{ resourceType: 'Encounter', id: 'enc-1', status: 'finished', class: { code: 'AMB' } }],
+      PaymentNotice: [
+        legacyNotice('pn-old', { reference: 'Practitioner/doc' }),
+        legacyNotice('pn-stamped', { reference: 'Practitioner/nurse', display: 'Stamped Name' }),
+      ],
+      Practitioner: [{ resourceType: 'Practitioner', id: 'doc', name: [{ given: ['Carolyn'], family: 'Demo' }] }],
+    });
+
+    const { visits } = await getPatientPaymentVisits(oystehr, 'patient-1');
+
+    const submitters = visits[0].legacyPaymentNotices.map((notice) => getPaymentNoticeSubmitterRef(notice)?.display);
+    expect(submitters).toEqual(['Carolyn Demo', 'Stamped Name']);
+    // only the unnamed submitter is looked up
+    const practitionerSearch = vi
+      .mocked(oystehr.fhir.search)
+      .mock.calls.find(([params]) => params.resourceType === 'Practitioner')?.[0];
+    expect(practitionerSearch?.params).toContainEqual({ name: '_id', value: 'doc' });
+  });
+
+  it("returns no visit for an encounter that isn't the patient's", async () => {
+    // FHIR matches no encounter with that id and this patient as subject
+    const oystehr = searchClient({ Encounter: [] });
+
+    const { visits } = await getPatientPaymentVisits(oystehr, 'patient-1', 'enc-other');
+
+    expect(visits).toEqual([]);
+    expect(encounterSearchParams(oystehr)).toEqual(
+      expect.arrayContaining([
+        { name: 'subject', value: 'Patient/patient-1' },
+        { name: '_id', value: 'enc-other' },
+      ])
+    );
+  });
+
+  it('searches every encounter of the patient when no visit is named', async () => {
+    const oystehr = searchClient({});
+
+    await getPatientPaymentVisits(oystehr, 'patient-1');
+
+    expect(encounterSearchParams(oystehr).some((param) => param.name === '_id')).toBe(false);
   });
 
   it('looks up no payments for a patient with no visits', async () => {

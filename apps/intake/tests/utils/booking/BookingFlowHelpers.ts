@@ -1,4 +1,4 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { dataTestIds } from 'src/helpers/data-test-ids';
 import {
@@ -670,30 +670,6 @@ export class BookingFlowHelpers {
   ): Promise<{ timeText: string }> {
     const { skipFirstN = 0 } = options;
 
-    // Find all time slot buttons using the CSS class assigned in SelectSlot.tsx
-    // This is more reliable than regex matching on accessible name
-    const timeButtons = page.locator('button.time-button');
-    const buttonCount = await timeButtons.count();
-    console.log(`Found ${buttonCount} time slot buttons`);
-
-    if (buttonCount === 0) {
-      throw new Error('No time slots available');
-    }
-
-    // Log all available slot times for debugging
-    const allSlotTexts: string[] = [];
-    for (let i = 0; i < buttonCount; i++) {
-      const text = await timeButtons.nth(i).textContent();
-      allSlotTexts.push(text || 'unknown');
-    }
-    console.log(`Available slots: ${allSlotTexts.join(', ')}`);
-
-    // Determine starting index (skip first N slots if requested)
-    const startIndex = Math.min(skipFirstN, buttonCount - 1);
-    if (skipFirstN > 0) {
-      console.log(`Skipping first ${skipFirstN} slots (starting from index ${startIndex})`);
-    }
-
     // Anchor "now" and the minimum-acceptable threshold in the Location's TZ so
     // the comparisons below match the wall-clock the buttons are rendering in.
     const now = DateTime.now().setZone(locationTimezone);
@@ -704,39 +680,40 @@ export class BookingFlowHelpers {
       )} in ${locationTimezone})`
     );
 
-    // Find a slot that's sufficiently in the future
-    let selectedButton = null;
-    let selectedTimeText = '';
+    let { selected, slotTexts } = await this.findSuitableTimeButton(
+      page,
+      now,
+      minAcceptableTime,
+      locationTimezone,
+      skipFirstN
+    );
+    const allSlotTexts = [...slotTexts];
 
-    for (let i = startIndex; i < buttonCount; i++) {
-      const button = timeButtons.nth(i);
-      const timeText = await button.textContent();
-      if (!timeText) continue;
+    // Late in the day the first tab holds only today's last few slots; the next available day is on
+    // the second tab, which is "Other dates" when there is no next available day.
+    const nextDayTab = page.locator('#appointment-picker-tab-1');
+    if (!selected && (await nextDayTab.isVisible()) && (await nextDayTab.textContent())?.trim() !== 'Other dates') {
+      console.log('No suitable slot on the first day; switching to the next available day');
+      await nextDayTab.click();
+      await page.locator('#appointment-picker-tabpanel-1 button.time-button').first().waitFor({ timeout: 20000 });
+      ({ selected, slotTexts } = await this.findSuitableTimeButton(
+        page,
+        now.plus({ days: 1 }).startOf('day'),
+        minAcceptableTime,
+        locationTimezone,
+        skipFirstN
+      ));
+      allSlotTexts.push(...slotTexts);
+    }
 
-      const slotTime = this.parseTimeSlotToDate(timeText.trim(), now, locationTimezone);
-      if (!slotTime) {
-        console.log(`Could not parse time from button text: "${timeText}"`);
-        continue;
-      }
-
-      if (slotTime >= minAcceptableTime) {
-        selectedButton = button;
-        selectedTimeText = timeText;
-        console.log(`Found suitable slot at index ${i}: ${timeText} (parsed as ${slotTime.toFormat('h:mm a')})`);
-        break;
-      } else {
-        console.log(
-          `Skipping slot ${timeText} at index ${i} - parsed time ${slotTime.toFormat(
-            'h:mm a'
-          )} is before ${minAcceptableTime.toFormat('h:mm a')}`
-        );
-      }
+    if (allSlotTexts.length === 0) {
+      throw new Error('No time slots available');
     }
 
     // No silent fallback. If parsing produced no match, the helper itself is
     // wrong (bad TZ, schema change in slot text) and the test should fail loud
     // rather than mask the bug by clicking a positional guess.
-    if (!selectedButton) {
+    if (!selected) {
       throw new Error(
         `No time slot found at least ${minMinutesInFuture} minutes in the future (TZ=${locationTimezone}). ` +
           `Available slots: [${allSlotTexts.join(', ')}]. Either no slot qualifies, the displayed time format ` +
@@ -744,10 +721,67 @@ export class BookingFlowHelpers {
       );
     }
 
+    const selectedTimeText = selected.timeText;
     console.log(`Clicking time slot: ${selectedTimeText}`);
-    await selectedButton.click();
+    await selected.button.click();
 
     return { timeText: selectedTimeText };
+  }
+
+  /**
+   * Scan the time buttons of the visible day tab for the first one at or after `minAcceptableTime`.
+   * `referenceDate` is the moment the tab's times are read relative to: now for the first tab,
+   * the start of the next day for the second.
+   */
+  private static async findSuitableTimeButton(
+    page: Page,
+    referenceDate: DateTime,
+    minAcceptableTime: DateTime,
+    locationTimezone: string,
+    skipFirstN: number
+  ): Promise<{ selected?: { button: Locator; timeText: string }; slotTexts: string[] }> {
+    // Find all time slot buttons using the CSS class assigned in SelectSlot.tsx
+    // This is more reliable than regex matching on accessible name
+    const timeButtons = page.locator('button.time-button');
+    const buttonCount = await timeButtons.count();
+    console.log(`Found ${buttonCount} time slot buttons`);
+
+    const slotTexts: string[] = [];
+    for (let i = 0; i < buttonCount; i++) {
+      const text = await timeButtons.nth(i).textContent();
+      slotTexts.push(text || 'unknown');
+    }
+    console.log(`Available slots: ${slotTexts.join(', ')}`);
+    if (buttonCount === 0) return { slotTexts };
+
+    // Determine starting index (skip first N slots if requested)
+    const startIndex = Math.min(skipFirstN, buttonCount - 1);
+    if (skipFirstN > 0) {
+      console.log(`Skipping first ${skipFirstN} slots (starting from index ${startIndex})`);
+    }
+
+    for (let i = startIndex; i < buttonCount; i++) {
+      const button = timeButtons.nth(i);
+      const timeText = await button.textContent();
+      if (!timeText) continue;
+
+      const slotTime = this.parseTimeSlotToDate(timeText.trim(), referenceDate, locationTimezone);
+      if (!slotTime) {
+        console.log(`Could not parse time from button text: "${timeText}"`);
+        continue;
+      }
+
+      if (slotTime >= minAcceptableTime) {
+        console.log(`Found suitable slot at index ${i}: ${timeText} (parsed as ${slotTime.toFormat('h:mm a')})`);
+        return { selected: { button, timeText }, slotTexts };
+      }
+      console.log(
+        `Skipping slot ${timeText} at index ${i} - parsed time ${slotTime.toFormat(
+          'h:mm a'
+        )} is before ${minAcceptableTime.toFormat('h:mm a')}`
+      );
+    }
+    return { slotTexts };
   }
 
   /**

@@ -6,11 +6,10 @@ import { TIMEZONES } from 'utils/lib/types/constants';
 import { RecordBillingManualPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingManualPaymentResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
-import { createClinicalOystehrClient } from '../../shared/helpers';
-import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { practitionerRefForBillingUser } from '../clinical-practitioners';
 import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, recordBillingPatientPayment } from '../payments';
 import { createBillingClient } from '../shared';
 
@@ -27,7 +26,7 @@ interface ComplexValidationOutput extends RecordBillingManualPaymentParams {
 const complexValidation = async (
   input: ZambdaInput,
   params: RecordBillingManualPaymentParams,
-  token: string
+  oystehr: Oystehr
 ): Promise<ComplexValidationOutput> => {
   // TODO: Should every payment have a submitter?
   // For now we keep going if the caller has no profile or the lookup fails.
@@ -37,9 +36,8 @@ const complexValidation = async (
   if (authorization) {
     try {
       const user = await getUser(authorization.replace('Bearer ', ''), params.secrets);
-      // The billing client cannot read Practitioners, so the name lookup goes through the clinical client.
-      if (user.profile)
-        submitterRef = await practitionerRefForUser(user, createClinicalOystehrClient(token, params.secrets));
+      // The billing client cannot read Practitioners, so the name comes from the EHR's zambda.
+      if (user.profile) submitterRef = await practitionerRefForBillingUser(user, oystehr);
     } catch (error) {
       console.log('could not resolve caller profile for submitter', error);
     }
@@ -86,9 +84,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const params = validateWithSchema(RecordBillingManualPaymentInputSchema, input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-  const effectInput = await complexValidation(input, params, m2mToken);
-
-  const oystehr = createBillingClient(m2mToken, effectInput.secrets);
+  const oystehr = createBillingClient(m2mToken, params.secrets);
+  const effectInput = await complexValidation(input, params, oystehr);
   const response = await performEffect(oystehr, effectInput);
   return { statusCode: 200, body: JSON.stringify(response) };
 });

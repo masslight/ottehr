@@ -10,6 +10,7 @@ import { nameLabTest } from 'utils/lib/helpers/labs/helpers';
 import { LabSetDTO } from 'utils/lib/types/data/labs/lab-set.schema';
 import { STATIC_COMPENDIUM_LAB_GUID } from 'utils/lib/types/data/labs/labs.constants';
 import { LabType, ModifiedOrderingLocation, OrderableItemSearchResult } from 'utils/lib/types/data/labs/labs.types';
+import { filterLabOptions } from '../utils/filterLabOptions';
 import { LabSets } from './LabSets';
 
 type LabsAutocompleteProps = {
@@ -81,6 +82,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
         blurOnSelect
         size="small"
         options={labs}
+        filterOptions={(options, state) => filterLabOptions(options, state, orderingLocations)}
         getOptionLabel={(option) => nameLabTest(option.item.itemName, option.item.itemCode, option.lab.labName, false)}
         getOptionKey={(lab) => `${lab.item.uniqueName}${lab.lab.labName}`}
         noOptionsText={

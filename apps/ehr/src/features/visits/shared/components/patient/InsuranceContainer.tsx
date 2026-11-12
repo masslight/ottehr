@@ -802,6 +802,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         requiredFormFields={requiredFields}
         hiddenFormFields={hiddenFields}
       />
+      <PatientRecordFormField
+        item={FormFields.otherRelationship}
+        isLoading={false}
+        requiredFormFields={requiredFields}
+        hiddenFormFields={hiddenFields}
+      />
       {/* should be always visible to ensure dynamic population works. https://linear.app/zapehr/issue/OTR-1728/ehr-save-operation-failed-error-if-insurance-with-self-option-is-added */}
       <Box>
         <PatientRecordFormField

@@ -1,16 +1,4 @@
-import {
-  Box,
-  CircularProgress,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  Skeleton,
-  Stack,
-  TextField,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Autocomplete, Box, CircularProgress, Skeleton, Stack, TextField, Typography, useTheme } from '@mui/material';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
@@ -68,47 +56,44 @@ export const ReasonForVisitField: FC = () => {
     onOtherReasonChange(value);
   };
 
-  // Defer binding the Select until its options resolve, so a saved value not yet in the loaded
+  // String options: MUI resets the typed text whenever the value's object identity changes.
+  const reasonLabels = useMemo(() => new Map(rfvOptions.map((opt) => [opt.value, opt.label])), [rfvOptions]);
+  // Defer binding the value until its options resolve, so a saved value not yet in the loaded
   // catalog doesn't trigger MUI's out-of-range warning; it snaps in once options arrive.
-  const valueIsAvailable = rfvOptions.some((opt) => opt.value === reasonForVisit);
-  const safeValue = valueIsAvailable ? reasonForVisit : '';
+  const safeValue = reasonLabels.has(reasonForVisit) ? reasonForVisit : null;
 
   return (
     <Stack spacing={2}>
-      <FormControl fullWidth>
-        <InputLabel id="reason-for-visit-label">Reason for today's visit</InputLabel>
-        <Select
-          data-testid={dataTestIds.addPatientPage.reasonForVisitDropdown}
-          labelId="reason-for-visit-label"
-          id="reason-for-visit-select"
-          value={safeValue}
-          disabled={chartFields === undefined || saveChartData.isPending}
-          label="Reason for today's visit"
-          onChange={(event) => {
-            const value = event.target.value as string;
-            setReasonForVisit(value);
-            // "Other" is persisted only once the free text is entered.
-            if (isScheduledFollowUp && value === SCHEDULED_FOLLOWUP_OTHER_REASON) {
-              return;
-            }
-            setOtherReason('');
-            // Keep the cached section current so another field's save to it doesn't restore the old value here.
-            // The save response doesn't echo reasonForVisit (it lives on the Encounter), so the cache keeps this.
-            const previousReason = chartFields?.reasonForVisit;
-            setSectionData({ reasonForVisit: { ...previousReason, text: value } });
-            saveChartData.mutate(
-              { reasonForVisit: { text: value } },
-              { onError: () => setSectionData({ reasonForVisit: previousReason }) }
-            );
-          }}
-        >
-          {rfvOptions.map((reason) => (
-            <MenuItem key={reason.value} value={reason.value}>
-              {reason.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <Autocomplete<string, false, boolean, false>
+        data-testid={dataTestIds.addPatientPage.reasonForVisitDropdown}
+        id="reason-for-visit-select"
+        fullWidth
+        disableClearable
+        autoHighlight
+        options={[...reasonLabels.keys()]}
+        getOptionKey={(value) => value}
+        getOptionLabel={(value) => reasonLabels.get(value) ?? value}
+        value={safeValue}
+        disabled={chartFields === undefined || saveChartData.isPending}
+        renderInput={(params) => <TextField {...params} label="Reason for today's visit" />}
+        onChange={(_event, value) => {
+          if (!value) return;
+          setReasonForVisit(value);
+          // "Other" is persisted only once the free text is entered.
+          if (isScheduledFollowUp && value === SCHEDULED_FOLLOWUP_OTHER_REASON) {
+            return;
+          }
+          setOtherReason('');
+          // Keep the cached section current so another field's save to it doesn't restore the old value here.
+          // The save response doesn't echo reasonForVisit (it lives on the Encounter), so the cache keeps this.
+          const previousReason = chartFields?.reasonForVisit;
+          setSectionData({ reasonForVisit: { ...previousReason, text: value } });
+          saveChartData.mutate(
+            { reasonForVisit: { text: value } },
+            { onError: () => setSectionData({ reasonForVisit: previousReason }) }
+          );
+        }}
+      />
 
       {isOtherReason && (
         <TextField

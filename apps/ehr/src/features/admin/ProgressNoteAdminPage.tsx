@@ -1,13 +1,17 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
+  Button,
   CircularProgress,
   Divider,
   FormControl,
   FormControlLabel,
   FormHelperText,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -15,10 +19,11 @@ import {
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { FormEvent, ReactElement, useEffect } from 'react';
-import { Control, Controller, useForm } from 'react-hook-form';
+import { Control, Controller, useForm, useFormState, UseFormTrigger } from 'react-hook-form';
 import { useVitalsAlertConfigForm } from 'src/features/admin/vitals-alert-config/useVitalsAlertConfigForm';
 import { VitalsAlertConfigFields } from 'src/features/admin/vitals-alert-config/VitalsAlertConfigFields';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -38,7 +43,10 @@ import { DEFAULT_PROGRESS_NOTE_CONFIG } from 'utils/lib/utils/progress-note-conf
 const FORM_MAX_WIDTH = 960;
 
 type ProgressNoteSelectFieldName = 'vitalsUnitInputOrder' | 'vitalsHeaderUnitSystem';
-type ProgressNoteTextFieldName = Exclude<keyof ProgressNoteConfig, 'mdmRequired' | ProgressNoteSelectFieldName>;
+type ProgressNoteTextFieldName = Exclude<
+  keyof ProgressNoteConfig,
+  'mdmRequired' | 'specialtyTransferOptions' | ProgressNoteSelectFieldName
+>;
 
 interface ConfigTextAreaFieldProps {
   control: Control<ProgressNoteConfig>;
@@ -64,6 +72,67 @@ const ConfigTextAreaField = ({ control, name, label, minRows = 2 }: ConfigTextAr
     )}
   />
 );
+
+interface SpecialtyTransferOptionsFieldProps {
+  control: Control<ProgressNoteConfig>;
+  trigger: UseFormTrigger<ProgressNoteConfig>;
+}
+
+const SpecialtyTransferOptionsField = ({ control, trigger }: SpecialtyTransferOptionsFieldProps): ReactElement => {
+  const { errors } = useFormState({ control, name: 'specialtyTransferOptions' });
+  return (
+    <Box>
+      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+        Specialty Transfer Options
+      </Typography>
+      <Controller
+        name="specialtyTransferOptions"
+        control={control}
+        render={({ field: { value, onChange } }) => {
+          const updateOptions = (options: string[]): void => {
+            onChange(options);
+            if (errors.specialtyTransferOptions) void trigger('specialtyTransferOptions');
+          };
+          return (
+            <Stack spacing={2} alignItems="flex-start">
+              {value.map((option, index) => (
+                <Stack key={index} direction="row" spacing={1} alignItems="flex-start" width="100%">
+                  <TextField
+                    value={option}
+                    onChange={(event) =>
+                      updateOptions(value.map((item, i) => (i === index ? event.target.value : item)))
+                    }
+                    placeholder="Specialty"
+                    fullWidth
+                    inputProps={{ 'aria-label': `Specialty ${index + 1}` }}
+                    error={!!errors.specialtyTransferOptions?.[index]}
+                    helperText={errors.specialtyTransferOptions?.[index]?.message}
+                  />
+                  <Tooltip title={value.length === 1 ? 'At least one specialty is required' : 'Remove specialty'}>
+                    <span>
+                      <IconButton
+                        aria-label={`Remove specialty ${index + 1}`}
+                        color="error"
+                        disabled={value.length === 1}
+                        onClick={() => updateOptions(value.filter((_, i) => i !== index))}
+                        sx={{ mt: 1 }}
+                      >
+                        <DeleteOutlineIcon />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Stack>
+              ))}
+              <Button startIcon={<AddIcon />} onClick={() => updateOptions([...value, ''])}>
+                Add specialty
+              </Button>
+            </Stack>
+          );
+        }}
+      />
+    </Box>
+  );
+};
 
 interface ConfigSelectFieldProps<Option extends string> {
   control: Control<ProgressNoteConfig>;
@@ -230,6 +299,7 @@ export default function ProgressNoteAdminPage(): ReactElement {
                     name="edDispositionDefaultText"
                     label={mapDispositionTypeToLabel.ed}
                   />
+                  <SpecialtyTransferOptionsField control={control} trigger={trigger} />
                 </Stack>
               </Box>
 

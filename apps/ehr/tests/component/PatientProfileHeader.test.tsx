@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { Patient } from 'fhir/r4b';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { CustomThemeProvider } from '../../src/CustomThemeProvider';
 
@@ -36,7 +37,9 @@ describe('Patient Profile header', () => {
   it('vertically centers the name, notes and print icons, and summary on one line', () => {
     render(
       <CustomThemeProvider>
-        <Header id="patient-1" handleDiscard={vi.fn()} />
+        <MemoryRouter>
+          <Header id="patient-1" handleDiscard={vi.fn()} />
+        </MemoryRouter>
       </CustomThemeProvider>
     );
 
@@ -49,20 +52,22 @@ describe('Patient Profile header', () => {
   it('renders the print label icon in the accent blue used by the notes icon', () => {
     render(
       <CustomThemeProvider>
-        <Header id="patient-1" handleDiscard={vi.fn()} />
+        <MemoryRouter>
+          <Header id="patient-1" handleDiscard={vi.fn()} />
+        </MemoryRouter>
       </CustomThemeProvider>
     );
 
     expect(screen.getByRole('button', { name: 'Print label' })).toHaveStyle({ color: 'rgb(33, 105, 245)' });
   });
 
-  it('keeps the dark print label icon by default for other headers', () => {
+  it('renders the print label icon in accent blue without a colour override, as the progress note header uses it', () => {
     render(
       <CustomThemeProvider>
         <PrintVisitLabelButton encounterId="encounter-1" />
       </CustomThemeProvider>
     );
 
-    expect(screen.getByRole('button', { name: 'Print label' })).toHaveStyle({ color: 'rgb(15, 52, 124)' });
+    expect(screen.getByRole('button', { name: 'Print label' })).toHaveStyle({ color: 'rgb(33, 105, 245)' });
   });
 });

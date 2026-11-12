@@ -258,6 +258,8 @@ async function getFhirResourcesPage(
   }
   if (status) {
     params.push({ name: 'status', value: status });
+  } else {
+    params.push({ name: 'status:not', value: 'cancelled' });
   }
   if (hideZeroBalance) {
     params.push({

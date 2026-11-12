@@ -1,6 +1,7 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import type { Practitioner, Task } from 'fhir/r4b';
 import { getTaskInputValue, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getMyPractitionerId } from '../../src/shared/practitioners';
 import type { ZambdaInput } from '../../src/shared/types/common';
@@ -77,5 +78,36 @@ describe('create-manual-task', () => {
     expect(getMyPractitionerId).not.toHaveBeenCalled();
     expect(createdTask().requester).toBeUndefined();
     expect(getTaskInputValue(createdTask(), MANUAL_TASK.input.providerName)).toBe('Billing integration');
+  });
+
+  it('leaves whitespace-only task details out of the Task instead of saving an empty valueString', async () => {
+    const result = await createAs('m2m-client-1@clients', { taskTitle: '  Call the patient back ', taskDetails: ' ' });
+
+    expect(result.statusCode).toBe(200);
+    expect(createdTask().input?.every((input) => input.valueString?.trim() || input.valueReference)).toBe(true);
+    expect(getTaskInputValue(createdTask(), MANUAL_TASK.input.details)).toBeUndefined();
+    expect(getTaskInputValue(createdTask(), MANUAL_TASK.input.title)).toBe('Call the patient back');
+    expect(createdTask().description).toBe('Call the patient back');
+  });
+
+  it('accepts the nulls the New Task dialog sends for fields left empty', async () => {
+    const result = await createAs('m2m-client-1@clients', {
+      appointmentId: null,
+      orderId: null,
+      taskDetails: null,
+      assignee: null,
+      patient: null,
+    });
+
+    expect(result.statusCode).toBe(200);
+    expect(createdTask().owner).toBeUndefined();
+    expect(getTaskInputValue(createdTask(), MANUAL_TASK.input.details)).toBeUndefined();
+  });
+
+  it.each([' ', ''])('rejects a blank task title %j before writing to FHIR', async (taskTitle) => {
+    await expect(createAs('m2m-client-1@clients', { taskTitle })).rejects.toMatchObject({
+      code: APIErrorCode.INVALID_INPUT,
+    });
+    expect(oystehr.fhir.create).not.toHaveBeenCalled();
   });
 });

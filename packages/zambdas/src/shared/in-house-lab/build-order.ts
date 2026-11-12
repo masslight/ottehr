@@ -172,7 +172,7 @@ const makeServiceRequestConfig = (
         },
       ],
     }),
-    ...(notes && { note: [{ text: notes }] }),
+    ...(notes?.trim() && { note: [{ text: notes }] }),
     ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
     instantiatesCanonical: [`${activityDefinition.url}|${activityDefinition.version}`],
   };

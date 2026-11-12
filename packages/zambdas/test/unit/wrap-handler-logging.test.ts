@@ -49,6 +49,15 @@ describe('wrapHandler input logging', () => {
     expect(logged).not.toContain('Authorization');
   });
 
+  it('logs that a body arrived, not its content, when the endpoint redacts it', async () => {
+    const wrapped = wrapHandler('test-zambda', async () => ({ statusCode: 200, body: '' }), {
+      redactInputBody: true,
+    }) as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
+    await wrapped(makeInput(JSON.stringify({ token: 'eyJhbGciOiJIUzI1NiJ9.link-token' })));
+
+    expect(inputLogs()).toEqual(['Input body: <redacted>']);
+  });
+
   it('truncates a long body to 500 characters', async () => {
     const body = 'x'.repeat(2000);
     await invoke(makeInput(body));

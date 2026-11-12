@@ -40,6 +40,7 @@ import {
   makePrescribedMedicationDTO,
   makeProceduresDTOFromFhirResources,
 } from '../../shared/chart-data';
+import { settleByDeadline } from '../../shared/concurrency';
 import { DME_ORDER_SEARCH_TAG, getDmeOrderStatus, isDmeOrderDeleted, parseDmeOrder } from '../../shared/dme';
 import { sendErrors } from '../../shared/errors';
 import { SortedAppointmentQueues } from '../../shared/queueingUtils';
@@ -60,7 +61,7 @@ import {
 import { mapResourcesToInHouseOrderDTOs } from '../lab/in-house/get-in-house-orders/helpers';
 import { isTaskPST } from '../lab/shared/labs';
 import { parseResultsToOrder } from '../radiology/order-list';
-import { BatchSearch, buildSearchUrl, executeBatchSearches, settleByDeadline } from './batch-search';
+import { BatchSearch, buildSearchUrl, executeBatchSearches } from './batch-search';
 
 /**
  * Tracking board consolidation, Step B and Step C.

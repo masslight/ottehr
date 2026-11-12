@@ -48,7 +48,7 @@ const makeDocument = (
 const makeActions = (overrides: Partial<DocumentTableActions> = {}): DocumentTableActions => ({
   isActionAllowed: () => true,
   onDocumentDownload: vi.fn().mockResolvedValue(undefined),
-  onDocumentFax: vi.fn(),
+  onDocumentSend: vi.fn(),
   onDocumentRename: vi.fn().mockResolvedValue(undefined),
   onDocumentDelete: vi.fn().mockResolvedValue(undefined),
   ...overrides,
@@ -92,13 +92,13 @@ describe('PatientDocumentsExplorerTable', () => {
   });
 
   it('faxes the row the user picked', async () => {
-    const onDocumentFax = vi.fn();
+    const onDocumentSend = vi.fn();
     const user = userEvent.setup();
-    renderTable([makeDocument('doc-1', 'visit-note.pdf')], makeActions({ onDocumentFax }));
+    renderTable([makeDocument('doc-1', 'visit-note.pdf')], makeActions({ onDocumentSend }));
 
-    await user.click(screen.getByRole('button', { name: 'Send Fax' }));
+    await user.click(screen.getByRole('button', { name: 'Send Document' }));
 
-    expect(onDocumentFax).toHaveBeenCalledWith('doc-1');
+    expect(onDocumentSend).toHaveBeenCalledWith('doc-1');
   });
 
   it('offers the fax action only for documents a fax can carry', () => {
@@ -112,7 +112,7 @@ describe('PatientDocumentsExplorerTable', () => {
     );
 
     // Generated archives and prior fax packets are audit/export artifacts, not new source documents.
-    expect(screen.getAllByRole('button', { name: 'Send Fax' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Send Document' })).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: 'Download' })).toHaveLength(3);
   });
 
@@ -122,7 +122,7 @@ describe('PatientDocumentsExplorerTable', () => {
       makeActions()
     );
 
-    expect(screen.getByRole('button', { name: 'Send Fax' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send Document' })).toBeInTheDocument();
   });
 
   it('withholds the fax action when only the display title looks faxable', () => {
@@ -133,15 +133,38 @@ describe('PatientDocumentsExplorerTable', () => {
       makeActions()
     );
 
-    expect(screen.queryByRole('button', { name: 'Send Fax' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send Document' })).not.toBeInTheDocument();
   });
 
   it('hides the fax action when the caller disallows it', () => {
     renderTable(
       [makeDocument('doc-1', 'visit-note.pdf')],
-      makeActions({ isActionAllowed: (_id, actionType) => actionType !== 'ActionFax' })
+      makeActions({ isActionAllowed: (_id, actionType) => actionType !== 'ActionSend' })
     );
 
-    expect(screen.queryByRole('button', { name: 'Send Fax' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send Document' })).not.toBeInTheDocument();
+  });
+
+  it('opens a document in a new tab from its name, reserving the tab inside the click', async () => {
+    const reservedTab = { close: vi.fn() };
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(reservedTab as unknown as Window);
+    const onDocumentDownload = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderTable([makeDocument('doc-1', 'cbc results.pdf')], makeActions({ onDocumentDownload }));
+
+    await user.click(screen.getByRole('button', { name: 'cbc results.pdf' }));
+
+    expect(openSpy).toHaveBeenCalledWith('', '_blank');
+    expect(onDocumentDownload).toHaveBeenCalledWith('doc-1', { targetTab: reservedTab, skipRelated: true });
+    await Promise.resolve();
+    expect(reservedTab.close).not.toHaveBeenCalled();
+    openSpy.mockRestore();
+  });
+
+  it('shows the name as plain text when the document cannot be opened', () => {
+    renderTable([makeDocument('doc-1', 'cbc results.pdf')], makeActions({ isActionAllowed: () => false }));
+
+    expect(screen.queryByRole('button', { name: 'cbc results.pdf' })).toBeNull();
+    expect(screen.getByText('cbc results.pdf')).toBeInTheDocument();
   });
 });

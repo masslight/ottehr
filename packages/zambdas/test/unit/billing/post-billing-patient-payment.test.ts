@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, PaymentNotice, Provenance } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
@@ -18,8 +17,8 @@ vi.mock('../../../src/shared/auth', () => ({
   getUserToken: vi.fn().mockReturnValue('user-token'),
   getUser: vi.fn().mockResolvedValue({ id: 'user-1', profile: 'Practitioner/pr-1', name: 'Front Desk' }),
 }));
-vi.mock('../../../src/shared/practitioners', () => ({
-  practitionerRefForUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Front Desk' }),
+vi.mock('../../../src/billing/clinical-practitioners', () => ({
+  practitionerRefForBillingUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Front Desk' }),
 }));
 vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -59,8 +58,8 @@ import {
   stripeAccountExtension,
 } from '../../../src/billing/payments';
 import { index } from '../../../src/billing/post-billing-patient-payment';
-import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
-import { createClinicalOystehrClient } from '../../../src/shared/helpers';
+import { BillingOystehr, createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
@@ -136,8 +135,10 @@ beforeEach(() => {
   );
   vi.mocked(createBillingClient).mockReturnValue({
     fhir: { search: billingSearch, get: billingGet, transaction: billingTransaction },
-  } as unknown as Oystehr);
-  vi.mocked(createClinicalOystehrClient).mockReturnValue({ fhir: { create: clinicalCreate } } as unknown as Oystehr);
+  } as unknown as BillingOystehr);
+  vi.mocked(createClinicalOystehrClient).mockReturnValue({
+    fhir: { create: clinicalCreate },
+  } as unknown as ClinicalOystehr);
   paymentIntentsCreate.mockResolvedValue({ id: 'pi_1', status: 'succeeded', latest_charge: 'ch_1' });
   vi.mocked(getStripeAccountForAppointmentOrEncounter).mockResolvedValue('acct_1');
 });

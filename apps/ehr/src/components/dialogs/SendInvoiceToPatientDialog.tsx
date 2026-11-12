@@ -257,7 +257,10 @@ export default function SendInvoiceToPatientDialog({
               <Controller
                 name="smsTextMessage"
                 control={control}
-                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  validate: (value) => !!value?.trim() || REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
                 disabled={disableAllFields}
                 render={({ field, fieldState }) => (
                   <TemplateEditorField
@@ -279,7 +282,10 @@ export default function SendInvoiceToPatientDialog({
               <Controller
                 name="memo"
                 control={control}
-                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+                rules={{
+                  required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  validate: (value) => !!value?.trim() || REQUIRED_FIELD_ERROR_MESSAGE,
+                }}
                 disabled={disableAllFields}
                 render={({ field, fieldState }) => (
                   <TemplateEditorField
