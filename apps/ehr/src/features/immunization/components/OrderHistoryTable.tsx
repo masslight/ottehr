@@ -4,10 +4,11 @@ import { useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { GetImmunizationOrdersRequest } from 'utils/lib/types/data/immunization/types';
-import { useGetImmunizationOrders } from '../../visits/in-person/hooks/useImmunization';
+import { useGetImmunizationOrders, useGetPatientImmunizations } from '../../visits/in-person/hooks/useImmunization';
 import { ordersRecentFirstComparator } from '../common';
 import { OrderHistoryTableRow } from './OrderHistoryTableRow';
 import { OrderHistoryTableSkeletonBody } from './OrderHistoryTableSkeletonBody';
+import { OutsideImmunizationRow } from './OutsideImmunizationRow';
 
 interface Props {
   showActions: boolean;
@@ -40,7 +41,14 @@ export const OrderHistoryTable: React.FC<Props> = ({
     .sort(ordersRecentFirstComparator)
     .filter((order) => (administeredOnly ? ['administered', 'administered-partly'].includes(order.status) : true));
 
-  const isLoading = patientIdLoading || ordersLoading;
+  // The history also lists the doses administered externally, which have no order
+  const { data: patientImmunizations, isLoading: outsideLoading } = useGetPatientImmunizations(
+    administeredOnly ? immunizationInput?.patientId : undefined
+  );
+  const outsideDoses = (patientImmunizations?.immunizations ?? []).filter((record) => record.outside);
+
+  const isLoading =
+    patientIdLoading || ordersLoading || (administeredOnly && !!immunizationInput?.patientId && outsideLoading);
 
   // When administeredOnly is true (backward compat for pre-visit history accordion), show flat table
   if (administeredOnly) {
@@ -69,7 +77,10 @@ export const OrderHistoryTable: React.FC<Props> = ({
                   onShowDetails={onShowDetails}
                 />
               ))}
-              {orders.length === 0 && (
+              {outsideDoses.map((record) => (
+                <OutsideImmunizationRow key={record.id} record={record} />
+              ))}
+              {orders.length === 0 && outsideDoses.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5}>
                     <Typography variant="body1" sx={{ opacity: 0.65 }}>

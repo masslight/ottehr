@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   FhirResource,
@@ -11,6 +12,7 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
+import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import { createReference } from 'utils/lib/fhir/helpers';
 import {
   getMedicationName,
@@ -30,6 +32,7 @@ import {
   CreateUpdateImmunizationOrderResponse,
   ImmunizationEmergencyContact,
 } from 'utils/lib/types/data/immunization/types';
+import { cptCodesToBillForDose } from 'utils/lib/types/data/immunization/vfc';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, fillMeta, validateJsonBody } from '../../../shared/helpers';
@@ -40,12 +43,20 @@ import {
   CONTAINED_EMERGENCY_CONTACT_ID,
   CONTAINED_MANUFACTURER_ORG_ID,
   CONTAINED_MEDICATION_ID,
+  cptCodeCoding,
   getContainedMedication,
   updateOrderDetails,
   updateVaccineMedicationDetails,
   validateAdministrationDetailsValues,
   validateOrderDetails,
 } from '../common';
+import { immunizationSyncRequest } from '../records';
+import {
+  applyVaccineDoseFunding,
+  fillFundingFromInventoryLot,
+  fillVfcEligibilityFromVisit,
+  syncVaccineStockAndBorrowing,
+} from '../vaccine-stock';
 
 let m2mToken: string;
 
@@ -138,6 +149,11 @@ export async function administerImmunizationOrder(
   }
 
   updateVaccineMedicationDetails(medication, administrationDetails);
+  if (['administered', 'administered-partly'].includes(input.type)) {
+    await fillFundingFromInventoryLot(oystehr, medicationAdministration, administrationDetails);
+  }
+  await fillVfcEligibilityFromVisit(oystehr, medicationAdministration, administrationDetails);
+  applyVaccineDoseFunding(medicationAdministration, administrationDetails);
 
   const transactionRequests: BatchInputRequest<FhirResource>[] = [
     {
@@ -163,52 +179,76 @@ export async function administerImmunizationOrder(
     });
   }
 
+  // the dose's Immunization record follows the administration: created, updated or entered in error with it
+  const immunizationRequest = await immunizationSyncRequest(oystehr, medicationAdministration);
+  if (immunizationRequest) transactionRequests.push(immunizationRequest);
+
   console.log('Transaction requests: ', JSON.stringify(transactionRequests));
   const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
   console.log('Transaction result: ', JSON.stringify(transactionResult));
 
-  // Add CPT codes to chart data (assessment) on administration
-  if (['administered', 'administered-partly'].includes(input.type)) {
-    const cptCodesToAdd = administrationDetails.cptCodes ?? [];
-    if (cptCodesToAdd.length > 0) {
-      const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
-      const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
-      if (encounterId && patientId) {
-        try {
-          // Search for existing CPT code Procedures on this encounter
-          const existingProcedures = (
-            await oystehr.fhir.search<Procedure>({
-              resourceType: 'Procedure',
-              params: [
-                { name: 'encounter', value: `Encounter/${encounterId}` },
-                { name: '_tag', value: 'cpt-code' },
-              ],
-            })
-          ).unbundle();
-          const existingCodes = existingProcedures.map((p) => p.code?.coding?.[0]?.code).filter(Boolean);
-          const newCodes = cptCodesToAdd.filter((c) => !existingCodes.includes(c.code));
+  // The dose comes off its inventory lot (or goes back), and a borrowed VFC dose is logged.
+  await syncVaccineStockAndBorrowing(oystehr, medicationAdministration, `Practitioner/${userPractitioner.id}`);
 
-          for (const cptCode of newCodes) {
+  // Add CPT codes to chart data (assessment) on administration. A dose from VFC or state stock bills only the
+  // administration codes: the vaccine itself was supplied free.
+  if (['administered', 'administered-partly'].includes(input.type)) {
+    const cptCodesToAdd = cptCodesToBillForDose(
+      administrationDetails.cptCodes ?? [],
+      administrationDetails.fundingSource
+    );
+    const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
+    const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
+    if (encounterId && patientId) {
+      try {
+        // The lines this administration already has: each vaccine given bills its own admin codes, so another
+        // vaccine's 90460 on the visit is not a reason to skip this one.
+        const existingProcedures = (
+          await oystehr.fhir.search<Procedure>({
+            resourceType: 'Procedure',
+            params: [
+              { name: 'part-of', value: `MedicationAdministration/${medicationAdministration.id}` },
+              { name: '_tag', value: 'cpt-code' },
+            ],
+          })
+        ).unbundle();
+        const changedCodes: string[] = [];
+        for (const cptCode of cptCodesToAdd) {
+          const coding = cptCodeCoding(cptCode);
+          const existing = existingProcedures.find((p) => p.code?.coding?.[0]?.code === cptCode.code);
+          if (!existing) {
             await oystehr.fhir.create<Procedure>({
               resourceType: 'Procedure',
               subject: { reference: `Patient/${patientId}` },
               encounter: { reference: `Encounter/${encounterId}` },
               partOf: [createReference(medicationAdministration)],
               status: 'completed',
-              code: {
-                coding: [{ code: cptCode.code, display: cptCode.display, system: 'http://www.ama-assn.org/go/cpt' }],
-              },
+              code: { coding: [coding] },
               meta: {
                 tag: [{ code: 'cpt-code', system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code' }],
               },
             });
+            changedCodes.push(cptCode.code);
+          } else if (getCptBillableUnitsForProcedure(existing) !== (cptCode.billableUnits ?? 1)) {
+            // re-administered with a different count: the line keeps its id, the claim gets the new quantity
+            await oystehr.fhir.update<Procedure>({ ...existing, code: { coding: [coding] } });
+            changedCodes.push(`${cptCode.code} ×${cptCode.billableUnits ?? 1}`);
           }
-          if (newCodes.length > 0) {
-            console.log('Added CPT codes to chart data:', newCodes.map((c) => c.code).join(', '));
-          }
-        } catch (e) {
-          console.error('Failed to add CPT codes to chart data:', e);
         }
+        // re-administered without a code (re-saved from VFC stock, the vaccine's own code is no longer billed): its
+        // line goes, as cancelling the order deletes them
+        for (const procedure of existingProcedures) {
+          const code = procedure.code?.coding?.[0]?.code;
+          if (!procedure.id || cptCodesToAdd.some((cpt) => cpt.code === code)) continue;
+          await oystehr.fhir.delete({ resourceType: 'Procedure', id: procedure.id });
+          changedCodes.push(`-${code}`);
+        }
+        if (changedCodes.length > 0) {
+          console.log('Changed CPT codes in chart data:', changedCodes.join(', '));
+        }
+      } catch (e) {
+        console.error('Failed to update CPT codes in chart data:', e);
+        captureException(e);
       }
     }
   }
@@ -217,6 +257,9 @@ export async function administerImmunizationOrder(
     orderId: medicationAdministration.id!,
   };
 }
+
+const getCptBillableUnitsForProcedure = (procedure: Procedure): number =>
+  getCptBillableUnitsFromCoding(procedure.code?.coding?.[0]) ?? 1;
 
 export function validateRequestParameters(
   input: ZambdaInput

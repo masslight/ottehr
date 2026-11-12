@@ -1,0 +1,4112 @@
+{
+ "antigen": "Pertussis",
+ "source": "cdc-4.64",
+ "series": [
+  {
+   "seriesName": "Pertussis standard series",
+   "targetDisease": "Pertussis",
+   "vaccineGroup": "DTaP/Tdap/Td",
+   "seriesType": "Standard",
+   "select": {
+    "defaultSeries": true,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 1,
+    "maxAgeToStart": "12 months - 4 days"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "6 weeks - 4 days",
+       "minAge": "6 weeks",
+       "earliestRecAge": "2 months",
+       "latestRecAge": "3 months + 4 weeks"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "115"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 6 or more total doses to date",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 5,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "10 weeks - 4 days",
+       "minAge": "10 weeks",
+       "earliestRecAge": "4 months",
+       "latestRecAge": "5 months + 4 weeks"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "13 weeks",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "115"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 6 or more total doses to date",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 5,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "absMinAge": "14 weeks - 4 days",
+       "minAge": "14 weeks",
+       "earliestRecAge": "6 months",
+       "latestRecAge": "7 months + 4 weeks"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "13 weeks",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "115"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 6 or more total doses to date",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 5,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 4",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "15 months",
+       "earliestRecAge": "15 months",
+       "latestRecAge": "19 months + 4 weeks"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months",
+       "latestRecInt": "13 months + 4 weeks",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 months - 4 days"
+      }
+     ],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 4 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "4 years - 4 days"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required for those 4 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "4 years"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 6 or more total doses to date",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 5,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 5",
+     "ages": [
+      {
+       "absMinAge": "4 years - 4 days",
+       "minAge": "4 years",
+       "earliestRecAge": "4 years",
+       "latestRecAge": "7 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "3 years",
+       "latestRecInt": "4 years + 4 weeks",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "4 years",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 6 or more total doses to date",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 5,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 6",
+     "ages": [
+      {
+       "absMinAge": "4 years - 4 days",
+       "minAge": "4 years",
+       "earliestRecAge": "4 years",
+       "latestRecAge": "7 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "3 years",
+       "latestRecInt": "4 years + 4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "4 years",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required for persons with 5 valid doses",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "0 days",
+           "doseCount": 4,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "sets": [
+        {
+         "id": 3,
+         "description": "Dose is never forecasted",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "0 days"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 7",
+     "ages": [
+      {
+       "absMinAge": "7 years",
+       "minAge": "7 years",
+       "earliestRecAge": "7 years",
+       "latestRecAge": "7 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "0 days",
+       "earliestRecInt": "0 days",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received 2 doses",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 2,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required if the patient has received 3 doses",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 3,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 4 doses with 1 pertussis- containing vaccine on or after 4 years",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 4,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to"
+          },
+          {
+           "id": 2,
+           "type": "Vaccine Count by Age",
+           "beginAge": "4 years - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          }
+         ]
+        },
+        {
+         "id": 4,
+         "description": "Dose is not required if the patient has received more than 4 doses",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 4,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 8",
+     "ages": [
+      {
+       "absMinAge": "7 years",
+       "minAge": "7 years",
+       "earliestRecAge": "7 years",
+       "latestRecAge": "7 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received more than 2 doses.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 2,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required if the patient has received 1 or more doses of Td on or after 7 years.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "7 years",
+           "doseCount": 0,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "09",
+            "113",
+            "138",
+            "139",
+            "196"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 1 valid dose on or after 7 years.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "7 years",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 9",
+     "ages": [
+      {
+       "absMinAge": "7 years",
+       "minAge": "7 years",
+       "earliestRecAge": "7 years",
+       "latestRecAge": "7 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received more than 3 doses",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 3,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required if the patient has received 2 or more doses of Td on or after 7 years.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "7 years",
+           "doseCount": 1,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "09",
+            "113",
+            "138",
+            "139",
+            "196"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "sets": [
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 1 valid dose on or after 7 years.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "7 years",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 10",
+     "ages": [
+      {
+       "absMinAge": "10 years",
+       "minAge": "11 years",
+       "earliestRecAge": "11 years",
+       "latestRecAge": "13 years + 4 weeks"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "09",
+        "28",
+        "35",
+        "113",
+        "138",
+        "139"
+       ],
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received more than 3 doses",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 3,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required if the patient has received 1 valid dose on or after 10 years.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "10 years",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 11",
+     "ages": [
+      {
+       "absMinAge": "10 years",
+       "minAge": "11 years",
+       "earliestRecAge": "11 years",
+       "latestRecAge": "13 years + 4 weeks"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "09",
+        "28",
+        "35",
+        "113",
+        "138",
+        "139"
+       ],
+       "absMinInt": "0 days",
+       "minInt": "0 days",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received 1 or more doses after the age of 10 years",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "10 years",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Pertussis start at 12 months series",
+   "targetDisease": "Pertussis",
+   "vaccineGroup": "DTaP/Tdap/Td",
+   "seriesType": "Standard",
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 2
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "12 months"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "115"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 6 or more total doses to date",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 5,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "latestRecInt": "4 weeks",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "115"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 6 or more total doses to date",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 5,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "latestRecInt": "4 weeks",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "115"
+     ],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 6 or more total doses to date",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 5,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 4",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "15 months",
+       "earliestRecAge": "15 months",
+       "latestRecAge": "19 months + 4 weeks"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months",
+       "latestRecInt": "13 months + 4 weeks",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 months - 4 days"
+      }
+     ],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 4 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "4 years - 4 days"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required for those 4 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "4 years"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 6 or more total doses to date",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 5,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 5",
+     "ages": [
+      {
+       "absMinAge": "4 years - 4 days",
+       "minAge": "4 years",
+       "earliestRecAge": "4 years",
+       "latestRecAge": "7 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "3 years",
+       "latestRecInt": "4 years + 4 weeks",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "4 years",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 6 or more total doses to date",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 5,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 6",
+     "ages": [
+      {
+       "absMinAge": "4 years - 4 days",
+       "minAge": "4 years",
+       "earliestRecAge": "4 years",
+       "latestRecAge": "7 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "3 years",
+       "latestRecInt": "4 years + 4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "4 years",
+       "endAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 7 years or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "7 years"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required for persons with 5 valid doses",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "0 days",
+           "doseCount": 4,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "sets": [
+        {
+         "id": 3,
+         "description": "Dose is never forecasted",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "0 days"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 7",
+     "ages": [
+      {
+       "absMinAge": "7 years",
+       "minAge": "7 years",
+       "earliestRecAge": "7 years",
+       "latestRecAge": "7 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "0 days",
+       "earliestRecInt": "0 days",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received 1 dose and no doses prior to 12 months",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 1,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to"
+          },
+          {
+           "id": 2,
+           "type": "Vaccine Count by Age",
+           "endAge": "12 months - 4 days",
+           "doseCount": 0,
+           "doseType": "Total",
+           "doseCountLogic": "equal to"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required if the patient has received 2 doses and no doses prior to 12 months",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 2,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to"
+          },
+          {
+           "id": 2,
+           "type": "Vaccine Count by Age",
+           "endAge": "12 months - 4 days",
+           "doseCount": 0,
+           "doseType": "Total",
+           "doseCountLogic": "equal to"
+          }
+         ]
+        },
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 3 doses with 1 dose of Tdap on or after 7 years and no doses prior to 12 months",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 3,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to"
+          },
+          {
+           "id": 2,
+           "type": "Vaccine Count by Age",
+           "beginAge": "7 years",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          },
+          {
+           "id": 3,
+           "type": "Vaccine Count by Age",
+           "endAge": "12 months - 4 days",
+           "doseCount": 0,
+           "doseType": "Total",
+           "doseCountLogic": "equal to"
+          }
+         ]
+        },
+        {
+         "id": 4,
+         "description": "Dose is not required if the patient has received 4 doses with 1 pertussis- containing vaccine on or after 4 years and no doses prior to 12 months",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 4,
+           "doseType": "Valid",
+           "doseCountLogic": "equal to"
+          },
+          {
+           "id": 2,
+           "type": "Vaccine Count by Age",
+           "beginAge": "4 years - 4 days",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "01",
+            "11",
+            "20",
+            "22",
+            "50",
+            "102",
+            "106",
+            "107",
+            "110",
+            "115",
+            "120",
+            "130",
+            "132",
+            "146",
+            "170",
+            "198"
+           ]
+          },
+          {
+           "id": 3,
+           "type": "Vaccine Count by Age",
+           "endAge": "12 months - 4 days",
+           "doseCount": 0,
+           "doseType": "Total",
+           "doseCountLogic": "equal to"
+          }
+         ]
+        },
+        {
+         "id": 5,
+         "description": "Dose is not required if the patient has received more than 4 doses and no doses prior to 12 months",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 4,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          },
+          {
+           "id": 2,
+           "type": "Vaccine Count by Age",
+           "endAge": "12 months - 4 days",
+           "doseCount": 0,
+           "doseType": "Total",
+           "doseCountLogic": "equal to"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 8",
+     "ages": [
+      {
+       "absMinAge": "7 years",
+       "minAge": "7 years",
+       "earliestRecAge": "7 years",
+       "latestRecAge": "7 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received more than 1 dose.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 1,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required if the patient has received 1 or more doses of Td on or after 7 years.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "7 years",
+           "doseCount": 0,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "09",
+            "113",
+            "138",
+            "139",
+            "196"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 1 valid dose on or after 7 years.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "7 years",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 9",
+     "ages": [
+      {
+       "absMinAge": "7 years",
+       "minAge": "7 years",
+       "earliestRecAge": "7 years",
+       "latestRecAge": "7 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received more than 2 dose.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 2,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required if the patient has received 2 or more doses of Td on or after 7 years.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "7 years",
+           "doseCount": 1,
+           "doseType": "Total",
+           "doseCountLogic": "greater than",
+           "vaccineTypes": [
+            "09",
+            "113",
+            "138",
+            "139",
+            "196"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "sets": [
+        {
+         "id": 3,
+         "description": "Dose is not required if the patient has received 1 valid dose on or after 7 years.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "7 years",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 10",
+     "ages": [
+      {
+       "absMinAge": "10 years",
+       "minAge": "11 years",
+       "earliestRecAge": "11 years",
+       "latestRecAge": "13 years + 4 weeks"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "09",
+        "28",
+        "35",
+        "113",
+        "138",
+        "139"
+       ],
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received more than 2 dose.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "doseCount": 2,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Dose is not required if the patient has received 1 valid dose on or after 10 years.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "10 years",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 11",
+     "ages": [
+      {
+       "absMinAge": "10 years",
+       "minAge": "11 years",
+       "earliestRecAge": "11 years",
+       "latestRecAge": "13 years + 4 weeks"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": false,
+       "fromMostRecent": [
+        "09",
+        "28",
+        "35",
+        "113",
+        "138",
+        "139"
+       ],
+       "absMinInt": "0 days",
+       "minInt": "0 days",
+       "priority": "override"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "7 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "DTP",
+       "cvx": "01",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP",
+       "cvx": "20",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib",
+       "cvx": "50",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, 5 pertussis antigens",
+       "cvx": "106",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP, Unspecified Formulation",
+       "cvx": "107",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-HepB-IPV",
+       "cvx": "110",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Tdap",
+       "cvx": "115",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV",
+       "cvx": "130",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required if the patient has received 1 or more doses after the age of 10 years",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Vaccine Count by Age",
+           "beginAge": "10 years",
+           "doseCount": 0,
+           "doseType": "Valid",
+           "doseCountLogic": "greater than"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    }
+   ]
+  }
+ ]
+}

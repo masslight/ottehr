@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import {
   getMedicationInventoryConfig,
   isCatalogMedication,
+  isVaccineCatalogMedication,
   makeInventoryLot,
   parseInventoryLot,
   parseInventoryStockEntry,
@@ -17,6 +18,7 @@ import {
   ReceiveMedicationShipmentResponse,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
+import { findNdcVaccineProduct, getMvxManufacturer } from 'utils/lib/types/data/immunization/vaccine-lookup';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
@@ -59,7 +61,7 @@ export const performEffect = async (
   params: ReceiveMedicationShipmentInput,
   performerReference: string
 ): Promise<ReceiveMedicationShipmentResponse> => {
-  const { medicationId, locationId, lotNumber, expirationDate, quantity, ndc, manufacturer, vendor } = params;
+  const { medicationId, locationId, lotNumber, expirationDate, quantity, ndc, vendor } = params;
 
   const catalog = await oystehr.fhir.get<Medication & { id: string }>({ resourceType: 'Medication', id: medicationId });
   if (!catalog.id || !isCatalogMedication(catalog)) throw FHIR_RESOURCE_NOT_FOUND('Medication');
@@ -67,6 +69,12 @@ export const performEffect = async (
   if (!inventory) {
     throw INVALID_INPUT_ERROR('This medication is not set up for inventory. Save its inventory setup first.');
   }
+  // A vaccine box names its manufacturer through the CDC NDC crosswalk (MVX); a typed manufacturer wins.
+  const isVaccine = isVaccineCatalogMedication(catalog);
+  const crosswalk = isVaccine ? findNdcVaccineProduct(ndc) : undefined;
+  const manufacturer =
+    params.manufacturer ?? (crosswalk ? getMvxManufacturer(crosswalk.mvx)?.name ?? crosswalk.labeler : undefined);
+  const fundingSource = isVaccine ? params.fundingSource : undefined;
   const { locations } = await listActiveLocations(oystehr, { inPersonOnly: true });
   if (!locations.some((location) => location.id === locationId)) {
     throw INVALID_INPUT_ERROR('This location is not an active in-person location.');
@@ -120,10 +128,12 @@ export const performEffect = async (
       note: `Expiration changed from ${formatDateForDisplay(previous)} to ${formatDateForDisplay(expirationDate)}`,
     };
     written = await writeInventoryStockEntry(oystehr, confirmedLot, [corrected, received], (lot) =>
-      withLotDetails({ ...lot, batch: { ...lot.batch, expirationDate } }, { vendor })
+      withLotDetails({ ...lot, batch: { ...lot.batch, expirationDate } }, { vendor, fundingSource })
     );
   } else if (existingLot) {
-    written = await writeInventoryStockEntry(oystehr, existingLot, received, (lot) => withLotDetails(lot, { vendor }));
+    written = await writeInventoryStockEntry(oystehr, existingLot, received, (lot) =>
+      withLotDetails(lot, { vendor, fundingSource })
+    );
   } else {
     written = await writeInventoryStockEntry(
       oystehr,
@@ -133,7 +143,9 @@ export const performEffect = async (
         expirationDate,
         ndc,
         manufacturer,
+        ...(crosswalk ? { mvx: crosswalk.mvx } : {}),
         vendor,
+        fundingSource,
         unit: inventory.countedAs,
       }),
       received

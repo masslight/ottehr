@@ -1,10 +1,10 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Box, CircularProgress, IconButton, Stack, Typography, useTheme } from '@mui/material';
-import { DateTime } from 'luxon';
 import React, { ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Row } from 'src/components/layout/Row';
 import { Section } from 'src/components/layout/Section';
+import { formatImmunizationCptCode } from 'src/features/immunization/components/immunizationLines';
 import { searchRouteByCode } from 'utils/lib/fhir/medication-administration';
 import { useImmunizationQuickPicksQuery } from './admin.queries';
 
@@ -66,37 +66,20 @@ export default function ImmunizationQuickPickDetailPage(): ReactElement {
           <Row label="Injection Site">
             <ValueDisplay value={quickPick.location?.name} />
           </Row>
-          <Row label="Manufacturer">
-            <ValueDisplay value={quickPick.manufacturer} />
-          </Row>
         </Section>
 
+        {/* A quick pick carries the order part and the admin codes; lot, NDC and manufacturer come from stock. */}
         <Section title="Codes">
-          <Row label="CVX">
-            <ValueDisplay value={quickPick.cvx} />
-          </Row>
-          <Row label="MVX">
-            <ValueDisplay value={quickPick.mvx} />
-          </Row>
           <Row label="CPT">
             <ValueDisplay
-              value={quickPick.cptCodes?.map((c) => `${c.code}${c.display ? ` - ${c.display}` : ''}`).join(', ')}
+              value={quickPick.cptCodes
+                ?.map((c) => `${formatImmunizationCptCode(c)}${c.display ? ` - ${c.display}` : ''}`)
+                .join(', ')}
             />
-          </Row>
-          <Row label="NDC">
-            <ValueDisplay value={quickPick.ndc} />
           </Row>
         </Section>
 
         <Section title="Administration Details">
-          <Row label="Lot Number">
-            <ValueDisplay value={quickPick.lot} />
-          </Row>
-          <Row label="Expiration Date">
-            <ValueDisplay
-              value={quickPick.expDate ? DateTime.fromISO(quickPick.expDate).toFormat('yyyy-MM-dd') : undefined}
-            />
-          </Row>
           <Row label="Instructions">
             <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
               {quickPick.instructions || <span style={{ color: '#999', fontStyle: 'italic' }}>—</span>}

@@ -1,0 +1,342 @@
+{
+ "antigen": "HepA",
+ "source": "cdc-4.64",
+ "series": [
+  {
+   "seriesName": "HepA 2-dose series",
+   "targetDisease": "HepA",
+   "vaccineGroup": "HepA",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": true,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 1,
+    "maxAgeToStart": "19 years"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "12 months",
+       "earliestRecAge": "12 months",
+       "latestRecAge": "24 months + 4 weeks",
+       "maxAge": "19 years"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Hep A, adult",
+       "cvx": "52",
+       "beginAge": "19 years",
+       "volume": "1.0",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "Hep A, ped/adol, 2 dose",
+       "cvx": "83",
+       "beginAge": "12 months",
+       "endAge": "19 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hep A, pediatric, Unspecified",
+       "cvx": "31",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      },
+      {
+       "vaccineType": "Hep A, adult",
+       "cvx": "52",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hep A, ped/adol, 2 dose",
+       "cvx": "83",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      },
+      {
+       "vaccineType": "Hep A, Unspecified",
+       "cvx": "85",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "HepA-HepB",
+       "cvx": "104",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "18 months - 4 days",
+       "minAge": "18 months",
+       "earliestRecAge": "18 months"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months",
+       "latestRecInt": "19 months + 4 weeks"
+      }
+     ],
+     "allowableIntervals": [
+      {
+       "fromPrevious": false,
+       "fromTargetDose": 1,
+       "absMinInt": "6 months - 4 days"
+      }
+     ],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Hep A, adult",
+       "cvx": "52",
+       "beginAge": "19 years",
+       "volume": "1.0",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "Hep A, ped/adol, 2 dose",
+       "cvx": "83",
+       "beginAge": "12 months",
+       "endAge": "19 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hep A, pediatric, Unspecified",
+       "cvx": "31",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      },
+      {
+       "vaccineType": "Hep A, adult",
+       "cvx": "52",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hep A, ped/adol, 2 dose",
+       "cvx": "83",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      },
+      {
+       "vaccineType": "Hep A, Unspecified",
+       "cvx": "85",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "HepA-HepB",
+       "cvx": "104",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "HepA risk Twinrix tertiary 3-dose series",
+   "targetDisease": "HepA",
+   "vaccineGroup": "HepA",
+   "seriesType": "Evaluation Only",
+   "equivalentSeriesGroups": [
+    1
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Increased Risk",
+    "seriesGroup": 2,
+    "seriesPriority": "A",
+    "seriesPreference": 4,
+    "minAgeToStart": "19 years"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "18 years - 4 days",
+       "minAge": "19 years",
+       "earliestRecAge": "19 years"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "",
+       "cvx": "",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hep A, pediatric, Unspecified",
+       "cvx": "31",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      },
+      {
+       "vaccineType": "Hep A, adult",
+       "cvx": "52",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hep A, ped/adol, 2 dose",
+       "cvx": "83",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      },
+      {
+       "vaccineType": "Hep A, Unspecified",
+       "cvx": "85",
+       "beginAge": "12 months - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "",
+       "cvx": "",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hep A, pediatric, Unspecified",
+       "cvx": "31",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      },
+      {
+       "vaccineType": "Hep A, adult",
+       "cvx": "52",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hep A, ped/adol, 2 dose",
+       "cvx": "83",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      },
+      {
+       "vaccineType": "Hep A, Unspecified",
+       "cvx": "85",
+       "beginAge": "12 months - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "5 months - 4 days",
+       "minInt": "5 months",
+       "earliestRecInt": "5 months"
+      },
+      {
+       "fromPrevious": false,
+       "fromTargetDose": 1,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "",
+       "cvx": "",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hep A, pediatric, Unspecified",
+       "cvx": "31",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      },
+      {
+       "vaccineType": "Hep A, adult",
+       "cvx": "52",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hep A, ped/adol, 2 dose",
+       "cvx": "83",
+       "beginAge": "12 months - 4 days",
+       "endAge": "19 years"
+      },
+      {
+       "vaccineType": "Hep A, Unspecified",
+       "cvx": "85",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "HepA-HepB",
+       "cvx": "104",
+       "beginAge": "18 years - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  }
+ ]
+}

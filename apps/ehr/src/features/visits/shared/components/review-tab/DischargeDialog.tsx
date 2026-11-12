@@ -16,11 +16,11 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { makePatientInstructionsPdf, makeProgressNotePdf } from 'src/api/api';
+import { createImmunizationRecord, makePatientInstructionsPdf, makeProgressNotePdf } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
+import { DownloadDocumentOptions, useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { formatList } from 'src/shared/utils/formatList';
 import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -51,6 +51,7 @@ interface DischargeSelections {
   schoolNote: boolean;
   patientInstructions: boolean;
   progressNote: boolean;
+  immunizationRecord: boolean;
   signProgressNote: boolean;
   requireSupervisorApproval: boolean;
 }
@@ -61,6 +62,7 @@ const DEFAULT_SELECTIONS: DischargeSelections = {
   schoolNote: true,
   patientInstructions: false,
   progressNote: false,
+  immunizationRecord: false,
   signProgressNote: false,
   requireSupervisorApproval: true,
 };
@@ -110,6 +112,8 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   const { data: note } = useVisitNote();
   const { appointmentRefetch } = useAppointmentData();
   const { downloadDocument } = useGetPatientDocs(patientId ?? '');
+  // The hook's declared options leave out `targetTab`, which its implementation (and the discharge summary) use.
+  const openDocument: (documentId: string, options?: DownloadDocumentOptions) => Promise<void> = downloadDocument;
   const { completed, permissionMessages, readinessMessages, supervisorApprovalApplies, isSigning, signNote } =
     useProgressNoteSigning();
 
@@ -139,6 +143,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     schoolNote: false,
     patientInstructions: false,
     progressNote: false,
+    immunizationRecord: false,
     discharged: false,
   });
 
@@ -163,10 +168,16 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   const printSchoolNote = selections.schoolNote && hasSchoolNote && !schoolNoteUnavailable;
   const printPatientInstructions = selections.patientInstructions && hasAppointment && hasPatientInstructions;
   const printProgressNote = selections.progressNote && hasAppointment;
+  const printImmunizationRecord = selections.immunizationRecord && hasAppointment;
   const signProgressNote = selections.signProgressNote && canSign;
   const requireSupervisorApproval = signProgressNote && selections.requireSupervisorApproval;
   const isPrinting =
-    printDischargeSummary || printWorkNote || printSchoolNote || printPatientInstructions || printProgressNote;
+    printDischargeSummary ||
+    printWorkNote ||
+    printSchoolNote ||
+    printPatientInstructions ||
+    printProgressNote ||
+    printImmunizationRecord;
 
   const pendingWorkNote = printWorkNote && !workNoteUrl && !workNoteUnavailable;
   const pendingSchoolNote = printSchoolNote && !schoolNoteUrl && !schoolNoteUnavailable;
@@ -227,12 +238,17 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
         : undefined;
     const progressNoteTab =
       printProgressNote && appointmentId && !completedSteps.current.progressNote ? reserveTab('') : undefined;
+    const immunizationRecordTab =
+      printImmunizationRecord && appointmentId && !completedSteps.current.immunizationRecord
+        ? reserveTab('')
+        : undefined;
 
     const blocked =
       excusesToOpen.some(({ tab }) => !tab) ||
       dischargeSummaryTab === null ||
       instructionsTab === null ||
-      progressNoteTab === null;
+      progressNoteTab === null ||
+      immunizationRecordTab === null;
     if (blocked) {
       reservedTabs.forEach((tab) => tab.close());
       enqueueSnackbar(POPUP_BLOCKED_MESSAGE, { variant: 'error' });
@@ -280,6 +296,24 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
         );
       }
 
+      // Filed like the discharge summary, so it is opened from its DocumentReference.
+      if (immunizationRecordTab && appointmentId) {
+        printPromises.push(
+          createImmunizationRecord(oystehrZambda, { appointmentId })
+            .then(async ({ documentId }) => {
+              if (!documentId) {
+                throw new Error('The immunization record could not be created');
+              }
+              await openDocument(documentId, { skipRelated: true, targetTab: immunizationRecordTab });
+              completedSteps.current.immunizationRecord = true;
+            })
+            .catch((error) => {
+              immunizationRecordTab.close();
+              throw error;
+            })
+        );
+      }
+
       const printResults = await Promise.allSettled(printPromises);
       const failedPrint = printResults.find((result) => result.status === 'rejected');
       if (failedPrint) {
@@ -316,11 +350,13 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     schoolNoteUrl,
     printPatientInstructions,
     printProgressNote,
+    printImmunizationRecord,
     pendingDocuments,
     signProgressNote,
     requireSupervisorApproval,
     signNote,
     downloadDocument,
+    openDocument,
     appointmentRefetch,
     onClose,
   ]);
@@ -390,6 +426,13 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
                 disabled={!hasAppointment}
                 onChange={(checked) => select({ progressNote: checked })}
                 dataTestId={dataTestIds.dischargeDialog.printProgressNoteCheckbox}
+              />
+              <SelectionCheckbox
+                label="Immunization Record"
+                checked={printImmunizationRecord}
+                disabled={!hasAppointment}
+                onChange={(checked) => select({ immunizationRecord: checked })}
+                dataTestId={dataTestIds.dischargeDialog.printImmunizationRecordCheckbox}
               />
             </FormGroup>
           </Box>

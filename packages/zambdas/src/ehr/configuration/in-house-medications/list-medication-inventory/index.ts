@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
 import {
+  getCatalogMedicationType,
   getMedicationInventoryConfig,
   INVENTORY_LOT_IDENTIFIER_SYSTEM,
   INVENTORY_LOT_IDENTIFIER_VALUE,
@@ -19,7 +20,10 @@ import {
   ListMedicationInventoryInputSchema,
   ListMedicationInventoryResponse,
 } from 'utils/lib/types/api/config/in-house-medications';
-import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  INVENTORY_MEDICATION_TYPE_CODE,
+  INVENTORY_VACCINE_TYPE_CODE,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
@@ -34,6 +38,7 @@ import {
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { validateWithSchema } from '../../../../shared/validation';
+import { listVfcBorrowings } from '../../../../shared/vfc';
 import { performEffect as listActiveLocations } from '../../../locations/list-active-locations';
 
 let m2mToken: string;
@@ -62,6 +67,9 @@ export const performEffect = async (
   oystehr: Oystehr,
   params: ListMedicationInventoryInput
 ): Promise<ListMedicationInventoryResponse> => {
+  if (params.view === 'vfc-borrowing') {
+    return { drugs: [], entries: [], borrowings: await listVfcBorrowings(oystehr) };
+  }
   if (params.view === 'lot-history') {
     const resources = await getInventoryLotHistoryResources(oystehr, params.lotId);
     const entries = resources.flatMap((resource) =>
@@ -79,16 +87,20 @@ export const performEffect = async (
   return { drugs: buildAllLocationsRows(drugs, lots, locations, today), entries: [] };
 };
 
-/** Every catalog drug with an inventory setup. */
+/** Every catalog drug (medication or vaccine) with an inventory setup. */
 const getTrackedDrugs = async (oystehr: Oystehr): Promise<TrackedDrug[]> => {
   const catalog = await getAllFhirSearchPages<Medication>(
-    { resourceType: 'Medication', params: [{ name: 'identifier', value: INVENTORY_MEDICATION_TYPE_CODE }] },
+    {
+      resourceType: 'Medication',
+      params: [{ name: 'identifier', value: `${INVENTORY_MEDICATION_TYPE_CODE},${INVENTORY_VACCINE_TYPE_CODE}` }],
+    },
     oystehr
   );
   return catalog.flatMap((medication) => {
     const inventory = getMedicationInventoryConfig(medication);
-    return medication.id && inventory
-      ? [{ medicationId: medication.id, name: getMedicationName(medication) ?? '', inventory }]
+    const type = getCatalogMedicationType(medication);
+    return medication.id && inventory && type
+      ? [{ medicationId: medication.id, name: getMedicationName(medication) ?? '', type, inventory }]
       : [];
   });
 };

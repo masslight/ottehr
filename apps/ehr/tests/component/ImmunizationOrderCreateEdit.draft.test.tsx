@@ -47,16 +47,8 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   }),
 }));
 
-vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
-  useChartData: () => ({ chartData: undefined }),
-}));
-
 vi.mock('../../src/features/visits/in-person/components/RoundedButton', () => ({
   ButtonRounded: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
-}));
-
-vi.mock('../../src/features/visits/shared/components/QuickPicksButton', () => ({
-  QuickPicksButton: () => <div />,
 }));
 
 vi.mock('../../src/components/AccordionCard', () => ({
@@ -79,8 +71,12 @@ vi.mock('../../src/features/visits/in-person/components/WarningBlock', () => ({
   WarningBlock: () => <div />,
 }));
 
-vi.mock('../../src/helpers/misc.helper', () => ({
-  cleanupProperties: vi.fn(async (x: unknown) => x),
+vi.mock('../../src/features/visits/shared/components/review-tab/components/AllergiesContainer', () => ({
+  AllergiesContainer: () => <div />,
+}));
+
+vi.mock('../../src/features/visits/shared/components/review-tab/components/MedicationsContainer', () => ({
+  MedicationsContainer: () => <div />,
 }));
 
 vi.mock('../../src/features/immunization/hooks/useImmunizationQuickPickManagement', () => ({
@@ -101,39 +97,38 @@ vi.mock('../../src/features/immunization/hooks/useImmunizationQuickPickManagemen
 
 vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
   useCancelImmunizationOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRecordOutsideImmunization: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateUpdateImmunizationOrder: () => ({
     mutateAsync: vi.fn().mockResolvedValue({}),
     isPending: false,
   }),
   useGetImmunizationOrders: () => ({ data: undefined, isLoading: false }),
+  useGetImmunizationForecast: () => ({ data: undefined, isLoading: false, isError: false }),
+  useGetVaccines: () => ({ data: [], isLoading: false }),
 }));
 
 vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({
   OrderHistoryTable: () => <div />,
 }));
 
-// Mock OrderDetailsSection to expose the dose field from form context
-vi.mock('../../src/features/immunization/components/OrderDetailsSection', async () => {
-  const { useFormContext } = await import('react-hook-form');
-  return {
-    OrderDetailsSection: () => {
-      const { watch } = useFormContext();
-      const dose = watch('details.dose');
-      return <div data-testid="order-details" data-dose={dose != null ? String(dose) : ''} />;
-    },
-  };
-});
+// Mock the line to expose its dose and lot
+vi.mock('../../src/features/immunization/hooks/useVaccineInventory', () => ({
+  useVfcEligibility: () => ({ data: undefined, isLoading: false }),
+  useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useVaccineLotsOnHand: () => ({ data: [] }),
+  useVaccineInventoryAtLocation: () => ({ data: undefined }),
+}));
 
-vi.mock('../../src/features/immunization/components/AdministeringImmunizationFields', async () => {
-  const { useFormContext } = await import('react-hook-form');
-  return {
-    AdministeringImmunizationFields: () => {
-      const { watch } = useFormContext();
-      const lot = watch('administrationDetails.lot');
-      return <div data-testid="vaccine-product-fields" data-lot={lot ?? ''} />;
-    },
-  };
-});
+vi.mock('../../src/features/immunization/components/ImmunizationSentences', () => ({
+  ImmunizationSectionLabel: ({ children }: any) => <h3>{children}</h3>,
+  ImmunizationSentences: ({ line }: any) => (
+    <div
+      data-testid="immunization-line"
+      data-dose={line.details.dose ?? ''}
+      data-lot={line.administrationDetails.lot ?? ''}
+    />
+  ),
+}));
 
 // ─── Component + real draft store (imports after all vi.mock calls) ──────────
 
@@ -143,6 +138,12 @@ import { useImmunizationOrderStore } from '../../src/state/draft-data.store';
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const ENCOUNTER_ID = 'enc-imm-test';
+
+const draftWith = (dose: string, lot?: string): void => {
+  useImmunizationOrderStore
+    .getState()
+    .setDraft(ENCOUNTER_ID, { lines: [{ details: { dose }, administrationDetails: lot ? { lot } : {} }] });
+};
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
@@ -162,7 +163,7 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
     });
 
     it('shows the in-progress banner when a draft exists (no hasNavigatedAway)', () => {
-      useImmunizationOrderStore.getState().setDraft(ENCOUNTER_ID, { dose: '1.5' });
+      draftWith('1.5');
 
       render(<ImmunizationOrderCreateEdit />);
 
@@ -170,10 +171,8 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
     });
 
     it('shows the restored banner when hasNavigatedAway is true', () => {
-      useImmunizationOrderStore.getState().setDraft(ENCOUNTER_ID, {
-        dose: '1.5',
-        hasNavigatedAway: true,
-      });
+      draftWith('1.5');
+      useImmunizationOrderStore.getState().setDraft(ENCOUNTER_ID, { hasNavigatedAway: true });
 
       render(<ImmunizationOrderCreateEdit />);
 
@@ -185,7 +184,7 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
 
   describe('Clear Form button', () => {
     it('shows the Clear Form button when a draft exists', () => {
-      useImmunizationOrderStore.getState().setDraft(ENCOUNTER_ID, { dose: '1.5' });
+      draftWith('1.5');
 
       render(<ImmunizationOrderCreateEdit />);
 
@@ -202,16 +201,33 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
   // ── Form state ───────────────────────────────────────────────────────────
 
   describe('form state', () => {
-    it('populates form fields from the draft on mount', () => {
-      useImmunizationOrderStore.getState().setDraft(ENCOUNTER_ID, { dose: '1.5' });
+    it('populates the line from the draft on mount', () => {
+      draftWith('1.5');
 
       render(<ImmunizationOrderCreateEdit />);
 
-      expect(screen.getByTestId('order-details')).toHaveAttribute('data-dose', '1.5');
+      expect(screen.getByTestId('immunization-line')).toHaveAttribute('data-dose', '1.5');
+    });
+
+    it('restores every line of the draft', () => {
+      useImmunizationOrderStore.getState().setDraft(ENCOUNTER_ID, {
+        lines: [
+          { details: { dose: '1' }, administrationDetails: {} },
+          { details: { dose: '2' }, administrationDetails: {} },
+        ],
+      });
+
+      render(<ImmunizationOrderCreateEdit />);
+
+      expect(screen.getAllByTestId('immunization-line').map((line) => line.getAttribute('data-dose'))).toEqual([
+        '1',
+        '2',
+      ]);
+      expect(screen.getByRole('button', { name: 'Order 2 Immunizations' })).toBeInTheDocument();
     });
 
     it('clicking Clear Form clears the draft store', async () => {
-      useImmunizationOrderStore.getState().setDraft(ENCOUNTER_ID, { dose: '1.5' });
+      draftWith('1.5');
       const user = userEvent.setup();
 
       render(<ImmunizationOrderCreateEdit />);
@@ -220,49 +236,62 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
       expect(useImmunizationOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
     });
 
-    it('clicking Clear Form resets form fields to empty', async () => {
-      useImmunizationOrderStore.getState().setDraft(ENCOUNTER_ID, { dose: '1.5' });
+    it('clicking Clear Form resets the form to one empty line', async () => {
+      useImmunizationOrderStore.getState().setDraft(ENCOUNTER_ID, {
+        lines: [
+          { details: { dose: '1.5' }, administrationDetails: {} },
+          { details: { dose: '2' }, administrationDetails: {} },
+        ],
+      });
       const user = userEvent.setup();
 
       render(<ImmunizationOrderCreateEdit />);
-      expect(screen.getByTestId('order-details')).toHaveAttribute('data-dose', '1.5');
+      expect(screen.getAllByTestId('immunization-line')).toHaveLength(2);
 
       await user.click(screen.getByRole('button', { name: /clear form/i }));
 
-      expect(screen.getByTestId('order-details')).toHaveAttribute('data-dose', '');
+      expect(screen.getAllByTestId('immunization-line')).toHaveLength(1);
+      expect(screen.getByTestId('immunization-line')).toHaveAttribute('data-dose', '');
+      // not a change of the user's: no new draft
+      expect(useImmunizationOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
     });
 
     it('populates administration fields from the draft on mount', () => {
-      useImmunizationOrderStore
-        .getState()
-        .setDraft(ENCOUNTER_ID, { dose: '1.5', administrationDetails: { lot: 'L1' } });
+      draftWith('1.5', 'L1');
 
       render(<ImmunizationOrderCreateEdit />);
 
-      expect(screen.getByTestId('vaccine-product-fields')).toHaveAttribute('data-lot', 'L1');
+      expect(screen.getByTestId('immunization-line')).toHaveAttribute('data-lot', 'L1');
     });
 
     it('does not apply the creation draft when editing an existing order', () => {
-      useImmunizationOrderStore
-        .getState()
-        .setDraft(ENCOUNTER_ID, { dose: '1.5', administrationDetails: { lot: 'L1' } });
+      draftWith('1.5', 'L1');
 
       render(<ImmunizationOrderCreateEdit orderId="order-1" />);
 
-      expect(screen.getByTestId('order-details')).toHaveAttribute('data-dose', '');
-      expect(screen.getByTestId('vaccine-product-fields')).toHaveAttribute('data-lot', '');
+      expect(screen.getByTestId('immunization-line')).toHaveAttribute('data-dose', '');
+      expect(screen.getByTestId('immunization-line')).toHaveAttribute('data-lot', '');
     });
 
     it('clicking Clear Form resets administration fields to empty', async () => {
-      useImmunizationOrderStore
-        .getState()
-        .setDraft(ENCOUNTER_ID, { dose: '1.5', administrationDetails: { lot: 'L1' } });
+      draftWith('1.5', 'L1');
       const user = userEvent.setup();
 
       render(<ImmunizationOrderCreateEdit />);
       await user.click(screen.getByRole('button', { name: /clear form/i }));
 
-      expect(screen.getByTestId('vaccine-product-fields')).toHaveAttribute('data-lot', '');
+      expect(screen.getByTestId('immunization-line')).toHaveAttribute('data-lot', '');
+    });
+
+    it('adding a line saves every line to the draft', async () => {
+      const user = userEvent.setup();
+
+      render(<ImmunizationOrderCreateEdit />);
+      await user.click(screen.getByRole('button', { name: 'Add another immunization' }));
+
+      expect(screen.getAllByTestId('immunization-line')).toHaveLength(2);
+      expect(screen.getByRole('button', { name: 'Order 2 Immunizations' })).toBeInTheDocument();
+      expect(useImmunizationOrderStore.getState().getDraft(ENCOUNTER_ID).lines).toHaveLength(2);
     });
   });
 });

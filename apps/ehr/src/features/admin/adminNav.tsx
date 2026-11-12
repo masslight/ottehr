@@ -22,6 +22,7 @@ import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
+import VaccinesOutlinedIcon from '@mui/icons-material/VaccinesOutlined';
 import { ReactElement, ReactNode } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { ActionLogsTabs } from 'src/features/action-logs/ActionLogsTabs';
@@ -32,6 +33,7 @@ import { ProgressNoteIcon } from 'src/features/admin/icons/ProgressNoteIcon';
 import InventoryAdminPage from 'src/features/admin/inventory/InventoryAdminPage';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
+import { VaccineScheduleAdminPage } from 'src/features/admin/vaccine-schedule/VaccineScheduleAdminPage';
 import { FormTemplatesAdminPage } from 'src/features/form-templates/FormTemplatesAdminPage';
 import LocationsListPage from 'src/features/locations/LocationsListPage';
 import ChargeItemList from 'src/features/visits/telemed/components/admin/ChargeItemList';
@@ -166,6 +168,12 @@ export const adminNavGroups: AdminNavGroup[] = [
         path: '/admin/medications',
         icon: <MedicationOutlinedIcon />,
         render: () => <MedicationsConfigurationPage />,
+      },
+      {
+        label: 'Vaccine Schedule',
+        path: '/admin/vaccine-schedule',
+        icon: <VaccinesOutlinedIcon />,
+        render: () => <VaccineScheduleAdminPage />,
       },
       {
         label: 'Inventory',

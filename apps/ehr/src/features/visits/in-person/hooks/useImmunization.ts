@@ -1,29 +1,26 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
-import { Identifier, Medication } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
-import {
-  INVENTORY_VACCINE_TYPE_CODE,
-  MEDICATION_IDENTIFIER_NAME_SYSTEM,
-} from 'utils/lib/types/api/medication-administration.constants';
 import {
   AdministerImmunizationOrderRequest,
   CancelImmunizationOrderRequest,
   CancelImmunizationOrderResponse,
   CreateUpdateImmunizationOrderRequest,
   CreateUpdateImmunizationOrderResponse,
+  GetImmunizationForecastRequest,
+  GetImmunizationForecastResponse,
   GetImmunizationOrdersRequest,
   GetImmunizationOrdersResponse,
+  GetPatientImmunizationsResponse,
+  GetVaccinesResponse,
+  RecordOutsideImmunizationRequest,
+  RecordOutsideImmunizationResponse,
+  Vaccine,
 } from 'utils/lib/types/data/immunization/types';
 import { invalidateChartSections } from '../../shared/hooks/chartSectionCache';
 
 const GET_IMMUNIZATION_ORDERS_KEY = 'get-immunization-orders';
 const GET_VACCINES_KEY = 'get-vaccines';
-
-export interface Vaccine {
-  id: string;
-  name: string;
-}
 
 export const useCreateUpdateImmunizationOrder = (): UseMutationResult<
   CreateUpdateImmunizationOrderResponse,
@@ -120,35 +117,80 @@ export const useCancelImmunizationOrder = (
 };
 
 export const useGetVaccines = (): UseQueryResult<Vaccine[], Error> => {
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   return useQuery({
     queryKey: [GET_VACCINES_KEY],
     queryFn: async () => {
-      if (!oystehr) throw new Error('oystehr not defined');
-      const data = await oystehr.fhir.search<Medication>({
-        resourceType: 'Medication',
-        params: [{ name: 'identifier', value: INVENTORY_VACCINE_TYPE_CODE }],
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      const response = await oystehrZambda.zambda.execute({
+        id: 'get-vaccines',
       });
-      return data
-        .unbundle()
-        .flatMap((medication) => {
-          const identifier = medication.identifier?.find(
-            (identifier: Identifier) => identifier.system === MEDICATION_IDENTIFIER_NAME_SYSTEM
-          );
-          if (identifier?.value && medication.id) {
-            return [
-              {
-                id: medication.id,
-                name: identifier?.value,
-              },
-            ];
-          }
-          return [];
-        })
-        .sort((a, b) => a.name.localeCompare(b.name));
+      return (chooseJson(response) as GetVaccinesResponse).vaccines;
     },
-    enabled: oystehr != null,
+    enabled: oystehrZambda != null,
     retry: 2,
     staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const GET_PATIENT_IMMUNIZATIONS_KEY = 'get-patient-immunizations';
+
+/** The patient's Immunization records: doses given here and outside, and the per-vaccine marks. */
+export const useGetPatientImmunizations = (
+  patientId: string | undefined
+): UseQueryResult<GetPatientImmunizationsResponse, Error> => {
+  const { oystehrZambda } = useApiClients();
+  return useQuery({
+    queryKey: [GET_PATIENT_IMMUNIZATIONS_KEY, patientId],
+    queryFn: async () => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      const response = await oystehrZambda.zambda.execute({ patientId, id: 'get-patient-immunizations' });
+      return chooseJson(response);
+    },
+    enabled: oystehrZambda != null && Boolean(patientId),
+    retry: 2,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+export const GET_IMMUNIZATION_FORECAST_KEY = 'get-immunization-forecast';
+
+/** The engine's forecast for the patient as of the visit (else the given day, else today), run on the server with
+ * the records it ran on; refreshed with the records. The Due today box and the timeline both read it. */
+export const useGetImmunizationForecast = (
+  input: Partial<GetImmunizationForecastRequest>
+): UseQueryResult<GetImmunizationForecastResponse, Error> => {
+  const { oystehrZambda } = useApiClients();
+  return useQuery({
+    queryKey: [GET_IMMUNIZATION_FORECAST_KEY, input.patientId, input.encounterId, input.asOf],
+    queryFn: async () => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      const response = await oystehrZambda.zambda.execute({ ...input, id: 'get-immunization-forecast' });
+      return chooseJson(response);
+    },
+    enabled: oystehrZambda != null && Boolean(input.patientId),
+    retry: 2,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+/** Saves a dose administered externally straight into the patient's history. */
+export const useRecordOutsideImmunization = (): UseMutationResult<
+  RecordOutsideImmunizationResponse,
+  Error,
+  RecordOutsideImmunizationRequest
+> => {
+  const { oystehrZambda } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: RecordOutsideImmunizationRequest) => {
+      if (!oystehrZambda) throw new Error('oystehrZambda not defined');
+      const response = await oystehrZambda.zambda.execute({ ...input, id: 'record-outside-immunization' });
+      return chooseJson(response);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: [GET_PATIENT_IMMUNIZATIONS_KEY], exact: false });
+      await queryClient.invalidateQueries({ queryKey: [GET_IMMUNIZATION_FORECAST_KEY], exact: false });
+    },
   });
 };

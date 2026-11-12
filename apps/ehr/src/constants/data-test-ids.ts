@@ -394,6 +394,7 @@ export const dataTestIds = {
     printSchoolNoteCheckbox: 'discharge-dialog-print-school-note-checkbox',
     printPatientInstructionsCheckbox: 'discharge-dialog-print-patient-instructions-checkbox',
     printProgressNoteCheckbox: 'discharge-dialog-print-progress-note-checkbox',
+    printImmunizationRecordCheckbox: 'discharge-dialog-print-immunization-record-checkbox',
     signProgressNoteCheckbox: 'discharge-dialog-sign-progress-note-checkbox',
     supervisorApprovalCheckbox: 'discharge-dialog-supervisor-approval-checkbox',
     signDisabledReason: 'discharge-dialog-sign-disabled-reason',
@@ -887,6 +888,25 @@ export const dataTestIds = {
     orderVaccineButton: 'order-vaccine-button',
     associatedDx: 'order-vaccine-associated-dx',
     manufacturer: 'order-vaccine-manufacturer',
+    line: 'order-vaccine-line',
+    addOutsideButton: 'order-vaccine-add-outside',
+    outsideLine: 'order-vaccine-outside-line',
+    outsideDate: 'order-vaccine-outside-date',
+    outsidePlace: 'order-vaccine-outside-place',
+    outsideSource: 'order-vaccine-outside-source',
+    outsideLot: 'order-vaccine-outside-lot',
+    dueTodayBox: 'order-vaccine-due-today',
+    dueTodayRow: 'order-vaccine-due-today-row',
+    dueTodayAddAll: 'order-vaccine-due-today-add-all',
+    duplicateWarning: 'order-vaccine-duplicate-warning',
+    lineQuickPicks: 'order-vaccine-line-quick-picks',
+    cptSuggested: 'order-vaccine-cpt-suggested',
+    questionsBox: 'order-vaccine-questions',
+    counselingQuestion: 'order-vaccine-counseling-question',
+    counselingSplit: 'order-vaccine-counseling-split',
+    counselingJoin: 'order-vaccine-counseling-join',
+    administrationToggle: 'order-vaccine-administration-toggle',
+    administrationSummary: 'order-vaccine-administration-summary',
   },
 
   immunizationPage: {
@@ -914,7 +934,7 @@ export const dataTestIds = {
     lotNumber: 'lot-number',
     expiredDate: 'expired-date',
     mvxCode: 'mvx-code',
-    cvxCode: 'cvx-code',
+    ndcMismatch: 'vaccine-details-ndc-mismatch',
     cptCode: 'cpt-code',
     ndcCode: 'ndc-code',
     administeredDate: 'administered-date',
@@ -977,12 +997,34 @@ export const dataTestIds = {
     adjustButton: (lotId: string) => `inventory-lot-adjust-${lotId}`,
   },
 
+  vfcEligibility: {
+    box: 'vfc-eligibility-box',
+    confirmed: 'vfc-eligibility-confirmed',
+    select: 'vfc-eligibility-select',
+    confirmButton: 'vfc-eligibility-confirm-button',
+  },
+
+  vaccineLotBlank: {
+    option: (lotId: string) => `vaccine-lot-option-${lotId}`,
+    typedLot: 'vaccine-lot-typed',
+    borrowingReason: 'vaccine-lot-borrowing-reason',
+    useBorrowedLot: 'vaccine-lot-use-borrowed',
+    useExpiredLot: 'vaccine-lot-use-expired',
+  },
+
+  vfcBorrowingLog: {
+    table: 'vfc-borrowing-log',
+    row: (borrowingId: string) => `vfc-borrowing-row-${borrowingId}`,
+    replacedButton: (borrowingId: string) => `vfc-borrowing-replaced-${borrowingId}`,
+  },
+
   receiveShipmentDialog: {
     dialog: 'receive-shipment-dialog',
     ndcField: 'receive-shipment-ndc-field',
     lotNumberField: 'receive-shipment-lot-number-field',
     quantityField: 'receive-shipment-quantity-field',
     receiveButton: 'receive-shipment-receive-button',
+    fundingSourceSelect: 'receive-shipment-funding-source',
   },
 
   editNoteDialog: {

@@ -61,6 +61,7 @@ const drug = (
 ): TrackedDrug => ({
   medicationId,
   name,
+  type: 'medication',
   inventory: { countedAs: 'vial', eachContains: { amount: 4, unit: 'mg' }, use: 'single-use', reorderLevels },
 });
 
@@ -521,8 +522,7 @@ describe('adjust-medication-inventory - performEffect', () => {
       performerReference: 'Practitioner/me',
       components: [{ code: 'counted', value: 4, unit: 'vial' }],
     });
-    expect(result.lot).toMatchObject({ id: 'lot-1', onHand: 4 });
-    expect(result.entry).toMatchObject({ type: 'count', quantity: -2 });
+    expect(result).toMatchObject({ lot: { id: 'lot-1', onHand: 4 }, entry: { type: 'count', quantity: -2 } });
   });
 
   it('counts against the balance it re-reads when the write is retried after a version conflict', async () => {
@@ -561,6 +561,7 @@ describe('adjust-medication-inventory - performEffect', () => {
       quantity: -1,
       components: [{ code: 'counted', value: 4, unit: 'vial' }],
     });
+    if (!('lot' in result)) throw new Error('expected a stock write, got a borrowing row');
     expect(result.lot.onHand).toBe(4);
   });
 

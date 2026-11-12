@@ -341,6 +341,77 @@ export const medicationApplianceLocations: MedicationApplianceLocation[] = [
   },
 ];
 
+// The vaccine sentences' own short site list; each side has its own SNOMED code (looked up on tx.fhir.org).
+// Saved as the medication sites are: system, code and the name as display.
+export const vaccineSiteLocations: MedicationApplianceLocation[] = [
+  {
+    name: 'Left deltoid',
+    code: '16217701000119102',
+    system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+    display: 'Structure of left deltoid muscle (body structure)',
+  },
+  {
+    name: 'Right deltoid',
+    code: '16217661000119109',
+    system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+    display: 'Structure of right deltoid muscle (body structure)',
+  },
+  {
+    name: 'Left thigh (vastus lateralis)',
+    code: '61396006',
+    system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+    display: 'Structure of left thigh (body structure)',
+  },
+  {
+    name: 'Right thigh (vastus lateralis)',
+    code: '11207009',
+    system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+    display: 'Structure of right thigh (body structure)',
+  },
+  {
+    name: 'Left gluteus',
+    code: '723979003',
+    system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+    display: 'Structure of left buttock (body structure)',
+  },
+  {
+    name: 'Right gluteus',
+    code: '723980000',
+    system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+    display: 'Structure of right buttock (body structure)',
+  },
+  {
+    name: 'Left arm',
+    code: '368208006',
+    system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+    display: 'Left upper arm structure (body structure)',
+  },
+  {
+    name: 'Right arm',
+    code: '368209003',
+    system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+    display: 'Right upper arm structure (body structure)',
+  },
+  {
+    name: 'Nose (intranasal)',
+    code: '45206002',
+    system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+    display: 'Nasal structure (body structure)',
+  },
+  {
+    name: 'Mouth (oral)',
+    code: '74262004',
+    system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+    display: 'Oral cavity structure (body structure)',
+  },
+  {
+    name: 'Other',
+    code: '74964007',
+    system: MEDICATION_APPLIANCE_LOCATION_SYSTEM,
+    display: 'Other (qualifier value)',
+  },
+];
+
 export const medicationApplianceRoutes: MedicationApplianceRoutes = {
   ROUTE_OF_ADMINISTRATION: {
     code: '284009009',

@@ -1,17 +1,17 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../../../src/constants/data-test-ids';
-import { OrderDetailsSection } from './OrderDetailsSection';
+import { OrderSentencesSection } from './OrderSentencesSection';
 
 export class EditVaccineOrderPage {
   #page: Page;
-  #orderDetailsSection: OrderDetailsSection;
+  #orderDetailsSection: OrderSentencesSection;
 
   constructor(page: Page) {
     this.#page = page;
-    this.#orderDetailsSection = new OrderDetailsSection(this.#page);
+    this.#orderDetailsSection = new OrderSentencesSection(this.#page);
   }
 
-  get orderDetailsSection(): OrderDetailsSection {
+  get orderDetailsSection(): OrderSentencesSection {
     return this.#orderDetailsSection;
   }
 

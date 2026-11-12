@@ -1783,12 +1783,68 @@
       "src": "src/ehr/immunization/get-orders/index",
       "zip": ".dist/zips/get-immunization-orders.zip"
     },
+    "GET-VACCINES": {
+      "name": "get-vaccines",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/immunization/get-vaccines/index",
+      "zip": ".dist/zips/get-vaccines.zip"
+    },
+    "VFC-ELIGIBILITY": {
+      "name": "vfc-eligibility",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/immunization/vfc-eligibility/index",
+      "zip": ".dist/zips/vfc-eligibility.zip"
+    },
     "ADMINISTER-IMMUNIZATION_ORDER": {
       "name": "administer-immunization-order",
       "type": "http_auth",
       "runtime": "nodejs22.x",
       "src": "src/ehr/immunization/administer-order/index",
       "zip": ".dist/zips/administer-immunization-order.zip"
+    },
+    "RECORD-OUTSIDE-IMMUNIZATION": {
+      "name": "record-outside-immunization",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/immunization/record-outside-dose/index",
+      "zip": ".dist/zips/record-outside-immunization.zip"
+    },
+    "SAVE-IMMUNIZATION-MARK": {
+      "name": "save-immunization-mark",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/immunization/save-mark/index",
+      "zip": ".dist/zips/save-immunization-mark.zip"
+    },
+    "CLEAR-IMMUNIZATION-MARK": {
+      "name": "clear-immunization-mark",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/immunization/clear-mark/index",
+      "zip": ".dist/zips/clear-immunization-mark.zip"
+    },
+    "GET-PATIENT-IMMUNIZATIONS": {
+      "name": "get-patient-immunizations",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/immunization/get-patient-immunizations/index",
+      "zip": ".dist/zips/get-patient-immunizations.zip"
+    },
+    "GET-IMMUNIZATION-FORECAST": {
+      "name": "get-immunization-forecast",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/immunization/get-forecast/index",
+      "zip": ".dist/zips/get-immunization-forecast.zip"
+    },
+    "CREATE-IMMUNIZATION-RECORD": {
+      "name": "create-immunization-record",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/create-immunization-record/index",
+      "zip": ".dist/zips/create-immunization-record.zip"
     },
     "CANCEL-IMMUNIZATION_ORDER": {
       "name": "cancel-immunization-order",

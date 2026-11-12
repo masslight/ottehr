@@ -43,6 +43,7 @@ enum docMapTypes {
   statement = 'statement',
   labResult = 'lab-result',
   dischargeSummary = 'discharge-summary',
+  immunizationRecord = 'immunization-record',
 }
 
 const loincCodeToDocumentTypeMap: { [code: string]: docMapTypes } = {
@@ -52,6 +53,7 @@ const loincCodeToDocumentTypeMap: { [code: string]: docMapTypes } = {
   'statement-code': docMapTypes.statement,
   [LAB_RESULT_DOC_REF_CODING_CODE.code]: docMapTypes.labResult,
   'discharge-summary': docMapTypes.dischargeSummary,
+  'immunization-record': docMapTypes.immunizationRecord,
 };
 
 function getDocumentTypeFromLoincCode(code: string | undefined): docMapTypes | null {

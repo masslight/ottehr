@@ -1,5 +1,4 @@
 import { renderHook } from '@testing-library/react';
-import { useForm } from 'react-hook-form';
 import { describe, expect, it, vi } from 'vitest';
 import { useImmunizationQuickPickManagement } from '../../src/features/immunization/hooks/useImmunizationQuickPickManagement';
 
@@ -22,10 +21,7 @@ vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
 
 describe('useImmunizationQuickPickManagement', () => {
   it('returns the merged quick pick loading state', () => {
-    const { result } = renderHook(() => {
-      const methods = useForm();
-      return useImmunizationQuickPickManagement({ methods, applyOrderDetails: false });
-    });
+    const { result } = renderHook(() => useImmunizationQuickPickManagement({ getValues: () => ({}) }));
 
     expect(result.current.mergedQuickPicks).toEqual(mockedQuickPicks);
     expect(result.current.mergedQuickPicksLoading).toBe(true);

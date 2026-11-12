@@ -7,7 +7,7 @@ import {
 } from 'tests/e2e/page/in-person/Immunization/EditVaccineOrderPage';
 import { openImmunizationPage } from 'tests/e2e/page/in-person/Immunization/ImmunizationPage';
 import { expectMarTab } from 'tests/e2e/page/in-person/Immunization/MarTab';
-import { OrderDetailsSection } from 'tests/e2e/page/in-person/Immunization/OrderDetailsSection';
+import { OrderSentencesSection } from 'tests/e2e/page/in-person/Immunization/OrderSentencesSection';
 import { VaccineDetailsTab } from 'tests/e2e/page/in-person/Immunization/VaccineDetailsTab';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
@@ -18,7 +18,7 @@ import {
   medicationApplianceLocations,
   medicationApplianceRoutes,
 } from 'utils/lib/types/api/medication-administration.types';
-import vaccines from '../../../../../../config/oystehr/vaccines.json';
+import { getCvxVaccine } from 'utils/lib/types/data/immunization/vaccine-lookup';
 
 interface VaccineInfo {
   vaccine: string;
@@ -35,7 +35,6 @@ interface AdministrationDetails {
   lotNumber: string;
   expiredDate: string;
   mvxCode: string;
-  cvxCode: string;
   ndcCode: string;
   cptCode: string;
   administeredDate: string;
@@ -46,13 +45,12 @@ interface AdministrationDetails {
   mobile: string;
 }
 
-const vaccineKeys = Object.keys(vaccines.fhirResources);
-// Clamp to the available vaccines: an instance may configure only a single vaccine, in which case
-// the administration tests reuse it (the locators tolerate the resulting duplicate MAR and
-// progress-note entries). When more vaccines exist, each test gets a distinct one.
+// Catalog vaccines the instance has switched on (the config-vaccine upgrade switches these on; see
+// packages/zambdas/src/scripts/migrate-config-vaccines.ts). Each administration test gets a distinct one, which
+// keeps its MAR and progress-note entries unique.
+const vaccineKeys = ['115', '20', '113']; // Tdap, DTaP, Td
 const vaccineNameAt = (index: number): string =>
-  vaccines.fhirResources[vaccineKeys[Math.min(index, vaccineKeys.length - 1)] as keyof typeof vaccines.fhirResources]
-    ?.resource.identifier[1].value;
+  getCvxVaccine(vaccineKeys[Math.min(index, vaccineKeys.length - 1)])?.name ?? '';
 
 const vaccine = vaccineNameAt(0);
 
@@ -92,7 +90,6 @@ const ADMINISTRATION_DETAILS: AdministrationDetails = {
   lotNumber: '1234567',
   expiredDate: '01/01/2030',
   mvxCode: '1111fff',
-  cvxCode: 'aaa222',
   cptCode: '11900',
   ndcCode: '555555ftf',
   administeredDate: '02/10/2025',
@@ -157,7 +154,7 @@ async function tearDownAppointment(
   await resourceHandler.cleanupResources();
 }
 
-async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
+async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderSentencesSection): Promise<void> {
   await orderDetailsSection.selectVaccine(vaccineInfo.vaccine);
   await orderDetailsSection.enterDose(vaccineInfo.dose);
   await orderDetailsSection.selectUnits(vaccineInfo.units);
@@ -168,7 +165,7 @@ async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: O
   await orderDetailsSection.selectAssociatedDx(vaccineInfo.associatedDx);
 }
 
-async function verifyVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
+async function verifyVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderSentencesSection): Promise<void> {
   await orderDetailsSection.verifyVaccine(vaccineInfo.vaccine);
   await orderDetailsSection.verifyDose(vaccineInfo.dose);
   await orderDetailsSection.verifyUnits(vaccineInfo.units);
@@ -186,7 +183,6 @@ async function enterAdministrationDetails(
   await vaccineDetailsPage.enterLotNumber(administrationDetails.lotNumber);
   await vaccineDetailsPage.enterExpiredDate(administrationDetails.expiredDate);
   await vaccineDetailsPage.enterMvxCode(administrationDetails.mvxCode);
-  await vaccineDetailsPage.enterCvxCode(administrationDetails.cvxCode);
   await vaccineDetailsPage.selectCptCode(administrationDetails.cptCode);
   await vaccineDetailsPage.enterNdcCode(administrationDetails.ndcCode);
   await vaccineDetailsPage.enterAdministeredDate(administrationDetails.administeredDate);

@@ -1,0 +1,207 @@
+{
+ "antigen": "RSV",
+ "source": "aira-26.1",
+ "series": [
+  {
+   "seriesName": "RSV 1-dose series",
+   "targetDisease": "RSV",
+   "vaccineGroup": "RSV",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": true,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 1
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "For most babies whose mothers received RSVpreF at 32-36 weeks of pregnancy, where at least 14 days have elapsed between vaccine administration and birth, RSV immunization is not indicated. Please see the RSV Immunization Administration Visual Guide to guide your decision making about dosing. https://downloads.aap.org/AAP/PDF/RSV-Immunization-Adminstration-Visual-Guide.pdf",
+    "RSVPreF3 (GSK, Arexvy), RSVpreF (Pfizer, Abrysvo), and mRNA-1345 (Moderna, Mresvia)  vaccines are not licensed for infants and young children."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "0 days",
+       "minAge": "0 days",
+       "earliestRecAge": "0 days",
+       "maxAge": "8 months"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "RSV, mAb, nirsevimab-alip, 0.5 mL, neonate to 24 months",
+       "cvx": "306",
+       "beginAge": "0 days",
+       "endAge": "24 months",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "RSV, mAb, nirsevimab-alip, 1.0 mL, neonate to 24 months",
+       "cvx": "307",
+       "beginAge": "0 days",
+       "endAge": "24 months",
+       "volume": "1.0",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "RSV, mAb, clesrovimab-cfor, 0.7 mL, neonate and infant, PF",
+       "cvx": "332",
+       "beginAge": "0 days",
+       "endAge": "8 months",
+       "volume": "0.7",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Respiratory syncytial virus (RSV), unspecified",
+       "cvx": "304",
+       "beginAge": "0 days",
+       "endAge": "24 months"
+      },
+      {
+       "vaccineType": "RSV, mAb, nirsevimab-alip, 0.5 mL, neonate to 24 months",
+       "cvx": "306",
+       "beginAge": "0 days",
+       "endAge": "24 months"
+      },
+      {
+       "vaccineType": "RSV, mAb, nirsevimab-alip, 1.0 mL, neonate to 24 months",
+       "cvx": "307",
+       "beginAge": "0 days",
+       "endAge": "24 months"
+      },
+      {
+       "vaccineType": "Respiratory syncytial virus (RSV) monoclonal antibody (MAB), unspecified",
+       "cvx": "315",
+       "beginAge": "0 days",
+       "endAge": "24 months"
+      },
+      {
+       "vaccineType": "RSV, mAb, clesrovimab-cfor, 0.7 mL, neonate and infant, PF",
+       "cvx": "332",
+       "beginAge": "0 days",
+       "endAge": "8 months"
+      }
+     ],
+     "inadvertentVaccines": [
+      "303",
+      "305",
+      "314",
+      "326"
+     ],
+     "conditionalSkips": [],
+     "recurringDose": false,
+     "seasonalRecommendation": {
+      "startDate": "2026-10-01",
+      "endDate": "2027-03-31"
+     }
+    }
+   ]
+  },
+  {
+   "seriesName": "RSV Adult 1-dose series",
+   "targetDisease": "RSV",
+   "vaccineGroup": "RSV",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": true,
+    "productPath": false,
+    "seriesGroupName": "Standard 60+",
+    "seriesGroup": 3,
+    "seriesPriority": "A",
+    "seriesPreference": 1,
+    "minAgeToStart": "50 years"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "For adults 60-74 years without any high-risk condition, vaccination is within the FDA-approved indication (60 years and older) but below the AAFP's risk-based threshold; shared decision-making is appropriate in these instances."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "10 years",
+       "minAge": "60 years",
+       "earliestRecAge": "75 years"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "RSV, recombinant, protein subunit RSVpreF, adjuvant reconstituted, 0.5 mL, PF",
+       "cvx": "303",
+       "beginAge": "18 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "RSV, bivalent, protein subunit RSVpreF, diluent reconstituted, 0.5 mL, PF",
+       "cvx": "305",
+       "beginAge": "18 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "RSV, mRNA, injectable, PF",
+       "cvx": "326",
+       "beginAge": "18 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "RSV, recombinant, protein subunit RSVpreF, adjuvant reconstituted, 0.5 mL, PF",
+       "cvx": "303",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "Respiratory syncytial virus (RSV), unspecified",
+       "cvx": "304",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "RSV, bivalent, protein subunit RSVpreF, diluent reconstituted, 0.5 mL, PF",
+       "cvx": "305",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "Respiratory syncytial virus (RSV) vaccine, unspecified",
+       "cvx": "314",
+       "beginAge": "0 days"
+      },
+      {
+       "vaccineType": "RSV, mRNA, injectable, PF",
+       "cvx": "326",
+       "beginAge": "0 days"
+      }
+     ],
+     "inadvertentVaccines": [
+      "306",
+      "307",
+      "315",
+      "332"
+     ],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  }
+ ]
+}

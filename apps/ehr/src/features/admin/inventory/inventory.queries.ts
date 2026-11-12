@@ -26,6 +26,10 @@ export const useMedicationInventory = (
 export const useLotHistory = (lotId: string): UseQueryResult<ListMedicationInventoryResponse, Error> =>
   useMedicationInventory({ view: 'lot-history', lotId });
 
+/** The vaccine borrowing log. */
+export const useVfcBorrowings = (): UseQueryResult<ListMedicationInventoryResponse, Error> =>
+  useMedicationInventory({ view: 'vfc-borrowing' });
+
 /** Lots of a catalog drug with stock on hand at the visit's location, for the Lot field's suggestions. */
 export const useInventoryLotsOnHand = ({
   catalogMedicationId,

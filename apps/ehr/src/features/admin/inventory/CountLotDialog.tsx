@@ -38,11 +38,13 @@ export default function CountLotDialog({
     if (!oystehrZambda || count === undefined) return;
     setSaving(true);
     try {
-      const { entry } = await adjustMedicationInventory(oystehrZambda, {
+      const result = await adjustMedicationInventory(oystehrZambda, {
         action: 'count',
         lotId: lot.id,
         counted: count,
       });
+      if (!('entry' in result)) throw new Error('expected a stock entry, got a borrowing row');
+      const { entry } = result;
       enqueueSnackbar(
         entry.quantity === 0
           ? `Counted lot ${lot.lotNumber}: no difference`

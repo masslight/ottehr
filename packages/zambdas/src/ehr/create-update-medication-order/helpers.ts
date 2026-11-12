@@ -13,6 +13,7 @@ import {
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
   INVENTORY_MEDICATION_TYPE_CODE,
+  INVENTORY_VACCINE_TYPE_CODE,
   MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
 import {
@@ -41,9 +42,11 @@ export function createMedicationCopy(
   const resourceCopy = { ...inventoryMedication };
   delete resourceCopy.id;
   delete resourceCopy.meta;
-  // deleting identifier with code that indicates that this medication is inventory one
+  // deleting identifier with code that indicates that this medication (or vaccine) is a catalog one
   const typeIdentifierArrId =
-    resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;
+    resourceCopy.identifier?.findIndex(
+      (idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE || idn.value === INVENTORY_VACCINE_TYPE_CODE
+    ) ?? -1;
   if (typeIdentifierArrId >= 0) {
     resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
     // the copy keeps the catalog drug's id so inventory can find the drug without matching by name
