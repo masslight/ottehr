@@ -74,5 +74,29 @@ const thyroid: FlowsheetDefinition = {
   ],
 };
 
+const newbornBilirubin: FlowsheetDefinition = {
+  id: 'newbornBilirubin',
+  title: 'Newborn bilirubin',
+  rows: [
+    { label: 'Total serum bilirubin', keys: ['totalBilirubin'] },
+    { label: 'Direct (conjugated) bilirubin', keys: ['directBilirubin'] },
+    { label: 'Transcutaneous bilirubin', keys: ['transcutaneousBilirubin'] },
+    { label: 'Day of life', keys: ['dayOfLife'], digits: 0 },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
+  ],
+  charts: [
+    {
+      title: 'Bilirubin',
+      unit: 'mg/dL',
+      lines: [
+        { name: 'Total serum', key: 'totalBilirubin' },
+        { name: 'Transcutaneous', key: 'transcutaneousBilirubin' },
+      ],
+    },
+  ],
+};
+
 /** Every flowsheet the EHR offers, in side-list (alphabetical) order. */
-export const FLOWSHEETS: FlowsheetDefinition[] = [thyroid, vitals].sort((a, b) => a.title.localeCompare(b.title));
+export const FLOWSHEETS: FlowsheetDefinition[] = [newbornBilirubin, thyroid, vitals].sort((a, b) =>
+  a.title.localeCompare(b.title)
+);

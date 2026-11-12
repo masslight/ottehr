@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { VitalAlertCriticality } from './chart-data/chart-data.constants';
 
 /** The flowsheets the EHR registry offers; the get-flowsheet zambda accepts nothing else. */
-export const FLOWSHEET_IDS = ['thyroid', 'vitals'] as const;
+export const FLOWSHEET_IDS = ['newbornBilirubin', 'thyroid', 'vitals'] as const;
 export type FlowsheetId = (typeof FLOWSHEET_IDS)[number];
 
 export const GetFlowsheetInputSchema = z.object({
@@ -35,6 +35,8 @@ export interface FlowsheetVisit {
   encounterId?: string;
   /** Appointment start, or the first reading's time when the readings are not linked to an appointment. */
   start: string;
+  /** The visit location's IANA time zone, for calendar-day math; absent when the visit has no location. */
+  timezone?: string;
   isFollowUp: boolean;
   visitType: string;
   reason: string;
