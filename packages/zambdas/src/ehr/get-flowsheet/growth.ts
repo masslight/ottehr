@@ -246,6 +246,8 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources, asOf?:
       if (!dto || !measure || !('value' in dto) || !dto.value) return;
       addWithPercentile(measure, { time: o.effectiveDateTime ?? start, value: dto.value });
     });
+    // A visit is a column only when it has a weight, length/height or head circumference.
+    if (Object.keys(values).length === 0) return;
 
     // BMI from the visit's latest weight and height, as growth charts conventionally do.
     const weight = values.weight;

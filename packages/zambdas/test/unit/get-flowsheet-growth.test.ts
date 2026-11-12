@@ -202,6 +202,18 @@ describe('buildGrowthFlowsheet', () => {
     expect(cdcVisit.values.headCircumferencePercentile).toBeUndefined();
   });
 
+  test('a visit with vitals but no weight, height or head circumference is not a column', () => {
+    const { visits } = buildGrowthFlowsheet({
+      ...resources,
+      observations: [
+        ...observations,
+        vital(VitalFieldNames.VitalTemperature, 'e3', '2030-01-10T14:05:00.000Z', 37.2),
+        vital(VitalFieldNames.VitalHeartbeat, 'e3', '2030-01-10T14:05:00.000Z', 90),
+      ],
+    });
+    expect(visits.map((visit) => visit.encounterId)).toEqual(['e2', 'e1']);
+  });
+
   test('age is counted in the visit location zone: an evening visit on the day of birth is 0 d, not 1 d', () => {
     const location: Location = {
       resourceType: 'Location',
