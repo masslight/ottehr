@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "lint": {
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/config/billing-app-core/zambdas.json",
+        "$TURBO_ROOT$/packages/eslint-plugin-ottehr/index.js",
+        "$TURBO_ROOT$/packages/eslint-plugin-ottehr/rules/**"
+      ]
+    }
+  }
+}

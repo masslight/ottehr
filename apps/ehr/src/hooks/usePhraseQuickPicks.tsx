@@ -12,6 +12,14 @@ const DESCRIPTION_MAX_LENGTH = 60;
 const PHRASES_CATEGORY = 'Phrases';
 const PASTE_SHORTCUT = shortcutLabel('V');
 
+function phraseDescription(value: string): string {
+  const singleLine = value.trim().replace(/\s+/g, ' ');
+  if (singleLine.length <= DESCRIPTION_MAX_LENGTH) {
+    return singleLine;
+  }
+  return `${singleLine.slice(0, DESCRIPTION_MAX_LENGTH).trimEnd()}…`;
+}
+
 export function usePhraseQuickPicks(): void {
   const phrases = usePhrases();
   const insertContext = useCommandPaletteStore((state) => state.insertContext);
@@ -37,7 +45,7 @@ export function usePhraseQuickPicks(): void {
       (phrase, index): CommandPaletteItem => ({
         id: `phrase-${index}`,
         label: phrase.key,
-        description: phrase.value.trim().replace(/\s+/g, ' ').slice(0, DESCRIPTION_MAX_LENGTH),
+        description: phraseDescription(phrase.value),
         inlineDescription: true,
         category: PHRASES_CATEGORY,
         keywords: [phrase.key, phrase.value],

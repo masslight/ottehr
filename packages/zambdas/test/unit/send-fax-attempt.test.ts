@@ -96,6 +96,25 @@ describe('send-fax outbound attempt', () => {
     );
   });
 
+  it('sends the fax scaled to Letter size', async () => {
+    await (index as any)(
+      createMockZambdaInput(
+        {
+          appointmentId: APPOINTMENT_ID,
+          faxNumber: '2125551234',
+        },
+        {
+          secrets: createMockSecrets(),
+        }
+      )
+    );
+    expect(mockFaxSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scaleToLetter: true,
+      })
+    );
+  });
+
   it('retains and marks the attempt failed when the provider rejects the send', async () => {
     mockFaxSend.mockRejectedValue(new Error('provider unavailable'));
     await expect(

@@ -16,7 +16,7 @@ import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken, getUser } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { getFhirResources, mapEncountersToAppointmentIds } from './helpers';
+import { getFhirResources, mapEncountersToAppointmentIds } from '../../../shared/visits';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'get-past-visits';

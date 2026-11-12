@@ -899,11 +899,22 @@ export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
 ];
 
+declare const billingScope: unique symbol;
+
+// The client createBillingClient makes, whose FHIR reads and writes see only billing-tagged resources.
+// ottehr/billing-fhir-client-only tells it from other clients by this type, so billing code can't get
+// another client unnoticed. The brand is keyed by a symbol nothing else can name, so only this factory
+// makes one.
+export interface BillingOystehr extends Oystehr {
+  readonly [billingScope]: true;
+}
+
 export function createBillingClient(
   token: string,
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
-): Oystehr {
+): BillingOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the billing client factory, which sets the workspace tag
   return new Oystehr({
     accessToken: token,
     services: {
@@ -913,11 +924,21 @@ export function createBillingClient(
     },
     ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
-  });
+  }) as BillingOystehr;
+}
+
+declare const unscopedScope: unique symbol;
+
+// The client createEraReadClient makes, which sees untagged and billing-tagged resources alike: for code
+// that must see resources before they are tagged, or that nothing tags. Billing code that needs one gets
+// it with a justified exception to ottehr/billing-fhir-client-only, then uses it like any other client.
+export interface UnscopedOystehr extends Oystehr {
+  readonly [unscopedScope]: true;
 }
 
 // ERA resources are untagged by Oystehr
-export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+export function createEraReadClient(token: string, secrets: Secrets | null): UnscopedOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the unscoped client factory
   return new Oystehr({
     accessToken: token,
     services: {
@@ -925,7 +946,7 @@ export function createEraReadClient(token: string, secrets: Secrets | null): Oys
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
       zambdaApiUrl: zambdaApiUrlOverride(),
     },
-  });
+  }) as UnscopedOystehr;
 }
 
 export async function findById<T extends FhirResource>(
