@@ -48,23 +48,27 @@ export interface CptSuggestionInput {
   pediatric: boolean;
   /** Whether the vaccine on the line at this index was counseled on. */
   counseledFor: (index: number) => boolean;
+  /** The CPT codes on the visit's other orders (sent earlier, or already sent when a multi-line order is retried). */
+  visitCptCodes?: string[];
   rules?: RulesData;
 }
 
 /** The suggested admin codes for each line, in page order; undefined for a line the page leaves alone. A counseled
  * vaccine through 18 takes 90460 and 90461 for each component after the first. Any other takes 90471 (injection) or
  * 90473 (nasal, oral) for the visit's first such vaccine, 90472 / 90474 after; a 90471 or 90473 a quick pick or a
- * person put on a line is that first one. */
+ * person put on a line, or one on another order of the visit, is that first one. */
 export const suggestCptCodes = (
   lines: ImmunizationFormValues[],
-  { pediatric, counseledFor, rules = getRulesData() }: CptSuggestionInput
+  { pediatric, counseledFor, visitCptCodes = [], rules = getRulesData() }: CptSuggestionInput
 ): (ImmunizationCptCode[] | undefined)[] => {
-  let firstTaken = lines.some(
-    (line) =>
-      !line.outside &&
-      !takesSuggestedCodes(line) &&
-      line.administrationDetails.cptCodes?.some((cpt) => FIRST_ADMIN_CODES.includes(cpt.code.trim()))
-  );
+  let firstTaken =
+    visitCptCodes.some((code) => FIRST_ADMIN_CODES.includes(code.trim())) ||
+    lines.some(
+      (line) =>
+        !line.outside &&
+        !takesSuggestedCodes(line) &&
+        line.administrationDetails.cptCodes?.some((cpt) => FIRST_ADMIN_CODES.includes(cpt.code.trim()))
+    );
   return lines.map((line, index) => {
     if (!takesSuggestedCodes(line)) return undefined;
     if (pediatric && counseledFor(index)) {

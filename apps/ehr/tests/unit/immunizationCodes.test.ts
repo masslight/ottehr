@@ -101,6 +101,21 @@ describe('suggestCptCodes', () => {
     expect(codes[1]).toBeUndefined();
   });
 
+  it("a 90471 or 90473 on another order of the visit is the visit's first: a later order screen takes 90472", () => {
+    // flu ordered at 10 am took 90471; Hep A ordered later the same visit is an additional vaccine
+    const later = [line('Havrix', '83'), line('Prevnar 20', '216')];
+    const input = { pediatric: false, counseledFor: all(true) };
+    expect(suggestCptCodes(later, { ...input, visitCptCodes: ['90471'] }).map(text)).toEqual(['90472', '90472']);
+    expect(suggestCptCodes([line('FluMist', '111', NASAL)], { ...input, visitCptCodes: ['90473'] }).map(text)).toEqual([
+      '90474',
+    ]);
+    // a counseled 90460 on the visit is not a first-vaccine code; neither is a product code
+    expect(suggestCptCodes(later, { ...input, visitCptCodes: ['90460', '90707'] }).map(text)).toEqual([
+      '90471',
+      '90472',
+    ]);
+  });
+
   it('nasal or oral flu takes 90473, then 90474', () => {
     expect(
       text(suggestCptCodes([line('FluMist', '111', NASAL)], { pediatric: false, counseledFor: all(true) })[0])

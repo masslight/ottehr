@@ -310,9 +310,20 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     );
 
   // Suggested admin CPT codes on a new order's lines whose codes are empty or the page's own, recomputed as lines,
-  // routes or counseling answers change. An answer flashes the codes it changed.
+  // routes or counseling answers change. An answer flashes the codes it changed. The visit's other orders count:
+  // a 90471 given at 10 am makes a vaccine ordered later the same visit an additional one (90472).
   const suggestsCodes = isCreating && !isReadOnly;
   const pediatric = isThrough18(patient?.birthDate);
+  const { data: visitOrders } = useGetImmunizationOrders({
+    encounterIds: suggestsCodes && encounterId ? [encounterId] : undefined,
+  });
+  const visitCptCodes = useMemo(
+    () =>
+      (visitOrders?.orders ?? [])
+        .filter((order) => !['cancelled', 'administered-not'].includes(order.status))
+        .flatMap((order) => order.administrationDetails?.cptCodes?.map((cpt) => cpt.code) ?? []),
+    [visitOrders]
+  );
   const [counseling, setCounseling] = useState<CounselingAnswers>(NO_COUNSELING_ANSWERS);
   const [cptFlash, setCptFlash] = useState<Record<number, number>>({});
   const flashNextChange = useRef(false);
@@ -321,6 +332,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     const { lines: next, changed } = applyCptSuggestions(lines, {
       pediatric,
       counseledFor: (index) => counselingAnswerFor(counseling, lines[index].key).value === 'yes',
+      visitCptCodes,
     });
     if (flashNextChange.current && changed.length) {
       setCptFlash((current) =>
@@ -329,7 +341,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     }
     flashNextChange.current = false;
     if (next !== lines) setLines(next);
-  }, [suggestsCodes, pediatric, counseling, lines]);
+  }, [suggestsCodes, pediatric, counseling, lines, visitCptCodes]);
   const answerCounseling = (answers: CounselingAnswers): void => {
     flashNextChange.current = true;
     setCounseling(answers);
