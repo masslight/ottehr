@@ -185,4 +185,27 @@ describe('parsePaymentsList', () => {
     expect(retrieveIntent).not.toHaveBeenCalled();
     expect(retrieveMethod).toHaveBeenCalledWith('pm_clinic', {}, { stripeAccount: 'acct_clinic' });
   });
+  test('reads a cash payment without a Stripe customer or any Stripe call', async () => {
+    const retrieveIntent = vi.fn();
+    const retrieveMethod = vi.fn();
+    const stripeClient = {
+      paymentIntents: { retrieve: retrieveIntent },
+      paymentMethods: { retrieve: retrieveMethod },
+    } as unknown as Stripe;
+    const cashNotice = {
+      resourceType: 'PaymentNotice',
+      id: 'cash-1',
+      meta: { tag: [BILLING_RESOURCE_TAG] },
+      status: 'active',
+      created: '2026-10-21T15:00:00.000Z',
+      amount: { value: 25, currency: 'USD' },
+      extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'cash' }],
+    } as PaymentNotice;
+
+    const [payment] = await parsePaymentsList([cashNotice], [], undefined, stripeClient, async () => undefined);
+
+    expect(retrieveIntent).not.toHaveBeenCalled();
+    expect(retrieveMethod).not.toHaveBeenCalled();
+    expect(payment).toMatchObject({ amount: 25, method: 'cash', isPrimary: false });
+  });
 });
