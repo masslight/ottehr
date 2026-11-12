@@ -318,10 +318,10 @@ export default function ReceiveShipmentDialog({
             {isVaccine ? (
               <Grid item xs={3}>
                 <FormControl fullWidth required>
-                  <InputLabel id="receive-funding-source-label">Recipient Type</InputLabel>
+                  <InputLabel id="receive-funding-source-label">Funding source</InputLabel>
                   <Select
                     labelId="receive-funding-source-label"
-                    label="Recipient Type"
+                    label="Funding source"
                     value={form.fundingSource}
                     onChange={(e) => setField('fundingSource', e.target.value as VaccineFundingSource)}
                     inputProps={{ 'data-testid': dataTestIds.receiveShipmentDialog.fundingSourceSelect }}
@@ -341,7 +341,7 @@ export default function ReceiveShipmentDialog({
                   {lastReceivedLot.isError
                     ? "Couldn't load the last lot received."
                     : isVaccine
-                    ? 'NDC, manufacturer, vendor and recipient type are filled from the last lot received.'
+                    ? 'NDC, manufacturer, vendor and funding source are filled from the last lot received.'
                     : 'NDC, manufacturer and vendor are filled from the last lot received.'}
                 </Typography>
               </Grid>
