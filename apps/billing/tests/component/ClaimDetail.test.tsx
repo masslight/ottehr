@@ -1004,6 +1004,98 @@ describe('ClaimDetail — run rules engine button', () => {
     );
   });
 
+  describe('correction and void submissions without a stored PCCN', () => {
+    const openSubmitDialog = async (): Promise<HTMLElement> => {
+      getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
+      runBillingRulesEngineMock.mockResolvedValue({
+        results: [{ claimId: 'claim-1', taskId: 'task-1', engine: 'claim-submission' }],
+      });
+      renderDetail();
+      fireEvent.click(await screen.findByRole('button', { name: 'Submit Claim' }));
+      return screen.findByRole('dialog');
+    };
+    const pccnField = (dialog: HTMLElement): HTMLElement =>
+      within(dialog).getByRole('textbox', { name: /Payer Claim Control Number/ });
+
+    it.each([
+      ['Correction', 'correction'],
+      ['Void Claim', 'void'],
+    ] as const)('allows %s and blocks submitting without a PCCN', async (label) => {
+      const dialog = await openSubmitDialog();
+
+      const radio = within(dialog).getByRole('radio', { name: label });
+      expect(radio).toBeEnabled();
+      fireEvent.click(radio);
+
+      expect(pccnField(dialog)).toHaveValue('');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+
+      expect(await within(dialog).findByText('Payer Claim Control Number is required')).toBeInTheDocument();
+      expect(runBillingRulesEngineMock).not.toHaveBeenCalled();
+    });
+
+    it('blocks a whitespace-only PCCN', async () => {
+      const dialog = await openSubmitDialog();
+      fireEvent.click(within(dialog).getByRole('radio', { name: 'Correction' }));
+      fireEvent.change(pccnField(dialog), { target: { value: '   ' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+
+      expect(await within(dialog).findByText('Payer Claim Control Number is required')).toBeInTheDocument();
+      expect(runBillingRulesEngineMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['Correction', 'correction'],
+      ['Void Claim', 'void'],
+    ] as const)('submits %s with the entered PCCN once valid', async (label, submissionType) => {
+      const dialog = await openSubmitDialog();
+      fireEvent.click(within(dialog).getByRole('radio', { name: label }));
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+      expect(await within(dialog).findByText('Payer Claim Control Number is required')).toBeInTheDocument();
+
+      fireEvent.change(pccnField(dialog), { target: { value: 'PCCN-123' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+
+      await waitFor(() =>
+        expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+          {},
+          {
+            claimIds: ['claim-1'],
+            skipRules: false,
+            submissionType,
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: 'PCCN-123',
+          }
+        )
+      );
+      expect(runBillingRulesEngineMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops the PCCN requirement when switching back to New Submission', async () => {
+      const dialog = await openSubmitDialog();
+      fireEvent.click(within(dialog).getByRole('radio', { name: 'Correction' }));
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+      expect(await within(dialog).findByText('Payer Claim Control Number is required')).toBeInTheDocument();
+
+      fireEvent.click(within(dialog).getByRole('radio', { name: 'New Submission' }));
+      expect(within(dialog).queryByRole('textbox', { name: /Payer Claim Control Number/ })).not.toBeInTheDocument();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+
+      await waitFor(() =>
+        expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+          {},
+          {
+            claimIds: ['claim-1'],
+            skipRules: false,
+            submissionType: 'new',
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: undefined,
+          }
+        )
+      );
+    });
+  });
+
   it('runs the pre-invoice rules through the Prepare for invoice dialog', async () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.nonInsurancePayer));
     runBillingRulesEngineMock.mockResolvedValue({
