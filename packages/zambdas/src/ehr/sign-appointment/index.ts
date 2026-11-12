@@ -6,7 +6,6 @@ import { getEncounterStatusHistoryUpdateOp, isAnnotationFollowupEncounter } from
 import {
   extractExtensionValue,
   findExtensionIndex,
-  getEncounterLockMetaTagOperations,
   getSkipEmailTaskInput,
   getTaskResource,
 } from 'utils/lib/fhir/helpers';
@@ -31,7 +30,12 @@ import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-detail
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { assertAssignedProviderCanSign, assertCallerCanSign, getSignedAppointmentPatchOps } from './helpers';
+import {
+  assertAssignedProviderCanSign,
+  assertCallerCanSign,
+  getCompletedFollowupEncounterPatchOps,
+  getSignedAppointmentPatchOps,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -225,23 +229,7 @@ const changeFollowupEncounterStatusToCompleted = async (
     throw new Error('Encounter is not defined');
   }
 
-  const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
-
-  const encounterPatchOps: Operation[] = [
-    {
-      op: 'replace',
-      path: '/status',
-      value: encounterStatus,
-    },
-  ];
-
-  const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
-    resourcesToUpdate.encounter,
-    encounterStatus,
-    'completed'
-  );
-  encounterPatchOps.push(encounterStatusHistoryUpdate);
-  encounterPatchOps.push(...getEncounterLockMetaTagOperations(resourcesToUpdate.encounter, true));
+  const encounterPatchOps = getCompletedFollowupEncounterPatchOps(resourcesToUpdate.encounter);
 
   let provenanceCreate: BatchInputRequest<Provenance> | undefined;
 

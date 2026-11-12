@@ -53,6 +53,9 @@ export const ExamCommentField = (props: ExamCommentFieldProps): ReactElement => 
   const [value, setValue] = useState(field?.note || '');
 
   useEffect(() => {
+    if (queuedWriteReleaseRef.current) {
+      return;
+    }
     if (field?.note?.trim() !== value.trim()) {
       // update UI value only if it's different from the field value
       setValue(field?.note || '');

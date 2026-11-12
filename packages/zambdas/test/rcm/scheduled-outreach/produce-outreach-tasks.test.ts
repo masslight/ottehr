@@ -212,6 +212,28 @@ describe('produce-outreach-tasks', () => {
       );
     });
 
+    it('omits whitespace-only sms and email templates from the task input', () => {
+      const action = makeAction({
+        sendNotificationConfig: { mediums: ['sms', 'email'], smsTemplate: '\n', emailTemplate: '  \n ' },
+      });
+      const inputs = buildTaskInput(action);
+
+      expect(inputs?.some((i) => i.type?.text === 'sms-template')).toBe(false);
+      expect(inputs?.some((i) => i.type?.text === 'email-template')).toBe(false);
+    });
+
+    it('keeps a real template with surrounding newlines as written', () => {
+      const action = makeAction({
+        sendNotificationConfig: { mediums: ['sms'], smsTemplate: '\nPay now!\n', emailTemplate: '' },
+      });
+
+      expect(buildTaskInput(action)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: { text: 'sms-template' }, valueString: '\nPay now!\n' }),
+        ])
+      );
+    });
+
     it('includes charge-card-config for charge-card actions', () => {
       const action = makeAction({
         actionType: 'charge-card',

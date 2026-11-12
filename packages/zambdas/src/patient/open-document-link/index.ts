@@ -1,0 +1,243 @@
+import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, DocumentReference, Location, Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_OUTPUT_CODES } from 'utils/lib/fhir/constants';
+import {
+  getOutboundDeliveryChannel,
+  getOutboundDeliveryInput,
+  getOutboundDeliveryPacketSnapshot,
+  getOutboundDeliveryRecipientSnapshot,
+  getOutboundDeliverySenderOrganizationId,
+  makeOutboundDeliveryOutput,
+} from 'utils/lib/fhir/outbound-delivery';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
+import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import {
+  DOCUMENT_LINK_TTL_MINUTES,
+  OpenDocumentLinkInputSchema,
+  OpenDocumentLinkOutput,
+} from 'utils/lib/types/api/document-link.types';
+import { FHIR_RESOURCE_IS_GONE, FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
+import { getLocationContactPhone } from 'utils/lib/utils/support-dialog';
+import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { sendDocumentLinkEmailAttempt } from '../../shared/document-link-email';
+import { verifyDocumentLinkToken } from '../../shared/document-link-token';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import {
+  collectResendChain,
+  collectResendChainAncestors,
+  MAX_RESEND_CHAIN_SIZE,
+  requireOutboundDeliveryValue,
+} from '../../shared/outbound-delivery';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { validateWithSchema } from '../../shared/validation';
+
+const ZAMBDA_NAME = 'open-document-link';
+let m2mToken: string;
+
+/** Whatever is wrong with the Task behind a link, the caller only learns that the link does not resolve. */
+const LINK_NOT_FOUND = { ...FHIR_RESOURCE_NOT_FOUND('Task'), statusCode: 404 };
+/** Extension on a `link-opened` output naming the client that opened it. */
+const LINK_OPENED_CLIENT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/link-opened-client';
+const LINK_OPENED_WRITE_ATTEMPTS = 3;
+
+export interface LinkClient {
+  ip?: string;
+  userAgent?: string;
+}
+
+/**
+ * Public endpoint behind the emailed document links. The token is the only input: it names the outbound email
+ * attempt Task, from which the document and the recipient are resolved. A live token yields a short-lived
+ * download URL; an expired token re-sends a fresh link to the recipient recorded on that Task.
+ */
+export const index = wrapHandler(
+  ZAMBDA_NAME,
+  async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+    const { token, secrets } = validateWithSchema(OpenDocumentLinkInputSchema, input);
+    const { attemptId, expired } = await verifyDocumentLinkToken(token, secrets);
+
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+
+    const output = await performEffect({
+      attemptId,
+      expired,
+      secrets,
+      oystehr,
+      accessToken: m2mToken,
+      client: readLinkClient(input.headers),
+    });
+    return { statusCode: 200, body: JSON.stringify(output) };
+  },
+  // The body is the link token, a bearer credential for the patient's documents.
+  { redactInputBody: true }
+);
+
+/** The caller's address and browser, as API Gateway forwards them. Best effort: absent when not forwarded. */
+export function readLinkClient(headers: Record<string, unknown> | null | undefined): LinkClient {
+  const header = (name: string): string | undefined => {
+    const entry = Object.entries(headers ?? {}).find(([key]) => key.toLowerCase() === name);
+    return typeof entry?.[1] === 'string' && entry[1].trim() ? entry[1].trim() : undefined;
+  };
+  return {
+    ip: header('x-forwarded-for')?.split(',')[0]?.trim() || undefined,
+    userAgent: header('user-agent'),
+  };
+}
+
+export async function performEffect(args: {
+  attemptId: string;
+  expired: boolean;
+  secrets: Secrets | null;
+  oystehr: Oystehr;
+  accessToken: string;
+  client?: LinkClient;
+}): Promise<OpenDocumentLinkOutput> {
+  const { attemptId, expired, secrets, oystehr, accessToken, client } = args;
+
+  const task = await loadLinkAttempt(oystehr, attemptId);
+  const documentReferenceId = getOutboundDeliveryRecipientSnapshot(task).documentReferenceId;
+  if (getOutboundDeliveryChannel(task) !== 'email' || !documentReferenceId) throw LINK_NOT_FOUND;
+  // A revoke cancels the send from its original attempt on, so a link re-sent while the revoke ran (or one whose
+  // pending completion overwrote the cancel) is still refused through a cancelled attempt above it.
+  const ancestors = await collectResendChainAncestors(oystehr, task);
+  if ([task, ...ancestors].some((attempt) => attempt.status === 'cancelled')) throw FHIR_RESOURCE_IS_GONE();
+
+  if (expired) {
+    const chain = await collectResendChain(oystehr, ancestors.at(-1) ?? task);
+    // One live link per send: an old link re-sends only once the newest link has expired too.
+    const newest = findNewestAttempt(chain);
+    if (newest.id !== task.id && isLinkLive(newest)) {
+      return { status: 'expired', resent: false, sentAt: newest.authoredOn! };
+    }
+    // Opening and revoking walk the chain only up to its bound, so a link past it could be neither.
+    if (chain.length >= MAX_RESEND_CHAIN_SIZE) throw FHIR_RESOURCE_IS_GONE();
+    await resendDocumentLink(newest, documentReferenceId, oystehr, secrets);
+    return { status: 'expired', resent: true };
+  }
+  if (task.status !== 'completed') throw LINK_NOT_FOUND;
+
+  const documentReference = await oystehr.fhir.get<DocumentReference>({
+    resourceType: 'DocumentReference',
+    id: documentReferenceId,
+  });
+  const attachment = documentReference.content[0]?.attachment;
+  if (!attachment?.url) throw LINK_NOT_FOUND;
+  const url = await getPresignedURL(attachment.url, accessToken);
+  await recordLinkOpened(oystehr, task, client);
+  return { status: 'ok', url, title: attachment.title };
+}
+
+async function loadLinkAttempt(oystehr: Oystehr, attemptId: string): Promise<Task> {
+  try {
+    return await oystehr.fhir.get<Task>({ resourceType: 'Task', id: attemptId });
+  } catch (error) {
+    console.error(`Task/${attemptId} behind a document link could not be loaded`, error);
+    throw LINK_NOT_FOUND;
+  }
+}
+
+/** The most recent attempt in this send's resend chain, across every branch of it. */
+function findNewestAttempt(chain: Task[]): Task {
+  return chain.reduce((newest, attempt) => ((attempt.authoredOn ?? '') > (newest.authoredOn ?? '') ? attempt : newest));
+}
+
+/** A sent, or still sending, attempt whose token has not reached the link lifetime yet. */
+function isLinkLive(attempt: Task): boolean {
+  if ((attempt.status !== 'completed' && attempt.status !== 'in-progress') || !attempt.authoredOn) return false;
+  return DateTime.fromISO(attempt.authoredOn).plus({ minutes: DOCUMENT_LINK_TTL_MINUTES }) > DateTime.now();
+}
+
+/** The audit record of an open. Best effort: a failure here must not stand between the recipient and the file. */
+async function recordLinkOpened(oystehr: Oystehr, task: Task, client?: LinkClient): Promise<void> {
+  const clientText = [client?.ip && `ip=${client.ip}`, client?.userAgent && `ua=${client.userAgent}`]
+    .filter(Boolean)
+    .join('; ');
+  const opened = {
+    ...makeOutboundDeliveryOutput(OUTBOUND_DELIVERY_OUTPUT_CODES.linkOpened, {
+      valueDateTime: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
+    }),
+    ...(clientText && { extension: [{ url: LINK_OPENED_CLIENT_EXTENSION_URL, valueString: clientText }] }),
+  };
+  try {
+    let current = task;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        // `add /output` replaces a list a concurrent first open has just written, so every write is version-checked.
+        await oystehr.fhir.patch<Task>(
+          {
+            resourceType: 'Task',
+            id: task.id!,
+            operations: [
+              current.output
+                ? { op: 'add', path: '/output/-', value: opened }
+                : { op: 'add', path: '/output', value: [opened] },
+            ],
+          },
+          { optimisticLockingVersionId: current.meta?.versionId }
+        );
+        return;
+      } catch (error) {
+        const conflict = error instanceof Oystehr.OystehrFHIRError && error.code === 412;
+        if (!conflict || attempt >= LINK_OPENED_WRITE_ATTEMPTS) throw error;
+        current = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: task.id! });
+      }
+    }
+  } catch (error) {
+    console.error(`Could not record link-opened on Task/${task.id}`, error);
+    captureException(error);
+  }
+}
+
+/** Sends a fresh link to the recipient fixed on the opened attempt; the new attempt is `partOf` the opened one. */
+async function resendDocumentLink(
+  task: Task,
+  documentReferenceId: string,
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<void> {
+  const recipient = getOutboundDeliveryRecipientSnapshot(task);
+  const organizationId =
+    getOutboundDeliverySenderOrganizationId(task) || getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
+  const appointmentId = getIdFromReference(task.focus?.reference, 'Appointment');
+  const location = appointmentId ? await getVisitLocation(oystehr, appointmentId) : undefined;
+  const packet = getOutboundDeliveryPacketSnapshot(task);
+
+  await sendDocumentLinkEmailAttempt({
+    oystehr,
+    secrets,
+    patientId: requireOutboundDeliveryValue(getIdFromReference(task.for?.reference, 'Patient'), 'patient reference'),
+    appointmentId,
+    email: requireOutboundDeliveryValue(recipient.address, 'recipient address'),
+    recipientName: recipient.name,
+    recipientOrganization: recipient.organization,
+    recipientPhone: recipient.phone,
+    documentReferenceId,
+    packetPageCount: packet.pageCount,
+    packetParts: packet.parts,
+    organizationId,
+    contactPhone: getLocationContactPhone(location),
+    senderDisplay: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderDisplay)?.valueString,
+    requesterReference: task.requester?.reference,
+    senderId: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderId)?.valueString,
+    parentAttemptId: task.id,
+  });
+}
+
+async function getVisitLocation(oystehr: Oystehr, appointmentId: string): Promise<Location | undefined> {
+  const resources = (
+    await oystehr.fhir.search<Appointment | Location>({
+      resourceType: 'Appointment',
+      params: [
+        { name: '_id', value: appointmentId },
+        { name: '_include', value: 'Appointment:location' },
+      ],
+    })
+  ).unbundle();
+  return resources.find((resource): resource is Location => resource.resourceType === 'Location');
+}

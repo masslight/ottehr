@@ -212,6 +212,9 @@ async function sendOutreachSms(
     placeholderParams(patient, encounterRef, stripeAccount, oystehr, secrets, billingInvoice)
   );
   const resolvedMessage = fillOutreachTemplate(template, placeholderInput);
+  if (!resolvedMessage.trim()) {
+    throw new Error('Outreach SMS template is empty');
+  }
 
   // Check for unresolved placeholders — any remaining {{key}} means data is missing
   const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
@@ -250,6 +253,9 @@ async function sendOutreachEmail(
     placeholderParams(patient, encounterRef, stripeAccount, oystehr, secrets, billingInvoice)
   );
   const resolvedMessage = fillOutreachTemplate(template, placeholderInput);
+  if (!resolvedMessage.trim()) {
+    throw new Error('Outreach email template is empty');
+  }
 
   // Check for unresolved placeholders
   const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);

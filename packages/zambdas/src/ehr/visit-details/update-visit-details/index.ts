@@ -16,7 +16,12 @@ import {
   applyVisitOccupationalMedicineEmployerToEncounterExtensions,
   isScheduledFollowupEncounter,
 } from 'utils/lib/fhir/encounter';
-import { cleanUpStaffHistoryTag, getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
+import {
+  cleanUpStaffHistoryTag,
+  getCoding,
+  getCriticalUpdateTagOp,
+  getStaffCriticalUpdateBy,
+} from 'utils/lib/fhir/helpers';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
 import { extractNioIdFromReferenceUrl } from 'utils/lib/helpers/helpers';
@@ -76,7 +81,7 @@ export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promi
       },
     ];
 
-    const updateTag = getCriticalUpdateTagOp(patient, `Staff ${user?.email ? user.email : `(${user?.id})`}`);
+    const updateTag = getCriticalUpdateTagOp(patient, getStaffCriticalUpdateBy(user));
     patientPatchOps.push(updateTag);
 
     const removeStaffUpdateTagOp = cleanUpStaffHistoryTag(patient, 'dob');
@@ -128,7 +133,7 @@ export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promi
       });
     }
 
-    const updateTag = getCriticalUpdateTagOp(patient, `Staff ${user?.email ? user.email : `(${user?.id})`}`);
+    const updateTag = getCriticalUpdateTagOp(patient, getStaffCriticalUpdateBy(user));
     patientPatchOps.push(updateTag);
 
     const storedSuffix = patient?.name?.[0]?.suffix?.[0];
@@ -184,6 +189,7 @@ export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promi
   }
 
   if (bookingDetails.authorizedNonLegalGuardians !== undefined) {
+    const guardians = bookingDetails.authorizedNonLegalGuardians.trim();
     const extension = patient.extension || [];
     const extensionIndex = (patient.extension || []).findIndex((ext) => {
       return ext.url === FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url;
@@ -192,15 +198,15 @@ export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promi
     let skipUpdate = false;
 
     if (extensionIndex > -1) {
-      if (bookingDetails.authorizedNonLegalGuardians) {
-        extension[extensionIndex].valueString = bookingDetails.authorizedNonLegalGuardians;
+      if (guardians) {
+        extension[extensionIndex].valueString = guardians;
       } else {
         extension.splice(extensionIndex, 1);
       }
-    } else if (bookingDetails.authorizedNonLegalGuardians) {
+    } else if (guardians) {
       extension.push({
         url: FHIR_EXTENSION.Patient.authorizedNonLegalGuardians.url,
-        valueString: bookingDetails.authorizedNonLegalGuardians,
+        valueString: guardians,
       });
     } else {
       skipUpdate = true;

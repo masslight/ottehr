@@ -492,13 +492,13 @@ export function buildTaskInput(action: OutreachAction, stripeAccount?: string): 
       type: { text: 'mediums' },
       valueString: cfg.mediums.join(','),
     });
-    if (cfg.smsTemplate) {
+    if (cfg.smsTemplate?.trim()) {
       inputs.push({
         type: { text: 'sms-template' },
         valueString: cfg.smsTemplate,
       });
     }
-    if (cfg.emailTemplate) {
+    if (cfg.emailTemplate?.trim()) {
       inputs.push({
         type: { text: 'email-template' },
         valueString: cfg.emailTemplate,

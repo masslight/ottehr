@@ -208,6 +208,9 @@ async function sendNotificationForMedium(
     }
 
     const resolvedMessage = fillOutreachTemplate(smsTemplate, placeholderInput);
+    if (!resolvedMessage.trim()) {
+      throw new Error('Outreach SMS template is empty');
+    }
 
     const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
     if (unresolved) {
@@ -229,6 +232,9 @@ async function sendNotificationForMedium(
     }
 
     const resolvedMessage = fillOutreachTemplate(emailTemplate, placeholderInput);
+    if (!resolvedMessage.trim()) {
+      throw new Error('Outreach email template is empty');
+    }
 
     const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
     if (unresolved) {

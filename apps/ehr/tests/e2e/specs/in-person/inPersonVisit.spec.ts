@@ -17,7 +17,6 @@ import {
   isoToDateObject,
 } from 'utils/lib/helpers/helpers';
 import { INSURANCE_PLAN_PAYER_META_TAG_CODE } from 'utils/lib/types/api/insurances.constants';
-import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { ENV_LOCATION_NAME } from '../../../e2e-utils/resource/constants';
 import { addRequiredInsuranceCardAnswers } from '../../../e2e-utils/resource/insurance-document';
 import {
@@ -166,17 +165,10 @@ test.describe('In-person visit', async () => {
 
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-      // Match the tracking-board date filter to the appointment's local date in the
-      // location's timezone. The filter defaults to today; when the test runs late
-      // enough that the appointment landed on tomorrow (in the location TZ), the
-      // appointment exists but is hidden by the filter.
-      const location = resourceHandler.appointmentLocation;
+      // The filter defaults to today; an appointment seeded late in the day can land on the
+      // next day, where it exists but is hidden by the filter.
       const appointmentStart = resourceHandler.appointment.start;
-      if (location && appointmentStart) {
-        const timezone = getTimezone(location);
-        const appointmentLocalDate = DateTime.fromISO(appointmentStart).setZone(timezone).toFormat('MM/dd/yyyy');
-        await visitsPage.selectDate(appointmentLocalDate);
-      }
+      if (appointmentStart) await visitsPage.selectDateOf(appointmentStart);
 
       // If it was a prebook, find on prebook tab and move to arrived
       // else it is a walk in go straight to in office tab.
@@ -346,15 +338,8 @@ test.describe('In-person visit', async () => {
 
       const visitsPage = await openVisitsPage(page);
       await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-      // See the matching @smoke test above for why this matches the date filter to the
-      // appointment's local date in the location's timezone.
-      const location = resourceHandler.appointmentLocation;
       const appointmentStart = resourceHandler.appointment.start;
-      if (location && appointmentStart) {
-        const timezone = getTimezone(location);
-        const appointmentLocalDate = DateTime.fromISO(appointmentStart).setZone(timezone).toFormat('MM/dd/yyyy');
-        await visitsPage.selectDate(appointmentLocalDate);
-      }
+      if (appointmentStart) await visitsPage.selectDateOf(appointmentStart);
 
       // If it was a prebook, find on prebook tab and move to arrived
       // else it is a walk in go straight to in office tab.

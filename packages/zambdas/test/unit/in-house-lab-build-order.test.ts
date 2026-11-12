@@ -178,6 +178,12 @@ describe('makeRequestsForCreateInHouseLabs', () => {
     expect(sr.note).toBeUndefined();
   });
 
+  test.each(['', '   ', '\n\t'])('omits ServiceRequest.note when notes is blank (%j)', (notes) => {
+    const requests = makeRequestsForCreateInHouseLabs(buildBaseResources({ notes }));
+    const sr = pickRequestByType(requests, 'ServiceRequest')[0].resource as ServiceRequest;
+    expect(sr.note).toBeUndefined();
+  });
+
   test('produces no Procedure entries when the ActivityDefinition has no CPT codings', () => {
     const adWithoutCpt: ActivityDefinition = {
       ...snellenAd,

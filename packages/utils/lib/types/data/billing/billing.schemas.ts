@@ -540,7 +540,7 @@ export const CreateBillingCoverageInputSchema = z
     patientId: nonEmptyString,
     payerId: nonEmptyString,
     memberId: nonEmptyString,
-    groupNumber: z.string().optional(),
+    groupNumber: z.string().trim().optional(),
     insuranceType: insuranceTypeSchema.optional(),
     planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema,
@@ -562,7 +562,7 @@ export const UpdateBillingCoverageInputSchema = z
     claimId: historyClaimId,
     payerId: nonEmptyString.optional(),
     memberId: nonEmptyString.optional(),
-    groupNumber: z.string().optional(),
+    groupNumber: z.string().trim().optional(),
     insuranceType: insuranceTypeSchema.optional(),
     planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema.optional(),
@@ -971,6 +971,13 @@ export const ListBillingPatientAccountPaymentsInputSchema = z.object({
   patientId: nonEmptyString,
 });
 
+// the billing patient's saved cards usable to pay for one of their visits: cards live on the Stripe
+// account the visit takes payments on
+export const ListBillingPatientPaymentMethodsInputSchema = z.object({
+  patientId: nonEmptyString,
+  encounterId: nonEmptyString.uuid(),
+});
+
 export const GetBillingPatientAccountPaymentInputSchema = z.object({
   patientId: nonEmptyString,
   // the visit the payment was taken on
@@ -1324,6 +1331,7 @@ export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
+export type ListBillingPatientPaymentMethodsInput = z.output<typeof ListBillingPatientPaymentMethodsInputSchema>;
 export type CreateBillingInvoiceInput = z.output<typeof CreateBillingInvoiceInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
 export type SearchBillingInvoicesInput = z.output<typeof SearchBillingInvoicesInputSchema>;

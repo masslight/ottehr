@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { appointmentTypeLabels } from 'ehr-ui/src/types/types';
 import {
-  Account,
   Appointment,
   DocumentReference,
   Encounter,
@@ -28,6 +27,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { FhirAppointmentType } from 'utils/lib/types/common';
 import { RECEIPT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { compareDates } from 'utils/lib/utils/dateUtils';
 import {
   createStripeAccountResolver,
   fetchEncounterPaymentNotices,
@@ -164,46 +164,34 @@ async function getReceiptData(input: {
     lastOperationPaymentIntent,
     stripeAccountId,
   } = input;
-  const accountResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
-  const account: Account | undefined = accountResources.account;
+  const [fhirBundle, paymentNoticesByEncounter, listResourcesBundle, organization] = await Promise.all([
+    oystehr.fhir.search<FhirResource>({
+      resourceType: 'Encounter',
+      params: [
+        { name: '_id', value: encounterId },
+        { name: '_include', value: 'Encounter:subject' },
+        { name: '_include', value: 'Encounter:appointment' },
+      ],
+    }),
+    fetchEncounterPaymentNotices({ clinicalOystehr: oystehr, billingOystehr, encounterIds: [encounterId] }),
+    oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [{ name: 'patient', value: `Patient/${patientId}` }],
+    }),
+    oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId }),
+  ]);
+  const paymentNotices = paymentNoticesByEncounter.get(encounterId) ?? [];
 
-  const customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccountId) : undefined;
-  if (!customerId) throw new Error('No stripe customer id found');
+  // Stripe is read only for card details, so a receipt of cash/check payments needs no Stripe customer
+  const hasProcessorPayments =
+    Boolean(lastOperationPaymentIntent) ||
+    paymentNotices.some((notice) => Boolean(stripePaymentIntentIdForNotice(notice)));
+  const { paymentIntents, customer } = hasProcessorPayments
+    ? await fetchStripeReceiptData({ encounterId, patientId, oystehr, stripeClient, stripeAccountId })
+    : { paymentIntents: [], customer: undefined };
 
-  const [fhirBundle, paymentNoticesByEncounter, listResourcesBundle, organization, paymentIntents, customer] =
-    await Promise.all([
-      oystehr.fhir.search<FhirResource>({
-        resourceType: 'Encounter',
-        params: [
-          { name: '_id', value: encounterId },
-          { name: '_include', value: 'Encounter:subject' },
-          { name: '_include', value: 'Encounter:appointment' },
-        ],
-      }),
-      fetchEncounterPaymentNotices({ clinicalOystehr: oystehr, billingOystehr, encounterIds: [encounterId] }),
-      oystehr.fhir.search<List>({
-        resourceType: 'List',
-        params: [{ name: 'patient', value: `Patient/${patientId}` }],
-      }),
-      oystehr.fhir.get<Organization>({ resourceType: 'Organization', id: organizationId }),
-      stripeClient.paymentIntents.search(
-        {
-          query: stripeEncounterMetadataQuery(encounterId),
-          limit: 100, // default is 10
-        },
-        { stripeAccount: stripeAccountId }
-      ),
-      stripeClient.customers.retrieve(
-        customerId,
-        {
-          expand: ['invoice_settings.default_payment_method', 'sources'],
-        },
-        { stripeAccount: stripeAccountId }
-      ),
-    ]);
   // find resources
   const resources = fhirBundle.unbundle();
-  const paymentNotices = paymentNoticesByEncounter.get(encounterId) ?? [];
   const patient = resources.find((r) => r.resourceType === 'Patient') as Patient;
   const appointment = resources.find((r) => r.resourceType === 'Appointment') as Appointment;
   const encounter = resources.find((r) => r.resourceType === 'Encounter') as Encounter;
@@ -217,7 +205,6 @@ async function getReceiptData(input: {
   const locationName = location?.name;
 
   // parse data
-  if (customer.deleted) throw new Error('Customer is deleted');
   // the receipt can list payments taken on other accounts than the schedule's, e.g. platform
   // outreach invoices, so each payment's Stripe lookups use its own
   const stripeAccountFor = createStripeAccountResolver({
@@ -226,7 +213,7 @@ async function getReceiptData(input: {
   });
   const payments = await parsePaymentsList(
     paymentNotices,
-    paymentIntents.data,
+    paymentIntents,
     customer,
     stripeClient,
     stripeAccountFor,
@@ -270,20 +257,52 @@ async function getReceiptData(input: {
   };
 }
 
+async function fetchStripeReceiptData(input: {
+  encounterId: string;
+  patientId: string;
+  oystehr: Oystehr;
+  stripeClient: Stripe;
+  stripeAccountId?: string;
+}): Promise<{ paymentIntents: Stripe.PaymentIntent[]; customer: Stripe.Customer }> {
+  const { encounterId, patientId, oystehr, stripeClient, stripeAccountId } = input;
+  const { account } = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+  const customerId = account ? getStripeCustomerIdFromAccount(account, stripeAccountId) : undefined;
+  if (!customerId) throw new Error('No stripe customer id found');
+
+  const [paymentIntents, customer] = await Promise.all([
+    stripeClient.paymentIntents.search(
+      {
+        query: stripeEncounterMetadataQuery(encounterId),
+        limit: 100, // default is 10
+      },
+      { stripeAccount: stripeAccountId }
+    ),
+    stripeClient.customers.retrieve(
+      customerId,
+      {
+        expand: ['invoice_settings.default_payment_method', 'sources'],
+      },
+      { stripeAccount: stripeAccountId }
+    ),
+  ]);
+  if (customer.deleted) throw new Error('Customer is deleted');
+  return { paymentIntents: paymentIntents.data, customer };
+}
+
 export async function parsePaymentsList(
   paymentNotices: PaymentNotice[],
   paymentIntents: Stripe.PaymentIntent[],
-  customer: Stripe.Customer,
+  // only needed to mark the default card; absent when the receipt has no processor payments
+  customer: Stripe.Customer | undefined,
   stripeClient: Stripe,
   stripeAccountFor: (notice: PaymentNotice) => Promise<string | undefined>,
   lastOperationPaymentIntent?: Stripe.PaymentIntent
 ): Promise<PaymentData[]> {
   if (lastOperationPaymentIntent) paymentIntents.push(lastOperationPaymentIntent);
-  const defaultPaymentMethod: Stripe.PaymentMethod = customer.invoice_settings
-    ?.default_payment_method as Stripe.PaymentMethod;
+  const defaultPaymentMethod = customer?.invoice_settings?.default_payment_method as Stripe.PaymentMethod | undefined;
 
   const payments = await Promise.all(
-    paymentNotices.map(async (paymentNotice): Promise<PaymentData> => {
+    paymentNotices.map(async (paymentNotice): Promise<PaymentData & { created: string }> => {
       const pnStripeId = stripePaymentIntentIdForNotice(paymentNotice);
       const stripeAccount = pnStripeId ? await stripeAccountFor(paymentNotice) : undefined;
       // the encounter search covers the schedule account only
@@ -316,24 +335,22 @@ export async function parsePaymentsList(
       return {
         amount,
         method,
-        // todo: what date should i put here?
-        paymentDate: paymentNotice?.created,
+        // the date the payment was made, which a backdated manual payment sets apart from when it was
+        // recorded; older notices without one fall back to the day they were created
+        paymentDate: paymentNotice.paymentDate ?? DateTime.fromISO(paymentNotice.created).toISODate() ?? undefined,
+        created: paymentNotice.created,
         last4: stripeCardDetails?.last4,
         brand: stripeCardDetails?.brand,
-        isPrimary: stripeMethod?.id === defaultPaymentMethod?.id,
+        isPrimary: Boolean(stripeMethod) && stripeMethod?.id === defaultPaymentMethod?.id,
       };
     })
   );
-  // i do sorting before formatting date to MM/dd/yyyy to make it more precise
-  payments.sort((a, b) => {
-    const dateA = DateTime.fromISO(a.paymentDate ?? '');
-    const dateB = DateTime.fromISO(b.paymentDate ?? '');
-    return dateA.diff(dateB).milliseconds;
-  });
-  payments.forEach(
-    (payment) => (payment.paymentDate = DateTime.fromISO(payment.paymentDate ?? '').toFormat('MM/dd/yyyy'))
-  );
-  return payments;
+  // oldest first; payments made on the same day keep the order they were recorded in
+  payments.sort((a, b) => compareDates(b.paymentDate, a.paymentDate) || compareDates(b.created, a.created));
+  return payments.map(({ created: _created, ...payment }) => ({
+    ...payment,
+    paymentDate: DateTime.fromISO(payment.paymentDate ?? '').toFormat('MM/dd/yyyy'),
+  }));
 }
 
 const retrievePaymentIntent = async (

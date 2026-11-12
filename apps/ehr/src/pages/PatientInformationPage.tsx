@@ -380,6 +380,8 @@ interface PatientAccountComponentProps {
   renderBackButton?: boolean;
   appointmentContext?: AppointmentContext;
   appointmentId?: string;
+  /** Visit-page-only: the visit's date (yyyy-MM-dd), the date of service eligibility is checked for by default. */
+  visitDate?: string;
   /**
    * Visit-page-only: renders a coverage's compact card thumbnail inside its insurance block
    * (threaded down to InsuranceContainer). Called with the 0-based card ordinal (0 = primary,
@@ -410,6 +412,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   renderBackButton = true,
   appointmentContext,
   appointmentId,
+  visitDate,
   renderInsuranceCardThumbnail,
   photoIdCardSlot,
   confirmSave,
@@ -621,6 +624,8 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
       onCloseAddInsurance={handleCloseAddInsurance}
       newInsuranceOrdinal={newInsuranceOrdinal}
       encounterId={appointmentContext?.encounterId}
+      appointmentId={appointmentId}
+      visitDate={visitDate}
       renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
     />
   );
