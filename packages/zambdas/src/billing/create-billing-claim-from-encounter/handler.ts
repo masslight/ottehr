@@ -221,7 +221,9 @@ export async function createClaimFromEncounter(params: CreateClaimFromEncounterP
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
   const agent = await resolveClaimActor('system', billingOystehr, undefined, params.secrets);
 
+  const writeStart = Date.now();
   const { claimId, claim } = await performEffect(billingOystehr, cvo, agent);
+  console.log(`create claim from encounter: write took ${Date.now() - writeStart}ms`);
   const engine = determineRulesEngineForClaim(claim);
   if (engine) await kickOffRulesEngine(billingOystehr, engine, claimId, agent.who, params.secrets);
   return { claimId };
@@ -1488,7 +1490,9 @@ export async function complexValidation(
   if (existingClaims.length > 0) {
     throw INVALID_INPUT_ERROR('Claim has already been created for this encounter');
   }
+  const clinicalReadsStart = Date.now();
   const clinicalResources = await getClinicalResources(clinicalOystehr, billingOystehr, params);
+  console.log(`create claim from encounter: clinical reads took ${Date.now() - clinicalReadsStart}ms`);
   if (!clinicalResources.location.name) {
     throw INVALID_INPUT_ERROR('The encounter location has no name. Add its name in the clinical app, then retry.');
   }
@@ -1506,7 +1510,9 @@ export async function complexValidation(
   if (!attendingProviderNpi) {
     throw INVALID_INPUT_ERROR('The clinical attending provider has no NPI. Add its NPI, then retry.');
   }
+  const billingReadsStart = Date.now();
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
+  console.log(`create claim from encounter: billing reads took ${Date.now() - billingReadsStart}ms`);
   if (!billingResources.serviceFacility) {
     throw INVALID_INPUT_ERROR(
       `No active billing service facility named "${clinicalResources.location.name}". Add it in billing or fix the visit location, then retry.`
