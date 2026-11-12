@@ -4,7 +4,7 @@ import { ImmunizationForecast, ImmunizationGroupId } from 'utils/lib/immunizatio
 import { InventoryDrugRow, InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { Vaccine } from 'utils/lib/types/data/immunization/types';
-import { sortVaccineLotsForPatient, VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
+import { isPublicFunding, sortVaccineLotsForPatient, VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
 import { applyImmunizationQuickPick, applyLotToLine, ImmunizationFormValues } from './immunizationLines';
 
 /** CVX → the forecast groups it covers, as the forecast endpoint returns it. */
@@ -204,11 +204,15 @@ export interface DueTodayLotPick {
 /**
  * The lot ⊕ pre-picks: the patient's stock first (VFC lots for a VFC-eligible child, private otherwise), soonest
  * expiry, as the Lot blank lists them. Never an expired lot, and never the other stock: borrowing is the
- * provider's own choice in the Lot blank, where it asks for the reason.
+ * provider's own choice in the Lot blank, where it asks for the reason. While a child's eligibility is not
+ * confirmed, no VFC or state lot either: the Lot blank offers them and says eligibility is unconfirmed.
  */
 export const lotToPrePick = (vaccine: StockedVaccine, pick: DueTodayLotPick): InventoryLot | undefined =>
   sortVaccineLotsForPatient(vaccine.lots, pick.vfcEligibility, pick.today).find(
-    (option) => !option.expired && option.matches !== false
+    (option) =>
+      !option.expired &&
+      option.matches !== false &&
+      (option.matches !== undefined || !isPublicFunding(option.lot.fundingSource))
   )?.lot;
 
 /**

@@ -1,8 +1,7 @@
-import { DateTime } from 'luxon';
 import { getRulesData, RulesData } from 'utils/lib/immunization-forecast/data/rules-data';
 import { medicationApplianceRoutes } from 'utils/lib/types/api/medication-administration.types';
 import { ImmunizationCptCode } from 'utils/lib/types/data/immunization/types';
-import { RSV_MONOCLONAL_ANTIBODY_CVX_CODES } from 'utils/lib/types/data/immunization/vfc';
+import { isThrough18, RSV_MONOCLONAL_ANTIBODY_CVX_CODES } from 'utils/lib/types/data/immunization/vfc';
 import { ImmunizationFormValues } from './immunizationLines';
 
 /** Where a line's CPT codes came from: suggested by the page, a quick pick's, or typed by a person. A person's edit
@@ -34,11 +33,8 @@ export const cvxComponentCount = (cvx: string | undefined, rules: RulesData = ge
   return Math.max(1, new Set(associations.map((association) => association.antigen)).size);
 };
 
-/** Through 18: before the 19th birthday, the age 90460/90461 are billed to. */
-export const isThrough18 = (birthDate: string | undefined, on: DateTime = DateTime.now()): boolean => {
-  const born = birthDate ? DateTime.fromISO(birthDate) : undefined;
-  return !!born?.isValid && on < born.plus({ years: 19 }).startOf('day');
-};
+/** Through 18, the age 90460/90461 are billed to: the VFC age rule. */
+export { isThrough18 };
 
 /** A line the page fills the codes of: an order line with a vaccine whose codes are empty or the page's own. */
 export const takesSuggestedCodes = (line: ImmunizationFormValues): boolean =>

@@ -1,7 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, Medication, MedicationAdministration, Observation } from 'fhir/r4b';
 import { makeInventoryLot, makeMedicationInventoryExtension } from 'utils/lib/fhir/medication-inventory';
-import { getVaccineDoseFunding, makeVfcBorrowingObservation, parseVfcBorrowingObservation } from 'utils/lib/fhir/vfc';
+import {
+  getVaccineDoseFunding,
+  makeVfcBorrowingObservation,
+  makeVfcEligibilityObservation,
+  parseVfcBorrowingObservation,
+} from 'utils/lib/fhir/vfc';
 import { VACCINE_DEFAULT_INVENTORY } from 'utils/lib/types/api/config/in-house-medications';
 import {
   CVX_CODE_SYSTEM_URL,
@@ -10,8 +15,14 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
+import { InputImmunizationOrderAdministrationDetails } from 'utils/lib/types/data/immunization/types';
+import { VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
 import { describe, expect, it, vi } from 'vitest';
-import { applyVaccineDoseFunding, fillFundingFromInventoryLot } from '../../src/ehr/immunization/vaccine-stock';
+import {
+  applyVaccineDoseFunding,
+  fillFundingFromInventoryLot,
+  fillVfcEligibilityFromVisit,
+} from '../../src/ehr/immunization/vaccine-stock';
 import { recordVfcBorrowing } from '../../src/shared/vfc';
 
 const bundle = <T>(resources: T[]): { unbundle: () => T[] } => ({ unbundle: () => resources });
@@ -269,5 +280,45 @@ describe('recordVfcBorrowing', () => {
     const oystehr = mockOystehr();
     await recordVfcBorrowing(oystehr, ma, 'Practitioner/nurse');
     expect(oystehr.fhir.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('fillVfcEligibilityFromVisit', () => {
+  const confirmedV02: Observation = {
+    ...makeVfcEligibilityObservation({
+      encounterId: 'enc-1',
+      patientId: 'pat-1',
+      code: 'V02',
+      performerReference: 'Practitioner/ma',
+      effectiveDateTime: '2026-11-10T10:00:00.000Z',
+    }),
+    id: 'elig-1',
+  };
+  const mockOystehr = (confirmed: Observation[], birthDate: string): Oystehr =>
+    ({
+      fhir: {
+        search: vi.fn().mockResolvedValue(bundle(confirmed)),
+        get: vi.fn().mockResolvedValue({ resourceType: 'Patient', id: 'pat-1', birthDate }),
+      },
+    }) as unknown as Oystehr;
+  const dose = (vfcEligibility?: VfcEligibilityCode): InputImmunizationOrderAdministrationDetails => ({
+    lot: 'Y0112',
+    administeredDateTime: '2026-11-10T15:00:00.000Z',
+    ...(vfcEligibility ? { vfcEligibility } : {}),
+  });
+
+  it("the visit's confirmed eligibility wins over the one the screen sent", async () => {
+    const details = dose('V01');
+    await fillVfcEligibilityFromVisit(mockOystehr([confirmedV02], '2026-07-08'), administration('Y0112'), details);
+    expect(details.vfcEligibility).toBe('V02');
+  });
+
+  it('a patient 19 or older on the day of the dose, with nothing confirmed, is not eligible; a child stays unknown', async () => {
+    const adult = dose();
+    await fillVfcEligibilityFromVisit(mockOystehr([], '2007-11-09'), administration('Y0112'), adult);
+    expect(adult.vfcEligibility).toBe('V01');
+    const child = dose();
+    await fillVfcEligibilityFromVisit(mockOystehr([], '2007-11-12'), administration('Y0112'), child);
+    expect(child.vfcEligibility).toBeUndefined();
   });
 });

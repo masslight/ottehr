@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { z } from 'zod';
 
 // Vaccines for Children (VFC): the eligibility a practice records at each immunization visit, the funding
@@ -28,6 +29,27 @@ export const isVfcEligible = (code: VfcEligibilityCode | undefined): boolean =>
 
 /** VFC covers children through age 18. */
 export const VFC_MAX_AGE_YEARS = 18;
+
+/** Through 18: before the 19th birthday on `on`, the age VFC covers (and 90460/90461 are billed to). */
+export const isThrough18 = (birthDate: string | undefined, on: DateTime = DateTime.now()): boolean => {
+  const born = birthDate ? DateTime.fromISO(birthDate) : undefined;
+  return !!born?.isValid && on < born.plus({ years: VFC_MAX_AGE_YEARS + 1 }).startOf('day');
+};
+
+/**
+ * The eligibility a patient's doses are handled by: the one confirmed for the visit; for a patient 19 or older on
+ * `on`, not eligible (VFC is never confirmed for an adult, and VFC stock given to one is still borrowed); unknown
+ * for a child whose eligibility is not confirmed yet.
+ */
+export const effectiveVfcEligibility = (
+  confirmed: VfcEligibilityCode | undefined,
+  birthDate: string | undefined,
+  on: DateTime = DateTime.now()
+): VfcEligibilityCode | undefined => {
+  if (confirmed) return confirmed;
+  const born = birthDate ? DateTime.fromISO(birthDate) : undefined;
+  return born?.isValid && !isThrough18(birthDate, on) ? 'V01' : undefined;
+};
 
 /** What a vaccine lot was paid with: VFC, private purchase, or another public (state) program. */
 export const VACCINE_FUNDING_SOURCES = ['vfc', 'private', 'state'] as const;

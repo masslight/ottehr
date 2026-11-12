@@ -334,7 +334,9 @@ describe('what ⊕ fills — option B', () => {
     const today = '2026-11-10';
     expect(lotToPrePick(pentacel, { vfcEligibility: 'V02', today })?.id).toBe('vfc-soon');
     expect(lotToPrePick(pentacel, { vfcEligibility: 'V01', today })?.id).toBe('private-late');
-    expect(lotToPrePick(pentacel, { today })?.id).toBe('vfc-soon');
+    // eligibility not confirmed yet: no VFC lot is pre-picked, even when it expires first
+    expect(lotToPrePick(pentacel, { today })?.id).toBe('private-late');
+    expect(lotToPrePick({ ...pentacel, lots: [pentacel.lots[1]] }, { today })).toBeUndefined();
     // only the other stock on hand: nothing is pre-picked; borrowing is the provider's call in the Lot blank
     expect(lotToPrePick({ ...pentacel, lots: [pentacel.lots[0]] }, { vfcEligibility: 'V02', today })).toBeUndefined();
 

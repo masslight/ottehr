@@ -90,7 +90,7 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
     ? VFC_ELIGIBILITY_LABELS[vfcEligibility].vfc
       ? `${who} is VFC eligible (${VFC_ELIGIBILITY_LABELS[vfcEligibility].short}): VFC lots first.`
       : `${who} is not VFC eligible: private lots first.`
-    : 'VFC eligibility is not confirmed yet, so the lots are in expiration order.';
+    : 'VFC eligibility is not confirmed yet, so the lots are in expiration order. Confirm it before using VFC stock.';
 
   const choose = (lot: InventoryLot, close: () => void): void => {
     if (isVfcBorrowing(lot.fundingSource ?? 'private', vfcEligibility)) {

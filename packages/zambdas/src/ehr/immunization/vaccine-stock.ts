@@ -1,9 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
-import { MedicationAdministration } from 'fhir/r4b';
+import { MedicationAdministration, Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { parseInventoryLot } from 'utils/lib/fhir/medication-inventory';
 import { getVaccineDoseFunding, withVaccineDoseFunding } from 'utils/lib/fhir/vfc';
 import { InputImmunizationOrderAdministrationDetails } from 'utils/lib/types/data/immunization/types';
+import { effectiveVfcEligibility } from 'utils/lib/types/data/immunization/vfc';
 import { findAdministrationInventoryLot, reconcileAdministrationStock } from '../../shared/medication-inventory';
 import { getConfirmedVfcEligibility, recordVfcBorrowing } from '../../shared/vfc';
 
@@ -47,20 +49,30 @@ export async function fillFundingFromInventoryLot(
 }
 
 /**
- * A dose given without the screen saying the patient's eligibility still carries the visit's confirmed
- * eligibility, so the record (and the borrowing check) is complete.
+ * The eligibility on the dose is the visit's confirmed one when there is one (the screen may hold an earlier
+ * confirmation), else what the screen said, else not eligible for a patient 19 or older on the day of the dose
+ * (`effectiveVfcEligibility`), so the record and the borrowing check are complete.
  */
 export async function fillVfcEligibilityFromVisit(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,
   administrationDetails: InputImmunizationOrderAdministrationDetails
 ): Promise<void> {
-  if (administrationDetails.vfcEligibility) return;
   const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
+  const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
   if (!encounterId) return;
   try {
     const confirmed = await getConfirmedVfcEligibility(oystehr, encounterId);
-    if (confirmed) administrationDetails.vfcEligibility = confirmed.code;
+    if (confirmed) {
+      administrationDetails.vfcEligibility = confirmed.code;
+      return;
+    }
+    if (administrationDetails.vfcEligibility || !patientId) return;
+    const patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
+    const given = administrationDetails.administeredDateTime
+      ? DateTime.fromISO(administrationDetails.administeredDateTime)
+      : DateTime.now();
+    administrationDetails.vfcEligibility = effectiveVfcEligibility(undefined, patient.birthDate, given);
   } catch (error) {
     // the dose is still given; the record just lacks the eligibility the screen did not send
     console.error('Error reading the visit VFC eligibility:', error);

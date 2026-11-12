@@ -1,7 +1,9 @@
+import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
 import {
   cptCodesToBillForDose,
   deriveVfcEligibility,
+  effectiveVfcEligibility,
   isVfcBorrowing,
   sortVaccineLotsForPatient,
   wantedFundingSource,
@@ -25,6 +27,22 @@ describe('deriveVfcEligibility', () => {
 
   it('explains itself in plain words', () => {
     expect(deriveVfcEligibility({ hasMedicaid: true, selfPay: false, hasCoverage: false })?.why).toMatch(/Medicaid/);
+  });
+});
+
+describe('effectiveVfcEligibility', () => {
+  const on = DateTime.fromISO('2026-11-11');
+  it('is the confirmed code when there is one', () => {
+    expect(effectiveVfcEligibility('V02', '1990-01-01', on)).toBe('V02');
+  });
+  it('is not eligible for a patient 19 or older on the day, with nothing confirmed', () => {
+    expect(effectiveVfcEligibility(undefined, '2007-11-11', on)).toBe('V01');
+    expect(effectiveVfcEligibility(undefined, '1996-03-02', on)).toBe('V01');
+  });
+  it('is unknown for a child not yet confirmed, or without a birth date', () => {
+    expect(effectiveVfcEligibility(undefined, '2007-11-12', on)).toBeUndefined();
+    expect(effectiveVfcEligibility(undefined, undefined, on)).toBeUndefined();
+    expect(effectiveVfcEligibility(undefined, 'unknown', on)).toBeUndefined();
   });
 });
 

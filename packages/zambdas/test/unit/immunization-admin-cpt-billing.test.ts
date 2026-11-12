@@ -46,6 +46,7 @@ function makeFakeOystehr(mas: Record<string, MedicationAdministration>): {
       if (resourceType === 'MedicationAdministration') return structuredClone(mas[id]);
       if (resourceType === 'Medication') return structuredClone(vaccine);
       if (resourceType === 'Practitioner') return structuredClone(practitioner);
+      if (resourceType === 'Patient') return { resourceType: 'Patient', id, birthDate: '2026-07-08' };
       throw new Error(`unexpected get ${resourceType}/${id}`);
     },
     transaction: async ({ requests }: { requests: any[] }) => {

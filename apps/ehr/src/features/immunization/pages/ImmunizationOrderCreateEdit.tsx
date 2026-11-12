@@ -29,6 +29,7 @@ import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
+import { effectiveVfcEligibility } from 'utils/lib/types/data/immunization/vfc';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
 import {
   useCancelImmunizationOrder,
@@ -120,8 +121,10 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
 
   const isCreating = !orderId;
   const encounterId = encounter?.id ?? '';
-  // The lot list puts the patient's stock first once eligibility is confirmed for the visit.
-  const vfcEligibility = useVfcEligibility(encounterId || undefined).data?.confirmed?.code;
+  // The lot list puts the patient's stock first once eligibility is confirmed for the visit; an adult is never
+  // eligible, so VFC stock given to one is borrowed.
+  const confirmedVfcEligibility = useVfcEligibility(encounterId || undefined).data?.confirmed?.code;
+  const vfcEligibility = effectiveVfcEligibility(confirmedVfcEligibility, patient?.birthDate);
   const patientFirstName = patient?.firstName;
 
   const { setDraft, clearDraft, hasDraft, getDraft } = useImmunizationOrderStore();
