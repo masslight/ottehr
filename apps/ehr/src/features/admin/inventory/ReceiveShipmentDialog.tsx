@@ -341,7 +341,7 @@ export default function ReceiveShipmentDialog({
                   {lastReceivedLot.isError
                     ? "Couldn't load the last lot received."
                     : isVaccine
-                    ? 'NDC, manufacturer, vendor and stock are filled from the last lot received.'
+                    ? 'NDC, manufacturer, vendor and recipient type are filled from the last lot received.'
                     : 'NDC, manufacturer and vendor are filled from the last lot received.'}
                 </Typography>
               </Grid>
