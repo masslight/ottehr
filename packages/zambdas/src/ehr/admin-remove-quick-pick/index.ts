@@ -8,7 +8,11 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody, validateString } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { QUICK_PICK_TAG_SYSTEM } from '../shared/quick-pick-helpers';
+import {
+  PRESCRIPTION_QUICK_PICK_CATEGORY,
+  PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
+} from '../shared/quick-pick-categories';
+import { QUICK_PICK_TAG_SYSTEM, quickPickToActivityDefinition, searchQuickPicks } from '../shared/quick-pick-helpers';
 
 interface QuickPickRemoveInputValidated extends QuickPickRemoveInput {
   secrets: Secrets;
@@ -30,7 +34,7 @@ export const index = wrapHandler(
   }
 );
 
-async function removeQuickPick(quickPickId: string, oystehr: Oystehr): Promise<void> {
+export async function removeQuickPick(quickPickId: string, oystehr: Oystehr): Promise<void> {
   let existing: ActivityDefinition;
   try {
     existing = await oystehr.fhir.get<ActivityDefinition>({
@@ -47,6 +51,38 @@ async function removeQuickPick(quickPickId: string, oystehr: Oystehr): Promise<v
   }
   existing.status = 'retired';
   await oystehr.fhir.update(existing);
+  if (tags.some((t) => t.system === QUICK_PICK_TAG_SYSTEM && t.code === PRESCRIPTION_QUICK_PICK_CATEGORY.tagCode)) {
+    await takeOutOfPrescriptionSets(oystehr, quickPickId, existing.title ?? existing.name ?? '');
+  }
+}
+
+/** A removed prescription quick pick leaves every set that has it; those sets turn Inactive, noting the removal,
+ * until someone reviews and saves them. */
+export async function takeOutOfPrescriptionSets(
+  oystehr: Oystehr,
+  quickPickId: string,
+  name: string,
+  removedAt = new Date().toISOString()
+): Promise<void> {
+  const sets = await searchQuickPicks(oystehr, PRESCRIPTION_SET_QUICK_PICK_CATEGORY);
+  await Promise.all(
+    sets
+      .filter((set) => set.memberIds.includes(quickPickId))
+      .map(({ id, ...set }) =>
+        oystehr.fhir.update(
+          quickPickToActivityDefinition(
+            {
+              ...set,
+              status: 'Inactive',
+              memberIds: set.memberIds.filter((memberId) => memberId !== quickPickId),
+              removedMembers: [...(set.removedMembers ?? []), { name, removedAt }],
+            },
+            PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
+            id
+          )
+        )
+      )
+  );
 }
 
 export function validateRequestParameters(input: ZambdaInput): QuickPickRemoveInputValidated {

@@ -1,12 +1,13 @@
 import { FC } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';
-import { OPEN_DOSESPOT, VIEW_FAX } from 'src/features/visits/in-person/hooks/useTasks';
+import { OPEN_DOSESPOT, VIEW_FAX, VIEW_REQUEST } from 'src/features/visits/in-person/hooks/useTasks';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { Task } from 'utils/lib/types/data/tasks/types';
 
 const COMPLETED = 'completed';
 
-export const TaskActionButton: FC<{ task: Task }> = ({ task }) => {
+// An eRx pharmacy or patient request opens its dialog on the page (onViewRequest).
+export const TaskActionButton: FC<{ task: Task; onViewRequest?: () => void }> = ({ task, onViewRequest }) => {
   const { oystehr } = useApiClients();
 
   // Completed tasks normally have no action, except read-only "View" actions (e.g. a completed
@@ -16,6 +17,13 @@ export const TaskActionButton: FC<{ task: Task }> = ({ task }) => {
   }
   if (!task.action) {
     return null;
+  }
+  if (task.action.name === VIEW_REQUEST) {
+    return (
+      <RoundedButton variant="contained" onClick={onViewRequest}>
+        {task.action.name}
+      </RoundedButton>
+    );
   }
   if (task.action.name === OPEN_DOSESPOT) {
     return (

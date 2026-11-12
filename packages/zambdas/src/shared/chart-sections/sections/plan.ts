@@ -1,6 +1,7 @@
-import { Patient, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
+import { MedicationRequest, Patient, Practitioner, Provenance, QuestionnaireResponse } from 'fhir/r4b';
 import { ERX_MEDICATION_META_TAG_CODE } from 'utils/lib/fhir/constants';
 import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { chartDataResourceHasMetaTagByCode, makePrescribedMedicationDTO } from '../../chart-data';
 import { makePreferredPharmacies } from '../../chart-data/preferred-pharmacies';
 import { encounterScopedSearch, encounterSubjectScopedSearchUrl } from '../../chart-data/search-requests';
 import { mapChartResources } from '../map';
@@ -16,6 +17,8 @@ export const planSection: ChartSectionDefinition<'plan'> = {
     encounterScopedSearch('MedicationRequest', encounterId, {
       _tag: ERX_MEDICATION_META_TAG_CODE,
       _include: 'MedicationRequest:requester',
+      // The eRx service's events for each prescription
+      _revinclude: 'Provenance:target',
     }),
     // The intake paperwork names the preferred pharmacy; the Patient contains the pharmacy Organizations.
     encounterScopedSearch('QuestionnaireResponse', encounterId),
@@ -25,9 +28,9 @@ export const planSection: ChartSectionDefinition<'plan'> = {
     const mapped = mapChartResources(encounter, resources, encounterId, {
       instructions: [],
       schoolWorkNotes: [],
-      prescribedMedications: [],
     });
     const patient = resources.find((r): r is Patient => r.resourceType === 'Patient');
+    const provenances = resources.filter((r): r is Provenance => r.resourceType === 'Provenance');
     const questionnaireResponse = resources.find(
       (r): r is QuestionnaireResponse => r.resourceType === 'QuestionnaireResponse'
     );
@@ -35,7 +38,12 @@ export const planSection: ChartSectionDefinition<'plan'> = {
       disposition: mapped.disposition,
       instructions: mapped.instructions ?? [],
       schoolWorkNotes: mapped.schoolWorkNotes ?? [],
-      prescribedMedications: mapped.prescribedMedications ?? [],
+      prescribedMedications: resources
+        .filter(
+          (r): r is MedicationRequest =>
+            r.resourceType === 'MedicationRequest' && chartDataResourceHasMetaTagByCode(r, ERX_MEDICATION_META_TAG_CODE)
+        )
+        .map((medicationRequest) => makePrescribedMedicationDTO(medicationRequest, provenances)),
       preferredPharmacies: makePreferredPharmacies(patient, questionnaireResponse),
       prescribedMedicationsRequesterPractitioners: resources.filter(
         (r): r is Practitioner => r.resourceType === 'Practitioner'

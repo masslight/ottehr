@@ -29,18 +29,30 @@ export interface Task {
 const namedReference = z.object({ id: requiredTextSchema, name: requiredTextSchema });
 const optionalNamedReference = namedReference.nullish().transform((value) => value ?? undefined);
 
-export const CreateManualTaskRequestSchema = z.object({
-  category: requiredTextSchema,
-  appointmentId: optionalTextSchema,
-  orderId: optionalTextSchema,
-  encounterId: optionalTextSchema,
-  taskTitle: requiredTextSchema,
-  taskDetails: optionalTextSchema,
-  assignee: optionalNamedReference,
-  location: namedReference,
-  patient: optionalNamedReference,
-  createdBy: optionalTextSchema,
-});
+export const CreateManualTaskRequestSchema = z
+  .object({
+    category: requiredTextSchema,
+    appointmentId: optionalTextSchema,
+    orderId: optionalTextSchema,
+    // An eRx task on a prescription (orderId) that is a patient's refill request
+    refillRequest: z.boolean().default(false),
+    // An eRx task on a prescription (orderId) that is a patient's change request
+    changeRequest: z.boolean().default(false),
+    encounterId: optionalTextSchema,
+    taskTitle: requiredTextSchema,
+    taskDetails: optionalTextSchema,
+    assignee: optionalNamedReference,
+    location: namedReference,
+    patient: optionalNamedReference,
+    createdBy: optionalTextSchema,
+  })
+  .refine((task) => !(task.refillRequest && task.changeRequest), {
+    message: 'A task is a refill request or a change request, not both',
+  })
+  .refine((task) => !((task.refillRequest || task.changeRequest) && !task.orderId), {
+    message: 'A refill or change request needs a prescription',
+    path: ['orderId'],
+  });
 export type CreateManualTaskRequest = z.input<typeof CreateManualTaskRequestSchema>;
 
 export const MANUAL_TASK = {
@@ -145,6 +157,10 @@ export const ERX_TASK = {
   system: 'erx-task',
   code: {
     providerNotification: 'provider-notification',
+    // A pharmacy's refill (renewal) request, basedOn the eRx service's Task
+    refillRequest: 'refill-request',
+    // A pharmacy's change request, basedOn the eRx service's Task
+    changeRequest: 'change-request',
   },
   input: {
     providerName: 'provider-name',

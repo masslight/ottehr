@@ -24,6 +24,12 @@ interface QuickPickSaveDialogsProps<T extends { id?: string; name: string }> {
   onSave: (overwriteId?: string) => void;
   /** Used in the replace confirmation, e.g. "procedure" or "radiology order". */
   entityLabel: string;
+  /** A read-only line under the name on what else is saved ("Saved by weight: …"). */
+  details?: string;
+  /** The name field's hint. */
+  placeholder?: string;
+  /** Why the name can't be saved, under the name field. */
+  nameError?: string;
 }
 
 export const QuickPickSaveDialogs = <T extends { id?: string; name: string }>({
@@ -35,6 +41,9 @@ export const QuickPickSaveDialogs = <T extends { id?: string; name: string }>({
   onClose,
   onSave,
   entityLabel,
+  details,
+  placeholder = 'Enter a name or select an existing quick pick',
+  nameError,
 }: QuickPickSaveDialogsProps<T>): ReactElement => {
   const [overwriteTarget, setOverwriteTarget] = useState<T | null>(null);
   // The pick chosen from the dropdown, so Replace targets it by id even when two picks share a name.
@@ -77,10 +86,17 @@ export const QuickPickSaveDialogs = <T extends { id?: string; name: string }>({
                 fullWidth
                 sx={{ mt: 1 }}
                 autoFocus
-                placeholder="Enter a name or select an existing quick pick"
+                placeholder={placeholder}
+                error={!!nameError}
+                helperText={nameError}
               />
             )}
           />
+          {details && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }} data-testid="quick-pick-details">
+              {details}
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
           <Button variant="outlined" onClick={onClose} disabled={saving} sx={buttonSx}>

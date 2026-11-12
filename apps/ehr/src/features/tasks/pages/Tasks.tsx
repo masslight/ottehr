@@ -40,6 +40,7 @@ import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { FAX_TASK, Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
 import { CompleteSupportChatTaskButton } from '../../support-chat/components/CompleteSupportChatTaskButton';
 import { SupportChatTaskButton } from '../../support-chat/components/SupportChatTaskButton';
+import { RefillRequestDialog } from '../../visits/in-person/components/erx/RefillRequestDialog';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
@@ -109,6 +110,7 @@ export const Tasks: React.FC = () => {
   const { mutateAsync: completeTask, isPending: isCompleting, variables: completingTask } = useCompleteTask();
   const currentUser = useEvolveUser();
   const currentUserProviderId = getIdFromReference(currentUser?.profile);
+  const [requestTaskId, setRequestTaskId] = useState<string>();
 
   const renderCompleteButton = (task: Task): ReactElement | null => {
     if (task.status !== COMPLETED && currentUserProviderId === task.assignee?.id && task.completable) {
@@ -420,7 +422,7 @@ export const Tasks: React.FC = () => {
                               onOpenNotes={() => setNotesTaskId(task.id)}
                             />
                             {task.chat && <SupportChatTaskButton task={task} />}
-                            <TaskActionButton task={task} />
+                            <TaskActionButton task={task} onViewRequest={() => setRequestTaskId(task.id)} />
                             {renderCompleteButton(task)}
                           </Stack>
                         </TableCell>
@@ -444,6 +446,7 @@ export const Tasks: React.FC = () => {
             }}
           />
         </Paper>
+        {requestTaskId && <RefillRequestDialog taskId={requestTaskId} onClose={() => setRequestTaskId(undefined)} />}
         {notesTaskId ? (
           <TaskNotesDialog
             taskId={notesTaskId}

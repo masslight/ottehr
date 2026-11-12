@@ -18,7 +18,9 @@ import {
 import z from 'zod';
 import type { StructuredFacts } from '../../../procedure-coding/structured-fields';
 import { ObservationDTO } from '../../data/screening-questions/types';
+import type { PrescriptionOrderMetadata } from '../erx.types';
 import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
+import type { CompoundIngredientInput } from '../order-prescription.types';
 import { RadiologyDTO } from '../radiology';
 import {
   AiObservationField,
@@ -182,6 +184,58 @@ export interface PrescribedMedicationDTO extends SaveableDTO {
   encounterId?: string;
   isRenewal?: boolean;
   pharmacyId?: string;
+  pharmacyName?: string;
+  /** When the prescription went to Surescripts */
+  sent?: string;
+  /** The eRx service's events for the prescription, oldest first */
+  events?: ErxEventDTO[];
+  /** The order as the eRx service stored it, for sending it again to another pharmacy */
+  order?: PrescribedMedicationOrderDTO;
+}
+
+/** A prescription's structured order fields, read from its MedicationRequest; each is absent when not stored. */
+export interface PrescribedMedicationOrderDTO {
+  patientId?: string;
+  ndc?: string;
+  /** The NDC coding's display */
+  medicationDescription?: string;
+  quantityValue?: number;
+  /** As stored; not checked against the order endpoint's units */
+  quantityUnit?: string;
+  daysSupply?: number;
+  numberOfRefills?: number;
+  substitutionAllowed?: boolean;
+  noteToPharmacy?: string;
+  diagnosisCode?: string;
+  diagnosisDescription?: string;
+  /** A compound's name, dosage form and ingredients, read from the prescription's contained Medication. Each
+   * ingredient has the amount that went in (never a strength or base); it's absent when it couldn't be read. */
+  compound?: { description?: string; dosageForm?: string; ingredients: CompoundIngredientInput[] };
+  /** The order form's blanks it was sent with (the eRx service's `metadata`), to fill the form again on a reorder */
+  metadata?: PrescriptionOrderMetadata;
+}
+
+export interface ErxEventDTO {
+  code: string;
+  text?: string;
+  recorded?: string;
+  agent?: string;
+  /** The practitioner who did it, when the event names one by reference */
+  agentPractitionerId?: string;
+  /** The pharmacy's cancel reply, on a `cancelled` or `canceldenied` event */
+  cancelResponse?: ErxCancelResponseDTO;
+}
+
+// Requested from the eRx service: the CancelRxResponse details beyond approved or denied (R.302)
+export interface ErxCancelResponseDTO {
+  /** Approved/Note */
+  note?: string;
+  /** Denied/ReasonCode, with its NCPDP description */
+  denialReasonCode?: { code: string; display: string };
+  /** Denied/DenialReason, free text */
+  denialReason?: string;
+  /** Prior Dispensing: the pharmacy already dispensed it */
+  priorDispensing?: boolean;
 }
 
 export interface AllergyDTO extends SaveableDTO {
@@ -495,6 +549,8 @@ export interface PharmacyDTO {
   address: string;
   phone?: string;
   primary?: true;
+  /** The Google place ID, when it was picked with the Google search */
+  placesId?: string;
 }
 
 export interface PdfBulletPointItem {
