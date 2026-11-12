@@ -83,6 +83,33 @@ describe('buildForecastInput', () => {
     expect(isoDateOf('not a date')).toBeUndefined();
   });
 
+  it('keeps a date-only dose on its day whatever the process zone (a Lambda runs in UTC)', () => {
+    // a zone west of any plausible process zone, so parsing the date as process-zone midnight would move it back a day
+    expect(isoDateOf('2026-03-02', 'Pacific/Pago_Pago')).toBe('2026-03-02');
+    expect(isoDateOf('2026-03-02', 'America/New_York')).toBe('2026-03-02');
+    expect(isoDateOf('2026-02-30')).toBeUndefined();
+    // Maya (DOB 2025-03-06): an outside MMR on 2026-03-02, the 4-day grace day, is valid in New York
+    const input = buildForecastInput(
+      { dob: '2025-03-06', asOf: '2026-11-10' },
+      [
+        dose({
+          id: 'mmr',
+          cvx: '03',
+          outside: true,
+          dateGiven: '2026-03-02',
+          sourceCode: '02',
+          source: 'other-provider',
+        }),
+      ],
+      [],
+      'America/New_York'
+    );
+    expect(input.doses[0].date).toBe('2026-03-02');
+    const mmr = forecastImmunizations(input).groups.find((group) => group.group === 'mmr');
+    expect(mmr?.doses[0]?.status).toBe('valid');
+    expect(mmr?.status).not.toBe('pastdue');
+  });
+
   it('produces input the engine accepts: a declined mark overrides the group status', () => {
     const forecast = forecastImmunizations(
       buildForecastInput({ dob: '2026-07-08', asOf: '2026-11-10' }, [], [mark({})])

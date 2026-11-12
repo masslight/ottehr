@@ -26,6 +26,9 @@ export interface ForecastPatientInput {
  * the value carries. A dose given at 10:30 pm is that day's dose, not the next UTC day's.
  */
 export const isoDateOf = (value: string, timezone?: string): string | undefined => {
+  // A date-only value (an outside dose) names its day already; parsed, it would take the process zone (UTC on a
+  // Lambda) and move to the day before when shifted into a western visit zone.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return DateTime.fromISO(value).isValid ? value : undefined;
   const parsed = DateTime.fromISO(value, { setZone: true });
   if (!parsed.isValid) return undefined;
   return (timezone ? parsed.setZone(timezone) : parsed).toISODate() ?? undefined;
