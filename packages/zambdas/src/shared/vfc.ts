@@ -13,7 +13,7 @@ import {
 import { DateTime } from 'luxon';
 import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { getMedicationFromMA, getMedicationName } from 'utils/lib/fhir/medication-administration';
+import { getMedicationFromMA, getMedicationName, mapFhirToOrderStatus } from 'utils/lib/fhir/medication-administration';
 import { getOrderCatalogMedicationId, parseInventoryLot } from 'utils/lib/fhir/medication-inventory';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { selectIntakeQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
@@ -182,41 +182,49 @@ export async function confirmVfcEligibility(
 // ─── Borrowing ────────────────────────────────────────────────────────────────
 
 /**
- * A dose given from the other stock goes on the borrowing log: once per administration, with the lot it came
- * from. Nothing is written when the dose's lot isn't an inventory lot of the vaccine at the visit's location.
+ * Keeps the borrowing log in step with an administration. A dose given from the other stock is logged once, with
+ * the lot it came from; re-administered, its row takes the new lot, stock, eligibility and reason; cancelled, or
+ * given from the right stock after all, its row is entered in error. Nothing is written when the dose's lot isn't
+ * an inventory lot of the vaccine at the visit's location.
  */
 export async function recordVfcBorrowing(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,
   performerReference: string
 ): Promise<void> {
-  const funding = getVaccineDoseFunding(medicationAdministration);
-  if (
-    !isVfcBorrowing(funding.fundingSource, funding.vfcEligibility) ||
-    !funding.fundingSource ||
-    !funding.vfcEligibility
-  ) {
-    return;
-  }
   const medicationAdministrationId = medicationAdministration.id;
-  const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
-  const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
-  const contained = getMedicationFromMA(medicationAdministration);
-  const catalogMedicationId = getOrderCatalogMedicationId(contained);
-  const lotNumber = contained?.batch?.lotNumber?.trim();
-  if (!medicationAdministrationId || !patientId || !encounterId || !catalogMedicationId || !lotNumber) return;
-
+  if (!medicationAdministrationId) return;
   const existing = (
     await oystehr.fhir.search<Observation>({
       resourceType: 'Observation',
       params: [
         { name: 'part-of', value: `MedicationAdministration/${medicationAdministrationId}` },
         { name: 'code', value: `${VFC_BORROWING_CODE_SYSTEM}|${VFC_BORROWING_CATEGORY}` },
-        { name: '_count', value: '1' },
+        { name: 'status', value: 'final' },
       ],
     })
   ).unbundle();
-  if (existing.length > 0) return;
+
+  const status = mapFhirToOrderStatus(medicationAdministration);
+  const given = status === 'administered' || status === 'administered-partly';
+  const { fundingSource, vfcEligibility, borrowingReason } = getVaccineDoseFunding(medicationAdministration);
+  if (!given || !fundingSource || !vfcEligibility || !isVfcBorrowing(fundingSource, vfcEligibility)) {
+    for (const observation of existing) {
+      if (!observation.id) continue;
+      await oystehr.fhir.patch<Observation>({
+        resourceType: 'Observation',
+        id: observation.id,
+        operations: [{ op: 'replace', path: '/status', value: 'entered-in-error' }],
+      });
+    }
+    return;
+  }
+  const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
+  const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
+  const contained = getMedicationFromMA(medicationAdministration);
+  const catalogMedicationId = getOrderCatalogMedicationId(contained);
+  const lotNumber = contained?.batch?.lotNumber?.trim();
+  if (!patientId || !encounterId || !catalogMedicationId || !lotNumber) return;
 
   const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
   const locationId = getEncounterLocationId(encounter);
@@ -227,19 +235,43 @@ export async function recordVfcBorrowing(
     lots.length === 1 ? lots[0] : lots.find((candidate) => candidate.batch?.expirationDate === expirationDate);
   if (!lot?.id) return;
 
-  await oystehr.fhir.create<Observation>(
-    makeVfcBorrowingObservation({
-      patientId,
-      lotId: lot.id,
-      locationId,
-      medicationAdministrationId,
-      fundingSource: funding.fundingSource,
-      vfcEligibility: funding.vfcEligibility,
-      reason: funding.borrowingReason ?? '',
-      performerReference,
-      effectiveDateTime: DateTime.now().toUTC().toISO(),
-    })
-  );
+  const row = makeVfcBorrowingObservation({
+    patientId,
+    lotId: lot.id,
+    locationId,
+    medicationAdministrationId,
+    fundingSource,
+    vfcEligibility,
+    reason: borrowingReason ?? '',
+    performerReference,
+    effectiveDateTime: DateTime.now().toUTC().toISO(),
+  });
+  const [current] = existing;
+  if (!current) {
+    await oystehr.fhir.create<Observation>(row);
+    return;
+  }
+  const was = parseVfcBorrowingObservation(current);
+  const now = parseVfcBorrowingObservation({ ...row, id: current.id });
+  if (
+    was &&
+    now &&
+    was.lotId === now.lotId &&
+    was.fundingSource === now.fundingSource &&
+    was.vfcEligibility === now.vfcEligibility &&
+    was.reason === now.reason
+  ) {
+    return;
+  }
+  // re-administered from another lot, stock or for another reason: the row follows, keeping its date and id
+  await oystehr.fhir.update<Observation>({
+    ...current,
+    focus: row.focus,
+    performer: row.performer,
+    valueCodeableConcept: row.valueCodeableConcept,
+    component: row.component,
+    note: row.note,
+  });
 }
 
 /** Every borrowing on the log, newest first, with the names the screen shows. */
@@ -249,6 +281,7 @@ export async function listVfcBorrowings(oystehr: Oystehr): Promise<VfcBorrowingR
       resourceType: 'Observation',
       params: [
         { name: 'code', value: `${VFC_BORROWING_CODE_SYSTEM}|${VFC_BORROWING_CATEGORY}` },
+        { name: 'status', value: 'final' },
         { name: '_sort', value: '-date' },
         { name: '_include', value: 'Observation:subject' },
         { name: '_include', value: 'Observation:focus' },

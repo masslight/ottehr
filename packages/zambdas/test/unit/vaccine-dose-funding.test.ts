@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, Medication, MedicationAdministration, Observation } from 'fhir/r4b';
 import { makeInventoryLot, makeMedicationInventoryExtension } from 'utils/lib/fhir/medication-inventory';
-import { getVaccineDoseFunding, parseVfcBorrowingObservation } from 'utils/lib/fhir/vfc';
+import { getVaccineDoseFunding, makeVfcBorrowingObservation, parseVfcBorrowingObservation } from 'utils/lib/fhir/vfc';
 import { VACCINE_DEFAULT_INVENTORY } from 'utils/lib/types/api/config/in-house-medications';
 import {
   CVX_CODE_SYSTEM_URL,
@@ -155,8 +155,27 @@ describe('recordVfcBorrowing', () => {
     });
     const get = vi.fn().mockResolvedValue(encounter);
     const create = vi.fn().mockImplementation(async (resource: Observation) => ({ ...resource, id: 'borrow-1' }));
-    return { fhir: { search, get, create } } as unknown as Oystehr;
+    const update = vi.fn().mockImplementation(async (resource: Observation) => resource);
+    const patch = vi.fn().mockResolvedValue({});
+    return { fhir: { search, get, create, update, patch } } as unknown as Oystehr;
   };
+  const calls = (oystehr: Oystehr, method: 'create' | 'update' | 'patch'): unknown[][] =>
+    (oystehr.fhir[method] as ReturnType<typeof vi.fn>).mock.calls;
+  /** The row an earlier administration of ma-1 wrote: VFC stock to a V01 child, lot-1. */
+  const loggedRow = (reason = 'x'): Observation => ({
+    ...makeVfcBorrowingObservation({
+      patientId: 'pat-1',
+      lotId: 'lot-1',
+      locationId: 'loc-a',
+      medicationAdministrationId: 'ma-1',
+      fundingSource: 'vfc',
+      vfcEligibility: 'V01',
+      reason,
+      performerReference: 'Practitioner/nurse',
+      effectiveDateTime: '2026-11-10T15:00:00.000Z',
+    }),
+    id: 'existing',
+  });
 
   it('logs a VFC dose given to a child who is not eligible, against the lot it came from', async () => {
     const ma = administration('Y0112');
@@ -191,9 +210,57 @@ describe('recordVfcBorrowing', () => {
 
     const borrowed = administration('Y0112');
     applyVaccineDoseFunding(borrowed, { fundingSource: 'vfc', vfcEligibility: 'V01', borrowingReason: 'x' });
-    const logged = mockOystehr([{ resourceType: 'Observation', id: 'existing', status: 'final', code: {} }]);
+    const logged = mockOystehr([loggedRow()]);
     await recordVfcBorrowing(logged, borrowed, 'Practitioner/nurse');
     expect(logged.fhir.create).not.toHaveBeenCalled();
+    expect(logged.fhir.update).not.toHaveBeenCalled();
+    expect(logged.fhir.patch).not.toHaveBeenCalled();
+  });
+
+  it('a cancelled dose comes off the log: its row is entered in error', async () => {
+    const cancelled = { ...administration('Y0112'), status: 'stopped' as const };
+    applyVaccineDoseFunding(cancelled, { fundingSource: 'vfc', vfcEligibility: 'V01', borrowingReason: 'x' });
+    const oystehr = mockOystehr([loggedRow()]);
+    await recordVfcBorrowing(oystehr, cancelled, 'Practitioner/nurse');
+    expect(calls(oystehr, 'patch')).toEqual([
+      [
+        {
+          resourceType: 'Observation',
+          id: 'existing',
+          operations: [{ op: 'replace', path: '/status', value: 'entered-in-error' }],
+        },
+      ],
+    ]);
+    expect(oystehr.fhir.create).not.toHaveBeenCalled();
+  });
+
+  it('a dose re-administered from the right stock after all comes off the log too', async () => {
+    const matching = administration('Y0112');
+    applyVaccineDoseFunding(matching, { fundingSource: 'vfc', vfcEligibility: 'V02' });
+    const oystehr = mockOystehr([loggedRow()]);
+    await recordVfcBorrowing(oystehr, matching, 'Practitioner/nurse');
+    expect(calls(oystehr, 'patch')).toHaveLength(1);
+    expect(oystehr.fhir.create).not.toHaveBeenCalled();
+  });
+
+  it('a dose re-administered for another reason keeps its row, which follows', async () => {
+    const borrowed = administration('Y0112');
+    applyVaccineDoseFunding(borrowed, {
+      fundingSource: 'vfc',
+      vfcEligibility: 'V01',
+      borrowingReason: 'Short-dated vaccine would expire unused',
+    });
+    const oystehr = mockOystehr([loggedRow('x')]);
+    await recordVfcBorrowing(oystehr, borrowed, 'Practitioner/nurse-2');
+    expect(oystehr.fhir.create).not.toHaveBeenCalled();
+    const [[updated]] = calls(oystehr, 'update') as [[Observation]];
+    expect(parseVfcBorrowingObservation(updated)).toMatchObject({
+      id: 'existing',
+      lotId: 'lot-1',
+      reason: 'Short-dated vaccine would expire unused',
+      performerReference: 'Practitioner/nurse-2',
+      effectiveDateTime: '2026-11-10T15:00:00.000Z',
+    });
   });
 
   it('writes nothing for a typed lot that is not in stock', async () => {

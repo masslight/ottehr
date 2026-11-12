@@ -70,7 +70,8 @@ export async function fillVfcEligibilityFromVisit(
 
 /**
  * After an administration is saved or cancelled: takes the dose off its inventory lot (or puts it back) and
- * logs a borrowed dose. Stock is bookkeeping, so a failure here is reported and never fails the save.
+ * logs a borrowed dose (or takes a cancelled one off the log). Stock is bookkeeping, so a failure here is
+ * reported and never fails the save.
  */
 export async function syncVaccineStockAndBorrowing(
   oystehr: Oystehr,
@@ -79,9 +80,7 @@ export async function syncVaccineStockAndBorrowing(
 ): Promise<void> {
   try {
     await reconcileAdministrationStock(oystehr, medicationAdministration, performerReference);
-    if (medicationAdministration.status === 'completed' || medicationAdministration.status === 'on-hold') {
-      await recordVfcBorrowing(oystehr, medicationAdministration, performerReference);
-    }
+    await recordVfcBorrowing(oystehr, medicationAdministration, performerReference);
   } catch (error) {
     console.error('Error syncing vaccine stock for the administration:', error);
     captureException(error);
