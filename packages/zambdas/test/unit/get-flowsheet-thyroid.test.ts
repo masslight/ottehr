@@ -78,29 +78,23 @@ const data: FlowsheetData = {
     vital(VitalFieldNames.VitalWeight, 'e3', '2024-01-08T14:40:00.000Z', 62),
   ],
   diagnoses: {
-    byEncounter: {
-      e1: [
-        { code: 'E03.9', display: 'Hypothyroidism, unspecified', primary: true },
-        { code: 'F32.1', display: 'Major depressive disorder, single episode, moderate', primary: false },
-      ],
-      e2: [{ code: 'E05.00', display: 'Thyrotoxicosis with diffuse goiter', primary: true }],
-      e3: [{ code: 'J06.9', display: 'URI', primary: true }],
-    },
-    problemList: [],
+    e1: [
+      { code: 'E03.9', display: 'Hypothyroidism, unspecified', primary: true },
+      { code: 'F32.1', display: 'Major depressive disorder, single episode, moderate', primary: false },
+    ],
+    e2: [{ code: 'E05.00', display: 'Thyrotoxicosis with diffuse goiter', primary: true }],
+    e3: [{ code: 'J06.9', display: 'URI', primary: true }],
   },
   medications: {
-    byEncounter: {
-      e1: [
-        { name: 'sertraline 50 mg tablet', source: 'eRx', status: 'active', time: '2023-02-06T14:30:00.000Z' },
-        { name: 'levothyroxine 50 mcg tablet', source: 'eRx', status: 'active', time: '2023-02-06T14:30:00.000Z' },
-      ],
-      e2: [
-        { name: 'Methimazole 10 mg tablet', source: 'in-house', status: 'administered', dose: '10 mg' },
-        { name: 'methimazole 10 mg tablet', source: 'eRx', status: 'active', time: '2023-06-05T14:30:00.000Z' },
-      ],
-      e3: [{ name: 'amoxicillin 500 mg capsule', source: 'eRx', status: 'active' }],
-    },
-    medicationList: [],
+    e1: [
+      { name: 'sertraline 50 mg tablet', source: 'eRx', status: 'active', time: '2023-02-06T14:30:00.000Z' },
+      { name: 'levothyroxine 50 mcg tablet', source: 'eRx', status: 'active', time: '2023-02-06T14:30:00.000Z' },
+    ],
+    e2: [
+      { name: 'Methimazole 10 mg tablet', source: 'in-house', status: 'administered', dose: '10 mg' },
+      { name: 'methimazole 10 mg tablet', source: 'eRx', status: 'active', time: '2023-06-05T14:30:00.000Z' },
+    ],
+    e3: [{ name: 'amoxicillin 500 mg capsule', source: 'eRx', status: 'active' }],
   },
   labs: {
     e1: [

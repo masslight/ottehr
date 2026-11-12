@@ -1,4 +1,4 @@
-import { MedicationRequest, QuestionnaireResponse } from 'fhir/r4b';
+import { MedicationRequest } from 'fhir/r4b';
 import { z } from 'zod';
 import { VitalAlertCriticality } from './chart-data/chart-data.constants';
 
@@ -59,18 +59,6 @@ export interface FlowsheetDiagnosis {
   primary: boolean;
 }
 
-/** One Medical Conditions (problem list) entry. */
-export interface FlowsheetProblem {
-  code: string;
-  display: string;
-  status: 'active' | 'inactive';
-}
-
-export interface PatientDiagnoses {
-  byEncounter: Record<string, FlowsheetDiagnosis[]>;
-  problemList: FlowsheetProblem[];
-}
-
 /** A drug prescribed (eRx) or given in the clinic (in-house) during a visit; the name carries the strength. */
 export interface FlowsheetMedication {
   name: string;
@@ -81,35 +69,6 @@ export interface FlowsheetMedication {
   dose?: string;
   /** eRx: when it was written; in-house: when it was given (or ordered, if never given). */
   time?: string;
-}
-
-/** One Medications page (medication list) entry. */
-export interface FlowsheetListMedication {
-  name: string;
-  status: 'active' | 'completed';
-  /** Free-text dose / sig as charted. */
-  dose: string;
-  source: 'patient-reported' | 'prescribed';
-}
-
-export interface PatientMedications {
-  byEncounter: Record<string, FlowsheetMedication[]>;
-  medicationList: FlowsheetListMedication[];
-}
-
-/** A value the form computed itself (a hidden calculated item, e.g. total, severity, positive screen). */
-export interface FlowsheetFormResult {
-  linkId: string;
-  label: string;
-  value: number | string | boolean;
-}
-
-/** A completed practice form; `results` is empty when the form computes nothing. */
-export interface FlowsheetForm {
-  name: string;
-  status: QuestionnaireResponse['status'];
-  completedAt?: string;
-  results: FlowsheetFormResult[];
 }
 
 export interface FlowsheetLabResult {

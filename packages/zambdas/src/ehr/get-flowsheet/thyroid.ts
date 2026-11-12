@@ -101,7 +101,7 @@ export const buildThyroidFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => 
     });
   });
 
-  Object.entries(data.diagnoses?.byEncounter ?? {}).forEach(([encounterId, diagnoses]) => {
+  Object.entries(data.diagnoses ?? {}).forEach(([encounterId, diagnoses]) => {
     const thyroid = diagnoses.filter((d) => THYROID_ICD10_PREFIXES.some((prefix) => d.code.startsWith(prefix)));
     if (thyroid.length === 0) return;
     const visit = visitFor(encounterId, undefined);
@@ -109,7 +109,7 @@ export const buildThyroidFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => 
     addReading(visit, 'thyroidDiagnosis', { time: visit.start, value: diagnosisText(thyroid) });
   });
 
-  Object.entries(data.medications?.byEncounter ?? {}).forEach(([encounterId, medications]) => {
+  Object.entries(data.medications ?? {}).forEach(([encounterId, medications]) => {
     const drugs = medications.filter((m) => THYROID_MEDICATION.test(m.name));
     if (drugs.length === 0) return;
     const visit = visitFor(encounterId, drugs.map((m) => m.time).find(Boolean));

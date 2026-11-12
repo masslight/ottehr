@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import {
   ActivityDefinition,
-  Condition,
   DiagnosticReport,
   FhirResource,
   MedicationAdministration,
@@ -11,12 +10,9 @@ import {
   ObservationDefinition,
   Patient,
   Quantity,
-  QuestionnaireResponse,
-  QuestionnaireResponseItem,
-  QuestionnaireResponseItemAnswer,
   ServiceRequest,
 } from 'fhir/r4b';
-import { ERX_MEDICATION_META_TAG_CODE, QR_DISTRIBUTION_TAG } from 'utils/lib/fhir/constants';
+import { ERX_MEDICATION_META_TAG_CODE } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   getDosageUnitsAndRouteOfMedication,
@@ -27,20 +23,8 @@ import {
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
-import { getCalculatedItemDefs } from 'utils/lib/helpers/paperwork/calculated-answers';
-import {
-  ProviderChartDataFieldsNames,
-  VitalAlertCriticality,
-} from 'utils/lib/types/api/chart-data/chart-data.constants';
-import {
-  FlowsheetDiagnosis,
-  FlowsheetForm,
-  FlowsheetLabResult,
-  FlowsheetMedication,
-  FlowsheetProblem,
-  PatientDiagnoses,
-  PatientMedications,
-} from 'utils/lib/types/api/flowsheets.types';
+import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { FlowsheetDiagnosis, FlowsheetLabResult, FlowsheetMedication } from 'utils/lib/types/api/flowsheets.types';
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import {
   ABNORMAL_RESULT_DR_TAG,
@@ -48,23 +32,20 @@ import {
   IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils/lib/types/data/in-house/in-house.constants';
 import { OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
-import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
-import { makeConditionDTO, makeMedicationDTO, makePrescribedMedicationDTO } from '../../shared/chart-data';
-import { getStandaloneForms, makeQuestionnaireLoader } from '../../shared/practice-forms';
+import { makePrescribedMedicationDTO } from '../../shared/chart-data';
 import { fetchVisits, fetchVitals, VisitResources } from './helpers';
 
 // The per-patient data layer flowsheets are built on: one fetch + pure shaping function per kind of chart data,
 // each keyed by encounter id so a flowsheet can turn it into visit columns. Every query is built here from the
 // patient id and from ids on resources already fetched.
 
-export type FlowsheetDataKind = 'birthDate' | 'vitals' | 'diagnoses' | 'medications' | 'forms' | 'labs';
+export type FlowsheetDataKind = 'birthDate' | 'vitals' | 'diagnoses' | 'medications' | 'labs';
 
 export interface FlowsheetData extends VisitResources {
   birthDate?: string;
   vitals?: Observation[];
-  diagnoses?: PatientDiagnoses;
-  medications?: PatientMedications;
-  forms?: Record<string, FlowsheetForm[]>;
+  diagnoses?: Record<string, FlowsheetDiagnosis[]>;
+  medications?: Record<string, FlowsheetMedication[]>;
   labs?: Record<string, FlowsheetLabResult[]>;
 }
 
@@ -76,22 +57,20 @@ export const fetchFlowsheetData = async (
 ): Promise<FlowsheetData> => {
   const wanted = <T>(kind: FlowsheetDataKind, fetch: () => Promise<T>): Promise<T | undefined> =>
     kinds.includes(kind) ? fetch() : Promise.resolve(undefined);
-  const [visits, birthDate, vitals, problemList, medications, forms, labs] = await Promise.all([
+  const [visits, birthDate, vitals, medications, labs] = await Promise.all([
     fetchVisits(oystehr, patientId),
     wanted('birthDate', () => fetchBirthDate(oystehr, patientId)),
     wanted('vitals', () => fetchVitals(oystehr, patientId)),
-    wanted('diagnoses', () => fetchProblemList(oystehr, patientId)),
     wanted('medications', () => fetchMedications(oystehr, patientId)),
-    wanted('forms', () => fetchForms(oystehr, patientId)),
     wanted('labs', () => fetchLabResults(oystehr, patientId)),
   ]);
   return {
     ...visits,
     birthDate,
     vitals,
-    diagnoses: problemList && { byEncounter: buildVisitDiagnoses(visits), problemList },
+    // The visits' charted diagnoses come with the visit resources, so nothing more is fetched.
+    diagnoses: kinds.includes('diagnoses') ? buildVisitDiagnoses(visits) : undefined,
     medications,
-    forms,
     labs,
   };
 };
@@ -115,7 +94,7 @@ const fetchBirthDate = async (oystehr: Oystehr, patientId: string): Promise<stri
   return patients[0]?.birthDate;
 };
 
-// ---- Diagnoses + problem list ------------------------------------------------------------------------------
+// ---- Diagnoses -------------------------------------------------------------------------------------------------
 
 /** Each visit's charted diagnoses (from the visit resources already fetched), primary first. */
 export const buildVisitDiagnoses = ({
@@ -143,27 +122,6 @@ export const buildVisitDiagnoses = ({
   return byEncounter;
 };
 
-const MEDICAL_CONDITION_TAG: ProviderChartDataFieldsNames = 'medical-condition';
-
-const fetchProblemList = async (oystehr: Oystehr, patientId: string): Promise<FlowsheetProblem[]> =>
-  buildProblemList(
-    await search<Condition>(oystehr, 'Condition', [
-      { name: 'subject', value: `Patient/${patientId}` },
-      { name: '_tag', value: MEDICAL_CONDITION_TAG },
-    ])
-  );
-
-/** The Medical Conditions page's entries with their status. */
-export const buildProblemList = (conditions: Condition[]): FlowsheetProblem[] =>
-  conditions
-    .filter((c) => c.verificationStatus?.coding?.[0]?.code !== 'entered-in-error')
-    .flatMap((c) => {
-      const dto = makeConditionDTO(c);
-      return dto.code
-        ? [{ code: dto.code, display: dto.display ?? '', status: dto.current ? 'active' : 'inactive' }]
-        : [];
-    });
-
 // ---- Medications ---------------------------------------------------------------------------------------------
 
 export interface MedicationResources {
@@ -171,15 +129,16 @@ export interface MedicationResources {
   requests: MedicationRequest[];
   /** In-house medication orders. */
   administrations: MedicationAdministration[];
-  /** Medication-list entries plus the statements written when an in-house order was given. */
+  /** The statements written when an in-house order was given, which date the dose. */
   statements: MedicationStatement[];
 }
 
-const LIST_ENTRY_TAGS: ProviderChartDataFieldsNames[] = ['current-medication', 'prescribed-medication'];
-
-const fetchMedications = async (oystehr: Oystehr, patientId: string): Promise<PatientMedications> => {
+const fetchMedications = async (
+  oystehr: Oystehr,
+  patientId: string
+): Promise<Record<string, FlowsheetMedication[]>> => {
   const patient = `Patient/${patientId}`;
-  const [requests, orderResources, listStatements] = await Promise.all([
+  const [requests, orderResources] = await Promise.all([
     search<MedicationRequest>(oystehr, 'MedicationRequest', [
       { name: 'patient', value: patient },
       { name: '_tag', value: ERX_MEDICATION_META_TAG_CODE },
@@ -189,30 +148,23 @@ const fetchMedications = async (oystehr: Oystehr, patientId: string): Promise<Pa
       { name: '_tag', value: MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE },
       { name: '_revinclude', value: 'MedicationStatement:part-of' },
     ]),
-    search<MedicationStatement>(oystehr, 'MedicationStatement', [
-      { name: 'subject', value: patient },
-      { name: '_tag', value: LIST_ENTRY_TAGS.join(',') },
-    ]),
   ]);
   return buildMedications({
     requests,
     administrations: orderResources.filter(
       (r): r is MedicationAdministration => r.resourceType === 'MedicationAdministration'
     ),
-    statements: [
-      ...orderResources.filter((r): r is MedicationStatement => r.resourceType === 'MedicationStatement'),
-      ...listStatements,
-    ],
+    statements: orderResources.filter((r): r is MedicationStatement => r.resourceType === 'MedicationStatement'),
   });
 };
 
+/** Each visit's eRx prescriptions and in-house medication orders. */
 export const buildMedications = ({
   requests,
   administrations,
   statements,
-}: MedicationResources): PatientMedications => {
+}: MedicationResources): Record<string, FlowsheetMedication[]> => {
   const byEncounter: Record<string, FlowsheetMedication[]> = {};
-  const live = statements.filter((s) => s.status !== 'entered-in-error');
 
   requests.forEach((req) => {
     if (req.status === 'entered-in-error') return;
@@ -228,7 +180,8 @@ export const buildMedications = ({
 
   // The instant a drug was given is on the MedicationStatement written at administration (partOf -> the order).
   const givenAt = new Map<string, string>();
-  live.forEach((s) => {
+  statements.forEach((s) => {
+    if (s.status === 'entered-in-error') return;
     const orderId = s.partOf?.map((r) => getIdFromReference(r.reference, 'MedicationAdministration')).find(Boolean);
     if (orderId && s.effectiveDateTime) givenAt.set(orderId, s.effectiveDateTime);
   });
@@ -248,60 +201,6 @@ export const buildMedications = ({
     });
   });
 
-  const medicationList = live
-    .filter((s) => s.meta?.tag?.some((t) => LIST_ENTRY_TAGS.some((tag) => tag === t.code)))
-    .map(makeMedicationDTO)
-    .filter((dto) => dto.name)
-    .map((dto) => ({
-      name: dto.name,
-      status: dto.status,
-      dose: dto.intakeInfo.dose ?? '',
-      source: dto.type === 'prescribed-medication' ? ('prescribed' as const) : ('patient-reported' as const),
-    }));
-
-  return { byEncounter, medicationList };
-};
-
-// ---- Practice forms ------------------------------------------------------------------------------------------
-
-const fetchForms = async (oystehr: Oystehr, patientId: string): Promise<Record<string, FlowsheetForm[]>> => {
-  const responses = await search<QuestionnaireResponse>(oystehr, 'QuestionnaireResponse', [
-    { name: 'subject', value: `Patient/${patientId}` },
-    { name: '_tag', value: `${QR_DISTRIBUTION_TAG.system}|${QR_DISTRIBUTION_TAG.code}` },
-    { name: 'status', value: 'completed,amended' },
-  ]);
-  return buildForms(await getStandaloneForms(responses, makeQuestionnaireLoader(oystehr)));
-};
-
-const calculatedValue = (answer: QuestionnaireResponseItemAnswer | undefined): number | string | boolean | undefined =>
-  answer?.valueInteger ?? answer?.valueDecimal ?? answer?.valueBoolean ?? answer?.valueString;
-
-/** Completed forms by visit, each with the values the form computed itself; nothing is scored here. */
-export const buildForms = (forms: StandaloneFormDTO[]): Record<string, FlowsheetForm[]> => {
-  const byEncounter: Record<string, FlowsheetForm[]> = {};
-  forms.forEach((form) => {
-    const qr = form.questionnaireResponse;
-    if (qr.status !== 'completed' && qr.status !== 'amended') return;
-
-    const answers = new Map<string, QuestionnaireResponseItemAnswer>();
-    const walk = (items: QuestionnaireResponseItem[]): void =>
-      items.forEach((item) => {
-        if (item.answer?.[0]) answers.set(item.linkId, item.answer[0]);
-        walk([...(item.item ?? []), ...(item.answer ?? []).flatMap((answer) => answer.item ?? [])]);
-      });
-    walk(qr.item ?? []);
-
-    const results = getCalculatedItemDefs(form.allItems).flatMap(({ linkId, item }) => {
-      const value = calculatedValue(answers.get(linkId));
-      return value === undefined ? [] : [{ linkId, label: item.text ?? linkId, value }];
-    });
-    pushTo(byEncounter, getIdFromReference(qr.encounter?.reference, 'Encounter'), {
-      name: form.questionnaireTitle,
-      status: qr.status,
-      completedAt: qr.authored ?? qr.meta?.lastUpdated,
-      results,
-    });
-  });
   return byEncounter;
 };
 

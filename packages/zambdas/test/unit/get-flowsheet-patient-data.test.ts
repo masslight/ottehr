@@ -7,12 +7,8 @@ import {
   MedicationRequest,
   MedicationStatement,
   Observation,
-  Questionnaire,
-  QuestionnaireResponse,
   ServiceRequest,
 } from 'fhir/r4b';
-import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from 'utils/lib/fhir/constants';
-import { makeStandaloneFormDTO } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
@@ -28,10 +24,8 @@ import {
 import { OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { describe, expect, test } from 'vitest';
 import {
-  buildForms,
   buildLabResults,
   buildMedications,
-  buildProblemList,
   buildVisitDiagnoses,
   labFlagOf,
 } from '../../src/ehr/get-flowsheet/patient-data';
@@ -92,27 +86,6 @@ describe('buildVisitDiagnoses', () => {
       // The ranked Condition is gone: the first one that exists is the primary.
       e4: [{ code: 'R05.9', display: 'Cough', primary: true }],
     });
-  });
-});
-
-describe('buildProblemList', () => {
-  const active = { clinicalStatus: { coding: [{ code: 'active' }] } };
-  const inactive = { clinicalStatus: { coding: [{ code: 'inactive' }] } };
-  const problems = buildProblemList([
-    condition('p1', 'I10', 'Essential hypertension', active),
-    condition('p2', 'Z79.01', 'Long term (current) use of anticoagulants', inactive),
-    condition('p3', 'E11.9', 'Type 2 diabetes', {
-      ...active,
-      verificationStatus: { coding: [{ code: 'entered-in-error' }] },
-    }),
-    { resourceType: 'Condition', id: 'p4', subject: { reference: PATIENT }, code: { text: 'no code' } },
-  ]);
-
-  test('keeps coded, non-deleted entries with their status', () => {
-    expect(problems).toEqual([
-      { code: 'I10', display: 'Essential hypertension', status: 'active' },
-      { code: 'Z79.01', display: 'Long term (current) use of anticoagulants', status: 'inactive' },
-    ]);
   });
 });
 
@@ -188,36 +161,11 @@ describe('buildMedications', () => {
       effectiveDateTime: '2026-01-16T15:05:00.000Z',
       meta: { tag: [{ code: 'in-house-medication' }] },
     },
-    {
-      resourceType: 'MedicationStatement',
-      id: 'list1',
-      status: 'active',
-      subject: { reference: PATIENT },
-      medicationCodeableConcept: { coding: [{ code: 'amlodipine-10mg', display: 'Amlodipine 10mg Oral Tablet' }] },
-      dosage: [{ text: '10 mg once daily PO', asNeededBoolean: false }],
-      meta: { tag: [{ code: 'current-medication' }] },
-    },
-    {
-      resourceType: 'MedicationStatement',
-      id: 'list2',
-      status: 'completed',
-      subject: { reference: PATIENT },
-      medicationCodeableConcept: { coding: [{ code: 'atorvastatin-20', display: 'Atorvastatin 20 mg tablet' }] },
-      meta: { tag: [{ code: 'prescribed-medication' }] },
-    },
-    {
-      resourceType: 'MedicationStatement',
-      id: 'list3',
-      status: 'entered-in-error',
-      subject: { reference: PATIENT },
-      medicationCodeableConcept: { coding: [{ display: 'Deleted drug' }] },
-      meta: { tag: [{ code: 'current-medication' }] },
-    },
   ];
   const medications = buildMedications({ requests, administrations, statements });
 
   test('groups eRx and in-house drugs by visit with name, strength, status and time', () => {
-    expect(medications.byEncounter).toEqual({
+    expect(medications).toEqual({
       e1: [{ name: 'amlodipine 10 mg tablet', source: 'eRx', status: 'active', time: '2026-08-10T14:02:00.000Z' }],
       e2: [
         {
@@ -230,119 +178,6 @@ describe('buildMedications', () => {
         { name: 'Ondansetron 4 mg ODT', source: 'in-house', status: 'cancelled', dose: undefined, time: undefined },
       ],
     });
-  });
-
-  test('lists the medication list with status, dose text and source', () => {
-    expect(medications.medicationList).toEqual([
-      {
-        name: 'Amlodipine 10mg Oral Tablet',
-        status: 'active',
-        dose: '10 mg once daily PO',
-        source: 'patient-reported',
-      },
-      { name: 'Atorvastatin 20 mg tablet', status: 'completed', dose: '', source: 'prescribed' },
-    ]);
-  });
-});
-
-describe('buildForms', () => {
-  const calculated = (expression: string): Questionnaire['extension'] => [
-    {
-      url: OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.calculatedExpression,
-      valueExpression: { language: 'text/javascript', expression },
-    },
-  ];
-  const questionnaire: Questionnaire = {
-    resourceType: 'Questionnaire',
-    id: 'q1',
-    status: 'active',
-    url: 'https://ottehr.com/FHIR/Questionnaire/phq-9',
-    version: '1.0.0',
-    title: 'PHQ-9',
-    item: [
-      {
-        linkId: 'page-1',
-        type: 'group',
-        item: [
-          { linkId: 'q1', type: 'choice', text: 'Little interest', answerOption: [{ valueCoding: { code: '3' } }] },
-          { linkId: 'q2', type: 'choice', text: 'Feeling down', answerOption: [{ valueCoding: { code: '2' } }] },
-        ],
-      },
-      {
-        linkId: 'results',
-        type: 'group',
-        item: [
-          { linkId: 'total', type: 'integer', text: 'Total score', extension: calculated('answers.q1 + answers.q2') },
-          { linkId: 'severity', type: 'string', text: 'Severity', extension: calculated('"moderate"') },
-          { linkId: 'positive', type: 'boolean', text: 'Positive screen', extension: calculated('true') },
-          { linkId: 'never-computed', type: 'integer', text: 'Not recorded', extension: calculated('1') },
-        ],
-      },
-    ],
-  };
-  const response = (
-    encounterId: string,
-    status: QuestionnaireResponse['status'],
-    results: boolean
-  ): QuestionnaireResponse => ({
-    resourceType: 'QuestionnaireResponse',
-    id: `qr-${encounterId}`,
-    status,
-    questionnaire: 'https://ottehr.com/FHIR/Questionnaire/phq-9|1.0.0',
-    subject: { reference: PATIENT },
-    encounter: { reference: `Encounter/${encounterId}` },
-    authored: '2026-08-10T13:40:00.000Z',
-    item: [
-      {
-        linkId: 'page-1',
-        item: [
-          { linkId: 'q1', answer: [{ valueCoding: { code: '3' } }] },
-          { linkId: 'q2', answer: [{ valueCoding: { code: '2' } }] },
-        ],
-      },
-      ...(results
-        ? [
-            {
-              linkId: 'results',
-              item: [
-                { linkId: 'total', answer: [{ valueInteger: 5 }] },
-                { linkId: 'severity', answer: [{ valueString: 'moderate' }] },
-                { linkId: 'positive', answer: [{ valueBoolean: true }] },
-              ],
-            },
-          ]
-        : []),
-    ],
-  });
-  const forms = buildForms([
-    makeStandaloneFormDTO(questionnaire, response('e1', 'completed', true)),
-    makeStandaloneFormDTO(questionnaire, response('e2', 'amended', false)),
-    makeStandaloneFormDTO(questionnaire, response('e3', 'in-progress', true)),
-  ]);
-
-  test('returns only the values the form computed itself, typed as recorded', () => {
-    expect(forms.e1).toEqual([
-      {
-        name: 'PHQ-9',
-        status: 'completed',
-        completedAt: '2026-08-10T13:40:00.000Z',
-        results: [
-          { linkId: 'total', label: 'Total score', value: 5 },
-          { linkId: 'severity', label: 'Severity', value: 'moderate' },
-          { linkId: 'positive', label: 'Positive screen', value: true },
-        ],
-      },
-    ]);
-  });
-
-  test('a form with no recorded computed items has no results, and nothing is scored from its answers', () => {
-    expect(forms.e2).toEqual([
-      { name: 'PHQ-9', status: 'amended', completedAt: '2026-08-10T13:40:00.000Z', results: [] },
-    ]);
-  });
-
-  test('skips forms that are not completed', () => {
-    expect(forms.e3).toBeUndefined();
   });
 });
 
