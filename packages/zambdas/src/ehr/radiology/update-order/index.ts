@@ -194,7 +194,7 @@ async function updateOrderContent(
     priority: content.priority,
     code: content.code,
     orderDetail: content.orderDetail,
-    // Omit reasonCode entirely when there is no diagnosis (optional at order time).
+    // Omit reasonCode entirely when there is no diagnosis (diagnosis is optional).
     reasonCode: content.reasonCode.length > 0 ? content.reasonCode : undefined,
     contained: content.contained,
     performer: content.performer,

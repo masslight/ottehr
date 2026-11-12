@@ -41,8 +41,8 @@ export const RadiologyLateralityModifierSchema = z.object({
 
 export const CreateRadiologyZambdaOrderInputSchema = z.object({
   encounterId: z.string(),
-  // Optional at order time: an X-ray can be ordered without a diagnosis. The diagnosis is instead
-  // captured when the preliminary read is saved (see SaveRadiologyReportZambdaInputSchema).
+  // Optional: an X-ray can be ordered without a diagnosis. One may also be added (or changed) when the
+  // preliminary read is saved (see SaveRadiologyReportZambdaInputSchema).
   diagnosisCodes: z.array(z.string()).optional(),
   cptCode: z.string(),
   lateralityModifier: RadiologyLateralityModifierSchema.optional(),
@@ -197,8 +197,9 @@ export interface GetRadiologyOrderListZambdaOutput {
 export const SaveRadiologyReportZambdaInputSchema = z.object({
   serviceRequestId: z.string().min(1, 'serviceRequestId is required and must be a string'),
   report: z.string().min(1, 'report is required and must be a string'),
-  // ICD-10 diagnosis codes captured alongside the read. Required when saving a preliminary read
-  // (enforced in the save-preliminary-report zambda); ignored by the final-report flow.
+  // ICD-10 diagnosis codes captured alongside the read. Optional. For a preliminary read, a list (even an
+  // empty one) replaces the order's diagnoses, while omitting it leaves them untouched; ignored by the
+  // final-report flow.
   diagnosisCodes: z.array(z.string()).optional(),
 });
 export type SaveRadiologyReportZambdaInput = z.infer<typeof SaveRadiologyReportZambdaInputSchema>;

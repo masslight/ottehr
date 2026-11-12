@@ -71,17 +71,6 @@ describe('radiology-save-preliminary-report integration', () => {
     await cleanup();
   });
 
-  it('rejects a preliminary radiology report without a diagnosis', async () => {
-    // Diagnosis is required when saving a preliminary read (it is optional at order time).
-    await expect(
-      oystehrZambdas.zambda.execute({
-        id: 'radiology-save-preliminary-report',
-        serviceRequestId,
-        report: 'Integration test preliminary report',
-      })
-    ).rejects.toThrow();
-  });
-
   // Runs before the study is marked performed, so it must come first.
   it('rejects a preliminary report on an order that has not been performed', async () => {
     await expect(
@@ -134,5 +123,37 @@ describe('radiology-save-preliminary-report integration', () => {
       'E11.9',
     ]);
     expect(serviceRequest.performer?.map((ref) => ref.reference)).toEqual([`Practitioner/${orderingPractitionerId}`]);
+  });
+
+  // Diagnosis is optional on the preliminary read, as it is at order time. A second order (placed without a
+  // diagnosis) is used because an order accepts only one preliminary report.
+  it('saves a preliminary radiology report without a diagnosis', async () => {
+    const created = await oystehrZambdas.zambda.execute({
+      id: 'radiology-create-order',
+      encounterId: base.encounter.id,
+      cptCode: '71045',
+      stat: false,
+      clinicalHistory: 'Integration test clinical history',
+      consentObtained: false,
+    });
+    const noDxServiceRequestId = (created.output as { serviceRequestId: string }).serviceRequestId;
+    await oystehrAdmin.fhir.patch<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: noDxServiceRequestId,
+      operations: [{ op: 'replace', path: '/status', value: 'completed' }],
+    });
+
+    const response = await oystehrZambdas.zambda.execute({
+      id: 'radiology-save-preliminary-report',
+      serviceRequestId: noDxServiceRequestId,
+      report: 'Integration test preliminary report',
+    });
+    expect(response.output).toBeDefined();
+
+    const serviceRequest = await oystehrAdmin.fhir.get<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: noDxServiceRequestId,
+    });
+    expect(serviceRequest.reasonCode).toBeUndefined();
   });
 });
