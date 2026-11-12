@@ -47,7 +47,9 @@ import { fetchVisits, fetchVitals, VisitResources } from './helpers';
 export type FlowsheetDataKind = 'birthDate' | 'vitals' | 'diagnoses' | 'medications' | 'labs';
 
 export interface FlowsheetData extends VisitResources {
+  // The 'birthDate' kind: the patient's birth date and sex, for age-based references.
   birthDate?: string;
+  gender?: Patient['gender'];
   vitals?: Observation[];
   diagnoses?: Record<string, FlowsheetDiagnosis[]>;
   medications?: Record<string, FlowsheetMedication[]>;
@@ -62,16 +64,17 @@ export const fetchFlowsheetData = async (
 ): Promise<FlowsheetData> => {
   const wanted = <T>(kind: FlowsheetDataKind, fetch: () => Promise<T>): Promise<T | undefined> =>
     kinds.includes(kind) ? fetch() : Promise.resolve(undefined);
-  const [visits, birthDate, vitals, medications, labs] = await Promise.all([
+  const [visits, demographics, vitals, medications, labs] = await Promise.all([
     fetchVisits(oystehr, patientId),
-    wanted('birthDate', () => fetchBirthDate(oystehr, patientId)),
+    wanted('birthDate', () => fetchDemographics(oystehr, patientId)),
     wanted('vitals', () => fetchVitals(oystehr, patientId)),
     wanted('medications', () => fetchMedications(oystehr, patientId)),
     wanted('labs', () => fetchLabResults(oystehr, patientId)),
   ]);
   return {
     ...visits,
-    birthDate,
+    birthDate: demographics?.birthDate,
+    gender: demographics?.gender,
     vitals,
     // The visits' charted diagnoses come with the visit resources, so nothing more is fetched.
     diagnoses: kinds.includes('diagnoses') ? buildVisitDiagnoses(visits) : undefined,
@@ -91,12 +94,15 @@ const search = <T extends FhirResource>(
   params: { name: string; value: string }[]
 ): Promise<T[]> => getAllFhirSearchPages<T>({ resourceType, params }, oystehr);
 
-const fetchBirthDate = async (oystehr: Oystehr, patientId: string): Promise<string | undefined> => {
+const fetchDemographics = async (
+  oystehr: Oystehr,
+  patientId: string
+): Promise<Pick<Patient, 'birthDate' | 'gender'>> => {
   const patients = await search<Patient>(oystehr, 'Patient', [
     { name: '_id', value: patientId },
-    { name: '_elements', value: 'birthDate' },
+    { name: '_elements', value: 'birthDate,gender' },
   ]);
-  return patients[0]?.birthDate;
+  return { birthDate: patients[0]?.birthDate, gender: patients[0]?.gender };
 };
 
 // ---- Diagnoses -------------------------------------------------------------------------------------------------

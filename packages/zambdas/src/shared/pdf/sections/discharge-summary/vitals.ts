@@ -47,6 +47,7 @@ export const composeVitalsForDischargeSummary: DataComposer<
       oxygenSat: vitals?.['vital-oxygen-sat']?.[0] ?? '',
       weight: vitals?.['vital-weight']?.[0] ?? '',
       height: vitals?.['vital-height']?.[0] ?? '',
+      headCircumference: vitals?.['vital-head-circumference']?.[0] ?? '',
       bmi: vitals?.['vital-bmi']?.[0] ?? '',
       vision: acuityDisplayLines[0] ?? '',
       dotVisionScreening: getDotVisionScreeningLines(latestDotEntry?.dotVisionScreening, { includeDocument: true }),
@@ -70,6 +71,7 @@ export const createVitalsSectionForDischargeSummary = <
         ['RR', data.vitals.rr, 'Height', data.vitals.height],
         ['BP', data.vitals.bp, 'BMI', data.vitals.bmi],
         ['Last Menstrual Period', data.vitals.lastMenstrualPeriod, 'Vision', data.vitals.vision],
+        ['Head circumference', data.vitals.headCircumference],
       ];
 
       const leftX = client.getLeftBound();

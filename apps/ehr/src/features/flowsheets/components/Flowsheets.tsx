@@ -29,9 +29,10 @@ import { Loader } from 'src/features/visits/shared/components/Loader';
 import { DATE_FORMAT } from 'src/helpers/formatDateTime';
 import { useGetFlowsheet } from 'src/hooks/useGetFlowsheet';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
-import { FlowsheetReading, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
+import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { FlowsheetChart, FlowsheetDefinition, FlowsheetRow, FLOWSHEETS } from '../registry';
+import { GrowthCharts } from './GrowthCharts';
 
 interface FlowsheetsProps {
   patientId: string;
@@ -70,7 +71,12 @@ export const Flowsheets = ({ patientId, asOf, currentAppointmentId }: Flowsheets
         ) : !data?.visits.length ? (
           <Typography>No data for this patient</Typography>
         ) : (
-          <FlowsheetBody definition={selected} visits={data.visits} currentAppointmentId={currentAppointmentId} />
+          <FlowsheetBody
+            definition={selected}
+            visits={data.visits}
+            growth={data.growth}
+            currentAppointmentId={currentAppointmentId}
+          />
         )}
       </Stack>
     </Stack>
@@ -222,10 +228,13 @@ const pinned = { position: 'sticky', left: 0, zIndex: 1, backgroundColor: 'backg
 const FlowsheetBody = ({
   definition,
   visits,
+  growth,
   currentAppointmentId,
 }: {
   definition: FlowsheetDefinition;
   visits: FlowsheetVisit[];
+  /** The Growth flowsheet's chart cards, drawn in place of the trend charts. */
+  growth?: GrowthChartData;
   currentAppointmentId?: string;
 }): ReactElement => {
   const theme = useTheme();
@@ -337,16 +346,20 @@ const FlowsheetBody = ({
         </Table>
       </TableContainer>
 
-      <Grid container spacing={2}>
-        {definition.charts.filter(hasPoints).map((chart) => (
-          <Grid item xs={12} md={chart.lines.length > 1 ? 12 : 6} key={chart.title}>
-            <Typography variant="subtitle1" fontWeight={600}>
-              {chart.title} ({chart.unit})
-            </Typography>
-            <EChart option={chartOption(chart)} height={280} />
-          </Grid>
-        ))}
-      </Grid>
+      {growth ? (
+        <GrowthCharts growth={growth} visits={visits} currentAppointmentId={currentAppointmentId} />
+      ) : (
+        <Grid container spacing={2}>
+          {definition.charts.filter(hasPoints).map((chart) => (
+            <Grid item xs={12} md={chart.lines.length > 1 ? 12 : 6} key={chart.title}>
+              <Typography variant="subtitle1" fontWeight={600}>
+                {chart.title} ({chart.unit})
+              </Typography>
+              <EChart option={chartOption(chart)} height={280} />
+            </Grid>
+          ))}
+        </Grid>
+      )}
 
       <Typography variant="subtitle1" fontWeight={600}>
         Visits

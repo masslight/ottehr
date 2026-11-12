@@ -17,6 +17,7 @@ const VITAL_LABELS: Record<PlannableVitalField, string> = {
   'vital-blood-pressure': 'blood pressure',
   'vital-weight': 'weight',
   'vital-height': 'height',
+  'vital-head-circumference': 'head circumference',
 };
 
 /** An addition names only what it is ("Exam finding: Sinus tenderness"); other verbs say what they do. */

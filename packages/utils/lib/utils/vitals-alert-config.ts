@@ -74,6 +74,9 @@ export const DEFAULT_VITALS_ALERT_CONFIG: VitalsAlertConfig = {
       '15-18y': { criticalLow: 122, abnormalLow: 130, abnormalHigh: 187.8, criticalHigh: 195 },
       '18+y': { criticalLow: 122, abnormalLow: 152.5, abnormalHigh: 188, criticalHigh: 206 },
     },
+    // No shipped defaults: head circumference is read against WHO percentiles on the Growth flowsheet; a
+    // practice can still set absolute thresholds here.
+    'vital-head-circumference': {},
     'vital-temperature': {
       '0-3mo': { criticalLow: 35, abnormalLow: 36, abnormalHigh: 38, criticalHigh: 39 },
       '3-6mo': { criticalLow: 35, abnormalLow: 36, abnormalHigh: 38, criticalHigh: 39 },
@@ -204,6 +207,7 @@ export const vitalsAlertConfigToVitalsDef = (config: VitalsAlertConfig): VitalsS
       alertThresholds: alertThresholdsForVital(config, 'vital-weight'),
     },
     'vital-height': { alertThresholds: alertThresholdsForVital(config, 'vital-height') },
+    'vital-head-circumference': { alertThresholds: alertThresholdsForVital(config, 'vital-head-circumference') },
     'vital-temperature': { alertThresholds: alertThresholdsForVital(config, 'vital-temperature') },
     'vital-heartbeat': { alertThresholds: alertThresholdsForVital(config, 'vital-heartbeat') },
     'vital-respiration-rate': { alertThresholds: alertThresholdsForVital(config, 'vital-respiration-rate') },

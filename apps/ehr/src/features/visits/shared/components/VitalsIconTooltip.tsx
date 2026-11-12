@@ -32,6 +32,8 @@ const getLabelForVitalField = (field: VitalFieldNames): string => {
       return 'Weight';
     case VitalFieldNames.VitalHeight:
       return 'Height';
+    case VitalFieldNames.VitalHeadCircumference:
+      return 'Head Circumference';
     case VitalFieldNames.VitalVision:
       return 'Vision';
     default:

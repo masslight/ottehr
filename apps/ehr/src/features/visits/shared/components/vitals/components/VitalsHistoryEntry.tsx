@@ -6,6 +6,7 @@ import { DateTime } from 'luxon';
 import React, { JSX, useState } from 'react';
 import { vitalsConfig } from 'utils/lib/helpers/vitals/config-schema';
 import { formatBMIWithUnit } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
+import { formatHeadCircumferenceObservationValue } from 'utils/lib/helpers/vitals/vitals-head-circumference.helper';
 import { formatHeightObservationValue } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { formatOxygenSatObservationMethod } from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
 import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
@@ -154,6 +155,8 @@ export const getObservationValueElements = (
     }
     case 'vital-height':
       return [formatHeightObservationValue(historyEntry.value)];
+    case 'vital-head-circumference':
+      return [formatHeadCircumferenceObservationValue(historyEntry.value)];
     case 'vital-bmi':
       return [formatBMIWithUnit(historyEntry.value)];
     case 'vital-vision': {

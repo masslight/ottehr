@@ -310,6 +310,14 @@ export const isPediatricOnDate = (birthDate: string | undefined, onDate?: string
   return dob.isValid && at.isValid && at.diff(dob, 'years').years < PEDIATRIC_AGE_LIMIT_YEARS;
 };
 
+/** Age in months on `onDate` (today when omitted); undefined for an unknown or unparsable birth date. */
+export const ageInMonthsOnDate = (birthDate: string | undefined, onDate?: string): number | undefined => {
+  if (!birthDate) return undefined;
+  const dob = DateTime.fromISO(birthDate);
+  const at = onDate ? DateTime.fromISO(onDate) : DateTime.now();
+  return dob.isValid && at.isValid ? at.diff(dob, 'months').months : undefined;
+};
+
 export const formatDOB = (birthDate: string | undefined): string | undefined => {
   if (!birthDate) return undefined;
   const birthday = DateTime.fromFormat(birthDate, DATE_FORMAT).toFormat(DISPLAY_DATE_FORMAT);

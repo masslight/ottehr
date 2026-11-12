@@ -5,6 +5,7 @@ import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { buildGrowthFlowsheet } from './growth';
 import { buildVitalsFlowsheet } from './helpers';
 import { buildLabResultsFlowsheet, LAB_RESULTS_DATA_KINDS } from './lab-results';
 import { buildNewbornBilirubinFlowsheet, NEWBORN_BILIRUBIN_DATA_KINDS } from './newborn-bilirubin';
@@ -20,11 +21,16 @@ let m2mToken: string;
 interface FlowsheetDefinition {
   /** The kinds of patient data this flowsheet needs; nothing else is fetched. */
   kinds: FlowsheetDataKind[];
-  build: (data: FlowsheetData) => FlowsheetVisit[];
+  /** The visits, or the visits with the flowsheet's extra data (the growth charts), up to asOf. */
+  build: (data: FlowsheetData, asOf?: string) => FlowsheetVisit[] | GetFlowsheetOutput;
 }
 
 // Every query is built from the patient id alone; the flowsheet id only picks the kinds of data to fetch.
 const FLOWSHEETS: Record<FlowsheetId, FlowsheetDefinition> = {
+  growth: {
+    kinds: ['birthDate', 'vitals'],
+    build: (data, asOf) => buildGrowthFlowsheet({ ...data, observations: data.vitals ?? [] }, asOf),
+  },
   labResults: { kinds: LAB_RESULTS_DATA_KINDS, build: buildLabResultsFlowsheet },
   newbornBilirubin: { kinds: NEWBORN_BILIRUBIN_DATA_KINDS, build: buildNewbornBilirubinFlowsheet },
   thyroid: { kinds: THYROID_DATA_KINDS, build: buildThyroidFlowsheet },
@@ -40,9 +46,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const { kinds, build } = FLOWSHEETS[flowsheetId];
-  const visits = build(await fetchFlowsheetData(oystehr, patientId, kinds));
-  const output: GetFlowsheetOutput = {
-    visits: asOf ? visits.filter((visit) => Date.parse(visit.start) <= Date.parse(asOf)) : visits,
-  };
+  const built = build(await fetchFlowsheetData(oystehr, patientId, kinds), asOf);
+  const output: GetFlowsheetOutput = Array.isArray(built) ? { visits: built } : built;
+  if (asOf) output.visits = output.visits.filter((visit) => Date.parse(visit.start) <= Date.parse(asOf));
   return { statusCode: 200, body: JSON.stringify(output) };
 });

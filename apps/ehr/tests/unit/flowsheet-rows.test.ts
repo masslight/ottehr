@@ -27,8 +27,8 @@ const labelsOf = (visits: FlowsheetVisit[]): string[] =>
   rowsToShow(labResults, visits).map((row) => ('heading' in row ? `# ${row.heading}` : row.label));
 
 describe('flowsheet list', () => {
-  it('lists the flowsheets A to Z with Lab results first', () => {
-    expect(FLOWSHEETS.map((f) => f.title)).toEqual(['Lab results', 'Newborn bilirubin', 'Thyroid', 'Vitals']);
+  it('lists the flowsheets A to Z', () => {
+    expect(FLOWSHEETS.map((f) => f.title)).toEqual(['Growth', 'Lab results', 'Newborn bilirubin', 'Thyroid', 'Vitals']);
   });
 });
 

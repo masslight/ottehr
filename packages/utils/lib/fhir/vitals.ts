@@ -18,6 +18,7 @@ import {
   VitalsBloodPressureObservationDTO,
   VitalsBMIObservationDTO,
   VitalsDotVisionScreening,
+  VitalsHeadCircumferenceObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -117,6 +118,7 @@ export const VITAL_LAST_MENSTRUAL_PERIOD_LOINC_CODE = '8665-2';
 export const VITAL_LAST_MENSTRUAL_PERIOD_UNSURE_OPTION_SNOMED_CODE = '261665006';
 
 export const VITAL_BMI_LOINC_CODE = '39156-5';
+export const VITAL_HEAD_CIRCUMFERENCE_LOINC_CODE = '9843-4';
 
 export const getTempObservationMethodCodable = (
   tempDTO: VitalsTemperatureObservationDTO
@@ -956,6 +958,7 @@ export function isVitalObservation(data: ObservationDTO): data is VitalsObservat
   return (
     isWeightVitalObservation(data) ||
     isHeightVitalObservation(data) ||
+    isHeadCircumferenceVitalObservation(data) ||
     isBMIVitalObservation(data) ||
     isTemperatureVitalObservation(data) ||
     isHeartbeatVitalObservation(data) ||
@@ -979,6 +982,13 @@ export function isWeightVitalObservation(data: ObservationDTO): data is VitalsWe
 export function isHeightVitalObservation(data: ObservationDTO): data is VitalsHeightObservationDTO {
   const fieldName = data.field;
   return fieldName === VitalFieldNames.VitalHeight;
+}
+
+export function isHeadCircumferenceVitalObservation(
+  data: ObservationDTO
+): data is VitalsHeadCircumferenceObservationDTO {
+  const fieldName = data.field;
+  return fieldName === VitalFieldNames.VitalHeadCircumference;
 }
 
 export function isTemperatureVitalObservation(data: ObservationDTO): data is VitalsTemperatureObservationDTO {
@@ -1124,6 +1134,23 @@ export function fillVitalObservationAttributes(
       ...baseResource,
       code: { coding: [{ system: LOINC_SYSTEM, code: '8302-2', display: 'Body height' }] },
       valueQuantity: { value: heightDTO.value, system: 'http://unitsofmeasure.org', unit: 'cm' },
+    };
+  }
+
+  if (isHeadCircumferenceVitalObservation(vitalDTO)) {
+    const headCircumferenceDTO = vitalDTO as VitalsHeadCircumferenceObservationDTO;
+    return {
+      ...baseResource,
+      code: {
+        coding: [
+          {
+            system: LOINC_SYSTEM,
+            code: VITAL_HEAD_CIRCUMFERENCE_LOINC_CODE,
+            display: 'Head Occipital-frontal circumference',
+          },
+        ],
+      },
+      valueQuantity: { value: headCircumferenceDTO.value, system: 'http://unitsofmeasure.org', unit: 'cm' },
     };
   }
 
@@ -1287,6 +1314,16 @@ export function makeVitalsObservationDTO(observation: Observation): VitalsObserv
     const result: VitalsHeightObservationDTO = {
       ...baseProps,
       field: VitalFieldNames.VitalHeight,
+      value: obsNumericalValue,
+    };
+    return result;
+  }
+
+  if (fieldName === VitalFieldNames.VitalHeadCircumference) {
+    const obsNumericalValue = observation.valueQuantity?.value ?? 0;
+    const result: VitalsHeadCircumferenceObservationDTO = {
+      ...baseProps,
+      field: VitalFieldNames.VitalHeadCircumference,
       value: obsNumericalValue,
     };
     return result;
