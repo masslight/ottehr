@@ -2,6 +2,7 @@ import { mapVitalsToDisplay } from 'utils/lib/helpers/visit-note/map-vitals-to-d
 import { getDotVisionScreeningLines } from 'utils/lib/helpers/vitals/vitals-vision.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsVisionObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { compareDates } from 'utils/lib/utils/dateUtils';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, VitalsDataInDischargeSummary } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
@@ -12,18 +13,19 @@ export const composeVitalsForDischargeSummary: DataComposer<
 > = ({ allChartData }) => {
   const { additionalChartData } = allChartData;
 
-  const vitals = additionalChartData?.vitalsObservations
-    ? mapVitalsToDisplay(additionalChartData.vitalsObservations, false)
-    : undefined;
+  const newestFirst = [...(additionalChartData?.vitalsObservations ?? [])].sort((a, b) =>
+    compareDates(a.lastUpdated, b.lastUpdated)
+  );
+  const vitals = mapVitalsToDisplay(newestFirst, false);
 
   // The Vision grid cell should show the latest Snellen acuity reading only; DOT screening is
   // rendered as its own block. Vision entries are either acuity or DOT (saved separately).
-  const visionObservations = (additionalChartData?.vitalsObservations ?? []).filter(
+  const visionObservations = newestFirst.filter(
     (obs): obs is VitalsVisionObservationDTO => obs.field === VitalFieldNames.VitalVision
   );
-  const latestDotEntry = visionObservations
-    .filter((obs) => getDotVisionScreeningLines(obs.dotVisionScreening).length > 0)
-    .at(-1);
+  const latestDotEntry = visionObservations.find(
+    (obs) => getDotVisionScreeningLines(obs.dotVisionScreening).length > 0
+  );
 
   const acuityDisplayLines = visionObservations
     .filter((obs) => getDotVisionScreeningLines(obs.dotVisionScreening).length === 0)
@@ -38,17 +40,17 @@ export const composeVitalsForDischargeSummary: DataComposer<
 
   return {
     vitals: {
-      temp: vitals?.['vital-temperature']?.at(-1) ?? '',
-      hr: vitals?.['vital-heartbeat']?.at(-1) ?? '',
-      rr: vitals?.['vital-respiration-rate']?.at(-1) ?? '',
-      bp: vitals?.['vital-blood-pressure']?.at(-1) ?? '',
-      oxygenSat: vitals?.['vital-oxygen-sat']?.at(-1) ?? '',
-      weight: vitals?.['vital-weight']?.at(-1) ?? '',
-      height: vitals?.['vital-height']?.at(-1) ?? '',
-      bmi: vitals?.['vital-bmi']?.at(-1) ?? '',
-      vision: acuityDisplayLines.at(-1) ?? '',
+      temp: vitals?.['vital-temperature']?.[0] ?? '',
+      hr: vitals?.['vital-heartbeat']?.[0] ?? '',
+      rr: vitals?.['vital-respiration-rate']?.[0] ?? '',
+      bp: vitals?.['vital-blood-pressure']?.[0] ?? '',
+      oxygenSat: vitals?.['vital-oxygen-sat']?.[0] ?? '',
+      weight: vitals?.['vital-weight']?.[0] ?? '',
+      height: vitals?.['vital-height']?.[0] ?? '',
+      bmi: vitals?.['vital-bmi']?.[0] ?? '',
+      vision: acuityDisplayLines[0] ?? '',
       dotVisionScreening: getDotVisionScreeningLines(latestDotEntry?.dotVisionScreening, { includeDocument: true }),
-      lastMenstrualPeriod: vitals?.['vital-last-menstrual-period']?.at(-1) ?? '',
+      lastMenstrualPeriod: vitals?.['vital-last-menstrual-period']?.[0] ?? '',
     },
   };
 };
@@ -57,7 +59,7 @@ export const createVitalsSectionForDischargeSummary = <
   TData extends { vitals?: VitalsDataInDischargeSummary },
 >(): PdfSection<TData, VitalsDataInDischargeSummary> => {
   return createConfiguredSection(null, () => ({
-    title: 'Vitals',
+    title: 'Discharge Vitals',
     dataSelector: (data) => data.vitals,
     shouldRender: (sectionData) =>
       Object.values(sectionData.vitals || {}).some((val) => (Array.isArray(val) ? val.length > 0 : !!val)),
