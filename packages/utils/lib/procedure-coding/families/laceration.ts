@@ -19,6 +19,7 @@ import {
 export const LACERATION_CLOSURE = {
   SingleLayer: 'single layer',
   Layered: 'layered',
+  Staples: 'staples',
   AdhesiveOnly: 'adhesive only',
   StripsOnly: 'strips only',
   Open: 'open',
@@ -465,7 +466,7 @@ export const lacerationFamily: ProcedureFamilyModel<LacerationCode> = {
       findings: [],
       payerNotes: codedWounds.some((wound) => wound.closure === LACERATION_CLOSURE.AdhesiveOnly)
         ? [
-            'For separate adhesive-only and sutured wounds, these repair codes show the standard option. Medicare may require G0168 for the adhesive-only wound and repair coding based only on the sutured wounds; review the separate sites before choosing codes.',
+            'For separate adhesive-only and sutured or stapled wounds, these repair codes show the standard option. Medicare may require G0168 for the adhesive-only wound and repair coding based only on the sutured or stapled wounds; review the separate sites before choosing codes.',
           ]
         : [],
     });
