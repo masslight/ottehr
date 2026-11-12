@@ -372,6 +372,7 @@ export default function ReceiveShipmentDialog({
               type="submit"
               variant="contained"
               loading={saving}
+              disabled={lookup.status === 'loading'}
               sx={inventoryButtonSx}
               data-testid={dataTestIds.receiveShipmentDialog.receiveButton}
             >
