@@ -1,7 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { claimOutreachTask, failOutreachTask } from '../../../rcm/scheduled-outreach/executors/outreach-task-execution';
+import {
+  claimOutreachTask,
+  completeOutreachLogTask,
+  failOutreachTask,
+} from '../../../rcm/scheduled-outreach/executors/outreach-task-execution';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -46,27 +50,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log(`  Action ID: ${actionId}`);
     console.log(`  Timestamp: ${DateTime.now().toISO()}`);
 
-    await oystehr.fhir.patch<Task>({
-      resourceType: 'Task',
-      id: task.id!,
-      operations: [
-        { op: 'replace', path: '/status', value: 'completed' },
-        { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
-        {
-          op: 'add',
-          path: '/output',
-          value: [
-            {
-              type: { text: 'execution-result' },
-              valueString: JSON.stringify({
-                logged: true,
-                timestamp: DateTime.now().toISO(),
-              }),
-            },
-          ],
-        },
-      ],
-    });
+    await completeOutreachLogTask(oystehr, task);
 
     console.log(`Task ${task.id} completed`);
     return { statusCode: 200, body: JSON.stringify({ status: 'completed' }) };

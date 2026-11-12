@@ -2,6 +2,11 @@ import Oystehr from '@oystehr/sdk';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { InvoiceConfigResponse, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
 import { RefundPatientPaymentResponse, VoidPatientPaymentResponse } from 'utils/lib/types/api/patient-payment-types';
+import {
+  NotificationsTimeRestriction,
+  OutreachAction,
+  OutreachConfigResponse,
+} from 'utils/lib/types/api/scheduled-outreach.types';
 import { CREATE_TIMELY_FILING_REPORT_ZAMBDA, RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AddClaimAttachmentInputSchema,
@@ -191,6 +196,16 @@ export const saveInvoiceConfig = (
   oystehr: Oystehr,
   parameters: SaveInvoiceConfigInput
 ): Promise<InvoiceConfigResponse> => executeBillingZambda(oystehr, 'save-billing-invoice-config', parameters);
+
+// --- Outreach configuration ---
+
+export const getOutreachConfig = (oystehr: Oystehr): Promise<OutreachConfigResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-outreach-config', {});
+
+export const saveOutreachConfig = (
+  oystehr: Oystehr,
+  parameters: { actions: OutreachAction[]; notificationsTimeRestriction: NotificationsTimeRestriction }
+): Promise<OutreachConfigResponse> => executeBillingZambda(oystehr, 'save-billing-outreach-config', parameters);
 
 // --- Invoices ---
 

@@ -727,12 +727,8 @@ function buildDefaultPlanDefinition(): Omit<PlanDefinition, 'id'> {
   return buildPlanDefinitionFromActions([]);
 }
 
-/**
- * Finds the existing outreach config PlanDefinition.
- * If it doesn't exist, creates one with defaults.
- * Guarantees at most one PlanDefinition exists; logs a warning if duplicates are detected.
- */
-export async function getOrCreateOutreachConfig(oystehr: Oystehr): Promise<PlanDefinition> {
+/** Finds the existing outreach config PlanDefinition without creating one. */
+export async function findOutreachConfig(oystehr: Oystehr): Promise<PlanDefinition | undefined> {
   const bundle = await oystehr.fhir.search<PlanDefinition>({
     resourceType: 'PlanDefinition',
     params: [
@@ -746,9 +742,18 @@ export async function getOrCreateOutreachConfig(oystehr: Oystehr): Promise<PlanD
     const ids = results.map((r) => r.id).join(', ');
     console.warn(`Found ${results.length} outreach config PlanDefinitions (expected 1). Using the first. IDs: ${ids}`);
   }
+  return results[0];
+}
 
-  if (results.length > 0) {
-    return results[0];
+/**
+ * Finds the existing outreach config PlanDefinition.
+ * If it doesn't exist, creates one with defaults.
+ * Guarantees at most one PlanDefinition exists; logs a warning if duplicates are detected.
+ */
+export async function getOrCreateOutreachConfig(oystehr: Oystehr): Promise<PlanDefinition> {
+  const existing = await findOutreachConfig(oystehr);
+  if (existing) {
+    return existing;
   }
 
   console.log('No outreach config PlanDefinition found, creating one with defaults');

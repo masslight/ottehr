@@ -2,10 +2,11 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Patient, Task } from 'fhir/r4b';
 import { removePrefix } from 'utils/lib/helpers/helpers';
-import { NotificationMedium } from 'utils/lib/types/api/scheduled-outreach.types';
 import { deliverOutreachNotification } from '../../../rcm/scheduled-outreach/executors/outreach-delivery';
 import {
   claimOutreachTask,
+  extractInputValue,
+  extractMediums,
   failOutreachTask,
   finishNotificationTask,
 } from '../../../rcm/scheduled-outreach/executors/outreach-task-execution';
@@ -99,16 +100,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-
-function extractMediums(task: Task): NotificationMedium[] {
-  const mediumsInput = task.input?.find((i) => i.type?.text === 'mediums');
-  if (!mediumsInput?.valueString) return [];
-  return mediumsInput.valueString.split(',') as NotificationMedium[];
-}
-
-function extractInputValue(task: Task, key: string): string | undefined {
-  return task.input?.find((i) => i.type?.text === key)?.valueString;
-}
 
 function describeFhirError(err: unknown): string {
   if (err instanceof Oystehr.OystehrFHIRError) {

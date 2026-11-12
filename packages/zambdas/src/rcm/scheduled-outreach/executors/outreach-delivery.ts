@@ -16,10 +16,22 @@ import {
   isInvalidPhoneNumberError,
   sendSmsForPatient,
 } from '../../../shared/communication';
-import { StatementType } from '../../../shared/statements/get-statement-details';
-import { fillOutreachTemplate, resolveTemplatePlaceholders } from '../../../shared/template-placeholders';
+import { BILLING_APP_INVOICE_STATEMENT_INPUT, StatementType } from '../../../shared/statements/get-statement-details';
+import {
+  fillOutreachTemplate,
+  resolveTemplatePlaceholders,
+  ResolveTemplatePlaceholdersParams,
+} from '../../../shared/template-placeholders';
 
 const INVALID_PHONE_REASON = 'Invalid phone number';
+const DEFAULT_EMAIL_SUBJECT = 'Important information about your visit';
+const CHARGE_OUTCOME_EMAIL_SUBJECT = 'Update regarding your visit';
+
+interface BillingInvoiceValues {
+  amountCents?: number;
+  dueDate?: string;
+  invoiceLink?: string;
+}
 
 interface DeliverOutreachNotificationParams {
   oystehr: Oystehr;
@@ -31,13 +43,27 @@ interface DeliverOutreachNotificationParams {
   smsTemplate?: string;
   emailTemplate?: string;
   statementType?: string;
+  // Set for a billing-app invoice. Its values fill the templates.
+  billingInvoice?: BillingInvoiceValues;
+  chargeOutcome?: boolean;
 }
 
 export async function deliverOutreachNotification(
   params: DeliverOutreachNotificationParams
 ): Promise<OutreachMediumResult[]> {
-  const { oystehr, secrets, patient, encounterRef, stripeAccount, mediums, smsTemplate, emailTemplate, statementType } =
-    params;
+  const {
+    oystehr,
+    secrets,
+    patient,
+    encounterRef,
+    stripeAccount,
+    mediums,
+    smsTemplate,
+    emailTemplate,
+    statementType,
+    billingInvoice,
+    chargeOutcome,
+  } = params;
   const results: OutreachMediumResult[] = [];
 
   for (const medium of mediums) {
@@ -61,7 +87,8 @@ export async function deliverOutreachNotification(
             secrets,
             patient,
             encounterRef,
-            stripeAccount
+            stripeAccount,
+            billingInvoice
           );
           if (smsSkippedReason) {
             console.log(`[SMS] Skipping SMS for Patient/${patient.id}: ${smsSkippedReason}`);
@@ -84,7 +111,16 @@ export async function deliverOutreachNotification(
             });
             break;
           }
-          await sendOutreachEmail(emailTemplate || '', oystehr, secrets, patient, encounterRef, stripeAccount);
+          await sendOutreachEmail(
+            emailTemplate || '',
+            oystehr,
+            secrets,
+            patient,
+            encounterRef,
+            stripeAccount,
+            billingInvoice,
+            chargeOutcome
+          );
           console.log(`[Email] Successfully sent email notification for Patient/${patient.id}`);
           results.push({ medium, success: true });
           break;
@@ -97,7 +133,13 @@ export async function deliverOutreachNotification(
             results.push({ medium, success: false, error: 'Paper mail statements feature is disabled' });
             break;
           }
-          await sendPaperMail(statementType || 'standard', oystehr, patient, encounterRef);
+          await sendPaperMail(
+            statementType || 'standard',
+            oystehr,
+            patient,
+            encounterRef,
+            billingInvoice !== undefined
+          );
           console.log(`[Paper Mail] Successfully created paper mail task for Patient/${patient.id}`);
           results.push({ medium, success: true });
           break;
@@ -144,21 +186,31 @@ function validatePatientEmail(patient: Patient): { valid: boolean; reason?: stri
   return { valid: true };
 }
 
+function placeholderParams(
+  patient: Patient,
+  encounterRef: string | undefined,
+  stripeAccount: string | undefined,
+  oystehr: Oystehr,
+  secrets: Secrets | null,
+  billingInvoice: BillingInvoiceValues | undefined
+): ResolveTemplatePlaceholdersParams {
+  const params: ResolveTemplatePlaceholdersParams = { patient, encounterRef, stripeAccount, oystehr, secrets };
+  if (billingInvoice) return { ...params, overrides: billingInvoice, skipStripeLookup: true };
+  return params;
+}
+
 async function sendOutreachSms(
   template: string,
   oystehr: Oystehr,
   secrets: Secrets | null,
   patient: Patient,
   encounterRef: string | undefined,
-  stripeAccount: string | undefined
+  stripeAccount: string | undefined,
+  billingInvoice: BillingInvoiceValues | undefined
 ): Promise<string | undefined> {
-  const placeholderInput = await resolveTemplatePlaceholders({
-    patient,
-    encounterRef,
-    stripeAccount,
-    oystehr,
-    secrets,
-  });
+  const placeholderInput = await resolveTemplatePlaceholders(
+    placeholderParams(patient, encounterRef, stripeAccount, oystehr, secrets, billingInvoice)
+  );
   const resolvedMessage = fillOutreachTemplate(template, placeholderInput);
 
   // Check for unresolved placeholders — any remaining {{key}} means data is missing
@@ -183,7 +235,9 @@ async function sendOutreachEmail(
   secrets: Secrets | null,
   patient: Patient,
   encounterRef: string | undefined,
-  stripeAccount: string | undefined
+  stripeAccount: string | undefined,
+  billingInvoice: BillingInvoiceValues | undefined,
+  chargeOutcome: boolean | undefined
 ): Promise<void> {
   const patientId = patient.id!;
 
@@ -192,13 +246,9 @@ async function sendOutreachEmail(
     throw new Error(`Patient ${patientId} has no contact email address`);
   }
 
-  const placeholderInput = await resolveTemplatePlaceholders({
-    patient,
-    encounterRef,
-    stripeAccount,
-    oystehr,
-    secrets,
-  });
+  const placeholderInput = await resolveTemplatePlaceholders(
+    placeholderParams(patient, encounterRef, stripeAccount, oystehr, secrets, billingInvoice)
+  );
   const resolvedMessage = fillOutreachTemplate(template, placeholderInput);
 
   // Check for unresolved placeholders
@@ -213,7 +263,7 @@ async function sendOutreachEmail(
   const emailClient = getEmailClient(secrets);
   await emailClient.sendGenericOutreachEmail(email, {
     content: htmlContent,
-    'subject-text': 'Important information about your visit',
+    'subject-text': chargeOutcome ? CHARGE_OUTCOME_EMAIL_SUBJECT : DEFAULT_EMAIL_SUBJECT,
   });
 
   // Record email as a FHIR Communication resource
@@ -233,7 +283,8 @@ async function sendPaperMail(
   statementType: string,
   oystehr: Oystehr,
   patient: Patient,
-  encounterRef: string | undefined
+  encounterRef: string | undefined,
+  billingAppInvoice: boolean
 ): Promise<void> {
   const patientId = patient.id!;
 
@@ -271,6 +322,7 @@ async function sendPaperMail(
       type: { coding: [{ system: MAIL_STATEMENT_TASK_INPUT_SYSTEM, code: 'color' }] },
       valueString: 'false',
     },
+    ...(billingAppInvoice ? [BILLING_APP_INVOICE_STATEMENT_INPUT] : []),
   ];
 
   const mailTask: Task = {

@@ -1,7 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Invoice, PlanDefinition, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { buildBillingInvoice, withInvoiceUncollectible, withStripeInvoiceLink } from 'utils/lib/fhir/billing-invoice';
+import {
+  buildBillingInvoice,
+  INVOICE_ISSUED_FROM_EHR_TAG,
+  withInvoiceUncollectible,
+  withStripeInvoiceLink,
+} from 'utils/lib/fhir/billing-invoice';
 import { OutreachAction } from 'utils/lib/types/api/scheduled-outreach.types';
 import { BILLING_OUTREACH_TASK_CODE_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -279,6 +284,17 @@ describe('billing invoice outreach', () => {
 
     it('schedules nothing for an invoice Stripe marked uncollectible', async () => {
       const { oystehr, created } = makeOystehr([], [withInvoiceUncollectible(makeInvoice())]);
+
+      const result = await produceBillingInvoiceDueOutreach(oystehr);
+
+      expect(result).toEqual({ invoicesEvaluated: 1, tasksCreated: 0, tasksSkipped: 0, errors: 0 });
+      expect(created).toHaveLength(0);
+    });
+
+    it('schedules nothing for a copy of an invoice the EHR sent', async () => {
+      const invoice = makeInvoice();
+      const copy = { ...invoice, meta: { tag: [...(invoice.meta?.tag ?? []), INVOICE_ISSUED_FROM_EHR_TAG] } };
+      const { oystehr, created } = makeOystehr([], [copy]);
 
       const result = await produceBillingInvoiceDueOutreach(oystehr);
 

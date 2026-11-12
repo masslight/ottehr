@@ -4,6 +4,7 @@ import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { DEFAULT_RULES_ENGINE } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { Layout } from './components/Layout';
@@ -31,6 +32,7 @@ import InvoicingConfiguration from './pages/InvoicingConfiguration';
 import ManualRemit from './pages/ManualRemit';
 import NetCollectionsReport from './pages/NetCollectionsReport';
 import { NonInsuranceOrganizationDetail, NonInsuranceOrganizationsList } from './pages/NonInsuranceOrganizations';
+import OutreachConfiguration from './pages/OutreachConfiguration';
 import PatientDetail from './pages/PatientDetail';
 import PatientPaymentDetail from './pages/PatientPaymentDetail';
 import PatientsList from './pages/PatientsList';
@@ -56,6 +58,7 @@ export default function App(): ReactElement {
   const { logout } = useAuth0();
   const { currentUser, isLoadingUser } = useEvolveUser();
   const invoicingInBillingApp = useInvoicingInBillingApp();
+  const outreachInBillingApp = invoicingInBillingApp && FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled;
 
   const handleLogout = (): void => {
     void logout({ logoutParams: { returnTo: window.location.origin } });
@@ -128,6 +131,7 @@ export default function App(): ReactElement {
               <Route path="/eras/:eraId/claims/:claimId" element={<EraClaimDetail />} />
               <Route path="/tags" element={<Tags />} />
               {invoicingInBillingApp && <Route path="/invoicing-configuration" element={<InvoicingConfiguration />} />}
+              {outreachInBillingApp && <Route path="/outreach-configuration" element={<OutreachConfiguration />} />}
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/payments" element={<PaymentsReport />} />
               <Route path="/reports/cards-on-file" element={<CardsOnFileReport />} />

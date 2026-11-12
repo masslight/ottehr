@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import {
   ChargeCardConfig,
   NotificationConfig,
+  NotificationMedium,
   OutreachMediumResult,
 } from 'utils/lib/types/api/scheduled-outreach.types';
 
@@ -45,6 +46,52 @@ export async function failOutreachTask(oystehr: Oystehr, task: Task, message: st
       },
     ],
   });
+}
+
+export async function cancelOutreachTask(oystehr: Oystehr, task: Task, reason: string): Promise<void> {
+  await oystehr.fhir.patch<Task>({
+    resourceType: 'Task',
+    id: task.id!,
+    operations: [
+      { op: 'replace', path: '/status', value: 'cancelled' },
+      { op: 'add', path: '/statusReason', value: { text: reason } },
+      { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
+    ],
+  });
+}
+
+export async function completeOutreachLogTask(oystehr: Oystehr, task: Task): Promise<void> {
+  await oystehr.fhir.patch<Task>({
+    resourceType: 'Task',
+    id: task.id!,
+    operations: [
+      { op: 'replace', path: '/status', value: 'completed' },
+      { op: 'add', path: '/executionPeriod/end', value: DateTime.now().toISO() },
+      {
+        op: 'add',
+        path: '/output',
+        value: [
+          {
+            type: { text: 'execution-result' },
+            valueString: JSON.stringify({
+              logged: true,
+              timestamp: DateTime.now().toISO(),
+            }),
+          },
+        ],
+      },
+    ],
+  });
+}
+
+export function extractMediums(task: Task): NotificationMedium[] {
+  const mediumsInput = task.input?.find((i) => i.type?.text === 'mediums');
+  if (!mediumsInput?.valueString) return [];
+  return mediumsInput.valueString.split(',') as NotificationMedium[];
+}
+
+export function extractInputValue(task: Task, key: string): string | undefined {
+  return task.input?.find((i) => i.type?.text === key)?.valueString;
 }
 
 export async function finishNotificationTask(

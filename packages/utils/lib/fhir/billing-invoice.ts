@@ -127,6 +127,12 @@ export function withInvoiceUncollectible(invoice: Invoice): Invoice {
 export const isInvoiceUncollectible = (invoice: Invoice): boolean =>
   invoice.extension?.find((ext) => ext.url === INVOICE_UNCOLLECTIBLE_EXTENSION_URL)?.valueBoolean === true;
 
+// On a copy of an invoice the EHR sent. The EHR keeps running its outreach.
+export const INVOICE_ISSUED_FROM_EHR_TAG: Coding = {
+  system: 'https://fhir.ottehr.com/billing/invoice-issued-from',
+  code: 'ehr',
+};
+
 // The FHIR statuses billing invoices use; entered-in-error is never set.
 export const BILLING_INVOICE_STATUSES = ['draft', 'issued', 'balanced', 'cancelled'] as const;
 export type BillingInvoiceStatus = (typeof BILLING_INVOICE_STATUSES)[number];

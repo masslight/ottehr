@@ -5,9 +5,11 @@ import {
   getBillingInvoiceDueDate,
   getBillingInvoiceKind,
   getStripeInvoiceLink,
+  INVOICE_ISSUED_FROM_EHR_TAG,
   isInvoiceUncollectible,
 } from 'utils/lib/fhir/billing-invoice';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { OutreachAction, TriggerEvent } from 'utils/lib/types/api/scheduled-outreach.types';
 import { BILLING_OUTREACH_TASK_CODE_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import {
@@ -86,9 +88,12 @@ async function produceBillingInvoiceOutreach(
   eventTimestamp: string | undefined,
   actionFilter?: (action: OutreachAction) => boolean
 ): Promise<OutreachTaskResult> {
-  // NIO invoices bill an organization, and outreach contacts patients. An invoice Stripe marked
-  // uncollectible gets no automatic outreach.
-  if (getBillingInvoiceKind(invoice) !== 'patient' || isInvoiceUncollectible(invoice)) {
+  // No outreach for NIO invoices, uncollectible ones, or copies of invoices the EHR sent.
+  if (
+    getBillingInvoiceKind(invoice) !== 'patient' ||
+    isInvoiceUncollectible(invoice) ||
+    resourceHasTag(invoice, INVOICE_ISSUED_FROM_EHR_TAG)
+  ) {
     return { created: [], skipped: [] };
   }
   if (!invoice.subject || !eventTimestamp) throw new Error(`Invoice ${invoice.id} has no patient or date`);

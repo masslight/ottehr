@@ -20,6 +20,7 @@ import {
 import { Box, Divider, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
 import { FC, ReactElement } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 import { RULES_ENGINE_TYPES, RULES_ENGINES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
@@ -157,6 +158,12 @@ export const Sidebar: FC = () => {
               path: '/invoicing-configuration',
               icon: <SettingsIcon sx={{ fontSize: 18 }} />,
             })}
+            {FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled &&
+              renderNavItem({
+                label: 'Outreach Configuration',
+                path: '/outreach-configuration',
+                icon: <SettingsIcon sx={{ fontSize: 18 }} />,
+              })}
           </>
         )}
       </List>
