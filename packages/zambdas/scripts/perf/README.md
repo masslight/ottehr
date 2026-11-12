@@ -46,8 +46,7 @@ and reused across many runs, which keeps before/after comparisons on identical d
 | --- | --- | --- |
 | `get-appointments` | `get-appointments` | tracking board |
 | `ehr-get-visit-details` | `ehr-get-visit-details` | visit details |
-| `get-chart-data-default` | `get-chart-data` (no `requestedFields`) | progress note (`useChartData`) |
-| `get-chart-data-progress-note` | `get-chart-data` (progress-note fields) | progress note (`useChartFields`) |
+| `get-chart-data-default` | `get-chart-data` | progress note (`useChartData`) |
 | `get-vitals-for-list-of-encounters` | `get-vitals-for-list-of-encounters` | tracking board (vitals column) |
 | `get-patient-visit-history` | `get-patient-visit-history` | patient details (`/patient/:id`) |
 | `get-patient-account` | `get-patient-account` | patient details (`/patient/:id/info`) |

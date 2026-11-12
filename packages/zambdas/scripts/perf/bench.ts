@@ -30,7 +30,6 @@
  */
 import Oystehr from '@oystehr/sdk';
 import { writeFileSync } from 'fs';
-import { progressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { ServiceMode } from 'utils/lib/types/common';
 import { getCurrentQuestionnaireForServiceType } from '../../src/patient/appointment/helpers';
 import {
@@ -94,25 +93,13 @@ const SCENARIOS: Record<string, Scenario> = {
         output?.completed?.length ?? 0
       } cancelled=${output?.cancelled?.length ?? 0}`,
   },
-  // The progress note fires two get-chart-data calls on mount: `useChartData` sends no
-  // requestedFields (the "everything" default) and `useChartFields` sends the progress-note field
-  // set. Both are benched.
+  // The progress note's chart load (`useChartData`).
   'get-chart-data-default': {
     name: 'get-chart-data-default',
     resolveFixture: (server, opts) => resolveVisitDetailsFixture(server, opts),
     buildInput: (fixture: VisitDetailsFixture) => ({
       id: 'get-chart-data',
       encounterId: fixture.encounterId,
-    }),
-    describeOutput: (output) => `keys=${Object.keys(output ?? {}).length}`,
-  },
-  'get-chart-data-progress-note': {
-    name: 'get-chart-data-progress-note',
-    resolveFixture: (server, opts) => resolveVisitDetailsFixture(server, opts),
-    buildInput: (fixture: VisitDetailsFixture) => ({
-      id: 'get-chart-data',
-      encounterId: fixture.encounterId,
-      requestedFields: progressNoteChartDataRequestedFields,
     }),
     describeOutput: (output) => `keys=${Object.keys(output ?? {}).length}`,
   },
