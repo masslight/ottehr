@@ -30,39 +30,43 @@ export class InPersonHeader {
   }
 
   async closeCareTeam(): Promise<void> {
-    await this.#page.keyboard.press('Escape');
-    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.careTeamPopover)).toBeHidden();
+    const popover = this.#page.getByTestId(dataTestIds.inPersonHeader.careTeamPopover);
+    // The popover only hears Escape while focus is inside it, and a select disabled during a save
+    // drops focus to <body>, so press it on one of the popover's own fields.
+    const field = popover.getByRole('combobox').first();
+    await expect(async () => {
+      if (await popover.isVisible()) await field.press('Escape', { timeout: 5000 });
+      await expect(popover).toBeHidden({ timeout: 2000 });
+    }).toPass({ timeout: 30000 });
   }
 
   async selectIntakePractitioner(id?: string): Promise<void> {
     await this.openCareTeam();
-    await this.#page.getByTestId(dataTestIds.inPersonHeader.intakePractitionerInput).click();
-    if (id) {
-      await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().waitFor();
-      await this.#page.locator(`[data-value="${id}"]`).click();
-    } else {
-      await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().waitFor();
-      await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().click();
-    }
-    await expect(
-      this.#page.getByTestId(dataTestIds.inPersonHeader.intakePractitionerInput).locator('input')
-    ).toBeEnabled();
+    await this.selectPractitioner(dataTestIds.inPersonHeader.intakePractitionerInput, id);
     await this.closeCareTeam();
   }
 
   async selectProviderPractitioner(): Promise<void> {
     await this.openCareTeam();
-    await this.#page.getByTestId(dataTestIds.inPersonHeader.providerPractitionerInput).click();
-    await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().waitFor();
-    await this.#page.getByRole('option').filter({ hasText: /\S/ }).first().click();
-    await expect(
-      this.#page.getByTestId(dataTestIds.inPersonHeader.providerPractitionerInput).locator('input')
-    ).toBeEnabled();
+    await this.selectPractitioner(dataTestIds.inPersonHeader.providerPractitionerInput);
     await this.closeCareTeam();
   }
 
+  private async selectPractitioner(testId: string, id?: string): Promise<void> {
+    const field = this.#page.getByTestId(testId);
+    await field.click();
+    const firstOption = this.#page.getByRole('option').filter({ hasText: /\S/ }).first();
+    await firstOption.waitFor();
+    const option = id ? this.#page.locator(`[data-value="${id}"]`) : firstOption;
+    const practitionerId = id ?? (await option.getAttribute('data-value'));
+    await option.click();
+    // The field takes the new value only once the assignment is saved and the appointment refetched.
+    if (practitionerId) await expect(field.locator('input')).toHaveValue(practitionerId);
+    await expect(field.locator('input')).toBeEnabled();
+  }
+
   async verifyWeight(weight: string): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.weight)).toHaveText(`${weight}kg`, {
+    await expect(this.#page.getByTestId(dataTestIds.inPersonHeader.weight)).toHaveText(weight, {
       timeout: 30000,
     });
   }

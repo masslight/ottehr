@@ -6,10 +6,12 @@ import {
   invoiceTaskSourceTag,
 } from '../../types/api/invoicing.types';
 import {
+  createInvoiceTaskInput,
   getInvoiceTaskClaimId,
   getInvoiceTaskOutputs,
   getInvoiceTaskSource,
   invoiceTaskSourceSearchParam,
+  parseInvoiceTaskInput,
 } from './invoices-tasks';
 
 const task = (overrides: Partial<Task> = {}): Task => ({
@@ -195,5 +197,47 @@ describe('invoiceTaskSourceSearchParam', () => {
 
   it('returns undefined when no source filter is given', () => {
     expect(invoiceTaskSourceSearchParam(undefined)).toBeUndefined();
+  });
+});
+
+describe('createInvoiceTaskInput', () => {
+  const codes = (inputs: ReturnType<typeof createInvoiceTaskInput>): (string | undefined)[] =>
+    inputs.map((input) => input.type.coding?.[0]?.code);
+
+  it('writes every populated field as a valueString, including a zero amount', () => {
+    const inputs = createInvoiceTaskInput({
+      dueDate: '2030-01-31',
+      memo: ' Thanks for visiting ',
+      smsTextMessage: 'Pay here',
+      amountCents: 0,
+      claimId: 'claim-1',
+    });
+
+    expect(codes(inputs)).toEqual(['dueDate', 'memo', 'smsTextMessage', 'amountCents', 'claimId']);
+    expect(inputs.find((input) => input.type.coding?.[0]?.code === 'memo')?.valueString).toBe(' Thanks for visiting ');
+    expect(inputs.find((input) => input.type.coding?.[0]?.code === 'amountCents')?.valueString).toBe('0');
+  });
+
+  it('skips blank and undefined fields so no input is written without a value', () => {
+    const inputs = createInvoiceTaskInput({
+      dueDate: '2030-01-31',
+      memo: '   ',
+      smsTextMessage: '\n',
+      amountCents: 500,
+      claimId: undefined,
+      finalizationDate: '',
+    });
+
+    expect(codes(inputs)).toEqual(['dueDate', 'amountCents']);
+    expect(inputs.every((input) => input.valueString?.trim())).toBe(true);
+  });
+
+  it('round-trips a legacy task missing claimId and finalizationDate without valueless inputs', () => {
+    const legacy = task({ input: createInvoiceTaskInput({ dueDate: '2030-01-31', memo: 'm', smsTextMessage: 's' }) });
+
+    const rebuilt = createInvoiceTaskInput({ ...parseInvoiceTaskInput(legacy), memo: 'new memo' });
+
+    expect(codes(rebuilt)).toEqual(['dueDate', 'memo', 'smsTextMessage', 'amountCents']);
+    expect(rebuilt.every((input) => input.valueString !== undefined)).toBe(true);
   });
 });

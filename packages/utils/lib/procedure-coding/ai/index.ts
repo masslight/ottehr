@@ -1,14 +1,20 @@
 import { z } from 'zod';
-import { buildEvaluation } from '../cpt';
+import { buildEvaluation, lineKey } from '../cpt';
 import { CodeAssessmentKind, EvaluationFamilyMatchKind, EvaluationResult, ProcedureFactsInput } from '../model.types';
 
 // Validate the model's output before it reaches the shared suggestion UI.
 const responseSchema = z.array(
-  z.object({
-    code: z.string().regex(/^(?:[0-9]{5}|[A-Z][0-9]{4}|[0-9]{4}[A-Z])$/),
-    description: z.string().min(1).max(1000),
-    useWhen: z.string().min(1).max(2000),
-  })
+  z
+    .object({
+      code: z.string().regex(/^(?:[0-9]{5}|[A-Z][0-9]{4}|[0-9]{4}[A-Z])(?:-?[A-Z0-9]{2}){0,4}$/),
+      description: z.string().min(1).max(1000),
+      useWhen: z.string().min(1).max(2000),
+    })
+    .transform(({ code, ...item }) => ({
+      ...item,
+      code: code.slice(0, 5),
+      modifiers: [...new Set(code.slice(5).replace(/-/g, '').match(/.{2}/g))],
+    }))
 );
 
 const MAX_AI_SUGGESTIONS = 5;
@@ -86,13 +92,17 @@ export function parseAiSuggestions(raw: string): EvaluationResult {
   }
 
   const unique = items
-    .filter((item, i) => items.findIndex((other) => other.code === item.code) === i)
+    .filter(
+      (item, i) =>
+        items.findIndex((other) => lineKey(other.code, other.modifiers) === lineKey(item.code, item.modifiers)) === i
+    )
     .slice(0, MAX_AI_SUGGESTIONS);
 
   return {
     ...buildEvaluation({
       suggestions: unique.map((item) => ({
         code: item.code,
+        modifiers: item.modifiers,
         display: item.description,
         justification: item.useWhen,
         units: 1,

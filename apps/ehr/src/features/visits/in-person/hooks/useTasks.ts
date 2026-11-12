@@ -4,6 +4,7 @@ import { Operation } from 'fast-json-patch';
 import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
@@ -19,6 +20,7 @@ import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
+import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
@@ -29,12 +31,13 @@ import {
   isInboundFaxDeleting,
   isInboundFaxFiled,
   MANUAL_TASK,
+  PATIENT_REQUEST_TASK,
   RADIOLOGY_TASK,
   Task,
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
-import { getDmeOrderDetailsUrl, getRadiologyOrderEditUrl } from '../routing/helpers';
+import { getDmeOrderDetailsUrl, getRadiologyOrderEditUrl, getVisitDocumentsUrl } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
@@ -44,6 +47,12 @@ export const VIEW_FAX = 'View';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
 const GO_TO_ORDER = 'Go to Order';
+
+const PATIENT_REQUEST_ACTION: Record<string, { name: string; path: string }> = {
+  [PATIENT_REQUEST_TASK.code.prescriptionRefill]: { name: 'eRX', path: 'erx' },
+  [PATIENT_REQUEST_TASK.code.schoolWorkNote]: { name: 'Plan', path: 'plan' },
+  [PATIENT_REQUEST_TASK.code.followUp]: { name: 'Progress Note', path: 'review-and-sign' },
+};
 
 export const TASKS_PAGE_SIZE = 20;
 
@@ -61,11 +70,21 @@ const TASK_STATUSES_TO_EXCLUDE = [
 
 export interface TasksSearchParams {
   assignedTo?: string | null;
+  /** Comma-separated category codes; a task matches any of them. */
   category?: string | null;
+  /** Comma-separated location ids; a task matches any of them. */
   location?: string | null;
   status?: string | null;
   page?: number;
 }
+
+/** `a,b` -> `system|a,system|b`: a token search value matching any of the comma-separated codes within `system`. */
+const anyTokenInSystem = (system: string, codes: string): string =>
+  codes
+    .split(',')
+    .filter(Boolean)
+    .map((code) => `${system}|${code}`)
+    .join(',');
 
 export interface AssignTaskRequest {
   taskId: string;
@@ -225,7 +244,7 @@ export const useGetTasks = (
       if (category) {
         baseParams.push({
           name: 'group-identifier',
-          value: TASK_CATEGORY_IDENTIFIER + '|' + category,
+          value: anyTokenInSystem(TASK_CATEGORY_IDENTIFIER, category),
         });
       }
       if (status) {
@@ -261,14 +280,14 @@ export const useGetTasks = (
 
       if (location) {
         // Tasks with no location tag (e.g. inbound faxes) are location-agnostic and must NOT be
-        // hidden by the location filter. FHIR search can't express "location tag == X OR no
+        // hidden by the location filter. FHIR search can't express "location tag in (X, Y) OR no
         // location tag" in a single query, so we run two disjoint searches — tasks tagged with
-        // the selected location, and tasks with no location tag at all — and merge them.
+        // any selected location, and tasks with no location tag at all — and merge them.
         // To paginate the merged set correctly, fetch each stream through the end of the
         // requested page window, merge-sort, and slice out the page.
         const windowEnd = pageOffset + TASKS_PAGE_SIZE;
         const [tagged, untagged] = await Promise.all([
-          searchTasks([{ name: '_tag', value: TASK_LOCATION_SYSTEM + '|' + location }], windowEnd, 0),
+          searchTasks([{ name: '_tag', value: anyTokenInSystem(TASK_LOCATION_SYSTEM, location) }], windowEnd, 0),
           searchTasks([{ name: '_tag:not', value: TASK_LOCATION_SYSTEM + '|' }], windowEnd, 0),
         ]);
         const merged = mergeLocationFilteredTasks({ tagged, untagged, pageOffset, pageSize: TASKS_PAGE_SIZE });
@@ -490,6 +509,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     if (!link || !isFollowUp || !encounterId) return link;
     return `${link}?encounterId=${encounterId}`;
   };
+
   if (category === LAB_ORDER_TASK.category) {
     const code = getCoding(task.code, LAB_ORDER_TASK.system)?.code ?? '';
     const testName = getInputString(LAB_ORDER_TASK.input.testName, task);
@@ -515,6 +535,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
         link: addEncounterIdToLink(`/in-person/${appointmentId}/external-lab-orders/${serviceRequestId}/order-details`),
       };
     }
+
     if (
       serviceRequestId &&
       (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
@@ -526,6 +547,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
         link: addEncounterIdToLink(`/in-person/${appointmentId}/external-lab-orders/${serviceRequestId}/order-details`),
       };
     }
+
     if (code === LAB_ORDER_TASK.code.matchUnsolicitedResult) {
       const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
       title = `Match unsolicited test results${fullTestName ? ` for ${fullTestName}` : ''}${
@@ -537,6 +559,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
         link: `/unsolicited-results/${diagnosticReportId}/match`,
       };
     }
+
     if (
       diagnosticReportId &&
       (code === LAB_ORDER_TASK.code.reviewFinalResult ||
@@ -565,6 +588,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       }
     }
   }
+
   if (category === IN_HOUSE_LAB_TASK.category) {
     const code = getCoding(task.code, IN_HOUSE_LAB_TASK.system)?.code ?? '';
     const testName = getInputString(IN_HOUSE_LAB_TASK.input.testName, task);
@@ -586,6 +610,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       ),
     };
   }
+
   if (category.startsWith('manual')) {
     const providerName = getInputString(MANUAL_TASK.input.providerName, task);
     const patientReference = getInputReference(MANUAL_TASK.input.patient, task);
@@ -597,6 +622,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     // page with the Paperwork folder preselected, rather than the default
     // manual-task behaviour.
     const patientIdFromRef = patientReference?.reference?.split('/')?.[1];
+
     if (category === MANUAL_TASK.category.patientFollowUp && documentReferenceId && patientIdFromRef) {
       title =
         getInputString(MANUAL_TASK.input.title, task) ||
@@ -677,6 +703,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       };
     }
   }
+
   if (category === RADIOLOGY_TASK.category) {
     const patientName = getInputString(RADIOLOGY_TASK.input.patientName, task);
     const code = getCoding(task.code, RADIOLOGY_TASK.system)?.code ?? '';
@@ -701,6 +728,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       title = `Review Radiology Final Results ${studyTypeForTitle} for ${patientName}`;
     }
   }
+
   if (category === DME_TASK.category) {
     const code = getCoding(task.code, DME_TASK.system)?.code ?? '';
     const patientName = getInputString(DME_TASK.input.patientName, task);
@@ -721,12 +749,35 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       title = `Dispense ${itemName} for ${patientName}`;
     }
   }
+
   if (category === ERX_TASK.category) {
     const providerName = getInputString(ERX_TASK.input.providerName, task);
     title = `Provider ${providerName} has notifications in DoseSpot`;
     completable = true;
     action = { name: OPEN_DOSESPOT, link: '' };
   }
+
+  if (category === PATIENT_REQUEST_TASK.category) {
+    const code = getCoding(task.code, PATIENT_REQUEST_TASK.system)?.code ?? '';
+    const appointmentId = getInputString(MANUAL_TASK.input.appointmentId, task);
+    const patientId = getInputReference(MANUAL_TASK.input.patient, task)?.reference?.split('/')?.[1];
+    const visitAction = appointmentId ? PATIENT_REQUEST_ACTION[code] : undefined;
+
+    title = task.description ?? '';
+    subtitle = task.location?.display ?? '';
+    details = getInputString(MANUAL_TASK.input.details, task);
+    completable = true;
+
+    if (visitAction) {
+      action = {
+        name: visitAction.name,
+        link: addEncounterIdToLink(`/in-person/${appointmentId}/${visitAction.path}`),
+      };
+    } else if (patientId) {
+      action = { name: 'Patient Record', link: `/patient/${patientId}` };
+    }
+  }
+
   if (category === FAX_TASK.category) {
     const code = getCoding(task.code, FAX_TASK.system)?.code ?? '';
     const receivedDate = getInputString(FAX_TASK.input.receivedDate, task);
@@ -752,6 +803,22 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
         };
       }
     }
+    if (code === FAX_TASK.code.reviewInboundFax) {
+      title = task.description || 'Review fax';
+      subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;
+      completable = true;
+      const appointmentId = getInputString(FAX_TASK.input.appointmentId, task);
+      const patientId = getInputString(FAX_TASK.input.patientId, task);
+      const folderId = getInputString(FAX_TASK.input.folderId, task);
+      const link = appointmentId
+        ? addEncounterIdToLink(getVisitDocumentsUrl(appointmentId))
+        : patientId
+        ? `/patient/${patientId}/docs${folderId ? `?folderId=${encodeURIComponent(folderId)}` : ''}`
+        : undefined;
+      if (link) {
+        action = { name: VIEW_FAX, link };
+      }
+    }
   }
 
   return {
@@ -773,6 +840,14 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     createdById: getIdFromReference(task.requester?.reference, 'Practitioner'),
     alert: getAlertCode(task),
     completable: completable,
+    chat:
+      FEATURE_FLAGS.SUPPORT_CHAT_ENABLED && category === PATIENT_REQUEST_TASK.category
+        ? {
+            hasUnread: !!task.meta?.tag?.some(
+              (tag) => tag.system === SUPPORT_CHAT_UNREAD_TAG.system && tag.code === SUPPORT_CHAT_UNREAD_TAG.code
+            ),
+          }
+        : undefined,
   };
 }
 

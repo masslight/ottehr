@@ -303,14 +303,17 @@ export default function ProcedureCodes({
     const amountNum = parseFloat(formData.amount);
     if (isNaN(amountNum)) return;
 
-    const newKey = codeKey(formData.code, formData.modifier);
+    const code = formData.code.trim();
+    const modifier = formData.modifier.trim();
+    const description = formData.description.trim() || undefined;
+    const newKey = codeKey(code, modifier);
     const duplicate = procedureCodes.some((pc, idx) => idx !== editIndex && codeKey(pc.code, pc.modifier) === newKey);
     if (duplicate) {
       enqueueSnackbar(
-        `A procedure code with code ${formData.code}${
-          formData.modifier ? ` / modifier ${formData.modifier}` : ''
-        } already exists.`,
-        { variant: 'error' }
+        `A procedure code with code ${code}${modifier ? ` / modifier ${modifier}` : ''} already exists.`,
+        {
+          variant: 'error',
+        }
       );
       return;
     }
@@ -320,18 +323,18 @@ export default function ProcedureCodes({
         await updateCode({
           [idField]: feeSchedule.id,
           index: editIndex,
-          code: formData.code,
-          description: formData.description || undefined,
-          modifier: formData.modifier || undefined,
+          code,
+          description,
+          modifier: modifier || undefined,
           amount: amountNum,
         } as any);
         enqueueSnackbar('Procedure code updated', { variant: 'success' });
       } else {
         await addCode({
           [idField]: feeSchedule.id,
-          code: formData.code,
-          description: formData.description || undefined,
-          modifier: formData.modifier || undefined,
+          code,
+          description,
+          modifier: modifier || undefined,
           amount: amountNum,
         } as any);
         enqueueSnackbar('Procedure code added', { variant: 'success' });
@@ -871,7 +874,7 @@ export default function ProcedureCodes({
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!formData.code || !formData.amount || isSaving}
+            disabled={!formData.code.trim() || !formData.amount || isSaving}
             sx={{ textTransform: 'none' }}
             data-testid={dataTestIds.procedureCodes.saveButton}
           >

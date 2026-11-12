@@ -10,6 +10,8 @@ export interface PatientEncounterSearchOptions {
   // also bring back what getScheduleOwnerFromAppointmentOrEncounter picks the schedule owner from:
   // each appointment's actors, and its slot's schedule with that schedule's actor
   includeScheduleOwnerCandidates?: boolean;
+  // only this encounter, and only when it is the patient's (subject still constrains the search)
+  encounterId?: string;
 }
 
 export interface PatientEncountersAndAppointments {
@@ -26,6 +28,7 @@ export function encounterAndAppointmentSearchParams(
 ): { name: string; value: string }[] {
   return [
     { name: 'subject', value: `Patient/${patientId}` },
+    ...(options.encounterId ? [{ name: '_id', value: options.encounterId }] : []),
     { name: '_include', value: 'Encounter:appointment' },
     ...(options.includeScheduleOwnerCandidates
       ? [

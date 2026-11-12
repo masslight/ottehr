@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { commaFormattedName } from 'utils/lib/fhir/billing';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
@@ -48,6 +48,10 @@ const insuranceTypeRank = (type: BillingInsuranceType | undefined): number => {
   const idx = type ? INSURANCE_TYPE_ORDER.indexOf(type) : -1;
   return idx === -1 ? INSURANCE_TYPE_ORDER.length : idx;
 };
+
+const PATIENT_TABS = ['demographics', 'insurance', 'claims', 'payments'] as const;
+type PatientTab = (typeof PATIENT_TABS)[number];
+const isPatientTab = (value: string | null): value is PatientTab => PATIENT_TABS.includes(value as PatientTab);
 
 const PLAN_TYPE_OPTIONS = VALUE_SETS.insuranceTypeOptions;
 const planTypeLabel = (candidCode: string): string =>
@@ -130,7 +134,11 @@ export default function PatientDetail(): ReactElement {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState('1');
+  // kept in the URL so returning from a payment's details page lands back on the Payments tab
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab: PatientTab = isPatientTab(tabParam) ? tabParam : 'demographics';
+  const setTab = (next: PatientTab): void => setSearchParams({ tab: next }, { replace: true });
   const [patient, refetch] = usePatient({ id: id!, onLoading: setLoading, onError: setError });
 
   const savePatient = useCallback(
@@ -202,21 +210,21 @@ export default function PatientDetail(): ReactElement {
               '& .MuiTab-root': { textTransform: 'none', fontWeight: 500, fontSize: 14 },
             }}
           >
-            <Tab label="Demographics" value="1" />
-            <Tab label="Insurance" value="2" />
-            <Tab label="Claims" value="3" />
-            <Tab label="Payments" value="4" />
+            <Tab label="Demographics" value="demographics" />
+            <Tab label="Insurance" value="insurance" />
+            <Tab label="Claims" value="claims" />
+            <Tab label="Payments" value="payments" />
           </TabList>
 
-          <TabPanel value="1" sx={{ px: 0, pt: 2 }}>
+          <TabPanel value="demographics" sx={{ px: 0, pt: 2 }}>
             <PatientDemographicsSection patient={patient} onSave={savePatient} />
           </TabPanel>
 
-          <TabPanel value="2" sx={{ px: 0, pt: 2 }}>
+          <TabPanel value="insurance" sx={{ px: 0, pt: 2 }}>
             <InsuranceTab patientId={patient.id} />
           </TabPanel>
 
-          <TabPanel value="3" sx={{ px: 0, pt: 2 }}>
+          <TabPanel value="claims" sx={{ px: 0, pt: 2 }}>
             <DataGridPro
               rows={patient.claims}
               columns={claimColumns}
@@ -231,7 +239,7 @@ export default function PatientDetail(): ReactElement {
             />
           </TabPanel>
 
-          <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
+          <TabPanel value="payments" sx={{ px: 0, pt: 2 }}>
             <PatientPaymentsTab key={patient.id} patientId={patient.id} />
           </TabPanel>
         </TabContext>

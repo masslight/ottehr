@@ -21,7 +21,18 @@ export const BillingBaseRowSchema = z.object({
         "follow-up row carries its visit's option. Null when not chosen."
     ),
   // --- Patient ---
-  patientId: z.string().describe('Patient id; rows are per-encounter, so count UNIQUE patientId for a patient count.'),
+  patientId: z
+    .string()
+    .describe(
+      'Patient id (internal UUID); rows are per-encounter, so count UNIQUE patientId for a patient count. Display ' +
+        'friendlyPatientId instead unless asked for the UUID.'
+    ),
+  friendlyPatientId: z
+    .string()
+    .describe(
+      'Human-readable patient id (PID) shown in the EHR patient header — the "friendly" / short patient id. Use ' +
+        'it whenever the user asks to display a patient id / PID. "" when the patient has none.'
+    ),
   patientName: z.string().describe('Patient full name.'),
   dateOfBirth: z.string().nullable().describe('Patient date of birth (yyyy-MM-dd).'),
   sex: z.string().describe('Patient sex/gender label.'),

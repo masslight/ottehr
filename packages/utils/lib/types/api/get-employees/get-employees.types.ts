@@ -12,7 +12,6 @@ export interface EmployeeDetails {
   status: 'Active' | 'Deactivated';
   lastLogin?: string;
   licenses: PractitionerLicense[];
-  seenPatientRecently: boolean;
   gettingAlerts: boolean;
   /**
    * Every assignable role the user holds. `Inactive` is deliberately absent — it is reported as

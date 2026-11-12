@@ -36,7 +36,7 @@ import {
   ClaimStatusFieldKey,
   isValidClaimStatusValue,
 } from './claim-status';
-import { RULES_ENGINE_SUBMISSION_INSURANCES, RULES_ENGINE_SUBMISSION_TYPES } from './rules-engine.constants';
+import { RULES_ENGINE_INSURANCES, RULES_ENGINE_SUBMISSION_TYPES } from './rules-engine.constants';
 
 const nonEmptyString = z.string().trim().min(1);
 const nonNegativeInt = z.number().int().nonnegative();
@@ -76,14 +76,14 @@ export const AddClaimNoteInputSchema = z.object({
 export const ExportClaimX12InputSchema = z.object({
   claimId: z.string().uuid(),
   submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES).optional(),
-  submissionInsurance: z.enum(RULES_ENGINE_SUBMISSION_INSURANCES).optional(),
+  submissionInsurance: z.enum(RULES_ENGINE_INSURANCES).optional(),
   payerClaimControlNumber: z.string().min(1).optional(),
 });
 
 export const GetClaimCms1500InputSchema = z.object({
   claimId: z.string().uuid(),
   submissionType: z.enum(RULES_ENGINE_SUBMISSION_TYPES).optional(),
-  submissionInsurance: z.enum(RULES_ENGINE_SUBMISSION_INSURANCES).optional(),
+  submissionInsurance: z.enum(RULES_ENGINE_INSURANCES).optional(),
   payerClaimControlNumber: z.string().min(1).optional(),
 });
 
@@ -540,7 +540,7 @@ export const CreateBillingCoverageInputSchema = z
     patientId: nonEmptyString,
     payerId: nonEmptyString,
     memberId: nonEmptyString,
-    groupNumber: z.string().optional(),
+    groupNumber: z.string().trim().optional(),
     insuranceType: insuranceTypeSchema.optional(),
     planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema,
@@ -562,7 +562,7 @@ export const UpdateBillingCoverageInputSchema = z
     claimId: historyClaimId,
     payerId: nonEmptyString.optional(),
     memberId: nonEmptyString.optional(),
-    groupNumber: z.string().optional(),
+    groupNumber: z.string().trim().optional(),
     insuranceType: insuranceTypeSchema.optional(),
     planType: nonEmptyString.optional(),
     relationship: subscriberRelationshipSchema.optional(),
@@ -969,6 +969,14 @@ export const ListBillingPatientPaymentsInputSchema = z.object({
 // every payment on a billing patient's account, across their visits
 export const ListBillingPatientAccountPaymentsInputSchema = z.object({
   patientId: nonEmptyString,
+});
+
+export const GetBillingPatientAccountPaymentInputSchema = z.object({
+  patientId: nonEmptyString,
+  // the visit the payment was taken on
+  encounterId: nonEmptyString,
+  // the payment's PaymentNotice id (BillingPatientAccountPayment.fhirPaymentNotificationId)
+  paymentId: nonEmptyString,
 });
 
 // client key, stable across retries of one logical payment; embedded in a FHIR token search

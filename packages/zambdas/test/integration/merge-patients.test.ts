@@ -733,14 +733,26 @@ describe('merge-patients integration tests', () => {
       expect(subjectRefs).not.toContain(`Patient/${otherResources.patient.id}`);
     });
 
-    it('should merge coverages from both patients into the surviving PBILLACCT', async () => {
+    it('should keep the main coverage on the surviving PBILLACCT and drop the competing one', async () => {
+      // Both fixtures use priority 1, so the merged-away coverage competes with main's slot
       const updated = await oystehrAdmin.fhir.get<Account>({
         resourceType: 'Account',
         id: mainPbillId,
       });
       const refs = (updated.coverage ?? []).map((c) => c.coverage?.reference);
       expect(refs).toContain(`Coverage/${mainCoverageId}`);
-      expect(refs).toContain(`Coverage/${otherCoverageId}`);
+      expect(refs).not.toContain(`Coverage/${otherCoverageId}`);
+    });
+
+    it('should cancel the transferred competing Coverage and keep the main one active', async () => {
+      const [mainCov, otherCov] = await Promise.all([
+        oystehrAdmin.fhir.get<Coverage>({ resourceType: 'Coverage', id: mainCoverageId }),
+        oystehrAdmin.fhir.get<Coverage>({ resourceType: 'Coverage', id: otherCoverageId }),
+      ]);
+      expect(mainCov.status).toEqual('active');
+      expect(otherCov.status).toEqual('cancelled');
+      // still transferred to the main patient
+      expect(otherCov.beneficiary?.reference).toEqual(`Patient/${mainResources.patient.id}`);
     });
 
     it('should redirect Encounter.account references from the consolidated old account to the main one', async () => {

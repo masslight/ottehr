@@ -31,6 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   complexValidation(params);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- task rows show the clinical encounter, appointment and patient
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const response = await performEffect(oystehr, clinicalOystehr, params);

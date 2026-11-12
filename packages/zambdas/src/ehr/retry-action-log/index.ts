@@ -8,13 +8,13 @@ import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
-  getOutboundDeliveryFaxPacketSnapshot,
+  getOutboundDeliveryPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
+  isDocumentLinkAttempt,
   makeOutboundDeliveryAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -81,9 +81,9 @@ export async function performEffect(
     getIdFromReference(original.for?.reference, 'Patient'),
     'patient reference'
   );
-  const appointmentId = removePrefix('Appointment/', original.focus?.reference ?? '') || undefined;
+  const appointmentId = getIdFromReference(original.focus?.reference, 'Appointment');
   const recipient = getOutboundDeliveryRecipientSnapshot(original);
-  const faxPacket = getOutboundDeliveryFaxPacketSnapshot(original);
+  const packetSnapshot = getOutboundDeliveryPacketSnapshot(original);
   const recipientAddress = requireOutboundDeliveryValue(recipient.address, 'recipient address');
   const recipientName = recipient.name;
   const documentReference = await resolveDocumentReference(original, appointmentId, oystehr);
@@ -110,8 +110,8 @@ export async function performEffect(
       recipientName,
       recipientOrganization: recipient.organization,
       recipientPhone: recipient.phone,
-      faxPacketPageCount: faxPacket.pageCount,
-      faxPacketParts: faxPacket.parts,
+      packetPageCount: packetSnapshot.pageCount,
+      packetParts: packetSnapshot.parts,
       parentAttemptId: originalId,
       senderId: user.id,
     };
@@ -125,8 +125,8 @@ export async function performEffect(
         recipientName,
         recipientOrganization: recipient.organization,
         recipientPhone: recipient.phone,
-        faxPacketPageCount: faxPacket.pageCount,
-        faxPacketParts: faxPacket.parts,
+        packetPageCount: packetSnapshot.pageCount,
+        packetParts: packetSnapshot.parts,
         documentReferenceId,
         requesterReference,
         senderOrganizationReference: `Organization/${organizationId}`,
@@ -205,6 +205,8 @@ export async function hasRetryChild(attemptId: string, oystehr: Oystehr): Promis
 }
 
 export async function isRetryable(task: Task, channel: 'fax' | 'email', oystehr: Oystehr): Promise<boolean> {
+  // A failed link email is usually a bad address; it is sent again from the Send dialog, not retried.
+  if (isDocumentLinkAttempt(task)) return false;
   if (channel === 'email') return task.status === 'failed';
   const communicationId = getOutboundDeliveryRecipientSnapshot(task).communicationId;
   if (!communicationId) return task.status === 'failed';

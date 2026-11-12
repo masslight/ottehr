@@ -3,6 +3,7 @@ import {
   Extension,
   Questionnaire,
   QuestionnaireItem,
+  QuestionnaireItemAnswerOption,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
@@ -15,6 +16,7 @@ import {
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
 } from '../../fhir/constants';
+import { sanitizeStringForFhirCode } from '../../fhir/helpers';
 import { flattenIntakeQuestionnaireItems } from '../../types/data/paperwork/paperwork.types';
 import {
   DataTypeSchema,
@@ -94,10 +96,10 @@ const PracticeManagedQuestionnaireItemToFhir = (
 const omitManagedFields = (item: PracticeManagedQuestionnaireItem, preview: boolean): QuestionnaireItem | undefined => {
   // the front end reducer automatically assigns text as an empty string to make updates easier
   // this is technically valid for typescript but if you send the object to oystehr for create or update with an empty string it will error
-  if (item.text === '') delete item.text;
+  if (!item.text?.trim()) delete item.text;
 
   if (!preview && item.answerOption) {
-    item.answerOption = item.answerOption.filter((option) => Object.values(option).some((value) => value !== ''));
+    item.answerOption = item.answerOption.map(withoutBlankCodingParts).filter(hasAnswerValue);
 
     if (item.answerOption.length === 0) {
       // an item with no valid answer options left is not usable; drop it from its parent's item array
@@ -109,6 +111,29 @@ const omitManagedFields = (item: PracticeManagedQuestionnaireItem, preview: bool
 
   return fhirItem;
 };
+
+const withoutBlankCodingParts = (option: QuestionnaireItemAnswerOption): QuestionnaireItemAnswerOption => {
+  if (!option.valueCoding) return option;
+  const { code: rawCode, display, ...rest } = option.valueCoding;
+  const code = rawCode ? sanitizeStringForFhirCode(rawCode) : undefined;
+  const valueCoding = { ...rest, ...(code && { code }), ...(display?.trim() && { display }) };
+  return { ...option, valueCoding: valueCoding.code || valueCoding.display ? valueCoding : undefined };
+};
+
+const ANSWER_OPTION_VALUE_KEYS = [
+  'valueInteger',
+  'valueDate',
+  'valueTime',
+  'valueString',
+  'valueCoding',
+  'valueReference',
+] as const;
+
+const hasAnswerValue = (option: QuestionnaireItemAnswerOption): boolean =>
+  ANSWER_OPTION_VALUE_KEYS.some((key) => {
+    const value = option[key];
+    return typeof value === 'string' ? value.trim() !== '' : value != null;
+  });
 
 const addPracticeManagedQuestionnaireTag = (
   questionnaire: Questionnaire | PracticeManagedQuestionnaire
