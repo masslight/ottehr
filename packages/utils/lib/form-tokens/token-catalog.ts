@@ -282,6 +282,8 @@ const CATALOG = [
     type: 'number',
     description: 'The inches part of a feet-and-inches height, for forms that split the two.',
   },
+  { key: 'vitals.headCircumferenceCm', label: 'Head circumference (cm)', group: 'Vitals', type: 'number' },
+  { key: 'vitals.headCircumferenceInches', label: 'Head circumference (inches)', group: 'Vitals', type: 'number' },
   { key: 'vitals.weightKg', label: 'Weight (kg)', group: 'Vitals', type: 'number' },
   { key: 'vitals.weightLbs', label: 'Weight (lbs)', group: 'Vitals', type: 'number' },
   { key: 'vitals.temperatureC', label: 'Temperature (°C)', group: 'Vitals', type: 'number' },

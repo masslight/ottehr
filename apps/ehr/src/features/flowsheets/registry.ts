@@ -32,6 +32,7 @@ const vitals: FlowsheetDefinition = {
     { label: 'Blood pressure (mmHg)', keys: ['systolic', 'diastolic'], digits: 0 },
     { label: 'Weight (kg)', keys: ['weight'], digits: 1 },
     { label: 'Height (cm)', keys: ['height'], digits: 1 },
+    { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
     { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1 },
   ],
   charts: [
@@ -48,6 +49,27 @@ const vitals: FlowsheetDefinition = {
       ],
     },
   ],
+};
+
+// Percentiles are WHO (birth to 24 months) / CDC (2 to 20 years) for the patient's sex; BMI is computed from the
+// visit's weight and height. Percentile rows are text ("88th", "<1st", "implausible") computed by the server. The
+// growth chart cards (GrowthCharts.tsx) take the place of trend charts, from the server's growth data.
+const growth: FlowsheetDefinition = {
+  id: 'growth',
+  title: 'Growth',
+  rows: [
+    { label: 'Age', keys: ['age'] },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
+    { label: 'Weight percentile', keys: ['weightPercentile'] },
+    { label: 'Height / length (cm)', keys: ['height'], digits: 1 },
+    { label: 'Height / length percentile', keys: ['heightPercentile'] },
+    { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1 },
+    { label: 'BMI percentile', keys: ['bmiPercentile'] },
+    { label: 'Weight-for-length percentile', keys: ['weightForLengthPercentile'] },
+    { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
+    { label: 'Head circumference percentile', keys: ['headCircumferencePercentile'] },
+  ],
+  charts: [],
 };
 
 // Lab rows carry no unit in the label and no rounding: the value and unit are shown as the lab saved them.
@@ -97,6 +119,6 @@ const newbornBilirubin: FlowsheetDefinition = {
 };
 
 /** Every flowsheet the EHR offers, in side-list (alphabetical) order. */
-export const FLOWSHEETS: FlowsheetDefinition[] = [newbornBilirubin, thyroid, vitals].sort((a, b) =>
+export const FLOWSHEETS: FlowsheetDefinition[] = [growth, newbornBilirubin, thyroid, vitals].sort((a, b) =>
   a.title.localeCompare(b.title)
 );

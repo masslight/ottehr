@@ -1467,6 +1467,13 @@ function buildVitalsObservations(vitals: VisitScenario['vitals']): unknown[] {
   if (vitals.height) {
     out.push({ field: 'vital-height', value: vitals.height.value, unit: vitals.height.unit ?? 'cm' });
   }
+  if (vitals.headCircumference) {
+    out.push({
+      field: 'vital-head-circumference',
+      value: vitals.headCircumference.value,
+      unit: vitals.headCircumference.unit ?? 'cm',
+    });
+  }
   return out;
 }
 

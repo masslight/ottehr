@@ -2,6 +2,7 @@ import { VitalFieldNames } from './chart-data.constants';
 import {
   VitalsBloodPressureObservationDTO,
   VitalsBMIObservationDTO,
+  VitalsHeadCircumferenceObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -20,6 +21,7 @@ export type GetVitalsResponseData = {
   [VitalFieldNames.VitalOxygenSaturation]: VitalsOxygenSatObservationDTO[];
   [VitalFieldNames.VitalWeight]: VitalsWeightObservationDTO[];
   [VitalFieldNames.VitalHeight]: VitalsHeightObservationDTO[];
+  [VitalFieldNames.VitalHeadCircumference]: VitalsHeadCircumferenceObservationDTO[];
   [VitalFieldNames.VitalBMI]: VitalsBMIObservationDTO[];
   [VitalFieldNames.VitalVision]: VitalsVisionObservationDTO[];
   [VitalFieldNames.VitalLastMenstrualPeriod]: VitalsLastMenstrualPeriodObservationDTO[];

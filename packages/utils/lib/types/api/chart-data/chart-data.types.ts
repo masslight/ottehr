@@ -258,6 +258,11 @@ export interface VitalsHeightObservationDTO extends VitalsNumericValueObservatio
   field: Extract<VitalFieldNames, 'vital-height'>;
 }
 
+/** Head circumference in cm. */
+export interface VitalsHeadCircumferenceObservationDTO extends VitalsNumericValueObservationDTO {
+  field: Extract<VitalFieldNames, 'vital-head-circumference'>;
+}
+
 export interface VitalsBMIObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-bmi'>;
 }
@@ -349,6 +354,7 @@ export type VitalsObservationDTO =
   | VitalsRespirationRateObservationDTO
   | VitalsWeightObservationDTO
   | VitalsHeightObservationDTO
+  | VitalsHeadCircumferenceObservationDTO
   | VitalsBMIObservationDTO
   | VitalsVisionObservationDTO
   | VitalsLastMenstrualPeriodObservationDTO;
