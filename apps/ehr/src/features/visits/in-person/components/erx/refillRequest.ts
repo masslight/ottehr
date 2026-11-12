@@ -5,11 +5,16 @@ import {
   PrescriptionOrderMetadata,
   RenewalResponseInput,
 } from 'utils/lib/types/api/erx.types';
-import { COMPOUND_DOSAGE_FORMS, OrderPrescriptionInput } from 'utils/lib/types/api/order-prescription.types';
+import {
+  COMPOUND_DOSAGE_FORMS,
+  OrderPrescriptionInput,
+  PrescriptionVitals,
+} from 'utils/lib/types/api/order-prescription.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import {
   applyPrescriptionQuickPick,
   asciiFractions,
+  compoundDetailsText,
   emptyPrescriptionLine,
   hasDirectionsBlanks,
   isQuantityUnit,
@@ -31,6 +36,10 @@ const sameSig = (requested: string, sent: string | undefined): boolean => {
 const allowedText = (allowed: boolean | undefined): string | undefined =>
   allowed === undefined ? undefined : allowed ? 'Allowed' : 'Not allowed';
 
+/** A medication as the prescription history reads one: a compound with its dosage form and ingredients. */
+const medicationText = (name: string | undefined, compound: RequestedMedication['compound']): string | undefined =>
+  compound ? `Compound: ${name ?? compound.description ?? ''} · ${compoundDetailsText(compound)}` : name;
+
 /** One line of the request beside the original prescription. Either side is undefined when it has nothing there. */
 export interface RequestRow {
   label: string;
@@ -42,8 +51,8 @@ export interface RequestRow {
 /**
  * The pharmacy's request beside the original prescription. The request side holds only what the pharmacy sent: a
  * field it left out is undefined, never 0 and never the original's (S.207). A row differs when both sides have a
- * value and they don't read the same; the medication only when its NDC differs too, and a quantity sent with no unit by
- * its value.
+ * value and they don't read the same; the medication only when its NDC differs too (a compound by what it holds), and a
+ * quantity sent with no unit by its value.
  */
 export const requestRows = (request: RequestedMedication, prescription: PrescribedMedicationDTO): RequestRow[] => {
   const order = prescription.order ?? {};
@@ -53,7 +62,11 @@ export const requestRows = (request: RequestedMedication, prescription: Prescrib
     original,
     differs: requested !== undefined && original !== undefined && requested !== original,
   });
-  const medication = row('Medication', request.description, prescription.name);
+  const medication = row(
+    'Medication',
+    medicationText(request.description, request.compound),
+    medicationText(prescription.name, order.compound)
+  );
   const quantity = row(
     'Quantity',
     quantityText(request.quantityValue, request.quantityUnit),
@@ -62,7 +75,11 @@ export const requestRows = (request: RequestedMedication, prescription: Prescrib
   return [
     {
       ...medication,
-      differs: medication.differs && request.ndc !== undefined && order.ndc !== undefined && request.ndc !== order.ndc,
+      differs:
+        medication.differs &&
+        (!!request.compound ||
+          !!order.compound ||
+          (request.ndc !== undefined && order.ndc !== undefined && request.ndc !== order.ndc)),
     },
     request.quantityUnit === undefined
       ? { ...quantity, differs: row('', request.quantityValue?.toString(), order.quantityValue?.toString()).differs }
@@ -88,7 +105,8 @@ export const requestRows = (request: RequestedMedication, prescription: Prescrib
 /**
  * The prescription the order form starts with when the provider answers with a new one: what the pharmacy sent
  * where it sent it, else the original prescription's, since the provider writes the whole prescription again; for
- * another product, never the original's directions, quantity or note to pharmacy. The
+ * another product, never the original's directions, quantity or note to pharmacy. A compound the pharmacy sent is
+ * held as the original's would be: the provider can't change its ingredients in answer to a request. The
  * diagnosis is always the original's (a request has none). A renewal's fills are the first fill plus its refills.
  * The original's directions blanks (`metadata`) fill the form again when the medication is still its product and the
  * pharmacy sent our directions back (or none); its stored details go with them, so the sentence reads as it did.
@@ -102,7 +120,7 @@ export const refillLine = (
   const order = prescription.order ?? {};
   // The unit goes with the quantity it came with: a request's own, else empty for the provider, never the original's.
   const unit = request ? request.quantityUnit : order.quantityUnit;
-  const compound = request ? undefined : order.compound;
+  const compound = request ? request.compound : order.compound;
   // The original's directions, quantity and note were written for its product, never for another one: by NDC, else
   // by name.
   const sameProduct =
@@ -159,12 +177,13 @@ export const refillLine = (
     : started;
 };
 
-/** "Change": the renewal response approving the prescription the order form holds. Its fills are the
- * first fill plus the refills written; the eRx service sends what differs from the request as the changes, and keeps
- * the order's blanks (`metadata`) on the new prescription as it would a new order's. */
+/** "Change": the renewal response approving the prescription the order form holds, with the vitals its order sends.
+ * Its fills are the first fill plus the refills written; the eRx service sends what differs from the request as the
+ * changes, and keeps the order's blanks (`metadata`) on the new prescription as it would a new order's. */
 export const renewalApproval = (
   renewalTaskId: string,
-  line: PrescriptionLine
+  line: PrescriptionLine,
+  vitals?: PrescriptionVitals
 ): Extract<RenewalResponseInput, { decision: 'approve' }> => {
   const order = answerOrder(line);
   if (order.numberOfRefills > 98) throw new Error('Refills must be 98 or fewer in answer to a refill request.');
@@ -174,6 +193,7 @@ export const renewalApproval = (
     numberOfRefills: order.numberOfRefills + 1,
     changes: orderChanges(order),
     ...(order.metadata ? { metadata: order.metadata } : {}),
+    ...(vitals ? { vitals } : {}),
   };
 };
 
@@ -183,24 +203,22 @@ export const renewalApproval = (
 export const approvalMetadata = (line: PrescriptionLine): PrescriptionOrderMetadata | undefined =>
   line.medication && hasDirectionsBlanks(line) ? prescriptionLineMetadata(line) : undefined;
 
-/** The prescription the order form holds, in answer to a pharmacy's request, which can't be a compound. */
-const answerOrder = (line: PrescriptionLine): OrderPrescriptionInput => {
-  if (line.compound) throw new Error('A compound can’t be sent in answer to a pharmacy’s request.');
-  return prescriptionLineToOrder(line, {
+/** The prescription the order form holds, in answer to a pharmacy's request. */
+const answerOrder = (line: PrescriptionLine): OrderPrescriptionInput =>
+  prescriptionLineToOrder(line, {
     patientId: '',
     practitionerId: '',
     encounterId: '',
     pharmacy: { ncpdpId: '', npi: '', name: '', phone: '', address: '' },
-    writtenDate: '',
   });
-};
 
-/** The whole prescription as the changes: the eRx service sends only what differs from what was asked. */
+/** The whole prescription as the changes, a product's NDC or a compound: the eRx service sends only what differs from
+ * what was asked. */
 const orderChanges = (
   order: OrderPrescriptionInput
 ): NonNullable<Extract<RenewalResponseInput, { decision: 'approve' }>['changes']> => ({
   medicationDescription: order.medicationDescription,
-  ndc: order.ndc,
+  ...(order.compound ? { compound: order.compound } : { ndc: order.ndc }),
   quantityValue: order.quantityValue,
   quantityUnit: order.quantityUnit,
   daysSupply: order.daysSupply,
@@ -210,11 +228,13 @@ const orderChanges = (
 });
 
 /** "Change" of a change request: the prescription the order form holds, over the selected suggestion
- * (none when the pharmacy sent none). The eRx service picks Approved or ApprovedWithChanges. */
+ * (none when the pharmacy sent none), with the vitals its order sends. The eRx service picks Approved or
+ * ApprovedWithChanges. */
 export const changeApproval = (
   changeTaskId: string,
   suggestion: number | undefined,
-  line: PrescriptionLine
+  line: PrescriptionLine,
+  vitals?: PrescriptionVitals
 ): Extract<ChangeResponseInput, { decision: 'approve' }> => {
   const order = answerOrder(line);
   return {
@@ -223,16 +243,18 @@ export const changeApproval = (
     requestedMedicationIndex: suggestion,
     changes: { ...orderChanges(order), numberOfRefills: order.numberOfRefills },
     ...(order.metadata ? { metadata: order.metadata } : {}),
+    ...(vitals ? { vitals } : {}),
   };
 };
 
 /** A change request's answer given in the dialog: the selected suggestion approved as the pharmacy sent it (none
  * for a drug-use alert approved as written), a prior authorization request approved with its number, or a denial or
- * pending answer with its reason. An approval keeps the blanks given (`approvalMetadata`) on the new prescription. */
+ * pending answer with its reason. An approval keeps the blanks given (`approvalMetadata`) on the new prescription, and
+ * sends the patient's vitals. */
 export const changeResponse = (
   changeTaskId: string,
   decision: 'approve' | 'deny' | 'pending',
-  { suggestion, priorAuthorization, reason, note, metadata }: ChangeAnswerDetails
+  { suggestion, priorAuthorization, reason, note, metadata, vitals }: ChangeAnswerDetails
 ): ChangeResponseInput => {
   if (decision === 'approve') {
     return {
@@ -245,6 +267,7 @@ export const changeResponse = (
         ? { requestedMedicationIndex: suggestion }
         : {}),
       ...(metadata ? { metadata } : {}),
+      ...(vitals ? { vitals } : {}),
     };
   }
   return {
@@ -263,11 +286,14 @@ interface ChangeAnswerDetails {
   note?: string;
   /** The blanks the new prescription keeps, for an approval */
   metadata?: PrescriptionOrderMetadata;
+  vitals?: PrescriptionVitals;
 }
 
-/** A suggestion's line under its name, only what the pharmacy sent: "30 capsules · Take 1 … · 30 days · 2 refills". */
+/** A suggestion's line under its name, only what the pharmacy sent: "30 capsules · Take 1 … · 30 days · 2 refills",
+ * after a compound's dosage form and ingredients. */
 export const suggestionText = (suggestion: RequestedMedication): string =>
   [
+    suggestion.compound && compoundDetailsText(suggestion.compound),
     quantityText(suggestion.quantityValue, suggestion.quantityUnit),
     suggestion.sig,
     suggestion.daysSupply !== undefined && `${suggestion.daysSupply} days`,

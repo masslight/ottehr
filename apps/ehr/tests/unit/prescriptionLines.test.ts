@@ -470,7 +470,7 @@ describe('withDirections', () => {
 });
 
 describe('prescriptionLineToOrder', () => {
-  it('builds one order with the shared pharmacy and written date, without the on-screen-only fields', () => {
+  it('builds one order with the shared pharmacy, no written date and none of the on-screen-only fields', () => {
     expect(
       prescriptionLineToOrder(
         { ...complete(), dose: '1', frequency: 'twice daily', durationDays: '10', urgent: true },
@@ -479,7 +479,6 @@ describe('prescriptionLineToOrder', () => {
           practitionerId: 'practitioner-1',
           encounterId: 'encounter-1',
           pharmacy: PHARMACY,
-          writtenDate: '2026-10-07',
         }
       )
     ).toEqual({
@@ -491,7 +490,6 @@ describe('prescriptionLineToOrder', () => {
       quantityValue: 20,
       quantityUnit: 'Capsule',
       daysSupply: 10,
-      writtenDate: '2026-10-07',
       substitutionAllowed: true,
       numberOfRefills: 0,
       patientInstructions: 'Take 1 capsule by mouth twice daily for 10 days.',
@@ -520,7 +518,6 @@ describe('prescriptionLineToOrder', () => {
       practitionerId: 'practitioner-1',
       encounterId: 'encounter-1',
       pharmacy: PHARMACY,
-      writtenDate: '2026-10-07',
     };
     expect(line.patientInstructions).toBe('Take ½ tablet by mouth twice daily for 10 days.');
     expect(prescriptionLineToOrder(line, context).patientInstructions).toBe(
@@ -985,7 +982,6 @@ describe('a product and a compound on one line', () => {
         practitionerId: 'practitioner-1',
         encounterId: 'encounter-1',
         pharmacy: PHARMACY,
-        writtenDate: '2026-10-28',
       }
     );
     expect(order).toMatchObject({ ndc: '00093310701' });
@@ -1277,7 +1273,6 @@ describe('the blanks kept on the prescription for a re-fill (metadata)', () => {
     practitionerId: 'practitioner-1',
     encounterId: 'encounter-1',
     pharmacy: PHARMACY,
-    writtenDate: '2026-10-07',
   };
   const dosing = { rate: 25, basis: 'mg/kg/dose' as const, maxPerDoseMg: 500 };
   // The blanks wrote the directions, with the calculator's dose and a note after the sentence.

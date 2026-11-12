@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   respondToChange: vi.fn(),
   respondToRenewal: vi.fn(),
   completeTask: vi.fn(),
+  height: undefined as { cm: number; takenAt?: string } | undefined,
+  weight: undefined as { kg: number; takenAt?: string; thisVisit: boolean } | undefined,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -21,6 +23,10 @@ vi.mock('src/api/api', () => ({
 }));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 vi.mock('src/hooks/useAuthToken', () => ({ useAuthToken: () => 'user-token' }));
+vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () => ({
+  useVisitWeight: () => mocks.weight,
+  useVisitHeight: () => mocks.height,
+}));
 vi.mock('../../src/features/visits/in-person/hooks/useTasks', () => ({
   GET_TASKS_KEY: 'get-tasks',
   useCompleteErxTask: () => ({ mutateAsync: mocks.completeTask }),
@@ -99,6 +105,8 @@ const original = (): HTMLElement => screen.getByText(/^Original prescription/).p
 describe('Change request dialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.height = undefined;
+    mocks.weight = undefined;
     mocks.respondToChange.mockResolvedValue({
       taskId: 'change-1',
       messageId: 'm',
@@ -143,6 +151,40 @@ describe('Change request dialog', () => {
       expect(enqueueSnackbar).toHaveBeenCalledWith('Approval sent to CVS Pharmacy #7741', { variant: 'success' })
     );
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('approves a suggestion with the vitals’ weight alone, and shows a suggested compound', async () => {
+    mocks.weight = { kg: 70.5, takenAt: '2026-09-14T15:00:00Z', thisVisit: false };
+    const user = await open({
+      ...OUT_OF_STOCK,
+      pharmacyChangeRequest: {
+        ...OUT_OF_STOCK.pharmacyChangeRequest!,
+        suggestions: [
+          {
+            description: 'Lansoprazole suspension',
+            compound: {
+              description: 'Lansoprazole suspension',
+              dosageForm: 'Suspension',
+              ingredients: [{ description: 'Lansoprazole', amount: { value: 300, unit: 'Milligram' } }],
+            },
+            quantityValue: 100,
+            quantityUnit: 'Milliliter',
+          },
+        ],
+      },
+    });
+    const suggestions = screen.getByText('Pharmacy’s suggestion').parentElement!;
+    expect(within(suggestions).getByText('Compound: Lansoprazole suspension')).toBeInTheDocument();
+    expect(
+      within(suggestions).getByText('Suspension · Lansoprazole 300 milligrams · 100 milliliters')
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    await waitFor(() => expect(mocks.respondToChange).toHaveBeenCalled());
+    expect(mocks.respondToChange.mock.calls[0][1]).toMatchObject({
+      requestedMedicationIndex: 0,
+      vitals: { weight: { value: 70.5, unit: 'kg', measuredDate: '2026-09-14' } },
+    });
+    expect(mocks.respondToChange.mock.calls[0][1].vitals).not.toHaveProperty('height');
   });
 
   it('offers Pending on every change request', async () => {

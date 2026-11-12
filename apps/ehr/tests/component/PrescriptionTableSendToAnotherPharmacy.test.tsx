@@ -158,7 +158,6 @@ const pickPharmacyAndSend = async (user: ReturnType<typeof userEvent.setup>): Pr
   await user.click(within(dialog).getByRole('button', { name: 'Send to pharmacy' }));
 };
 
-const TODAY = DateTime.local().toISODate();
 const newOrder = (item: PrescribedMedicationDTO): Record<string, unknown> => ({
   patientId: 'patient-1',
   practitionerId: 'practitioner-1',
@@ -167,7 +166,6 @@ const newOrder = (item: PrescribedMedicationDTO): Record<string, unknown> => ({
   medicationDescription: item.order!.medicationDescription,
   quantityValue: 250,
   quantityUnit: 'Milliliter',
-  writtenDate: TODAY,
   substitutionAllowed: false,
   numberOfRefills: 1,
   patientInstructions: item.instructions,

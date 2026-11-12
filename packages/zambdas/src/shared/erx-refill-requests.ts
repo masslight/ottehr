@@ -14,6 +14,7 @@ import {
   ErxPharmacyRefillRequest,
   GetErxRequestResponse,
 } from 'utils/lib/types/api/erx.types';
+import { CompoundOrder, QUANTITY_UNITS } from 'utils/lib/types/api/order-prescription.types';
 import { ERX_TASK, getTaskInputValue, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { makePrescribedMedicationDTO, readPrescriptionMetadata } from './chart-data';
@@ -36,11 +37,18 @@ const messageId = (task: Task): string | undefined =>
 export const renewalInput = (renewalTask: Task, code: string): NonNullable<Task['input']>[number] | undefined =>
   renewalTask.input?.find((input) => getCoding(input.type, ERX_REQUEST_TASK_INPUT_SYSTEM)?.code === code);
 
-/** What a change of the renewal or change Task means for its Ottehr task: one is made while the request is open, and it is
- * completed once the eRx service closes the request (answered, withdrawn or expired). When the pharmacy asks again
- * after its task was closed unanswered, a new one is made for the newest request. */
-export const refillRequestTaskAction = (renewalTask: Task, ottehrTasks: Task[]): 'create' | 'complete' | undefined => {
-  if (!isOpen(renewalTask)) return ottehrTasks.some(isOpen) ? 'complete' : undefined;
+/** What a change of the renewal or change Task means for its Ottehr task: one is made while the request is open; it is
+ * cancelled once the pharmacy withdraws the request (the eRx service cancels its Task), and completed once the eRx
+ * service closes it otherwise (answered or expired). When the pharmacy asks again after its task was closed
+ * unanswered, a new one is made for the newest request. */
+export const refillRequestTaskAction = (
+  renewalTask: Task,
+  ottehrTasks: Task[]
+): 'create' | 'complete' | 'cancel' | undefined => {
+  if (!isOpen(renewalTask)) {
+    if (!ottehrTasks.some(isOpen)) return undefined;
+    return renewalTask.status === 'cancelled' ? 'cancel' : 'complete';
+  }
   if (!ottehrTasks.length) return 'create';
   const newest = messageId(renewalTask);
   return newest && !ottehrTasks.some(isOpen) && !ottehrTasks.some((task) => messageId(task) === newest)
@@ -99,7 +107,7 @@ export const makeErxRequestTask = (
   return task;
 };
 
-/** Makes or completes the Ottehr task of a renewal or change Task (`refillRequestTaskAction`). */
+/** Makes, completes or cancels the Ottehr task of a renewal or change Task (`refillRequestTaskAction`). */
 export const syncErxRequestTask = async (oystehr: Oystehr, requestTask: Task): Promise<Task[]> => {
   const code = isChangeTask(requestTask) ? ERX_TASK.code.changeRequest : ERX_TASK.code.refillRequest;
   const ottehrTasks = (
@@ -112,13 +120,13 @@ export const syncErxRequestTask = async (oystehr: Oystehr, requestTask: Task): P
     })
   ).unbundle();
   const action = refillRequestTaskAction(requestTask, ottehrTasks);
-  if (action === 'complete') {
+  if (action === 'complete' || action === 'cancel') {
     return Promise.all(
       ottehrTasks.filter(isOpen).map((task) =>
         oystehr.fhir.patch<Task>({
           resourceType: 'Task',
           id: task.id!,
-          operations: [{ op: 'replace', path: '/status', value: 'completed' }],
+          operations: [{ op: 'replace', path: '/status', value: action === 'cancel' ? 'cancelled' : 'completed' }],
         })
       )
     );
@@ -184,17 +192,39 @@ const readPharmacyRequest = (
   };
 };
 
+/** A compound the pharmacy sent, as the eRx service keeps it on its Task (order-prescription's shape), read as a sent
+ * prescription's: each ingredient as the amount that goes in, left out when its unit isn't an order quantity unit, with
+ * the strength the pharmacy sent. */
+const readCompound = (
+  compound: CompoundOrder | undefined,
+  description: string | undefined
+): ErxPharmacyRefillRequest['medication']['compound'] =>
+  compound && {
+    description,
+    dosageForm: compound.dosageForm,
+    ingredients: (compound.ingredients ?? []).map((ingredient) => ({
+      description: ingredient.description,
+      ...(ingredient.ndc ? { ndc: ingredient.ndc } : {}),
+      ...(ingredient.strength ? { sentStrength: ingredient.strength } : {}),
+      ...(QUANTITY_UNITS.includes(ingredient.quantityUnit)
+        ? { amount: { value: ingredient.quantityValue, unit: ingredient.quantityUnit } }
+        : {}),
+    })),
+  };
+
 /** The pharmacy's refill request (`readPharmacyRequest`). Only what the pharmacy sent is kept: a field it left out
  * stays absent. */
 export const readPharmacyRefillRequest = (versions: Task[]): ErxPharmacyRefillRequest => {
   const latest = versions[versions.length - 1];
   const value = (code: string): NonNullable<Task['input']>[number] | undefined => renewalInput(latest, code);
+  const compound = value('compound')?.valueString;
   return {
     renewalTaskId: latest.id!,
     ...readPharmacyRequest(versions),
     medication: {
       description: value('drug-description')?.valueString,
       ndc: value('ndc')?.valueString,
+      compound: readCompound(compound ? JSON.parse(compound) : undefined, value('drug-description')?.valueString),
       quantityValue: value('quantity')?.valueDecimal,
       quantityUnit: value('quantity-unit')?.valueString,
       daysSupply: value('days-supply')?.valueInteger,
@@ -213,6 +243,7 @@ export const readPharmacyRefillRequest = (versions: Task[]): ErxPharmacyRefillRe
 interface RequestedChangeMedication {
   description: string;
   ndc?: string;
+  compound?: CompoundOrder;
   quantityValue?: number;
   quantityUnit?: string;
   daysSupply?: number;
@@ -237,6 +268,7 @@ export const readPharmacyChangeRequest = (versions: Task[]): ErxPharmacyChangeRe
     suggestions: suggestions.map((suggestion) => ({
       description: suggestion.description,
       ndc: suggestion.ndc,
+      compound: readCompound(suggestion.compound, suggestion.description),
       quantityValue: suggestion.quantityValue,
       quantityUnit: suggestion.quantityUnit,
       daysSupply: suggestion.daysSupply,

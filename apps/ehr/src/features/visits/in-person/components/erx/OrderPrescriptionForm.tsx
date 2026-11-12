@@ -1,7 +1,6 @@
 import { Add } from '@mui/icons-material';
 import { Box, Button, Divider, FormHelperText, Stack, Typography, useTheme } from '@mui/material';
 import { Patient } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useRef, useState } from 'react';
 import { createPrescriptionQuickPick } from 'src/api/api';
@@ -38,6 +37,7 @@ import {
   prescriptionLineErrors,
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
+  prescriptionVitals,
   quickPickDosingText,
   quickPickNameInUse,
   quickPickProductMissing,
@@ -215,22 +215,18 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
       });
       return;
     }
-    // The written date isn't shown: a prescription is always written today.
-    const writtenDate = DateTime.local().toISODate() ?? '';
-    const measuredDate = (takenAt?: string): string =>
-      (takenAt && DateTime.fromISO(takenAt).toLocal().toISODate()) || writtenDate;
     const context = {
       patientId: patient.id,
       practitionerId,
       encounterId,
       pharmacy,
-      writtenDate,
-      patientHeight: height && { cm: height.cm, measuredDate: measuredDate(height.takenAt) },
       // A weight typed in the dose calculator is today's, in place of the vitals'.
-      patientWeight:
+      vitals: prescriptionVitals(
+        height,
         weightKg === undefined
           ? undefined
-          : { kg: weightKg, measuredDate: weightText === undefined ? measuredDate(weight?.takenAt) : writtenDate },
+          : { kg: weightKg, takenAt: weightText === undefined ? weight?.takenAt : undefined }
+      ),
     };
     setSending(true);
     const sent: PrescriptionLine[] = [];

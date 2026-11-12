@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   cancelPrescription: vi.fn(),
   completeTask: vi.fn(),
   chartSectionOptions: [] as unknown[],
+  height: undefined as { cm: number; takenAt?: string } | undefined,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -83,7 +84,7 @@ vi.mock('../../src/features/visits/shared/components/review-tab/components/Medic
 }));
 vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () => ({
   useVisitWeight: () => undefined,
-  useVisitHeight: () => undefined,
+  useVisitHeight: () => mocks.height,
 }));
 vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => ({
   useIcd10SearchInput: () => ({ inputValue: '', setInputValue: () => undefined, options: [], isFetching: false }),
@@ -219,6 +220,70 @@ describe('Refill request dialog: the order form outside a visit', () => {
     // The dialog's toast only, not the order form's too.
     expect(enqueueSnackbar).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('Change sends the vitals the order form sends', async () => {
+    mocks.height = { cm: 162, takenAt: '2026-09-14T15:00:00Z' };
+    const user = await open(PHARMACY_REQUEST);
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    await waitFor(() => expect(mocks.respondToRenewal).toHaveBeenCalled());
+    expect(mocks.respondToRenewal.mock.calls[0][1].vitals).toEqual({
+      height: { value: 162, unit: 'cm', measuredDate: '2026-09-14' },
+    });
+    mocks.height = undefined;
+  });
+
+  it('Change of a compound’s refill request answers with the compound, and no NDC', async () => {
+    const user = await open({
+      ...PHARMACY_REQUEST,
+      pharmacyRequest: {
+        ...PHARMACY_REQUEST.pharmacyRequest!,
+        medication: {
+          description: 'Pain cream',
+          compound: {
+            description: 'Pain cream',
+            dosageForm: 'Cream',
+            ingredients: [
+              {
+                description: 'Ketoprofen Powder',
+                ndc: '00000000001',
+                amount: { value: 6, unit: 'Gram' },
+                sentStrength: { value: '10', form: 'Percentage' },
+              },
+              { description: 'Compounding cream', ndc: '00000000002', amount: { value: 54, unit: 'Gram' } },
+            ],
+          },
+          quantityValue: 60,
+          quantityUnit: 'Gram',
+          sig: 'Apply to the affected area three times daily',
+          requestedRefills: 1,
+        },
+      },
+    });
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    await waitFor(() => expect(mocks.respondToRenewal).toHaveBeenCalled());
+    const { changes } = mocks.respondToRenewal.mock.calls[0][1];
+    expect(changes).toMatchObject({
+      medicationDescription: 'Pain cream',
+      substitutionAllowed: false,
+      compound: {
+        dosageForm: 'Cream',
+        ingredients: [
+          {
+            description: 'Ketoprofen Powder',
+            ndc: '00000000001',
+            // The pharmacy's strength goes back with it.
+            strength: { value: '10', form: 'Percentage' },
+            quantityValue: 6,
+            quantityUnit: 'Gram',
+          },
+          { description: 'Compounding cream', ndc: '00000000002', quantityValue: 54, quantityUnit: 'Gram' },
+        ],
+      },
+    });
+    expect(changes).not.toHaveProperty('ndc');
   });
 
   it('shows the patient’s info once: the order form’s, while it’s open', async () => {

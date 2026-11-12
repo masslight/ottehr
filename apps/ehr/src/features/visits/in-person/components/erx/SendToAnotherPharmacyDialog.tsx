@@ -1,5 +1,4 @@
 import { Stack, Typography } from '@mui/material';
-import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -9,6 +8,7 @@ import { useCancelPrescription } from '../../../shared/hooks/useCancelPrescripti
 import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription';
 import { PharmacySearch } from './PharmacySearch';
 import { errorMessage, PrescriptionSummaryList, useSendEach } from './prescriptionDialogs';
+import { prescriptionVitals } from './prescriptionLines';
 import { isPrescriptionCancellable, prescriptionToOrderForPharmacy } from './prescriptionStatus';
 import { useVisitHeight, useVisitWeight } from './useVisitWeight';
 
@@ -46,13 +46,8 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
   // goes out again. One that fails doesn't stop the others.
   const send = async (): Promise<void> => {
     if (!pharmacy) return;
-    // A prescription is always written today.
-    const writtenDate = DateTime.local().toISODate() ?? '';
     // The vitals' height and weight go with it, as with the order form.
-    const measuredDate = (takenAt?: string): string =>
-      (takenAt && DateTime.fromISO(takenAt).toLocal().toISODate()) || writtenDate;
-    const patientHeight = height && { cm: height.cm, measuredDate: measuredDate(height.takenAt) };
-    const patientWeight = weight && { kg: weight.kg, measuredDate: measuredDate(weight.takenAt) };
+    const vitals = prescriptionVitals(height, weight);
     await run(
       async (prescription, practitionerId) => {
         if (isAt(prescription, pharmacy))
@@ -60,9 +55,7 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
         const order = prescriptionToOrderForPharmacy(prescription, {
           practitionerId,
           pharmacy,
-          writtenDate,
-          patientHeight,
-          patientWeight,
+          vitals,
         });
         if (!order) return `${prescription.name}: its order is incomplete; nothing was sent`;
         const cancelling = isPrescriptionCancellable(prescription);

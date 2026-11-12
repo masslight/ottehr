@@ -2,7 +2,8 @@ import { Patient } from 'fhir/r4b';
 import z from 'zod';
 import { DOSE_BASES } from '../../helpers/medications/plain-dose';
 import { PRESCRIPTION_ROUTES } from '../../helpers/medications/prescription-suggestions';
-import { PrescribedMedicationDTO } from './chart-data/chart-data.types';
+import { PrescribedMedicationDTO, PrescribedMedicationOrderDTO } from './chart-data/chart-data.types';
+import type { CompoundOrder, PrescriptionVitals } from './order-prescription.types';
 
 export const GetErxOrdersInputSchema = z.object({
   encounterIds: z.array(z.string()),
@@ -39,9 +40,9 @@ export const RENEWAL_PENDING_REASONS = [
   'Provider wishes to delay for reasons not otherwise indicated',
 ] as const;
 
-/** What the renewal-response endpoint takes: an approval (the number of fills, 1–99, what the provider changed, and
- * the blanks the new prescription keeps for a re-fill, as order-prescription takes them), a denial or a pending
- * answer. */
+/** What the renewal-response endpoint takes: an approval (the number of fills, 1–99, what the provider changed, which
+ * is either an NDC or a compound, never both, the blanks the new prescription keeps for a re-fill and the patient's
+ * vitals, as order-prescription takes them), a denial or a pending answer. */
 export type RenewalResponseInput = { taskId: string } & (
   | {
       decision: 'approve';
@@ -50,6 +51,7 @@ export type RenewalResponseInput = { taskId: string } & (
       changes?: {
         medicationDescription?: string;
         ndc?: string;
+        compound?: CompoundOrder;
         quantityValue?: number;
         quantityUnit?: string;
         daysSupply?: number;
@@ -58,6 +60,7 @@ export type RenewalResponseInput = { taskId: string } & (
         noteToPharmacy?: string;
       };
       metadata?: PrescriptionOrderMetadata;
+      vitals?: PrescriptionVitals;
     }
   | { decision: 'deny'; reason: (typeof RENEWAL_DENIAL_REASONS)[number]; denialReason?: string }
   | { decision: 'pending'; reason: (typeof RENEWAL_PENDING_REASONS)[number]; note?: string }
@@ -99,6 +102,7 @@ export type ChangeResponseInput = { taskId: string } & (
       note?: string;
       changes?: Extract<RenewalResponseInput, { decision: 'approve' }>['changes'] & { numberOfRefills?: number };
       metadata?: PrescriptionOrderMetadata;
+      vitals?: PrescriptionVitals;
       // Requested from the eRx service (Jon item 4): the prior authorization a P request is approved with, its number
       // (NCPDP PriorAuthorization, up to 35 characters) and status (PriorAuthorizationStatus A, approved)
       priorAuthorization?: { number: string; status: 'approved' };
@@ -123,6 +127,8 @@ export interface ErxPharmacyRefillRequest {
   medication: {
     description?: string;
     ndc?: string;
+    /** A compound in place of a product, as a sent prescription's is read: each ingredient as the amount that goes in */
+    compound?: PrescribedMedicationOrderDTO['compound'];
     quantityValue?: number;
     quantityUnit?: string;
     daysSupply?: number;

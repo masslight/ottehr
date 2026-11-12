@@ -117,6 +117,8 @@ export interface CompoundIngredientInput {
   strength?: { value: number; unit: CompoundStrengthUnit };
   /** The base that fills the compound up to the dispensed quantity; at most one per compound. */
   base?: true;
+  /** The strength a pharmacy sent with it (in a refill or change request), sent back as is. */
+  sentStrength?: CompoundOrderIngredient['strength'];
 }
 
 /** A compound the pharmacy mixes, as entered: its name (up to 105 characters), dosage form and ingredients. The
@@ -143,6 +145,12 @@ export interface CompoundOrder {
   ingredients: CompoundOrderIngredient[];
 }
 
+/** The patient's height and weight sent with an order or an approval, each with the date measured (YYYY-MM-DD). */
+export interface PrescriptionVitals {
+  height?: { value: number; unit: 'cm'; measuredDate: string };
+  weight?: { value: number; unit: 'kg'; measuredDate: string };
+}
+
 interface OrderPrescriptionCommonInput {
   medicationDescription: string;
   substitutionAllowed: boolean;
@@ -152,7 +160,6 @@ interface OrderPrescriptionCommonInput {
   quantityValue: number;
   quantityUnit: QuantityUnit;
   daysSupply?: number;
-  writtenDate: string;
   numberOfRefills: number;
   patientInstructions: string;
   noteToPharmacy?: string;
@@ -162,9 +169,7 @@ interface OrderPrescriptionCommonInput {
   pharmacyPhone: string;
   diagnosisCode?: string;
   diagnosisDescription?: string;
-  // Requested from the eRx service: the patient's height and weight, each with the date measured (YYYY-MM-DD)
-  patientHeight?: { cm: number; measuredDate: string };
-  patientWeight?: { kg: number; measuredDate: string };
+  vitals?: PrescriptionVitals;
 }
 
 /** A prescription for one product. */

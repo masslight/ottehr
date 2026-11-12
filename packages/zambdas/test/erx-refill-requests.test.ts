@@ -92,10 +92,24 @@ describe('eRx refill request tasks', () => {
     });
   });
 
-  it('completes the task once the request is withdrawn or answered', () => {
-    expect(refillRequestTaskAction(renewal('cancelled'), [ottehrTask('in-progress')])).toBe('complete');
+  it('cancels the task once the request is withdrawn, and completes it once answered', () => {
+    expect(refillRequestTaskAction(renewal('cancelled'), [ottehrTask('in-progress')])).toBe('cancel');
+    expect(refillRequestTaskAction(renewal('cancelled'), [ottehrTask('cancelled')])).toBeUndefined();
     expect(refillRequestTaskAction(renewal('completed'), [ottehrTask('ready')])).toBe('complete');
     expect(refillRequestTaskAction(renewal('completed'), [ottehrTask('completed')])).toBeUndefined();
+  });
+
+  it('marks the open task cancelled for a withdrawn request and completed for an answered one', async () => {
+    const statusPatched = async (status: Task['status']): Promise<unknown> => {
+      const patch = vi.fn(async () => ({}));
+      const oystehr = {
+        fhir: { search: async () => ({ unbundle: () => [ottehrTask('in-progress')] }), patch },
+      } as unknown as Oystehr;
+      await syncErxRequestTask(oystehr, renewal(status));
+      return (patch.mock.calls[0] as unknown as [{ operations: unknown[] }])[0].operations;
+    };
+    expect(await statusPatched('cancelled')).toEqual([{ op: 'replace', path: '/status', value: 'cancelled' }]);
+    expect(await statusPatched('completed')).toEqual([{ op: 'replace', path: '/status', value: 'completed' }]);
   });
 
   it('names the pharmacy, the medication and the patient', () => {
@@ -160,6 +174,42 @@ describe('a pharmacy refill request, as the dialog reads it', () => {
     expect(request.received).toBe('2026-10-27T16:12:00.000Z');
   });
 
+  it('reads a compound the pharmacy asks to renew, each ingredient as the amount that goes in, with its strength', () => {
+    const compound = {
+      dosageForm: 'Cream',
+      ingredients: [
+        {
+          description: 'Ketoprofen Powder',
+          ndc: '38779032709',
+          strength: { value: '10', form: 'Percentage' },
+          quantityValue: 3,
+          quantityUnit: 'Gram',
+        },
+        { description: 'Cream base', quantityValue: 27, quantityUnit: 'Gram' },
+      ],
+    };
+    const request = readPharmacyRefillRequest([
+      version('requested', 'm1', '2026-10-27T16:12:00.000Z', [
+        input('drug-description', 'Ketoprofen 10% cream'),
+        input('compound', JSON.stringify(compound)),
+      ]),
+    ]);
+    expect(request.medication.ndc).toBeUndefined();
+    expect(request.medication.compound).toEqual({
+      description: 'Ketoprofen 10% cream',
+      dosageForm: 'Cream',
+      ingredients: [
+        {
+          description: 'Ketoprofen Powder',
+          ndc: '38779032709',
+          amount: { value: 3, unit: 'Gram' },
+          sentStrength: { value: '10', form: 'Percentage' },
+        },
+        { description: 'Cream base', amount: { value: 27, unit: 'Gram' } },
+      ],
+    });
+  });
+
   it('is withdrawn once the eRx service cancels its Task', () => {
     const request = readPharmacyRefillRequest([
       version('requested', 'm1', '2026-10-25T10:00:00.000Z'),
@@ -183,7 +233,7 @@ describe('eRx change request tasks', () => {
   it('are made and completed as refill requests are', () => {
     expect(refillRequestTaskAction(change('requested', []), [])).toBe('create');
     expect(refillRequestTaskAction(change('requested', []), [ottehrTask('in-progress')])).toBeUndefined();
-    expect(refillRequestTaskAction(change('cancelled', []), [ottehrTask('in-progress')])).toBe('complete');
+    expect(refillRequestTaskAction(change('cancelled', []), [ottehrTask('in-progress')])).toBe('cancel');
     expect(refillRequestTaskAction(change('completed', []), [ottehrTask('in-progress')])).toBe('complete');
   });
 
@@ -242,6 +292,38 @@ describe('a pharmacy change request, as the dialog reads it', () => {
     expect(request.suggestions[1].quantityValue).toBeUndefined();
     expect(request.suggestions[1].daysSupply).toBeUndefined();
     expect(request.suggestions[1].numberOfRefills).toBeUndefined();
+  });
+
+  it('reads a suggested compound', () => {
+    const request = readPharmacyChangeRequest([
+      change('requested', [
+        input('change-code', 'T'),
+        input(
+          'requested-medications',
+          JSON.stringify([
+            {
+              description: 'Lidocaine 5% ointment',
+              compound: {
+                dosageForm: 'Ointment',
+                ingredients: [{ description: 'Lidocaine Powder', quantityValue: 1.5, quantityUnit: 'Gram' }],
+              },
+              quantityValue: 30,
+              quantityUnit: 'Gram',
+            },
+          ])
+        ),
+      ]),
+    ]);
+    expect(request.suggestions[0]).toEqual({
+      description: 'Lidocaine 5% ointment',
+      compound: {
+        description: 'Lidocaine 5% ointment',
+        dosageForm: 'Ointment',
+        ingredients: [{ description: 'Lidocaine Powder', amount: { value: 1.5, unit: 'Gram' } }],
+      },
+      quantityValue: 30,
+      quantityUnit: 'Gram',
+    });
   });
 
   it('has no suggestions for a prior authorization request', () => {

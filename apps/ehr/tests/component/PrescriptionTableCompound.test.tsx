@@ -2,7 +2,6 @@ import { DataGridProProps } from '@mui/x-data-grid-pro';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DateTime } from 'luxon';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrescriptionTable } from '../../src/features/visits/in-person/components/erx/PrescriptionTable';
@@ -159,18 +158,20 @@ describe('Prescription table: compounds', () => {
     expect(details).toHaveTextContent('PrescriberAbrams, Dana');
   });
 
-  it('disables Cancel on a sent compound, and sending it elsewhere (which cancels it first)', async () => {
+  it('cancels a sent compound before sending it to another pharmacy, with no NDC', async () => {
     const user = renderTable();
-    for (const label of ['Cancel prescription', 'Send to another pharmacy']) {
-      const button = within(row('Compound: Pain cream')).getByRole('button', { name: label });
-      expect(button).toBeDisabled();
-      await user.hover(button.parentElement!);
-      expect((await screen.findByRole('tooltip')).textContent).toBe("Canceling compounds isn't supported yet");
-      await user.unhover(button.parentElement!);
-      await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
-    }
-    // With no action left, it can't be selected for the bar's buttons either.
-    expect(within(row('Compound: Pain cream')).getByRole('checkbox')).toBeDisabled();
+    expect(within(row('Compound: Pain cream')).getByRole('button', { name: 'Cancel prescription' })).toBeEnabled();
+    await user.click(within(row('Compound: Pain cream')).getByRole('button', { name: 'Send to another pharmacy' }));
+    await pickPharmacyAndSend(user);
+    await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
+    expect(calls('/v4/cancel-prescription')).toEqual([
+      {
+        medicationRequestId: 'mr-cream',
+        practitionerId: 'practitioner-1',
+        reason: 'Duplicate order (different pharmacy)',
+      },
+    ]);
+    expect(calls('/v4/order-prescription')).toHaveLength(1);
   });
 
   it('sends an errored compound to another pharmacy again, every ingredient as its amount', async () => {
@@ -187,7 +188,6 @@ describe('Prescription table: compounds', () => {
         quantityValue: 60,
         quantityUnit: 'Gram',
         daysSupply: 30,
-        writtenDate: DateTime.local().toISODate(),
         numberOfRefills: 0,
         patientInstructions: CREAM.instructions,
         pharmacyId: '0000031',

@@ -610,7 +610,9 @@ const CompoundIngredientSentence: FC<{
   onRemove: () => void;
   readOnly: boolean;
 }> = ({ ingredient, n, offerBase, onChange, onRemove, readOnly }) => {
-  const update = (patch: Partial<CompoundIngredientLine>): void => onChange({ ...ingredient, ...patch });
+  // An edited ingredient is no longer as the pharmacy sent it: its strength isn't sent back.
+  const update = (patch: Partial<CompoundIngredientLine>): void =>
+    onChange({ ...ingredient, sentStrength: undefined, ...patch });
   const { drug } = ingredient;
   const strength = drug?.strengths.find((option) => option.ndcs[0] === ingredient.product?.ndc);
   return (

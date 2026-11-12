@@ -65,7 +65,6 @@ const CONTEXT = {
   practitionerId: 'practitioner-1',
   encounterId: 'encounter-1',
   pharmacy: { ncpdpId: '0002026', npi: '1234567893', name: 'Sample Pharmacy One', phone: '5125559999', address: '' },
-  writtenDate: '2026-10-28',
 };
 
 const compoundLine = (compound: CompoundInput): PrescriptionLine => ({

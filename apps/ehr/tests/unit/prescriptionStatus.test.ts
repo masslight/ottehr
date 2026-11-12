@@ -158,31 +158,16 @@ describe('a prescription can be cancelled', () => {
   });
 });
 
-describe('a compound can’t be cancelled yet', () => {
+describe('a compound is cancelled as a product is', () => {
   const compound = (status: PrescribedMedicationDTO['status']): PrescribedMedicationDTO => ({
     ...rx(status, accepted),
     name: 'Pain cream',
     order: { compound: { description: 'Pain cream', ingredients: [] } },
   });
 
-  it('blocks Cancel on a sent compound, alone or in a selection with a product', () => {
-    expect(isPrescriptionActionAvailable('cancel', rx('active', accepted))).toBe(true);
-    expect(isPrescriptionActionAvailable('cancel', compound('active'))).toBe(false);
-    expect(prescriptionActionUnavailableText('cancel', [compound('active')])).toBe(
-      "Canceling compounds isn't supported yet"
-    );
-    expect(prescriptionActionUnavailableText('cancel', [rx('active', accepted), compound('active')])).toBe(
-      "Canceling compounds isn't supported yet"
-    );
-  });
-
-  it('blocks sending a sent compound to another pharmacy, which cancels it first, but not resending an errored one', () => {
-    expect(prescriptionActionUnavailableText('sendToAnotherPharmacy', [compound('active')])).toBe(
-      "Canceling compounds isn't supported yet"
-    );
-    expect(prescriptionActionUnavailableText('sendToAnotherPharmacy', [compound('stopped')])).not.toContain(
-      'Canceling compounds'
-    );
+  it('allows Cancel on a sent compound, alone or in a selection with a product', () => {
+    expect(isPrescriptionActionAvailable('cancel', compound('active'))).toBe(true);
+    expect(prescriptionActionUnavailableText('cancel', [rx('active', accepted), compound('active')])).toBeUndefined();
   });
 
   it('names the status first for a compound no action applies to', () => {
@@ -208,23 +193,19 @@ describe('sending a prescription to another pharmacy', () => {
     },
   };
   const pharmacy = { ncpdpId: '1234567', npi: '1234567890', name: 'Main St Pharmacy', phone: '5555550100' };
-  const context = { practitionerId: 'pr-1', writtenDate: '2026-10-29', pharmacy: pharmacy as never };
+  const context = { practitionerId: 'pr-1', pharmacy: pharmacy as never };
 
-  it("sends the vitals' height and weight with the new order", () => {
-    const order = prescriptionToOrderForPharmacy(stored, {
-      ...context,
-      patientHeight: { cm: 131.5, measuredDate: '2026-10-08' },
-      patientWeight: { kg: 28.12, measuredDate: '2026-10-08' },
-    });
-    expect(order).toMatchObject({
-      patientHeight: { cm: 131.5, measuredDate: '2026-10-08' },
-      patientWeight: { kg: 28.12, measuredDate: '2026-10-08' },
-    });
+  it("sends the vitals' height and weight with the new order, and no written date", () => {
+    const vitals = {
+      height: { value: 131.5, unit: 'cm', measuredDate: '2026-10-08' },
+      weight: { value: 28.12, unit: 'kg', measuredDate: '2026-10-08' },
+    } as const;
+    const order = prescriptionToOrderForPharmacy(stored, { ...context, vitals });
+    expect(order).toMatchObject({ vitals });
+    expect(order).not.toHaveProperty('writtenDate');
   });
 
-  it('leaves height and weight out when the visit has none', () => {
-    const order = prescriptionToOrderForPharmacy(stored, context);
-    expect(order).not.toHaveProperty('patientHeight');
-    expect(order).not.toHaveProperty('patientWeight');
+  it('leaves the vitals out when the visit has none', () => {
+    expect(prescriptionToOrderForPharmacy(stored, context)).not.toHaveProperty('vitals');
   });
 });

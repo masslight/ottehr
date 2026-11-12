@@ -415,7 +415,124 @@ describe('refill request: the original’s blanks fill the order form again', ()
       patientInstructions: 'Apply twice daily.',
     });
     expect(approvalMetadata(compound)).toBeUndefined();
-    expect(() => renewalApproval('renewal-1', compound)).toThrow('compound');
+    const approval = renewalApproval('renewal-1', compound);
+    expect(approval).not.toHaveProperty('metadata');
+    // Either an NDC or a compound in the changes, never both.
+    expect(approval.changes?.compound).toEqual({
+      dosageForm: 'Cream',
+      ingredients: [
+        {
+          description: 'Ketoprofen Powder',
+          ndc: '00000000001',
+          strength: { value: '10', unit: 'Percentage' },
+          quantityValue: 6,
+          quantityUnit: 'Gram',
+        },
+      ],
+    });
+    expect(approval.changes).not.toHaveProperty('ndc');
+  });
+
+  it('fills the order form with a suggested compound and approves with it, and the vitals given', () => {
+    const suggestion = {
+      description: 'Pain cream',
+      compound: {
+        description: 'Pain cream',
+        dosageForm: 'Cream',
+        ingredients: [
+          { description: 'Ketoprofen Powder', ndc: '00000000001', amount: { value: 6, unit: 'Gram' as const } },
+        ],
+      },
+      quantityValue: 60,
+      quantityUnit: 'Gram',
+      sig: 'Apply twice daily.',
+    };
+    const line = refillLine(ORIGINAL, suggestion);
+    expect(line.medication).toBeFalsy();
+    expect(line.compound?.name).toBe('Pain cream');
+    const vitals = { weight: { value: 70.5, unit: 'kg', measuredDate: '2026-11-11' } } as const;
+    const approval = changeApproval('change-1', 0, line, vitals);
+    expect(approval).toMatchObject({
+      requestedMedicationIndex: 0,
+      vitals,
+      changes: {
+        compound: {
+          dosageForm: 'Cream',
+          ingredients: [
+            { description: 'Ketoprofen Powder', ndc: '00000000001', quantityValue: 6, quantityUnit: 'Gram' },
+          ],
+        },
+      },
+    });
+    expect(approval.changes).not.toHaveProperty('ndc');
+    // A product approval has its NDC and no compound; no vitals, none sent.
+    const product = changeApproval('change-1', undefined, refillLine(ORIGINAL));
+    expect(product.changes).toMatchObject({ ndc: '00093111101' });
+    expect(product.changes).not.toHaveProperty('compound');
+    expect(product).not.toHaveProperty('vitals');
+  });
+
+  it('“Change” on a compound as the pharmacy sent it sends back exactly what it sent, strengths included', () => {
+    // As the eRx service keeps it on the renewal Task.
+    const sent = {
+      dosageForm: 'Cream' as const,
+      ingredients: [
+        {
+          description: 'Ketoprofen Powder',
+          ndc: '38779032709',
+          strength: { value: '10', form: 'Percentage' },
+          quantityValue: 3,
+          quantityUnit: 'Gram' as const,
+        },
+        {
+          description: 'Lidocaine',
+          ndc: '00000000002',
+          strength: { value: '5', unit: 'mg/ml' },
+          quantityValue: 1500,
+          quantityUnit: 'Milligram' as const,
+        },
+        { description: 'Cream base', quantityValue: 25.5, quantityUnit: 'Gram' as const },
+      ],
+    };
+    // As the dialog reads it (readPharmacyRefillRequest).
+    const compound = {
+      description: 'Pain cream',
+      dosageForm: sent.dosageForm,
+      ingredients: sent.ingredients.map(({ description, ndc, strength, quantityValue, quantityUnit }) => ({
+        description,
+        ...(ndc ? { ndc } : {}),
+        ...(strength ? { sentStrength: strength } : {}),
+        amount: { value: quantityValue, unit: quantityUnit },
+      })),
+    };
+    const line = refillLine(ORIGINAL, {
+      description: 'Pain cream',
+      compound,
+      quantityValue: 30,
+      quantityUnit: 'Gram',
+      sig: 'Apply twice daily.',
+      requestedRefills: 2,
+    });
+    expect(renewalApproval('renewal-1', line).changes?.compound).toEqual(sent);
+  });
+
+  it('shows a compound as the prescriptions table does, and it differs from a product', () => {
+    const rows = requestRows(
+      {
+        description: 'Pain cream',
+        compound: {
+          description: 'Pain cream',
+          dosageForm: 'Cream',
+          ingredients: [{ description: 'Ketoprofen Powder', amount: { value: 6, unit: 'Gram' } }],
+        },
+      },
+      ORIGINAL
+    );
+    expect(row(rows, 'Medication')).toMatchObject({
+      request: 'Compound: Pain cream · Cream · Ketoprofen Powder 6 grams',
+      original: 'Lisinopril 10 mg tablet',
+      differs: true,
+    });
   });
 
   it('sends the blanks given with a plain approval only, never with a denial or pending answer', () => {

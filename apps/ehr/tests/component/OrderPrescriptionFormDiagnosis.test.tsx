@@ -151,11 +151,20 @@ describe('Order prescription form: height and weight', () => {
     mocks.orderPrescription.mockResolvedValue({});
   });
 
-  it('go with the order from the vitals, each with the date measured', async () => {
+  it('go with the order from the vitals, each with the date measured, and no written date', async () => {
     await sendQuickPick();
-    expect(mocks.orderPrescription.mock.calls[0][0]).toMatchObject({
-      patientHeight: { cm: 131.5, measuredDate: '2026-10-08' },
-      patientWeight: { kg: 28.12, measuredDate: '2026-10-08' },
+    expect(mocks.orderPrescription.mock.calls[0][0].vitals).toEqual({
+      height: { value: 131.5, unit: 'cm', measuredDate: '2026-10-08' },
+      weight: { value: 28.12, unit: 'kg', measuredDate: '2026-10-08' },
+    });
+    expect(mocks.orderPrescription.mock.calls[0][0]).not.toHaveProperty('writtenDate');
+  });
+
+  it('send only the one the vitals have', async () => {
+    mocks.height = undefined;
+    await sendQuickPick();
+    expect(mocks.orderPrescription.mock.calls[0][0].vitals).toEqual({
+      weight: { value: 28.12, unit: 'kg', measuredDate: '2026-10-08' },
     });
   });
 
@@ -169,9 +178,9 @@ describe('Order prescription form: height and weight', () => {
       await user.type(weight, '30');
       await user.keyboard('{Escape}');
     });
-    expect(mocks.orderPrescription.mock.calls[0][0]).toMatchObject({
-      patientHeight: { cm: 131.5, measuredDate: '2026-10-08' },
-      patientWeight: { kg: 30, measuredDate: DateTime.local().toISODate() },
+    expect(mocks.orderPrescription.mock.calls[0][0].vitals).toEqual({
+      height: { value: 131.5, unit: 'cm', measuredDate: '2026-10-08' },
+      weight: { value: 30, unit: 'kg', measuredDate: DateTime.local().toISODate() },
     });
   });
 
@@ -179,7 +188,6 @@ describe('Order prescription form: height and weight', () => {
     mocks.weight = undefined;
     mocks.height = undefined;
     await sendQuickPick();
-    expect(mocks.orderPrescription.mock.calls[0][0]).not.toHaveProperty('patientHeight');
-    expect(mocks.orderPrescription.mock.calls[0][0]).not.toHaveProperty('patientWeight');
+    expect(mocks.orderPrescription.mock.calls[0][0]).not.toHaveProperty('vitals');
   });
 });

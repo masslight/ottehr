@@ -912,7 +912,6 @@ describe('Additional instructions of a dosed quick pick', () => {
       practitionerId: 'pr',
       encounterId: 'e',
       pharmacy: { ncpdpId: '1', npi: '2', name: 'Pharmacy', phone: '5555555555', address: '' } as never,
-      writtenDate: '2026-10-27',
     });
     expect(order.patientInstructions).toBe(`Take 9 mL by mouth twice daily for 10 days. ${EXTRA}`);
     // The list's quick pick too.

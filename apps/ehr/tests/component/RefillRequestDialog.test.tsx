@@ -11,12 +11,18 @@ const mocks = vi.hoisted(() => ({
   getErxRequest: vi.fn(),
   respondToRenewal: vi.fn(),
   completeTask: vi.fn(),
+  height: undefined as { cm: number; takenAt?: string } | undefined,
+  weight: undefined as { kg: number; takenAt?: string; thisVisit: boolean } | undefined,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 vi.mock('src/api/api', () => ({ getErxRequest: mocks.getErxRequest, respondToRenewal: mocks.respondToRenewal }));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 vi.mock('src/hooks/useAuthToken', () => ({ useAuthToken: () => 'user-token' }));
+vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () => ({
+  useVisitWeight: () => mocks.weight,
+  useVisitHeight: () => mocks.height,
+}));
 vi.mock('../../src/features/visits/in-person/hooks/useTasks', () => ({
   GET_TASKS_KEY: 'get-tasks',
   useCompleteErxTask: () => ({ mutateAsync: mocks.completeTask }),
@@ -90,6 +96,8 @@ const section = (heading: string | RegExp): HTMLElement => screen.getByText(head
 describe('Refill request dialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.height = undefined;
+    mocks.weight = undefined;
     mocks.respondToRenewal.mockResolvedValue({
       taskId: 'renewal-1',
       messageId: 'm',
@@ -149,10 +157,61 @@ describe('Refill request dialog', () => {
       numberOfRefills: 3,
       note: 'BP check soon',
     });
+    // No vitals recorded: none sent.
+    expect(mocks.respondToRenewal.mock.calls[0][1]).not.toHaveProperty('vitals');
     await waitFor(() =>
       expect(enqueueSnackbar).toHaveBeenCalledWith('Approval sent to CVS Pharmacy #7741', { variant: 'success' })
     );
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('approves with the vitals’ height and weight, each with the date measured', async () => {
+    mocks.height = { cm: 162, takenAt: '2026-09-14T15:00:00Z' };
+    mocks.weight = { kg: 70.5, takenAt: '2026-09-14T15:00:00Z', thisVisit: true };
+    const user = await open();
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    await waitFor(() => expect(mocks.respondToRenewal).toHaveBeenCalled());
+    expect(mocks.respondToRenewal.mock.calls[0][1].vitals).toEqual({
+      height: { value: 162, unit: 'cm', measuredDate: '2026-09-14' },
+      weight: { value: 70.5, unit: 'kg', measuredDate: '2026-09-14' },
+    });
+  });
+
+  it('approves with only the height when the vitals have no weight', async () => {
+    mocks.height = { cm: 162, takenAt: '2026-09-14T15:00:00Z' };
+    const user = await open();
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    await waitFor(() => expect(mocks.respondToRenewal).toHaveBeenCalled());
+    expect(mocks.respondToRenewal.mock.calls[0][1].vitals).toEqual({
+      height: { value: 162, unit: 'cm', measuredDate: '2026-09-14' },
+    });
+  });
+
+  it('shows a compound the pharmacy asks to renew as the prescriptions table does', async () => {
+    await open({
+      ...REQUEST,
+      pharmacyRequest: {
+        ...REQUEST.pharmacyRequest!,
+        medication: {
+          description: 'Pain cream',
+          compound: {
+            description: 'Pain cream',
+            dosageForm: 'Cream',
+            ingredients: [
+              { description: 'Ketoprofen Powder', amount: { value: 6, unit: 'Gram' } },
+              { description: 'Compounding cream', amount: { value: 54, unit: 'Gram' } },
+            ],
+          },
+          quantityValue: 60,
+          quantityUnit: 'Gram',
+        },
+      },
+    });
+    expect(
+      within(section('Pharmacy’s request')).getByText(
+        'Compound: Pain cream · Cream · Ketoprofen Powder 6 grams · Compounding cream 54 grams'
+      )
+    ).toHaveAttribute('data-differs', 'true');
   });
 
   it('stays sent when the task can’t be completed, with a warning to close it from the Tasks page', async () => {

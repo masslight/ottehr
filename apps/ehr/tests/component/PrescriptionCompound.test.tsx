@@ -361,7 +361,6 @@ describe('Compound prescriptions: the order sent', () => {
       encounterId: 'encounter-1',
       quantityValue: 60,
       quantityUnit: 'Gram',
-      writtenDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       numberOfRefills: 1,
       patientInstructions: 'Apply a thin layer to the affected area 3 times a day.',
       pharmacyId: PHARMACY.ncpdpId,

@@ -40,6 +40,7 @@ import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription
 import { GET_TASKS_KEY, useCompleteErxTask } from '../../hooks/useTasks';
 import { OrderPrescriptionForm } from './OrderPrescriptionForm';
 import { errorMessage, patientAddressAndPhone, patientNameGenderBirthDate } from './prescriptionDialogs';
+import { prescriptionVitals } from './prescriptionLines';
 import { isPrescriptionCancellable, prescriptionActionUnavailableText } from './prescriptionStatus';
 import {
   approvalMetadata,
@@ -50,6 +51,7 @@ import {
   requestRows,
   suggestionText,
 } from './refillRequest';
+import { useVisitHeight, useVisitWeight } from './useVisitWeight';
 
 type Answer = 'approve' | 'change' | 'deny' | 'pending';
 
@@ -113,7 +115,9 @@ interface RefillRequestDialogProps {
 /** A refill or change request, the pharmacy's beside the original prescription, and the provider's answer. */
 const SuggestionLabel: FC<{ suggestion: Parameters<typeof suggestionText>[0] }> = ({ suggestion }) => (
   <Box>
-    <Typography variant="body2">{suggestion.description}</Typography>
+    <Typography variant="body2">
+      {suggestion.compound ? `Compound: ${suggestion.description}` : suggestion.description}
+    </Typography>
     <Typography variant="body2" color="text.secondary">
       {suggestionText(suggestion)}
     </Typography>
@@ -133,6 +137,9 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     queryFn: () => getErxRequest(oystehrZambda!, { taskId }),
     enabled: !!oystehrZambda,
   });
+  // An approval sends the vitals as the order form does: the original's visit's, else an earlier one's.
+  const height = useVisitHeight(data?.prescription.encounterId);
+  const weight = useVisitWeight(data?.prescription.encounterId);
   const [chosen, setChosen] = useState<Answer>('approve');
   const [fills, setFills] = useState<string>();
   const [suggestion, setSuggestion] = useState(0);
@@ -200,6 +207,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     const trimmed = note.trim() || undefined;
     if (answer === 'change') return;
     const metadata = answer === 'approve' && line ? approvalMetadata(line) : undefined;
+    const vitals = answer === 'approve' ? prescriptionVitals(height, weight) : undefined;
     try {
       await respond.mutateAsync(
         change
@@ -209,12 +217,18 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
               reason,
               note: trimmed,
               metadata,
+              vitals,
             })
           : ({
               taskId: refill!.renewalTaskId,
               decision: answer,
               ...(answer === 'approve'
-                ? { numberOfRefills: fillsNumber, note: trimmed, ...(metadata ? { metadata } : {}) }
+                ? {
+                    numberOfRefills: fillsNumber,
+                    note: trimmed,
+                    ...(metadata ? { metadata } : {}),
+                    ...(vitals ? { vitals } : {}),
+                  }
                 : { reason, [answer === 'deny' ? 'denialReason' : 'note']: trimmed }),
             } as RenewalResponseInput)
       );
@@ -261,11 +275,11 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
               phone: request.pharmacy.phone ?? '',
               address: '',
             },
-            onSend: async (line) => {
+            onSend: async (line, order) => {
               await respond.mutateAsync(
                 change
-                  ? changeApproval(change.changeTaskId, selected ? suggestion : undefined, line)
-                  : renewalApproval(refill!.renewalTaskId, line)
+                  ? changeApproval(change.changeTaskId, selected ? suggestion : undefined, line, order.vitals)
+                  : renewalApproval(refill!.renewalTaskId, line, order.vitals)
               );
             },
             sendLabel: `Send to ${pharmacyName}`,

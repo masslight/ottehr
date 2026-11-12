@@ -112,14 +112,6 @@ const canSendToAnotherPharmacyByStatus = (prescription: PrescribedMedicationDTO)
 const isCompoundDosageForm = (form: string | undefined): form is CompoundDosageForm =>
   COMPOUND_DOSAGE_FORMS.includes(form as CompoundDosageForm);
 
-/** The eRx service can't cancel a compound yet: Cancel, Send to another pharmacy and a patient's change request. */
-export const COMPOUND_CANCEL_UNSUPPORTED = "Canceling compounds isn't supported yet";
-
-/** Whether the action would cancel a compound: Cancel, or sending a sent one to another pharmacy (which cancels it
- * first); an errored one is only sent again. */
-const cancelsCompound = (action: PrescriptionAction, prescription: PrescribedMedicationDTO): boolean =>
-  !!prescription.order?.compound && (action === 'cancel' || isPrescriptionCancellable(prescription));
-
 /** The order fields the new prescription needs that the stored one lacks. */
 const missingOrderFields = (prescription: PrescribedMedicationDTO): string[] => {
   const order = prescription.order;
@@ -169,14 +161,13 @@ const prescriptionActionAppliesByStatus = (
 export const prescriptionActionBlocker = (
   action: PrescriptionAction,
   prescription: PrescribedMedicationDTO
-): { status: string } | { missing: string[] } | { unsupported: string } | undefined => {
+): { status: string } | { missing: string[] } | undefined => {
   if (!prescriptionActionAppliesByStatus(action, prescription)) {
     const { chip } = prescriptionStatusView(prescription);
     // A sent prescription whose cancellation was refused can't be cancelled again.
     const cancelDenied = prescription.status === 'active' && (chip === 'Sent' || chip === 'Sent by fax');
     return { status: cancelDenied ? 'Cancel denied' : chip ?? prescription.status ?? 'unknown' };
   }
-  if (cancelsCompound(action, prescription)) return { unsupported: COMPOUND_CANCEL_UNSUPPORTED };
   if (action === 'sendToAnotherPharmacy') {
     const missing = missingOrderFields(prescription);
     if (missing.length) return { missing };
@@ -197,17 +188,14 @@ export const prescriptionActionUnavailableText = (
   const name = PRESCRIPTION_ACTION_NAMES[action];
   const statuses = new Set<string>();
   const missing: string[] = [];
-  const unsupported = new Set<string>();
   for (const prescription of prescriptions) {
     const blocker = prescriptionActionBlocker(action, prescription);
     if (blocker && 'status' in blocker) statuses.add(blocker.status);
     if (blocker && 'missing' in blocker) missing.push(`${prescription.name}: missing ${blocker.missing.join(', ')}`);
-    if (blocker && 'unsupported' in blocker) unsupported.add(blocker.unsupported);
   }
   const parts = [
     statuses.size > 0 && `${name} isn't available for prescriptions with status ${[...statuses].join(', ')}.`,
     missing.length > 0 && `${name} isn't available for ${missing.join('; ')}.`,
-    ...unsupported,
   ].filter(Boolean);
   return parts.length ? parts.join(' ') : undefined;
 };
@@ -215,10 +203,7 @@ export const prescriptionActionUnavailableText = (
 /** The same prescription again, for another pharmacy, from its stored order; undefined when a field is missing. */
 export const prescriptionToOrderForPharmacy = (
   prescription: PrescribedMedicationDTO,
-  context: { practitionerId: string; writtenDate: string; pharmacy: PharmacySearchResult } & Pick<
-    OrderPrescriptionInput,
-    'patientHeight' | 'patientWeight'
-  >
+  context: { practitionerId: string; pharmacy: PharmacySearchResult } & Pick<OrderPrescriptionInput, 'vitals'>
 ): OrderPrescriptionInput | undefined => {
   const order = prescription.order;
   if (!order || missingOrderFields(prescription).length) return undefined;
@@ -229,7 +214,6 @@ export const prescriptionToOrderForPharmacy = (
     quantityValue: order.quantityValue!,
     quantityUnit: order.quantityUnit as QuantityUnit,
     ...(order.daysSupply !== undefined ? { daysSupply: order.daysSupply } : {}),
-    writtenDate: context.writtenDate,
     numberOfRefills: order.numberOfRefills!,
     patientInstructions: prescription.instructions!,
     ...(order.noteToPharmacy ? { noteToPharmacy: order.noteToPharmacy } : {}),
@@ -239,8 +223,7 @@ export const prescriptionToOrderForPharmacy = (
     pharmacyPhone: context.pharmacy.phone,
     ...(order.diagnosisCode ? { diagnosisCode: order.diagnosisCode } : {}),
     ...(order.diagnosisDescription ? { diagnosisDescription: order.diagnosisDescription } : {}),
-    ...(context.patientHeight ? { patientHeight: context.patientHeight } : {}),
-    ...(context.patientWeight ? { patientWeight: context.patientWeight } : {}),
+    ...(context.vitals ? { vitals: context.vitals } : {}),
   };
   const { compound } = order;
   if (compound) {

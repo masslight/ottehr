@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import {
   DoseMeasure,
   doseRoundingNote,
@@ -38,6 +39,7 @@ import {
   CompoundOrderIngredient,
   CompoundStrengthUnit,
   OrderPrescriptionInput,
+  PrescriptionVitals,
   QUANTITY_UNITS,
   QuantityUnit,
 } from 'utils/lib/types/api/order-prescription.types';
@@ -118,6 +120,8 @@ export interface CompoundIngredientLine {
   search: string;
   value: string;
   unit: CompoundIngredientUnit | '';
+  /** The strength a pharmacy sent, while the ingredient is as it sent it. */
+  sentStrength?: CompoundIngredientInput['sentStrength'];
 }
 
 export interface CompoundLine {
@@ -207,6 +211,7 @@ export const compoundLineOf = ({ description, dosageForm, ingredients }: Compoun
       : { typed: ingredient.description, notControlled: ingredient.typedNotControlled === true }),
     value: String(ingredient.strength?.value ?? ingredient.amount?.value ?? ''),
     unit: ingredient.base ? 'base' : ingredient.strength?.unit ?? ingredient.amount?.unit ?? '',
+    ...(ingredient.sentStrength ? { sentStrength: ingredient.sentStrength } : {}),
   })),
 });
 
@@ -880,10 +885,23 @@ interface OrderContext {
   practitionerId: string;
   encounterId: string;
   pharmacy: PharmacySearchResult;
-  writtenDate: string;
-  patientHeight?: OrderPrescriptionInput['patientHeight'];
-  patientWeight?: OrderPrescriptionInput['patientWeight'];
+  vitals?: PrescriptionVitals;
 }
+
+/** The height and weight an order or an approval sends, each with the day it was measured; a weight with no time (typed
+ * in the dose calculator) is today's. */
+export const prescriptionVitals = (
+  height: { cm: number; takenAt?: string } | undefined,
+  weight: { kg: number; takenAt?: string } | undefined
+): PrescriptionVitals | undefined => {
+  const measuredDate = (takenAt?: string): string =>
+    (takenAt && DateTime.fromISO(takenAt).toLocal().toISODate()) || (DateTime.local().toISODate() ?? '');
+  if (!height && !weight) return undefined;
+  return {
+    ...(height ? { height: { value: height.cm, unit: 'cm', measuredDate: measuredDate(height.takenAt) } } : {}),
+    ...(weight ? { weight: { value: weight.kg, unit: 'kg', measuredDate: measuredDate(weight.takenAt) } } : {}),
+  };
+};
 
 const ASCII_FRACTIONS: Record<string, string> = { '¼': '1/4', '½': '1/2', '¾': '3/4' };
 
@@ -907,7 +925,6 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     quantityValue: Number(line.quantityValue),
     quantityUnit: line.quantityUnit,
     ...(line.daysSupply ? { daysSupply: Number(line.daysSupply) } : {}),
-    writtenDate: context.writtenDate,
     numberOfRefills: Number(line.numberOfRefills),
     // Directions go with ASCII fractions ("1/2 tablet"): the blanks' written so, typed or quick-pick
     // ones converted; the screen keeps "½". A compound's are typed.
@@ -928,8 +945,7 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     ...(line.diagnosis
       ? { diagnosisCode: line.diagnosis.code.trim(), diagnosisDescription: line.diagnosis.display.trim() }
       : {}),
-    ...(context.patientHeight ? { patientHeight: context.patientHeight } : {}),
-    ...(context.patientWeight ? { patientWeight: context.patientWeight } : {}),
+    ...(context.vitals ? { vitals: context.vitals } : {}),
   };
   if (compound) {
     const entered = compoundToOrder(compound);
@@ -1059,12 +1075,16 @@ export const compoundOrderIngredients = (
   return {
     ingredients: compound.ingredients.map((ingredient, i) => {
       const strengthUnit = ingredient.strength && ORDER_STRENGTH_UNITS[ingredient.strength.unit];
+      // A pharmacy's strength goes back as it sent it.
+      const strength =
+        ingredient.sentStrength ??
+        (ingredient.strength && strengthUnit
+          ? { value: String(ingredient.strength.value), unit: strengthUnit }
+          : undefined);
       return {
         description: ingredient.description,
         ...(ingredient.ndc ? { ndc: ingredient.ndc } : {}),
-        ...(ingredient.strength && strengthUnit
-          ? { strength: { value: String(ingredient.strength.value), unit: strengthUnit } }
-          : {}),
+        ...(strength ? { strength } : {}),
         quantityValue: sent[i].value,
         quantityUnit: sent[i].unit,
       };
@@ -1089,6 +1109,7 @@ const compoundIngredientToOrder = (ingredient: CompoundIngredientLine): Compound
       : isStrengthUnit(unit)
       ? { strength: { value, unit } }
       : { amount: { value, unit: unit as QuantityUnit } }),
+    ...(ingredient.sentStrength ? { sentStrength: ingredient.sentStrength } : {}),
   };
 };
 
