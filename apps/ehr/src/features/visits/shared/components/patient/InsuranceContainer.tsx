@@ -32,6 +32,7 @@ import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/
 import {
   EligibilityCheckSimpleStatus,
   FinancialDetails,
+  InsuranceDetails,
   mapEligibilityCheckResultToSimpleStatus,
   PatientPaymentBenefit,
 } from 'utils/lib/types/data/telemed/eligibility.types';
@@ -92,7 +93,10 @@ function mapInitialStatus(
       status: status.status,
       dateISO: status.dateISO,
       servicedDate: initialCheckResult.servicedDate,
+      coverageDetails: initialCheckResult.coverageDetails,
+      financialDetails: initialCheckResult.financialDetails,
       copay: initialCheckResult.copay,
+      deductible: initialCheckResult.deductible,
       errors: initialCheckResult.errors,
     };
   }
@@ -133,7 +137,10 @@ interface SimpleStatusCheckWithDate {
   status: EligibilityCheckSimpleStatus;
   dateISO: string;
   servicedDate?: string;
+  coverageDetails?: InsuranceDetails;
+  financialDetails?: FinancialDetails[];
   copay?: PatientPaymentBenefit[];
+  deductible?: PatientPaymentBenefit[];
   errors?: Array<{ code: { coding?: Array<{ code?: string; display?: string }>; text?: string } }>;
 }
 
@@ -252,10 +259,14 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             const fullResult = coverageToCheck === 'secondary' ? json.secondary : json.primary;
             const simpleStatus = mapEligibilityCheckResultToSimpleStatus(fullResult);
 
-            // Return combined data including the error details
+            // The whole result is kept, not just the status: its benefits replace the previous check's.
             return {
               ...simpleStatus,
               servicedDate: simpleStatus.servicedDate ?? serviceDateISO,
+              coverageDetails: fullResult?.coverageDetails,
+              financialDetails: fullResult?.financialDetails,
+              copay: fullResult?.copay,
+              deductible: fullResult?.deductible,
               errors: fullResult?.errors,
             };
           });
@@ -484,22 +495,22 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       return undefined;
     }
 
-    // If we have updated eligibility status from a recheck, merge it with initial data
+    // A recheck replaces the previous check's status, date and benefits together; only the identity of the
+    // coverage that was checked (subscriber, payor, plan) carries over. Benefits the recheck did not return stay empty.
     if (eligibilityStatus && initialEligibilityCheck) {
-      const mergedData = {
-        ...initialEligibilityCheck,
+      return {
+        subscriberId: initialEligibilityCheck.subscriberId,
+        payorRef: initialEligibilityCheck.payorRef,
+        planId: initialEligibilityCheck.planId,
         status: mapSimpleStatusToDetailedStatus(eligibilityStatus.status),
         dateISO: eligibilityStatus.dateISO,
         servicedDate: eligibilityStatus.servicedDate,
-        // Prefer eligibilityStatus.copay if it has items, otherwise use initialEligibilityCheck.copay
-        copay:
-          eligibilityStatus.copay && eligibilityStatus.copay.length > 0
-            ? eligibilityStatus.copay
-            : initialEligibilityCheck.copay,
-        errors: eligibilityStatus.errors || initialEligibilityCheck.errors,
+        coverageDetails: eligibilityStatus.coverageDetails,
+        financialDetails: eligibilityStatus.financialDetails,
+        copay: eligibilityStatus.copay,
+        deductible: eligibilityStatus.deductible,
+        errors: eligibilityStatus.errors,
       };
-
-      return mergedData;
     }
 
     // If we only have initial data, use that
@@ -513,7 +524,10 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         status: mapSimpleStatusToDetailedStatus(eligibilityStatus.status),
         dateISO: eligibilityStatus.dateISO,
         servicedDate: eligibilityStatus.servicedDate,
+        coverageDetails: eligibilityStatus.coverageDetails,
+        financialDetails: eligibilityStatus.financialDetails,
         copay: eligibilityStatus.copay,
+        deductible: eligibilityStatus.deductible,
         errors: eligibilityStatus.errors,
         subscriberId: '',
         payorRef: '',
