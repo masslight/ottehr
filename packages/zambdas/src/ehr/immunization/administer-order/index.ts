@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   FhirResource,
@@ -188,51 +189,58 @@ export async function administerImmunizationOrder(
       administrationDetails.cptCodes ?? [],
       administrationDetails.fundingSource
     );
-    if (cptCodesToAdd.length > 0) {
-      const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
-      const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
-      if (encounterId && patientId) {
-        try {
-          // The lines this administration already has: each vaccine given bills its own admin codes, so another
-          // vaccine's 90460 on the visit is not a reason to skip this one.
-          const existingProcedures = (
-            await oystehr.fhir.search<Procedure>({
+    const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
+    const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
+    if (encounterId && patientId) {
+      try {
+        // The lines this administration already has: each vaccine given bills its own admin codes, so another
+        // vaccine's 90460 on the visit is not a reason to skip this one.
+        const existingProcedures = (
+          await oystehr.fhir.search<Procedure>({
+            resourceType: 'Procedure',
+            params: [
+              { name: 'part-of', value: `MedicationAdministration/${medicationAdministration.id}` },
+              { name: '_tag', value: 'cpt-code' },
+            ],
+          })
+        ).unbundle();
+        const changedCodes: string[] = [];
+        for (const cptCode of cptCodesToAdd) {
+          const coding = cptCodeCoding(cptCode);
+          const existing = existingProcedures.find((p) => p.code?.coding?.[0]?.code === cptCode.code);
+          if (!existing) {
+            await oystehr.fhir.create<Procedure>({
               resourceType: 'Procedure',
-              params: [
-                { name: 'part-of', value: `MedicationAdministration/${medicationAdministration.id}` },
-                { name: '_tag', value: 'cpt-code' },
-              ],
-            })
-          ).unbundle();
-          const changedCodes: string[] = [];
-          for (const cptCode of cptCodesToAdd) {
-            const coding = cptCodeCoding(cptCode);
-            const existing = existingProcedures.find((p) => p.code?.coding?.[0]?.code === cptCode.code);
-            if (!existing) {
-              await oystehr.fhir.create<Procedure>({
-                resourceType: 'Procedure',
-                subject: { reference: `Patient/${patientId}` },
-                encounter: { reference: `Encounter/${encounterId}` },
-                partOf: [createReference(medicationAdministration)],
-                status: 'completed',
-                code: { coding: [coding] },
-                meta: {
-                  tag: [{ code: 'cpt-code', system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code' }],
-                },
-              });
-              changedCodes.push(cptCode.code);
-            } else if (getCptBillableUnitsForProcedure(existing) !== (cptCode.billableUnits ?? 1)) {
-              // re-administered with a different count: the line keeps its id, the claim gets the new quantity
-              await oystehr.fhir.update<Procedure>({ ...existing, code: { coding: [coding] } });
-              changedCodes.push(`${cptCode.code} ×${cptCode.billableUnits ?? 1}`);
-            }
+              subject: { reference: `Patient/${patientId}` },
+              encounter: { reference: `Encounter/${encounterId}` },
+              partOf: [createReference(medicationAdministration)],
+              status: 'completed',
+              code: { coding: [coding] },
+              meta: {
+                tag: [{ code: 'cpt-code', system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code' }],
+              },
+            });
+            changedCodes.push(cptCode.code);
+          } else if (getCptBillableUnitsForProcedure(existing) !== (cptCode.billableUnits ?? 1)) {
+            // re-administered with a different count: the line keeps its id, the claim gets the new quantity
+            await oystehr.fhir.update<Procedure>({ ...existing, code: { coding: [coding] } });
+            changedCodes.push(`${cptCode.code} ×${cptCode.billableUnits ?? 1}`);
           }
-          if (changedCodes.length > 0) {
-            console.log('Added CPT codes to chart data:', changedCodes.join(', '));
-          }
-        } catch (e) {
-          console.error('Failed to add CPT codes to chart data:', e);
         }
+        // re-administered without a code (re-saved from VFC stock, the vaccine's own code is no longer billed): its
+        // line goes, as cancelling the order deletes them
+        for (const procedure of existingProcedures) {
+          const code = procedure.code?.coding?.[0]?.code;
+          if (!procedure.id || cptCodesToAdd.some((cpt) => cpt.code === code)) continue;
+          await oystehr.fhir.delete({ resourceType: 'Procedure', id: procedure.id });
+          changedCodes.push(`-${code}`);
+        }
+        if (changedCodes.length > 0) {
+          console.log('Changed CPT codes in chart data:', changedCodes.join(', '));
+        }
+      } catch (e) {
+        console.error('Failed to update CPT codes in chart data:', e);
+        captureException(e);
       }
     }
   }

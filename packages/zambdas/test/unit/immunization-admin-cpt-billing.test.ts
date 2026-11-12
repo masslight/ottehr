@@ -6,6 +6,7 @@ import { Medication, MedicationAdministration, Practitioner, Procedure } from 'f
 import { CPT_BILLABLE_UNITS_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { IMMUNIZATION_ORDER_TAG_CODE, IMMUNIZATION_ORDER_TAG_SYSTEM } from 'utils/lib/fhir/medication-administration';
 import { AdministerImmunizationOrderRequest, ImmunizationCptCode } from 'utils/lib/types/data/immunization/types';
+import { VaccineFundingSource } from 'utils/lib/types/data/immunization/vfc';
 import { describe, expect, it } from 'vitest';
 import { administerImmunizationOrder } from '../../src/ehr/immunization/administer-order/index';
 import { CONTAINED_MEDICATION_ID, validateAdministrationDetailsValues } from '../../src/ehr/immunization/common';
@@ -79,11 +80,21 @@ function makeFakeOystehr(mas: Record<string, MedicationAdministration>): {
       procedures[index] = resource;
       return resource;
     },
+    delete: async ({ id }: { resourceType: string; id: string }) => {
+      procedures.splice(
+        procedures.findIndex((p) => p.id === id),
+        1
+      );
+    },
   };
   return { oystehr: { fhir } as unknown as Oystehr, procedures };
 }
 
-function adminRequest(orderId: string, cptCodes: ImmunizationCptCode[]): AdministerImmunizationOrderRequest {
+function adminRequest(
+  orderId: string,
+  cptCodes: ImmunizationCptCode[],
+  fundingSource?: VaccineFundingSource
+): AdministerImmunizationOrderRequest {
   return {
     orderId,
     type: 'administered',
@@ -104,6 +115,7 @@ function adminRequest(orderId: string, cptCodes: ImmunizationCptCode[]): Adminis
       administeredDateTime: '2026-11-10T10:00:00Z',
       visGivenDate: '2026-11-10',
       cptCodes,
+      ...(fundingSource ? { fundingSource } : {}),
     },
   };
 }
@@ -170,6 +182,21 @@ describe('Immunization admin CPT billing (Maya well visit)', () => {
 
     expect(procedures).toHaveLength(2);
     expect(getBillableUnitsForProcedure(linesFor(procedures, '90461')[0], [mas.vaxelis])).toBe(4);
+  });
+
+  it('re-saving a private dose as a VFC lot drops the vaccine product code from the chart', async () => {
+    const mas = { mmr: makeMA('mmr') };
+    const { oystehr, procedures } = makeFakeOystehr(mas);
+    const C90707: ImmunizationCptCode = { code: '90707', display: 'MMR vaccine' };
+
+    await administerImmunizationOrder(oystehr, adminRequest('mmr', [C90707, C90460], 'private'), practitioner);
+    expect(procedures.map((p) => p.code?.coding?.[0]?.code).sort()).toEqual(['90460', '90707']);
+
+    await administerImmunizationOrder(oystehr, adminRequest('mmr', [C90707, C90460], 'vfc'), practitioner);
+    expect(procedures.map((p) => p.code?.coding?.[0]?.code)).toEqual(['90460']);
+    // and back to private stock: the product code is billed again
+    await administerImmunizationOrder(oystehr, adminRequest('mmr', [C90707, C90460], 'private'), practitioner);
+    expect(procedures.map((p) => p.code?.coding?.[0]?.code).sort()).toEqual(['90460', '90707']);
   });
 
   it('rejects a count that is not a positive integer', () => {
