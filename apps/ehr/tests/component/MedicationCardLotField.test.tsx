@@ -126,6 +126,19 @@ describe('MedicationCardField lot suggestions', () => {
     expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ id: 'lot-in-date' }));
   });
 
+  it('the clear button empties the field', async () => {
+    const onPick = vi.fn();
+    const user = userEvent.setup();
+    render(<Harness initial="C24117" onPick={onPick} />);
+    const input = screen.getByRole('combobox');
+
+    await user.click(input);
+    await user.click(screen.getByTitle('Clear'));
+
+    expect(input).toHaveValue('');
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
   it('keeps the whole list visible while the field holds a listed lot', () => {
     render(<Harness initial="C24117" onPick={vi.fn()} />);
     expect(within(openList()).getAllByRole('option')).toHaveLength(3);

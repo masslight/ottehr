@@ -154,7 +154,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
             if (option && typeof option !== 'string') onInventoryLotPick(option.lot);
           }}
           onInputChange={(_e, newText, reason) => {
-            if (reason !== 'input') return;
+            if (reason !== 'input' && reason !== 'clear') return;
             const typedLot = findLot(newText);
             if (typedLot) onInventoryLotPick(typedLot);
             else handleChange(newText);
