@@ -1,7 +1,11 @@
+import { otherColors } from '@ehrTheme/colors';
+import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternateOutlined';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, IconButton, Paper, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import { Box, IconButton, Paper, ToggleButtonGroup, Typography } from '@mui/material';
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 
 export type CardPreviewFace = 'front' | 'back';
 
@@ -13,24 +17,29 @@ export interface FloatingCardPreviewProps {
   title: string;
   defaultFace?: CardPreviewFace;
   /**
-   * Optional extra header controls (e.g. a rotate button), rendered between the face toggle and the
-   * close button. Pass a function to render controls for the currently SHOWN face (e.g. a rotate
-   * control targeting that face's DocumentReference).
+   * Optional extra controls (e.g. Rotate / Remove buttons), rendered right-aligned in the toolbar row
+   * under the title, opposite the Front/Back toggle. Pass a function to render controls for the
+   * currently SHOWN face (e.g. a rotate control targeting that face's DocumentReference).
+   *
+   * The toolbar is a wrapping flex row, so an action may also render a full-width notice about the
+   * shown face (e.g. a "card may be rotated" Alert) by giving it `TOOLBAR_NOTICE_SX`: it then drops
+   * onto its own line below the controls, directly above the card image.
    */
   headerActions?: ReactNode | ((face: CardPreviewFace) => ReactNode);
   /**
-   * Rendered in place of the body's "No image available" text when the currently shown face has no
-   * URL — e.g. an inline Upload/Scan control so a face that was just removed (or never had an image)
-   * can be reloaded without leaving the preview. Providing this ALSO keeps the Front/Back toggle
-   * visible even when only one face currently has an image, so the empty face stays reachable.
+   * Rendered inside the dashed empty-card frame, under its "No image of the <face>" heading, when the
+   * currently shown face has no URL — e.g. an inline Upload/Scan control so a face that was just
+   * removed (or never had an image) can be reloaded without leaving the preview. Providing this ALSO
+   * keeps the Front/Back toggle visible even when only one face currently has an image, so the empty
+   * face stays reachable.
    */
   emptyStateSlot?: (face: CardPreviewFace) => ReactNode;
 }
 
-/** Max width of the enlarged card image inside the panel body. */
-const IMAGE_MAX_WIDTH = 400;
-/** Panel width = image + body padding (16px each side). */
-const PANEL_WIDTH = IMAGE_MAX_WIDTH + 32;
+/** Panel width; the card image fills it less the grey stage's margin and padding (16px + 16px each side). */
+const PANEL_WIDTH = 432;
+/** Standard aspect ratio for ID and insurance cards — sizes the empty-face frame like a real card. */
+const CARD_ASPECT_RATIO = 1.57;
 /** Minimum gap kept between the panel and the viewport edges while dragging. */
 const EDGE_MARGIN = 8;
 /** Keep at least this much of the panel (its header) reachable at the bottom of the viewport. */
@@ -40,6 +49,12 @@ interface PanelPosition {
   x: number;
   y: number;
 }
+
+/**
+ * sx for a notice rendered through `headerActions` (e.g. an Alert) that should span the panel on its
+ * own line below the toolbar controls rather than sit inline beside them. See `headerActions`.
+ */
+export const TOOLBAR_NOTICE_SX = { order: 1, flexBasis: '100%' } as const;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), Math.max(min, max));
 
@@ -140,6 +155,7 @@ const FloatingCardPreview: React.FC<FloatingCardPreviewProps> = ({
   const shownFace: CardPreviewFace = canToggleFace ? face : frontUrl ? 'front' : 'back';
   const shownUrl = shownFace === 'front' ? frontUrl : backUrl;
   const { x, y } = position ?? defaultPosition();
+  const toolbarActions = typeof headerActions === 'function' ? headerActions(shownFace) : headerActions;
 
   const handleDragStart = (event: React.MouseEvent<HTMLElement>): void => {
     // Ignore drags that start on a header control (toggle buttons, close, headerActions buttons).
@@ -190,62 +206,124 @@ const FloatingCardPreview: React.FC<FloatingCardPreviewProps> = ({
       >
         {`${title} preview opened`}
       </Box>
+      {/* Header (drag handle): grip, title in the same style as the "Primary insurance" heading the
+          preview opens from, and the close button on its own at the right. */}
       <Box
         onMouseDown={handleDragStart}
         sx={{
           display: 'flex',
           alignItems: 'center',
-          gap: 1,
-          px: 1.5,
-          py: 0.75,
-          backgroundColor: 'grey.100',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
+          gap: 0.5,
+          pl: 1.25,
+          pr: 1,
+          pt: 1.5,
+          pb: 1,
           cursor: dragging ? 'grabbing' : 'grab',
           userSelect: 'none',
         }}
       >
-        <Typography variant="subtitle2" noWrap sx={{ flex: 1 }}>
+        <DragIndicatorIcon sx={{ color: 'action.disabled', fontSize: 20 }} />
+        <Typography variant="h5" component="h2" noWrap sx={{ flex: 1, color: 'primary.dark' }}>
           {title}
         </Typography>
-        {canToggleFace && (
-          <ToggleButtonGroup
-            value={shownFace}
-            exclusive
-            size="small"
-            aria-label={`${title} preview side`}
-            onChange={(_event, newFace: CardPreviewFace | null) => {
-              if (newFace !== null) {
-                setFace(newFace);
-              }
-            }}
-          >
-            <ToggleButton value="front" aria-label={`Show front of ${title} preview`}>
-              Front
-            </ToggleButton>
-            <ToggleButton value="back" aria-label={`Show back of ${title} preview`}>
-              Back
-            </ToggleButton>
-          </ToggleButtonGroup>
-        )}
-        {typeof headerActions === 'function' ? headerActions(shownFace) : headerActions}
-        <IconButton size="small" aria-label={`Close ${title} preview`} onClick={onClose}>
-          <CloseIcon fontSize="small" />
+        <IconButton aria-label={`Close ${title} preview`} onClick={onClose}>
+          <CloseIcon />
         </IconButton>
       </Box>
-      <Box sx={{ p: 2, display: 'flex', justifyContent: 'center' }}>
+      {/* Toolbar: Front/Back on the left, face actions (rotate, remove) on the right. Wraps, so a
+          TOOLBAR_NOTICE_SX notice from headerActions lands on its own line above the image. */}
+      {(canToggleFace || toolbarActions) && (
+        <Box
+          sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 0.5, rowGap: 1.5, px: 2, pb: 1.5 }}
+        >
+          {canToggleFace && (
+            <ToggleButtonGroup
+              value={shownFace}
+              exclusive
+              size="small"
+              aria-label={`${title} preview side`}
+              onChange={(_event, newFace: CardPreviewFace | null) => {
+                if (newFace !== null) {
+                  setFace(newFace);
+                }
+              }}
+            >
+              <ContainedPrimaryToggleButton value="front" aria-label={`Show front of ${title} preview`}>
+                Front
+              </ContainedPrimaryToggleButton>
+              <ContainedPrimaryToggleButton value="back" aria-label={`Show back of ${title} preview`}>
+                Back
+              </ContainedPrimaryToggleButton>
+            </ToggleButtonGroup>
+          )}
+          <Box sx={{ flexGrow: 1 }} />
+          {toolbarActions}
+        </Box>
+      )}
+      {/* The card sits on the form-card grey stage. A missing face gets a dashed, card-sized frame so
+          the panel keeps its size while toggling between a present and an empty face. */}
+      <Box
+        sx={{
+          mx: 2,
+          mb: 2,
+          p: 2,
+          borderRadius: 2,
+          backgroundColor: otherColors.formCardBg,
+          display: 'flex',
+          justifyContent: 'center',
+        }}
+      >
         {shownUrl ? (
           <img
             src={shownUrl}
             alt={`${title} ${shownFace}`}
-            style={{ maxWidth: IMAGE_MAX_WIDTH, width: '100%', height: 'auto', objectFit: 'contain' }}
+            style={{ display: 'block', width: '100%', height: 'auto', objectFit: 'contain', borderRadius: 4 }}
           />
-        ) : emptyStateSlot ? (
-          emptyStateSlot(shownFace)
         ) : (
-          <Typography variant="body2" color="text.secondary">
-            No image available
-          </Typography>
+          <Box
+            sx={{
+              width: '100%',
+              aspectRatio: String(CARD_ASPECT_RATIO),
+              boxSizing: 'border-box',
+              border: `1.5px dashed ${otherColors.dottedLine}`,
+              borderRadius: 2,
+              backgroundColor: 'background.paper',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1.25,
+              p: 2,
+              textAlign: 'center',
+            }}
+          >
+            {emptyStateSlot ? (
+              <>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    backgroundColor: otherColors.lightBlue,
+                    color: 'primary.main',
+                  }}
+                >
+                  <AddPhotoAlternateOutlinedIcon />
+                </Box>
+                <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.dark' }}>
+                  {`No image of the ${shownFace}`}
+                </Typography>
+                {emptyStateSlot(shownFace)}
+              </>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No image available
+              </Typography>
+            )}
+          </Box>
         )}
       </Box>
     </Paper>,

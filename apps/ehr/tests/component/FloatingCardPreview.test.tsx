@@ -92,6 +92,45 @@ describe('FloatingCardPreview', () => {
     expect(screen.queryByRole('button', { name: `Show front of ${TITLE} preview` })).toBeNull();
   });
 
+  it('shows a card-sized empty frame with the emptyStateSlot for a face that has no image', async () => {
+    const user = userEvent.setup();
+    render(
+      <FloatingCardPreview
+        open
+        onClose={vi.fn()}
+        frontUrl={FRONT_URL}
+        backUrl={undefined}
+        title={TITLE}
+        emptyStateSlot={(face) => <button>Reload {face}</button>}
+      />
+    );
+
+    // The slot keeps the toggle reachable even though only the front has an image.
+    await user.click(screen.getByRole('button', { name: `Show back of ${TITLE} preview` }));
+
+    expect(screen.getByText('No image of the back')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reload back' })).toBeInTheDocument();
+    expect(screen.queryByAltText(`${TITLE} back`)).toBeNull();
+  });
+
+  it('renders headerActions for the shown face in the toolbar', async () => {
+    const user = userEvent.setup();
+    render(
+      <FloatingCardPreview
+        open
+        onClose={vi.fn()}
+        frontUrl={FRONT_URL}
+        backUrl={BACK_URL}
+        title={TITLE}
+        headerActions={(face) => <button>Act on {face}</button>}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Act on front' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: `Show back of ${TITLE} preview` }));
+    expect(screen.getByRole('button', { name: 'Act on back' })).toBeInTheDocument();
+  });
+
   it('close button calls onClose', async () => {
     const user = userEvent.setup();
     const { onClose } = renderPreview();
