@@ -289,7 +289,7 @@ export const usePatientRadiologyOrders = (options: {
       await runOrderAction({
         call: (client) =>
           reportType === 'preliminary'
-            ? // Diagnosis is captured with the preliminary read (it is optional at order time).
+            ? // A diagnosis may be captured with the preliminary read (it is optional, as at order time).
               savePreliminaryReport(client, { serviceRequestId, report, diagnosisCodes, performedById })
             : saveFinalReport(client, { serviceRequestId, report }),
         setBusy: setIsSavingReport,
