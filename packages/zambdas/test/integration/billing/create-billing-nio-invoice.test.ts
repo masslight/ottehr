@@ -294,6 +294,28 @@ describe('create-billing-nio-invoice', () => {
     expect(retry.invoiceNumber).toBe(first.invoiceNumber);
   }, 120_000);
 
+  it('is matched by subject:missing, which keeps it out of the patient invoice list', async () => {
+    const searchBySubjectMissing = async (missing: boolean): Promise<Invoice[]> =>
+      (
+        await oystehr.fhir.search<Invoice>({
+          resourceType: 'Invoice',
+          params: [
+            {
+              name: '_id',
+              value: first.invoiceId,
+            },
+            {
+              name: 'subject:missing',
+              value: String(missing),
+            },
+          ],
+        })
+      ).unbundle();
+
+    expect(await searchBySubjectMissing(false)).toEqual([]);
+    expect((await searchBySubjectMissing(true)).map(({ id }) => id)).toEqual([first.invoiceId]);
+  }, 120_000);
+
   it('refuses claims that are already on an invoice', async () => {
     await expect(
       create({
