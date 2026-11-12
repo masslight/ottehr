@@ -809,9 +809,11 @@ async function ensureVfcEligibility(
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  // the env file says which project it is for: ENV=development with another project's file is refused too
+  // the env file says which project it is for: a shared project's file carries its ENVIRONMENT, the synth project's
+  // none (or synth), so ENV=synth with a shared project's file is refused, as is ENV=development with another's
+  const synth = process.env.ENV === 'synth' && [undefined, 'synth'].includes(process.env.ENVIRONMENT);
   const shared = process.env.ENV === 'development' && process.env.ENVIRONMENT === 'development';
-  if (process.env.ENV !== 'synth' && !(shared && flag('--allow-shared-env'))) {
+  if (!synth && !(shared && flag('--allow-shared-env'))) {
     throw new Error(
       'This seeds demo data on the synth project, or on development with --allow-shared-env: run with ENV=synth ' +
         'and the synth env file, or ENV=development, the development env file and --allow-shared-env.'
