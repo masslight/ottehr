@@ -6,6 +6,7 @@ import {
   createOutboundDeliveryAttempt,
   failOutboundDeliveryAttempt,
 } from './outbound-delivery';
+import { sendLetterFax } from './send-letter-fax';
 
 export interface SendFaxAttemptInput {
   /** Absent when the packet does not belong to a single visit (a medical record, or one document). */
@@ -78,12 +79,12 @@ export async function deliverFaxAttempt(input: SendFaxAttemptInput, oystehr: Oys
   let communicationId: string;
   try {
     console.log('Sending fax to', faxNumber);
-    const { communicationResource } = await oystehr.fax.send({
+    const communicationResource = await sendLetterFax({
+      oystehr,
       media,
-      quality: 'standard',
-      patient: `Patient/${patientId}`,
-      recipientNumber: faxNumber,
-      sender: `Organization/${organizationId}`,
+      patientId,
+      faxNumber,
+      organizationId,
     });
     if (!communicationResource.id) throw new Error('Fax service returned a Communication without an id');
     communicationId = communicationResource.id;
