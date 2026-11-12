@@ -7,7 +7,9 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { VitalsHeadCircumferenceObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
+import { useAppointmentData } from '../../../stores/appointment/appointment.store';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalHistoryElement from '../components/VitalsHistoryEntry';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
@@ -20,15 +22,27 @@ import { VitalsCardProps } from '../types';
 
 type VitalsHeadCircumferenceCardProps = VitalsCardProps<VitalsHeadCircumferenceObservationDTO>;
 
+// Head circumference is measured at every well visit through 24 months (AAP/Bright Futures), so the card starts
+// open for younger patients and collapsed from this age on; staff can open it at any age.
+export const HEAD_CIRCUMFERENCE_COLLAPSED_FROM_MONTHS = 24;
+
 const VitalsHeadCircumferenceCard: React.FC<VitalsHeadCircumferenceCardProps> = ({ field }): JSX.Element => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { isLargeScreen } = useScreenDimensions();
+  const {
+    resources: { patient, appointment },
+  } = useAppointmentData();
 
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  // Age at the visit (today without an appointment start); an unknown age leaves the card open.
+  const ageMonths = ageInMonthsOnDate(patient?.birthDate, appointment?.start);
+  const collapsedByDefault = ageMonths !== undefined && ageMonths >= HEAD_CIRCUMFERENCE_COLLAPSED_FROM_MONTHS;
+  // Undefined until staff toggle the card, so the default follows the patient once loaded.
+  const [toggledCollapsed, setToggledCollapsed] = useState<boolean>();
+  const isCollapsed = toggledCollapsed ?? collapsedByDefault;
 
   const handleSectionCollapse = useCallback(() => {
-    setIsCollapsed((prevCollapseState) => !prevCollapseState);
-  }, [setIsCollapsed]);
+    setToggledCollapsed(!isCollapsed);
+  }, [isCollapsed]);
 
   const latestCm = field.current[0]?.value;
 
