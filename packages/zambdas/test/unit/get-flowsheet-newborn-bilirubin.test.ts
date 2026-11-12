@@ -6,7 +6,7 @@ import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart
 import { FlowsheetLabResult } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, test } from 'vitest';
 import { buildNewbornBilirubinFlowsheet, dayOfLifeAt } from '../../src/ehr/get-flowsheet/newborn-bilirubin';
-import { FlowsheetData } from '../../src/ehr/get-flowsheet/patient-data';
+import { FlowsheetData, unlinkedResultKey } from '../../src/ehr/get-flowsheet/patient-data';
 
 const PATIENT = 'Patient/p1';
 
@@ -130,6 +130,46 @@ describe('buildNewbornBilirubinFlowsheet', () => {
 
   test('name-only matching: conjugated goes to the direct row, indirect to neither, total keeps total', () => {
     expect(values('e3')).toEqual({ totalBilirubin: 9.1, directBilirubin: 0.5, dayOfLife: 8 });
+  });
+
+  test('a coded result lands by LOINC only: urine (5770-3) and whole-blood (42719-5) bilirubin are not serum rows', () => {
+    const at = '2007-04-03T18:00:00.000Z';
+    const labsOnly: FlowsheetData = { ...data, vitals: [] };
+    const rowsOf = (...labs: FlowsheetLabResult[]): string[] =>
+      Object.keys(buildNewbornBilirubinFlowsheet({ ...labsOnly, labs: { e1: labs } })[0]?.values ?? {})
+        .filter((key) => key !== 'dayOfLife')
+        .sort();
+
+    expect(rowsOf(lab('Bilirubin, total', ['5770-3'], 1, at))).toEqual([]);
+    expect(rowsOf(lab('Bilirubin, total', ['42719-5'], 9.9, at))).toEqual([]);
+    // Total bilirubin in umol/L (14631-6) and conjugated bilirubin (15152-2) are the serum rows in other units/names.
+    expect(rowsOf(lab('Bilirubin', ['14631-6'], 180, at), lab('Bilirubin', ['15152-2'], 0.4, at))).toEqual([
+      'directBilirubin',
+      'totalBilirubin',
+    ]);
+    expect(rowsOf(lab('TcB', ['72898-0'], 200, at, 'N', 'in-house'))).toEqual(['transcutaneousBilirubin']);
+  });
+
+  test('an unlinked outside result is its own column, dated by the result, with its own day of life', () => {
+    const outside = {
+      ...data,
+      labs: {
+        ...data.labs,
+        [unlinkedResultKey('dr-7')]: [lab('Bilirubin, total', ['1975-2'], 11.2, '2007-04-06T15:00:00.000Z')],
+      },
+    };
+    const columns = buildNewbornBilirubinFlowsheet(outside);
+    expect(columns.map((c) => c.encounterId)).toEqual(['e3', undefined, 'e2', 'e1']);
+    const [, column] = columns;
+    expect(column).toMatchObject({
+      start: '2007-04-06T15:00:00.000Z',
+      isOutsideResult: true,
+      visitType: 'Outside result',
+    });
+    expect(Object.fromEntries(Object.entries(column.values).map(([key, v]) => [key, v.value]))).toEqual({
+      totalBilirubin: 11.2,
+      dayOfLife: 6,
+    });
   });
 
   test('without a birth date there is no day of life row', () => {

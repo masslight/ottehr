@@ -5,7 +5,7 @@ import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/char
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { FlowsheetLabResult } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, test } from 'vitest';
-import { FlowsheetData } from '../../src/ehr/get-flowsheet/patient-data';
+import { FlowsheetData, unlinkedResultKey } from '../../src/ehr/get-flowsheet/patient-data';
 import { buildThyroidFlowsheet } from '../../src/ehr/get-flowsheet/thyroid';
 
 const PATIENT = 'Patient/p1';
@@ -167,6 +167,28 @@ describe('buildThyroidFlowsheet', () => {
     expect(visit.values.tsh.readings).toHaveLength(1);
   });
 
+  test('an unlinked outside result is its own column, dated by the result, placed among the visits', () => {
+    const outside = {
+      ...data,
+      labs: {
+        ...data.labs,
+        [unlinkedResultKey('dr-9')]: [lab('TSH', ['11579-0'], 2.3, 'mIU/L', '2023-04-10T12:00:00.000Z')],
+      },
+    };
+    const columns = buildThyroidFlowsheet(outside);
+    expect(columns.map((c) => c.encounterId)).toEqual(['e2', undefined, 'e1']);
+    const [, column] = columns;
+    expect(column).toMatchObject({
+      start: '2023-04-10T12:00:00.000Z',
+      isOutsideResult: true,
+      isFollowUp: false,
+      visitType: 'Outside result',
+    });
+    expect(column.appointmentId).toBeUndefined();
+    expect(Object.keys(column.values)).toEqual(['tsh']);
+    expect(column.values.tsh).toMatchObject({ value: 2.3, unit: 'mIU/L', time: '2023-04-10T12:00:00.000Z' });
+  });
+
   test('a coded result lands by LOINC only; by name, a TSH receptor antibody is not a TSH and TBG is not a T4', () => {
     const at = '2023-02-06T18:00:00.000Z';
     const labsOnly: FlowsheetData = { ...data, vitals: [], diagnoses: undefined, medications: undefined };
@@ -174,6 +196,13 @@ describe('buildThyroidFlowsheet', () => {
       Object.keys(buildThyroidFlowsheet({ ...labsOnly, labs: { e1: labs } })[0]?.values ?? {}).sort();
 
     expect(rowsOf(lab('TSH receptor antibody', ['5385-0'], 2.1, 'IU/L', at))).toEqual([]);
+    // Free T4 in pmol/L (14920-3) and TSH by a third-generation assay (11580-8) are the same measures, other units.
+    expect(rowsOf(lab('T4 free', ['14920-3'], 14, 'pmol/L', at), lab('TSH', ['11580-8'], 1.1, 'mIU/L', at))).toEqual([
+      'freeT4',
+      'tsh',
+    ]);
+    // A coded result never falls back to its name: a urine bilirubin named "TSH" is not a TSH.
+    expect(rowsOf(lab('TSH', ['5770-3'], 1.1, 'mIU/L', at))).toEqual([]);
     expect(rowsOf(lab('TSH receptor antibody', [], 2.1, 'IU/L', at))).toEqual([]);
     expect(rowsOf(lab('Thyroxine binding globulin', [], 18, 'ug/mL', at))).toEqual([]);
     expect(rowsOf(lab('Thyroxine (T4)', [], 8.1, 'ug/dL', at))).toEqual(['totalT4']);
