@@ -107,14 +107,13 @@ import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { Secrets } from 'utils/lib/secrets';
 import { EmCodeOption } from 'utils/lib/types/api/config/em-codes';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
-import { TIMEZONES } from 'utils/lib/types/constants';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import {
   INVALID_INPUT_ERROR,
   MISSING_PATIENT_COVERAGE_INFO_ERROR,
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
 } from 'utils/lib/types/errors';
-import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { getLocalDateOfService } from 'utils/lib/utils/scheduleUtils';
 import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
@@ -1281,11 +1280,6 @@ function convertCoverageRelationshipToCandidRelationship(relationship: string): 
     default:
       return Relationship.Other;
   }
-}
-
-function getLocalDateOfService(appointmentStart: string, location: Location | undefined): string {
-  const timezone = location ? getTimezone(location) : TIMEZONES[0];
-  return DateTime.fromISO(appointmentStart).setZone(timezone).toISODate()!;
 }
 
 const fetchFHIRPatientAndAppointmentFromEncounter = async (

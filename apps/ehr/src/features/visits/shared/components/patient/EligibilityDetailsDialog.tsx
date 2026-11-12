@@ -20,6 +20,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import { FC, Fragment, useState } from 'react';
 import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
 import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
@@ -72,6 +73,14 @@ const getStatusDisplay = (status: InsuranceEligibilityCheckStatus): { text: stri
     default:
       return { text: 'Unknown Status', color: '#757575' };
   }
+};
+
+/** "DOS MM/dd/yyyy" when a check was run for a date of service other than the day it was run, else undefined. */
+export const getDateOfServiceLabel = (servicedDate: string | undefined, checkedAtISO: string): string | undefined => {
+  if (!servicedDate) return undefined;
+  const serviced = DateTime.fromISO(servicedDate);
+  if (!serviced.isValid || serviced.toISODate() === DateTime.fromISO(checkedAtISO).toISODate()) return undefined;
+  return `DOS ${serviced.toFormat('MM/dd/yyyy')}`;
 };
 
 const formatDate = (dateISO: string): string => {
@@ -222,6 +231,7 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
   }
 
   const statusDisplay = getStatusDisplay(eligibilityCheck.status);
+  const dosLabel = getDateOfServiceLabel(eligibilityCheck.servicedDate, eligibilityCheck.dateISO);
   const copayBenefits = eligibilityCheck.copay || [];
   const benefitContextRows = [...copayBenefits, ...(eligibilityCheck.deductible || [])].sort((a, b) => {
     const descriptionA = (a.description || '').toLowerCase();
@@ -299,6 +309,7 @@ export const EligibilityDetailsDialog: FC<EligibilityDetailsDialogProps> = ({
               />
               <Typography variant="body2" color="textSecondary">
                 Last checked {formatDate(eligibilityCheck.dateISO)}
+                {dosLabel && ` (${dosLabel})`}
               </Typography>
             </Box>
 
