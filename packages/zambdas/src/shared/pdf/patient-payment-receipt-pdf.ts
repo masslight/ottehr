@@ -27,6 +27,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { FhirAppointmentType } from 'utils/lib/types/common';
 import { RECEIPT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { compareDates } from 'utils/lib/utils/dateUtils';
 import {
   createStripeAccountResolver,
   fetchEncounterPaymentNotices,
@@ -301,7 +302,7 @@ export async function parsePaymentsList(
   const defaultPaymentMethod = customer?.invoice_settings?.default_payment_method as Stripe.PaymentMethod | undefined;
 
   const payments = await Promise.all(
-    paymentNotices.map(async (paymentNotice): Promise<PaymentData> => {
+    paymentNotices.map(async (paymentNotice): Promise<PaymentData & { created: string }> => {
       const pnStripeId = stripePaymentIntentIdForNotice(paymentNotice);
       const stripeAccount = pnStripeId ? await stripeAccountFor(paymentNotice) : undefined;
       // the encounter search covers the schedule account only
@@ -334,24 +335,22 @@ export async function parsePaymentsList(
       return {
         amount,
         method,
-        // todo: what date should i put here?
-        paymentDate: paymentNotice?.created,
+        // the date the payment was made, which a backdated manual payment sets apart from when it was
+        // recorded; older notices without one fall back to the day they were created
+        paymentDate: paymentNotice.paymentDate ?? DateTime.fromISO(paymentNotice.created).toISODate() ?? undefined,
+        created: paymentNotice.created,
         last4: stripeCardDetails?.last4,
         brand: stripeCardDetails?.brand,
         isPrimary: Boolean(stripeMethod) && stripeMethod?.id === defaultPaymentMethod?.id,
       };
     })
   );
-  // i do sorting before formatting date to MM/dd/yyyy to make it more precise
-  payments.sort((a, b) => {
-    const dateA = DateTime.fromISO(a.paymentDate ?? '');
-    const dateB = DateTime.fromISO(b.paymentDate ?? '');
-    return dateA.diff(dateB).milliseconds;
-  });
-  payments.forEach(
-    (payment) => (payment.paymentDate = DateTime.fromISO(payment.paymentDate ?? '').toFormat('MM/dd/yyyy'))
-  );
-  return payments;
+  // oldest first; payments made on the same day keep the order they were recorded in
+  payments.sort((a, b) => compareDates(b.paymentDate, a.paymentDate) || compareDates(b.created, a.created));
+  return payments.map(({ created: _created, ...payment }) => ({
+    ...payment,
+    paymentDate: DateTime.fromISO(payment.paymentDate ?? '').toFormat('MM/dd/yyyy'),
+  }));
 }
 
 const retrievePaymentIntent = async (

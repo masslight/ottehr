@@ -208,4 +208,39 @@ describe('parsePaymentsList', () => {
     expect(retrieveMethod).not.toHaveBeenCalled();
     expect(payment).toMatchObject({ amount: 25, method: 'cash', isPrimary: false });
   });
+  test('shows the entered date of a backdated payment rather than when it was recorded, ordering by it', async () => {
+    const stripeClient = {
+      paymentIntents: { retrieve: vi.fn() },
+      paymentMethods: { retrieve: vi.fn() },
+    } as unknown as Stripe;
+    const manualNotice = (id: string, paymentDate: string | undefined, created: string): PaymentNotice =>
+      ({
+        resourceType: 'PaymentNotice',
+        id,
+        meta: { tag: [BILLING_RESOURCE_TAG] },
+        status: 'active',
+        created,
+        paymentDate,
+        amount: { value: 10, currency: 'USD' },
+        extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'check' }],
+      }) as PaymentNotice;
+
+    const payments = await parsePaymentsList(
+      [
+        // recorded first, paid later
+        manualNotice('recent', '2026-07-15', '2026-07-15T12:00:00.000Z'),
+        // paid July 1, recorded July 22
+        manualNotice('backdated', '2026-07-01', '2026-07-22T12:00:00.000Z'),
+        // a legacy notice without a payment date
+        manualNotice('legacy', undefined, '2026-07-10T12:00:00.000Z'),
+      ],
+      [],
+      undefined,
+      stripeClient,
+      async () => undefined
+    );
+
+    expect(payments.map((payment) => payment.paymentDate)).toEqual(['07/01/2026', '07/10/2026', '07/15/2026']);
+    expect(payments[0]).not.toHaveProperty('created');
+  });
 });
