@@ -7,6 +7,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { buildVitalsFlowsheet } from './helpers';
 import { fetchFlowsheetData, FlowsheetData, FlowsheetDataKind } from './patient-data';
+import { buildThyroidFlowsheet, THYROID_DATA_KINDS } from './thyroid';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'get-flowsheet';
@@ -22,6 +23,7 @@ interface FlowsheetDefinition {
 
 // Every query is built from the patient id alone; the flowsheet id only picks the kinds of data to fetch.
 const FLOWSHEETS: Record<FlowsheetId, FlowsheetDefinition> = {
+  thyroid: { kinds: THYROID_DATA_KINDS, build: buildThyroidFlowsheet },
   vitals: { kinds: ['vitals'], build: (data) => buildVitalsFlowsheet({ ...data, observations: data.vitals ?? [] }) },
 };
 
