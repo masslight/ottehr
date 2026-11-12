@@ -49,8 +49,8 @@ vi.mock('src/features/visits/shared/components/patient/useInsuranceCardExtractio
 // Imported AFTER the mocks so they take effect.
 import InsuranceCardOrientationHint, {
   CARD_MAY_BE_ROTATED_LABEL,
-  ROTATE_CARD_BUTTON_LABEL,
 } from '../../src/components/InsuranceCardOrientationHint';
+import { ROTATE_CARD_BUTTON_LABEL } from '../../src/components/RotateCardImageButton';
 
 // ============================================================================
 // HARNESS
