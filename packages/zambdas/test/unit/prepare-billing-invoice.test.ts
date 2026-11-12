@@ -7,7 +7,7 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 const ENC_1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
 const { mockClinicalClient, mockStripe, mockResolveTemplatePlaceholders } = vi.hoisted(() => ({
-  mockClinicalClient: { fhir: { search: vi.fn(), create: vi.fn() } },
+  mockClinicalClient: { fhir: { search: vi.fn(), create: vi.fn(), patch: vi.fn() } },
   mockStripe: { customers: { retrieve: vi.fn() } },
   mockResolveTemplatePlaceholders: vi.fn(),
 }));
@@ -80,6 +80,7 @@ describe('prepare-billing-invoice', () => {
       unbundle: () => (resourceType === 'Task' ? ehrInvoiceTasks : visitResources),
     }));
     mockClinicalClient.fhir.create.mockResolvedValue({});
+    mockClinicalClient.fhir.patch.mockResolvedValue({});
     mockStripe.customers.retrieve.mockResolvedValue({ deleted: false, email: 'katie@example.com' });
     mockResolveTemplatePlaceholders.mockImplementation(async ({ overrides }) => ({
       patientFullName: 'Katie Test',
@@ -110,25 +111,84 @@ describe('prepare-billing-invoice', () => {
     );
   });
 
-  it('refuses a visit the EHR has an invoice task for before touching Stripe', async () => {
+  it('takes over a ready task after preparing the visit', async () => {
     ehrInvoiceTasks = [
+      { resourceType: 'Task', id: 'ready-task', status: 'ready', intent: 'order', meta: { versionId: 'v1' } },
+    ];
+
+    expect((await runHandler()).statusCode).toBe(200);
+    expect(mockClinicalClient.fhir.patch).toHaveBeenCalledExactlyOnceWith(
       {
         resourceType: 'Task',
-        status: 'completed',
-        intent: 'order',
-        code: RcmTaskCodings.sendInvoiceToPatient,
+        id: 'ready-task',
+        operations: [{ op: 'replace', path: '/status', value: 'cancelled' }],
       },
-    ];
+      { optimisticLockingVersionId: 'v1' }
+    );
+    expect(mockClinicalClient.fhir.patch.mock.invocationCallOrder[0]).toBeLessThan(
+      mockClinicalClient.fhir.create.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('refuses when the EHR started sending the task while the visit was being prepared', async () => {
+    ehrInvoiceTasks = [{ resourceType: 'Task', id: 'ready-task', status: 'ready', intent: 'order' }];
+    mockClinicalClient.fhir.patch.mockRejectedValue({ code: 412 });
 
     await expect(runHandler()).rejects.toMatchObject({
       statusCode: 409,
       message: 'This visit is invoiced from the EHR.',
     });
-    // Cancelled tasks were handed to the billing app by the migrate-invoicing-to-billing script.
-    expect(mockClinicalClient.fhir.search).toHaveBeenCalledWith(
-      expect.objectContaining({ params: expect.arrayContaining([{ name: 'status:not', value: 'cancelled' }]) })
-    );
-    expect(mockStripe.customers.retrieve).not.toHaveBeenCalled();
     expect(mockClinicalClient.fhir.create).not.toHaveBeenCalled();
+  });
+
+  it.each(['completed', 'in-progress', 'requested', 'failed'] as const)(
+    'refuses a %s task before touching Stripe or cancelling any ready task',
+    async (status) => {
+      ehrInvoiceTasks = [
+        { resourceType: 'Task', id: 'ready-task', status: 'ready', intent: 'order' },
+        {
+          resourceType: 'Task',
+          id: 'blocking-task',
+          status,
+          intent: 'order',
+          code: RcmTaskCodings.sendInvoiceToPatient,
+        },
+      ];
+
+      await expect(runHandler()).rejects.toMatchObject({
+        statusCode: 409,
+        message: 'This visit is invoiced from the EHR.',
+      });
+      expect(mockClinicalClient.fhir.search).toHaveBeenCalledWith(
+        expect.objectContaining({ params: expect.arrayContaining([{ name: 'status:not', value: 'cancelled' }]) })
+      );
+      expect(mockStripe.customers.retrieve).not.toHaveBeenCalled();
+      expect(mockClinicalClient.fhir.create).not.toHaveBeenCalled();
+      expect(mockClinicalClient.fhir.patch).not.toHaveBeenCalled();
+    }
+  );
+
+  it('refuses a ready task that recorded a Stripe invoice id', async () => {
+    ehrInvoiceTasks = [
+      {
+        resourceType: 'Task',
+        id: 'sent-task',
+        status: 'ready',
+        intent: 'order',
+        output: [{ type: RcmTaskCodings.sendInvoiceOutputInvoiceId, valueString: 'in_sent' }],
+      },
+    ];
+
+    await expect(runHandler()).rejects.toMatchObject({ statusCode: 409 });
+    expect(mockClinicalClient.fhir.patch).not.toHaveBeenCalled();
+  });
+
+  it('leaves the ready task and visit ownership alone when the Stripe customer has no email', async () => {
+    ehrInvoiceTasks = [{ resourceType: 'Task', id: 'ready-task', status: 'ready', intent: 'order' }];
+    mockStripe.customers.retrieve.mockResolvedValue({ deleted: false, email: null });
+
+    await expect(runHandler()).rejects.toThrow('responsible party must have a valid email');
+    expect(mockClinicalClient.fhir.create).not.toHaveBeenCalled();
+    expect(mockClinicalClient.fhir.patch).not.toHaveBeenCalled();
   });
 });

@@ -49,8 +49,28 @@ describe('recommend-billing-codes boundary', () => {
     expect((await handler({ headers: {}, secrets: null, body })).statusCode).toBe(400);
     expect(invoke).not.toHaveBeenCalled();
   });
-  it('does not return malformed AI billing codes to the UI', async () => {
-    invoke.mockResolvedValue(JSON.stringify([{ code: 'invalid', description: 'Bad', useWhen: 'Bad' }]));
-    await expect(handler(request({ procedureType: 'Unknown procedure' }))).rejects.toThrow();
+  it('splits a modifier the model appended to the code into the suggestion modifiers', async () => {
+    invoke.mockResolvedValue(
+      JSON.stringify([
+        { code: '83036', description: 'Hemoglobin A1C', useWhen: 'Laboratory A1C' },
+        { code: '83036QW', description: 'Hemoglobin A1C, CLIA-waived', useWhen: 'CLIA-waived device' },
+        { code: '83036QW', description: 'Duplicate', useWhen: 'Duplicate' },
+        { code: '20610-RT-RT', description: 'Arthrocentesis, major joint', useWhen: 'Right knee' },
+      ])
+    );
+    const response = await handler(request({ procedureType: 'Unknown procedure' }));
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).outcome.suggestions).toEqual([
+      expect.objectContaining({ code: '83036', modifiers: [], units: 1 }),
+      expect.objectContaining({ code: '83036', modifiers: ['QW'], units: 1 }),
+      expect.objectContaining({ code: '20610', modifiers: ['RT'], units: 1 }),
+    ]);
   });
+  it.each(['invalid', '83036Q', '83036-qw', '20610-RT-59-76-XS-GA'])(
+    'does not return malformed AI billing code %s to the UI',
+    async (code) => {
+      invoke.mockResolvedValue(JSON.stringify([{ code, description: 'Bad', useWhen: 'Bad' }]));
+      await expect(handler(request({ procedureType: 'Unknown procedure' }))).rejects.toThrow();
+    }
+  );
 });

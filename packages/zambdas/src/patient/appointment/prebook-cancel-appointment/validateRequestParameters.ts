@@ -1,6 +1,7 @@
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { ServiceMode } from 'utils/lib/types/common';
 import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { optionalTextSchema } from 'utils/lib/types/text-schemas';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
@@ -11,7 +12,7 @@ const CancelAppointmentBodySchema = z.object({
   cancellationReason: z.string().min(1),
   silent: z.boolean().optional(),
   language: z.string().optional(),
-  cancellationReasonAdditional: z.string().optional(),
+  cancellationReasonAdditional: optionalTextSchema,
 });
 
 export function validateRequestParameters(input: ZambdaInput): CancelAppointmentZambdaInputValidated {

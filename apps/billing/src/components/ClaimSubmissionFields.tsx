@@ -2,14 +2,11 @@ import { Box, FormControl, FormControlLabel, FormLabel, Radio, RadioGroup, TextF
 import { ReactElement, useEffect, useMemo } from 'react';
 import { Controller, Form, useFormContext } from 'react-hook-form';
 import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
-import {
-  RulesEngineSubmissionInsurance,
-  RulesEngineSubmissionType,
-} from 'utils/lib/types/data/billing/rules-engine.constants';
+import { RulesEngineInsurance, RulesEngineSubmissionType } from 'utils/lib/types/data/billing/rules-engine.constants';
 
 export type ClaimSubmissionForm = {
   type: RulesEngineSubmissionType;
-  insurance: RulesEngineSubmissionInsurance;
+  insurance: RulesEngineInsurance;
   payerClaimControlNumber: string;
 };
 
@@ -61,7 +58,7 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
                   aria-labelledby="submission-type-label"
                   name="submission-type-group"
                   value={field.value}
-                  onChange={(event) => field.onChange(event.target.value as RulesEngineSubmissionInsurance)}
+                  onChange={(event) => field.onChange(event.target.value as RulesEngineInsurance)}
                 >
                   <FormControlLabel
                     value="primary"
@@ -152,10 +149,7 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
   );
 }
 
-function getPccnForInsuranceOrdinal(
-  claim: ClaimDetailResponse,
-  insurance: RulesEngineSubmissionInsurance
-): string | undefined {
+function getPccnForInsuranceOrdinal(claim: ClaimDetailResponse, insurance: RulesEngineInsurance): string | undefined {
   return insurance === 'primary'
     ? claim.payerClaimControlNumber
     : insurance === 'secondary'

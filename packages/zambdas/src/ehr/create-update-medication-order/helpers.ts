@@ -6,6 +6,7 @@ import {
   getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
   getDosageUnitsAndRouteOfMedication,
+  getLocationFromMedicationAdministration,
   searchMedicationLocation,
   searchRouteByCode,
 } from 'utils/lib/fhir/medication-administration';
@@ -16,6 +17,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.constants';
 import {
   inHouseMedicationsMedicationApplianceRoutes,
+  isRouteRequiringAdministrationLocation,
   IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK,
   MedicationData,
   MedicationOrderStatuses,
@@ -54,8 +56,8 @@ export function createMedicationCopy(
   }
   if (newStatus !== MedicationOrderStatuses['administered-not'] && (orderData.lotNumber || orderData.expDate)) {
     resourceCopy.batch = {
-      lotNumber: orderData.lotNumber,
-      expirationDate: orderData.expDate,
+      lotNumber: orderData.lotNumber || undefined,
+      expirationDate: orderData.expDate || undefined,
     };
   }
   if (orderData.manufacturer) resourceCopy.manufacturer = { display: orderData.manufacturer };
@@ -249,4 +251,27 @@ export function shouldCreateVitalsRecheckNursingOrder({
   // what an update that left dose/units (and therefore dosage.route) untouched leaves in place.
   const routeCode = orderData.route || getDosageUnitsAndRouteOfMedication(medicationAdministration).route;
   return Boolean(routeCode && IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK.includes(routeCode));
+}
+
+// Partly administered counts too: part of the medication still went in, so where it went in still needs recording.
+const STATUSES_REQUIRING_ADMINISTRATION_LOCATION: MedicationOrderStatusesType[] = [
+  'administered',
+  'administered-partly',
+];
+
+/**
+ * Rejects saving an injectable order as administered without a Location (administration site). It checks the
+ * MedicationAdministration about to be written, so the route and site are the ones that will be stored, whether
+ * the update carried them or left the saved ones in place. Updates that don't administer the order (MAR edits of a
+ * pending order, not administered) are let through, which leaves existing orders without a location untouched.
+ */
+export function validateAdministrationLocation(
+  newStatus: MedicationOrderStatusesType | undefined,
+  medicationAdministration: MedicationAdministration
+): void {
+  if (!newStatus || !STATUSES_REQUIRING_ADMINISTRATION_LOCATION.includes(newStatus)) return;
+  const { route } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
+  if (!isRouteRequiringAdministrationLocation(route)) return;
+  if (getLocationFromMedicationAdministration(medicationAdministration)) return;
+  throw INVALID_INPUT_ERROR('Location is required when an injectable medication is administered');
 }

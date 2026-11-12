@@ -10,6 +10,7 @@ import {
   MISSING_REQUEST_SECRETS,
   PRECONDITION_FAILED,
 } from 'utils/lib/types/errors';
+import { optionalTextSchema, requiredTextSchema } from 'utils/lib/types/text-schemas';
 import { z } from 'zod';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { wrapHandler } from '../../shared/sentry';
@@ -21,12 +22,12 @@ const payerInfoSchema = z.discriminatedUnion('listName', [
   z.object({
     listName: z.literal(ListName.EHR),
     payerId: z.string(),
-    payerNote: z.string(),
+    payerNote: requiredTextSchema,
   }),
   z.object({
     listName: z.literal(ListName.Patient),
     payerId: z.string(),
-    payerNameOverride: z.string().optional(),
+    payerNameOverride: optionalTextSchema,
   }),
 ]);
 
@@ -146,7 +147,7 @@ async function addPayerToInsuranceOverrideList(oystehr: Oystehr, payerInfo: Paye
   }
 }
 
-function validateInput(input: ZambdaInput): Input {
+export function validateInput(input: ZambdaInput): Input {
   const { body, secrets } = input;
   if (!body) {
     throw MISSING_REQUEST_BODY;

@@ -11,10 +11,11 @@ import {
 } from './constants';
 
 export function makeQualificationForPractitioner(license: PractitionerLicense): PractitionerQualification {
-  const number = license.number
+  const licenseNumber = license.number?.trim();
+  const number = licenseNumber
     ? {
         url: 'number',
-        valueString: license.number,
+        valueString: licenseNumber,
       }
     : undefined;
   const date = license.date

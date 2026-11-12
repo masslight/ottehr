@@ -66,7 +66,7 @@ export const useGetEmployeesWithDetails = (options?: {
     queryKey: ['progress-note-header-employees'],
     queryFn: async () => {
       if (!oystehrZambda) return null;
-      const getEmployeesRes = await getEmployees(oystehrZambda, { lite: true });
+      const getEmployeesRes = await getEmployees(oystehrZambda);
       const activeEmployees = getEmployeesRes.employees.filter((employee) => employee.status === 'Active');
 
       const formattedProviders: EmployeeDetails[] = activeEmployees

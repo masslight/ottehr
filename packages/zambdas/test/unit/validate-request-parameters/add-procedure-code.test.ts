@@ -73,4 +73,34 @@ describe('add-procedure-code - validateRequestParameters', () => {
     );
     expect(() => validateRequestParameters(input)).toThrow();
   });
+
+  test('sanitizes code and modifier into valid FHIR codes', () => {
+    const input = createMockZambdaInput(
+      { feeScheduleId: VALID_FEE_SCHEDULE_ID, code: ' 99213 ', modifier: '25 ', amount: 150 },
+      { secrets }
+    );
+    const result = validateRequestParameters(input);
+
+    expect(result.code).toBe('99213');
+    expect(result.modifier).toBe('25');
+  });
+
+  test('drops whitespace-only description and modifier', () => {
+    const input = createMockZambdaInput(
+      { feeScheduleId: VALID_FEE_SCHEDULE_ID, code: '99213', description: '   ', modifier: '  ', amount: 150 },
+      { secrets }
+    );
+    const result = validateRequestParameters(input);
+
+    expect(result.description).toBeUndefined();
+    expect(result.modifier).toBeUndefined();
+  });
+
+  test('should throw when code is whitespace-only', () => {
+    const input = createMockZambdaInput(
+      { feeScheduleId: VALID_FEE_SCHEDULE_ID, code: '   ', amount: 150 },
+      { secrets }
+    );
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
 });

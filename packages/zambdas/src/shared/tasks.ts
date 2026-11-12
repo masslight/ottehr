@@ -95,7 +95,7 @@ export function createTask(
             valueReference: input.valueReference,
           };
         })
-        .filter((input) => input.valueString || input.valueReference)
+        .filter((input) => input.valueString?.trim() || input.valueReference)
     ),
     location: data.location
       ? {

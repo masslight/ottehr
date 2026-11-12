@@ -24,6 +24,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteCreateTask } from './components/CommandPaletteCreateTask';
 import { CommandPalettePhraseDialog } from './components/CommandPalettePhraseDialog';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
+import { CommandPaletteUploadDocument } from './components/CommandPaletteUploadDocument';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
@@ -358,6 +359,7 @@ function App(): ReactElement {
         <CommandPaletteRegistrations />
         <CommandPalette />
         <CommandPaletteCreateTask />
+        <CommandPaletteUploadDocument />
         <CommandPalettePhraseDialog />
         <SnackbarProvider
           maxSnack={5}

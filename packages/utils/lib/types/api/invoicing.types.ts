@@ -3,6 +3,7 @@ import z from 'zod';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from '../../fhir/systemUrls';
 import { InvoicePlaceholderInput } from '../../helpers/rcm/invoice-config';
 import { Secrets } from '../../secrets';
+import { requiredTextSchema } from '../text-schemas';
 
 export const INVOICEABLE_PATIENTS_PAGE_SIZE = 40;
 export const GET_INVOICES_TASKS_ZAMBDA_KEY = 'get-invoices-tasks';
@@ -75,7 +76,9 @@ export type SubSendInvoiceToPatientTaskInput = z.infer<typeof SubSendInvoiceToPa
 export const UpdateInvoiceTaskZambdaInputSchema = z.object({
   taskId: z.string().uuid(),
   status: z.string(),
-  invoiceTaskInput: InvoiceTaskInputSchema.optional(),
+  invoiceTaskInput: InvoiceTaskInputSchemaBase.extend({ memo: requiredTextSchema, smsTextMessage: requiredTextSchema })
+    .partial()
+    .optional(),
 });
 export type UpdateInvoiceTaskZambdaInput = z.infer<typeof UpdateInvoiceTaskZambdaInputSchema>;
 

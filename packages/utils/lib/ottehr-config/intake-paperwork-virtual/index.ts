@@ -7,6 +7,7 @@ import type { ValueSetsConfig } from 'config-types/config/value-sets';
 import { Questionnaire } from 'fhir/r4b';
 import { camelCase } from 'lodash-es';
 import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
+import { RELATIONSHIP_OPTIONS } from '../../fhir/patientMasterRecord';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
@@ -24,7 +25,7 @@ import {
 
 // Canonical identifiers — see intake-paperwork/index.ts for rationale.
 export const VIRTUAL_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual';
-export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.11';
+export const VIRTUAL_INTAKE_PAPERWORK_VERSION = '1.1.12';
 export const VIRTUAL_INTAKE_PAPERWORK_CANONICAL = {
   url: VIRTUAL_INTAKE_PAPERWORK_URL,
   version: VIRTUAL_INTAKE_PAPERWORK_VERSION,
@@ -1239,6 +1240,34 @@ function buildFormFields(
             },
           ],
         },
+        patientRelationshipToInsuredOther: {
+          key: 'patient-relationship-to-insured-other',
+          label: 'Other relationship',
+          type: 'string',
+          placeholder: 'Please specify...',
+          disabledDisplay: 'hidden',
+          triggers: [
+            {
+              targetQuestionLinkId: 'payment-option',
+              effect: ['enable'],
+              operator: '=',
+              answerString: INSURANCE_PAY_OPTION,
+            },
+            {
+              targetQuestionLinkId: 'patient-relationship-to-insured',
+              effect: ['enable'],
+              operator: '=',
+              answerString: RELATIONSHIP_OPTIONS.Other,
+            },
+            {
+              targetQuestionLinkId: 'payment-option',
+              effect: ['filter'],
+              operator: '!=',
+              answerString: INSURANCE_PAY_OPTION,
+            },
+          ],
+          enableBehavior: 'all',
+        },
         displaySecondaryInsurance: {
           key: 'display-secondary-insurance',
           label: 'Add secondary insurance',
@@ -1438,6 +1467,21 @@ function buildFormFields(
               type: 'choice',
               options: valueSets.relationshipToInsuredOptions,
             },
+            patientRelationshipToInsuredOther: {
+              key: 'patient-relationship-to-insured-other-2',
+              label: 'Other relationship',
+              type: 'string',
+              placeholder: 'Please specify...',
+              disabledDisplay: 'hidden',
+              triggers: [
+                {
+                  targetQuestionLinkId: 'secondary-insurance.patient-relationship-to-insured-2',
+                  effect: ['enable'],
+                  operator: '=',
+                  answerString: RELATIONSHIP_OPTIONS.Other,
+                },
+              ],
+            },
           },
           triggers: [
             {
@@ -1610,6 +1654,21 @@ function buildFormFields(
           label: 'Relationship to the patient',
           type: 'choice',
           options: valueSets.relationshipOptions,
+        },
+        otherRelationship: {
+          key: 'responsible-party-relationship-other',
+          label: 'Other relationship',
+          type: 'string',
+          placeholder: 'Please specify...',
+          disabledDisplay: 'hidden',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable'],
+              operator: '=',
+              answerString: RELATIONSHIP_OPTIONS.Other,
+            },
+          ],
         },
         firstName: {
           key: 'responsible-party-first-name',

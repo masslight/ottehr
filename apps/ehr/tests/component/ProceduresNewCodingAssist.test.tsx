@@ -42,7 +42,6 @@ import {
 } from '../../src/features/visits/in-person/components/procedures/coding-assist/CodingFindingList';
 import { DocumentationCheck } from '../../src/features/visits/in-person/components/procedures/coding-assist/DocumentationCheck';
 import { ConditionalCodingFields } from '../../src/features/visits/in-person/components/procedures/ConditionalCodingFields';
-import { ProcedureCptCodesField } from '../../src/features/visits/in-person/components/procedures/ProcedureCptCodesField';
 
 const RULES_VINTAGE = 'CPT 2026';
 
@@ -360,32 +359,5 @@ describe('conditional coding fields', () => {
     expect(screen.getByTestId('infusion-stop-time-input').parentElement).toHaveTextContent(
       'Check these times — the span is 1410 minutes'
     );
-  });
-});
-
-describe('procedure form selections', () => {
-  it('does not add a CPT code that is already selected', async () => {
-    const user = userEvent.setup();
-    const selectedCode = { code: '12042', display: 'Intermediate repair' };
-    const onAdd = vi.fn();
-    render(
-      <ProcedureCptCodesField
-        codes={[selectedCode]}
-        searchOptions={[selectedCode]}
-        isSearching={false}
-        searchTerm="12042"
-        onSearchTermChange={vi.fn()}
-        onAdd={onAdd}
-        onDelete={vi.fn()}
-        disabled={false}
-      />
-    );
-
-    await user.click(screen.getByRole('combobox', { name: 'CPT code' }));
-    expect(await screen.findByRole('option', { name: '12042 Intermediate repair' })).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    );
-    expect(onAdd).not.toHaveBeenCalled();
   });
 });

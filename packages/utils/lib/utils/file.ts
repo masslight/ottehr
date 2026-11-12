@@ -61,7 +61,7 @@ export function detectMimeTypeFromBytes(bytes: Uint8Array): MimeType | undefined
 }
 
 /**
- * Formats a fax packet can render. Anything else (zip archives, XML, HEIC, …) is left out, so the
+ * Formats a document packet can render. Anything else (zip archives, XML, HEIC, …) is left out, so the
  * EHR and the fax builder agree on which documents offer a "Send Fax" action.
  */
 export const FAXABLE_MIME_TYPES: string[] = [MIME_TYPES.PDF, MIME_TYPES.PNG, MIME_TYPES.JPEG, MIME_TYPES.JPG];

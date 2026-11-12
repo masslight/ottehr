@@ -15,7 +15,7 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils/lib/types/api/medication-administration.types';
 import { MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM } from 'utils/lib/types/constants';
-import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
+import { getFieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { ReasonSelect } from './ReasonSelect';
 
 export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationDataForResponse>[] = [
@@ -63,9 +63,10 @@ export const getFieldType = (field: keyof MedicationData): InHouseMedicationFiel
   return 'text';
 };
 
-export const validateMedicationField = (field: string, value: string | number, type: MedicationOrderType): boolean => {
-  const config = fieldsConfig[type][field as keyof (typeof fieldsConfig)[typeof type]];
-  return config?.isRequired ? value.toString().trim() !== '' : true;
+const isFilledFieldValue = (value: MedicationData[keyof MedicationData] | undefined): boolean => {
+  if (value == null) return false;
+  if (typeof value === 'object') return true; // location: { code, name }
+  return value.toString().trim() !== '';
 };
 
 export const validateAllMedicationFields = (
@@ -74,15 +75,18 @@ export const validateAllMedicationFields = (
   type: MedicationOrderType,
   setFieldErrors: (errors: Record<string, boolean>) => void
 ): { isValid: boolean; missingFields: string[] } => {
-  const currentFieldsConfig = fieldsConfig[type];
+  // Same lookup as the card's getFieldValue: a field the user touched (incl. cleared to undefined) wins over the
+  // saved order, so a cleared field is not validated against the value it had before.
+  const getValue = (field: keyof MedicationData): MedicationData[keyof MedicationData] | undefined =>
+    field in localValues ? localValues[field] : medication?.[field];
+
+  const currentFieldsConfig = getFieldsConfig(type, getValue('route') as string | undefined);
   const errors: Record<string, boolean> = {};
   const missingFields: string[] = [];
 
   Object.entries(currentFieldsConfig).forEach(([field, config]) => {
     if (config.isRequired) {
-      const fieldKey = field as keyof MedicationData;
-      const value = localValues[fieldKey] ?? medication?.[fieldKey] ?? '';
-      const isValid = validateMedicationField(field, value as string, type);
+      const isValid = isFilledFieldValue(getValue(field as keyof MedicationData));
       errors[field] = !isValid;
       if (!isValid) {
         missingFields.push(field);

@@ -37,6 +37,11 @@ import {
   GetSlotDetailsParams,
   GetSlotDetailsResponse,
 } from 'utils/lib/types/api/prebook-create-appointment/prebook-create-appointment.types';
+import {
+  GetSupportChatInput,
+  GetSupportChatResponse,
+  SendSupportChatMessageInput,
+} from 'utils/lib/types/api/support-chat.types';
 import { ServiceMode } from 'utils/lib/types/common';
 import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
 import {
@@ -87,6 +92,9 @@ const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
 const GET_PUBLIC_SUPPORT_DIALOG_ZAMBDA_ID = 'get-public-support-dialog';
+const GET_SUPPORT_CHAT_ZAMBDA_ID = 'get-support-chat';
+const SEND_SUPPORT_CHAT_MESSAGE_ZAMBDA_ID = 'send-support-chat-message';
+const MARK_SUPPORT_CHAT_READ_ZAMBDA_ID = 'mark-support-chat-read';
 
 class API {
   async checkIn(
@@ -248,6 +256,35 @@ class API {
     try {
       const response = await zambdaClient.executePublic(GET_PUBLIC_SUPPORT_DIALOG_ZAMBDA_ID, {});
       return chooseJson(response);
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error, false);
+    }
+  }
+
+  async getSupportChat(zambdaClient: ZambdaClient, input: GetSupportChatInput = {}): Promise<GetSupportChatResponse> {
+    try {
+      const response = await zambdaClient.execute(GET_SUPPORT_CHAT_ZAMBDA_ID, input);
+      return chooseJson(response);
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error, false);
+    }
+  }
+
+  async sendSupportChatMessage(
+    zambdaClient: ZambdaClient,
+    input: SendSupportChatMessageInput
+  ): Promise<GetSupportChatResponse> {
+    try {
+      const response = await zambdaClient.execute(SEND_SUPPORT_CHAT_MESSAGE_ZAMBDA_ID, input);
+      return chooseJson(response);
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error, false);
+    }
+  }
+
+  async markSupportChatRead(zambdaClient: ZambdaClient): Promise<void> {
+    try {
+      await zambdaClient.execute(MARK_SUPPORT_CHAT_READ_ZAMBDA_ID, {});
     } catch (error: unknown) {
       throw apiErrorToThrow(error, false);
     }

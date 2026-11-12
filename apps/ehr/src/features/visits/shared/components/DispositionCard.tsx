@@ -17,12 +17,14 @@ import { enqueueSnackbar } from 'notistack';
 import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import {
+  DEFAULT_SPECIALTY_TRANSFER_OPTIONS,
   dispositionCheckboxOptions,
+  getSpecialtyTransferSelectOptions,
   mapDispositionTypeToLabel,
   OTHER_SPECIALTY_TRANSFER_OPTION,
-  specialtyTransferOptions,
 } from 'utils/lib/fhir/disposition';
 import {
   DispositionType,
@@ -98,6 +100,11 @@ export const DispositionCard: FC = () => {
   const showVirusTest = labServiceValue?.includes?.(SEND_OUT_VIRUS_TEST_LABEL);
   const specialtyValue = useWatch({ control: methods.control, name: 'specialty' });
   const showSpecialtyOther = specialtyValue === OTHER_SPECIALTY_TRANSFER_OPTION;
+  const { data: progressNoteConfig } = useProgressNoteConfig();
+  const specialtyOptions = getSpecialtyTransferSelectOptions(
+    progressNoteConfig?.specialtyTransferOptions ?? DEFAULT_SPECIALTY_TRANSFER_OPTIONS,
+    specialtyValue
+  );
   const { debounce } = useDebounce(1500);
   const { mutate, isPending: isLoading } = useSaveChartData();
   const [currentType, setCurrentType] = useState(getValues('type'));
@@ -338,7 +345,7 @@ export const DispositionCard: FC = () => {
                       <MenuItem value={''}>
                         <em>None</em>
                       </MenuItem>
-                      {specialtyTransferOptions.map((option) => (
+                      {specialtyOptions.map((option) => (
                         <MenuItem key={option} value={option}>
                           {option}
                         </MenuItem>

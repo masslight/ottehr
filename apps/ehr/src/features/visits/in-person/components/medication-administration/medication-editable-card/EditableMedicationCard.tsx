@@ -54,7 +54,7 @@ import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { InPersonModal } from '../../InPersonModal';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { interactionsSummary } from '../util';
-import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
+import { fieldsConfig, getFieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { InteractionsMessage, MedicationCardView } from './MedicationCardView';
 import {
   ConfirmSaveModalConfig,
@@ -796,7 +796,7 @@ export const EditableMedicationCard: React.FC<{
         type={typeRef.current}
         onSave={updateOrCreateOrder}
         medication={medication}
-        fieldsConfig={fieldsConfig[typeRef.current]}
+        fieldsConfig={getFieldsConfig(typeRef.current, getFieldValue('route'))}
         localValues={localValues}
         selectedStatus={currentStatus}
         isUpdating={isOrderUpdating}

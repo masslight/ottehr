@@ -82,16 +82,20 @@ vi.mock('src/features/visits/shared/hooks/usePractitioner', () => ({
   usePractitionerActions: () => ({ isEncounterUpdatePending: false }),
 }));
 
-const noDrafts = { hasDraft: () => false };
+const { draftStore } = vi.hoisted(() => {
+  const noDrafts = { hasDraft: (): boolean => false };
+  return { draftStore: (selector: (state: typeof noDrafts) => unknown): unknown => selector(noDrafts) };
+});
 vi.mock('src/state/draft-data.store', () => ({
-  useCreateExternalLabStore: () => noDrafts,
-  useCreateInHouseLabStore: () => noDrafts,
-  useCreateRadiologyOrderStore: () => noDrafts,
-  useImmunizationOrderStore: () => noDrafts,
-  useInHouseMedicationOrderStore: () => noDrafts,
-  useNursingOrderStore: () => noDrafts,
-  useProcedureStore: () => noDrafts,
-  useVitalsDraftStore: () => noDrafts,
+  useCreateExternalLabStore: draftStore,
+  useCreateInHouseLabStore: draftStore,
+  useCreateRadiologyOrderStore: draftStore,
+  useImmunizationOrderStore: draftStore,
+  useInHouseMedicationOrderStore: draftStore,
+  useNursingOrderStore: draftStore,
+  useProcedureStore: draftStore,
+  useVitalsDraftStore: draftStore,
+  useDmeOrderStore: draftStore,
 }));
 
 import { ReviewAndSignButton } from '../../src/features/visits/shared/components/review-tab/ReviewAndSignButton';
