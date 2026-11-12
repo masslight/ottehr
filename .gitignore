@@ -45,3 +45,9 @@ scripts/setup/project/setup-progress.json
 tools/easy-chart-eval/harvested-cases/
 tools/easy-chart-eval/harvested-results/
 tools/easy-chart-eval/results/
+
+# Local fixture cache written by the zambda perf bench (packages/zambdas/scripts/perf)
+packages/zambdas/.perf-bench/
+
+# Throwaway probe scripts used while investigating a specific endpoint
+packages/zambdas/scripts/perf/probe*.ts
