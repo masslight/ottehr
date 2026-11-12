@@ -339,7 +339,7 @@ function uiStatus(
 ): ImmunizationGroupStatus {
   if (seriesStatus === 'Immune') return 'immune';
   // Aged out or not recommended with no dose ever given: nothing was completed, so not "complete".
-  if ((seriesStatus === 'Aged Out' || seriesStatus === 'Not Recommended') && !anyValid) return 'notroutine';
+  if ((seriesStatus === 'Aged Out' || seriesStatus === 'Not Recommended') && !anyValid) return 'agedout';
   if (seriesStatus !== 'Not Complete' || !next) return 'complete';
   if (asOf < next.recommended) return anyValid ? 'uptodate' : 'notyet';
   if (next.pastDue && asOf > next.pastDue) return 'pastdue';

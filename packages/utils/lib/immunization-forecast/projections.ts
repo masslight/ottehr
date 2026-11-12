@@ -20,7 +20,7 @@ import {
 const MAX_PROJECTED_DOSES = 10;
 const MAX_CANDIDATES = 6;
 /** Done, not recommended, or an exception on the group: nothing to project. */
-const NOT_PROJECTED: ImmunizationGroupStatus[] = ['complete', 'notroutine', 'immune', 'contraindicated', 'declined'];
+const NOT_PROJECTED: ImmunizationGroupStatus[] = ['complete', 'agedout', 'immune', 'contraindicated', 'declined'];
 const SEASONAL_GROUPS = new Set(FORECAST_GROUPS.filter((group) => group.seasonal).map((group) => group.id));
 
 /** Vaccines that cover only this group, e.g. IPV (10) for polio: the fallback when the data names no CVX. */

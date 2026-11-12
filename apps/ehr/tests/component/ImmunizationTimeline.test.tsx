@@ -302,7 +302,7 @@ describe('ImmunizationTimeline', () => {
     const key = screen.getByTestId('immunization-status-key');
     expect(key.querySelectorAll('svg')).toHaveLength(9);
     expect(key.textContent?.split(/\s+/).join(' ').trim()).toBe(
-      'Not yet due Due today Past due Up to date Complete Not routine Declined Contraindicated Immune'
+      'Not yet due Due today Past due Up to date Complete Aged out Declined Contraindicated Immune'
     );
     expect(screen.getByTestId('immunization-timeline-scroll')).toHaveStyle({ overflowX: 'auto' });
     const icon = screen.getByRole('button', { name: 'Exception for PCV' });

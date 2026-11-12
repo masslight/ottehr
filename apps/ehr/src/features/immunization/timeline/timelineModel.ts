@@ -159,7 +159,7 @@ const nextWindowTip = (name: string, group: ImmunizationGroupForecast['group'], 
   return `${name} window: ${formatDate(next.recommended)} – ${formatDate(next.seasonEnd)}`;
 };
 
-const NO_NEXT_BAR: ImmunizationGroupStatus[] = ['complete', 'notroutine', 'contraindicated', 'immune'];
+const NO_NEXT_BAR: ImmunizationGroupStatus[] = ['complete', 'agedout', 'contraindicated', 'immune'];
 
 /** The next dose as a bar: earliest → recommended → past due, plus a past-due segment up to today. */
 export function nextDoseSegments(
@@ -302,7 +302,7 @@ export const STATUS_LABELS: Record<ImmunizationGroupStatus, string> = {
   due: 'Due today',
   pastdue: 'Past due',
   complete: 'Complete',
-  notroutine: 'Not routine',
+  agedout: 'Aged out',
   immune: 'Immune',
   contraindicated: 'Contraindicated',
   declined: 'Declined',
