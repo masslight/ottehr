@@ -53,12 +53,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     getSecret(SecretsKeys.PROJECT_API, secrets)
   );
 
-  const createdResources = await transcribeAndCreateResourcesFromZ3Audio(
-    oystehr,
-    oystehrToken,
-    { encounterID, z3URL, providerUserProfile, existingDocumentReference: documentReference },
-    secrets
-  );
+  let createdResources: string;
+  try {
+    createdResources = await transcribeAndCreateResourcesFromZ3Audio(
+      oystehr,
+      oystehrToken,
+      { encounterID, z3URL, providerUserProfile, existingDocumentReference: documentReference },
+      secrets
+    );
+  } catch (error) {
+    // Oystehr delivers the recording again when a run outlasts its wait, so several runs can overlap. The write
+    // is locked to the version this run started from; a conflict means another run already saved the results.
+    // Checks the status code only: a message that merely contains "412" must not hide a real failure.
+    if ((error as { code?: unknown } | null)?.code !== 412) throw error;
+    console.log(`DocumentReference/${documentReference.id} was already processed by another run; skipping.`);
+    return { statusCode: 200, body: JSON.stringify('Already processed; skipped') };
+  }
 
   return {
     statusCode: 200,

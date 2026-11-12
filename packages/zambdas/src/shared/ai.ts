@@ -18,6 +18,7 @@ import {
   PUBLIC_EXTENSION_BASE_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getFormatDuration } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
@@ -33,6 +34,7 @@ import { generateNarrative } from '../ehr/easy-chart-shared/narrative';
 import { makeObservationResource } from './chart-data/index';
 import { assertDefined } from './helpers';
 import { parseCreatedResourcesBundle, saveResourceRequest, updateResourceRequest } from './resources.helpers';
+import { removeTranscriptLoop, withoutLeadingTime } from './transcript-guard';
 import { createPresignedUrl } from './z3Utils';
 
 export const NO_SPEECH_DETECTED = 'NO_SPEECH_DETECTED';
@@ -40,7 +42,9 @@ export const NO_SPEECH_DETECTED = 'NO_SPEECH_DETECTED';
 export const TRANSCRIPT_PROMPT =
   'Give a transcript of this file, include only the transcript without other input, include who the speaker is ' +
   'with labels for the provider and the patient. If the audio contains just silence or background noise, ' +
-  `respond with "${NO_SPEECH_DETECTED}"`;
+  `respond with "${NO_SPEECH_DETECTED}". ` +
+  // A time on every line keeps the model anchored to the audio; without it, it can get stuck repeating a phrase.
+  'Start each line with the time it is spoken (m:ss), then the speaker label.';
 
 let chatbot: ChatAnthropic;
 
@@ -310,15 +314,27 @@ export async function transcribeAndCreateResourcesFromZ3Audio(
     `[transcribeAndCreateResourcesFromZ3Audio] z3URL=${args.z3URL} rawContentType=${rawMimeType} sentMimeType=${mimeType} bytes=${bytes.byteLength} base64Length=${fileBase64.length}`
   );
 
-  const transcript = await invokeChatbotVertexAI(
+  // Sequential: a transcription takes longer than the hedged ladder's 3 s step, so hedging would send the
+  // recording two or three times and throw the extra answers away.
+  const rawTranscript = await invokeChatbotVertexAI(
     [{ text: TRANSCRIPT_PROMPT }, { inlineData: { mimeType, data: fileBase64 } }],
     secrets,
-    'ambient-scribe-transcription'
+    'ambient-scribe-transcription',
+    undefined,
+    undefined,
+    { retryMode: 'sequential' }
   );
+  const { transcript, looped } = removeTranscriptLoop(rawTranscript);
+  if (looped) {
+    // Error level so it reaches monitoring; the transcript is PHI, so log sizes only.
+    console.error(
+      `[transcribeAndCreateResourcesFromZ3Audio] transcription repeated itself; cut from ${rawTranscript.length} to ${transcript.length} chars z3URL=${args.z3URL}`
+    );
+  }
 
   // Trim: Vertex commonly wraps the sentinel in trailing whitespace/newline, and an untrimmed compare would
   // fall through and build chart resources out of the sentinel string itself.
-  if (transcript.trim() === NO_SPEECH_DETECTED) {
+  if (withoutLeadingTime(transcript) === NO_SPEECH_DETECTED) {
     console.log(
       `[transcribeAndCreateResourcesFromZ3Audio] No speech detected in recording z3URL=${args.z3URL}; skipping AI resource creation`
     );
@@ -529,7 +545,11 @@ export async function createResourcesFromAiInterview(
     aiResponseString = await invokeChatbotVertexAI(
       [{ text: getPrompt(patientInfoDetails || 'unknown patient details', fields) + '\n' + chatTranscript }],
       secrets,
-      feature
+      feature,
+      undefined,
+      undefined,
+      // The extraction also outlasts the hedged ladder's 3 s step; sequential sends it once.
+      { retryMode: 'sequential' }
     );
     narrativeLines = await settledWithin(narrative, NARRATIVE_GRACE_MS);
   } finally {
@@ -740,7 +760,12 @@ function updateDocumentReference(
       },
     ],
   };
-  return updateResourceRequest(documentReference);
+  // Only one run may write a recording's results: if Oystehr delivers the recording again while a run is still
+  // working, every later run sees a newer version here and its whole transaction is rejected.
+  return {
+    ...updateResourceRequest(documentReference),
+    ifMatch: makeOptimisticLockIfMatchHeader(existingDocumentReference),
+  };
 }
 
 const FIELDS_WITH_ITEMS = new Set([
