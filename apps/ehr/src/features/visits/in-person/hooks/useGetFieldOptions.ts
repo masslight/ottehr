@@ -149,8 +149,8 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
   }, [oystehrZambda, encounterId]);
 
   const inventoryTrackedIds = useMemo(
-    () => new Set(medicationList?.inventoryTrackedIds ?? []),
-    [medicationList?.inventoryTrackedIds]
+    () => medicationList && new Set(medicationList.inventoryTrackedIds),
+    [medicationList]
   );
 
   const medicationListOptions: Option[] = Object.entries(medicationList?.idToName || {})

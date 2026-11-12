@@ -290,8 +290,9 @@ export const EditableMedicationCard: React.FC<{
     ]
   );
 
+  const catalogLoaded = selectsOptions.medicationId.inventoryTrackedIds !== undefined;
   const commandPaletteItems = useMemo(() => {
-    if (typeFromProps !== 'order-new' || isReadOnly) {
+    if (typeFromProps !== 'order-new' || isReadOnly || !catalogLoaded) {
       return [];
     }
 
@@ -301,7 +302,7 @@ export const EditableMedicationCard: React.FC<{
       category: 'Add Medication',
       onSelect: () => handleFhirQuickPickSelect(quickPick),
     }));
-  }, [fhirQuickPicks, handleFhirQuickPickSelect, isReadOnly, typeFromProps]);
+  }, [fhirQuickPicks, handleFhirQuickPickSelect, isReadOnly, typeFromProps, catalogLoaded]);
   useCommandPaletteSource('in-house-medication-quick-picks', commandPaletteItems);
 
   const handlePendingInHouseMedication = useCallback(
@@ -314,7 +315,7 @@ export const EditableMedicationCard: React.FC<{
     },
     [handleFhirQuickPickSelect, isReadOnly]
   );
-  usePendingQuickPick('in-house-medications', handlePendingInHouseMedication);
+  usePendingQuickPick('in-house-medications', handlePendingInHouseMedication, catalogLoaded);
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;
@@ -833,8 +834,8 @@ export const EditableMedicationCard: React.FC<{
         onQuickPickSelect={
           typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleQuickPickSelect : undefined
         }
-        fhirQuickPicks={fhirQuickPicks}
-        fhirQuickPicksLoading={fhirQuickPicksLoading}
+        fhirQuickPicks={catalogLoaded ? fhirQuickPicks : []}
+        fhirQuickPicksLoading={fhirQuickPicksLoading || selectsOptions.medicationId.status === 'loading'}
         onFhirQuickPickSelect={handleFhirQuickPickSelect}
         showQuickPickAddOption
         isAdmin={isAdmin}
