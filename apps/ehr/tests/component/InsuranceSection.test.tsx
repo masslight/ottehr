@@ -37,8 +37,9 @@ vi.mock('ui-components/lib/components/InputMask', async () => {
   };
 });
 
+const executeZambdaMock = vi.hoisted(() => vi.fn());
 vi.mock('src/hooks/useAppClients', () => ({
-  useApiClients: () => ({ oystehr: undefined, oystehrZambda: { zambda: { execute: vi.fn() } } }),
+  useApiClients: () => ({ oystehr: undefined, oystehrZambda: { zambda: { execute: executeZambdaMock } } }),
 }));
 
 // InsuranceContainer renders <InsuranceCarrierQuickPicks>, which calls
@@ -603,6 +604,76 @@ describe('InsuranceSection — eligibility date of service', () => {
     expect(getDateOfServiceLabel('2025-03-04', '2026-01-01T12:00:00.000Z')).toBe('DOS 03/04/2025');
     expect(getDateOfServiceLabel('2026-01-01', '2026-01-01T12:00:00.000Z')).toBeUndefined();
     expect(getDateOfServiceLabel(undefined, '2026-01-01T12:00:00.000Z')).toBeUndefined();
+  });
+});
+
+describe('InsuranceSection — eligibility recheck', () => {
+  const previousCheck = {
+    status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
+    dateISO: '2026-01-01T00:00:00.000Z',
+    servicedDate: '2026-01-01',
+    coverageDetails: { insurance: { insuranceCode: 'PR' } },
+    financialDetails: [{ description: 'old financial' }],
+    deductible: [{ description: 'old deductible' }],
+    copay: [{ description: 'old copay' }],
+    subscriberId: 'MEMBER-123',
+    payorRef: 'Organization/payer-1',
+  } as unknown as CoverageCheckWithDetails;
+
+  beforeEach(() => executeZambdaMock.mockReset());
+
+  it('sends the picked date of service and shows it on the new check', async () => {
+    const user = userEvent.setup();
+    executeZambdaMock.mockResolvedValue({
+      output: {
+        primary: {
+          status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
+          dateISO: '2026-02-02T00:00:00.000Z',
+          servicedDate: '2025-03-04',
+          copay: [{ description: 'new copay' }],
+        },
+      },
+    });
+    renderHarness({
+      initialCoverages: makeFullPrimaryCoverages(),
+      defaultValues: seedPrimaryFromCoverage(makeEmptyFormDefaults()),
+      coverageChecks: [previousCheck],
+      visitDate: '2025-03-04',
+    });
+
+    await screen.findByText(/Primary insurance/i);
+    await user.click(screen.getByTestId(dataTestIds.insuranceContainer.recheckEligibilityButton));
+
+    await waitFor(() => expect(executeZambdaMock).toHaveBeenCalledTimes(1));
+    expect(executeZambdaMock.mock.calls[0][0]).toMatchObject({
+      id: 'get-eligibility',
+      patientId: PATIENT_ID,
+      coverageToCheck: 'primary',
+      servicedDate: '2025-03-04',
+    });
+    expect(await screen.findByText(/DOS 03\/04\/2025/)).toBeInTheDocument();
+  });
+
+  it('falls back to the requested date when the response does not echo one', async () => {
+    const user = userEvent.setup();
+    executeZambdaMock.mockResolvedValue({
+      output: {
+        primary: {
+          status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
+          dateISO: '2026-02-02T00:00:00.000Z',
+        },
+      },
+    });
+    renderHarness({
+      initialCoverages: makeFullPrimaryCoverages(),
+      defaultValues: seedPrimaryFromCoverage(makeEmptyFormDefaults()),
+      visitDate: '2025-03-04',
+    });
+
+    await screen.findByText(/Primary insurance/i);
+    await user.click(screen.getByTestId(dataTestIds.insuranceContainer.recheckEligibilityButton));
+
+    expect(await screen.findByText(/DOS 03\/04\/2025/)).toBeInTheDocument();
   });
 });
 
