@@ -82,8 +82,8 @@ interface VisitColumn extends FlowsheetVisit {
   url?: string;
 }
 
-// Newest first; the time is added only when two visits share a day. Dates render in the browser's zone.
-const toColumns = (visits: FlowsheetVisit[]): VisitColumn[] => {
+// Newest first; the time is added only when two columns share a day. Dates render in the browser's zone.
+export const toColumns = (visits: FlowsheetVisit[]): VisitColumn[] => {
   const days = visits.map((visit) => DateTime.fromISO(visit.start).toFormat(DATE_FORMAT));
   return visits.map((visit, i) => {
     const day = days[i];
@@ -91,7 +91,7 @@ const toColumns = (visits: FlowsheetVisit[]): VisitColumn[] => {
       days.filter((d) => d === day).length > 1 ? DateTime.fromISO(visit.start).toFormat(`${DATE_FORMAT} HH:mm`) : day;
     return {
       ...visit,
-      label: visit.isFollowUp ? `${base} (follow-up)` : base,
+      label: visit.isOutsideResult ? `${base} (outside result)` : visit.isFollowUp ? `${base} (follow-up)` : base,
       url: visit.appointmentId
         ? getInPersonUrlByAppointmentType(
             { id: visit.appointmentId, encounterId: visit.encounterId ?? '', isFollowUp: visit.isFollowUp },
@@ -261,9 +261,9 @@ const FlowsheetBody = ({
           <TableHead>
             <TableRow>
               <TableCell sx={{ ...pinned, zIndex: 2, fontWeight: 700 }}>Measure</TableCell>
-              {columns.map((visit) => (
+              {columns.map((visit, i) => (
                 <TableCell
-                  key={visit.start + visit.encounterId}
+                  key={`${visit.start}-${i}`}
                   align="right"
                   sx={{ fontWeight: 700, whiteSpace: 'nowrap', verticalAlign: 'bottom', ...currentSx(visit) }}
                 >
@@ -281,11 +281,11 @@ const FlowsheetBody = ({
             {definition.rows.map((row) => (
               <TableRow key={row.label}>
                 <TableCell sx={{ ...pinned, fontWeight: 600 }}>{row.label}</TableCell>
-                {columns.map((visit) => {
+                {columns.map((visit, i) => {
                   const cell = cellOf(row, visit);
                   return (
                     <TableCell
-                      key={visit.start + visit.encounterId}
+                      key={`${visit.start}-${i}`}
                       align="right"
                       sx={{
                         whiteSpace: 'nowrap',
@@ -329,8 +329,8 @@ const FlowsheetBody = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {columns.map((visit) => (
-            <TableRow key={visit.start + visit.encounterId}>
+          {columns.map((visit, i) => (
+            <TableRow key={`${visit.start}-${i}`}>
               <TableCell sx={{ whiteSpace: 'nowrap' }}>
                 <VisitLink visit={visit} />
               </TableCell>

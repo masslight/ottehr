@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, it, vi } from 'vitest';
-import { cellOf } from '../../src/features/flowsheets/components/Flowsheets';
+import { cellOf, toColumns } from '../../src/features/flowsheets/components/Flowsheets';
 
 // The component imports the api client through its data hook; the formatting under test never calls it.
 vi.mock('src/api/api', () => ({}));
@@ -59,5 +59,19 @@ describe('flowsheet cell formatting', () => {
       'warfarin 5 mg'
     );
     expect(cellOf({ label: 'INR', keys: ['inr'] }, visit({ inr: reading(2.4) })).text).toBe('2.4');
+  });
+});
+
+describe('flowsheet column labels', () => {
+  it('marks an unlinked outside result and a follow-up in the column label', () => {
+    const [outside, followUp, plain] = toColumns([
+      { ...visit({}), start: '2026-07-15T09:00:00.000Z', isOutsideResult: true, visitType: 'Outside result' },
+      { ...visit({}), start: '2026-07-14T09:00:00.000Z', isFollowUp: true },
+      visit({}),
+    ]);
+    expect(outside.label).toMatch(/ \(outside result\)$/);
+    expect(outside.url).toBeUndefined();
+    expect(followUp.label).toMatch(/ \(follow-up\)$/);
+    expect(plain.label).not.toMatch(/\(/);
   });
 });
