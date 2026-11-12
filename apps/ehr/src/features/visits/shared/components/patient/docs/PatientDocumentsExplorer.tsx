@@ -11,8 +11,8 @@ import { ChangeEvent, FC, useCallback, useEffect, useMemo, useRef, useState } fr
 import DateSearch, { CustomFormEventHandler } from 'src/components/DateSearch';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useSendFax } from 'src/features/fax/hooks/useSendFax';
-import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
+import { useSendDocuments } from 'src/features/send-documents/hooks/useSendDocuments';
+import { SendDocumentsDialog } from 'src/features/send-documents/ui/SendDocumentsDialog';
 import { useDownloadDocumentsZip } from 'src/hooks/useDownloadDocumentsZip';
 import {
   DocumentVisitRef,
@@ -98,21 +98,21 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>(undefined);
   const [uploadMode, setUploadMode] = useState<UploadDocumentMode | null>(null);
   const [pendingSelectInternalName, setPendingSelectInternalName] = useState<string | null>(null);
-  const [documentIdToFax, setDocumentIdToFax] = useState<string | null>(null);
+  const [documentIdToSend, setDocumentIdToSend] = useState<string | null>(null);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<GridRowSelectionModel>([]);
   const { downloadDocumentsZip, isDownloading: isDownloadingDocuments } = useDownloadDocumentsZip();
 
-  const faxSource = useMemo(
+  const packetSource = useMemo(
     () =>
-      documentIdToFax ? ({ type: 'document', patientId, documentReferenceId: documentIdToFax } as const) : undefined,
-    [documentIdToFax, patientId]
+      documentIdToSend ? ({ type: 'document', patientId, documentReferenceId: documentIdToSend } as const) : undefined,
+    [documentIdToSend, patientId]
   );
-  const faxController = useSendFax(faxSource);
-  const { open: openFaxDialog, isOpen: isFaxDialogOpen } = faxController;
+  const sendDocumentsController = useSendDocuments(packetSource);
+  const { open: openSendDialog, isOpen: isSendDialogOpen } = sendDocumentsController;
 
   useEffect(() => {
-    if (!isFaxDialogOpen) setDocumentIdToFax(null);
-  }, [isFaxDialogOpen]);
+    if (!isSendDialogOpen) setDocumentIdToSend(null);
+  }, [isSendDialogOpen]);
 
   // A dialog left open across navigation must not file into another patient or visit.
   const uploadTarget = useRef({ patientId, uploadEncounterId });
@@ -124,12 +124,12 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     if (previous.patientId !== patientId || previous.uploadEncounterId !== uploadEncounterId) setUploadMode(null);
   }, [patientId, uploadEncounterId]);
 
-  const handleDocumentFax = useCallback(
+  const handleDocumentSend = useCallback(
     (documentId: string): void => {
-      setDocumentIdToFax(documentId);
-      openFaxDialog();
+      setDocumentIdToSend(documentId);
+      openSendDialog();
     },
-    [openFaxDialog]
+    [openSendDialog]
   );
 
   useEffect(() => {
@@ -274,14 +274,17 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   const documentTableActions: DocumentTableActions = useMemo(() => {
     return {
       // Reading a document is always allowed; only the mutating actions respect read-only.
+      // Downloading and sending leave the record unchanged, so a signed (read-only) visit still offers them.
       isActionAllowed: (_documentId: string, actionType: DocumentTableActionType): boolean =>
-        actionType === DocumentTableActionType.ActionDownload || !readOnly,
+        actionType === DocumentTableActionType.ActionDownload ||
+        actionType === DocumentTableActionType.ActionSend ||
+        !readOnly,
       onDocumentDownload: downloadDocument,
-      onDocumentFax: handleDocumentFax,
+      onDocumentSend: handleDocumentSend,
       onDocumentRename: renameDocument,
       onDocumentDelete: documentActions.deleteDocumentAction,
     };
-  }, [documentActions.deleteDocumentAction, downloadDocument, handleDocumentFax, renameDocument, readOnly]);
+  }, [documentActions.deleteDocumentAction, downloadDocument, handleDocumentSend, renameDocument, readOnly]);
 
   return (
     <Stack spacing={2}>
@@ -426,7 +429,7 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
           onUploaded={handleUploaded}
         />
       )}
-      <SendFaxDialog controller={faxController} title="Fax Document" />
+      <SendDocumentsDialog controller={sendDocumentsController} title="Send Document" />
     </Stack>
   );
 };

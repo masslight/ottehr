@@ -1362,13 +1362,15 @@ export const OUTBOUND_DELIVERY_INPUT_CODES = {
   senderId: 'sender-id',
   senderDisplay: 'sender-display',
   senderOrganization: 'sender-organization',
-  faxPacketPageCount: 'fax-packet-page-count',
-  faxPacketParts: 'fax-packet-parts',
+  packetPageCount: 'fax-packet-page-count',
+  packetParts: 'fax-packet-parts',
 } as const;
 export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-output');
 export const OUTBOUND_DELIVERY_OUTPUT_CODES = {
   communication: 'communication',
   error: 'error',
+  /** An emailed document link was opened; valueDateTime is when. */
+  linkOpened: 'link-opened',
 } as const;
 export const OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-source');
 export const OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-retry');
