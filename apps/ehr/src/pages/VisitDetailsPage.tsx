@@ -134,6 +134,7 @@ import {
 import { getLegacyDataUrl } from '../helpers/legacyData';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
+import { useNavigateBack } from '../hooks/useNavigateBack';
 import { useVisitCards } from '../hooks/useVisitCards';
 import PageContainer from '../layout/PageContainer';
 import { PatientAccountComponent } from './PatientInformationPage';
@@ -314,6 +315,7 @@ export default function VisitDetailsPage(): ReactElement {
   const appointment = visitDetailsData?.appointment;
   const patient = visitDetailsData?.patient;
   const patientId = patient?.id;
+  const navigateBack = useNavigateBack(patientId ? `/patient/${patientId}` : '/visits');
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
   const standAloneForms = visitDetailsData?.standAloneForms;
   const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
@@ -1156,12 +1158,7 @@ export default function VisitDetailsPage(): ReactElement {
       header={
         <Header
           key={patientId}
-          handleDiscard={() =>
-            // Opened in a new tab (e.g. from Outstanding Balance) there is no in-app page to go back to.
-            (window.history.state as { idx?: number } | null)?.idx
-              ? navigate(-1)
-              : navigate(patientId ? `/patient/${patientId}` : '/visits')
-          }
+          handleDiscard={navigateBack}
           id={patientId}
           encounterId={encounter?.id}
           fallbackPatient={patient}
