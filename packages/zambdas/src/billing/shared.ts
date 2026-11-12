@@ -1669,8 +1669,9 @@ export function buildClaimCoverageCopies(params: {
   return { coverage, subscriber };
 }
 
-// Point the claim's coverage slot at `coverageReference` and its insurer at the
-// coverage's payer, keeping any other insurance entries (re-sequenced after the new primary).
+// Point the claim's coverage slot at `coverageReference`, keeping any other insurance entries
+// (re-sequenced after the new primary). Claim.insurer names the primary payer, so only a primary
+// attach re-points it — attaching a secondary/tertiary/quaternary coverage leaves it alone.
 // ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached.
 export function attachCoverageToClaim(params: {
   claim: Claim;
@@ -1686,7 +1687,7 @@ export function attachCoverageToClaim(params: {
     { sequence, focal, coverage: { reference: coverageReference, display } },
     ...(claim.insurance ?? []).filter((i) => i.sequence !== sequence),
   ]);
-  if (payerReference) claim.insurer = { reference: payerReference, display };
+  if (focal && payerReference) claim.insurer = { reference: payerReference, display };
 }
 
 // Account type + priority an insurance type maps to. primary/secondary share the patient billing

@@ -771,8 +771,9 @@ const setCoverageFromPatient = (
     display: payerLabel ?? `Coverage/${entry.coverage.id}`,
     payerReference: payorRef,
   });
-  // The insurer carries the payer label alone — never the coverage-reference fallback.
-  if (payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
+  // The insurer carries the payer label alone — never the coverage-reference fallback — and names
+  // the primary payer only, so a non-primary attach leaves it alone.
+  if (coverageType === 'primary' && payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
   return true;
 };
 
