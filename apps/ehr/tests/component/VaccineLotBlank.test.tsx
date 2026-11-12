@@ -37,13 +37,14 @@ const LOTS = [
 ];
 
 const renderBlank = (
-  vfcEligibility: 'V01' | 'V02' | undefined
+  vfcEligibility: 'V01' | 'V02' | undefined,
+  lots = LOTS
 ): { onPick: ReturnType<typeof vi.fn>; onType: ReturnType<typeof vi.fn> } => {
   const onPick = vi.fn();
   const onType = vi.fn();
   render(
     <VaccineLotBlank
-      lots={LOTS}
+      lots={lots}
       value={undefined}
       vfcEligibility={vfcEligibility}
       patientFirstName="Maya"
@@ -117,6 +118,21 @@ describe('VaccineLotBlank', () => {
       expect.objectContaining({ lotNumber: 'Y0112' }),
       'Short-dated vaccine would expire unused'
     );
+  });
+
+  it('an expired lot lists last and asks before it is used; it never blocks', async () => {
+    const { onPick } = renderBlank('V02', [...LOTS, lot('lot-x', 'X0001', 'vfc', inDays(-10))]);
+    const list = await openList();
+    const options = within(list).getAllByRole('option');
+    expect(options.at(-1)).toHaveTextContent('Lot X0001');
+    expect(within(options.at(-1)!).getByText('Expired')).toBeInTheDocument();
+
+    fireEvent.click(within(list).getByTestId(dataTestIds.vaccineLotBlank.option('lot-x')));
+    expect(screen.getByText('Use an expired lot?')).toBeInTheDocument();
+    expect(onPick).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId(dataTestIds.vaccineLotBlank.useExpiredLot));
+    expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ lotNumber: 'X0001' }), undefined);
   });
 
   it('a lot not listed can still be typed and is kept as typed', async () => {

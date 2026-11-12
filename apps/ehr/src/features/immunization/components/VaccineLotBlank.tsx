@@ -67,7 +67,8 @@ interface VaccineLotBlankProps {
 /**
  * The Lot blank when the vaccine is tracked: the lots on hand, the patient's stock first (VFC lots for a
  * VFC-eligible child, private otherwise). Picking the other stock asks for the borrowing reason and goes on
- * the borrowing log; it is never blocked. A lot not listed can still be typed.
+ * the borrowing log; it is never blocked. An expired lot lists last and asks before it is used. A lot not listed can
+ * still be typed.
  */
 export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
   lots,
@@ -81,6 +82,7 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
   dataTestId,
 }) => {
   const [pending, setPending] = useState<InventoryLot | undefined>(undefined);
+  const [expiredPending, setExpiredPending] = useState<InventoryLot | undefined>(undefined);
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
   const [reasonError, setReasonError] = useState(false);
@@ -92,7 +94,7 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
       : `${who} is not VFC eligible: private lots first.`
     : 'VFC eligibility is not confirmed yet, so the lots are in expiration order. Confirm it before using VFC stock.';
 
-  const choose = (lot: InventoryLot, close: () => void): void => {
+  const pickLot = (lot: InventoryLot, close?: () => void): void => {
     if (isVfcBorrowing(lot.fundingSource ?? 'private', vfcEligibility)) {
       setPending(lot);
       setReason('');
@@ -101,7 +103,15 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
       return;
     }
     onPick(lot, undefined);
-    close();
+    close?.();
+  };
+
+  const choose = (lot: InventoryLot, expired: boolean, close: () => void): void => {
+    if (expired) {
+      setExpiredPending(lot);
+      return;
+    }
+    pickLot(lot, close);
   };
 
   const confirmBorrowing = (): void => {
@@ -148,7 +158,7 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
                   role="option"
                   aria-selected={lot.lotNumber === value}
                   selected={lot.lotNumber === value}
-                  onClick={() => choose(lot, close)}
+                  onClick={() => choose(lot, expired, close)}
                   data-testid={dataTestIds.vaccineLotBlank.option(lot.id)}
                 >
                   <ListItemText
@@ -219,6 +229,32 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
           </Box>
         )}
       </PopoverBlank>
+
+      <Dialog open={!!expiredPending} onClose={() => setExpiredPending(undefined)} maxWidth="xs" fullWidth>
+        <DialogTitle>Use an expired lot?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Lot {expiredPending?.lotNumber} expired on {formatDateForDisplay(expiredPending?.expirationDate)}.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExpiredPending(undefined)} sx={{ textTransform: 'none' }}>
+            Pick another lot
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const lot = expiredPending;
+              setExpiredPending(undefined);
+              if (lot) pickLot(lot);
+            }}
+            sx={{ textTransform: 'none' }}
+            data-testid={dataTestIds.vaccineLotBlank.useExpiredLot}
+          >
+            Use this lot
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={!!pending} onClose={() => setPending(undefined)} maxWidth="sm" fullWidth>
         <DialogTitle>{borrowingTitle}</DialogTitle>

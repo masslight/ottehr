@@ -176,6 +176,18 @@ describe('stockedVaccines', () => {
     // no lots ever entered for it: not tracked in Ottehr, so available
     expect(here('ipol')).toMatchObject({ outOfStock: false, lots: [] });
   });
+
+  it('an expired lot is not stock: a vaccine whose only lots are expired is out of stock', () => {
+    const inventory = [
+      stockRow('pentacel', [lot('p1'), lot('px', { expirationDate: '2026-10-31' })]),
+      stockRow('daptacel', [lot('dx', { catalogMedicationId: 'daptacel', expirationDate: '2026-10-31' })]),
+    ];
+    const stockedHere = stockedVaccines(VACCINES, QUICK_PICKS, inventory, '2026-11-12');
+    const here = (id: string): StockedVaccine => stockedHere.find((v) => v.id === id)!;
+    expect(here('pentacel')).toMatchObject({ outOfStock: false });
+    expect(here('pentacel').lots.map((l) => l.id)).toEqual(['p1']);
+    expect(here('daptacel')).toMatchObject({ outOfStock: true, lots: [] });
+  });
 });
 
 describe('buildDueToday — out of stock', () => {

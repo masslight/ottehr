@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon';
+import { isExpirationDatePast } from 'utils/lib/fhir/medication-inventory';
 import { FORECAST_GROUPS } from 'utils/lib/immunization-forecast/groups';
 import { ImmunizationForecast, ImmunizationGroupId } from 'utils/lib/immunization-forecast/types';
 import { InventoryDrugRow, InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
@@ -16,7 +17,7 @@ export interface StockedVaccine {
   name: string;
   cvxCodes: string[];
   quickPicks: ImmunizationQuickPickData[];
-  /** On hand at the visit's location; empty when inventory is not set up for it. */
+  /** On hand and unexpired at the visit's location; empty when inventory is not set up for it. */
   lots: InventoryLot[];
   /** Its lots are tracked in inventory and none is on hand: still offered, grayed out (it may be a false negative). */
   outOfStock: boolean;
@@ -65,22 +66,25 @@ const normalizeCvx = (cvx: string): string => cvx.trim().padStart(2, '0');
 
 const unique = <T>(values: T[]): T[] => [...new Set(values)];
 
-const onHand = (lots: InventoryLot[]): InventoryLot[] => lots.filter((lot) => lot.onHand > 0);
+// an expired lot isn't stock: it can't be given, so it doesn't keep a vaccine in stock or win the tie rule
+const onHand = (lots: InventoryLot[], today: string): InventoryLot[] =>
+  lots.filter((lot) => lot.onHand > 0 && !isExpirationDatePast(lot.expirationDate, today));
 
 /**
  * The vaccines the practice can give today, each with the CVX of its catalog entry and its quick picks; this is the
  * one place that decides what "stocked" means. Every vaccine on the practice's list (get-vaccines) is offered. One
- * whose lots are tracked at the visit's location but none is on hand is out of stock; one with no lots ever entered
- * is not tracked in Ottehr, so it counts as available.
+ * whose lots are tracked at the visit's location but none is on hand and unexpired is out of stock; one with no lots
+ * ever entered is not tracked in Ottehr, so it counts as available. `today` is the browser's yyyy-mm-dd.
  */
 export const stockedVaccines = (
   vaccines: Vaccine[] | undefined,
   quickPicks: ImmunizationQuickPickData[],
-  inventory?: InventoryDrugRow[]
+  inventory?: InventoryDrugRow[],
+  today = DateTime.now().toISODate()
 ): StockedVaccine[] =>
   (vaccines ?? []).map((vaccine) => {
     const allLots = inventory?.find((row) => row.medicationId === vaccine.id)?.lots ?? [];
-    const lots = onHand(allLots);
+    const lots = onHand(allLots, today);
     return {
       id: vaccine.id,
       name: vaccine.name,

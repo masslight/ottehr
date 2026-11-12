@@ -1012,6 +1012,7 @@ export const dataTestIds = {
     typedLot: 'vaccine-lot-typed',
     borrowingReason: 'vaccine-lot-borrowing-reason',
     useBorrowedLot: 'vaccine-lot-use-borrowed',
+    useExpiredLot: 'vaccine-lot-use-expired',
   },
 
   vfcBorrowingLog: {
