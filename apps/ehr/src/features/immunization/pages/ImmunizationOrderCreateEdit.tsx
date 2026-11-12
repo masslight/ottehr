@@ -476,6 +476,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                       patientFirstName={patientFirstName}
                       duplicateWarning={isReadOnly ? undefined : duplicateWarningText(duplicates[index])}
                       cptFlash={cptFlash[line.key]}
+                      collapseAdministration
                     />
                   ))}
                 </Box>

@@ -324,4 +324,87 @@ describe('ImmunizationSentences', () => {
       expect(ndcLookup.calls.every((ndc) => ndc === '')).toBe(true);
     });
   });
+
+  describe('Administration on the order page', () => {
+    const CollapsibleHarness = ({ start }: { start: ImmunizationLine }): JSX.Element => {
+      const [line, setLine] = useState(start);
+      return (
+        <ImmunizationSentences
+          line={line}
+          index={0}
+          onChange={setLine}
+          quickPicks={[]}
+          onQuickPick={vi.fn()}
+          errors={[]}
+          readOnly={false}
+          collapseAdministration
+        />
+      );
+    };
+    const filled = (): ImmunizationLine => {
+      const base = emptyImmunizationLine();
+      return {
+        ...base,
+        details: { medication: { id: 'vac-dtap', name: 'DTaP vaccine' } },
+        cptOrigin: 'suggested',
+        administrationDetails: {
+          ...base.administrationDetails,
+          lot: 'DEMO-VFC-120',
+          fundingSource: 'vfc',
+          cptCodes: [
+            { code: '90460', display: 'admin' },
+            { code: '90461', display: 'each extra component', billableUnits: 4 },
+          ],
+        },
+      };
+    };
+    beforeEach(() => {
+      ndcLookup.results = {};
+      ndcLookup.calls = [];
+    });
+
+    it('starts collapsed under a summary of the lot and codes, and opens on a click', async () => {
+      render(<CollapsibleHarness start={filled()} />);
+      const toggle = screen.getByTestId(dataTestIds.orderVaccinePage.administrationToggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByTestId(dataTestIds.vaccineDetailsPage.lotNumber)).not.toBeInTheDocument();
+      const summary = screen.getByTestId(dataTestIds.orderVaccinePage.administrationSummary);
+      expect(summary).toHaveTextContent('Lot DEMO-VFC-120');
+      expect(summary).toHaveTextContent('VFC');
+      expect(summary).toHaveTextContent('90460, 90461 ×4');
+      expect(within(summary).getByTestId(dataTestIds.orderVaccinePage.cptSuggested)).toBeInTheDocument();
+
+      await userEvent.setup().click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.lotNumber)).toBeInTheDocument();
+      expect(screen.queryByTestId(dataTestIds.orderVaccinePage.administrationSummary)).not.toBeInTheDocument();
+    });
+
+    it('shows no summary when nothing is filled, and stays open on the details card', () => {
+      render(<CollapsibleHarness start={emptyImmunizationLine()} />);
+      expect(screen.queryByTestId(dataTestIds.orderVaccinePage.administrationSummary)).not.toBeInTheDocument();
+      cleanup();
+      renderLine(filled());
+      expect(screen.queryByTestId(dataTestIds.orderVaccinePage.administrationToggle)).not.toBeInTheDocument();
+      expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.lotNumber)).toBeInTheDocument();
+    });
+
+    it('stays open while the NDC warning shows', async () => {
+      ndcLookup.results['00006-4681-00'] = {
+        status: 'mismatch',
+        comparedBy: 'cvx',
+        product: { packageNdc: '00006-4681-00', name: 'M-M-R II', manufacturer: 'Merck', rxcuis: [] },
+        vaccine: { cvx: '03', vaccineName: 'MMR', mvx: 'MSD' },
+      };
+      const user = userEvent.setup();
+      render(<CollapsibleHarness start={filled()} />);
+      const toggle = screen.getByTestId(dataTestIds.orderVaccinePage.administrationToggle);
+      await user.click(toggle);
+      await user.type(screen.getByTestId(dataTestIds.vaccineDetailsPage.ndcCode), '00006-4681-00');
+      expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.ndcMismatch)).toBeInTheDocument();
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.ndcMismatch)).toBeInTheDocument();
+    });
+  });
 });

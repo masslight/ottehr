@@ -908,6 +908,8 @@ export const dataTestIds = {
     counselingQuestion: 'order-vaccine-counseling-question',
     counselingSplit: 'order-vaccine-counseling-split',
     counselingJoin: 'order-vaccine-counseling-join',
+    administrationToggle: 'order-vaccine-administration-toggle',
+    administrationSummary: 'order-vaccine-administration-summary',
   },
 
   immunizationPage: {

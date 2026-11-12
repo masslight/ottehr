@@ -1,5 +1,15 @@
-import { Close, SaveOutlined } from '@mui/icons-material';
-import { Autocomplete, Box, Button, Chip, FormHelperText, IconButton, TextField, Typography } from '@mui/material';
+import { Close, ExpandMore, SaveOutlined } from '@mui/icons-material';
+import {
+  Autocomplete,
+  Box,
+  Button,
+  ButtonBase,
+  Chip,
+  FormHelperText,
+  IconButton,
+  TextField,
+  Typography,
+} from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, ReactNode, useEffect, useState } from 'react';
 import { CptCodesInput } from 'src/components/input/CptCodesInput';
@@ -64,6 +74,12 @@ const CPT_FLASH_SX = {
   '& > [role="button"]': { animation: 'immunizationCptFlash 1.2s ease-out' },
   '@keyframes immunizationCptFlash': { from: { background: 'rgba(46,125,50,.3)' }, to: { background: 'transparent' } },
   '@media (prefers-reduced-motion: reduce)': { '& > [role="button"]': { animation: 'none' } },
+} as const;
+// The collapsed Administration summary's codes flash the same way.
+const CPT_SUMMARY_FLASH_SX = {
+  animation: 'immunizationCptFlash 1.2s ease-out',
+  '@keyframes immunizationCptFlash': CPT_FLASH_SX['@keyframes immunizationCptFlash'],
+  '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
 } as const;
 const SUGGESTED_SOURCE_SX = { fontSize: 12, color: 'rgba(0,0,0,.6)', ml: '6px' } as const;
 
@@ -354,6 +370,8 @@ interface ImmunizationSentencesProps {
   duplicateWarning?: string;
   /** Changes each time the page changes this line's suggested CPT codes, flashing the blank. */
   cptFlash?: number;
+  /** The order page: Administration starts collapsed under a one-line summary, and opens on a click or for a warning. */
+  collapseAdministration?: boolean;
 }
 
 /** The Lot blank with the vaccine's lots on hand; a plain blank for a vaccine not set up for inventory. */
@@ -417,6 +435,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
   patientFirstName,
   duplicateWarning,
   cptFlash,
+  collapseAdministration,
 }) => {
   const { details, administrationDetails } = line;
   const update = (patch: Partial<InputImmunizationOrderDetails>): void =>
@@ -493,6 +512,13 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
       ? [...LOCATION_BLANK_OPTIONS, { value: savedLocation.code, label: savedLocation.name }]
       : LOCATION_BLANK_OPTIONS;
   const cptCodes = administrationDetails.cptCodes ?? [];
+  const [administrationOpen, setAdministrationOpen] = useState(false);
+  const administrationShown = !collapseAdministration || administrationOpen || !!ndcMismatch;
+  const suggestedLabel = line.cptOrigin === 'suggested' && !readOnly && (
+    <Box component="span" sx={SUGGESTED_SOURCE_SX} data-testid={dataTestIds.orderVaccinePage.cptSuggested}>
+      suggested
+    </Box>
+  );
   // A vaccine the practice gives several ways, with nothing filled in yet: the line asks which quick pick.
   const vaccineQuickPicks = details.medication
     ? quickPicks.filter((quickPick) => quickPick.vaccine?.id === details.medication?.id)
@@ -688,174 +714,215 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
         </Sentence>
       )}
 
-      <ImmunizationSectionLabel spaced>Administration</ImmunizationSectionLabel>
-      <Sentence>
-        Given on{' '}
-        <DateTimeBlank
-          kind="date"
-          label="date"
-          value={administered}
-          onChange={(next) => setAdministered(next, 'date')}
-          readOnly={readOnly}
-          need={needAdministration}
-          dataTestId={dataTestIds.vaccineDetailsPage.administeredDate}
-        />{' '}
-        at{' '}
-        <DateTimeBlank
-          kind="time"
-          label="time"
-          value={administered}
-          onChange={(next) => setAdministered(next, 'time')}
-          readOnly={readOnly}
-          need={needAdministration}
-          dataTestId={dataTestIds.vaccineDetailsPage.administeredTime}
-        />
-        .
-      </Sentence>
-      <Sentence>
-        Lot{' '}
-        <LotBlank
-          line={line}
-          locationId={locationId}
-          vfcEligibility={vfcEligibility}
-          patientFirstName={patientFirstName}
-          readOnly={readOnly}
-          need={needAdministration}
-          onChange={onChange}
-        />
-        {administrationDetails.fundingSource && (
-          <>
-            {' '}
-            <FundingChip fundingSource={administrationDetails.fundingSource} />
-            {administrationDetails.borrowingReason && (
-              <>
-                {' '}
-                <Chip size="small" label="Borrowed" sx={{ height: 20, fontSize: 12 }} />
-              </>
-            )}
-          </>
+      <ImmunizationSectionLabel spaced>
+        {collapseAdministration ? (
+          <ButtonBase
+            aria-expanded={administrationShown}
+            onClick={() => setAdministrationOpen(!administrationShown)}
+            sx={{ font: 'inherit', color: 'inherit', textTransform: 'inherit', gap: '2px', borderRadius: 0.5 }}
+            data-testid={dataTestIds.orderVaccinePage.administrationToggle}
+          >
+            <ExpandMore
+              sx={{
+                fontSize: 18,
+                color: 'text.secondary',
+                transform: administrationShown ? undefined : 'rotate(-90deg)',
+              }}
+            />
+            Administration
+          </ButtonBase>
+        ) : (
+          'Administration'
         )}
-        , expires{' '}
-        <DateTimeBlank
-          kind="date"
-          label="exp. date"
-          value={toDate(administrationDetails.expDate)}
-          onChange={(next) => updateAdministration({ expDate: next?.toISODate() ?? '' })}
-          readOnly={readOnly}
-          need={needAdministration}
-          dataTestId={dataTestIds.vaccineDetailsPage.expiredDate}
-        />
-        , NDC{' '}
-        <TextBlank
-          label="NDC code"
-          value={administrationDetails.ndc}
-          onChange={(ndc) => {
-            setTypedNdc(ndc ?? '');
-            updateAdministration({ ndc });
-          }}
-          readOnly={readOnly}
-          need={needAdministration}
-          dataTestId={dataTestIds.vaccineDetailsPage.ndcCode}
-        />
-        .
-      </Sentence>
-      {ndcMismatch && (
+      </ImmunizationSectionLabel>
+      {!administrationShown && (administrationDetails.lot || cptCodes.length > 0) && (
+        // Collapsed: what the order already carries, so a lot or suggested codes are never out of sight.
         <Typography
-          variant="caption"
-          color="warning.main"
-          sx={{ mt: -0.5 }}
-          data-testid={dataTestIds.vaccineDetailsPage.ndcMismatch}
+          variant="body2"
+          color="text.secondary"
+          sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}
+          data-testid={dataTestIds.orderVaccinePage.administrationSummary}
         >
-          {ndcMismatch}
+          {administrationDetails.lot && <span>Lot {administrationDetails.lot}</span>}
+          {administrationDetails.fundingSource && <FundingChip fundingSource={administrationDetails.fundingSource} />}
+          {administrationDetails.borrowingReason && (
+            <Chip size="small" label="Borrowed" sx={{ height: 20, fontSize: 12 }} />
+          )}
+          {administrationDetails.lot && cptCodes.length > 0 && <span>·</span>}
+          {cptCodes.length > 0 && (
+            <Box component="span" key={cptFlash} sx={cptFlash ? CPT_SUMMARY_FLASH_SX : undefined}>
+              {cptCodes.map(formatImmunizationCptCode).join(', ')}
+            </Box>
+          )}
+          {suggestedLabel}
         </Typography>
       )}
-      <Sentence>
-        {/* The CVX is saved from the vaccine; the manufacturer is picked, or filled by a lot from stock or a typed NDC. */}
-        Manufacturer{' '}
-        <SelectBlank
-          label="manufacturer"
-          title="Manufacturer"
-          options={MVX_OPTIONS}
-          value={administrationDetails.mvx || undefined}
-          onChange={(mvx) =>
-            onChange({
-              ...line,
-              details: { ...details, manufacturer: getMvxManufacturer(mvx ?? undefined)?.name },
-              administrationDetails: { ...administrationDetails, mvx: mvx ?? '' },
-            })
-          }
-          readOnly={readOnly}
-          need={needAdministration}
-          verbatim
-          dataTestId={dataTestIds.vaccineDetailsPage.mvxCode}
-        />
-        .
-      </Sentence>
-      <Sentence>
-        VIS{' '}
-        <SelectBlank
-          label="given or not"
-          title="VIS"
-          options={VIS_OPTIONS}
-          value={administrationDetails.visGiven ? 'given' : 'not given'}
-          onChange={(value) => updateAdministration({ visGiven: value === 'given' })}
-          readOnly={readOnly}
-          need={needAdministration}
-          dataTestId={dataTestIds.vaccineDetailsPage.visCheckbox}
-        />
-        {administrationDetails.visGiven && (
-          <>
-            {' '}
-            to the patient on{' '}
+      {administrationShown && (
+        <>
+          <Sentence>
+            Given on{' '}
             <DateTimeBlank
               kind="date"
-              label="VIS date"
-              value={toDate(administrationDetails.visGivenDate)}
-              onChange={(next) => updateAdministration({ visGivenDate: next?.toISODate() ?? undefined })}
+              label="date"
+              value={administered}
+              onChange={(next) => setAdministered(next, 'date')}
               readOnly={readOnly}
               need={needAdministration}
-              dataTestId={dataTestIds.vaccineDetailsPage.visGivenDate}
+              dataTestId={dataTestIds.vaccineDetailsPage.administeredDate}
+            />{' '}
+            at{' '}
+            <DateTimeBlank
+              kind="time"
+              label="time"
+              value={administered}
+              onChange={(next) => setAdministered(next, 'time')}
+              readOnly={readOnly}
+              need={needAdministration}
+              dataTestId={dataTestIds.vaccineDetailsPage.administeredTime}
             />
-          </>
-        )}
-        .
-      </Sentence>
-      <Sentence>
-        CPT codes:{' '}
-        <Box component="span" key={cptFlash} sx={cptFlash ? CPT_FLASH_SX : undefined}>
-          <PopoverBlank
-            label="CPT codes"
-            title="CPT codes"
-            value={cptCodes.map(formatImmunizationCptCode).join(', ') || undefined}
-            readOnly={readOnly}
-            need={needAdministration}
-            dataTestId={dataTestIds.vaccineDetailsPage.cptCode}
-          >
-            {() => (
-              <Box sx={{ width: 360, pt: 0.5 }}>
-                <CptCodesInput
-                  cptCodes={cptCodes}
-                  onChange={(codes) =>
-                    onChange({
-                      ...line,
-                      cptOrigin: 'manual',
-                      administrationDetails: { ...administrationDetails, cptCodes: codes },
-                    })
-                  }
-                  isEditable={!readOnly}
-                  withBillableUnits
-                />
-              </Box>
+            .
+          </Sentence>
+          <Sentence>
+            Lot{' '}
+            <LotBlank
+              line={line}
+              locationId={locationId}
+              vfcEligibility={vfcEligibility}
+              patientFirstName={patientFirstName}
+              readOnly={readOnly}
+              need={needAdministration}
+              onChange={onChange}
+            />
+            {administrationDetails.fundingSource && (
+              <>
+                {' '}
+                <FundingChip fundingSource={administrationDetails.fundingSource} />
+                {administrationDetails.borrowingReason && (
+                  <>
+                    {' '}
+                    <Chip size="small" label="Borrowed" sx={{ height: 20, fontSize: 12 }} />
+                  </>
+                )}
+              </>
             )}
-          </PopoverBlank>
-        </Box>
-        {line.cptOrigin === 'suggested' && !readOnly && (
-          <Box component="span" sx={SUGGESTED_SOURCE_SX} data-testid={dataTestIds.orderVaccinePage.cptSuggested}>
-            suggested
-          </Box>
-        )}
-        .
-      </Sentence>
+            , expires{' '}
+            <DateTimeBlank
+              kind="date"
+              label="exp. date"
+              value={toDate(administrationDetails.expDate)}
+              onChange={(next) => updateAdministration({ expDate: next?.toISODate() ?? '' })}
+              readOnly={readOnly}
+              need={needAdministration}
+              dataTestId={dataTestIds.vaccineDetailsPage.expiredDate}
+            />
+            , NDC{' '}
+            <TextBlank
+              label="NDC code"
+              value={administrationDetails.ndc}
+              onChange={(ndc) => {
+                setTypedNdc(ndc ?? '');
+                updateAdministration({ ndc });
+              }}
+              readOnly={readOnly}
+              need={needAdministration}
+              dataTestId={dataTestIds.vaccineDetailsPage.ndcCode}
+            />
+            .
+          </Sentence>
+          {ndcMismatch && (
+            <Typography
+              variant="caption"
+              color="warning.main"
+              sx={{ mt: -0.5 }}
+              data-testid={dataTestIds.vaccineDetailsPage.ndcMismatch}
+            >
+              {ndcMismatch}
+            </Typography>
+          )}
+          <Sentence>
+            {/* The CVX is saved from the vaccine; the manufacturer is picked, or filled by a lot from stock or a typed NDC. */}
+            Manufacturer{' '}
+            <SelectBlank
+              label="manufacturer"
+              title="Manufacturer"
+              options={MVX_OPTIONS}
+              value={administrationDetails.mvx || undefined}
+              onChange={(mvx) =>
+                onChange({
+                  ...line,
+                  details: { ...details, manufacturer: getMvxManufacturer(mvx ?? undefined)?.name },
+                  administrationDetails: { ...administrationDetails, mvx: mvx ?? '' },
+                })
+              }
+              readOnly={readOnly}
+              need={needAdministration}
+              verbatim
+              dataTestId={dataTestIds.vaccineDetailsPage.mvxCode}
+            />
+            .
+          </Sentence>
+          <Sentence>
+            VIS{' '}
+            <SelectBlank
+              label="given or not"
+              title="VIS"
+              options={VIS_OPTIONS}
+              value={administrationDetails.visGiven ? 'given' : 'not given'}
+              onChange={(value) => updateAdministration({ visGiven: value === 'given' })}
+              readOnly={readOnly}
+              need={needAdministration}
+              dataTestId={dataTestIds.vaccineDetailsPage.visCheckbox}
+            />
+            {administrationDetails.visGiven && (
+              <>
+                {' '}
+                to the patient on{' '}
+                <DateTimeBlank
+                  kind="date"
+                  label="VIS date"
+                  value={toDate(administrationDetails.visGivenDate)}
+                  onChange={(next) => updateAdministration({ visGivenDate: next?.toISODate() ?? undefined })}
+                  readOnly={readOnly}
+                  need={needAdministration}
+                  dataTestId={dataTestIds.vaccineDetailsPage.visGivenDate}
+                />
+              </>
+            )}
+            .
+          </Sentence>
+          <Sentence>
+            CPT codes:{' '}
+            <Box component="span" key={cptFlash} sx={cptFlash ? CPT_FLASH_SX : undefined}>
+              <PopoverBlank
+                label="CPT codes"
+                title="CPT codes"
+                value={cptCodes.map(formatImmunizationCptCode).join(', ') || undefined}
+                readOnly={readOnly}
+                need={needAdministration}
+                dataTestId={dataTestIds.vaccineDetailsPage.cptCode}
+              >
+                {() => (
+                  <Box sx={{ width: 360, pt: 0.5 }}>
+                    <CptCodesInput
+                      cptCodes={cptCodes}
+                      onChange={(codes) =>
+                        onChange({
+                          ...line,
+                          cptOrigin: 'manual',
+                          administrationDetails: { ...administrationDetails, cptCodes: codes },
+                        })
+                      }
+                      isEditable={!readOnly}
+                      withBillableUnits
+                    />
+                  </Box>
+                )}
+              </PopoverBlank>
+            </Box>
+            {suggestedLabel}.
+          </Sentence>
+        </>
+      )}
 
       {children}
 
