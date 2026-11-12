@@ -453,6 +453,109 @@ const getOrderDetailValue = (serviceRequest: ServiceRequest, code: string): stri
     ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL)
     ?.valueString;
 
+export const buildAdvaPacsServiceRequest = (
+  ourServiceRequest: ServiceRequest,
+  ourPatientId: string | undefined,
+  ourRequestingPractitionerId: string | undefined,
+  advaPACSLocationId: string | undefined
+): ServiceRequestR5 => {
+  const accessionNumber = ourServiceRequest.identifier?.[0].value;
+
+  return {
+    resourceType: 'ServiceRequest',
+    status: ourServiceRequest.status,
+    identifier: ourServiceRequest.identifier as any, // Identifier is the same in R4B and R5 so this is safe
+    intent: ourServiceRequest.intent,
+    subject: {
+      identifier: {
+        system: PERSON_IDENTIFIER_CODE_SYSTEM,
+        value: ourPatientId,
+      },
+    },
+    requester: {
+      identifier: {
+        system: PERSON_IDENTIFIER_CODE_SYSTEM,
+        value: ourRequestingPractitionerId,
+      },
+    },
+    code: {
+      concept: ourServiceRequest.code as any, // CodeableConcept is the same in R4B and R5 so this is safe
+    },
+    orderDetail: [
+      {
+        parameter: [
+          {
+            code: {
+              coding: [
+                {
+                  system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                  code: 'modality',
+                },
+              ],
+            },
+            valueString: getOrderDetailValue(ourServiceRequest, 'modality'),
+          },
+          {
+            code: {
+              coding: [
+                {
+                  system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                  code: 'clinical-history',
+                },
+              ],
+            },
+            valueString: getOrderDetailValue(ourServiceRequest, 'clinical-history'),
+          },
+          {
+            code: {
+              coding: [
+                {
+                  system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                  code: 'requested-procedure-description',
+                },
+              ],
+            },
+            valueString: getOrderDetailValue(ourServiceRequest, 'requested-procedure-description'),
+          },
+          {
+            code: {
+              coding: [
+                {
+                  system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                  code: 'scheduled-procedure-step-id',
+                },
+              ],
+            },
+            valueString: accessionNumber,
+          },
+          {
+            code: {
+              coding: [
+                {
+                  system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                  code: 'requested-procedure-id',
+                },
+              ],
+            },
+            valueString: accessionNumber,
+          },
+        ],
+      },
+    ],
+    authoredOn: ourServiceRequest.authoredOn,
+    occurrenceDateTime: ourServiceRequest.occurrenceDateTime,
+    location: advaPACSLocationId
+      ? [
+          {
+            reference: {
+              reference: `Location/${advaPACSLocationId}`,
+            },
+          },
+        ]
+      : undefined,
+  };
+};
+
 const writeAdvaPacsTransaction = async (
   ourServiceRequest: ServiceRequest,
   ourPractitioner: Practitioner,
@@ -513,81 +616,17 @@ const writeAdvaPacsTransaction = async (
       },
     };
 
+    const advaPacsServiceRequest = buildAdvaPacsServiceRequest(
+      ourServiceRequest,
+      ourPatientId,
+      ourRequestingPractitionerId,
+      advaPACSLocationId
+    );
+
     const serviceRequestToCreate: BatchInputPutRequest<ServiceRequestR5> = {
       method: 'PUT',
       url: `ServiceRequest?identifier=${ACCESSION_NUMBER_CODE_SYSTEM}|${ourServiceRequest.identifier?.[0].value}`,
-      resource: {
-        resourceType: 'ServiceRequest',
-        status: ourServiceRequest.status,
-        identifier: ourServiceRequest.identifier as any, // Identifier is the same in R4B and R5 so this is safe
-        intent: ourServiceRequest.intent,
-        subject: {
-          identifier: {
-            system: PERSON_IDENTIFIER_CODE_SYSTEM,
-            value: ourPatientId,
-          },
-        },
-        requester: {
-          identifier: {
-            system: PERSON_IDENTIFIER_CODE_SYSTEM,
-            value: ourRequestingPractitionerId,
-          },
-        },
-        code: {
-          concept: ourServiceRequest.code as any, // CodeableConcept is the same in R4B and R5 so this is safe
-        },
-        orderDetail: [
-          // we build R5 orderDetail from extensions we store in our R4B SR.orderDetail
-          {
-            parameter: [
-              {
-                code: {
-                  coding: [
-                    {
-                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
-                      code: 'modality',
-                    },
-                  ],
-                },
-                valueString: getOrderDetailValue(ourServiceRequest, 'modality'),
-              },
-              {
-                code: {
-                  coding: [
-                    {
-                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
-                      code: 'clinical-history',
-                    },
-                  ],
-                },
-                valueString: getOrderDetailValue(ourServiceRequest, 'clinical-history'),
-              },
-              {
-                code: {
-                  coding: [
-                    {
-                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
-                      code: 'requested-procedure-description',
-                    },
-                  ],
-                },
-                valueString: getOrderDetailValue(ourServiceRequest, 'requested-procedure-description'),
-              },
-            ],
-          },
-        ],
-        authoredOn: ourServiceRequest.authoredOn,
-        occurrenceDateTime: ourServiceRequest.occurrenceDateTime,
-        location: advaPACSLocationId
-          ? [
-              {
-                reference: {
-                  reference: `Location/${advaPACSLocationId}`,
-                },
-              },
-            ]
-          : undefined,
-      },
+      resource: advaPacsServiceRequest,
     };
 
     const advaPacsTransactionRequest = {
