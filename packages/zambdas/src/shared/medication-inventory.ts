@@ -31,7 +31,7 @@ import {
   sumStockEntries,
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
-import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
+import { InHouseMedicationInventory, InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
 
 // Writes to the stock ledger. The FHIR shapes (and why they are Medication + Observation) live in
@@ -241,24 +241,19 @@ async function findOrderCatalogMedication(
 }
 
 /**
- * What an administration should have off the shelf right now: the lot of its drug at the visit's location
- * with the lot number on the order, and what the dose takes from it. Undefined when nothing should be off:
- * the order isn't administered, the drug isn't tracked, the lot was typed (not in inventory), or the drug
- * is multi-use.
+ * The inventory lot an order's lot number names: of its drug, at the visit's location, with the order's expiration
+ * date when the same number is on hand twice. Undefined when the drug isn't tracked or the lot was typed (not in
+ * inventory).
  */
-async function resolveAdministrationStockTarget(
+export async function findAdministrationInventoryLot(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration
-): Promise<(AdministrationStockTarget & { lot: Medication }) | undefined> {
-  const status = mapFhirToOrderStatus(medicationAdministration);
-  if (status !== 'administered' && status !== 'administered-partly') return undefined;
-
+): Promise<{ lot: Medication & { id: string }; inventory: InHouseMedicationInventory } | undefined> {
   const contained = getMedicationFromMA(medicationAdministration);
   const lotNumber = contained?.batch?.lotNumber?.trim();
   const name = getMedicationName(contained);
-  const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
   const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
-  if (!contained || !lotNumber || !name || dose === undefined || !units || !encounterId) return undefined;
+  if (!contained || !lotNumber || !name || !encounterId) return undefined;
 
   const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
   const locationId = getEncounterLocationId(encounter);
@@ -279,9 +274,28 @@ async function resolveAdministrationStockTarget(
     sameNumber.length === 1
       ? sameNumber[0]
       : sameNumber.find((candidate) => candidate.batch?.expirationDate === expirationDate);
-  const taken = stockTakenForDose(inventory, dose, units);
-  if (!lot?.id || !taken) return undefined;
-  return { lotId: lot.id, lot, ...taken };
+  return lot?.id ? { lot: { ...lot, id: lot.id }, inventory } : undefined;
+}
+
+/**
+ * What an administration should have off the shelf right now: the lot of its drug at the visit's location
+ * with the lot number on the order, and what the dose takes from it. Undefined when nothing should be off:
+ * the order isn't administered, the drug isn't tracked, the lot was typed (not in inventory), or the drug
+ * is multi-use.
+ */
+async function resolveAdministrationStockTarget(
+  oystehr: Oystehr,
+  medicationAdministration: MedicationAdministration
+): Promise<(AdministrationStockTarget & { lot: Medication }) | undefined> {
+  const status = mapFhirToOrderStatus(medicationAdministration);
+  if (status !== 'administered' && status !== 'administered-partly') return undefined;
+  const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
+  if (dose === undefined || !units) return undefined;
+
+  const found = await findAdministrationInventoryLot(oystehr, medicationAdministration);
+  const taken = found ? stockTakenForDose(found.inventory, dose, units) : undefined;
+  if (!found || !taken) return undefined;
+  return { lotId: found.lot.id, lot: found.lot, ...taken };
 }
 
 /**

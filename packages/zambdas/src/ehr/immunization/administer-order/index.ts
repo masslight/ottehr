@@ -51,7 +51,12 @@ import {
   validateOrderDetails,
 } from '../common';
 import { immunizationSyncRequest } from '../records';
-import { applyVaccineDoseFunding, fillVfcEligibilityFromVisit, syncVaccineStockAndBorrowing } from '../vaccine-stock';
+import {
+  applyVaccineDoseFunding,
+  fillFundingFromInventoryLot,
+  fillVfcEligibilityFromVisit,
+  syncVaccineStockAndBorrowing,
+} from '../vaccine-stock';
 
 let m2mToken: string;
 
@@ -144,6 +149,9 @@ export async function administerImmunizationOrder(
   }
 
   updateVaccineMedicationDetails(medication, administrationDetails);
+  if (['administered', 'administered-partly'].includes(input.type)) {
+    await fillFundingFromInventoryLot(oystehr, medicationAdministration, administrationDetails);
+  }
   await fillVfcEligibilityFromVisit(oystehr, medicationAdministration, administrationDetails);
   applyVaccineDoseFunding(medicationAdministration, administrationDetails);
 

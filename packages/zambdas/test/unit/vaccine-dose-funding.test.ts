@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter, Medication, MedicationAdministration, Observation } from 'fhir/r4b';
-import { makeInventoryLot } from 'utils/lib/fhir/medication-inventory';
+import { makeInventoryLot, makeMedicationInventoryExtension } from 'utils/lib/fhir/medication-inventory';
 import { getVaccineDoseFunding, parseVfcBorrowingObservation } from 'utils/lib/fhir/vfc';
+import { VACCINE_DEFAULT_INVENTORY } from 'utils/lib/types/api/config/in-house-medications';
 import {
   CVX_CODE_SYSTEM_URL,
   INVENTORY_VACCINE_TYPE_CODE,
@@ -10,7 +11,7 @@ import {
   MEDICATION_TYPE_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { describe, expect, it, vi } from 'vitest';
-import { applyVaccineDoseFunding } from '../../src/ehr/immunization/vaccine-stock';
+import { applyVaccineDoseFunding, fillFundingFromInventoryLot } from '../../src/ehr/immunization/vaccine-stock';
 import { recordVfcBorrowing } from '../../src/shared/vfc';
 
 const bundle = <T>(resources: T[]): { unbundle: () => T[] } => ({ unbundle: () => resources });
@@ -71,6 +72,57 @@ describe('the dose carries its stock and the eligibility that day', () => {
     applyVaccineDoseFunding(ma, { fundingSource: 'private', vfcEligibility: 'V01' });
     expect(ma.extension).toHaveLength(2);
     expect(ma.extension?.[0]).toEqual({ url: 'https://example.com/other', valueBoolean: true });
+  });
+});
+
+describe('fillFundingFromInventoryLot', () => {
+  const encounter: Encounter = {
+    resourceType: 'Encounter',
+    id: 'enc-1',
+    status: 'in-progress',
+    class: { code: 'AMB' },
+    location: [{ location: { reference: 'Location/loc-a' } }],
+  };
+  const tracked = { ...catalog, extension: [makeMedicationInventoryExtension(VACCINE_DEFAULT_INVENTORY)] };
+  const vfcLot = {
+    ...makeInventoryLot(tracked, {
+      locationId: 'loc-a',
+      lotNumber: 'Y0112',
+      expirationDate: '2027-06-30',
+      ndc: '00006-4681-00',
+      mvx: 'MSD',
+      fundingSource: 'vfc',
+      unit: 'dose',
+    }),
+    id: 'lot-1',
+  };
+  const mockOystehr = (): Oystehr =>
+    ({
+      fhir: {
+        get: vi.fn().mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+          if (resourceType === 'Encounter') return encounter;
+          if (resourceType === 'Medication') return tracked;
+          throw new Error(`unexpected get ${resourceType}`);
+        }),
+        search: vi.fn().mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+          if (resourceType === 'Medication') return bundle([vfcLot]);
+          throw new Error(`unexpected search ${resourceType}`);
+        }),
+      },
+    }) as unknown as Oystehr;
+
+  it('takes the stock from the inventory lot the order names, whatever the screen sent', async () => {
+    const details = { lot: 'Y0112', fundingSource: 'private' as const, vfcEligibility: 'V01' as const };
+    await fillFundingFromInventoryLot(mockOystehr(), administration('Y0112'), details);
+    expect(details.fundingSource).toBe('vfc');
+  });
+
+  it('keeps what the screen said for a typed lot that is not in stock', async () => {
+    const details = { lot: 'TYPED', fundingSource: 'private' as const };
+    const oystehr = mockOystehr();
+    (oystehr.fhir.search as ReturnType<typeof vi.fn>).mockResolvedValue(bundle([]));
+    await fillFundingFromInventoryLot(oystehr, administration('TYPED'), details);
+    expect(details.fundingSource).toBe('private');
   });
 });
 

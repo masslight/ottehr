@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { MedicationAdministration } from 'fhir/r4b';
+import { parseInventoryLot } from 'utils/lib/fhir/medication-inventory';
 import { getVaccineDoseFunding, withVaccineDoseFunding } from 'utils/lib/fhir/vfc';
 import { InputImmunizationOrderAdministrationDetails } from 'utils/lib/types/data/immunization/types';
-import { reconcileAdministrationStock } from '../../shared/medication-inventory';
+import { findAdministrationInventoryLot, reconcileAdministrationStock } from '../../shared/medication-inventory';
 import { getConfirmedVfcEligibility, recordVfcBorrowing } from '../../shared/vfc';
 
 // What a vaccine dose does to inventory and the VFC records. Kept apart from the order zambdas' own work so
@@ -22,6 +23,27 @@ export function applyVaccineDoseFunding(
     borrowingReason,
   });
   medicationAdministration.extension = extension;
+}
+
+/**
+ * The stock a dose came from is its inventory lot's, not what the screen sent: when the lot number on the order is
+ * a lot of the vaccine at the visit's location, that lot's funding source goes on the dose (and decides what is
+ * billed and whether it is borrowed). A typed lot, not in inventory, keeps the screen's value.
+ */
+export async function fillFundingFromInventoryLot(
+  oystehr: Oystehr,
+  medicationAdministration: MedicationAdministration,
+  administrationDetails: InputImmunizationOrderAdministrationDetails
+): Promise<void> {
+  try {
+    const found = await findAdministrationInventoryLot(oystehr, medicationAdministration);
+    if (!found) return;
+    administrationDetails.fundingSource = parseInventoryLot(found.lot)?.fundingSource ?? 'private';
+  } catch (error) {
+    // the dose is still given; the record keeps the stock the screen said
+    console.error('Error reading the funding source of the dose lot:', error);
+    captureException(error);
+  }
 }
 
 /**
