@@ -2,11 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Medication } from 'fhir/r4b';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
 import {
   getMedicationInventoryConfig,
+  INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM,
   makeMedicationInventoryExtension,
   MEDICATION_INVENTORY_EXTENSION_URL,
+  parseInventoryLot,
 } from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { UpdateInHouseMedicationInput } from 'utils/lib/types/api/config/in-house-medications';
@@ -16,6 +19,7 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { ADMIN_TIER_ROLES } from 'utils/lib/types/api/user.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
@@ -140,6 +144,23 @@ export const performEffect = async (
   // Rebuild /extension as a single op for the same reason as /code/coding above.
   if (inventory !== undefined) {
     const existingInventory = getMedicationInventoryConfig(medication);
+    if (inventory && inventory.countedAs !== existingInventory?.countedAs) {
+      const lots = await getAllFhirSearchPages<Medication>(
+        {
+          resourceType: 'Medication',
+          params: [{ name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|${medicationID}` }],
+        },
+        oystehr
+      );
+      const conflictsWithHistory = existingInventory
+        ? lots.length > 0
+        : lots.some((lot) => parseInventoryLot(lot)?.unit !== inventory.countedAs);
+      if (conflictsWithHistory) {
+        throw INVALID_INPUT_ERROR(
+          "The Counting Unit can't be changed after inventory has been recorded for this medication."
+        );
+      }
+    }
     const existingInventoryExtension = existingInventory ? makeMedicationInventoryExtension(existingInventory) : null;
     const inventoryExtension = inventory ? makeMedicationInventoryExtension(inventory) : null;
     if (JSON.stringify(existingInventoryExtension) !== JSON.stringify(inventoryExtension)) {

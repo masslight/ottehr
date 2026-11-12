@@ -132,6 +132,7 @@ describe('inventory endpoints - caller role', () => {
   it('update-in-house-medication lets an admin save the inventory setup', async () => {
     mockRequireUserWithRole.mockResolvedValue({});
     mockOystehr.fhir.get.mockResolvedValue({ resourceType: 'Medication', id: 'med-123', status: 'active' });
+    mockOystehr.fhir.search.mockResolvedValue({ entry: [], total: 0, unbundle: () => [] });
 
     const result = await update(makeInput({ medicationID: 'med-123', name: 'Drug', inventory }));
 
