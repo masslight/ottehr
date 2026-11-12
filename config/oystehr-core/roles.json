@@ -354,6 +354,7 @@
             "Zambda:Function:record-billing-manual-payment",
             "Zambda:Function:list-billing-patient-payments",
             "Zambda:Function:list-billing-patient-account-payments",
+            "Zambda:Function:list-billing-patient-payment-methods",
             "Zambda:Function:get-billing-patient-account-payment",
             "Zambda:Function:post-billing-patient-payment",
             "Zambda:Function:refund-billing-patient-payment",

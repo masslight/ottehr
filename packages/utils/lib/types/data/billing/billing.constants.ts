@@ -234,14 +234,11 @@ export const MANUAL_ERA_LIMITS = {
   remarkCodesPerLine: 10,
 } as const;
 
-// what record-billing-manual-payment callers may send
-export const BILLING_MANUAL_PAYMENT_METHODS = ['cash', 'check', 'other'] as const;
+// what record-billing-manual-payment callers may send; 'external-card-reader' is a payment taken on a
+// card reader that isn't linked to Stripe, so it is keyed in like cash
+export const BILLING_MANUAL_PAYMENT_METHODS = ['cash', 'check', 'external-card-reader', 'other'] as const;
 
-export const BILLING_RECORDABLE_PAYMENT_METHODS = [
-  ...BILLING_MANUAL_PAYMENT_METHODS,
-  'card-reader',
-  'external-card-reader',
-] as const;
+export const BILLING_RECORDABLE_PAYMENT_METHODS = [...BILLING_MANUAL_PAYMENT_METHODS, 'card-reader'] as const;
 
 // what record-billing-nio-invoice-payment callers may send; card payments go through Stripe
 export const BILLING_INVOICE_PAYMENT_METHODS = ['check', 'ach', 'wire', 'cash', 'other'] as const;

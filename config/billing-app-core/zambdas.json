@@ -551,6 +551,13 @@
       "src": "src/billing/list-billing-patient-account-payments/index",
       "zip": ".dist/zips/list-billing-patient-account-payments.zip"
     },
+    "LIST-BILLING-PATIENT-PAYMENT-METHODS": {
+      "name": "list-billing-patient-payment-methods",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/list-billing-patient-payment-methods/index",
+      "zip": ".dist/zips/list-billing-patient-payment-methods.zip"
+    },
     "GET-BILLING-PATIENT-ACCOUNT-PAYMENT": {
       "name": "get-billing-patient-account-payment",
       "type": "http_auth",
