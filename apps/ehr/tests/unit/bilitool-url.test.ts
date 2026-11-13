@@ -13,7 +13,6 @@ import {
 const visit = (values: Record<string, FlowsheetValue>, start = '2025-05-20T14:00:00.000Z'): FlowsheetVisit => ({
   start,
   isFollowUp: false,
-  visitType: '',
   reason: '',
   primaryDiagnosis: '',
   attending: '',

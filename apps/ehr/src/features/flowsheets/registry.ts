@@ -36,23 +36,23 @@ const vitals: FlowsheetDefinition = {
   title: 'Vitals',
   rows: [
     { label: 'Temperature (°C)', keys: ['temperature'], digits: 1 },
-    { label: 'Heart rate (bpm)', keys: ['heartRate'], digits: 0 },
+    { label: 'Heart rate (/min)', keys: ['heartRate'], digits: 0 },
     { label: 'Respiratory rate (/min)', keys: ['respirationRate'], digits: 0 },
     { label: 'SpO₂ (%)', keys: ['oxygenSaturation'], digits: 0 },
-    { label: 'Blood pressure (mmHg)', keys: ['systolic', 'diastolic'], digits: 0 },
+    { label: 'Blood pressure (mm Hg)', keys: ['systolic', 'diastolic'], digits: 0 },
     { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
     { label: 'Height (cm)', keys: ['height'], digits: 1 },
     { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
     { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1 },
   ],
   charts: [
-    { title: 'Heart rate', unit: 'bpm', lines: [{ name: 'Heart rate', key: 'heartRate' }] },
+    { title: 'Heart rate', unit: '/min', lines: [{ name: 'Heart rate', key: 'heartRate' }] },
     { title: 'SpO₂', unit: '%', lines: [{ name: 'SpO₂', key: 'oxygenSaturation' }] },
     { title: 'Temperature', unit: '°C', lines: [{ name: 'Temperature', key: 'temperature' }] },
     { title: 'Weight', unit: 'kg', lines: [{ name: 'Weight', key: 'weight' }] },
     {
       title: 'Blood pressure',
-      unit: 'mmHg',
+      unit: 'mm Hg',
       lines: [
         { name: 'Systolic', key: 'systolic' },
         { name: 'Diastolic', key: 'diastolic' },
@@ -67,6 +67,8 @@ const vitals: FlowsheetDefinition = {
 const growth: FlowsheetDefinition = {
   id: 'growth',
   title: 'Growth',
+  // An adult has no percentile or head circumference rows; they would only be empty.
+  hideEmptyRows: true,
   rows: [
     { label: 'Age', keys: ['age'] },
     { label: 'Weight (kg)', keys: ['weight'], digits: 2, imperial: { label: 'Weight (lbs)', unit: 'lbs' } },
@@ -106,13 +108,13 @@ const thyroid: FlowsheetDefinition = {
     { label: 'Thyroid medication', keys: ['thyroidMedication'] },
     { label: 'Thyroid diagnosis this visit', keys: ['thyroidDiagnosis'] },
     { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
-    { label: 'Heart rate (bpm)', keys: ['heartRate'], digits: 0 },
+    { label: 'Heart rate (/min)', keys: ['heartRate'], digits: 0 },
   ],
   charts: [
     { title: 'TSH', unit: 'mIU/L', lines: [{ name: 'TSH', key: 'tsh' }] },
     { title: 'Free T4', unit: 'ng/dL', lines: [{ name: 'Free T4', key: 'freeT4' }] },
     { title: 'Weight', unit: 'kg', lines: [{ name: 'Weight', key: 'weight' }] },
-    { title: 'Heart rate', unit: 'bpm', lines: [{ name: 'Heart rate', key: 'heartRate' }] },
+    { title: 'Heart rate', unit: '/min', lines: [{ name: 'Heart rate', key: 'heartRate' }] },
   ],
 };
 

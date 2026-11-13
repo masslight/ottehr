@@ -38,7 +38,10 @@ const FLOWSHEETS: Record<FlowsheetId, FlowsheetDefinition> = {
     build: (data) => ({ visits: buildNewbornBilirubinFlowsheet(data), birthHistory: data.birthHistory }),
   },
   thyroid: { kinds: THYROID_DATA_KINDS, build: buildThyroidFlowsheet },
-  vitals: { kinds: ['vitals'], build: (data) => buildVitalsFlowsheet({ ...data, observations: data.vitals ?? [] }) },
+  vitals: {
+    kinds: ['birthDate', 'vitals'],
+    build: (data) => buildVitalsFlowsheet({ ...data, observations: data.vitals ?? [] }),
+  },
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

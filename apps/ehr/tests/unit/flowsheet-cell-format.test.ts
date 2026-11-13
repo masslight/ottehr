@@ -22,7 +22,6 @@ const reading = (value: number | string, time = '2026-07-13T14:00:00.000Z'): Flo
 const visit = (values: Record<string, FlowsheetValue>): FlowsheetVisit => ({
   start: '2026-07-13T14:00:00.000Z',
   isFollowUp: false,
-  visitType: '',
   reason: '',
   primaryDiagnosis: '',
   attending: '',
@@ -70,13 +69,13 @@ describe('flowsheet cell formatting', () => {
 });
 
 describe('flowsheet column labels', () => {
-  it('marks an unlinked outside result and a follow-up in the column label', () => {
+  it('marks an unlinked (unsolicited) result and a follow-up in the column label', () => {
     const [outside, followUp, plain] = toColumns([
-      { ...visit({}), start: '2026-07-15T09:00:00.000Z', isOutsideResult: true, visitType: 'Outside result' },
+      { ...visit({}), start: '2026-07-15T09:00:00.000Z', isOutsideResult: true },
       { ...visit({}), start: '2026-07-14T09:00:00.000Z', isFollowUp: true },
       visit({}),
     ]);
-    expect(outside.label).toMatch(/ \(outside result\)$/);
+    expect(outside.label).toMatch(/ \(unsolicited result\)$/);
     expect(outside.url).toBeUndefined();
     expect(followUp.label).toMatch(/ \(follow-up\)$/);
     expect(plain.label).not.toMatch(/\(/);
@@ -88,19 +87,20 @@ describe('rows hidden when empty (no BMI under 2)', () => {
   const labels = (visits: FlowsheetVisit[]): string[] =>
     rowsToShow(growth, visits).map((row) => ('heading' in row ? row.heading : row.label));
 
-  it('drops the BMI rows when no visit has a BMI, keeps them once any visit does, and never drops other rows', () => {
+  it('drops the BMI rows when no visit has a BMI and keeps them once any visit does; Growth shows only rows with a value', () => {
     const infant = visit({ weight: reading(7.3), height: reading(65), weightForLengthPercentile: reading('60th') });
     expect(labels([infant])).not.toContain('BMI (kg/m²)');
     expect(labels([infant])).not.toContain('BMI percentile');
     expect(labels([infant])).toContain('Weight-for-length percentile');
-    expect(labels([infant])).toContain('Head circumference (cm)');
+    expect(labels([infant])).not.toContain('Head circumference (cm)');
     const child = visit({
       weight: reading(32),
       height: reading(138),
       bmi: reading(16.8),
       bmiPercentile: reading('55th'),
     });
-    expect(labels([infant, child])).toEqual(growth.rows.map((row) => row.label));
+    expect(labels([infant, child])).toContain('BMI (kg/m²)');
+    expect(labels([infant, child])).toContain('BMI percentile');
   });
 });
 

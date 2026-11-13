@@ -171,7 +171,6 @@ describe('buildNewbornBilirubinFlowsheet', () => {
     expect(column).toMatchObject({
       start: '2007-04-06T15:00:00.000Z',
       isOutsideResult: true,
-      visitType: 'Outside result',
     });
     expect(Object.fromEntries(Object.entries(column.values).map(([key, v]) => [key, v.value]))).toEqual({
       newbornTotalBilirubin: 11.2,

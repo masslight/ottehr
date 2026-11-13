@@ -617,8 +617,8 @@ export default function PatientPage(): JSX.Element {
                     <PatientRadiologyTab patientId={id || ''} />
                   </TabPanel>
                 )}
-                <TabPanel value="flowsheets" sx={{ p: 0, pt: 2 }}>
-                  <Flowsheets patientId={id || ''} />
+                <TabPanel value="flowsheets" sx={{ p: 0 }}>
+                  <Flowsheets patientId={id || ''} title="Flowsheets" />
                 </TabPanel>
               </TabContext>
               {showAccountSettingsDialog ? (

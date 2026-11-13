@@ -13,6 +13,8 @@ import {
   VitalFieldNames,
 } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
+import { ServiceMode } from 'utils/lib/types/common';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, test, vi } from 'vitest';
@@ -167,6 +169,15 @@ describe('buildVitalsFlowsheet', () => {
     });
   });
 
+  test('drops a saved BMI for a visit under 2 years, keeps it from 2 years', () => {
+    const at = (birthDate: string): FlowsheetVisit | undefined =>
+      buildVitalsFlowsheet({ appointments, encounters, observations, conditions, practitioners, birthDate }).find(
+        (v) => v.encounterId === 'e1'
+      );
+    expect(at('2025-01-01')?.values.bmi).toBeUndefined();
+    expect(at('2024-03-09')?.values.bmi).toMatchObject({ value: 23.4 });
+  });
+
   test('lists every reading of a measure in the visit, oldest first', () => {
     expect(visits[2].values.heartRate.readings).toEqual([
       { time: '2026-03-09T15:05:00.000Z', value: 80, flag: undefined },
@@ -178,19 +189,21 @@ describe('buildVitalsFlowsheet', () => {
   test('describes the visit from its appointment, encounter and attending provider', () => {
     expect(visits[2]).toMatchObject({
       appointmentId: 'a1',
-      visitType: 'Walk-in · In-person',
+      appointmentType: 'walk-in',
+      serviceMode: ServiceMode['in-person'],
       reason: 'Cough',
       primaryDiagnosis: 'J06.9 — Acute URI',
       attending: 'Ada Lovelace',
     });
     expect(visits[0]).toMatchObject({
       appointmentId: 'a2',
-      visitType: 'Walk-in · Telemed',
+      appointmentType: 'walk-in',
+      serviceMode: ServiceMode.virtual,
       reason: '',
       primaryDiagnosis: '',
       attending: '',
     });
-    expect(visits[3]).toMatchObject({ appointmentId: undefined, encounterId: undefined, visitType: '' });
+    expect(visits[3]).toMatchObject({ appointmentId: undefined, encounterId: undefined, appointmentType: undefined });
   });
 });
 

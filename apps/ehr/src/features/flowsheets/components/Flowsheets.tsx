@@ -6,16 +6,16 @@ import {
   Box,
   Grid,
   Link,
-  List,
-  ListItemButton,
-  ListItemText,
+  Paper,
   Stack,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
+  Tabs,
   Tooltip,
   Typography,
   useTheme,
@@ -23,6 +23,7 @@ import {
 import { DateTime } from 'luxon';
 import React, { ReactElement, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { AccordionCard } from 'src/components/AccordionCard';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { EChart } from 'src/features/report-builder/runtime/components/EChart';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
@@ -31,6 +32,8 @@ import { Loader } from 'src/features/visits/shared/components/Loader';
 import { useVitalsHeaderUnitSystem } from 'src/features/visits/shared/components/vitals/hooks/useVitalsHeaderUnitSystem';
 import { DATE_FORMAT } from 'src/helpers/formatDateTime';
 import { useGetFlowsheet } from 'src/hooks/useGetFlowsheet';
+import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
+import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -45,14 +48,16 @@ import { GrowthCharts } from './GrowthCharts';
 
 interface FlowsheetsProps {
   patientId: string;
+  /** Patient tab only: the tab's title; the flowsheets then sit in a white Paper like the other patient tabs. */
+  title?: string;
   /** Visit tab only: hide visits after this instant. */
   asOf?: string;
   /** Visit tab only: the open visit, whose column is highlighted. */
   currentAppointmentId?: string;
 }
 
-/** Side list of every flowsheet plus the selected one: grid, trend charts, visit list. */
-export const Flowsheets = ({ patientId, asOf, currentAppointmentId }: FlowsheetsProps): ReactElement => {
+/** A tab per flowsheet plus the selected one: grid, trend charts, visit list. */
+export const Flowsheets = ({ patientId, title, asOf, currentAppointmentId }: FlowsheetsProps): ReactElement => {
   const [selected, setSelected] = useState<FlowsheetDefinition>(FLOWSHEETS[0]);
   const { data, isLoading, error } = useGetFlowsheet({ patientId, flowsheetId: selected.id, asOf });
   const [biliToolOpen, setBiliToolOpen] = useState(false);
@@ -63,54 +68,73 @@ export const Flowsheets = ({ patientId, asOf, currentAppointmentId }: Flowsheets
   );
   const showBiliTool = selected.id === 'newbornBilirubin' && canOpenBiliTool(data?.birthHistory, readings);
 
-  return (
-    <Stack direction="row" spacing={2} alignItems="flex-start">
-      <List dense disablePadding sx={{ width: 200, flexShrink: 0 }}>
-        {FLOWSHEETS.map((flowsheet) => (
-          <ListItemButton
-            key={flowsheet.id}
-            selected={flowsheet.id === selected.id}
-            onClick={() => setSelected(flowsheet)}
-          >
-            <ListItemText primary={flowsheet.title} />
-          </ListItemButton>
-        ))}
-      </List>
-      <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-        <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-          <Typography variant="h5" color="primary.dark">
-            {selected.title}
-          </Typography>
-          {showBiliTool && (
-            <RoundedButton size="small" startIcon={<OpenInNewIcon />} onClick={() => setBiliToolOpen(true)}>
-              Open in BiliTool
-            </RoundedButton>
-          )}
-        </Stack>
-        {showBiliTool && biliToolOpen && data?.birthHistory && (
-          <BiliToolDialog
-            open
-            onClose={() => setBiliToolOpen(false)}
-            birthHistory={data.birthHistory}
-            readings={readings}
-          />
+  const content = (
+    <Stack spacing={2}>
+      {/* The patient-page tab row: house tab label style, scrolling when there are more flowsheets than fit. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs
+          value={selected.id}
+          onChange={(_, id: FlowsheetDefinition['id']) =>
+            setSelected(FLOWSHEETS.find((flowsheet) => flowsheet.id === id) ?? FLOWSHEETS[0])
+          }
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ flexGrow: 1, minWidth: 0 }}
+        >
+          {FLOWSHEETS.map((flowsheet) => (
+            <Tab
+              key={flowsheet.id}
+              value={flowsheet.id}
+              label={
+                <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                  {flowsheet.title}
+                </Typography>
+              }
+            />
+          ))}
+        </Tabs>
+        {showBiliTool && (
+          <RoundedButton size="small" startIcon={<OpenInNewIcon />} onClick={() => setBiliToolOpen(true)}>
+            Open in BiliTool
+          </RoundedButton>
         )}
-        {isLoading ? (
-          <Loader />
-        ) : error ? (
-          <Typography color="error">{error.message}</Typography>
-        ) : !data?.visits.length ? (
-          <Typography>No data for this patient</Typography>
-        ) : (
-          <FlowsheetBody
-            definition={selected}
-            visits={data.visits}
-            growth={data.growth}
-            currentAppointmentId={currentAppointmentId}
-          />
-        )}
-      </Stack>
+      </Box>
+      {showBiliTool && biliToolOpen && data?.birthHistory && (
+        <BiliToolDialog
+          open
+          onClose={() => setBiliToolOpen(false)}
+          birthHistory={data.birthHistory}
+          readings={readings}
+        />
+      )}
+      {isLoading ? (
+        <Loader height="300px" />
+      ) : error ? (
+        <Typography color="error">{error.message}</Typography>
+      ) : !data?.visits.length ? (
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="body1">No data for this patient</Typography>
+        </Box>
+      ) : (
+        <FlowsheetBody
+          definition={selected}
+          visits={data.visits}
+          growth={data.growth}
+          currentAppointmentId={currentAppointmentId}
+        />
+      )}
     </Stack>
+  );
+
+  return title ? (
+    <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
+      <Typography variant="h4" color="primary.dark">
+        {title}
+      </Typography>
+      {content}
+    </Paper>
+  ) : (
+    content
   );
 };
 
@@ -128,7 +152,7 @@ export const toColumns = (visits: FlowsheetVisit[]): VisitColumn[] => {
       days.filter((d) => d === day).length > 1 ? DateTime.fromISO(visit.start).toFormat(`${DATE_FORMAT} HH:mm`) : day;
     return {
       ...visit,
-      label: visit.isOutsideResult ? `${base} (outside result)` : visit.isFollowUp ? `${base} (follow-up)` : base,
+      label: visit.isOutsideResult ? `${base} (unsolicited result)` : visit.isFollowUp ? `${base} (follow-up)` : base,
       url: visit.appointmentId
         ? getInPersonUrlByAppointmentType(
             { id: visit.appointmentId, encounterId: visit.encounterId ?? '', isFollowUp: visit.isFollowUp },
@@ -152,6 +176,9 @@ interface Cell {
   /** Every reading of the row in this visit, oldest first (shown on hover when there is more than one). */
   history: { time: string; text: string; flag?: VitalAlertCriticality }[];
 }
+
+// Lab units are saved as UCUM; show the count units the way people write them.
+const UCUM_DISPLAY: Record<string, string> = { '10*3/uL': '×10³/µL', '10*6/uL': '×10⁶/µL' };
 
 // Imperial from the stored metric value, at the vitals' display precision (lbs 2 decimals, inches 2 decimals).
 const toImperial = (value: number, unit: 'lbs' | 'in'): string =>
@@ -187,7 +214,7 @@ export const cellOf = (
         : typeof value === 'number' && row.digits !== undefined
         ? roundNumberToDecimalPlaces(value, row.digits).toFixed(row.digits)
         : String(value);
-    const withUnit = unit ? `${text} ${unit}` : text;
+    const withUnit = unit ? `${text} ${UCUM_DISPLAY[unit] ?? unit}` : text;
     return note ? `${withUnit} (${note})` : withUnit;
   };
   const format = (at: FlowsheetReading[]): string => at.map(formatOne).join('/');
@@ -234,7 +261,7 @@ const FlagMark = ({ flag }: { flag?: VitalAlertCriticality }): ReactElement | nu
         <WarningAmberOutlinedIcon
           fontSize="small"
           aria-label="Abnormal"
-          sx={{ ...sx, color: theme.palette.warning.light }}
+          sx={{ ...sx, color: theme.palette.warning.dark }}
         />
       </Tooltip>
     );
@@ -242,7 +269,7 @@ const FlagMark = ({ flag }: { flag?: VitalAlertCriticality }): ReactElement | nu
 };
 
 /**
- * The cell value; with more than one reading, a count marker and a hover list of every reading (local time). A
+ * The cell value; with more than one reading, "+ N more" and a hover list of every reading (local time). A
  * convertible measure shows both units on hover.
  */
 const CellValue = ({ cell, both }: { cell: Cell; both?: string }): ReactElement => {
@@ -254,8 +281,11 @@ const CellValue = ({ cell, both }: { cell: Cell; both?: string }): ReactElement 
       </Tooltip>
     );
   }
+  // As the lab tables show several values in one cell: the latest, then "+ N more", every reading on hover.
   return (
     <Tooltip
+      arrow
+      placement="top"
       title={
         <Stack>
           {cell.history.map((reading) => (
@@ -269,12 +299,9 @@ const CellValue = ({ cell, both }: { cell: Cell; both?: string }): ReactElement 
       }
     >
       <Box component="span">
-        {cell.text}
-        <Box
-          component="span"
-          sx={{ ml: 0.5, px: 0.5, borderRadius: 1, fontSize: 10, bgcolor: 'action.selected', verticalAlign: 'super' }}
-        >
-          {cell.history.length}
+        {cell.text}{' '}
+        <Box component="span" sx={{ color: 'text.secondary' }}>
+          + {cell.history.length - 1} more
         </Box>
       </Box>
     </Tooltip>
@@ -289,6 +316,19 @@ const VisitLink = ({ visit }: { visit: VisitColumn }): ReactElement =>
   ) : (
     <>{visit.label}</>
   );
+
+/** "Pre-booked In Person Visit / UC", as on the patient Visits tab; follow-ups and unsolicited results say so. */
+export const visitTypeLabel = (
+  visit: FlowsheetVisit,
+  resolveServiceCategoryAbbr: (codeOrName?: string) => string | undefined
+): string => {
+  if (visit.isOutsideResult) return 'Unsolicited result';
+  if (visit.isFollowUp) return 'Follow-up';
+  if (!visit.appointmentType) return '-';
+  const type = getVisitTypeLabelForTypeAndServiceMode({ type: visit.appointmentType, serviceMode: visit.serviceMode });
+  const category = resolveServiceCategoryAbbr(visit.serviceCategory);
+  return category ? `${type} / ${category}` : type;
+};
 
 const pinned = { position: 'sticky', left: 0, zIndex: 1, backgroundColor: 'background.paper', minWidth: 190 };
 
@@ -306,18 +346,21 @@ const FlowsheetBody = ({
 }): ReactElement => {
   const theme = useTheme();
   const unitSystem = useVitalsHeaderUnitSystem();
+  const resolveServiceCategoryAbbr = useServiceCategoryAbbreviationResolver();
   const columns = useMemo(() => toColumns(visits), [visits]);
   const rows = useMemo(() => rowsToShow(definition, visits), [definition, visits]);
   // The open visit's own (main) column; its follow-up columns are not it.
   const isCurrent = (visit: VisitColumn): boolean =>
     !!currentAppointmentId && visit.appointmentId === currentAppointmentId && !visit.isFollowUp;
+  // A tint over the cell's own background, so the sticky header stays opaque.
+  const tint = alpha(theme.palette.primary.main, 0.1);
   const currentSx = (visit: VisitColumn): Record<string, unknown> =>
-    isCurrent(visit) ? { backgroundColor: alpha(theme.palette.primary.main, 0.1) } : {};
+    isCurrent(visit) ? { backgroundImage: `linear-gradient(${tint}, ${tint})` } : {};
   const flagColor = (flag?: VitalAlertCriticality): string | undefined =>
     flag === VitalAlertCriticality.Critical
       ? theme.palette.error.main
       : flag === VitalAlertCriticality.Abnormal
-      ? theme.palette.warning.main
+      ? theme.palette.warning.dark
       : undefined;
 
   // ECharts option per chart. Series names and units come from the registry, values are numbers, so the
@@ -325,11 +368,20 @@ const FlowsheetBody = ({
   const chartOption = (chart: FlowsheetChart): Record<string, unknown> => {
     const hoursAxis = usesHoursAxis(chart, columns);
     return {
-      tooltip: { trigger: 'axis' },
-      legend: { top: 0, selectedMode: false, data: chart.lines.map((line) => line.name) },
+      // Theme blues, told apart by lightness, in place of the ECharts defaults (low contrast on white).
+      color: [theme.palette.primary.main, theme.palette.primary.dark, theme.palette.text.secondary],
+      tooltip: { trigger: 'axis', confine: true },
+      // The card title already names a single line.
+      legend: {
+        show: chart.lines.length > 1,
+        top: 0,
+        selectedMode: false,
+        data: chart.lines.map((line) => line.name),
+      },
       // Our own disabled dataZoom keeps the EChart wrapper from adding its slider.
       dataZoom: [{ type: 'inside', disabled: true }],
-      grid: { left: 48, right: 24, top: 40, bottom: hoursAxis ? 48 : 32, containLabel: true },
+      // EChart's own grid; the hours axis needs room for its name.
+      ...(hoursAxis ? { grid: { bottom: 48, containLabel: true } } : {}),
       xAxis: hoursAxis
         ? {
             type: 'value',
@@ -341,7 +393,7 @@ const FlowsheetBody = ({
             nameGap: 28,
             splitLine: { show: false },
           }
-        : { type: 'time', axisLabel: { hideOverlap: true }, splitLine: { show: false } },
+        : { type: 'time', axisLabel: { hideOverlap: true, formatter: '{MM}/{dd}' }, splitLine: { show: false } },
       yAxis: { type: 'value', name: chart.unit, scale: true },
       series: chart.lines.map((line) => ({
         name: line.name,
@@ -368,19 +420,21 @@ const FlowsheetBody = ({
 
   return (
     <>
-      <TableContainer sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
-        <Table size="small" sx={{ width: 'max-content', minWidth: '100%' }}>
+      {/* Sticky dates and a capped height keep the dates and the horizontal scrollbar in view, as in PatientsMergeDifference. */}
+      <TableContainer
+        sx={{ border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'background.paper', maxHeight: '60vh' }}
+      >
+        <Table stickyHeader size="small" sx={{ width: 'max-content', minWidth: '100%' }}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ ...pinned, zIndex: 2, fontWeight: 700 }}>Measure</TableCell>
+              <TableCell sx={{ ...pinned, zIndex: 3, fontWeight: 700 }}>Measure</TableCell>
               {columns.map((visit, i) => (
                 <TableCell
                   key={`${visit.start}-${i}`}
-                  align="right"
                   sx={{ fontWeight: 700, whiteSpace: 'nowrap', verticalAlign: 'bottom', ...currentSx(visit) }}
                 >
                   {isCurrent(visit) && (
-                    <Typography variant="caption" display="block" color="primary" sx={{ textTransform: 'uppercase' }}>
+                    <Typography variant="caption" display="block" color="primary.dark">
                       This visit
                     </Typography>
                   )}
@@ -393,9 +447,16 @@ const FlowsheetBody = ({
             {rows.map((row) =>
               'heading' in row ? (
                 <TableRow key={row.heading}>
+                  {/* The lab tables' panel heading row (LabsTableBundleHeaderRow). */}
                   <TableCell
                     colSpan={columns.length + 1}
-                    sx={{ ...pinned, fontWeight: 700, color: 'primary.dark', backgroundColor: 'action.hover' }}
+                    sx={{
+                      ...pinned,
+                      p: '8px 18px',
+                      fontWeight: 500,
+                      color: 'primary.dark',
+                      backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                    }}
                   >
                     {row.heading}
                   </TableCell>
@@ -406,13 +467,16 @@ const FlowsheetBody = ({
                   {columns.map((visit, i) => {
                     const cell = cellOf(row, visit, unitSystem);
                     const latest = row.keys.length === 1 ? visit.values[row.keys[0]]?.value : undefined;
+                    // Text (a coded result, a drug name) wraps in a narrow column instead of widening it.
+                    const isText = typeof latest === 'string';
                     return (
                       <TableCell
                         key={`${visit.start}-${i}`}
-                        align="right"
                         sx={{
-                          whiteSpace: 'nowrap',
+                          whiteSpace: isText ? 'normal' : 'nowrap',
+                          ...(isText ? { minWidth: 120, maxWidth: 160 } : {}),
                           color: flagColor(cell.flag) ?? (cell.text ? 'text.primary' : 'text.disabled'),
+                          fontWeight: cell.flag ? 'bold' : undefined,
                           ...currentSx(visit),
                         }}
                       >
@@ -434,42 +498,49 @@ const FlowsheetBody = ({
         <Grid container spacing={2}>
           {definition.charts.filter(hasPoints).map((chart) => (
             <Grid item xs={12} md={chart.lines.length > 1 ? 12 : 6} key={chart.title}>
-              <Typography variant="subtitle1" fontWeight={600}>
-                {chart.title} ({chart.unit})
-              </Typography>
-              <EChart option={chartOption(chart)} height={280} />
+              <AccordionCard label={`${chart.title} (${chart.unit})`}>
+                <Box sx={{ p: 2 }}>
+                  <EChart option={chartOption(chart)} height={280} />
+                </Box>
+              </AccordionCard>
             </Grid>
           ))}
         </Grid>
       )}
 
-      <Typography variant="subtitle1" fontWeight={600}>
-        Visits
-      </Typography>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            {['Date', 'Visit type', 'Reason for visit', 'Primary diagnosis', 'Attending provider'].map((header) => (
-              <TableCell key={header} sx={{ fontWeight: 700 }}>
-                {header}
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {columns.map((visit, i) => (
-            <TableRow key={`${visit.start}-${i}`}>
-              <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                <VisitLink visit={visit} />
-              </TableCell>
-              <TableCell>{visit.visitType}</TableCell>
-              <TableCell>{visit.reason}</TableCell>
-              <TableCell>{visit.primaryDiagnosis}</TableCell>
-              <TableCell>{visit.attending}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      {/* Column names and visit type labels as on the patient Visits tab; "-" for an empty cell. */}
+      <AccordionCard label="Visits">
+        <TableContainer sx={{ bgcolor: 'background.paper' }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                {['Date', 'Type & Service Category', 'Reason for visit', 'Primary diagnosis', 'Provider'].map(
+                  (header) => (
+                    <TableCell key={header} sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      {header}
+                    </TableCell>
+                  )
+                )}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {columns.map((visit, i) => (
+                <TableRow key={`${visit.start}-${i}`}>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                    <VisitLink visit={visit} />
+                  </TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                    {visitTypeLabel(visit, resolveServiceCategoryAbbr)}
+                  </TableCell>
+                  <TableCell>{visit.reason || '-'}</TableCell>
+                  <TableCell>{visit.primaryDiagnosis || '-'}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{visit.attending || '-'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </AccordionCard>
     </>
   );
 };

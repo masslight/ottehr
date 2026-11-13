@@ -184,7 +184,6 @@ describe('buildThyroidFlowsheet', () => {
       start: '2023-04-10T12:00:00.000Z',
       isOutsideResult: true,
       isFollowUp: false,
-      visitType: 'Outside result',
     });
     expect(column.appointmentId).toBeUndefined();
     expect(Object.keys(column.values)).toEqual(['tsh']);

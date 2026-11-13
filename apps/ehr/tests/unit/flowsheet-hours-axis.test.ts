@@ -8,7 +8,6 @@ const reading = (value: number, time: string): FlowsheetValue => ({ time, value,
 const visit = (values: Record<string, FlowsheetValue>): FlowsheetVisit => ({
   start: '2026-07-13T14:00:00.000Z',
   isFollowUp: false,
-  visitType: '',
   reason: '',
   primaryDiagnosis: '',
   attending: '',

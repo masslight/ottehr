@@ -1,6 +1,7 @@
-import { Stack, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Stack, ToggleButtonGroup, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
+import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { Loader } from 'src/features/visits/shared/components/Loader';
 import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -38,8 +39,8 @@ export const VisitFlowsheets = (): ReactElement => {
             value={range}
             onChange={(_, value: VisitRange | null) => value && setRange(value)}
           >
-            <ToggleButton value="up-to-visit">Up to this visit</ToggleButton>
-            <ToggleButton value="all">All visits</ToggleButton>
+            <ContainedPrimaryToggleButton value="up-to-visit">Up to this visit</ContainedPrimaryToggleButton>
+            <ContainedPrimaryToggleButton value="all">All visits</ContainedPrimaryToggleButton>
           </ToggleButtonGroup>
         }
       />

@@ -1,6 +1,8 @@
 import { MedicationRequest } from 'fhir/r4b';
 import { z } from 'zod';
 import { LmsRow } from '../../helpers/vitals/growth-lms';
+import { ServiceMode } from '../common';
+import { AppointmentType } from './appointment.types';
 import { BirthHistoryDTO } from './birth-history.types';
 import { VitalAlertCriticality } from './chart-data/chart-data.constants';
 
@@ -44,7 +46,10 @@ export interface FlowsheetVisit {
   isFollowUp: boolean;
   /** An unlinked outside result (matched to the patient, not to a visit): a column of its own, dated by the result. */
   isOutsideResult?: boolean;
-  visitType: string;
+  /** The raw visit type, service mode and service category code; the EHR labels them as the Visits tab does. */
+  appointmentType?: AppointmentType;
+  serviceMode?: ServiceMode;
+  serviceCategory?: string;
   reason: string;
   primaryDiagnosis: string;
   attending: string;

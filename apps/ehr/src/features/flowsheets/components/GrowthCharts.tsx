@@ -1,20 +1,22 @@
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import {
   Box,
   Button,
-  Paper,
   Stack,
-  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Tabs,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import type { ECharts } from 'echarts';
 import React, { ReactElement, useMemo, useRef, useState } from 'react';
+import { AccordionCard } from 'src/components/AccordionCard';
+import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { EChart } from 'src/features/report-builder/runtime/components/EChart';
 import { LmsRow } from 'utils/lib/helpers/vitals/growth-lms';
 import {
@@ -50,13 +52,32 @@ export const GrowthCharts = ({ growth, visits, currentAppointmentId }: GrowthCha
     ? visits.find((visit) => visit.appointmentId === currentAppointmentId && !visit.isFollowUp)
     : undefined;
   const visitAge = thisVisit?.values.age?.value;
+  const otherSet = (Object.keys(GROWTH_SETS) as GrowthChartSet[]).find((id) => id !== setId);
+  // "See the other chart set" only when the other set really has some of the measurements.
+  const otherSetHasPoints = growth.points.some(
+    (point) => !!otherSet && GROWTH_SETS[otherSet].charts.includes(point.chart)
+  );
+  if (growth.points.length === 0)
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="body1">No measurements in the growth chart age ranges</Typography>
+      </Box>
+    );
   return (
     <Stack spacing={1.5}>
-      <Tabs value={setId} onChange={(_, value: GrowthChartSet) => setSetId(value)} sx={{ minHeight: 36 }}>
+      {/* A value switch, not a second tab row under the flowsheet tabs. */}
+      <ToggleButtonGroup
+        exclusive
+        size="small"
+        value={setId}
+        onChange={(_, value: GrowthChartSet | null) => value && setSetId(value)}
+      >
         {(Object.keys(GROWTH_SETS) as GrowthChartSet[]).map((id) => (
-          <Tab key={id} value={id} label={GROWTH_SETS[id].label} sx={{ textTransform: 'none', minHeight: 36, py: 0 }} />
+          <ContainedPrimaryToggleButton key={id} value={id}>
+            {GROWTH_SETS[id].label}
+          </ContainedPrimaryToggleButton>
         ))}
-      </Tabs>
+      </ToggleButtonGroup>
       <Typography variant="body2" color="text.secondary">
         {`${growth.sex === 'female' ? 'Girls' : 'Boys'} · ${set.title} · percentiles ${set.percentileSpan}${
           visitAge ? ` · age at this visit: ${visitAge}` : ''
@@ -71,6 +92,7 @@ export const GrowthCharts = ({ growth, visits, currentAppointmentId }: GrowthCha
           points={growth.points.filter((point) => point.chart === chartId)}
           outsideRange={growth.outsideRange[chartId] ?? 0}
           setLabel={set.label}
+          otherSetHasPoints={otherSetHasPoints}
           thisVisitEncounterId={thisVisit?.encounterId}
         />
       ))}
@@ -86,6 +108,7 @@ interface GrowthCardProps {
   points: GrowthChartPoint[];
   outsideRange: number;
   setLabel: string;
+  otherSetHasPoints: boolean;
   thisVisitEncounterId?: string;
 }
 
@@ -96,6 +119,7 @@ const GrowthCard = ({
   points,
   outsideRange,
   setLabel,
+  otherSetHasPoints,
   thisVisitEncounterId,
 }: GrowthCardProps): ReactElement => {
   const view = GROWTH_CHART_VIEWS[chartId];
@@ -117,11 +141,8 @@ const GrowthCard = ({
   const cellSx = { whiteSpace: 'nowrap', px: 1 };
 
   return (
-    <Paper variant="outlined" sx={{ p: 1.5 }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 0.5 }}>
-        {view.title}
-      </Typography>
-      <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="flex-start">
+    <AccordionCard label={view.title}>
+      <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap alignItems="flex-start" sx={{ p: 2 }}>
         <Box sx={{ flex: '3 1 520px', minWidth: 300 }}>
           <EChart
             option={option}
@@ -129,6 +150,20 @@ const GrowthCard = ({
             onHover={(datum) => setHover((datum?.point as GrowthChartPoint | undefined) ?? null)}
             onReady={(chart) => (chartRef.current = chart)}
           />
+          <Typography variant="caption" color="text.secondary" component="p">
+            <Box component="span" sx={{ color: '#0F347C' }}>
+              ●
+            </Box>{' '}
+            measurement{'   '}
+            <Box component="span" sx={{ color: 'primary.main' }}>
+              ○
+            </Box>{' '}
+            this visit{'   '}
+            <Box component="span" sx={{ color: 'error.main' }}>
+              ✕
+            </Box>{' '}
+            implausible
+          </Typography>
         </Box>
         {/* Wide enough for all five columns (weight @ length is the widest), else it wraps under the chart. */}
         <Box sx={{ flex: '2 1 440px', minWidth: 280 }}>
@@ -136,7 +171,7 @@ const GrowthCard = ({
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pb: 0.5 }}>
               {`${outsideRange} measurement${outsideRange === 1 ? ' is' : 's are'} outside ${setLabel
                 .split(' (')[0]
-                .toLowerCase()}${view.inOtherSet ? ' — see the other chart set.' : '.'}`}
+                .toLowerCase()}${view.inOtherSet && otherSetHasPoints ? ' — see the other chart set.' : '.'}`}
             </Typography>
           )}
           <TableContainer sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
@@ -145,7 +180,7 @@ const GrowthCard = ({
               <TableHead>
                 <TableRow>
                   {['Date', 'Age', view.xIsLength ? 'Weight @ length' : 'Value', 'Percentile', 'z'].map((header) => (
-                    <TableCell key={header} sx={{ fontWeight: 600 }}>
+                    <TableCell key={header} sx={{ fontWeight: 'bold' }}>
                       {header}
                     </TableCell>
                   ))}
@@ -177,21 +212,35 @@ const GrowthCard = ({
                 ))}
                 {list.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} sx={{ color: 'text.secondary' }}>
-                      No measurements in this age range.
+                    <TableCell colSpan={5} sx={{ textAlign: 'center', py: 4 }}>
+                      No measurements in this age range
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
           </TableContainer>
-          {newest.length > TABLE_ROWS_SHOWN && !all && (
-            <Button size="small" onClick={() => setAll(true)} sx={{ textTransform: 'none', mt: 0.5 }}>
-              {`Show all (${newest.length})`}
+          {/* The vitals history's "See more / See less" (VitalsHistoryContainer). */}
+          {newest.length > TABLE_ROWS_SHOWN && (
+            <Button
+              sx={{
+                display: 'flex',
+                textTransform: 'none',
+                justifyContent: 'flex-start',
+                color: 'primary.main',
+                minWidth: 'auto',
+                fontWeight: 'bold',
+                mt: 0.5,
+                '&:hover': { backgroundColor: 'transparent' },
+              }}
+              onClick={() => setAll(!all)}
+              startIcon={all ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
+            >
+              {all ? 'See less' : 'See more'}
             </Button>
           )}
         </Box>
       </Stack>
-    </Paper>
+    </AccordionCard>
   );
 };

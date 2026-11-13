@@ -1,18 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Condition, Encounter, Location, Observation, Practitioner } from 'fhir/r4b';
 import { appointmentTypeForAppointment, getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { PRIVATE_EXTENSION_BASE_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { FOLLOWUP_SYSTEMS, getEncounterVisitType } from 'utils/lib/fhir/encounter';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getCoding } from 'utils/lib/fhir/helpers';
 import { isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
+import { bmiAppliesAt } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM, VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 
 /** The patient's visits and what every flowsheet's visit columns are described from. */
@@ -28,6 +32,8 @@ export interface VisitResources {
 
 export interface VitalsFlowsheetResources extends VisitResources {
   observations: Observation[];
+  /** For the no-BMI-under-2 rule; without it every saved BMI shows. */
+  birthDate?: string;
 }
 
 const searchByIds = async <T extends Condition | Practitioner>(
@@ -106,9 +112,6 @@ export const groupByEncounter = <T>(items: T[], reference: (item: T) => string |
   return groups;
 };
 
-// 'walk-in' -> 'Walk-in'
-const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
-
 /**
  * A visit column's header fields for one encounter. `start` is the appointment start; it is absent for a
  * follow-up or an unknown encounter, which the flowsheet then dates by its own data.
@@ -132,6 +135,7 @@ export const describeVisit = (
     'Location'
   );
   const location = resources.locations?.find((l) => l.id === locationId);
+  const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
 
   return {
     appointmentId: appointment?.id,
@@ -139,22 +143,19 @@ export const describeVisit = (
     start: (!isFollowUp && appointment?.start) || undefined,
     timezone: location && getTimezone(location),
     isFollowUp,
-    visitType: appointment
-      ? `${capitalize(appointmentTypeForAppointment(appointment))} · ${
-          isTelemedAppointment(appointment) ? 'Telemed' : 'In-person'
-        }`
-      : '',
+    appointmentType: appointment && appointmentTypeForAppointment(appointment),
+    serviceMode: appointment && (isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person']),
+    serviceCategory: serviceCategory?.code ?? serviceCategory?.display,
     reason: getReasonForVisitFromAppointment(appointment) ?? '',
     primaryDiagnosis: coding ? [coding.code, coding.display].filter(Boolean).join(' — ') : '',
     attending: attending ? getFullName(attending) : '',
   };
 };
 
-/** The column header of an unlinked outside result: no visit fields; the flowsheet dates it by the result. */
+/** The column header of an unlinked (unsolicited) result: no visit fields; the flowsheet dates it by the result. */
 export const describeOutsideResult = (): Omit<FlowsheetVisit, 'values' | 'start'> & { start?: string } => ({
   isFollowUp: false,
   isOutsideResult: true,
-  visitType: 'Outside result',
   reason: '',
   primaryDiagnosis: '',
   attending: '',
@@ -203,9 +204,11 @@ export const buildVitalsFlowsheet = (resources: VitalsFlowsheetResources): Flows
     if (!start) return;
 
     const values: Record<string, FlowsheetValue> = {};
+    // No BMI under 2 years, even one saved before the rule.
+    const bmiApplies = bmiAppliesAt(ageInMonthsOnDate(resources.birthDate, start));
     observations.forEach((o) => {
       const dto = makeVitalsObservationDTO(o);
-      if (!dto) return;
+      if (!dto || (dto.field === VitalFieldNames.VitalBMI && !bmiApplies)) return;
       const flag = getVitalDTOCriticalityFromObservation(o);
       Object.entries(measuresOf(dto)).forEach(([key, value]) => {
         // makeVitalsObservationDTO substitutes 0 for a missing reading; no vital here can really be 0.
