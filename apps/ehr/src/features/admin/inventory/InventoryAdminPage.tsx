@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   FormControl,
+  Grid,
   IconButton,
   InputLabel,
   Link,
@@ -20,6 +21,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
@@ -27,7 +29,6 @@ import { DateTime } from 'luxon';
 import { Fragment, ReactElement, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useGetAllLocations } from 'src/features/notifications/notifications.queries';
 import {
   InventoryDrugRow,
@@ -55,6 +56,16 @@ const NUM_LOADING_ROWS = 3;
 
 const reorderLabel = (reorderLevel: number | undefined): string =>
   reorderLevel === undefined ? 'no reorder level' : `reorder at ${reorderLevel}`;
+
+const digitsOnly = (value: string): string => value.replace(/\D/g, '');
+
+const matchesNdc = (ndc: string | undefined, search: string): boolean => {
+  const digits = digitsOnly(search);
+  return search.trim() === '' || (digits !== '' && digitsOnly(ndc ?? '').includes(digits));
+};
+
+const matchesLotNumber = (lotNumber: string, search: string): boolean =>
+  lotNumber.toLowerCase().includes(search.trim().toLowerCase());
 
 const useToggleSet = (): [Set<string>, (id: string) => void] => {
   const [set, setSet] = useState<Set<string>>(new Set());
@@ -84,13 +95,44 @@ function ExpandButton({
   );
 }
 
+function SearchField({
+  label,
+  value,
+  onChange,
+  testId,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  testId: string;
+  disabled?: boolean;
+}): ReactElement {
+  return (
+    <TextField
+      size="small"
+      label={label}
+      placeholder="Search"
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value)}
+      InputLabelProps={{ shrink: true }}
+      inputProps={{ 'data-testid': testId }}
+      InputProps={{ endAdornment: <SearchIcon color={disabled ? 'disabled' : 'action'} /> }}
+      sx={{ flex: '1 1 200px' }}
+    />
+  );
+}
+
 /** Admin → Inventory (requirement 7): what is on hand per location, by drug and lot, with each lot's stock history. */
 export default function InventoryAdminPage(): ReactElement {
   const locationsQuery = useGetAllLocations({ inPersonOnly: true });
   const locations = locationsQuery.data ?? [];
   // undefined until the locations load, then the Tracking Board's location when it is one of them, else all locations
   const [locationId, setLocationId] = useState<string | undefined>(undefined);
-  const [search, setSearch] = useState('');
+  const [nameSearch, setNameSearch] = useState('');
+  const [ndcSearch, setNdcSearch] = useState('');
+  const [lotSearch, setLotSearch] = useState('');
   const [expandedDrugs, toggleDrug] = useToggleSet();
 
   useEffect(() => {
@@ -109,29 +151,51 @@ export default function InventoryAdminPage(): ReactElement {
       : { view: 'location', locationId, today };
   const { data, isPending, isError, error } = useMedicationInventory(view);
 
-  const drugs = (data?.drugs ?? []).filter((drug) => drug.name.toLowerCase().includes(search.trim().toLowerCase()));
+  const lotSearched = ndcSearch.trim() !== '' || lotSearch.trim() !== '';
+  const drugs = (data?.drugs ?? [])
+    .filter((drug) => drug.name.toLowerCase().includes(nameSearch.trim().toLowerCase()))
+    .map((drug) =>
+      lotSearched
+        ? {
+            ...drug,
+            lots: drug.lots.filter(
+              (lot) => matchesNdc(lot.ndc, ndcSearch) && matchesLotNumber(lot.lotNumber, lotSearch)
+            ),
+          }
+        : drug
+    )
+    .filter((drug) => !lotSearched || drug.lots.length > 0);
   const locationView = view?.view === 'location';
   const locationName = locations.find((location) => location.id === locationId)?.name ?? '';
 
+  const changeLocation = (value: string): void => {
+    setLocationId(value);
+    if (value === ALL_LOCATIONS) {
+      setNdcSearch('');
+      setLotSearch('');
+    }
+  };
+
   return (
     <Box>
-      <AdminHeaderActionSlot>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <FormControl size="small" sx={{ width: 260 }}>
+      <Grid container sx={{ mb: 2 }}>
+        <Grid item xs={12} md={5}>
+          <FormControl size="small" fullWidth required>
             <InputLabel id="inventory-location-label" shrink>
-              Location
+              Clinic
             </InputLabel>
             <Select
               labelId="inventory-location-label"
-              label="Location"
+              label="Clinic"
+              sx={{ backgroundColor: 'background.paper' }}
               data-testid={dataTestIds.inventoryPage.locationSelect}
               notched
               displayEmpty
               value={locationId ?? ALL_LOCATIONS}
-              renderValue={(value) => (value === ALL_LOCATIONS ? 'All locations' : locationName)}
-              onChange={(e) => setLocationId(e.target.value)}
+              renderValue={(value) => (value === ALL_LOCATIONS ? 'All clinics' : locationName)}
+              onChange={(e) => changeLocation(e.target.value)}
             >
-              <MenuItem value={ALL_LOCATIONS}>All locations</MenuItem>
+              <MenuItem value={ALL_LOCATIONS}>All clinics</MenuItem>
               {locations.map((location) => (
                 <MenuItem key={location.id} value={location.id}>
                   {location.name}
@@ -139,18 +203,8 @@ export default function InventoryAdminPage(): ReactElement {
               ))}
             </Select>
           </FormControl>
-          <TextField
-            size="small"
-            label="Search"
-            placeholder="Medication name"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            inputProps={{ 'data-testid': dataTestIds.inventoryPage.searchField }}
-            InputProps={{ endAdornment: <SearchIcon /> }}
-            sx={{ width: 240 }}
-          />
-        </Box>
-      </AdminHeaderActionSlot>
+        </Grid>
+      </Grid>
 
       {isError ? (
         <Typography sx={{ py: 1 }} color="error">
@@ -158,7 +212,33 @@ export default function InventoryAdminPage(): ReactElement {
         </Typography>
       ) : (
         <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
-          <Table size="small">
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2, p: 2 }}>
+            <SearchField
+              label="Medication name"
+              value={nameSearch}
+              onChange={setNameSearch}
+              testId={dataTestIds.inventoryPage.searchField}
+            />
+            <Tooltip title={locationView ? '' : 'Select a clinic to search by NDC or lot'} placement="top">
+              <Box sx={{ display: 'flex', flex: '2 1 416px', flexWrap: 'wrap', gap: 2 }}>
+                <SearchField
+                  label="NDC"
+                  value={ndcSearch}
+                  onChange={setNdcSearch}
+                  testId={dataTestIds.inventoryPage.ndcSearchField}
+                  disabled={!locationView}
+                />
+                <SearchField
+                  label="Lot"
+                  value={lotSearch}
+                  onChange={setLotSearch}
+                  testId={dataTestIds.inventoryPage.lotSearchField}
+                  disabled={!locationView}
+                />
+              </Box>
+            </Tooltip>
+          </Box>
+          <Table sx={{ minWidth: 650 }} aria-label="inventoryTable">
             <TableHead>
               <TableRow>
                 <TableCell sx={{ width: 36 }} />
@@ -174,7 +254,7 @@ export default function InventoryAdminPage(): ReactElement {
                   </>
                 ) : (
                   <>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Locations at or Below Reorder Level</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Clinics at or Below Reorder Level</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>Earliest Expiration</TableCell>
                   </>
                 )}

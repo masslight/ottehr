@@ -971,6 +971,8 @@ export const dataTestIds = {
   inventoryPage: {
     locationSelect: 'inventory-location-select',
     searchField: 'inventory-search-field',
+    ndcSearchField: 'inventory-ndc-search-field',
+    lotSearchField: 'inventory-lot-search-field',
     medicationRow: (medicationId: string) => `inventory-medication-row-${medicationId}`,
     lotRow: (lotId: string) => `inventory-lot-row-${lotId}`,
     countButton: (lotId: string) => `inventory-lot-count-${lotId}`,
