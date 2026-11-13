@@ -10,7 +10,7 @@ export default defineStory({
   where: 'Tracking board on a phone-width screen → tap a flagged or truncated reason for visit',
   mocks: userMocks,
   notes:
-    'Mobile-only modal captured in the 1440px desktop viewport: window.matchMedia is overridden so the real AppointmentTableRow takes its mobile branch. The modal is 80% of the viewport wide, so on a real phone it is much narrower than shown.',
+    'Mobile-only modal captured in the 1440px desktop viewport: window.matchMedia is overridden so the real AppointmentTableRow takes its mobile branch. The modal is 80% of the viewport wide, so on a real phone it is much narrower than shown. Because of that width the reason text is not truncated here, so the modal shows only the flagged-reason alert line; on a phone it would also repeat the full reason text.',
   setup: forceMobileBreakpoint,
   render: renderMobileRow,
   play: async ({ user, screen }) => {

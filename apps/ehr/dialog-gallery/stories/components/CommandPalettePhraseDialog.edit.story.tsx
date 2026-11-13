@@ -9,6 +9,8 @@ export default defineStory({
   kind: 'form',
   where: 'Command palette → phrase row → edit icon',
   mocks: userMocks,
+  notes:
+    'Phrases come from a mock Practitioner profile; the profile query is re-run once from the story because, mounted in isolation, it first runs before the mock user has loaded.',
   setup: captureQueryClient,
   render: renderCommandPalette,
   play: async (ctx) => {

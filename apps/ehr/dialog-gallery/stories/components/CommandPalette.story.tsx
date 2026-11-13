@@ -10,7 +10,7 @@ export default defineStory({
   where: 'Global — navbar search icon or Cmd/Ctrl+K',
   mocks: userMocks,
   notes:
-    'Items come from the real CommandPaletteRegistrations hooks for a mock Administrator outside of a visit, so visit-specific quick picks are absent.',
+    'Items come from the real CommandPaletteRegistrations hooks for a mock Administrator outside of a visit, so visit-specific quick picks are absent. The profile query is re-run once from the story so the mock practitioner phrases are listed.',
   setup: captureQueryClient,
   render: renderCommandPalette,
   play: openCommandPalette,

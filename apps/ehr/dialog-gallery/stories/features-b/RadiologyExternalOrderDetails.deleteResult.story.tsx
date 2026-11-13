@@ -41,6 +41,10 @@ export default defineStory({
   ],
   render: () => <RadiologyExternalOrderDetailsPage />,
   play: async ({ user, screen }) => {
+    await screen.findByRole('button', { name: 'delete result' }, { timeout: 10000 });
+    // The page fetches the order list twice on load and unmounts its content while loading; let that settle
+    // so the dialog is not torn down right after opening.
+    await new Promise((resolve) => setTimeout(resolve, 2000));
     await user.click(await screen.findByRole('button', { name: 'delete result' }, { timeout: 10000 }));
     await screen.findByText('Delete result');
   },
