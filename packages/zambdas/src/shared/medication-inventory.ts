@@ -66,8 +66,8 @@ export async function getInventoryLotsOnHand(
   oystehr: Oystehr,
   { catalogMedicationId, locationId }: { catalogMedicationId: string; locationId: string }
 ): Promise<InventoryLot[]> {
-  const lots = (
-    await oystehr.fhir.search<Medication>({
+  const lots = await getAllFhirSearchPages<Medication>(
+    {
       resourceType: 'Medication',
       params: [
         { name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|${catalogMedicationId}` },
@@ -75,8 +75,9 @@ export async function getInventoryLotsOnHand(
         { name: 'status', value: 'active' },
         { name: '_sort', value: 'expiration-date' },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
   return lots
     .filter(isInventoryLot)
     .flatMap((lot) => {
