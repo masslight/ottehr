@@ -37,6 +37,8 @@ import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medicatio
 
 const INVENTORY_CATEGORY_PARAM = `${INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM}|${INVENTORY_STOCK_ENTRY_CODE}`;
 
+const escapeTokenSearchValue = (value: string): string => value.replace(/[,$|]/g, (char) => `\\${char}`); // Oystehr fails to match literal backslashes when they are escaped in token searches.
+
 interface InventoryLotKey {
   catalogMedicationId: string;
   locationId: string;
@@ -53,7 +55,7 @@ export async function findInventoryLotsByNumber(
       params: [
         { name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|${catalogMedicationId}` },
         { name: '_tag', value: `${INVENTORY_LOT_LOCATION_TAG_SYSTEM}|${locationId}` },
-        { name: 'lot-number', value: lotNumber },
+        { name: 'lot-number', value: `|${escapeTokenSearchValue(lotNumber)}` },
       ],
     })
   ).unbundle();
@@ -228,7 +230,7 @@ async function findCatalogMedicationByName(oystehr: Oystehr, name: string): Prom
   const medications = (
     await oystehr.fhir.search<Medication>({
       resourceType: 'Medication',
-      params: [{ name: 'identifier', value: `${MEDICATION_IDENTIFIER_NAME_SYSTEM}|${name}` }],
+      params: [{ name: 'identifier', value: `${MEDICATION_IDENTIFIER_NAME_SYSTEM}|${escapeTokenSearchValue(name)}` }],
     })
   ).unbundle();
   return medications.find(isCatalogMedication);

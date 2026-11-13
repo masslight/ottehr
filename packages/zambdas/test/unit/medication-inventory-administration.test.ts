@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { Encounter, Medication, MedicationAdministration, Observation } from 'fhir/r4b';
+import { getMedicationName } from 'utils/lib/fhir/medication-administration';
 import {
   INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM,
   makeInventoryLot,
@@ -61,12 +62,15 @@ const multiUseTube: InHouseMedicationInventory = {
 
 const DRUG_NAME = 'Ondansetron HCl Injection Solution 4 MG/2ML';
 
-const makeCatalog = (inventory: InHouseMedicationInventory | undefined): Medication & { id: string } => ({
+const makeCatalog = (
+  inventory: InHouseMedicationInventory | undefined,
+  name = DRUG_NAME
+): Medication & { id: string } => ({
   resourceType: 'Medication',
   id: 'med-catalog',
   identifier: [
     { system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_MEDICATION_TYPE_CODE },
-    { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: DRUG_NAME },
+    { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name },
   ],
   status: 'active',
   code: {
@@ -96,6 +100,7 @@ const makeLot = (id: string, lotNumber: string, onHand: number, expirationDate =
 
 const makeOrder = ({
   status = 'completed',
+  name = DRUG_NAME,
   lotNumber = 'A123',
   expirationDate = '2027-03-31',
   dose = 2,
@@ -104,6 +109,7 @@ const makeOrder = ({
   inventoryLotId,
 }: {
   status?: MedicationAdministration['status'];
+  name?: string;
   lotNumber?: string;
   expirationDate?: string;
   dose?: number;
@@ -122,7 +128,7 @@ const makeOrder = ({
       resourceType: 'Medication',
       id: IN_HOUSE_CONTAINED_MEDICATION_ID,
       identifier: [
-        { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: DRUG_NAME },
+        { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name },
         ...(catalogId ? [{ system: MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM, value: catalogId }] : []),
         ...(inventoryLotId
           ? [{ system: MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM, value: inventoryLotId }]
@@ -172,6 +178,17 @@ type MockOystehr = Oystehr & {
   fhir: { get: ReturnType<typeof vi.fn>; search: ReturnType<typeof vi.fn>; transaction: ReturnType<typeof vi.fn> };
 };
 
+const searchedTokens = (value: string): { system?: string; code: string }[] =>
+  value.split(/(?<!\\),/).map((alternative) => {
+    const separator = alternative.search(/(?<!\\)\|/);
+    return separator < 0
+      ? { code: alternative.replace(/\\([,$])/g, '$1') }
+      : {
+          system: alternative.slice(0, separator),
+          code: alternative.slice(separator + 1).replace(/\\([,$|])/g, '$1'),
+        };
+  });
+
 const makeMockOystehr = ({
   catalog = makeCatalog(singleUseVial),
   lots = [makeLot('lot-1', 'A123', 25)],
@@ -184,7 +201,11 @@ const makeMockOystehr = ({
       if (resourceType === 'Medication') {
         const identifier = paramValue(params, 'identifier') ?? '';
         if (identifier.startsWith(`${MEDICATION_IDENTIFIER_NAME_SYSTEM}|`)) {
-          return identifier.endsWith(`|${DRUG_NAME}`) ? [catalog] : [];
+          return searchedTokens(identifier).some(
+            ({ system, code }) => system === MEDICATION_IDENTIFIER_NAME_SYSTEM && code === getMedicationName(catalog)
+          )
+            ? [catalog]
+            : [];
         }
         const lotNumber = paramValue(params, 'lot-number');
         return lots.filter(
@@ -192,7 +213,7 @@ const makeMockOystehr = ({
             lot.identifier?.some(
               (idn) => idn.system === INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM && idn.value === catalog.id
             ) &&
-            (!lotNumber || lot.batch?.lotNumber === lotNumber)
+            (!lotNumber || searchedTokens(lotNumber).some(({ code }) => code === lot.batch?.lotNumber))
         );
       }
       const partOf = paramValue(params, 'part-of');
@@ -373,6 +394,36 @@ describe('reconcileAdministrationStock', () => {
     expect(postedEntries(byName)).toHaveLength(1);
     expect(nameSearches(byName)).toBe(1);
   });
+
+  it('finds the catalog drug by a name with a comma and leaves its dose on the lot when the order is re-saved', async () => {
+    const name = 'Ondansetron HCl Injection Solution, 4 MG/2ML';
+    const oystehr = makeMockOystehr({
+      catalog: makeCatalog(singleUseVial, name),
+      ledger: [ledgerEntry('e-1', { quantity: -1 }, 2)],
+    });
+
+    await reconcileAdministrationStock(oystehr, makeOrder({ name, inventoryLotId: 'lot-1' }), 'Practitioner/nurse-1');
+
+    expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it.each(['A,123', 'A|123', 'A$123', 'A\\123'])(
+    'finds lot %s and leaves its dose on it when the order is re-saved',
+    async (lotNumber) => {
+      const oystehr = makeMockOystehr({
+        lots: [makeLot('lot-1', lotNumber, 24)],
+        ledger: [ledgerEntry('e-1', { quantity: -1 }, 2)],
+      });
+
+      await reconcileAdministrationStock(
+        oystehr,
+        makeOrder({ lotNumber, inventoryLotId: 'lot-1' }),
+        'Practitioner/nurse-1'
+      );
+
+      expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+    }
+  );
 
   it('does nothing for a typed lot that is not in inventory at the visit location', async () => {
     const oystehr = makeMockOystehr();

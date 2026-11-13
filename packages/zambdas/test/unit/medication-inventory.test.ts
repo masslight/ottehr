@@ -375,7 +375,7 @@ describe('receive-medication-shipment - performEffect', () => {
     const [{ params }] = oystehr.fhir.search.mock.calls.find(([call]) => call.resourceType === 'Medication')!;
     expect(params).toContainEqual({ name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|med-catalog` });
     expect(params).toContainEqual({ name: '_tag', value: `${INVENTORY_LOT_LOCATION_TAG_SYSTEM}|loc-a` });
-    expect(params).toContainEqual({ name: 'lot-number', value: 'A123' });
+    expect(params).toContainEqual({ name: 'lot-number', value: '|A123' });
 
     const { requests } = oystehr.fhir.transaction.mock.calls[0][0];
     expect(requests.map((r: any) => r.method)).toEqual(['POST', 'POST']);
