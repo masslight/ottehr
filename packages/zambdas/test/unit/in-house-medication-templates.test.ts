@@ -9,16 +9,22 @@ import {
   MedicationRequest,
 } from 'fhir/r4b';
 import { chartDataTagSystem } from 'utils/lib/fhir/constants';
-import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
+import { makeMedicationInventoryExtension } from 'utils/lib/fhir/medication-inventory';
+import { CODE_SYSTEM_ICD_10, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
+import { InHouseMedicationInventory } from 'utils/lib/types/api/config/in-house-medications';
 import {
   INTERACTIONS_UNAVAILABLE,
+  INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
+  MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM,
+  MEDICATION_TYPE_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { ResolvedSectionActions } from 'utils/lib/types/data/apply-template.types';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, Mock, test, vi } from 'vitest';
 import {
   collectMedicationsForTemplate,
   isValidMedicationAdministrationForTemplate,
@@ -28,6 +34,7 @@ import {
   applyInHouseMedicationPlans,
   getAssociatedDxFromMaAndRequests,
 } from '../../src/ehr/apply-template/apply-in-house-medications';
+import { mapMedicalAdministrationToDTO } from '../../src/ehr/get-medication-orders/index';
 import { TemplateEncounterResource } from '../../src/ehr/shared/template-helpers';
 
 vi.mock('../../src/shared/practitioners', async (importOriginal) => {
@@ -431,6 +438,148 @@ describe('applyInHouseMedicationPlans', () => {
     const urls = result.requests.map((r) => r.url);
     expect(urls.filter((u) => u === '/MedicationAdministration')).toHaveLength(2);
     expect(urls.filter((u) => u === '/MedicationRequest')).toHaveLength(2);
+  });
+
+  describe('lot details copied from the source visit', () => {
+    const singleUseVial: InHouseMedicationInventory = {
+      countedAs: 'vial',
+      eachContains: { amount: 4, unit: 'mg' },
+      use: 'single-use',
+      reorderLevels: [],
+    };
+    const nameIdentifier = { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: 'Test Drug' };
+    const catalogIdIdentifier = { system: MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM, value: 'catalog-1' };
+    const lotIdIdentifier = { system: MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM, value: 'lot-at-source-clinic' };
+    const ndcCoding = { system: CODE_SYSTEM_NDC, code: '0409-1234-01' };
+    const lotDetails = {
+      batch: { lotNumber: 'A123', expirationDate: '2027-03-31' },
+      manufacturer: { display: 'Pfizer' },
+    };
+
+    const makeCatalogDrug = (inventory?: InHouseMedicationInventory): Medication => ({
+      resourceType: 'Medication',
+      id: 'catalog-1',
+      identifier: [{ system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_MEDICATION_TYPE_CODE }, nameIdentifier],
+      ...(inventory ? { extension: [makeMedicationInventoryExtension(inventory)] } : {}),
+    });
+
+    const makeSourceVisitCopy = (
+      identifiers: NonNullable<Medication['identifier']>,
+      withLotDetails = true
+    ): Medication => ({
+      ...makeMedication('med-1'),
+      identifier: [nameIdentifier, ...identifiers],
+      code: { coding: [{ system: MEDICATION_DISPENSABLE_DRUG_ID, code: 'medispan-001' }, ndcCoding] },
+      ...(withLotDetails ? lotDetails : {}),
+    });
+
+    const applyWith = (
+      medication: Medication,
+      fhir: { get?: Mock; search?: Mock }
+    ): ReturnType<typeof applyInHouseMedicationPlans> =>
+      applyInHouseMedicationPlans({
+        ...baseInput,
+        templateList: makeTemplateList([makeTemplatePlanMA('ma-1', 'med-1'), medication]),
+        oystehr: { ...makeOystehr(), fhir } as unknown as Oystehr,
+        actions: appendActions,
+      });
+
+    const orderedMedications = (result: Awaited<ReturnType<typeof applyInHouseMedicationPlans>>): Medication[] =>
+      result.requests.map((request) => request.resource.contained?.[0] as Medication);
+
+    test('leaves the source visit lot, expiration, manufacturer and lot id off a tracked medication', async () => {
+      const get = vi.fn().mockResolvedValue(makeCatalogDrug(singleUseVial));
+
+      const result = await applyWith(makeSourceVisitCopy([catalogIdIdentifier, lotIdIdentifier]), { get });
+
+      expect(get).toHaveBeenCalledWith({ resourceType: 'Medication', id: 'catalog-1' });
+      expect(result.requests).toHaveLength(2);
+      for (const medication of orderedMedications(result)) {
+        expect(medication).not.toHaveProperty('batch');
+        expect(medication).not.toHaveProperty('manufacturer');
+        expect(medication.identifier).toEqual([nameIdentifier, catalogIdIdentifier]);
+        expect(medication.code?.coding).toContainEqual(ndcCoding);
+      }
+      expect(
+        mapMedicalAdministrationToDTO({
+          medicationAdministration: result.requests[0].resource as MedicationAdministration,
+          patient: { resourceType: 'Patient', id: 'patient-1' },
+        })
+      ).toMatchObject({
+        lotNumber: undefined,
+        expDate: undefined,
+        manufacturer: undefined,
+        inventoryLotId: undefined,
+        catalogMedicationId: 'catalog-1',
+        ndc: ndcCoding.code,
+      });
+    });
+
+    test('keeps the lot, expiration and manufacturer of an untracked medication, without the source visit lot id', async () => {
+      const get = vi.fn().mockResolvedValue(makeCatalogDrug());
+
+      const result = await applyWith(makeSourceVisitCopy([catalogIdIdentifier, lotIdIdentifier]), { get });
+
+      expect(result.requests).toHaveLength(2);
+      for (const medication of orderedMedications(result)) {
+        expect(medication).toMatchObject(lotDetails);
+        expect(medication.identifier).toEqual([nameIdentifier, catalogIdIdentifier]);
+      }
+    });
+
+    test('finds the tracked catalog drug of a template saved before orders recorded it by the medication name', async () => {
+      const search = vi.fn().mockResolvedValue({ unbundle: () => [makeCatalogDrug(singleUseVial)] });
+
+      const result = await applyWith(makeSourceVisitCopy([]), { search });
+
+      expect(search).toHaveBeenCalledWith({
+        resourceType: 'Medication',
+        params: [{ name: 'identifier', value: `${MEDICATION_IDENTIFIER_NAME_SYSTEM}|Test Drug` }],
+      });
+      expect(result.requests).toHaveLength(2);
+      for (const medication of orderedMedications(result)) {
+        expect(medication).not.toHaveProperty('batch');
+        expect(medication).not.toHaveProperty('manufacturer');
+      }
+    });
+
+    test('keeps the lot of a template saved before orders recorded the catalog drug when no catalog drug has its name', async () => {
+      const search = vi.fn().mockResolvedValue({ unbundle: () => [] });
+
+      const result = await applyWith(makeSourceVisitCopy([]), { search });
+
+      expect(result.requests).toHaveLength(2);
+      for (const medication of orderedMedications(result)) {
+        expect(medication).toMatchObject(lotDetails);
+      }
+    });
+
+    test('still applies the medication, keeping its copied lot but not the source visit lot id, when its catalog drug cannot be read', async () => {
+      const get = vi.fn().mockRejectedValue(new Error('FHIR unavailable'));
+
+      const result = await applyWith(makeSourceVisitCopy([catalogIdIdentifier, lotIdIdentifier]), { get });
+
+      expect(result.warnings).toHaveLength(0);
+      expect(result.requests).toHaveLength(2);
+      for (const medication of orderedMedications(result)) {
+        expect(medication).toMatchObject(lotDetails);
+        expect(medication.identifier).toEqual([nameIdentifier, catalogIdIdentifier]);
+      }
+    });
+
+    test('reads no catalog drug when the template copied no lot details', async () => {
+      const get = vi.fn();
+      const search = vi.fn();
+
+      const result = await applyWith(makeSourceVisitCopy([catalogIdIdentifier], false), { get, search });
+
+      expect(get).not.toHaveBeenCalled();
+      expect(search).not.toHaveBeenCalled();
+      expect(result.requests).toHaveLength(2);
+      for (const medication of orderedMedications(result)) {
+        expect(medication.identifier).toEqual([nameIdentifier, catalogIdIdentifier]);
+      }
+    });
   });
 });
 

@@ -234,7 +234,7 @@ async function findCatalogMedicationByName(oystehr: Oystehr, name: string): Prom
   return medications.find(isCatalogMedication);
 }
 
-async function findOrderCatalogMedication(
+export async function findOrderCatalogMedication(
   oystehr: Oystehr,
   contained: Medication,
   name: string

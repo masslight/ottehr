@@ -18,11 +18,17 @@ import {
   getMediSpanIdForInteraction,
   searchRouteByCode,
 } from 'utils/lib/fhir/medication-administration';
+import {
+  getMedicationInventoryConfig,
+  getOrderCatalogMedicationId,
+  getOrderInventoryLotId,
+} from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { Secrets } from 'utils/lib/secrets';
 import {
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
   MEDICATION_ADMINISTRATION_REASON_CODE,
+  MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
 import {
   inHouseMedicationsMedicationApplianceRoutes,
@@ -35,6 +41,7 @@ import {
   TemplateWarning,
 } from 'utils/lib/types/data/apply-template.types';
 import { makeDiagnosisDTO } from '../../shared/chart-data';
+import { findOrderCatalogMedication } from '../../shared/medication-inventory';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import {
   createMedicationAdministrationResource,
@@ -183,12 +190,14 @@ export async function applyInHouseMedicationPlans(
         ...(associatedDx ? { associatedDx } : {}),
       };
 
+      const medicationResource = await withoutSourceVisitLot(oystehr, medicationForMa);
+
       const medicationAdministrationData: MedicationAdministrationData = {
         orderData,
         status: 'in-progress',
         route: routeAppliance,
         location,
-        medicationResource: medicationForMa,
+        medicationResource,
         createdProviderId: currentUserProviderId,
         orderedByProviderId: currentUserProviderId,
         dateTimeCreated: DateTime.now().toISO(), // the dateTimeCreated on the templateMA is not valid and needs to be replaced
@@ -201,7 +210,7 @@ export async function applyInHouseMedicationPlans(
       const liveMR = createMedicationRequest(
         orderData,
         { allergyInteractions: [], drugInteractions: [] },
-        medicationForMa
+        medicationResource
       );
 
       const erxInteractionPromise = async (): Promise<erxInteractionPromiseResponse> => {
@@ -286,6 +295,36 @@ export async function applyInHouseMedicationPlans(
 
   return { warnings, requests };
 }
+
+const isInventoryTracked = async (oystehr: Oystehr, medication: Medication): Promise<boolean> => {
+  const name = getMedicationName(medication);
+  if (!getOrderCatalogMedicationId(medication) && !name) return false;
+  try {
+    const catalog = await findOrderCatalogMedication(oystehr, medication, name ?? '');
+    return Boolean(catalog?.id && getMedicationInventoryConfig(catalog));
+  } catch (error) {
+    console.error('Could not read the catalog drug of a template medication; keeping its copied lot', error, {
+      medicationId: medication.id,
+    });
+    return false;
+  }
+};
+
+const withoutSourceVisitLot = async (oystehr: Oystehr, medication: Medication): Promise<Medication> => {
+  const copy: Medication = { ...medication };
+  if (getOrderInventoryLotId(copy)) {
+    const remaining = copy.identifier?.filter(
+      (identifier) => identifier.system !== MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM
+    );
+    if (remaining?.length) copy.identifier = remaining;
+    else delete copy.identifier;
+  }
+  if ((copy.batch || copy.manufacturer) && (await isInventoryTracked(oystehr, copy))) {
+    delete copy.batch;
+    delete copy.manufacturer;
+  }
+  return copy;
+};
 
 export const makeMedicationsByIdMap = (resources: FhirResource[]): Map<string, Medication> => {
   return new Map<string, Medication>(

@@ -46,9 +46,10 @@ const savedOrder: ExtendedMedicationDataForResponse = {
   dateTimeCreated: DateTime.now().toISO()!,
 };
 
-const { updateMedication, lotsRequestedFor } = vi.hoisted(() => ({
+const { updateMedication, lotsRequestedFor, lotsRequestedAt } = vi.hoisted(() => ({
   updateMedication: vi.fn(),
   lotsRequestedFor: vi.fn(),
+  lotsRequestedAt: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => ({
@@ -93,8 +94,9 @@ vi.mock('src/components/input/CptCodesInput', () => ({
   designateMedicationCptCode: (codes: unknown[]) => codes,
 }));
 vi.mock('../../src/features/admin/inventory/inventory.queries', () => ({
-  useInventoryLotsOnHand: (params: { catalogMedicationId?: string }) => {
+  useInventoryLotsOnHand: (params: { catalogMedicationId?: string; locationId?: string }) => {
     lotsRequestedFor(params.catalogMedicationId);
+    lotsRequestedAt(params.locationId);
     return { data: [lotWithoutManufacturer] };
   },
 }));
@@ -242,5 +244,34 @@ describe('EditableMedicationCard - picking an inventory lot on a saved order', (
       <EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, medicationName: 'Medication Two' }} />
     );
     expect(lotsRequestedFor).toHaveBeenLastCalledWith('med-2');
+  });
+});
+
+describe('EditableMedicationCard - administering an order applied from a template', () => {
+  it("preselects a lot on hand at the visit's location and sends its id when the order carries no lot", async () => {
+    updateMedication.mockReset().mockResolvedValue({});
+    lotsRequestedFor.mockClear();
+    lotsRequestedAt.mockClear();
+    const user = userEvent.setup();
+    const templateAppliedOrder: ExtendedMedicationDataForResponse = {
+      ...savedOrder,
+      status: 'pending',
+      catalogMedicationId: 'med-1',
+      lotNumber: undefined,
+      expDate: undefined,
+      manufacturer: undefined,
+      inventoryLotId: undefined,
+    };
+    render(<EditableMedicationCard type="dispense" medication={templateAppliedOrder} />);
+
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Type a lot' })).toHaveValue('B456'));
+    expect(lotsRequestedFor).toHaveBeenLastCalledWith('med-1');
+    expect(lotsRequestedAt).toHaveBeenLastCalledWith('loc-a');
+
+    expect(await saveAsAdministered(user)).toMatchObject({
+      lotNumber: 'B456',
+      inventoryLotId: 'lot-b',
+      ndc: 'ndc-B456',
+    });
   });
 });
