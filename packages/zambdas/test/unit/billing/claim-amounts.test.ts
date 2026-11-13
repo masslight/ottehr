@@ -19,6 +19,7 @@ import {
   getInvoiceBalanceInCents,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
+  remitWriteOffsBeyondAllowed,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
   summarizePatientBalance,
@@ -653,7 +654,8 @@ describe('summarizeClaimPayments', () => {
   });
 
   it("does not subtract the allowed-reporting remit's own write-offs again", () => {
-    // the secondary reports its own allowed; its CO is the billed-to-allowed reduction
+    // the secondary reports its own allowed; its CO is the billed-to-allowed reduction. It balances
+    // (100 = 10 paid + 70 prior-payer impact + 20 CO), as a real 835 does.
     const primary = claimMdClaimResponse('2026-01-01');
     const secondary = claimResponse('2026-02-01', {
       totalPaid: 10,
@@ -661,12 +663,81 @@ describe('summarizeClaimPayments', () => {
         [
           adjudication(ADJUDICATION_CODES.ALLOWED, 80),
           adjudication(ADJUDICATION_CODES.PAID, 10),
-          casAdjustment('OA', 60, '23'),
+          casAdjustment('OA', 70, '23'),
           casAdjustment('CO', 20, '45'),
         ],
       ],
     });
     expect(summarizeClaimPayments([primary, secondary], 100).patientResp).toBe(10);
+  });
+
+  // billed 120, allowed 100, paid 98: CO-45 20 is the reduction to allowed, CO-253 2 sequestration
+  const sequestrationRemit = (created = '2026-01-01'): ClaimResponse =>
+    claimResponse(created, {
+      totalCharge: 120,
+      totalPaid: 98,
+      itemAdjudications: [
+        [
+          adjudication(ADJUDICATION_CODES.CHARGE, 120),
+          adjudication(ADJUDICATION_CODES.ALLOWED, 100),
+          adjudication(ADJUDICATION_CODES.PAID, 98),
+          casAdjustment('CO', 20, '45'),
+          casAdjustment('CO', 2, '253'),
+        ],
+      ],
+    });
+
+  it('keeps a post-allowed write-off when the remit leaves the reduction to allowed unreported', () => {
+    // a manually keyed remit with allowed but only the sequestration adjustment
+    const cr = claimResponse('2026-01-01', {
+      totalCharge: 120,
+      totalPaid: 98,
+      itemAdjudications: [
+        [
+          adjudication(ADJUDICATION_CODES.CHARGE, 120),
+          adjudication(ADJUDICATION_CODES.ALLOWED, 100),
+          adjudication(ADJUDICATION_CODES.PAID, 98),
+          casAdjustment('CO', 2, '253'),
+        ],
+      ],
+    });
+    expect(summarizeClaimPayments([cr], 120).patientResp).toBe(0);
+  });
+
+  it("keeps an earlier remit's post-allowed write-off when a later remit repeats the allowed amount", () => {
+    const secondary = claimResponse('2026-02-01', {
+      totalCharge: 120,
+      totalPaid: 0,
+      itemAdjudications: [
+        [
+          adjudication(ADJUDICATION_CODES.CHARGE, 120),
+          adjudication(ADJUDICATION_CODES.ALLOWED, 100),
+          adjudication(ADJUDICATION_CODES.PAID, 0),
+          casAdjustment('OA', 120, '23'),
+        ],
+      ],
+    });
+    const summary = summarizeClaimPayments([sequestrationRemit(), secondary], 120);
+    expect(summary.patientResp).toBe(0);
+    expect(summary.balance).toBe(0);
+  });
+
+  it("cancels a remit's post-allowed write-off with its reversal", () => {
+    const reversal = claimResponse('2026-02-01', {
+      totalCharge: -120,
+      totalPaid: -98,
+      itemAdjudications: [
+        [
+          adjudication(ADJUDICATION_CODES.CHARGE, -120),
+          adjudication(ADJUDICATION_CODES.ALLOWED, -100),
+          adjudication(ADJUDICATION_CODES.PAID, -98),
+          casAdjustment('CO', -20, '45'),
+          casAdjustment('CO', -2, '253'),
+        ],
+      ],
+    });
+    expect(remitWriteOffsBeyondAllowed(sequestrationRemit(), 120)).toBe(2);
+    expect(remitWriteOffsBeyondAllowed(reversal, 120)).toBe(-2);
   });
 
   it('subtracts every payer write-off but not prior-payer impact when billed is the basis', () => {

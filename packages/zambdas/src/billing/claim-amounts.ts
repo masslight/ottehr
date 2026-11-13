@@ -179,6 +179,31 @@ function sumPayerWriteOffs(claimResponses: ClaimResponse[]): number {
     .reduce((sum, adjustment) => sum + adjustment.amount, 0);
 }
 
+// What a remit wrote off beyond the reduction already reflected in its own allowed amount, e.g.
+// CO-253 sequestration taken after allowed. A remit without an allowed amount has no such
+// reduction, so all its write-offs count. `billed` stands in for a remit that reports no charge.
+//
+// The billed-to-allowed reduction (charge - allowed) is only subtracted to the extent the remit's
+// adjustments actually carry it: an 835 balances (charge = paid + every adjustment), so whatever
+// a manually keyed remit leaves unbalanced is taken to be the unreported part of that reduction.
+// Clamped toward zero in the direction of the reduction, so a reversal (every amount negated)
+// still cancels its original.
+export function remitWriteOffsBeyondAllowed(claimResponse: ClaimResponse, billed?: number): number {
+  const writeOffs = sumPayerWriteOffs([claimResponse]);
+  const { allowed, paid } = extractClaimResponseAmounts(claimResponse);
+  if (allowed === undefined) return writeOffs;
+  const charge = extractReportedCharge(claimResponse) ?? billed;
+  // without a charge the reduction is unknowable; take the write-offs to be exactly it
+  if (charge === undefined) return 0;
+
+  const reduction = charge - allowed;
+  const sign = reduction < 0 ? -1 : 1;
+  const allAdjustments = extractRemitAdjustments(claimResponse).reduce((sum, adjustment) => sum + adjustment.amount, 0);
+  const unreported = charge - paid - allAdjustments;
+  const reportedReduction = Math.min(Math.max(sign * (reduction - unreported), 0), sign * reduction);
+  return sign * Math.max(sign * writeOffs - reportedReduction, 0);
+}
+
 export function summarizeClaimPayments(
   claimResponses: ClaimResponse[],
   billed: number,
@@ -201,8 +226,7 @@ export function summarizeClaimPayments(
   const amounts = sortedClaimResponses.map(extractClaimResponseAmounts);
 
   const insurancePaid = amounts.reduce((sum, a) => sum + a.paid, 0);
-  const allowedIndex = amounts.findLastIndex((a) => a.allowed !== undefined);
-  const knownAllowed = allowedIndex >= 0 ? amounts[allowedIndex].allowed : undefined;
+  const knownAllowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed;
 
   // Patient responsibility is what the final adjudication says the patient owes: after COB the
   // last payer's PR already accounts for what prior payers paid, so summing PR across payers
@@ -214,21 +238,17 @@ export function summarizeClaimPayments(
   const latestPatientResp = amounts[amounts.length - 1].patientResp;
   const patientResp = Math.max(latestPatientResp ?? derivedPatientResp(), 0);
 
-  // basis - insurancePaid - whatever payers wrote off on top of the basis. With no allowed amount
-  // anywhere (AMT*B6 is optional, and manual ERAs may leave it blank), billed is the basis and
-  // every remit's write-offs count. With a known allowed amount, earlier remits' write-offs are
-  // superseded by it, and on the remit that reported it only the write-offs beyond its
-  // billed-to-allowed reduction count (e.g. CO-253 sequestration, taken after allowed). Later
-  // remits' write-offs count in full, e.g. a secondary writing off what it didn't pay.
+  // basis - insurancePaid - whatever every payer wrote off on top of the basis. The basis is the
+  // latest allowed amount, or billed when no remit reports one (AMT*B6 is optional, and manual
+  // ERAs may leave it blank). Each remit contributes only its write-offs beyond its own
+  // billed-to-allowed reduction, so a secondary repeating the primary's allowed doesn't drop the
+  // primary's post-allowed write-offs, and one writing off what it didn't pay still counts.
   function derivedPatientResp(): number {
-    if (knownAllowed === undefined) return billed - insurancePaid - sumPayerWriteOffs(sortedClaimResponses);
-
-    const allowedRemit = sortedClaimResponses[allowedIndex];
-    const reductionToAllowed = (extractReportedCharge(allowedRemit) ?? billed) - knownAllowed;
-    // floored: a remit may report allowed without the CO that brings billed down to it
-    const writeOffsBeyondAllowed = Math.max(sumPayerWriteOffs([allowedRemit]) - reductionToAllowed, 0);
-    const laterWriteOffs = sumPayerWriteOffs(sortedClaimResponses.slice(allowedIndex + 1));
-    return knownAllowed - insurancePaid - writeOffsBeyondAllowed - laterWriteOffs;
+    const writeOffs = sortedClaimResponses.reduce(
+      (sum, claimResponse) => sum + remitWriteOffsBeyondAllowed(claimResponse, billed),
+      0
+    );
+    return (knownAllowed ?? billed) - insurancePaid - writeOffs;
   }
 
   return {

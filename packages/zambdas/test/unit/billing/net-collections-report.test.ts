@@ -156,6 +156,43 @@ describe('net-collections compute', () => {
     expect(payload.payerRows[0]).toMatchObject({ allowed: 80, patientResp: 20, expected: 60, paid: 60 });
   });
 
+  it('subtracts write-offs beyond allowed (sequestration) in the no-PR fallback', async () => {
+    const adjustment = (
+      system: string,
+      code: string,
+      value: number,
+      reason?: string
+    ): NonNullable<ClaimResponse['item']>[number]['adjudication'][number] => ({
+      category: { coding: [{ system, code }] },
+      ...(reason ? { reason: { coding: [{ code: reason }] } } : {}),
+      amount: { value, currency: 'USD' },
+    });
+    // billed 120, allowed 100, paid 98, CO-45 20 + CO-253 2, no PR: the patient owes nothing
+    const remit: ClaimResponse = {
+      ...claimResponse(100, 98),
+      item: [
+        {
+          itemSequence: 1,
+          adjudication: [
+            adjustment('', ADJUDICATION_CODES.CHARGE, 120),
+            adjustment('', ADJUDICATION_CODES.ALLOWED, 100),
+            adjustment('', ADJUDICATION_CODES.PAID, 98),
+            adjustment(X12_ADJUSTMENT_GROUP_SYSTEM, 'CO', 20, '45'),
+            adjustment(X12_ADJUSTMENT_GROUP_SYSTEM, 'CO', 2, '253'),
+          ],
+        },
+      ],
+    };
+    const { payload } = await computeWith({
+      eras: [era('era-1', '2026-01-10', 'Organization/aetna')],
+      claimResponsesByEra: { 'era-1': [remit] },
+      patient: { net: 0, byMonth: new Map() },
+    });
+
+    expect(payload.patient.expected).toBe(0);
+    expect(payload.insurance).toEqual({ collected: 98, expected: 100 });
+  });
+
   it('splits a COB claim\u2019s expectation across payers by the balance each adjudication retired', async () => {
     const { payload } = await computeWith({
       eras: [era('era-1', '2026-01-10', 'Organization/aetna'), era('era-2', '2026-02-05', 'Organization/bcbs')],
