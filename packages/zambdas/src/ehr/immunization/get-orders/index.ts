@@ -200,7 +200,9 @@ export function mapMedicationAdministrationToImmunizationOrder(
                     getCoding(
                       emergencyContactRelatedPerson.relationship,
                       VACCINE_ADMINISTRATION_EMERGENCY_CONTACT_RELATIONSHIP_CODE_SYSTEM
-                    )?.code ?? '',
+                    )?.code ??
+                    emergencyContactRelatedPerson.relationship?.[0]?.text ??
+                    '',
                 }
               : undefined,
           }

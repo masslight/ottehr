@@ -58,6 +58,7 @@ import {
   WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils/lib/fhir/constants';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
+import { isEmergencyContactRelatedPerson } from 'utils/lib/fhir/emergency-contact';
 import {
   buildCoverageSubscriberRelatedPerson,
   codeableConcept,
@@ -3998,16 +3999,6 @@ const replaceCurrentGuarantor = (
     return guarantor;
   });
 };
-
-export const isEmergencyContactRelatedPerson = (relatedPerson: RelatedPerson): boolean =>
-  Boolean(
-    relatedPerson.relationship?.some(
-      (rel) =>
-        rel.coding?.some(
-          (coding) => coding.code === 'EP' && coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131'
-        )
-    )
-  );
 
 export const isAttorneyRelatedPerson = (relatedPerson: RelatedPerson): boolean =>
   Boolean(
