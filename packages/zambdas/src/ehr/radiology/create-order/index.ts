@@ -461,10 +461,16 @@ export const buildAdvaPacsServiceRequest = (
 ): ServiceRequestR5 => {
   const accessionNumber = ourServiceRequest.identifier?.[0].value;
 
+  const r5Identifiers = [
+    ...(ourServiceRequest.identifier as any[]),
+    { type: { text: 'Scheduled Procedure Step ID' }, value: accessionNumber },
+    { type: { text: 'Requested Procedure ID' }, value: accessionNumber },
+  ];
+
   return {
     resourceType: 'ServiceRequest',
     status: ourServiceRequest.status,
-    identifier: ourServiceRequest.identifier as any, // Identifier is the same in R4B and R5 so this is safe
+    identifier: r5Identifiers,
     intent: ourServiceRequest.intent,
     subject: {
       identifier: {
@@ -516,28 +522,6 @@ export const buildAdvaPacsServiceRequest = (
               ],
             },
             valueString: getOrderDetailValue(ourServiceRequest, 'requested-procedure-description'),
-          },
-          {
-            code: {
-              coding: [
-                {
-                  system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
-                  code: 'scheduled-procedure-step-id',
-                },
-              ],
-            },
-            valueString: accessionNumber,
-          },
-          {
-            code: {
-              coding: [
-                {
-                  system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
-                  code: 'requested-procedure-id',
-                },
-              ],
-            },
-            valueString: accessionNumber,
           },
         ],
       },
