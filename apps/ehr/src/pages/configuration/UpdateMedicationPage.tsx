@@ -115,7 +115,7 @@ function toInventoryFormState(medication: Medication): InventoryFormState {
 // Blank counted-as means "not tracked" (null clears any saved setup). Otherwise the form's required fields
 // cover what the zambda's schema needs, but `type="number"` inputs can't require a positive value, so the
 // caller checks that first.
-function toInventoryInput(form: InventoryFormState, locationIds: string[]): InHouseMedicationInventory | null {
+function toInventoryInput(form: InventoryFormState): InHouseMedicationInventory | null {
   if (!form.countedAs || !form.eachContainsUnit) return null;
   return {
     countedAs: form.countedAs,
@@ -125,9 +125,9 @@ function toInventoryInput(form: InventoryFormState, locationIds: string[]): InHo
       ...(form.inUnit ? { in: { amount: Number(form.inAmount), unit: form.inUnit } } : {}),
     },
     use: form.use,
-    reorderLevels: locationIds
-      .filter((locationId) => form.reorderLevels[locationId]?.trim())
-      .map((locationId) => ({ locationId, level: Number(form.reorderLevels[locationId]) })),
+    reorderLevels: Object.entries(form.reorderLevels)
+      .filter(([, level]) => level.trim())
+      .map(([locationId, level]) => ({ locationId, level: Number(level) })),
   };
 }
 
@@ -165,7 +165,7 @@ export default function UpdateMedicationPage(): ReactElement {
   const [debouncedSearchTermForPrecheck, setDebouncedSearchTermForPrecheck] = useState('');
   const [inventoryForm, setInventoryForm] = useState<InventoryFormState>(EMPTY_INVENTORY_FORM);
   const [receiveOpen, setReceiveOpen] = useState(false);
-  const { data: locations = [] } = useGetAllLocations({ inPersonOnly: true });
+  const { data: locations = [], isSuccess: locationsLoaded } = useGetAllLocations({ inPersonOnly: true });
   const setInventoryField = <K extends keyof InventoryFormState>(field: K, value: InventoryFormState[K]): void =>
     setInventoryForm((prev) => ({ ...prev, [field]: value }));
 
@@ -253,10 +253,7 @@ export default function UpdateMedicationPage(): ReactElement {
         ndc,
         medispanID,
         medispanIDForInteractions,
-        inventory: toInventoryInput(
-          inventoryForm,
-          locations.map((location) => location.id)
-        ),
+        inventory: toInventoryInput(inventoryForm),
       });
       setMedication(updated);
       enqueueSnackbar('Medication updated successfully', { variant: 'success' });
@@ -565,7 +562,7 @@ export default function UpdateMedicationPage(): ReactElement {
                     type="submit"
                     variant="contained"
                     loading={loading}
-                    disabled={Boolean(blockingNotice)}
+                    disabled={Boolean(blockingNotice) || !locationsLoaded}
                     sx={{ textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
                   >
                     Update Medication
