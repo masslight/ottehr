@@ -1,6 +1,7 @@
 import { Task as FhirTask } from 'fhir/r4b';
 import { z } from 'zod';
 import { optionalTextSchema, requiredTextSchema } from '../../text-schemas';
+import { TASK_PROGRESS_NOTE_SECTION_KEYS } from './progress-note-sections';
 
 export interface Task {
   id: string;
@@ -29,18 +30,27 @@ export interface Task {
 const namedReference = z.object({ id: requiredTextSchema, name: requiredTextSchema });
 const optionalNamedReference = namedReference.nullish().transform((value) => value ?? undefined);
 
-export const CreateManualTaskRequestSchema = z.object({
-  category: requiredTextSchema,
-  appointmentId: optionalTextSchema,
-  orderId: optionalTextSchema,
-  encounterId: optionalTextSchema,
-  taskTitle: requiredTextSchema,
-  taskDetails: optionalTextSchema,
-  assignee: optionalNamedReference,
-  location: namedReference,
-  patient: optionalNamedReference,
-  createdBy: optionalTextSchema,
-});
+export const CreateManualTaskRequestSchema = z
+  .object({
+    category: requiredTextSchema,
+    appointmentId: optionalTextSchema,
+    orderId: optionalTextSchema,
+    progressNoteSection: z
+      .enum(TASK_PROGRESS_NOTE_SECTION_KEYS)
+      .nullish()
+      .transform((value) => value ?? undefined),
+    encounterId: optionalTextSchema,
+    taskTitle: requiredTextSchema,
+    taskDetails: optionalTextSchema,
+    assignee: optionalNamedReference,
+    location: namedReference,
+    patient: optionalNamedReference,
+    createdBy: optionalTextSchema,
+  })
+  .refine((request) => !request.progressNoteSection || (!!request.appointmentId && !request.orderId), {
+    message: 'A progress note section can only be linked to a visit, not to an order',
+    path: ['progressNoteSection'],
+  });
 export type CreateManualTaskRequest = z.input<typeof CreateManualTaskRequestSchema>;
 
 export const MANUAL_TASK = {
@@ -64,6 +74,7 @@ export const MANUAL_TASK = {
     providerName: 'provider-name',
     appointmentId: 'appointment-id',
     orderId: 'order-id',
+    progressNoteSection: 'progress-note-section',
     encounterId: 'encounter-id',
     patient: 'patient',
     documentReferenceId: 'document-reference-id',

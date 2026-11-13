@@ -71,6 +71,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         valueString: params.orderId,
       },
       {
+        type: MANUAL_TASK.input.progressNoteSection,
+        valueString: params.progressNoteSection,
+      },
+      {
         type: MANUAL_TASK.input.encounterId,
         valueString: params.encounterId,
       },

@@ -12,6 +12,11 @@ import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTask
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
+import {
+  isTaskProgressNoteSection,
+  TASK_PROGRESS_NOTE_SECTION_KEYS,
+  TASK_PROGRESS_NOTE_SECTIONS,
+} from 'utils/lib/types/data/tasks/progress-note-sections';
 import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { useGetPatientVisitHistory } from '../../../hooks/useGetPatientVisitHistory';
 import {
@@ -48,6 +53,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
 }) => {
   const methods = useForm();
   const formValue = methods.watch();
+  const canLinkSection = !!formValue.appointment && !formValue.order;
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -77,6 +83,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
       category: formValue.category,
       appointmentId: formValue.appointment,
       orderId: formValue.order,
+      progressNoteSection: formValue.progressNoteSection,
       encounterId: encounterId || undefined,
       taskTitle: formValue.taskTitle,
       taskDetails: formValue.taskDetails,
@@ -148,6 +155,12 @@ export const CreateTaskDialog: React.FC<Props> = ({
   }, [formValue.patient, methods]);
 
   useEffect(() => {
+    if (!canLinkSection) {
+      methods.setValue('progressNoteSection', null);
+    }
+  }, [canLinkSection, methods]);
+
+  useEffect(() => {
     if (!formValue.appointment || !formValue.category) {
       methods.setValue('order', null);
     }
@@ -207,6 +220,10 @@ export const CreateTaskDialog: React.FC<Props> = ({
       methods.setValue('category', null);
       methods.setValue('order', null);
     }
+    methods.setValue(
+      'progressNoteSection',
+      methods.getValues('appointment') && isTaskProgressNoteSection(orderFullUrl) ? orderFullUrl : null
+    );
     methods.setValue('taskTitle', null);
     methods.setValue('taskDetails', null);
     methods.setValue('assignee', null);
@@ -260,6 +277,13 @@ export const CreateTaskDialog: React.FC<Props> = ({
               getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? ''}
               loading={ordersLoading}
               disabled={!formValue.appointment || !formValue.category}
+            />
+            <SelectInput
+              name="progressNoteSection"
+              label="Progress Note section"
+              options={TASK_PROGRESS_NOTE_SECTION_KEYS}
+              getOptionLabel={(option) => TASK_PROGRESS_NOTE_SECTIONS[option]}
+              disabled={!canLinkSection}
             />
             <TextInput name="taskTitle" label="Title" required />
             <TextInput name="taskDetails" label="Task details" />
