@@ -1,0 +1,27 @@
+[
+  {
+    "what": "Scan document",
+    "source": "apps/ehr/src/components/ScannerModal.tsx",
+    "why": "Needs the Dynamsoft WebTwain SDK and a local scanner service; without them it only shows its load-failure alert."
+  },
+  {
+    "what": "Payment dialog: card reader and add-new-card variants",
+    "source": "apps/ehr/src/components/dialogs/PaymentDialog.tsx",
+    "why": "Both need Stripe.js, which cannot load offline. The saved-card variant is pictured."
+  },
+  {
+    "what": "eRx full-screen overlay",
+    "source": "apps/ehr/src/features/visits/shared/components/ERXDialog.tsx",
+    "why": "Not an MUI dialog: a fixed full-window box around a third-party prescribing iframe."
+  },
+  {
+    "what": "Validation Error (in-person navigation)",
+    "source": "apps/ehr/src/features/visits/in-person/context/InPersonNavigationContext.tsx",
+    "why": "Nothing in the app registers a page validator, so it never opens. It is the InPersonModal base with OK / Close."
+  },
+  {
+    "what": "Native browser confirm() prompts, 13 files",
+    "source": "QuickPickEditor, the six *QuickPicksPage admin pages, PaperworkFlowsAdminPage, QuestionnaireAdminPage, ServiceCategoriesAdminPage, PatientEducationAdminPage, FormTemplateActionsBar, MedicalRecordDateRangeDialog, ScannerModal",
+    "why": "These confirm deletes and discards with window.confirm instead of a dialog, so there is nothing to photograph. They belong in the migration list."
+  }
+]

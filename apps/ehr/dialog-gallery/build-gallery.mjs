@@ -13,6 +13,7 @@ fs.mkdirSync(path.join(outDir, 'shots'), { recursive: true });
 
 const AREA = {
   base: 'Shared base components',
+  sweep: 'features: nursing orders',
   dialogs: 'components/dialogs',
   components: 'components (other)',
   pages: 'pages',
@@ -120,7 +121,7 @@ const data = JSON.stringify({ items, failed, missing, builtAt: new Date().toISOS
   /</g,
   '\\u003c'
 );
-fs.writeFileSync(path.join(outDir, 'index.html'), template.replace('/*__DATA__*/null', data));
+fs.writeFileSync(path.join(outDir, 'index.html'), template.replace(/\/\*__DATA__\*\/\s*null/, () => data));
 fs.writeFileSync(path.join(outDir, 'files.json'), JSON.stringify(items.map((i) => ({ path: i.shot }))));
 const bytes = items.reduce((n, i) => n + fs.statSync(path.join(outDir, i.shot)).size, 0);
 console.log(
