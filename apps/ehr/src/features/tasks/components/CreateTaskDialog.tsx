@@ -163,10 +163,10 @@ export const CreateTaskDialog: React.FC<Props> = ({
 
   useEffect(() => {
     const section = formValue.progressNoteSection;
-    if (!canLinkSection || (encounter && section && !sectionOptions.includes(section))) {
+    if (!canLinkSection || (encounterId && section && !sectionOptions.includes(section))) {
       methods.setValue('progressNoteSection', null);
     }
-  }, [canLinkSection, encounter, sectionOptions, formValue.progressNoteSection, methods]);
+  }, [canLinkSection, encounterId, sectionOptions, formValue.progressNoteSection, methods]);
 
   useEffect(() => {
     if (!formValue.appointment || !formValue.category) {
