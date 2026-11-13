@@ -14,12 +14,12 @@ const VITAL_KEYS = ['weight'];
  */
 const LAB_ROWS: LabRow[] = [
   {
-    key: 'directBilirubin',
+    key: 'newbornDirectBilirubin',
     analyte: /bilirubin.*(direct|conjugated)|(direct|conjugated).*bilirubin/i,
     exclude: /indirect|unconjugated/i,
   },
   { key: 'transcutaneousBilirubin', analyte: /transcutaneous|\btcb\b/i },
-  { key: 'totalBilirubin', analyte: /bilirubin/i, exclude: /direct|conjugated|indirect|unconjugated/i },
+  { key: 'newbornTotalBilirubin', analyte: /bilirubin/i, exclude: /direct|conjugated|indirect|unconjugated/i },
 ];
 
 /**

@@ -116,8 +116,10 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     codes.forEach((code) => expect(LAB_ROW_LOINC_CODES[row]).toContain(code));
   });
 
-  test('race-based eGFR, whole-blood glucose, RDW and timed glucose are on no row; no code is on two rows', () => {
-    const all = Object.values(LAB_ROW_LOINC_CODES).flat();
+  test('race-based eGFR, whole-blood glucose, RDW and timed glucose are on no row; no code is on two Lab results rows', () => {
+    // The Newborn bilirubin flowsheet's total row carries this flowsheet's total bilirubin codes as well.
+    const { newbornTotalBilirubin: _newborn, ...labResultsRows } = LAB_ROW_LOINC_CODES;
+    const all = Object.values(labResultsRows).flat();
     [
       '88293-6', // eGFR CKD-EPI among black population
       '88294-4', // eGFR CKD-EPI among non black population
@@ -132,6 +134,12 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
       .forEach((code) => expect(all).not.toContain(code));
     expect(LAB_ROW_LOINC_CODES.totalProtein).not.toContain('2888-6');
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  test('total bilirubin is serum or plasma only: a heel-stick (42719-5) result is not a CMP result', () => {
+    expect(LAB_ROW_LOINC_CODES.totalBilirubin).not.toContain('42719-5');
+    expect(valuesOf(lab('Bilirubin, total', { codes: ['42719-5'], value: 9.9 }))).toEqual({});
+    expect(valuesOf(lab('Bilirubin, total', { codes: ['1975-2'], value: 0.6 }))).toEqual({ totalBilirubin: 0.6 });
   });
 });
 

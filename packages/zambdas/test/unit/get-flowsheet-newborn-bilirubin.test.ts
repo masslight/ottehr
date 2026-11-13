@@ -112,14 +112,14 @@ describe('buildNewbornBilirubinFlowsheet', () => {
 
   test('serum results by LOINC with saved flags, the in-house TcB, weight, and the day of life', () => {
     expect(values('e1')).toEqual({
-      totalBilirubin: 13.8,
-      directBilirubin: 0.8,
+      newbornTotalBilirubin: 13.8,
+      newbornDirectBilirubin: 0.8,
       transcutaneousBilirubin: 13.1,
       weight: 3.1,
       dayOfLife: 3,
     });
-    const { totalBilirubin, transcutaneousBilirubin } = visits.find((v) => v.encounterId === 'e1')!.values;
-    expect([totalBilirubin.unit, totalBilirubin.flag]).toEqual(['mg/dL', VitalAlertCriticality.Abnormal]);
+    const { newbornTotalBilirubin, transcutaneousBilirubin } = visits.find((v) => v.encounterId === 'e1')!.values;
+    expect([newbornTotalBilirubin.unit, newbornTotalBilirubin.flag]).toEqual(['mg/dL', VitalAlertCriticality.Abnormal]);
     expect(transcutaneousBilirubin.flag).toBeUndefined();
   });
 
@@ -131,10 +131,10 @@ describe('buildNewbornBilirubinFlowsheet', () => {
   });
 
   test('name-only matching: conjugated goes to the direct row, indirect to neither, total keeps total', () => {
-    expect(values('e3')).toEqual({ totalBilirubin: 9.1, directBilirubin: 0.5, dayOfLife: 8 });
+    expect(values('e3')).toEqual({ newbornTotalBilirubin: 9.1, newbornDirectBilirubin: 0.5, dayOfLife: 8 });
   });
 
-  test('a coded result lands by LOINC only: urine (5770-3) and whole-blood (42719-5) bilirubin are not serum rows', () => {
+  test('a coded result lands by LOINC only: heel-stick (42719-5) bilirubin is the total row; urine (5770-3) and cord blood (48624-1) are on none', () => {
     const at = '2007-04-03T18:00:00.000Z';
     const labsOnly: FlowsheetData = { ...data, vitals: [] };
     const rowsOf = (...labs: FlowsheetLabResult[]): string[] =>
@@ -143,11 +143,12 @@ describe('buildNewbornBilirubinFlowsheet', () => {
         .sort();
 
     expect(rowsOf(lab('Bilirubin, total', ['5770-3'], 1, at))).toEqual([]);
-    expect(rowsOf(lab('Bilirubin, total', ['42719-5'], 9.9, at))).toEqual([]);
+    expect(rowsOf(lab('Bilirubin, total', ['48624-1'], 2.1, at))).toEqual([]);
+    expect(rowsOf(lab('Bilirubin, total', ['42719-5'], 9.9, at))).toEqual(['newbornTotalBilirubin']);
     // Total bilirubin in umol/L (14631-6) and conjugated bilirubin (15152-2) are the serum rows in other units/names.
     expect(rowsOf(lab('Bilirubin', ['14631-6'], 180, at), lab('Bilirubin', ['15152-2'], 0.4, at))).toEqual([
-      'directBilirubin',
-      'totalBilirubin',
+      'newbornDirectBilirubin',
+      'newbornTotalBilirubin',
     ]);
     expect(rowsOf(lab('TcB', ['72898-0'], 200, at, 'N', 'in-house'))).toEqual(['transcutaneousBilirubin']);
   });
@@ -169,14 +170,14 @@ describe('buildNewbornBilirubinFlowsheet', () => {
       visitType: 'Outside result',
     });
     expect(Object.fromEntries(Object.entries(column.values).map(([key, v]) => [key, v.value]))).toEqual({
-      totalBilirubin: 11.2,
+      newbornTotalBilirubin: 11.2,
       dayOfLife: 6,
     });
   });
 
   test('without a birth date there is no day of life row', () => {
     const [latest] = buildNewbornBilirubinFlowsheet({ ...data, birthDate: undefined });
-    expect(Object.keys(latest.values)).toEqual(['totalBilirubin', 'directBilirubin']);
+    expect(Object.keys(latest.values)).toEqual(['newbornTotalBilirubin', 'newbornDirectBilirubin']);
   });
 
   test('dayOfLifeAt counts whole calendar days in the zone the instant was recorded in', () => {

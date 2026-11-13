@@ -34,6 +34,9 @@ const EGFR_RACE_METHODS = [
   'Creatinine-based formula (CKD-EPI)/1.73 sq M among black population',
   'Creatinine-based formula (CKD-EPI)/1.73 sq M among non black population',
 ];
+// A newborn's bilirubin is often run on a heel-stick (whole, capillary or venous blood) sample; a cord blood level
+// is taken at delivery and stays off.
+const SERUM_PLASMA_OR_BLOOD = [...SERUM_OR_PLASMA, 'Blood', 'Capillary blood', 'Venous blood'];
 
 export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   // Thyroid
@@ -43,10 +46,13 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   freeT3: { components: ['Triiodothyronine (T3) Free'], systems: SERUM_OR_PLASMA },
   totalT3: { components: ['Triiodothyronine (T3)'], systems: SERUM_OR_PLASMA },
   tpoAntibodies: { components: ['Thyroperoxidase Ab'], systems: SERUM_OR_PLASMA },
-  // Newborn bilirubin (total bilirubin is also the CMP row). "Direct" is the glucuronidated plus albumin-bound
-  // fraction and "conjugated" the glucuronidated one.
-  totalBilirubin: { components: ['Bilirubin.total'], systems: SERUM_OR_PLASMA },
-  directBilirubin: { components: ['Bilirubin.direct', 'Bilirubin.conjugated'], systems: SERUM_OR_PLASMA },
+  // Newborn bilirubin. The total row also carries the CMP total bilirubin row's serum codes. "Direct" is the
+  // glucuronidated plus albumin-bound fraction and "conjugated" the glucuronidated one.
+  newbornTotalBilirubin: { components: ['Bilirubin.total'], systems: SERUM_PLASMA_OR_BLOOD },
+  newbornDirectBilirubin: {
+    components: ['Bilirubin.direct', 'Bilirubin.conjugated'],
+    systems: SERUM_PLASMA_OR_BLOOD,
+  },
   transcutaneousBilirubin: { components: ['Bilirubin'], systems: ['Skin'] },
   // Lab results: CBC
   hemoglobin: { components: ['Hemoglobin'], systems: BLOOD },
@@ -86,6 +92,7 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   albumin: { components: ['Albumin'], systems: SERUM_OR_PLASMA },
   globulin: { components: ['Globulin'], systems: SERUM_OR_PLASMA },
   albuminGlobulinRatio: { components: ['Albumin/Globulin'], systems: SERUM_OR_PLASMA },
+  totalBilirubin: { components: ['Bilirubin.total'], systems: SERUM_OR_PLASMA },
   alkalinePhosphatase: { components: ['Alkaline phosphatase'], systems: SERUM_OR_PLASMA },
   ast: { components: ['Aspartate aminotransferase'], systems: SERUM_OR_PLASMA },
   alt: { components: ['Alanine aminotransferase'], systems: SERUM_OR_PLASMA },
