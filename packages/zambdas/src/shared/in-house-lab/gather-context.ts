@@ -4,6 +4,7 @@ import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { Secrets } from 'utils/lib/secrets';
 import { CreateInHouseLabEnconuterResource } from 'utils/lib/types/data/in-house/in-house.types';
+import { IN_HOUSE_LAB_ERROR } from 'utils/lib/types/errors';
 import { accountIsPatientBill, getPrimaryInsurance } from '../../ehr/lab/shared/labs';
 import { TemplateEncounterResource } from '../../ehr/shared/template-helpers';
 import { getMyPractitionerId } from '../practitioners';
@@ -88,7 +89,10 @@ export async function gatherInHouseLabOrderContext(input: {
   const account = accounts[0];
 
   const attendingPractitionerId = getAttendingPractitionerId(encounter);
-  if (!attendingPractitionerId) throw new Error('Attending practitioner not found on encounter');
+
+  if (!attendingPractitionerId) {
+    throw IN_HOUSE_LAB_ERROR('No attending practitioner has been assigned to this encounter');
+  }
 
   const [currentUserPractitioner, attendingPractitioner] = await Promise.all([
     oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: currentUserPractitionerId }),
