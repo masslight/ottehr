@@ -768,9 +768,6 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
-          })
-          .mockResolvedValueOnce({
             unbundle: () => [{ ...billingResources.location, name: 'Test Clinic Annex' }],
           })
           .mockResolvedValueOnce({
@@ -831,9 +828,6 @@ describe('create-billing-claim-from-encounter', () => {
           }),
         billingOystehrSearch: vi
           .fn()
-          .mockResolvedValueOnce({
-            unbundle: () => [],
-          })
           .mockResolvedValueOnce({
             unbundle: () => [],
           })
@@ -921,9 +915,6 @@ describe('create-billing-claim-from-encounter', () => {
             unbundle: () => [],
           })
           .mockResolvedValueOnce({
-            unbundle: () => [],
-          })
-          .mockResolvedValueOnce({
             unbundle: () => [billingResources.location],
           })
           .mockResolvedValueOnce({
@@ -989,9 +980,6 @@ describe('create-billing-claim-from-encounter', () => {
           }),
         billingOystehrSearch: vi
           .fn()
-          .mockResolvedValueOnce({
-            unbundle: () => [],
-          })
           .mockResolvedValueOnce({
             unbundle: () => [],
           })
@@ -4234,11 +4222,8 @@ describe('create-billing-claim-from-encounter', () => {
       );
     });
 
-    it('falls back to the extension scan when nothing carries the identifier', async () => {
-      const search = vi
-        .fn()
-        .mockResolvedValueOnce({ unbundle: () => [] })
-        .mockResolvedValueOnce({ unbundle: () => [billingResources.patient] });
+    it('finds no patient and does not scan when nothing carries the identifier', async () => {
+      const search = vi.fn().mockResolvedValueOnce({ unbundle: () => [] });
       const oystehr = {
         fhir: {
           search,
@@ -4247,15 +4232,13 @@ describe('create-billing-claim-from-encounter', () => {
 
       const result = await findMainBillingPatient(oystehr, 'patient-123');
 
-      expect(result.patient?.id).toEqual('billing-patient-123');
-      expect(search).toHaveBeenCalledTimes(2);
+      expect(result.patient).toBeUndefined();
+      expect(result.total).toEqual(0);
+      expect(search).toHaveBeenCalledTimes(1);
     });
 
-    it('reports the duplicate count the guard keys off when the scan finds several', async () => {
-      const search = vi
-        .fn()
-        .mockResolvedValueOnce({ unbundle: () => [] })
-        .mockResolvedValueOnce({ unbundle: () => [billingResources.patient, billingResources.patient] });
+    it('reports the duplicate count the guard keys off when the indexed search finds several', async () => {
+      const search = vi.fn().mockResolvedValueOnce({ unbundle: () => [billingResources.patient], total: 2 });
       const oystehr = {
         fhir: {
           search,
