@@ -402,7 +402,7 @@ describe('extractClaimResponseAmounts', () => {
     expect(extractClaimResponseAmounts(cr).patientResp).toBe(20);
   });
 
-  it('returns undefined allowed when no allowed adjudication exists, but 0 PR when other CAS data exists', () => {
+  it('returns undefined allowed and patientResp when adjustments exist but none are PR', () => {
     const cr = claimResponse('2026-01-01', {
       totalPaid: 60,
       itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 40)]],
@@ -411,8 +411,16 @@ describe('extractClaimResponseAmounts', () => {
       payerId: '12345',
       paid: 60,
       allowed: undefined,
-      patientResp: 0,
+      patientResp: undefined,
     });
+  });
+
+  it('returns an explicit 0 patientResp when the remit reports PR of 0', () => {
+    const cr = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('PR', 0)]],
+    });
+    expect(extractClaimResponseAmounts(cr).patientResp).toBe(0);
   });
 
   it('returns undefined allowed and patientResp when the response carries no adjudications at all', () => {

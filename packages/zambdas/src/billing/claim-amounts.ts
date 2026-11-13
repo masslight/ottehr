@@ -42,7 +42,7 @@ export interface ClaimResponseAmounts {
   paid: number;
   // undefined = the ClaimResponse carries no allowed data (distinct from an explicit 0)
   allowed: number | undefined;
-  // undefined = the ClaimResponse carries no adjudication data at all, so PR can't be read off it
+  // undefined = the ClaimResponse carries no PR adjustments, so what the patient owes can't be read off it
   patientResp: number | undefined;
 }
 
@@ -84,10 +84,12 @@ export function extractClaimResponseAmounts(claimResponse: ClaimResponse): Claim
   const totalAllowed = claimResponse.total?.find((t) => t.category?.coding?.[0]?.code === ADJUDICATION_CODES.ALLOWED)
     ?.amount?.value;
   const allowed = allowedAdjudications.length > 0 ? sumAmounts(allowedAdjudications) : totalAllowed;
-  const patientResp =
-    adjudications.length > 0
-      ? sumAmounts(adjudications.filter((adj) => adjudicationCode(adj) === ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY))
-      : undefined;
+  // Only PR adjustments say what the patient owes; a remit without any (even one with other
+  // adjustments) leaves it undetermined rather than 0.
+  const patientRespAdjudications = adjudications.filter(
+    (adj) => adjudicationCode(adj) === ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY
+  );
+  const patientResp = patientRespAdjudications.length > 0 ? sumAmounts(patientRespAdjudications) : undefined;
 
   const payerId = extractPayerIdFromUrl(claimResponse.insurer.reference) ?? '';
 
@@ -188,30 +190,20 @@ export function summarizeClaimPayments(
   // Patient responsibility is what the final adjudication says the patient owes: after COB the
   // last payer's PR already accounts for what prior payers paid, so summing PR across payers
   // would double-count the share of the primary's PR the secondary covered. When the latest
-  // response carries no adjudication data, `allowed - insurancePaid` is used instead. Ceilinged
-  // to 0 either way: a reversal reports what it took back as negative PR, and the patient owes
-  // nothing rather than less than nothing — otherwise a payment they made counts twice as credit.
+  // response carries no PR adjustments, it's derived as `allowed - insurancePaid`. Ceilinged to 0
+  // either way: a reversal reports what it took back as negative PR, and the patient owes nothing
+  // rather than less than nothing — otherwise a payment they made counts twice as credit.
   const latestPatientResp = amounts[amounts.length - 1].patientResp;
-  let patientResp: number;
-  if (knownAllowed !== undefined) {
-    patientResp = Math.max(latestPatientResp ?? knownAllowed - insurancePaid, 0);
-  } else {
+  const patientResp = Math.max(latestPatientResp ?? derivedPatientResp(), 0);
+
+  function derivedPatientResp(): number {
+    if (knownAllowed !== undefined) return knownAllowed - insurancePaid;
     // No remit reports an allowed amount (AMT*B6 is optional, and manual ERAs may leave it blank),
-    // so the billed amount is the basis. A PR adjustment on the latest remit still says what the
-    // patient owes; without one, the patient owes whatever the payers neither paid nor adjusted off.
-    const latestAdjustments = extractRemitAdjustments(sortedClaimResponses[sortedClaimResponses.length - 1]);
-    const hasPatientRespAdjustment = latestAdjustments.some(
-      (adjustment) => adjustment.groupCode === ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY
-    );
-    const nonPatientAdjustments = latestAdjustments
+    // so billed is the basis, less whatever the latest remit adjusted off (CO/OA/PI).
+    const nonPatientAdjustments = extractRemitAdjustments(sortedClaimResponses[sortedClaimResponses.length - 1])
       .filter((adjustment) => adjustment.groupCode !== ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY)
       .reduce((sum, adjustment) => sum + adjustment.amount, 0);
-    patientResp = Math.max(
-      hasPatientRespAdjustment && latestPatientResp !== undefined
-        ? latestPatientResp
-        : billed - insurancePaid - nonPatientAdjustments,
-      0
-    );
+    return billed - insurancePaid - nonPatientAdjustments;
   }
 
   return {
