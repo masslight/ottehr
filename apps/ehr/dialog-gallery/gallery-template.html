@@ -1,6 +1,9 @@
 <title>EHR Dialog Contact Sheet</title>
-<meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<meta name="claude:viewport-fit-sides" content="cover" />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+/>
 <style>
   /* Layout: a contact sheet. Sticky control bar; a "where they disagree" ledger of measured facets;
      then every dialog photographed at one shared scale, grouped by whichever facet is selected. */
@@ -20,94 +23,449 @@
     --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --bg: #0d121c; --panel: #161d2b; --ink: #e8ecf5; --muted: #98a3ba; --line: #2a3447;
-      --accent: #7ea6ff; --accent-soft: #1c2a4a; --warn: #f0b45e; --warn-soft: #3a2a10; --mat: #5d6068;
+    :root:not([data-theme='light']) {
+      --bg: #0d121c;
+      --panel: #161d2b;
+      --ink: #e8ecf5;
+      --muted: #98a3ba;
+      --line: #2a3447;
+      --accent: #7ea6ff;
+      --accent-soft: #1c2a4a;
+      --warn: #f0b45e;
+      --warn-soft: #3a2a10;
+      --mat: #5d6068;
       color-scheme: dark;
     }
   }
-  :root[data-theme="dark"] {
-    --bg: #0d121c; --panel: #161d2b; --ink: #e8ecf5; --muted: #98a3ba; --line: #2a3447;
-    --accent: #7ea6ff; --accent-soft: #1c2a4a; --warn: #f0b45e; --warn-soft: #3a2a10; --mat: #5d6068;
+  :root[data-theme='dark'] {
+    --bg: #0d121c;
+    --panel: #161d2b;
+    --ink: #e8ecf5;
+    --muted: #98a3ba;
+    --line: #2a3447;
+    --accent: #7ea6ff;
+    --accent-soft: #1c2a4a;
+    --warn: #f0b45e;
+    --warn-soft: #3a2a10;
+    --mat: #5d6068;
     color-scheme: dark;
   }
-  body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
-  .wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-  header.wrap { padding-block: 28px 8px; }
-  h1 { font-family: var(--font-display); font-weight: 600; font-size: 28px; margin: 0 0 6px; text-wrap: balance; letter-spacing: -0.01em; }
-  h2 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin: 0; text-wrap: balance; }
-  .lede { color: var(--muted); max-width: 68ch; margin: 0; }
-  .lede b { color: var(--ink); font-weight: 600; }
-  .eyebrow { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-  .num { font-variant-numeric: tabular-nums; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .wrap {
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  header.wrap {
+    padding-block: 28px 8px;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 28px;
+    margin: 0 0 6px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 18px;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .lede {
+    color: var(--muted);
+    max-width: 68ch;
+    margin: 0;
+  }
+  .lede b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
 
-  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
-  .bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
-  .bar .wrap { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding-block: 10px; }
-  .ctl { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .ctl label { color: var(--muted); font-size: 12px; white-space: nowrap; }
-  select, input[type="search"] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; max-width: 100%; }
-  input[type="search"] { width: 200px; }
-  input[type="range"] { width: 110px; accent-color: var(--accent); }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .active-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-  .pill { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; border-radius: 999px; padding: 3px 10px; background: var(--accent-soft); color: var(--accent); border: 0; font-family: inherit; cursor: pointer; }
-  .count { margin-left: auto; color: var(--muted); font-size: 12px; }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0 0 auto;
+    height: env(safe-area-inset-top, 0px);
+    z-index: 10;
+    background: var(--bg);
+  }
+  .bar {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 5;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar .wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    align-items: center;
+    padding-block: 10px;
+  }
+  .ctl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .ctl label {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  select,
+  input[type='search'] {
+    font: inherit;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 8px;
+    max-width: 100%;
+  }
+  input[type='search'] {
+    width: 200px;
+  }
+  input[type='range'] {
+    width: 110px;
+    accent-color: var(--accent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .pill {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 12px;
+    border-radius: 999px;
+    padding: 3px 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 0;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .count {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 12px;
+  }
 
-  section.wrap { padding-block: 22px 6px; }
-  .ledger { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; margin-top: 14px; }
-  .facet { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 12px 8px; min-width: 0; }
-  .facet h3 { margin: 0 0 2px; font-size: 13px; font-weight: 600; }
-  .facet .sub { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
-  .facet .sub.split { color: var(--warn); }
-  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; width: 100%; background: none; border: 0; padding: 4px 4px; border-radius: 4px; font: inherit; color: inherit; text-align: left; cursor: pointer; position: relative; }
-  .row:hover { background: var(--accent-soft); }
-  .row[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-  .row .lab { overflow-wrap: anywhere; font-size: 12.5px; position: relative; z-index: 1; }
-  .row .n { font-size: 12px; color: var(--muted); position: relative; z-index: 1; }
-  .row .fill { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); border-radius: 2px; opacity: 0.55; }
-  .more { font-size: 12px; color: var(--muted); padding: 4px; }
-  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; border: 1px solid var(--line); vertical-align: -1px; }
+  section.wrap {
+    padding-block: 22px 6px;
+  }
+  .ledger {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .facet {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 12px 8px;
+    min-width: 0;
+  }
+  .facet h3 {
+    margin: 0 0 2px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .facet .sub {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  .facet .sub.split {
+    color: var(--warn);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    width: 100%;
+    background: none;
+    border: 0;
+    padding: 4px 4px;
+    border-radius: 4px;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    position: relative;
+  }
+  .row:hover {
+    background: var(--accent-soft);
+  }
+  .row[aria-pressed='true'] {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .row .lab {
+    overflow-wrap: anywhere;
+    font-size: 12.5px;
+    position: relative;
+    z-index: 1;
+  }
+  .row .n {
+    font-size: 12px;
+    color: var(--muted);
+    position: relative;
+    z-index: 1;
+  }
+  .row .fill {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 2px;
+    opacity: 0.55;
+  }
+  .more {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 4px;
+  }
+  .swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 6px;
+    border: 1px solid var(--line);
+    vertical-align: -1px;
+  }
 
-  .group { padding-block: 26px 0; }
-  .group-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
-  .group-head .n { color: var(--muted); font-size: 13px; }
-  .sheet { display: flex; flex-wrap: wrap; gap: 18px 16px; align-items: flex-start; padding-top: 16px; }
-  figure { margin: 0; min-width: 0; max-width: 100%; display: flex; flex-direction: column; gap: 6px; }
-  .shot { display: block; padding: 0; border: 0; background: var(--mat); border-radius: 4px; overflow: hidden; cursor: zoom-in; max-width: 100%; }
-  .shot img { display: block; max-width: 100%; height: auto; }
-  figcaption { min-width: 140px; }
-  .cap-title { font-weight: 600; font-size: 13px; overflow-wrap: anywhere; }
-  .cap-meta { color: var(--muted); font-size: 11.5px; overflow-wrap: anywhere; }
-  .cap-src { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); overflow-wrap: anywhere; }
-  .tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); margin-right: 4px; }
+  .group {
+    padding-block: 26px 0;
+  }
+  .group-head {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+  }
+  .group-head .n {
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .sheet {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px 16px;
+    align-items: flex-start;
+    padding-top: 16px;
+  }
+  figure {
+    margin: 0;
+    min-width: 0;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .shot {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: var(--mat);
+    border-radius: 4px;
+    overflow: hidden;
+    cursor: zoom-in;
+    max-width: 100%;
+  }
+  .shot img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  figcaption {
+    min-width: 140px;
+  }
+  .cap-title {
+    font-weight: 600;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+  .cap-meta {
+    color: var(--muted);
+    font-size: 11.5px;
+    overflow-wrap: anywhere;
+  }
+  .cap-src {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-right: 4px;
+  }
 
-  .gaps { background: var(--warn-soft); border-radius: 8px; padding: 14px 16px; margin-top: 14px; }
-  .gaps h3 { margin: 0 0 6px; font-size: 14px; color: var(--warn); }
-  .gaps ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
-  .gaps code, dd code { font-family: var(--font-mono); font-size: 11.5px; }
-  footer.wrap { padding-block: 30px 40px; color: var(--muted); font-size: 12px; }
+  .gaps {
+    background: var(--warn-soft);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-top: 14px;
+  }
+  .gaps h3 {
+    margin: 0 0 6px;
+    font-size: 14px;
+    color: var(--warn);
+  }
+  .gaps ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 4px;
+  }
+  .gaps code,
+  dd code {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+  footer.wrap {
+    padding-block: 30px 40px;
+    color: var(--muted);
+    font-size: 12px;
+  }
 
-  dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); padding: 0; width: min(1280px, calc(100vw - 32px)); max-height: calc(100vh - 32px); }
-  dialog::backdrop { background: rgba(8, 12, 20, 0.6); }
-  .lb { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 340px); }
-  .lb-img { background: var(--mat); overflow: auto; max-height: calc(100vh - 34px); display: flex; align-items: flex-start; justify-content: center; }
-  .lb-img img { display: block; max-width: none; }
-  .lb-side { padding: 16px; overflow: auto; max-height: calc(100vh - 34px); display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-  .lb-side h2 { font-size: 17px; }
-  dl { margin: 0; display: grid; gap: 8px; }
-  dt { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
-  dd { margin: 0; font-size: 12.5px; overflow-wrap: anywhere; }
-  dd ul { margin: 0; padding-left: 16px; }
-  .lb-nav { display: flex; gap: 8px; }
-  .btn { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
-  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  dialog {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    color: var(--ink);
+    padding: 0;
+    width: min(1280px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+  }
+  dialog::backdrop {
+    background: rgba(8, 12, 20, 0.6);
+  }
+  .lb {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 340px);
+  }
+  .lb-img {
+    background: var(--mat);
+    overflow: auto;
+    max-height: calc(100vh - 34px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .lb-img img {
+    display: block;
+    max-width: none;
+  }
+  .lb-side {
+    padding: 16px;
+    overflow: auto;
+    max-height: calc(100vh - 34px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+  .lb-side h2 {
+    font-size: 17px;
+  }
+  dl {
+    margin: 0;
+    display: grid;
+    gap: 8px;
+  }
+  dt {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  dd {
+    margin: 0;
+    font-size: 12.5px;
+    overflow-wrap: anywhere;
+  }
+  dd ul {
+    margin: 0;
+    padding-left: 16px;
+  }
+  .lb-nav {
+    display: flex;
+    gap: 8px;
+  }
+  .btn {
+    font: inherit;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
   @media (max-width: 760px) {
-    .lb { grid-template-columns: minmax(0, 1fr); }
-    .lb-img, .lb-side { max-height: none; }
-    .lb-img img { max-width: 100%; height: auto; }
-    input[type="search"] { width: 140px; }
-    .count { margin-left: 0; }
+    .lb {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .lb-img,
+    .lb-side {
+      max-height: none;
+    }
+    .lb-img img {
+      max-width: 100%;
+      height: auto;
+    }
+    input[type='search'] {
+      width: 140px;
+    }
+    .count {
+      margin-left: 0;
+    }
   }
 </style>
 
@@ -119,18 +477,29 @@
 
 <div class="bar">
   <div class="wrap">
-    <div class="ctl"><label for="groupby">Group by</label>
-      <select id="groupby"></select></div>
-    <div class="ctl"><label for="sortby">Sort</label>
+    <div class="ctl">
+      <label for="groupby">Group by</label>
+      <select id="groupby"></select>
+    </div>
+    <div class="ctl">
+      <label for="sortby">Sort</label>
       <select id="sortby">
         <option value="width">Width</option>
         <option value="height">Height</option>
         <option value="title">Name</option>
         <option value="source">Source path</option>
-      </select></div>
-    <div class="ctl"><label for="scale">Scale</label>
-      <input type="range" id="scale" min="25" max="100" step="5" value="45"><span class="num" id="scale-val">45%</span></div>
-    <div class="ctl"><label for="q">Find</label><input type="search" id="q" placeholder="title, file, button label"></div>
+      </select>
+    </div>
+    <div class="ctl">
+      <label for="scale">Scale</label> <input type="range" id="scale" min="25" max="100" step="5" value="45" /><span
+        class="num"
+        id="scale-val"
+        >45%</span
+      >
+    </div>
+    <div class="ctl">
+      <label for="q">Find</label><input type="search" id="q" placeholder="title, file, button label" />
+    </div>
     <div class="active-filters" id="filters"></div>
     <div class="count num" id="count"></div>
   </div>
@@ -138,7 +507,10 @@
 
 <section class="wrap">
   <h2>Where they disagree</h2>
-  <p class="lede" style="margin-top:4px">Measured from the rendered dialogs, not read from code. Select any value to filter the sheet to the dialogs that have it.</p>
+  <p class="lede" style="margin-top: 4px">
+    Measured from the rendered dialogs, not read from code. Select any value to filter the sheet to the dialogs that
+    have it.
+  </p>
   <div class="ledger" id="ledger"></div>
   <div id="gaps"></div>
 </section>
@@ -149,9 +521,12 @@
 
 <dialog id="lb" aria-label="Dialog detail">
   <div class="lb">
-    <div class="lb-img"><img id="lb-img" alt=""></div>
+    <div class="lb-img"><img id="lb-img" alt="" /></div>
     <div class="lb-side">
-      <div class="lb-nav"><button class="btn" id="lb-prev">← Prev</button><button class="btn" id="lb-next">Next →</button><button class="btn" id="lb-close" style="margin-left:auto">Close</button></div>
+      <div class="lb-nav">
+        <button class="btn" id="lb-prev">← Prev</button><button class="btn" id="lb-next">Next →</button
+        ><button class="btn" id="lb-close" style="margin-left: auto">Close</button>
+      </div>
       <h2 id="lb-title"></h2>
       <dl id="lb-dl"></dl>
     </div>
@@ -159,145 +534,323 @@
 </dialog>
 
 <script>
-const DATA = /*__DATA__*/null;
-const FACETS = [
-  ['base', 'Built on', 'Which component the JSX uses'],
-  ['kind', 'Purpose', 'What the dialog is for'],
-  ['width', 'Width setting', 'MUI maxWidth breakpoint actually applied'],
-  ['title', 'Title type', 'Font size / weight of the heading'],
-  ['titleColor', 'Title color', 'Computed color of the heading'],
-  ['close', 'Close icon', 'A ✕ button in the top-right corner'],
-  ['actions', 'Footer alignment', 'How the action row is justified'],
-  ['primary', 'Primary button side', 'Where the filled button sits in the footer'],
-  ['buttonShape', 'Button shape', 'Corner radius of the buttons inside'],
-  ['paperPad', 'Extra paper padding', 'Padding on the dialog surface itself'],
-  ['area', 'App area', 'Where the source file lives'],
-];
-const $ = (id) => document.getElementById(id);
-const el = (tag, attrs = {}, ...kids) => {
-  const n = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k === 'class') n.className = v; else if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (v !== false && v != null) n.setAttribute(k, v);
-  }
-  for (const k of kids.flat()) if (k != null) n.append(k.nodeType ? k : document.createTextNode(k));
-  return n;
-};
-const store = { get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+  const DATA = /*__DATA__*/ null;
+  const FACETS = [
+    ['base', 'Built on', 'Which component the JSX uses'],
+    ['kind', 'Purpose', 'What the dialog is for'],
+    ['width', 'Width setting', 'MUI maxWidth breakpoint actually applied'],
+    ['title', 'Title type', 'Font size / weight of the heading'],
+    ['titleColor', 'Title color', 'Computed color of the heading'],
+    ['close', 'Close icon', 'A ✕ button in the top-right corner'],
+    ['actions', 'Footer alignment', 'How the action row is justified'],
+    ['primary', 'Primary button side', 'Where the filled button sits in the footer'],
+    ['buttonShape', 'Button shape', 'Corner radius of the buttons inside'],
+    ['paperPad', 'Extra paper padding', 'Padding on the dialog surface itself'],
+    ['area', 'App area', 'Where the source file lives'],
+  ];
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') n.className = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) n.setAttribute(k, v);
+    }
+    for (const k of kids.flat()) if (k != null) n.append(k.nodeType ? k : document.createTextNode(k));
+    return n;
+  };
+  const store = {
+    get(k, d) {
+      try {
+        return localStorage.getItem(k) ?? d;
+      } catch {
+        return d;
+      }
+    },
+    set(k, v) {
+      try {
+        localStorage.setItem(k, v);
+      } catch {}
+    },
+  };
 
-const state = { group: store.get('dg-group', 'base'), sort: store.get('dg-sort', 'width'), scale: +store.get('dg-scale', 45), q: '', filters: {} };
-const items = DATA.items;
-let visible = [];
+  const state = {
+    group: store.get('dg-group', 'base'),
+    sort: store.get('dg-sort', 'width'),
+    scale: +store.get('dg-scale', 45),
+    q: '',
+    filters: {},
+  };
+  const items = DATA.items;
+  let visible = [];
 
-const tally = (key, list) => {
-  const m = new Map();
-  for (const i of list) m.set(i.facets[key], (m.get(i.facets[key]) ?? 0) + 1);
-  return [...m.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
-};
-const matches = (i) => {
-  for (const [k, v] of Object.entries(state.filters)) if (i.facets[k] !== v) return false;
-  if (!state.q) return true;
-  const hay = (i.title + ' ' + i.source + ' ' + i.id + ' ' + i.detail.buttons.join(' ') + ' ' + i.detail.title).toLowerCase();
-  return state.q.toLowerCase().split(/\s+/).every((w) => hay.includes(w));
-};
-const sorters = {
-  width: (a, b) => a.w - b.w || a.h - b.h,
-  height: (a, b) => a.h - b.h || a.w - b.w,
-  title: (a, b) => a.title.localeCompare(b.title),
-  source: (a, b) => a.source.localeCompare(b.source),
-};
+  const tally = (key, list) => {
+    const m = new Map();
+    for (const i of list) m.set(i.facets[key], (m.get(i.facets[key]) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
+  };
+  const matches = (i) => {
+    for (const [k, v] of Object.entries(state.filters)) if (i.facets[k] !== v) return false;
+    if (!state.q) return true;
+    const hay = (
+      i.title +
+      ' ' +
+      i.source +
+      ' ' +
+      i.id +
+      ' ' +
+      i.detail.buttons.join(' ') +
+      ' ' +
+      i.detail.title
+    ).toLowerCase();
+    return state.q
+      .toLowerCase()
+      .split(/\s+/)
+      .every((w) => hay.includes(w));
+  };
+  const sorters = {
+    width: (a, b) => a.w - b.w || a.h - b.h,
+    height: (a, b) => a.h - b.h || a.w - b.w,
+    title: (a, b) => a.title.localeCompare(b.title),
+    source: (a, b) => a.source.localeCompare(b.source),
+  };
 
-function renderLedger() {
-  const host = $('ledger');
-  host.replaceChildren();
-  for (const [key, name, hint] of FACETS) {
-    if (key === 'area') continue;
-    const rows = tally(key, items);
-    const max = rows[0]?.[1] ?? 1;
-    const shown = rows.slice(0, 9);
-    host.append(el('div', { class: 'facet' },
-      el('h3', {}, name),
-      el('div', { class: 'sub' + (rows.length > 2 ? ' split' : '') }, `${rows.length} variant${rows.length === 1 ? '' : 's'} · ${hint}`),
-      shown.map(([val, n]) => el('button', { class: 'row', 'aria-pressed': String(state.filters[key] === val), onclick: () => toggleFilter(key, val) },
-        el('span', { class: 'lab' }, key === 'titleColor' && String(val).startsWith('#') ? el('span', { class: 'swatch', style: `background:${val}` }) : null, String(val)),
-        el('span', { class: 'n num' }, String(n)),
-        el('span', { class: 'fill', style: `width:${Math.max(3, (n / max) * 100)}%` }))),
-      rows.length > shown.length ? el('div', { class: 'more' }, `+ ${rows.length - shown.length} more — group by “${name}” to see all`) : null));
+  function renderLedger() {
+    const host = $('ledger');
+    host.replaceChildren();
+    for (const [key, name, hint] of FACETS) {
+      if (key === 'area') continue;
+      const rows = tally(key, items);
+      const max = rows[0]?.[1] ?? 1;
+      const shown = rows.slice(0, 9);
+      host.append(
+        el(
+          'div',
+          { class: 'facet' },
+          el('h3', {}, name),
+          el(
+            'div',
+            { class: 'sub' + (rows.length > 2 ? ' split' : '') },
+            `${rows.length} variant${rows.length === 1 ? '' : 's'} · ${hint}`
+          ),
+          shown.map(([val, n]) =>
+            el(
+              'button',
+              {
+                class: 'row',
+                'aria-pressed': String(state.filters[key] === val),
+                onclick: () => toggleFilter(key, val),
+              },
+              el(
+                'span',
+                { class: 'lab' },
+                key === 'titleColor' && String(val).startsWith('#')
+                  ? el('span', { class: 'swatch', style: `background:${val}` })
+                  : null,
+                String(val)
+              ),
+              el('span', { class: 'n num' }, String(n)),
+              el('span', { class: 'fill', style: `width:${Math.max(3, (n / max) * 100)}%` })
+            )
+          ),
+          rows.length > shown.length
+            ? el('div', { class: 'more' }, `+ ${rows.length - shown.length} more — group by “${name}” to see all`)
+            : null
+        )
+      );
+    }
   }
-}
-function toggleFilter(key, val) {
-  if (state.filters[key] === val) delete state.filters[key]; else state.filters[key] = val;
-  render();
-}
-function renderFilters() {
-  const host = $('filters');
-  host.replaceChildren();
-  for (const [k, v] of Object.entries(state.filters)) {
-    const name = FACETS.find((f) => f[0] === k)[1];
-    host.append(el('button', { class: 'pill', title: 'Remove filter', onclick: () => toggleFilter(k, v) }, `${name}: ${v}`, ' ✕'));
+  function toggleFilter(key, val) {
+    if (state.filters[key] === val) delete state.filters[key];
+    else state.filters[key] = val;
+    render();
   }
-}
-function tile(i, idx) {
-  const cssW = Math.round((i.w + 48) * state.scale / 100);
-  return el('figure', { style: `width:${Math.max(cssW, 150)}px` },
-    el('button', { class: 'shot', style: `width:${cssW}px`, 'aria-label': `Open ${i.title}`, onclick: () => openLb(idx) },
-      el('img', { src: i.shot, alt: `${i.title} dialog`, loading: 'lazy', width: cssW, style: `aspect-ratio:${i.w + 48}/${i.h + 48}` })),
-    el('figcaption', {},
-      el('div', { class: 'cap-title' }, i.title),
-      el('div', { class: 'cap-meta num' }, el('span', { class: 'tag' }, i.base), `${i.w}×${i.h}`),
-      el('div', { class: 'cap-src' }, i.source.replace('apps/ehr/src/', '').replace('packages/', '')))
+  function renderFilters() {
+    const host = $('filters');
+    host.replaceChildren();
+    for (const [k, v] of Object.entries(state.filters)) {
+      const name = FACETS.find((f) => f[0] === k)[1];
+      host.append(
+        el(
+          'button',
+          { class: 'pill', title: 'Remove filter', onclick: () => toggleFilter(k, v) },
+          `${name}: ${v}`,
+          ' ✕'
+        )
+      );
+    }
+  }
+  function tile(i, idx) {
+    const cssW = Math.round(((i.w + 48) * state.scale) / 100);
+    return el(
+      'figure',
+      { style: `width:${Math.max(cssW, 150)}px` },
+      el(
+        'button',
+        { class: 'shot', style: `width:${cssW}px`, 'aria-label': `Open ${i.title}`, onclick: () => openLb(idx) },
+        el('img', {
+          src: i.shot,
+          alt: `${i.title} dialog`,
+          loading: 'lazy',
+          width: cssW,
+          style: `aspect-ratio:${i.w + 48}/${i.h + 48}`,
+        })
+      ),
+      el(
+        'figcaption',
+        {},
+        el('div', { class: 'cap-title' }, i.title),
+        el('div', { class: 'cap-meta num' }, el('span', { class: 'tag' }, i.base), `${i.w}×${i.h}`),
+        el('div', { class: 'cap-src' }, i.source.replace('apps/ehr/src/', '').replace('packages/', ''))
+      )
+    );
+  }
+  function renderSheet() {
+    const host = $('sheet');
+    host.replaceChildren();
+    const list = items.filter(matches).sort(sorters[state.sort]);
+    const groups = new Map();
+    for (const i of list) {
+      const g = i.facets[state.group];
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(i);
+    }
+    const ordered = [...groups.entries()].sort(
+      (a, b) => b[1].length - a[1].length || String(a[0]).localeCompare(String(b[0]))
+    );
+    visible = ordered.flatMap(([, g]) => g);
+    let idx = 0;
+    for (const [name, g] of ordered) {
+      host.append(
+        el(
+          'div',
+          { class: 'group' },
+          el(
+            'div',
+            { class: 'group-head' },
+            el('h2', {}, String(name)),
+            el('span', { class: 'n num' }, `${g.length} dialog${g.length === 1 ? '' : 's'}`)
+          ),
+          el(
+            'div',
+            { class: 'sheet' },
+            g.map((i) => tile(i, idx++))
+          )
+        )
+      );
+    }
+    if (!list.length)
+      host.append(el('p', { class: 'lede', style: 'padding-block:30px' }, 'No dialogs match these filters.'));
+    $('count').textContent = `${list.length} of ${items.length} shown`;
+  }
+  function render() {
+    renderLedger();
+    renderFilters();
+    renderSheet();
+  }
+
+  let lbIdx = 0;
+  function openLb(idx) {
+    lbIdx = (idx + visible.length) % visible.length;
+    const i = visible[lbIdx];
+    $('lb-img').src = i.shot;
+    $('lb-img').alt = `${i.title} dialog`;
+    $('lb-img').style.width = i.w + 48 + 'px';
+    $('lb-title').textContent = i.title;
+    const dd = (label, val) =>
+      val && (Array.isArray(val) ? val.length : true)
+        ? [
+            el('dt', {}, label),
+            el(
+              'dd',
+              {},
+              Array.isArray(val)
+                ? el(
+                    'ul',
+                    {},
+                    val.map((v) => el('li', {}, v))
+                  )
+                : val
+            ),
+          ]
+        : [];
+    $('lb-dl').replaceChildren(
+      ...[
+        dd('Source', el('code', {}, i.source)),
+        dd('Built on', i.base),
+        dd('Purpose', i.kind),
+        dd('Reached from', i.where),
+        dd('Surface', i.detail.paper),
+        dd('Title', i.detail.title),
+        dd('Content', i.detail.content),
+        dd('Footer', i.detail.actions),
+        dd('Buttons', i.detail.buttons),
+        dd('Capture note', i.notes),
+        dd('Story', el('code', {}, `dialog-gallery/stories/${i.id}.story.tsx`)),
+      ].flat()
+    );
+    if (!$('lb').open) $('lb').showModal();
+  }
+  $('lb-prev').onclick = () => openLb(lbIdx - 1);
+  $('lb-next').onclick = () => openLb(lbIdx + 1);
+  $('lb-close').onclick = () => $('lb').close();
+  $('lb').addEventListener('click', (e) => {
+    if (e.target === $('lb')) $('lb').close();
+  });
+  $('lb').addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') openLb(lbIdx - 1);
+    if (e.key === 'ArrowRight') openLb(lbIdx + 1);
+  });
+
+  for (const [key, name] of FACETS) $('groupby').append(el('option', { value: key }, name));
+  $('groupby').value = state.group;
+  $('sortby').value = state.sort;
+  $('scale').value = state.scale;
+  $('scale-val').textContent = state.scale + '%';
+  $('groupby').onchange = (e) => {
+    state.group = e.target.value;
+    store.set('dg-group', state.group);
+    renderSheet();
+  };
+  $('sortby').onchange = (e) => {
+    state.sort = e.target.value;
+    store.set('dg-sort', state.sort);
+    renderSheet();
+  };
+  $('scale').oninput = (e) => {
+    state.scale = +e.target.value;
+    $('scale-val').textContent = state.scale + '%';
+    store.set('dg-scale', state.scale);
+    renderSheet();
+  };
+  $('q').oninput = (e) => {
+    state.q = e.target.value.trim();
+    renderSheet();
+  };
+
+  const files = new Set(items.map((i) => i.source)).size;
+  $('lede').replaceChildren(
+    el('b', {}, `${items.length} dialogs`),
+    ` from ${files} source files, each mounted from the real component with mock data and photographed in a 1440×900 window. Every picture is drawn at the same scale, so a dialog that looks wider here is wider in the app. Captured ${DATA.builtAt}.`
   );
-}
-function renderSheet() {
-  const host = $('sheet');
-  host.replaceChildren();
-  const list = items.filter(matches).sort(sorters[state.sort]);
-  const groups = new Map();
-  for (const i of list) { const g = i.facets[state.group]; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(i); }
-  const ordered = [...groups.entries()].sort((a, b) => b[1].length - a[1].length || String(a[0]).localeCompare(String(b[0])));
-  visible = ordered.flatMap(([, g]) => g);
-  let idx = 0;
-  for (const [name, g] of ordered) {
-    host.append(el('div', { class: 'group' },
-      el('div', { class: 'group-head' }, el('h2', {}, String(name)), el('span', { class: 'n num' }, `${g.length} dialog${g.length === 1 ? '' : 's'}`)),
-      el('div', { class: 'sheet' }, g.map((i) => tile(i, idx++)))));
-  }
-  if (!list.length) host.append(el('p', { class: 'lede', style: 'padding-block:30px' }, 'No dialogs match these filters.'));
-  $('count').textContent = `${list.length} of ${items.length} shown`;
-}
-function render() { renderLedger(); renderFilters(); renderSheet(); }
-
-let lbIdx = 0;
-function openLb(idx) {
-  lbIdx = (idx + visible.length) % visible.length;
-  const i = visible[lbIdx];
-  $('lb-img').src = i.shot; $('lb-img').alt = `${i.title} dialog`; $('lb-img').style.width = (i.w + 48) + 'px';
-  $('lb-title').textContent = i.title;
-  const dd = (label, val) => val && (Array.isArray(val) ? val.length : true) ? [el('dt', {}, label), el('dd', {}, Array.isArray(val) ? el('ul', {}, val.map((v) => el('li', {}, v))) : val)] : [];
-  $('lb-dl').replaceChildren(...[
-    dd('Source', el('code', {}, i.source)), dd('Built on', i.base), dd('Purpose', i.kind), dd('Reached from', i.where),
-    dd('Surface', i.detail.paper), dd('Title', i.detail.title), dd('Content', i.detail.content), dd('Footer', i.detail.actions),
-    dd('Buttons', i.detail.buttons), dd('Capture note', i.notes), dd('Story', el('code', {}, `dialog-gallery/stories/${i.id}.story.tsx`)),
-  ].flat());
-  if (!$('lb').open) $('lb').showModal();
-}
-$('lb-prev').onclick = () => openLb(lbIdx - 1);
-$('lb-next').onclick = () => openLb(lbIdx + 1);
-$('lb-close').onclick = () => $('lb').close();
-$('lb').addEventListener('click', (e) => { if (e.target === $('lb')) $('lb').close(); });
-$('lb').addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') openLb(lbIdx - 1); if (e.key === 'ArrowRight') openLb(lbIdx + 1); });
-
-for (const [key, name] of FACETS) $('groupby').append(el('option', { value: key }, name));
-$('groupby').value = state.group; $('sortby').value = state.sort; $('scale').value = state.scale; $('scale-val').textContent = state.scale + '%';
-$('groupby').onchange = (e) => { state.group = e.target.value; store.set('dg-group', state.group); renderSheet(); };
-$('sortby').onchange = (e) => { state.sort = e.target.value; store.set('dg-sort', state.sort); renderSheet(); };
-$('scale').oninput = (e) => { state.scale = +e.target.value; $('scale-val').textContent = state.scale + '%'; store.set('dg-scale', state.scale); renderSheet(); };
-$('q').oninput = (e) => { state.q = e.target.value.trim(); renderSheet(); };
-
-const files = new Set(items.map((i) => i.source)).size;
-$('lede').replaceChildren(el('b', {}, `${items.length} dialogs`), ` from ${files} source files, each mounted from the real component with mock data and photographed in a 1440×900 window. Every picture is drawn at the same scale, so a dialog that looks wider here is wider in the app. Captured ${DATA.builtAt}.`);
-const gaps = [...DATA.missing.map((m) => [m.what, m.source, m.why]), ...DATA.failed.map((f) => [f.title, f.source, 'Story failed to render: ' + f.error])];
-if (gaps.length) $('gaps').append(el('div', { class: 'gaps' }, el('h3', {}, `${gaps.length} not pictured`),
-  el('ul', {}, gaps.map(([what, src, why]) => el('li', {}, el('b', {}, what), ' — ', why, ' ', el('code', {}, src))))));
-$('foot').textContent = 'Regenerate from apps/ehr: run the gallery dev server, then node dialog-gallery/capture.mjs and node dialog-gallery/build-gallery.mjs. See dialog-gallery/README.md.';
-render();
+  const gaps = [
+    ...DATA.missing.map((m) => [m.what, m.source, m.why]),
+    ...DATA.failed.map((f) => [f.title, f.source, 'Story failed to render: ' + f.error]),
+  ];
+  if (gaps.length)
+    $('gaps').append(
+      el(
+        'div',
+        { class: 'gaps' },
+        el('h3', {}, `${gaps.length} not pictured`),
+        el(
+          'ul',
+          {},
+          gaps.map(([what, src, why]) => el('li', {}, el('b', {}, what), ' — ', why, ' ', el('code', {}, src)))
+        )
+      )
+    );
+  $('foot').textContent =
+    'Regenerate from apps/ehr: run the gallery dev server, then node dialog-gallery/capture.mjs and node dialog-gallery/build-gallery.mjs. See dialog-gallery/README.md.';
+  render();
 </script>
