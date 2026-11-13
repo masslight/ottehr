@@ -1,7 +1,7 @@
 import { Stack } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useParams } from 'react-router-dom';
+import { useMatch, useParams } from 'react-router-dom';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { getLocationLabel, LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
@@ -12,8 +12,10 @@ import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTask
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import {
   isTaskProgressNoteSection,
+  TASK_FOLLOW_UP_PROGRESS_NOTE_SECTIONS,
   TASK_PROGRESS_NOTE_SECTION_KEYS,
   TASK_PROGRESS_NOTE_SECTIONS,
 } from 'utils/lib/types/data/tasks/progress-note-sections';
@@ -110,6 +112,10 @@ export const CreateTaskDialog: React.FC<Props> = ({
     appointments?.find((appointment) => appointment.appointmentId === formValue.appointment)?.appointmentId
   );
   const encounterId = encounter?.id ?? '';
+  const sectionOptions =
+    encounter && isFollowupEncounter(encounter)
+      ? TASK_FOLLOW_UP_PROGRESS_NOTE_SECTIONS
+      : TASK_PROGRESS_NOTE_SECTION_KEYS;
 
   const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId, refreshKey);
   const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId, refreshKey);
@@ -155,10 +161,11 @@ export const CreateTaskDialog: React.FC<Props> = ({
   }, [formValue.patient, methods]);
 
   useEffect(() => {
-    if (!canLinkSection) {
+    const section = formValue.progressNoteSection;
+    if (!canLinkSection || (section && !sectionOptions.includes(section))) {
       methods.setValue('progressNoteSection', null);
     }
-  }, [canLinkSection, methods]);
+  }, [canLinkSection, sectionOptions, formValue.progressNoteSection, methods]);
 
   useEffect(() => {
     if (!formValue.appointment || !formValue.category) {
@@ -169,6 +176,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const urlParams = useParams();
   const appointmentId = appointmentIdProp ?? urlParams['id'];
   const appointment = useAppointmentData(appointmentId);
+  const visitRoute = useMatch('/in-person/:id/*');
+  const visitSection = visitRoute?.params.id === appointmentId ? visitRoute?.params['*'] : undefined;
   useEffect(() => {
     if (appointment.patient && open && !prefillApplied.current.appointment) {
       methods.setValue('patient', {
@@ -176,9 +185,12 @@ export const CreateTaskDialog: React.FC<Props> = ({
         name: getPatientLabel(appointment.patient),
       });
       methods.setValue('appointment', appointmentId);
+      if (isTaskProgressNoteSection(visitSection)) {
+        methods.setValue('progressNoteSection', visitSection);
+      }
       prefillApplied.current.appointment = true;
     }
-  }, [appointmentId, appointment.patient, methods, open]);
+  }, [appointmentId, appointment.patient, methods, open, visitSection]);
 
   useEffect(() => {
     if (
@@ -220,10 +232,6 @@ export const CreateTaskDialog: React.FC<Props> = ({
       methods.setValue('category', null);
       methods.setValue('order', null);
     }
-    methods.setValue(
-      'progressNoteSection',
-      methods.getValues('appointment') && isTaskProgressNoteSection(orderFullUrl) ? orderFullUrl : null
-    );
     methods.setValue('taskTitle', null);
     methods.setValue('taskDetails', null);
     methods.setValue('assignee', null);
@@ -281,7 +289,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
             <SelectInput
               name="progressNoteSection"
               label="Progress Note section"
-              options={TASK_PROGRESS_NOTE_SECTION_KEYS}
+              options={sectionOptions}
               getOptionLabel={(option) => TASK_PROGRESS_NOTE_SECTIONS[option]}
               disabled={!canLinkSection}
             />

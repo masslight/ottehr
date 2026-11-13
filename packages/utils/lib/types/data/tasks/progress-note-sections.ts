@@ -25,5 +25,16 @@ export const TASK_PROGRESS_NOTE_SECTION_KEYS = Object.keys(TASK_PROGRESS_NOTE_SE
   ...TaskProgressNoteSection[],
 ];
 
+export const TASK_FOLLOW_UP_PROGRESS_NOTE_SECTIONS: TaskProgressNoteSection[] = [
+  'allergies',
+  'medications',
+  'medical-conditions',
+  'surgical-history',
+  'hospitalization',
+  'plan',
+  'erx',
+  'documents',
+];
+
 export const isTaskProgressNoteSection = (value: string | undefined): value is TaskProgressNoteSection =>
   !!value && Object.prototype.hasOwnProperty.call(TASK_PROGRESS_NOTE_SECTIONS, value);
