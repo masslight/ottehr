@@ -57,6 +57,7 @@ import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
 import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientationHint';
 import PatientBalances from 'src/components/PatientBalances';
+import RotateCardImageButton from 'src/components/RotateCardImageButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
@@ -1054,9 +1055,9 @@ export default function VisitDetailsPage(): ReactElement {
   // Clean photo-ID thumbnail rendered in the "Patient summary" section HEADER (right-aligned, next to
   // the title), threaded down through PatientAccountComponent -> AboutPatientContainer. Same treatment
   // as the insurance cards: front image + enlarge affordance only; clicking opens the non-modal
-  // FloatingCardPreview (front/back toggle lives there — no OCR/rotate for the ID, so no
-  // previewHeaderActions). Remove-and-reload is wired the same as the insurance cards. An ID with no
-  // image gets a compact upload/scan affordance instead.
+  // FloatingCardPreview, which hosts the front/back toggle, the rotate control (same control as the
+  // insurance cards, minus the OCR "may be rotated" chip — the photo-ID extraction has no orientation
+  // verdict), and remove-and-reload. An ID with no image gets a compact upload/scan affordance instead.
   const photoIdCardSlot = (
     <CardThumbnail
       item={idCards}
@@ -1070,6 +1071,12 @@ export default function VisitDetailsPage(): ReactElement {
       backFileType="photo-id-back"
       handleDeleteClick={handleDeleteClick}
       deletingFileId={deletingFileId}
+      previewHeaderActions={(face) => {
+        const documentReferenceId = face === 'front' ? idCards.frontId : idCards.backId;
+        return documentReferenceId ? (
+          <RotateCardImageButton documentReferenceId={documentReferenceId} onRotated={refetchFileData} />
+        ) : null;
+      }}
     />
   );
 

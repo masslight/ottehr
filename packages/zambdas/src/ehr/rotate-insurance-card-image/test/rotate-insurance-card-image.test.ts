@@ -298,7 +298,59 @@ describe('rotate-insurance-card-image handler', () => {
   });
 
   it.each([
-    ['non insurance-card type coding', { type: { coding: [{ system: 'http://loinc.org', code: '55188-7' }] } }],
+    ['photo-id-front', 'image/jpeg'],
+    ['photo-id-back', 'image/png'],
+  ])(
+    'rotates a photo-ID %s image in place: re-stored to the same Z3 url, only attachment metadata patched',
+    async (title, contentType) => {
+      const docRef = makeDocRef({
+        type: { coding: [{ system: 'http://loinc.org', code: '55188-7' }] },
+        content: [{ attachment: { url: Z3_URL, title, contentType } }],
+      });
+      setupHappyMocks(docRef);
+
+      const result = await invokeHandler(makeInput(ROTATE_BODY));
+
+      expect(result.statusCode).toBe(200);
+      expect(JSON.parse(result.body)).toEqual({ documentReferenceId: DOC_REF_ID, rotated: true });
+      expect(createPresignedUrl).toHaveBeenCalledWith('mock-m2m-token', Z3_URL, 'upload');
+
+      // same direction proof as the insurance card: top-left red quadrant lands top-right
+      const image = await Jimp.read(uploadedBuffer());
+      expect(image.width).toBe(SCENE_H);
+      expect(image.height).toBe(SCENE_W);
+      expect(isRedAt(image, SCENE_H - 1, 0)).toBe(true);
+
+      // a photo ID never carries the insurance extraction extension: only attachment metadata changes
+      expect(getPatchOperations().every((op) => op.path.startsWith('/content/'))).toBe(true);
+      expect(captureException).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    ['unrelated type coding', { type: { coding: [{ system: 'http://loinc.org', code: '34108-1' }] } }],
+    [
+      'photo-ID code on a non-LOINC system',
+      {
+        type: { coding: [{ system: 'http://example.com', code: '55188-7' }] },
+        content: [{ attachment: { url: Z3_URL, title: 'photo-id-front', contentType: 'image/jpeg' } }],
+      },
+    ],
+    [
+      'photo-ID type coding with an insurance-card title',
+      { type: { coding: [{ system: 'http://loinc.org', code: '55188-7' }] } },
+    ],
+    [
+      'insurance-card type coding with a photo-ID title',
+      { content: [{ attachment: { url: Z3_URL, title: 'photo-id-front', contentType: 'image/jpeg' } }] },
+    ],
+    [
+      'non card-image photo-ID title (fullPhotoIDCard pdf)',
+      {
+        type: { coding: [{ system: 'http://loinc.org', code: '55188-7' }] },
+        content: [{ attachment: { url: Z3_URL, title: 'fullPhotoIDCard', contentType: 'application/pdf' } }],
+      },
+    ],
     ['superseded status', { status: 'superseded' }],
     ['missing attachment url', { content: [{ attachment: { title: 'insurance-card-front' } }] }],
     [
