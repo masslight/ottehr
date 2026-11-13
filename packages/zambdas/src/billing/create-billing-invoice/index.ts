@@ -18,6 +18,7 @@ import {
 } from 'utils/lib/fhir/billing-invoice';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { fillInvoiceTemplate, parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
+import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   PREPARE_BILLING_INVOICE_ZAMBDA_KEY,
   PrepareBillingInvoiceResponse,
@@ -34,11 +35,13 @@ import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
 import { getOrCreateInvoicingConfig } from '../../rcm/invoice-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { sendErrors } from '../../shared/errors';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient, STRIPE_METADATA_KEYS, stripeEncounterMetadata } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { INVOICE_ISSUER_CLAIM_INCLUDES, resolveClaimInvoiceIssuer } from '../invoice-issuer';
 import { issueInvoiceNumber } from '../invoice-number';
+import { produceBillingInvoiceIssuedOutreach } from '../invoice-outreach';
 import { createInvoiceUnlessClaimsHaveOne, getInvoiceableEncounterId, getServiceFacilityId } from '../invoices';
 import { applyClaimStatusField, resolveClaimActor } from '../provenance';
 import { createBillingClient } from '../shared';
@@ -100,6 +103,18 @@ export async function performEffect(
       });
     }
     ({ invoice, smsSent } = await sendDraft(oystehr, stripe, invoice, { encounterId, visit, params }));
+  }
+
+  // Outside the draft step so a retry of a sent invoice schedules outreach an earlier attempt missed.
+  if (invoice.status === 'issued') {
+    const env = getSecret(SecretsKeys.ENVIRONMENT, params.secrets);
+    try {
+      await produceBillingInvoiceIssuedOutreach(oystehr, invoice);
+    } catch (error) {
+      // The patient already has the invoice, so the send must not be reported as failed.
+      console.error(`Failed to schedule outreach for Invoice/${invoice.id}:`, error);
+      await sendErrors(error, env, { invoiceId: invoice.id! });
+    }
   }
 
   if (getClaimStatusValues(claim).patientArStatus === 'ready-to-invoice') {
@@ -251,11 +266,13 @@ async function sendDraft(
     throw new Error(`Stripe invoice ${stripeInvoice.id} is ${stripeInvoice.status}, expected open`);
   }
 
-  // Save the status before SMS so retries do not resend either message.
+  // Save the status before SMS so retries do not resend either message. Outreach is counted from
+  // the issue date, so the date is set here, once, when the invoice stops being a draft.
   const hostedUrl = stripeInvoice.hosted_invoice_url;
   invoice = await updateInvoice(oystehr, {
     ...(hostedUrl ? withHostedInvoiceUrl(invoice, hostedUrl) : invoice),
     status: invoiceStatusFromStripe(stripeInvoice.status),
+    date: DateTime.now().toUTC().toISO()!,
   });
   if (stripeInvoice.status === 'paid') return { invoice };
 

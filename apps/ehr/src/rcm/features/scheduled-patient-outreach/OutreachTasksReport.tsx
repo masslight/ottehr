@@ -53,6 +53,7 @@ import {
   useListOutreachTasksQuery,
   useRetryOutreachTaskMutation,
 } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
+import { OUTREACH_TASK_STATUS_LABELS } from 'utils/lib/helpers/rcm/scheduled-outreach-config';
 import { ConversationMessage } from 'utils/lib/types/api/messaging.types';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -67,16 +68,6 @@ const STATUS_FILTER_OPTIONS = [
   'cancelled',
 ] as const;
 type StatusFilterValue = (typeof STATUS_FILTER_OPTIONS)[number];
-
-const STATUS_DISPLAY: Record<string, string> = {
-  draft: 'Pending',
-  requested: 'Requested',
-  'in-progress': 'In Progress',
-  completed: 'Completed',
-  'on-hold': 'On Hold',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-};
 
 const STATUS_CHIP_STYLES: Record<string, { background: string; color: string }> = {
   draft: { background: otherColors.outreachNeutralBg, color: otherColors.outreachNeutralText },
@@ -297,7 +288,7 @@ export default function OutreachTasksReport(): ReactElement {
           size="small"
           limitTags={5}
           options={[...STATUS_FILTER_OPTIONS]}
-          getOptionLabel={(opt) => STATUS_DISPLAY[opt] || opt}
+          getOptionLabel={(opt) => OUTREACH_TASK_STATUS_LABELS[opt] || opt}
           value={selectedStatuses}
           onChange={(_, newValue) => setSelectedStatuses(newValue as StatusFilterValue[])}
           disableCloseOnSelect
@@ -306,7 +297,7 @@ export default function OutreachTasksReport(): ReactElement {
             <li {...props}>
               <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
               <Chip
-                label={STATUS_DISPLAY[option] || option}
+                label={OUTREACH_TASK_STATUS_LABELS[option] || option}
                 size="small"
                 sx={{
                   borderRadius: '4px',
@@ -327,7 +318,7 @@ export default function OutreachTasksReport(): ReactElement {
                 <Chip
                   {...getTagProps({ index })}
                   key={option}
-                  label={STATUS_DISPLAY[option] || option}
+                  label={OUTREACH_TASK_STATUS_LABELS[option] || option}
                   size="small"
                   sx={{
                     borderRadius: '4px',
@@ -708,7 +699,7 @@ function TaskTable({
                     title={<TaskStatusTooltipContent task={task} />}
                   >
                     <Chip
-                      label={STATUS_DISPLAY[task.status] || task.status}
+                      label={OUTREACH_TASK_STATUS_LABELS[task.status] || task.status}
                       size="small"
                       variant="outlined"
                       sx={{

@@ -964,6 +964,18 @@ export const GetBillingInvoiceInputSchema = z.object({
   invoiceId: nonEmptyString.uuid(),
 });
 
+export const ListBillingOutreachTasksInputSchema = z.object({
+  status: nonEmptyString.optional(),
+  // A full billing patient, claim or invoice ID, or the start of a patient's name.
+  searchText: nonEmptyString.optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
+});
+
+export const BillingOutreachTaskInputSchema = z.object({
+  taskId: nonEmptyString.uuid(),
+});
+
 export const VoidBillingInvoiceInputSchema = z.object({
   invoiceId: nonEmptyString.uuid(),
   reason: nonEmptyString.max(BILLING_INVOICE_LIMITS.voidReasonLength),

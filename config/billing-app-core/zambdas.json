@@ -351,6 +351,41 @@
       "src": "src/billing/save-billing-invoice-config/index",
       "zip": ".dist/zips/save-billing-invoice-config.zip"
     },
+    "GET-BILLING-OUTREACH-CONFIG": {
+      "name": "get-billing-outreach-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-outreach-config/index",
+      "zip": ".dist/zips/get-billing-outreach-config.zip"
+    },
+    "SAVE-BILLING-OUTREACH-CONFIG": {
+      "name": "save-billing-outreach-config",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/save-billing-outreach-config/index",
+      "zip": ".dist/zips/save-billing-outreach-config.zip"
+    },
+    "LIST-BILLING-OUTREACH-TASKS": {
+      "name": "list-billing-outreach-tasks",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/list-billing-outreach-tasks/index",
+      "zip": ".dist/zips/list-billing-outreach-tasks.zip"
+    },
+    "RETRY-BILLING-OUTREACH-TASK": {
+      "name": "retry-billing-outreach-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/retry-billing-outreach-task/index",
+      "zip": ".dist/zips/retry-billing-outreach-task.zip"
+    },
+    "CANCEL-BILLING-OUTREACH-TASK": {
+      "name": "cancel-billing-outreach-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/cancel-billing-outreach-task/index",
+      "zip": ".dist/zips/cancel-billing-outreach-task.zip"
+    },
     "CREATE-BILLING-INVOICE": {
       "name": "create-billing-invoice",
       "type": "http_auth",
@@ -717,6 +752,35 @@
       "src": "src/subscriptions/task/sub-adhoc-billing-dataset/index",
       "zip": ".dist/zips/sub-adhoc-billing-dataset.zip"
     },
+    "PROMOTE-BILLING-OUTREACH-TASKS": {
+      "name": "promote-billing-outreach-tasks",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "timeout": "595",
+      "src": "src/cron/promote-billing-outreach-tasks/index",
+      "zip": ".dist/zips/promote-billing-outreach-tasks.zip",
+      "schedule": {
+        "expression": "cron(0,15,30,45 * * * ? *)"
+      }
+    },
+    "PRODUCE-BILLING-INVOICE-DUE-OUTREACH": {
+      "name": "produce-billing-invoice-due-outreach",
+      "type": "cron",
+      "runtime": "nodejs22.x",
+      "timeout": "595",
+      "src": "src/cron/produce-billing-invoice-due-outreach/index",
+      "zip": ".dist/zips/produce-billing-invoice-due-outreach.zip",
+      "schedule": {
+        "expression": "cron(0 15 * * ? *)"
+      }
+    },
+    "SUB-BILLING-OUTREACH-TASK": {
+      "name": "sub-billing-outreach-task",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/task/sub-billing-outreach-task/index",
+      "zip": ".dist/zips/sub-billing-outreach-task.zip"
+    },
     "CLEANUP-BILLING-CLAIM-EXPORTS": {
       "name": "cleanup-billing-claim-exports",
       "type": "cron",
@@ -827,6 +891,60 @@
     }
   },
   "fhirResources": {
+    "SUB_BILLING_OUTREACH_CHARGE_CARD_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Billing outreach charge card on file",
+        "criteria": "Task?code=https://fhir.ottehr.com/billing/outreach-action-type|charge-card&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-BILLING-OUTREACH-TASK/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_BILLING_OUTREACH_SEND_NOTIFICATION_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Billing outreach send notification",
+        "criteria": "Task?code=https://fhir.ottehr.com/billing/outreach-action-type|send-notification&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-BILLING-OUTREACH-TASK/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
+    "SUB_BILLING_OUTREACH_LOG_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Billing outreach log",
+        "criteria": "Task?code=https://fhir.ottehr.com/billing/outreach-action-type|log&status=requested",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-BILLING-OUTREACH-TASK/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "update"
+          }
+        ]
+      }
+    },
     "SUB_BILLING_CLAIM_TASK_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",

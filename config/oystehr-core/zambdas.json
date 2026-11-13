@@ -1991,6 +1991,13 @@
       "src": "src/ehr/send-billing-invoice-sms/index",
       "zip": ".dist/zips/send-billing-invoice-sms.zip"
     },
+    "SEND-BILLING-OUTREACH-NOTIFICATION": {
+      "name": "send-billing-outreach-notification",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/send-billing-outreach-notification/index",
+      "zip": ".dist/zips/send-billing-outreach-notification.zip"
+    },
     "EXPORT-INVOICES": {
       "name": "export-invoices",
       "type": "http_auth",

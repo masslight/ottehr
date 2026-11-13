@@ -1,11 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BirthdayConfig,
-  getOrCreateOutreachConfig,
-  parsePlanDefinitionToActions,
-} from '../../../scheduled-outreach-config/helpers';
+import { BirthdayConfig } from 'utils/lib/types/api/scheduled-outreach.types';
+import { getOrCreateOutreachConfig, parsePlanDefinitionToActions } from '../../../scheduled-outreach-config/helpers';
 import { produceOutreachTasks } from './produce-outreach-tasks';
 
 export interface ProduceBirthdayOutreachResult {

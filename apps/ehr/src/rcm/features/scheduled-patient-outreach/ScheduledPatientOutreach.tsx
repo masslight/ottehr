@@ -60,142 +60,38 @@ import {
   useSaveOutreachConfigMutation,
 } from 'src/rcm/state/scheduled-outreach-config/scheduled-outreach-config.queries';
 import { buildInvoicePlaceholders, InvoicePlaceholderInput } from 'utils/lib/helpers/rcm/invoice-config';
+import {
+  ACTION_TYPE_LABELS,
+  ALLOWED_ACTIONS,
+  ALLOWED_TIME_UNITS,
+  buildDefaultConfig,
+  DEFAULT_EMAIL_TEMPLATE,
+  DEFAULT_SMS_TEMPLATE,
+  DIRECTION_LABELS,
+  MEDIUM_LABELS,
+  OUTREACH_TIMEZONE_OPTIONS,
+  STATEMENT_TYPE_LABELS,
+  SUPPORTS_DIRECTION,
+  TIME_UNIT_LABELS,
+  TRIGGER_EVENT_LABELS,
+} from 'utils/lib/helpers/rcm/scheduled-outreach-config';
+import {
+  ActionType,
+  BirthdayConfig,
+  ChargeCardConfig,
+  NotificationConfig,
+  NotificationMedium,
+  OutreachAction,
+  OutreachStatementType,
+  ReferToCollectionsConfig,
+  SendNotificationConfig,
+  TimeUnit,
+  TriggerDirection,
+  TriggerEvent,
+} from 'utils/lib/types/api/scheduled-outreach.types';
 import OutreachTasksReport from './OutreachTasksReport';
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
-type TriggerEvent = 'date-of-visit' | 'invoice-issued' | 'invoice-due' | 'discharge-time' | 'patient-birthday';
-
-type NotificationMedium = 'sms' | 'email' | 'paper-mail';
-
-type ActionType = 'charge-card' | 'send-notification' | 'refer-to-collections' | 'log';
-
-type TimeUnit = 'days' | 'hours' | 'minutes';
-
-type TriggerDirection = 'after' | 'before';
-
-type OutreachStatementType = 'standard' | 'past-due' | 'final-notice';
-
-interface NotificationConfig {
-  enabled: boolean;
-  mediums: NotificationMedium[];
-  smsTemplate: string;
-  emailTemplate: string;
-  statementType?: OutreachStatementType;
-}
-
-interface ChargeCardConfig {
-  onSuccess: NotificationConfig;
-  onFailure: NotificationConfig;
-  retryAttempts: number;
-  retryIntervalDays: number;
-}
-
-interface SendNotificationConfig {
-  mediums: NotificationMedium[];
-  smsTemplate: string;
-  emailTemplate: string;
-  statementType?: OutreachStatementType;
-}
-
-interface ReferToCollectionsConfig {
-  agency: string;
-  minimumBalance: number;
-  includePaymentHistory: boolean;
-}
-
-interface BirthdayConfig {
-  /** 'at' = only on this exact age; 'after' = from this age onward (up to maxAge). */
-  ageMode?: 'at' | 'after';
-  /** The target age (required when ageMode is set). */
-  age?: number;
-  /** Upper bound when ageMode is 'after'. Defaults to 100 if not specified. */
-  maxAge?: number;
-}
-
-interface OutreachAction {
-  id: string;
-  enabled?: boolean;
-  trigger: {
-    event: TriggerEvent;
-    daysAfter: number;
-    timeUnit?: TimeUnit;
-    direction?: TriggerDirection;
-  };
-  actionType: ActionType;
-  chargeCardConfig?: ChargeCardConfig;
-  sendNotificationConfig?: SendNotificationConfig;
-  referToCollectionsConfig?: ReferToCollectionsConfig;
-  logConfig?: Record<string, never>;
-  birthdayConfig?: BirthdayConfig;
-}
-
 // ── Constants ──────────────────────────────────────────────────────────────
-
-const TRIGGER_EVENT_LABELS: Record<TriggerEvent, string> = {
-  'discharge-time': 'Discharge Time',
-  'date-of-visit': 'Visit Date',
-  'invoice-issued': 'Invoice Issue Date',
-  'invoice-due': 'Invoice Due Date',
-  'patient-birthday': 'Patient Birthday',
-};
-
-/** Which action types are allowed for each trigger event. */
-const ALLOWED_ACTIONS: Record<TriggerEvent, ActionType[]> = {
-  'date-of-visit': ['charge-card', 'send-notification', 'refer-to-collections', 'log'],
-  'invoice-issued': ['charge-card', 'send-notification', 'refer-to-collections', 'log'],
-  'invoice-due': ['charge-card', 'send-notification', 'refer-to-collections', 'log'],
-  'discharge-time': ['send-notification', 'log'],
-  'patient-birthday': ['send-notification', 'log'],
-};
-
-/** Which time units are available for each trigger event. */
-const ALLOWED_TIME_UNITS: Record<TriggerEvent, TimeUnit[]> = {
-  'date-of-visit': ['days'],
-  'invoice-issued': ['days'],
-  'invoice-due': ['days'],
-  'discharge-time': ['days', 'hours', 'minutes'],
-  'patient-birthday': ['days'],
-};
-
-/** Whether the trigger supports before/after direction. */
-const SUPPORTS_DIRECTION: Record<TriggerEvent, boolean> = {
-  'date-of-visit': false,
-  'invoice-issued': false,
-  'invoice-due': false,
-  'discharge-time': false,
-  'patient-birthday': true,
-};
-
-const TIME_UNIT_LABELS: Record<TimeUnit, string> = {
-  days: 'Days',
-  hours: 'Hours',
-  minutes: 'Minutes',
-};
-
-const DIRECTION_LABELS: Record<TriggerDirection, string> = {
-  after: 'After',
-  before: 'Before',
-};
-
-const ACTION_TYPE_LABELS: Record<ActionType, string> = {
-  'charge-card': 'Charge Credit Card on File',
-  'send-notification': 'Send Notification',
-  'refer-to-collections': 'Refer to Collections',
-  log: 'Log',
-};
-
-const MEDIUM_LABELS: Record<NotificationMedium, string> = {
-  sms: 'SMS',
-  email: 'Email',
-  'paper-mail': 'Mail Statement',
-};
-
-const STATEMENT_TYPE_LABELS: Record<OutreachStatementType, string> = {
-  standard: 'Standard',
-  'past-due': 'Past Due',
-  'final-notice': 'Final Notice',
-};
 
 /** Returns all medium keys (paper-mail is always listed but may be disabled). */
 function getAvailableMediums(): NotificationMedium[] {
@@ -415,20 +311,6 @@ const SAMPLE_INPUT: InvoicePlaceholderInput = {
 
 const OUTREACH_TOKEN_IDS = [...INVOICE_TOKEN_IDS, 'location-review-link'] as const;
 
-const DEFAULT_SMS_TEMPLATE =
-  'Hello {{patient-full-name}}, thank you for visiting {{clinic}} at {{location}} on {{visit-date}} and entrusting us with your care. You can view your information in the Patient Portal: {{patient-portal-link}}';
-const DEFAULT_EMAIL_TEMPLATE =
-  'Hello {{patient-full-name}},\n\nThank you for visiting {{clinic}} at {{location}} on {{visit-date}} and entrusting us with your care.\n\nYou can view your information in the [Patient Portal]({{patient-portal-link}}).\n\nThank you,\n{{clinic}}';
-
-function defaultNotificationConfig(): NotificationConfig {
-  return {
-    enabled: true,
-    mediums: ['email'],
-    smsTemplate: DEFAULT_SMS_TEMPLATE,
-    emailTemplate: DEFAULT_EMAIL_TEMPLATE,
-  };
-}
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 /** Common props for numeric TextFields: select-all on focus. */
@@ -438,38 +320,6 @@ const numericFieldProps = {
 
 function genId(): string {
   return crypto.randomUUID();
-}
-
-function buildDefaultConfig(actionType: ActionType): Partial<OutreachAction> {
-  switch (actionType) {
-    case 'charge-card':
-      return {
-        chargeCardConfig: {
-          onSuccess: defaultNotificationConfig(),
-          onFailure: defaultNotificationConfig(),
-          retryAttempts: 0,
-          retryIntervalDays: 0,
-        },
-      };
-    case 'send-notification':
-      return {
-        sendNotificationConfig: {
-          mediums: ['email'],
-          smsTemplate: DEFAULT_SMS_TEMPLATE,
-          emailTemplate: DEFAULT_EMAIL_TEMPLATE,
-        },
-      };
-    case 'refer-to-collections':
-      return {
-        referToCollectionsConfig: {
-          agency: '',
-          minimumBalance: 0,
-          includePaymentHistory: false,
-        },
-      };
-    case 'log':
-      return {};
-  }
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -2049,13 +1899,11 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                       label="Timezone"
                       onChange={(e: SelectChangeEvent) => setSmsTimezone(e.target.value)}
                     >
-                      <MenuItem value="America/New_York">Eastern (America/New_York)</MenuItem>
-                      <MenuItem value="America/Chicago">Central (America/Chicago)</MenuItem>
-                      <MenuItem value="America/Denver">Mountain (America/Denver)</MenuItem>
-                      <MenuItem value="America/Los_Angeles">Pacific (America/Los_Angeles)</MenuItem>
-                      <MenuItem value="America/Anchorage">Alaska (America/Anchorage)</MenuItem>
-                      <MenuItem value="Pacific/Honolulu">Hawaii (Pacific/Honolulu)</MenuItem>
-                      <MenuItem value="UTC">UTC</MenuItem>
+                      {OUTREACH_TIMEZONE_OPTIONS.map(({ value, label }) => (
+                        <MenuItem key={value} value={value}>
+                          {label}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                   <Typography variant="caption" color="text.secondary">

@@ -1,10 +1,13 @@
+import type { OutreachAction } from 'utils/lib/types/api/scheduled-outreach.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
 const mockCreate = vi.fn();
 const mockSearch = vi.fn();
+const mockTransaction = vi.fn(async ({ requests }: any) => ({
+  entry: [{ resource: await mockCreate(requests[0].resource), response: { status: '201 Created' } }],
+}));
 
 const mockOystehrClient = {
   fhir: {
@@ -13,7 +16,7 @@ const mockOystehrClient = {
     get: vi.fn(),
     update: vi.fn(),
     patch: vi.fn(),
-    transaction: vi.fn(),
+    transaction: mockTransaction,
   },
 };
 

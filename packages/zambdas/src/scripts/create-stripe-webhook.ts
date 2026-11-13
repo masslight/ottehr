@@ -17,6 +17,7 @@ const TARGETS = {
       'refund.failed',
       'invoice.paid',
       'invoice.voided',
+      'invoice.marked_uncollectible',
     ],
   },
   clinical: {

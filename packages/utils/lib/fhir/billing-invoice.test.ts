@@ -14,13 +14,16 @@ import {
   getPaymentNoticeInvoiceId,
   getStripeInvoiceLink,
   INVOICE_NUMBER_IDENTIFIER_SYSTEM,
+  INVOICE_UNCOLLECTIBLE_EXTENSION_URL,
   invoiceClaimTag,
   invoicePaymentExtension,
   invoiceStatusFromStripe,
   isInvoicePastDue,
+  isInvoiceUncollectible,
   isSameInvoiceIssuer,
   resolveInvoiceIssuer,
   withHostedInvoiceUrl,
+  withInvoiceUncollectible,
   withStripeInvoiceLink,
 } from './billing-invoice';
 
@@ -356,6 +359,31 @@ describe('withHostedInvoiceUrl', () => {
     expect(getHostedInvoiceUrl(hosted)).toBe('https://pay.test/new');
     expect(getBillingInvoiceDueDate(hosted)).toBe('2026-11-08');
     expect(hosted.extension).toHaveLength(2);
+  });
+});
+
+describe('withInvoiceUncollectible', () => {
+  const invoice = withHostedInvoiceUrl(
+    buildBillingInvoice({
+      ...base,
+      recipient: { reference: 'Patient/jane' },
+      claims: [{ claimId: 'claim-1', amountCents: 5000 }],
+    }),
+    'https://pay.test/in_1'
+  );
+
+  it('is not uncollectible until marked', () => {
+    expect(isInvoiceUncollectible(invoice)).toBe(false);
+    expect(isInvoiceUncollectible(withInvoiceUncollectible(invoice))).toBe(true);
+  });
+
+  it('keeps one marker next to the due date and hosted URL', () => {
+    const marked = withInvoiceUncollectible(withInvoiceUncollectible(invoice));
+
+    expect(marked.extension?.filter((ext) => ext.url === INVOICE_UNCOLLECTIBLE_EXTENSION_URL)).toHaveLength(1);
+    expect(getBillingInvoiceDueDate(marked)).toBe('2026-11-08');
+    expect(getHostedInvoiceUrl(marked)).toBe('https://pay.test/in_1');
+    expect(isInvoiceUncollectible(invoice)).toBe(false);
   });
 });
 
