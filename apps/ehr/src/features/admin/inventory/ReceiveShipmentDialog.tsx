@@ -383,7 +383,6 @@ export default function ReceiveShipmentDialog({
           lotNumber={form.lotNumber.trim()}
           locationName={locationName}
           enteredDate={form.expirationDate.toISODate() ?? ''}
-          quantity={quantity}
           saving={saving}
           onChoose={(choice) => void receive(choice)}
           onBack={() => setConflict(undefined)}
@@ -398,7 +397,6 @@ function ExpirationConflictDialog({
   lotNumber,
   locationName,
   enteredDate,
-  quantity,
   saving,
   onChoose,
   onBack,
@@ -407,7 +405,6 @@ function ExpirationConflictDialog({
   lotNumber: string;
   locationName: string;
   enteredDate: string;
-  quantity: number;
   saving: boolean;
   onChoose: (choice: NonNullable<ReceiveMedicationShipmentInput['expirationConflict']>) => void;
   onBack: () => void;
@@ -415,7 +412,6 @@ function ExpirationConflictDialog({
   const existing = formatExpiration(conflict.expirationDate);
   const entered = formatExpiration(enteredDate);
   const onHand = `${conflict.onHand} ${unitLabel(conflict.unit, conflict.onHand)}`;
-  const adding = `${quantity} ${unitLabel(conflict.unit, quantity)}`;
   const choices: {
     choice: NonNullable<ReceiveMedicationShipmentInput['expirationConflict']>;
     label: string;
@@ -424,18 +420,18 @@ function ExpirationConflictDialog({
     {
       choice: 'separate-lot',
       label: 'Add as a Separate Lot',
-      help: `Keeps the ${onHand} expiring ${existing} and adds ${adding} expiring ${entered}. Both appear in the lot list on the medication card.`,
+      help: 'Creates a new lot with the new expiration date. The existing lot and its stock history remain unchanged.',
     },
     {
       choice: 'correct-existing',
       label: `Correct the Existing Lot to ${entered}`,
-      help: `Changes the expiration of the ${onHand} already on hand and adds the ${adding} to that lot. The change is recorded in the lot's history.`,
+      help: "Updates the existing lot's expiration date and adds the received quantity to it. The correction is recorded in stock history.",
     },
   ];
   return (
     <Dialog open onClose={onBack} maxWidth="xs" fullWidth>
       <DialogTitle component={Typography} variant="h5" color="primary.dark" sx={{ pb: 1 }}>
-        Lot {lotNumber} is already on hand at {locationName} with expiration {existing}.
+        Lot {lotNumber} already exists at {locationName} with expiration {existing}. Current balance: {onHand}.
       </DialogTitle>
       <DialogContent sx={{ pb: 2 }}>
         <Typography>You entered {entered}.</Typography>

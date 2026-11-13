@@ -62,6 +62,53 @@ describe('Receive Shipment dialog', () => {
     });
   });
 
+  it.each([
+    [25, '25 vials'],
+    [0, '0 vials'],
+    [-2, '-2 vials'],
+  ])('describes the expiration conflict the same way for a lot with a balance of %i', async (onHand, balance) => {
+    vi.mocked(lookupNdc).mockReset().mockResolvedValue({ status: 'unavailable' });
+    vi.mocked(receiveMedicationShipment)
+      .mockReset()
+      .mockResolvedValue({
+        expirationConflict: { lotId: 'lot-shown', expirationDate: '2027-03-31', onHand, unit: 'vial' },
+      });
+    const user = userEvent.setup();
+    render(
+      <ReceiveShipmentDialog
+        open
+        onClose={vi.fn()}
+        medication={medication}
+        inventory={inventory}
+        locations={[{ id: 'loc-a', name: 'Main Street' }]}
+      />
+    );
+
+    await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.ndcField), '72572-0160-25');
+    await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.lotNumberField), 'A123');
+    await user.click(screen.getByLabelText(/Expiration Date/));
+    await user.keyboard('01012028');
+    await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.quantityField), '10');
+    await screen.findByText(/lookup unavailable/);
+    await user.click(screen.getByTestId(dataTestIds.receiveShipmentDialog.receiveButton));
+
+    expect(
+      await screen.findByText(
+        `Lot A123 already exists at Main Street with expiration 03/31/2027. Current balance: ${balance}.`
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Creates a new lot with the new expiration date. The existing lot and its stock history remain unchanged.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Updates the existing lot's expiration date and adds the received quantity to it. The correction is recorded in stock history."
+      )
+    ).toBeInTheDocument();
+  });
+
   describe('while the NDC lookup is pending', () => {
     let resolveLookup: (result: LookupNdcResponse) => void;
     const onClose = vi.fn();
