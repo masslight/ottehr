@@ -13,6 +13,9 @@ import {
 } from 'src/features/visits/shared/components/scribe-recommendations/aiAddedMarks';
 import VitalHistoryElement from 'src/features/visits/shared/components/vitals/components/VitalsHistoryEntry';
 import { useGetVitals } from 'src/features/visits/shared/components/vitals/hooks/useGetVitals';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { useBirthHistory } from 'src/hooks/useBirthHistory';
+import { formatBirthHistoryNoteLines } from 'utils/lib/helpers/vitals/birth-history.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 
@@ -40,6 +43,13 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { data: encounterVitals } = useGetVitals(encounterId);
   const aiAdded = useAiAddedRecommendations();
+  const {
+    resources: { patient },
+  } = useAppointmentData();
+  const { data: birthHistoryData } = useBirthHistory(patient?.id);
+  const birthHistoryLines = birthHistoryData?.birthHistory
+    ? formatBirthHistoryNoteLines(birthHistoryData.birthHistory)
+    : [];
 
   const vitalGroups = VITAL_LABELS.map(([field, label]) => ({
     label,
@@ -53,7 +63,9 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
     <Stack spacing={1} sx={{ width: '100%' }} data-testid={dataTestIds.progressNotePage.vitalsContainer}>
       {!titleInCardHeader && <SectionHeading>Vitals</SectionHeading>}
 
-      {!vitalGroups.length && !hasNotes && <Typography color="text.secondary">No vitals</Typography>}
+      {!vitalGroups.length && !hasNotes && !birthHistoryLines.length && (
+        <Typography color="text.secondary">No vitals</Typography>
+      )}
 
       {vitalGroups.map((group) => (
         <Box key={group.label} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -72,6 +84,15 @@ export const PatientVitalsContainer: FC<PatientVitalsContainerProps> = ({ notes,
           })}
         </Box>
       ))}
+
+      {birthHistoryLines.length > 0 && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <AssessmentTitle>Birth history</AssessmentTitle>
+          {birthHistoryLines.map((line) => (
+            <Typography key={line}>{line}</Typography>
+          ))}
+        </Box>
+      )}
 
       {notes && notes.length > 0 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

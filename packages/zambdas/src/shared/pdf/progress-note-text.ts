@@ -45,7 +45,7 @@ const serializeVitals = (data: ProgressNoteData): Section => {
   const vitals = data.vitals?.vitals;
   if (!vitals) return { heading: 'VITALS', lines: [] };
 
-  const lines = (Object.keys(VITAL_LABELS) as (VitalFieldNames | 'notes')[]).flatMap((field) => {
+  const lines = (Object.keys(VITAL_LABELS) as (keyof typeof VITAL_LABELS)[]).flatMap((field) => {
     const records = vitals[field as VitalFieldNames];
     if (!records?.length) return [];
     // DOT vision screening records are multi-line (MCSA-5875 layout); keep each line on its own row

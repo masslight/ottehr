@@ -558,6 +558,8 @@ export const dataTestIds = {
     heightAddButton: 'height-add-button',
     heightItem: 'height-item',
     headCircumferenceHeader: 'head-circumference-header',
+    birthHistoryHeader: 'birth-history-header',
+    birthHistorySaveButton: 'birth-history-save-button',
     headCircumferenceInput: 'head-circumference-input',
     headCircumferenceInchesInput: 'head-circumference-inches-input',
     headCircumferenceAddButton: 'head-circumference-add-button',

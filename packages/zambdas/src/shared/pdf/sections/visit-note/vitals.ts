@@ -1,4 +1,5 @@
 import { mapVitalsToDisplay } from 'utils/lib/helpers/visit-note/map-vitals-to-display.helper';
+import { formatBirthHistoryNoteLines } from 'utils/lib/helpers/vitals/birth-history.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
@@ -11,7 +12,7 @@ import { EncounterInfo, PdfSection, ProgressNoteVisitDataInput, Vitals } from '.
  * Shared by the PDF renderer and the plain-text serialization used for the AI note review, so the
  * two can never drift apart.
  */
-export const VITAL_LABELS: { [value in VitalFieldNames]: string } & { notes: string } = {
+export const VITAL_LABELS: { [value in VitalFieldNames]: string } & { birthHistory: string; notes: string } = {
   [VitalFieldNames.VitalTemperature]: 'Temperature',
   [VitalFieldNames.VitalHeartbeat]: 'Heartbeat',
   [VitalFieldNames.VitalRespirationRate]: 'Respiration rate',
@@ -23,6 +24,7 @@ export const VITAL_LABELS: { [value in VitalFieldNames]: string } & { notes: str
   [VitalFieldNames.VitalBMI]: 'BMI',
   [VitalFieldNames.VitalVision]: 'Vision',
   [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',
+  birthHistory: 'Birth history',
   notes: 'Vitals notes',
 };
 
@@ -40,14 +42,16 @@ export const composeVitals: DataComposer<ProgressNoteVisitDataInput, Vitals> = (
   const vitalsNotes = additionalChartData?.notes
     ?.filter((note) => note.type === NOTE_TYPE.VITALS)
     ?.map((note) => note.text);
+  const birthHistory = allChartData.birthHistory ? formatBirthHistoryNoteLines(allChartData.birthHistory) : [];
 
-  if (!vitalsData && (!vitalsNotes || vitalsNotes.length === 0)) {
+  if (!vitalsData && (!vitalsNotes || vitalsNotes.length === 0) && birthHistory.length === 0) {
     return {};
   }
 
   return {
     vitals: {
       ...(vitalsData ?? {}),
+      ...(birthHistory.length > 0 ? { birthHistory } : {}),
       ...(vitalsNotes && vitalsNotes.length > 0 ? { notes: vitalsNotes } : {}),
     },
   };
