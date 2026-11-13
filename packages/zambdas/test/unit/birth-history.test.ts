@@ -69,7 +69,7 @@ describe('birth history display', () => {
   });
 
   test('missing fields leave no gaps', () => {
-    expect(formatBirthHistorySummary({ gestationalAgeWeeks: 40, birthWeightKg: 3.5 })).toBe('40 wk · 3.50 kg');
+    expect(formatBirthHistorySummary({ gestationalAgeWeeks: 40, birthWeightKg: 3.5 })).toBe('40 wk · 3.5 kg');
     expect(formatBirthHistorySummary({})).toBe('');
     expect(formatGestationalAge(undefined, 3)).toBeUndefined();
     expect(formatGestationalAge(39, 0)).toBe('39 wk');

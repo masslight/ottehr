@@ -40,7 +40,7 @@ const vitals: FlowsheetDefinition = {
     { label: 'Respiratory rate (/min)', keys: ['respirationRate'], digits: 0 },
     { label: 'SpO₂ (%)', keys: ['oxygenSaturation'], digits: 0 },
     { label: 'Blood pressure (mmHg)', keys: ['systolic', 'diastolic'], digits: 0 },
-    { label: 'Weight (kg)', keys: ['weight'], digits: 1 },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
     { label: 'Height (cm)', keys: ['height'], digits: 1 },
     { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
     { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1 },
@@ -105,7 +105,7 @@ const thyroid: FlowsheetDefinition = {
     { label: 'TPO antibodies', keys: ['tpoAntibodies'] },
     { label: 'Thyroid medication', keys: ['thyroidMedication'] },
     { label: 'Thyroid diagnosis this visit', keys: ['thyroidDiagnosis'] },
-    { label: 'Weight (kg)', keys: ['weight'], digits: 1 },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
     { label: 'Heart rate (bpm)', keys: ['heartRate'], digits: 0 },
   ],
   charts: [

@@ -1145,7 +1145,7 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       // the same readings in the chart's other units
       temperatureC: 37,
       temperatureCReadings: [37],
-      weightLbs: 154.3,
+      weightLbs: 154.32,
       heightInches: 66.93,
       heightFeetInches: `5'7"`,
       temperatureMethod: 'Oral',

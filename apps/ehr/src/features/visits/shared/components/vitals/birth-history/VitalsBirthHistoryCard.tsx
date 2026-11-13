@@ -15,6 +15,7 @@ import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointment
 import { useAppointmentData } from '../../../stores/appointment/appointment.store';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { VitalsUnitInputRow } from '../components/VitalsUnitInputRow';
+import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
 import { useVitalsUnitInputOrder } from '../hooks/useVitalsUnitInputOrder';
 import { PairedMeasureState, useBirthHistoryLocalState } from './useBirthHistoryLocalState';
 
@@ -155,7 +156,18 @@ const BirthHistoryForm = ({
   );
 
   return (
-    <Box sx={{ backgroundColor: '#F7F8F9', borderRadius: 2, m: 2, p: 2, maxWidth: 720 }}>
+    <Box
+      sx={{
+        backgroundColor: '#F7F8F9',
+        borderRadius: 2,
+        m: 2,
+        p: 2,
+        maxWidth: 720,
+        // A value that is not a number gets the red border the other vitals cards use.
+        border: value ? 'none' : VITALS_FORM_ERROR_BORDER,
+        transition: VITALS_FORM_BORDER_TRANSITION,
+      }}
+    >
       <Row label="Date of birth">
         <Typography>{dateOfBirth}</Typography>
       </Row>

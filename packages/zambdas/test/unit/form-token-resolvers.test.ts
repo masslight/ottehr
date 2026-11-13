@@ -59,7 +59,7 @@ describe('vitals tokens', () => {
     const ctx = contextWithVitals([weight]);
 
     expect(resolveToken('vitals.weightKg', ctx)).toBe(70);
-    expect(resolveToken('vitals.weightLbs', ctx)).toBe(154.3);
+    expect(resolveToken('vitals.weightLbs', ctx)).toBe(154.32);
   });
 
   it('takes the most recent reading, not the first recorded', () => {

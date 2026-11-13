@@ -3,7 +3,7 @@ import { BirthHistory } from '../../types/api/birth-history.types';
 import { roundNumberToDecimalPlaces } from '../../utils/convert';
 import { vitalsConfig } from './config-schema';
 import { formatHeadCircumferenceObservationValue } from './vitals-head-circumference.helper';
-import { LBS_IN_KG } from './vitals-weight.helper';
+import { formatWeightKg, formatWeightLbs } from './vitals-weight.helper';
 
 export const DAYS_PER_WEEK = 7;
 
@@ -21,10 +21,10 @@ export const formatGestationalAge = (weeks?: number, days?: number): string | un
 export const formatTimeOfBirth = (timeOfBirth: string): string =>
   DateTime.fromFormat(timeOfBirth, 'HH:mm').toFormat('hh:mm a');
 
-/** Infant weights show 2 decimals in both units, in the practice's weight unit order ("2.41 kg ≈ 5.31 lbs"). */
+/** Both units, in the practice's weight unit order ("2.41 kg ≈ 5.31 lbs"). */
 export const formatBirthWeight = (kg: number): string => {
-  const kgText = `${roundNumberToDecimalPlaces(kg, 2).toFixed(2)} kg`;
-  const lbsText = `${roundNumberToDecimalPlaces(kg * LBS_IN_KG, 2).toFixed(2)} lbs`;
+  const kgText = `${formatWeightKg(kg)} kg`;
+  const lbsText = `${formatWeightLbs(kg)} lbs`;
   return vitalsConfig['vital-weight'].unit === 'kg' ? `${kgText} ≈ ${lbsText}` : `${lbsText} ≈ ${kgText}`;
 };
 
@@ -33,7 +33,7 @@ export const formatBirthHistorySummary = (history: BirthHistory): string =>
   [
     formatGestationalAge(history.gestationalAgeWeeks, history.gestationalAgeDays),
     history.timeOfBirth && `born ${formatTimeOfBirth(history.timeOfBirth)}`,
-    history.birthWeightKg !== undefined && `${roundNumberToDecimalPlaces(history.birthWeightKg, 2).toFixed(2)} kg`,
+    history.birthWeightKg !== undefined && `${formatWeightKg(history.birthWeightKg)} kg`,
     history.birthLengthCm !== undefined && `${roundNumberToDecimalPlaces(history.birthLengthCm, 1).toFixed(1)} cm`,
     history.birthHeadCircumferenceCm !== undefined &&
       `HC ${roundNumberToDecimalPlaces(history.birthHeadCircumferenceCm, 1).toFixed(1)} cm`,
