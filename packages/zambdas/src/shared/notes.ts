@@ -1,5 +1,6 @@
 import { Communication, Practitioner } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { getAllPractitionerCredentials } from 'utils/lib/fhir/helpers';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
@@ -28,8 +29,14 @@ export const isTaskNoteUnreadBy = (resource: Communication, practitionerId: stri
   resource.sender?.reference !== `Practitioner/${practitionerId}` &&
   !resource.meta?.tag?.some((tag) => tag.system === TASK_NOTE_READ_BY_TAG_SYSTEM && tag.code === practitionerId);
 
-export const getPractitionerName = (practitioner: Practitioner): string =>
-  [practitioner.name?.[0]?.given?.join(' '), practitioner.name?.[0]?.family].filter(Boolean).join(' ');
+export const getPractitionerName = (practitioner: Practitioner): string => {
+  const name = [practitioner.name?.[0]?.given?.join(' '), practitioner.name?.[0]?.family].filter(Boolean).join(' ');
+  const credentials = getAllPractitionerCredentials(practitioner)
+    .map((credential) => credential.trim())
+    .filter(Boolean)
+    .join(', ');
+  return name && credentials ? `${name}, ${credentials}` : name;
+};
 
 export const toNoteDto = (resource: Communication, callerId?: string): NoteDTO => {
   const authorId = resource.sender?.reference?.split('/')[1] ?? '';
