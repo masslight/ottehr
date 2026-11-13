@@ -650,6 +650,53 @@ describe('summarizeClaimPayments', () => {
     expect(summarizeClaimPayments([primary, secondary], 100).patientResp).toBe(5);
   });
 
+  it("keeps an earlier remit's write-off when a bare later remit has no allowed or PR", () => {
+    const primary = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 25, '45')]],
+    });
+    const bareSecondary = claimResponse('2026-02-01', { totalPaid: 10 });
+    const summary = summarizeClaimPayments([primary, bareSecondary], 100);
+    expect(summary.insurancePaid).toBe(70);
+    expect(summary.patientResp).toBe(5);
+    expect(summary.balance).toBe(5);
+  });
+
+  it('nets a reversed write-off against its correction when billed is the basis', () => {
+    const original = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 25, '45')]],
+    });
+    const reversal = claimResponse('2026-02-01', {
+      totalPaid: -60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, -60), casAdjustment('CO', -25, '45')]],
+    });
+    const correction = claimResponse('2026-02-01', {
+      totalPaid: 50,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 50), casAdjustment('CO', 30, '45')]],
+      lastUpdated: '2026-02-02T00:00:00Z',
+    });
+    // 100 billed - 50 paid - 30 written off; the reversed 60/25 cancel out
+    expect(summarizeClaimPayments([original, reversal, correction], 100).patientResp).toBe(20);
+  });
+
+  it('does not count prior-payer impact repeated across several later remits', () => {
+    const primary = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 25, '45')]],
+    });
+    const secondary = claimResponse('2026-02-01', {
+      totalPaid: 5,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 5), casAdjustment('OA', 85, '23')]],
+    });
+    const tertiary = claimResponse('2026-03-01', {
+      totalPaid: 5,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 5), casAdjustment('OA', 90, '23')]],
+    });
+    // 100 billed - 70 paid - 25 written off by the primary only
+    expect(summarizeClaimPayments([primary, secondary, tertiary], 100).patientResp).toBe(5);
+  });
+
   it('uses billed as the basis when no response carries an allowed amount', () => {
     const cr = claimResponse('2026-01-01', { totalPaid: 60 });
     const summary = summarizeClaimPayments([cr], 100);
