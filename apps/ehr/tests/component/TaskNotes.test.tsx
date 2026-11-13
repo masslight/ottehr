@@ -41,6 +41,8 @@ vi.mock('src/api/api', () => ({
 vi.mock('src/features/visits/in-person/hooks/useTasks', () => ({
   useGetTasks: () => ({ data: { tasks, total: tasks.length }, isLoading: false, isFetching: false }),
   useCompleteTask: () => ({ mutateAsync: vi.fn() }),
+  useMyActiveTaskLocations: () => [],
+  ACTIVE_TASK_STATUSES: ['ready', 'in-progress'],
   formatDate: (date: string) => date,
   TASKS_PAGE_SIZE: 20,
   OPEN_DOSESPOT: 'Open DoseSpot',
