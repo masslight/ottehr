@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useMatch, useParams } from 'react-router-dom';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
-import { getLocationLabel, LocationSelectInput } from 'src/components/input/LocationSelectInput';
+import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
@@ -13,6 +13,7 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
 import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
+import { getLocationLabel } from 'utils/lib/fhir/location';
 import {
   isTaskProgressNoteSection,
   TASK_FOLLOW_UP_PROGRESS_NOTE_SECTIONS,

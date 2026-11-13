@@ -2,7 +2,7 @@ import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
+import { getLocationLabel, isLocationInPerson, isLocationVirtual } from 'utils/lib/fhir/location';
 import { AutocompleteInput } from './AutocompleteInput';
 
 type Props = {
@@ -90,10 +90,3 @@ export const LocationSelectInput: React.FC<Props> = ({
     />
   );
 };
-
-export function getLocationLabel(location: Location): string {
-  if (!location.name) {
-    return 'Unknown Location';
-  }
-  return location.address?.state ? `${location.address.state.toUpperCase()} - ${location.name}` : location.name;
-}

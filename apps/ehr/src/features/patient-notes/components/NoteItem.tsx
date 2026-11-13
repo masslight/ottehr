@@ -17,7 +17,7 @@ interface NoteItemProps {
 export const formatNoteByline = (note: NoteDTO): string => {
   const written = note.sent ?? note.lastUpdated;
   const date = written ? DateTime.fromISO(written).toFormat('MM/dd/yyyy hh:mm a') : '';
-  const editors = note.editorNames?.length ? `, edited by ${note.editorNames.join(', ')}` : '';
+  const editors = note.editorNames?.length ? `, edited by ${note.editorNames.join('; ')}` : '';
   return `${date} by ${note.authorName || note.authorId}${editors || (note.edited ? ' (edited)' : '')}`;
 };
 
