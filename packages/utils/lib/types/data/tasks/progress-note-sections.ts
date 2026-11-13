@@ -16,6 +16,7 @@ export const TASK_PROGRESS_NOTE_SECTIONS = {
   erx: 'eRX',
   documents: 'Documents',
   'review-and-sign': 'Review & Sign',
+  'follow-up-note': 'Follow-up Note',
 } as const;
 
 export type TaskProgressNoteSection = keyof typeof TASK_PROGRESS_NOTE_SECTIONS;
@@ -25,7 +26,28 @@ export const TASK_PROGRESS_NOTE_SECTION_KEYS = Object.keys(TASK_PROGRESS_NOTE_SE
   ...TaskProgressNoteSection[],
 ];
 
+export const TASK_MAIN_PROGRESS_NOTE_SECTIONS: TaskProgressNoteSection[] = [
+  'cc-and-intake-notes',
+  'screening-questions',
+  'questionnaires',
+  'vitals',
+  'allergies',
+  'medications',
+  'medical-conditions',
+  'surgical-history',
+  'hospitalization',
+  'history-of-present-illness-and-templates',
+  'review-of-systems',
+  'examination',
+  'assessment',
+  'plan',
+  'erx',
+  'documents',
+  'review-and-sign',
+];
+
 export const TASK_FOLLOW_UP_PROGRESS_NOTE_SECTIONS: TaskProgressNoteSection[] = [
+  'follow-up-note',
   'allergies',
   'medications',
   'medical-conditions',

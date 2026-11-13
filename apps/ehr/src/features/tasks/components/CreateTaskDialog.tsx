@@ -12,11 +12,11 @@ import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTask
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
-import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
 import {
   isTaskProgressNoteSection,
   TASK_FOLLOW_UP_PROGRESS_NOTE_SECTIONS,
-  TASK_PROGRESS_NOTE_SECTION_KEYS,
+  TASK_MAIN_PROGRESS_NOTE_SECTIONS,
   TASK_PROGRESS_NOTE_SECTIONS,
 } from 'utils/lib/types/data/tasks/progress-note-sections';
 import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
@@ -113,9 +113,9 @@ export const CreateTaskDialog: React.FC<Props> = ({
   );
   const encounterId = encounter?.id ?? '';
   const sectionOptions =
-    encounter && isFollowupEncounter(encounter)
+    getEncounterVisitType(encounter) === 'follow-up'
       ? TASK_FOLLOW_UP_PROGRESS_NOTE_SECTIONS
-      : TASK_PROGRESS_NOTE_SECTION_KEYS;
+      : TASK_MAIN_PROGRESS_NOTE_SECTIONS;
 
   const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId, refreshKey);
   const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId, refreshKey);
