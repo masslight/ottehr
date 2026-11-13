@@ -65,12 +65,14 @@ const administer = async ({
   medicationAdministration = order(),
   relatedPersons = [],
   type = 'administered',
+  medicationId = 'med-1',
   emergencyContact,
   searchError,
 }: {
   medicationAdministration?: MedicationAdministration;
   relatedPersons?: RelatedPerson[];
   type?: string;
+  medicationId?: string;
   emergencyContact?: { relationship: string; fullName: string; mobile: string };
   searchError?: Error;
 }): Promise<{ administration: MedicationAdministration; search: ReturnType<typeof vi.fn> }> => {
@@ -78,16 +80,23 @@ const administer = async ({
   const search = searchError
     ? vi.fn().mockRejectedValue(searchError)
     : vi.fn().mockResolvedValue({ unbundle: () => relatedPersons });
-  const get = vi.fn(async ({ resourceType }: { resourceType: string }) =>
-    resourceType === 'MedicationAdministration' ? medicationAdministration : practitioner
-  );
+  const get = vi.fn(async ({ resourceType, id }: { resourceType: string; id: string }) => {
+    if (resourceType === 'MedicationAdministration') return medicationAdministration;
+    if (resourceType === 'Medication') return { resourceType: 'Medication', id };
+    return practitioner;
+  });
   const oystehr = { fhir: { get, search, transaction } } as unknown as Oystehr;
   const validated = validateAdministerRequest(
     createMockZambdaInput({
       orderId: 'order-1',
       type,
       ...(type === 'administered-not' ? { reason: 'patient-refused' } : {}),
-      details: { medication: { id: 'med-1', name: 'Tdap' }, dose: '0.5', units: 'mL', orderedProvider: { id: 'pr-1' } },
+      details: {
+        medication: { id: medicationId, name: 'Tdap' },
+        dose: '0.5',
+        units: 'mL',
+        orderedProvider: { id: 'pr-1' },
+      },
       administrationDetails: {
         lot: 'L1',
         expDate: '2027-01-31',
@@ -182,6 +191,30 @@ describe('administerImmunizationOrder - emergency contact', () => {
 
     expect(search).not.toHaveBeenCalled();
     expect(recordedContacts(administration)).toEqual([recorded]);
+  });
+
+  it('keeps the recorded contact when the vaccine of an administered order is changed', async () => {
+    const recorded: RelatedPerson = { ...paperworkContact('Parent'), id: CONTAINED_EMERGENCY_CONTACT_ID };
+
+    const { administration } = await administer({
+      medicationAdministration: order('completed', [recorded]),
+      medicationId: 'med-2',
+    });
+
+    expect(recordedContacts(administration)).toEqual([recorded]);
+    expect(administration.supportingInformation).toEqual([{ reference: '#' + CONTAINED_EMERGENCY_CONTACT_ID }]);
+  });
+
+  it('clears the recorded contact when an administered order is saved as not administered', async () => {
+    const recorded: RelatedPerson = { ...paperworkContact('Parent'), id: CONTAINED_EMERGENCY_CONTACT_ID };
+
+    const { administration } = await administer({
+      medicationAdministration: order('completed', [recorded]),
+      type: 'administered-not',
+    });
+
+    expect(recordedContacts(administration)).toEqual([]);
+    expect(administration.supportingInformation).toBeUndefined();
   });
 
   it('administers the order when the emergency contact cannot be read', async () => {

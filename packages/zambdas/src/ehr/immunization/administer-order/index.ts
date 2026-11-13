@@ -89,6 +89,10 @@ export async function administerImmunizationOrder(
   const wasGiven = ['administered', 'administered-partly'].includes(
     mapFhirToOrderStatus(medicationAdministration) ?? ''
   );
+  const recordedEmergencyContact = medicationAdministration.contained?.find(
+    (resource): resource is RelatedPerson =>
+      resource.resourceType === 'RelatedPerson' && resource.id === CONTAINED_EMERGENCY_CONTACT_ID
+  );
 
   await updateOrderDetails(medicationAdministration, details, oystehr);
 
@@ -121,25 +125,19 @@ export async function administerImmunizationOrder(
     },
   });
 
+  const isGiven = ['administered', 'administered-partly'].includes(type);
   const emergencyContactRelatedPerson =
     (administrationDetails.emergencyContact &&
       createEmergencyContactRelatedPerson(medicationAdministration.subject, administrationDetails.emergencyContact)) ||
-    (!wasGiven && ['administered', 'administered-partly'].includes(type)
-      ? await findPaperworkEmergencyContact(oystehr, medicationAdministration.subject)
-      : undefined);
-  if (emergencyContactRelatedPerson) {
-    medicationAdministration.contained = [
-      ...(medicationAdministration.contained ?? []).filter(
-        (resource) => resource.id !== CONTAINED_EMERGENCY_CONTACT_ID
-      ),
-      emergencyContactRelatedPerson,
-    ];
-    medicationAdministration.supportingInformation = [
-      {
-        reference: '#' + CONTAINED_EMERGENCY_CONTACT_ID,
-      },
-    ];
-  }
+    (isGiven && wasGiven ? recordedEmergencyContact : undefined) ||
+    (isGiven && !wasGiven ? await findPaperworkEmergencyContact(oystehr, medicationAdministration.subject) : undefined);
+  medicationAdministration.contained = [
+    ...(medicationAdministration.contained ?? []).filter((resource) => resource.id !== CONTAINED_EMERGENCY_CONTACT_ID),
+    ...(emergencyContactRelatedPerson ? [emergencyContactRelatedPerson] : []),
+  ];
+  medicationAdministration.supportingInformation = emergencyContactRelatedPerson
+    ? [{ reference: '#' + CONTAINED_EMERGENCY_CONTACT_ID }]
+    : undefined;
 
   const medication = getContainedMedication(medicationAdministration);
   if (!medication) {
