@@ -62,7 +62,7 @@ export default function AdjustStockDialog({
   const noteMissing = reason === 'other' && !note.trim();
 
   const save = async (): Promise<void> => {
-    if (!oystehrZambda || !reason) return;
+    if (!oystehrZambda || !reason || saving) return;
     if (noteMissing) {
       setShowNoteError(true);
       return;
