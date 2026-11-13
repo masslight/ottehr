@@ -13,6 +13,10 @@ import {
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('utils/lib/ottehr-config/feature-flags', () => ({
+  FEATURE_FLAGS_CONFIG: Object.freeze({ skipSendingVisitNoteToPatientPortalEnabled: false, sendgridEnabled: true }),
+}));
+
 const mockSendEmail = vi.fn();
 vi.mock('../../src/shared/communication', () => ({
   getEmailClient: () => ({
