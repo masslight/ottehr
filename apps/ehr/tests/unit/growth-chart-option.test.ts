@@ -153,13 +153,13 @@ describe('growth chart option (the cards ported from the OTR-3741 report)', () =
       note: 'implausible (z 7.9) — not plotted on the line',
     });
     expect(growthTooltip(bad, view)).toBe(
-      `${expectedDate(bad.time)} · 6 mo · 5.5 kg\n⚠ implausible (z 7.9) — not plotted on the line`
+      `${expectedDate(bad.time)} · 6 mo · 5.50 kg\n⚠ implausible (z 7.9) — not plotted on the line`
     );
     expect(tooltip({ data: {} })).toBe('');
     // Weight-for-length shows the weight at the length; the table uses "@", the tooltip "at".
     const wfl = point({ chart: 'who-wfl', x: 65.04, y: 7.3 });
-    expect(formatGrowthValue(wfl, GROWTH_CHART_VIEWS['who-wfl'])).toBe('7.3 kg @ 65 cm');
-    expect(growthTooltip(wfl, GROWTH_CHART_VIEWS['who-wfl'])).toContain('7.3 kg at 65 cm');
+    expect(formatGrowthValue(wfl, GROWTH_CHART_VIEWS['who-wfl'])).toBe('7.30 kg @ 65.0 cm');
+    expect(growthTooltip(wfl, GROWTH_CHART_VIEWS['who-wfl'])).toContain('7.30 kg at 65.0 cm');
   });
 });
 

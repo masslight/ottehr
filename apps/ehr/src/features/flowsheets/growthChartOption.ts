@@ -116,7 +116,7 @@ export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
     title: 'Weight-for-age',
     yLabel: 'Weight (kg)',
     unit: 'kg',
-    digits: 1,
+    digits: 2,
     xAxis: AGE_YEARS,
     inOtherSet: true,
   },
@@ -157,11 +157,12 @@ const niceStep = (span: number, target: number): number => {
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * pow;
 };
 
-const round = (value: number, digits: number): number => roundNumberToDecimalPlaces(value, digits);
+// Exactly `digits` decimals (16.0, not 16), as the flowsheet table shows them.
+const fixed = (value: number, digits: number): string => roundNumberToDecimalPlaces(value, digits).toFixed(digits);
 
-/** "73 kg", "7.3 kg @ 65 cm" (the table) or "7.3 kg at 65 cm" (the tooltip). */
+/** "73.00 kg", "7.30 kg @ 65.0 cm" (the table) or "7.30 kg at 65.0 cm" (the tooltip). */
 export const formatGrowthValue = (point: GrowthChartPoint, view: GrowthChartView, atLength = '@'): string =>
-  `${round(point.y, view.digits)} ${view.unit}${view.xIsLength ? ` ${atLength} ${round(point.x, 1)} cm` : ''}`;
+  `${fixed(point.y, view.digits)} ${view.unit}${view.xIsLength ? ` ${atLength} ${fixed(point.x, 1)} cm` : ''}`;
 
 export const formatGrowthDate = (iso: string): string => DateTime.fromISO(iso).toFormat(DATE_FORMAT);
 
