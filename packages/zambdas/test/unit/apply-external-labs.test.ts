@@ -30,6 +30,22 @@ vi.mock('../../src/ehr/lab/shared/orderable-items', () => ({
   getOrderableItems: vi.fn(),
 }));
 
+// Mock VALUE_SETS so this unit test does not depend on the per-project overlay's
+// value of externalLabCptCodesToAddPerEncounter. The '99001' code is the canonical
+// per-encounter handling/conveyance code defined in the core repo.
+vi.mock('utils/lib/ottehr-config/value-sets', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('utils/lib/ottehr-config/value-sets')>();
+  return {
+    ...actual,
+    VALUE_SETS: {
+      ...actual.VALUE_SETS,
+      externalLabCptCodesToAddPerEncounter: [
+        { label: 'Handling and/or conveyance of specimen for transfer to a laboratory', value: '99001' },
+      ],
+    },
+  };
+});
+
 const EXTERNAL_LAB_PLAN_TAG = chartDataTagSystem('external-lab-template-plan');
 const LAB_GUID = 'lab-guid-1';
 
