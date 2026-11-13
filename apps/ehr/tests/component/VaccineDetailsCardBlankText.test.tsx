@@ -35,7 +35,26 @@ vi.mock('src/features/visits/shared/hooks/useGetAppointmentAccessibility', () =>
   useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: false }),
 }));
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
-  useAppointmentData: () => ({ mappedData: {} }),
+  useAppointmentData: () => ({ mappedData: {}, resources: { patient: { resourceType: 'Patient', id: 'patient-1' } } }),
+}));
+vi.mock('src/features/visits/shared/hooks/useOystehrAPIClient', () => ({ useOystehrAPIClient: () => ({}) }));
+vi.mock('src/hooks/useGetPatient', () => ({
+  useGetPatientAccount: ({ patientId }: { patientId: string | null }) => ({
+    data: patientId
+      ? {
+          emergencyContactResource: {
+            resourceType: 'RelatedPerson',
+            patient: { reference: 'Patient/patient-1' },
+            relationship: [
+              { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v2-0131', code: 'EP', display: 'Parent' }] },
+            ],
+            name: [{ given: ['Martin'], family: 'Black' }],
+            telecom: [{ system: 'phone', value: '+11234567890' }],
+          },
+        }
+      : undefined,
+    isError: false,
+  }),
 }));
 vi.mock('src/features/visits/in-person/hooks/useImmunization', () => ({
   useAdministerImmunizationOrder: () => ({ mutateAsync: administerOrder }),
@@ -98,6 +117,15 @@ const renderCard = (lot: string): void => {
     />
   );
 };
+
+describe('VaccineDetailsCard - emergency contact', () => {
+  it("shows the patient's paperwork emergency contact read-only on a pending order", () => {
+    renderCard('L1');
+
+    expect(screen.getByTestId('vaccine-emergency-contact')).toHaveTextContent('Parent | Martin Black | (123) 456-7890');
+    expect(screen.queryByRole('textbox', { name: /full name/i })).not.toBeInTheDocument();
+  });
+});
 
 describe('VaccineDetailsCard - blank administration text', () => {
   beforeEach(() => {
