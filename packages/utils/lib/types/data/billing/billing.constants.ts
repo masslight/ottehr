@@ -1,5 +1,4 @@
 import { ClaimResponse, Invoice, Patient, PaymentReconciliation, Task } from 'fhir/r4b';
-import { MAX_RUN_RULES_ENGINE_CLAIMS } from './rules-engine.schemas';
 
 // An applied claim tag is `{ system: CLAIM_TAG_SYSTEM, code: <tag name> }`; the tag's definition
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
@@ -250,5 +249,5 @@ export const BILLING_INVOICE_PAYMENT_METHODS = ['check', 'ach', 'wire', 'cash', 
 export const BILLING_INVOICE_LIMITS = {
   voidReasonLength: 300,
   paymentReferenceLength: 300,
-  nioInvoiceClaimCount: MAX_RUN_RULES_ENGINE_CLAIMS,
+  nioInvoiceClaimCount: 100,
 } as const;
