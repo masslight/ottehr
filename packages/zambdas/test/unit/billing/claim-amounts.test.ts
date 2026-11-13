@@ -580,11 +580,44 @@ describe('summarizeClaimPayments', () => {
     expect(summary.balance).toBe(10);
   });
 
-  it('limits the fallback at zero when allowed is unknown', () => {
+  it('uses billed as the basis when no response carries an allowed amount', () => {
     const cr = claimResponse('2026-01-01', { totalPaid: 60 });
     const summary = summarizeClaimPayments([cr], 100);
-    expect(summary.patientResp).toBe(0);
-    expect(summary.balance).toBe(0);
+    expect(summary.allowed).toBe(0);
+    expect(summary.patientResp).toBe(40);
+    expect(summary.balance).toBe(40);
+  });
+
+  it('uses billed as the basis for an adjudicated remit without allowed or PR', () => {
+    // e.g. a manual ERA with the allowed amount left blank
+    const cr = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.CHARGE, 100), adjudication(ADJUDICATION_CODES.PAID, 60)]],
+    });
+    const summary = summarizeClaimPayments([cr], 100, 10);
+    expect(summary.patientResp).toBe(40);
+    expect(summary.balance).toBe(30);
+  });
+
+  it('subtracts non-patient adjustments from billed when allowed is unknown', () => {
+    const cr = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 25, '45')]],
+    });
+    expect(summarizeClaimPayments([cr], 100).patientResp).toBe(15);
+  });
+
+  it('keeps the latest PR when allowed is unknown', () => {
+    const cr = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('PR', 10, '3')]],
+    });
+    expect(summarizeClaimPayments([cr], 100).patientResp).toBe(10);
+  });
+
+  it('floors the billed-basis fallback at zero', () => {
+    const cr = claimResponse('2026-01-01', { totalPaid: 120 });
+    expect(summarizeClaimPayments([cr], 100).patientResp).toBe(0);
   });
 
   it('subtracts patientPaid from billed for an un-adjudicated claim', () => {

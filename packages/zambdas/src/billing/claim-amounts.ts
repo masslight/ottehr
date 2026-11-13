@@ -179,10 +179,11 @@ export function summarizeClaimPayments(
     };
   }
 
-  const amounts = sortClaimResponsesByRecency(claimResponses).map(extractClaimResponseAmounts);
+  const sortedClaimResponses = sortClaimResponsesByRecency(claimResponses);
+  const amounts = sortedClaimResponses.map(extractClaimResponseAmounts);
 
   const insurancePaid = amounts.reduce((sum, a) => sum + a.paid, 0);
-  const allowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed ?? 0;
+  const knownAllowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed;
 
   // Patient responsibility is what the final adjudication says the patient owes: after COB the
   // last payer's PR already accounts for what prior payers paid, so summing PR across payers
@@ -191,10 +192,30 @@ export function summarizeClaimPayments(
   // to 0 either way: a reversal reports what it took back as negative PR, and the patient owes
   // nothing rather than less than nothing — otherwise a payment they made counts twice as credit.
   const latestPatientResp = amounts[amounts.length - 1].patientResp;
-  const patientResp = Math.max(latestPatientResp ?? allowed - insurancePaid, 0);
+  let patientResp: number;
+  if (knownAllowed !== undefined) {
+    patientResp = Math.max(latestPatientResp ?? knownAllowed - insurancePaid, 0);
+  } else {
+    // No remit reports an allowed amount (AMT*B6 is optional, and manual ERAs may leave it blank),
+    // so the billed amount is the basis. A PR adjustment on the latest remit still says what the
+    // patient owes; without one, the patient owes whatever the payers neither paid nor adjusted off.
+    const latestAdjustments = extractRemitAdjustments(sortedClaimResponses[sortedClaimResponses.length - 1]);
+    const hasPatientRespAdjustment = latestAdjustments.some(
+      (adjustment) => adjustment.groupCode === ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY
+    );
+    const nonPatientAdjustments = latestAdjustments
+      .filter((adjustment) => adjustment.groupCode !== ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY)
+      .reduce((sum, adjustment) => sum + adjustment.amount, 0);
+    patientResp = Math.max(
+      hasPatientRespAdjustment && latestPatientResp !== undefined
+        ? latestPatientResp
+        : billed - insurancePaid - nonPatientAdjustments,
+      0
+    );
+  }
 
   return {
-    allowed,
+    allowed: knownAllowed ?? 0,
     insurancePaid,
     patientResp,
     patientPaid,
