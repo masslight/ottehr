@@ -211,11 +211,15 @@ export const EditableMedicationCard: React.FC<{
     value: MedicationData[Field]
   ): void => {
     isSavedRef.current = false;
-    const newValues = {
-      ...localValues,
-      [field]: field === 'dose' ? Number(value) : value,
-      ...(field === 'lotNumber' && { inventoryLotId: undefined }),
-    };
+    const newValues: Partial<MedicationData> = { ...localValues, [field]: field === 'dose' ? Number(value) : value };
+    if (field === 'lotNumber') {
+      const lot = { ...medication, ...newValues };
+      const isSavedLot =
+        Boolean(medication?.lotNumber) &&
+        lot.lotNumber?.trim() === medication?.lotNumber &&
+        lot.expDate?.slice(0, 10) === medication?.expDate?.slice(0, 10);
+      newValues.inventoryLotId = isSavedLot ? medication?.inventoryLotId : undefined;
+    }
     setLocalValues(newValues);
     if (isCreating && encounterId) setDraft(encounterId, newValues);
     if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {

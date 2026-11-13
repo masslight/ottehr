@@ -68,13 +68,17 @@ vi.mock(
 vi.mock(
   '../../src/features/visits/in-person/components/medication-administration/medication-editable-card/MedicationCardField',
   () => ({
-    MedicationCardField: ({ field, inventoryLots, onInventoryLotPick, onChange }: any) =>
+    MedicationCardField: ({ field, value, inventoryLots, onInventoryLotPick, onChange }: any) =>
       field === 'lotNumber' && inventoryLots ? (
         <>
           <button onClick={() => onInventoryLotPick(inventoryLots.lots[0])}>
             Pick {inventoryLots.lots[0].lotNumber}
           </button>
-          <input aria-label="Type a lot" onChange={(event) => onChange('lotNumber', event.target.value)} />
+          <input
+            aria-label="Type a lot"
+            value={value ?? ''}
+            onChange={(event) => onChange('lotNumber', event.target.value)}
+          />
         </>
       ) : (
         <div />
@@ -169,7 +173,9 @@ describe('EditableMedicationCard - the inventory lot sent with a saved order', (
     const user = userEvent.setup();
     render(<EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, inventoryLotId: 'lot-a' }} />);
 
-    await user.type(screen.getByLabelText('Type a lot'), 'SAMPLE-1');
+    const lotInput = screen.getByLabelText('Type a lot');
+    await user.clear(lotInput);
+    await user.type(lotInput, 'SAMPLE-1');
 
     const sent = await saveAsAdministered(user);
     expect(sent).toMatchObject({ lotNumber: 'SAMPLE-1' });
@@ -182,6 +188,27 @@ describe('EditableMedicationCard - the inventory lot sent with a saved order', (
     render(<EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, inventoryLotId: 'lot-a' }} />);
 
     expect(await saveAsAdministered(user)).toMatchObject({ lotNumber: 'A123', inventoryLotId: 'lot-a' });
+  });
+
+  it('keeps the lot id of a saved order whose lot is no longer suggested when its number is changed and typed back', async () => {
+    updateMedication.mockReset().mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, inventoryLotId: 'lot-a' }} />);
+
+    const lotInput = screen.getByRole('textbox', { name: 'Type a lot' });
+
+    expect(lotInput).toHaveValue('A123');
+
+    await user.type(lotInput, '4');
+    expect(lotInput).toHaveValue('A1234');
+
+    await user.type(lotInput, '{Backspace}');
+    expect(lotInput).toHaveValue('A123');
+
+    expect(await saveAsAdministered(user)).toMatchObject({
+      lotNumber: 'A123',
+      inventoryLotId: 'lot-a',
+    });
   });
 });
 
