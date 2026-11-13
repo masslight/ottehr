@@ -52,11 +52,17 @@ describe('growth chart option (the cards ported from the OTR-3741 report)', () =
       'Stature-for-age',
       'BMI-for-age',
     ]);
-    // Axes: months under 2 (0 reads "Birth"), years from 2, length in cm for weight-for-length.
+    // Axes: months under 2 (0 reads "Birth", then 2, 4 …), "2 y, 3 y … 20 y" from 2, length in cm for weight-for-length.
     expect(GROWTH_CHART_VIEWS['who-wfa'].xAxis).toMatchObject({ min: 0, max: 24, name: 'Age (months)' });
     expect(GROWTH_CHART_VIEWS['who-wfa'].xAxis.formatter?.(0)).toBe('Birth');
+    expect(GROWTH_CHART_VIEWS['who-wfa'].xAxis.formatter?.(12)).toBe('12');
     expect(GROWTH_CHART_VIEWS['cdc-sfa'].xAxis).toMatchObject({ min: 24, max: 240, name: 'Age (years)' });
-    expect(GROWTH_CHART_VIEWS['cdc-sfa'].xAxis.formatter?.(120)).toBe('10');
+    expect([24, 36, 120, 240].map((months) => GROWTH_CHART_VIEWS['cdc-sfa'].xAxis.formatter?.(months))).toEqual([
+      '2 y',
+      '3 y',
+      '10 y',
+      '20 y',
+    ]);
     expect(GROWTH_CHART_VIEWS['who-wfl'].xAxis).toMatchObject({ min: 45, max: 110, name: 'Length (cm)' });
   });
 

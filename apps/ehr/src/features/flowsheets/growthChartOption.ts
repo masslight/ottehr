@@ -64,7 +64,7 @@ const AGE_YEARS: XAxis = {
   interval: 12,
   minorSplit: 2,
   name: 'Age (years)',
-  formatter: (v) => String(v / 12),
+  formatter: (v) => `${v / 12} y`,
 };
 const LENGTH_CM: XAxis = { min: 45, max: 110, interval: 5, minorSplit: 5, name: 'Length (cm)' };
 
