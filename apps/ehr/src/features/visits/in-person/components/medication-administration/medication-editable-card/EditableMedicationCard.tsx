@@ -424,7 +424,10 @@ export const EditableMedicationCard: React.FC<{
     const { newStatus, orderData } = updatedRequestInput;
     if (
       (newStatus === 'administered' || newStatus === 'administered-partly') &&
-      isExpirationDatePast(orderData?.expDate, DateTime.now().toISODate())
+      isExpirationDatePast(
+        orderData?.expDate,
+        DateTime.fromISO(orderData?.effectiveDateTime ?? '').toISODate() ?? DateTime.now().toISODate()
+      )
     ) {
       pendingSaveRef.current = updatedRequestInput;
       setExpiredLotPrompt({ lotNumber: orderData?.lotNumber ?? '', expDate: orderData!.expDate! });
