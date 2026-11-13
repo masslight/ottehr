@@ -41,6 +41,11 @@ export async function performEffect(
   const offset = params.offset ?? 0;
   const searchParams = [
     { name: 'status', value: params.status ?? BILLING_INVOICE_LIST_STATUSES.join(',') },
+    // TODO patient invoices only for now
+    {
+      name: 'subject:missing',
+      value: 'false',
+    },
     { name: '_include', value: 'Invoice:patient' },
     { name: '_sort', value: '-date' },
     { name: '_total', value: 'accurate' },

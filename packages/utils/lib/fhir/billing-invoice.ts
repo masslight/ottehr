@@ -167,6 +167,9 @@ export function formatInvoiceNumber(sequence: number): string {
 export const getInvoiceNumber = (invoice: Invoice): string | undefined =>
   invoice.identifier?.find((ident) => ident.system === INVOICE_NUMBER_IDENTIFIER_SYSTEM)?.value;
 
+export const getBillingInvoiceIdempotencyKey = (invoice: Invoice): string | undefined =>
+  invoice.identifier?.find((ident) => ident.system === BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM)?.value;
+
 // Payments for an invoice are found by searching this tag.
 export const invoicePaymentTag = (invoiceId: string): Coding => ({
   system: INVOICE_PAYMENT_TAG_SYSTEM,

@@ -93,6 +93,9 @@ export const STRIPE_METADATA_KEYS = {
   legacyEncounterId: 'encounterId',
   invoiceId: 'oystehr_invoice_id',
   organizationId: 'oystehr_organization_id',
+  // set on charges the EHR takes: the EHR payment id, and the PaymentNotice it reserved for the charge
+  ehrPaymentId: 'oystehr_ehr_payment_id',
+  ehrPaymentNoticeId: 'oystehr_ehr_payment_notice_id',
 } as const;
 
 export const encounterIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>
@@ -100,6 +103,13 @@ export const encounterIdFromStripeMetadata = (metadata: Stripe.Metadata | null |
 
 export const patientIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>
   metadata?.[STRIPE_METADATA_KEYS.patientId] || undefined;
+
+export const ehrPaymentIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>
+  metadata?.[STRIPE_METADATA_KEYS.ehrPaymentId] || undefined;
+
+export const ehrPaymentNoticeIdFromStripeMetadata = (
+  metadata: Stripe.Metadata | null | undefined
+): string | undefined => metadata?.[STRIPE_METADATA_KEYS.ehrPaymentNoticeId] || undefined;
 
 export const stripeEncounterMetadata = (params: { encounterId: string; patientId: string }): Stripe.MetadataParam => ({
   [STRIPE_METADATA_KEYS.patientId]: params.patientId,

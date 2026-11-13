@@ -8,15 +8,14 @@ import {
   buildBillingInvoice,
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
+  getBillingInvoiceIdempotencyKey,
   getInvoiceNumber,
   getStripeInvoiceLink,
-  INVOICE_CLAIM_TAG_SYSTEM,
   INVOICE_NUMBER_IDENTIFIER_SYSTEM,
   invoiceStatusFromStripe,
   withHostedInvoiceUrl,
   withStripeInvoiceLink,
 } from 'utils/lib/fhir/billing-invoice';
-import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { fillInvoiceTemplate, parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -37,13 +36,13 @@ import { formatDateConfigurable } from 'utils/lib/utils/dateUtils';
 import { getOrCreateInvoicingConfig } from '../../rcm/invoice-config/helpers';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { sendErrors } from '../../shared/errors';
-import { nextInvoiceNumber } from '../../shared/invoice-number';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient, STRIPE_METADATA_KEYS, stripeEncounterMetadata } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { INVOICE_ISSUER_CLAIM_INCLUDES, resolveClaimInvoiceIssuer } from '../invoice-issuer';
+import { issueInvoiceNumber } from '../invoice-number';
 import { produceBillingInvoiceIssuedOutreach } from '../invoice-outreach';
-import { getInvoiceableEncounterId, getServiceFacilityId } from '../invoices';
+import { createInvoiceUnlessClaimsHaveOne, getInvoiceableEncounterId, getServiceFacilityId } from '../invoices';
 import { applyClaimStatusField, resolveClaimActor } from '../provenance';
 import { createBillingClient } from '../shared';
 import { CreateBillingInvoiceParams, validateRequestParameters } from './validateRequestParameters';
@@ -99,7 +98,7 @@ export async function performEffect(
         ...invoice,
         identifier: [
           ...(invoice.identifier ?? []),
-          { system: INVOICE_NUMBER_IDENTIFIER_SYSTEM, value: await nextInvoiceNumber(oystehr) },
+          { system: INVOICE_NUMBER_IDENTIFIER_SYSTEM, value: await issueInvoiceNumber(oystehr) },
         ],
       });
     }
@@ -129,9 +128,6 @@ export async function performEffect(
   };
 }
 
-const idempotencyKeyOf = (invoice: Invoice): string | undefined =>
-  invoice.identifier?.find((identifier) => identifier.system === BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM)?.value;
-
 async function findOrCreateDraft(
   oystehr: Oystehr,
   stripe: Stripe,
@@ -140,12 +136,12 @@ async function findOrCreateDraft(
   issuer: Reference
 ): Promise<Invoice> {
   const invoice = await createDraftUnlessClaimHasInvoice(oystehr, claim, params, issuer);
-  if (idempotencyKeyOf(invoice) !== params.idempotencyKey) {
+  if (getBillingInvoiceIdempotencyKey(invoice) !== params.idempotencyKey) {
     // The invoice was started by another request.
     if (invoice.status !== 'draft') throw BILLING_INVOICE_CONFLICT_ERROR(CLAIM_ALREADY_INVOICED);
     if (await discardUnsentDraft(oystehr, stripe, invoice)) {
       const replacement = await createDraftUnlessClaimHasInvoice(oystehr, claim, params, issuer);
-      if (idempotencyKeyOf(replacement) !== params.idempotencyKey) {
+      if (getBillingInvoiceIdempotencyKey(replacement) !== params.idempotencyKey) {
         throw BILLING_INVOICE_CONFLICT_ERROR(CLAIM_ALREADY_INVOICED);
       }
       return replacement;
@@ -184,13 +180,7 @@ async function createDraftUnlessClaimHasInvoice(
     facilityId: await getServiceFacilityId(oystehr, claim),
   });
   draft.identifier = [{ system: BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM, value: params.idempotencyKey }];
-  return oystehr.fhir.create<Invoice>(draft, {
-    ifNoneExist: [
-      { name: '_tag', value: `${INVOICE_CLAIM_TAG_SYSTEM}|${claim.id}` },
-      { name: '_tag', value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}` },
-      { name: 'status', value: 'draft,issued,balanced' },
-    ],
-  });
+  return createInvoiceUnlessClaimsHaveOne(oystehr, draft);
 }
 
 // A draft whose Stripe invoice was never finalized never reached the patient, so it can be replaced.
