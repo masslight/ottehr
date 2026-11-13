@@ -1,14 +1,11 @@
 import { LoadingButton } from '@mui/lab';
-import { Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { Grid, Paper, Skeleton, Stack, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
-import { PhoneInput } from 'src/components/input/PhoneInput';
-import { SelectInput } from 'src/components/input/SelectInput';
-import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import {
@@ -19,18 +16,26 @@ import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/hel
 import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
 import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { BASE_ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-administration.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { enqueueOrderDeleteWarnings } from '../../visits/shared/utils/orderDeleteWarnings';
-import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
+import {
+  ADMINISTERED,
+  AdministrationType,
+  formatPaperworkEmergencyContact,
+  formatRecordedEmergencyContact,
+  NOT_ADMINISTERED,
+  PARTLY_ADMINISTERED,
+} from '../common';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 import { AdministeringImmunizationFields } from './AdministeringImmunizationFields';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
@@ -42,11 +47,6 @@ interface Props {
   onFinished?: () => void;
 }
 
-const RELATIONSHIP_OPTIONS = Object.entries(EMERGENCY_CONTACT_RELATIONSHIPS).map(([_, value]) => ({
-  value: value.code,
-  label: value.display,
-}));
-
 export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   const methods = useForm();
   useEffect(() => {
@@ -54,6 +54,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
       ...order,
       administrationDetails: {
         ...order.administrationDetails,
+        emergencyContact: undefined,
         administeredDateTime: getInitialAdministeredDateTime(order),
         visGiven: order.administrationDetails?.visGiven ?? false,
       },
@@ -69,7 +70,23 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { id: appointmentId } = useParams();
-  const { mappedData } = useAppointmentData(appointmentId);
+  const {
+    mappedData,
+    resources: { patient },
+  } = useAppointmentData(appointmentId);
+  const apiClient = useOystehrAPIClient();
+  const showsPaperworkEmergencyContact = order.status === 'pending' || order.status === 'administered-not';
+  const { data: patientAccount, isError: isPatientAccountError } = useGetPatientAccount({
+    apiClient,
+    patientId: showsPaperworkEmergencyContact ? patient?.id ?? null : null,
+  });
+  const isEmergencyContactLoading = showsPaperworkEmergencyContact && !patientAccount && !isPatientAccountError;
+  const emergencyContact = showsPaperworkEmergencyContact
+    ? formatPaperworkEmergencyContact(patientAccount?.emergencyContactResource)
+    : formatRecordedEmergencyContact(order.administrationDetails?.emergencyContact);
+  const emergencyContactText = isPatientAccountError
+    ? 'Could not load emergency contact'
+    : emergencyContact ?? 'Not provided';
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(order.encounterId);
@@ -145,18 +162,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     return true;
   };
 
-  const validateEmergencyContactField = (value: string | undefined): boolean | string => {
-    const contact = methods.getValues('administrationDetails.emergencyContact') ?? {};
-    const isFilled = (v: unknown): boolean => typeof v === 'string' && v.trim().length > 0;
-    const anyFilled = isFilled(contact.relationship) || isFilled(contact.fullName) || isFilled(contact.mobile);
-
-    if (anyFilled && !isFilled(value)) {
-      return 'Complete all emergency contact fields or leave them all empty';
-    }
-
-    return true;
-  };
-
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(onSubmit)}>
@@ -199,34 +204,13 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
                   >
                     Emergency contact
                   </Typography>
-                </Grid>
-                <Grid xs={4} item>
-                  <SelectInput
-                    name="administrationDetails.emergencyContact.relationship"
-                    label="Relationship"
-                    options={RELATIONSHIP_OPTIONS.map((option) => option.value)}
-                    getOptionLabel={(option) =>
-                      RELATIONSHIP_OPTIONS.find((opt) => opt.value === option)?.label ?? option
-                    }
-                    validate={validateEmergencyContactField}
-                    dataTestId={dataTestIds.vaccineDetailsPage.relationship}
-                  />
-                </Grid>
-                <Grid xs={4} item>
-                  <TextInput
-                    name="administrationDetails.emergencyContact.fullName"
-                    label="Full name"
-                    validate={validateEmergencyContactField}
-                    dataTestId={dataTestIds.vaccineDetailsPage.fullName}
-                  />
-                </Grid>
-                <Grid xs={4} item>
-                  <PhoneInput
-                    name="administrationDetails.emergencyContact.mobile"
-                    label="Mobile"
-                    validate={validateEmergencyContactField}
-                    dataTestId={dataTestIds.vaccineDetailsPage.mobile}
-                  />
+                  {isEmergencyContactLoading ? (
+                    <Skeleton width={300} />
+                  ) : (
+                    <Typography data-testid={dataTestIds.vaccineDetailsPage.emergencyContact}>
+                      {emergencyContactText}
+                    </Typography>
+                  )}
                 </Grid>
                 <Grid xs={12} item>
                   <Stack direction="row" justifyContent="space-between" alignItems="center">

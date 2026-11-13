@@ -11,6 +11,7 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
+import { getEmergencyContactSummary, isEmergencyContactRelatedPerson } from 'utils/lib/fhir/emergency-contact';
 import { createReference } from 'utils/lib/fhir/helpers';
 import {
   getMedicationName,
@@ -85,6 +86,10 @@ export async function administerImmunizationOrder(
     throw new Error(`Can't administer order in "${currentStatus}" status`);
   }
 
+  const wasGiven = ['administered', 'administered-partly'].includes(
+    mapFhirToOrderStatus(medicationAdministration) ?? ''
+  );
+
   await updateOrderDetails(medicationAdministration, details, oystehr);
 
   medicationAdministration.status = mapOrderStatusToFhir(type);
@@ -116,20 +121,24 @@ export async function administerImmunizationOrder(
     },
   });
 
-  if (administrationDetails.emergencyContact) {
-    const emergencyContactRelatedPerson = createEmergencyContactRelatedPerson(
-      medicationAdministration.subject,
-      administrationDetails.emergencyContact
-    );
-
-    if (emergencyContactRelatedPerson) {
-      medicationAdministration.contained?.push(emergencyContactRelatedPerson);
-      medicationAdministration.supportingInformation = [
-        {
-          reference: '#' + CONTAINED_EMERGENCY_CONTACT_ID,
-        },
-      ];
-    }
+  const emergencyContactRelatedPerson =
+    (administrationDetails.emergencyContact &&
+      createEmergencyContactRelatedPerson(medicationAdministration.subject, administrationDetails.emergencyContact)) ||
+    (!wasGiven && ['administered', 'administered-partly'].includes(type)
+      ? await findPaperworkEmergencyContact(oystehr, medicationAdministration.subject)
+      : undefined);
+  if (emergencyContactRelatedPerson) {
+    medicationAdministration.contained = [
+      ...(medicationAdministration.contained ?? []).filter(
+        (resource) => resource.id !== CONTAINED_EMERGENCY_CONTACT_ID
+      ),
+      emergencyContactRelatedPerson,
+    ];
+    medicationAdministration.supportingInformation = [
+      {
+        reference: '#' + CONTAINED_EMERGENCY_CONTACT_ID,
+      },
+    ];
   }
 
   const medication = getContainedMedication(medicationAdministration);
@@ -325,6 +334,29 @@ function createMedicationStatement(
   };
 }
 
+async function findPaperworkEmergencyContact(
+  oystehr: Oystehr,
+  patientReference: Reference
+): Promise<RelatedPerson | undefined> {
+  if (!patientReference.reference) return undefined;
+  try {
+    const relatedPerson = (
+      await oystehr.fhir.search<RelatedPerson>({
+        resourceType: 'RelatedPerson',
+        params: [{ name: 'patient', value: patientReference.reference }],
+      })
+    )
+      .unbundle()
+      .find(isEmergencyContactRelatedPerson);
+    if (!relatedPerson) return undefined;
+    const { relationship, fullName, phone } = getEmergencyContactSummary(relatedPerson);
+    return createEmergencyContactRelatedPerson(patientReference, { relationship, fullName, mobile: phone });
+  } catch (error) {
+    console.error('Could not read the patient emergency contact', error);
+    return undefined;
+  }
+}
+
 function createEmergencyContactRelatedPerson(
   patientReference: Reference,
   emergencyContact: ImmunizationEmergencyContact
@@ -332,8 +364,9 @@ function createEmergencyContactRelatedPerson(
   const fullName = emergencyContact.fullName?.trim();
   const mobile = emergencyContact.mobile?.trim();
 
+  const relationshipValue = emergencyContact.relationship?.trim();
   const relationshipCoding = EMERGENCY_CONTACT_RELATIONSHIPS.find(
-    (relationship) => relationship.code === emergencyContact.relationship
+    (relationship) => relationship.code === relationshipValue || relationship.display === relationshipValue
   );
 
   const name: RelatedPerson['name'] = fullName ? [{ text: fullName }] : undefined;
@@ -351,6 +384,8 @@ function createEmergencyContactRelatedPerson(
           ],
         },
       ]
+    : relationshipValue
+    ? [{ text: relationshipValue }]
     : undefined;
 
   if (!name && !telecom && !relationship) {

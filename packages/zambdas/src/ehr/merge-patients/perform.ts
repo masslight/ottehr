@@ -22,6 +22,7 @@ import {
   PARTICIPATION_CODE_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
 } from 'utils/lib/fhir/constants';
+import { isEmergencyContactRelatedPerson } from 'utils/lib/fhir/emergency-contact';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { createUserResourcesForPatient } from 'utils/lib/fhir/patient';
@@ -39,7 +40,6 @@ import {
   createUpdatePharmacyPatchOps,
   getAccountAndCoverageResourcesForPatient,
   isAttorneyRelatedPerson,
-  isEmergencyContactRelatedPerson,
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../shared/harvest';
