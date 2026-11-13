@@ -55,5 +55,6 @@ export const useLastReceivedLot = (
     queryKey: ['medication-inventory-last-received-lot', medicationId],
     queryFn: async () => (await getMedicationInventory(oystehrZambda!, { medicationId })).lastReceivedLot ?? null,
     enabled: !!oystehrZambda,
+    gcTime: 0,
   });
 };
