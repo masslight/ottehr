@@ -1,3 +1,4 @@
+import { ExternalLabsStatus } from 'utils/lib/types/data/labs/labs.types';
 import { defineStory } from '../../harness/story';
 import { LabsTableHost, makeLabOrder } from './_labs';
 
@@ -11,7 +12,7 @@ export default defineStory({
     <LabsTableHost
       labOrders={[
         makeLabOrder({
-          orderStatus: 'sent',
+          orderStatus: ExternalLabsStatus.sent,
           abnPdfUrl: 'https://mock.invalid/abn.pdf',
           orderSubmittedDate: '2026-11-12T15:45:00.000Z',
         }),

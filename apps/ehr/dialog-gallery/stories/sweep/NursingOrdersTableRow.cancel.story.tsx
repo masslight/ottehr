@@ -1,5 +1,6 @@
 import { Table, TableBody } from '@mui/material';
 import { NursingOrdersTableRow } from 'src/features/nursing-orders/components/orders/NursingOrdersTableRow';
+import { NursingOrdersStatus } from 'utils/lib/types/data/orders/constants';
 import { defineStory } from '../../harness/story';
 
 export default defineStory({
@@ -20,7 +21,7 @@ export default defineStory({
             serviceRequestId: 'sr-1',
             appointmentId: 'appt-1',
             note: 'Apply ice pack to left ankle for 20 minutes',
-            status: 'pending',
+            status: NursingOrdersStatus.pending,
             orderAddedDate: '2026-11-12T15:20:00.000Z',
             orderingPhysician: 'Dr. Maya Patel',
             encounterTimezone: 'America/New_York',
