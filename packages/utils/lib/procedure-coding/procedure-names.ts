@@ -71,6 +71,10 @@ export const PROCEDURE_NAMES = {
     'Intravenous (IV) Catheter Placement',
     'Injections & Infusions: Intravenous (IV) Catheter Placement',
   ],
+  'iv-catheter-removal': [
+    'Intravenous (IV) Catheter Removal',
+    'Injections & Infusions: Intravenous (IV) Catheter Removal',
+  ],
   laceration: [
     'Laceration Repair (Wound Closure)',
     'Laceration Repair (Suturing/Stapling)',

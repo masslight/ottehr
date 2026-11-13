@@ -668,7 +668,7 @@ export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onCh
                   ...(inline['& input'] as Record<string, unknown>),
                   flex: 'none',
                   minWidth: 0,
-                  width: display ? (kind === 'date' ? '11ch' : '8ch') : `${label.length}ch`,
+                  width: `${Math.max(display ? 0 : label.length, kind === 'date' ? 11 : 8)}ch`,
                 },
                 '& .MuiInputAdornment-root': { ml: 0, flex: 'none', height: 'auto' },
                 // MuiIconButton-edgeEnd sets margin-right: -12px, which pushed the icon over the next word.

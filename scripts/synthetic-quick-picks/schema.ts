@@ -24,6 +24,7 @@ export const PROCEDURE_TYPES = [
   'tick-removal',
   'staple-removal',
   'iv-catheter-placement',
+  'iv-catheter-removal',
   'iv-fluid-administration',
   'im-medication-injection',
   'nebulizer-treatment',

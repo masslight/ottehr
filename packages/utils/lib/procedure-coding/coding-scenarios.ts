@@ -76,6 +76,7 @@ export const ELBOW = "Reduction of Nursemaid's Elbow";
 export const NAIL = 'Nail Trephination (Subungual Hematoma Drainage)';
 export const NEBULIZER = 'Nebulizer Treatment';
 export const IV_LINE = 'Intravenous (IV) Catheter Placement';
+export const IV_LINE_REMOVAL = 'Intravenous (IV) Catheter Removal';
 
 // ════════════════════════════════════════════════════════════════════════════════════════════
 //  1. EAR WAX REMOVAL
@@ -554,6 +555,122 @@ export const INJECTION_VISITS: Visit[] = [
     suggests: ['96360', '96361 x2'],
   },
   {
+    visit: 'Plain fluids for an hour and a half — still no extra hour',
+    procedure: INJECTION,
+    answers: {
+      Administrations: [
+        { Route: 'IV hydration', Drug: 'normal saline', 'IV access site': 'left arm', Start: '10:00', Stop: '11:30' },
+      ],
+    },
+    suggests: ['96360'],
+  },
+  {
+    visit: 'Plain fluids for an hour and thirty-one minutes — the first extra hour becomes billable',
+    procedure: INJECTION,
+    answers: {
+      Administrations: [
+        { Route: 'IV hydration', Drug: 'normal saline', 'IV access site': 'left arm', Start: '10:00', Stop: '11:31' },
+      ],
+    },
+    suggests: ['96360', '96361'],
+  },
+  {
+    visit: 'A litre of normal saline over one hour — the saline bag is billed too',
+    procedure: INJECTION,
+    answers: {
+      Administrations: [
+        {
+          Route: 'IV hydration',
+          Drug: 'normal saline',
+          'IV access site': 'left arm',
+          Start: '10:00',
+          Stop: '11:00',
+          'Normal saline volume': '1000 mL',
+        },
+      ],
+    },
+    suggests: ['96360', 'J7030'],
+  },
+  {
+    visit: 'Half a litre of normal saline running two and a half hours plus one minute',
+    procedure: INJECTION,
+    answers: {
+      Administrations: [
+        {
+          Route: 'IV hydration',
+          Drug: 'normal saline',
+          'IV access site': 'left arm',
+          Start: '10:00',
+          Stop: '12:31',
+          'Normal saline volume': '500 mL',
+        },
+      ],
+    },
+    suggests: ['96360', '96361 x2', 'J7040'],
+  },
+  {
+    visit: 'A 250 mL bag of normal saline over forty minutes',
+    procedure: INJECTION,
+    answers: {
+      Administrations: [
+        {
+          Route: 'IV hydration',
+          Drug: 'normal saline',
+          'IV access site': 'left arm',
+          Start: '10:00',
+          Stop: '10:40',
+          'Normal saline volume': '250 mL',
+        },
+      ],
+    },
+    suggests: ['96360', 'J7050'],
+  },
+  {
+    visit: 'Two litre bags of normal saline in one interrupted hydration — one bag code per litre',
+    procedure: INJECTION,
+    answers: {
+      Administrations: [
+        {
+          Route: 'IV hydration',
+          Drug: 'normal saline',
+          'IV access site': 'left arm',
+          Start: '10:00',
+          Stop: '11:00',
+          'Same administration group (for interrupted infusions)': 'A',
+          'Normal saline volume': '1000 mL',
+        },
+        {
+          Route: 'IV hydration',
+          Drug: 'normal saline',
+          'IV access site': 'left arm',
+          Start: '11:10',
+          Stop: '12:10',
+          'Same administration group (for interrupted infusions)': 'A',
+          'Normal saline volume': '1000 mL',
+        },
+      ],
+    },
+    suggests: ['96360', '96361', 'J7030 x2'],
+  },
+  {
+    visit: 'A saline bag hung for half an hour — no hydration service, so no saline code either',
+    procedure: INJECTION,
+    answers: {
+      Administrations: [
+        {
+          Route: 'IV hydration',
+          Drug: 'normal saline',
+          'IV access site': 'left arm',
+          Start: '10:00',
+          Stop: '10:30',
+          'Normal saline volume': '1000 mL',
+        },
+      ],
+    },
+    suggests: [],
+    tells: 'Fluid replacement shorter than 31 minutes is not reported separately.',
+  },
+  {
     visit: 'Plain fluids for only half an hour — too short to bill',
     procedure: INJECTION,
     answers: {
@@ -886,6 +1003,30 @@ export const OTHER_VISITS: Visit[] = [
     procedure: IV_LINE,
     answers: {},
     suggests: ['36000'],
+  },
+  {
+    visit: 'A drip line taken out after the fluids finished — removal is never billed on its own',
+    procedure: IV_LINE_REMOVAL,
+    answers: {
+      'Catheter insertion time': '09:50',
+      'Fluid start time': '10:00',
+      'Fluid end time': '11:00',
+      'Catheter removal time': '11:10',
+      'Catheter gauge': '20G',
+      'Insertion attempts': 1,
+      'Reason for removal': 'Completed',
+      'Catheter tip intact': true,
+      'Site condition': ['Clear, no signs of infection/phlebitis'],
+    },
+    suggests: [],
+    tells: 'IV catheter removal is not reported separately.',
+  },
+  {
+    visit: 'A drip line taken out, tip not yet checked — the note asks for it',
+    procedure: IV_LINE_REMOVAL,
+    answers: {},
+    suggests: [],
+    tells: 'Record whether the catheter tip was intact.',
   },
 ];
 
@@ -1336,6 +1477,37 @@ export const CODE_CHECKS: {
     billed: { code: '96360' },
     verdict: 'not supported',
     because: 'The answers support no code for this service.',
+  },
+  {
+    visit: 'A saline bag code billed on a medication drip — the fluid only carried the drug',
+    procedure: INJECTION,
+    answers: {
+      Administrations: [
+        { Route: 'IV infusion', Drug: 'ceftriaxone', 'IV access site': 'left arm', Start: '10:00', Stop: '11:00' },
+      ],
+    },
+    billed: { code: 'J7030' },
+    verdict: 'not supported',
+    because: 'The answers support 96365 instead.',
+  },
+  {
+    visit: 'A saline bag code billed without the hydration code it belongs to',
+    procedure: INJECTION,
+    answers: {
+      Administrations: [
+        {
+          Route: 'IV hydration',
+          Drug: 'normal saline',
+          'IV access site': 'left arm',
+          Start: '10:00',
+          Stop: '11:00',
+          'Normal saline volume': '1000 mL',
+        },
+      ],
+    },
+    billed: { code: 'J7030' },
+    verdict: 'not supported',
+    because: 'The additional procedure code requires its corresponding base procedure code.',
   },
   {
     visit: 'A code billed while the form is still unfinished — nothing is judged yet',
