@@ -34,7 +34,6 @@ import {
   followUpToPerformerMap,
   followUpTypeFromPerformerType,
   makeAllergyResource,
-  makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
   makeCommunicationResource,
   makeConditionResource,
@@ -116,7 +115,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     addToVisitNote,
     notes,
     vitalsObservations,
-    birthHistory,
     userToken,
     procedures,
     reasonForVisit,
@@ -491,12 +489,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const existing = element.resourceId ? existingByAddendumId.get(element.resourceId) : undefined;
     const note = makeNoteResource(encounterId, patient.id!, element, existing);
     const request = saveOrUpdateResourceRequest(note);
-    saveOrUpdateRequests.push(request);
-  });
-
-  birthHistory?.forEach((element) => {
-    const birthHistoryElement = makeBirthHistoryObservationResource(encounterId, patient.id!, element, 'birth-history');
-    const request = saveOrUpdateResourceRequest(birthHistoryElement);
     saveOrUpdateRequests.push(request);
   });
 

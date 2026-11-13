@@ -12,7 +12,6 @@ export const emptyVisitNote = (overrides: Partial<VisitNoteResponse> = {}): Visi
       inhouseMedications: [],
       surgicalHistory: [],
       episodeOfCare: [],
-      birthHistory: [],
       medicationsInformationSourcePractitioners: [],
     },
     screening: { observations: [] },

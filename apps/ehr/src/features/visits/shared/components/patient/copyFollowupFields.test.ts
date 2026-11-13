@@ -160,7 +160,6 @@ describe('fetchCopySourceChartData', () => {
         inhouseMedications: [],
         surgicalHistory: [],
         episodeOfCare: [],
-        birthHistory: [],
         medicationsInformationSourcePractitioners: [],
       },
       screening: { observations: [] },

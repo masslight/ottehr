@@ -67,7 +67,6 @@ const chartResourceSearches = (encounterId: string): BatchInputGetRequest[] => [
     _tag: 'current-medication,prescribed-medication,in-house-medication',
   }),
   patientScopedSearch('EpisodeOfCare', encounterId),
-  patientScopedSearch('Observation', encounterId, { _tag: `${PRIVATE_EXTENSION_BASE_URL}/birth-history|` }),
   patientScopedSearch('Communication', encounterId, { _tag: IN_PERSON_NOTE_ID }),
   encounterScopedSearch('Observation', encounterId),
   encounterScopedSearch('Communication', encounterId),
