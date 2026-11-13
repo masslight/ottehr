@@ -81,14 +81,12 @@ export const getMedicationInventoryConfig = (medication: Medication): InHouseMed
   return parsed.success ? parsed.data : undefined;
 };
 
-// A lot is one Medication per drug × location × lot number × expiration date (the same number can be on hand
-// twice when a shipment arrived with a different date and staff chose to keep it separate). Every stock change
-// is an Observation whose subject is the lot: Observation was chosen over Basic because Oystehr searches only
-// standard parameters, and Observation has one for everything the inventory screens and reports filter on.
-// Entries are append-only and never carry `encounter` or a Patient subject; on hand is the sum of their
-// signed values, cached on the lot and recomputed (never incremented) on every write.
+// A lot is one Medication per drug, location, lot number and expiration date; a lot number can repeat with
+// another expiration date. Stock changes are append-only Observations on the lot (Oystehr searches only
+// standard parameters, and Basic lacks the ones inventory filters on) and never carry `encounter` or a
+// Patient subject. The lot caches on hand, recomputed from its entries on every write.
 
-/** Marks a Medication as a lot. Its value must never be the catalog's `virtual-medication-inventory`. */
+/** The value must not be the catalog's `virtual-medication-inventory`: catalog searches match it without a system. */
 export const INVENTORY_LOT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('inventory-lot');
 export const INVENTORY_LOT_IDENTIFIER_VALUE = 'inventory-lot';
 export const INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('inventory-lot-drug');
@@ -341,9 +339,6 @@ export const parseInventoryStockEntry = (observation: Observation): InventorySto
 export const sumStockEntries = (entries: Observation[]): number =>
   entries.reduce((total, entry) => total + (entry.valueQuantity?.value ?? 0), 0);
 
-// Stock stays in counted-as items for every drug. A single-use dose takes whole items (rounded up) and the
-// leftover is waste; a multi-use dose takes nothing until the next count.
-
 const ROUND_PLACES = 10_000;
 const round = (value: number): number => Math.round(value * ROUND_PLACES) / ROUND_PLACES;
 
@@ -383,9 +378,9 @@ export const stockTakenForDose = (
   dose: number,
   doseUnit: string
 ): AdministrationStockTake | undefined => {
+  // Multi-use doses take nothing; the next count corrects their stock.
   if (!Number.isFinite(dose) || dose <= 0 || inventory.use === 'multi-use') return undefined;
   const containerAmount = containerAmountInDoseUnit(inventory, doseUnit);
-  // Single-use: a dose whose unit can't be related to the container still opens one item.
   if (!containerAmount) return { items: 1 };
   const items = Math.max(1, Math.ceil(round(dose / containerAmount)));
   const wasteAmount = round(items * containerAmount - dose);
@@ -412,12 +407,6 @@ const sumWaste = (entries: InventoryStockEntry[]): number =>
     0
   );
 
-/**
- * One rule for every save and delete of an administration: what it should have taken off now (`target`,
- * undefined when nothing should be off) minus what the ledger already took off for it (`existing`, its
- * entries oldest first) is the entry to write per lot. Covers delete, lot change, dose change and status
- * change; a put-back reverses the lot's latest "administered" entry.
- */
 export const planAdministrationStockChanges = (
   target: AdministrationStockTarget | undefined,
   existing: InventoryStockEntry[]
@@ -449,10 +438,7 @@ export const planAdministrationStockChanges = (
   });
 };
 
-/**
- * True when `expirationDate` (an ISO date or date-time, taken as a calendar date) is before `today`
- * (YYYY-MM-DD, the user's date). Dates compare as strings: no zone is involved.
- */
+/** Compares calendar dates as YYYY-MM-DD strings, so no time zone is involved. */
 export const isExpirationDatePast = (expirationDate: string | undefined, today: string): boolean =>
   Boolean(expirationDate) && expirationDate!.slice(0, 10) < today;
 

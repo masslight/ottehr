@@ -3,7 +3,7 @@ import { getMedicationName } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { LookupNdcResponse } from 'utils/lib/types/api/config/in-house-medications';
 
-// The public openFDA NDC directory: no key, no PHI, one box NDC per request.
+// Public directory: no API key, and requests carry no PHI.
 const OPENFDA_NDC_URL = 'https://api.fda.gov/drug/ndc.json';
 const OPENFDA_TIMEOUT_MS = 5_000;
 const CODE_SYSTEM_RXNORM = 'http://www.nlm.nih.gov/research/umls/rxnorm';
@@ -22,10 +22,7 @@ export interface OpenFdaNdcResult {
 }
 
 /**
- * The hyphenated 10-digit package NDCs a typed NDC could mean, as the directory spells them.
- * Hyphenated 10-digit input (4-4-2, 5-3-2, 5-4-1) is itself; unhyphenated 10 digits could be any of the
- * three splits; an 11-digit billing NDC (5-4-2, hyphenated or not) has a padding zero in one segment that
- * can be dropped three ways. Empty when the input cannot be a package NDC.
+ * Package NDCs are 4-4-2, 5-3-2 or 5-4-1; an 11-digit billing NDC (5-4-2) pads one segment with a leading zero.
  */
 export const ndcPackageCandidates = (input: string): string[] => {
   const trimmed = input.trim();
@@ -89,11 +86,8 @@ export async function fetchNdcProduct(candidates: string[]): Promise<NdcProduct 
   return result ? toProduct(result, candidates) : undefined;
 }
 
-// TODO(OTR-3339): catalog drugs have no RxNorm code yet, so compareNdcProduct falls back to matching names and
-// product NDCs. Once in-house medications are added through the terminology drug search (the eRx order form's
-// `searchMedications`, which returns each strength's RxCUI and NDC list), store the RxCUI on the catalog drug,
-// then remove ingredientWords, the name/product-NDC fallback below, `comparedBy: 'name'` and the tests that
-// cover it.
+// TODO(OTR-3339): catalog drugs have no RxCUI yet, so matching falls back to names and product NDCs. Once
+// they store their RxCUI, remove that fallback, `ingredientWords`, `comparedBy: 'name'` and their tests.
 const ingredientWords = (product: NdcProduct): string[] =>
   (product.genericName ?? '')
     .split(/,| and /i)

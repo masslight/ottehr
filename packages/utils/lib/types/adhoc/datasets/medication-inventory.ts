@@ -1,6 +1,4 @@
-// Medication inventory dataset (one row per stock entry in range). Zod is the single source of
-// truth: TS types, response validation, prompt schema and endpoint input flags all derive from the
-// objects below. Field descriptions are written for the LLM.
+// Zod is the single source of truth for this dataset; field descriptions are written for the LLM.
 import { z } from 'zod';
 import {
   INVENTORY_ENTRY_REASON_LABELS,

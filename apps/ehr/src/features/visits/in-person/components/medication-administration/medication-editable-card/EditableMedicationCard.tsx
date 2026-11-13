@@ -272,8 +272,7 @@ export const EditableMedicationCard: React.FC<{
         ndc: quickPick.ndc,
         expDate: quickPick.expDate,
         cptCodes: quickPick.cptCodes ?? [],
-        // A drug set up for inventory takes these from the stocked lot picked at administration; a quick pick's
-        // saved lot would be stale and would stop the soonest-expiring lot being preselected.
+        // Tracked drugs take lot details from the stocked lot; a quick pick's stale lot would block preselection.
         ...(resolvedMedicationId &&
           selectsOptions.medicationId.inventoryTrackedIds?.has(resolvedMedicationId) && {
             lotNumber: undefined,
@@ -615,8 +614,7 @@ export const EditableMedicationCard: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // An existing order's medicationId is the contained-copy sentinel, so the catalog drug is the one the copy
-  // records, or found by name for orders saved before the copy recorded it, as quick picks do.
+  // Orders saved before the copy recorded its catalog drug fall back to a name match.
   const medicationIdValue = getFieldValue('medicationId');
   const catalogMedicationId =
     medicationIdValue && medicationIdValue !== IN_HOUSE_CONTAINED_MEDICATION_ID

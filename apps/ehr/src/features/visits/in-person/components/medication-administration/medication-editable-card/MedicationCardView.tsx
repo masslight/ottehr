@@ -495,7 +495,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
     const instructionsValue = getFieldValue('instructions');
     return (
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        {/* 12px apart, as the sentence forms are; SectionLabel's spacing assumes this gap. */}
+        {/* SectionLabel's spacing assumes this 12px gap. */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {(type !== 'order-new' || isUpdating) && (
             <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

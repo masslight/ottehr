@@ -66,8 +66,7 @@ const MedicationMenu: FC<{
   const highlighted = active && columns[active.column][active.row] ? active : undefined;
   const optionId = (column: number, row: number): string => `${id}-option-${column}-${row}`;
   const activeId = highlighted && optionId(highlighted.column, highlighted.row);
-  // A row the keyboard moves to is scrolled into view within its column only. Never on hover: scrolling to a
-  // half-shown hovered row moved the rows under the pointer, which hovered the next one, and so on.
+  // Scroll only on keyboard moves: scrolling on hover shifted rows under the pointer, hovering the next one.
   const keyboardMoved = useRef(false);
   useEffect(() => {
     const row = activeId ? document.getElementById(activeId) : null;
@@ -114,7 +113,6 @@ const MedicationMenu: FC<{
         id={optionId(column, row)}
         role="option"
         aria-selected={isActive}
-        // The field keeps focus.
         onMouseDown={(event: MouseEvent) => event.preventDefault()}
         onMouseMove={() => {
           keyboardMoved.current = false;

@@ -235,7 +235,7 @@ export const INVENTORY_MARKER_LABELS: Record<InventoryMarker, string> = {
   'below-zero': 'Below Zero',
 };
 
-/** The user's date (YYYY-MM-DD), so "expired" on the screen agrees with the MAR; the server's date when absent. */
+/** The user's calendar date, so "expired" doesn't follow the server's time zone; the server's date when absent. */
 const TodaySchema = z.string().regex(ISO_DATE, 'today must be YYYY-MM-DD').optional();
 
 export const ListMedicationInventoryInputSchema = z.discriminatedUnion('view', [

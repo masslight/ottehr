@@ -48,8 +48,7 @@ export class EditMedicationCard {
     return dataTestId;
   }
 
-  /** The field's input: the order form's sentence blanks carry the test id on the input itself, the
-   * administer card's MUI fields on a wrapper around it. */
+  /** Sentence blanks carry the test id on the input; the administer card's MUI fields on a wrapper. */
   #input(field: Field): Locator {
     const dataTestId = this.getDataTestId(field);
     return this.#page.locator(`input[data-testid="${dataTestId}"], [data-testid="${dataTestId}"] input`);

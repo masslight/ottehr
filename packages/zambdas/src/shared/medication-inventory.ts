@@ -118,14 +118,8 @@ export async function getInventoryLotHistoryResources(oystehr: Oystehr, lotId: s
 export type StockEntryWrite = Omit<InventoryStockEntryInput, 'lotReference'>;
 
 /**
- * Appends entries to a lot's ledger and refreshes the lot's on-hand cache in a single transaction.
- *
- * `lot` is either an existing lot (has an id; its current version guards the write with If-Match and the
- * write retries from a fresh read on a 412, at most 3 attempts) or a lot built with `makeInventoryLot` that
- * does not exist yet (created in the same bundle; the entry references it by transaction-local urn).
- * On hand is recomputed from every entry of the lot plus these, never incremented. `reviseLot` changes
- * other lot fields (e.g. `batch.expirationDate`) in the same write; it is applied to whichever version of
- * an existing lot is written, so a retry from a fresh read keeps the change.
+ * Recomputes on-hand stock from ledger entries and writes changes atomically.
+ * Existing lots use optimistic locking with retries.
  */
 export async function writeInventoryStockEntry(
   oystehr: Oystehr,
@@ -221,11 +215,7 @@ async function getAdministrationStockEntries(
   );
 }
 
-/**
- * The catalog drug an order's contained Medication copy was made from, for orders saved before the copy
- * carried the catalog id: the copy keeps the catalog's name identifier, and an existing order's `medicationId`
- * is the contained sentinel.
- */
+// Older medication orders lack the catalog ID, so fall back to name lookup.
 async function findCatalogMedicationByName(oystehr: Oystehr, name: string): Promise<Medication | undefined> {
   const medications = (
     await oystehr.fhir.search<Medication>({
@@ -247,14 +237,8 @@ export async function findOrderCatalogMedication(
   return isCatalogMedication(medication) ? medication : undefined;
 }
 
-/**
- * What an administration should have off the shelf right now: the lot picked for the order from the lots of
- * its drug at the visit's location (or, when this save left the lot unchanged, the lot the order already holds
- * stock on), and what the dose takes from it. An order that never had a picked lot keeps the lot it already
- * holds stock on while that lot is the only one with the order's lot number or has the order's expiration date.
- * Undefined when nothing should be off: the order isn't administered, the drug isn't tracked, the lot was
- * typed, or the drug is multi-use.
- */
+// Preserve an existing stock deduction for legacy orders without a picked lot ID.
+// Newly typed lots must not trigger a deduction.
 async function resolveAdministrationStockTarget(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,

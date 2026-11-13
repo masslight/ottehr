@@ -49,7 +49,7 @@ export const performEffect = async (
   try {
     product = await fetchNdcProduct(candidates);
   } catch (error) {
-    // The directory being down or slow must not block receiving: the UI shows "lookup unavailable".
+    // An unavailable directory must not block receiving.
     console.error('openFDA NDC lookup failed', error);
     captureException(error);
     return { status: 'unavailable' };

@@ -75,7 +75,7 @@ interface MedicationOption {
   isObsolete: boolean;
 }
 
-// Inventory fields as typed; numbers stay strings so a cleared input is "blank", not 0.
+// Numbers stay strings so a cleared input is blank, not 0.
 interface InventoryFormState {
   countedAs: MedicationCountedAs | '';
   eachContainsAmount: string;
@@ -112,9 +112,7 @@ function toInventoryFormState(medication: Medication): InventoryFormState {
   };
 }
 
-// Blank counted-as means "not tracked" (null clears any saved setup). Otherwise the form's required fields
-// cover what the zambda's schema needs, but `type="number"` inputs can't require a positive value, so the
-// caller checks that first.
+// `type="number"` inputs can't require a positive value, so `update` checks the amounts before this.
 function toInventoryInput(form: InventoryFormState): InHouseMedicationInventory | null {
   if (!form.countedAs || !form.eachContainsUnit) return null;
   return {
