@@ -11,6 +11,6 @@ export default defineStory({
   notes: 'Shown in its default "Only Different Info" view for two mock patients without insurance coverage.',
   render: renderMergeDifference,
   play: async ({ screen }) => {
-    await screen.findByText('Olivia Grace', {}, { timeout: 15000 });
+    await screen.findByText('Bennet', {}, { timeout: 15000 });
   },
 });

@@ -10,7 +10,7 @@ export default defineStory({
   kind: 'form',
   where: 'Visit → Plan tab → Patient Education → Generate → review step',
   ...visitRoute,
-  mocks: visitMocks({ extra: educationMocks }),
+  mocks: visitMocks({ extra: educationMocks() }),
   notes:
     'Reached through the real flow (open generate dialog, click Generate) with mocked AI content for two diagnoses. Content is taller than the viewport, so the dialog scrolls.',
   render: () => <PatientEducationCard />,

@@ -13,6 +13,8 @@
         animation: none !important;
         caret-color: transparent !important;
       }
+      /* MUI X paints a "Missing license key" watermark above everything when no key is set; production has one. */
+      div[style*="z-index: 100000"][style*="letter-spacing"] { display: none !important; }
     </style>
   </head>
   <body>

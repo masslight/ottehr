@@ -22,5 +22,8 @@ export default defineStory({
     await user.type(await screen.findByLabelText(/Template name/), 'Strep Pharyngitis');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByText('Update Existing Template?');
+    // Park the pointer and focus away from the button so it is shot in its resting state.
+    await user.hover(screen.getByText('Update Existing Template?'));
+    (document.activeElement as HTMLElement | null)?.blur();
   },
 });

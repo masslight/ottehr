@@ -10,7 +10,8 @@ export default defineStory({
   base: 'MUI Dialog',
   kind: 'form',
   where: 'Admin → Employers → click an employer row',
-  notes: 'Taller than the 900px capture viewport; the dialog scrolls in the app as well.',
+  notes:
+    'Address and contact sections auto-expand because the mock employer has that data; the Associations accordion is left collapsed (its default).',
   mocks: [
     zambda('list-fee-schedules', [{ ...feeSchedule, useContext: [employerContext] }]),
     zambda('list-charge-masters', [{ ...chargeMaster, useContext: [employerContext] }]),

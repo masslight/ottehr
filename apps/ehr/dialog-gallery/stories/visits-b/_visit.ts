@@ -164,10 +164,6 @@ export const visitMocks = (options: VisitMockOptions = {}): FetchMock[] => {
     },
     { url: 'get-visit-note', response: { status: 200, output: visitNote } },
     {
-      url: 'get-chart-section',
-      response: ({ body }: { body: any }) => ({ status: 200, output: { data: visitNote[body?.section] } }),
-    },
-    {
       url: 'get-employees',
       response: {
         status: 200,

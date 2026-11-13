@@ -7,19 +7,26 @@ const content: Record<string, string> = {
     '## About fever\nA fever is the body’s normal response to infection. Most fevers are not harmful and go away in a few days.\n\n## Care at home\n- Offer fluids often.\n- Dress in light clothing.\n- Use acetaminophen or ibuprofen as directed for comfort.',
 };
 
-export const educationMocks: FetchMock[] = [
-  { url: 'list-approved-patient-education', response: { status: 200, output: { items: [] } } },
-  {
-    url: 'generate-patient-education',
-    response: ({ body }: { body: any }) => ({
-      status: 200,
-      output: {
-        content: content[body?.icdCode] ?? 'General care information.',
-        patientTitle: body?.icdCode === 'J02.0' ? 'Strep Throat' : 'Fever',
-        icdCode: body?.icdCode,
-        icdDescription: body?.icdDescription,
-        language: body?.language ?? 'en',
-      },
-    }),
-  },
+const sections = [
+  { icdCode: 'J02.0', icdDescription: 'Streptococcal pharyngitis', patientTitle: 'Strep Throat' },
+  { icdCode: 'R50.9', icdDescription: 'Fever, unspecified', patientTitle: 'Fever' },
 ];
+
+/**
+ * The SDK sends zambda calls as a Request object, so the harness mock cannot read the body to see
+ * which diagnosis is being asked for. The card requests them in chart order (J02.0, then R50.9), so
+ * the answers are handed out in that order instead.
+ */
+export const educationMocks = (): FetchMock[] => {
+  let call = 0;
+  return [
+    { url: 'list-approved-patient-education', response: { status: 200, output: { items: [] } } },
+    {
+      url: 'generate-patient-education',
+      response: () => {
+        const section = sections[call++ % sections.length];
+        return { status: 200, output: { ...section, content: content[section.icdCode], language: 'en' } };
+      },
+    },
+  ];
+};

@@ -10,7 +10,7 @@ export default defineStory({
   setup: mockPatientAccounts,
   render: renderMergeDifference,
   play: async ({ user, screen }) => {
-    await screen.findByText('Olivia Grace', {}, { timeout: 15000 });
+    await screen.findByText('Bennet', {}, { timeout: 15000 });
     await user.click(screen.getByRole('button', { name: 'Merge Patients' }));
   },
 });

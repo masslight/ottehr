@@ -10,7 +10,7 @@ export default defineStory({
   kind: 'form',
   where: 'Visit → Plan tab → Patient Education card → "Patient Education" button',
   ...visitRoute,
-  mocks: visitMocks({ extra: educationMocks }),
+  mocks: visitMocks({ extra: educationMocks() }),
   notes: 'Mock visit with two diagnoses; no pre-approved PDFs, mocked AI generation responses.',
   render: () => <PatientEducationCard />,
   play: async ({ user, screen, waitFor }) => {

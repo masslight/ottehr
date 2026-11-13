@@ -10,7 +10,7 @@ export default defineStory({
   where:
     'Admin → Billing → Fee Schedules / Charge Masters → an entry → Procedure Codes tab → Upload CSV → choose a file',
   notes:
-    'Opened by feeding a small CSV (1 changed, 1 added, 1 unchanged row vs. the 5 mocked codes) to the real hidden file input.',
+    'Opened by feeding a small CSV (vs. the 5 mocked codes: 1 changed, 1 added, 1 unchanged, 3 absent) to the real hidden file input.',
   mocks: [
     zambda('get-version-history', {
       versions: [

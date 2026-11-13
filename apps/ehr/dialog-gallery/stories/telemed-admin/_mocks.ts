@@ -1,5 +1,6 @@
 // Shared mock data for the telemed-admin stories (not a story: only *.story.tsx files are loaded).
 import type { ChargeItemDefinition, Location, Organization } from 'fhir/r4b';
+import { CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM } from 'src/rcm/state/employers/employers.api';
 import { CPT_CODE_SYSTEM, CPT_MODIFIER_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { LOCATION_FORM_EXTENSION_URL, LOCATION_VIRTUAL_CODE } from 'utils/lib/fhir/location';
 import { ORG_TYPE_CODE_SYSTEM, ORG_TYPE_PAYER_CODE } from 'utils/lib/types/constants';
@@ -113,6 +114,9 @@ export const employers: Organization[] = [
     id: 'emp-1',
     active: true,
     name: 'Acme Logistics',
+    identifier: [
+      { system: CANDID_NON_INSURANCE_PAYER_IDENTIFIER_SYSTEM, value: 'a3f1c2d4-5b6e-4f70-8a91-0c2d3e4f5a6b' },
+    ],
     address: [{ line: ['200 Dock St', 'Suite 4'], city: 'Brooklyn', state: 'NY', postalCode: '11201' }],
     telecom: [
       { system: 'phone', value: '(718) 555-0142' },
