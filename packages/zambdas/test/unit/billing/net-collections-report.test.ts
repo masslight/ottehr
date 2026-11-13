@@ -44,8 +44,9 @@ const era = (id: string, paymentDate: string, payerRef: string): PaymentReconcil
   paymentIssuer: { reference: payerRef },
 });
 
-// real extractClaimResponseAmounts shapes: paid/allowed ride the totals; patient responsibility
-// is a CAS item adjudication — omitting it entirely is the "no adjudication data" case.
+// real extractClaimResponseAmounts shapes: paid rides the totals (CLP04); allowed is a line-level
+// adjudication (SVC AMT*B6) and patient responsibility a CAS item adjudication — omitting PR is the
+// "can't determine what the patient owes" case.
 // Matched to a real Claim by default; pass claimId: null for an unmatched remit row.
 const claimResponse = (
   allowed: number | undefined,
@@ -53,40 +54,36 @@ const claimResponse = (
   patientResp?: number,
   claimId: string | null = 'claim-1',
   created = '2026-01-05T00:00:00Z'
-): ClaimResponse => ({
-  resourceType: 'ClaimResponse',
-  status: 'active',
-  type: { text: 'professional' },
-  use: 'claim',
-  patient: {},
-  created,
-  insurer: {},
-  outcome: 'complete',
-  request: { reference: claimId === null ? '#request' : `Claim/${claimId}` },
-  total: [
-    { category: { coding: [{ code: ADJUDICATION_CODES.PAID }] }, amount: { value: paid, currency: 'USD' } },
+): ClaimResponse => {
+  const adjudication = [
     ...(allowed !== undefined
       ? [{ category: { coding: [{ code: ADJUDICATION_CODES.ALLOWED }] }, amount: { value: allowed, currency: 'USD' } }]
       : []),
-  ],
-  ...(patientResp !== undefined
-    ? {
-        item: [
+    ...(patientResp !== undefined
+      ? [
           {
-            itemSequence: 1,
-            adjudication: [
-              {
-                category: {
-                  coding: [{ system: X12_ADJUSTMENT_GROUP_SYSTEM, code: ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY }],
-                },
-                amount: { value: patientResp, currency: 'USD' },
-              },
-            ],
+            category: {
+              coding: [{ system: X12_ADJUSTMENT_GROUP_SYSTEM, code: ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY }],
+            },
+            amount: { value: patientResp, currency: 'USD' },
           },
-        ],
-      }
-    : {}),
-});
+        ]
+      : []),
+  ];
+  return {
+    resourceType: 'ClaimResponse',
+    status: 'active',
+    type: { text: 'professional' },
+    use: 'claim',
+    patient: {},
+    created,
+    insurer: {},
+    outcome: 'complete',
+    request: { reference: claimId === null ? '#request' : `Claim/${claimId}` },
+    total: [{ category: { coding: [{ code: ADJUDICATION_CODES.PAID }] }, amount: { value: paid, currency: 'USD' } }],
+    ...(adjudication.length > 0 ? { item: [{ itemSequence: 1, adjudication }] } : {}),
+  };
+};
 
 const computeWith = async (input: {
   eras: PaymentReconciliation[];
@@ -157,6 +154,43 @@ describe('net-collections compute', () => {
     expect(payload.insurance).toEqual({ collected: 60, expected: 60 });
     expect(payload.patient.expected).toBe(20);
     expect(payload.payerRows[0]).toMatchObject({ allowed: 80, patientResp: 20, expected: 60, paid: 60 });
+  });
+
+  it('subtracts write-offs beyond allowed (sequestration) in the no-PR fallback', async () => {
+    const adjustment = (
+      system: string,
+      code: string,
+      value: number,
+      reason?: string
+    ): NonNullable<ClaimResponse['item']>[number]['adjudication'][number] => ({
+      category: { coding: [{ system, code }] },
+      ...(reason ? { reason: { coding: [{ code: reason }] } } : {}),
+      amount: { value, currency: 'USD' },
+    });
+    // billed 120, allowed 100, paid 98, CO-45 20 + CO-253 2, no PR: the patient owes nothing
+    const remit: ClaimResponse = {
+      ...claimResponse(100, 98),
+      item: [
+        {
+          itemSequence: 1,
+          adjudication: [
+            adjustment('', ADJUDICATION_CODES.CHARGE, 120),
+            adjustment('', ADJUDICATION_CODES.ALLOWED, 100),
+            adjustment('', ADJUDICATION_CODES.PAID, 98),
+            adjustment(X12_ADJUSTMENT_GROUP_SYSTEM, 'CO', 20, '45'),
+            adjustment(X12_ADJUSTMENT_GROUP_SYSTEM, 'CO', 2, '253'),
+          ],
+        },
+      ],
+    };
+    const { payload } = await computeWith({
+      eras: [era('era-1', '2026-01-10', 'Organization/aetna')],
+      claimResponsesByEra: { 'era-1': [remit] },
+      patient: { net: 0, byMonth: new Map() },
+    });
+
+    expect(payload.patient.expected).toBe(0);
+    expect(payload.insurance).toEqual({ collected: 98, expected: 100 });
   });
 
   it('splits a COB claim\u2019s expectation across payers by the balance each adjudication retired', async () => {
