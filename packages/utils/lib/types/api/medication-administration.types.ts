@@ -88,6 +88,7 @@ export interface MedicationData {
 
   // scanning part
   lotNumber?: string;
+  inventoryLotId?: string;
   ndc?: string;
   expDate?: string;
 

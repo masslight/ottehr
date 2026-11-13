@@ -68,11 +68,14 @@ vi.mock(
 vi.mock(
   '../../src/features/visits/in-person/components/medication-administration/medication-editable-card/MedicationCardField',
   () => ({
-    MedicationCardField: ({ field, inventoryLots, onInventoryLotPick }: any) =>
+    MedicationCardField: ({ field, inventoryLots, onInventoryLotPick, onChange }: any) =>
       field === 'lotNumber' && inventoryLots ? (
-        <button onClick={() => onInventoryLotPick(inventoryLots.lots[0])}>
-          Pick {inventoryLots.lots[0].lotNumber}
-        </button>
+        <>
+          <button onClick={() => onInventoryLotPick(inventoryLots.lots[0])}>
+            Pick {inventoryLots.lots[0].lotNumber}
+          </button>
+          <input aria-label="Type a lot" onChange={(event) => onChange('lotNumber', event.target.value)} />
+        </>
       ) : (
         <div />
       ),
@@ -142,6 +145,45 @@ vi.mock('../../src/features/visits/in-person/hooks/useMedicationManagement', () 
     deleteMedication: vi.fn(),
   }),
 }));
+
+const saveAsAdministered = async (user: ReturnType<typeof userEvent.setup>): Promise<Record<string, unknown>> => {
+  await user.click(screen.getByTestId(dataTestIds.inHouseMedicationsPage.administeredButton));
+  await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+  await waitFor(() => expect(updateMedication).toHaveBeenCalledTimes(1));
+  return JSON.parse(JSON.stringify(updateMedication.mock.calls[0][0])).orderData;
+};
+
+describe('EditableMedicationCard - the inventory lot sent with a saved order', () => {
+  it('sends the id of the lot picked from the suggestions', async () => {
+    updateMedication.mockReset().mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<EditableMedicationCard type="completed-edit" medication={savedOrder} />);
+
+    await user.click(screen.getByRole('button', { name: 'Pick B456' }));
+
+    expect(await saveAsAdministered(user)).toMatchObject({ lotNumber: 'B456', inventoryLotId: 'lot-b' });
+  });
+
+  it('sends no lot id once a typed lot number replaces the picked lot', async () => {
+    updateMedication.mockReset().mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, inventoryLotId: 'lot-a' }} />);
+
+    await user.type(screen.getByLabelText('Type a lot'), 'SAMPLE-1');
+
+    const sent = await saveAsAdministered(user);
+    expect(sent).toMatchObject({ lotNumber: 'SAMPLE-1' });
+    expect(sent).not.toHaveProperty('inventoryLotId');
+  });
+
+  it('keeps the lot id of a saved order whose lot was not touched', async () => {
+    updateMedication.mockReset().mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, inventoryLotId: 'lot-a' }} />);
+
+    expect(await saveAsAdministered(user)).toMatchObject({ lotNumber: 'A123', inventoryLotId: 'lot-a' });
+  });
+});
 
 describe('EditableMedicationCard - picking an inventory lot on a saved order', () => {
   it('sends an empty manufacturer when the picked lot has none', async () => {

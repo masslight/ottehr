@@ -8,6 +8,7 @@ export const INVENTORY_VACCINE_TYPE_CODE = 'virtual-vaccine-inventory';
 export const MEDICATION_IDENTIFIER_NAME_SYSTEM = 'virtual-medication-identifier-name-system';
 /** On an order's contained Medication copy: the catalog Medication it was copied from (value = its id). */
 export const MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('catalog-medication');
+export const MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('order-inventory-lot');
 
 export const MEDICATION_DISPENSABLE_DRUG_ID =
   'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';

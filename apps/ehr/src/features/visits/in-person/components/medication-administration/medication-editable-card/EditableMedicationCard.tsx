@@ -211,7 +211,11 @@ export const EditableMedicationCard: React.FC<{
     value: MedicationData[Field]
   ): void => {
     isSavedRef.current = false;
-    const newValues = { ...localValues, [field]: field === 'dose' ? Number(value) : value };
+    const newValues = {
+      ...localValues,
+      [field]: field === 'dose' ? Number(value) : value,
+      ...(field === 'lotNumber' && { inventoryLotId: undefined }),
+    };
     setLocalValues(newValues);
     if (isCreating && encounterId) setDraft(encounterId, newValues);
     if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {
@@ -626,6 +630,7 @@ export const EditableMedicationCard: React.FC<{
       setLocalValues((prev) => ({
         ...prev,
         lotNumber: lot.lotNumber,
+        inventoryLotId: lot.id,
         expDate: lot.expirationDate ? DateTime.fromISO(lot.expirationDate).toISO() ?? undefined : undefined,
         ndc: lot.ndc,
         manufacturer: lot.manufacturer ?? '',

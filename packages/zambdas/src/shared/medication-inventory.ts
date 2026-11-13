@@ -15,6 +15,7 @@ import {
   AdministrationStockTarget,
   getMedicationInventoryConfig,
   getOrderCatalogMedicationId,
+  getOrderInventoryLotId,
   INVENTORY_ENTRY_TYPE_SYSTEM,
   INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM,
   INVENTORY_LOT_LOCATION_TAG_SYSTEM,
@@ -259,15 +260,18 @@ async function findOrderCatalogMedication(
 }
 
 /**
- * What an administration should have off the shelf right now: the lot of its drug at the visit's location
- * with the lot number on the order, and what the dose takes from it. Undefined when nothing should be off:
- * the order isn't administered, the drug isn't tracked, the lot was typed (not in inventory), or the drug
- * is multi-use.
+ * What an administration should have off the shelf right now: the lot picked for the order from the lots of
+ * its drug at the visit's location (or, when this save left the lot unchanged, the lot the order already holds
+ * stock on), and what the dose takes from it. An order that never had a picked lot keeps the lot it already
+ * holds stock on while that lot is the only one with the order's lot number or has the order's expiration date.
+ * Undefined when nothing should be off: the order isn't administered, the drug isn't tracked, the lot was
+ * typed, or the drug is multi-use.
  */
 async function resolveAdministrationStockTarget(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,
-  heldLotIds: string[]
+  heldLotIds: string[],
+  heldWithoutPickLotIds: string[]
 ): Promise<(AdministrationStockTarget & { lot: Medication }) | undefined> {
   const status = mapFhirToOrderStatus(medicationAdministration);
   if (status !== 'administered' && status !== 'administered-partly') return undefined;
@@ -287,18 +291,23 @@ async function resolveAdministrationStockTarget(
   const inventory = catalog ? getMedicationInventoryConfig(catalog) : undefined;
   if (!catalog?.id || !inventory) return undefined;
 
-  // The same number can be on hand with two expiration dates; the order's date (a date or date-time) picks one.
   const sameNumber = await findInventoryLotsByNumber(oystehr, {
     catalogMedicationId: catalog.id,
     locationId,
     lotNumber,
   });
+  const selectedLotId = getOrderInventoryLotId(contained);
   const expirationDate = contained?.batch?.expirationDate?.slice(0, 10);
+  const heldWithoutPick = sameNumber.find(
+    (candidate) =>
+      candidate.id &&
+      heldWithoutPickLotIds.includes(candidate.id) &&
+      (sameNumber.length === 1 || candidate.batch?.expirationDate === expirationDate)
+  );
   const lot =
-    sameNumber.length === 1
-      ? sameNumber[0]
-      : sameNumber.find((candidate) => candidate.id && heldLotIds.includes(candidate.id)) ??
-        sameNumber.find((candidate) => candidate.batch?.expirationDate === expirationDate);
+    (selectedLotId && sameNumber.find((candidate) => candidate.id === selectedLotId)) ||
+    sameNumber.find((candidate) => candidate.id && heldLotIds.includes(candidate.id)) ||
+    heldWithoutPick;
   const taken = stockTakenForDose(inventory, dose, units);
   if (!lot?.id || !taken) return undefined;
   return { lotId: lot.id, lot, ...taken };
@@ -309,6 +318,7 @@ const administrationLotKey = (medicationAdministration: MedicationAdministration
   return JSON.stringify([
     getOrderCatalogMedicationId(contained),
     getMedicationName(contained),
+    getOrderInventoryLotId(contained),
     contained?.batch?.lotNumber?.trim(),
     contained?.batch?.expirationDate?.slice(0, 10),
   ]);
@@ -344,12 +354,19 @@ export async function reconcileAdministrationStock(
   );
   const sameLotAsBefore =
     previous !== undefined && administrationLotKey(previous) === administrationLotKey(medicationAdministration);
-  const heldLotIds = sameLotAsBefore
-    ? [...new Set(existing.map((entry) => entry.lotId))].filter(
-        (lotId) => existing.reduce((sum, entry) => sum + (entry.lotId === lotId ? entry.quantity : 0), 0) < 0
-      )
-    : [];
-  const target = await resolveAdministrationStockTarget(oystehr, medicationAdministration, heldLotIds);
+  const neverPicked =
+    previous !== undefined &&
+    !getOrderInventoryLotId(getMedicationFromMA(previous)) &&
+    !getOrderInventoryLotId(getMedicationFromMA(medicationAdministration));
+  const heldLotIds = [...new Set(existing.map((entry) => entry.lotId))].filter(
+    (lotId) => existing.reduce((sum, entry) => sum + (entry.lotId === lotId ? entry.quantity : 0), 0) < 0
+  );
+  const target = await resolveAdministrationStockTarget(
+    oystehr,
+    medicationAdministration,
+    sameLotAsBefore ? heldLotIds : [],
+    neverPicked ? heldLotIds : []
+  );
   const changes = planAdministrationStockChanges(target, existing);
   for (const change of changes) {
     const lot =
