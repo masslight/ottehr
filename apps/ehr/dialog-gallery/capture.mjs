@@ -89,6 +89,10 @@ const measure = (surfaceSel) => {
   };
 };
 
+// With HMR off, vite only re-evaluates the story glob when the module holding it changes.
+const now = new Date();
+fs.utimesSync(path.join(here, 'harness/main.tsx'), now, now);
+
 // CHROMIUM_PATH lets a sandbox with a preinstalled browser skip `playwright install`.
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const ctx = await browser.newContext({

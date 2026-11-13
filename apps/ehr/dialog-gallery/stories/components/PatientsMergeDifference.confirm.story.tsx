@@ -1,5 +1,5 @@
 import { defineStory } from '../../harness/story';
-import { mergeDifferenceMocks, renderMergeDifference } from './_mergeDifference';
+import { mockPatientAccounts, renderMergeDifference } from './_mergeDifference';
 
 export default defineStory({
   title: 'Merge patients — confirm merge',
@@ -7,10 +7,10 @@ export default defineStory({
   base: 'MUI Dialog',
   kind: 'destructive-confirm',
   where: 'Merge patients (compare step) → "Merge Patients"',
-  mocks: mergeDifferenceMocks,
+  setup: mockPatientAccounts,
   render: renderMergeDifference,
   play: async ({ user, screen }) => {
-    await screen.findByText('Main Patient Record', {}, { timeout: 15000 });
+    await screen.findByText('Olivia Grace', {}, { timeout: 15000 });
     await user.click(screen.getByRole('button', { name: 'Merge Patients' }));
   },
 });

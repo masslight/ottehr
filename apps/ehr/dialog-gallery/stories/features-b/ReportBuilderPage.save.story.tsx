@@ -1,4 +1,6 @@
+import { ReactElement } from 'react';
 import ReportBuilderPage from 'src/features/report-builder/page/ReportBuilderPage';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 import { ADHOC_RUNTIME_VERSION, SavedAdHocReport } from 'utils/lib/types/adhoc/saved/saved.types';
 import { defineStory } from '../../harness/story';
 import { userMocks } from './shared-mocks';
@@ -38,6 +40,13 @@ const patientRow = {
   visitTypes: ['In-Person'],
 };
 
+// The app only mounts pages once the signed-in user is known; the page loads a ?saved= report on mount
+// and needs the user's role at that moment, so wait for the (mocked) user like the app shell does.
+function AfterUserLoaded(): ReactElement | null {
+  const user = useEvolveUser();
+  return user ? <ReportBuilderPage /> : null;
+}
+
 export default defineStory({
   title: 'Save ad-hoc report',
   source: 'apps/ehr/src/features/report-builder/page/ReportBuilderPage.tsx',
@@ -52,16 +61,19 @@ export default defineStory({
     { url: 'list-adhoc-reports', response: { status: 200, output: { reports: [savedReport] } } },
     {
       url: /\/adhoc-report\/execute/,
-      response: ({ body }: { body: any }) => ({
+      // One answer serves both calls to this zambda: the start call reads `taskId`, the status poll reads the rest.
+      response: {
         status: 200,
-        output: body?.taskId
-          ? { status: 'completed', downloadUrl: 'https://mock.invalid/z3/adhoc/patients.json' }
-          : { taskId: 'adhoc-task-1' },
-      }),
+        output: {
+          taskId: 'adhoc-task-1',
+          status: 'completed',
+          downloadUrl: 'https://mock.invalid/z3/adhoc/patients.json',
+        },
+      },
     },
     { url: 'adhoc/patients.json', response: { patients: [patientRow] } },
   ],
-  render: () => <ReportBuilderPage />,
+  render: () => <AfterUserLoaded />,
   play: async ({ user, screen }) => {
     await user.click(await screen.findByRole('button', { name: 'Save' }, { timeout: 20000 }));
     await screen.findByText('Save report');
