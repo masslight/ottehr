@@ -60,6 +60,7 @@ import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientatio
 import PatientBalances from 'src/components/PatientBalances';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
+import { PatientRecordSkeleton, VisitSideColumnSkeleton } from 'src/components/VisitDetailsSkeletons';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
@@ -210,6 +211,18 @@ const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
   }
 };
 
+// How long the payments / notes column may stay a placeholder once the visit itself has loaded. It
+// is normally revealed as soon as all of its requests have answered; this only bounds the wait when
+// one of them hangs, so the column can never be stuck behind a slow request.
+const SIDE_COLUMN_MAX_WAIT_MS = 6000;
+
+// The "Get PDFs" button is the tallest thing the consent status row can hold. The row keeps that
+// height in every state so it doesn't grow when the button appears.
+const CONSENT_STATUS_ROW_MIN_HEIGHT = 37;
+
+// Height of the attestation checkbox row (a default MUI checkbox).
+const CONSENT_ATTESTATION_ROW_HEIGHT = 42;
+
 const CLOSED_EDIT_DIALOG: EditDialogConfig = Object.freeze({
   type: 'closed',
   values: {},
@@ -290,6 +303,12 @@ export default function VisitDetailsPage(): ReactElement {
   const [deletingForm, setDeletingForm] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
   const [docsMenuAnchor, setDocsMenuAnchor] = useState<HTMLElement | null>(null);
+  // The payments / notes column is fed by a dozen requests that each change its height. It is kept
+  // as a placeholder until they have all answered and then shown once, at its final size.
+  const [paymentsSettled, setPaymentsSettled] = useState(false);
+  const [sideColumnWaitExpired, setSideColumnWaitExpired] = useState(false);
+  const [sideColumnRevealed, setSideColumnRevealed] = useState(false);
+  const handlePaymentsSettled = useCallback(() => setPaymentsSettled(true), []);
 
   const {
     data: visitDetailsData,
@@ -409,6 +428,9 @@ export default function VisitDetailsPage(): ReactElement {
     // no longer null) and the new visit would render with the old one's checkbox state. The
     // functional form keeps the initial mount a no-op instead of a redundant state update.
     setConsentAttested((previous) => (previous === null ? previous : null));
+    setPaymentsSettled(false);
+    setSideColumnWaitExpired(false);
+    setSideColumnRevealed(false);
   }, [appointmentID]);
 
   // Consent the patient completed in their paperwork already is obtained consent, so a signed
@@ -788,6 +810,20 @@ export default function VisitDetailsPage(): ReactElement {
   }, [activityLogs, setActivityLogs, appointment, locationTimeZone, oystehr, getAndSetHistoricResources, faxLoading]);
 
   useEffect(() => {
+    if (loading || sideColumnRevealed) return;
+    const timeout = setTimeout(() => setSideColumnWaitExpired(true), SIDE_COLUMN_MAX_WAIT_MS);
+    return () => clearTimeout(timeout);
+  }, [loading, sideColumnRevealed, appointmentID]);
+
+  const sideColumnReady =
+    !loading && ((paymentsSettled && !patientBalancesLoading && !activityLogsLoading) || sideColumnWaitExpired);
+  useEffect(() => {
+    // Latched: once shown, a later refetch must not put the placeholder back.
+    if (sideColumnReady) setSideColumnRevealed(true);
+  }, [sideColumnReady]);
+  const showSideColumn = sideColumnRevealed || sideColumnReady;
+
+  useEffect(() => {
     if (appointment && encounter) {
       setStatus(getInPersonVisitStatus(appointment, encounter));
     } else {
@@ -862,6 +898,12 @@ export default function VisitDetailsPage(): ReactElement {
   } else {
     signedConsentForm[consentToTreatPatientDetailsKey] = imagesLoading ? 'Loading...' : 'Not signed';
   }
+  const consentStatus = signedConsentForm[consentToTreatPatientDetailsKey];
+  const consentStatusCell = (
+    <Box sx={{ display: 'flex', alignItems: 'center', minHeight: CONSENT_STATUS_ROW_MIN_HEIGHT }}>
+      {consentStatus === 'Loading...' ? <Skeleton aria-busy="true" aria-label="Loading" width={200} /> : consentStatus}
+    </Box>
+  );
 
   const { reasonForVisit: maybeReasonForVisit, additionalDetails } =
     getReasonForVisitAndAdditionalDetailsFromAppointment(appointment);
@@ -1127,21 +1169,26 @@ export default function VisitDetailsPage(): ReactElement {
     </LoadingButton>
   );
 
-  const consentAttestationFooter = consentAttested !== null && (
-    <Box style={{ display: 'flex', alignItems: 'center' }}>
-      <Checkbox
-        inputProps={
-          { 'data-testid': dataTestIds.visitDetailsPage.consentAttestationCheckbox } as Record<string, unknown>
-        }
-        checked={consentAttested ?? false}
-        onChange={(_e: any, checked: boolean) => {
-          setConsentAttested(checked);
-        }}
-      />
-      <Typography>I verify that patient consent has been obtained.</Typography>
-      {consentAttestationSaveButton}
-    </Box>
-  );
+  // The checkbox only appears once it has been seeded from the server. Until then an empty box of the
+  // same height holds its row open, so the cards below don't get pushed down when it arrives.
+  const consentAttestationFooter =
+    consentAttested === null ? (
+      <Box sx={{ height: CONSENT_ATTESTATION_ROW_HEIGHT }} />
+    ) : (
+      <Box style={{ display: 'flex', alignItems: 'center', minHeight: CONSENT_ATTESTATION_ROW_HEIGHT }}>
+        <Checkbox
+          inputProps={
+            { 'data-testid': dataTestIds.visitDetailsPage.consentAttestationCheckbox } as Record<string, unknown>
+          }
+          checked={consentAttested ?? false}
+          onChange={(_e: any, checked: boolean) => {
+            setConsentAttested(checked);
+          }}
+        />
+        <Typography>I verify that patient consent has been obtained.</Typography>
+        {consentAttestationSaveButton}
+      </Box>
+    );
 
   return (
     <PageContainer>
@@ -1333,8 +1380,12 @@ export default function VisitDetailsPage(): ReactElement {
             </Grid>
             {/* page title row */}
             <Grid container direction="row" marginTop={1}>
-              {loading || activityLogsLoading || !patient ? (
-                <Skeleton aria-busy="true" width={200} height="" />
+              {loading || !patient ? (
+                // Sized by the same typography as the name it stands in for, so the row is already
+                // at its final height.
+                <Typography variant="h2">
+                  <Skeleton aria-busy="true" width={240} />
+                </Typography>
               ) : (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Box
@@ -1358,7 +1409,7 @@ export default function VisitDetailsPage(): ReactElement {
 
               {/* appointment start time as AM/PM and then date */}
               {loading || !appointment ? (
-                <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
+                <Skeleton sx={{ marginLeft: 4, alignSelf: 'center' }} aria-busy="true" width={280} />
               ) : (
                 <>
                   <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 4 }}>
@@ -1377,7 +1428,7 @@ export default function VisitDetailsPage(): ReactElement {
               )}
 
               {loading || !status ? (
-                <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
+                <Skeleton sx={{ marginLeft: 2, alignSelf: 'center' }} aria-busy="true" width={200} />
               ) : (
                 <>
                   <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
@@ -1444,16 +1495,15 @@ export default function VisitDetailsPage(): ReactElement {
               ) : null}
             </Grid>
 
-            {(patient || nameLastModifiedOld || nameLastModified) && (
-              <Grid container direction="row" alignItems="center" gap={2} sx={{ marginLeft: 4 }}>
-                {patient && <IdentifiersRow patient={patient} />}
-                {(nameLastModifiedOld || nameLastModified) && (
-                  <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
-                    Name Last Modified {nameLastModifiedOld || nameLastModified}
-                  </Typography>
-                )}
-              </Grid>
-            )}
+            {/* Always rendered, at a fixed height, so the identifiers don't push the page down when they load. */}
+            <Grid container direction="row" alignItems="center" gap={2} sx={{ marginLeft: 4, minHeight: 24 }}>
+              <IdentifiersRow patient={patient} loading={!patient} />
+              {(nameLastModifiedOld || nameLastModified) && (
+                <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
+                  Name Last Modified {nameLastModifiedOld || nameLastModified}
+                </Typography>
+              )}
+            </Grid>
 
             {paperworkModifiedFlag && (
               <Grid container direction="row" marginTop={2}>
@@ -1582,13 +1632,11 @@ export default function VisitDetailsPage(): ReactElement {
                       <PatientInformation
                         title="Completed consent forms"
                         loading={loading}
-                        editValue={
-                          signedConsentForm[consentToTreatPatientDetailsKey] === 'Signed'
-                            ? consentEditProp()
-                            : undefined
-                        }
+                        // Also passed while loading, where it only reserves the button's height.
+                        editValue={loading || consentStatus === 'Signed' ? consentEditProp() : undefined}
                         patientDetails={{
                           ...signedConsentForm,
+                          [consentToTreatPatientDetailsKey]: consentStatusCell,
                         }}
                         footerCellContent={consentAttestationFooter}
                       />
@@ -1614,7 +1662,23 @@ export default function VisitDetailsPage(): ReactElement {
                       </Grid>
                     )}
                   </Grid>
-                  <Grid container item xs={12} sm={6} direction="column">
+                  {!showSideColumn && (
+                    <Grid container item xs={12} sm={6} direction="column">
+                      <Grid item>
+                        <VisitSideColumnSkeleton />
+                      </Grid>
+                    </Grid>
+                  )}
+                  {/* Mounted from the start so its requests run behind the placeholder above, and
+                      swapped in whole once they have answered. */}
+                  <Grid
+                    container
+                    item
+                    xs={12}
+                    sm={6}
+                    direction="column"
+                    sx={showSideColumn ? undefined : { display: 'none' }}
+                  >
                     {!patientBalancesLoading &&
                     patientBalancesData?.totalBalanceCents &&
                     patientBalancesData?.totalBalanceCents > 0 ? (
@@ -1642,6 +1706,7 @@ export default function VisitDetailsPage(): ReactElement {
                         isRefetching={isPaymentListRefetching}
                         paymentListError={paymentListError}
                         patientCreditCents={patientBalancesData?.patientCreditCents ?? 0}
+                        onContentSettled={handlePaymentsSettled}
                       />
                     </Grid>
                     <Grid item>
@@ -1664,7 +1729,7 @@ export default function VisitDetailsPage(): ReactElement {
               </Typography>
               <PatientAccountComponent
                 id={patientId}
-                loadingComponent={<Skeleton width={200} height={40} />}
+                loadingComponent={<PatientRecordSkeleton />}
                 renderBackButton={false}
                 appointmentContext={appointmentContext}
                 appointmentId={appointmentID}

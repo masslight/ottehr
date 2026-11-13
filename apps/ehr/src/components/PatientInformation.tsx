@@ -115,7 +115,16 @@ export default function PatientInformation({
                       >
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                           {loading ? (
-                            <Skeleton aria-busy="true" width={200} />
+                            <>
+                              {/* Reserve the edit affordance's footprint so the row keeps its height
+                                  when the value replaces the skeleton. */}
+                              {editValue?.[patientDetailsKey] && (
+                                <Box aria-hidden sx={{ visibility: 'hidden', width: 0, overflow: 'hidden' }}>
+                                  {editValue[patientDetailsKey]}
+                                </Box>
+                              )}
+                              <Skeleton aria-busy="true" width={200} />
+                            </>
                           ) : (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, wordBreak: 'break-word' }}>
                               {/* Render the edit affordance whenever the caller declares the

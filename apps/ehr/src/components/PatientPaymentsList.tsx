@@ -97,6 +97,12 @@ export interface PaymentListProps {
   isRefetching: boolean;
   paymentListError: Error | null;
   patientCreditCents?: number;
+  /**
+   * Called once everything that decides this card's height on first load has arrived (payer, pricing,
+   * services and payments). Lets the host keep a placeholder up until the card can render at its
+   * final size instead of growing section by section.
+   */
+  onContentSettled?: () => void;
 }
 
 const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
@@ -217,6 +223,7 @@ export default function PatientPaymentList({
   isRefetching,
   paymentListError,
   patientCreditCents,
+  onContentSettled,
 }: PaymentListProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const apiClient = useOystehrAPIClient();
@@ -262,6 +269,7 @@ export default function PatientPaymentList({
     data: encounter,
     refetch: refetchEncounter,
     isRefetching: isEncounterRefetching,
+    isFetched: encounterFetched,
   } = useGetEncounter({ encounterId });
 
   const paymentVariant = encounter ? getPaymentVariantFromEncounter(encounter) : undefined;
@@ -272,7 +280,7 @@ export default function PatientPaymentList({
     isFetching: isReceiptFetching,
   } = useEncounterReceipt({ encounterId });
 
-  const { data: insuranceData } = useGetPatientAccount({
+  const { data: insuranceData, isFetched: accountFetched } = useGetPatientAccount({
     apiClient,
     patientId: patient?.id ?? null,
   });
@@ -369,7 +377,7 @@ export default function PatientPaymentList({
   );
   const defaultChargeMaster = defaultCmResult?.chargeMaster;
 
-  const { chartData } = useChartData({ encounterId });
+  const { chartData, isFetched: chartDataFetched } = useChartData({ encounterId });
 
   const activeFeeSchedule =
     paymentVariant === PaymentVariant.selfPay
@@ -434,6 +442,23 @@ export default function PatientPaymentList({
       (canQueryFeeSchedule && feeScheduleFetched && (!!payerFeeSchedule || insurancePayFetched)));
 
   const payments = paymentData?.payments ?? []; // Replace with actual payments when available
+
+  // "Fetched" rather than "has data" throughout, so a failed request settles the card too.
+  const pricingSettled =
+    paymentVariant === PaymentVariant.selfPay
+      ? selfPayFetched
+      : isPayerVariant
+      ? payerPricingFetched
+      : defaultCmFetched;
+  const contentSettled =
+    encounterFetched &&
+    pricingSettled &&
+    chartDataFetched &&
+    (paymentVariant !== PaymentVariant.insurance || accountFetched) &&
+    (paymentData !== undefined || paymentListError !== null);
+  useEffect(() => {
+    if (contentSettled) onContentSettled?.();
+  }, [contentSettled, onContentSettled]);
 
   // resolved from the id so a refetch (e.g. after refund/void) refreshes the open dialog
   const detailsPayment = detailsPaymentId
