@@ -8,6 +8,8 @@ export interface FlowsheetRow {
   digits?: number;
   /** Leave the row out when no visit shown has a value for it (BMI rows for a patient under 2). */
   hideWhenEmpty?: boolean;
+  /** A metric measure the grid can show imperial (practice header unit system) with both units on hover. */
+  imperial?: { label: string; unit: 'lbs' | 'in' };
 }
 
 export interface FlowsheetChart {
@@ -63,14 +65,24 @@ const growth: FlowsheetDefinition = {
   title: 'Growth',
   rows: [
     { label: 'Age', keys: ['age'] },
-    { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 2, imperial: { label: 'Weight (lbs)', unit: 'lbs' } },
     { label: 'Weight percentile', keys: ['weightPercentile'] },
-    { label: 'Height / length (cm)', keys: ['height'], digits: 1 },
+    {
+      label: 'Height / length (cm)',
+      keys: ['height'],
+      digits: 1,
+      imperial: { label: 'Height / length (in)', unit: 'in' },
+    },
     { label: 'Height / length percentile', keys: ['heightPercentile'] },
     { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1, hideWhenEmpty: true },
     { label: 'BMI percentile', keys: ['bmiPercentile'], hideWhenEmpty: true },
     { label: 'Weight-for-length percentile', keys: ['weightForLengthPercentile'] },
-    { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
+    {
+      label: 'Head circumference (cm)',
+      keys: ['headCircumference'],
+      digits: 1,
+      imperial: { label: 'Head circumference (in)', unit: 'in' },
+    },
     { label: 'Head circumference percentile', keys: ['headCircumferencePercentile'] },
   ],
   charts: [],

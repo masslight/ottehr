@@ -28,10 +28,14 @@ import { EChart } from 'src/features/report-builder/runtime/components/EChart';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { Loader } from 'src/features/visits/shared/components/Loader';
+import { useVitalsHeaderUnitSystem } from 'src/features/visits/shared/components/vitals/hooks/useVitalsHeaderUnitSystem';
 import { DATE_FORMAT } from 'src/helpers/formatDateTime';
 import { useGetFlowsheet } from 'src/hooks/useGetFlowsheet';
+import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
+import { VitalsHeaderUnitSystem } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { biliToolReadings, canOpenBiliTool } from '../biliTool';
 import { chartPoint, HOURS_OF_LIFE_MAX, usesHoursAxis } from '../chartPoints';
@@ -149,13 +153,38 @@ interface Cell {
   history: { time: string; text: string; flag?: VitalAlertCriticality }[];
 }
 
-export const cellOf = (row: FlowsheetRow, visit: FlowsheetVisit): Cell => {
+// Imperial from the stored metric value, at the vitals' display precision (lbs 2 decimals, inches 2 decimals).
+const toImperial = (value: number, unit: 'lbs' | 'in'): string =>
+  unit === 'lbs'
+    ? roundNumberToDecimalPlaces(value * LBS_IN_KG, 2).toFixed(2)
+    : HeightMeasurement.fromCm(value).getInches().toFixed(2);
+
+/** The row label in the unit system shown. */
+export const rowLabel = (row: FlowsheetRow, unitSystem: VitalsHeaderUnitSystem = 'metric'): string =>
+  row.imperial && unitSystem === 'imperial' ? row.imperial.label : row.label;
+
+/** "5.80 kg ≈ 12.79 lbs" for a convertible row's reading, metric first; undefined for other rows. */
+export const bothUnits = (row: FlowsheetRow, value: number | string): string | undefined =>
+  row.imperial && typeof value === 'number' && row.digits !== undefined
+    ? `${roundNumberToDecimalPlaces(value, row.digits).toFixed(row.digits)} ${row.label.match(
+        /\((.+)\)/
+      )?.[1]} ≈ ${toImperial(value, row.imperial.unit)} ${row.imperial.unit}`
+    : undefined;
+
+export const cellOf = (
+  row: FlowsheetRow,
+  visit: FlowsheetVisit,
+  unitSystem: VitalsHeaderUnitSystem = 'metric'
+): Cell => {
   const readings = row.keys.map((key) => visit.values[key]).filter((reading) => reading !== undefined);
   if (readings.length < row.keys.length) return { text: '', history: [] };
   // Numbers show exactly the row's digits (3.10, not 3.1); text (a drug name, a coded lab result) is shown as saved.
+  // A convertible row shows imperial when the practice's header unit system is imperial.
   const formatOne = ({ value, unit }: FlowsheetReading): string => {
     const text =
-      typeof value === 'number' && row.digits !== undefined
+      typeof value === 'number' && row.imperial && unitSystem === 'imperial'
+        ? toImperial(value, row.imperial.unit)
+        : typeof value === 'number' && row.digits !== undefined
         ? roundNumberToDecimalPlaces(value, row.digits).toFixed(row.digits)
         : String(value);
     return unit ? `${text} ${unit}` : text;
@@ -195,9 +224,19 @@ const FlagMark = ({ flag }: { flag?: VitalAlertCriticality }): ReactElement | nu
   return null;
 };
 
-/** The cell value; with more than one reading, a count marker and a hover list of every reading (local time). */
-const CellValue = ({ cell }: { cell: Cell }): ReactElement => {
-  if (cell.history.length < 2) return <>{cell.text || '—'}</>;
+/**
+ * The cell value; with more than one reading, a count marker and a hover list of every reading (local time). A
+ * convertible measure shows both units on hover.
+ */
+const CellValue = ({ cell, both }: { cell: Cell; both?: string }): ReactElement => {
+  if (cell.history.length < 2) {
+    if (!both || !cell.text) return <>{cell.text || '—'}</>;
+    return (
+      <Tooltip title={both}>
+        <Box component="span">{cell.text}</Box>
+      </Tooltip>
+    );
+  }
   return (
     <Tooltip
       title={
@@ -208,6 +247,7 @@ const CellValue = ({ cell }: { cell: Cell }): ReactElement => {
               {reading.flag ? ` (${reading.flag})` : ''}
             </Typography>
           ))}
+          {both && <Typography variant="caption">{both}</Typography>}
         </Stack>
       }
     >
@@ -248,6 +288,7 @@ const FlowsheetBody = ({
   currentAppointmentId?: string;
 }): ReactElement => {
   const theme = useTheme();
+  const unitSystem = useVitalsHeaderUnitSystem();
   const columns = useMemo(() => toColumns(visits), [visits]);
   const rows = useMemo(() => visibleRows(definition, visits), [definition, visits]);
   // The open visit's own (main) column; its follow-up columns are not it.
@@ -334,9 +375,10 @@ const FlowsheetBody = ({
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.label}>
-                <TableCell sx={{ ...pinned, fontWeight: 600 }}>{row.label}</TableCell>
+                <TableCell sx={{ ...pinned, fontWeight: 600 }}>{rowLabel(row, unitSystem)}</TableCell>
                 {columns.map((visit, i) => {
-                  const cell = cellOf(row, visit);
+                  const cell = cellOf(row, visit, unitSystem);
+                  const latest = row.keys.length === 1 ? visit.values[row.keys[0]]?.value : undefined;
                   return (
                     <TableCell
                       key={`${visit.start}-${i}`}
@@ -347,7 +389,7 @@ const FlowsheetBody = ({
                         ...currentSx(visit),
                       }}
                     >
-                      <CellValue cell={cell} />
+                      <CellValue cell={cell} both={latest !== undefined ? bothUnits(row, latest) : undefined} />
                       <FlagMark flag={cell.flag} />
                     </TableCell>
                   );

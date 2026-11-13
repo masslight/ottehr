@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, it, vi } from 'vitest';
-import { cellOf, toColumns, visibleRows } from '../../src/features/flowsheets/components/Flowsheets';
+import {
+  bothUnits,
+  cellOf,
+  rowLabel,
+  toColumns,
+  visibleRows,
+} from '../../src/features/flowsheets/components/Flowsheets';
 import { FLOWSHEETS } from '../../src/features/flowsheets/registry';
 
 // The component imports the api client through its data hook; the formatting under test never calls it.
@@ -94,5 +100,28 @@ describe('rows hidden when empty (no BMI under 2)', () => {
       bmiPercentile: reading('55th'),
     });
     expect(labels([infant, child])).toEqual(growth.rows.map((row) => row.label));
+  });
+});
+
+describe('growth measures in the practice header unit system', () => {
+  const growth = FLOWSHEETS.find((f) => f.id === 'growth')!;
+  const weight = growth.rows.find((row) => row.keys[0] === 'weight')!;
+  const height = growth.rows.find((row) => row.keys[0] === 'height')!;
+  const v = visit({ weight: reading(5.8), height: reading(65.04), weightPercentile: reading('60th') });
+
+  it('shows metric by default and imperial when the practice header system is imperial, both on hover', () => {
+    expect(cellOf(weight, v).text).toBe('5.80');
+    expect(cellOf(weight, v, 'imperial').text).toBe('12.79');
+    expect(cellOf(height, v, 'imperial').text).toBe('25.61');
+    expect(rowLabel(weight)).toBe('Weight (kg)');
+    expect(rowLabel(weight, 'imperial')).toBe('Weight (lbs)');
+    expect(rowLabel(height, 'imperial')).toBe('Height / length (in)');
+    expect(bothUnits(weight, 5.8)).toBe('5.80 kg ≈ 12.79 lbs');
+    expect(bothUnits(height, 65.04)).toBe('65.0 cm ≈ 25.61 in');
+    // Percentile and non-measure rows are not converted.
+    const percentile = growth.rows.find((row) => row.keys[0] === 'weightPercentile')!;
+    expect(cellOf(percentile, v, 'imperial').text).toBe('60th');
+    expect(bothUnits(percentile, '60th')).toBeUndefined();
+    expect(rowLabel(percentile, 'imperial')).toBe('Weight percentile');
   });
 });

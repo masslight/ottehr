@@ -1,6 +1,8 @@
 import { DateTime } from 'luxon';
 import { DATE_FORMAT } from 'src/helpers/formatDateTime';
 import { LmsRow, valueAtZ, zForPercentile } from 'utils/lib/helpers/vitals/growth-lms';
+import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { GrowthChartId, GrowthChartPoint, GrowthChartSet } from 'utils/lib/types/api/flowsheets.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 
@@ -66,11 +68,28 @@ const AGE_YEARS: XAxis = {
 };
 const LENGTH_CM: XAxis = { min: 45, max: 110, interval: 5, minorSplit: 5, name: 'Length (cm)' };
 
+/** The right-hand axis and hover text in imperial units; BMI has none. */
+interface ImperialUnit {
+  unit: string;
+  yLabel: string;
+  digits: number;
+  convert: (metric: number) => number;
+}
+
+const LBS: ImperialUnit = { unit: 'lbs', yLabel: 'Weight (lbs)', digits: 2, convert: (kg) => kg * LBS_IN_KG };
+const inches = (yLabel: string): ImperialUnit => ({
+  unit: 'in',
+  yLabel,
+  digits: 2,
+  convert: (cm) => HeightMeasurement.fromCm(cm).getInches(),
+});
+
 export interface GrowthChartView {
   title: string;
   yLabel: string;
   unit: string;
   digits: number;
+  imperial?: ImperialUnit;
   xAxis: XAxis;
   /** Weight-for-length: x is the length, shown with the value. */
   xIsLength?: boolean;
@@ -84,6 +103,7 @@ export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
     yLabel: 'Weight (kg)',
     unit: 'kg',
     digits: 2,
+    imperial: LBS,
     xAxis: AGE_MONTHS,
     inOtherSet: true,
   },
@@ -92,6 +112,7 @@ export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
     yLabel: 'Length (cm)',
     unit: 'cm',
     digits: 1,
+    imperial: inches('Length (in)'),
     xAxis: AGE_MONTHS,
     inOtherSet: true,
   },
@@ -100,6 +121,7 @@ export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
     yLabel: 'Weight (kg)',
     unit: 'kg',
     digits: 2,
+    imperial: LBS,
     xAxis: LENGTH_CM,
     xIsLength: true,
     inOtherSet: true,
@@ -109,6 +131,7 @@ export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
     yLabel: 'Head circumference (cm)',
     unit: 'cm',
     digits: 1,
+    imperial: inches('Head circumference (in)'),
     xAxis: AGE_MONTHS,
     inOtherSet: false,
   },
@@ -117,6 +140,7 @@ export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
     yLabel: 'Weight (kg)',
     unit: 'kg',
     digits: 2,
+    imperial: LBS,
     xAxis: AGE_YEARS,
     inOtherSet: true,
   },
@@ -125,6 +149,7 @@ export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
     yLabel: 'Stature (cm)',
     unit: 'cm',
     digits: 1,
+    imperial: inches('Stature (in)'),
     xAxis: AGE_YEARS,
     inOtherSet: true,
   },
@@ -164,11 +189,19 @@ const fixed = (value: number, digits: number): string => roundNumberToDecimalPla
 export const formatGrowthValue = (point: GrowthChartPoint, view: GrowthChartView, atLength = '@'): string =>
   `${fixed(point.y, view.digits)} ${view.unit}${view.xIsLength ? ` ${atLength} ${fixed(point.x, 1)} cm` : ''}`;
 
+/** The hover text's value in both units: "5.80 kg ≈ 12.79 lbs", "7.30 kg ≈ 16.09 lbs at 65.0 cm"; BMI stays kg/m². */
+export const formatGrowthValueBothUnits = (point: GrowthChartPoint, view: GrowthChartView): string => {
+  const imperial = view.imperial
+    ? ` ≈ ${fixed(view.imperial.convert(point.y), view.imperial.digits)} ${view.imperial.unit}`
+    : '';
+  return `${fixed(point.y, view.digits)} ${view.unit}${imperial}${view.xIsLength ? ` at ${fixed(point.x, 1)} cm` : ''}`;
+};
+
 export const formatGrowthDate = (iso: string): string => DateTime.fromISO(iso).toFormat(DATE_FORMAT);
 
-/** The tooltip: "08/10/2026 · 19 y 4 mo · 73 kg" then "88th percentile" or the ⚠ note. Plain text, never HTML. */
+/** The tooltip: "08/10/2026 · 19 y 4 mo · 73.00 kg ≈ 160.94 lbs" then "88th percentile" or the ⚠ note. Plain text, never HTML. */
 export const growthTooltip = (point: GrowthChartPoint, view: GrowthChartView): string =>
-  `${formatGrowthDate(point.time)} · ${point.age} · ${formatGrowthValue(point, view, 'at')}\n${
+  `${formatGrowthDate(point.time)} · ${point.age} · ${formatGrowthValueBothUnits(point, view)}\n${
     point.percentile ? `${point.percentile} percentile` : `⚠ ${point.note ?? ''}`
   }`;
 
@@ -228,7 +261,15 @@ export const buildGrowthChartOption = (
     },
     // Our own disabled dataZoom keeps the EChart wrapper from adding its slider.
     dataZoom: [{ type: 'inside', disabled: true }],
-    grid: { left: 56, right: 40, top: 16, bottom: 44, show: true, backgroundColor: pal.tint, borderColor: '#9aa5b4' },
+    grid: {
+      left: 56,
+      right: view.imperial ? 64 : 40,
+      top: 16,
+      bottom: 44,
+      show: true,
+      backgroundColor: pal.tint,
+      borderColor: '#9aa5b4',
+    },
     xAxis: {
       type: 'value',
       min: xAxis.min,
@@ -244,21 +285,43 @@ export const buildGrowthChartOption = (
       minorTick: { show: true, splitNumber: xAxis.minorSplit },
       minorSplitLine: { show: true, lineStyle: { color: GRID_MINOR } },
     },
-    yAxis: {
-      type: 'value',
-      min: yMin,
-      max: yMax,
-      interval: step,
-      name: view.yLabel,
-      nameLocation: 'middle',
-      nameGap: 40,
-      axisLabel: { fontSize: 10.5, color: '#475569' },
-      axisLine: { show: false },
-      axisTick: { show: false },
-      splitLine: { lineStyle: { color: GRID_MAJOR } },
-      minorTick: { show: true, splitNumber: yMinorSplit },
-      minorSplitLine: { show: true, lineStyle: { color: GRID_MINOR } },
-    },
+    // The metric axis on the left carries the grid; the imperial axis on the right spans the same range converted,
+    // so its ticks sit on the metric gridlines.
+    yAxis: [
+      {
+        type: 'value',
+        min: yMin,
+        max: yMax,
+        interval: step,
+        name: view.yLabel,
+        nameLocation: 'middle',
+        nameGap: 40,
+        axisLabel: { fontSize: 10.5, color: '#475569' },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { lineStyle: { color: GRID_MAJOR } },
+        minorTick: { show: true, splitNumber: yMinorSplit },
+        minorSplitLine: { show: true, lineStyle: { color: GRID_MINOR } },
+      },
+      ...(view.imperial
+        ? [
+            {
+              type: 'value',
+              position: 'right',
+              min: view.imperial.convert(yMin),
+              max: view.imperial.convert(yMax),
+              interval: view.imperial.convert(step),
+              name: view.imperial.yLabel,
+              nameLocation: 'middle',
+              nameGap: 44,
+              axisLabel: { fontSize: 10.5, color: '#475569', formatter: (value: number) => fixed(value, 1) },
+              axisLine: { show: false },
+              axisTick: { show: false },
+              splitLine: { show: false },
+            },
+          ]
+        : []),
+    ],
     series: [
       ...curves.map(({ pct, data }) => ({
         name: `${pct}`,
