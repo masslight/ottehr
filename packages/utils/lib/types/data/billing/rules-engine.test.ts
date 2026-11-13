@@ -5,10 +5,11 @@ import {
   collectApplyTagNames,
   collectSetNioIds,
   collectSetResourceRefs,
-  getRuleFieldDef,
+  getFieldDef,
   getServiceLinePropertyDef,
   MAX_REGEX_PATTERN_LENGTH,
   PATIENT_COVERAGE_FIELD_ID,
+  RULE_FIELD_CATALOG,
   ruleConditionValueProblem,
   RuleFieldDef,
   ruleReferencesPatientCoverage,
@@ -253,7 +254,7 @@ describe('RunBillingRulesEngineInputSchema payerClaimControlNumber', () => {
 
 describe('rule value validation', () => {
   const field = (id: string): RuleFieldDef => {
-    const def = getRuleFieldDef(id);
+    const def = getFieldDef<RuleFieldDef>(id, RULE_FIELD_CATALOG);
     if (!def) throw new Error(`unknown field ${id}`);
     return def;
   };

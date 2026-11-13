@@ -6,7 +6,11 @@ import {
 } from 'utils/lib/fhir/constants';
 import { EraRemitServiceLine } from 'utils/lib/types/data/billing/billing.types';
 import { describe, expect, it } from 'vitest';
-import { ADJUDICATION_CODES, X12_ADJUSTMENT_GROUP_SYSTEM } from '../../../src/billing/claim-amounts';
+import {
+  ADJUDICATION_CODES,
+  OYSTEHR_ADJUDICATION_SYSTEM,
+  X12_ADJUSTMENT_GROUP_SYSTEM,
+} from '../../../src/billing/claim-amounts';
 import {
   buildEraClaimRemit,
   buildEraRemitServiceLines,
@@ -420,7 +424,7 @@ describe('buildEraRemitServiceLines', () => {
       total: [
         {
           category: {
-            coding: [{ system: 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication', code: 'paid' }],
+            coding: [{ system: OYSTEHR_ADJUDICATION_SYSTEM, code: 'paid' }],
           },
           amount: { value: 110 },
         },

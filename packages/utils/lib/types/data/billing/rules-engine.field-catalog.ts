@@ -61,7 +61,9 @@ export type RuleFieldGroup =
   | 'renderingProvider'
   | 'billingProvider'
   | 'serviceFacility'
-  | 'tags';
+  | 'tags'
+  | 'eras'
+  | 'era';
 
 // Display order of groups in the rule builder's property pickers and in the generated docs.
 export const RULE_FIELD_GROUPS: RuleFieldGroup[] = [
@@ -100,6 +102,8 @@ export const RULE_FIELD_GROUP_LABELS: Record<RuleFieldGroup, string> = {
   billingProvider: 'Billing provider',
   serviceFacility: 'Service facility',
   tags: 'Tags',
+  eras: 'ERAs',
+  era: 'Latest ERA',
 };
 
 // How a field's comparison value is typed:
@@ -115,6 +119,7 @@ export const RULE_FIELD_GROUP_LABELS: Record<RuleFieldGroup, string> = {
 // - facility: a service facility reference resource ("Location/<id>") chosen from the service
 //   facilities list
 // - nio: a non-insurance organization id chosen from the NIO directory
+// - item: a nested array of objects with their own properties
 export type RuleFieldValueType =
   | 'string'
   | 'number'
@@ -124,7 +129,8 @@ export type RuleFieldValueType =
   | 'payer'
   | 'provider'
   | 'facility'
-  | 'nio';
+  | 'nio'
+  | 'item';
 
 export interface RuleFieldOption {
   value: string;
@@ -181,11 +187,10 @@ export const RULE_VALUE_FORMATS: Record<RuleValueFormat, RuleValueFormatDef> = {
   service: { hint: 'a service on claims created from visits' },
 };
 
-export interface RuleFieldDef {
+export interface FieldDefBase<T> {
   id: string;
   label: string;
-  group: RuleFieldGroup;
-  valueType: RuleFieldValueType;
+  valueType: T;
   operators: RuleOperator[];
   // Whether the field can be the target of a setField action.
   settable: boolean;
@@ -196,14 +201,23 @@ export interface RuleFieldDef {
   // Value format for text-typed fields: validation for exact-match/written values plus the rule
   // builder's input dispatch (tag/cpt pickers).
   format?: RuleValueFormat;
+  // Docs: a short phrase rendered instead of enumerating a huge options list (states, POS codes).
+  optionsDocNote?: string;
+}
+
+export type FieldCatalog<T extends FieldDefBase<I> = FieldDefBase<any>, I = any> = T[];
+
+export interface RuleFieldDef extends FieldDefBase<RuleFieldValueType> {
+  // Groups items together in docs, catalog, and UI
+  group: RuleFieldGroup;
   // setField normally treats an empty value as "clear the property"; fields whose writers reject
   // empty (the payer, claim type, service date, plan type) require a value instead.
   requiredOnSet?: boolean;
-  // Docs: a short phrase rendered instead of enumerating a huge options list (states, POS codes).
-  optionsDocNote?: string;
   // provider-typed fields: which provider list the value is picked from (and, at save time, which
   // role tag the referenced resource must carry).
   providerRole?: 'rendering' | 'billing';
+  itemCatalog?: FieldDefBase<any>[];
+  itemCatalogResourceName?: string;
 }
 
 const SCALAR_OPS: RuleOperator[] = [
@@ -232,6 +246,7 @@ const LIST_OPS: RuleOperator[] = ['contains', 'notContains', 'matches', 'notMatc
 const BOOLEAN_OPS: RuleOperator[] = ['eq', 'neq'];
 // Counts always exist (an empty claim counts 0), so exists/notExists would be noise.
 const COUNT_OPS: RuleOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte'];
+const ITEM_OPS: RuleOperator[] = ['itemMatches'];
 
 const GENDER_OPTIONS: RuleFieldOption[] = PERSON_GENDER_OPTIONS;
 
@@ -559,6 +574,90 @@ const providerFields = (prefix: 'renderingProvider' | 'billingProvider', noun: s
   ];
 };
 
+// ---------------------------------------------------------------------------
+// Service line properties.
+//
+// Service lines are an array, so their properties are not claim fields: they are matched and updated
+// per line by the "Update service lines" / "Remove service lines" actions, each of which carries its
+// own line predicate. This mini-catalog is the contract for those actions — it drives the rule
+// builder's match/set pickers, save-time validation, the engine's per-line readers/writers (paired
+// by a unit test like the main catalog), and the generated documentation.
+// ---------------------------------------------------------------------------
+
+export type ServiceLineValueType = 'string' | 'number' | 'date' | 'select' | 'list';
+
+export type ServiceLinePropertyDef = FieldDefBase<ServiceLineValueType>;
+
+export const SERVICE_LINE_PROPERTY_CATALOG: ServiceLinePropertyDef[] = [
+  {
+    id: 'cptCode',
+    label: 'CPT code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: "The line's CPT/HCPCS procedure code. Setting it replaces the line's procedure coding.",
+    format: 'cpt',
+  },
+  {
+    id: 'modifiers',
+    label: 'Modifiers',
+    valueType: 'list',
+    operators: LIST_OPS,
+    settable: true,
+    description:
+      'The line\'s procedure modifiers. When updating, the operation chooses how the value applies: "set" replaces the whole list (comma-separated; empty clears it), "add" appends one modifier, "remove" drops one.',
+  },
+  {
+    id: 'units',
+    label: 'Units',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: true,
+    description: "The line's unit count. Setting it requires a positive number.",
+  },
+  {
+    id: 'charges',
+    label: 'Charges',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: true,
+    description:
+      "The line's charge amount in dollars. Setting it requires a non-negative number; the claim's billed total is recomputed.",
+  },
+  {
+    id: 'placeOfService',
+    label: 'Place of service code',
+    valueType: 'select',
+    operators: ENUM_OPS,
+    settable: true,
+    description: "The line's CMS place-of-service code. Setting an empty value clears it.",
+    options: POS_OPTIONS,
+    optionsDocNote: POS_OPTIONS_DOC_NOTE,
+  },
+  {
+    id: 'serviceDate',
+    label: 'Service date',
+    valueType: 'date',
+    operators: DATE_OPS,
+    settable: true,
+    description:
+      "The line's date of service (YYYY-MM-DD). When updating, the new value can be a literal date or " +
+      'derived from the claim (see Service date sources) — matching still compares against a literal date only.',
+  },
+  {
+    id: 'revenueCode',
+    label: 'Rev Code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: true,
+    description: 'Revenue code of the procedure.',
+  },
+];
+
+const SERVICE_LINE_PROPERTIES_BY_ID = new Map(SERVICE_LINE_PROPERTY_CATALOG.map((p) => [p.id, p]));
+export const getServiceLinePropertyDef = (id: string): ServiceLinePropertyDef | undefined =>
+  SERVICE_LINE_PROPERTIES_BY_ID.get(id);
+
 export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
   // --- Claim ---
   {
@@ -739,6 +838,17 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
     operators: SCALAR_OPS,
     settable: true,
     description: 'Point of Origin / Admission Source code on the claim',
+  },
+  {
+    id: 'serviceLine',
+    label: 'Service Line ...',
+    group: 'claim',
+    valueType: 'item',
+    operators: ITEM_OPS,
+    settable: true,
+    description: 'Service Line Properties',
+    itemCatalog: SERVICE_LINE_PROPERTY_CATALOG,
+    itemCatalogResourceName: 'service line',
   },
 
   // --- Accident ---
@@ -952,110 +1062,78 @@ export const RULE_FIELD_CATALOG: RuleFieldDef[] = [
       'The list of tags on the claim. Use contains / does-not-contain to test for a tag; add tags with the "Apply a tag" action.',
     format: 'tag',
   },
+
+  // --- ERAs ---
+  {
+    id: 'eraCount',
+    label: 'Total ERA Count',
+    group: 'eras',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: 'The total number of ERAs returned for this claim.',
+  },
+  {
+    id: 'eraCountForLatestPayer',
+    label: 'Payer ERA Count',
+    group: 'eras',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: 'The number of ERAs returned by the payer of the latest ERA.',
+  },
+  {
+    id: 'era.paid',
+    label: 'Paid',
+    group: 'era',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: 'The amount paid by the payer on the latest ERA.',
+  },
+  {
+    id: 'era.allowed',
+    label: 'Allowed',
+    group: 'era',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: 'The amount allowed by the payer on the latest ERA.',
+  },
+  {
+    id: 'era.payerId',
+    label: 'Payer ID',
+    group: 'era',
+    valueType: 'payer',
+    operators: SCALAR_OPS,
+    settable: false,
+    description: 'The payer of the latest ERA.',
+  },
+  {
+    id: 'era.insurance',
+    label: 'Insurance Position',
+    group: 'era',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: false,
+    description: "The insurance position of the latest ERA's payer on the claim (e.g. 'secondary').",
+  },
+  {
+    id: 'era.rarcs',
+    label: 'Remark Codes',
+    group: 'era',
+    valueType: 'list',
+    operators: LIST_OPS,
+    settable: false,
+    description: "The payer's remark codes on the latest ERA.",
+  },
 ];
 
 export const RULE_FIELD_IDS: string[] = RULE_FIELD_CATALOG.map((f) => f.id);
 
 const CATALOG_BY_ID = new Map(RULE_FIELD_CATALOG.map((f) => [f.id, f]));
-export const getRuleFieldDef = (id: string): RuleFieldDef | undefined => CATALOG_BY_ID.get(id);
-
-// ---------------------------------------------------------------------------
-// Service line properties.
-//
-// Service lines are an array, so their properties are not claim fields: they are matched and updated
-// per line by the "Update service lines" / "Remove service lines" actions, each of which carries its
-// own line predicate. This mini-catalog is the contract for those actions — it drives the rule
-// builder's match/set pickers, save-time validation, the engine's per-line readers/writers (paired
-// by a unit test like the main catalog), and the generated documentation.
-// ---------------------------------------------------------------------------
-
-export type ServiceLineValueType = 'string' | 'number' | 'date' | 'select' | 'list';
-
-export interface ServiceLinePropertyDef {
-  id: string;
-  label: string;
-  valueType: ServiceLineValueType;
-  // Operators available when matching lines on this property.
-  operators: RuleOperator[];
-  // Whether the property can be the target of an updateServiceLines action.
-  settable: boolean;
-  description: string;
-  // Valid values for select-typed properties (drives the rule builder dropdown and the docs).
-  options?: RuleFieldOption[];
-  format?: RuleValueFormat;
-  // Docs: rendered instead of enumerating a huge options list.
-  optionsDocNote?: string;
-}
-
-export const SERVICE_LINE_PROPERTY_CATALOG: ServiceLinePropertyDef[] = [
-  {
-    id: 'cptCode',
-    label: 'CPT code',
-    valueType: 'string',
-    operators: SCALAR_OPS,
-    settable: true,
-    description: "The line's CPT/HCPCS procedure code. Setting it replaces the line's procedure coding.",
-    format: 'cpt',
-  },
-  {
-    id: 'modifiers',
-    label: 'Modifiers',
-    valueType: 'list',
-    operators: LIST_OPS,
-    settable: true,
-    description:
-      'The line\'s procedure modifiers. When updating, the operation chooses how the value applies: "set" replaces the whole list (comma-separated; empty clears it), "add" appends one modifier, "remove" drops one.',
-  },
-  {
-    id: 'units',
-    label: 'Units',
-    valueType: 'number',
-    operators: NUMBER_OPS,
-    settable: true,
-    description: "The line's unit count. Setting it requires a positive number.",
-  },
-  {
-    id: 'charges',
-    label: 'Charges',
-    valueType: 'number',
-    operators: NUMBER_OPS,
-    settable: true,
-    description:
-      "The line's charge amount in dollars. Setting it requires a non-negative number; the claim's billed total is recomputed.",
-  },
-  {
-    id: 'placeOfService',
-    label: 'Place of service code',
-    valueType: 'select',
-    operators: ENUM_OPS,
-    settable: true,
-    description: "The line's CMS place-of-service code. Setting an empty value clears it.",
-    options: POS_OPTIONS,
-    optionsDocNote: POS_OPTIONS_DOC_NOTE,
-  },
-  {
-    id: 'serviceDate',
-    label: 'Service date',
-    valueType: 'date',
-    operators: DATE_OPS,
-    settable: true,
-    description:
-      "The line's date of service (YYYY-MM-DD). When updating, the new value can be a literal date or " +
-      'derived from the claim (see Service date sources) — matching still compares against a literal date only.',
-  },
-  {
-    id: 'revenueCode',
-    label: 'Rev Code',
-    valueType: 'string',
-    operators: SCALAR_OPS,
-    settable: true,
-    description: 'Revenue code of the procedure.',
-  },
-];
-
-const SERVICE_LINE_PROPERTIES_BY_ID = new Map(SERVICE_LINE_PROPERTY_CATALOG.map((p) => [p.id, p]));
-export const getServiceLinePropertyDef = (id: string): ServiceLinePropertyDef | undefined =>
-  SERVICE_LINE_PROPERTIES_BY_ID.get(id);
+export const getFieldDef = <T extends FieldDefBase<any>>(id: string, catalog: FieldCatalog<T>): T | undefined =>
+  catalog.find((entry) => entry.id === id);
 
 // ---------------------------------------------------------------------------
 // "Add a service line" fields.
@@ -1225,6 +1303,176 @@ export function addServiceLineFieldProblem(
       return undefined;
   }
 }
+
+// ---------------------------------------------------------------------------
+// ERA CARC and line properties.
+//
+// ERA CARCs and lines are arrays, so their properties are not ERA fields.
+// ---------------------------------------------------------------------------
+
+export type EraCarcValueType = 'string' | 'number';
+
+export type EraCarcPropertyDef = FieldDefBase<EraCarcValueType>;
+
+export const ERA_CARC_PROPERTY_CATALOG: EraCarcPropertyDef[] = [
+  {
+    id: 'groupCode',
+    label: 'Group Code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: false,
+    description: "The adjustment's group code.",
+  },
+  {
+    id: 'reasonCode',
+    label: 'Reason Code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: false,
+    description: "The adjustment's reason code.",
+  },
+  {
+    id: 'amount',
+    label: 'Amount',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: 'The amount of the adjustment.',
+  },
+];
+
+const ERA_CARC_PROPERTIES_BY_ID = new Map(ERA_CARC_PROPERTY_CATALOG.map((p) => [p.id, p]));
+export const getEraCarcPropertyDef = (id: string): EraCarcPropertyDef | undefined => ERA_CARC_PROPERTIES_BY_ID.get(id);
+
+export type EraServiceLineValueType = 'string' | 'number' | 'date' | 'select' | 'list';
+
+export type EraServiceLinePropertyDef = FieldDefBase<EraServiceLineValueType>;
+
+export const ERA_SERVICE_LINE_PROPERTY_CATALOG: EraServiceLinePropertyDef[] = [
+  {
+    id: 'cptCode',
+    label: 'CPT code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: false,
+    description: "The line's CPT/HCPCS procedure code. Setting it replaces the line's procedure coding.",
+    format: 'cpt',
+  },
+  {
+    id: 'modifiers',
+    label: 'Modifiers',
+    valueType: 'list',
+    operators: LIST_OPS,
+    settable: false,
+    description:
+      'The line\'s procedure modifiers. When updating, the operation chooses how the value applies: "set" replaces the whole list (comma-separated; empty clears it), "add" appends one modifier, "remove" drops one.',
+  },
+  {
+    id: 'units',
+    label: 'Units',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: "The line's unit count. Setting it requires a positive number.",
+  },
+  {
+    id: 'charges',
+    label: 'Charges',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description:
+      "The line's charge amount in dollars. Setting it requires a non-negative number; the claim's billed total is recomputed.",
+  },
+  {
+    id: 'placeOfService',
+    label: 'Place of service code',
+    valueType: 'select',
+    operators: ENUM_OPS,
+    settable: false,
+    description: "The line's CMS place-of-service code. Setting an empty value clears it.",
+    options: POS_OPTIONS,
+    optionsDocNote: POS_OPTIONS_DOC_NOTE,
+  },
+  {
+    id: 'serviceDate',
+    label: 'Service date',
+    valueType: 'date',
+    operators: DATE_OPS,
+    settable: false,
+    description:
+      "The line's date of service (YYYY-MM-DD). When updating, the new value can be a literal date or " +
+      'derived from the claim (see Service date sources) — matching still compares against a literal date only.',
+  },
+  {
+    id: 'revenueCode',
+    label: 'Rev Code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: false,
+    description: 'Revenue code of the procedure.',
+  },
+  {
+    id: 'paid',
+    label: 'Paid',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: "The line's paid amount in dollars.",
+  },
+  {
+    id: 'allowed',
+    label: 'Allowed',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: "The line's allowed amount in dollars.",
+  },
+  {
+    id: 'patientResponsibility',
+    label: 'Patient Responsibility',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: "The line's patient responsibility amount in dollars.",
+  },
+  {
+    id: 'coinsurance',
+    label: 'Co-Insurance',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: "The line's co-insurance amount in dollars.",
+  },
+  {
+    id: 'copay',
+    label: 'Co-Pay',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: "The line's co-pay amount in dollars.",
+  },
+  {
+    id: 'deductible',
+    label: 'Deductible',
+    valueType: 'number',
+    operators: NUMBER_OPS,
+    settable: false,
+    description: "The line's deductible amount in dollars.",
+  },
+  {
+    id: 'rarc',
+    label: 'Remark Code',
+    valueType: 'string',
+    operators: SCALAR_OPS,
+    settable: false,
+    description: "The line's payer remark code.",
+  },
+];
+
+const ERA_SERVICE_LINE_PROPERTIES_BY_ID = new Map(ERA_SERVICE_LINE_PROPERTY_CATALOG.map((p) => [p.id, p]));
+export const getEraServiceLinePropertyDef = (id: string): EraServiceLinePropertyDef | undefined =>
+  ERA_SERVICE_LINE_PROPERTIES_BY_ID.get(id);
 
 // ---------------------------------------------------------------------------
 // Per-value validation, shared by the rule builder (react-hook-form rules on each value input) and

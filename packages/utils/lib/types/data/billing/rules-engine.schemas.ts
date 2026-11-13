@@ -41,12 +41,14 @@ export const RULE_OPERATORS = [
   'notMatches',
   'exists',
   'notExists',
+  // CW TODO: item not exists?
+  'itemMatches',
 ] as const;
 export type RuleOperator = (typeof RULE_OPERATORS)[number];
 export const RuleOperatorSchema = z.enum(RULE_OPERATORS);
 
 // Operator groupings shared by the evaluator and the rule-builder UI.
-export const NO_VALUE_OPERATORS: readonly RuleOperator[] = ['exists', 'notExists'];
+export const NO_VALUE_OPERATORS: readonly RuleOperator[] = ['exists', 'notExists', 'itemMatches'];
 export const MULTI_VALUE_OPERATORS: readonly RuleOperator[] = ['in', 'notIn'];
 // Operators whose value is a fragment of the property (substring/prefix). Value validation only
 // requires a non-empty value for these — a partial NPI or ZIP is a legitimate fragment — whereas
@@ -122,6 +124,10 @@ export const RULE_OPERATOR_METADATA: Record<RuleOperator, RuleOperatorMetadata> 
   },
   exists: { label: 'is present', description: 'The property has a (non-empty) value on the claim.' },
   notExists: { label: 'is empty', description: 'The property is missing or empty on the claim.' },
+  itemMatches: {
+    label: 'matches conditions',
+    description: 'An item of the given type in the claim matches the conditions.',
+  },
 };
 
 export const RULE_LOGIC = ['and', 'or'] as const;
@@ -149,7 +155,7 @@ export type RuleConditionValue = z.output<typeof ConditionValueSchema>;
 // --- Condition (recursive: a `group` nests conditions) ---
 export type RuleCondition =
   | { type: 'all' }
-  | { type: 'field'; field: string; operator: RuleOperator; value?: RuleConditionValue }
+  | { type: 'field'; field: string; operator: RuleOperator; value?: RuleConditionValue; itemCondition?: RuleCondition }
   | { type: 'group'; logic: RuleLogic; conditions: RuleCondition[] };
 
 export const RuleConditionSchema: z.ZodType<RuleCondition> = z.lazy(() =>
@@ -160,6 +166,7 @@ export const RuleConditionSchema: z.ZodType<RuleCondition> = z.lazy(() =>
       field: z.string().min(1),
       operator: RuleOperatorSchema,
       value: ConditionValueSchema.optional(),
+      itemCondition: RuleConditionSchema.optional(),
     }),
     z.object({
       type: z.literal(RULE_CONDITION_TYPE.group),

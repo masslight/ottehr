@@ -26,6 +26,7 @@ import {
   toClaimPatientPayment,
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
+import { CARC_REASON_SYSTEM } from '../../../src/billing/manual-era';
 import { ERA_STATUS_CODE_EXTENSION } from '../../../src/billing/shared';
 
 const adjudication = (
@@ -54,7 +55,7 @@ const casAdjustment = (group: string, amount: number, reasonCode?: string): Clai
         reason: {
           coding: [
             {
-              system: 'https://x12.org/codes/claim-adjustment-reason-codes',
+              system: CARC_REASON_SYSTEM,
               code: reasonCode,
             },
           ],

@@ -27,6 +27,10 @@ import { fetchAllPages } from '../shared/fhir';
 import { PATIENT_PAYMENT_IDENTIFIER_FILTER } from './payments';
 import { ERA_STATUS_CODE_EXTENSION, isEraProcessingProvenance } from './shared';
 
+export const OYSTEHR_INPATIENT_REMARK_CODE_EXTENSION_PREFIX =
+  'https://extensions.fhir.oystehr.com/era-inpatient-remark-code-';
+export const OYSTEHR_OUTPATIENT_REMARK_CODE_EXTENSION_PREFIX =
+  'https://extensions.fhir.oystehr.com/era-outpatient-remark-code-';
 export const OYSTEHR_ADJUDICATION_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/adjudication';
 export const X12_ADJUSTMENT_GROUP_SYSTEM = 'https://x12.org/codes/claim-adjustment-group-codes';
 export const ADJUDICATION_CODES = {
@@ -56,11 +60,27 @@ export interface ClaimPaymentSummary {
   adjudicated: boolean;
 }
 
-function allAdjudications(claimResponse: ClaimResponse): ClaimResponseItemAdjudication[] {
-  return [
-    ...(claimResponse.item ?? []).flatMap((item) => item.adjudication ?? []),
-    ...(claimResponse.addItem ?? []).flatMap((item) => item.adjudication ?? []),
-  ];
+export function claimResponseRemarkCodes(claimResponse: ClaimResponse): string[] {
+  return (claimResponse.extension ?? [])
+    .filter(
+      (ext) =>
+        ext.url.startsWith(OYSTEHR_INPATIENT_REMARK_CODE_EXTENSION_PREFIX) ||
+        ext.url.startsWith(OYSTEHR_OUTPATIENT_REMARK_CODE_EXTENSION_PREFIX)
+    )
+    .map((ext) => ext.valueString)
+    .filter((val): val is string => !!val);
+}
+
+export function claimResponseItemAdjudications(claimResponse: ClaimResponse): ClaimResponseItemAdjudication[] {
+  return (claimResponse.item ?? []).flatMap((item) => item.adjudication ?? []);
+}
+
+export function claimResponseClaimLevelAdjudications(claimResponse: ClaimResponse): ClaimResponseItemAdjudication[] {
+  return (claimResponse.addItem ?? []).flatMap((item) => item.adjudication ?? []);
+}
+
+export function allAdjudications(claimResponse: ClaimResponse): ClaimResponseItemAdjudication[] {
+  return [...claimResponseItemAdjudications(claimResponse), ...claimResponseClaimLevelAdjudications(claimResponse)];
 }
 
 function adjudicationCode(adj: ClaimResponseItemAdjudication): string | undefined {
@@ -101,7 +121,7 @@ export function extractClaimResponseAmounts(claimResponse: ClaimResponse): Claim
 
 // CAS adjustments as written by both ERA converters: category = group code (system
 // X12_ADJUSTMENT_GROUP_SYSTEM), reason = CARC reason code, amount = the adjusted amount.
-function extractAdjustments(adjudications: ClaimResponseItemAdjudication[]): ClaimRemitAdjustment[] {
+export function extractAdjustments(adjudications: ClaimResponseItemAdjudication[]): ClaimRemitAdjustment[] {
   return adjudications
     .filter((adj) => adj.category?.coding?.[0]?.system === X12_ADJUSTMENT_GROUP_SYSTEM && adjudicationCode(adj) != null)
     .map((adj) => ({
@@ -347,6 +367,23 @@ export async function fetchResourcesGrouped<T extends FhirResource>({
   return grouped;
 }
 
+const OYSTEHR_CLAIM_RESPONSE_TYPE_TAG_SYSTEM = 'https://tags.fhir.oystehr.com/rcm-claim-response-type';
+
+function claimResponseHasTypeTag(claimResponse: ClaimResponse): boolean {
+  return claimResponse.meta?.tag?.some((tag) => tag.system === OYSTEHR_CLAIM_RESPONSE_TYPE_TAG_SYSTEM) ?? false;
+}
+
+function isClaimResponseOfType(
+  claimResponse: ClaimResponse,
+  type: 'submission-response' | 'status-update' | 'era'
+): boolean {
+  return (
+    claimResponse.meta?.tag?.some(
+      (tag) => tag.system === OYSTEHR_CLAIM_RESPONSE_TYPE_TAG_SYSTEM && tag.code === type
+    ) ?? false
+  );
+}
+
 // The CLP02 claim status Oystehr stamps on each ERA remit, which matching leaves in place
 function hasEraStatusCode(claimResponse: ClaimResponse): boolean {
   return !!claimResponse.extension?.some((extension) => extension.url === ERA_STATUS_CODE_EXTENSION);
@@ -368,19 +405,27 @@ export async function fetchClaimResponsesByClaimIds(
         name: 'request',
         value: batch.map((id) => `Claim/${id}`).join(','),
       },
-      // Filter out error CRs, which come from claim submission
-      {
-        name: 'outcome:not',
-        value: 'error',
-      },
       {
         name: 'status:not',
         value: ERA_VOID_STATUS,
       },
     ],
     groupKeyOf: (claimResponse) => claimResponse.request?.reference?.replace('Claim/', ''),
-    // Queued CRs come from claim submission too, but an ERA can also be queued
-    keep: (claimResponse) => claimResponse.outcome !== 'queued' || hasEraStatusCode(claimResponse),
+    keep: (claimResponse) => {
+      // Respect type tag if present
+      if (claimResponseHasTypeTag(claimResponse)) {
+        return isClaimResponseOfType(claimResponse, 'era');
+      }
+      // Check for untagged response with ERA-only status code
+      if (hasEraStatusCode(claimResponse)) {
+        return true;
+      }
+      // Filter out untagged submission-responses
+      if (claimResponse.outcome === 'error' || claimResponse.outcome === 'queued') {
+        return false;
+      }
+      return true;
+    },
   });
 }
 
@@ -636,15 +681,26 @@ export async function fetchClaimEraLinks(oystehr: Oystehr, claimResponses: Claim
 // 277 claim-status responses (their event identifier) and ERA remits (the CLP02 stamp, adjudicated
 // lines) are not submissions even when they share that outcome.
 function isClaimSubmissionResponse(claimResponse: ClaimResponse): boolean {
-  if (claimResponse.outcome !== 'queued') return false;
+  // Filter out responses tagged with other types
+  if (claimResponseHasTypeTag(claimResponse) && !isClaimResponseOfType(claimResponse, 'submission-response')) {
+    return false;
+  }
 
+  // Filter out untagged status-update responses
   if (claimResponse.identifier?.some((identifier) => identifier.system === CLAIM_STATUS_RESPONSE_EVENT_SYSTEM)) {
     return false;
   }
 
+  // Filter out untagged era responses
   if (hasEraStatusCode(claimResponse)) return false;
 
-  return allAdjudications(claimResponse).length === 0;
+  // Filter out submissions that failed
+  if (claimResponse.outcome !== 'queued') return false;
+
+  // Filter out claim responses with adjudications
+  if (allAdjudications(claimResponse).length > 0) return false;
+
+  return true;
 }
 
 // When the claim was first sent to the payer: the earliest submission response, '' when none.

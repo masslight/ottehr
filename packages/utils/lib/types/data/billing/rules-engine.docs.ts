@@ -33,6 +33,7 @@ import { HOLD_TAG_NAME } from './system-tags';
 // file is stale, so the docs cannot drift from the code.
 // ---------------------------------------------------------------------------
 
+// CW TODO: update this to generate docs for nested fields
 const VALUE_TYPE_LABELS: Record<RuleFieldValueType, string> = {
   string: 'text',
   number: 'number',
@@ -43,6 +44,7 @@ const VALUE_TYPE_LABELS: Record<RuleFieldValueType, string> = {
   provider: 'provider reference',
   facility: 'facility reference',
   nio: 'non-insurance organization ID',
+  item: 'array of subitems',
 };
 
 // Escape/normalize a string for use inside a markdown table cell.
