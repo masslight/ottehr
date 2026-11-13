@@ -15,13 +15,17 @@ describe('resolveAccessibleAdminNavGroups', () => {
     }
   );
 
-  it('limits Staff to Action Logs', () => {
+  it('limits Staff to Inventory and Action Logs', () => {
     const role = RoleType.Staff;
     const groups = resolveAccessibleAdminNavGroups(hasRoleFor([role]), true);
-    expect(groups.flatMap((group) => group.items.map((item) => item.path))).toEqual(['/admin/action-logs']);
+    expect(groups.flatMap((group) => group.items.map((item) => item.path))).toEqual([
+      '/admin/inventory',
+      '/admin/action-logs',
+    ]);
   });
 
-  it.each([RoleType.Provider, RoleType.Clinician])('returns nothing for %s', (role) => {
-    expect(resolveAccessibleAdminNavGroups(hasRoleFor([role]), true)).toEqual([]);
+  it.each([RoleType.Provider, RoleType.Clinician])('limits %s to Inventory', (role) => {
+    const groups = resolveAccessibleAdminNavGroups(hasRoleFor([role]), true);
+    expect(groups.flatMap((group) => group.items.map((item) => item.path))).toEqual(['/admin/inventory']);
   });
 });

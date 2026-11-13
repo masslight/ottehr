@@ -968,6 +968,26 @@ export const dataTestIds = {
 
   updateMedicationPage: {
     medicationDatabaseAlert: 'medication-database-alert',
+    receiveShipmentButton: 'update-medication-receive-shipment-button',
+  },
+
+  inventoryPage: {
+    locationSelect: 'inventory-location-select',
+    searchField: 'inventory-search-field',
+    ndcSearchField: 'inventory-ndc-search-field',
+    lotSearchField: 'inventory-lot-search-field',
+    medicationRow: (medicationId: string) => `inventory-medication-row-${medicationId}`,
+    lotRow: (lotId: string) => `inventory-lot-row-${lotId}`,
+    countButton: (lotId: string) => `inventory-lot-count-${lotId}`,
+    adjustButton: (lotId: string) => `inventory-lot-adjust-${lotId}`,
+  },
+
+  receiveShipmentDialog: {
+    dialog: 'receive-shipment-dialog',
+    ndcField: 'receive-shipment-ndc-field',
+    lotNumberField: 'receive-shipment-lot-number-field',
+    quantityField: 'receive-shipment-quantity-field',
+    receiveButton: 'receive-shipment-receive-button',
   },
 
   editNoteDialog: {

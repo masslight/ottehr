@@ -61,6 +61,15 @@ export const CHART_DOCUMENT_ROLES: RoleType[] = [
   RoleType.Staff,
 ];
 
+export const INVENTORY_STAFF_ROLES: RoleType[] = [
+  RoleType.Administrator,
+  RoleType.CustomerSupport,
+  RoleType.Manager,
+  RoleType.Provider,
+  RoleType.Clinician,
+  RoleType.Staff,
+];
+
 /**
  * Roles allowed into the administration area.
  *

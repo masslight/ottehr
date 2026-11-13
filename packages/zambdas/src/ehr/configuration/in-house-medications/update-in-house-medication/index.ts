@@ -2,7 +2,15 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { Medication } from 'fhir/r4b';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
+import {
+  getMedicationInventoryConfig,
+  INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM,
+  makeMedicationInventoryExtension,
+  MEDICATION_INVENTORY_EXTENSION_URL,
+  parseInventoryLot,
+} from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { UpdateInHouseMedicationInput } from 'utils/lib/types/api/config/in-house-medications';
 import {
@@ -10,7 +18,9 @@ import {
   MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
-import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
+import { ADMIN_TIER_ROLES } from 'utils/lib/types/api/user.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
@@ -21,8 +31,11 @@ let m2mToken: string;
 export const index = wrapHandler(
   'admin-update-in-house-medication',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-    const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions, secrets } =
+    const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions, inventory, secrets } =
       validateRequestParameters(input);
+
+    await requireUserWithRole(getUserToken(input), secrets, ADMIN_TIER_ROLES);
+
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
@@ -34,6 +47,7 @@ export const index = wrapHandler(
       ndc,
       medispanID,
       medispanIDForInteractions,
+      inventory,
       status,
     });
     return {
@@ -47,7 +61,7 @@ export const performEffect = async (
   oystehr: Oystehr,
   updateDetail: UpdateInHouseMedicationInput
 ): Promise<Medication> => {
-  const { medicationID, name, ndc, medispanID, medispanIDForInteractions, status } = updateDetail;
+  const { medicationID, name, ndc, medispanID, medispanIDForInteractions, inventory, status } = updateDetail;
   const medication = await oystehr.fhir.get<Medication>({
     resourceType: 'Medication',
     id: medicationID,
@@ -123,6 +137,42 @@ export const performEffect = async (
       patchOperations.push({ op: 'replace', path: '/code/coding', value: newCoding });
     } else {
       patchOperations.push({ op: 'remove', path: '/code/coding' });
+    }
+  }
+
+  if (inventory !== undefined) {
+    const existingInventory = getMedicationInventoryConfig(medication);
+    if (inventory && inventory.countedAs !== existingInventory?.countedAs) {
+      const lots = await getAllFhirSearchPages<Medication>(
+        {
+          resourceType: 'Medication',
+          params: [{ name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|${medicationID}` }],
+        },
+        oystehr
+      );
+      const conflictsWithHistory = existingInventory
+        ? lots.length > 0
+        : lots.some((lot) => parseInventoryLot(lot)?.unit !== inventory.countedAs);
+      if (conflictsWithHistory) {
+        throw INVALID_INPUT_ERROR(
+          "The Counting Unit can't be changed after inventory has been recorded for this medication."
+        );
+      }
+    }
+    const existingInventoryExtension = existingInventory ? makeMedicationInventoryExtension(existingInventory) : null;
+    const inventoryExtension = inventory ? makeMedicationInventoryExtension(inventory) : null;
+    if (JSON.stringify(existingInventoryExtension) !== JSON.stringify(inventoryExtension)) {
+      const otherExtensions = (medication.extension ?? []).filter(
+        (extension) => extension.url !== MEDICATION_INVENTORY_EXTENSION_URL
+      );
+      const newExtensions = inventoryExtension ? [...otherExtensions, inventoryExtension] : otherExtensions;
+      if (medication.extension === undefined) {
+        patchOperations.push({ op: 'add', path: '/extension', value: newExtensions });
+      } else if (newExtensions.length > 0) {
+        patchOperations.push({ op: 'replace', path: '/extension', value: newExtensions });
+      } else {
+        patchOperations.push({ op: 'remove', path: '/extension' });
+      }
     }
   }
 

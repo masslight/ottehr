@@ -1,4 +1,4 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import {
   AdministeredDialogue,
@@ -48,6 +48,12 @@ export class EditMedicationCard {
     return dataTestId;
   }
 
+  /** Sentence blanks carry the test id on the input; the administer card's MUI fields on a wrapper. */
+  #input(field: Field): Locator {
+    const dataTestId = this.getDataTestId(field);
+    return this.#page.locator(`input[data-testid="${dataTestId}"], [data-testid="${dataTestId}"] input`);
+  }
+
   async selectMedication(medication: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.MEDICATION);
     await this.#page.getByTestId(dataTestId).click();
@@ -55,28 +61,18 @@ export class EditMedicationCard {
   }
 
   async clearMedication(): Promise<void> {
-    const dataTestId = this.getDataTestId(Field.MEDICATION);
-    await this.#page.getByTestId(dataTestId).locator('input').fill('');
+    await this.#input(Field.MEDICATION).fill('');
   }
 
   async verifyMedication(medication: string): Promise<void> {
-    const dataTestId = this.getDataTestId(Field.MEDICATION);
-    await expect(this.#page.getByTestId(dataTestId).locator('input')).toHaveValue(medication);
+    await expect(this.#input(Field.MEDICATION)).toHaveValue(medication);
   }
 
   async selectAssociatedDx(diagnosis: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ASSOCIATED_DX);
-
-    // Wait for skeleton to disappear (data is loaded)
-    const skeleton = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSkeleton-root`);
-    await skeleton.waitFor({ state: 'detached', timeout: 30_000 }).catch(() => {
-      // Skeleton might not appear if data loads very quickly
-    });
-
-    // Wait for select input to be visible (rendered after skeleton)
-    const selectInput = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSelect-select`);
-    await selectInput.waitFor({ state: 'visible', timeout: 30_000 });
-
+    await this.waitForLoadAssociatedDx();
+    const remove = this.#page.getByTestId(dataTestId).getByRole('button', { name: /^Remove / });
+    if (await remove.count()) await remove.click();
     await this.#page.getByTestId(dataTestId).click();
     await this.chooseOption(diagnosis);
   }
@@ -88,44 +84,22 @@ export class EditMedicationCard {
 
   async selectOrderedBy(orderedBy: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ORDERED_BY);
-
-    // Wait for skeleton to disappear (data is loaded)
-    const skeleton = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSkeleton-root`);
-    await skeleton.waitFor({ state: 'detached', timeout: 30_000 }).catch(() => {
-      // Skeleton might not appear if data loads very quickly
-    });
-
-    // Wait for select input to be visible (rendered after skeleton)
-    const selectInput = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSelect-select`);
-    await selectInput.waitFor({ state: 'visible', timeout: 30_000 });
-
+    await this.waitForLoadOrderedBy();
     await this.#page.getByTestId(dataTestId).click();
     await this.chooseOption(orderedBy);
   }
 
   async selectFirstNonEmptyOrderedBy(): Promise<string> {
     const dataTestId = this.getDataTestId(Field.ORDERED_BY);
-
-    // Wait for skeleton to disappear (data is loaded)
-    const skeleton = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSkeleton-root`);
-    await skeleton.waitFor({ state: 'detached', timeout: 30_000 }).catch(() => {
-      // Skeleton might not appear if data loads very quickly
-    });
-
-    // Wait for select input to be visible (rendered after skeleton)
-    const selectInput = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSelect-select`);
-    await selectInput.waitFor({ state: 'visible', timeout: 30_000 });
-
+    await this.waitForLoadOrderedBy();
     await this.#page.getByTestId(dataTestId).click();
+    await this.#page.getByRole('option').first().waitFor({ state: 'visible', timeout: 30_000 });
     const options = await this.#page.getByRole('option').all();
     for (const option of options) {
-      const text = await option.textContent();
-      if (text && text.trim() !== ORDERED_BY_EMPTY_VALUE) {
-        const dataValue = await option.getAttribute('data-value');
-        if (dataValue && dataValue !== '') {
-          await option.click();
-          return text;
-        }
+      const text = (await option.textContent())?.trim();
+      if (text && text !== ORDERED_BY_EMPTY_VALUE && text !== 'Clear') {
+        await option.click();
+        return text;
       }
     }
     throw new Error('Failed to select order by');
@@ -133,35 +107,17 @@ export class EditMedicationCard {
 
   async verifyAssociatedDx(diagnosis: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ASSOCIATED_DX);
-    await expect(this.#page.getByTestId(dataTestId).locator('div:text("' + diagnosis + '")')).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestId)).toContainText(diagnosis);
   }
 
   async waitForLoadOrderedBy(): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ORDERED_BY);
-
-    // Wait for skeleton to disappear (data is loaded)
-    const skeleton = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSkeleton-root`);
-    await skeleton.waitFor({ state: 'detached', timeout: 30_000 }).catch(() => {
-      // Skeleton might not appear if data loads very quickly
-    });
-
-    // Wait for select input to be visible (rendered after skeleton)
-    const selectInput = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSelect-select`);
-    await selectInput.waitFor({ state: 'visible', timeout: 30_000 });
+    await this.#page.getByTestId(dataTestId).waitFor({ state: 'visible', timeout: 30_000 });
   }
 
   async waitForLoadAssociatedDx(): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ASSOCIATED_DX);
-
-    // Wait for skeleton to disappear (data is loaded)
-    const skeleton = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSkeleton-root`);
-    await skeleton.waitFor({ state: 'detached', timeout: 30_000 }).catch(() => {
-      // Skeleton might not appear if data loads very quickly
-    });
-
-    // Wait for select input to be visible (rendered after skeleton)
-    const selectInput = this.#page.locator(`[data-testid="${dataTestId}"] .MuiSelect-select`);
-    await selectInput.waitFor({ state: 'visible', timeout: 30_000 });
+    await this.#page.getByTestId(dataTestId).waitFor({ state: 'visible', timeout: 30_000 });
   }
 
   async verifyDiagnosisNotAllowed(diagnosis: string): Promise<void> {
@@ -172,19 +128,16 @@ export class EditMedicationCard {
   }
 
   async enterDose(dose: string): Promise<void> {
-    const dataTestId = this.getDataTestId(Field.DOSE);
-    await this.#page.getByTestId(dataTestId).locator('input').fill('');
-    await this.#page.getByTestId(dataTestId).locator('input').pressSequentially(dose);
+    await this.#input(Field.DOSE).fill('');
+    await this.#input(Field.DOSE).pressSequentially(dose);
   }
 
   async clearDose(): Promise<void> {
-    const dataTestId = this.getDataTestId(Field.DOSE);
-    await this.#page.getByTestId(dataTestId).locator('input').clear();
+    await this.#input(Field.DOSE).clear();
   }
 
   async verifyDose(dose: string): Promise<void> {
-    const dataTestId = this.getDataTestId(Field.DOSE);
-    await expect(this.#page.getByTestId(dataTestId).locator('input')).toHaveValue(dose);
+    await expect(this.#input(Field.DOSE)).toHaveValue(dose);
   }
 
   async selectUnits(units: string): Promise<void> {
@@ -199,24 +152,21 @@ export class EditMedicationCard {
   }
 
   async enterManufacturer(manufacturer: string): Promise<void> {
-    const dataTestId = this.getDataTestId(Field.MANUFACTURER);
-    await this.#page.getByTestId(dataTestId).locator('input').fill(manufacturer);
+    await this.#input(Field.MANUFACTURER).fill(manufacturer);
   }
 
   async verifyManufacturer(manufacturer: string): Promise<void> {
-    const dataTestId = this.getDataTestId(Field.MANUFACTURER);
-    await expect(this.#page.getByTestId(dataTestId).locator('input')).toHaveValue(manufacturer);
+    await expect(this.#input(Field.MANUFACTURER)).toHaveValue(manufacturer);
   }
 
   async clearManufacturer(): Promise<void> {
-    const dataTestId = this.getDataTestId(Field.MANUFACTURER);
-    await this.#page.getByTestId(dataTestId).locator('input').clear();
+    await this.#input(Field.MANUFACTURER).clear();
   }
 
   async selectRoute(route: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ROUTE);
     await this.#page.getByTestId(dataTestId).click();
-    await this.chooseOption(route, true);
+    await this.chooseOption(route.replace(/\s+route$/i, ''), true);
   }
 
   async verifyRoute(route: string): Promise<void> {

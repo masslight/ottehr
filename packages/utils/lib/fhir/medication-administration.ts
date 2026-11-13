@@ -247,6 +247,7 @@ export const medicationExtendedToMedicationData = (
     manufacturer: medicationExtendedData.manufacturer,
     location: medicationExtendedData.location,
     lotNumber: medicationExtendedData.lotNumber,
+    inventoryLotId: medicationExtendedData.inventoryLotId,
     ndc: medicationExtendedData.ndc,
     expDate: medicationExtendedData.expDate,
     effectiveDateTime: medicationExtendedData.effectiveDateTime,

@@ -58,6 +58,10 @@ export interface GetLocationResponse {
   schedules: LocationScheduleSummary[];
 }
 
+export interface ListActiveLocationsInput {
+  inPersonOnly?: boolean;
+}
+
 /**
  * Every active Location reduced to what a picker needs. Deliberately not `Location[]`: callers that
  * only populate a select shouldn't receive — or need read access to — the whole resource.

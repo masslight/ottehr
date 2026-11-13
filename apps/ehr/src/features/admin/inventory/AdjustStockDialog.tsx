@@ -1,0 +1,174 @@
+import {
+  Box,
+  capitalize,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
+  InputLabel,
+  MenuItem,
+  Radio,
+  RadioGroup,
+  Select,
+  TextField,
+  Typography,
+} from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import { ReactElement, useRef, useState } from 'react';
+import { adjustMedicationInventory } from 'src/api/api';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import {
+  INVENTORY_ADJUSTMENT_REASONS,
+  INVENTORY_ENTRY_REASON_LABELS,
+  InventoryAdjustmentReason,
+  InventoryDrugRow,
+  InventoryLotRow,
+} from 'utils/lib/types/api/config/in-house-medications';
+import { formatQuantity, unitLabel } from './inventory.helpers';
+
+interface AdjustStockDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+  drug: InventoryDrugRow;
+  lot: InventoryLotRow;
+  locationName: string;
+}
+
+export default function AdjustStockDialog({
+  open,
+  onClose,
+  onSaved,
+  drug,
+  lot,
+  locationName,
+}: AdjustStockDialogProps): ReactElement {
+  const { oystehrZambda } = useApiClients();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [direction, setDirection] = useState<'remove' | 'add'>('remove');
+  const [quantity, setQuantity] = useState('');
+  const [reason, setReason] = useState<InventoryAdjustmentReason | ''>('');
+  const [note, setNote] = useState('');
+  const [showNoteError, setShowNoteError] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const count = Number(quantity);
+  const units = capitalize(unitLabel(lot.unit, count > 0 ? count : 2));
+  const actionLabel = direction === 'remove' ? 'Remove' : 'Add';
+  const submitLabel = count > 0 ? `${actionLabel} ${count} ${units}` : `${actionLabel} ${units}`;
+
+  const noteMissing = reason === 'other' && !note.trim();
+
+  const save = async (): Promise<void> => {
+    if (!oystehrZambda || !reason || saving) return;
+    if (noteMissing) {
+      setShowNoteError(true);
+      return;
+    }
+    setSaving(true);
+    try {
+      await adjustMedicationInventory(oystehrZambda, {
+        action: 'adjust',
+        lotId: lot.id,
+        direction,
+        quantity: count,
+        reason,
+        note: note.trim() || undefined,
+      });
+      enqueueSnackbar(
+        `${actionLabel === 'Remove' ? 'Removed' : 'Added'} ${formatQuantity(count, lot.unit)} of ${drug.name}`,
+        {
+          variant: 'success',
+        }
+      );
+      onSaved();
+      onClose();
+    } catch (error) {
+      console.error('Error adjusting stock', error);
+      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to adjust stock' }), { variant: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <CustomDialog
+      open={open}
+      handleClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      title="Adjust Stock"
+      description={
+        <Box
+          component="form"
+          ref={formRef}
+          onSubmit={(event: React.FormEvent) => {
+            event.preventDefault();
+            void save();
+          }}
+          sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            {drug.name} · Lot {lot.lotNumber} · {locationName} · {formatQuantity(lot.onHand, lot.unit)} on hand
+          </Typography>
+          <FormControl>
+            <FormLabel id="adjust-direction-label">Direction</FormLabel>
+            <RadioGroup
+              row
+              aria-labelledby="adjust-direction-label"
+              value={direction}
+              onChange={(e) => setDirection(e.target.value as 'remove' | 'add')}
+            >
+              <FormControlLabel value="remove" control={<Radio size="small" />} label="Remove" />
+              <FormControlLabel value="add" control={<Radio size="small" />} label="Add" />
+            </RadioGroup>
+          </FormControl>
+          <TextField
+            required
+            label={`Quantity (${unitLabel(lot.unit, 2)})`}
+            type="number"
+            inputProps={{ min: 1, step: 1 }}
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            sx={{ width: 160 }}
+          />
+          <FormControl fullWidth required>
+            <InputLabel id="adjust-reason-label">Reason</InputLabel>
+            <Select
+              labelId="adjust-reason-label"
+              label="Reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value as InventoryAdjustmentReason)}
+            >
+              {INVENTORY_ADJUSTMENT_REASONS.map((option) => (
+                <MenuItem key={option} value={option}>
+                  {INVENTORY_ENTRY_REASON_LABELS[option]}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {reason === 'other' ? (
+            <TextField
+              required
+              fullWidth
+              label="What Happened"
+              value={note}
+              error={showNoteError && noteMissing}
+              helperText={showNoteError && noteMissing ? 'Say what the adjustment is for' : undefined}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          ) : null}
+          {/* Enter saves even with two text fields, which only submit implicitly when the form has a submit button */}
+          <input type="submit" hidden />
+        </Box>
+      }
+      handleConfirm={() => {
+        if (formRef.current?.reportValidity()) void save();
+      }}
+      confirmText={submitLabel}
+      confirmLoading={saving}
+      closeButtonText="Cancel"
+    />
+  );
+}

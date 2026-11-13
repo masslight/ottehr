@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditableMedicationCard } from '../../src/features/visits/in-person/components/medication-administration/medication-editable-card/EditableMedicationCard';
 import { useInHouseMedicationOrderStore } from '../../src/state/draft-data.store';
 
@@ -66,10 +66,19 @@ vi.mock(
 // component directly, so stub that instead — otherwise it renders and demands a QueryClient.
 vi.mock('src/components/input/CptCodesInput', () => ({
   CptCodesInput: () => <div />,
+  CptCodeSearch: () => <div />,
+  addCptCode: (codes: unknown[]) => codes,
+  removeCptCode: (codes: unknown[]) => codes,
+  designateMedicationCptCode: (codes: unknown[]) => codes,
 }));
 
 vi.mock('../../src/features/visits/shared/components/Loader', () => ({
   Loader: () => <div />,
+}));
+
+// Lot suggestions come through react-query, which would demand a QueryClient here.
+vi.mock('../../src/features/admin/inventory/inventory.queries', () => ({
+  useInventoryLotsOnHand: () => ({ data: undefined }),
 }));
 
 vi.mock('../../src/components/dialogs/DeleteDialog', () => ({
@@ -127,8 +136,10 @@ vi.mock('../../src/hooks/useCommandPaletteSource', () => ({
   useCommandPaletteSource: vi.fn(),
 }));
 
+const currentUser = vi.hoisted(() => ({ isAdmin: false }));
+
 vi.mock('../../src/hooks/useEvolveUser', () => ({
-  default: () => ({ hasRole: () => false }),
+  default: () => ({ hasRole: () => currentUser.isAdmin }),
 }));
 
 vi.mock('../../src/hooks/useMergedQuickPicks', () => ({
@@ -155,7 +166,8 @@ vi.mock('../../src/features/visits/in-person/hooks/useGetFieldOptions', () => ({
     new Proxy(
       {
         medicationId: {
-          options: [],
+          options: [{ value: 'med-1', label: 'Medication One' }],
+          status: 'loaded',
           ndcToMedicationId: {},
           medispanCodeToMedicationId: {},
           defaultOption: undefined,
@@ -268,7 +280,7 @@ describe('EditableMedicationCard', () => {
 
       render(<EditableMedicationCard type="order-new" />);
 
-      expect(screen.getByTestId('field-medicationId')).toHaveAttribute('data-value', 'med-1');
+      expect(screen.getByTestId('input-medicationId')).toHaveTextContent('Medication One');
     });
 
     it('clicking Clear Form resets form fields to empty', async () => {
@@ -276,11 +288,12 @@ describe('EditableMedicationCard', () => {
       const user = userEvent.setup();
 
       render(<EditableMedicationCard type="order-new" />);
-      expect(screen.getByTestId('field-medicationId')).toHaveAttribute('data-value', 'med-1');
+      expect(screen.getByTestId('input-medicationId')).toHaveTextContent('Medication One');
 
       await user.click(screen.getByRole('button', { name: /clear form/i }));
 
-      expect(screen.getByTestId('field-medicationId')).toHaveAttribute('data-value', '');
+      expect(screen.getByTestId('input-medicationId')).toHaveTextContent('medication');
+      expect(screen.getByTestId('input-medicationId')).not.toHaveTextContent('Medication One');
     });
 
     it('shows the interaction checking banner when the draft contains a medicationId', () => {
@@ -296,6 +309,7 @@ describe('EditableMedicationCard', () => {
 
   describe('save as quick pick', () => {
     beforeEach(() => {
+      currentUser.isAdmin = true;
       useInHouseMedicationOrderStore.setState({ draftsByEncounterId: {} });
       vi.clearAllMocks();
       getInHouseMedicationQuickPicks.mockResolvedValue({
@@ -305,11 +319,15 @@ describe('EditableMedicationCard', () => {
       createInHouseMedicationQuickPick.mockResolvedValue({});
     });
 
+    afterEach(() => {
+      currentUser.isAdmin = false;
+    });
+
     it('uses the Add to Quick Picks name dropdown and confirms before replacing an existing pick', async () => {
       const user = userEvent.setup();
       render(<EditableMedicationCard type="order-new" />);
 
-      await user.click(screen.getByRole('button', { name: 'Add or Update Quick Pick' }));
+      await user.click(screen.getByRole('button', { name: 'Save as quick pick' }));
 
       const nameInput = await screen.findByRole('combobox', { name: 'Quick Pick Name' });
       expect(screen.getByText('Add to Quick Picks')).toBeInTheDocument();
@@ -336,7 +354,7 @@ describe('EditableMedicationCard', () => {
       const user = userEvent.setup();
       render(<EditableMedicationCard type="order-new" />);
 
-      await user.click(screen.getByRole('button', { name: 'Add or Update Quick Pick' }));
+      await user.click(screen.getByRole('button', { name: 'Save as quick pick' }));
       const nameInput = await screen.findByRole('combobox', { name: 'Quick Pick Name' });
       await user.clear(nameInput);
       await user.type(nameInput, 'Albuterol nebulizer');
