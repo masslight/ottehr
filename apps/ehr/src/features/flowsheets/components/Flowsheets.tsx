@@ -1,4 +1,5 @@
 import ErrorIcon from '@mui/icons-material/Error';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import {
   alpha,
@@ -22,6 +23,7 @@ import {
 import { DateTime } from 'luxon';
 import React, { ReactElement, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { RoundedButton } from 'src/components/RoundedButton';
 import { EChart } from 'src/features/report-builder/runtime/components/EChart';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
@@ -31,8 +33,10 @@ import { useGetFlowsheet } from 'src/hooks/useGetFlowsheet';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
+import { biliToolReadings, canOpenBiliTool } from '../biliTool';
 import { chartPoint, HOURS_OF_LIFE_MAX, usesHoursAxis } from '../chartPoints';
 import { FlowsheetChart, FlowsheetDefinition, FlowsheetRow, FLOWSHEETS } from '../registry';
+import { BiliToolDialog } from './BiliToolDialog';
 import { GrowthCharts } from './GrowthCharts';
 
 interface FlowsheetsProps {
@@ -47,6 +51,13 @@ interface FlowsheetsProps {
 export const Flowsheets = ({ patientId, asOf, currentAppointmentId }: FlowsheetsProps): ReactElement => {
   const [selected, setSelected] = useState<FlowsheetDefinition>(FLOWSHEETS[0]);
   const { data, isLoading, error } = useGetFlowsheet({ patientId, flowsheetId: selected.id, asOf });
+  const [biliToolOpen, setBiliToolOpen] = useState(false);
+  // Newborn bilirubin: BiliTool takes the readings shown (up to this visit on the visit tab).
+  const readings = useMemo(
+    () => (selected.id === 'newbornBilirubin' && data ? biliToolReadings(data.visits) : []),
+    [selected.id, data]
+  );
+  const showBiliTool = selected.id === 'newbornBilirubin' && canOpenBiliTool(data?.birthHistory, readings);
 
   return (
     <Stack direction="row" spacing={2} alignItems="flex-start">
@@ -62,9 +73,24 @@ export const Flowsheets = ({ patientId, asOf, currentAppointmentId }: Flowsheets
         ))}
       </List>
       <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="h5" color="primary.dark">
-          {selected.title}
-        </Typography>
+        <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+          <Typography variant="h5" color="primary.dark">
+            {selected.title}
+          </Typography>
+          {showBiliTool && (
+            <RoundedButton size="small" startIcon={<OpenInNewIcon />} onClick={() => setBiliToolOpen(true)}>
+              Open in BiliTool
+            </RoundedButton>
+          )}
+        </Stack>
+        {showBiliTool && biliToolOpen && data?.birthHistory && (
+          <BiliToolDialog
+            open
+            onClose={() => setBiliToolOpen(false)}
+            birthHistory={data.birthHistory}
+            readings={readings}
+          />
+        )}
         {isLoading ? (
           <Loader />
         ) : error ? (
