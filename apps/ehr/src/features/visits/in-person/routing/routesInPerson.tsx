@@ -124,6 +124,14 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     iconKey: 'Chief Complaint',
     groupLabel: 'Intake',
   },
+  [ROUTER_PATH.FLOWSHEETS]: {
+    path: ROUTER_PATH.FLOWSHEETS,
+    modes: ['main', 'readonly'],
+    element: <VisitFlowsheets />,
+    text: 'Flowsheets',
+    iconKey: 'Flowsheets',
+    groupLabel: 'Intake',
+  },
   [ROUTER_PATH.SCREENING]: {
     path: ROUTER_PATH.SCREENING,
     modes: ['main', 'readonly'],
@@ -510,14 +518,6 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
     text: 'Review & Sign',
     iconKey: 'Review & Sign',
     groupLabel: 'Provider',
-  },
-  [ROUTER_PATH.FLOWSHEETS]: {
-    path: ROUTER_PATH.FLOWSHEETS,
-    modes: ['main', 'readonly'],
-    element: <VisitFlowsheets />,
-    text: 'Flowsheets',
-    iconKey: 'Flowsheets',
-    groupLabel: 'Additional Resources',
   },
   [ROUTER_PATH.OTTEHR_AI]: {
     path: ROUTER_PATH.OTTEHR_AI,
