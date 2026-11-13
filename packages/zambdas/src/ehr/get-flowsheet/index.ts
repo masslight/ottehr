@@ -30,7 +30,11 @@ const FLOWSHEETS: Record<FlowsheetId, FlowsheetDefinition> = {
     kinds: ['birthDate', 'birthHistory', 'vitals'],
     build: (data, asOf) => buildGrowthFlowsheet({ ...data, observations: data.vitals ?? [] }, asOf),
   },
-  newbornBilirubin: { kinds: NEWBORN_BILIRUBIN_DATA_KINDS, build: buildNewbornBilirubinFlowsheet },
+  newbornBilirubin: {
+    kinds: NEWBORN_BILIRUBIN_DATA_KINDS,
+    // The birth history rides along for the hours-of-life axis and the BiliTool launch.
+    build: (data) => ({ visits: buildNewbornBilirubinFlowsheet(data), birthHistory: data.birthHistory }),
+  },
   thyroid: { kinds: THYROID_DATA_KINDS, build: buildThyroidFlowsheet },
   vitals: { kinds: ['vitals'], build: (data) => buildVitalsFlowsheet({ ...data, observations: data.vitals ?? [] }) },
 };

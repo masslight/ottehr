@@ -31,6 +31,7 @@ import { useGetFlowsheet } from 'src/hooks/useGetFlowsheet';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
+import { chartPoint, HOURS_OF_LIFE_MAX, usesHoursAxis } from '../chartPoints';
 import { FlowsheetChart, FlowsheetDefinition, FlowsheetRow, FLOWSHEETS } from '../registry';
 import { GrowthCharts } from './GrowthCharts';
 
@@ -232,34 +233,47 @@ const FlowsheetBody = ({
 
   // ECharts option per chart. Series names and units come from the registry, values are numbers, so the
   // default tooltip renders nothing a user or patient typed.
-  const chartOption = (chart: FlowsheetChart): Record<string, unknown> => ({
-    tooltip: { trigger: 'axis' },
-    legend: { top: 0, selectedMode: false, data: chart.lines.map((line) => line.name) },
-    // Our own disabled dataZoom keeps the EChart wrapper from adding its slider.
-    dataZoom: [{ type: 'inside', disabled: true }],
-    grid: { left: 48, right: 24, top: 40, bottom: 32, containLabel: true },
-    xAxis: { type: 'time', axisLabel: { hideOverlap: true }, splitLine: { show: false } },
-    yAxis: { type: 'value', name: chart.unit, scale: true },
-    series: chart.lines.map((line) => ({
-      name: line.name,
-      type: 'line',
-      showSymbol: true,
-      symbolSize: 6,
-      data: columns
-        .slice()
-        .reverse()
-        .flatMap((visit) => {
-          const reading = visit.values[line.key];
-          // Only numeric readings plot; a text value (e.g. a coded lab result) has no point.
-          if (!reading || typeof reading.value !== 'number') return [];
-          const color = flagColor(reading.flag);
-          const point = { value: [Date.parse(visit.start), reading.value] };
-          return [
-            color ? { ...point, symbolSize: 11, itemStyle: { color, borderColor: '#fff', borderWidth: 1 } } : point,
-          ];
-        }),
-    })),
-  });
+  const chartOption = (chart: FlowsheetChart): Record<string, unknown> => {
+    const hoursAxis = usesHoursAxis(chart, columns);
+    return {
+      tooltip: { trigger: 'axis' },
+      legend: { top: 0, selectedMode: false, data: chart.lines.map((line) => line.name) },
+      // Our own disabled dataZoom keeps the EChart wrapper from adding its slider.
+      dataZoom: [{ type: 'inside', disabled: true }],
+      grid: { left: 48, right: 24, top: 40, bottom: hoursAxis ? 48 : 32, containLabel: true },
+      xAxis: hoursAxis
+        ? {
+            type: 'value',
+            min: 0,
+            max: HOURS_OF_LIFE_MAX,
+            interval: 24,
+            name: 'Age (hours)',
+            nameLocation: 'middle',
+            nameGap: 28,
+            splitLine: { show: false },
+          }
+        : { type: 'time', axisLabel: { hideOverlap: true }, splitLine: { show: false } },
+      yAxis: { type: 'value', name: chart.unit, scale: true },
+      series: chart.lines.map((line) => ({
+        name: line.name,
+        type: 'line',
+        showSymbol: true,
+        symbolSize: 6,
+        data: columns
+          .slice()
+          .reverse()
+          .flatMap((visit) => {
+            // Only numeric readings plot; a text value (e.g. a coded lab result) has no point.
+            const value = chartPoint(visit, line.key, hoursAxis);
+            if (!value) return [];
+            const color = flagColor(visit.values[line.key].flag);
+            return [
+              color ? { value, symbolSize: 11, itemStyle: { color, borderColor: '#fff', borderWidth: 1 } } : { value },
+            ];
+          }),
+      })),
+    };
+  };
   const hasPoints = (chart: FlowsheetChart): boolean =>
     chart.lines.some((line) => columns.some((visit) => typeof visit.values[line.key]?.value === 'number'));
 

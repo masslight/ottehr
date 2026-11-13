@@ -12,6 +12,8 @@ export interface FlowsheetChart {
   title: string;
   unit: string;
   lines: { name: string; key: string }[];
+  /** Plot against hours of life (0–336 h) when the visits carry them (time of birth recorded), else against time. */
+  hoursOfLife?: boolean;
 }
 
 export interface FlowsheetDefinition {
@@ -110,6 +112,7 @@ const newbornBilirubin: FlowsheetDefinition = {
     {
       title: 'Bilirubin',
       unit: 'mg/dL',
+      hoursOfLife: true,
       lines: [
         { name: 'Total serum', key: 'newbornTotalBilirubin' },
         { name: 'Transcutaneous', key: 'transcutaneousBilirubin' },
