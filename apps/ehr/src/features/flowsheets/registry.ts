@@ -100,8 +100,8 @@ const newbornBilirubin: FlowsheetDefinition = {
   id: 'newbornBilirubin',
   title: 'Newborn bilirubin',
   rows: [
-    { label: 'Total serum bilirubin', keys: ['totalBilirubin'] },
-    { label: 'Direct (conjugated) bilirubin', keys: ['directBilirubin'] },
+    { label: 'Total serum bilirubin', keys: ['newbornTotalBilirubin'] },
+    { label: 'Direct (conjugated) bilirubin', keys: ['newbornDirectBilirubin'] },
     { label: 'Transcutaneous bilirubin', keys: ['transcutaneousBilirubin'] },
     { label: 'Day of life', keys: ['dayOfLife'], digits: 0 },
     { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
@@ -111,7 +111,7 @@ const newbornBilirubin: FlowsheetDefinition = {
       title: 'Bilirubin',
       unit: 'mg/dL',
       lines: [
-        { name: 'Total serum', key: 'totalBilirubin' },
+        { name: 'Total serum', key: 'newbornTotalBilirubin' },
         { name: 'Transcutaneous', key: 'transcutaneousBilirubin' },
       ],
     },
