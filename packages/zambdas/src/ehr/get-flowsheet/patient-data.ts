@@ -24,6 +24,7 @@ import {
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
+import { BirthHistoryDTO } from 'utils/lib/types/api/birth-history.types';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetDiagnosis, FlowsheetLabResult, FlowsheetMedication } from 'utils/lib/types/api/flowsheets.types';
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
@@ -37,6 +38,7 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
 } from 'utils/lib/types/data/labs/labs.constants';
+import { fetchBirthHistoryObservation, makeBirthHistoryDTO } from '../../shared/birth-history';
 import { makePrescribedMedicationDTO } from '../../shared/chart-data';
 import { fetchVisits, fetchVitals, VisitResources } from './helpers';
 
@@ -44,12 +46,14 @@ import { fetchVisits, fetchVitals, VisitResources } from './helpers';
 // each keyed by encounter id so a flowsheet can turn it into visit columns. Every query is built here from the
 // patient id and from ids on resources already fetched.
 
-export type FlowsheetDataKind = 'birthDate' | 'vitals' | 'diagnoses' | 'medications' | 'labs';
+export type FlowsheetDataKind = 'birthDate' | 'birthHistory' | 'vitals' | 'diagnoses' | 'medications' | 'labs';
 
 export interface FlowsheetData extends VisitResources {
   // The 'birthDate' kind: the patient's birth date and sex, for age-based references.
   birthDate?: string;
   gender?: Patient['gender'];
+  /** The 'birthHistory' kind: gestational age and time of birth, for corrected age and hours of life. */
+  birthHistory?: BirthHistoryDTO;
   vitals?: Observation[];
   diagnoses?: Record<string, FlowsheetDiagnosis[]>;
   medications?: Record<string, FlowsheetMedication[]>;
@@ -64,9 +68,10 @@ export const fetchFlowsheetData = async (
 ): Promise<FlowsheetData> => {
   const wanted = <T>(kind: FlowsheetDataKind, fetch: () => Promise<T>): Promise<T | undefined> =>
     kinds.includes(kind) ? fetch() : Promise.resolve(undefined);
-  const [visits, demographics, vitals, medications, labs] = await Promise.all([
+  const [visits, demographics, birthHistory, vitals, medications, labs] = await Promise.all([
     fetchVisits(oystehr, patientId),
     wanted('birthDate', () => fetchDemographics(oystehr, patientId)),
+    wanted('birthHistory', () => fetchBirthHistoryObservation(oystehr, patientId)),
     wanted('vitals', () => fetchVitals(oystehr, patientId)),
     wanted('medications', () => fetchMedications(oystehr, patientId)),
     wanted('labs', () => fetchLabResults(oystehr, patientId)),
@@ -75,6 +80,7 @@ export const fetchFlowsheetData = async (
     ...visits,
     birthDate: demographics?.birthDate,
     gender: demographics?.gender,
+    birthHistory: birthHistory && makeBirthHistoryDTO(birthHistory),
     vitals,
     // The visits' charted diagnoses come with the visit resources, so nothing more is fetched.
     diagnoses: kinds.includes('diagnoses') ? buildVisitDiagnoses(visits) : undefined,

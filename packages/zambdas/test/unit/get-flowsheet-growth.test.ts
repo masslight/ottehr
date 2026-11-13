@@ -16,6 +16,8 @@ import {
   ageMonthsAt,
   buildGrowthFlowsheet,
   chartSetAt,
+  formatGrowthAge,
+  growthAgeOf,
   percentileOf,
   scoreOn,
   weightForLengthPercentileOf,
@@ -183,8 +185,8 @@ describe('buildGrowthFlowsheet', () => {
     expect(whoVisit.values.weight.value).toBe(7.3);
     expect(whoVisit.values.height.value).toBe(65);
     expect(whoVisit.values.headCircumference.value).toBe(42);
-    expect(whoVisit.values.bmi.value).toBeCloseTo(7.3 / 0.65 ** 2, 10);
-    expect(whoVisit.values.bmi.time).toBe('2024-07-10T14:06:00.000Z');
+    // No BMI under 2 years; weight-for-length covers it.
+    expect(whoVisit.values.bmi).toBeUndefined();
     expect(whoVisit.values.weightPercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
     expect(whoVisit.values.heightPercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
     expect(whoVisit.values.headCircumferencePercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
@@ -196,6 +198,8 @@ describe('buildGrowthFlowsheet', () => {
 
     expect(cdcVisit.encounterId).toBe('e2');
     expect(cdcVisit.values.age.value).toBe('10 y');
+    expect(cdcVisit.values.bmi.value).toBeCloseTo(32 / 1.38 ** 2, 10);
+    expect(cdcVisit.values.bmi.time).toBe('2034-01-10T14:06:00.000Z');
     expect(cdcVisit.values.bmiPercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
     // Head circumference is still shown after 24 months, without a percentile.
     expect(cdcVisit.values.headCircumference.value).toBe(52);
@@ -256,7 +260,8 @@ describe('buildGrowthFlowsheet', () => {
     ]) {
       const visit = buildGrowthFlowsheet(partial).visits[1];
       expect(visit.values.weight.value).toBe(7.3);
-      expect(visit.values.bmi).toBeDefined();
+      // Without an age BMI cannot be ruled out; with one, this 6-month visit gets none.
+      expect(visit.values.bmi === undefined).toBe(partial.birthDate === '2024-01-10');
       expect(Object.keys(visit.values).filter((key) => key.endsWith('Percentile'))).toEqual([]);
       expect(visit.values.age === undefined || partial.birthDate === '2024-01-10').toBe(true);
     }
@@ -271,7 +276,6 @@ describe('buildGrowthFlowsheet', () => {
     expect(twice.values.weight.value).toBe(7.5);
     expect(twice.values.weight.readings.map((r) => r.value)).toEqual([7.3, 7.5]);
     expect(twice.values.weightPercentile.readings).toHaveLength(2);
-    expect(twice.values.bmi.value).toBeCloseTo(7.5 / 0.65 ** 2, 10);
   });
 });
 
@@ -349,7 +353,7 @@ describe('growth chart data (the cards the EHR draws)', () => {
     expect(byChart['cdc-bmi']).toMatchObject({ encounterId: 'e2', age: '10 y' });
     expect(byChart['cdc-bmi'].y).toBeCloseTo(32 / 1.38 ** 2, 10);
     expect(typeof byChart['cdc-sfa'].z).toBe('number');
-    // The 10-year visit is outside birth to 24 months, the 6-month visit outside 2 to 20 years.
+    // The 10-year visit is outside birth to 24 months, the 6-month visit outside 2 to 20 years (it has no BMI).
     expect(growth!.outsideRange).toEqual({
       'who-wfa': 1,
       'who-lfa': 1,
@@ -357,7 +361,6 @@ describe('growth chart data (the cards the EHR draws)', () => {
       'who-hcfa': 1,
       'cdc-wfa': 1,
       'cdc-sfa': 1,
-      'cdc-bmi': 1,
     });
     // Every chart's LMS rows for the patient's sex, nothing else.
     expect(Object.keys(growth!.tables).sort()).toEqual(Object.keys(byChart).sort());
@@ -415,5 +418,71 @@ describe('growth chart data (the cards the EHR draws)', () => {
   test('no growth data without a full birth date or a male/female sex', () => {
     expect(buildGrowthFlowsheet({ ...resources, birthDate: '2024' }).growth).toBeUndefined();
     expect(buildGrowthFlowsheet({ ...resources, gender: 'other' }).growth).toBeUndefined();
+  });
+});
+
+describe('corrected age for preterm infants (gestational age < 37 weeks)', () => {
+  // The same girl born 2024-01-10, now at 32 weeks 0 days: 56 days short of term.
+  const preterm = {
+    ...resources,
+    birthHistory: { gestationalAgeWeeks: 32, gestationalAgeDays: 0 },
+    // 2024-01-30 (20 d, before the 2024-03-06 due date), the 6-month visit, and the 10-year visit.
+    appointments: [...appointments, { ...appointments[0], id: 'a0', start: '2024-01-30T14:00:00.000Z' }],
+    encounters: [...encounters, { ...encounters[0], id: 'e0', appointment: [{ reference: 'Appointment/a0' }] }],
+    observations: [...observations, vital(VitalFieldNames.VitalWeight, 'e0', '2024-01-30T14:05:00.000Z', 2.1)],
+  };
+  const correction = 56 / 30.4375;
+
+  test('WHO percentiles, z and chart x use the corrected age; the Age row and point show both ages', () => {
+    const { visits, growth } = buildGrowthFlowsheet(preterm);
+    const sixMonths = visits.find((visit) => visit.encounterId === 'e1')!;
+    expect(sixMonths.values.age.value).toBe('5 mo (corrected 4 mo)');
+    const point = growth!.points.find((p) => p.chart === 'who-wfa' && p.encounterId === 'e1')!;
+    expect(point.x).toBeCloseTo(182 / 30.4375 - correction, 10);
+    expect(point.age).toBe('5 mo (corrected 4 mo)');
+    expect(point.z).toBeCloseTo(zOf(lmsAt(GROWTH_TABLES['WHO wfa female'], point.x)!, 7.3, true), 10);
+    expect(sixMonths.values.weightPercentile.value).toBe(point.percentile);
+    // Corrected age reads higher on the curves than chronological age would.
+    expect(point.z).toBeGreaterThan(
+      buildGrowthFlowsheet(resources).growth!.points.find((p) => p.chart === 'who-wfa')!.z!
+    );
+    // Weight-for-length does not depend on age and is unchanged.
+    expect(growth!.points.find((p) => p.chart === 'who-wfl' && p.encounterId === 'e1')!.x).toBe(65);
+  });
+
+  test('before the due date: measurements with no percentile, listed but not plotted', () => {
+    const { visits, growth } = buildGrowthFlowsheet(preterm);
+    const early = visits.find((visit) => visit.encounterId === 'e0')!;
+    expect(early.values.weight.value).toBe(2.1);
+    expect(early.values.weightPercentile).toBeUndefined();
+    expect(early.values.age.value).toBe('20 d (before due date)');
+    const point = growth!.points.find((p) => p.encounterId === 'e0')!;
+    expect(point).toMatchObject({ chart: 'who-wfa', note: 'before the due date', age: '20 d (before due date)' });
+    expect(point.z).toBeUndefined();
+    expect(point.x).toBeLessThan(0);
+  });
+
+  test('CDC (from 24 months) is never corrected, nor is a term infant', () => {
+    const { visits, growth } = buildGrowthFlowsheet(preterm);
+    const tenYears = visits.find((visit) => visit.encounterId === 'e2')!;
+    expect(tenYears.values.age.value).toBe('10 y');
+    expect(growth!.points.find((p) => p.chart === 'cdc-wfa')!.x).toBe(
+      buildGrowthFlowsheet(resources).growth!.points.find((p) => p.chart === 'cdc-wfa')!.x
+    );
+    const term = buildGrowthFlowsheet({ ...resources, birthHistory: { gestationalAgeWeeks: 37 } });
+    expect(term.visits[1].values.age.value).toBe('5 mo');
+    expect(term.visits[1].values.weightPercentile.value).toBe(
+      buildGrowthFlowsheet(resources).visits[1].values.weightPercentile.value
+    );
+  });
+
+  test('growthAgeOf and formatGrowthAge', () => {
+    expect(growthAgeOf(4, 32 * 7)).toEqual({ months: 4, corrected: 4 - correction });
+    expect(growthAgeOf(4, 37 * 7)).toEqual({ months: 4 });
+    expect(growthAgeOf(30, 32 * 7)).toEqual({ months: 30 });
+    expect(growthAgeOf(4, undefined)).toEqual({ months: 4 });
+    expect(formatGrowthAge({ months: 12.5, corrected: 10.6 })).toBe('12 mo (corrected 10 mo)');
+    expect(formatGrowthAge({ months: 0.5, corrected: -1 })).toBe('15 d (before due date)');
+    expect(formatGrowthAge({ months: 30 })).toBe('2 y 6 mo');
   });
 });

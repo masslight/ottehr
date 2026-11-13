@@ -1935,6 +1935,20 @@
       "src": "src/ehr/get-flowsheet/index",
       "zip": ".dist/zips/get-flowsheet.zip"
     },
+    "GET-BIRTH-HISTORY": {
+      "name": "get-birth-history",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-birth-history/index",
+      "zip": ".dist/zips/get-birth-history.zip"
+    },
+    "SAVE-BIRTH-HISTORY": {
+      "name": "save-birth-history",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-birth-history/index",
+      "zip": ".dist/zips/save-birth-history.zip"
+    },
     "UPDATE_INVOICE_TASK": {
       "name": "update-invoice-task",
       "type": "http_auth",

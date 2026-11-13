@@ -5,6 +5,7 @@ import {
   buildGrowthChartOption,
   defaultGrowthSet,
   formatGrowthValue,
+  formatGrowthValueBothUnits,
   GROWTH_CHART_VIEWS,
   GROWTH_SETS,
   growthTooltip,
@@ -51,11 +52,17 @@ describe('growth chart option (the cards ported from the OTR-3741 report)', () =
       'Stature-for-age',
       'BMI-for-age',
     ]);
-    // Axes: months under 2 (0 reads "Birth"), years from 2, length in cm for weight-for-length.
+    // Axes: months under 2 (0 reads "Birth", then 2, 4 …), "2 y, 3 y … 20 y" from 2, length in cm for weight-for-length.
     expect(GROWTH_CHART_VIEWS['who-wfa'].xAxis).toMatchObject({ min: 0, max: 24, name: 'Age (months)' });
     expect(GROWTH_CHART_VIEWS['who-wfa'].xAxis.formatter?.(0)).toBe('Birth');
+    expect(GROWTH_CHART_VIEWS['who-wfa'].xAxis.formatter?.(12)).toBe('12');
     expect(GROWTH_CHART_VIEWS['cdc-sfa'].xAxis).toMatchObject({ min: 24, max: 240, name: 'Age (years)' });
-    expect(GROWTH_CHART_VIEWS['cdc-sfa'].xAxis.formatter?.(120)).toBe('10');
+    expect([24, 36, 120, 240].map((months) => GROWTH_CHART_VIEWS['cdc-sfa'].xAxis.formatter?.(months))).toEqual([
+      '2 y',
+      '3 y',
+      '10 y',
+      '20 y',
+    ]);
     expect(GROWTH_CHART_VIEWS['who-wfl'].xAxis).toMatchObject({ min: 45, max: 110, name: 'Length (cm)' });
   });
 
@@ -77,7 +84,7 @@ describe('growth chart option (the cards ported from the OTR-3741 report)', () =
     expect(seriesOf(boys.option)[0].lineStyle.color).toBe('#1e6fd0');
     expect((boys.option.grid as Series).backgroundColor).toBe('#f5f9fe');
     // The y axis spans the outer curves on a round step.
-    const yAxis = option.yAxis as Series;
+    const yAxis = (option.yAxis as Series[])[0];
     expect(yAxis.min).toBeLessThanOrEqual(curves[0].data[0][1]);
     expect(yAxis.max).toBeGreaterThanOrEqual(curves[8].data[24][1]);
     expect(yAxis.name).toBe('Weight (kg)');
@@ -134,7 +141,7 @@ describe('growth chart option (the cards ported from the OTR-3741 report)', () =
     expect(flagged.data).toHaveLength(3); // a point without a z is listed, not drawn
     expect(flagged.data[0]).toMatchObject({ value: [6, 3.9], symbolRotate: 0 });
     expect(flagged.data[0].symbol).toMatch(/^path:\/\//);
-    const yAxis = option.yAxis as Series;
+    const yAxis = (option.yAxis as Series[])[0];
     expect(flagged.data[1]).toMatchObject({ value: [7, yAxis.max], symbol: 'arrow', symbolRotate: 0 });
     expect(flagged.data[2]).toMatchObject({ value: [8, yAxis.min], symbol: 'arrow', symbolRotate: 180 });
     expect(locate.get(wayOff)).toEqual({ seriesIndex: 10, dataIndex: 1 });
@@ -146,20 +153,40 @@ describe('growth chart option (the cards ported from the OTR-3741 report)', () =
     const tooltip = (option.tooltip as Series).formatter as (params: Series) => string;
     expect((option.tooltip as Series).renderMode).toBe('richText');
     const shown = point({ y: 5.456, percentile: '54th' });
-    expect(tooltip({ data: { point: shown } })).toBe(`${expectedDate(shown.time)} · 6 mo · 5.46 kg\n54th percentile`);
+    expect(tooltip({ data: { point: shown } })).toBe(
+      `${expectedDate(shown.time)} · 6 mo · 5.46 kg ≈ 12.03 lbs\n54th percentile`
+    );
     const bad = point({
       percentile: undefined,
       implausible: true,
       note: 'implausible (z 7.9) — not plotted on the line',
     });
     expect(growthTooltip(bad, view)).toBe(
-      `${expectedDate(bad.time)} · 6 mo · 5.50 kg\n⚠ implausible (z 7.9) — not plotted on the line`
+      `${expectedDate(bad.time)} · 6 mo · 5.50 kg ≈ 12.13 lbs\n⚠ implausible (z 7.9) — not plotted on the line`
     );
     expect(tooltip({ data: {} })).toBe('');
     // Weight-for-length shows the weight at the length; the table uses "@", the tooltip "at".
     const wfl = point({ chart: 'who-wfl', x: 65.04, y: 7.3 });
     expect(formatGrowthValue(wfl, GROWTH_CHART_VIEWS['who-wfl'])).toBe('7.30 kg @ 65.0 cm');
-    expect(growthTooltip(wfl, GROWTH_CHART_VIEWS['who-wfl'])).toContain('7.30 kg at 65.0 cm');
+    expect(growthTooltip(wfl, GROWTH_CHART_VIEWS['who-wfl'])).toContain('7.30 kg ≈ 16.09 lbs at 65.0 cm');
+  });
+
+  it('shows both units: kg left / lbs right on weight charts, cm / in on length and head charts, BMI alone', () => {
+    const weight = option.yAxis as Series[];
+    expect(weight.map((axis) => axis.name)).toEqual(['Weight (kg)', 'Weight (lbs)']);
+    expect(weight[1]).toMatchObject({ position: 'right', min: weight[0].min * 2.20462, max: weight[0].max * 2.20462 });
+    expect(weight[1].interval).toBeCloseTo(weight[0].interval * 2.20462, 10);
+    expect(weight[1].axisLabel.formatter(12.0345)).toBe('12.0');
+    const stature = buildGrowthChartOption('cdc-sfa', 'male', table, []).option.yAxis as Series[];
+    expect(stature.map((axis) => axis.name)).toEqual(['Stature (cm)', 'Stature (in)']);
+    expect(stature[1].max).toBeCloseTo(stature[0].max * 0.393701, 2);
+    expect(GROWTH_CHART_VIEWS['who-hcfa'].imperial?.yLabel).toBe('Head circumference (in)');
+    expect((buildGrowthChartOption('cdc-bmi', 'male', table, []).option.yAxis as Series[]).length).toBe(1);
+    const length = point({ chart: 'who-lfa', y: 65.04 });
+    expect(formatGrowthValueBothUnits(length, GROWTH_CHART_VIEWS['who-lfa'])).toBe('65.0 cm ≈ 25.61 in');
+    expect(formatGrowthValueBothUnits(point({ chart: 'cdc-bmi', y: 16.84 }), GROWTH_CHART_VIEWS['cdc-bmi'])).toBe(
+      '16.8 kg/m²'
+    );
   });
 });
 

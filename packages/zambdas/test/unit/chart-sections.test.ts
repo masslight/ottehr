@@ -251,8 +251,8 @@ describe('chart sections — golden fixture', () => {
         // The visit note is one call: the chart searches and the appointment count in six concurrent batches;
         // the AI note's provider is one of the participants the same wave read, so there is no follow-up lookup.
         fhirHttpRequests: 6,
-        fhirSearches: 32,
-        batchSizes: [6, 6, 6, 6, 6, 2],
+        fhirSearches: 31,
+        batchSizes: [6, 6, 6, 6, 6, 1],
       });
       expect(Math.max(...batches.map((b) => b.urls.length))).toBeLessThanOrEqual(CHART_BATCH_TARGET_CONCURRENCY);
       expect(searches).toEqual([]);

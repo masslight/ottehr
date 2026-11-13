@@ -3,6 +3,12 @@ import { roundNumberToDecimalPlaces } from '../../utils/convert';
 
 export const BMI_DISPLAY_PRECISION = 1;
 export const BMI_UNIT = 'kg/m2';
+/** BMI is used from 2 years (CDC BMI-for-age starts at 24 months); under 2, weight-for-length takes its place. */
+export const BMI_FROM_MONTHS = 24;
+
+/** Whether BMI is calculated, saved and shown at an age; an unknown age never hides it. */
+export const bmiAppliesAt = (ageMonths: number | undefined): boolean =>
+  ageMonths === undefined || ageMonths >= BMI_FROM_MONTHS;
 
 /**
  * Calculates BMI from weight in kg and height in cm.

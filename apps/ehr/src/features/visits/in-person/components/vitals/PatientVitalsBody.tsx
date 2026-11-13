@@ -5,9 +5,12 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import VitalsNotesCard from 'src/features/visits/shared/components/patient-info/VitalsNotesCard';
+import VitalsBirthHistoryCard from 'src/features/visits/shared/components/vitals/birth-history/VitalsBirthHistoryCard';
 import VitalsBloodPressureCard from 'src/features/visits/shared/components/vitals/blood-pressure/VitalsBloodPressureCard';
 import VitalsBMICard from 'src/features/visits/shared/components/vitals/bmi/VitalsBMICard';
-import VitalsHeadCircumferenceCard from 'src/features/visits/shared/components/vitals/head-circumference/VitalsHeadCircumferenceCard';
+import VitalsHeadCircumferenceCard, {
+  HEAD_CIRCUMFERENCE_COLLAPSED_FROM_MONTHS,
+} from 'src/features/visits/shared/components/vitals/head-circumference/VitalsHeadCircumferenceCard';
 import VitalsHeartbeatCard from 'src/features/visits/shared/components/vitals/heartbeat/VitalsHeartbeatCard';
 import VitalsHeightCard from 'src/features/visits/shared/components/vitals/heights/VitalsHeightCard';
 import { useVitalsManagement } from 'src/features/visits/shared/components/vitals/hooks/useVitalsManagement';
@@ -18,6 +21,8 @@ import VitalsTemperaturesCard from 'src/features/visits/shared/components/vitals
 import VitalsVisionCard from 'src/features/visits/shared/components/vitals/vision/VitalsVisionCard';
 import VitalsWeightsCard from 'src/features/visits/shared/components/vitals/weights/VitalsWeightsCard';
 import { useMarkDraftNavigatedAway, useVitalsDraftStore } from 'src/state/draft-data.store';
+import { bmiAppliesAt } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
+import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { Loader } from '../../../shared/components/Loader';
 import { AbnormalVitalsModal } from '../../../shared/components/vitals/AbnormalVitalsModal';
 import { useGetAppointmentAccessibility } from '../../../shared/hooks/useGetAppointmentAccessibility';
@@ -25,10 +30,14 @@ import { useAppointmentData } from '../../../shared/stores/appointment/appointme
 
 export const PatientVitalsBody: FC = () => {
   const {
-    resources: { encounter },
+    resources: { encounter, patient, appointment },
   } = useAppointmentData();
 
   const encounterId = encounter?.id ?? '';
+  // Birth history leads the screen for infants (the same 24-month rule as head circumference) and trails it,
+  // collapsed, for everyone older.
+  const ageMonths = ageInMonthsOnDate(patient?.birthDate, appointment?.start);
+  const isInfant = ageMonths !== undefined && ageMonths < HEAD_CIRCUMFERENCE_COLLAPSED_FROM_MONTHS;
   const vitals = useVitalsManagement({ encounterId });
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
@@ -87,6 +96,7 @@ export const PatientVitalsBody: FC = () => {
           onClearAll={vitals.clearAllDrafts}
         />
       )}
+      {isInfant && <VitalsBirthHistoryCard collapsedByDefault={false} />}
       <Box ref={vitals.refs.temperature}>
         <VitalsTemperaturesCard field={vitals.fields.temperature} />
       </Box>
@@ -108,12 +118,14 @@ export const PatientVitalsBody: FC = () => {
       <Box ref={vitals.refs.height}>
         <VitalsHeightCard field={vitals.fields.height} />
       </Box>
-      <VitalsBMICard
-        current={vitals.fields.bmi.current}
-        historical={vitals.fields.bmi.historical}
-        onDelete={vitals.fields.bmi.delete}
-        isWeightRefused={vitals.fields.weight.current[0]?.extraWeightOptions?.includes('patient_refused') ?? false}
-      />
+      {bmiAppliesAt(ageMonths) && (
+        <VitalsBMICard
+          current={vitals.fields.bmi.current}
+          historical={vitals.fields.bmi.historical}
+          onDelete={vitals.fields.bmi.delete}
+          isWeightRefused={vitals.fields.weight.current[0]?.extraWeightOptions?.includes('patient_refused') ?? false}
+        />
+      )}
       <Box ref={vitals.refs.headCircumference}>
         <VitalsHeadCircumferenceCard field={vitals.fields.headCircumference} />
       </Box>
@@ -123,6 +135,7 @@ export const PatientVitalsBody: FC = () => {
       <Box ref={vitals.refs.lmp}>
         <VitalsLastMenstrualPeriodCard field={vitals.fields.lmp} />
       </Box>
+      {!isInfant && <VitalsBirthHistoryCard collapsedByDefault />}
 
       {!isReadOnly && (
         <Box

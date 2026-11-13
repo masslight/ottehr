@@ -7,7 +7,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useVitalsDraftStore } from 'src/state/draft-data.store';
 import { toVitalOxygenSatObservationMethod } from 'utils/lib/fhir/vitals';
 import { getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
-import { areVitalsSameDay, calculateBMI } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
+import { areVitalsSameDay, bmiAppliesAt, calculateBMI } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { toVitalsSupplementalO2DeliveryType } from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
 import { fahrenheitToCelsius } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
@@ -31,6 +31,8 @@ import {
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { textToNumericValue } from 'utils/lib/utils/convert';
+import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
+import { useAppointmentData } from '../../../stores/appointment/appointment.store';
 import { useBloodPressureLocalState } from '../blood-pressure/useBloodPressureLocalState';
 import { useHeadCircumferenceLocalState } from '../head-circumference/useHeadCircumferenceLocalState';
 import { useHeartbeatLocalState } from '../heartbeat/useHeartbeatLocalState';
@@ -770,6 +772,11 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
 
   const { id: appointmentId } = useParams();
   const { oystehrZambda } = useApiClients();
+  const {
+    resources: { patient, appointment },
+  } = useAppointmentData();
+  // No BMI under 2 years: the growth charts use weight-for-length instead.
+  const bmiApplies = bmiAppliesAt(ageInMonthsOnDate(patient?.birthDate, appointment?.start));
 
   const [isBatchSaving, setIsBatchSaving] = useState(false);
   const [isSavingDot, setIsSavingDot] = useState(false);
@@ -835,10 +842,11 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     }
   }, [dotVisionState, finalizeDotVisionDocument, handleSaveVital]);
 
-  // Saves a derived BMI when both inputs exist. Doesn't refetch; caller refetches once. Returns whether it saved.
+  // Saves a derived BMI when both inputs exist and the patient is 2 or older. Doesn't refetch; caller refetches
+  // once. Returns whether it saved.
   const saveBMI = useCallback(
     async (weightKg: number | undefined, heightCm: number | undefined): Promise<boolean> => {
-      if (!weightKg || !heightCm) return false;
+      if (!bmiApplies || !weightKg || !heightCm) return false;
       const bmiDto: VitalsBMIObservationDTO = {
         field: VitalFieldNames.VitalBMI,
         value: calculateBMI(weightKg, heightCm),
@@ -846,7 +854,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       await saveVitals(bmiDto);
       return true;
     },
-    [saveVitals]
+    [saveVitals, bmiApplies]
   );
 
   const handleDeleteVital = useCallback(

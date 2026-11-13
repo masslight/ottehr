@@ -1,4 +1,5 @@
 import ErrorIcon from '@mui/icons-material/Error';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import {
   alpha,
@@ -22,16 +23,24 @@ import {
 import { DateTime } from 'luxon';
 import React, { ReactElement, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { RoundedButton } from 'src/components/RoundedButton';
 import { EChart } from 'src/features/report-builder/runtime/components/EChart';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { Loader } from 'src/features/visits/shared/components/Loader';
+import { useVitalsHeaderUnitSystem } from 'src/features/visits/shared/components/vitals/hooks/useVitalsHeaderUnitSystem';
 import { DATE_FORMAT } from 'src/helpers/formatDateTime';
 import { useGetFlowsheet } from 'src/hooks/useGetFlowsheet';
+import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
+import { VitalsHeaderUnitSystem } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
+import { biliToolReadings, canOpenBiliTool } from '../biliTool';
+import { chartPoint, HOURS_OF_LIFE_MAX, usesHoursAxis } from '../chartPoints';
 import { FlowsheetChart, FlowsheetDefinition, FlowsheetRow, FLOWSHEETS } from '../registry';
+import { BiliToolDialog } from './BiliToolDialog';
 import { GrowthCharts } from './GrowthCharts';
 
 interface FlowsheetsProps {
@@ -46,6 +55,13 @@ interface FlowsheetsProps {
 export const Flowsheets = ({ patientId, asOf, currentAppointmentId }: FlowsheetsProps): ReactElement => {
   const [selected, setSelected] = useState<FlowsheetDefinition>(FLOWSHEETS[0]);
   const { data, isLoading, error } = useGetFlowsheet({ patientId, flowsheetId: selected.id, asOf });
+  const [biliToolOpen, setBiliToolOpen] = useState(false);
+  // Newborn bilirubin: BiliTool takes the readings shown (up to this visit on the visit tab).
+  const readings = useMemo(
+    () => (selected.id === 'newbornBilirubin' && data ? biliToolReadings(data.visits) : []),
+    [selected.id, data]
+  );
+  const showBiliTool = selected.id === 'newbornBilirubin' && canOpenBiliTool(data?.birthHistory, readings);
 
   return (
     <Stack direction="row" spacing={2} alignItems="flex-start">
@@ -61,9 +77,24 @@ export const Flowsheets = ({ patientId, asOf, currentAppointmentId }: Flowsheets
         ))}
       </List>
       <Stack spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="h5" color="primary.dark">
-          {selected.title}
-        </Typography>
+        <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+          <Typography variant="h5" color="primary.dark">
+            {selected.title}
+          </Typography>
+          {showBiliTool && (
+            <RoundedButton size="small" startIcon={<OpenInNewIcon />} onClick={() => setBiliToolOpen(true)}>
+              Open in BiliTool
+            </RoundedButton>
+          )}
+        </Stack>
+        {showBiliTool && biliToolOpen && data?.birthHistory && (
+          <BiliToolDialog
+            open
+            onClose={() => setBiliToolOpen(false)}
+            birthHistory={data.birthHistory}
+            readings={readings}
+          />
+        )}
         {isLoading ? (
           <Loader />
         ) : error ? (
@@ -122,13 +153,38 @@ interface Cell {
   history: { time: string; text: string; flag?: VitalAlertCriticality }[];
 }
 
-export const cellOf = (row: FlowsheetRow, visit: FlowsheetVisit): Cell => {
+// Imperial from the stored metric value, at the vitals' display precision (lbs 2 decimals, inches 2 decimals).
+const toImperial = (value: number, unit: 'lbs' | 'in'): string =>
+  unit === 'lbs'
+    ? roundNumberToDecimalPlaces(value * LBS_IN_KG, 2).toFixed(2)
+    : HeightMeasurement.fromCm(value).getInches().toFixed(2);
+
+/** The row label in the unit system shown. */
+export const rowLabel = (row: FlowsheetRow, unitSystem: VitalsHeaderUnitSystem = 'metric'): string =>
+  row.imperial && unitSystem === 'imperial' ? row.imperial.label : row.label;
+
+/** "5.80 kg ≈ 12.79 lbs" for a convertible row's reading, metric first; undefined for other rows. */
+export const bothUnits = (row: FlowsheetRow, value: number | string): string | undefined =>
+  row.imperial && typeof value === 'number' && row.digits !== undefined
+    ? `${roundNumberToDecimalPlaces(value, row.digits).toFixed(row.digits)} ${row.label.match(
+        /\((.+)\)/
+      )?.[1]} ≈ ${toImperial(value, row.imperial.unit)} ${row.imperial.unit}`
+    : undefined;
+
+export const cellOf = (
+  row: FlowsheetRow,
+  visit: FlowsheetVisit,
+  unitSystem: VitalsHeaderUnitSystem = 'metric'
+): Cell => {
   const readings = row.keys.map((key) => visit.values[key]).filter((reading) => reading !== undefined);
   if (readings.length < row.keys.length) return { text: '', history: [] };
   // Numbers show exactly the row's digits (3.10, not 3.1); text (a drug name, a coded lab result) is shown as saved.
+  // A convertible row shows imperial when the practice's header unit system is imperial.
   const formatOne = ({ value, unit, note }: FlowsheetReading): string => {
     const text =
-      typeof value === 'number' && row.digits !== undefined
+      typeof value === 'number' && row.imperial && unitSystem === 'imperial'
+        ? toImperial(value, row.imperial.unit)
+        : typeof value === 'number' && row.digits !== undefined
         ? roundNumberToDecimalPlaces(value, row.digits).toFixed(row.digits)
         : String(value);
     const withUnit = unit ? `${text} ${unit}` : text;
@@ -155,9 +211,9 @@ export const rowsToShow = (
   definition: FlowsheetDefinition,
   visits: FlowsheetVisit[]
 ): (FlowsheetRow | GroupHeading)[] => {
-  const rows = definition.hideEmptyRows
-    ? definition.rows.filter((row) => visits.some((visit) => cellOf(row, visit).text))
-    : definition.rows;
+  const rows = definition.rows.filter(
+    (row) => !(definition.hideEmptyRows || row.hideWhenEmpty) || visits.some((visit) => cellOf(row, visit).text)
+  );
   return rows.flatMap((row, i) =>
     row.group && row.group !== rows[i - 1]?.group ? [{ heading: row.group }, row] : [row]
   );
@@ -185,9 +241,19 @@ const FlagMark = ({ flag }: { flag?: VitalAlertCriticality }): ReactElement | nu
   return null;
 };
 
-/** The cell value; with more than one reading, a count marker and a hover list of every reading (local time). */
-const CellValue = ({ cell }: { cell: Cell }): ReactElement => {
-  if (cell.history.length < 2) return <>{cell.text || '—'}</>;
+/**
+ * The cell value; with more than one reading, a count marker and a hover list of every reading (local time). A
+ * convertible measure shows both units on hover.
+ */
+const CellValue = ({ cell, both }: { cell: Cell; both?: string }): ReactElement => {
+  if (cell.history.length < 2) {
+    if (!both || !cell.text) return <>{cell.text || '—'}</>;
+    return (
+      <Tooltip title={both}>
+        <Box component="span">{cell.text}</Box>
+      </Tooltip>
+    );
+  }
   return (
     <Tooltip
       title={
@@ -198,6 +264,7 @@ const CellValue = ({ cell }: { cell: Cell }): ReactElement => {
               {reading.flag ? ` (${reading.flag})` : ''}
             </Typography>
           ))}
+          {both && <Typography variant="caption">{both}</Typography>}
         </Stack>
       }
     >
@@ -238,6 +305,7 @@ const FlowsheetBody = ({
   currentAppointmentId?: string;
 }): ReactElement => {
   const theme = useTheme();
+  const unitSystem = useVitalsHeaderUnitSystem();
   const columns = useMemo(() => toColumns(visits), [visits]);
   const rows = useMemo(() => rowsToShow(definition, visits), [definition, visits]);
   // The open visit's own (main) column; its follow-up columns are not it.
@@ -254,34 +322,47 @@ const FlowsheetBody = ({
 
   // ECharts option per chart. Series names and units come from the registry, values are numbers, so the
   // default tooltip renders nothing a user or patient typed.
-  const chartOption = (chart: FlowsheetChart): Record<string, unknown> => ({
-    tooltip: { trigger: 'axis' },
-    legend: { top: 0, selectedMode: false, data: chart.lines.map((line) => line.name) },
-    // Our own disabled dataZoom keeps the EChart wrapper from adding its slider.
-    dataZoom: [{ type: 'inside', disabled: true }],
-    grid: { left: 48, right: 24, top: 40, bottom: 32, containLabel: true },
-    xAxis: { type: 'time', axisLabel: { hideOverlap: true }, splitLine: { show: false } },
-    yAxis: { type: 'value', name: chart.unit, scale: true },
-    series: chart.lines.map((line) => ({
-      name: line.name,
-      type: 'line',
-      showSymbol: true,
-      symbolSize: 6,
-      data: columns
-        .slice()
-        .reverse()
-        .flatMap((visit) => {
-          const reading = visit.values[line.key];
-          // Only numeric readings plot; a text value (e.g. a coded lab result) has no point.
-          if (!reading || typeof reading.value !== 'number') return [];
-          const color = flagColor(reading.flag);
-          const point = { value: [Date.parse(visit.start), reading.value] };
-          return [
-            color ? { ...point, symbolSize: 11, itemStyle: { color, borderColor: '#fff', borderWidth: 1 } } : point,
-          ];
-        }),
-    })),
-  });
+  const chartOption = (chart: FlowsheetChart): Record<string, unknown> => {
+    const hoursAxis = usesHoursAxis(chart, columns);
+    return {
+      tooltip: { trigger: 'axis' },
+      legend: { top: 0, selectedMode: false, data: chart.lines.map((line) => line.name) },
+      // Our own disabled dataZoom keeps the EChart wrapper from adding its slider.
+      dataZoom: [{ type: 'inside', disabled: true }],
+      grid: { left: 48, right: 24, top: 40, bottom: hoursAxis ? 48 : 32, containLabel: true },
+      xAxis: hoursAxis
+        ? {
+            type: 'value',
+            min: 0,
+            max: HOURS_OF_LIFE_MAX,
+            interval: 24,
+            name: 'Age (hours)',
+            nameLocation: 'middle',
+            nameGap: 28,
+            splitLine: { show: false },
+          }
+        : { type: 'time', axisLabel: { hideOverlap: true }, splitLine: { show: false } },
+      yAxis: { type: 'value', name: chart.unit, scale: true },
+      series: chart.lines.map((line) => ({
+        name: line.name,
+        type: 'line',
+        showSymbol: true,
+        symbolSize: 6,
+        data: columns
+          .slice()
+          .reverse()
+          .flatMap((visit) => {
+            // Only numeric readings plot; a text value (e.g. a coded lab result) has no point.
+            const value = chartPoint(visit, line.key, hoursAxis);
+            if (!value) return [];
+            const color = flagColor(visit.values[line.key].flag);
+            return [
+              color ? { value, symbolSize: 11, itemStyle: { color, borderColor: '#fff', borderWidth: 1 } } : { value },
+            ];
+          }),
+      })),
+    };
+  };
   const hasPoints = (chart: FlowsheetChart): boolean =>
     chart.lines.some((line) => columns.some((visit) => typeof visit.values[line.key]?.value === 'number'));
 
@@ -321,9 +402,10 @@ const FlowsheetBody = ({
                 </TableRow>
               ) : (
                 <TableRow key={`${row.group ?? ''}-${row.label}`}>
-                  <TableCell sx={{ ...pinned, fontWeight: 600 }}>{row.label}</TableCell>
+                  <TableCell sx={{ ...pinned, fontWeight: 600 }}>{rowLabel(row, unitSystem)}</TableCell>
                   {columns.map((visit, i) => {
-                    const cell = cellOf(row, visit);
+                    const cell = cellOf(row, visit, unitSystem);
+                    const latest = row.keys.length === 1 ? visit.values[row.keys[0]]?.value : undefined;
                     return (
                       <TableCell
                         key={`${visit.start}-${i}`}
@@ -334,7 +416,7 @@ const FlowsheetBody = ({
                           ...currentSx(visit),
                         }}
                       >
-                        <CellValue cell={cell} />
+                        <CellValue cell={cell} both={latest !== undefined ? bothUnits(row, latest) : undefined} />
                         <FlagMark flag={cell.flag} />
                       </TableCell>
                     );

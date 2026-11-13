@@ -27,6 +27,7 @@ import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { createUserResourcesForPatient } from 'utils/lib/fhir/patient';
 import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-record';
 import { Secrets } from 'utils/lib/secrets';
+import { BIRTH_HISTORY_META_SYSTEM } from 'utils/lib/types/api/birth-history.types';
 import { IN_PERSON_NOTE_ID } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { encounterScopedSearch, patientScopedSearch } from '../../shared/chart-data/search-requests';
@@ -67,7 +68,7 @@ const chartResourceSearches = (encounterId: string): BatchInputGetRequest[] => [
     _tag: 'current-medication,prescribed-medication,in-house-medication',
   }),
   patientScopedSearch('EpisodeOfCare', encounterId),
-  patientScopedSearch('Observation', encounterId, { _tag: `${PRIVATE_EXTENSION_BASE_URL}/birth-history|` }),
+  patientScopedSearch('Observation', encounterId, { _tag: `${BIRTH_HISTORY_META_SYSTEM}|` }),
   patientScopedSearch('Communication', encounterId, { _tag: IN_PERSON_NOTE_ID }),
   encounterScopedSearch('Observation', encounterId),
   encounterScopedSearch('Communication', encounterId),

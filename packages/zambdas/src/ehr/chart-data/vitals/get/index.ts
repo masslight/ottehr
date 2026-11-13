@@ -17,6 +17,7 @@ import {
   VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE,
 } from 'utils/lib/fhir/vitals';
 import { convertVitalsListToMap } from 'utils/lib/helpers/vitals/utils';
+import { bmiAppliesAt } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   PATIENT_VITALS_META_SYSTEM,
@@ -36,6 +37,7 @@ import {
   INVALID_INPUT_ERROR,
   MISSING_REQUIRED_PARAMETERS,
 } from 'utils/lib/types/errors';
+import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import * as z from 'zod';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
@@ -72,20 +74,16 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetV
     patientSex: patient.gender,
     vitalsAlertConfig: await getVitalsEngineConfig(oystehr),
   };
-  if (!mode.historical) {
-    // Fetch current vitals for the encounter
-    const list = await fetchVitalsForEncounter(encounter.id, oystehr, alertContext);
-    const map = convertVitalsListToMap(list);
-    return map;
-  } else {
-    const list = await fetchVitalsPriorToEncounter(
-      { patientId: input.patientId, searchBefore: mode.searchBefore, encounterId: encounter.id },
-      oystehr,
-      alertContext
-    );
-    const map = convertVitalsListToMap(list);
-    return map;
-  }
+  const list: VitalsObservationDTO[] = !mode.historical
+    ? await fetchVitalsForEncounter(encounter.id, oystehr, alertContext)
+    : await fetchVitalsPriorToEncounter(
+        { patientId: input.patientId, searchBefore: mode.searchBefore, encounterId: encounter.id },
+        oystehr,
+        alertContext
+      );
+  // No BMI under 2 years, even one saved before the rule: the growth charts use weight-for-length instead.
+  const bmiApplies = bmiAppliesAt(ageInMonthsOnDate(patient.birthDate, encounter.period?.start));
+  return convertVitalsListToMap(list.filter((vital) => bmiApplies || vital.field !== VitalFieldNames.VitalBMI));
 };
 
 const fetchVitalsForEncounter = async (

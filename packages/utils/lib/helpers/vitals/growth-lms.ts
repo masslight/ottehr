@@ -13,6 +13,17 @@ export interface Lms {
 /** WHO and CDC both turn age in days into months with 365.25 / 12. */
 export const DAYS_PER_MONTH = 30.4375;
 
+/** Born before 37 completed weeks is preterm; a term pregnancy is 40 weeks (280 days). */
+export const PRETERM_BEFORE_DAYS = 37 * 7;
+export const TERM_DAYS = 40 * 7;
+
+/**
+ * Corrected (adjusted) age of a preterm infant: chronological age minus the weeks missed to term
+ * (40 weeks − gestational age at birth). Negative before the due date.
+ */
+export const correctedAgeMonths = (ageMonths: number, gestationalAgeDays: number): number =>
+  ageMonths - (TERM_DAYS - gestationalAgeDays) / DAYS_PER_MONTH;
+
 /** LMS parameters at x, linearly interpolated between the bracketing table rows; undefined outside the table. */
 export const lmsAt = (table: LmsRow[], x: number): Lms | undefined => {
   const last = table[table.length - 1];

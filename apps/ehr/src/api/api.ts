@@ -39,6 +39,11 @@ import {
   AssignPractitionerResponse,
 } from 'utils/lib/types/api/assign-practitioner/assign-practitioner.types';
 import {
+  BirthHistoryOutput,
+  GetBirthHistoryInput,
+  SaveBirthHistoryInput,
+} from 'utils/lib/types/api/birth-history.types';
+import {
   BulkUpdateInsuranceStatusInput,
   BulkUpdateInsuranceStatusResponse,
 } from 'utils/lib/types/api/bulk-update-insurance-status.types';
@@ -4235,6 +4240,32 @@ export const markTaskNotesRead = async (oystehr: Oystehr, parameters: MarkTaskNo
 export const getFlowsheet = async (oystehr: Oystehr, parameters: GetFlowsheetInput): Promise<GetFlowsheetOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: 'get-flowsheet', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const getBirthHistory = async (
+  oystehr: Oystehr,
+  parameters: GetBirthHistoryInput
+): Promise<BirthHistoryOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'get-birth-history', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const saveBirthHistory = async (
+  oystehr: Oystehr,
+  parameters: SaveBirthHistoryInput
+): Promise<BirthHistoryOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'save-birth-history', ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);

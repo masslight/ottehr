@@ -1,14 +1,19 @@
 import { Observation, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
+import { gestationalAgeDaysOf } from 'utils/lib/helpers/vitals/birth-history.helper';
 import {
+  correctedAgeMonths,
   DAYS_PER_MONTH,
   formatAge,
   formatPercentile,
   lmsAt,
   modifiedZ,
+  PRETERM_BEFORE_DAYS,
   zOf,
 } from 'utils/lib/helpers/vitals/growth-lms';
+import { bmiAppliesAt } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
+import { BirthHistoryDTO } from 'utils/lib/types/api/birth-history.types';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   FlowsheetReading,
@@ -34,7 +39,30 @@ export interface GrowthFlowsheetResources extends VisitResources {
   observations: Observation[];
   birthDate?: string;
   gender?: Patient['gender'];
+  /** Gestational age at birth, when recorded: preterm infants are read against WHO at their corrected age. */
+  birthHistory?: BirthHistoryDTO;
 }
+
+/**
+ * Age at a measurement. `months` is chronological and picks the chart set; `corrected` is set for preterm infants
+ * under 24 months and is the age the WHO tables are read at (negative before the due date: no percentile).
+ */
+export interface GrowthAge {
+  months: number;
+  corrected?: number;
+}
+
+/** "4 mo", "4 mo (corrected 2 mo)", "5 d (before due date)". */
+export const formatGrowthAge = (age: GrowthAge): string =>
+  age.corrected === undefined
+    ? formatAge(age.months)
+    : `${formatAge(age.months)} (${age.corrected < 0 ? 'before due date' : `corrected ${formatAge(age.corrected)}`})`;
+
+/** The chart-reading age: corrected under 24 months when born before 37 weeks, else chronological. */
+export const growthAgeOf = (ageMonths: number, gestationalAgeDays: number | undefined): GrowthAge =>
+  gestationalAgeDays !== undefined && gestationalAgeDays < PRETERM_BEFORE_DAYS && ageMonths < WHO_MAX_MONTHS
+    ? { months: ageMonths, corrected: correctedAgeMonths(ageMonths, gestationalAgeDays) }
+    : { months: ageMonths };
 
 type GrowthMeasure = 'weight' | 'height' | 'bmi' | 'headCircumference';
 type Sex = 'male' | 'female';
@@ -116,15 +144,20 @@ export const scoreOn = (chartId: GrowthChartId, x: number, y: number, sex: Sex):
 const percentileText = (score: Score | undefined): string | undefined =>
   score && (score.implausible ? 'implausible' : score.percentile);
 
-/** The percentile text for a measurement, 'implausible' when flagged, undefined when no table covers it. */
+/**
+ * The percentile text for a measurement, 'implausible' when flagged, undefined when no table covers it or the
+ * (corrected) age is before the due date.
+ */
 export const percentileOf = (
   measure: GrowthMeasure,
   value: number,
-  ageMonths: number,
+  ageOrMonths: GrowthAge | number,
   sex: Sex
 ): string | undefined => {
-  const chart = ageChartFor(measure, ageMonths);
-  return percentileText(chart && scoreOn(chart, ageMonths, value, sex));
+  const age = typeof ageOrMonths === 'number' ? { months: ageOrMonths } : ageOrMonths;
+  const chart = ageChartFor(measure, age.months);
+  const x = age.corrected ?? age.months;
+  return percentileText(chart && x >= 0 ? scoreOn(chart, x, value, sex) : undefined);
 };
 
 /**
@@ -144,7 +177,7 @@ const NOT_ON_LINE = '— not plotted on the line';
 const visitChartPoints = (
   values: Record<string, FlowsheetValue>,
   encounterId: string | undefined,
-  ageAt: (time: string) => number | undefined,
+  ageAt: (time: string) => GrowthAge | undefined,
   sex: Sex,
   outsideRange: Partial<Record<GrowthChartId, number>>
 ): GrowthChartPoint[] => {
@@ -154,27 +187,33 @@ const visitChartPoints = (
     const chart = GROWTH_CHARTS[id];
     const measurement = values[chart.measure];
     const length = values.height?.value;
-    const ageMonths = typeof measurement?.value === 'number' ? ageAt(measurement.time) : undefined;
-    if (typeof measurement?.value !== 'number' || ageMonths === undefined) return;
+    const age = typeof measurement?.value === 'number' ? ageAt(measurement.time) : undefined;
+    if (typeof measurement?.value !== 'number' || age === undefined) return;
     if (chart.x === 'length' && typeof length !== 'number') return; // a weight without a same-visit length
-    if (chartSetAt(ageMonths) !== chart.set) {
+    if (chartSetAt(age.months) !== chart.set) {
       outsideRange[id] = (outsideRange[id] ?? 0) + 1;
       return;
     }
-    const x = chart.x === 'length' && typeof length === 'number' ? length : ageMonths;
+    const x = chart.x === 'length' && typeof length === 'number' ? length : age.corrected ?? age.months;
     const point: GrowthChartPoint = {
       chart: id,
       encounterId,
       time: measurement.time,
-      age: formatAge(ageMonths),
+      age: formatGrowthAge(age),
       x,
       y: measurement.value,
     };
-    const score = scoreOn(id, x, measurement.value, sex);
+    // Before the due date a preterm infant's age-based point is listed but has no percentile and is not plotted.
+    const score = chart.x === 'age' && x < 0 ? undefined : scoreOn(id, x, measurement.value, sex);
     if (!score) {
       points.push({
         ...point,
-        note: chart.x === 'length' ? 'length outside the 45–110 cm table' : 'outside the table',
+        note:
+          chart.x === 'length'
+            ? 'length outside the 45–110 cm table'
+            : x < 0
+            ? 'before the due date'
+            : 'outside the table',
       });
       return;
     }
@@ -214,6 +253,7 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources, asOf?:
   // Percentiles need a full birth date and a male/female sex (the references are sex-specific).
   const birthDate = /^\d{4}-\d{2}-\d{2}$/.test(resources.birthDate ?? '') ? resources.birthDate : undefined;
   const sex = resources.gender === 'male' || resources.gender === 'female' ? resources.gender : undefined;
+  const gestationalAgeDays = gestationalAgeDaysOf(resources.birthHistory);
 
   const visits: FlowsheetVisit[] = [];
   const points: GrowthChartPoint[] = [];
@@ -229,12 +269,16 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources, asOf?:
     const add = (key: string, reading: FlowsheetReading): void => {
       values[key] = { ...reading, readings: [...(values[key]?.readings ?? []), reading] };
     };
+    const ageAt = (time: string): GrowthAge | undefined => {
+      const ageMonths = birthDate ? ageMonthsAt(birthDate, time, visit.timezone) : undefined;
+      return ageMonths === undefined ? undefined : growthAgeOf(ageMonths, gestationalAgeDays);
+    };
     const addWithPercentile = (measure: GrowthMeasure, reading: FlowsheetReading): void => {
       add(measure, reading);
-      const ageMonths = birthDate ? ageMonthsAt(birthDate, reading.time, visit.timezone) : undefined;
+      const age = ageAt(reading.time);
       const percentile =
-        ageMonths !== undefined && sex && typeof reading.value === 'number'
-          ? percentileOf(measure, reading.value, ageMonths, sex)
+        age !== undefined && sex && typeof reading.value === 'number'
+          ? percentileOf(measure, reading.value, age, sex)
           : undefined;
       if (percentile) add(`${measure}Percentile`, { time: reading.time, value: percentile });
     };
@@ -249,16 +293,18 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources, asOf?:
     // A visit is a column only when it has a weight, length/height or head circumference.
     if (Object.keys(values).length === 0) return;
 
-    // BMI from the visit's latest weight and height, as growth charts conventionally do.
+    // BMI from the visit's latest weight and height, as growth charts conventionally do; none under 2 years.
     const weight = values.weight;
     const height = values.height;
     if (typeof weight?.value === 'number' && typeof height?.value === 'number') {
       const time = later(weight.time, height.time);
-      addWithPercentile('bmi', { time, value: weight.value / Math.pow(height.value / 100, 2) });
+      const ageMonths = birthDate ? ageMonthsAt(birthDate, time, visit.timezone) : undefined;
+      if (bmiAppliesAt(ageMonths)) {
+        addWithPercentile('bmi', { time, value: weight.value / Math.pow(height.value / 100, 2) });
+      }
 
       // Weight-for-length (WHO, under 24 months) pairs the weight with the same visit's length; a pair built
       // from an implausible weight or length is implausible too, as in the report.
-      const ageMonths = birthDate ? ageMonthsAt(birthDate, time, visit.timezone) : undefined;
       if (sex && ageMonths !== undefined && ageMonths >= 0 && ageMonths < WHO_MAX_MONTHS) {
         const fromImplausible = [values.weightPercentile, values.heightPercentile].some(
           (p) => p?.value === 'implausible'
@@ -270,12 +316,11 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources, asOf?:
       }
     }
 
-    const ageMonths = birthDate ? ageMonthsAt(birthDate, start, visit.timezone) : undefined;
-    if (ageMonths !== undefined && ageMonths >= 0) add('age', { time: start, value: formatAge(ageMonths) });
+    const age = ageAt(start);
+    if (age !== undefined && age.months >= 0) add('age', { time: start, value: formatGrowthAge(age) });
 
     // The chart points follow the visits shown: none after asOf.
     if (birthDate && sex && (!asOf || Date.parse(start) <= Date.parse(asOf))) {
-      const ageAt = (time: string): number | undefined => ageMonthsAt(birthDate, time, visit.timezone);
       points.push(...visitChartPoints(values, visit.encounterId, ageAt, sex, outsideRange));
     }
 

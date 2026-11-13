@@ -1,6 +1,7 @@
 import { MedicationRequest } from 'fhir/r4b';
 import { z } from 'zod';
 import { LmsRow } from '../../helpers/vitals/growth-lms';
+import { BirthHistoryDTO } from './birth-history.types';
 import { VitalAlertCriticality } from './chart-data/chart-data.constants';
 
 /** The flowsheets the EHR registry offers; the get-flowsheet zambda accepts nothing else. */
@@ -55,6 +56,8 @@ export interface GetFlowsheetOutput {
   visits: FlowsheetVisit[];
   /** Growth flowsheet only; absent without a full birth date and a male/female sex. */
   growth?: GrowthChartData;
+  /** Newborn bilirubin only: the patient's birth history (time of birth, gestational age), when recorded. */
+  birthHistory?: BirthHistoryDTO;
 }
 
 // The growth charts (ported from the OTR-3741 growth-charts report): WHO birth to 24 months, CDC 2 to 20 years.

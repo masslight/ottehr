@@ -525,6 +525,7 @@ export interface IntakeNotes extends PdfData {
 export interface Vitals extends PdfData {
   vitals?: VitalsVisitNoteData & {
     notes?: string[];
+    birthHistory?: string[];
   };
 }
 

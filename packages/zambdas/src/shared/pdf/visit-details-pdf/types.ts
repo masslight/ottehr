@@ -12,6 +12,7 @@ import {
   Practitioner,
   QuestionnaireResponse,
 } from 'fhir/r4b';
+import { BirthHistoryDTO } from 'utils/lib/types/api/birth-history.types';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { GetMedicationOrdersResponse } from 'utils/lib/types/api/medication-administration.types';
 import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
@@ -35,6 +36,8 @@ export interface FullAppointmentResourcePackage {
 export type AllChartData = {
   chartData: GetChartDataResponse;
   additionalChartData?: GetChartDataResponse;
+  /** The patient's birth history (patient-level, not part of the visit's chart data). */
+  birthHistory?: BirthHistoryDTO;
   medicationOrders?: GetMedicationOrdersResponse['orders'];
   immunizationOrders?: ImmunizationOrder[];
 };

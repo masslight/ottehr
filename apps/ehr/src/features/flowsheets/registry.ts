@@ -8,12 +8,18 @@ export interface FlowsheetRow {
   digits?: number;
   /** The panel heading the row sits under; consecutive rows with the same group share one heading. */
   group?: string;
+  /** Leave the row out when no visit shown has a value for it (BMI rows for a patient under 2). */
+  hideWhenEmpty?: boolean;
+  /** A metric measure the grid can show imperial (practice header unit system) with both units on hover. */
+  imperial?: { label: string; unit: 'lbs' | 'in' };
 }
 
 export interface FlowsheetChart {
   title: string;
   unit: string;
   lines: { name: string; key: string }[];
+  /** Plot against hours of life (0–336 h) when the visits carry them (time of birth recorded), else against time. */
+  hoursOfLife?: boolean;
 }
 
 export interface FlowsheetDefinition {
@@ -56,21 +62,31 @@ const vitals: FlowsheetDefinition = {
 };
 
 // Percentiles are WHO (birth to 24 months) / CDC (2 to 20 years) for the patient's sex; BMI is computed from the
-// visit's weight and height. Percentile rows are text ("88th", "<1st", "implausible") computed by the server. The
+// visit's weight and height from 2 years (never under 2, so its rows disappear for an infant). Percentile rows are text ("88th", "<1st", "implausible") computed by the server. The
 // growth chart cards (GrowthCharts.tsx) take the place of trend charts, from the server's growth data.
 const growth: FlowsheetDefinition = {
   id: 'growth',
   title: 'Growth',
   rows: [
     { label: 'Age', keys: ['age'] },
-    { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 2, imperial: { label: 'Weight (lbs)', unit: 'lbs' } },
     { label: 'Weight percentile', keys: ['weightPercentile'] },
-    { label: 'Height / length (cm)', keys: ['height'], digits: 1 },
+    {
+      label: 'Height / length (cm)',
+      keys: ['height'],
+      digits: 1,
+      imperial: { label: 'Height / length (in)', unit: 'in' },
+    },
     { label: 'Height / length percentile', keys: ['heightPercentile'] },
-    { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1 },
-    { label: 'BMI percentile', keys: ['bmiPercentile'] },
+    { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1, hideWhenEmpty: true },
+    { label: 'BMI percentile', keys: ['bmiPercentile'], hideWhenEmpty: true },
     { label: 'Weight-for-length percentile', keys: ['weightForLengthPercentile'] },
-    { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
+    {
+      label: 'Head circumference (cm)',
+      keys: ['headCircumference'],
+      digits: 1,
+      imperial: { label: 'Head circumference (in)', unit: 'in' },
+    },
     { label: 'Head circumference percentile', keys: ['headCircumferencePercentile'] },
   ],
   charts: [],
@@ -114,6 +130,7 @@ const newbornBilirubin: FlowsheetDefinition = {
     {
       title: 'Bilirubin',
       unit: 'mg/dL',
+      hoursOfLife: true,
       lines: [
         { name: 'Total serum', key: 'newbornTotalBilirubin' },
         { name: 'Transcutaneous', key: 'transcutaneousBilirubin' },

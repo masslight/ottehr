@@ -27,7 +27,6 @@ export type ProviderChartDataFieldsNames =
   | 'addendum-note'
   | typeof NOTHING_TO_EAT_OR_DRINK_ID
   | typeof IN_PERSON_NOTE_ID
-  | 'birth-history'
   | 'procedure'
   | typeof ERX_MEDICATION_META_TAG_CODE
   | 'accident'

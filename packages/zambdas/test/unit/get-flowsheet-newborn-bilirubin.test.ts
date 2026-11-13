@@ -5,7 +5,11 @@ import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/char
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { FlowsheetLabResult } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, test } from 'vitest';
-import { buildNewbornBilirubinFlowsheet, dayOfLifeAt } from '../../src/ehr/get-flowsheet/newborn-bilirubin';
+import {
+  buildNewbornBilirubinFlowsheet,
+  dayOfLifeAt,
+  hoursOfLifeAt,
+} from '../../src/ehr/get-flowsheet/newborn-bilirubin';
 import { FlowsheetData, unlinkedResultKey } from '../../src/ehr/get-flowsheet/patient-data';
 
 const PATIENT = 'Patient/p1';
@@ -238,5 +242,29 @@ describe('buildNewbornBilirubinFlowsheet', () => {
       expect(visit.timezone).toBeUndefined();
       expect(visit.values.dayOfLife.readings.map((r) => r.value)).toEqual([1, 1]);
     });
+  });
+});
+
+describe('hours of life (the chart x-axis when the time of birth is recorded)', () => {
+  test('hoursOfLifeAt reads the birth date + time in the visit zone, else in the zone the result was recorded in', () => {
+    // Born 2026-03-31 22:30 New York; a result at 2026-04-01 00:30 UTC is 20:30 the same evening there.
+    expect(hoursOfLifeAt('2026-03-31', '22:30', '2026-04-01T00:30:00.000Z', 'America/New_York')).toBeCloseTo(-2, 10);
+    expect(hoursOfLifeAt('2026-03-31', '22:30', '2026-04-03T00:30:00.000Z', 'America/New_York')).toBeCloseTo(46, 10);
+    expect(hoursOfLifeAt('2026-03-31', '22:30', '2026-04-01T00:30:00.000Z')).toBeCloseTo(2, 10);
+    expect(hoursOfLifeAt('2026-03-31', '22:30', '2026-04-01T04:30:00.000-04:00')).toBeCloseTo(6, 10);
+    expect(hoursOfLifeAt('2026-03-31', '22:30', '2026-04-01T00:30:00.000Z', 'Not/A_Zone')).toBeCloseTo(2, 10);
+    expect(hoursOfLifeAt('2026-03-31', 'noon', '2026-04-01T00:30:00.000Z')).toBeUndefined();
+  });
+
+  test('each result gets its hours of life next to its day of life; none without a time of birth', () => {
+    const withBirthTime: FlowsheetData = { ...data, birthHistory: { timeOfBirth: '08:00', gestationalAgeWeeks: 39 } };
+    const [, e2, e1] = buildNewbornBilirubinFlowsheet(withBirthTime);
+    // Born 2007-03-31 08:00 (UTC, as the results carry no other zone): the TcB on day 3 at 14:20 is 78.33 h.
+    expect(e1.values.hoursOfLife.readings.map((r) => [r.time, r.value])).toEqual([
+      ['2007-04-03T14:20:00.000Z', expect.closeTo(78 + 20 / 60, 6)],
+      ['2007-04-03T18:00:00.000Z', 82],
+    ]);
+    expect(e2.values.hoursOfLife.readings.map((r) => r.value)).toEqual([expect.closeTo(126 + 5 / 60, 6), 126.25]);
+    expect(buildNewbornBilirubinFlowsheet(data)[0].values.hoursOfLife).toBeUndefined();
   });
 });
