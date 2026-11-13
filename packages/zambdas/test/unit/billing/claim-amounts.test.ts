@@ -6,6 +6,8 @@ import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, Mock, vi } from 'vitest';
 import {
   ADJUDICATION_CODES,
+  applyRemit,
+  claimBalanceSteps,
   ClaimPaymentSummary,
   countEraClaims,
   extractClaimResponseAmounts,
@@ -17,8 +19,10 @@ import {
   fetchPatientPaymentsByEncounterIds,
   firstSubmittedDate,
   getInvoiceBalanceInCents,
+  initialClaimBalances,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
+  readRemitAmounts,
   remitWriteOffsBeyondAllowed,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
@@ -929,6 +933,87 @@ describe('summarizeClaimPayments', () => {
     // responsibility stays allowed - insurancePaid (80 - 70); only the balance nets out the payment
     expect(summary.patientResp).toBe(10);
     expect(summary.balance).toBe(6);
+  });
+});
+
+// billed 120, allowed 100, paid 98: CO-45 20 is the reduction to allowed, CO-253 2 sequestration
+const sequestrationClaimResponse = (created: string, sign: 1 | -1 = 1): ClaimResponse =>
+  claimResponse(created, {
+    totalCharge: sign * 120,
+    totalPaid: sign * 98,
+    itemAdjudications: [
+      [
+        adjudication(ADJUDICATION_CODES.CHARGE, sign * 120),
+        adjudication(ADJUDICATION_CODES.ALLOWED, sign * 100),
+        adjudication(ADJUDICATION_CODES.PAID, sign * 98),
+        casAdjustment('CO', sign * 20, '45'),
+        casAdjustment('CO', sign * 2, '253'),
+      ],
+    ],
+  });
+
+describe('readRemitAmounts', () => {
+  it('splits write-offs into the reduction to allowed and what lies beyond it', () => {
+    expect(readRemitAmounts(sequestrationClaimResponse('2026-01-01'), 120)).toEqual({
+      paid: 98,
+      allowed: 100,
+      patientResp: undefined,
+      writeOffs: 22,
+      reductionToAllowed: 20,
+      writeOffsBeyondAllowed: 2,
+    });
+  });
+
+  it('negates the split for a reversal', () => {
+    expect(readRemitAmounts(sequestrationClaimResponse('2026-02-01', -1), 120)).toMatchObject({
+      reductionToAllowed: -20,
+      writeOffsBeyondAllowed: -2,
+    });
+  });
+});
+
+describe('applyRemit', () => {
+  it('folds a remit into the running balances', () => {
+    const remit = readRemitAmounts(sequestrationClaimResponse('2026-01-01'), 120);
+    expect(applyRemit(initialClaimBalances(120), remit)).toEqual({
+      billed: 120,
+      allowed: 100,
+      insurancePaid: 98,
+      reportedPatientResp: undefined,
+      writeOffsBeyondAllowed: 2,
+      reductionCarried: 20,
+      writeOffsWithoutAllowed: 0,
+      patientResp: 0,
+    });
+  });
+});
+
+describe('claimBalanceSteps', () => {
+  it('records each remit and the balances it left, oldest first', () => {
+    const primary = {
+      ...claimResponse('2026-01-01', {
+        totalPaid: 60,
+        itemAdjudications: [
+          [adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 20, '45'), casAdjustment('PR', 20, '1')],
+        ],
+      }),
+      id: 'primary',
+    };
+    const manual = {
+      ...claimResponse('2026-02-01', {
+        totalPaid: 10,
+        itemAdjudications: [[adjudication(ADJUDICATION_CODES.ALLOWED, 80), adjudication(ADJUDICATION_CODES.PAID, 10)]],
+      }),
+      id: 'manual',
+    };
+
+    const steps = claimBalanceSteps([manual, primary], 100);
+
+    expect(steps.map((step) => [step.claimResponseId, step.balances.patientResp])).toEqual([
+      ['primary', 20],
+      ['manual', 10],
+    ]);
+    expect(steps[1].balances).toMatchObject({ allowed: 80, insurancePaid: 70, writeOffsWithoutAllowed: 20 });
   });
 });
 
