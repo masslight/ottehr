@@ -1,7 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Chip } from '@mui/material';
 import { DateTime } from 'luxon';
-import { ReactElement } from 'react';
+import { ReactElement, useState } from 'react';
 import {
   INVENTORY_ENTRY_REASON_LABELS,
   INVENTORY_MARKER_LABELS,
@@ -106,3 +106,15 @@ export function MarkerChips({ markers, only }: { markers: InventoryMarker[]; onl
     </>
   );
 }
+
+export const useToggleSet = (): [Set<string>, (id: string) => void] => {
+  const [set, setSet] = useState<Set<string>>(new Set());
+  const toggle = (id: string): void =>
+    setSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  return [set, toggle];
+};
