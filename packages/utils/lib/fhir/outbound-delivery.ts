@@ -1,6 +1,5 @@
 import { Communication, Task, TaskInput, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { removePrefix } from '../helpers/helpers';
 import { ActionLogChannel, ActionLogStatus, OutboundDeliveryAttemptData } from '../types/api/action-logs.types';
 import {
   OUTBOUND_DELIVERY_INPUT_CODES,
@@ -13,6 +12,7 @@ import {
   OYSTEHR_OUTBOUND_FAX_STATUS_CODES,
   OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
 } from './constants';
+import { getIdFromReference } from './reference';
 
 const input = (code: string, valueString?: string, reference?: string): TaskInput => ({
   type: { coding: [{ system: OUTBOUND_DELIVERY_INPUT_SYSTEM, code }] },
@@ -54,11 +54,11 @@ export function makeOutboundDeliveryAttempt(data: OutboundDeliveryAttemptData): 
         ? [input(OUTBOUND_DELIVERY_INPUT_CODES.recipientOrganization, data.recipientOrganization)]
         : []),
       ...(data.recipientPhone ? [input(OUTBOUND_DELIVERY_INPUT_CODES.recipientPhone, data.recipientPhone)] : []),
-      ...(data.faxPacketPageCount !== undefined
-        ? [input(OUTBOUND_DELIVERY_INPUT_CODES.faxPacketPageCount, String(data.faxPacketPageCount))]
+      ...(data.packetPageCount !== undefined
+        ? [input(OUTBOUND_DELIVERY_INPUT_CODES.packetPageCount, String(data.packetPageCount))]
         : []),
       // One entry per document so the packet composition stays readable without a delimiter convention.
-      ...(data.faxPacketParts ?? []).map((part) => input(OUTBOUND_DELIVERY_INPUT_CODES.faxPacketParts, part)),
+      ...(data.packetParts ?? []).map((part) => input(OUTBOUND_DELIVERY_INPUT_CODES.packetParts, part)),
       ...(data.documentReferenceId
         ? [
             input(
@@ -96,7 +96,7 @@ export function getOutboundDeliveryInput(task: Task, code: string): TaskInput | 
   );
 }
 
-/** Every input entry carrying `code`. Use for repeating codes such as the fax packet part list. */
+/** Every input entry carrying `code`. Use for repeating codes such as the document packet part list. */
 export function getOutboundDeliveryInputs(task: Task, code: string): TaskInput[] {
   return (task.input ?? []).filter(
     (item) =>
@@ -126,36 +126,40 @@ export function getOutboundDeliveryRecipientSnapshot(task: Task): OutboundDelive
     name: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientName)?.valueString,
     organization: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientOrganization)?.valueString,
     phone: getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientPhone)?.valueString,
-    documentReferenceId: removePrefix(
-      'DocumentReference/',
-      getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.documentReference)?.valueReference?.reference ?? ''
+    documentReferenceId: getIdFromReference(
+      getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.documentReference)?.valueReference?.reference,
+      'DocumentReference'
     ),
-    communicationId: removePrefix(
-      'Communication/',
-      getOutboundDeliveryOutput(task, OUTBOUND_DELIVERY_OUTPUT_CODES.communication)?.valueReference?.reference ?? ''
+    communicationId: getIdFromReference(
+      getOutboundDeliveryOutput(task, OUTBOUND_DELIVERY_OUTPUT_CODES.communication)?.valueReference?.reference,
+      'Communication'
     ),
   };
 }
 
 /** The organization the attempt was sent from, recorded on the attempt when it was created. */
 export function getOutboundDeliverySenderOrganizationId(task: Task): string | undefined {
-  return removePrefix(
-    'Organization/',
-    getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization)?.valueReference?.reference ?? ''
+  return getIdFromReference(
+    getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization)?.valueReference?.reference,
+    'Organization'
   );
 }
 
-export interface OutboundDeliveryFaxPacketSnapshot {
+/** An emailed document link, as opposed to a visit-note email: only link emails record the sending organization. */
+export const isDocumentLinkAttempt = (task: Task): boolean =>
+  getOutboundDeliveryChannel(task) === 'email' && Boolean(getOutboundDeliverySenderOrganizationId(task));
+
+export interface OutboundDeliveryPacketSnapshot {
   pageCount?: number;
   parts: string[];
 }
 
-export function getOutboundDeliveryFaxPacketSnapshot(task: Task): OutboundDeliveryFaxPacketSnapshot {
-  const rawPageCount = getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.faxPacketPageCount)?.valueString;
+export function getOutboundDeliveryPacketSnapshot(task: Task): OutboundDeliveryPacketSnapshot {
+  const rawPageCount = getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.packetPageCount)?.valueString;
   const pageCount = rawPageCount === undefined ? undefined : Number(rawPageCount);
   return {
     pageCount: pageCount !== undefined && Number.isFinite(pageCount) ? pageCount : undefined,
-    parts: getOutboundDeliveryInputs(task, OUTBOUND_DELIVERY_INPUT_CODES.faxPacketParts).flatMap((entry) =>
+    parts: getOutboundDeliveryInputs(task, OUTBOUND_DELIVERY_INPUT_CODES.packetParts).flatMap((entry) =>
       entry.valueString ? [entry.valueString] : []
     ),
   };
@@ -163,6 +167,7 @@ export function getOutboundDeliveryFaxPacketSnapshot(task: Task): OutboundDelive
 
 export function getOutboundDeliveryAttemptStatus(task: Task, communication?: Communication): ActionLogStatus {
   if (getOutboundDeliveryChannel(task) === 'email') {
+    if (task.status === 'cancelled') return 'revoked';
     if (task.status === 'completed') return 'sent';
     if (task.status === 'failed') return 'failed';
     return 'pending';
@@ -183,11 +188,12 @@ export function getOutboundDeliveryAttemptStatus(task: Task, communication?: Com
 
 export function makeOutboundDeliveryOutput(
   code: (typeof OUTBOUND_DELIVERY_OUTPUT_CODES)[keyof typeof OUTBOUND_DELIVERY_OUTPUT_CODES],
-  value: { valueString?: string; reference?: string }
+  value: { valueString?: string; reference?: string; valueDateTime?: string }
 ): TaskOutput {
   return {
     type: { coding: [{ system: OUTBOUND_DELIVERY_OUTPUT_SYSTEM, code }] },
     ...(value.valueString ? { valueString: value.valueString } : {}),
     ...(value.reference ? { valueReference: { reference: value.reference } } : {}),
+    ...(value.valueDateTime ? { valueDateTime: value.valueDateTime } : {}),
   };
 }

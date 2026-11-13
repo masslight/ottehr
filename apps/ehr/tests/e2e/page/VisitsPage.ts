@@ -106,9 +106,7 @@ export class VisitsPage {
 
   /**
    * Set the tracking-board date filter. Accepts MM/DD/YYYY format. The picker defaults
-   * to "today in the location's timezone" — call this when the appointment under test
-   * is scheduled for a different date (e.g. the first available pre-book slot rolled to
-   * tomorrow because the day's schedule is past closing).
+   * to today in the browser's timezone.
    */
   async selectDate(date: string): Promise<void> {
     const target = DateTime.fromFormat(date, 'MM/dd/yyyy');
@@ -125,6 +123,16 @@ export class VisitsPage {
     }
     // Clicking a day in single-date mode commits it as both range boundaries and closes the picker.
     await dayButton.click();
+  }
+
+  /**
+   * Set the date filter to the day an appointment starting at `startISO` is listed under. The board
+   * searches whole days in the browser's timezone (UTC on CI), not the location's, so an 8 PM
+   * New York appointment is on the next day's board.
+   */
+  async selectDateOf(startISO: string): Promise<void> {
+    const browserTimezone = await this.#page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+    await this.selectDate(DateTime.fromISO(startISO).setZone(browserTimezone).toFormat('MM/dd/yyyy'));
   }
 
   async selectGroup(groupName: string): Promise<void> {

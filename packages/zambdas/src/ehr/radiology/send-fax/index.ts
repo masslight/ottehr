@@ -12,6 +12,7 @@ import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { SendRadiologyOrderFaxZambdaInput, SendRadiologyOrderFaxZambdaOutput } from 'utils/lib/types/api/radiology';
 import { checkOrCreateM2MClientToken, getUser } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { sendLetterFax } from '../../../shared/send-letter-fax';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getOrCreateRadiologyOrderForm } from '../shared/order-form-resources';
@@ -49,12 +50,12 @@ const performEffect = async (
   const { mediaUrl: media, patientId } = await getOrCreateRadiologyOrderForm(serviceRequestId, secrets, token, oystehr);
 
   console.log('Sending radiology order fax to', faxNumber);
-  const { communicationResource: fax } = await oystehr.fax.send({
+  const fax = await sendLetterFax({
+    oystehr,
     media,
-    quality: 'standard',
-    patient: `Patient/${patientId}`,
-    recipientNumber: faxNumber,
-    sender: `Organization/${organizationId}`,
+    patientId,
+    faxNumber,
+    organizationId,
   });
 
   await writeFaxProvenance(fax.id!, fax.sent, serviceRequestId, patientId, faxNumber, organizationId, user, oystehr);

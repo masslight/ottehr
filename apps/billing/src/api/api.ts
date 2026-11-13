@@ -46,9 +46,11 @@ import {
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
   ListBillingPatientAccountPaymentsInputSchema,
+  ListBillingPatientPaymentMethodsInputSchema,
   MatchClaimResponseToClaimInputSchema,
   NetCollectionsDrilldownParamsSchema,
   PatientPaymentsDrilldownParamsSchema,
+  PostBillingPatientPaymentInputSchema,
   PreviewBillingNioInvoiceInputSchema,
   RecordBillingManualPaymentInputSchema,
   RefundBillingPatientPaymentInputSchema,
@@ -120,6 +122,7 @@ import {
   GetBillingReportHistoryResponse,
   GetPatientCoveragesResponse,
   ListBillingPatientAccountPaymentsResponse,
+  ListBillingPatientPaymentMethodsResponse,
   OkResponse,
   PatientDetailResponse,
   PreviewBillingNioInvoiceResponse,
@@ -805,6 +808,18 @@ export const recordBillingManualPayment = (
   parameters: z.input<typeof RecordBillingManualPaymentInputSchema>
 ): Promise<RecordBillingManualPaymentResponse> =>
   executeBillingZambda(oystehr, 'record-billing-manual-payment', parameters);
+
+export const listBillingPatientPaymentMethods = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ListBillingPatientPaymentMethodsInputSchema>
+): Promise<ListBillingPatientPaymentMethodsResponse> =>
+  executeBillingZambda(oystehr, 'list-billing-patient-payment-methods', parameters);
+
+// charges a saved card (or records an in-person payment) for a visit; patientId is the clinical patient
+export const postBillingPatientPayment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof PostBillingPatientPaymentInputSchema>
+): Promise<unknown> => executeBillingZambda(oystehr, 'post-billing-patient-payment', parameters);
 
 // --- Claim Write-offs ---
 

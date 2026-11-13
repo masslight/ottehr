@@ -8,13 +8,15 @@ import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { HomepageOptions } from 'config-types/config/homepage-options';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
+import { useSupportChatStatus } from 'src/features/support-chat/hooks/useSupportChatStatus';
+import { openSupportChat } from 'src/features/support-chat/support-chat.store';
 import { CancelVisitDialog } from 'src/telemed/components/CancelVisitDialog';
 import { useGetAppointments } from 'src/telemed/features/appointments/appointment.queries';
 import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
 import { findActiveAppointment } from 'src/telemed/features/appointments/appointments.helpers';
 import { useAppointmentsData } from 'src/telemed/features/appointments/hooks/useAppointmentsData';
 import { CustomContainer } from 'src/telemed/features/common/CustomContainer';
-import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { openSupportDialog } from 'src/telemed/features/common/intake-common.store';
 import { useOystehrAPIClient } from 'src/telemed/utils/getOystehrAPI';
 import {
   serviceCategorySupportsContext,
@@ -45,6 +47,7 @@ const Homepage = (): JSX.Element => {
   const appointmentID = activeAppointment?.id || '';
   const { refetch } = useGetAppointments(apiClient, Boolean(mayUserAccessAppointments));
   const { serviceCategories } = useServiceCategories();
+  const { isEnabled: isSupportChatEnabled } = useSupportChatStatus();
 
   useEffect(() => {
     if (!mayUserAccessAppointments) {
@@ -129,10 +132,6 @@ const Homepage = (): JSX.Element => {
   const handlePastVisits = (): void => {
     // was telemedSelectPatient
     navigate(intakeFlowPageRoute.MyPatients.path);
-  };
-
-  const handleContactSupport = (): void => {
-    useIntakeCommonStore.setState({ supportDialogOpen: true });
   };
 
   const handleInPerson = (): void => {
@@ -284,7 +283,7 @@ const Homepage = (): JSX.Element => {
         <HomepageOption
           title="Contact Support"
           icon={<LiveHelpOutlinedIcon />}
-          handleClick={handleContactSupport}
+          handleClick={isSupportChatEnabled ? openSupportChat : openSupportDialog}
           dataTestId={dataTestIds.contactSupportButton}
         />
       </Box>

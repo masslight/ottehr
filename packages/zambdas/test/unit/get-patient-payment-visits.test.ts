@@ -5,6 +5,8 @@ import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
   SCHEDULE_OWNER_STRIPE_ACCOUNT_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
+import { buildFollowupEncounterType, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -130,6 +132,8 @@ describe('getPatientPaymentVisits', () => {
         encounterId: 'enc-1',
         appointmentId: 'appt-1',
         visitDateISO: '2026-10-01T14:00:00.000Z',
+        serviceMode: 'in-person',
+        followUp: false,
         // a Location owner wins over the appointment's practitioner
         scheduleOwner: { stripeAccount: 'acct_clinic' },
         legacyPaymentNotices: [expect.objectContaining({ id: 'pn-1' }), expect.objectContaining({ id: 'pn-2' })],
@@ -138,18 +142,173 @@ describe('getPatientPaymentVisits', () => {
         encounterId: 'enc-2',
         appointmentId: 'appt-2',
         visitDateISO: '2026-09-01T14:00:00.000Z',
+        serviceMode: 'in-person',
+        followUp: false,
         legacyPaymentNotices: [],
       },
       {
         encounterId: 'enc-3',
         appointmentId: undefined,
         visitDateISO: '2026-08-01T10:00:00.000Z',
+        followUp: false,
         legacyPaymentNotices: [],
       },
     ]);
     expect(stripeCustomers).toEqual([
       { stripeAccount: undefined, customerId: 'cus_platform' },
       { stripeAccount: 'acct_clinic', customerId: 'cus_clinic' },
+    ]);
+  });
+
+  it('describes each visit by its type, location and reason', async () => {
+    const oystehr = searchClient({
+      Encounter: [
+        {
+          resourceType: 'Encounter',
+          id: 'enc-telemed',
+          status: 'finished',
+          class: { code: 'AMB' },
+          appointment: [{ reference: 'Appointment/appt-telemed' }],
+        },
+        // a follow-up has no appointment, so only its own location and reason describe it
+        {
+          resourceType: 'Encounter',
+          id: 'enc-follow-up',
+          status: 'finished',
+          class: { code: 'AMB' },
+          type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+          location: [{ location: { reference: 'Location/annex' } }],
+          reasonCode: [{ text: 'Lab results' }],
+        },
+        {
+          resourceType: 'Appointment',
+          id: 'appt-telemed',
+          status: 'fulfilled',
+          meta: { tag: [{ code: OTTEHR_MODULE.TM }] },
+          description: 'Fever,  Cough',
+          participant: [{ actor: { reference: 'Location/clinic' }, status: 'accepted' }],
+        },
+        { resourceType: 'Location', id: 'clinic', name: 'Main Clinic' },
+        { resourceType: 'Location', id: 'annex', name: 'Annex' },
+      ],
+    });
+
+    const { visits } = await getPatientPaymentVisits(oystehr, 'patient-1');
+
+    expect(visits).toEqual([
+      expect.objectContaining({
+        encounterId: 'enc-telemed',
+        serviceMode: 'virtual',
+        followUp: false,
+        locationName: 'Main Clinic',
+        visitReason: 'Fever, Cough',
+      }),
+      expect.objectContaining({
+        encounterId: 'enc-follow-up',
+        serviceMode: undefined,
+        followUp: true,
+        locationName: 'Annex',
+        visitReason: 'Lab results',
+      }),
+    ]);
+    expect(encounterSearchParams(oystehr)).toContainEqual({ name: '_include', value: 'Encounter:location' });
+  });
+
+  it('describes a scheduled follow-up by its own appointment', async () => {
+    const oystehr = searchClient({
+      Encounter: [
+        // a scheduled follow-up books its own appointment and carries no date or reason of its own
+        {
+          resourceType: 'Encounter',
+          id: 'enc-scheduled-follow-up',
+          status: 'finished',
+          class: { code: 'AMB' },
+          type: buildFollowupEncounterType('scheduled'),
+          partOf: { reference: 'Encounter/enc-initial' },
+          appointment: [{ reference: 'Appointment/appt-follow-up' }],
+        },
+        {
+          resourceType: 'Appointment',
+          id: 'appt-follow-up',
+          status: 'fulfilled',
+          start: '2026-10-08T15:00:00.000Z',
+          meta: { tag: [{ code: OTTEHR_MODULE.TM }] },
+          description: 'Recheck',
+          participant: [{ actor: { reference: 'Location/clinic' }, status: 'accepted' }],
+        },
+        { resourceType: 'Location', id: 'clinic', name: 'Main Clinic' },
+      ],
+    });
+
+    const { visits } = await getPatientPaymentVisits(oystehr, 'patient-1');
+
+    expect(visits).toEqual([
+      expect.objectContaining({
+        encounterId: 'enc-scheduled-follow-up',
+        appointmentId: 'appt-follow-up',
+        visitDateISO: '2026-10-08T15:00:00.000Z',
+        serviceMode: 'virtual',
+        followUp: true,
+        locationName: 'Main Clinic',
+        visitReason: 'Recheck',
+      }),
+    ]);
+  });
+
+  it('describes a follow-up by its own date, location and reason, not its initial visit appointment', async () => {
+    const oystehr = searchClient({
+      Encounter: [
+        {
+          resourceType: 'Encounter',
+          id: 'enc-initial',
+          status: 'finished',
+          class: { code: 'AMB' },
+          appointment: [{ reference: 'Appointment/appt-initial' }],
+        },
+        // the follow-up form keeps the initial visit's appointment on the follow-up it creates
+        {
+          resourceType: 'Encounter',
+          id: 'enc-follow-up',
+          status: 'finished',
+          class: { code: 'AMB' },
+          type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+          appointment: [{ reference: 'Appointment/appt-initial' }],
+          period: { start: '2026-10-08T15:00:00.000Z' },
+          location: [{ location: { reference: 'Location/annex' } }],
+          reasonCode: [{ text: 'Lab results' }],
+        },
+        {
+          resourceType: 'Appointment',
+          id: 'appt-initial',
+          status: 'fulfilled',
+          start: '2026-10-01T10:00:00.000Z',
+          description: 'Fever',
+          participant: [{ actor: { reference: 'Location/clinic' }, status: 'accepted' }],
+        },
+        { resourceType: 'Location', id: 'clinic', name: 'Main Clinic' },
+        { resourceType: 'Location', id: 'annex', name: 'Annex' },
+      ],
+    });
+
+    const { visits } = await getPatientPaymentVisits(oystehr, 'patient-1');
+
+    expect(visits).toEqual([
+      expect.objectContaining({
+        encounterId: 'enc-initial',
+        visitDateISO: '2026-10-01T10:00:00.000Z',
+        serviceMode: 'in-person',
+        locationName: 'Main Clinic',
+        visitReason: 'Fever',
+      }),
+      expect.objectContaining({
+        encounterId: 'enc-follow-up',
+        appointmentId: 'appt-initial',
+        visitDateISO: '2026-10-08T15:00:00.000Z',
+        serviceMode: undefined,
+        followUp: true,
+        locationName: 'Annex',
+        visitReason: 'Lab results',
+      }),
     ]);
   });
 

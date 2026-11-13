@@ -64,11 +64,20 @@ export const projectApiUrlFromAuth0Audience = (auth0Audience: string): string =>
   }
 };
 
+declare const clinicalScope: unique symbol;
+
+// The client createClinicalOystehrClient makes, whose FHIR reads and writes skip billing-tagged
+// resources. Billing code that needs one gets it with a justified exception to
+// ottehr/billing-fhir-client-only, then uses it like any other client.
+export interface ClinicalOystehr extends Oystehr {
+  readonly [clinicalScope]: true;
+}
+
 export function createClinicalOystehrClient(
   token: string | undefined,
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
-): Oystehr {
+): ClinicalOystehr {
   return new Oystehr({
     accessToken: token,
     services: {
@@ -78,7 +87,7 @@ export function createClinicalOystehrClient(
     },
     ...overrides,
     ignoreTags: [...(overrides?.ignoreTags ?? []), BILLING_RESOURCE_TAG],
-  });
+  }) as ClinicalOystehr;
 }
 
 export interface SMSModel {

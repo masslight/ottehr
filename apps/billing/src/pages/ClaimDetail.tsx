@@ -784,7 +784,7 @@ export default function ClaimDetail(): ReactElement {
           title={runEngine.runButtonLabel}
           confirmLabel={getSubmitClaimLabel(skipRules, rulesEngine, submissionType)}
           loading={submitting}
-          onConfirm={() => void handleRunRulesEngine()}
+          onConfirm={() => void submitMethods.handleSubmit(handleRunRulesEngine)()}
           onCancel={() => setConfirmingSubmit(false)}
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>

@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
-import { Claim, FhirResource, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
+import { Claim, Encounter, FhirResource, PaymentNotice, PaymentReconciliation, Task } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { Secrets } from 'utils/lib/secrets';
@@ -26,6 +26,11 @@ vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   createBillingClient: vi.fn(),
 }));
 
+vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  createClinicalOystehrClient: vi.fn(),
+}));
+
 vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   resolveClaimActor: vi.fn(async () => ({
@@ -39,6 +44,7 @@ import { CHECK_NUMBER_IDENTIFIER_SYSTEM, MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM }
 import { index as _index } from '../../../src/billing/record-billing-manual-payment';
 import { createBillingClient } from '../../../src/billing/shared';
 import { getUser } from '../../../src/shared/auth';
+import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { ZambdaInput } from '../../../src/shared/types/common';
 
 const index = _index as unknown as (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
@@ -117,6 +123,21 @@ const makeBillingOystehr = (
   };
 };
 
+// the clinical side holds the encounter and receives the receipt / Candid sync Task
+const makeClinicalOystehr = (encounter: Encounter | undefined): { oystehr: Oystehr; create: Mock } => {
+  const search = vi.fn().mockResolvedValue({ unbundle: () => (encounter ? [encounter] : []) });
+  const create = vi.fn().mockImplementation(async (resource: Task) => ({ ...resource, id: 'task-1' }));
+  return { oystehr: { fhir: { search, create } } as unknown as Oystehr, create };
+};
+
+const encounterWithAppointment: Encounter = {
+  resourceType: 'Encounter',
+  id: ENCOUNTER_ID,
+  status: 'finished',
+  class: { code: 'AMB' },
+  appointment: [{ reference: 'Appointment/appt-1' }],
+};
+
 const writtenNotice = (transaction: Mock): { resource: PaymentNotice; fullUrl: string; ifNoneExist: unknown } =>
   transaction.mock.calls[0][0].requests.find((request: { url: string }) => request.url === '/PaymentNotice');
 
@@ -167,6 +188,7 @@ describe('record-billing-manual-payment', () => {
     vi.setSystemTime(new Date('2026-07-22T12:00:00Z'));
     vi.clearAllMocks();
     (getUser as Mock).mockResolvedValue({ profile: 'Practitioner/prac-1' });
+    (createClinicalOystehrClient as Mock).mockReturnValue(makeClinicalOystehr(encounterWithAppointment).oystehr);
   });
 
   afterEach(() => {
@@ -302,6 +324,57 @@ describe('record-billing-manual-payment', () => {
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).paymentNoticeId).toBe('pn-existing');
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('schedules the receipt and Candid sync Task for the recorded notice', async () => {
+    const { oystehr } = makeBillingOystehr([[], []]);
+    (createBillingClient as Mock).mockReturnValue(oystehr);
+    const clinical = makeClinicalOystehr(encounterWithAppointment);
+    (createClinicalOystehrClient as Mock).mockReturnValue(clinical.oystehr);
+
+    await index(makeInput(baseParams));
+
+    expect(clinical.create).toHaveBeenCalledTimes(1);
+    const [task, options] = clinical.create.mock.calls[0];
+    expect(task).toMatchObject({
+      resourceType: 'Task',
+      focus: { type: 'PaymentNotice', reference: 'PaymentNotice/pn-new' },
+      encounter: { reference: `Encounter/${ENCOUNTER_ID}` },
+    });
+    expect(options).toEqual({
+      ifNoneExist: expect.arrayContaining([{ name: 'focus', value: 'PaymentNotice/pn-new' }]),
+    });
+  });
+
+  it('schedules the Task again on a replay, in case the first attempt died before scheduling it', async () => {
+    const { oystehr, transaction } = makeBillingOystehr([[], []], [makeExistingNotice()]);
+    (createBillingClient as Mock).mockReturnValue(oystehr);
+    const clinical = makeClinicalOystehr(encounterWithAppointment);
+    (createClinicalOystehrClient as Mock).mockReturnValue(clinical.oystehr);
+
+    await index(makeInput(baseParams));
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(clinical.create).toHaveBeenCalledWith(
+      expect.objectContaining({ focus: { type: 'PaymentNotice', reference: 'PaymentNotice/pn-existing' } }),
+      expect.anything()
+    );
+  });
+
+  it.each([
+    { name: 'a visit without an appointment', encounter: { ...encounterWithAppointment, appointment: undefined } },
+    { name: 'an encounter the clinical side does not have', encounter: undefined },
+  ])('records the payment without the Task for $name', async ({ encounter }) => {
+    const { oystehr, transaction } = makeBillingOystehr([[], []]);
+    (createBillingClient as Mock).mockReturnValue(oystehr);
+    const clinical = makeClinicalOystehr(encounter);
+    (createClinicalOystehrClient as Mock).mockReturnValue(clinical.oystehr);
+
+    const result = await index(makeInput(baseParams));
+
+    expect(writtenNotice(transaction).resource.amount).toEqual({ value: 40, currency: 'USD' });
+    expect(JSON.parse(result.body)).toEqual({ paymentNoticeId: 'pn-new' });
+    expect(clinical.create).not.toHaveBeenCalled();
   });
 
   it('records the payment without a submitter, attributed to the system, when caller lookup fails', async () => {

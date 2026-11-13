@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Coverage, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import React, { type InputHTMLAttributes, type ReactNode, useState } from 'react';
 import { FormProvider, useForm, type UseFormReturn } from 'react-hook-form';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
 import { CoverageWithPriority, OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
@@ -35,8 +37,9 @@ vi.mock('ui-components/lib/components/InputMask', async () => {
   };
 });
 
+const executeZambdaMock = vi.hoisted(() => vi.fn());
 vi.mock('src/hooks/useAppClients', () => ({
-  useApiClients: () => ({ oystehr: undefined, oystehrZambda: { zambda: { execute: vi.fn() } } }),
+  useApiClients: () => ({ oystehr: undefined, oystehrZambda: { zambda: { execute: executeZambdaMock } } }),
 }));
 
 // InsuranceContainer renders <InsuranceCarrierQuickPicks>, which calls
@@ -89,6 +92,7 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
 }));
 
 // Imported AFTER the mocks so they take effect.
+import { getDateOfServiceLabel } from '../../src/features/visits/shared/components/patient/EligibilityDetailsDialog';
 import {
   buildInsuranceSectionCounts,
   useCoverageFormRehydration,
@@ -219,10 +223,17 @@ interface HarnessProps {
   initialCoverages?: OrderedCoveragesWithSubscribers;
   defaultValues?: Record<string, unknown>;
   coverageChecks?: CoverageCheckWithDetails[];
+  visitDate?: string;
   controlRef: { current?: HarnessControl };
 }
 
-const Harness: React.FC<HarnessProps> = ({ initialCoverages, defaultValues, coverageChecks, controlRef }) => {
+const Harness: React.FC<HarnessProps> = ({
+  initialCoverages,
+  defaultValues,
+  coverageChecks,
+  visitDate,
+  controlRef,
+}) => {
   const [coverages, setCoveragesState] = useState<OrderedCoveragesWithSubscribers>(initialCoverages ?? {});
   const [coveragesFormValues, setCoveragesFormValuesState] = useState<Record<string, unknown> | undefined>(undefined);
   const [formDefaults, setFormDefaultsState] = useState<Record<string, unknown> | undefined>(undefined);
@@ -295,6 +306,7 @@ const Harness: React.FC<HarnessProps> = ({ initialCoverages, defaultValues, cove
         onCancelAddInsurance={handleCancelAddInsurance}
         onCloseAddInsurance={handleCloseAddInsurance}
         newInsuranceOrdinal={newInsuranceOrdinal}
+        visitDate={visitDate}
       />
     </FormProvider>
   );
@@ -540,6 +552,128 @@ describe('InsuranceSection — eligibility-derived insurance type', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: /^save$/i })).toBeNull());
     expect(control.methods.getValues(PRIMARY.insurancePlanType.key)).toBe('13');
     expect(control.methods.getFieldState(PRIMARY.insurancePlanType.key).isDirty).toBe(false);
+  });
+});
+
+describe('InsuranceSection — eligibility date of service', () => {
+  const dateOfServiceInput = (): HTMLInputElement =>
+    screen.getByTestId(dataTestIds.insuranceContainer.dateOfServiceInput) as HTMLInputElement;
+
+  it('starts the date field on the visit date', async () => {
+    renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
+
+    await screen.findByText(/Primary insurance/i);
+    expect(screen.getByText('Check:')).toBeInTheDocument();
+    expect(dateOfServiceInput().value).toBe('03/04/2025');
+  });
+
+  it('starts the date field on today when there is no visit', async () => {
+    renderHarness({ initialCoverages: makeFullPrimaryCoverages() });
+
+    await screen.findByText(/Primary insurance/i);
+    expect(dateOfServiceInput().value).toBe(DateTime.now().toFormat('MM/dd/yyyy'));
+  });
+
+  it('updates the date when another day is picked from the calendar', async () => {
+    const user = userEvent.setup();
+    renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
+
+    await screen.findByText(/Primary insurance/i);
+    await user.click(screen.getByRole('button', { name: /choose date/i }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('gridcell', { name: '10' }));
+
+    await waitFor(() => expect(dateOfServiceInput().value).toBe('03/10/2025'));
+  });
+
+  it('explains the date on hover but keeps the tooltip off the open calendar', async () => {
+    const user = userEvent.setup();
+    renderHarness({ initialCoverages: makeFullPrimaryCoverages(), visitDate: '2025-03-04' });
+
+    await screen.findByText(/Primary insurance/i);
+    await user.hover(dateOfServiceInput());
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(/Date of service the eligibility check is run for/);
+
+    await user.click(screen.getByRole('button', { name: /choose date/i }));
+    await screen.findByRole('dialog');
+    await user.hover(screen.getByRole('dialog'));
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+  });
+
+  it('labels a check run for a date of service other than the day it was run', () => {
+    expect(getDateOfServiceLabel('2025-03-04', '2026-01-01T12:00:00.000Z')).toBe('DOS 03/04/2025');
+    expect(getDateOfServiceLabel('2026-01-01', '2026-01-01T12:00:00.000Z')).toBeUndefined();
+    expect(getDateOfServiceLabel(undefined, '2026-01-01T12:00:00.000Z')).toBeUndefined();
+  });
+});
+
+describe('InsuranceSection — eligibility recheck', () => {
+  const previousCheck = {
+    status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
+    dateISO: '2026-01-01T00:00:00.000Z',
+    servicedDate: '2026-01-01',
+    coverageDetails: { insurance: { insuranceCode: 'PR' } },
+    financialDetails: [{ description: 'old financial' }],
+    deductible: [{ description: 'old deductible' }],
+    copay: [{ description: 'old copay' }],
+    subscriberId: 'MEMBER-123',
+    payorRef: 'Organization/payer-1',
+  } as unknown as CoverageCheckWithDetails;
+
+  beforeEach(() => executeZambdaMock.mockReset());
+
+  it('sends the picked date of service and shows it on the new check', async () => {
+    const user = userEvent.setup();
+    executeZambdaMock.mockResolvedValue({
+      output: {
+        primary: {
+          status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
+          dateISO: '2026-02-02T00:00:00.000Z',
+          servicedDate: '2025-03-04',
+          copay: [{ description: 'new copay' }],
+        },
+      },
+    });
+    renderHarness({
+      initialCoverages: makeFullPrimaryCoverages(),
+      defaultValues: seedPrimaryFromCoverage(makeEmptyFormDefaults()),
+      coverageChecks: [previousCheck],
+      visitDate: '2025-03-04',
+    });
+
+    await screen.findByText(/Primary insurance/i);
+    await user.click(screen.getByTestId(dataTestIds.insuranceContainer.recheckEligibilityButton));
+
+    await waitFor(() => expect(executeZambdaMock).toHaveBeenCalledTimes(1));
+    expect(executeZambdaMock.mock.calls[0][0]).toMatchObject({
+      id: 'get-eligibility',
+      patientId: PATIENT_ID,
+      coverageToCheck: 'primary',
+      servicedDate: '2025-03-04',
+    });
+    expect(await screen.findByText(/DOS 03\/04\/2025/)).toBeInTheDocument();
+  });
+
+  it('falls back to the requested date when the response does not echo one', async () => {
+    const user = userEvent.setup();
+    executeZambdaMock.mockResolvedValue({
+      output: {
+        primary: {
+          status: InsuranceEligibilityCheckStatus.eligibilityConfirmed,
+          dateISO: '2026-02-02T00:00:00.000Z',
+        },
+      },
+    });
+    renderHarness({
+      initialCoverages: makeFullPrimaryCoverages(),
+      defaultValues: seedPrimaryFromCoverage(makeEmptyFormDefaults()),
+      visitDate: '2025-03-04',
+    });
+
+    await screen.findByText(/Primary insurance/i);
+    await user.click(screen.getByTestId(dataTestIds.insuranceContainer.recheckEligibilityButton));
+
+    expect(await screen.findByText(/DOS 03\/04\/2025/)).toBeInTheDocument();
   });
 });
 

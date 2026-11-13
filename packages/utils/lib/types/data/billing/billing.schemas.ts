@@ -984,6 +984,13 @@ export const ListBillingPatientAccountPaymentsInputSchema = z.object({
   patientId: nonEmptyString,
 });
 
+// the billing patient's saved cards usable to pay for one of their visits: cards live on the Stripe
+// account the visit takes payments on
+export const ListBillingPatientPaymentMethodsInputSchema = z.object({
+  patientId: nonEmptyString,
+  encounterId: nonEmptyString.uuid(),
+});
+
 export const GetBillingPatientAccountPaymentInputSchema = z.object({
   patientId: nonEmptyString,
   // the visit the payment was taken on
@@ -1332,6 +1339,7 @@ export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
+export type ListBillingPatientPaymentMethodsInput = z.output<typeof ListBillingPatientPaymentMethodsInputSchema>;
 export type CreateBillingInvoiceInput = z.output<typeof CreateBillingInvoiceInputSchema>;
 export type PreviewBillingNioInvoiceInput = z.output<typeof PreviewBillingNioInvoiceInputSchema>;
 export type CreateBillingNioInvoiceInput = z.output<typeof CreateBillingNioInvoiceInputSchema>;

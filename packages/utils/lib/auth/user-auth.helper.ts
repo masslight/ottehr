@@ -1,10 +1,13 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Patient, Person, RelatedPerson } from 'fhir/r4b';
 
-// ***
-export async function getPatientsForUser(user: User, oystehr: Oystehr): Promise<Patient[]> {
-  console.time(`Getting patients for user: ${user.name}`);
-  console.log(`User: ${JSON.stringify(user.name)}`);
+export interface UserAccount {
+  person?: Person;
+  relatedPersons: RelatedPerson[];
+  patients: Patient[];
+}
+
+export async function getAccountForUser(user: User, oystehr: Oystehr): Promise<UserAccount> {
   const resources = (
     await oystehr.fhir.search<Person | RelatedPerson | Patient>({
       resourceType: 'Person',
@@ -24,8 +27,20 @@ export async function getPatientsForUser(user: User, oystehr: Oystehr): Promise<
       ],
     })
   ).unbundle();
-  const patients = resources.filter((r): r is Patient => r.resourceType === 'Patient' && r.active !== false);
+
+  return {
+    person: resources.find((r): r is Person => r.resourceType === 'Person'),
+    relatedPersons: resources.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson'),
+    patients: resources.filter((r): r is Patient => r.resourceType === 'Patient' && r.active !== false),
+  };
+}
+
+export async function getPatientsForUser(user: User, oystehr: Oystehr): Promise<Patient[]> {
+  console.time(`Getting patients for user: ${user.name}`);
+  console.log(`User: ${JSON.stringify(user.name)}`);
+  const { patients } = await getAccountForUser(user, oystehr);
   console.timeEnd(`Getting patients for user: ${user.name}`);
+
   return patients;
 }
 

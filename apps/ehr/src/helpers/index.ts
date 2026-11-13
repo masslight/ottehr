@@ -5,7 +5,11 @@ import { Appointment, Encounter, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ApptTab } from 'src/components/AppointmentTabs';
 import { getEncounterStatusHistoryUpdateOp } from 'utils/lib/fhir/encounter';
-import { getAppointmentMetaTagOpForStatusUpdate, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
+import {
+  getAppointmentMetaTagOpForStatusUpdate,
+  getCriticalUpdateTagOp,
+  getStaffCriticalUpdateBy,
+} from 'utils/lib/fhir/helpers';
 import { getNPIIdentifier } from 'utils/lib/fhir/patient';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { isPhysician, isPhysicianProviderType } from 'utils/lib/helpers/helpers';
@@ -45,7 +49,7 @@ export const checkInPatient = async (
     resourceType: 'Encounter',
     id: encounterId,
   });
-  const checkedInBy = `Staff ${user?.email ? user.email : `(${user?.id})`}`;
+  const checkedInBy = getStaffCriticalUpdateBy(user);
   const metaPatchOperations = getAppointmentMetaTagOpForStatusUpdate(appointmentToUpdate, 'arrived', {
     updatedByOverride: checkedInBy,
   });

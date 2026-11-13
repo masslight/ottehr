@@ -40,6 +40,9 @@ export const InsuranceSection: FC<{
   onCloseAddInsurance: () => void;
   newInsuranceOrdinal: number;
   encounterId?: string;
+  /** Visit-page-only: the appointment, and its date (yyyy-MM-dd), that eligibility is checked for. */
+  appointmentId?: string;
+  visitDate?: string;
   /**
    * Visit-page-only: renders a coverage's compact card thumbnail inside its insurance block.
    * Called with the 0-based card ordinal (0 = primary, 1 = secondary).
@@ -57,6 +60,8 @@ export const InsuranceSection: FC<{
   onCloseAddInsurance,
   newInsuranceOrdinal,
   encounterId,
+  appointmentId,
+  visitDate,
   renderInsuranceCardThumbnail,
 }) => {
   const primary = getInsuranceSectionDefinition(0);
@@ -92,6 +97,8 @@ export const InsuranceSection: FC<{
         <InsuranceContainer
           key={coverage.resource.id}
           patientId={patient.id ?? ''}
+          appointmentId={appointmentId}
+          visitDate={visitDate}
           ordinal={coverage.startingPriority}
           initialEligibilityCheck={getEligibilityCheckDetailsForCoverage(
             coverage.resource,
