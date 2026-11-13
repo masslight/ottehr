@@ -163,6 +163,22 @@ export function sortClaimResponsesByRecency(claimResponses: ClaimResponse[]): Cl
   );
 }
 
+// CARC 23: "payment adjusted because charges have been paid by another payer" — a secondary
+// restating what prior payers paid or adjusted, not a write-off of its own.
+const PRIOR_PAYER_IMPACT_REASON_CODE = '23';
+
+// Non-PR adjustments (CO/OA/PI/CR) the payers took off the claim, excluding prior-payer impact.
+function sumPayerWriteOffs(claimResponses: ClaimResponse[]): number {
+  return claimResponses
+    .flatMap(extractRemitAdjustments)
+    .filter(
+      (adjustment) =>
+        adjustment.groupCode !== ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY &&
+        adjustment.reasonCode !== PRIOR_PAYER_IMPACT_REASON_CODE
+    )
+    .reduce((sum, adjustment) => sum + adjustment.amount, 0);
+}
+
 export function summarizeClaimPayments(
   claimResponses: ClaimResponse[],
   billed: number,
@@ -185,25 +201,30 @@ export function summarizeClaimPayments(
   const amounts = sortedClaimResponses.map(extractClaimResponseAmounts);
 
   const insurancePaid = amounts.reduce((sum, a) => sum + a.paid, 0);
-  const knownAllowed = amounts.findLast((a) => a.allowed !== undefined)?.allowed;
+  const allowedIndex = amounts.findLastIndex((a) => a.allowed !== undefined);
+  const knownAllowed = allowedIndex >= 0 ? amounts[allowedIndex].allowed : undefined;
 
   // Patient responsibility is what the final adjudication says the patient owes: after COB the
   // last payer's PR already accounts for what prior payers paid, so summing PR across payers
   // would double-count the share of the primary's PR the secondary covered. When the latest
-  // response carries no PR adjustments, it's derived as `allowed - insurancePaid`. Ceilinged to 0
-  // either way: a reversal reports what it took back as negative PR, and the patient owes nothing
-  // rather than less than nothing — otherwise a payment they made counts twice as credit.
+  // response carries no PR adjustments, it's derived from the basis instead (see
+  // derivedPatientResp). Ceilinged to 0 either way: a reversal reports what it took back as
+  // negative PR, and the patient owes nothing rather than less than nothing — otherwise a payment
+  // they made counts twice as credit.
   const latestPatientResp = amounts[amounts.length - 1].patientResp;
   const patientResp = Math.max(latestPatientResp ?? derivedPatientResp(), 0);
 
+  // basis - insurancePaid - whatever payers wrote off on top of the basis. With a known allowed
+  // amount, the write-offs of the remit that reported it (and of earlier ones) are already the
+  // billed-to-allowed reduction, so only later remits' write-offs count, e.g. a secondary writing
+  // off what it didn't pay. With no allowed amount anywhere (AMT*B6 is optional, and manual ERAs
+  // may leave it blank), billed is the basis and every remit's write-offs count.
   function derivedPatientResp(): number {
-    if (knownAllowed !== undefined) return knownAllowed - insurancePaid;
-    // No remit reports an allowed amount (AMT*B6 is optional, and manual ERAs may leave it blank),
-    // so billed is the basis, less whatever the latest remit adjusted off (CO/OA/PI).
-    const nonPatientAdjustments = extractRemitAdjustments(sortedClaimResponses[sortedClaimResponses.length - 1])
-      .filter((adjustment) => adjustment.groupCode !== ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY)
-      .reduce((sum, adjustment) => sum + adjustment.amount, 0);
-    return billed - insurancePaid - nonPatientAdjustments;
+    const [basis, writeOffRemits] =
+      knownAllowed !== undefined
+        ? [knownAllowed, sortedClaimResponses.slice(allowedIndex + 1)]
+        : [billed, sortedClaimResponses];
+    return basis - insurancePaid - sumPayerWriteOffs(writeOffRemits);
   }
 
   return {

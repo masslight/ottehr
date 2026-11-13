@@ -600,6 +600,56 @@ describe('summarizeClaimPayments', () => {
     expect(summary.balance).toBe(10);
   });
 
+  it("subtracts a later payer's write-off from the earlier allowed amount when the latest remit has no PR", () => {
+    // primary allows 80 and pays 60; the secondary pays 10 and writes off the remaining 10
+    const primary = claimMdClaimResponse('2026-01-01');
+    const secondary = claimResponse('2026-02-01', {
+      totalPaid: 10,
+      itemAdjudications: [
+        [adjudication(ADJUDICATION_CODES.PAID, 10), casAdjustment('OA', 80, '23'), casAdjustment('CO', 10, '45')],
+      ],
+    });
+    const summary = summarizeClaimPayments([primary, secondary], 100);
+    expect(summary.allowed).toBe(80);
+    expect(summary.insurancePaid).toBe(70);
+    expect(summary.patientResp).toBe(0);
+    expect(summary.balance).toBe(0);
+  });
+
+  it("does not subtract the allowed-reporting remit's own write-offs again", () => {
+    // the secondary reports its own allowed; its CO is the billed-to-allowed reduction
+    const primary = claimMdClaimResponse('2026-01-01');
+    const secondary = claimResponse('2026-02-01', {
+      totalPaid: 10,
+      itemAdjudications: [
+        [
+          adjudication(ADJUDICATION_CODES.ALLOWED, 80),
+          adjudication(ADJUDICATION_CODES.PAID, 10),
+          casAdjustment('OA', 60, '23'),
+          casAdjustment('CO', 20, '45'),
+        ],
+      ],
+    });
+    expect(summarizeClaimPayments([primary, secondary], 100).patientResp).toBe(10);
+  });
+
+  it('subtracts every payer write-off but not prior-payer impact when billed is the basis', () => {
+    const primary = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [
+        [adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 20, '45'), casAdjustment('PR', 20, '1')],
+      ],
+    });
+    const secondary = claimResponse('2026-02-01', {
+      totalPaid: 10,
+      itemAdjudications: [
+        [adjudication(ADJUDICATION_CODES.PAID, 10), casAdjustment('OA', 80, '23'), casAdjustment('CO', 5, '45')],
+      ],
+    });
+    // 100 billed - 70 paid - (20 + 5) written off
+    expect(summarizeClaimPayments([primary, secondary], 100).patientResp).toBe(5);
+  });
+
   it('uses billed as the basis when no response carries an allowed amount', () => {
     const cr = claimResponse('2026-01-01', { totalPaid: 60 });
     const summary = summarizeClaimPayments([cr], 100);
