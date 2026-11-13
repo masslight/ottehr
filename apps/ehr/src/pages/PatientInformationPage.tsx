@@ -11,7 +11,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactElement, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { updatePatientVisitDetails } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { PatientMergedBanner } from 'src/components/PatientMergedBanner';
@@ -64,6 +64,7 @@ import {
   useRemovePatientCoverage,
   useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
+import { useNavigateBack } from '../hooks/useNavigateBack';
 
 const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2'];
 const ANSWER_TYPES: ('String' | 'Boolean' | 'Reference' | 'Attachment')[] = [
@@ -417,7 +418,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   photoIdCardSlot,
   confirmSave,
 }) => {
-  const navigate = useNavigate();
+  const navigateBack = useNavigateBack(id ? `/patient/${id}` : '/visits');
 
   const { accountData, insuranceData, coverages, patient, isFetching, defaultFormVals, coveragesFetching } =
     usePatientData(id, appointmentContext);
@@ -495,7 +496,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
   const handleDiscardChanges = (): void => {
     methods.reset();
     setOpenConfirmationDialog(false);
-    navigate(-1);
+    navigateBack();
   };
 
   const handleCloseConfirmationDialog = (): void => {
@@ -506,7 +507,7 @@ export const PatientAccountComponent: FC<PatientAccountComponentProps> = ({
     if (Object.keys(dirtyFields).length > 0) {
       setOpenConfirmationDialog(true);
     } else {
-      navigate(-1);
+      navigateBack();
     }
   };
 

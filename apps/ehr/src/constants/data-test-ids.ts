@@ -112,6 +112,7 @@ export const dataTestIds = {
     patientAddress: 'header-patient-address',
     patientPhoneNumber: 'header-patient-phone-number',
     emergencyContact: 'header-patient-emergency-contact',
+    backButton: 'header-patient-back-button',
     closeButton: 'header-patient-close-button',
   },
   insuranceContainer: {
