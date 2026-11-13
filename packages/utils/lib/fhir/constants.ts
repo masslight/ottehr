@@ -1008,6 +1008,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   infoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text`,
   inputWidth: `${PRIVATE_EXTENSION_BASE_URL}/input-width`,
   minRows: `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`,
+  placeholder: `${PRIVATE_EXTENSION_BASE_URL}/placeholder`,
   preferredElement: `${PRIVATE_EXTENSION_BASE_URL}/preferred-element`,
   secondaryInfoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text-secondary`,
   validateAgeOver: `${PRIVATE_EXTENSION_BASE_URL}/validate-age-over`,

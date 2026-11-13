@@ -3,6 +3,7 @@ import type { BillingInvoiceKind } from '../../../fhir/billing-invoice';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { PatientPaymentDTO } from '../../api/patient-payment-types';
+import type { PatientPaymentVisit } from '../../api/patient-payment-visits.types';
 import type {
   BillingInvoiceListStatus,
   EraClaimStatusCode,
@@ -419,9 +420,34 @@ export type BillingPatientAccountPayment = PatientPaymentDTO & {
   claimServiceDate?: string;
 };
 
+// a clinical visit of the patient a payment can be recorded against
+export type BillingPatientVisit = Pick<
+  PatientPaymentVisit,
+  'encounterId' | 'appointmentId' | 'visitDateISO' | 'serviceMode' | 'followUp' | 'locationName' | 'visitReason'
+>;
+
 export interface ListBillingPatientAccountPaymentsResponse {
   // newest first
   payments: BillingPatientAccountPayment[];
+  // every visit of the patient, newest first; payments are recorded against one of them
+  visits: BillingPatientVisit[];
+}
+
+// a saved card on the Stripe customer a visit takes payments on
+export interface BillingPatientCard {
+  // Stripe PaymentMethod id
+  id: string;
+  brand: string;
+  lastFour: string;
+  expMonth: number;
+  expYear: number;
+  // the customer's default payment method
+  default: boolean;
+}
+
+export interface ListBillingPatientPaymentMethodsResponse {
+  // unexpired cards, the default first
+  cards: BillingPatientCard[];
 }
 
 export interface GetBillingPatientAccountPaymentResponse {

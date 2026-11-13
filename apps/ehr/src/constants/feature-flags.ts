@@ -24,6 +24,7 @@ export const FEATURE_FLAGS = {
   OTTEHR_BILLING_INVOICING_ENABLED:
     ['ottehr', 'all'].includes(BILLING_INTEGRATION) && (FEATURE_FLAGS_CONFIG.ottehrBillingInvoicingEnabled ?? false),
   EMPLOYEE_CHAT_ENABLED: FEATURE_FLAGS_CONFIG.employeeChatEnabled ?? false,
+  SUPPORT_CHAT_ENABLED: FEATURE_FLAGS_CONFIG.supportChatEnabled ?? false,
   CUSTOM_ORGANIZATIONS_ENABLED: FEATURE_FLAGS_CONFIG.customOrganizationsEnabled ?? false,
   EASY_CHART_ENABLED: FEATURE_FLAGS_CONFIG.easyChartEnabled ?? false,
   SENDGRID_ENABLED: FEATURE_FLAGS_CONFIG.sendgridEnabled,

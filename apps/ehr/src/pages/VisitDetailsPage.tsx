@@ -86,7 +86,7 @@ import {
   SCHEDULED_FOLLOWUP_OTHER_REASON,
   SCHEDULED_FOLLOWUP_REASONS,
 } from 'utils/lib/fhir/encounter';
-import { getCoding, getCriticalUpdateTagOp } from 'utils/lib/fhir/helpers';
+import { getCoding, getCriticalUpdateTagOp, getStaffCriticalUpdateBy } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getFormattedPatientFullName, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
@@ -121,6 +121,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { ConfirmSave } from '../features/visits/shared/components/patient/SaveConfirmationContext';
 import { formPagePath, OpenFormResponseState } from '../features/visits/shared/components/patient-forms/formNavigation';
+import { useGetEmployeesWithDetails } from '../features/visits/shared/hooks/useGetEmployees';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
@@ -130,10 +131,12 @@ import {
   formatNotesHistory,
   getAppointmentAndPatientHistory,
   NoteHistory,
+  resolveStaffNames,
 } from '../helpers/activityLogsUtils';
 import { getLegacyDataUrl } from '../helpers/legacyData';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
+import { useNavigateBack } from '../hooks/useNavigateBack';
 import { useVisitCards } from '../hooks/useVisitCards';
 import PageContainer from '../layout/PageContainer';
 import { PatientAccountComponent } from './PatientInformationPage';
@@ -280,7 +283,12 @@ export default function VisitDetailsPage(): ReactElement {
   const [issueDialogOpen, setIssueDialogOpen] = useState<boolean>(false);
   const [activityLogDialogOpen, setActivityLogDialogOpen] = useState<boolean>(false);
   const [activityLogsLoading, setActivityLogsLoading] = useState<boolean>(true);
-  const [activityLogs, setActivityLogs] = useState<ActivityLogData[] | undefined>(undefined);
+  const [rawActivityLogs, setActivityLogs] = useState<ActivityLogData[] | undefined>(undefined);
+  const { data: employeesData } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
+  const activityLogs = useMemo(
+    () => (rawActivityLogs ? resolveStaffNames(rawActivityLogs, employeesData?.all) : undefined),
+    [rawActivityLogs, employeesData?.all]
+  );
   const [notesHistory, setNotesHistory] = useState<NoteHistory[] | undefined>(undefined);
   const user = useEvolveUser();
 
@@ -314,6 +322,7 @@ export default function VisitDetailsPage(): ReactElement {
   const appointment = visitDetailsData?.appointment;
   const patient = visitDetailsData?.patient;
   const patientId = patient?.id;
+  const navigateBack = useNavigateBack(patientId ? `/patient/${patientId}` : '/visits');
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
   const standAloneForms = visitDetailsData?.standAloneForms;
   const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
@@ -661,7 +670,7 @@ export default function VisitDetailsPage(): ReactElement {
         system: HOP_QUEUE_URI,
         code: now,
       });
-      const updateTag = getCriticalUpdateTagOp(appointment, `Staff ${user?.email ?? `(${user?.id})`}`);
+      const updateTag = getCriticalUpdateTagOp(appointment, getStaffCriticalUpdateBy(user));
 
       return oystehr.fhir.patch<Appointment>({
         resourceType: 'Appointment',
@@ -1156,12 +1165,7 @@ export default function VisitDetailsPage(): ReactElement {
       header={
         <Header
           key={patientId}
-          handleDiscard={() =>
-            // Opened in a new tab (e.g. from Outstanding Balance) there is no in-app page to go back to.
-            (window.history.state as { idx?: number } | null)?.idx
-              ? navigate(-1)
-              : navigate(patientId ? `/patient/${patientId}` : '/visits')
-          }
+          handleDiscard={navigateBack}
           id={patientId}
           encounterId={encounter?.id}
           fallbackPatient={patient}
@@ -1672,6 +1676,7 @@ export default function VisitDetailsPage(): ReactElement {
                 renderBackButton={false}
                 appointmentContext={appointmentContext}
                 appointmentId={appointmentID}
+                visitDate={visitDetailsData?.dateOfService}
                 renderInsuranceCardThumbnail={renderInsuranceCardThumbnail}
                 photoIdCardSlot={photoIdCardSlot}
                 confirmSave={confirmSaveWithConsentReminder}

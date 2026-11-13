@@ -112,11 +112,14 @@ export const dataTestIds = {
     patientAddress: 'header-patient-address',
     patientPhoneNumber: 'header-patient-phone-number',
     emergencyContact: 'header-patient-emergency-contact',
+    backButton: 'header-patient-back-button',
     closeButton: 'header-patient-close-button',
   },
   insuranceContainer: {
     showMoreButton: 'insurance-show-more-button',
     removeButton: 'insurance-remove-button',
+    dateOfServiceInput: 'insurance-date-of-service-input',
+    recheckEligibilityButton: 'insurance-recheck-eligibility-button',
   },
   userSettingsContainer: {
     releaseOfInfoDropdown: 'release-of-info-dropdown',

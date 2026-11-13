@@ -849,6 +849,22 @@ describe('patientRecordValidation', () => {
       expect(result.errors['responsible-party-email']).toBeDefined();
     });
 
+    it.each([
+      ['patient-relationship-to-insured-other', 'patient-relationship-to-insured', 'insurance'],
+      ['patient-relationship-to-insured-other-2', 'patient-relationship-to-insured-2', 'insurance'],
+      ['responsible-party-relationship-other', 'responsible-party-relationship', 'responsibleParty'],
+    ] as const)(
+      'should not require %s when %s is "Other"',
+      async (otherRelationshipKey, relationshipKey, sectionKey) => {
+        if (isSectionHidden(PATIENT_RECORD_CONFIG.FormFields[sectionKey])) return;
+
+        const resolver = createDynamicValidationResolver();
+
+        const withOther = await resolver({ [relationshipKey]: 'Other', [otherRelationshipKey]: '' });
+        expect(withOther.errors[otherRelationshipKey]).toBeUndefined();
+      }
+    );
+
     it('should validate required emergency contact fields normally', async () => {
       const ecSection = PATIENT_RECORD_CONFIG.FormFields.emergencyContact as any;
 

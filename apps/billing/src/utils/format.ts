@@ -54,3 +54,16 @@ export function buildAddressInput(
 
 export const valueToText = (value: string | string[] | null | undefined): string =>
   Array.isArray(value) ? value.join(', ') : value ?? '';
+
+const CARD_BRAND_NAMES: Record<string, string> = {
+  visa: 'Visa',
+  mastercard: 'Mastercard',
+  amex: 'American Express',
+  discover: 'Discover',
+};
+
+// a Stripe card brand ('amex', 'jcb', ...) as shown to staff
+export function cardBrandName(brand: string | undefined): string {
+  if (!brand) return 'Card';
+  return CARD_BRAND_NAMES[brand] ?? brand.charAt(0).toUpperCase() + brand.slice(1);
+}

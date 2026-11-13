@@ -605,7 +605,7 @@ export async function searchPatientsByClinicalIds({
     }
   }
 
-  return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
+  return { total: 0, results: [] };
 }
 
 export interface ClinicalPatientIds {
@@ -899,11 +899,22 @@ export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
 ];
 
+declare const billingScope: unique symbol;
+
+// The client createBillingClient makes, whose FHIR reads and writes see only billing-tagged resources.
+// ottehr/billing-fhir-client-only tells it from other clients by this type, so billing code can't get
+// another client unnoticed. The brand is keyed by a symbol nothing else can name, so only this factory
+// makes one.
+export interface BillingOystehr extends Oystehr {
+  readonly [billingScope]: true;
+}
+
 export function createBillingClient(
   token: string,
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
-): Oystehr {
+): BillingOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the billing client factory, which sets the workspace tag
   return new Oystehr({
     accessToken: token,
     services: {
@@ -913,11 +924,21 @@ export function createBillingClient(
     },
     ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
-  });
+  }) as BillingOystehr;
+}
+
+declare const unscopedScope: unique symbol;
+
+// The client createEraReadClient makes, which sees untagged and billing-tagged resources alike: for code
+// that must see resources before they are tagged, or that nothing tags. Billing code that needs one gets
+// it with a justified exception to ottehr/billing-fhir-client-only, then uses it like any other client.
+export interface UnscopedOystehr extends Oystehr {
+  readonly [unscopedScope]: true;
 }
 
 // ERA resources are untagged by Oystehr
-export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+export function createEraReadClient(token: string, secrets: Secrets | null): UnscopedOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the unscoped client factory
   return new Oystehr({
     accessToken: token,
     services: {
@@ -925,7 +946,7 @@ export function createEraReadClient(token: string, secrets: Secrets | null): Oys
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
       zambdaApiUrl: zambdaApiUrlOverride(),
     },
-  });
+  }) as UnscopedOystehr;
 }
 
 export async function findById<T extends FhirResource>(
@@ -1648,16 +1669,19 @@ export function buildClaimCoverageCopies(params: {
   return { coverage, subscriber };
 }
 
-// Point the claim's coverage slot at `coverageReference` and its insurer at the
-// coverage's payer, keeping any other insurance entries (re-sequenced after the new primary).
-// ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached.
+// Point the claim's coverage slot at `coverageReference`, keeping any other insurance entries
+// (re-sequenced after the new primary). ensureClaimInsurance drops the no-coverage stub and
+// re-sequences, so a non-primary coverage attached to a self-pay claim becomes the focal entry.
+// Claim.insurer names the focal payer, so it is re-pointed only when the attached coverage is focal
+// after normalization — attaching a secondary behind an existing primary leaves it alone.
+// Returns whether the attached coverage ended up focal.
 export function attachCoverageToClaim(params: {
   claim: Claim;
   coverageReference: string;
   type: ClaimCoverageType;
   display?: string;
   payerReference?: string;
-}): void {
+}): boolean {
   const { claim, coverageReference, display, payerReference } = params;
   const sequence = params.type === 'primary' ? 1 : params.type === 'secondary' ? 2 : params.type === 'tertiary' ? 3 : 4;
   const focal = params.type === 'primary';
@@ -1665,7 +1689,9 @@ export function attachCoverageToClaim(params: {
     { sequence, focal, coverage: { reference: coverageReference, display } },
     ...(claim.insurance ?? []).filter((i) => i.sequence !== sequence),
   ]);
-  if (payerReference) claim.insurer = { reference: payerReference, display };
+  const attachedIsFocal = claim.insurance.find((i) => i.coverage.reference === coverageReference)?.focal ?? false;
+  if (attachedIsFocal && payerReference) claim.insurer = { reference: payerReference, display };
+  return attachedIsFocal;
 }
 
 // Account type + priority an insurance type maps to. primary/secondary share the patient billing

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Patient } from 'fhir/r4b';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -47,6 +48,26 @@ describe('Patient Profile header', () => {
     expect(nameRow).toHaveStyle({ alignItems: 'center' });
     expect(nameRow).toContainElement(screen.getByTestId(dataTestIds.patientHeader.patientName));
     expect(nameRow).toContainElement(screen.getByRole('button', { name: 'Print label' }));
+  });
+
+  it('goes back with an arrow left of the patient, the same way the close button does', async () => {
+    const handleDiscard = vi.fn();
+    render(
+      <CustomThemeProvider>
+        <MemoryRouter>
+          <Header id="patient-1" handleDiscard={handleDiscard} />
+        </MemoryRouter>
+      </CustomThemeProvider>
+    );
+
+    const back = screen.getByRole('button', { name: 'Back' });
+    expect(back.compareDocumentPosition(screen.getByTestId(dataTestIds.patientHeader.patientName))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+    await userEvent.click(back);
+    expect(handleDiscard).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(handleDiscard).toHaveBeenCalledTimes(2);
   });
 
   it('renders the print label icon in the accent blue used by the notes icon', () => {

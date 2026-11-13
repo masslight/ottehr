@@ -792,6 +792,17 @@
     "todayLabel": "Hoy",
     "tomorrowLabel": "Mañana"
   },
+  "supportChat": {
+    "title": "Chat de soporte",
+    "button": "Chat de soporte",
+    "message": "Mensaje",
+    "send": "Enviar",
+    "newRequest": "Nueva solicitud",
+    "newMessages": "Mensajes nuevos",
+    "you": "Usted",
+    "close": "Cerrar",
+    "sendError": "El mensaje no se envió. Inténtelo de nuevo."
+  },
   "textComms": {
     "confirmation": "Está confirmado.",
     "thanks": "¡Gracias por elegir {{PROJECT_NAME}}! Su hora de registro para",

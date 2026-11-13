@@ -1,5 +1,6 @@
 import { PaymentNotice } from 'fhir/r4b';
 import { z } from 'zod';
+import { ServiceMode } from '../common';
 
 // The clinical side of a patient's payments, served by the EHR to billing so billing never reads
 // clinical FHIR resources itself.
@@ -16,6 +17,10 @@ export interface PatientPaymentVisit {
   encounterId: string;
   appointmentId?: string;
   visitDateISO?: string;
+  serviceMode?: ServiceMode;
+  followUp?: boolean;
+  locationName?: string;
+  visitReason?: string;
   // the visit's schedule owner, where the EHR takes payments; absent when the visit has none
   scheduleOwner?: {
     // undefined: the platform account

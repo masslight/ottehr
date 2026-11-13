@@ -255,6 +255,51 @@ describe('attachCoverageToClaim', () => {
     expect(claim.insurer).toEqual({ reference: getPayerUrl('111222'), display: 'Prime Health (111222)' });
   });
 
+  it('adds a secondary coverage without touching the primary insurer', () => {
+    const claim = makeClaim([{ sequence: 1, focal: true, coverage: { reference: 'Coverage/primary' } }]);
+    claim.insurer = { reference: getPayerUrl('111222'), display: 'Prime Health (111222)' };
+
+    attachCoverageToClaim({
+      claim,
+      coverageReference: 'Coverage/new-secondary',
+      type: 'secondary',
+      display: 'Second Health (333444)',
+      payerReference: getPayerUrl('333444'),
+    });
+
+    expect(claim.insurance).toEqual([
+      { sequence: 1, focal: true, coverage: { reference: 'Coverage/primary' } },
+      {
+        sequence: 2,
+        focal: false,
+        coverage: { reference: 'Coverage/new-secondary', display: 'Second Health (333444)' },
+      },
+    ]);
+    expect(claim.insurer).toEqual({ reference: getPayerUrl('111222'), display: 'Prime Health (111222)' });
+  });
+
+  it('points the insurer at a secondary coverage that becomes focal on a self-pay claim', () => {
+    const claim = makeClaim([buildNoCoverageStub()]);
+
+    const attachedIsFocal = attachCoverageToClaim({
+      claim,
+      coverageReference: 'Coverage/new-secondary',
+      type: 'secondary',
+      display: 'Second Health (333444)',
+      payerReference: getPayerUrl('333444'),
+    });
+
+    expect(attachedIsFocal).toBe(true);
+    expect(claim.insurance).toEqual([
+      {
+        sequence: 1,
+        focal: true,
+        coverage: { reference: 'Coverage/new-secondary', display: 'Second Health (333444)' },
+      },
+    ]);
+    expect(claim.insurer).toEqual({ reference: getPayerUrl('333444'), display: 'Second Health (333444)' });
+  });
+
   it('drops the no-coverage stub when a real coverage is attached to a self-pay claim', () => {
     const claim = makeClaim([buildNoCoverageStub()]);
 

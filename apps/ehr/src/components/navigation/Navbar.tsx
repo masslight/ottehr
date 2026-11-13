@@ -1,12 +1,14 @@
 import { otherColors } from '@ehrTheme/colors';
 import { logo } from '@ehrTheme/icons';
 import { TabList } from '@mui/lab';
-import { AppBar, Container, Tab, Toolbar, useMediaQuery, useTheme } from '@mui/material';
+import { AppBar, Box, Container, Stack, Tab, Toolbar, useMediaQuery, useTheme } from '@mui/material';
 import { ReactElement, SyntheticEvent, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { adjustTopForBannerHeight, NAVBAR_HEIGHT_CSS_VAR } from 'src/helpers/misc.helper';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { FEATURE_FLAGS } from '../../constants/feature-flags';
+import { useHasUnreadSupportChatsQuery } from '../../features/support-chat/support-chat.queries';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import MobileMenu from './MobileMenu';
@@ -58,7 +60,11 @@ const customerSupportNavbarItems: NavbarItems = {
   Reports: { urls: ['/reports'] },
 };
 
-const hideNavbarPathPatterns = [/^\/telemed\/appointments\/(?!.*\/visit-details$)/, /^\/patient\/[^/]+\/info$/];
+const hideNavbarPathPatterns = [
+  /^\/telemed\/appointments\/(?!.*\/visit-details$)/,
+  /^\/visit\/[^/]+$/,
+  /^\/patient\/[^/]+\/(info|docs|action-logs)$/,
+];
 
 export default function Navbar(): ReactElement | null {
   const location = useLocation();
@@ -90,6 +96,10 @@ export default function Navbar(): ReactElement | null {
     }
     return navItems;
   }, [user]);
+
+  const hasUnreadSupportChats = useHasUnreadSupportChatsQuery(
+    FEATURE_FLAGS.SUPPORT_CHAT_ENABLED && Boolean(navbarItems.Tasks)
+  );
 
   // on page load set the tab to the opened page
   const currentUrl = '/' + location.pathname.substring(1).split('/')[0];
@@ -176,7 +186,16 @@ export default function Navbar(): ReactElement | null {
                 (Object.keys(navbarItems) as AppTab[]).map((navbarItem, index) => (
                   <Tab
                     key={navbarItem}
-                    label={navbarItem}
+                    label={
+                      navbarItem === 'Tasks' && hasUnreadSupportChats ? (
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <span>{navbarItem}</span>
+                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'warning.main' }} />
+                        </Stack>
+                      ) : (
+                        navbarItem
+                      )
+                    }
                     value={navbarItem}
                     id={`navbar-tab-${index}`}
                     aria-controls={`hello-${index}`} // `tabpanel-${index}`
