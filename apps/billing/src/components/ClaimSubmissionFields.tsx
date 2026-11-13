@@ -119,7 +119,7 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
             control={control}
             rules={{
               validate: (value, values) =>
-                values.type === 'new' || value.trim().length > 0 || 'Payer Claim Control Number is required',
+                values.type === 'new' || value.length > 0 || 'Payer Claim Control Number is required',
             }}
             render={({ field, fieldState }) => (
               <TextField
@@ -128,7 +128,7 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
                 required={true}
                 error={!!fieldState.error}
                 helperText={fieldState.error?.message}
-                onChange={(event) => field.onChange(event.target.value)}
+                onChange={(event) => field.onChange(event.target.value.trim())}
               />
             )}
           />

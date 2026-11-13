@@ -1017,10 +1017,7 @@ describe('ClaimDetail — run rules engine button', () => {
     const pccnField = (dialog: HTMLElement): HTMLElement =>
       within(dialog).getByRole('textbox', { name: /Payer Claim Control Number/ });
 
-    it.each([
-      ['Correction', 'correction'],
-      ['Void Claim', 'void'],
-    ] as const)('allows %s and blocks submitting without a PCCN', async (label) => {
+    it.each(['Correction', 'Void Claim'] as const)('allows %s and blocks submitting without a PCCN', async (label) => {
       const dialog = await openSubmitDialog();
 
       const radio = within(dialog).getByRole('radio', { name: label });
@@ -1042,6 +1039,27 @@ describe('ClaimDetail — run rules engine button', () => {
 
       expect(await within(dialog).findByText('Payer Claim Control Number is required')).toBeInTheDocument();
       expect(runBillingRulesEngineMock).not.toHaveBeenCalled();
+    });
+
+    it('submits the PCCN without surrounding whitespace', async () => {
+      const dialog = await openSubmitDialog();
+      fireEvent.click(within(dialog).getByRole('radio', { name: 'Correction' }));
+      fireEvent.change(pccnField(dialog), { target: { value: '  PCCN-123  ' } });
+      expect(pccnField(dialog)).toHaveValue('PCCN-123');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+
+      await waitFor(() =>
+        expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+          {},
+          {
+            claimIds: ['claim-1'],
+            skipRules: false,
+            submissionType: 'correction',
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: 'PCCN-123',
+          }
+        )
+      );
     });
 
     it.each([
