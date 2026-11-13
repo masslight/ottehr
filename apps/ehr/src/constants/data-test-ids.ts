@@ -622,6 +622,7 @@ export const dataTestIds = {
     sendPatientDocsButton: 'send-patient-docs-button',
     legacyDataButton: 'legacy-data-button',
     medicalRecordButton: 'medical-record-button',
+    printLabelButton: 'print-label-button',
     downloadMedicalRecordArchiveMenuItem: 'download-medical-record-archive-menu-item',
     medicalRecordExportProgress: 'medical-record-export-progress',
     sendMedicalRecordMenuItem: 'send-medical-record-menu-item',
