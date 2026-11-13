@@ -1,17 +1,6 @@
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  Radio,
-  RadioGroup,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { FormControlLabel, Radio, RadioGroup, Stack, Typography } from '@mui/material';
 import React, { ReactElement, useState } from 'react';
-import { RoundedButton } from 'src/components/RoundedButton';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { formatGestationalAge } from 'utils/lib/helpers/vitals/birth-history.helper';
 import { BirthHistoryDTO } from 'utils/lib/types/api/birth-history.types';
 import { BiliToolReading, buildBiliToolUrl, defaultBiliToolReading, formatBiliToolReading } from '../biliTool';
@@ -51,9 +40,17 @@ export const BiliToolDialog = ({ open, onClose, birthHistory, readings }: BiliTo
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ color: 'primary.dark', fontWeight: 600 }}>Open in BiliTool</DialogTitle>
-      <DialogContent>
+    <CustomDialog
+      open={open}
+      handleClose={onClose}
+      title="Open in BiliTool"
+      maxWidth="sm"
+      fullWidth
+      handleConfirm={openBiliTool}
+      confirmText="Open BiliTool"
+      closeButtonText="Cancel"
+      disabled={!reading || riskFactors === undefined}
+      description={
         <Stack spacing={2}>
           <Typography>
             <Typography component="span" color="text.secondary">
@@ -92,20 +89,7 @@ export const BiliToolDialog = ({ open, onClose, birthHistory, readings }: BiliTo
             </RadioGroup>
           </div>
         </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
-        <Button variant="text" onClick={onClose}>
-          Cancel
-        </Button>
-        <RoundedButton
-          variant="contained"
-          size="small"
-          disabled={!reading || riskFactors === undefined}
-          onClick={openBiliTool}
-        >
-          Open BiliTool
-        </RoundedButton>
-      </DialogActions>
-    </Dialog>
+      }
+    />
   );
 };
