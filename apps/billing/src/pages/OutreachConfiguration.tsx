@@ -13,6 +13,8 @@ import {
   MenuItem,
   Stack,
   Switch,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
@@ -46,6 +48,7 @@ import {
 } from 'utils/lib/types/api/scheduled-outreach.types';
 import { getOutreachConfig, saveOutreachConfig } from '../api/api';
 import { InvoiceTemplateField } from '../components/InvoiceTemplateField';
+import { OutreachTracker } from '../components/OutreachTracker';
 import { useApiClients } from '../hooks/useAppClients';
 
 interface OutreachSettings {
@@ -405,6 +408,7 @@ export default function OutreachConfiguration(): ReactElement {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const [tab, setTab] = useState<'configuration' | 'tracker'>('tracker');
   const isLoaded = saved !== null;
 
   useEffect(() => {
@@ -467,13 +471,26 @@ export default function OutreachConfiguration(): ReactElement {
     <Stack spacing={3}>
       <Box>
         <Typography variant="h4" color="primary.dark" fontWeight={600}>
-          Outreach Configuration
+          Outreach
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           Automated patient outreach triggered by invoice events.
         </Typography>
       </Box>
-      {loadError ? (
+      <Tabs
+        value={tab}
+        onChange={(_, value) => setTab(value)}
+        sx={{
+          borderBottom: `1px solid ${otherColors.lightDivider}`,
+          '& .MuiTab-root': { textTransform: 'none', fontWeight: 500, fontSize: 14 },
+        }}
+      >
+        <Tab label="Outreach Tracker" value="tracker" />
+        <Tab label="Configuration" value="configuration" />
+      </Tabs>
+      {tab === 'tracker' ? (
+        <OutreachTracker />
+      ) : loadError ? (
         <Alert severity="error" action={<Button onClick={() => setLoadAttempt((value) => value + 1)}>Retry</Button>}>
           {loadError}
         </Alert>

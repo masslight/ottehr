@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../src/api/api', () => ({ getOutreachConfig: mocks.get, saveOutreachConfig: mocks.save }));
 vi.mock('../../src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: mocks.client }) }));
 vi.mock('notistack', () => ({ enqueueSnackbar: mocks.snackbar }));
+vi.mock('../../src/components/OutreachTracker', () => ({ OutreachTracker: () => null }));
 vi.mock('utils/lib/ottehr-config/feature-flags', () => ({ FEATURE_FLAGS_CONFIG: mocks.flags }));
 
 const reminder: OutreachAction = {
@@ -45,6 +46,11 @@ function config(actions: OutreachAction[] = [reminder, collections]): OutreachCo
 }
 
 const saveButton = (): HTMLElement => screen.getByRole('button', { name: 'Save changes' });
+async function openConfiguration(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  render(<OutreachConfiguration />);
+  await user.click(screen.getByRole('tab', { name: 'Configuration' }));
+  await screen.findByRole('button', { name: 'Save changes' });
+}
 const section = (label: string): ReturnType<typeof within> =>
   within(screen.getByRole('region', { name: `Triggered by ${label}` }));
 
@@ -60,8 +66,7 @@ describe('Outreach Configuration', () => {
 
   it('shows saved actions under their trigger event and keeps Save disabled until an edit', async () => {
     const user = userEvent.setup();
-    render(<OutreachConfiguration />);
-    await screen.findByRole('button', { name: 'Save changes' });
+    await openConfiguration(user);
     expect(section('Invoice Issue Date').getByRole('group', { name: 'Send Notification action' })).toBeVisible();
     expect(section('Invoice Issue Date').getByRole('textbox', { name: 'SMS Template' })).toHaveValue('Pay {{amount}}');
     expect(
@@ -74,8 +79,7 @@ describe('Outreach Configuration', () => {
 
   it('sends every action back with ids and unshown fields untouched', async () => {
     const user = userEvent.setup();
-    render(<OutreachConfiguration />);
-    await screen.findByRole('button', { name: 'Save changes' });
+    await openConfiguration(user);
     await user.type(screen.getByRole('textbox', { name: 'SMS Template' }), '!');
     await user.click(saveButton());
     expect(mocks.save).toHaveBeenCalledWith(mocks.client, {
@@ -92,8 +96,7 @@ describe('Outreach Configuration', () => {
   it('adds a default send-notification action under Invoice Due Date limited to invoice events', async () => {
     const user = userEvent.setup();
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('00000000-0000-4000-8000-000000000000');
-    render(<OutreachConfiguration />);
-    await screen.findByRole('button', { name: 'Save changes' });
+    await openConfiguration(user);
     await user.click(section('Invoice Due Date').getByRole('button', { name: 'Add action' }));
     const added = section('Invoice Due Date').getByRole('group', { name: 'Send Notification action' });
     await user.click(within(added).getByRole('combobox', { name: 'Trigger Event' }));
@@ -121,8 +124,7 @@ describe('Outreach Configuration', () => {
 
   it('applies the default charge-card config and sets a one-day interval when retries are raised', async () => {
     const user = userEvent.setup();
-    render(<OutreachConfiguration />);
-    await screen.findByRole('button', { name: 'Save changes' });
+    await openConfiguration(user);
     const action = section('Invoice Issue Date').getByRole('group', { name: 'Send Notification action' });
     await user.click(within(action).getByRole('combobox', { name: 'Action Type' }));
     await user.click(screen.getByRole('option', { name: 'Charge Credit Card on File' }));
@@ -145,8 +147,7 @@ describe('Outreach Configuration', () => {
 
   it('blocks saving an empty template', async () => {
     const user = userEvent.setup();
-    render(<OutreachConfiguration />);
-    await screen.findByRole('button', { name: 'Save changes' });
+    await openConfiguration(user);
     await user.clear(screen.getByRole('textbox', { name: 'SMS Template' }));
     await user.click(saveButton());
     expect(screen.getByText('SMS Template is required')).toBeVisible();

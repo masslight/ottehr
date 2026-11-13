@@ -26,7 +26,7 @@ import {
 import { getOrCreateOutreachConfig, parsePlanDefinitionToActions } from '../rcm/scheduled-outreach-config/helpers';
 
 // A repeat skips actions that already have a Task for this invoice. A cancelled Task does not
-// count, so that action is scheduled again.
+// count unless staff cancelled it, so that action is scheduled again.
 export async function produceBillingInvoiceIssuedOutreach(
   oystehr: Oystehr,
   invoice: Invoice

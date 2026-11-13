@@ -62,6 +62,16 @@ export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
   log: 'Log',
 };
 
+export const OUTREACH_TASK_STATUS_LABELS: Record<string, string> = {
+  draft: 'Pending',
+  requested: 'Requested',
+  'in-progress': 'In Progress',
+  completed: 'Completed',
+  'on-hold': 'On Hold',
+  failed: 'Failed',
+  cancelled: 'Cancelled',
+};
+
 export const MEDIUM_LABELS: Record<NotificationMedium, string> = {
   sms: 'SMS',
   email: 'Email',

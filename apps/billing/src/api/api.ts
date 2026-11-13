@@ -14,6 +14,7 @@ import {
   AddClaimWriteOffInputSchema,
   AddEraAttachmentInputSchema,
   BillingInvoiceStatementInputSchema,
+  BillingOutreachTaskInputSchema,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
@@ -49,6 +50,7 @@ import {
   GetPatientDetailInputSchema,
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
+  ListBillingOutreachTasksInputSchema,
   ListBillingPatientAccountPaymentsInputSchema,
   ListBillingPatientPaymentMethodsInputSchema,
   MatchClaimResponseToClaimInputSchema,
@@ -122,6 +124,7 @@ import {
   GetBillingProductivityReportResponse,
   GetBillingReportHistoryResponse,
   GetPatientCoveragesResponse,
+  ListBillingOutreachTasksResponse,
   ListBillingPatientAccountPaymentsResponse,
   ListBillingPatientPaymentMethodsResponse,
   OkResponse,
@@ -209,6 +212,22 @@ export const saveOutreachConfig = (
   oystehr: Oystehr,
   parameters: { actions: OutreachAction[]; notificationsTimeRestriction: NotificationsTimeRestriction }
 ): Promise<OutreachConfigResponse> => executeBillingZambda(oystehr, 'save-billing-outreach-config', parameters);
+
+export const listOutreachTasks = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ListBillingOutreachTasksInputSchema>
+): Promise<ListBillingOutreachTasksResponse> =>
+  executeBillingZambda(oystehr, 'list-billing-outreach-tasks', parameters);
+
+export const retryOutreachTask = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof BillingOutreachTaskInputSchema>
+): Promise<unknown> => executeBillingZambda(oystehr, 'retry-billing-outreach-task', parameters);
+
+export const cancelOutreachTask = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof BillingOutreachTaskInputSchema>
+): Promise<unknown> => executeBillingZambda(oystehr, 'cancel-billing-outreach-task', parameters);
 
 // --- Invoices ---
 

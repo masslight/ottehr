@@ -160,7 +160,7 @@ export const Sidebar: FC = () => {
             })}
             {FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled &&
               renderNavItem({
-                label: 'Outreach Configuration',
+                label: 'Outreach',
                 path: '/outreach-configuration',
                 icon: <SettingsIcon sx={{ fontSize: 18 }} />,
               })}

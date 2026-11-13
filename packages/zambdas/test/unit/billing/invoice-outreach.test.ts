@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Invoice, PlanDefinition, Task } from 'fhir/r4b';
+import { Coding, Invoice, PlanDefinition, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   buildBillingInvoice,
@@ -16,6 +16,7 @@ import {
   produceBillingInvoiceIssuedOutreach,
 } from '../../../src/billing/invoice-outreach';
 import {
+  OUTREACH_CANCELLED_BY_STAFF_TAG,
   OUTREACH_STRIPE_ACCOUNT_INPUT,
   OUTREACH_TASK_TAG_SYSTEM,
 } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
@@ -144,6 +145,24 @@ describe('billing invoice outreach', () => {
 
     expect(created).toHaveLength(0);
     expect(result.skipped).toEqual([{ actionId: 'issued-3', reason: 'Task already exists' }]);
+  });
+
+  it('schedules an action again after an automatic cancel, but not after staff cancelled it', async () => {
+    const cancelled = (...tags: Coding[]): Task =>
+      ({
+        resourceType: 'Task',
+        id: 'task-1',
+        status: 'cancelled',
+        meta: { tag: [{ system: `${OUTREACH_TASK_TAG_SYSTEM}/action-id`, code: 'issued-3' }, ...tags] },
+      }) as Task;
+    const automatic = makeOystehr([cancelled()]);
+    const byStaff = makeOystehr([cancelled(OUTREACH_CANCELLED_BY_STAFF_TAG)]);
+
+    await produceBillingInvoiceIssuedOutreach(automatic.oystehr, makeInvoice());
+    await produceBillingInvoiceIssuedOutreach(byStaff.oystehr, makeInvoice());
+
+    expect(automatic.created).toHaveLength(1);
+    expect(byStaff.created).toHaveLength(0);
   });
 
   it('schedules nothing for an invoice billed to an organization', async () => {

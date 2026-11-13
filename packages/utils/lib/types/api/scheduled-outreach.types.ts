@@ -84,3 +84,50 @@ export interface OutreachMediumResult {
   error?: string;
   skippedReason?: string;
 }
+
+export interface OutreachTaskSummary {
+  id: string;
+  status: string;
+  actionType: string;
+  triggerEvent: string;
+  actionId: string;
+  patientId: string;
+  patientName: string;
+  patientFriendlyId?: string;
+  appointmentId?: string;
+  visitDate?: string;
+  focusReference: string;
+  dueDateTime: string;
+  authoredOn: string;
+  completedDateTime?: string;
+  description: string;
+  mediums?: string;
+  errorMessage?: string;
+  cancellationReason?: string;
+  chargeResult?: { success: boolean; transactionId?: string; error?: string; amountCents?: number };
+  notificationResults?: { medium: string; success: boolean; error?: string }[];
+  executionResult?: { medium: string; success: boolean; error?: string }[];
+  retryInfo?: { attemptCount: number; maxAttempts: number; nextRetryDate?: string };
+}
+
+export interface ListOutreachTasksInput {
+  status?: string;
+  actionType?: string;
+  medium?: string;
+  triggerEvent?: string;
+  patientSearch?: string;
+  focusReferences?: string[];
+  dueDateFrom?: string;
+  dueDateTo?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  pageSize?: number;
+  offset?: number;
+}
+
+export interface ListOutreachTasksResponse {
+  tasks: OutreachTaskSummary[];
+  totalCount: number;
+  pageSize: number;
+  offset: number;
+}

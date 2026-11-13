@@ -1,9 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { BatchInputRequest } from '@oystehr/sdk';
-import { Patient, PlanDefinition, Reference, Task } from 'fhir/r4b';
+import { Coding, Patient, PlanDefinition, Reference, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { phone } from 'phone';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { isEmailValid } from 'utils/lib/helpers/helpers';
@@ -15,7 +16,7 @@ import { getOrCreateOutreachConfig, parsePlanDefinitionToActions } from '../../.
 const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 export const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 export const OUTREACH_ACTION_ID_TAG_SYSTEM = `${OUTREACH_TASK_TAG_SYSTEM}/action-id`;
-const OUTREACH_ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';
+export const OUTREACH_ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';
 export const OUTREACH_STRIPE_ACCOUNT_INPUT = 'stripe-account';
 export const OUTREACH_PLATFORM_STRIPE_ACCOUNT = 'platform';
 // Year scoping for patient-birthday tasks so the idempotency check distinguishes
@@ -25,6 +26,11 @@ export const OUTREACH_BIRTHDAY_YEAR_TAG_SYSTEM = `${OUTREACH_TASK_TAG_SYSTEM}/bi
 // Statuses that count as an existing outreach task for idempotency/dedup purposes.
 // 'cancelled' is intentionally excluded so a cancelled task does not block re-creation.
 const OUTREACH_TASK_DEDUP_STATUSES = 'draft,requested,in-progress,completed,failed';
+// On a Task that staff cancelled. Its action is not scheduled again.
+export const OUTREACH_CANCELLED_BY_STAFF_TAG: Coding = {
+  system: `${OUTREACH_TASK_TAG_SYSTEM}/cancelled-by`,
+  code: 'staff',
+};
 
 export interface ProduceOutreachTasksParams {
   triggerEvent: TriggerEvent;
@@ -263,7 +269,7 @@ async function findExistingOutreachTasks(
   const params = [
     { name: 'focus', value: focus.reference! },
     { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|${triggerEvent}` },
-    { name: 'status', value: OUTREACH_TASK_DEDUP_STATUSES },
+    { name: 'status', value: `${OUTREACH_TASK_DEDUP_STATUSES},cancelled` },
   ];
   if (birthdayYear !== undefined) {
     params.push({ name: '_tag', value: `${OUTREACH_BIRTHDAY_YEAR_TAG_SYSTEM}|${birthdayYear}` });
@@ -272,7 +278,9 @@ async function findExistingOutreachTasks(
     resourceType: 'Task',
     params,
   });
-  return bundle.unbundle();
+  return bundle
+    .unbundle()
+    .filter((task) => task.status !== 'cancelled' || resourceHasTag(task, OUTREACH_CANCELLED_BY_STAFF_TAG));
 }
 
 /**

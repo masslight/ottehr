@@ -6,10 +6,12 @@ import { BILLING_OUTREACH_TASK_CODE_SYSTEM } from 'utils/lib/types/data/billing/
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { index as getConfigIndex } from '../../../src/billing/get-billing-outreach-config/index';
+import { index as listTasksIndex } from '../../../src/billing/list-billing-outreach-tasks/index';
 import { index as saveConfigIndex } from '../../../src/billing/save-billing-outreach-config/index';
 import { createBillingClient } from '../../../src/billing/shared';
 import { index as invoiceDueIndex } from '../../../src/cron/produce-billing-invoice-due-outreach/index';
 import { index as promoterIndex } from '../../../src/cron/promote-billing-outreach-tasks/index';
+import { OUTREACH_TASK_TAG_SYSTEM } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
 import { buildPlanDefinitionFromActions } from '../../../src/rcm/scheduled-outreach-config/helpers';
 import { saveOutreachConfig } from '../../../src/rcm/scheduled-outreach-config/save-outreach-config';
 import type { ZambdaInput } from '../../../src/shared/types/common';
@@ -55,6 +57,7 @@ const getConfig = getConfigIndex as ZambdaHandler;
 const saveConfig = saveConfigIndex as ZambdaHandler;
 const promoter = promoterIndex as ZambdaHandler;
 const invoiceDue = invoiceDueIndex as ZambdaHandler;
+const listTasks = listTasksIndex as ZambdaHandler;
 
 const gateOn = { BILLING_INTEGRATION: 'ottehr', INVOICING_IN_BILLING_APP: 'true' };
 const gateOff = { ...gateOn, INVOICING_IN_BILLING_APP: 'false' };
@@ -71,6 +74,17 @@ const draftTask: Task = {
   status: 'draft',
   intent: 'order',
   executionPeriod: { start: '2024-01-01T00:00:00Z' },
+};
+const TASK_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const CLAIM_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const failedTask: Task = {
+  ...draftTask,
+  id: TASK_ID,
+  status: 'failed',
+  for: { reference: 'Patient/billing-pat-1' },
+  focus: { reference: 'Invoice/inv-1' },
+  meta: { tag: [{ system: OUTREACH_TASK_TAG_SYSTEM, code: 'invoice-due' }] },
+  output: [{ type: { text: 'error' }, valueString: 'Card declined' }],
 };
 
 const pastDueInvoice = (id: string, subject: string | undefined): Invoice => ({
@@ -219,6 +233,49 @@ describe('billing outreach', () => {
 
       expect(JSON.parse(result.body)).toEqual({ disabled: true });
       expect(createBillingClient).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('list-billing-outreach-tasks', () => {
+    it('lists Tasks with their invoice, read with the billing client', async () => {
+      const patient = { resourceType: 'Patient', id: 'billing-pat-1', name: [{ given: ['Sam'], family: 'Patient' }] };
+      invoices = [pastDueInvoice('inv-1', 'Patient/billing-pat-1')];
+      mockSearch.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+        total: 1,
+        unbundle: () => (resourceType === 'Invoice' ? invoices : [failedTask, patient]),
+      }));
+
+      const result = await listTasks({ headers: null, body: JSON.stringify({ status: 'failed' }), secrets: gateOn });
+
+      expect(JSON.parse(result.body)).toMatchObject({
+        totalCount: 1,
+        tasks: [
+          {
+            id: TASK_ID,
+            status: 'failed',
+            patientName: 'Sam Patient',
+            errorMessage: 'Card declined',
+            invoice: { id: 'inv-1', amount: 90, dueDate: '2024-01-02', claimId: 'claim-1' },
+          },
+        ],
+      });
+    });
+
+    it('searches by claim ID through the invoices of that claim', async () => {
+      invoices = [pastDueInvoice('inv-1', 'Patient/billing-pat-1')];
+      mockSearch.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+        total: 0,
+        unbundle: () => (resourceType === 'Invoice' ? invoices : []),
+      }));
+
+      await listTasks({ headers: null, body: JSON.stringify({ searchText: CLAIM_ID }), secrets: gateOn });
+
+      expect(mockSearch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resourceType: 'Task',
+          params: expect.arrayContaining([{ name: 'focus', value: `Invoice/${CLAIM_ID},Invoice/inv-1` }]),
+        })
+      );
     });
   });
 });
