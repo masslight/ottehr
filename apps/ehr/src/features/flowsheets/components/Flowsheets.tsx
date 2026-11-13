@@ -35,7 +35,7 @@ import { useGetFlowsheet } from 'src/hooks/useGetFlowsheet';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
-import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
 import { VitalsHeaderUnitSystem } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
@@ -184,9 +184,7 @@ const UCUM_DISPLAY: Record<string, string> = { '10*3/uL': '×10³/µL', '10*6/uL
 
 // Imperial from the stored metric value, at the vitals' display precision (lbs 2 decimals, inches 2 decimals).
 const toImperial = (value: number, unit: 'lbs' | 'in'): string =>
-  unit === 'lbs'
-    ? roundNumberToDecimalPlaces(value * LBS_IN_KG, 2).toFixed(2)
-    : HeightMeasurement.fromCm(value).getInches().toFixed(2);
+  unit === 'lbs' ? kgToLbs(value).toFixed(2) : HeightMeasurement.fromCm(value).getInches().toFixed(2);
 
 /** The row label in the unit system shown. */
 export const rowLabel = (row: FlowsheetRow, unitSystem: VitalsHeaderUnitSystem = 'metric'): string =>
@@ -382,8 +380,6 @@ const FlowsheetBody = ({
       },
       // Our own disabled dataZoom keeps the EChart wrapper from adding its slider.
       dataZoom: [{ type: 'inside', disabled: true }],
-      // EChart's own grid; the hours axis needs room for its name.
-      ...(hoursAxis ? { grid: { bottom: 48, containLabel: true } } : {}),
       xAxis: hoursAxis
         ? {
             type: 'value',
@@ -395,7 +391,12 @@ const FlowsheetBody = ({
             nameGap: 28,
             splitLine: { show: false },
           }
-        : { type: 'time', axisLabel: { hideOverlap: true, formatter: '{MM}/{dd}' }, splitLine: { show: false } },
+        : {
+            type: 'time',
+            // The year at year boundaries, so two Aprils in a row are told apart.
+            axisLabel: { hideOverlap: true, formatter: { year: '{yyyy}', month: '{MM}/{dd}', day: '{MM}/{dd}' } },
+            splitLine: { show: false },
+          },
       yAxis: {
         type: 'value',
         name: chart.unit,

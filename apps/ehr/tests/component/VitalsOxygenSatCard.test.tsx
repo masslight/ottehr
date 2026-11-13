@@ -35,6 +35,11 @@ vi.mock('src/features/visits/shared/components/vitals/hooks/useDeleteVitals', ()
   useDeleteVitals: () => vi.fn().mockResolvedValue(undefined),
 }));
 
+// useVitalsManagement reads the patient and appointment for the no-BMI-under-2 rule.
+vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
+  useAppointmentData: () => ({ resources: {}, isAppointmentLoading: false, appointmentError: null }),
+}));
+
 vi.mock('src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: false }),
 }));

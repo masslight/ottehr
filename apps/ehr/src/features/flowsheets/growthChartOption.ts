@@ -164,9 +164,10 @@ export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
 };
 
 // The report's colours: curves in a soft pink or blue tint, navy patient points, EHR blue for this visit.
+export const POINT_COLOR = '#0F347C';
 const PALETTE = {
-  female: { curve: '#c2185b', mid: '#880e4f', tint: '#fdf6f9', point: '#0F347C' },
-  male: { curve: '#1e6fd0', mid: '#0d3c8c', tint: '#f5f9fe', point: '#0F347C' },
+  female: { curve: '#c2185b', mid: '#880e4f', tint: '#fdf6f9', point: POINT_COLOR },
+  male: { curve: '#1e6fd0', mid: '#0d3c8c', tint: '#f5f9fe', point: POINT_COLOR },
 };
 const EHR_BLUE = '#2169F5';
 const RED = '#d32f2f';
@@ -209,6 +210,8 @@ export interface GrowthChartOption {
   option: Record<string, unknown>;
   /** Where each charted point is in the option, for showTip from its table row. */
   locate: Map<GrowthChartPoint, { seriesIndex: number; dataIndex: number }>;
+  /** The kinds of point the chart draws, for its key. */
+  drawn: { thisVisit: boolean; implausible: boolean; offChart: boolean };
 }
 
 /**
@@ -381,5 +384,10 @@ export const buildGrowthChartOption = (
       },
     ],
   };
-  return { option, locate };
+  const drawn = {
+    thisVisit: plotted.some(isThisVisit),
+    implausible: flagged.some((point) => point.y <= yMax && point.y >= yMin),
+    offChart: flagged.some((point) => point.y > yMax || point.y < yMin),
+  };
+  return { option, locate, drawn };
 };

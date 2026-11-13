@@ -61,7 +61,11 @@ const NEWBORN_MONTHS = 2;
 
 export const buildNewbornBilirubinFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => {
   const birthDate = /^\d{4}-\d{2}-\d{2}$/.test(data.birthDate ?? '') ? data.birthDate : undefined;
-  const cutoff = birthDate ? DateTime.fromISO(birthDate, { zone: 'utc' }).plus({ months: NEWBORN_MONTHS }) : undefined;
+  // A day of slack: the birth date is read as UTC midnight, and a US evening result on the last day is already the
+  // next day in UTC.
+  const cutoff = birthDate
+    ? DateTime.fromISO(birthDate, { zone: 'utc' }).plus({ months: NEWBORN_MONTHS, days: 1 })
+    : undefined;
   const labs =
     cutoff && data.labs
       ? Object.fromEntries(

@@ -1,40 +1,36 @@
 import { ChangeEvent, useCallback, useState } from 'react';
-import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { kgToLbs, LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsWeightObservationDTO, VitalsWeightOption } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { roundNumberToDecimalPlaces, textToNumericValue } from 'utils/lib/utils/convert';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { WeightLocalState } from '../types';
+import { usePairedMeasure } from '../usePairedMeasure';
 
 export function useWeightLocalState(): WeightLocalState {
-  const [weightKg, setWeightKg] = useState<number | undefined>(undefined);
+  // The field being typed in keeps its text, so a lbs value is not rewritten by the round trip through kg.
+  const weight = usePairedMeasure(undefined, (lbs) => roundNumberToDecimalPlaces(lbs / LBS_IN_KG, 2), kgToLbs, 2);
+  const weightKg = weight.value;
   const [isPatientRefusedOptionSelected, setOptionRefusedOptionSelected] = useState<boolean>(false);
   const [validationError, setValidationError] = useState<boolean>(false);
 
-  const handleKgInput = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    setWeightKg(textToNumericValue(e.target.value));
+  const handleKgInput = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+    weight.handleMetricChange(e);
     setValidationError(false);
-  }, []);
+  };
 
-  const handleLbsInput = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
-    const numericValue = textToNumericValue(e.target.value);
-    if (numericValue !== undefined) {
-      setWeightKg(roundNumberToDecimalPlaces(numericValue / LBS_IN_KG, 2));
-    } else {
-      setWeightKg(undefined);
-    }
+  const handleLbsInput = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+    weight.handleImperialChange(e);
     setValidationError(false);
-  }, []);
+  };
 
-  const handlePatientRefusedChange = useCallback((isChecked: boolean, weightOption: VitalsWeightOption): void => {
+  const handlePatientRefusedChange = (isChecked: boolean, weightOption: VitalsWeightOption): void => {
     if (weightOption !== 'patient_refused') return;
     setOptionRefusedOptionSelected(isChecked);
-    setWeightKg(undefined);
+    weight.clear();
     setValidationError(false);
-  }, []);
+  };
 
-  const clearForm = useCallback(() => {
-    setWeightKg(undefined);
-  }, []);
+  const clearForm = (): void => weight.clear();
 
   const getDTO = useCallback((): VitalsWeightObservationDTO | null => {
     if (isPatientRefusedOptionSelected) {
@@ -58,6 +54,8 @@ export function useWeightLocalState(): WeightLocalState {
 
   return {
     weightKg,
+    kgText: weight.metricText,
+    lbsText: weight.imperialText,
     isPatientRefusedSelected: isPatientRefusedOptionSelected,
     validationError,
     isDisabled,

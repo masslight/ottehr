@@ -29,17 +29,19 @@ export const chartPoint = (visit: FlowsheetVisit, key: string, hoursAxis: boolea
 /**
  * The y-axis [min, max] for values spanning dataMin–dataMax, so a small change does not fill the chart: the chart's
  * yRange widened to fit the values, else at least minSpan (or ±10% of the middle value) around them, never below 0
- * for positive values. Bounds are rounded out to a tenth of the span's order of magnitude.
+ * for positive values. Bounds are rounded out to a round step, a step further where a value would sit on the frame.
  */
 export const yAxisBounds = (chart: FlowsheetChart, dataMin: number, dataMax: number): [number, number] => {
   if (chart.yRange) return [Math.min(chart.yRange[0], dataMin), Math.max(chart.yRange[1], dataMax)];
   const middle = (dataMin + dataMax) / 2;
   const span = Math.max(dataMax - dataMin, chart.minSpan ?? Math.abs(middle) * 0.2);
   if (span === 0) return [dataMin, dataMax];
-  const step = 10 ** Math.floor(Math.log10(span)) / 10;
+  const step = 10 ** Math.floor(Math.log10(span)) / 2;
   // Trim floating-point noise (0.8800000000000001) before rounding out, and from the result.
   const exact = (n: number): number => Number(n.toPrecision(12));
-  const low = exact(Math.floor(exact((middle - span / 2) / step)) * step);
-  const high = exact(Math.ceil(exact((middle + span / 2) / step)) * step);
+  let low = exact(Math.floor(exact((middle - span / 2) / step)) * step);
+  let high = exact(Math.ceil(exact((middle + span / 2) / step)) * step);
+  if (low === dataMin) low = exact(low - step);
+  if (high === dataMax) high = exact(high + step);
   return [dataMin >= 0 ? Math.max(0, low) : low, high];
 };

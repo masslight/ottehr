@@ -49,6 +49,12 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () =>
   }),
 }));
 
+// The birth history card reads and saves through React Query; the vitals tests don't exercise it.
+vi.mock('src/hooks/useBirthHistory', () => ({
+  useBirthHistory: () => ({ data: undefined, isLoading: false }),
+  useSaveBirthHistory: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
 vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({ isChartDataLoading: false, chartDataError: null }),
 }));

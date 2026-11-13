@@ -61,6 +61,8 @@ export interface BloodPressureLocalState {
 
 export interface WeightLocalState {
   weightKg: number | undefined;
+  kgText: string;
+  lbsText: string;
   isPatientRefusedSelected: boolean;
   validationError: boolean;
   isDisabled: boolean;

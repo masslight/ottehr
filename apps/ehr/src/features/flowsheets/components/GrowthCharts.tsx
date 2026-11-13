@@ -33,6 +33,7 @@ import {
   formatGrowthValue,
   GROWTH_CHART_VIEWS,
   GROWTH_SETS,
+  POINT_COLOR,
 } from '../growthChartOption';
 
 const TABLE_ROWS_SHOWN = 10;
@@ -126,7 +127,7 @@ const GrowthCard = ({
   const [hover, setHover] = useState<GrowthChartPoint | null>(null);
   const [all, setAll] = useState(false);
   const chartRef = useRef<ECharts | null>(null);
-  const { option, locate } = useMemo(
+  const { option, locate, drawn } = useMemo(
     () => buildGrowthChartOption(chartId, sex, table, points, thisVisitEncounterId),
     [chartId, sex, table, points, thisVisitEncounterId]
   );
@@ -150,19 +151,24 @@ const GrowthCard = ({
             onHover={(datum) => setHover((datum?.point as GrowthChartPoint | undefined) ?? null)}
             onReady={(chart) => (chartRef.current = chart)}
           />
+          {/* Only the kinds of point this chart draws, as the trend charts' flag key does. */}
           <Typography variant="caption" color="text.secondary" component="p">
-            <Box component="span" sx={{ color: '#0F347C' }}>
-              ●
-            </Box>{' '}
-            measurement{'   '}
-            <Box component="span" sx={{ color: 'primary.main' }}>
-              ○
-            </Box>{' '}
-            this visit{'   '}
-            <Box component="span" sx={{ color: 'error.main' }}>
-              ✕
-            </Box>{' '}
-            implausible
+            {[
+              { show: true, symbol: '●', color: POINT_COLOR, text: 'measurement' },
+              { show: drawn.thisVisit, symbol: '○', color: 'primary.main', text: 'this visit' },
+              { show: drawn.implausible, symbol: '✕', color: 'error.main', text: 'implausible' },
+              { show: drawn.offChart, symbol: '▲', color: 'error.main', text: 'implausible, off the chart' },
+            ]
+              .filter((entry) => entry.show)
+              .map((entry) => (
+                <span key={entry.text}>
+                  <Box component="span" sx={{ color: entry.color }}>
+                    {entry.symbol}
+                  </Box>{' '}
+                  {entry.text}
+                  {'   '}
+                </span>
+              ))}
           </Typography>
         </Box>
         {/* Wide enough for all five columns (weight @ length is the widest), else it wraps under the chart. */}

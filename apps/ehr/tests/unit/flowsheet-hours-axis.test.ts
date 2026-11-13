@@ -80,9 +80,14 @@ describe('trend chart y-axis: a small change does not fill the chart', () => {
     expect(yAxisBounds(chart('Heart rate'), 98, 102)).toEqual([80, 120]);
   });
 
-  it('labs and weight span at least ±10% of the middle value, rounded out', () => {
-    expect(yAxisBounds(chart('Creatinine'), 0.78, 0.82)).toEqual([0.72, 0.88]);
-    expect(yAxisBounds(chart('Weight'), 3.1, 3.3)).toEqual([2.88, 3.52]);
-    expect(yAxisBounds(chart('Creatinine'), 0.5, 1.5)).toEqual([0.5, 1.5]);
+  it('labs and weight span at least ±10% of the middle value; bounds are round numbers', () => {
+    expect(yAxisBounds(chart('Creatinine'), 0.78, 0.82)).toEqual([0.7, 0.9]);
+    expect(yAxisBounds(chart('Weight'), 3.1, 3.3)).toEqual([2.85, 3.55]);
+    expect(yAxisBounds(chart('Weight'), 3.13, 9.71)).toEqual([3, 10]);
+  });
+
+  it('values wider than the minimum get round bounds a step past any value on the frame', () => {
+    expect(yAxisBounds(chart('Blood pressure'), 43, 127)).toEqual([40, 130]);
+    expect(yAxisBounds(chart('Creatinine'), 0.5, 1.5)).toEqual([0, 2]);
   });
 });

@@ -17,7 +17,8 @@ import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 import { VitalsUnitInputRow } from '../components/VitalsUnitInputRow';
 import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
 import { useVitalsUnitInputOrder } from '../hooks/useVitalsUnitInputOrder';
-import { PairedMeasureState, useBirthHistoryLocalState } from './useBirthHistoryLocalState';
+import { PairedMeasureState } from '../usePairedMeasure';
+import { useBirthHistoryLocalState } from './useBirthHistoryLocalState';
 
 interface VitalsBirthHistoryCardProps {
   /** Collapsed until staff open it (patients 24 months and older); open otherwise. */
@@ -140,6 +141,7 @@ const BirthHistoryForm = ({
             label={metricUnit}
             value={measure.metricText}
             disabled={isSaving}
+            isInputError={measure.invalid}
             onChange={measure.handleMetricChange}
           />
         }
@@ -148,6 +150,7 @@ const BirthHistoryForm = ({
             label={imperialUnit}
             value={measure.imperialText}
             disabled={isSaving}
+            isInputError={measure.invalid}
             onChange={measure.handleImperialChange}
           />
         }
