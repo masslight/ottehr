@@ -185,8 +185,8 @@ describe('buildGrowthFlowsheet', () => {
     expect(whoVisit.values.weight.value).toBe(7.3);
     expect(whoVisit.values.height.value).toBe(65);
     expect(whoVisit.values.headCircumference.value).toBe(42);
-    expect(whoVisit.values.bmi.value).toBeCloseTo(7.3 / 0.65 ** 2, 10);
-    expect(whoVisit.values.bmi.time).toBe('2024-07-10T14:06:00.000Z');
+    // No BMI under 2 years; weight-for-length covers it.
+    expect(whoVisit.values.bmi).toBeUndefined();
     expect(whoVisit.values.weightPercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
     expect(whoVisit.values.heightPercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
     expect(whoVisit.values.headCircumferencePercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
@@ -198,6 +198,8 @@ describe('buildGrowthFlowsheet', () => {
 
     expect(cdcVisit.encounterId).toBe('e2');
     expect(cdcVisit.values.age.value).toBe('10 y');
+    expect(cdcVisit.values.bmi.value).toBeCloseTo(32 / 1.38 ** 2, 10);
+    expect(cdcVisit.values.bmi.time).toBe('2034-01-10T14:06:00.000Z');
     expect(cdcVisit.values.bmiPercentile.value).toMatch(/^(<1st|>99th|\d+(st|nd|rd|th))$/);
     // Head circumference is still shown after 24 months, without a percentile.
     expect(cdcVisit.values.headCircumference.value).toBe(52);
@@ -258,7 +260,8 @@ describe('buildGrowthFlowsheet', () => {
     ]) {
       const visit = buildGrowthFlowsheet(partial).visits[1];
       expect(visit.values.weight.value).toBe(7.3);
-      expect(visit.values.bmi).toBeDefined();
+      // Without an age BMI cannot be ruled out; with one, this 6-month visit gets none.
+      expect(visit.values.bmi === undefined).toBe(partial.birthDate === '2024-01-10');
       expect(Object.keys(visit.values).filter((key) => key.endsWith('Percentile'))).toEqual([]);
       expect(visit.values.age === undefined || partial.birthDate === '2024-01-10').toBe(true);
     }
@@ -273,7 +276,6 @@ describe('buildGrowthFlowsheet', () => {
     expect(twice.values.weight.value).toBe(7.5);
     expect(twice.values.weight.readings.map((r) => r.value)).toEqual([7.3, 7.5]);
     expect(twice.values.weightPercentile.readings).toHaveLength(2);
-    expect(twice.values.bmi.value).toBeCloseTo(7.5 / 0.65 ** 2, 10);
   });
 });
 
@@ -351,7 +353,7 @@ describe('growth chart data (the cards the EHR draws)', () => {
     expect(byChart['cdc-bmi']).toMatchObject({ encounterId: 'e2', age: '10 y' });
     expect(byChart['cdc-bmi'].y).toBeCloseTo(32 / 1.38 ** 2, 10);
     expect(typeof byChart['cdc-sfa'].z).toBe('number');
-    // The 10-year visit is outside birth to 24 months, the 6-month visit outside 2 to 20 years.
+    // The 10-year visit is outside birth to 24 months, the 6-month visit outside 2 to 20 years (it has no BMI).
     expect(growth!.outsideRange).toEqual({
       'who-wfa': 1,
       'who-lfa': 1,
@@ -359,7 +361,6 @@ describe('growth chart data (the cards the EHR draws)', () => {
       'who-hcfa': 1,
       'cdc-wfa': 1,
       'cdc-sfa': 1,
-      'cdc-bmi': 1,
     });
     // Every chart's LMS rows for the patient's sex, nothing else.
     expect(Object.keys(growth!.tables).sort()).toEqual(Object.keys(byChart).sort());

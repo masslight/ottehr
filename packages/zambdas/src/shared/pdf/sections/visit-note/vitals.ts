@@ -1,7 +1,9 @@
 import { mapVitalsToDisplay } from 'utils/lib/helpers/visit-note/map-vitals-to-display.helper';
 import { formatBirthHistoryNoteLines } from 'utils/lib/helpers/vitals/birth-history.helper';
+import { bmiAppliesAt } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { drawBlockHeader } from '../../helpers/render/blockHeader';
 import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
@@ -33,10 +35,16 @@ export const composeVitals: DataComposer<ProgressNoteVisitDataInput, Vitals> = (
   appointmentPackage,
 }) => {
   const { additionalChartData } = allChartData;
-  const { timezone } = appointmentPackage;
+  const { timezone, patient, appointment } = appointmentPackage;
 
+  // No BMI under 2 years, even one saved before the rule.
+  const bmiApplies = bmiAppliesAt(ageInMonthsOnDate(patient?.birthDate, appointment?.start));
   const vitalsData = additionalChartData?.vitalsObservations
-    ? mapVitalsToDisplay(additionalChartData.vitalsObservations, true, timezone)
+    ? mapVitalsToDisplay(
+        additionalChartData.vitalsObservations.filter((o) => bmiApplies || o.field !== VitalFieldNames.VitalBMI),
+        true,
+        timezone
+      )
     : undefined;
 
   const vitalsNotes = additionalChartData?.notes

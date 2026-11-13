@@ -21,6 +21,7 @@ import VitalsTemperaturesCard from 'src/features/visits/shared/components/vitals
 import VitalsVisionCard from 'src/features/visits/shared/components/vitals/vision/VitalsVisionCard';
 import VitalsWeightsCard from 'src/features/visits/shared/components/vitals/weights/VitalsWeightsCard';
 import { useMarkDraftNavigatedAway, useVitalsDraftStore } from 'src/state/draft-data.store';
+import { bmiAppliesAt } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { Loader } from '../../../shared/components/Loader';
 import { AbnormalVitalsModal } from '../../../shared/components/vitals/AbnormalVitalsModal';
@@ -117,12 +118,14 @@ export const PatientVitalsBody: FC = () => {
       <Box ref={vitals.refs.height}>
         <VitalsHeightCard field={vitals.fields.height} />
       </Box>
-      <VitalsBMICard
-        current={vitals.fields.bmi.current}
-        historical={vitals.fields.bmi.historical}
-        onDelete={vitals.fields.bmi.delete}
-        isWeightRefused={vitals.fields.weight.current[0]?.extraWeightOptions?.includes('patient_refused') ?? false}
-      />
+      {bmiAppliesAt(ageMonths) && (
+        <VitalsBMICard
+          current={vitals.fields.bmi.current}
+          historical={vitals.fields.bmi.historical}
+          onDelete={vitals.fields.bmi.delete}
+          isWeightRefused={vitals.fields.weight.current[0]?.extraWeightOptions?.includes('patient_refused') ?? false}
+        />
+      )}
       <Box ref={vitals.refs.headCircumference}>
         <VitalsHeadCircumferenceCard field={vitals.fields.headCircumference} />
       </Box>

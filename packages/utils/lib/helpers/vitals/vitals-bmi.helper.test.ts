@@ -1,10 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { areVitalsSameDay, BMI_DISPLAY_PRECISION, calculateBMI, formatBMI } from './vitals-bmi.helper';
+import { areVitalsSameDay, BMI_DISPLAY_PRECISION, bmiAppliesAt, calculateBMI, formatBMI } from './vitals-bmi.helper';
 
 describe('vitals-bmi.helper', () => {
   describe('BMI_DISPLAY_PRECISION', () => {
     it('is 1 decimal place', () => {
       expect(BMI_DISPLAY_PRECISION).toBe(1);
+    });
+  });
+
+  describe('bmiAppliesAt (no BMI under 2 years)', () => {
+    it('applies from 24 months, not under, and when the age is unknown', () => {
+      expect(bmiAppliesAt(23.9)).toBe(false);
+      expect(bmiAppliesAt(0)).toBe(false);
+      expect(bmiAppliesAt(24)).toBe(true);
+      expect(bmiAppliesAt(400)).toBe(true);
+      expect(bmiAppliesAt(undefined)).toBe(true);
     });
   });
 

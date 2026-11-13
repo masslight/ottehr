@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, it, vi } from 'vitest';
-import { cellOf, toColumns } from '../../src/features/flowsheets/components/Flowsheets';
+import { cellOf, toColumns, visibleRows } from '../../src/features/flowsheets/components/Flowsheets';
+import { FLOWSHEETS } from '../../src/features/flowsheets/registry';
 
 // The component imports the api client through its data hook; the formatting under test never calls it.
 vi.mock('src/api/api', () => ({}));
@@ -73,5 +74,25 @@ describe('flowsheet column labels', () => {
     expect(outside.url).toBeUndefined();
     expect(followUp.label).toMatch(/ \(follow-up\)$/);
     expect(plain.label).not.toMatch(/\(/);
+  });
+});
+
+describe('rows hidden when empty (no BMI under 2)', () => {
+  const growth = FLOWSHEETS.find((f) => f.id === 'growth')!;
+  const labels = (visits: FlowsheetVisit[]): string[] => visibleRows(growth, visits).map((row) => row.label);
+
+  it('drops the BMI rows when no visit has a BMI, keeps them once any visit does, and never drops other rows', () => {
+    const infant = visit({ weight: reading(7.3), height: reading(65), weightForLengthPercentile: reading('60th') });
+    expect(labels([infant])).not.toContain('BMI (kg/m²)');
+    expect(labels([infant])).not.toContain('BMI percentile');
+    expect(labels([infant])).toContain('Weight-for-length percentile');
+    expect(labels([infant])).toContain('Head circumference (cm)');
+    const child = visit({
+      weight: reading(32),
+      height: reading(138),
+      bmi: reading(16.8),
+      bmiPercentile: reading('55th'),
+    });
+    expect(labels([infant, child])).toEqual(growth.rows.map((row) => row.label));
   });
 });

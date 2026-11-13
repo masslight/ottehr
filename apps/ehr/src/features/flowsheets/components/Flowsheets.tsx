@@ -169,6 +169,10 @@ export const cellOf = (row: FlowsheetRow, visit: FlowsheetVisit): Cell => {
   return { text: format(readings), flag: worstFlag(readings.map((reading) => reading.flag)), history };
 };
 
+/** The definition's rows minus any hideWhenEmpty row no visit has a value for. */
+export const visibleRows = (definition: FlowsheetDefinition, visits: FlowsheetVisit[]): FlowsheetRow[] =>
+  definition.rows.filter((row) => !row.hideWhenEmpty || visits.some((visit) => cellOf(row, visit).text !== ''));
+
 const FlagMark = ({ flag }: { flag?: VitalAlertCriticality }): ReactElement | null => {
   const theme = useTheme();
   const sx = { ml: '4px', verticalAlign: 'middle' };
@@ -245,6 +249,7 @@ const FlowsheetBody = ({
 }): ReactElement => {
   const theme = useTheme();
   const columns = useMemo(() => toColumns(visits), [visits]);
+  const rows = useMemo(() => visibleRows(definition, visits), [definition, visits]);
   // The open visit's own (main) column; its follow-up columns are not it.
   const isCurrent = (visit: VisitColumn): boolean =>
     !!currentAppointmentId && visit.appointmentId === currentAppointmentId && !visit.isFollowUp;
@@ -327,7 +332,7 @@ const FlowsheetBody = ({
             </TableRow>
           </TableHead>
           <TableBody>
-            {definition.rows.map((row) => (
+            {rows.map((row) => (
               <TableRow key={row.label}>
                 <TableCell sx={{ ...pinned, fontWeight: 600 }}>{row.label}</TableCell>
                 {columns.map((visit, i) => {
