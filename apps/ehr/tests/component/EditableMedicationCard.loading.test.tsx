@@ -275,7 +275,6 @@ describe('EditableMedicationCard', () => {
       expect(useInHouseMedicationOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
     });
 
-    // The order form is sentences: the medication blank reads the picked medication's name, or "medication" when empty.
     it('populates form fields from the draft on mount', () => {
       useInHouseMedicationOrderStore.getState().setDraft(ENCOUNTER_ID, { medicationId: 'med-1' });
 
@@ -310,7 +309,7 @@ describe('EditableMedicationCard', () => {
 
   describe('save as quick pick', () => {
     beforeEach(() => {
-      currentUser.isAdmin = true; // only admins can save quick picks
+      currentUser.isAdmin = true;
       useInHouseMedicationOrderStore.setState({ draftsByEncounterId: {} });
       vi.clearAllMocks();
       getInHouseMedicationQuickPicks.mockResolvedValue({

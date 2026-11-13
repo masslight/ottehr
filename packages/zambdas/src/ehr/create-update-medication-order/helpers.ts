@@ -205,9 +205,8 @@ export async function getCptHcpcsCodesToAddToChartData(
 }
 
 /**
- * Keeps the stock ledger in step with the order after it was written (requirements 4 and 5). Best-effort by
- * design: administration is never blocked by inventory, so a failure here is logged and reported, never
- * thrown, mirroring manageAdditionalCptCodesForOrder.
+ * Best-effort by design: administration is never blocked by inventory, so a failure here is logged and
+ * reported, never thrown.
  */
 export async function syncInventoryForOrder(
   oystehr: Oystehr,

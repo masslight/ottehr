@@ -72,7 +72,6 @@ export class EditMedicationCard {
   async selectAssociatedDx(diagnosis: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ASSOCIATED_DX);
     await this.waitForLoadAssociatedDx();
-    // The order form shows a picked diagnosis as text with a remove button; the blank returns once it is removed.
     const remove = this.#page.getByTestId(dataTestId).getByRole('button', { name: /^Remove / });
     if (await remove.count()) await remove.click();
     await this.#page.getByTestId(dataTestId).click();
@@ -95,7 +94,6 @@ export class EditMedicationCard {
     const dataTestId = this.getDataTestId(Field.ORDERED_BY);
     await this.waitForLoadOrderedBy();
     await this.#page.getByTestId(dataTestId).click();
-    // The providers load after the page; the blank's list fills in once they have.
     await this.#page.getByRole('option').first().waitFor({ state: 'visible', timeout: 30_000 });
     const options = await this.#page.getByRole('option').all();
     for (const option of options) {
@@ -169,7 +167,6 @@ export class EditMedicationCard {
   async selectRoute(route: string): Promise<void> {
     const dataTestId = this.getDataTestId(Field.ROUTE);
     await this.#page.getByTestId(dataTestId).click();
-    // The order form's sentence already ends with "route", so its list drops the word ("Oral route" → "Oral").
     await this.chooseOption(route.replace(/\s+route$/i, ''), true);
   }
 

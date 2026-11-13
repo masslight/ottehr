@@ -321,8 +321,6 @@ describe('update-in-house-medication - performEffect', () => {
   });
 });
 
-// ─── update-in-house-medication: inventory setup ──────────────────────────────
-
 const inventory: InHouseMedicationInventory = {
   countedAs: 'vial',
   eachContains: { amount: 4, unit: 'mg', in: { amount: 2, unit: 'ml' } },

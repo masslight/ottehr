@@ -10,7 +10,6 @@ const CODE_SYSTEM_RXNORM = 'http://www.nlm.nih.gov/research/umls/rxnorm';
 
 export type NdcProduct = NonNullable<LookupNdcResponse['product']>;
 
-/** The subset of an openFDA NDC directory result this zambda reads. */
 export interface OpenFdaNdcResult {
   product_ndc?: string;
   generic_name?: string;
@@ -78,10 +77,6 @@ const toProduct = (result: OpenFdaNdcResult, candidates: string[]): NdcProduct =
   };
 };
 
-/**
- * Looks a package NDC up in the openFDA NDC directory. `undefined` means the directory has no such package.
- * Throws on timeout or any failure; the caller turns that into "lookup unavailable" so receiving is never blocked.
- */
 export async function fetchNdcProduct(candidates: string[]): Promise<NdcProduct | undefined> {
   if (candidates.length === 0) return undefined;
   const search = `packaging.package_ndc:(${candidates.map((ndc) => `"${ndc}"`).join(' OR ')})`;
@@ -97,19 +92,14 @@ export async function fetchNdcProduct(candidates: string[]): Promise<NdcProduct 
 // TODO(OTR-3339): catalog drugs have no RxNorm code yet, so compareNdcProduct falls back to matching names and
 // product NDCs. Once in-house medications are added through the terminology drug search (the eRx order form's
 // `searchMedications`, which returns each strength's RxCUI and NDC list), store the RxCUI on the catalog drug,
-// then remove ingredientWords, the name/product-NDC fallback below, `comparedBy: 'name'`, and the three
-// "compareNdcProduct" tests that cover it in test/unit/lookup-ndc.test.ts.
+// then remove ingredientWords, the name/product-NDC fallback below, `comparedBy: 'name'` and the tests that
+// cover it.
 const ingredientWords = (product: NdcProduct): string[] =>
   (product.genericName ?? '')
     .split(/,| and /i)
     .map((ingredient) => ingredient.trim().split(/\s+/)[0]?.toLowerCase())
     .filter((word): word is string => Boolean(word));
 
-/**
- * Whether the box is the catalog drug. By RxCUI when the catalog Medication carries an RxNorm coding and the
- * directory returned RxCUIs; otherwise by name: every active ingredient of the box (first word of each part
- * of the generic name) must appear in the catalog name, or the box's product NDC must equal the catalog's.
- */
 export const compareNdcProduct = (
   product: NdcProduct,
   catalog: Medication

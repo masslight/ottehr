@@ -36,8 +36,6 @@ vi.mock('utils/lib/fhir/getAllFhirSearchPages', () => ({
   getAllFhirSearchPages: vi.fn(async (params: any, oystehr: any) => oystehr.fhir.search(params).unbundle()),
 }));
 
-// ─── fixtures ─────────────────────────────────────────────────────────────────
-
 const singleUseVial: InHouseMedicationInventory = {
   countedAs: 'vial',
   eachContains: { amount: 4, unit: 'mg', in: { amount: 2, unit: 'ml' } },
@@ -110,7 +108,6 @@ const makeOrder = ({
   expirationDate?: string;
   dose?: number;
   units?: string;
-  /** Orders saved since the copy records its catalog drug carry this; older orders are matched by name. */
   catalogId?: string;
   inventoryLotId?: string;
 } = {}): MedicationAdministration => ({
@@ -175,7 +172,6 @@ type MockOystehr = Oystehr & {
   fhir: { get: ReturnType<typeof vi.fn>; search: ReturnType<typeof vi.fn>; transaction: ReturnType<typeof vi.fn> };
 };
 
-/** A FHIR store with one catalog drug, its lots at location A, and a ledger. */
 const makeMockOystehr = ({
   catalog = makeCatalog(singleUseVial),
   lots = [makeLot('lot-1', 'A123', 25)],
@@ -223,13 +219,10 @@ const makeMockOystehr = ({
   return { fhir: { get, search, transaction } } as unknown as MockOystehr;
 };
 
-/** The entry Observations posted across every transaction, in order. */
 const postedEntries = (oystehr: MockOystehr): Observation[] =>
   oystehr.fhir.transaction.mock.calls.flatMap(([{ requests }]: any) =>
     requests.filter((r: any) => r.method === 'POST' && r.url === '/Observation').map((r: any) => r.resource)
   );
-
-// ─── items and waste ──────────────────────────────────────────────────────────
 
 describe('stockTakenForDose', () => {
   it('takes one vial for a full single-use dose with no waste', () => {
@@ -264,8 +257,6 @@ describe('stockTakenForDose', () => {
     expect(stockTakenForDose(singleUseVial, 0, 'mg')).toBeUndefined();
   });
 });
-
-// ─── reconcile rule ───────────────────────────────────────────────────────────
 
 describe('planAdministrationStockChanges', () => {
   const administeredA = parsed(ledgerEntry('e-1', { quantity: -1 }, 2));
@@ -311,7 +302,6 @@ describe('planAdministrationStockChanges', () => {
   });
 
   it('adjusts by the difference on a dose change, as a change and not a delete', () => {
-    // 2 mg → 4 mg: still one vial, no waste any more
     const [reversal] = planAdministrationStockChanges({ lotId: 'lot-1', items: 1 }, [administeredA]);
     expect(reversal).toEqual({
       lotId: 'lot-1',
@@ -321,7 +311,6 @@ describe('planAdministrationStockChanges', () => {
       reversesEntryId: 'e-1',
     });
     expect(reversal.administrationDeleted).toBeUndefined();
-    // 2 mg → 6 mg: a second vial, same 2 mg waste
     expect(
       planAdministrationStockChanges({ lotId: 'lot-1', items: 2, waste: { amount: 2, unit: 'mg' } }, [administeredA])
     ).toEqual([{ lotId: 'lot-1', type: 'administered', quantity: -1 }]);
@@ -339,8 +328,6 @@ describe('planAdministrationStockChanges', () => {
     ).toEqual([{ lotId: 'lot-1', type: 'administered', quantity: -1, waste: { amount: 2, unit: 'mg' } }]);
   });
 });
-
-// ─── reconcileAdministrationStock ─────────────────────────────────────────────
 
 describe('reconcileAdministrationStock', () => {
   it('writes an administered entry linked to the order, performed by the caller, with the waste', async () => {
@@ -579,8 +566,6 @@ describe('reconcileAdministrationStock', () => {
   });
 });
 
-// ─── never block the administration ───────────────────────────────────────────
-
 describe('syncInventoryForOrder', () => {
   beforeEach(() => vi.mocked(captureException).mockClear());
 
@@ -695,8 +680,6 @@ describe('administrationStockChanged', () => {
     expect(administrationStockChanged(makeOrder(), makeOrder({ inventoryLotId: 'lot-1' }))).toBe(true);
   });
 });
-
-// ─── lots for the Lot field ───────────────────────────────────────────────────
 
 describe('get-medication-inventory with a location', () => {
   it('returns the lots on hand at the location, soonest expiration first, and none for an untracked drug', async () => {

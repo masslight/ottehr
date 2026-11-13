@@ -4,9 +4,6 @@ import { APIErrorCode, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
-// Every inventory endpoint resolves the caller's role before it touches FHIR: a signed-in user without a staff
-// role (e.g. a patient-portal account) gets NOT_AUTHORIZED and no search, read or write happens.
-
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 const { mockOystehr, mockRequireUserWithRole } = vi.hoisted(() => ({

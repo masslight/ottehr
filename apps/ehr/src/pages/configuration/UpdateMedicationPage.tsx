@@ -131,7 +131,6 @@ function toInventoryInput(form: InventoryFormState, locationIds: string[]): InHo
   };
 }
 
-// The Inventory heading's tooltip: what each setup field does.
 const INVENTORY_SETUP_HELP: { field: string; help: string }[] = [
   {
     field: 'Counting Unit',
@@ -157,7 +156,6 @@ const INVENTORY_SETUP_HELP: { field: string; help: string }[] = [
 
 export default function UpdateMedicationPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
-  // Staff reach this page to receive shipments; the catalog entry and inventory setup stay admin-tier.
   const canEditSetup = useEvolveUser()?.hasRole(ADMIN_TIER_ROLES) ?? false;
   const medicationId = useParams()['medication-id'];
   const [loading, setLoading] = useState<boolean>(false);

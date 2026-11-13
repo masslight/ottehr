@@ -12,7 +12,7 @@ const formCoding = (code: string): Location['extension'] => [
 ];
 
 const locations: Location[] = [
-  { resourceType: 'Location', id: 'legacy', name: 'Legacy Clinic' }, // no coding: treated as in-person
+  { resourceType: 'Location', id: 'legacy', name: 'Legacy Clinic' },
   {
     resourceType: 'Location',
     id: 'clinic',
@@ -39,7 +39,7 @@ describe('list-active-locations - performEffect', () => {
     const { locations: result } = await performEffect(oystehr, {});
 
     expect(result.map((l) => l.id)).toEqual(['legacy', 'clinic', 'virtual', 'both']);
-    expect(result.find((l) => l.id === 'both')?.name).toBe('both'); // name falls back to id
+    expect(result.find((l) => l.id === 'both')?.name).toBe('both');
     const [{ params }] = vi.mocked(getAllFhirSearchPages).mock.calls[0];
     expect(params).toContainEqual({ name: 'status', value: 'active' });
     expect(params).toContainEqual({ name: '_elements', value: 'id,name' });

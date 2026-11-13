@@ -148,7 +148,6 @@ export const EditableMedicationCard: React.FC<{
   const [isDeleting, setIsDeleting] = useState(false);
   const isSavedRef = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  // Marking administered with an expired lot (picked or typed) asks first; holds the save to continue with.
   const [expiredLotPrompt, setExpiredLotPrompt] = useState<{ lotNumber: string; expDate: string } | null>(null);
   const pendingSaveRef = useRef<UpdateMedicationOrderInput | null>(null);
 
@@ -613,9 +612,8 @@ export const EditableMedicationCard: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Lot suggestions (requirement 3): the order's catalog drug at the visit's location. An existing order's
-  // medicationId is the contained-copy sentinel, so the catalog drug is the one the copy records, or found by name
-  // for orders saved before the copy recorded it, as quick picks do.
+  // An existing order's medicationId is the contained-copy sentinel, so the catalog drug is the one the copy
+  // records, or found by name for orders saved before the copy recorded it, as quick picks do.
   const medicationIdValue = getFieldValue('medicationId');
   const catalogMedicationId =
     medicationIdValue && medicationIdValue !== IN_HOUSE_CONTAINED_MEDICATION_ID
@@ -643,7 +641,6 @@ export const EditableMedicationCard: React.FC<{
     [setLocalValues]
   );
 
-  // Administer mode starts on the soonest-expiring unexpired lot when no lot is filled in yet.
   const lotPreselectedRef = useRef(false);
   const hasLotValue = Boolean(getFieldValue('lotNumber'));
   useEffect(() => {

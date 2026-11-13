@@ -35,10 +35,6 @@ import {
 import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
 
-// Writes to the stock ledger. The FHIR shapes (and why they are Medication + Observation) live in
-// utils/lib/fhir/medication-inventory.ts; this module owns the searches and the one-transaction write rule:
-// every entry is created together with the lot's recomputed on-hand cache, under an If-Match on the lot.
-
 const INVENTORY_CATEGORY_PARAM = `${INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM}|${INVENTORY_STOCK_ENTRY_CODE}`;
 
 interface InventoryLotKey {
@@ -47,7 +43,6 @@ interface InventoryLotKey {
   lotNumber: string;
 }
 
-/** Every lot of `catalogMedicationId` at `locationId` with this lot number (one per expiration date). */
 export async function findInventoryLotsByNumber(
   oystehr: Oystehr,
   { catalogMedicationId, locationId, lotNumber }: InventoryLotKey
@@ -62,11 +57,9 @@ export async function findInventoryLotsByNumber(
       ],
     })
   ).unbundle();
-  // lot-number is a string search (prefix, case-insensitive); keep only the exact number
   return lots.filter((lot) => isInventoryLot(lot) && lot.batch?.lotNumber === lotNumber);
 }
 
-/** Lots of `catalogMedicationId` with stock on hand at `locationId`, soonest expiration first (the MAR Lot field). */
 export async function getInventoryLotsOnHand(
   oystehr: Oystehr,
   { catalogMedicationId, locationId }: { catalogMedicationId: string; locationId: string }
@@ -97,7 +90,6 @@ const lotEntrySearchParams = (lotId: string): { name: string; value: string }[] 
   { name: '_sort', value: 'date' },
 ];
 
-/** Every ledger entry of a lot, oldest first. */
 export async function getInventoryLotEntries(oystehr: Oystehr, lotId: string): Promise<Observation[]> {
   return getAllFhirSearchPages<Observation>(
     { resourceType: 'Observation', params: lotEntrySearchParams(lotId) },
@@ -105,10 +97,6 @@ export async function getInventoryLotEntries(oystehr: Oystehr, lotId: string): P
   );
 }
 
-/**
- * A lot's ledger plus, in the same search, who made each entry and, for administrations, the order with its
- * visit and patient (the ad hoc inventory dataset reads the ledger the same way).
- */
 export async function getInventoryLotHistoryResources(oystehr: Oystehr, lotId: string): Promise<FhirResource[]> {
   return getAllFhirSearchPages<FhirResource>(
     {
@@ -135,7 +123,7 @@ export type StockEntryWrite = Omit<InventoryStockEntryInput, 'lotReference'>;
  * does not exist yet (created in the same bundle; the entry references it by transaction-local urn).
  * On hand is recomputed from every entry of the lot plus these, never incremented. `reviseLot` changes
  * other lot fields (e.g. `batch.expirationDate`) in the same write; it is applied to whichever version of
- * the lot is written, so a retry from a fresh read keeps the change.
+ * an existing lot is written, so a retry from a fresh read keeps the change.
  */
 export async function writeInventoryStockEntry(
   oystehr: Oystehr,
@@ -214,7 +202,6 @@ export async function writeInventoryStockEntry(
   );
 }
 
-/** What the ledger already took off for an administration, oldest first. */
 async function getAdministrationStockEntries(
   oystehr: Oystehr,
   medicationAdministrationId: string
@@ -247,7 +234,6 @@ async function findCatalogMedicationByName(oystehr: Oystehr, name: string): Prom
   return medications.find(isCatalogMedication);
 }
 
-/** The catalog drug of an order's contained Medication copy: by the catalog id it carries, else by name. */
 async function findOrderCatalogMedication(
   oystehr: Oystehr,
   contained: Medication,
@@ -336,11 +322,6 @@ export const administrationStockChanged = (
   after: MedicationAdministration
 ): boolean => administrationStockBasis(before) !== administrationStockBasis(after);
 
-/**
- * Brings the stock ledger in line with an administration (requirements 4 and 5): writes the difference
- * between what the order should have taken off and what its entries already took off, per lot. Call after
- * every save and delete of an order; a no-op for untracked drugs, typed lots and orders not administered.
- */
 export async function reconcileAdministrationStock(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,
@@ -402,7 +383,6 @@ export async function reconcileAdministrationStock(
   }
 }
 
-/** The lot of a drug (any location) whose "received" entry is newest, for prefilling the next receipt. */
 export async function getLastReceivedLot(
   oystehr: Oystehr,
   catalogMedicationId: string

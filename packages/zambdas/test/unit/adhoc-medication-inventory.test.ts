@@ -35,10 +35,6 @@ import {
   medicationInventorySearchParams,
 } from '../../src/shared/adhoc-datasets/medication-inventory';
 
-// The fetch+map pipeline runs against a stubbed Oystehr client returning one lot's ledger with its
-// included lot, location, performer and visit; the mapped rows must parse with the endpoint's own Output
-// schema — the same schema the runtime validation uses.
-
 const inventory: InHouseMedicationInventory = {
   countedAs: 'vial',
   eachContains: { amount: 4, unit: 'mg', in: { amount: 2, unit: 'ml' } },
@@ -234,7 +230,6 @@ describe('medication inventory dataset', () => {
       patientName: '',
     });
 
-    // administered at a visit, with the unused part of the vial recorded as waste
     expect(rows[1]).toMatchObject({
       entryType: 'administered',
       reason: 'partial-dose-waste',
@@ -246,14 +241,12 @@ describe('medication inventory dataset', () => {
       patientName: 'Maya Patel',
     });
 
-    // adjustment with a reason
     expect(rows[2]).toMatchObject({
       entryType: 'adjustment',
       reason: 'broken-container',
       quantity: -1,
     });
 
-    // a count that matched the shelf
     expect(rows[3]).toMatchObject({ entryType: 'count', reason: 'no-difference', quantity: 0 });
   });
 

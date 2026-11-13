@@ -36,7 +36,6 @@ interface AdjustStockDialogProps {
   locationName: string;
 }
 
-/** Adjust a lot up or down with a reason (requirement 6). */
 export default function AdjustStockDialog({
   open,
   onClose,

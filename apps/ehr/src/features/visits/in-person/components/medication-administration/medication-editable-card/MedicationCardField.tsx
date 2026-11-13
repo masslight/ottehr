@@ -39,7 +39,6 @@ type MedicationLocation = NonNullable<MedicationData['location']>;
 export const POPULAR_SEPARATOR = 'popular-separator';
 export const OTHER_SEPARATOR = 'other-separator';
 
-/** Lots of the order's drug on hand at the visit's location (requirement 3); only for drugs set up for inventory. */
 export interface InventoryLotSuggestions {
   lots: InventoryLot[];
   locationName?: string;
@@ -79,7 +78,6 @@ interface MedicationCardFieldProps {
   selectsOptions: OrderFieldsSelectsOptions;
   renderValue?: string;
   inventoryLots?: InventoryLotSuggestions;
-  /** A lot was picked from the suggestions (or typed exactly); fills expiration, NDC and manufacturer too. */
   onInventoryLotPick?: (lot: InventoryLot) => void;
 }
 
@@ -142,7 +140,6 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
           inputValue={text}
           getOptionLabel={(option) => (typeof option === 'string' ? option : option.lot.lotNumber)}
           getOptionKey={(option) => (typeof option === 'string' ? option : option.lot.id)}
-          // Show every lot until the typed text narrows it; a typed listed lot keeps the whole list visible.
           filterOptions={(all, { inputValue }) => {
             const search = inputValue.trim().toLowerCase();
             if (!search || findLot(inputValue)) return all;

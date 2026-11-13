@@ -34,7 +34,6 @@ export const index = wrapHandler(
     const { medicationID, status, name, ndc, medispanID, medispanIDForInteractions, inventory, secrets } =
       validateRequestParameters(input);
 
-    // Catalog edits (name, codes, status, inventory setup) are admin-tier.
     await requireUserWithRole(getUserToken(input), secrets, ADMIN_TIER_ROLES);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
@@ -141,7 +140,6 @@ export const performEffect = async (
     }
   }
 
-  // Rebuild /extension as a single op for the same reason as /code/coding above.
   if (inventory !== undefined) {
     const existingInventory = getMedicationInventoryConfig(medication);
     if (inventory && inventory.countedAs !== existingInventory?.countedAs) {

@@ -267,7 +267,6 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
     return parts.join(', ');
   };
 
-  // The order form's medication menu lists the same quick picks the Quick Picks field offered, FHIR ones first.
   const menuQuickPicks: QuickPickMenuItem[] = showFhirQuickPicks
     ? (fhirQuickPicks ?? []).map((quickPick) => ({
         key: quickPick.id ?? quickPick.name,

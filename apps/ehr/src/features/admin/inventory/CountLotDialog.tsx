@@ -17,7 +17,6 @@ interface CountLotDialogProps {
   locationName: string;
 }
 
-/** Count what is on the shelf; the difference from what Ottehr expects is recorded (requirement 6). */
 export default function CountLotDialog({
   open,
   onClose,

@@ -8,7 +8,6 @@ export interface CreateInHouseMedicationInput {
   medispanIDForInteractions?: string;
 }
 
-/** The thing staff count on the shelf for a drug. */
 export const MEDICATION_COUNTED_AS_OPTIONS = [
   'vial',
   'ampule',
@@ -37,7 +36,6 @@ export const MEDICATION_COUNTED_AS_LABELS: Record<MedicationCountedAs, { singula
   other: { singular: 'Other', plural: 'items' },
 };
 
-/** Whether one counted item can serve more than one patient. */
 export const MEDICATION_USE_OPTIONS = ['single-use', 'multi-use'] as const;
 export type MedicationUse = (typeof MEDICATION_USE_OPTIONS)[number];
 export const MEDICATION_USE_LABELS: Record<MedicationUse, string> = {
@@ -55,13 +53,10 @@ const MedicationAmountSchema = z.object({
   unit: z.enum(MEDICATION_UNIT_VALUES),
 });
 
-/** A drug's inventory setup. A drug without one is not tracked and its medication card works as today. */
 export const InHouseMedicationInventorySchema = z.object({
   countedAs: z.enum(MEDICATION_COUNTED_AS_OPTIONS),
-  /** How much drug is in one counted item, in dose units; `in` is the volume it comes in (4 mg in 2 ml). */
   eachContains: MedicationAmountSchema.extend({ in: MedicationAmountSchema.optional() }),
   use: z.enum(MEDICATION_USE_OPTIONS),
-  /** One entry per in-person Location that has a reorder level; a location without one has none. */
   reorderLevels: z
     .array(z.object({ locationId: z.string().min(1), level: z.number().int().nonnegative() }))
     .default([]),
@@ -75,9 +70,6 @@ export type UpdateInHouseMedicationInput = Partial<CreateInHouseMedicationInput>
   inventory?: InHouseMedicationInventory | null;
 };
 
-// ─── Lots and stock entries (OTR-3339) ────────────────────────────────────────
-
-/** What a stock entry is. `code.coding[0]` on the entry; the MAR, adjustments and counts reuse these. */
 export const INVENTORY_ENTRY_TYPES = [
   'received',
   'administered',
@@ -87,7 +79,6 @@ export const INVENTORY_ENTRY_TYPES = [
 ] as const;
 export type InventoryEntryType = (typeof INVENTORY_ENTRY_TYPES)[number];
 
-/** Why stock changed. `code.coding[1]` on the entry; the list from the requirements so every slice uses one system. */
 export const INVENTORY_ENTRY_REASONS = [
   'partial-dose-waste',
   'expired',
@@ -122,11 +113,9 @@ export const INVENTORY_ENTRY_REASON_LABELS: Record<InventoryEntryReason, string>
   'expiration-corrected': 'Expiration corrected',
 };
 
-/** Extra numbers on an entry: the wasted dose on an administration, the shelf count on a count. */
 export const INVENTORY_ENTRY_COMPONENTS = ['waste-amount', 'counted'] as const;
 export type InventoryEntryComponent = (typeof INVENTORY_ENTRY_COMPONENTS)[number];
 
-/** One lot of one drug at one location, as the UI sees it. */
 export interface InventoryLot {
   id: string;
   catalogMedicationId: string;
@@ -141,7 +130,6 @@ export interface InventoryLot {
   status: 'active' | 'inactive';
 }
 
-/** One stock change, as the UI sees it. `quantity` is signed, in the lot's unit. */
 export interface InventoryStockEntry {
   id: string;
   lotId: string;
@@ -156,15 +144,12 @@ export interface InventoryStockEntry {
   reversesEntryId?: string;
   note?: string;
   components?: { code: InventoryEntryComponent; value: number; unit: string }[];
-  /** On a received entry: the vendor of that shipment (the lot keeps only the latest). */
   vendor?: string;
-  /** On an administration-reversed entry: the order was deleted; absent, it was changed. */
   administrationDeleted?: true;
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Receiving a shipment (requirement 2). */
 export const ReceiveMedicationShipmentInputSchema = z.object({
   medicationId: z.string().uuid(),
   locationId: z.string().uuid(),
@@ -174,10 +159,6 @@ export const ReceiveMedicationShipmentInputSchema = z.object({
   ndc: z.string().trim().min(1),
   manufacturer: z.string().trim().min(1).optional(),
   vendor: z.string().trim().min(1).optional(),
-  /**
-   * What to do when this lot number is already on hand at the location with a different expiration date. Without
-   * it the zambda writes nothing and answers with `expirationConflict` so staff can choose.
-   */
   expirationConflict: z.enum(['separate-lot', 'correct-existing']).optional(),
   lotId: z.string().uuid().optional(),
 });
@@ -188,7 +169,6 @@ export interface InventoryStockWriteResponse {
   entry: InventoryStockEntry;
 }
 
-/** The lot that already carries this number at the location, when its expiration date differs from the one entered. */
 export interface ReceiveExpirationConflict {
   lotId: string;
   expirationDate: string;
@@ -206,11 +186,9 @@ export const LookupNdcInputSchema = z.object({
 });
 export type LookupNdcInput = z.infer<typeof LookupNdcInputSchema>;
 
-/** What the FDA NDC directory says a box is. `unavailable` means the lookup failed; receiving still works. */
 export interface LookupNdcResponse {
   status: 'match' | 'mismatch' | 'not-found' | 'unavailable';
   product?: {
-    /** Package NDC as the directory spells it (hyphenated 10-digit). */
     packageNdc: string;
     name: string;
     genericName?: string;
@@ -219,27 +197,20 @@ export interface LookupNdcResponse {
     packageDescription?: string;
     rxcuis: string[];
   };
-  /** How match/mismatch was decided: RxCUI when both sides have one, otherwise generic name. */
   comparedBy?: 'rxcui' | 'name';
 }
 
 export const GetMedicationInventoryInputSchema = z.object({
   medicationId: z.string().uuid(),
-  /** With a location: the drug's lots on hand there (for the MAR Lot field) instead of the last lot received. */
   locationId: z.string().uuid().optional(),
 });
 export type GetMedicationInventoryInput = z.infer<typeof GetMedicationInventoryInputSchema>;
 
 export interface GetMedicationInventoryResponse {
-  /** The lot of this drug (any location) with the newest "received" entry; prefills the receive dialog. */
   lastReceivedLot?: Pick<InventoryLot, 'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'vendor'>;
-  /** With `locationId`: lots with stock on hand at that location, soonest expiration first. Absent for an untracked drug. */
   lots?: InventoryLot[];
 }
 
-// ─── Inventory screen, adjustments and counts (requirements 6 and 7) ──────────
-
-/** The reasons staff can pick when adjusting a lot by hand (requirement 6). Counts and the MAR use the rest. */
 export const INVENTORY_ADJUSTMENT_REASONS = [
   'expired',
   'temperature-excursion',
@@ -254,10 +225,8 @@ export const INVENTORY_ADJUSTMENT_REASONS = [
 ] as const satisfies readonly InventoryEntryReason[];
 export type InventoryAdjustmentReason = (typeof INVENTORY_ADJUSTMENT_REASONS)[number];
 
-/** A lot comes within this many days of its expiration date: "expiring". */
 export const INVENTORY_EXPIRING_SOON_DAYS = 30;
 
-/** What the inventory screen marks (requirement 7). `low` is on hand below the location's reorder level. */
 export type InventoryMarker = 'low' | 'expiring' | 'expired' | 'below-zero';
 export const INVENTORY_MARKER_LABELS: Record<InventoryMarker, string> = {
   low: 'Low',
@@ -276,13 +245,11 @@ export const ListMedicationInventoryInputSchema = z.discriminatedUnion('view', [
 ]);
 export type ListMedicationInventoryInput = z.infer<typeof ListMedicationInventoryInputSchema>;
 
-/** One location's line under a drug in the all-locations view. */
 export interface InventoryLocationLine {
   locationId: string;
   locationName: string;
   onHand: number;
   reorderLevel?: number;
-  /** Among the location's lots with stock on hand. */
   earliestExpiration?: string;
   markers: InventoryMarker[];
 }
@@ -291,17 +258,13 @@ export interface InventoryLotRow extends InventoryLot {
   markers: InventoryMarker[];
 }
 
-/** One tracked drug on the inventory screen. `locations` is filled in the all-locations view, `lots` in the location view. */
 export interface InventoryDrugRow {
   medicationId: string;
   name: string;
   countedAs: MedicationCountedAs;
   use: MedicationUse;
-  /** Total across the locations (or lots) shown. */
   onHand: number;
-  /** Among lots with stock on hand. */
   earliestExpiration?: string;
-  /** The location's reorder level (location view only). */
   reorderLevel?: number;
   locationsBelowReorderLevel: number;
   locationsWithReorderLevel: number;
@@ -310,22 +273,17 @@ export interface InventoryDrugRow {
   lots: InventoryLotRow[];
 }
 
-/** One stock history line. Newest first; `onHandAfter` is the running total after this entry. */
 export interface InventoryHistoryEntry extends InventoryStockEntry {
   onHandAfter: number;
   performerName?: string;
-  /** The visit the entry came from, when it has a MedicationAdministration. */
   visit?: { appointmentId?: string; patientName?: string; date?: string };
 }
 
 export interface ListMedicationInventoryResponse {
-  /** Location and all-locations views. Sorted by medication name. */
   drugs: InventoryDrugRow[];
-  /** Lot-history view. */
   entries: InventoryHistoryEntry[];
 }
 
-/** Adjusting a lot up or down with a reason, or counting what is on the shelf (requirement 6). */
 export const AdjustMedicationInventoryInputSchema = z
   .discriminatedUnion('action', [
     z.object({
@@ -339,7 +297,6 @@ export const AdjustMedicationInventoryInputSchema = z
     z.object({
       action: z.literal('count'),
       lotId: z.string().uuid(),
-      /** Items on the shelf; multi-use items are counted as containers. */
       counted: z.number().int().nonnegative(),
     }),
   ])

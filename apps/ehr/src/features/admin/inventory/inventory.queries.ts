@@ -10,7 +10,6 @@ import {
 
 export const INVENTORY_QUERY_KEY = 'medication-inventory';
 
-/** The inventory screen for one location or all of them; `undefined` waits until the view is known. */
 export const useMedicationInventory = (
   view: ListMedicationInventoryInput | undefined
 ): UseQueryResult<ListMedicationInventoryResponse, Error> => {
@@ -22,11 +21,9 @@ export const useMedicationInventory = (
   });
 };
 
-/** One lot's stock history. */
 export const useLotHistory = (lotId: string): UseQueryResult<ListMedicationInventoryResponse, Error> =>
   useMedicationInventory({ view: 'lot-history', lotId });
 
-/** Lots of a catalog drug with stock on hand at the visit's location, for the Lot field's suggestions. */
 export const useInventoryLotsOnHand = ({
   catalogMedicationId,
   locationId,
@@ -50,7 +47,6 @@ export const useInventoryLotsOnHand = ({
   });
 };
 
-/** The lot of a drug last received at any location, for prefilling the next receipt; `null` before the first. */
 export const useLastReceivedLot = (
   medicationId: string
 ): UseQueryResult<GetMedicationInventoryResponse['lastReceivedLot'] | null> => {

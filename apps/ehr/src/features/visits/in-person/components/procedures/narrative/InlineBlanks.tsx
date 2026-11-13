@@ -47,7 +47,6 @@ import { sentenceValue } from './sentenceValue';
 export interface BlankOption {
   value: string;
   label: string;
-  /** Options sharing a group get one subheader above them, in list order. */
   group?: string;
 }
 
@@ -168,9 +167,7 @@ export const BlankButton: FC<BlankButtonProps> = ({
 interface PopoverBlankProps extends Omit<BlankButtonProps, 'onClick'> {
   /** Popover heading; defaults to the blank's label. */
   title?: string;
-  /** Hides the heading, for content with a labelled field of its own; the title still names the dialog. */
   hideTitle?: boolean;
-  /** For content that needs more room than the usual popover. */
   paperSx?: SxProps<Theme>;
   children: (close: () => void) => ReactNode;
   onClose?: () => void;
@@ -346,11 +343,9 @@ interface SelectBlankProps {
   need?: boolean;
   /** Offers "Clear" at the end of the list, as the old dropdown's clear button did. */
   clearable?: boolean;
-  /** Shown in the popover when there is nothing to pick. */
   emptyText?: string;
   dataTestId?: string;
   helperText?: string;
-  /** Shows the picked option as the list does, not lower-cased for running prose (names, units). */
   verbatim?: boolean;
 }
 

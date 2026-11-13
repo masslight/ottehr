@@ -61,7 +61,6 @@ export const CHART_DOCUMENT_ROLES: RoleType[] = [
   RoleType.Staff,
 ];
 
-/** Roles allowed to receive, adjust, count and view in-house medication stock (OTR-3339). Setup stays admin-tier. */
 export const INVENTORY_STAFF_ROLES: RoleType[] = [
   RoleType.Administrator,
   RoleType.CustomerSupport,

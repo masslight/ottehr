@@ -16,7 +16,6 @@ const REASON_DESCRIPTION = INVENTORY_ENTRY_REASONS.map(
 ).join('; ');
 
 export const MedicationInventoryBaseRowSchema = z.object({
-  // --- Entry ---
   entryId: z.string().describe('Stock entry id (internal — dedupe).'),
   date: z.string().nullable().describe('Viewer-local day of the entry (yyyy-MM-dd); day-level companion of dateTime.'),
   dateTime: z
@@ -61,7 +60,6 @@ export const MedicationInventoryBaseRowSchema = z.object({
   wasteUnit: z.string().describe('Unit of wasteAmount (mg, ml …). "" when no waste.'),
   performer: z.string().describe('Staff member who made the entry (full name). "" when unknown.'),
   performerId: z.string().describe('Performer id (internal — joins).'),
-  // --- Location / lot ---
   location: z.string().describe('Location name the lot is kept at.'),
   locationId: z.string().describe('Location id (internal — joins).'),
   medication: z.string().describe('Medication name as listed in the in-house medication catalog.'),
@@ -85,7 +83,6 @@ export const MedicationInventoryBaseRowSchema = z.object({
         'lot. For expiring stock take one row per lotId (a lot appears only when it had an entry in range), keep ' +
         'lotOnHand > 0 and filter by expirationDate. Null when the lot could not be read.'
     ),
-  // --- Visit (administrations only) ---
   appointmentId: z
     .string()
     .nullable()
@@ -94,7 +91,6 @@ export const MedicationInventoryBaseRowSchema = z.object({
   patientName: z.string().describe('Patient full name for a visit-linked entry. "" otherwise.'),
 });
 
-// Typed as keys of the row so a field that isn't in the schema is a compile error.
 export const MEDICATION_INVENTORY_INTERNAL_FIELDS: readonly (keyof AdHocMedicationInventoryRow)[] = [
   'entryId',
   'performerId',
@@ -103,9 +99,6 @@ export const MEDICATION_INVENTORY_INTERNAL_FIELDS: readonly (keyof AdHocMedicati
   'lotId',
 ];
 
-// Per-field opt-in value domain (see ENCOUNTER_DOMAIN_FIELDS for the policy): the low-cardinality
-// categoricals a report filters or groups by. Excludes identifiers (lot numbers, NDCs), names,
-// free text and every numeric/date field. entryType and reason are z.enum already.
 export const MEDICATION_INVENTORY_DOMAIN_FIELDS: readonly (keyof AdHocMedicationInventoryRow)[] = [
   'location',
   'medication',

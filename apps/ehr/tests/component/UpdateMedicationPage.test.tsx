@@ -26,7 +26,6 @@ vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: vi.fn(),
 }));
 
-// Editing a catalog medication is limited to admin-tier roles.
 vi.mock('src/hooks/useEvolveUser', () => ({
   default: () => ({ hasRole: () => true }),
 }));

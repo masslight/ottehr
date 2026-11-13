@@ -23,7 +23,6 @@ import { getExtension, getTag } from './helpers';
 import { getMedicationName } from './medication-administration';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
 
-/** On an in-house Medication: its inventory setup. Absent means the drug is not tracked. */
 export const MEDICATION_INVENTORY_EXTENSION_URL = ottehrExtensionUrl('medication-inventory');
 
 const COUNTED_AS = 'counted-as';
@@ -61,7 +60,6 @@ export const makeMedicationInventoryExtension = (inventory: InHouseMedicationInv
   ],
 });
 
-/** The inventory setup on a Medication, or undefined when it has none (or an unreadable one). */
 export const getMedicationInventoryConfig = (medication: Medication): InHouseMedicationInventory | undefined => {
   const root = getExtension(medication, MEDICATION_INVENTORY_EXTENSION_URL);
   if (!root) return undefined;
@@ -83,30 +81,23 @@ export const getMedicationInventoryConfig = (medication: Medication): InHouseMed
   return parsed.success ? parsed.data : undefined;
 };
 
-// ─── Lots and stock entries ───────────────────────────────────────────────────
-//
-// A lot is one Medication per drug × location × lot number × expiration date (batch holds lot number and
-// expiration, both searchable; the same number can be on hand twice when a shipment arrived with a different
-// date and staff chose to keep it separate). Every stock change is an Observation whose subject is the lot: Observation was chosen over
-// Basic because Oystehr searches only standard parameters, and Observation has one for everything the
-// inventory screens and reports filter on (subject, focus, part-of, derived-from, date, code,
-// category, performer, value-quantity). See documents/otr-3339-fhir-inventory-modeling.md, "Decision".
+// A lot is one Medication per drug × location × lot number × expiration date (the same number can be on hand
+// twice when a shipment arrived with a different date and staff chose to keep it separate). Every stock change
+// is an Observation whose subject is the lot: Observation was chosen over Basic because Oystehr searches only
+// standard parameters, and Observation has one for everything the inventory screens and reports filter on.
 // Entries are append-only and never carry `encounter` or a Patient subject; on hand is the sum of their
 // signed values, cached on the lot and recomputed (never incremented) on every write.
 
 /** Marks a Medication as a lot. Its value must never be the catalog's `virtual-medication-inventory`. */
 export const INVENTORY_LOT_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('inventory-lot');
 export const INVENTORY_LOT_IDENTIFIER_VALUE = 'inventory-lot';
-/** Names the catalog drug the lot belongs to (value = catalog Medication id). */
 export const INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('inventory-lot-drug');
-/** meta.tag naming the location (code = Location id) so lots can be searched per location. */
 export const INVENTORY_LOT_LOCATION_TAG_SYSTEM = ottehrCodeSystemUrl('inventory-lot-location');
 const INVENTORY_LOT_EXTENSION_URL = ottehrExtensionUrl('inventory-lot');
 const LOT_LOCATION = 'location';
 const LOT_VENDOR = 'vendor';
 const LOT_ON_HAND = 'on-hand';
 
-/** Entry details: a receipt's vendor (same sub-extension url as the lot's); on a reversal, that the order was deleted. */
 const INVENTORY_STOCK_ENTRY_EXTENSION_URL = ottehrExtensionUrl('inventory-stock-entry');
 const ENTRY_ADMINISTRATION_DELETED = 'administration-deleted';
 
@@ -128,7 +119,6 @@ export const isCatalogMedication = (medication: Medication): boolean =>
     (identifier) => identifier.system === MEDICATION_TYPE_SYSTEM && identifier.value === INVENTORY_MEDICATION_TYPE_CODE
   ) ?? false;
 
-/** The catalog drug an order's contained Medication copy was made from; orders saved before it was recorded have none. */
 export const getOrderCatalogMedicationId = (contained: Medication | undefined): string | undefined =>
   contained?.identifier?.find((identifier) => identifier.system === MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM)?.value;
 
@@ -143,7 +133,6 @@ export interface InventoryLotInput {
   ndc: string;
   manufacturer?: string;
   vendor?: string;
-  /** The drug's stock unit: counted-as items. */
   unit: string;
 }
 
@@ -159,11 +148,6 @@ const makeLotExtension = (
   ],
 });
 
-/**
- * A new lot of `catalog` with nothing on hand yet. Copies the catalog codings (so the claim path that reads
- * the NDC from a contained Medication copy keeps working) and replaces the catalog's representative NDC with
- * the one from the box.
- */
 export const makeInventoryLot = (catalog: Medication & { id: string }, input: InventoryLotInput): Medication => {
   const codings: Coding[] = [
     ...(catalog.code?.coding ?? []).filter((coding) => coding.system !== CODE_SYSTEM_NDC),
@@ -219,13 +203,11 @@ const replaceLotExtension = (lot: Medication, details: { vendor?: string }, onHa
   };
 };
 
-/** The lot with its on-hand cache replaced and status derived from it (active while on hand ≠ 0). */
 export const withLotOnHand = (lot: Medication, onHand: number): Medication => ({
   ...replaceLotExtension(lot, {}, onHand),
   status: onHand === 0 ? 'inactive' : 'active',
 });
 
-/** The lot's vendor replaced; passed as undefined it is kept. */
 export const withLotDetails = (lot: Medication, details: { vendor?: string }): Medication =>
   replaceLotExtension(lot, details, readLotExtension(lot)?.onHand ?? 0);
 
@@ -253,7 +235,6 @@ export const parseInventoryLot = (lot: Medication): InventoryLot | undefined => 
 };
 
 export type InventoryStockEntryInput = Omit<InventoryStockEntry, 'id' | 'lotId'> & {
-  /** `Medication/{id}`, or the transaction-local `urn:uuid:` of a lot created in the same bundle. */
   lotReference: string;
 };
 
@@ -357,19 +338,15 @@ export const parseInventoryStockEntry = (observation: Observation): InventorySto
   };
 };
 
-/** On hand = the sum of the lot's entries' signed values. The ledger is the source of truth; the lot caches this. */
 export const sumStockEntries = (entries: Observation[]): number =>
   entries.reduce((total, entry) => total + (entry.valueQuantity?.value ?? 0), 0);
 
-// ─── What an administration takes off a lot ───────────────────────────────────
-//
 // Stock stays in counted-as items for every drug. A single-use dose takes whole items (rounded up) and the
 // leftover is waste; a multi-use dose takes nothing until the next count.
 
 const ROUND_PLACES = 10_000;
 const round = (value: number): number => Math.round(value * ROUND_PLACES) / ROUND_PLACES;
 
-/** Dose units that can be converted into each other: mass (mg, g) and volume (ml, cc). */
 const UNIT_FACTORS: Partial<Record<string, { dimension: 'mass' | 'volume'; factor: number }>> = {
   mg: { dimension: 'mass', factor: 1 },
   g: { dimension: 'mass', factor: 1000 },
@@ -385,7 +362,6 @@ const convertAmount = (amount: number, from: string, to: string): number | undef
   return (amount * fromUnit.factor) / toUnit.factor;
 };
 
-/** What one counted item contains, in the dose's unit; undefined when the units can't be related. */
 const containerAmountInDoseUnit = (
   inventory: Pick<InHouseMedicationInventory, 'eachContains'>,
   doseUnit: string
@@ -398,13 +374,10 @@ const containerAmountInDoseUnit = (
 };
 
 export interface AdministrationStockTake {
-  /** Counted-as items taken off the lot. */
   items: number;
-  /** Single-use only: the part of the last item not given, in the dose's unit. */
   waste?: { amount: number; unit: string };
 }
 
-/** What a dose takes off a lot of this drug, or undefined when nothing comes off (multi-use). */
 export const stockTakenForDose = (
   inventory: Pick<InHouseMedicationInventory, 'eachContains' | 'use'>,
   dose: number,
@@ -426,12 +399,9 @@ export interface AdministrationStockTarget extends AdministrationStockTake {
 export interface AdministrationStockChange {
   lotId: string;
   type: Extract<InventoryEntryType, 'administered' | 'administration-reversed'>;
-  /** Signed, in counted-as items: negative takes off the lot, positive puts back. */
   quantity: number;
-  /** Signed change to the waste recorded for this administration on this lot. */
   waste?: { amount: number; unit: string };
   reversesEntryId?: string;
-  /** On a reversal: the order was deleted (nothing should be off any more), not changed. */
   administrationDeleted?: true;
 }
 
@@ -486,7 +456,6 @@ export const planAdministrationStockChanges = (
 export const isExpirationDatePast = (expirationDate: string | undefined, today: string): boolean =>
   Boolean(expirationDate) && expirationDate!.slice(0, 10) < today;
 
-/** Lots for the MAR Lot field: unexpired first, each group soonest expiration (then lot number) first; expired lots last. */
 export const sortInventoryLotsForPicking = <T extends Pick<InventoryLot, 'expirationDate' | 'lotNumber'>>(
   lots: T[],
   today: string

@@ -84,8 +84,6 @@ const entry = (value: number, id = `entry-${value}`): Observation => ({
   id,
 });
 
-// ─── lot builder / parser ─────────────────────────────────────────────────────
-
 describe('inventory lot', () => {
   it('builds a lot that names the drug, the location and the box NDC, and never looks like a catalog drug', () => {
     const lot = makeInventoryLot(catalog, lotInput);
@@ -140,8 +138,6 @@ describe('inventory lot', () => {
     expect(parseInventoryLot(catalog)).toBeUndefined();
   });
 });
-
-// ─── entry builder / parser / balance ─────────────────────────────────────────
 
 describe('inventory stock entry', () => {
   it('builds an Observation with the inventory category and tag, no encounter and no patient', () => {
@@ -240,8 +236,6 @@ describe('inventory stock entry', () => {
   });
 });
 
-// ─── transaction writer ───────────────────────────────────────────────────────
-
 type MockOystehr = Oystehr & {
   fhir: { get: ReturnType<typeof vi.fn>; search: ReturnType<typeof vi.fn>; transaction: ReturnType<typeof vi.fn> };
 };
@@ -329,8 +323,6 @@ describe('writeInventoryStockEntry', () => {
   });
 });
 
-// ─── receive-medication-shipment ──────────────────────────────────────────────
-
 const receiveBody = {
   medicationId: 'med-catalog',
   locationId: 'loc-a',
@@ -344,7 +336,6 @@ const receiveBody = {
 
 describe('receive-medication-shipment - performEffect', () => {
   const performer = 'Practitioner/nurse-1';
-  /** The write result; fails the test if the zambda answered with an expiration conflict instead. */
   const written = (result: ReceiveMedicationShipmentResponse): InventoryStockWriteResponse => {
     if ('expirationConflict' in result) throw new Error('expected a write, got an expiration conflict');
     return result;
@@ -411,7 +402,6 @@ describe('receive-medication-shipment - performEffect', () => {
     expect(result.entry.effectiveDateTime).toBeTruthy();
   });
 
-  // the lot (received from McKesson) gets another 10; the receipt keeps its own vendor, the lot the latest
   it.each([
     ['a new vendor', 'Henry Schein', 'Henry Schein'],
     ['the same vendor', 'McKesson', 'McKesson'],
@@ -427,7 +417,6 @@ describe('receive-medication-shipment - performEffect', () => {
     expect(result.lot).toMatchObject({ id: 'lot-1', onHand: 35 });
     expect(result.lot.vendor).toBe(lotVendor);
     expect(result.entry.vendor).toBe(vendor);
-    // what was written is what the history reads back
     expect(parseInventoryStockEntry({ ...requests[0].resource, id: 'x' })?.vendor).toBe(vendor);
   });
 

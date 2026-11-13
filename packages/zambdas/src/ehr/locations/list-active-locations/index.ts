@@ -13,7 +13,6 @@ import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 const ZAMBDA_NAME = 'list-active-locations';
 
-// The body is optional: most callers send none and get every active Location.
 const ListActiveLocationsInputSchema = z.object({ inPersonOnly: z.boolean().optional() });
 
 let m2mToken: string;
@@ -52,9 +51,6 @@ export const performEffect = async (
       resourceType: 'Location',
       params: [
         { name: 'status', value: 'active' },
-        // Only the fields the output projects (plus the location-form extension when filtering on it).
-        // Pages run 1000 at a time, and a full Location carries addresses, telecoms, hours-of-operation,
-        // and extensions this endpoint discards.
         { name: '_elements', value: inPersonOnly ? 'id,name,extension' : 'id,name' },
       ],
     },

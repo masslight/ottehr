@@ -22,9 +22,6 @@ import {
 import { DateRange } from 'utils/lib/types/adhoc/query/date-range';
 import { presentFullName } from '../adhoc-report';
 
-// The ledger is scoped by category and date (never read whole): one Observation per stock change, with
-// the lot (subject), location (focus), performer and, for administrations, the MedicationAdministration
-// and through it the visit and patient. See documents/otr-3339-fhir-inventory-modeling.md, "Key queries".
 export function medicationInventorySearchParams(dateRange: DateRange): { name: string; value: string }[] {
   return [
     { name: 'category', value: `${INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM}|${INVENTORY_STOCK_ENTRY_CODE}` },
@@ -40,7 +37,6 @@ export function medicationInventorySearchParams(dateRange: DateRange): { name: s
   ];
 }
 
-/** One row per stock entry among `resources` (entries plus their included lots, locations, performers, visits). */
 export function buildMedicationInventoryRows(resources: FhirResource[]): AdHocMedicationInventoryRow[] {
   const byRef = new Map<string, FhirResource>();
   for (const resource of resources) if (resource.id) byRef.set(`${resource.resourceType}/${resource.id}`, resource);
@@ -102,9 +98,6 @@ export function buildMedicationInventoryRows(resources: FhirResource[]): AdHocMe
   return rows;
 }
 
-// The full fetch+map pipeline, separated from auth/transport so fixture tests can run it against a
-// stubbed Oystehr client and assert the mapped rows parse with the endpoint's Zod schema — the same
-// schema the runtime output validation uses.
 export async function fetchAdHocMedicationInventoryRows(
   oystehr: Oystehr,
   params: AdHocMedicationInventoryInput

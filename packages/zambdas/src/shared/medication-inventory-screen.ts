@@ -13,11 +13,6 @@ import {
 } from 'utils/lib/types/api/config/in-house-medications';
 import { ListActiveLocationsOutput } from 'utils/lib/types/api/locations';
 
-// The inventory screen's read model (requirement 7), built from the lots' cached on-hand numbers so the
-// all-locations view never reads the ledger. Pure functions: the zambda does the searches. `today` is the
-// user's date (YYYY-MM-DD); expiration dates are calendar dates, so they compare as strings.
-
-/** A catalog drug that is set up for inventory. */
 export interface TrackedDrug {
   medicationId: string;
   name: string;
@@ -26,7 +21,6 @@ export interface TrackedDrug {
 
 const byName = <T extends { name: string }>(a: T, b: T): number => a.name.localeCompare(b.name);
 
-/** `expired` when the date is past, `expiring` when it is within the next 30 days. */
 export const expirationMarkers = (expirationDate: string | undefined, today: string): InventoryMarker[] => {
   if (!expirationDate) return [];
   if (isExpirationDatePast(expirationDate, today)) return ['expired'];
@@ -39,7 +33,6 @@ const stockMarkers = (onHand: number, reorderLevel: number | undefined): Invento
   ...(onHand < 0 ? (['below-zero'] as const) : []),
 ];
 
-/** Soonest expiration among lots that have stock. */
 const earliestExpiration = (lots: InventoryLot[]): string | undefined =>
   lots
     .filter((lot) => lot.onHand > 0 && lot.expirationDate)
@@ -53,7 +46,6 @@ const lotRow = (lot: InventoryLot, today: string): InventoryLotRow => ({
   markers: [...expirationMarkers(lot.expirationDate, today), ...stockMarkers(lot.onHand, undefined)],
 });
 
-/** One row per tracked drug with a line per location (all-locations view); only lots at `locations` count. */
 export const buildAllLocationsRows = (
   drugs: TrackedDrug[],
   lots: InventoryLot[],
@@ -101,7 +93,6 @@ export const buildAllLocationsRows = (
     };
   });
 
-/** One row per tracked drug with its lots at `locationId` (location view), ordered as the MAR Lot field is. */
 export const buildLocationRows = (
   drugs: TrackedDrug[],
   lots: InventoryLot[],
@@ -134,13 +125,10 @@ export const buildLocationRows = (
   });
 
 export interface HistoryNames {
-  /** Performer reference (`Practitioner/{id}`) → display name. */
   performers: Map<string, string>;
-  /** MedicationAdministration id → the visit it belongs to. */
   visits: Map<string, NonNullable<InventoryHistoryEntry['visit']>>;
 }
 
-/** A lot's ledger, oldest first in, newest first out, with the running on-hand total after each entry. */
 export const buildHistory = (entries: InventoryStockEntry[], names: HistoryNames): InventoryHistoryEntry[] => {
   let onHand = 0;
   return entries

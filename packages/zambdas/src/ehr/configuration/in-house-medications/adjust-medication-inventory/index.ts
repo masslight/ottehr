@@ -21,7 +21,6 @@ import { validateWithSchema } from '../../../../shared/validation';
 
 let m2mToken: string;
 
-/** Adjusts a lot up or down with a reason, or records a shelf count (requirement 6). */
 export const index = wrapHandler(
   'admin-adjust-medication-inventory',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -43,11 +42,6 @@ export const index = wrapHandler(
   }
 );
 
-/**
- * The ledger entry for an adjustment or a count. A count records the difference from the lot's on hand
- * (signed, "Count adjustment"), or 0 with "no difference" when the shelf matches, and keeps the counted
- * number as a component.
- */
 export const stockEntryForAction = (
   params: AdjustMedicationInventoryInput,
   lot: InventoryLot,

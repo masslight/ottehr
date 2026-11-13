@@ -20,9 +20,6 @@ import { Option } from '../medicationTypes';
 import { MedicationFieldType } from './fieldsConfig';
 import { OTHER_SEPARATOR, POPULAR_SEPARATOR } from './MedicationCardField';
 
-/** The order form as sentences: the medication menu, the ORDER sentences and the BILLING sentences. */
-
-/** A quick pick in the medication menu, whichever list it comes from. */
 export interface QuickPickMenuItem {
   key: string;
   label: string;
@@ -46,9 +43,6 @@ const MenuMessage: FC<{ children: ReactNode }> = ({ children }) => (
   </Typography>
 );
 
-/** The medication blank's menu: the in-house medications in the left column, the practice's quick picks in the
- * right, both following what's typed. Focus stays in the field: Up/Down move within a column, Left/Right (once a
- * row is highlighted) between them, Enter picks. */
 const MedicationMenu: FC<{
   medications: Option[];
   medicationsLoading: boolean;
@@ -69,7 +63,6 @@ const MedicationMenu: FC<{
     .map((quickPick) => ({ kind: 'quickPick', quickPick }));
   const columns = [medicationPicks, quickPickPicks];
   const [active, setActive] = useState<{ column: number; row: number }>();
-  // A highlight the lists no longer reach is none.
   const highlighted = active && columns[active.column][active.row] ? active : undefined;
   const optionId = (column: number, row: number): string => `${id}-option-${column}-${row}`;
   const activeId = highlighted && optionId(highlighted.column, highlighted.row);
@@ -98,13 +91,11 @@ const MedicationMenu: FC<{
       setActive({ column, row });
     };
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      // Without medications, the quick picks first.
       const column = highlighted?.column ?? (medicationPicks.length || !quickPickPicks.length ? 0 : 1);
       const count = columns[column].length;
       const step = event.key === 'ArrowDown' ? 1 : -1;
       if (count) move(column, highlighted ? (highlighted.row + step + count) % count : step > 0 ? 0 : count - 1);
     } else if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && highlighted) {
-      // Until a row is highlighted, Left/Right move in the text.
       const column = event.key === 'ArrowLeft' ? 0 : 1;
       const count = columns[column].length;
       if (column !== highlighted.column && count) move(column, Math.min(highlighted.row, count - 1));
@@ -143,9 +134,8 @@ const MedicationMenu: FC<{
     );
   };
 
-  // Each column scrolls on its own (the rows' offsets measured from it); on a narrow screen the quick picks go under
-  // the medications. A fixed height, not a maximum: one following the rows resized the popup as typing emptied and
-  // refilled the columns.
+  // A fixed height, not a maximum: one following the rows resized the popup as typing emptied and refilled
+  // the columns.
   const columnSx = {
     position: 'relative',
     flex: 1,
@@ -216,7 +206,6 @@ const MedicationMenu: FC<{
   );
 };
 
-/** The medication blank's popup: twice the other blanks' width for the menu's two columns, within the screen. */
 const MEDICATION_MENU_PAPER_SX = {
   width: 'min(680px, calc(100vw - 32px))',
   maxWidth: 'min(680px, calc(100vw - 32px))',
@@ -237,11 +226,9 @@ interface OrderSentencesProps {
   selectsOptions: OrderFieldsSelectsOptions;
   quickPicks: QuickPickMenuItem[];
   quickPicksLoading: boolean;
-  /** Opens the add/update quick pick dialog; absent when the user may not save quick picks. */
   onSaveAsQuickPick?: () => void;
 }
 
-/** The ORDER section: "Give [medication], [dose] [units], by the [route] route." and the lines after it. */
 export const OrderSentences: FC<OrderSentencesProps> = ({
   medication,
   isEditable,
@@ -263,14 +250,11 @@ export const OrderSentences: FC<OrderSentencesProps> = ({
     onFieldValueChange(field, value);
 
   const medicationId = text('medicationId');
-  // The backend may create the order's medication resource without an id: the saved name then stands in.
   const medicationLabel =
     medicationId === IN_HOUSE_CONTAINED_MEDICATION_ID && medication?.medicationName
       ? medication.medicationName
       : selectsOptions.medicationId.options.find((option) => option.value === medicationId)?.label;
 
-  // The dropdown's "Popular" / "Other" separators become list groups; a route's trailing "route" is dropped
-  // because the sentence already ends with it ("by the Intravenous route").
   const routeOptions = useMemo((): BlankOption[] => {
     let group: string | undefined;
     const options: BlankOption[] = [];
@@ -295,7 +279,6 @@ export const OrderSentences: FC<OrderSentencesProps> = ({
         <PopoverBlank
           label="medication"
           title="Medication"
-          // The menu's own field says "Medication".
           hideTitle
           paperSx={MEDICATION_MENU_PAPER_SX}
           value={medicationLabel}
@@ -455,8 +438,6 @@ interface BillingSentencesProps {
   billableUnits: number;
 }
 
-/** The BILLING section: the CPT / HCPCS codes with their medication marker, then the billable unit size and
- * the units it yields. */
 export const BillingSentences: FC<BillingSentencesProps> = ({
   cptCodes,
   onCptCodesChange,

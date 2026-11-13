@@ -28,7 +28,6 @@ describe('inventory history reason text', () => {
   });
 
   it('labels a reversal from an edited order "changed" and from a deleted order "deleted"', () => {
-    // 2 mg → 4 mg on the same 4 mg vial: nothing more comes off, the 2 mg waste is taken back
     const edited = entry({
       type: 'administration-reversed',
       reason: 'partial-dose-waste',

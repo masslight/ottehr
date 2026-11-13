@@ -17,10 +17,6 @@ import { validateWithSchema } from '../../../../shared/validation';
 
 let m2mToken: string;
 
-/**
- * What a screen needs to know about a drug's stock: with a location, the lots on hand there (the MAR Lot
- * field); without one, the last lot received (the receive dialog's prefill).
- */
 export const index = wrapHandler(
   'admin-get-medication-inventory',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

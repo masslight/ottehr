@@ -63,7 +63,6 @@ type LookupState = { status: 'idle' | 'loading' } | LookupNdcResponse;
 
 const NDC_LOOKUP_DEBOUNCE_MS = 600;
 
-/** What the lookup panel says while there is no product to show. */
 const LOOKUP_MESSAGES: Partial<Record<LookupState['status'], (ndc: string) => string>> = {
   loading: (ndc) => `Looking up NDC ${ndc} in the FDA NDC directory…`,
   unavailable: () => 'FDA NDC directory lookup unavailable. Check the box before saving.',
@@ -90,7 +89,6 @@ export default function ReceiveShipmentDialog({
   }));
   const [lookup, setLookup] = useState<LookupState>({ status: 'idle' });
   const [saving, setSaving] = useState(false);
-  // Set when the location already has this lot number with another expiration date; staff pick what to do.
   const [conflict, setConflict] = useState<ReceiveExpirationConflict | undefined>(undefined);
   const setField = <K extends keyof ReceiveFormState>(field: K, value: ReceiveFormState[K]): void =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -99,7 +97,6 @@ export default function ReceiveShipmentDialog({
   const units = MEDICATION_COUNTED_AS_LABELS[inventory.countedAs];
   const quantity = Number(form.quantity);
 
-  // Later shipments start from the last lot received (any location).
   const lastReceivedLot = useLastReceivedLot(medication.id);
   const prefilledFromLastLot = Boolean(lastReceivedLot.data);
   useEffect(() => {
@@ -113,7 +110,6 @@ export default function ReceiveShipmentDialog({
     }));
   }, [lastReceivedLot.data]);
 
-  // Look the box up once typing pauses; a result for an NDC that has since changed is dropped.
   useEffect(() => {
     const ndc = form.ndc.trim();
     if (!oystehrZambda || !ndc) {
@@ -397,7 +393,6 @@ export default function ReceiveShipmentDialog({
   );
 }
 
-/** The warning when a lot number is already on hand with a different expiration date (OTR-3339). */
 function ExpirationConflictDialog({
   conflict,
   lotNumber,

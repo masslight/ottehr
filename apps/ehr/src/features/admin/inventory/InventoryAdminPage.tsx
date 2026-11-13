@@ -124,11 +124,9 @@ function SearchField({
   );
 }
 
-/** Admin → Inventory (requirement 7): what is on hand per location, by drug and lot, with each lot's stock history. */
 export default function InventoryAdminPage(): ReactElement {
   const locationsQuery = useGetAllLocations({ inPersonOnly: true });
   const locations = locationsQuery.data ?? [];
-  // undefined until the locations load, then the Tracking Board's location when it is one of them, else all locations
   const [locationId, setLocationId] = useState<string | undefined>(undefined);
   const [nameSearch, setNameSearch] = useState('');
   const [ndcSearch, setNdcSearch] = useState('');
@@ -141,7 +139,6 @@ export default function InventoryAdminPage(): ReactElement {
     }
   }, [locationsQuery.isSuccess, locationsQuery.data, locationId]);
 
-  // The browser's date decides "expired", as it does on the MAR.
   const today = DateTime.now().toISODate();
   const view: ListMedicationInventoryInput | undefined =
     locationId === undefined
@@ -299,7 +296,6 @@ export default function InventoryAdminPage(): ReactElement {
   );
 }
 
-/** The first cells of a drug's row in either view: expand, name (links to the drug's setup) and on hand. */
 function DrugHeaderCells({
   drug,
   open,
@@ -386,7 +382,6 @@ function LocationDrugRows({
   const [expandedLots, toggleLot] = useToggleSet();
   const [dialog, setDialog] = useState<{ kind: 'adjust' | 'count'; lot: InventoryLotRow } | undefined>(undefined);
   const refresh = (): void => void queryClient.invalidateQueries({ queryKey: [INVENTORY_QUERY_KEY] });
-  // Empty lots stay out of the way but can still be counted and adjusted once shown.
   const [showEmptyLots, setShowEmptyLots] = useState(false);
   const emptyLotCount = drug.lots.filter((lot) => lot.onHand === 0).length;
   const visibleLots = showEmptyLots ? drug.lots : drug.lots.filter((lot) => lot.onHand !== 0);
