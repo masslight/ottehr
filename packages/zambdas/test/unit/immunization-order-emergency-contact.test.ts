@@ -217,6 +217,16 @@ describe('administerImmunizationOrder - emergency contact', () => {
     expect(administration.supportingInformation).toBeUndefined();
   });
 
+  it('records no contact sent with a not administered request', async () => {
+    const { administration } = await administer({
+      type: 'administered-not',
+      emergencyContact: { relationship: 'legal-guardian', fullName: 'John Doe', mobile: '2027139680' },
+    });
+
+    expect(recordedContacts(administration)).toEqual([]);
+    expect(administration.supportingInformation).toBeUndefined();
+  });
+
   it('administers the order when the emergency contact cannot be read', async () => {
     const { administration } = await administer({ searchError: new Error('FHIR unavailable') });
 

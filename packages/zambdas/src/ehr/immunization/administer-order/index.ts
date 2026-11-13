@@ -126,11 +126,16 @@ export async function administerImmunizationOrder(
   });
 
   const isGiven = ['administered', 'administered-partly'].includes(type);
-  const emergencyContactRelatedPerson =
-    (administrationDetails.emergencyContact &&
-      createEmergencyContactRelatedPerson(medicationAdministration.subject, administrationDetails.emergencyContact)) ||
-    (isGiven && wasGiven ? recordedEmergencyContact : undefined) ||
-    (isGiven && !wasGiven ? await findPaperworkEmergencyContact(oystehr, medicationAdministration.subject) : undefined);
+  const emergencyContactRelatedPerson = isGiven
+    ? (administrationDetails.emergencyContact &&
+        createEmergencyContactRelatedPerson(
+          medicationAdministration.subject,
+          administrationDetails.emergencyContact
+        )) ||
+      (wasGiven
+        ? recordedEmergencyContact
+        : await findPaperworkEmergencyContact(oystehr, medicationAdministration.subject))
+    : undefined;
   medicationAdministration.contained = [
     ...(medicationAdministration.contained ?? []).filter((resource) => resource.id !== CONTAINED_EMERGENCY_CONTACT_ID),
     ...(emergencyContactRelatedPerson ? [emergencyContactRelatedPerson] : []),
