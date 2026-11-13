@@ -27,7 +27,7 @@ interface FlowsheetDefinition {
 // Every query is built from the patient id alone; the flowsheet id only picks the kinds of data to fetch.
 const FLOWSHEETS: Record<FlowsheetId, FlowsheetDefinition> = {
   growth: {
-    kinds: ['birthDate', 'vitals'],
+    kinds: ['birthDate', 'birthHistory', 'vitals'],
     build: (data, asOf) => buildGrowthFlowsheet({ ...data, observations: data.vitals ?? [] }, asOf),
   },
   newbornBilirubin: { kinds: NEWBORN_BILIRUBIN_DATA_KINDS, build: buildNewbornBilirubinFlowsheet },

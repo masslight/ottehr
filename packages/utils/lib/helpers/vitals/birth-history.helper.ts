@@ -7,6 +7,12 @@ import { LBS_IN_KG } from './vitals-weight.helper';
 
 export const DAYS_PER_WEEK = 7;
 
+/** Gestational age at birth in days; undefined until the weeks are recorded. */
+export const gestationalAgeDaysOf = (history: BirthHistory | undefined): number | undefined =>
+  history?.gestationalAgeWeeks === undefined
+    ? undefined
+    : history.gestationalAgeWeeks * DAYS_PER_WEEK + (history.gestationalAgeDays ?? 0);
+
 /** "34 wk 5 d", "38 wk"; undefined without weeks. */
 export const formatGestationalAge = (weeks?: number, days?: number): string | undefined =>
   weeks === undefined ? undefined : `${weeks} wk${days ? ` ${days} d` : ''}`;
