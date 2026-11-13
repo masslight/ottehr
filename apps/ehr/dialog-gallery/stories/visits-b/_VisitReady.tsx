@@ -10,5 +10,5 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 export const VisitReady = ({ children }: { children: ReactNode }): ReactElement | null => {
   const { patient, encounter } = useAppointmentData();
   const user = useEvolveUser();
-  return patient && encounter?.id && user?.profileResource ? <>{children}</> : null;
+  return patient && encounter?.id && user ? <>{children}</> : null;
 };
