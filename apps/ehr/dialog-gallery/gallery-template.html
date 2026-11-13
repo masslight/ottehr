@@ -356,7 +356,12 @@
     margin: 0;
     padding-left: 18px;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 4px;
+  }
+  .gaps li {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   .gaps code,
   dd code {

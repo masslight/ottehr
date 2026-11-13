@@ -27,8 +27,11 @@ const AREA = {
 
 const px = (v) => Math.round(parseFloat(v) || 0);
 const rgbToHex = (c) => {
-  const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c ?? '');
-  return m ? '#' + [m[1], m[2], m[3]].map((n) => (+n).toString(16).padStart(2, '0')).join('') : c ?? '';
+  const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(c ?? '');
+  if (!m) return c ?? '';
+  const hex = '#' + [m[1], m[2], m[3]].map((n) => (+n).toString(16).padStart(2, '0')).join('');
+  // MUI's default text color is black at 87% opacity; keep that visible rather than calling it pure black.
+  return m[4] && +m[4] < 1 ? `${hex} at ${Math.round(+m[4] * 100)}%` : hex;
 };
 
 const entries = fs

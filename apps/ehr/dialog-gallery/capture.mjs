@@ -28,6 +28,18 @@ const measure = (surfaceSel) => {
   const titleEl =
     el.querySelector('.MuiDialogTitle-root') ??
     el.querySelector('h1,h2,h3,h4,h5,h6,.MuiTypography-h4,.MuiTypography-h5,.MuiTypography-h6');
+  // Type and color are read from the element that actually holds the title text, since titles
+  // are often restyled by an inner Typography/span rather than on the DialogTitle itself.
+  let titleTextEl = titleEl;
+  if (titleEl) {
+    const walker = document.createTreeWalker(titleEl, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (n.textContent.trim()) {
+        titleTextEl = n.parentElement;
+        break;
+      }
+    }
+  }
   const actionsEl = el.querySelector('.MuiDialogActions-root');
   const contentEl = el.querySelector('.MuiDialogContent-root');
   const buttons = [...el.querySelectorAll('button.MuiButton-root, a.MuiButton-root')].map((b) => {
@@ -66,9 +78,9 @@ const measure = (surfaceSel) => {
       ? {
           text: text(titleEl).slice(0, 120),
           isDialogTitle: titleEl.classList.contains('MuiDialogTitle-root'),
-          fontSize: cs(titleEl).fontSize,
-          fontWeight: cs(titleEl).fontWeight,
-          color: cs(titleEl).color,
+          fontSize: cs(titleTextEl).fontSize,
+          fontWeight: cs(titleTextEl).fontWeight,
+          color: cs(titleTextEl).color,
           padding: cs(titleEl).padding,
           align: cs(titleEl).textAlign,
         }
