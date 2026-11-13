@@ -616,6 +616,42 @@ describe('summarizeClaimPayments', () => {
     expect(summary.balance).toBe(0);
   });
 
+  it("subtracts the allowed-reporting remit's write-offs beyond its billed-to-allowed reduction", () => {
+    // Medicare sequestration (CO-253) is taken after allowed, so it is a provider write-off too
+    const cr = claimResponse('2026-01-01', {
+      totalCharge: 120,
+      totalPaid: 98,
+      itemAdjudications: [
+        [
+          adjudication(ADJUDICATION_CODES.CHARGE, 120),
+          adjudication(ADJUDICATION_CODES.ALLOWED, 100),
+          adjudication(ADJUDICATION_CODES.PAID, 98),
+          casAdjustment('CO', 20, '45'),
+          casAdjustment('CO', 2, '253'),
+        ],
+      ],
+    });
+    const summary = summarizeClaimPayments([cr], 120);
+    expect(summary.patientResp).toBe(0);
+    expect(summary.balance).toBe(0);
+  });
+
+  it('derives from allowed when the remit reports it without the CO that reduces billed to it', () => {
+    // e.g. a manual ERA with allowed filled in but no adjustments
+    const cr = claimResponse('2026-01-01', {
+      totalCharge: 100,
+      totalPaid: 60,
+      itemAdjudications: [
+        [
+          adjudication(ADJUDICATION_CODES.CHARGE, 100),
+          adjudication(ADJUDICATION_CODES.ALLOWED, 80),
+          adjudication(ADJUDICATION_CODES.PAID, 60),
+        ],
+      ],
+    });
+    expect(summarizeClaimPayments([cr], 100).patientResp).toBe(20);
+  });
+
   it("does not subtract the allowed-reporting remit's own write-offs again", () => {
     // the secondary reports its own allowed; its CO is the billed-to-allowed reduction
     const primary = claimMdClaimResponse('2026-01-01');

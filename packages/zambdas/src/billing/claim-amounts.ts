@@ -214,17 +214,21 @@ export function summarizeClaimPayments(
   const latestPatientResp = amounts[amounts.length - 1].patientResp;
   const patientResp = Math.max(latestPatientResp ?? derivedPatientResp(), 0);
 
-  // basis - insurancePaid - whatever payers wrote off on top of the basis. With a known allowed
-  // amount, the write-offs of the remit that reported it (and of earlier ones) are already the
-  // billed-to-allowed reduction, so only later remits' write-offs count, e.g. a secondary writing
-  // off what it didn't pay. With no allowed amount anywhere (AMT*B6 is optional, and manual ERAs
-  // may leave it blank), billed is the basis and every remit's write-offs count.
+  // basis - insurancePaid - whatever payers wrote off on top of the basis. With no allowed amount
+  // anywhere (AMT*B6 is optional, and manual ERAs may leave it blank), billed is the basis and
+  // every remit's write-offs count. With a known allowed amount, earlier remits' write-offs are
+  // superseded by it, and on the remit that reported it only the write-offs beyond its
+  // billed-to-allowed reduction count (e.g. CO-253 sequestration, taken after allowed). Later
+  // remits' write-offs count in full, e.g. a secondary writing off what it didn't pay.
   function derivedPatientResp(): number {
-    const [basis, writeOffRemits] =
-      knownAllowed !== undefined
-        ? [knownAllowed, sortedClaimResponses.slice(allowedIndex + 1)]
-        : [billed, sortedClaimResponses];
-    return basis - insurancePaid - sumPayerWriteOffs(writeOffRemits);
+    if (knownAllowed === undefined) return billed - insurancePaid - sumPayerWriteOffs(sortedClaimResponses);
+
+    const allowedRemit = sortedClaimResponses[allowedIndex];
+    const reductionToAllowed = (extractReportedCharge(allowedRemit) ?? billed) - knownAllowed;
+    // floored: a remit may report allowed without the CO that brings billed down to it
+    const writeOffsBeyondAllowed = Math.max(sumPayerWriteOffs([allowedRemit]) - reductionToAllowed, 0);
+    const laterWriteOffs = sumPayerWriteOffs(sortedClaimResponses.slice(allowedIndex + 1));
+    return knownAllowed - insurancePaid - writeOffsBeyondAllowed - laterWriteOffs;
   }
 
   return {
