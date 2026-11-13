@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
-import { getLocationLabel, LocationSelectInput } from 'src/components/input/LocationSelectInput';
+import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
@@ -12,6 +12,7 @@ import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTask
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
+import { getLocationLabel } from 'utils/lib/fhir/location';
 import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { useGetPatientVisitHistory } from '../../../hooks/useGetPatientVisitHistory';
 import {
