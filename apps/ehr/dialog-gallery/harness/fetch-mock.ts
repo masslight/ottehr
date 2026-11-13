@@ -24,7 +24,8 @@ export function installFetchMock(mocks: FetchMock[]): void {
     ) {
       return realFetch(input, init);
     }
-    let body: any = init?.body;
+    // The Oystehr SDK calls fetch(Request), so the body may live on the Request rather than in init.
+    let body: any = init?.body ?? (input instanceof Request ? await input.clone().text() : undefined);
     if (typeof body === 'string') {
       try {
         body = JSON.parse(body);

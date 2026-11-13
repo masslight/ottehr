@@ -31,6 +31,8 @@ export interface DialogStory {
   route?: string;
   /** Route pattern the story is mounted under, when the component reads useParams (default '*'). */
   routePath?: string;
+  /** Capture at this window size instead of 1440×900 — for dialogs that only exist at phone width. */
+  viewport?: { width: number; height: number };
   mocks?: FetchMock[];
   /** Runs before first render — seed zustand stores, react-query cache, etc. */
   setup?: (ctx: { queryClient: import('@tanstack/react-query').QueryClient }) => void | Promise<void>;

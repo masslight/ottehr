@@ -127,9 +127,16 @@ for (const id of ids) {
   for (const stale of ['.png', '.full.png', '.error.png', '.json'])
     fs.rmSync(path.join(outDir, file + stale), { force: true });
   try {
-    await page.goto(`${base}?story=${encodeURIComponent(id)}`);
-    await page.waitForFunction(() => window.__story && window.__story.status !== 'loading', null, { timeout: 45000 });
-    const story = await page.evaluate(() => window.__story);
+    await page.goto(`${base}?story=${encodeURIComponent(id)}`, { timeout: 90000 });
+    await page.waitForFunction(() => window.__story && window.__story.status !== 'loading', null, { timeout: 90000 });
+    let story = await page.evaluate(() => window.__story);
+    const vp = story.meta?.viewport;
+    if (vp) {
+      await page.setViewportSize(vp);
+      await page.reload();
+      await page.waitForFunction(() => window.__story && window.__story.status !== 'loading', null, { timeout: 90000 });
+      story = await page.evaluate(() => window.__story);
+    }
     Object.assign(entry, story.meta ?? {});
     if (story.status === 'error') throw new Error(story.error);
     await page.locator(SURFACE).last().waitFor({ state: 'visible', timeout: 8000 });
@@ -142,8 +149,8 @@ for (const id of ids) {
     const clip = {
       x: Math.max(0, m.box.x - pad),
       y: Math.max(0, m.box.y - pad),
-      width: Math.min(1440, m.box.x + m.box.width + pad) - Math.max(0, m.box.x - pad),
-      height: Math.min(900, m.box.y + m.box.height + pad) - Math.max(0, m.box.y - pad),
+      width: Math.min(vp?.width ?? 1440, m.box.x + m.box.width + pad) - Math.max(0, m.box.x - pad),
+      height: Math.min(vp?.height ?? 900, m.box.y + m.box.height + pad) - Math.max(0, m.box.y - pad),
     };
     await page.screenshot({ path: path.join(outDir, `${file}.png`), clip });
     delete m.box;

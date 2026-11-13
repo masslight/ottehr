@@ -5,28 +5,8 @@ import { ReactElement } from 'react';
 import AppointmentTableRow from 'src/components/AppointmentTableRow';
 import { ApptTab } from 'src/components/AppointmentTabs';
 
-/**
- * AppointmentTableRow only renders AppointmentTableRowMobile below the `sm` breakpoint. The capture
- * viewport is fixed at 1440px, so this makes MUI's useMediaQuery see the `down('sm')` query as matching.
- */
-export const forceMobileBreakpoint = (): void => {
-  const real = window.matchMedia.bind(window);
-  window.matchMedia = (query: string): MediaQueryList => {
-    const list = real(query);
-    if (!/max-width:\s*599\.95px/.test(query)) return list;
-    return {
-      matches: true,
-      media: query,
-      onchange: null,
-      addListener: () => undefined,
-      removeListener: () => undefined,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-      dispatchEvent: () => false,
-    } as MediaQueryList;
-  };
-};
-
+// AppointmentTableRow only renders AppointmentTableRowMobile below the `sm` breakpoint, so the stories
+// using this set a phone-size `viewport`.
 const now = DateTime.now();
 const ago = (minutes: number): string => now.minus({ minutes }).toISO() as string;
 
