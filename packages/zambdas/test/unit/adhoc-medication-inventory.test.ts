@@ -13,6 +13,7 @@ import {
   makeInventoryLot,
   makeInventoryStockEntry,
   makeMedicationInventoryExtension,
+  withLotDetails,
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
@@ -105,7 +106,13 @@ const base = {
 
 const entries: Observation[] = [
   {
-    ...makeInventoryStockEntry({ ...base, type: 'received', quantity: 25, effectiveDateTime: '2026-10-01T14:02:00Z' }),
+    ...makeInventoryStockEntry({
+      ...base,
+      type: 'received',
+      quantity: 25,
+      vendor: 'McKesson',
+      effectiveDateTime: '2026-10-01T14:02:00Z',
+    }),
     id: 'entry-received',
   },
   {
@@ -248,6 +255,25 @@ describe('medication inventory dataset', () => {
 
     // a count that matched the shelf
     expect(rows[3]).toMatchObject({ entryType: 'count', reason: 'no-difference', quantity: 0 });
+  });
+
+  it('leaves an earlier receipt without a vendor unknown after a later shipment gives the lot one', () => {
+    const receipt = { ...base, type: 'received' as const, quantity: 10 };
+    const rows = buildMedicationInventoryRows([
+      { ...makeInventoryStockEntry({ ...receipt, effectiveDateTime: '2026-10-01T14:02:00Z' }), id: 'entry-earlier' },
+      {
+        ...makeInventoryStockEntry({ ...receipt, vendor: 'Henry Schein', effectiveDateTime: '2026-10-05T09:00:00Z' }),
+        id: 'entry-later',
+      },
+      withLotDetails(lot, { vendor: 'Henry Schein' }),
+      location,
+      nurse,
+    ]);
+
+    expect(rows.map((row) => [row.entryId, row.vendor])).toEqual([
+      ['entry-earlier', ''],
+      ['entry-later', 'Henry Schein'],
+    ]);
   });
 
   it('shows an administration and its reversal in the periods they were recorded, netting to zero across both', () => {

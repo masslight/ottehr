@@ -7,7 +7,6 @@ import {
   INVENTORY_MARKER_LABELS,
   InventoryEntryType,
   InventoryHistoryEntry,
-  InventoryLot,
   InventoryMarker,
   MEDICATION_COUNTED_AS_LABELS,
   MedicationCountedAs,
@@ -68,15 +67,14 @@ export const describeChange = (entry: InventoryHistoryEntry): string => {
 };
 
 /**
- * The Reason column. Receipts show that shipment's vendor (the lot's latest for entries written before it was
- * recorded per entry); counts show what was counted and expected; a reversal says whether the order was
- * deleted or changed.
+ * The Reason column. Receipts show that shipment's vendor; counts show what was counted and expected; a
+ * reversal says whether the order was deleted or changed.
  */
-export const describeReason = (entry: InventoryHistoryEntry, lot: InventoryLot): string => {
+export const describeReason = (entry: InventoryHistoryEntry): string => {
   const counted = entry.components?.find((component) => component.code === 'counted')?.value;
   switch (entry.type) {
     case 'received': {
-      return [ENTRY_TYPE_LABELS.received, entry.vendor ?? lot.vendor].filter(Boolean).join(' · ');
+      return [ENTRY_TYPE_LABELS.received, entry.vendor].filter(Boolean).join(' · ');
     }
     case 'count':
       if (counted === undefined) return entry.reason ? INVENTORY_ENTRY_REASON_LABELS[entry.reason] : 'Count';

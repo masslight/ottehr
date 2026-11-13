@@ -403,6 +403,7 @@ describe('receive-medication-shipment - performEffect', () => {
     expect(result.entry).toMatchObject({
       type: 'received',
       quantity: 25,
+      vendor: 'McKesson',
       unit: 'vial',
       locationId: 'loc-a',
       performerReference: performer,

@@ -525,7 +525,7 @@ function LotHistory({ lot }: { lot: InventoryLotRow }): ReactElement {
               <TableRow key={entry.id}>
                 <TableCell>{formatWhen(entry.effectiveDateTime)}</TableCell>
                 <TableCell>{describeChange(entry)}</TableCell>
-                <TableCell>{describeReason(entry, lot)}</TableCell>
+                <TableCell>{describeReason(entry)}</TableCell>
                 <TableCell>
                   {entry.visit
                     ? (() => {

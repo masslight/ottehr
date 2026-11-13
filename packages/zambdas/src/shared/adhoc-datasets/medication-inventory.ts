@@ -91,7 +91,7 @@ export function buildMedicationInventoryRows(resources: FhirResource[]): AdHocMe
       expirationDate: lot?.expirationDate ?? '',
       ndc: lot?.ndc ?? '',
       manufacturer: lot?.manufacturer ?? '',
-      vendor: entry.vendor ?? lot?.vendor ?? '',
+      vendor: (entry.type === 'received' ? entry.vendor : lot?.vendor) ?? '',
       lotOnHand: lot?.onHand ?? null,
       appointmentId: encounter?.appointment?.[0]?.reference?.replace('Appointment/', '') ?? null,
       patientId: patient?.id ?? null,
