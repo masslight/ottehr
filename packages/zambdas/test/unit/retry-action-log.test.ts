@@ -13,6 +13,12 @@ import {
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// FEATURE_FLAGS_CONFIG is a frozen compile-time constant; pin it so the test is
+// resilient to per-project overlay values (e.g. skipSendingVisitNoteToPatientPortalEnabled).
+vi.mock('utils/lib/ottehr-config/feature-flags', () => ({
+  FEATURE_FLAGS_CONFIG: { skipSendingVisitNoteToPatientPortalEnabled: false },
+}));
+
 const mockSendEmail = vi.fn();
 vi.mock('../../src/shared/communication', () => ({
   getEmailClient: () => ({
