@@ -40,7 +40,7 @@ const order = (
   ],
 });
 
-const paperworkContact = (relationship: string): RelatedPerson => ({
+const patientContact = (relationship: string): RelatedPerson => ({
   resourceType: 'RelatedPerson',
   id: 'rp-emergency',
   patient: { reference: 'Patient/p1' },
@@ -119,9 +119,9 @@ const recordedContacts = (administration: MedicationAdministration): RelatedPers
   );
 
 describe('administerImmunizationOrder - emergency contact', () => {
-  it("records the patient's paperwork emergency contact on the administration", async () => {
+  it("records the patient's emergency contact on the administration", async () => {
     const { administration, search } = await administer({
-      relatedPersons: [loginRelatedPerson, paperworkContact('Parent')],
+      relatedPersons: [loginRelatedPerson, patientContact('Parent')],
     });
 
     expect(search).toHaveBeenCalledWith({
@@ -134,8 +134,8 @@ describe('administerImmunizationOrder - emergency contact', () => {
     ).toEqual({ relationship: 'parent', fullName: 'Martin Black', mobile: '+12025550178' });
   });
 
-  it('keeps a paperwork relationship the vaccine list does not have as text', async () => {
-    const { administration } = await administer({ relatedPersons: [paperworkContact('Spouse')] });
+  it('keeps a relationship the vaccine list does not have as text', async () => {
+    const { administration } = await administer({ relatedPersons: [patientContact('Spouse')] });
 
     expect(recordedContacts(administration)[0].relationship).toEqual([{ text: 'Spouse' }]);
     expect(
@@ -151,28 +151,28 @@ describe('administerImmunizationOrder - emergency contact', () => {
     expect(administration.supportingInformation).toBeUndefined();
   });
 
-  it('records no paperwork contact for a vaccine that was not administered', async () => {
+  it('records no contact for a vaccine that was not administered', async () => {
     const { administration, search } = await administer({
       type: 'administered-not',
-      relatedPersons: [paperworkContact('Parent')],
+      relatedPersons: [patientContact('Parent')],
     });
 
     expect(search).not.toHaveBeenCalled();
     expect(recordedContacts(administration)).toEqual([]);
   });
 
-  it('records the paperwork contact when an order marked not administered is administered later', async () => {
+  it('records the emergency contact when an order marked not administered is administered later', async () => {
     const { administration } = await administer({
       medicationAdministration: order('not-done'),
-      relatedPersons: [paperworkContact('Parent')],
+      relatedPersons: [patientContact('Parent')],
     });
 
     expect(recordedContacts(administration)).toHaveLength(1);
   });
 
-  it('records the paperwork contact when the request sends an empty one', async () => {
+  it('records the emergency contact when the request sends an empty one', async () => {
     const { administration } = await administer({
-      relatedPersons: [paperworkContact('Parent')],
+      relatedPersons: [patientContact('Parent')],
       emergencyContact: { relationship: '', fullName: '', mobile: '' },
     });
 
@@ -182,11 +182,11 @@ describe('administerImmunizationOrder - emergency contact', () => {
   });
 
   it('keeps the contact recorded at administration when the order is saved again', async () => {
-    const recorded: RelatedPerson = { ...paperworkContact('Parent'), id: CONTAINED_EMERGENCY_CONTACT_ID };
+    const recorded: RelatedPerson = { ...patientContact('Parent'), id: CONTAINED_EMERGENCY_CONTACT_ID };
 
     const { administration, search } = await administer({
       medicationAdministration: order('completed', [recorded]),
-      relatedPersons: [paperworkContact('Spouse')],
+      relatedPersons: [patientContact('Spouse')],
     });
 
     expect(search).not.toHaveBeenCalled();
@@ -194,7 +194,7 @@ describe('administerImmunizationOrder - emergency contact', () => {
   });
 
   it('keeps the recorded contact when the vaccine of an administered order is changed', async () => {
-    const recorded: RelatedPerson = { ...paperworkContact('Parent'), id: CONTAINED_EMERGENCY_CONTACT_ID };
+    const recorded: RelatedPerson = { ...patientContact('Parent'), id: CONTAINED_EMERGENCY_CONTACT_ID };
 
     const { administration } = await administer({
       medicationAdministration: order('completed', [recorded]),
@@ -206,7 +206,7 @@ describe('administerImmunizationOrder - emergency contact', () => {
   });
 
   it('clears the recorded contact when an administered order is saved as not administered', async () => {
-    const recorded: RelatedPerson = { ...paperworkContact('Parent'), id: CONTAINED_EMERGENCY_CONTACT_ID };
+    const recorded: RelatedPerson = { ...patientContact('Parent'), id: CONTAINED_EMERGENCY_CONTACT_ID };
 
     const { administration } = await administer({
       medicationAdministration: order('completed', [recorded]),
@@ -235,7 +235,7 @@ describe('administerImmunizationOrder - emergency contact', () => {
   });
 
   it('replaces the recorded contact with one sent in the request', async () => {
-    const recorded: RelatedPerson = { ...paperworkContact('Parent'), id: CONTAINED_EMERGENCY_CONTACT_ID };
+    const recorded: RelatedPerson = { ...patientContact('Parent'), id: CONTAINED_EMERGENCY_CONTACT_ID };
 
     const { administration, search } = await administer({
       medicationAdministration: order('completed', [recorded]),

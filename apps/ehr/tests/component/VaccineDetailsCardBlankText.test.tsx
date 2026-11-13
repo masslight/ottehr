@@ -119,7 +119,7 @@ const renderCard = (lot: string): void => {
 };
 
 describe('VaccineDetailsCard - emergency contact', () => {
-  it("shows the patient's paperwork emergency contact read-only on a pending order", () => {
+  it("shows the patient's emergency contact read-only on a pending order", () => {
     renderCard('L1');
 
     expect(screen.getByTestId('vaccine-emergency-contact')).toHaveTextContent('Parent | Martin Black | (123) 456-7890');

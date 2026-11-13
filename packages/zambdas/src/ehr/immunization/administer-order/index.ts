@@ -134,7 +134,7 @@ export async function administerImmunizationOrder(
         )) ||
       (wasGiven
         ? recordedEmergencyContact
-        : await findPaperworkEmergencyContact(oystehr, medicationAdministration.subject))
+        : await findPatientEmergencyContact(oystehr, medicationAdministration.subject))
     : undefined;
   medicationAdministration.contained = [
     ...(medicationAdministration.contained ?? []).filter((resource) => resource.id !== CONTAINED_EMERGENCY_CONTACT_ID),
@@ -337,7 +337,7 @@ function createMedicationStatement(
   };
 }
 
-async function findPaperworkEmergencyContact(
+async function findPatientEmergencyContact(
   oystehr: Oystehr,
   patientReference: Reference
 ): Promise<RelatedPerson | undefined> {

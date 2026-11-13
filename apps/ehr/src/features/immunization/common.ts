@@ -37,7 +37,7 @@ const joinEmergencyContactParts = (parts: (string | undefined)[]): string | unde
   return filled.length > 0 ? filled.join(' | ') : undefined;
 };
 
-export const formatPaperworkEmergencyContact = (relatedPerson: RelatedPerson | undefined): string | undefined => {
+export const formatPatientEmergencyContact = (relatedPerson: RelatedPerson | undefined): string | undefined => {
   if (!relatedPerson) return undefined;
   const { relationship, fullName, phone } = getEmergencyContactSummary(relatedPerson);
   return joinEmergencyContactParts([relationship, fullName, formatPhoneNumberDisplay(phone)]);

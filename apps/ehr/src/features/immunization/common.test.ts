@@ -1,8 +1,8 @@
 import { RelatedPerson } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
-import { formatPaperworkEmergencyContact, formatRecordedEmergencyContact } from './common';
+import { formatPatientEmergencyContact, formatRecordedEmergencyContact } from './common';
 
-const paperworkContact = (overrides: Partial<RelatedPerson> = {}): RelatedPerson => ({
+const patientContact = (overrides: Partial<RelatedPerson> = {}): RelatedPerson => ({
   resourceType: 'RelatedPerson',
   patient: { reference: 'Patient/patient-1' },
   relationship: [
@@ -13,30 +13,28 @@ const paperworkContact = (overrides: Partial<RelatedPerson> = {}): RelatedPerson
   ...overrides,
 });
 
-describe('formatPaperworkEmergencyContact', () => {
-  it('shows relationship, full name and phone from the paperwork contact', () => {
-    expect(formatPaperworkEmergencyContact(paperworkContact())).toBe('Parent | Martin James Black | (123) 456-7890');
+describe('formatPatientEmergencyContact', () => {
+  it('shows relationship, full name and phone from the emergency contact', () => {
+    expect(formatPatientEmergencyContact(patientContact())).toBe('Parent | Martin James Black | (123) 456-7890');
   });
 
-  it('skips the parts the paperwork did not collect', () => {
-    expect(formatPaperworkEmergencyContact(paperworkContact({ relationship: undefined, telecom: undefined }))).toBe(
+  it('skips the parts the contact does not have', () => {
+    expect(formatPatientEmergencyContact(patientContact({ relationship: undefined, telecom: undefined }))).toBe(
       'Martin James Black'
     );
   });
 
   it('ignores a phone number that is no longer in use', () => {
     expect(
-      formatPaperworkEmergencyContact(
-        paperworkContact({ telecom: [{ system: 'phone', value: '1234567890', period: { end: '2026-01-01' } }] })
+      formatPatientEmergencyContact(
+        patientContact({ telecom: [{ system: 'phone', value: '1234567890', period: { end: '2026-01-01' } }] })
       )
     ).toBe('Parent | Martin James Black');
   });
 
   it('returns nothing when the patient has no emergency contact', () => {
-    expect(formatPaperworkEmergencyContact(undefined)).toBeUndefined();
-    expect(
-      formatPaperworkEmergencyContact(paperworkContact({ relationship: [], name: [], telecom: [] }))
-    ).toBeUndefined();
+    expect(formatPatientEmergencyContact(undefined)).toBeUndefined();
+    expect(formatPatientEmergencyContact(patientContact({ relationship: [], name: [], telecom: [] }))).toBeUndefined();
   });
 });
 

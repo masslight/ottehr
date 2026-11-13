@@ -31,7 +31,7 @@ import { enqueueOrderDeleteWarnings } from '../../visits/shared/utils/orderDelet
 import {
   ADMINISTERED,
   AdministrationType,
-  formatPaperworkEmergencyContact,
+  formatPatientEmergencyContact,
   formatRecordedEmergencyContact,
   NOT_ADMINISTERED,
   PARTLY_ADMINISTERED,
@@ -75,14 +75,14 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     resources: { patient },
   } = useAppointmentData(appointmentId);
   const apiClient = useOystehrAPIClient();
-  const showsPaperworkEmergencyContact = order.status === 'pending' || order.status === 'administered-not';
+  const showsPatientEmergencyContact = order.status === 'pending' || order.status === 'administered-not';
   const { data: patientAccount, isError: isPatientAccountError } = useGetPatientAccount({
     apiClient,
-    patientId: showsPaperworkEmergencyContact ? patient?.id ?? null : null,
+    patientId: showsPatientEmergencyContact ? patient?.id ?? null : null,
   });
-  const isEmergencyContactLoading = showsPaperworkEmergencyContact && !patientAccount && !isPatientAccountError;
-  const emergencyContact = showsPaperworkEmergencyContact
-    ? formatPaperworkEmergencyContact(patientAccount?.emergencyContactResource)
+  const isEmergencyContactLoading = showsPatientEmergencyContact && !patientAccount && !isPatientAccountError;
+  const emergencyContact = showsPatientEmergencyContact
+    ? formatPatientEmergencyContact(patientAccount?.emergencyContactResource)
     : formatRecordedEmergencyContact(order.administrationDetails?.emergencyContact);
   const emergencyContactText = isPatientAccountError
     ? 'Could not load emergency contact'
