@@ -5,7 +5,8 @@ import { LAB_ROW_LOINC_CODES } from '../../src/ehr/get-flowsheet/lab-loinc-codes
 import { LAB_ROW_RULES } from '../../src/ehr/get-flowsheet/lab-row-rules';
 
 // The generated code lists: every row has codes, and the rules keep the measures the lab sends under any unit or
-// method while leaving out other specimens, antibodies, ratios and deprecated codes.
+// method (the newborn rows also in a heel-stick sample) while leaving out other specimens, antibodies, ratios and
+// deprecated codes.
 describe('LAB_ROW_LOINC_CODES', () => {
   test('every lab row rule has codes, and nothing else does', () => {
     expect(Object.keys(LAB_ROW_LOINC_CODES).sort()).toEqual(Object.keys(LAB_ROW_RULES).sort());
@@ -19,8 +20,8 @@ describe('LAB_ROW_LOINC_CODES', () => {
     ['freeT3', ['3051-0']],
     ['totalT3', ['3053-6']],
     ['tpoAntibodies', ['8099-4', '32042-4']],
-    ['totalBilirubin', ['1975-2', '14631-6']],
-    ['directBilirubin', ['1968-7', '29760-6', '15152-2']],
+    ['newbornTotalBilirubin', ['1975-2', '14631-6', '42719-5', '59828-4', '97770-2']],
+    ['newbornDirectBilirubin', ['1968-7', '29760-6', '15152-2']],
     ['transcutaneousBilirubin', ['58941-6', '72898-0']],
   ])('%s carries the codes of its measure in every unit and method', (row, codes) => {
     codes.forEach((code) => expect(LAB_ROW_LOINC_CODES[row]).toContain(code));
@@ -33,11 +34,19 @@ describe('LAB_ROW_LOINC_CODES', () => {
       '5385-0', // Thyrotropin receptor Ab in Serum
       '3015-5', // Thyrotropin in Blood
       '14999-7', // Thyrotropin --baseline
-      '42719-5', // Bilirubin.total in Blood
+      '48624-1', // Bilirubin.total in Cord blood
+      '48623-3', // Bilirubin.direct in Cord blood
       '1971-1', // Bilirubin.indirect
       '3017-1', // Thyrotropin binding inhibitory immunoglobulins
     ].forEach((code) => expect(all).not.toContain(code));
-    expect(new Set(all).size).toBe(all.length);
+  });
+
+  test('the newborn total row is the CMP total bilirubin row plus heel-stick codes; no other code is on two rows', () => {
+    const { newbornTotalBilirubin, totalBilirubin, ...others } = LAB_ROW_LOINC_CODES;
+    expect(newbornTotalBilirubin).toEqual(expect.arrayContaining(totalBilirubin));
+    expect(totalBilirubin).not.toContain('42719-5');
+    const rest = [...Object.values(others).flat(), ...newbornTotalBilirubin];
+    expect(new Set(rest).size).toBe(rest.length);
   });
 });
 
