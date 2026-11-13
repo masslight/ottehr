@@ -31,9 +31,9 @@ describe('getCoverageIdsToCancel', () => {
     expect([...getCoverageIdsToCancel([dup], [mainPrimary])]).toEqual(['b1']);
   });
 
-  it('keeps a coverage for a slot the main patient does not fill', () => {
+  it('cancels a secondary coverage when main already has a primary of the same type', () => {
     const secondary = coverage('b2', 2, 'MEMBER-B', 'Organization/1199');
-    expect(getCoverageIdsToCancel([secondary], [mainPrimary]).size).toBe(0);
+    expect([...getCoverageIdsToCancel([secondary], [mainPrimary])]).toEqual(['b2']);
   });
 
   it('keeps everything when the main patient has no active coverage', () => {
@@ -65,14 +65,16 @@ describe('getCoverageIdsToCancel', () => {
     expect([...getCoverageIdsToCancel([other], [main], slots)]).toEqual(['b1']);
   });
 
-  it('keeps a secondary-slot coverage from the merged-away patient when main only has a primary', () => {
+  it('cancels primary and secondary of the merged-away patient when main only has a primary', () => {
     const main = coverage('a1', undefined, 'MEMBER-A', 'Organization/3m');
-    const other = coverage('b1', undefined, 'MEMBER-B', 'Organization/1199');
+    const other = coverage('b1', undefined, 'MEMBER-B', 'Organization/3m-x');
+    const other2 = coverage('b2', undefined, 'MEMBER-C', 'Organization/aarp');
     const slots = new Map([
       ['a1', 'PBILLACCT:1'],
-      ['b1', 'PBILLACCT:2'],
+      ['b1', 'PBILLACCT:1'],
+      ['b2', 'PBILLACCT:2'],
     ]);
-    expect(getCoverageIdsToCancel([other], [main], slots).size).toBe(0);
+    expect([...getCoverageIdsToCancel([other, other2], [main], slots)].sort()).toEqual(['b1', 'b2']);
   });
 
   it('ignores inactive accounts when deriving priorities', () => {

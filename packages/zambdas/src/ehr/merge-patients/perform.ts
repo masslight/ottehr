@@ -1001,21 +1001,24 @@ export const getCoverageSlots = (accounts: Account[]): Map<string, string> => {
   return slots;
 };
 
+// The main patient's insurance wins: if main already has an active coverage in an Account type (billing, workers'
+// comp), none of the merged-away patient's active coverages of that type are carried over, secondary included.
+// Duplicates of a main coverage are always cancelled.
 export const getCoverageIdsToCancel = (
   oldCoverages: Coverage[],
   mainActiveCoverages: Coverage[],
   slots: Map<string, string> = new Map()
 ): Set<string> => {
-  const slotOf = (c: Coverage): string | undefined =>
-    (c.id ? slots.get(c.id) : undefined) ?? (c.order !== undefined ? `:${c.order}` : undefined);
-  const mainSlots = new Set(mainActiveCoverages.map(slotOf).filter((slot): slot is string => slot !== undefined));
+  const typeOf = (c: Coverage): string => {
+    const slot = c.id ? slots.get(c.id) : undefined;
+    return slot !== undefined ? slot.slice(0, slot.lastIndexOf(':')) : '';
+  };
+  const mainTypes = new Set(mainActiveCoverages.map(typeOf));
   const ids = new Set<string>();
   for (const coverage of oldCoverages) {
     if (!coverage.id || coverage.status !== 'active') continue;
     const isDuplicate = mainActiveCoverages.some((main) => coveragesAreSame(main, coverage));
-    const slot = slotOf(coverage);
-    const slotTaken = slot !== undefined && mainSlots.has(slot);
-    if (isDuplicate || slotTaken) ids.add(coverage.id);
+    if (isDuplicate || mainTypes.has(typeOf(coverage))) ids.add(coverage.id);
   }
   return ids;
 };
