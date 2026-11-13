@@ -178,6 +178,18 @@ describe('buildNewbornBilirubinFlowsheet', () => {
     });
   });
 
+  test('only results from the first 2 months of life: a later CMP bilirubin and an adult one stay off', () => {
+    const later = {
+      ...data,
+      labs: {
+        e1: [lab('Bilirubin, total', ['1975-2'], 6.1, '2007-05-30T18:00:00.000Z')],
+        e2: [lab('Bilirubin, total', ['1975-2'], 0.6, '2007-06-01T18:00:00.000Z')],
+        e3: [lab('Bilirubin, total', ['1975-2'], 0.7, '2050-05-01T18:00:00.000Z')],
+      },
+    };
+    expect(buildNewbornBilirubinFlowsheet(later).map((c) => c.encounterId)).toEqual(['e1']);
+  });
+
   test('without a birth date there is no day of life row', () => {
     const [latest] = buildNewbornBilirubinFlowsheet({ ...data, birthDate: undefined });
     expect(Object.keys(latest.values)).toEqual(['newbornTotalBilirubin', 'newbornDirectBilirubin']);

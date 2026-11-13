@@ -1327,7 +1327,7 @@ export const ENCOUNTER_LAYERS = {
       hearingImpairedRelayPhone: z
         .string()
         .describe('Relay service phone for a hearing-impaired patient, from the intake paperwork. "" when none.'),
-      birthHistory: z.array(z.string()).describe('Birth-history items (peds), when present.'),
+      birthHistory: z.array(z.string()).describe('Birth history lines (peds), from the patient record, when saved.'),
       screeningQuestions: z
         .array(z.string())
         .describe(

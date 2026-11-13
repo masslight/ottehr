@@ -1,6 +1,12 @@
 import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, it } from 'vitest';
-import { chartPoint, HOURS_OF_LIFE_MAX, hoursOfLifeAt, usesHoursAxis } from '../../src/features/flowsheets/chartPoints';
+import {
+  chartPoint,
+  HOURS_OF_LIFE_MAX,
+  hoursOfLifeAt,
+  usesHoursAxis,
+  yAxisBounds,
+} from '../../src/features/flowsheets/chartPoints';
 import { FLOWSHEETS } from '../../src/features/flowsheets/registry';
 
 const reading = (value: number, time: string): FlowsheetValue => ({ time, value, readings: [{ time, value }] });
@@ -56,5 +62,27 @@ describe('newborn bilirubin chart x-axis: hours of life when the time of birth i
     expect(chartPoint(late, 'newbornTotalBilirubin', true)).toBeUndefined();
     expect(chartPoint(withoutHours, 'newbornTotalBilirubin', true)).toBeUndefined();
     expect(chartPoint(withoutHours, 'newbornTotalBilirubin', false)).toEqual([Date.parse(withoutHours.start), 13.8]);
+  });
+});
+
+describe('trend chart y-axis: a small change does not fill the chart', () => {
+  const chart = (title: string): (typeof FLOWSHEETS)[number]['charts'][number] =>
+    FLOWSHEETS.flatMap((f) => f.charts).find((c) => c.title === title)!;
+
+  it('SpO₂ shows at least 85–100, temperature 35–40 °C, widened to fit an outside value', () => {
+    expect(yAxisBounds(chart('SpO₂'), 98, 99)).toEqual([85, 100]);
+    expect(yAxisBounds(chart('SpO₂'), 82, 99)).toEqual([82, 100]);
+    expect(yAxisBounds(chart('Temperature'), 36.75, 37)).toEqual([35, 40]);
+    expect(yAxisBounds(chart('Temperature'), 36.8, 40.6)).toEqual([35, 40.6]);
+  });
+
+  it('heart rate is at least 40 /min tall, centred on the values', () => {
+    expect(yAxisBounds(chart('Heart rate'), 98, 102)).toEqual([80, 120]);
+  });
+
+  it('labs and weight span at least ±10% of the middle value, rounded out', () => {
+    expect(yAxisBounds(chart('Creatinine'), 0.78, 0.82)).toEqual([0.72, 0.88]);
+    expect(yAxisBounds(chart('Weight'), 3.1, 3.3)).toEqual([2.88, 3.52]);
+    expect(yAxisBounds(chart('Creatinine'), 0.5, 1.5)).toEqual([0.5, 1.5]);
   });
 });

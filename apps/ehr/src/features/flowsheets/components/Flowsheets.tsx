@@ -41,7 +41,7 @@ import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/typ
 import { VitalsHeaderUnitSystem } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { biliToolReadings, canOpenBiliTool } from '../biliTool';
-import { chartPoint, HOURS_OF_LIFE_MAX, usesHoursAxis } from '../chartPoints';
+import { chartPoint, HOURS_OF_LIFE_MAX, usesHoursAxis, yAxisBounds } from '../chartPoints';
 import { FlowsheetChart, FlowsheetDefinition, FlowsheetRow, FLOWSHEETS } from '../registry';
 import { BiliToolDialog } from './BiliToolDialog';
 import { GrowthCharts } from './GrowthCharts';
@@ -110,7 +110,9 @@ export const Flowsheets = ({ patientId, title, asOf, currentAppointmentId }: Flo
       {isLoading ? (
         <Loader height="300px" />
       ) : error ? (
-        <Typography color="error">{error.message}</Typography>
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="body1">Could not load the flowsheet. Please try again.</Typography>
+        </Box>
       ) : !data?.visits.length ? (
         <Box sx={{ p: 3, textAlign: 'center' }}>
           <Typography variant="body1">No data for this patient</Typography>
@@ -394,7 +396,12 @@ const FlowsheetBody = ({
             splitLine: { show: false },
           }
         : { type: 'time', axisLabel: { hideOverlap: true, formatter: '{MM}/{dd}' }, splitLine: { show: false } },
-      yAxis: { type: 'value', name: chart.unit, scale: true },
+      yAxis: {
+        type: 'value',
+        name: chart.unit,
+        min: ({ min, max }: { min: number; max: number }) => yAxisBounds(chart, min, max)[0],
+        max: ({ min, max }: { min: number; max: number }) => yAxisBounds(chart, min, max)[1],
+      },
       series: chart.lines.map((line) => ({
         name: line.name,
         type: 'line',
@@ -417,6 +424,15 @@ const FlowsheetBody = ({
   };
   const hasPoints = (chart: FlowsheetChart): boolean =>
     chart.lines.some((line) => columns.some((visit) => typeof visit.values[line.key]?.value === 'number'));
+  // The flags a chart draws as larger coloured points, for the key under it.
+  const plottedFlags = (chart: FlowsheetChart): VitalAlertCriticality[] =>
+    [VitalAlertCriticality.Abnormal, VitalAlertCriticality.Critical].filter((flag) =>
+      chart.lines.some((line) =>
+        columns.some(
+          (visit) => visit.values[line.key]?.flag === flag && chartPoint(visit, line.key, usesHoursAxis(chart, columns))
+        )
+      )
+    );
 
   return (
     <>
@@ -501,6 +517,19 @@ const FlowsheetBody = ({
               <AccordionCard label={`${chart.title} (${chart.unit})`}>
                 <Box sx={{ p: 2 }}>
                   <EChart option={chartOption(chart)} height={280} />
+                  {plottedFlags(chart).length > 0 && (
+                    <Typography variant="caption" color="text.secondary" component="p">
+                      {plottedFlags(chart).map((flag) => (
+                        <span key={flag}>
+                          <Box component="span" sx={{ color: flagColor(flag) }}>
+                            ●
+                          </Box>{' '}
+                          {flag === VitalAlertCriticality.Critical ? 'critical' : 'abnormal'}
+                          {'   '}
+                        </span>
+                      ))}
+                    </Typography>
+                  )}
                 </Box>
               </AccordionCard>
             </Grid>

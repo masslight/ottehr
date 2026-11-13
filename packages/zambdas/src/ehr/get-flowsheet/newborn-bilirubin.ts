@@ -53,13 +53,30 @@ export const hoursOfLifeAt = (
   return at.diff(birth, 'hours').hours;
 };
 
+/**
+ * Results up to 2 months of life: the first-week checks and the prolonged-jaundice tests at 2–4 weeks with their
+ * repeats (NASPGHAN/ESPGHAN 2017). A later bilirubin (an older child's or adult's CMP) stays on Lab results.
+ */
+const NEWBORN_MONTHS = 2;
+
 export const buildNewbornBilirubinFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => {
-  const columns = conditionColumns(data, VITAL_KEYS);
+  const birthDate = /^\d{4}-\d{2}-\d{2}$/.test(data.birthDate ?? '') ? data.birthDate : undefined;
+  const cutoff = birthDate ? DateTime.fromISO(birthDate, { zone: 'utc' }).plus({ months: NEWBORN_MONTHS }) : undefined;
+  const labs =
+    cutoff && data.labs
+      ? Object.fromEntries(
+          Object.entries(data.labs).map(([key, results]) => [
+            key,
+            // An undated result (no effective or issued time) can't be placed, so it stays.
+            results.filter((result) => !result.resultedAt || DateTime.fromISO(result.resultedAt) < cutoff),
+          ])
+        )
+      : data.labs;
+  const columns = conditionColumns({ ...data, labs }, VITAL_KEYS);
   columns.addLabs(LAB_ROWS);
 
   // A visit is a column only when it holds a bilirubin result; weight alone does not put it on the flowsheet.
   const visits = columns.list();
-  const birthDate = /^\d{4}-\d{2}-\d{2}$/.test(data.birthDate ?? '') ? data.birthDate : undefined;
   const timeOfBirth = data.birthHistory?.timeOfBirth;
   // One day-of-life (and, with a time of birth, hours-of-life) reading per result time, so a result from the day
   // after the visit shows its own day. Hours of life are the chart's x-axis when known.

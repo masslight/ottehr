@@ -81,6 +81,7 @@ import {
   formatScreeningQuestionValue,
   getPaperworkScreeningAnswer,
 } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
+import { formatBirthHistoryNoteLines } from 'utils/lib/helpers/vitals/birth-history.helper';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import {
@@ -96,6 +97,7 @@ import {
   AdHocEncountersInput,
   CHART_NOTE_TYPE_VALUES,
 } from 'utils/lib/types/adhoc/datasets/encounters';
+import { BIRTH_HISTORY_CODE, BIRTH_HISTORY_META_SYSTEM, BirthHistory } from 'utils/lib/types/api/birth-history.types';
 import {
   VitalAlertCriticality,
   VitalBloodPressureObservationMethod,
@@ -139,6 +141,7 @@ import {
   presentFullName,
   resolveEncounterAppointment,
 } from '../adhoc-report';
+import { makeBirthHistoryDTO } from '../birth-history';
 import {
   chartDataResourceHasMetaTagByCode,
   followUpTypeFromPerformerType,
@@ -422,6 +425,7 @@ export async function fetchAdHocEncounterRows(
   const medStatementsByEncounterId = new Map<string, MedicationStatement[]>();
   const medicationOrderResources: FhirResource[] = [];
   const observationsByEncounterId = new Map<string, Observation[]>();
+  const birthHistoryByPatient = new Map<string, BirthHistory>();
   const serviceRequestsByEncounterId = new Map<string, ServiceRequest[]>();
   const radiologyRequestsByEncounterId = new Map<string, ServiceRequest[]>();
 
@@ -616,6 +620,18 @@ export async function fetchAdHocEncounterRows(
         (o) => stripEnc(o.encounter?.reference),
         observationsByEncounterId
       );
+    }
+    if (includeIntake) {
+      // Birth history is one patient-level Observation (no encounter); the newest per patient wins.
+      const birthHistories = await fetchScoped<Observation>('Observation', 'subject', Array.from(patientMap.keys()), [
+        { name: '_tag', value: `${BIRTH_HISTORY_META_SYSTEM}|${BIRTH_HISTORY_CODE}` },
+        { name: 'status:not', value: 'entered-in-error,cancelled' },
+      ]);
+      birthHistories.sort((a, b) => (b.meta?.lastUpdated ?? '').localeCompare(a.meta?.lastUpdated ?? ''));
+      for (const o of birthHistories) {
+        const ref = o.subject?.reference;
+        if (ref && !birthHistoryByPatient.has(ref)) birthHistoryByPatient.set(ref, makeBirthHistoryDTO(o));
+      }
     }
     if (includeVitals) {
       // Names of the staff who recorded vitals: each reading's performer.
@@ -1670,15 +1686,8 @@ export async function fetchAdHocEncounterRows(
       const obs = encounter.id ? observationsByEncounterId.get(encounter.id) ?? [] : [];
       const asqObs = obs.find((o) => o.meta?.tag?.some((t) => t.code === 'asq'));
       row.asqScreen = asqObs?.valueString || asqObs?.valueCodeableConcept?.coding?.[0]?.code || '';
-      const birthHistory: string[] = [];
-
-      for (const o of obs) {
-        if (!o.meta?.tag?.some((t) => t.code?.includes('birth'))) continue;
-        const label = o.code?.text || o.code?.coding?.[0]?.display;
-        if (label) birthHistory.push(label);
-      }
-
-      row.birthHistory = birthHistory;
+      const birthHistory = birthHistoryByPatient.get(encounter.subject?.reference ?? '');
+      row.birthHistory = birthHistory ? formatBirthHistoryNoteLines(birthHistory) : [];
       const screeningAnswers: { question: string; answer: string }[] = [];
 
       // Newest first, so a re-answered question keeps its latest answer.

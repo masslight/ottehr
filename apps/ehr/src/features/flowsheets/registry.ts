@@ -20,6 +20,10 @@ export interface FlowsheetChart {
   lines: { name: string; key: string }[];
   /** Plot against hours of life (0–336 h) when the visits carry them (time of birth recorded), else against time. */
   hoursOfLife?: boolean;
+  /** The y-axis always shows at least this range, widened to fit any value outside it. */
+  yRange?: [number, number];
+  /** The y-axis is at least this tall, centred on the values; without yRange or minSpan, ±10% of the middle value. */
+  minSpan?: number;
 }
 
 export interface FlowsheetDefinition {
@@ -46,13 +50,14 @@ const vitals: FlowsheetDefinition = {
     { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1 },
   ],
   charts: [
-    { title: 'Heart rate', unit: '/min', lines: [{ name: 'Heart rate', key: 'heartRate' }] },
-    { title: 'SpO₂', unit: '%', lines: [{ name: 'SpO₂', key: 'oxygenSaturation' }] },
-    { title: 'Temperature', unit: '°C', lines: [{ name: 'Temperature', key: 'temperature' }] },
+    { title: 'Heart rate', unit: '/min', minSpan: 40, lines: [{ name: 'Heart rate', key: 'heartRate' }] },
+    { title: 'SpO₂', unit: '%', yRange: [85, 100], lines: [{ name: 'SpO₂', key: 'oxygenSaturation' }] },
+    { title: 'Temperature', unit: '°C', yRange: [35, 40], lines: [{ name: 'Temperature', key: 'temperature' }] },
     { title: 'Weight', unit: 'kg', lines: [{ name: 'Weight', key: 'weight' }] },
     {
       title: 'Blood pressure',
       unit: 'mm Hg',
+      minSpan: 40,
       lines: [
         { name: 'Systolic', key: 'systolic' },
         { name: 'Diastolic', key: 'diastolic' },
@@ -114,7 +119,7 @@ const thyroid: FlowsheetDefinition = {
     { title: 'TSH', unit: 'mIU/L', lines: [{ name: 'TSH', key: 'tsh' }] },
     { title: 'Free T4', unit: 'ng/dL', lines: [{ name: 'Free T4', key: 'freeT4' }] },
     { title: 'Weight', unit: 'kg', lines: [{ name: 'Weight', key: 'weight' }] },
-    { title: 'Heart rate', unit: '/min', lines: [{ name: 'Heart rate', key: 'heartRate' }] },
+    { title: 'Heart rate', unit: '/min', minSpan: 40, lines: [{ name: 'Heart rate', key: 'heartRate' }] },
   ],
 };
 
@@ -122,9 +127,9 @@ const newbornBilirubin: FlowsheetDefinition = {
   id: 'newbornBilirubin',
   title: 'Newborn bilirubin',
   rows: [
-    { label: 'Total serum bilirubin', keys: ['newbornTotalBilirubin'] },
+    { label: 'Total bilirubin (blood)', keys: ['newbornTotalBilirubin'] },
     { label: 'Direct (conjugated) bilirubin', keys: ['newbornDirectBilirubin'] },
-    { label: 'Transcutaneous bilirubin', keys: ['transcutaneousBilirubin'] },
+    { label: 'Transcutaneous bilirubin (TcB)', keys: ['transcutaneousBilirubin'] },
     { label: 'Day of life', keys: ['dayOfLife'], digits: 0 },
     { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
   ],
@@ -134,8 +139,8 @@ const newbornBilirubin: FlowsheetDefinition = {
       unit: 'mg/dL',
       hoursOfLife: true,
       lines: [
-        { name: 'Total serum', key: 'newbornTotalBilirubin' },
-        { name: 'Transcutaneous', key: 'transcutaneousBilirubin' },
+        { name: 'Blood', key: 'newbornTotalBilirubin' },
+        { name: 'TcB', key: 'transcutaneousBilirubin' },
       ],
     },
   ],
