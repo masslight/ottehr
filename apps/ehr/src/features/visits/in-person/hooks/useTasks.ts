@@ -27,6 +27,7 @@ import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types'
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { isTaskProgressNoteSection } from 'utils/lib/types/data/tasks/progress-note-sections';
 import {
   CreateManualTaskRequest,
   ERX_TASK,
@@ -680,6 +681,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     const patientReference = getInputReference(MANUAL_TASK.input.patient, task);
     const appointmentId = getInputString(MANUAL_TASK.input.appointmentId, task);
     const orderId = getInputString(MANUAL_TASK.input.orderId, task);
+    const progressNoteSection = getInputString(MANUAL_TASK.input.progressNoteSection, task);
     const documentReferenceId = getInputString(MANUAL_TASK.input.documentReferenceId, task);
     // Follow-up tasks emitted by completed practice-managed forms carry a
     // document-reference-id; use it as a signal to route to the patient docs
@@ -755,6 +757,12 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           link: addEncounterIdToLink(`/in-person/${appointmentId}/procedures/${orderId}`),
         };
       }
+    } else if (appointmentId && isTaskProgressNoteSection(progressNoteSection)) {
+      const sectionLink = `/in-person/${appointmentId}/${progressNoteSection}`;
+      action = {
+        name: GO_TO_TASK,
+        link: encounterId ? `${sectionLink}?encounterId=${encounterId}` : sectionLink,
+      };
     } else if (appointmentId) {
       action = {
         name: GO_TO_TASK,

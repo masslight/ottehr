@@ -94,6 +94,7 @@ describe('create-manual-task', () => {
     const result = await createAs('m2m-client-1@clients', {
       appointmentId: null,
       orderId: null,
+      progressNoteSection: null,
       taskDetails: null,
       assignee: null,
       patient: null,
@@ -102,6 +103,28 @@ describe('create-manual-task', () => {
     expect(result.statusCode).toBe(200);
     expect(createdTask().owner).toBeUndefined();
     expect(getTaskInputValue(createdTask(), MANUAL_TASK.input.details)).toBeUndefined();
+    expect(getTaskInputValue(createdTask(), MANUAL_TASK.input.progressNoteSection)).toBeUndefined();
+  });
+
+  it('stores the progress note section the task links to', async () => {
+    const result = await createAs('m2m-client-1@clients', { appointmentId: 'appt-1', progressNoteSection: 'vitals' });
+
+    expect(result.statusCode).toBe(200);
+    expect(getTaskInputValue(createdTask(), MANUAL_TASK.input.progressNoteSection)).toBe('vitals');
+  });
+
+  it.each([
+    ['an unknown section', { appointmentId: 'appt-1', progressNoteSection: 'not-a-section' }],
+    ['a section without a visit', { progressNoteSection: 'vitals' }],
+    [
+      'a section together with an order',
+      { appointmentId: 'appt-1', orderId: 'order-1', progressNoteSection: 'vitals' },
+    ],
+  ])('rejects %s before writing to FHIR', async (_case, body) => {
+    await expect(createAs('m2m-client-1@clients', body)).rejects.toMatchObject({
+      code: APIErrorCode.INVALID_INPUT,
+    });
+    expect(oystehr.fhir.create).not.toHaveBeenCalled();
   });
 
   it.each([' ', ''])('rejects a blank task title %j before writing to FHIR', async (taskTitle) => {

@@ -1,7 +1,7 @@
 import { Stack } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { useParams } from 'react-router-dom';
+import { useMatch, useParams } from 'react-router-dom';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
@@ -12,7 +12,14 @@ import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTask
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
+import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
 import { getLocationLabel } from 'utils/lib/fhir/location';
+import {
+  isTaskProgressNoteSection,
+  TASK_FOLLOW_UP_PROGRESS_NOTE_SECTIONS,
+  TASK_MAIN_PROGRESS_NOTE_SECTIONS,
+  TASK_PROGRESS_NOTE_SECTIONS,
+} from 'utils/lib/types/data/tasks/progress-note-sections';
 import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { useGetPatientVisitHistory } from '../../../hooks/useGetPatientVisitHistory';
 import {
@@ -49,6 +56,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
 }) => {
   const methods = useForm();
   const formValue = methods.watch();
+  const canLinkSection = !!formValue.appointment && !formValue.order;
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -78,6 +86,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
       category: formValue.category,
       appointmentId: formValue.appointment,
       orderId: formValue.order,
+      progressNoteSection: formValue.progressNoteSection,
       encounterId: encounterId || undefined,
       taskTitle: formValue.taskTitle,
       taskDetails: formValue.taskDetails,
@@ -104,6 +113,10 @@ export const CreateTaskDialog: React.FC<Props> = ({
     appointments?.find((appointment) => appointment.appointmentId === formValue.appointment)?.appointmentId
   );
   const encounterId = encounter?.id ?? '';
+  const sectionOptions =
+    getEncounterVisitType(encounter) === 'follow-up'
+      ? TASK_FOLLOW_UP_PROGRESS_NOTE_SECTIONS
+      : TASK_MAIN_PROGRESS_NOTE_SECTIONS;
 
   const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId, refreshKey);
   const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId, refreshKey);
@@ -149,6 +162,13 @@ export const CreateTaskDialog: React.FC<Props> = ({
   }, [formValue.patient, methods]);
 
   useEffect(() => {
+    const section = formValue.progressNoteSection;
+    if (!canLinkSection || (encounterId && section && !sectionOptions.includes(section))) {
+      methods.setValue('progressNoteSection', null);
+    }
+  }, [canLinkSection, encounterId, sectionOptions, formValue.progressNoteSection, methods]);
+
+  useEffect(() => {
     if (!formValue.appointment || !formValue.category) {
       methods.setValue('order', null);
     }
@@ -157,6 +177,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const urlParams = useParams();
   const appointmentId = appointmentIdProp ?? urlParams['id'];
   const appointment = useAppointmentData(appointmentId);
+  const visitRoute = useMatch('/in-person/:id/*');
+  const visitSection = visitRoute?.params.id === appointmentId ? visitRoute?.params['*'] : undefined;
   useEffect(() => {
     if (appointment.patient && open && !prefillApplied.current.appointment) {
       methods.setValue('patient', {
@@ -164,9 +186,12 @@ export const CreateTaskDialog: React.FC<Props> = ({
         name: getPatientLabel(appointment.patient),
       });
       methods.setValue('appointment', appointmentId);
+      if (isTaskProgressNoteSection(visitSection)) {
+        methods.setValue('progressNoteSection', visitSection);
+      }
       prefillApplied.current.appointment = true;
     }
-  }, [appointmentId, appointment.patient, methods, open]);
+  }, [appointmentId, appointment.patient, methods, open, visitSection]);
 
   useEffect(() => {
     if (
@@ -261,6 +286,13 @@ export const CreateTaskDialog: React.FC<Props> = ({
               getOptionLabel={(option) => orderOptions.find((opt) => opt.id === option)?.label ?? ''}
               loading={ordersLoading}
               disabled={!formValue.appointment || !formValue.category}
+            />
+            <SelectInput
+              name="progressNoteSection"
+              label="Progress Note section"
+              options={sectionOptions}
+              getOptionLabel={(option) => TASK_PROGRESS_NOTE_SECTIONS[option]}
+              disabled={!canLinkSection}
             />
             <TextInput name="taskTitle" label="Title" required />
             <TextInput name="taskDetails" label="Task details" />
