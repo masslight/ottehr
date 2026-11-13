@@ -40,7 +40,7 @@ import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data
 import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
 import { VitalsHeaderUnitSystem } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
-import { biliToolReadings, canOpenBiliTool } from '../biliTool';
+import { biliToolReadings, biliToolUnavailableReason } from '../biliTool';
 import { chartPoint, HOURS_OF_LIFE_MAX, usesHoursAxis, yAxisBounds } from '../chartPoints';
 import { FlowsheetChart, FlowsheetDefinition, FlowsheetRow, FLOWSHEETS } from '../registry';
 import { BiliToolDialog } from './BiliToolDialog';
@@ -66,7 +66,9 @@ export const Flowsheets = ({ patientId, title, asOf, currentAppointmentId }: Flo
     () => (selected.id === 'newbornBilirubin' && data ? biliToolReadings(data.visits) : []),
     [selected.id, data]
   );
-  const showBiliTool = selected.id === 'newbornBilirubin' && canOpenBiliTool(data?.birthHistory, readings);
+  // On Newborn bilirubin the button is always there once loaded; disabled, its hover says what BiliTool still needs.
+  const showBiliTool = selected.id === 'newbornBilirubin' && !!data;
+  const biliToolBlocked = showBiliTool ? biliToolUnavailableReason(data?.birthHistory, readings) : undefined;
 
   const content = (
     <Stack spacing={2}>
@@ -94,12 +96,22 @@ export const Flowsheets = ({ patientId, title, asOf, currentAppointmentId }: Flo
           ))}
         </Tabs>
         {showBiliTool && (
-          <RoundedButton size="small" startIcon={<OpenInNewIcon />} onClick={() => setBiliToolOpen(true)}>
-            Open in BiliTool
-          </RoundedButton>
+          // The span is what the tooltip listens on: a disabled button fires no pointer events of its own.
+          <Tooltip title={biliToolBlocked ?? ''} placement="top" arrow>
+            <span style={{ display: 'inline-flex', cursor: biliToolBlocked ? 'not-allowed' : undefined }}>
+              <RoundedButton
+                size="small"
+                startIcon={<OpenInNewIcon />}
+                disabled={!!biliToolBlocked}
+                onClick={() => setBiliToolOpen(true)}
+              >
+                Open in BiliTool
+              </RoundedButton>
+            </span>
+          </Tooltip>
         )}
       </Box>
-      {showBiliTool && biliToolOpen && data?.birthHistory && (
+      {showBiliTool && !biliToolBlocked && biliToolOpen && data?.birthHistory && (
         <BiliToolDialog
           open
           onClose={() => setBiliToolOpen(false)}

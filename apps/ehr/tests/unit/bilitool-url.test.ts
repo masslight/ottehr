@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   BiliToolReading,
   biliToolReadings,
+  biliToolUnavailableReason,
   biliToolUnits,
   buildBiliToolUrl,
-  canOpenBiliTool,
   defaultBiliToolReading,
   formatBiliToolReading,
 } from '../../src/features/flowsheets/biliTool';
@@ -136,13 +136,23 @@ describe('Open in BiliTool', () => {
     });
   });
 
-  it('offers the button only with a time of birth, 35+ weeks and a listable reading', () => {
-    expect(canOpenBiliTool(birthHistory, readings)).toBe(true);
-    expect(canOpenBiliTool({ ...birthHistory, timeOfBirth: undefined }, readings)).toBe(false);
-    expect(canOpenBiliTool({ ...birthHistory, gestationalAgeWeeks: 34 }, readings)).toBe(false);
-    expect(canOpenBiliTool({ ...birthHistory, gestationalAgeWeeks: undefined }, readings)).toBe(false);
-    expect(canOpenBiliTool(undefined, readings)).toBe(false);
-    expect(canOpenBiliTool(birthHistory, [])).toBe(false);
+  it('enables the button only with a time of birth, 35+ weeks and a listable reading; else says what is missing', () => {
+    expect(biliToolUnavailableReason(birthHistory, readings)).toBeUndefined();
+    expect(biliToolUnavailableReason({ ...birthHistory, timeOfBirth: undefined }, readings)).toBe(
+      "Needs the time of birth: add it in Birth history on a visit's Vitals screen."
+    );
+    expect(biliToolUnavailableReason({ ...birthHistory, gestationalAgeWeeks: 34 }, readings)).toBe(
+      'BiliTool covers babies born at 35 weeks or later.'
+    );
+    expect(biliToolUnavailableReason({ ...birthHistory, gestationalAgeWeeks: undefined }, readings)).toBe(
+      "Needs the gestational age: add it in Birth history on a visit's Vitals screen."
+    );
+    expect(biliToolUnavailableReason(undefined, readings)).toBe(
+      "Needs the time of birth and gestational age: add them in Birth history on a visit's Vitals screen."
+    );
+    expect(biliToolUnavailableReason(birthHistory, [])).toBe(
+      'Needs a bilirubin result in mg/dL or µmol/L from the first 14 days (336 hours).'
+    );
     // Without hours of life (no time of birth) nothing is listable.
     expect(
       biliToolReadings(visits.map((v) => visit({ newbornTotalBilirubin: v.values.newbornTotalBilirubin })))

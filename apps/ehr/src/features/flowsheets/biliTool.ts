@@ -64,12 +64,27 @@ export const formatBiliToolReading = (reading: BiliToolReading): string =>
     reading.hours
   )} h`;
 
-/** The button shows only when BiliTool can take the data: time of birth, gestational age of 35+ weeks, a reading. */
-export const canOpenBiliTool = (birthHistory: BirthHistoryDTO | undefined, readings: BiliToolReading[]): boolean =>
-  !!birthHistory?.timeOfBirth &&
-  birthHistory.gestationalAgeWeeks !== undefined &&
-  birthHistory.gestationalAgeWeeks >= BILITOOL_MIN_GESTATIONAL_WEEKS &&
-  readings.length > 0;
+/**
+ * Why BiliTool can't take the data yet (the button is shown disabled with this as its hover), or undefined when it
+ * can: it needs the time of birth, a gestational age of 35+ weeks and a reading from the first 336 hours.
+ */
+export const biliToolUnavailableReason = (
+  birthHistory: BirthHistoryDTO | undefined,
+  readings: BiliToolReading[]
+): string | undefined => {
+  const missing = [
+    !birthHistory?.timeOfBirth && 'time of birth',
+    birthHistory?.gestationalAgeWeeks === undefined && 'gestational age',
+  ].filter((item): item is string => !!item);
+  if (missing.length)
+    return `Needs the ${missing.join(' and ')}: add ${
+      missing.length > 1 ? 'them' : 'it'
+    } in Birth history on a visit's Vitals screen.`;
+  if ((birthHistory?.gestationalAgeWeeks ?? 0) < BILITOOL_MIN_GESTATIONAL_WEEKS)
+    return `BiliTool covers babies born at ${BILITOOL_MIN_GESTATIONAL_WEEKS} weeks or later.`;
+  if (!readings.length) return 'Needs a bilirubin result in mg/dL or µmol/L from the first 14 days (336 hours).';
+  return undefined;
+};
 
 export interface BiliToolLaunch {
   /** The result to send; the trend is its earlier readings of the same kind. */
