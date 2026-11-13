@@ -80,10 +80,10 @@ export function extractClaimResponseAmounts(claimResponse: ClaimResponse): Claim
     totalPaid ?? sumAmounts(adjudications.filter((adj) => adjudicationCode(adj) === ADJUDICATION_CODES.PAID));
 
   const allowedCodes: string[] = [ADJUDICATION_CODES.ALLOWED, ADJUDICATION_CODES.ALLOWED_X12];
+  // Allowed is only reported per service line (SVC-level AMT*B6). ClaimResponse.total is filled
+  // from the CLP segment, which has no allowed amount, so it is never looked up there.
   const allowedAdjudications = adjudications.filter((adj) => allowedCodes.includes(adjudicationCode(adj) ?? ''));
-  const totalAllowed = claimResponse.total?.find((t) => t.category?.coding?.[0]?.code === ADJUDICATION_CODES.ALLOWED)
-    ?.amount?.value;
-  const allowed = allowedAdjudications.length > 0 ? sumAmounts(allowedAdjudications) : totalAllowed;
+  const allowed = allowedAdjudications.length > 0 ? sumAmounts(allowedAdjudications) : undefined;
   // Only PR adjustments say what the patient owes; a remit without any (even one with other
   // adjustments) leaves it undetermined rather than 0.
   const patientRespAdjudications = adjudications.filter(

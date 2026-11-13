@@ -415,6 +415,18 @@ describe('extractClaimResponseAmounts', () => {
     });
   });
 
+  it('ignores an allowed entry in ClaimResponse.total, since CLP carries no allowed amount', () => {
+    const cr = claimResponse('2026-01-01', { totalPaid: 60 });
+    cr.total = [
+      ...(cr.total ?? []),
+      {
+        category: { coding: [{ system: OYSTEHR_ADJUDICATION_SYSTEM, code: ADJUDICATION_CODES.ALLOWED }] },
+        amount: { value: 80, currency: 'USD' },
+      },
+    ];
+    expect(extractClaimResponseAmounts(cr).allowed).toBeUndefined();
+  });
+
   it('returns an explicit 0 patientResp when the remit reports PR of 0', () => {
     const cr = claimResponse('2026-01-01', {
       totalPaid: 60,

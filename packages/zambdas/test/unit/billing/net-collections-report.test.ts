@@ -44,8 +44,9 @@ const era = (id: string, paymentDate: string, payerRef: string): PaymentReconcil
   paymentIssuer: { reference: payerRef },
 });
 
-// real extractClaimResponseAmounts shapes: paid/allowed ride the totals; patient responsibility
-// is a CAS item adjudication — omitting it entirely is the "no adjudication data" case.
+// real extractClaimResponseAmounts shapes: paid rides the totals (CLP04); allowed is a line-level
+// adjudication (SVC AMT*B6) and patient responsibility a CAS item adjudication — omitting PR is the
+// "can't determine what the patient owes" case.
 // Matched to a real Claim by default; pass claimId: null for an unmatched remit row.
 const claimResponse = (
   allowed: number | undefined,
@@ -53,40 +54,36 @@ const claimResponse = (
   patientResp?: number,
   claimId: string | null = 'claim-1',
   created = '2026-01-05T00:00:00Z'
-): ClaimResponse => ({
-  resourceType: 'ClaimResponse',
-  status: 'active',
-  type: { text: 'professional' },
-  use: 'claim',
-  patient: {},
-  created,
-  insurer: {},
-  outcome: 'complete',
-  request: { reference: claimId === null ? '#request' : `Claim/${claimId}` },
-  total: [
-    { category: { coding: [{ code: ADJUDICATION_CODES.PAID }] }, amount: { value: paid, currency: 'USD' } },
+): ClaimResponse => {
+  const adjudication = [
     ...(allowed !== undefined
       ? [{ category: { coding: [{ code: ADJUDICATION_CODES.ALLOWED }] }, amount: { value: allowed, currency: 'USD' } }]
       : []),
-  ],
-  ...(patientResp !== undefined
-    ? {
-        item: [
+    ...(patientResp !== undefined
+      ? [
           {
-            itemSequence: 1,
-            adjudication: [
-              {
-                category: {
-                  coding: [{ system: X12_ADJUSTMENT_GROUP_SYSTEM, code: ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY }],
-                },
-                amount: { value: patientResp, currency: 'USD' },
-              },
-            ],
+            category: {
+              coding: [{ system: X12_ADJUSTMENT_GROUP_SYSTEM, code: ADJUSTMENT_GROUP_PATIENT_RESPONSIBILITY }],
+            },
+            amount: { value: patientResp, currency: 'USD' },
           },
-        ],
-      }
-    : {}),
-});
+        ]
+      : []),
+  ];
+  return {
+    resourceType: 'ClaimResponse',
+    status: 'active',
+    type: { text: 'professional' },
+    use: 'claim',
+    patient: {},
+    created,
+    insurer: {},
+    outcome: 'complete',
+    request: { reference: claimId === null ? '#request' : `Claim/${claimId}` },
+    total: [{ category: { coding: [{ code: ADJUDICATION_CODES.PAID }] }, amount: { value: paid, currency: 'USD' } }],
+    ...(adjudication.length > 0 ? { item: [{ itemSequence: 1, adjudication }] } : {}),
+  };
+};
 
 const computeWith = async (input: {
   eras: PaymentReconciliation[];
