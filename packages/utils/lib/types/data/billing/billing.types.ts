@@ -1227,6 +1227,29 @@ export interface CreateBillingInvoiceResponse {
   smsSent?: boolean;
 }
 
+export type CheckBillingNioInvoiceResponse =
+  | {
+      invoiceable: true;
+    }
+  | {
+      invoiceable: false;
+      reason: string;
+    };
+
+export interface PreviewBillingNioInvoiceResponse {
+  pdfBase64: string;
+  recipient: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface CreateBillingNioInvoiceResponse {
+  invoiceId: string;
+  invoiceNumber: string;
+  pdfUrl: string;
+}
+
 export interface BillingInvoiceSummary {
   id: string;
   status: BillingInvoiceListStatus;

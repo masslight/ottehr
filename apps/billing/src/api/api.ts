@@ -13,6 +13,7 @@ import {
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
   CreateBillingInvoiceInputSchema,
+  CreateBillingNioInvoiceInputSchema,
   CreateBillingPatientInputSchema,
   CreateBillingProviderInputSchema,
   CreateChargeItemDefinitionInputSchema,
@@ -50,6 +51,7 @@ import {
   NetCollectionsDrilldownParamsSchema,
   PatientPaymentsDrilldownParamsSchema,
   PostBillingPatientPaymentInputSchema,
+  PreviewBillingNioInvoiceInputSchema,
   RecordBillingManualPaymentInputSchema,
   RefundBillingPatientPaymentInputSchema,
   RenameClaimAttachmentInputSchema,
@@ -90,8 +92,10 @@ import {
   BillingClaimsExportStatusResponse,
   BillingCodeOption,
   BillingProviderOption,
+  CheckBillingNioInvoiceResponse,
   ClaimDetailResponse,
   CreateBillingInvoiceResponse,
+  CreateBillingNioInvoiceResponse,
   CreatedClaimResponse,
   CreatedResourceResponse,
   CreateTimelyFilingReportResponse,
@@ -121,6 +125,7 @@ import {
   ListBillingPatientPaymentMethodsResponse,
   OkResponse,
   PatientDetailResponse,
+  PreviewBillingNioInvoiceResponse,
   RecordBillingManualPaymentResponse,
   SavedResourceResponse,
   SaveManualEraResponse,
@@ -207,6 +212,22 @@ export const createBillingInvoice = (
   oystehr: Oystehr,
   parameters: z.input<typeof CreateBillingInvoiceInputSchema>
 ): Promise<CreateBillingInvoiceResponse> => executeBillingZambda(oystehr, 'create-billing-invoice', parameters);
+
+export const checkBillingNioInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof PreviewBillingNioInvoiceInputSchema>
+): Promise<CheckBillingNioInvoiceResponse> => executeBillingZambda(oystehr, 'check-billing-nio-invoice', parameters);
+
+export const previewBillingNioInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof PreviewBillingNioInvoiceInputSchema>
+): Promise<PreviewBillingNioInvoiceResponse> =>
+  executeBillingZambda(oystehr, 'preview-billing-nio-invoice', parameters);
+
+export const createBillingNioInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateBillingNioInvoiceInputSchema>
+): Promise<CreateBillingNioInvoiceResponse> => executeBillingZambda(oystehr, 'create-billing-nio-invoice', parameters);
 
 export const searchBillingInvoices = (
   oystehr: Oystehr,

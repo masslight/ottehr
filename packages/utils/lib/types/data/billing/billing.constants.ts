@@ -246,4 +246,5 @@ export const BILLING_INVOICE_PAYMENT_METHODS = ['check', 'ach', 'wire', 'cash', 
 export const BILLING_INVOICE_LIMITS = {
   voidReasonLength: 300,
   paymentReferenceLength: 300,
+  nioInvoiceClaimCount: 100,
 } as const;

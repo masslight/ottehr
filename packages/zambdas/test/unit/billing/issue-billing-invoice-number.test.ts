@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import billingZambdasSpec from '../../../../../config/billing-app-core/zambdas.json';
-import { INVOICE_NUMBER_COUNTER_KEY, performEffect } from '../../../src/billing/issue-billing-invoice-number/index';
+import { INVOICE_NUMBER_COUNTER_KEY, setInvoiceNumberCounterKey } from '../../../src/billing/invoice-number';
+import { performEffect } from '../../../src/billing/issue-billing-invoice-number/index';
 import {
   FHIR_COUNTER_CODE_SYSTEM,
   FHIR_COUNTER_LAST_ISSUED_EXTENSION_URL,
@@ -48,5 +49,20 @@ describe('issue-billing-invoice-number', () => {
       invoiceNumber: 'INV-00042',
     });
     expect(nextCounterValue).toHaveBeenCalledWith(oystehr, 'invoice-number');
+  });
+
+  it('numbers from the counter the integration suite swaps in', async () => {
+    const oystehr = {} as Oystehr;
+    vi.mocked(nextCounterValue).mockResolvedValueOnce(1);
+    setInvoiceNumberCounterKey('invoice-number-test-run');
+
+    try {
+      expect(await performEffect(oystehr)).toEqual({
+        invoiceNumber: 'INV-00001',
+      });
+      expect(nextCounterValue).toHaveBeenCalledWith(oystehr, 'invoice-number-test-run');
+    } finally {
+      setInvoiceNumberCounterKey(INVOICE_NUMBER_COUNTER_KEY);
+    }
   });
 });
