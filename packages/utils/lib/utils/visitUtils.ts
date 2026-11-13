@@ -95,10 +95,10 @@ export const getInPersonVisitStatus = (
     } else {
       return 'intake';
     }
-  } else if (appointment.status === 'cancelled' || encounter.status === 'cancelled') {
-    return 'cancelled';
   } else if (appointment.status === 'noshow') {
     return 'no show';
+  } else if (appointment.status === 'cancelled' || encounter.status === 'cancelled') {
+    return 'cancelled';
   } else if (encounter.status === 'finished') {
     const awaitingSupervisorApproval = encounter.extension?.some(
       (extension) => extension.url === 'awaiting-supervisor-approval' && extension.valueBoolean === true
