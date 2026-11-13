@@ -757,11 +757,16 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           link: addEncounterIdToLink(`/in-person/${appointmentId}/procedures/${orderId}`),
         };
       }
-    } else if (appointmentId) {
-      const section = isTaskProgressNoteSection(progressNoteSection) ? `/${progressNoteSection}` : '';
+    } else if (appointmentId && isTaskProgressNoteSection(progressNoteSection)) {
+      const sectionLink = `/in-person/${appointmentId}/${progressNoteSection}`;
       action = {
         name: GO_TO_TASK,
-        link: addEncounterIdToLink(`/in-person/${appointmentId}${section}`),
+        link: encounterId ? `${sectionLink}?encounterId=${encounterId}` : sectionLink,
+      };
+    } else if (appointmentId) {
+      action = {
+        name: GO_TO_TASK,
+        link: addEncounterIdToLink(`/in-person/${appointmentId}`),
       };
     } else if (patientReference) {
       action = {

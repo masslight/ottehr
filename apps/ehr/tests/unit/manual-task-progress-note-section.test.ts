@@ -36,6 +36,18 @@ describe('manual task linked to a progress note section', () => {
     expect(task.action?.link).toBe('/in-person/appt-1/vitals');
   });
 
+  it("opens the section of the task's own encounter, so a cached follow-up isn't reused", () => {
+    const task = fhirTaskToTask({
+      ...makeManualTask(MANUAL_TASK.category.charting, [
+        input(MANUAL_TASK.input.appointmentId, 'appt-1'),
+        input(MANUAL_TASK.input.progressNoteSection, 'vitals'),
+      ]),
+      encounter: { reference: 'Encounter/enc-1' },
+    });
+
+    expect(task.action?.link).toBe('/in-person/appt-1/vitals?encounterId=enc-1');
+  });
+
   it('opens the visit when the stored section is no longer in the sidebar', () => {
     const task = fhirTaskToTask(
       makeManualTask(MANUAL_TASK.category.charting, [
