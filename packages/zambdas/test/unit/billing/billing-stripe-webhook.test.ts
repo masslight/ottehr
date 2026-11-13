@@ -1373,7 +1373,7 @@ describe('billing-stripe-webhook billing app invoices', () => {
 
     await performEffect(oystehr, { event: makeEvent('invoice.paid', makeInvoice({ charge: 'ch_1' })), secrets });
 
-    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was paid'));
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was paid'), expect.anything());
   });
 
   it('cancels outreach that has not started when the invoice is voided', async () => {
@@ -1381,7 +1381,7 @@ describe('billing-stripe-webhook billing app invoices', () => {
 
     await performEffect(oystehr, { event: makeEvent('invoice.voided', makeInvoice({ status: 'void' })), secrets });
 
-    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was voided'));
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was voided'), expect.anything());
   });
 
   it('finishes cancelling outreach when the paid event is delivered again', async () => {
@@ -1390,7 +1390,7 @@ describe('billing-stripe-webhook billing app invoices', () => {
     await performEffect(oystehr, { event: makeEvent('invoice.paid', makeInvoice({ charge: 'ch_1' })), secrets });
 
     expect(update).not.toHaveBeenCalled();
-    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was paid'));
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was paid'), expect.anything());
   });
 
   it('fails the event when outreach cannot be cancelled, so Stripe delivers it again', async () => {
@@ -1415,7 +1415,7 @@ describe('billing-stripe-webhook billing app invoices', () => {
     expect(isInvoiceUncollectible(saved)).toBe(true);
     expect(getHostedInvoiceUrl(saved)).toBe('https://pay.test/in_1');
     expect(options).toEqual({ optimisticLockingVersionId: '3' });
-    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was marked uncollectible'));
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was marked uncollectible'), expect.anything());
   });
 
   it('issues a draft invoice and marks it uncollectible when the send request stopped before saving its status', async () => {
@@ -1441,7 +1441,7 @@ describe('billing-stripe-webhook billing app invoices', () => {
     });
 
     expect(update).not.toHaveBeenCalled();
-    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was marked uncollectible'));
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was marked uncollectible'), expect.anything());
   });
 
   it('leaves an invoice that is already paid when a late uncollectible event arrives', async () => {

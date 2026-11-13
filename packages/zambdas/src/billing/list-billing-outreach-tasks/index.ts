@@ -4,27 +4,21 @@ import { Invoice, Patient } from 'fhir/r4b';
 import { getBillingInvoiceClaims, INVOICE_CLAIM_TAG_SYSTEM } from 'utils/lib/fhir/billing-invoice';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ListOutreachTasksInput, OutreachTaskSummary } from 'utils/lib/types/api/scheduled-outreach.types';
-import { ListBillingOutreachTasksInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { ListBillingOutreachTasksResponse } from 'utils/lib/types/data/billing/billing.types';
-import { MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { listOutreachTasks } from '../../rcm/scheduled-outreach/manage-outreach-tasks';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
-import { isOutreachInBillingApp } from '../../shared/invoice-tasks';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { validateWithSchema } from '../../shared/validation';
 import { toBillingInvoiceSummary } from '../invoices';
 import { createBillingClient, findById } from '../shared';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'list-billing-outreach-tasks';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { secrets, searchText, ...params } = validateWithSchema(ListBillingOutreachTasksInputSchema, input);
-  if (!isOutreachInBillingApp(secrets)) {
-    throw MISCONFIGURED_ENVIRONMENT_ERROR('Outreach is not enabled in the billing app');
-  }
+  const { secrets, searchText, ...params } = validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createBillingClient(m2mToken, secrets);

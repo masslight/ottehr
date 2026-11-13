@@ -126,14 +126,18 @@ export async function cancelPendingInvoiceOutreach(oystehr: Oystehr, invoiceId: 
     })
   ).unbundle();
   for (const task of tasks) {
-    await oystehr.fhir.patch<Task>({
-      resourceType: 'Task',
-      id: task.id!,
-      operations: [
-        { op: 'replace', path: '/status', value: 'cancelled' },
-        { op: 'add', path: '/statusReason', value: { text: reason } },
-      ],
-    });
+    await oystehr.fhir.patch<Task>(
+      {
+        resourceType: 'Task',
+        id: task.id!,
+        operations: [
+          { op: 'replace', path: '/status', value: 'cancelled' },
+          { op: 'add', path: '/statusReason', value: { text: reason } },
+        ],
+      },
+      // Fails if the Task changed after the search, so one that has started is not overwritten.
+      { optimisticLockingVersionId: task.meta?.versionId }
+    );
   }
   if (tasks.length) console.log(`Cancelled ${tasks.length} outreach Tasks for Invoice/${invoiceId}: ${reason}`);
 }

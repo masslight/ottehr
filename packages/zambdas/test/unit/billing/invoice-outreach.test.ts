@@ -196,7 +196,7 @@ describe('billing invoice outreach', () => {
 
   it('cancels the outreach Tasks that have not started', async () => {
     const pending = [
-      { resourceType: 'Task', id: 'task-1', status: 'draft' },
+      { resourceType: 'Task', id: 'task-1', status: 'draft', meta: { versionId: '2' } },
       { resourceType: 'Task', id: 'task-2', status: 'requested' },
     ] as Task[];
     const { oystehr, search, patch } = makeOystehr(pending);
@@ -213,14 +213,17 @@ describe('billing invoice outreach', () => {
       ],
     });
     expect(patch.mock.calls.map(([input]) => input.id)).toEqual(['task-1', 'task-2']);
-    expect(patch).toHaveBeenCalledWith({
-      resourceType: 'Task',
-      id: 'task-1',
-      operations: [
-        { op: 'replace', path: '/status', value: 'cancelled' },
-        { op: 'add', path: '/statusReason', value: { text: 'Invoice was paid' } },
-      ],
-    });
+    expect(patch).toHaveBeenCalledWith(
+      {
+        resourceType: 'Task',
+        id: 'task-1',
+        operations: [
+          { op: 'replace', path: '/status', value: 'cancelled' },
+          { op: 'add', path: '/statusReason', value: { text: 'Invoice was paid' } },
+        ],
+      },
+      { optimisticLockingVersionId: '2' }
+    );
   });
 
   describe('produceBillingInvoiceDueOutreach', () => {
