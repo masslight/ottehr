@@ -114,7 +114,7 @@ const GrowthCard = ({
   };
   const newest = points.slice().reverse();
   const list = all ? newest : newest.slice(0, TABLE_ROWS_SHOWN);
-  const cellSx = { whiteSpace: 'nowrap' };
+  const cellSx = { whiteSpace: 'nowrap', px: 1 };
 
   return (
     <Paper variant="outlined" sx={{ p: 1.5 }}>
@@ -130,7 +130,8 @@ const GrowthCard = ({
             onReady={(chart) => (chartRef.current = chart)}
           />
         </Box>
-        <Box sx={{ flex: '2 1 300px', minWidth: 280 }}>
+        {/* Wide enough for all five columns (weight @ length is the widest), else it wraps under the chart. */}
+        <Box sx={{ flex: '2 1 440px', minWidth: 280 }}>
           {outsideRange > 0 && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', pb: 0.5 }}>
               {`${outsideRange} measurement${outsideRange === 1 ? ' is' : 's are'} outside ${setLabel
