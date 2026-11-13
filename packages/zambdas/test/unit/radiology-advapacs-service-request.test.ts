@@ -7,8 +7,6 @@ import {
 import { describe, expect, test } from 'vitest';
 import { buildAdvaPacsServiceRequest } from '../../src/ehr/radiology/create-order';
 
-const ADVAPACS_ORDER_DETAIL_SYSTEM = 'http://advapacs.com/fhir/servicerequest-orderdetail-parameter-code';
-
 const makeServiceRequest = (accessionNumber: string): ServiceRequest => ({
   resourceType: 'ServiceRequest',
   status: 'active',
@@ -27,30 +25,29 @@ const makeServiceRequest = (accessionNumber: string): ServiceRequest => ({
   ],
 });
 
-const getParameterValue = (sr: ReturnType<typeof buildAdvaPacsServiceRequest>, code: string): string | undefined =>
-  sr.orderDetail?.[0]?.parameter?.find((p) => p.code?.coding?.[0]?.code === code)?.valueString;
-
 describe('buildAdvaPacsServiceRequest - scheduled-procedure-step-id and requested-procedure-id', () => {
   const accession = '2026111214300042';
 
-  test('includes scheduled-procedure-step-id set to the accession number', () => {
+  test('includes Scheduled Procedure Step ID as an identifier set to the accession number', () => {
     const r5 = buildAdvaPacsServiceRequest(makeServiceRequest(accession), 'pat-1', 'prac-1', undefined);
-    expect(getParameterValue(r5, 'scheduled-procedure-step-id')).toBe(accession);
+    const spsId = r5.identifier?.find((id: any) => id.type?.text === 'Scheduled Procedure Step ID');
+    expect(spsId).toBeDefined();
+    expect(spsId!.value).toBe(accession);
   });
 
-  test('includes requested-procedure-id set to the accession number', () => {
+  test('includes Requested Procedure ID as an identifier set to the accession number', () => {
     const r5 = buildAdvaPacsServiceRequest(makeServiceRequest(accession), 'pat-1', 'prac-1', undefined);
-    expect(getParameterValue(r5, 'requested-procedure-id')).toBe(accession);
+    const rpId = r5.identifier?.find((id: any) => id.type?.text === 'Requested Procedure ID');
+    expect(rpId).toBeDefined();
+    expect(rpId!.value).toBe(accession);
   });
 
-  test('uses the correct AdvaPACS order detail system for both parameters', () => {
+  test('does not include scheduled-procedure-step-id or requested-procedure-id in orderDetail', () => {
     const r5 = buildAdvaPacsServiceRequest(makeServiceRequest(accession), 'pat-1', 'prac-1', undefined);
     const params = r5.orderDetail?.[0]?.parameter ?? [];
-
-    const stepId = params.find((p) => p.code?.coding?.[0]?.code === 'scheduled-procedure-step-id');
-    const procId = params.find((p) => p.code?.coding?.[0]?.code === 'requested-procedure-id');
-
-    expect(stepId?.code?.coding?.[0]?.system).toBe(ADVAPACS_ORDER_DETAIL_SYSTEM);
-    expect(procId?.code?.coding?.[0]?.system).toBe(ADVAPACS_ORDER_DETAIL_SYSTEM);
+    const spsParam = params.find((p) => p.code?.coding?.[0]?.code === 'scheduled-procedure-step-id');
+    const rpParam = params.find((p) => p.code?.coding?.[0]?.code === 'requested-procedure-id');
+    expect(spsParam).toBeUndefined();
+    expect(rpParam).toBeUndefined();
   });
 });
