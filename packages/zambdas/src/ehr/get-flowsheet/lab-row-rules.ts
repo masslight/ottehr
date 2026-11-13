@@ -13,6 +13,9 @@ export interface LabRowRule {
 }
 
 const SERUM_OR_PLASMA = ['Serum or Plasma', 'Serum', 'Plasma'];
+// A newborn's bilirubin is often run on a heel-stick (whole, capillary or venous blood) sample; a cord blood level
+// is taken at delivery and stays off.
+const SERUM_PLASMA_OR_BLOOD = [...SERUM_OR_PLASMA, 'Blood', 'Capillary blood', 'Venous blood'];
 
 export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   // Thyroid
@@ -24,10 +27,10 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   tpoAntibodies: { components: ['Thyroperoxidase Ab'], systems: SERUM_OR_PLASMA },
   // Newborn bilirubin. LOINC's total bilirubin component is plain 'Bilirubin'; "direct" is the glucuronidated plus
   // albumin-bound fraction and "conjugated" the glucuronidated one.
-  totalBilirubin: { components: ['Bilirubin'], systems: SERUM_OR_PLASMA },
-  directBilirubin: {
+  newbornTotalBilirubin: { components: ['Bilirubin'], systems: SERUM_PLASMA_OR_BLOOD },
+  newbornDirectBilirubin: {
     components: ['Bilirubin.glucuronidated+Bilirubin.albumin bound', 'Bilirubin.glucuronidated'],
-    systems: SERUM_OR_PLASMA,
+    systems: SERUM_PLASMA_OR_BLOOD,
   },
   transcutaneousBilirubin: { components: ['Bilirubin'], systems: ['Skin'] },
 };
