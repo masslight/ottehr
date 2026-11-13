@@ -54,7 +54,11 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
   return {
     patient: composePatientInformationForDischargeSummary({ appointmentPackage }),
     visit,
-    vitals: composeVitalsForDischargeSummary({ allChartData }),
+    vitals: composeVitalsForDischargeSummary({
+      allChartData,
+      birthDate: appointmentPackage.patient?.birthDate,
+      visitStart: appointment?.start,
+    }),
     medications: composeMedications({ allChartData }),
     allergies: composeAllergies({ allChartData }),
     inHouseLabs: composeInHouseLabs({ allChartData }),
