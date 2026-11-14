@@ -17,6 +17,10 @@ export const BIRTH_HISTORY_COMPONENT_CODES = {
   birthHeadCircumferenceCm: 'birth-head-circumference',
 } as const;
 
+/** Whole weeks the server takes for gestational age; the Vitals card checks the same limits. */
+export const GESTATIONAL_AGE_WEEKS_MIN = 20;
+export const GESTATIONAL_AGE_WEEKS_MAX = 45;
+
 export const BirthHistorySchema = z
   .object({
     /** Local time of birth on the patient's birth date, 24-hour "HH:mm". */
@@ -24,7 +28,7 @@ export const BirthHistorySchema = z
       .string()
       .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
       .optional(),
-    gestationalAgeWeeks: z.number().int().min(20).max(45).optional(),
+    gestationalAgeWeeks: z.number().int().min(GESTATIONAL_AGE_WEEKS_MIN).max(GESTATIONAL_AGE_WEEKS_MAX).optional(),
     gestationalAgeDays: z.number().int().min(0).max(6).optional(),
     /** Stored metric, like the vitals; imperial is converted on entry. */
     birthWeightKg: z.number().positive().optional(),

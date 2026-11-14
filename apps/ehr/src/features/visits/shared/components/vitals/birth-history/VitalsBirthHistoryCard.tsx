@@ -166,7 +166,7 @@ const BirthHistoryForm = ({
         m: 2,
         p: 2,
         maxWidth: 720,
-        // A value that is not a number gets the red border the other vitals cards use.
+        // A value the server would reject gets the red border the other vitals cards use.
         border: value ? 'none' : VITALS_FORM_ERROR_BORDER,
         transition: VITALS_FORM_BORDER_TRANSITION,
       }}
@@ -190,12 +190,14 @@ const BirthHistoryForm = ({
             label="weeks"
             value={state.weeks}
             disabled={isSaving}
+            isInputError={state.weeksInvalid}
             onChange={(e) => state.setWeeks(e.target.value)}
           />
           <VitalsTextInputFiled
             label="days"
             value={state.days}
             disabled={isSaving}
+            isInputError={state.daysInvalid}
             onChange={(e) => state.setDays(e.target.value)}
           />
         </Box>

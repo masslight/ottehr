@@ -43,3 +43,34 @@ describe('birth history card: a measurement that is not a number blocks Save', (
     expect(result.current.getValue()).toEqual({ gestationalAgeWeeks: 39 });
   });
 });
+
+describe('birth history card: gestational age follows the server rules', () => {
+  const withAge = (weeks: string, days: string): ReturnType<typeof useBirthHistoryLocalState> => {
+    const { result } = renderHook(() => useBirthHistoryLocalState());
+    act(() => result.current.setWeeks(weeks));
+    act(() => result.current.setDays(days));
+    return result.current;
+  };
+
+  it.each([
+    ['50', '', 'Enter gestational age weeks as a whole number from 20 to 45'],
+    ['15', '', 'Enter gestational age weeks as a whole number from 20 to 45'],
+    ['38.5', '', 'Enter gestational age weeks as a whole number from 20 to 45'],
+    ['38', '7', 'Enter gestational age days as a whole number from 0 to 6'],
+    ['', '3', 'Enter the weeks for the gestational age days'],
+  ])('weeks %s, days %s blocks Save with the reason', (weeks, days, reason) => {
+    const state = withAge(weeks, days);
+    expect(state.getValue()).toBeUndefined();
+    expect(state.invalidReason).toBe(reason);
+  });
+
+  it('marks the field the server would reject', () => {
+    expect([withAge('50', '').weeksInvalid, withAge('50', '').daysInvalid]).toEqual([true, false]);
+    expect([withAge('38', '7').weeksInvalid, withAge('38', '7').daysInvalid]).toEqual([false, true]);
+  });
+
+  it('20 to 45 weeks and 0 to 6 days save', () => {
+    expect(withAge('20', '0').getValue()).toEqual({ gestationalAgeWeeks: 20, gestationalAgeDays: 0 });
+    expect(withAge('45', '6').invalidReason).toBeUndefined();
+  });
+});
