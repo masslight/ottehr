@@ -310,11 +310,11 @@ export const STATUS_LABELS: Record<ImmunizationGroupStatus, string> = {
 
 const MARK_LABELS = { immune: 'Immune', contraindicated: 'Contraindicated', declined: 'Declined' } as const;
 
-/** "11/10/2026 · recorded by J. Nurse": who recorded the mark, not who declined; a blank name drops that part. */
+/** "11/10/2026 · recorded by J. Lopez": who recorded the mark, not who declined; a blank name drops that part. */
 export const markRecordedText = (mark: ImmunizationMark): string =>
   `${formatDate(mark.markedAt)}${mark.markedBy.name.trim() ? ` · recorded by ${mark.markedBy.name}` : ''}`;
 
-/** "Declined 11/10/2026 · recorded by J. Nurse", plus ", cleared 12/08/2026 by Dr. Patel" once cleared. */
+/** "Declined 11/10/2026 · recorded by J. Lopez", plus ", cleared 12/08/2026 by Dr. Patel" once cleared. */
 export const markText = (mark: ImmunizationMark): string =>
   `${MARK_LABELS[mark.mark]} ${markRecordedText(mark)}` +
   (mark.cleared
