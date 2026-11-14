@@ -29,7 +29,7 @@ import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
-import { isVaccineCatalogMedication } from 'utils/lib/fhir/medication-inventory';
+import { isExpirationDatePast, isVaccineCatalogMedication } from 'utils/lib/fhir/medication-inventory';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   InHouseMedicationInventory,
@@ -162,6 +162,10 @@ export default function ReceiveShipmentDialog({
 
   const mismatch = lookup.status === 'mismatch';
   const product = 'product' in lookup ? lookup.product : undefined;
+  // A past expiration date is most often a typo; staff confirm it, never blocked.
+  const expirationIso = form.expirationDate?.toISODate() ?? undefined;
+  const expired = !!expirationIso && isExpirationDatePast(expirationIso, DateTime.now().toISODate() ?? '');
+  const expiredText = `This lot expired on ${formatExpiration(expirationIso)}.`;
   const unitsLabel = capitalize(units.plural);
   const receiveLabel = quantity > 0 ? `Receive ${quantity} ${unitsLabel}` : `Receive ${unitsLabel}`;
   const lookupPanel = ((): ReactElement | null => {
@@ -353,18 +357,30 @@ export default function ReceiveShipmentDialog({
           <Button variant="outlined" onClick={onClose} sx={inventoryButtonSx}>
             Cancel
           </Button>
-          {mismatch ? (
+          {mismatch || expired ? (
             <ConfirmationDialog
-              title={`Receive under a different ${isVaccine ? 'vaccine' : 'medication'}?`}
-              description={`The ${
-                'vaccine' in lookup && lookup.vaccine ? 'CDC NDC crosswalk' : 'FDA NDC directory'
-              } says NDC ${product?.packageNdc ?? form.ndc.trim()} is ${
-                'vaccine' in lookup && lookup.vaccine
-                  ? lookup.vaccine.vaccineName
-                  : product?.name ?? 'a different medication'
-              }, not ${name}.`}
+              title={
+                mismatch
+                  ? `Receive under a different ${isVaccine ? 'vaccine' : 'medication'}?`
+                  : 'Receive an expired lot?'
+              }
+              description={
+                mismatch
+                  ? `The ${
+                      'vaccine' in lookup && lookup.vaccine ? 'CDC NDC crosswalk' : 'FDA NDC directory'
+                    } says NDC ${product?.packageNdc ?? form.ndc.trim()} is ${
+                      'vaccine' in lookup && lookup.vaccine
+                        ? lookup.vaccine.vaccineName
+                        : product?.name ?? 'a different medication'
+                    }, not ${name}.${expired ? ` ${expiredText}` : ''}`
+                  : expiredText
+              }
               response={() => receive()}
-              actionButtons={{ proceed: { text: receiveLabel, color: 'error', loading: saving }, reverse: true }}
+              actionButtons={{
+                proceed: { text: receiveLabel, color: 'error', loading: saving },
+                back: mismatch ? undefined : { text: 'Change date' },
+                reverse: true,
+              }}
             >
               {(showDialog) => (
                 <LoadingButton

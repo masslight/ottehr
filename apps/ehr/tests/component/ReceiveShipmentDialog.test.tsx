@@ -62,6 +62,41 @@ describe('Receive Shipment dialog', () => {
     });
   });
 
+  it('asks before receiving a lot whose expiration date has passed, and never blocks', async () => {
+    vi.mocked(lookupNdc).mockResolvedValue({ status: 'unavailable' });
+    vi.mocked(receiveMedicationShipment)
+      .mockReset()
+      .mockResolvedValue({} as never);
+    const user = userEvent.setup();
+    render(
+      <ReceiveShipmentDialog
+        open
+        onClose={vi.fn()}
+        medication={medication}
+        inventory={inventory}
+        locations={[{ id: 'loc-a', name: 'Main Street' }]}
+      />
+    );
+
+    await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.ndcField), '72572-0160-25');
+    await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.lotNumberField), 'A123');
+    await user.click(screen.getByLabelText(/Expiration Date/));
+    await user.keyboard('01012020');
+    await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.quantityField), '10');
+    await screen.findByText(/lookup unavailable/);
+
+    await user.click(screen.getByTestId(dataTestIds.receiveShipmentDialog.receiveButton));
+    expect(await screen.findByText('Receive an expired lot?')).toBeInTheDocument();
+    expect(screen.getByText('This lot expired on 01/01/2020.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Change date' }));
+    expect(receiveMedicationShipment).not.toHaveBeenCalled();
+
+    await user.click(screen.getByTestId(dataTestIds.receiveShipmentDialog.receiveButton));
+    await user.click(await screen.findByTestId(dataTestIds.dialog.proceedButton));
+    await waitFor(() => expect(receiveMedicationShipment).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(receiveMedicationShipment).mock.calls[0][1]).toMatchObject({ expirationDate: '2020-01-01' });
+  });
+
   describe('while the NDC lookup is pending', () => {
     let resolveLookup: (result: LookupNdcResponse) => void;
     const onClose = vi.fn();
