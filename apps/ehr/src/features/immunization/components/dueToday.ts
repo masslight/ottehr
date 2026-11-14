@@ -73,8 +73,9 @@ const onHand = (lots: InventoryLot[], today: string): InventoryLot[] =>
 /**
  * The vaccines the practice can give today, each with the CVX of its catalog entry and its quick picks; this is the
  * one place that decides what "stocked" means. Every vaccine on the practice's list (get-vaccines) is offered. One
- * whose lots are tracked at the visit's location but none is on hand and unexpired is out of stock; one with no lots
- * ever entered is not tracked in Ottehr, so it counts as available. `today` is the browser's yyyy-mm-dd.
+ * set up for inventory (it has a row, even with no lots at the visit's location) with none on hand and unexpired there
+ * is out of stock; one not set up for inventory isn't tracked in Ottehr, so it counts as available. `today` is the
+ * browser's yyyy-mm-dd.
  */
 export const stockedVaccines = (
   vaccines: Vaccine[] | undefined,
@@ -83,15 +84,15 @@ export const stockedVaccines = (
   today = DateTime.now().toISODate()
 ): StockedVaccine[] =>
   (vaccines ?? []).map((vaccine) => {
-    const allLots = inventory?.find((row) => row.medicationId === vaccine.id)?.lots ?? [];
-    const lots = onHand(allLots, today);
+    const row = inventory?.find((row) => row.medicationId === vaccine.id);
+    const lots = onHand(row?.lots ?? [], today);
     return {
       id: vaccine.id,
       name: vaccine.name,
       cvxCodes: vaccine.cvx?.trim() ? [normalizeCvx(vaccine.cvx)] : [],
       quickPicks: quickPicks.filter((quickPick) => quickPick.vaccine?.id === vaccine.id),
       lots,
-      outOfStock: allLots.length > 0 && lots.length === 0,
+      outOfStock: row !== undefined && lots.length === 0,
     };
   });
 

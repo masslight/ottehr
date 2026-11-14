@@ -173,8 +173,14 @@ describe('stockedVaccines', () => {
     expect(here('pentacel')).toMatchObject({ outOfStock: false });
     expect(here('pentacel').lots.map((l) => l.id)).toEqual(['p1']);
     expect(here('daptacel')).toMatchObject({ outOfStock: true, lots: [] });
-    // no lots ever entered for it: not tracked in Ottehr, so available
+    // not set up for inventory: not tracked in Ottehr, so available
     expect(here('ipol')).toMatchObject({ outOfStock: false, lots: [] });
+  });
+
+  it('a vaccine set up for inventory with no lots at the visit’s location is out of stock there', () => {
+    const stockedHere = stockedVaccines(VACCINES, QUICK_PICKS, [stockRow('daptacel', [])]);
+    expect(stockedHere.find((v) => v.id === 'daptacel')).toMatchObject({ outOfStock: true, lots: [] });
+    expect(stockedHere.find((v) => v.id === 'ipol')).toMatchObject({ outOfStock: false, lots: [] });
   });
 
   it('an expired lot is not stock: a vaccine whose only lots are expired is out of stock', () => {
