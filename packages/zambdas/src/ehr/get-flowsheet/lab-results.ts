@@ -174,13 +174,17 @@ const isUrineCultureResult = (lab: FlowsheetLabResult): boolean =>
   lab.testLoincCodes.some((code) => LAB_ROW_LOINC_CODES.urineCulture.includes(code)) ||
   URINE_CULTURE_NAME.test(lab.testName);
 
+/** A susceptibility's value: susceptible, intermediate or resistant. */
+const SUSCEPTIBILITY = /^\s*[SIR]\s*$/i;
+
 /**
  * The culture's own result reads as reported ("No growth"); an organism reads its name and count as reported. Other
- * coded results of the same order (susceptibilities) are left out.
+ * coded results of the same order, and uncoded ones valued only S, I or R (susceptibilities), are left out.
  */
 const cultureText = (lab: FlowsheetLabResult): string => {
   if (hasCode(lab, 'urineCulture') || URINE_CULTURE_NAME.test(lab.analyte)) return lab.valueText;
-  return lab.loincCodes.length === 0 ? [lab.analyte, lab.valueText].filter(Boolean).join(' ') : '';
+  if (lab.loincCodes.length > 0 || SUSCEPTIBILITY.test(lab.valueText)) return '';
+  return [lab.analyte, lab.valueText].filter(Boolean).join(' ');
 };
 
 const unique = (texts: string[]): string[] => [...new Set(texts)];

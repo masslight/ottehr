@@ -274,6 +274,18 @@ describe('buildLabResultsFlowsheet', () => {
     });
   });
 
+  test('urine culture: an uncoded susceptibility (value S, I or R) is left out of the organism cell', () => {
+    const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
+    expect(
+      valuesOf(
+        lab('Escherichia coli', { ...culture, text: '>100,000 CFU/mL' }),
+        lab('Ampicillin', { ...culture, text: 'R' }),
+        lab('Nitrofurantoin', { ...culture, text: 'S' }),
+        lab('Cefazolin', { ...culture, text: ' i ' })
+      )
+    ).toEqual({ urineCulture: 'Escherichia coli >100,000 CFU/mL' });
+  });
+
   test('HIV, hepatitis C and urine hCG show their text as reported; a text-only result on a number row is left out', () => {
     expect(
       valuesOf(
