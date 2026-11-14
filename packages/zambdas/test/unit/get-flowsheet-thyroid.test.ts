@@ -291,4 +291,47 @@ describe('thyroid medication: only drugs actually prescribed or given', () => {
       'levothyroxine 50 mcg tablet; levothyroxine 100 mcg tablet; methimazole 20 mg tablet; methimazole 30 mg tablet'
     );
   });
+
+  test('a drug saved by its brand name alone is listed too', () => {
+    const brands = [
+      'Synthroid 50 mcg tablet',
+      'Levoxyl 50 mcg tablet',
+      'Unithroid 50 mcg tablet',
+      'Tirosint 50 mcg capsule',
+      'Euthyrox 50 mcg tablet',
+      'Levo-T 50 mcg tablet',
+      'Levothroid 50 mcg tablet',
+      'Thyquidity 100 mcg/5 mL solution',
+      'Ermeza 150 mcg/5 mL solution',
+      'Eltroxin 50 mcg tablet',
+      'Cytomel 5 mcg tablet',
+      'Triostat 10 mcg/mL injection',
+      'Thyrolar 1 tablet',
+      'Armour Thyroid 60 mg tablet',
+      'NP Thyroid 30 mg tablet',
+      'WP Thyroid 32.5 mg tablet',
+      'Nature-Throid 32.5 mg tablet',
+      'Westhroid 32.5 mg tablet',
+      'Adthyza 30 mg tablet',
+      'Thyroid 60 mg tablet',
+      'Tapazole 5 mg tablet',
+      'Northyx 5 mg tablet',
+      'Carbimazole 5 mg tablet',
+      'PTU 50 mg tablet',
+    ];
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      labs: {},
+      diagnoses: {},
+      medications: {
+        e1: [...brands, 'Sertraline 50 mg tablet', 'Levetiracetam 250 mg tablet'].map((name) => ({
+          name,
+          source: 'eRx' as const,
+          status: 'active',
+          time: '2023-02-06T14:30:00.000Z',
+        })),
+      },
+    });
+    expect(visits[0].values.thyroidMedication.value).toBe(brands.join('; '));
+  });
 });

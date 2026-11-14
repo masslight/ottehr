@@ -11,8 +11,9 @@ const VITAL_KEYS = ['weight', 'heartRate'];
 /** ICD-10 disorders of the thyroid gland (E00–E07). */
 const THYROID_ICD10_PREFIXES = ['E00', 'E01', 'E02', 'E03', 'E04', 'E05', 'E06', 'E07'];
 
+/** Thyroid hormones and antithyroid drugs, by generic or brand name (a saved name may carry only the brand). */
 const THYROID_MEDICATION =
-  /levothyroxine|synthroid|levoxyl|unithroid|tirosint|liothyronine|cytomel|armour|desiccated|methimazole|tapazole|propylthiouracil|\bptu\b/i;
+  /levothyroxine|synthroid|levoxyl|unithroid|tirosint|euthyrox|levo-?t\b|levothroid|thyquidity|ermeza|eltroxin|liothyronine|cytomel|triostat|liotrix|thyrolar|armour|desiccated|\bthyroid\b|nature-?throid|westhroid|adthyza|methimazole|tapazole|northyx|carbimazole|propylthiouracil|\bptu\b/i;
 
 /**
  * Lab rows (codes: lab-row-rules.ts). The name patterns only place uncoded results: the free hormones are listed
