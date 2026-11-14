@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication, MedicationAdministration, MedicationStatement, Organization, Practitioner } from 'fhir/r4b';
+import { IMMUNIZATION_ORDER_TAG_CODE, IMMUNIZATION_ORDER_TAG_SYSTEM } from 'utils/lib/fhir/medication-administration';
 import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
@@ -26,6 +27,7 @@ const practitioner: Practitioner = {
 const pendingOrder = (): MedicationAdministration => ({
   resourceType: 'MedicationAdministration',
   id: 'order-1',
+  meta: { tag: [{ system: IMMUNIZATION_ORDER_TAG_SYSTEM, code: IMMUNIZATION_ORDER_TAG_CODE }] },
   status: 'in-progress',
   subject: { reference: 'Patient/p1' },
   context: { reference: 'Encounter/e1' },

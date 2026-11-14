@@ -3,7 +3,11 @@ import { Coding, Medication, MedicationAdministration, Organization, Practitione
 import { DateTime } from 'luxon';
 import { CPT_BILLABLE_UNITS_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { codeableConcept, getCoding, sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
-import { searchMedicationLocation, searchRouteByCode } from 'utils/lib/fhir/medication-administration';
+import {
+  isImmunizationOrder,
+  searchMedicationLocation,
+  searchRouteByCode,
+} from 'utils/lib/fhir/medication-administration';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
@@ -37,6 +41,19 @@ export const IMMUNIZATION_ORDER_ADMINISTERED_DATETIME_EXTENSION_URL = ottehrExte
   'immunization-order-administered-date-time'
 );
 export const IMMUNIZATION_ORDER_VIS_GIVEN_EXTENSION_URL = ottehrExtensionUrl('immunization-order-vis-given');
+
+/** The immunization order with this id. An in-house medication order's id fails as a missing id does (both reach the
+ * caller as the same 500), so the endpoint neither changes it nor reveals that it exists. */
+export async function getImmunizationOrder(oystehr: Oystehr, orderId: string): Promise<MedicationAdministration> {
+  const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
+    resourceType: 'MedicationAdministration',
+    id: orderId,
+  });
+  if (!isImmunizationOrder(medicationAdministration)) {
+    throw new Error(`MedicationAdministration/${orderId} is not an immunization order`);
+  }
+  return medicationAdministration;
+}
 
 export async function updateOrderDetails(
   medicationAdministration: MedicationAdministration,

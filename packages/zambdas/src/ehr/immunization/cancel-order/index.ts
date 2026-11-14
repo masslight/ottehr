@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { MedicationAdministration } from 'fhir/r4b';
 import { mapFhirToOrderStatus, mapOrderStatusToFhir } from 'utils/lib/fhir/medication-administration';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { replaceOperation } from 'utils/lib/helpers/operations';
@@ -15,6 +14,7 @@ import { makeOrderDeleteRequests } from '../../../shared/medication-order-delete
 import { getMyPractitionerId } from '../../../shared/practitioners';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { getImmunizationOrder } from '../common';
 import { immunizationSyncRequest } from '../records';
 import { syncVaccineStockAndBorrowing } from '../vaccine-stock';
 
@@ -36,17 +36,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function cancelImmunizationOrder(
+export async function cancelImmunizationOrder(
   oystehr: Oystehr,
   billingOystehr: Oystehr,
   input: CancelImmunizationOrderRequest,
   userPractitionerId: string
 ): Promise<CancelImmunizationOrderResponse> {
   const { orderId } = input;
-  const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
-    resourceType: 'MedicationAdministration',
-    id: orderId,
-  });
+  const medicationAdministration = await getImmunizationOrder(oystehr, orderId);
 
   const currentStatus = mapFhirToOrderStatus(medicationAdministration);
   if (currentStatus === 'cancelled') {

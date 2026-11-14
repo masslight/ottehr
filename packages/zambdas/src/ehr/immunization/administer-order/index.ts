@@ -45,6 +45,7 @@ import {
   CONTAINED_MEDICATION_ID,
   cptCodeCoding,
   getContainedMedication,
+  getImmunizationOrder,
   updateOrderDetails,
   updateVaccineMedicationDetails,
   validateAdministrationDetailsValues,
@@ -85,10 +86,7 @@ export async function administerImmunizationOrder(
   userPractitioner: Practitioner
 ): Promise<CreateUpdateImmunizationOrderResponse> {
   const { orderId, type, reason, details, administrationDetails } = input;
-  const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
-    resourceType: 'MedicationAdministration',
-    id: orderId,
-  });
+  const medicationAdministration = await getImmunizationOrder(oystehr, orderId);
 
   const allowedStatuses = ['in-progress', 'completed', 'on-hold', 'not-done'];
   if (!allowedStatuses.includes(medicationAdministration.status)) {

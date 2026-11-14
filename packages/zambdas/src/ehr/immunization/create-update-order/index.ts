@@ -20,6 +20,7 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
   applyOrderAdministrationDetails,
+  getImmunizationOrder,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
   updateOrderDetails,
   validateAdministrationDetailsValues,
@@ -116,10 +117,7 @@ export async function updateImmunizationOrder(
   input: CreateUpdateImmunizationOrderRequest
 ): Promise<CreateUpdateImmunizationOrderResponse> {
   const { orderId, details, administrationDetails } = input;
-  const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
-    resourceType: 'MedicationAdministration',
-    id: orderId!,
-  });
+  const medicationAdministration = await getImmunizationOrder(oystehr, orderId!);
   // administered orders are edited through administer-immunization-order, which keeps statements and CPT lines in sync
   if (administrationDetails && medicationAdministration.status !== 'in-progress') {
     const currentStatus = mapFhirToOrderStatus(medicationAdministration);
