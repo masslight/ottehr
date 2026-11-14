@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Encounter, MedicationAdministration, Procedure, ServiceRequest, Task } from 'fhir/r4b';
 import { IMMUNIZATION_ORDER_TAG_CODE, IMMUNIZATION_ORDER_TAG_SYSTEM } from 'utils/lib/fhir/medication-administration';
+import { withVaccineDoseFunding } from 'utils/lib/fhir/vfc';
 import { CODE_SYSTEM_CPT } from 'utils/lib/helpers/rcm/constants';
 import {
   MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE,
@@ -122,6 +123,24 @@ describe('selectOrderCptLineChanges', () => {
 
     expect(selectedIds(changes.linesToDelete)).toEqual(['own-90471', 'own-90672', 'own-90686', 'own-90715']);
     expect(changes.lineHandoffs).toEqual([]);
+  });
+
+  it('never hands the vaccine product code to a dose from VFC or state stock; the admin code still goes over', () => {
+    const ownLines = [cptLine('own-90707', '90707', 'deleted'), cptLine('own-90460', '90460', 'deleted')];
+    const vfcDose = withVaccineDoseFunding(vaccine('vfc', 'completed', ['90707', '90460']), {
+      fundingSource: 'vfc',
+      vfcEligibility: 'V02',
+    });
+
+    const changes = selectOrderCptLineChanges({
+      order: vaccine('deleted', 'completed', ['90707', '90460']),
+      ownLines,
+      visitLines: ownLines,
+      visitOrders: [vfcDose],
+    });
+
+    expect(selectedIds(changes.linesToDelete)).toEqual(['own-90707']);
+    expect(changes.lineHandoffs.map(({ line, newOwnerId }) => [line.id, newOwnerId])).toEqual([['own-90460', 'vfc']]);
   });
 });
 
