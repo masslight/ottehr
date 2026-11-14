@@ -83,9 +83,6 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
 }) => {
   const [pending, setPending] = useState<InventoryLot | undefined>(undefined);
   const [expiredPending, setExpiredPending] = useState<InventoryLot | undefined>(undefined);
-  const [reason, setReason] = useState('');
-  const [note, setNote] = useState('');
-  const [reasonError, setReasonError] = useState(false);
   const options = sortVaccineLotsForPatient(lots, vfcEligibility, DateTime.now().toISODate());
   const who = patientFirstName || 'The patient';
   const eligibilityText = vfcEligibility
@@ -97,9 +94,6 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
   const pickLot = (lot: InventoryLot, close?: () => void): void => {
     if (isVfcBorrowing(lot.fundingSource ?? 'private', vfcEligibility)) {
       setPending(lot);
-      setReason('');
-      setNote('');
-      setReasonError(false);
       return;
     }
     onPick(lot, undefined);
@@ -113,26 +107,6 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
     }
     pickLot(lot, close);
   };
-
-  const confirmBorrowing = (): void => {
-    if (!pending) return;
-    if (!reason) {
-      setReasonError(true);
-      return;
-    }
-    onPick(pending, note.trim() ? `${reason}: ${note.trim()}` : reason);
-    setPending(undefined);
-  };
-
-  const eligible = vfcEligibility ? VFC_ELIGIBILITY_LABELS[vfcEligibility].vfc : false;
-  const borrowingTitle = eligible
-    ? `Use a ${VACCINE_FUNDING_SOURCE_LABELS[
-        pending?.fundingSource ?? 'private'
-      ].toLowerCase()} lot for a VFC-eligible child?`
-    : 'Use VFC stock for a patient who is not VFC eligible?';
-  const borrowingBody = eligible
-    ? `${who} is VFC eligible. Giving lot ${pending?.lotNumber} counts as borrowing: it goes on the Vaccine borrowing log, and the dose must be paid back from VFC stock.`
-    : `${who} is not VFC eligible. VFC vaccine is only for eligible children, so this dose counts as borrowing: it goes on the Vaccine borrowing log and must be replaced with private stock.`;
 
   return (
     <>
@@ -256,59 +230,120 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!pending} onClose={() => setPending(undefined)} maxWidth="sm" fullWidth>
-        <DialogTitle>{borrowingTitle}</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="body2">{borrowingBody}</Typography>
-          <Box>
-            <Select
-              size="small"
-              fullWidth
-              displayEmpty
-              value={reason}
-              error={reasonError}
-              onChange={(event) => {
-                setReason(event.target.value);
-                setReasonError(false);
-              }}
-              inputProps={{
-                'aria-label': 'Borrowing reason',
-                'data-testid': dataTestIds.vaccineLotBlank.borrowingReason,
-              }}
-            >
-              <MenuItem value="" disabled>
-                <em>Borrowing reason</em>
-              </MenuItem>
-              {VFC_BORROWING_REASONS.map((option) => (
-                <MenuItem key={option} value={option}>
-                  {option}
-                </MenuItem>
-              ))}
-            </Select>
-            {reasonError && <FormHelperText error>Choose a reason for the borrowing report.</FormHelperText>}
-          </Box>
-          <TextField
-            size="small"
-            label="Note (optional)"
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            inputProps={{ maxLength: 200 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPending(undefined)} sx={{ textTransform: 'none' }}>
-            Pick another lot
-          </Button>
-          <Button
-            variant="contained"
-            onClick={confirmBorrowing}
-            sx={{ textTransform: 'none' }}
-            data-testid={dataTestIds.vaccineLotBlank.useBorrowedLot}
-          >
-            Use this lot
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <VfcBorrowingDialog
+        open={!!pending}
+        fundingSource={pending?.fundingSource ?? 'private'}
+        lotNumber={pending?.lotNumber}
+        vfcEligibility={vfcEligibility}
+        patientFirstName={patientFirstName}
+        cancelLabel="Pick another lot"
+        onCancel={() => setPending(undefined)}
+        onConfirm={(borrowingReason) => {
+          if (pending) onPick(pending, borrowingReason);
+          setPending(undefined);
+        }}
+      />
     </>
+  );
+};
+
+/**
+ * Asks for the borrowing reason before a dose is given from the other stock (a lot picked, or the stock of a typed
+ * lot); it is never blocked. The reason goes on the Vaccine borrowing log.
+ */
+export const VfcBorrowingDialog: FC<{
+  open: boolean;
+  fundingSource: VaccineFundingSource;
+  lotNumber: string | undefined;
+  vfcEligibility: VfcEligibilityCode | undefined;
+  patientFirstName?: string;
+  cancelLabel: string;
+  onCancel: () => void;
+  onConfirm: (borrowingReason: string) => void;
+}> = ({ open, fundingSource, lotNumber, vfcEligibility, patientFirstName, cancelLabel, onCancel, onConfirm }) => {
+  const [reason, setReason] = useState('');
+  const [note, setNote] = useState('');
+  const [reasonError, setReasonError] = useState(false);
+  const who = patientFirstName || 'The patient';
+  const eligible = vfcEligibility ? VFC_ELIGIBILITY_LABELS[vfcEligibility].vfc : false;
+  const borrowingTitle = eligible
+    ? `Use a ${VACCINE_FUNDING_SOURCE_LABELS[fundingSource].toLowerCase()} lot for a VFC-eligible child?`
+    : 'Use VFC stock for a patient who is not VFC eligible?';
+  const borrowingBody = eligible
+    ? `${who} is VFC eligible. Giving lot ${lotNumber} counts as borrowing: it goes on the Vaccine borrowing log, and the dose must be paid back from VFC stock.`
+    : `${who} is not VFC eligible. VFC vaccine is only for eligible children, so this dose counts as borrowing: it goes on the Vaccine borrowing log and must be replaced with private stock.`;
+
+  const reset = (): void => {
+    setReason('');
+    setNote('');
+    setReasonError(false);
+  };
+  const confirmBorrowing = (): void => {
+    if (!reason) {
+      setReasonError(true);
+      return;
+    }
+    onConfirm(note.trim() ? `${reason}: ${note.trim()}` : reason);
+    reset();
+  };
+  const cancel = (): void => {
+    onCancel();
+    reset();
+  };
+
+  return (
+    <Dialog open={open} onClose={cancel} maxWidth="sm" fullWidth>
+      <DialogTitle>{borrowingTitle}</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Typography variant="body2">{borrowingBody}</Typography>
+        <Box>
+          <Select
+            size="small"
+            fullWidth
+            displayEmpty
+            value={reason}
+            error={reasonError}
+            onChange={(event) => {
+              setReason(event.target.value);
+              setReasonError(false);
+            }}
+            inputProps={{
+              'aria-label': 'Borrowing reason',
+              'data-testid': dataTestIds.vaccineLotBlank.borrowingReason,
+            }}
+          >
+            <MenuItem value="" disabled>
+              <em>Borrowing reason</em>
+            </MenuItem>
+            {VFC_BORROWING_REASONS.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </Select>
+          {reasonError && <FormHelperText error>Choose a reason for the borrowing report.</FormHelperText>}
+        </Box>
+        <TextField
+          size="small"
+          label="Note (optional)"
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          inputProps={{ maxLength: 200 }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={cancel} sx={{ textTransform: 'none' }}>
+          {cancelLabel}
+        </Button>
+        <Button
+          variant="contained"
+          onClick={confirmBorrowing}
+          sx={{ textTransform: 'none' }}
+          data-testid={dataTestIds.vaccineLotBlank.useBorrowedLot}
+        >
+          Use this lot
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };

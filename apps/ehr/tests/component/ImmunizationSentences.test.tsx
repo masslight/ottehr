@@ -408,3 +408,58 @@ describe('ImmunizationSentences', () => {
     });
   });
 });
+
+describe('ImmunizationSentences typed lot stock', () => {
+  let saved: ImmunizationLine['administrationDetails'] = {};
+  const Harness = (): JSX.Element => {
+    const [line, setLine] = useState(emptyImmunizationLine());
+    saved = line.administrationDetails;
+    return (
+      <ImmunizationSentences
+        line={line}
+        index={0}
+        onChange={setLine}
+        quickPicks={[]}
+        onQuickPick={vi.fn()}
+        errors={[]}
+        readOnly={false}
+        vfcEligibility="V02"
+        patientFirstName="Nora"
+      />
+    );
+  };
+
+  it('a typed lot not in stock asks which stock, starting at the patient’s own', async () => {
+    render(<Harness />);
+    const user = userEvent.setup();
+    await user.type(screen.getByTestId(dataTestIds.vaccineDetailsPage.lotNumber), 'PAPER-1');
+    await user.tab();
+    expect(saved).toMatchObject({ lot: 'PAPER-1', fundingSource: 'vfc' });
+    expect(screen.getByTestId(dataTestIds.vaccineDetailsPage.typedLotStock)).toHaveTextContent('VFC');
+  });
+
+  it('picking the other stock asks for the borrowing reason; cancelling keeps the patient’s stock', async () => {
+    render(<Harness />);
+    const user = userEvent.setup();
+    await user.type(screen.getByTestId(dataTestIds.vaccineDetailsPage.lotNumber), 'PAPER-1');
+    await user.tab();
+
+    await user.click(screen.getByTestId(dataTestIds.vaccineDetailsPage.typedLotStock));
+    await user.click(screen.getByRole('option', { name: 'Private' }));
+    expect(screen.getByText('Use a private lot for a VFC-eligible child?')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: "Keep the patient's stock" }));
+    expect(saved).toMatchObject({ fundingSource: 'vfc', borrowingReason: undefined });
+
+    await user.click(screen.getByTestId(dataTestIds.vaccineDetailsPage.typedLotStock));
+    await user.click(screen.getByRole('option', { name: 'Private' }));
+    await user.click(screen.getByRole('combobox', { name: 'Borrowing reason' }));
+    await user.click(screen.getByRole('option', { name: 'Ordering error left this stock short' }));
+    await user.click(screen.getByTestId(dataTestIds.vaccineLotBlank.useBorrowedLot));
+    expect(saved).toMatchObject({
+      lot: 'PAPER-1',
+      fundingSource: 'private',
+      borrowingReason: 'Ordering error left this stock short',
+    });
+    expect(screen.getByText('Borrowed')).toBeInTheDocument();
+  });
+});

@@ -38,7 +38,14 @@ import {
   Vaccine,
 } from 'utils/lib/types/data/immunization/types';
 import { getMvxManufacturer } from 'utils/lib/types/data/immunization/vaccine-lookup';
-import { VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
+import {
+  isVfcBorrowing,
+  VACCINE_FUNDING_SOURCE_LABELS,
+  VACCINE_FUNDING_SOURCES,
+  VaccineFundingSource,
+  VfcEligibilityCode,
+  wantedFundingSource,
+} from 'utils/lib/types/data/immunization/vfc';
 import { ImmunizationDiagnosisOption, useImmunizationDiagnosisOptions } from '../hooks/useImmunizationDiagnosisOptions';
 import { useVaccineLotsOnHand } from '../hooks/useVaccineInventory';
 import { LineQuickPicks } from './DueTodayBox';
@@ -50,7 +57,7 @@ import {
   toggleExternal,
 } from './immunizationLines';
 import { IMMUNIZATION_MENU_PAPER_SX, ImmunizationMenu } from './ImmunizationMenu';
-import { FundingChip, VaccineLotBlank } from './VaccineLotBlank';
+import { FundingChip, VaccineLotBlank, VfcBorrowingDialog } from './VaccineLotBlank';
 
 /** The admins' button under the line that saves it as a quick pick. */
 export const SAVE_QUICK_PICK_LABEL = 'Save as quick pick';
@@ -375,7 +382,16 @@ interface ImmunizationSentencesProps {
   collapseAdministration?: boolean;
 }
 
-/** The Lot blank with the vaccine's lots on hand; a plain blank for a vaccine not set up for inventory. */
+const STOCK_OPTIONS = VACCINE_FUNDING_SOURCES.map((source) => ({
+  value: source,
+  label: VACCINE_FUNDING_SOURCE_LABELS[source],
+}));
+
+/**
+ * The Lot blank with the vaccine's lots on hand; a plain blank for a vaccine not set up for inventory. A typed lot
+ * that isn't one of them asks which stock it came from, starting at the patient's own, so billing and the
+ * borrowing log still follow it; picking the other stock asks for the borrowing reason.
+ */
 const LotBlank: FC<{
   line: ImmunizationLine;
   locationId: string | undefined;
@@ -387,21 +403,55 @@ const LotBlank: FC<{
 }> = ({ line, locationId, vfcEligibility, patientFirstName, readOnly, need, onChange }) => {
   const { details, administrationDetails } = line;
   const { data: lots } = useVaccineLotsOnHand(details.medication?.id, locationId);
+  const [borrowingStock, setBorrowingStock] = useState<VaccineFundingSource | undefined>(undefined);
   const updateAdministration = (patch: InputImmunizationOrderAdministrationDetails): void =>
     onChange({ ...line, administrationDetails: { ...administrationDetails, ...patch } });
-  if (!lots?.length) {
-    return (
-      <TextBlank
-        label="lot number"
-        value={administrationDetails.lot}
-        onChange={(lot) => updateAdministration({ lot, fundingSource: undefined, borrowingReason: undefined })}
+  const typeLot = (lot: string | undefined): void =>
+    updateAdministration({
+      lot,
+      fundingSource: lot ? wantedFundingSource(vfcEligibility) : undefined,
+      borrowingReason: undefined,
+    });
+  const { lot, fundingSource, borrowingReason } = administrationDetails;
+  const typed = !!lot && !lots?.some((stockLot) => stockLot.lotNumber === lot);
+  const stock = typed ? (
+    <>
+      {' '}
+      from{' '}
+      <SelectBlank
+        label="stock"
+        title="Stock"
+        options={STOCK_OPTIONS}
+        value={fundingSource}
+        onChange={(next) => {
+          const source = next as VaccineFundingSource | undefined;
+          if (!source || source === fundingSource) return;
+          if (isVfcBorrowing(source, vfcEligibility)) setBorrowingStock(source);
+          else updateAdministration({ fundingSource: source, borrowingReason: undefined });
+        }}
         readOnly={readOnly}
-        need={need}
-        dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
-      />
-    );
-  }
-  return (
+        dataTestId={dataTestIds.vaccineDetailsPage.typedLotStock}
+      />{' '}
+      stock
+    </>
+  ) : (
+    fundingSource && (
+      <>
+        {' '}
+        <FundingChip fundingSource={fundingSource} />
+      </>
+    )
+  );
+  const lotBlank = !lots?.length ? (
+    <TextBlank
+      label="lot number"
+      value={lot}
+      onChange={typeLot}
+      readOnly={readOnly}
+      need={need}
+      dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
+    />
+  ) : (
     <VaccineLotBlank
       lots={lots}
       value={administrationDetails.lot}
@@ -411,9 +461,34 @@ const LotBlank: FC<{
       need={need}
       dataTestId={dataTestIds.vaccineDetailsPage.lotNumber}
       // A picked lot fills what the box says and takes one dose off that lot when administered.
-      onPick={(lot, borrowingReason) => onChange(applyLotToLine(line, lot, vfcEligibility, borrowingReason))}
-      onType={(lot) => updateAdministration({ lot, fundingSource: undefined, borrowingReason: undefined })}
+      onPick={(picked, reason) => onChange(applyLotToLine(line, picked, vfcEligibility, reason))}
+      onType={typeLot}
     />
+  );
+  return (
+    <>
+      {lotBlank}
+      {fundingSource && stock}
+      {fundingSource && borrowingReason && (
+        <>
+          {' '}
+          <Chip size="small" label="Borrowed" sx={{ height: 20, fontSize: 12 }} />
+        </>
+      )}
+      <VfcBorrowingDialog
+        open={!!borrowingStock}
+        fundingSource={borrowingStock ?? 'private'}
+        lotNumber={lot}
+        vfcEligibility={vfcEligibility}
+        patientFirstName={patientFirstName}
+        cancelLabel="Keep the patient's stock"
+        onCancel={() => setBorrowingStock(undefined)}
+        onConfirm={(reason) => {
+          updateAdministration({ fundingSource: borrowingStock, borrowingReason: reason });
+          setBorrowingStock(undefined);
+        }}
+      />
+    </>
   );
 };
 
@@ -794,18 +869,6 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
               need={needAdministration}
               onChange={onChange}
             />
-            {administrationDetails.fundingSource && (
-              <>
-                {' '}
-                <FundingChip fundingSource={administrationDetails.fundingSource} />
-                {administrationDetails.borrowingReason && (
-                  <>
-                    {' '}
-                    <Chip size="small" label="Borrowed" sx={{ height: 20, fontSize: 12 }} />
-                  </>
-                )}
-              </>
-            )}
             , expires{' '}
             <DateTimeBlank
               kind="date"

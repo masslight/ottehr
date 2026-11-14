@@ -932,6 +932,7 @@ export const dataTestIds = {
 
   vaccineDetailsPage: {
     lotNumber: 'lot-number',
+    typedLotStock: 'typed-lot-stock',
     expiredDate: 'expired-date',
     mvxCode: 'mvx-code',
     ndcMismatch: 'vaccine-details-ndc-mismatch',
