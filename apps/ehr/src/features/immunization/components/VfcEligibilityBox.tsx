@@ -175,11 +175,8 @@ export const VfcEligibilityBox: FC<VfcEligibilityBoxProps> = ({ encounterId, var
   }
   return (
     <Paper sx={{ p: 3 }}>
-      <Typography variant="h5" color="primary.dark" sx={{ mb: 0.5 }}>
+      <Typography variant="h5" color="primary.dark" sx={{ mb: 1.5 }}>
         VFC eligibility
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Screened before vaccinating, every immunization visit.
       </Typography>
       {body}
     </Paper>
