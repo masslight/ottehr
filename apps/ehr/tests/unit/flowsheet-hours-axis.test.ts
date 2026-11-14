@@ -47,10 +47,10 @@ describe('newborn bilirubin chart x-axis: hours of life when the time of birth i
 
   it('each reading plots at its own hours of life; on the time axis at the visit start', () => {
     expect(hoursOfLifeAt(withHours, t1)).toBe(78.3);
-    expect(chartPoint(withHours, 'transcutaneousBilirubin', true)).toEqual([78.3, 13.1]);
-    expect(chartPoint(withHours, 'newbornTotalBilirubin', true)).toEqual([82, 13.8]);
-    expect(chartPoint(withHours, 'newbornTotalBilirubin', false)).toEqual([Date.parse(withHours.start), 13.8]);
-    expect(chartPoint(withHours, 'newbornDirectBilirubin', true)).toBeUndefined();
+    expect(chartPoint(withHours, 'transcutaneousBilirubin', true, 'mg/dL')).toEqual([78.3, 13.1]);
+    expect(chartPoint(withHours, 'newbornTotalBilirubin', true, 'mg/dL')).toEqual([82, 13.8]);
+    expect(chartPoint(withHours, 'newbornTotalBilirubin', false, 'mg/dL')).toEqual([Date.parse(withHours.start), 13.8]);
+    expect(chartPoint(withHours, 'newbornDirectBilirubin', true, 'mg/dL')).toBeUndefined();
   });
 
   it('only readings within 0–336 h plot on the hours axis; a visit without hours has no point there', () => {
@@ -59,9 +59,49 @@ describe('newborn bilirubin chart x-axis: hours of life when the time of birth i
       newbornTotalBilirubin: reading(9, t2),
       hoursOfLife: reading(400, t2),
     });
-    expect(chartPoint(late, 'newbornTotalBilirubin', true)).toBeUndefined();
-    expect(chartPoint(withoutHours, 'newbornTotalBilirubin', true)).toBeUndefined();
-    expect(chartPoint(withoutHours, 'newbornTotalBilirubin', false)).toEqual([Date.parse(withoutHours.start), 13.8]);
+    expect(chartPoint(late, 'newbornTotalBilirubin', true, 'mg/dL')).toBeUndefined();
+    expect(chartPoint(withoutHours, 'newbornTotalBilirubin', true, 'mg/dL')).toBeUndefined();
+    expect(chartPoint(withoutHours, 'newbornTotalBilirubin', false, 'mg/dL')).toEqual([
+      Date.parse(withoutHours.start),
+      13.8,
+    ]);
+  });
+});
+
+describe('trend charts plot only readings in the chart unit, converting the standard pairs', () => {
+  const t = '2026-07-13T18:00:00.000Z';
+  const lab = (value: number, unit: string): FlowsheetValue => ({
+    time: t,
+    value,
+    unit,
+    readings: [{ time: t, value, unit }],
+  });
+  const at = (key: string, value: FlowsheetValue): FlowsheetVisit => visit({ [key]: value });
+  const start = Date.parse(visit({}).start);
+
+  it('a reading in the chart unit plots as is, whatever its spelling; a vital (no unit) plots as is', () => {
+    expect(chartPoint(at('freeT4', lab(1.2, 'ng/dL')), 'freeT4', false, 'ng/dL')).toEqual([start, 1.2]);
+    expect(chartPoint(at('tsh', lab(2.1, 'mIU/L')), 'tsh', false, 'mIU/L')).toEqual([start, 2.1]);
+    expect(chartPoint(at('tsh', lab(2.1, 'uIU/mL')), 'tsh', false, 'mIU/L')).toEqual([start, 2.1]);
+    expect(chartPoint(at('tsh', lab(2.1, 'µIU/mL')), 'tsh', false, 'mIU/L')).toEqual([start, 2.1]);
+    expect(chartPoint(at('egfr', lab(95, 'mL/min/{1.73_m2}')), 'egfr', false, 'mL/min/1.73m²')).toEqual([start, 95]);
+    expect(chartPoint(at('heartRate', reading(80, t)), 'heartRate', false, '/min')).toEqual([start, 80]);
+  });
+
+  it('Free T4 in pmol/L and bilirubin in µmol/L convert to the chart unit', () => {
+    expect(chartPoint(at('freeT4', lab(15, 'pmol/L')), 'freeT4', false, 'ng/dL')).toEqual([start, 1.17]);
+    expect(
+      chartPoint(at('newbornTotalBilirubin', lab(200, 'umol/L')), 'newbornTotalBilirubin', false, 'mg/dL')
+    ).toEqual([start, 11.7]);
+    expect(
+      chartPoint(at('transcutaneousBilirubin', lab(171, 'µmol/L')), 'transcutaneousBilirubin', false, 'mg/dL')
+    ).toEqual([start, 10]);
+  });
+
+  it('a reading in any other unit does not plot (it stays in the grid)', () => {
+    expect(chartPoint(at('freeT4', lab(1.2, 'pg/mL')), 'freeT4', false, 'ng/dL')).toBeUndefined();
+    expect(chartPoint(at('creatinine', lab(70, 'umol/L')), 'creatinine', false, 'mg/dL')).toBeUndefined();
+    expect(chartPoint(at('hemoglobin', lab(120, 'g/L')), 'hemoglobin', false, 'g/dL')).toBeUndefined();
   });
 });
 

@@ -14,16 +14,46 @@ export const hoursOfLifeAt = (visit: FlowsheetVisit, time: string): number | und
 export const usesHoursAxis = (chart: FlowsheetChart, visits: FlowsheetVisit[]): boolean =>
   !!chart.hoursOfLife && visits.some((visit) => visit.values.hoursOfLife !== undefined);
 
+/** "µIU/mL", "uIU/mL" and "mL/min/{1.73_m2}" read alike: lower case, u for µ, no spaces, braces or underscores. */
+const normalUnit = (unit: string): string =>
+  unit
+    .toLowerCase()
+    .replace(/[µμ]/g, 'u')
+    .replace(/[\s{}_]/g, '')
+    .replace('²', '2');
+
+/** Per line key, the factor from a lab unit (normalised) to the chart's unit: the standard conversions only. */
+const TO_CHART_UNIT: Record<string, Record<string, number>> = {
+  tsh: { 'uiu/ml': 1 },
+  freeT4: { 'pmol/l': 1 / 12.87 },
+  newbornTotalBilirubin: { 'umol/l': 1 / 17.1 },
+  transcutaneousBilirubin: { 'umol/l': 1 / 17.1 },
+};
+
+/** The reading's value in the chart's unit; undefined for a unit the chart can't plot. A vital carries no unit. */
+const inChartUnit = (key: string, value: number, unit: string | undefined, chartUnit: string): number | undefined => {
+  if (!unit || normalUnit(unit) === normalUnit(chartUnit)) return value;
+  const factor = TO_CHART_UNIT[key]?.[normalUnit(unit)];
+  return factor === undefined ? undefined : Number((value * factor).toFixed(2));
+};
+
 /**
- * [x, y] of a line's latest reading in a visit: x is the reading's hours of life (only within 0–336 h) on the
- * hours axis, else the visit start; undefined when there is nothing numeric to plot.
+ * [x, y] of a line's latest reading in a visit, in the chart's unit: x is the reading's hours of life (only within
+ * 0–336 h) on the hours axis, else the visit start; undefined when there is nothing numeric to plot in that unit.
  */
-export const chartPoint = (visit: FlowsheetVisit, key: string, hoursAxis: boolean): [number, number] | undefined => {
+export const chartPoint = (
+  visit: FlowsheetVisit,
+  key: string,
+  hoursAxis: boolean,
+  chartUnit: string
+): [number, number] | undefined => {
   const reading = visit.values[key];
   if (!reading || typeof reading.value !== 'number') return undefined;
-  if (!hoursAxis) return [Date.parse(visit.start), reading.value];
+  const value = inChartUnit(key, reading.value, reading.unit, chartUnit);
+  if (value === undefined) return undefined;
+  if (!hoursAxis) return [Date.parse(visit.start), value];
   const hours = hoursOfLifeAt(visit, reading.time);
-  return hours !== undefined && hours >= 0 && hours <= HOURS_OF_LIFE_MAX ? [hours, reading.value] : undefined;
+  return hours !== undefined && hours >= 0 && hours <= HOURS_OF_LIFE_MAX ? [hours, value] : undefined;
 };
 
 /**

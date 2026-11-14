@@ -431,7 +431,7 @@ const FlowsheetBody = ({
           .reverse()
           .flatMap((visit) => {
             // Only numeric readings plot; a text value (e.g. a coded lab result) has no point.
-            const value = chartPoint(visit, line.key, hoursAxis);
+            const value = chartPoint(visit, line.key, hoursAxis, chart.unit);
             if (!value) return [];
             const color = flagColor(visit.values[line.key].flag);
             return [
@@ -442,13 +442,17 @@ const FlowsheetBody = ({
     };
   };
   const hasPoints = (chart: FlowsheetChart): boolean =>
-    chart.lines.some((line) => columns.some((visit) => typeof visit.values[line.key]?.value === 'number'));
+    chart.lines.some((line) =>
+      columns.some((visit) => chartPoint(visit, line.key, usesHoursAxis(chart, columns), chart.unit))
+    );
   // The flags a chart draws as larger coloured points, for the key under it.
   const plottedFlags = (chart: FlowsheetChart): VitalAlertCriticality[] =>
     [VitalAlertCriticality.Abnormal, VitalAlertCriticality.Critical].filter((flag) =>
       chart.lines.some((line) =>
         columns.some(
-          (visit) => visit.values[line.key]?.flag === flag && chartPoint(visit, line.key, usesHoursAxis(chart, columns))
+          (visit) =>
+            visit.values[line.key]?.flag === flag &&
+            chartPoint(visit, line.key, usesHoursAxis(chart, columns), chart.unit)
         )
       )
     );
