@@ -190,9 +190,9 @@ describe('buildNewbornBilirubinFlowsheet', () => {
     expect(buildNewbornBilirubinFlowsheet(later).map((c) => c.encounterId)).toEqual(['e1']);
   });
 
-  test('without a birth date there is no day of life row', () => {
-    const [latest] = buildNewbornBilirubinFlowsheet({ ...data, birthDate: undefined });
-    expect(Object.keys(latest.values)).toEqual(['newbornTotalBilirubin', 'newbornDirectBilirubin']);
+  test('without a birth date no result is placed: a newborn result cannot be told from an adult CMP bilirubin', () => {
+    expect(buildNewbornBilirubinFlowsheet({ ...data, birthDate: undefined })).toEqual([]);
+    expect(buildNewbornBilirubinFlowsheet({ ...data, birthDate: '2007' })).toEqual([]);
   });
 
   test('dayOfLifeAt counts whole calendar days in the zone the instant was recorded in', () => {

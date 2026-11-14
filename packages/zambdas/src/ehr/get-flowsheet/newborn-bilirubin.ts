@@ -66,6 +66,7 @@ export const buildNewbornBilirubinFlowsheet = (data: FlowsheetData): FlowsheetVi
   const cutoff = birthDate
     ? DateTime.fromISO(birthDate, { zone: 'utc' }).plus({ months: NEWBORN_MONTHS, days: 1 })
     : undefined;
+  // Without a birth date a newborn's result can't be told from an adult's, so none is placed.
   const labs =
     cutoff && data.labs
       ? Object.fromEntries(
@@ -75,7 +76,7 @@ export const buildNewbornBilirubinFlowsheet = (data: FlowsheetData): FlowsheetVi
             results.filter((result) => !result.resultedAt || DateTime.fromISO(result.resultedAt) < cutoff),
           ])
         )
-      : data.labs;
+      : {};
   const columns = conditionColumns({ ...data, labs }, VITAL_KEYS);
   columns.addLabs(LAB_ROWS);
 
