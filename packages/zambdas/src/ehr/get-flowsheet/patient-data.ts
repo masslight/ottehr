@@ -380,8 +380,10 @@ export const buildLabResults = ({
       // A "<0.01" result is text, so it keeps its sign and never plots as 0.01.
       const value = comparator ? undefined : quantity;
       const coded = obs.valueCodeableConcept;
-      // The in-house flag lives on the result Observation; older results only carry it as a tag on the report.
-      const interpretation = obs.interpretation?.[0]?.coding?.[0]?.code ?? (reportAbnormal ? 'A' : '');
+      // The in-house flag lives on the result Observation; older results only carry it as a tag on the report. The
+      // tag says some result of the report is abnormal, so it flags only a report's single result.
+      const fromReport = reportAbnormal && report.result?.length === 1 ? 'A' : '';
+      const interpretation = obs.interpretation?.[0]?.coding?.[0]?.code ?? fromReport;
       pushTo(byEncounter, key, {
         analyte: code?.text ?? code?.coding?.find((c) => c.display)?.display ?? testName,
         loincCodes: loincCodesOf(code),

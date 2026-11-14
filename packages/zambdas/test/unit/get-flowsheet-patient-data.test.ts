@@ -390,6 +390,48 @@ describe('buildLabResults', () => {
     expect(Object.keys(labs)).toEqual(['e1', 'e2', unlinkedResultKey('dr-unlinked')]);
   });
 
+  test('the report’s abnormal tag flags a result without its own interpretation only when it is the report’s only one', () => {
+    const order: ServiceRequest = {
+      resourceType: 'ServiceRequest',
+      id: 'sr-cmp',
+      status: 'completed',
+      intent: 'order',
+      subject: { reference: PATIENT },
+      encounter: { reference: 'Encounter/e9' },
+      code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: 'CMP' }], text: 'CMP' },
+    };
+    const obs = (id: string, code: string, value: number, interpretation?: string): Observation => ({
+      resourceType: 'Observation',
+      id,
+      status: 'final',
+      code: { coding: [{ system: 'http://loinc.org', code }] },
+      effectiveDateTime: '2026-11-01T10:00:00.000Z',
+      valueQuantity: { value },
+      ...(interpretation ? { interpretation: [{ coding: [{ code: interpretation }] }] } : {}),
+    });
+    const tagged = (id: string, results: string[]): DiagnosticReport => ({
+      resourceType: 'DiagnosticReport',
+      id,
+      status: 'final',
+      code: { text: 'CMP' },
+      basedOn: [{ reference: 'ServiceRequest/sr-cmp' }],
+      meta: { tag: [{ system: ABNORMAL_RESULT_DR_TAG.system, code: ABNORMAL_RESULT_DR_TAG.code }] },
+      result: results.map((r) => ({ reference: `Observation/${r}` })),
+    });
+    const flags = buildLabResults({
+      serviceRequests: [order],
+      // A CMP tagged abnormal for its glucose; a one-result report tagged abnormal with no interpretation.
+      reports: [tagged('dr-cmp', ['o-glu', 'o-na']), tagged('dr-one', ['o-k'])],
+      observations: [obs('o-glu', '2345-7', 140, 'H'), obs('o-na', '2951-2', 140), obs('o-k', '2823-3', 6.1)],
+      activityDefinitions: [],
+    }).e9.map((lab) => [lab.value, lab.interpretation, lab.flag]);
+    expect(flags).toEqual([
+      [140, 'H', VitalAlertCriticality.Abnormal],
+      [140, '', undefined],
+      [6.1, 'A', VitalAlertCriticality.Abnormal],
+    ]);
+  });
+
   test('maps only saved interpretation codes to grid flags', () => {
     expect(labFlagOf('N')).toBeUndefined();
     expect(labFlagOf('')).toBeUndefined();
