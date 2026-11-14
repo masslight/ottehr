@@ -208,8 +208,8 @@ export interface DueTodayLotPick {
 /**
  * The lot ⊕ pre-picks: the patient's stock first (VFC lots for a VFC-eligible child, private otherwise), soonest
  * expiry, as the Lot blank lists them. Never an expired lot, and never the other stock: borrowing is the
- * provider's own choice in the Lot blank, where it asks for the reason. While a child's eligibility is not
- * confirmed, no VFC or state lot either: the Lot blank offers them and says eligibility is unconfirmed.
+ * provider's own choice in the Lot blank, where it asks for the reason. While no category is shown on the
+ * eligibility line, no VFC or state lot either: the Lot blank offers them and says eligibility is unconfirmed.
  */
 export const lotToPrePick = (vaccine: StockedVaccine, pick: DueTodayLotPick): InventoryLot | undefined =>
   sortVaccineLotsForPatient(vaccine.lots, pick.vfcEligibility, pick.today).find(
