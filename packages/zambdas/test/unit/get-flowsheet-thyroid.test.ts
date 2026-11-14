@@ -1,11 +1,11 @@
-import { Appointment, Encounter, Observation } from 'fhir/r4b';
+import { Appointment, DiagnosticReport, Encounter, Observation, ServiceRequest } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { FlowsheetLabResult } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, test } from 'vitest';
-import { FlowsheetData, unlinkedResultKey } from '../../src/ehr/get-flowsheet/patient-data';
+import { buildLabResults, FlowsheetData, unlinkedResultKey } from '../../src/ehr/get-flowsheet/patient-data';
 import { buildThyroidFlowsheet } from '../../src/ehr/get-flowsheet/thyroid';
 
 const PATIENT = 'Patient/p1';
@@ -207,5 +207,52 @@ describe('buildThyroidFlowsheet', () => {
     expect(rowsOf(lab('TSH receptor antibody', [], 2.1, 'IU/L', at))).toEqual([]);
     expect(rowsOf(lab('Thyroxine binding globulin', [], 18, 'ug/mL', at))).toEqual([]);
     expect(rowsOf(lab('Thyroxine (T4)', [], 8.1, 'ug/dL', at))).toEqual(['totalT4']);
+  });
+});
+
+describe('a "<" or ">" result', () => {
+  const order: ServiceRequest = {
+    resourceType: 'ServiceRequest',
+    id: 'sr1',
+    status: 'completed',
+    intent: 'order',
+    subject: { reference: PATIENT },
+    encounter: { reference: 'Encounter/e1' },
+    code: { text: 'TSH' },
+  };
+  const tsh = (id: string, effectiveDateTime: string, extra: Partial<Observation>): Observation => ({
+    resourceType: 'Observation',
+    id,
+    status: 'final',
+    code: { coding: [{ system: 'http://loinc.org', code: '3016-3', display: 'TSH' }] },
+    effectiveDateTime,
+    ...extra,
+  });
+  const report: DiagnosticReport = {
+    resourceType: 'DiagnosticReport',
+    id: 'dr1',
+    status: 'final',
+    code: { text: 'TSH' },
+    basedOn: [{ reference: 'ServiceRequest/sr1' }],
+    result: [{ reference: 'Observation/o1' }, { reference: 'Observation/o2' }, { reference: 'Observation/o3' }],
+  };
+  const labs = buildLabResults({
+    serviceRequests: [order],
+    reports: [report],
+    observations: [
+      tsh('o1', '2023-02-06T18:00:00.000Z', { valueQuantity: { value: 0.01, comparator: '<', unit: 'mIU/L' } }),
+      tsh('o2', '2023-02-06T19:00:00.000Z', { valueString: '<0.01' }),
+      tsh('o3', '2023-02-06T20:00:00.000Z', { valueQuantity: { value: 100, comparator: '>=', unit: 'mIU/L' } }),
+    ],
+    activityDefinitions: [],
+  });
+
+  test('keeps its sign as text, sent as a quantity with a comparator or as text, on a numeric row', () => {
+    const [visit] = buildThyroidFlowsheet({ ...data, vitals: [], medications: {}, diagnoses: {}, labs });
+    expect(visit.values.tsh.readings.map(({ value, unit }) => ({ value, unit }))).toEqual([
+      { value: '<0.01', unit: 'mIU/L' },
+      { value: '<0.01', unit: undefined },
+      { value: '>=100', unit: 'mIU/L' },
+    ]);
   });
 });

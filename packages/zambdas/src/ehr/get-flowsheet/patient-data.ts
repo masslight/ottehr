@@ -363,7 +363,10 @@ export const buildLabResults = ({
         observationDefinitions.find((d) => d.id === defId) ??
         (observationDefinitions.length === 1 ? observationDefinitions[0] : undefined);
       const code = isInHouse ? obsDef?.code : obs.code;
-      const value = obs.valueQuantity?.value;
+      const quantity = obs.valueQuantity?.value;
+      const comparator = obs.valueQuantity?.comparator ?? '';
+      // A "<0.01" result is text, so it keeps its sign and never plots as 0.01.
+      const value = comparator ? undefined : quantity;
       const coded = obs.valueCodeableConcept;
       // The in-house flag lives on the result Observation; older results only carry it as a tag on the report.
       const interpretation = obs.interpretation?.[0]?.coding?.[0]?.code ?? (reportAbnormal ? 'A' : '');
@@ -375,8 +378,8 @@ export const buildLabResults = ({
         fasting,
         value,
         valueText:
-          value !== undefined
-            ? String(value)
+          quantity !== undefined
+            ? `${comparator}${quantity}`
             : obs.valueString ?? coded?.text ?? coded?.coding?.[0]?.display ?? coded?.coding?.[0]?.code ?? '',
         unit:
           obs.valueQuantity?.unit ??

@@ -25,6 +25,8 @@ export interface LabRow {
 }
 
 const FASTING_NOTE = 'fasting';
+/** A "<0.01" or ">1000" result: text a numeric row takes too. */
+const COMPARATOR_TEXT = /^\s*[<>]=?\s*\d/;
 
 export const labRowFor = (rows: LabRow[], lab: FlowsheetLabResult): LabRow | undefined => {
   if (lab.loincCodes.length > 0) {
@@ -47,7 +49,7 @@ export interface ConditionColumns {
   /** The column for an encounter id or an unlinked-result key, made on first use and dated by `fallbackStart`. */
   columnFor: (key: string, fallbackStart: string | undefined) => FlowsheetVisit | undefined;
   addReading: (column: FlowsheetVisit, key: string, reading: FlowsheetReading) => void;
-  /** Every lab result that lands on one of `rows` (text ones only on rows that take text), in its column. */
+  /** Every lab result that lands on one of `rows` (text ones only on rows that take text, or "<"/">" ones), in its column. */
   addLabs: (rows: LabRow[]) => void;
   /** The columns that hold one of the condition's own items, newest first. */
   list: () => FlowsheetVisit[];
@@ -85,7 +87,9 @@ export const conditionColumns = (data: FlowsheetData, vitalKeys: string[]): Cond
       const matched = labs
         .flatMap((lab) => {
           const row = labRowFor(rows, lab);
-          const value = lab.value ?? (row?.text && lab.valueText ? lab.valueText : undefined);
+          const value =
+            lab.value ??
+            ((row?.text || COMPARATOR_TEXT.test(lab.valueText)) && lab.valueText ? lab.valueText : undefined);
           return row && value !== undefined ? [{ row, lab, value }] : [];
         })
         .sort((a, b) => byResultedAt(a.lab, b.lab));
