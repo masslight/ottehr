@@ -116,6 +116,29 @@ describe('Open in BiliTool', () => {
     );
   });
 
+  it('the trend holds only earlier readings in the same units as the one sent', () => {
+    const mixed = biliToolReadings([
+      visit({
+        newbornTotalBilirubin: value([
+          { time: at(30), value: 200, unit: 'umol/L' },
+          { time: at(54), value: 12, unit: 'mg/dL' },
+        ]),
+        hoursOfLife: value([
+          { time: at(30), value: 30 },
+          { time: at(54), value: 54 },
+        ]),
+      }),
+    ]);
+    const url = new URL(
+      buildBiliToolUrl({ reading: mixed[0], readings: mixed, gestationalWeeks: 38, neuroRiskFactors: false })
+    );
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({
+      ageHours: '54',
+      totalBilirubin: '12.0',
+      bilirubinUnits: 'US',
+    });
+  });
+
   it('clamps gestational weeks to BiliTool 35–40 (40 = 40+), one decimal, SI units pass through', () => {
     const si: BiliToolReading = {
       kind: 'blood',

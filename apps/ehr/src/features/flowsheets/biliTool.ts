@@ -84,7 +84,7 @@ export const biliToolUnavailableReason = (
 };
 
 export interface BiliToolLaunch {
-  /** The result to send; the trend is its earlier readings of the same kind. */
+  /** The result to send; the trend is its earlier readings of the same kind, in the same units. */
   reading: BiliToolReading;
   readings: BiliToolReading[];
   gestationalWeeks: number;
@@ -98,7 +98,7 @@ export interface BiliToolLaunch {
 export const buildBiliToolUrl = ({ reading, readings, gestationalWeeks, neuroRiskFactors }: BiliToolLaunch): string => {
   const trend = [
     ...readings
-      .filter((r) => r.kind === reading.kind && r.time < reading.time)
+      .filter((r) => r.kind === reading.kind && r.units === reading.units && r.time < reading.time)
       .sort((a, b) => a.time.localeCompare(b.time)),
     reading,
   ];
