@@ -592,7 +592,7 @@ export default function UpdateMedicationPage(): ReactElement {
                     disabled={Boolean(blockingNotice)}
                     sx={{ textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
                   >
-                    Update Medication
+                    {isVaccine ? 'Update Vaccine' : 'Update Medication'}
                   </LoadingButton>
                 </Grid>
               ) : null}
