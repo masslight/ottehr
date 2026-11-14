@@ -64,7 +64,7 @@ const quickPick = (name: string, vaccineId: string, cvx: string, location: strin
   vaccine: { id: vaccineId, name: vaccineId },
   cvx,
   dose: '0.5',
-  units: 'mL',
+  units: 'ml',
   route: '78421000',
   location: { name: location, code: location },
 });

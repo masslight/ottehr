@@ -3,6 +3,7 @@ import { Box, Button, IconButton, Tooltip, Typography } from '@mui/material';
 import { FC, ReactNode, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { BASE_ROUTE_OPTIONS } from 'src/shared/utils/options';
+import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   DueToday,
@@ -24,11 +25,15 @@ export const BOX_SX = {
 } as const;
 const ROW_SX = { display: 'flex', alignItems: 'flex-start', gap: 0.5, py: 0.5 } as const;
 
-/** "Give 0.5 mL intramuscular in the left thigh": what a quick pick fills in, in the sentence's words. */
+/** "Give 0.5 mL Intramuscular route in the Left thigh": what a quick pick fills in, in the line's labels. */
 export const quickPickSummary = (quickPick: ImmunizationQuickPickData): string =>
   [
     'Give',
-    quickPick.dose && quickPick.units ? `${quickPick.dose} ${quickPick.units}` : undefined,
+    quickPick.dose && quickPick.units
+      ? `${quickPick.dose} ${
+          BASE_UNIT_OPTIONS.find((option) => option.value === quickPick.units)?.label ?? quickPick.units
+        }`
+      : undefined,
     quickPick.route
       ? BASE_ROUTE_OPTIONS.find((option) => option.code === quickPick.route)?.name ?? quickPick.route
       : '',
