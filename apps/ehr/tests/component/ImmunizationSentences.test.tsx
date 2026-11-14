@@ -35,10 +35,11 @@ vi.mock('src/components/input/EmployeeSelectInput', () => ({
   useEmployeeOptions: () => ({ options: [{ id: 'prov-1', name: 'Dr. Test' }], isLoading: false }),
 }));
 
+const lotsOnHand = vi.hoisted(() => ({ value: [] as unknown[] }));
 vi.mock('src/features/immunization/hooks/useVaccineInventory', () => ({
   useVfcEligibility: () => ({ data: undefined, isLoading: false }),
   useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useVaccineLotsOnHand: () => ({ data: [] }),
+  useVaccineLotsOnHand: () => ({ data: lotsOnHand.value }),
 }));
 
 vi.mock('src/components/input/CptCodesInput', () => ({
@@ -411,9 +412,16 @@ describe('ImmunizationSentences', () => {
 
 describe('ImmunizationSentences typed lot stock', () => {
   let saved: ImmunizationLine['administrationDetails'] = {};
+  let savedManufacturer: string | undefined;
+  let start = emptyImmunizationLine();
+  beforeEach(() => {
+    lotsOnHand.value = [];
+    start = emptyImmunizationLine();
+  });
   const Harness = (): JSX.Element => {
-    const [line, setLine] = useState(emptyImmunizationLine());
+    const [line, setLine] = useState(start);
     saved = line.administrationDetails;
+    savedManufacturer = line.details.manufacturer;
     return (
       <ImmunizationSentences
         line={line}
@@ -461,5 +469,41 @@ describe('ImmunizationSentences typed lot stock', () => {
       borrowingReason: 'Ordering error left this stock short',
     });
     expect(screen.getByText('Borrowed')).toBeInTheDocument();
+  });
+
+  it('typing a lot over one picked from stock drops that lot’s expiry, NDC and manufacturer', async () => {
+    lotsOnHand.value = [
+      {
+        id: 'lot-1',
+        catalogMedicationId: 'vac-mmr',
+        lotNumber: 'DEMO-VFC-120',
+        expirationDate: '2027-06-30',
+        ndc: '49281-0511-05',
+        mvx: 'PMC',
+        manufacturer: 'Sanofi Pasteur',
+        fundingSource: 'vfc',
+        onHand: 5,
+        unit: 'dose',
+      },
+    ];
+    start = {
+      ...emptyImmunizationLine(),
+      details: { manufacturer: 'Sanofi Pasteur' },
+      administrationDetails: {
+        lot: 'DEMO-VFC-120',
+        expDate: '2027-06-30',
+        ndc: '49281-0511-05',
+        mvx: 'PMC',
+        fundingSource: 'vfc',
+      },
+    };
+    render(<Harness />);
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId(dataTestIds.vaccineDetailsPage.lotNumber));
+    await user.type(screen.getByTestId(dataTestIds.vaccineLotBlank.typedLot), 'PAPER-1{Enter}');
+    expect(saved).toMatchObject({ lot: 'PAPER-1', fundingSource: 'vfc', ndc: '' });
+    expect(saved.expDate).toBeUndefined();
+    expect(saved.mvx).toBeUndefined();
+    expect(savedManufacturer).toBeUndefined();
   });
 });

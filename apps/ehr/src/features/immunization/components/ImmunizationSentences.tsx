@@ -406,13 +406,22 @@ const LotBlank: FC<{
   const [borrowingStock, setBorrowingStock] = useState<VaccineFundingSource | undefined>(undefined);
   const updateAdministration = (patch: InputImmunizationOrderAdministrationDetails): void =>
     onChange({ ...line, administrationDetails: { ...administrationDetails, ...patch } });
-  const typeLot = (lot: string | undefined): void =>
-    updateAdministration({
-      lot,
-      fundingSource: lot ? wantedFundingSource(vfcEligibility) : undefined,
-      borrowingReason: undefined,
-    });
   const { lot, fundingSource, borrowingReason } = administrationDetails;
+  // A lot typed over one picked from stock drops that lot's expiry, NDC and manufacturer for staff to enter.
+  const typeLot = (typedLot: string | undefined): void => {
+    const replacesStockLot = !!lot && !!lots?.some((stockLot) => stockLot.lotNumber === lot);
+    onChange({
+      ...line,
+      details: replacesStockLot ? { ...details, manufacturer: undefined } : details,
+      administrationDetails: {
+        ...administrationDetails,
+        ...(replacesStockLot ? { expDate: undefined, ndc: '', mvx: undefined } : {}),
+        lot: typedLot,
+        fundingSource: typedLot ? wantedFundingSource(vfcEligibility) : undefined,
+        borrowingReason: undefined,
+      },
+    });
+  };
   const typed = !!lot && !lots?.some((stockLot) => stockLot.lotNumber === lot);
   const stock = typed ? (
     <>
