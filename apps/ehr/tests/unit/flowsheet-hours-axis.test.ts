@@ -90,6 +90,9 @@ describe('trend charts plot only readings in the chart unit, converting the stan
     expect(chartPoint(at('tsh', lab(2.1, 'uIU/mL')), 'tsh', false, 'mIU/L')).toEqual([start, 2.1]);
     expect(chartPoint(at('tsh', lab(2.1, 'µIU/mL')), 'tsh', false, 'mIU/L')).toEqual([start, 2.1]);
     expect(chartPoint(at('egfr', lab(95, 'mL/min/{1.73_m2}')), 'egfr', false, 'mL/min/1.73m²')).toEqual([start, 95]);
+    // UCUM writes international units in brackets.
+    expect(chartPoint(at('tsh', lab(2.1, 'm[IU]/L')), 'tsh', false, 'mIU/L')).toEqual([start, 2.1]);
+    expect(chartPoint(at('tsh', lab(2.1, 'u[IU]/mL')), 'tsh', false, 'mIU/L')).toEqual([start, 2.1]);
     expect(chartPoint(at('heartRate', reading(80, t)), 'heartRate', false, '/min')).toEqual([start, 80]);
   });
 

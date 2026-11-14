@@ -14,12 +14,15 @@ export const hoursOfLifeAt = (visit: FlowsheetVisit, time: string): number | und
 export const usesHoursAxis = (chart: FlowsheetChart, visits: FlowsheetVisit[]): boolean =>
   !!chart.hoursOfLife && visits.some((visit) => visit.values.hoursOfLife !== undefined);
 
-/** "µIU/mL", "uIU/mL" and "mL/min/{1.73_m2}" read alike: lower case, u for µ, no spaces, braces or underscores. */
+/**
+ * "µIU/mL", "uIU/mL", UCUM's "u[IU]/mL" and "mL/min/{1.73_m2}" read alike: lower case, u for µ, no spaces,
+ * brackets, braces or underscores.
+ */
 const normalUnit = (unit: string): string =>
   unit
     .toLowerCase()
     .replace(/[µμ]/g, 'u')
-    .replace(/[\s{}_]/g, '')
+    .replace(/[\s{}[\]_]/g, '')
     .replace('²', '2');
 
 /** Per line key, the factor from a lab unit (normalised) to the chart's unit: the standard conversions only. */
