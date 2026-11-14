@@ -29,6 +29,13 @@ export const BiliToolDialog = ({ open, onClose, birthHistory, readings }: BiliTo
   // Nothing pre-selected: the provider must answer before BiliTool opens.
   const [riskFactors, setRiskFactors] = useState<'Yes' | 'No'>();
 
+  const unanswered = riskFactors === undefined;
+  const disabledReason = !reading
+    ? `Pick a result to send${unanswered ? ' and answer the risk-factor question' : ''}`
+    : unanswered
+    ? 'Answer the risk-factor question'
+    : undefined;
+
   const openBiliTool = (): void => {
     if (!reading || riskFactors === undefined || birthHistory.gestationalAgeWeeks === undefined) return;
     const url = buildBiliToolUrl({
@@ -51,7 +58,8 @@ export const BiliToolDialog = ({ open, onClose, birthHistory, readings }: BiliTo
       handleConfirm={openBiliTool}
       confirmText="Open BiliTool"
       closeButtonText="Cancel"
-      disabled={!reading || riskFactors === undefined}
+      disabled={!!disabledReason}
+      disabledReason={disabledReason}
       description={
         <Stack spacing={2}>
           <Typography>

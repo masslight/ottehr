@@ -1,4 +1,4 @@
-import { Box, Button, Grid, Typography } from '@mui/material';
+import { Box, Button, Grid, Tooltip, Typography } from '@mui/material';
 import { LocalizationProvider, TimePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
@@ -127,6 +127,8 @@ const BirthHistoryForm = ({
   const state = useBirthHistoryLocalState(saved);
   const unitInputOrder = useVitalsUnitInputOrder();
   const value = state.getValue();
+  const disabledReason =
+    state.invalidReason ?? (value && Object.keys(value).length === 0 ? 'Enter at least one field' : undefined);
   const measureRow = (
     label: string,
     measure: PairedMeasureState,
@@ -205,17 +207,22 @@ const BirthHistoryForm = ({
       {measureRow('Birth weight', state.weight, 'kg', 'lbs')}
       {measureRow('Birth length', state.length, 'cm', 'inches')}
       {measureRow('Birth head circumference', state.headCircumference, 'cm', 'inches')}
-      <RoundedButton
-        size="small"
-        color="primary"
-        disabled={!value || Object.keys(value).length === 0}
-        loading={isSaving}
-        onClick={() => value && onSave(value)}
-        sx={{ height: '40px', px: 3 }}
-        data-testid={dataTestIds.vitalsPage.birthHistorySaveButton}
-      >
-        Save
-      </RoundedButton>
+      {/* A disabled button fires no hover, so the span carries it (MedicationsConfiguration). */}
+      <Tooltip title={disabledReason ?? ''} placement="top">
+        <span>
+          <RoundedButton
+            size="small"
+            color="primary"
+            disabled={!!disabledReason}
+            loading={isSaving}
+            onClick={() => value && onSave(value)}
+            sx={{ height: '40px', px: 3 }}
+            data-testid={dataTestIds.vitalsPage.birthHistorySaveButton}
+          >
+            Save
+          </RoundedButton>
+        </span>
+      </Tooltip>
     </Box>
   );
 };
