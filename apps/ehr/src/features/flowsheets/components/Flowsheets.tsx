@@ -292,7 +292,8 @@ const FlagMark = ({ flag }: { flag?: VitalAlertCriticality }): ReactElement | nu
  */
 const CellValue = ({ cell, both }: { cell: Cell; both?: string }): ReactElement => {
   if (cell.history.length < 2) {
-    if (!both || !cell.text) return <>{cell.text || '—'}</>;
+    // An empty cell shows the house "-", as the Visits card does.
+    if (!both || !cell.text) return <>{cell.text || '-'}</>;
     return (
       <Tooltip title={both}>
         <Box component="span">{cell.text}</Box>
