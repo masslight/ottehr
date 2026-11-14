@@ -47,7 +47,8 @@ const vitals: FlowsheetDefinition = {
     { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
     { label: 'Height (cm)', keys: ['height'], digits: 1 },
     { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
-    { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1 },
+    // No BMI under 2 years, so the row is left out when no visit shown has one.
+    { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1, hideWhenEmpty: true },
   ],
   charts: [
     { title: 'Heart rate', unit: '/min', minSpan: 40, lines: [{ name: 'Heart rate', key: 'heartRate' }] },

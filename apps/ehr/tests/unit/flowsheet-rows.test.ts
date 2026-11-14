@@ -55,9 +55,9 @@ describe('Lab results rows', () => {
     expect(labelsOf([])).toEqual([]);
   });
 
-  it('keeps every row of a flowsheet that does not hide empty rows, with no headings', () => {
+  it('keeps every row of a flowsheet that does not hide empty rows (but its hideWhenEmpty rows), with no headings', () => {
     const vitals = FLOWSHEETS.find((f) => f.id === 'vitals') as FlowsheetDefinition;
-    expect(rowsToShow(vitals, [])).toEqual(vitals.rows);
+    expect(rowsToShow(vitals, [])).toEqual(vitals.rows.filter((row) => !row.hideWhenEmpty));
   });
 
   it('appends the fasting note after the value and unit, in the cell and the hover readings', () => {
@@ -72,5 +72,25 @@ describe('Lab results rows', () => {
     const cell = cellOf({ label: 'Glucose', keys: ['glucose'] }, visit({ glucose }));
     expect(cell.text).toBe('92 mg/dL (fasting)');
     expect(cell.history.map((h) => h.text)).toEqual(['92 mg/dL (fasting)', '140 mg/dL']);
+  });
+});
+
+describe('Vitals rows', () => {
+  const vitals = FLOWSHEETS.find((f) => f.id === 'vitals') as FlowsheetDefinition;
+  const labels = (visits: FlowsheetVisit[]): string[] =>
+    rowsToShow(vitals, visits).map((row) => ('heading' in row ? `# ${row.heading}` : row.label));
+
+  it('no BMI row when no visit shown has a BMI (a baby under 2); every other row stays', () => {
+    expect(labels([visit({ weight: reading(5.8) })])).toEqual([
+      'Temperature (°C)',
+      'Heart rate (/min)',
+      'Respiratory rate (/min)',
+      'SpO₂ (%)',
+      'Blood pressure (mm Hg)',
+      'Weight (kg)',
+      'Height (cm)',
+      'Head circumference (cm)',
+    ]);
+    expect(labels([visit({ weight: reading(60) }), visit({ bmi: reading(22.1) })])).toContain('BMI (kg/m²)');
   });
 });
