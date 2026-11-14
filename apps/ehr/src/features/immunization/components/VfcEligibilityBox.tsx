@@ -1,12 +1,15 @@
-import { otherColors } from '@ehrTheme/colors';
 import { LoadingButton } from '@mui/lab';
-import { Alert, Box, Button, Chip, MenuItem, Paper, Select, Typography } from '@mui/material';
+import { Box, Button, List, ListItemButton, ListItemText } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useState } from 'react';
+import { FC } from 'react';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { PopoverBlank, Sentence } from 'src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import { VfcEligibilityResponse } from 'utils/lib/types/api/vfc-eligibility';
 import {
+  VaccineFundingSource,
   VFC_ELIGIBILITY_CODES,
   VFC_ELIGIBILITY_LABELS,
   VfcEligibilityCode,
@@ -14,171 +17,170 @@ import {
 import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
 import { useConfirmVfcEligibility, useVfcEligibility } from '../hooks/useVaccineInventory';
 
+const ROUNDED_BUTTON_SX = { textTransform: 'none', borderRadius: 20 } as const;
+
+/** The category the line shows: the confirmed one, else what the paperwork says. */
+export const shownVfcEligibility = (data: VfcEligibilityResponse | undefined): VfcEligibilityCode | undefined =>
+  data?.confirmed?.code ?? data?.derived?.code;
+
+/** A dose given from VFC stock while the visit's VFC eligibility is not confirmed: staff are asked first. */
+export const needsVfcConfirmation = (
+  data: VfcEligibilityResponse | undefined,
+  fundingSource: VaccineFundingSource | undefined
+): boolean => !!data?.applies && !data.confirmed && fundingSource === 'vfc';
+
+/** Confirms a category for the visit; a failure is shown and resolves false. */
+const useConfirm = (
+  encounterId: string | undefined
+): { confirm: (code: VfcEligibilityCode) => Promise<boolean>; isPending: boolean } => {
+  const { mutateAsync, isPending } = useConfirmVfcEligibility(encounterId);
+  const confirm = async (code: VfcEligibilityCode): Promise<boolean> => {
+    try {
+      await mutateAsync(code);
+      enqueueSnackbar(`VFC eligibility confirmed: ${VFC_ELIGIBILITY_LABELS[code].short}`, { variant: 'success' });
+      return true;
+    } catch (error) {
+      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to confirm VFC eligibility' }), { variant: 'error' });
+      return false;
+    }
+  };
+  return { confirm, isPending };
+};
+
 interface VfcEligibilityBoxProps {
   encounterId: string | undefined;
-  /** `card`: its own paper on Visit Details. `strip`: a line above the order screen's immunizations. */
-  variant: 'card' | 'strip';
   readOnly?: boolean;
 }
 
-const NOTES: Partial<Record<VfcEligibilityCode, { severity: 'warning' | 'info'; text: string }>> = {
-  V05: {
-    severity: 'warning',
-    text: 'Underinsured children can get VFC vaccine only at an FQHC, a rural health clinic or a deputized location. Elsewhere, use private stock or refer the family. You can still save.',
-  },
-  V04: {
-    severity: 'info',
-    text: 'American Indian / Alaska Native children are VFC eligible in any circumstance, even with private insurance.',
-  },
+/**
+ * "VFC eligibility confirmation [category]." Pre-filled with what the paperwork says and confirmed with one click;
+ * picking a category confirms it. Shown only for patients 18 and younger.
+ */
+export const VfcEligibilityBox: FC<VfcEligibilityBoxProps> = ({ encounterId, readOnly = false }) => {
+  const { data } = useVfcEligibility(encounterId);
+  const { confirm, isPending } = useConfirm(encounterId);
+
+  if (!data?.applies) return null;
+  const { confirmed } = data;
+  const code = shownVfcEligibility(data);
+
+  return (
+    <Sentence dataTestId={dataTestIds.vfcEligibility.box}>
+      VFC eligibility confirmation{' '}
+      <PopoverBlank
+        label="category"
+        title="VFC eligibility"
+        hideTitle
+        value={code && VFC_ELIGIBILITY_LABELS[code].long}
+        need
+        readOnly={readOnly}
+        dataTestId={dataTestIds.vfcEligibility.blank}
+      >
+        {(close) => (
+          <List dense disablePadding role="listbox" aria-label="VFC eligibility">
+            {VFC_ELIGIBILITY_CODES.map((option) => (
+              <ListItemButton
+                key={option}
+                role="option"
+                selected={option === code}
+                aria-selected={option === code}
+                onClick={() => {
+                  close();
+                  void confirm(option);
+                }}
+              >
+                <ListItemText primary={VFC_ELIGIBILITY_LABELS[option].long} />
+              </ListItemButton>
+            ))}
+          </List>
+        )}
+      </PopoverBlank>
+      .
+      {confirmed ? (
+        <Box
+          component="span"
+          sx={{ ml: 1, fontSize: 14, color: 'text.secondary' }}
+          data-testid={dataTestIds.vfcEligibility.confirmed}
+        >
+          Confirmed {DateTime.fromISO(confirmed.confirmedAt).toLocal().toFormat(`${DISPLAY_DATE_FORMAT} hh:mm a`)}
+          {confirmed.confirmedBy ? ` · ${confirmed.confirmedBy}` : ''}
+        </Box>
+      ) : (
+        code &&
+        !readOnly && (
+          <LoadingButton
+            variant="contained"
+            size="small"
+            loading={isPending}
+            onClick={() => void confirm(code)}
+            sx={{ ...ROUNDED_BUTTON_SX, ml: 1 }}
+            data-testid={dataTestIds.vfcEligibility.confirmButton}
+          >
+            Confirm
+          </LoadingButton>
+        )
+      )}
+    </Sentence>
+  );
 };
 
-/**
- * The visit's VFC eligibility, confirmed with one click: what the paperwork says is offered, staff can pick
- * another category, and the confirmation is saved with the visit. Shown only for patients 18 and younger.
- */
-export const VfcEligibilityBox: FC<VfcEligibilityBoxProps> = ({ encounterId, variant, readOnly }) => {
-  const { data, isLoading } = useVfcEligibility(encounterId);
-  const { mutateAsync: confirm, isPending } = useConfirmVfcEligibility(encounterId);
-  const [picked, setPicked] = useState<VfcEligibilityCode | ''>('');
-  const [changing, setChanging] = useState(false);
+interface VfcUnconfirmedDialogProps {
+  open: boolean;
+  encounterId: string | undefined;
+  patientFirstName: string | undefined;
+  onClose: () => void;
+  /** Goes on to save the dose. */
+  onContinue: () => void;
+}
 
-  if (isLoading || !data || !data.applies) return null;
-  const { derived, confirmed } = data;
-  const code: VfcEligibilityCode | '' = picked || (changing ? confirmed?.code ?? '' : derived?.code ?? '');
-  const showConfirm = !confirmed || changing;
+/** Asked before a dose from VFC stock is saved as given while the visit's VFC eligibility is not confirmed. */
+export const VfcUnconfirmedDialog: FC<VfcUnconfirmedDialogProps> = ({
+  open,
+  encounterId,
+  patientFirstName,
+  onClose,
+  onContinue,
+}) => {
+  const derived = useVfcEligibility(encounterId).data?.derived?.code;
+  const { confirm, isPending } = useConfirm(encounterId);
+  const who = patientFirstName || 'The patient';
 
-  const onConfirm = async (): Promise<void> => {
-    if (!code) return;
-    try {
-      await confirm(code);
-      setChanging(false);
-      setPicked('');
-      enqueueSnackbar(`VFC eligibility confirmed: ${VFC_ELIGIBILITY_LABELS[code].short}`, { variant: 'success' });
-    } catch (error) {
-      enqueueSnackbar(getApiError({ error, defaultError: 'Failed to confirm VFC eligibility' }), { variant: 'error' });
-    }
-  };
-
-  const confirmedLine = confirmed && (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-      <Chip
-        size="small"
-        label="Confirmed"
-        sx={{
-          height: 20,
-          fontSize: 12,
-          bgcolor: otherColors.employeeActiveChip,
-          color: otherColors.employeeActiveText,
-        }}
-      />
-      <Typography variant="body2" fontWeight={700} data-testid={dataTestIds.vfcEligibility.confirmed}>
-        VFC: {VFC_ELIGIBILITY_LABELS[confirmed.code].short}
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {DateTime.fromISO(confirmed.confirmedAt).toLocal().toFormat(`${DISPLAY_DATE_FORMAT} hh:mm a`)}
-        {confirmed.confirmedBy ? ` · ${confirmed.confirmedBy}` : ''}
-      </Typography>
-      {!readOnly && !changing && (
-        <Button size="small" sx={{ textTransform: 'none' }} onClick={() => setChanging(true)}>
-          Change
-        </Button>
-      )}
-    </Box>
-  );
-
-  const confirmLine = showConfirm && (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-      {!confirmed && (
-        <Chip
-          size="small"
-          label="Not confirmed"
-          sx={{ height: 20, fontSize: 12, bgcolor: otherColors.warningBackground, color: otherColors.warningText }}
-        />
-      )}
-      <Select
-        size="small"
-        value={code}
-        displayEmpty
-        disabled={readOnly || isPending}
-        onChange={(event) => setPicked(event.target.value as VfcEligibilityCode)}
-        inputProps={{ 'aria-label': 'VFC eligibility', 'data-testid': dataTestIds.vfcEligibility.select }}
-        sx={{ minWidth: 280 }}
-      >
-        <MenuItem value="" disabled>
-          <em>Pick the VFC eligibility</em>
-        </MenuItem>
-        {VFC_ELIGIBILITY_CODES.map((option) => (
-          <MenuItem key={option} value={option}>
-            {VFC_ELIGIBILITY_LABELS[option].long}
-          </MenuItem>
-        ))}
-      </Select>
-      <LoadingButton
-        variant="contained"
-        size="small"
-        loading={isPending}
-        disabled={!code || readOnly}
-        onClick={() => void onConfirm()}
-        sx={{ textTransform: 'none', borderRadius: 20 }}
-        data-testid={dataTestIds.vfcEligibility.confirmButton}
-      >
-        Confirm
-      </LoadingButton>
-      {changing && (
-        <Button size="small" sx={{ textTransform: 'none' }} onClick={() => setChanging(false)}>
-          Cancel
-        </Button>
-      )}
-    </Box>
-  );
-
-  const why = showConfirm && (
-    <Typography variant="body2" color="text.secondary">
-      {derived
-        ? `From today's paperwork: ${derived.why}`
-        : 'The paperwork does not say yet: pick the category that applies.'}
-    </Typography>
-  );
-  const note = code ? NOTES[code] : undefined;
-
-  const body = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }} data-testid={dataTestIds.vfcEligibility.box}>
-      {confirmedLine}
-      {confirmLine}
-      {why}
-      {note && (
-        <Alert severity={note.severity} sx={{ py: 0 }}>
-          {note.text}
-        </Alert>
-      )}
-    </Box>
-  );
-
-  if (variant === 'strip') {
-    return (
-      <Box
-        sx={{
-          px: 2,
-          py: 1.5,
-          borderRadius: 1,
-          bgcolor: confirmed && !changing ? otherColors.lightGreen : otherColors.warningBackground,
-        }}
-      >
-        {!confirmed && (
-          <Typography variant="body2" sx={{ mb: 0.5 }}>
-            VFC eligibility was not confirmed at check-in. Confirm before vaccinating; the lot list uses it.
-          </Typography>
-        )}
-        {body}
-      </Box>
-    );
-  }
   return (
-    <Paper sx={{ p: 3 }}>
-      <Typography variant="h5" color="primary.dark" sx={{ mb: 1.5 }}>
-        VFC eligibility
-      </Typography>
-      {body}
-    </Paper>
+    <CustomDialog
+      open={open}
+      handleClose={onClose}
+      title="VFC eligibility isn't confirmed"
+      description={`${who} is getting VFC stock, but VFC eligibility hasn't been confirmed for this visit.${
+        derived ? '' : ' Pick a category at the top.'
+      }`}
+      dataTestId={dataTestIds.vfcEligibility.unconfirmedDialog}
+      maxWidth="xs"
+      fullWidth
+      actions={
+        <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+          {derived && (
+            <LoadingButton
+              variant="contained"
+              loading={isPending}
+              onClick={async () => {
+                if (await confirm(derived)) onContinue();
+              }}
+              sx={ROUNDED_BUTTON_SX}
+              data-testid={dataTestIds.dialog.proceedButton}
+            >
+              Confirm and continue
+            </LoadingButton>
+          )}
+          <Button
+            variant={derived ? 'text' : 'contained'}
+            onClick={onContinue}
+            sx={ROUNDED_BUTTON_SX}
+            data-testid={dataTestIds.vfcEligibility.continueButton}
+          >
+            Continue
+          </Button>
+        </Box>
+      }
+    />
   );
 };

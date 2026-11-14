@@ -1000,8 +1000,10 @@ export const dataTestIds = {
   vfcEligibility: {
     box: 'vfc-eligibility-box',
     confirmed: 'vfc-eligibility-confirmed',
-    select: 'vfc-eligibility-select',
+    blank: 'vfc-eligibility-blank',
     confirmButton: 'vfc-eligibility-confirm-button',
+    unconfirmedDialog: 'vfc-eligibility-unconfirmed-dialog',
+    continueButton: 'vfc-eligibility-continue-button',
   },
 
   vaccineLotBlank: {

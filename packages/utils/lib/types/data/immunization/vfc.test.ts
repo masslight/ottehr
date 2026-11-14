@@ -24,10 +24,6 @@ describe('deriveVfcEligibility', () => {
   it('says nothing when the paperwork says nothing', () => {
     expect(deriveVfcEligibility({ hasMedicaid: false, selfPay: false, hasCoverage: false })).toBeUndefined();
   });
-
-  it('explains itself in plain words', () => {
-    expect(deriveVfcEligibility({ hasMedicaid: true, selfPay: false, hasCoverage: false })?.why).toMatch(/Medicaid/);
-  });
 });
 
 describe('effectiveVfcEligibility', () => {

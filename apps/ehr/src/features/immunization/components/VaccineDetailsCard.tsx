@@ -30,6 +30,7 @@ import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-administration.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { ImmunizationEmergencyContact, ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
+import { effectiveVfcEligibility } from 'utils/lib/types/data/immunization/vfc';
 import { enqueueOrderDeleteWarnings } from '../../visits/shared/utils/orderDeleteWarnings';
 import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
@@ -45,7 +46,7 @@ import {
 } from './immunizationLines';
 import { ImmunizationSectionLabel, ImmunizationSentences } from './ImmunizationSentences';
 import { OrderStatusChip } from './OrderStatusChip';
-import { VfcEligibilityBox } from './VfcEligibilityBox';
+import { needsVfcConfirmation, shownVfcEligibility, VfcUnconfirmedDialog } from './VfcEligibilityBox';
 
 interface Props {
   order: ImmunizationOrder;
@@ -87,6 +88,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
 
   const navigate = useNavigate();
   const [showAdministrationConfirmationDialog, setShowAdministrationConfirmationDialog] = useState<boolean>(false);
+  const [showVfcUnconfirmedDialog, setShowVfcUnconfirmedDialog] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [administrationType, setAdministrationType] = useState<AdministrationType>(ADMINISTERED);
   const [attempted, setAttempted] = useState(false);
@@ -94,7 +96,9 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
 
   const { id: appointmentId } = useParams();
   const { mappedData, resources } = useAppointmentData(appointmentId);
-  const vfcEligibility = useVfcEligibility(order.encounterId || undefined).data?.confirmed?.code;
+  const { data: vfc } = useVfcEligibility(order.encounterId || undefined);
+  // The lots and borrowing go by the eligibility line's category; an adult is never eligible.
+  const vfcEligibility = effectiveVfcEligibility(shownVfcEligibility(vfc), resources?.patient?.birthDate);
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(order.encounterId);
@@ -169,7 +173,12 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   const onAdministrationActionClick = (type: AdministrationType): void => {
     setAdministrationType(type);
     setAttempted(true);
-    if (errorsFor(type).length === 0) setShowAdministrationConfirmationDialog(true);
+    if (errorsFor(type).length > 0) return;
+    if (type !== NOT_ADMINISTERED && needsVfcConfirmation(vfc, line.administrationDetails.fundingSource)) {
+      setShowVfcUnconfirmedDialog(true);
+    } else {
+      setShowAdministrationConfirmationDialog(true);
+    }
   };
 
   const updateContact = (patch: Partial<ImmunizationEmergencyContact>): void =>
@@ -179,7 +188,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     <>
       <AccordionCard>
         <Stack spacing={1.5} style={{ padding: '24px' }}>
-          <VfcEligibilityBox encounterId={order.encounterId || undefined} variant="strip" readOnly={isReadOnly} />
           <ImmunizationSectionLabel>Order</ImmunizationSectionLabel>
           <ImmunizationSentences
             line={line}
@@ -295,6 +303,17 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
           </Stack>
         </Stack>
       </AccordionCard>
+
+      <VfcUnconfirmedDialog
+        open={showVfcUnconfirmedDialog}
+        encounterId={order.encounterId || undefined}
+        patientFirstName={resources?.patient?.firstName}
+        onClose={() => setShowVfcUnconfirmedDialog(false)}
+        onContinue={() => {
+          setShowVfcUnconfirmedDialog(false);
+          setShowAdministrationConfirmationDialog(true);
+        }}
+      />
 
       {/* The dialog's reason fields are react-hook-form inputs, so they get a form of their own. */}
       <FormProvider {...reasonForm}>

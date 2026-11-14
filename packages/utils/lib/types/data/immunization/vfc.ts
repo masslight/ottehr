@@ -9,17 +9,17 @@ export const VFC_ELIGIBILITY_CODES = ['V01', 'V02', 'V03', 'V04', 'V05'] as cons
 export type VfcEligibilityCode = (typeof VFC_ELIGIBILITY_CODES)[number];
 
 export const VFC_ELIGIBILITY_LABELS: Record<VfcEligibilityCode, { short: string; long: string; vfc: boolean }> = {
-  V01: { short: 'Not eligible', long: 'Not VFC eligible (private insurance or separate CHIP)', vfc: false },
-  V02: { short: 'Medicaid', long: 'VFC eligible: Medicaid', vfc: true },
-  V03: { short: 'Uninsured', long: 'VFC eligible: Uninsured', vfc: true },
+  V01: { short: 'Not eligible', long: 'Not eligible (private insurance or separate CHIP)', vfc: false },
+  V02: { short: 'Medicaid', long: 'Eligible: Medicaid', vfc: true },
+  V03: { short: 'Uninsured', long: 'Eligible: Uninsured', vfc: true },
   V04: {
     short: 'American Indian / Alaska Native',
-    long: 'VFC eligible: American Indian or Alaska Native',
+    long: 'Eligible: American Indian or Alaska Native',
     vfc: true,
   },
   V05: {
     short: 'Underinsured',
-    long: 'VFC eligible: Underinsured (FQHC, RHC or deputized location only)',
+    long: 'Eligible: Underinsured (FQHC, RHC or deputized location only)',
     vfc: true,
   },
 };
@@ -37,9 +37,9 @@ export const isThrough18 = (birthDate: string | undefined, on: DateTime = DateTi
 };
 
 /**
- * The eligibility a patient's doses are handled by: the one confirmed for the visit; for a patient 19 or older on
- * `on`, not eligible (VFC is never confirmed for an adult, and VFC stock given to one is still borrowed); unknown
- * for a child whose eligibility is not confirmed yet.
+ * The eligibility a patient's doses are handled by: the visit's (confirmed, or else what the paperwork says); for a
+ * patient 19 or older on `on`, not eligible (VFC is never confirmed for an adult, and VFC stock given to one is still
+ * borrowed); unknown for a child whose eligibility is not known yet.
  */
 export const effectiveVfcEligibility = (
   confirmed: VfcEligibilityCode | undefined,
@@ -103,8 +103,6 @@ export interface VfcEligibilityFacts {
 
 export interface DerivedVfcEligibility {
   code: VfcEligibilityCode;
-  /** Plain words for staff: what in the paperwork led to the code. */
-  why: string;
 }
 
 /**
@@ -112,12 +110,10 @@ export interface DerivedVfcEligibility {
  * Alaska Native (V04) and Underinsured (V05) are staff picks. Undefined when the paperwork says nothing yet.
  */
 export const deriveVfcEligibility = (facts: VfcEligibilityFacts): DerivedVfcEligibility | undefined => {
-  if (facts.hasMedicaid)
-    return { code: 'V02', why: '"I have Medicaid insurance coverage" is checked in the paperwork.' };
-  if (facts.selfPay && !facts.hasCoverage) {
-    return { code: 'V03', why: 'Paperwork says "I will pay without insurance" and no insurance is on file.' };
-  }
-  if (facts.hasCoverage) return { code: 'V01', why: 'Insurance is on file and the Medicaid checkbox is not checked.' };
+  // The Medicaid checkbox; self-pay with no insurance on file; insurance on file without the checkbox.
+  if (facts.hasMedicaid) return { code: 'V02' };
+  if (facts.selfPay && !facts.hasCoverage) return { code: 'V03' };
+  if (facts.hasCoverage) return { code: 'V01' };
   return undefined;
 };
 

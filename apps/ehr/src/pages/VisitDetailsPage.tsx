@@ -119,7 +119,6 @@ import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
-import { VfcEligibilityBox } from '../features/immunization/components/VfcEligibilityBox';
 import { ConfirmSave } from '../features/visits/shared/components/patient/SaveConfirmationContext';
 import { formPagePath, OpenFormResponseState } from '../features/visits/shared/components/patient-forms/formNavigation';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
@@ -1582,11 +1581,6 @@ export default function VisitDetailsPage(): ReactElement {
                         }}
                       />
                     </Grid>
-                    {encounter?.id ? (
-                      <Grid item sx={{ mb: 2 }}>
-                        <VfcEligibilityBox encounterId={encounter.id} variant="card" />
-                      </Grid>
-                    ) : null}
                     <Grid item>
                       {/* Completed pre-visit forms */}
                       <PatientInformation

@@ -3,7 +3,10 @@ import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { administerOrder } = vi.hoisted(() => ({ administerOrder: vi.fn() }));
+const { administerOrder, vfc } = vi.hoisted(() => ({
+  administerOrder: vi.fn(),
+  vfc: { data: undefined as { applies: boolean; derived?: { code: 'V02' } } | undefined },
+}));
 
 const quickPickState = {
   mergedQuickPicks: [],
@@ -33,7 +36,7 @@ vi.mock('src/features/visits/shared/hooks/useGetAppointmentAccessibility', () =>
   useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: false }),
 }));
 vi.mock('src/features/immunization/hooks/useVaccineInventory', () => ({
-  useVfcEligibility: () => ({ data: undefined, isLoading: false }),
+  useVfcEligibility: () => ({ data: vfc.data, isLoading: false }),
   useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useVaccineLotsOnHand: () => ({ data: [] }),
 }));
@@ -46,7 +49,14 @@ vi.mock('src/features/visits/in-person/hooks/useImmunization', () => ({
   useCancelImmunizationOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock('src/hooks/useEvolveUser', () => ({ default: () => ({ hasRole: () => false }) }));
-vi.mock('src/components/dialogs/CustomDialog', () => ({ CustomDialog: () => <div /> }));
+vi.mock('src/components/dialogs/CustomDialog', () => ({
+  CustomDialog: ({ open, title, actions }: { open: boolean; title: string; actions?: React.ReactNode }) =>
+    open ? (
+      <div role="dialog" aria-label={title}>
+        {actions}
+      </div>
+    ) : null,
+}));
 vi.mock('src/components/AccordionCard', () => ({
   AccordionCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -129,6 +139,7 @@ const renderCard = (lot: string, administrationDetails: Record<string, unknown> 
 describe('VaccineDetailsCard - blank administration text', () => {
   beforeEach(() => {
     administerOrder.mockReset();
+    vfc.data = undefined;
   });
 
   it('treats a whitespace-only LOT number as missing when administering', async () => {
@@ -200,5 +211,35 @@ describe('VaccineDetailsCard - blank administration text', () => {
       'Complete all emergency contact fields or leave them all empty'
     );
     expect(screen.queryByTestId('administration-confirmation-dialog')).not.toBeInTheDocument();
+  });
+
+  it('warns before a VFC lot is given while VFC eligibility is not confirmed, and lets staff continue', async () => {
+    vfc.data = { applies: true, derived: { code: 'V02' } };
+    renderCard('L1', { ...COMPLETE_ADMINISTRATION, fundingSource: 'vfc' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Partly Administered' }));
+    expect(await screen.findByRole('dialog', { name: "VFC eligibility isn't confirmed" })).toBeInTheDocument();
+    expect(screen.queryByTestId('administration-confirmation-dialog')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByTestId('administration-confirmation-dialog')).toBeInTheDocument();
+  });
+
+  it('does not warn for marking a VFC dose not administered', async () => {
+    vfc.data = { applies: true, derived: { code: 'V02' } };
+    renderCard('L1', { ...COMPLETE_ADMINISTRATION, fundingSource: 'vfc' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Not Administered' }));
+    expect(await screen.findByTestId('administration-confirmation-dialog')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: "VFC eligibility isn't confirmed" })).not.toBeInTheDocument();
+  });
+
+  it('does not warn for private stock', async () => {
+    vfc.data = { applies: true, derived: { code: 'V02' } };
+    renderCard('L1', { ...COMPLETE_ADMINISTRATION, fundingSource: 'private' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Administered' }));
+    expect(await screen.findByTestId('administration-confirmation-dialog')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: "VFC eligibility isn't confirmed" })).not.toBeInTheDocument();
   });
 });

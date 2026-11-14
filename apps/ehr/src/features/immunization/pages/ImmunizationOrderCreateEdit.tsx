@@ -75,7 +75,7 @@ import {
 import { ImmunizationSectionLabel, ImmunizationSentences } from '../components/ImmunizationSentences';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { QuestionsBox } from '../components/QuestionsBox';
-import { VfcEligibilityBox } from '../components/VfcEligibilityBox';
+import { shownVfcEligibility, VfcEligibilityBox } from '../components/VfcEligibilityBox';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 import { useVaccineInventoryAtLocation, useVfcEligibility } from '../hooks/useVaccineInventory';
 
@@ -121,10 +121,12 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
 
   const isCreating = !orderId;
   const encounterId = encounter?.id ?? '';
-  // The lot list puts the patient's stock first once eligibility is confirmed for the visit; an adult is never
-  // eligible, so VFC stock given to one is borrowed.
-  const confirmedVfcEligibility = useVfcEligibility(encounterId || undefined).data?.confirmed?.code;
-  const vfcEligibility = effectiveVfcEligibility(confirmedVfcEligibility, patient?.birthDate);
+  // The lot list puts the patient's stock first by the eligibility line's category; an adult is never eligible, so
+  // VFC stock given to one is borrowed.
+  const vfcEligibility = effectiveVfcEligibility(
+    shownVfcEligibility(useVfcEligibility(encounterId || undefined).data),
+    patient?.birthDate
+  );
   const patientFirstName = patient?.firstName;
 
   const { setDraft, clearDraft, hasDraft, getDraft } = useImmunizationOrderStore();
@@ -445,7 +447,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
           >
             <AccordionCard>
               <Stack spacing={1.5} style={{ padding: '24px' }}>
-                <VfcEligibilityBox encounterId={encounterId || undefined} variant="strip" readOnly={isReadOnly} />
+                <VfcEligibilityBox encounterId={encounterId || undefined} readOnly={isReadOnly} />
                 <ImmunizationSectionLabel>Immunizations</ImmunizationSectionLabel>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {lines.map((line, index) => (
