@@ -210,7 +210,7 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
               size="small"
               fullWidth
               label="Or type a lot that isn't listed"
-              helperText="Saved as typed; nothing comes off stock."
+              helperText="Saved as typed."
               defaultValue={value && !lots.some((lot) => lot.lotNumber === value) ? value : ''}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
