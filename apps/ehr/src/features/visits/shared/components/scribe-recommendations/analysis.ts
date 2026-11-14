@@ -17,7 +17,7 @@ import {
 } from 'utils/lib/easy-chart/matchers';
 import { chartKeyForNoteField, NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
 import { findingPolarity, locateQuote } from 'utils/lib/easy-chart/provenance';
-import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { locateGeneratedLines } from './narrativeLines';
@@ -192,7 +192,7 @@ function toRecommendation(action: PlannedAction, id: string, options: AnalysisCo
       if (action.field === 'vital-weight' && typeof action.value === 'number') {
         if (action.unit === 'lb') return { ...base, kind: 'vital-weight', weightLbs: action.value };
         if (action.unit === 'kg') {
-          return { ...base, kind: 'vital-weight', weightLbs: Math.round(action.value * LBS_IN_KG * 10) / 10 };
+          return { ...base, kind: 'vital-weight', weightLbs: kgToLbs(action.value) };
         }
       }
       break;
