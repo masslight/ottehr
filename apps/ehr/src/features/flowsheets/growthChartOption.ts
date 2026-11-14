@@ -211,7 +211,7 @@ export interface GrowthChartOption {
   /** Where each charted point is in the option, for showTip from its table row. */
   locate: Map<GrowthChartPoint, { seriesIndex: number; dataIndex: number }>;
   /** The kinds of point the chart draws, for its key. */
-  drawn: { thisVisit: boolean; implausible: boolean; offChart: boolean };
+  drawn: { measurement: boolean; thisVisit: boolean; implausible: boolean; offChart: boolean };
 }
 
 /**
@@ -385,6 +385,7 @@ export const buildGrowthChartOption = (
     ],
   };
   const drawn = {
+    measurement: plotted.length > 0,
     thisVisit: plotted.some(isThisVisit),
     implausible: flagged.some((point) => point.y <= yMax && point.y >= yMin),
     offChart: flagged.some((point) => point.y > yMax || point.y < yMin),

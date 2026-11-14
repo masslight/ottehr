@@ -154,7 +154,7 @@ const GrowthCard = ({
           {/* Only the kinds of point this chart draws, as the trend charts' flag key does. */}
           <Typography variant="caption" color="text.secondary" component="p">
             {[
-              { show: true, symbol: '●', color: POINT_COLOR, text: 'measurement' },
+              { show: drawn.measurement, symbol: '●', color: POINT_COLOR, text: 'measurement' },
               { show: drawn.thisVisit, symbol: '○', color: 'primary.main', text: 'this visit' },
               { show: drawn.implausible, symbol: '✕', color: 'error.main', text: 'implausible' },
               { show: drawn.offChart, symbol: '▲', color: 'error.main', text: 'implausible, off the chart' },
