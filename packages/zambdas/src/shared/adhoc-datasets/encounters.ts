@@ -130,6 +130,7 @@ import {
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
 } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { applyOverridesToDailySchedule, DOW, getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
@@ -1294,7 +1295,8 @@ export async function fetchAdHocEncounterRows(
       const weightUnit = (weightObs?.valueQuantity?.unit || '').toLowerCase();
 
       const weightInKg = weightVal == null ? null : weightUnit.startsWith('lb') ? weightVal * 0.453592 : weightVal;
-      row.weightKg = weightInKg == null ? null : round1(weightInKg);
+      // Weight keeps 2 decimals, as the chart saves and shows it.
+      row.weightKg = weightInKg == null ? null : roundNumberToDecimalPlaces(weightInKg, 2);
       row.weightLbs = weightInKg == null ? null : kgToLbs(weightInKg);
 
       const heightObs = latest('vital-height');

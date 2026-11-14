@@ -615,7 +615,7 @@ const vitals: Observation[] = [
     },
     '2026-07-01T14:06:00.000Z'
   ),
-  vital('enc-1', { field: VitalFieldNames.VitalWeight, value: 70 }, '2026-07-01T14:07:00.000Z'),
+  vital('enc-1', { field: VitalFieldNames.VitalWeight, value: 70.25 }, '2026-07-01T14:07:00.000Z'),
   vital('enc-1', { field: VitalFieldNames.VitalHeight, value: 170 }, '2026-07-01T14:07:00.000Z'),
   vital(
     'enc-1',
@@ -1152,12 +1152,12 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     expect(signed).toMatchObject({
       // the existing fields keep their values
       temperatureF: 98.6,
-      weightKg: 70,
+      weightKg: 70.25,
       heightCm: 170,
       // the same readings in the chart's other units
       temperatureC: 37,
       temperatureCReadings: [37],
-      weightLbs: 154.32,
+      weightLbs: 154.87,
       heightInches: 66.93,
       heightFeetInches: `5'7"`,
       temperatureMethod: 'Oral',
