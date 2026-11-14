@@ -110,8 +110,8 @@ export interface PlannedCatalogVaccine {
 }
 
 export interface ConfigVaccineMigrationPlan {
-  switchOn: PlannedCatalogVaccine[];
-  alreadyOn: PlannedCatalogVaccine[];
+  toAdd: PlannedCatalogVaccine[];
+  alreadyActive: PlannedCatalogVaccine[];
   /** Config vaccines whose name is not in the table (a practice's own edit of vaccines.json); left alone. */
   unknown: string[];
 }
@@ -146,8 +146,8 @@ export function planConfigVaccineMigration(vaccineMedications: Medication[]): Co
   }
   const planned = [...byCvx.values()];
   return {
-    switchOn: planned.filter((entry) => !activeCvx.has(entry.cvx)),
-    alreadyOn: planned.filter((entry) => activeCvx.has(entry.cvx)),
+    toAdd: planned.filter((entry) => !activeCvx.has(entry.cvx)),
+    alreadyActive: planned.filter((entry) => activeCvx.has(entry.cvx)),
     unknown,
   };
 }
@@ -210,8 +210,8 @@ export function planQuickPickRepoints(
 
 export interface ConfigVaccineMigrationStats {
   configVaccines: number;
-  switchedOn: number;
-  alreadyOn: number;
+  added: number;
+  alreadyActive: number;
   unknown: number;
   quickPicksRepointed: number;
   quickPicksAlreadyCatalog: number;
@@ -230,8 +230,8 @@ export async function migrateConfigVaccines(oystehr: Oystehr, dryRun: boolean): 
   const plan = planConfigVaccineMigration(vaccineMedications);
   const stats: ConfigVaccineMigrationStats = {
     configVaccines: vaccineMedications.filter((medication) => !getMedicationCvx(medication)).length,
-    switchedOn: 0,
-    alreadyOn: plan.alreadyOn.length,
+    added: 0,
+    alreadyActive: plan.alreadyActive.length,
     unknown: plan.unknown.length,
     quickPicksRepointed: 0,
     quickPicksAlreadyCatalog: 0,
@@ -248,19 +248,19 @@ export async function migrateConfigVaccines(oystehr: Oystehr, dryRun: boolean): 
     if (cvx && medication.status === 'active') catalogByCvx.set(cvx, medication);
   }
 
-  for (const entry of plan.alreadyOn) console.log(`  = already on: ${label(entry)}`);
+  for (const entry of plan.alreadyActive) console.log(`  = already active: ${label(entry)}`);
   for (const configName of plan.unknown) console.log(`  ? not a shipped config vaccine, left alone: ${configName}`);
-  for (const entry of plan.switchOn) {
+  for (const entry of plan.toAdd) {
     if (dryRun) {
       console.log(`  + would add ${label(entry)}`);
-      stats.switchedOn += 1;
+      stats.added += 1;
       continue;
     }
     try {
       const medication = await createVaccine(oystehr, entry.cvx);
       catalogByCvx.set(entry.cvx, medication);
       console.log(`  ✓ Medication/${medication.id}: ${label(entry)}`);
-      stats.switchedOn += 1;
+      stats.added += 1;
     } catch (error) {
       console.error(`  ✗ failed to add ${label(entry)}:`, error);
       stats.failed += 1;

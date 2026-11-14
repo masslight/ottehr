@@ -81,11 +81,11 @@ describe('planning the migration', () => {
       catalogVaccine('cat-tdap', '115'),
     ]);
 
-    expect(plan.switchOn).toEqual([
+    expect(plan.toAdd).toEqual([
       { cvx: '03', catalogName: 'MMR', configNames: ['MMR - Ped with Counseling', 'MMR - Standard Admin'] },
       { cvx: '20', catalogName: 'DTaP', configNames: ['DTaP (Infanrix/Daptacel)'] },
     ]);
-    expect(plan.alreadyOn).toEqual([{ cvx: '115', catalogName: 'Tdap', configNames: ['Tdap (Adacel/Boostrix)'] }]);
+    expect(plan.alreadyActive).toEqual([{ cvx: '115', catalogName: 'Tdap', configNames: ['Tdap (Adacel/Boostrix)'] }]);
     expect(plan.unknown).toEqual([]);
   });
 
@@ -96,15 +96,15 @@ describe('planning the migration', () => {
       configVaccine('own', 'Shingles (practice added)'),
     ]);
 
-    expect(plan.switchOn.map((entry) => entry.cvx)).toEqual(['115']);
-    expect(plan.alreadyOn).toEqual([]);
+    expect(plan.toAdd.map((entry) => entry.cvx)).toEqual(['115']);
+    expect(plan.alreadyActive).toEqual([]);
     expect(plan.unknown).toEqual(['Shingles (practice added)']);
   });
 
   it('a project with only catalog vaccines has nothing to do', () => {
     expect(planConfigVaccineMigration([catalogVaccine('cat-mmr', '03')])).toEqual({
-      switchOn: [],
-      alreadyOn: [],
+      toAdd: [],
+      alreadyActive: [],
       unknown: [],
     });
   });
@@ -203,8 +203,8 @@ describe('running the migration', () => {
     (oystehr.fhir.update as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0] as ActivityDefinition);
   const fullStats = {
     configVaccines: 2,
-    switchedOn: 1,
-    alreadyOn: 1,
+    added: 1,
+    alreadyActive: 1,
     unknown: 0,
     quickPicksRepointed: 1,
     quickPicksAlreadyCatalog: 1,
@@ -253,7 +253,7 @@ describe('running the migration', () => {
     const stats = await migrateConfigVaccines(oystehr, false);
     // The MMR switch-on fails, and so does the MMR quick pick, which needs that same catalog entry.
     expect(stats.failed).toBe(2);
-    expect(stats.switchedOn).toBe(0);
+    expect(stats.added).toBe(0);
     expect(stats.quickPicksRepointed).toBe(0);
   });
 });

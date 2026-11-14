@@ -15,7 +15,7 @@ async function migrate(config: Secrets): Promise<void> {
   const would = dryRun ? 'would be ' : '';
   console.log(
     `Config vaccine migration ${dryRun ? 'dry run ' : ''}complete: ${stats.configVaccines} config vaccines found, ` +
-      `${stats.switchedOn} catalog vaccines ${would}added, ${stats.alreadyOn} already active, ` +
+      `${stats.added} catalog vaccines ${would}added, ${stats.alreadyActive} already active, ` +
       `${stats.unknown} not in the mapping; ${stats.quickPicksRepointed} quick picks ${would}repointed, ` +
       `${stats.quickPicksAlreadyCatalog} already on a catalog vaccine, ${stats.quickPicksUnknown} left alone; ` +
       `${stats.failed} failed`
