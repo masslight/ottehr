@@ -13,7 +13,7 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
-import { ADMIN_TIER_ROLES } from 'utils/lib/types/api/user.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { getCvxVaccine } from 'utils/lib/types/data/immunization/vaccine-lookup';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
@@ -29,8 +29,8 @@ export const index = wrapHandler(
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { name, ndc, medispanID, medispanIDForInteractions, vaccine, secrets } = validateRequestParameters(input);
 
-    // Adding to the catalog is admin-tier, as editing it is.
-    await requireUserWithRole(getUserToken(input), secrets, ADMIN_TIER_ROLES);
+    // The same roles the "Add medication or vaccine" button shows for.
+    await requireUserWithRole(getUserToken(input), secrets, [RoleType.Administrator, RoleType.CustomerSupport]);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 

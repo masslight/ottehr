@@ -220,10 +220,10 @@ function MedicationsTable({
             </Button>
           </Link>
         ) : (
-          <Tooltip title="You must be an administrator to add new medications" placement="top">
+          <Tooltip title="You must be an administrator to add new medications or vaccines" placement="top">
             <span>
               <Button variant="contained" startIcon={<Add />} disabled>
-                Add medication
+                Add medication or vaccine
               </Button>
             </span>
           </Tooltip>
