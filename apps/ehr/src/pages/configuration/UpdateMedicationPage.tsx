@@ -329,7 +329,7 @@ export default function UpdateMedicationPage(): ReactElement {
           chain={[
             { link: '/admin', children: 'Admin' },
             { link: '/admin/medications', children: 'Medications' },
-            { link: '#', children: 'Update medication' },
+            { link: '#', children: isVaccine ? 'Update vaccine' : 'Update medication' },
           ]}
         />
         <Paper sx={{ padding: 2 }}>
