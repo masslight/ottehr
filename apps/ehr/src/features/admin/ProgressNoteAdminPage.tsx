@@ -340,7 +340,7 @@ export default function ProgressNoteAdminPage(): ReactElement {
                     control={control}
                     name="vitalsHeaderUnitSystem"
                     label="Vitals display units in visit header"
-                    helperText="Units the visit header shows the patient's weight in"
+                    helperText="Units for weight in the visit header and on the Growth flowsheet"
                     options={VITALS_HEADER_UNIT_SYSTEMS}
                     optionLabels={VITALS_HEADER_UNIT_SYSTEM_LABELS}
                   />

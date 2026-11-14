@@ -232,6 +232,14 @@ describe('ProgressNoteAdminPage', () => {
     });
   });
 
+  it('the header unit setting says it also sets the Growth flowsheet units', async () => {
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+    expect(
+      await screen.findByText('Units for weight in the visit header and on the Growth flowsheet')
+    ).toBeInTheDocument();
+  });
+
   it('saves the selected header unit system without changing the input order', async () => {
     vi.mocked(getProgressNoteConfig).mockResolvedValue({
       ...requiredProgressNoteConfig,
