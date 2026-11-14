@@ -76,10 +76,7 @@ export const biliToolUnavailableReason = (
     !birthHistory?.timeOfBirth && 'time of birth',
     birthHistory?.gestationalAgeWeeks === undefined && 'gestational age',
   ].filter((item): item is string => !!item);
-  if (missing.length)
-    return `Needs the ${missing.join(' and ')}: add ${
-      missing.length > 1 ? 'them' : 'it'
-    } in Birth history on a visit's Vitals screen.`;
+  if (missing.length) return `Add ${missing.join(' and ')} in Vitals.`;
   if ((birthHistory?.gestationalAgeWeeks ?? 0) < BILITOOL_MIN_GESTATIONAL_WEEKS)
     return `BiliTool covers babies born at ${BILITOOL_MIN_GESTATIONAL_WEEKS} weeks or later.`;
   if (!readings.length) return 'Needs a bilirubin result in mg/dL or µmol/L from the first 14 days (336 hours).';

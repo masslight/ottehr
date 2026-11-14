@@ -97,7 +97,13 @@ export const Flowsheets = ({ patientId, title, asOf, currentAppointmentId }: Flo
         </Tabs>
         {showBiliTool && (
           // The span is what the tooltip listens on: a disabled button fires no pointer events of its own.
-          <Tooltip title={biliToolBlocked ?? ''} placement="top" arrow>
+          <Tooltip
+            title={biliToolBlocked ?? ''}
+            placement="top"
+            arrow
+            // Body text size: the MUI default (11 px) is small for a sentence the provider has to act on.
+            slotProps={{ tooltip: { sx: { fontSize: 14 } } }}
+          >
             <span style={{ display: 'inline-flex', cursor: biliToolBlocked ? 'not-allowed' : undefined }}>
               <RoundedButton
                 size="small"

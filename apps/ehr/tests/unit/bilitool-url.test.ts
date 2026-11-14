@@ -139,17 +139,15 @@ describe('Open in BiliTool', () => {
   it('enables the button only with a time of birth, 35+ weeks and a listable reading; else says what is missing', () => {
     expect(biliToolUnavailableReason(birthHistory, readings)).toBeUndefined();
     expect(biliToolUnavailableReason({ ...birthHistory, timeOfBirth: undefined }, readings)).toBe(
-      "Needs the time of birth: add it in Birth history on a visit's Vitals screen."
+      'Add time of birth in Vitals.'
     );
     expect(biliToolUnavailableReason({ ...birthHistory, gestationalAgeWeeks: 34 }, readings)).toBe(
       'BiliTool covers babies born at 35 weeks or later.'
     );
     expect(biliToolUnavailableReason({ ...birthHistory, gestationalAgeWeeks: undefined }, readings)).toBe(
-      "Needs the gestational age: add it in Birth history on a visit's Vitals screen."
+      'Add gestational age in Vitals.'
     );
-    expect(biliToolUnavailableReason(undefined, readings)).toBe(
-      "Needs the time of birth and gestational age: add them in Birth history on a visit's Vitals screen."
-    );
+    expect(biliToolUnavailableReason(undefined, readings)).toBe('Add time of birth and gestational age in Vitals.');
     expect(biliToolUnavailableReason(birthHistory, [])).toBe(
       'Needs a bilirubin result in mg/dL or µmol/L from the first 14 days (336 hours).'
     );
