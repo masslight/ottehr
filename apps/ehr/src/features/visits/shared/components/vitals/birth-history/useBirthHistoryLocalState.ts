@@ -25,11 +25,12 @@ export interface BirthHistoryLocalState {
   getValue: () => BirthHistory | undefined;
   /** Why the form can't be saved, for the Save button's hover; undefined when it can. */
   invalidReason: string | undefined;
-  weeksInvalid: boolean;
-  daysInvalid: boolean;
+  /** The field holds a value the server would reject, so it is marked "Invalid value". */
+  isInvalid: (field: BirthHistoryField) => boolean;
 }
 
-type Field = keyof BirthHistory;
+export type BirthHistoryField = keyof BirthHistory;
+type Field = BirthHistoryField;
 
 /** The reason shown for the first field the server would reject. */
 const REASONS: Record<Field, string> = {
@@ -93,6 +94,8 @@ export const useBirthHistoryLocalState = (saved?: BirthHistory): BirthHistoryLoc
     ...(Object.keys(notNumbers) as Field[]).filter((field) => notNumbers[field]),
     ...issues.filter((issue) => issue.code !== 'custom').map((issue) => issue.path[0] as Field),
   ]);
+  // Days with no weeks mark the days, with their own reason.
+  const marked = new Set<Field>([...invalid, ...(daysNeedWeeks ? (['gestationalAgeDays'] as const) : [])]);
   const firstInvalid = (Object.keys(REASONS) as Field[]).find((field) => invalid.has(field));
   const invalidReason = firstInvalid ? REASONS[firstInvalid] : daysNeedWeeks ? DAYS_NEED_WEEKS : undefined;
   const getValue = (): BirthHistory | undefined => (invalidReason ? undefined : value);
@@ -109,7 +112,6 @@ export const useBirthHistoryLocalState = (saved?: BirthHistory): BirthHistoryLoc
     headCircumference,
     getValue,
     invalidReason,
-    weeksInvalid: invalid.has('gestationalAgeWeeks'),
-    daysInvalid: invalid.has('gestationalAgeDays'),
+    isInvalid: (field) => marked.has(field),
   };
 };

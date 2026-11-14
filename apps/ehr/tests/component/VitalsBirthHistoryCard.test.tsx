@@ -89,3 +89,31 @@ describe('Birth history card: after Save', () => {
     expect(saveWeeks(true)).toBe(1);
   });
 });
+
+describe('Birth history card: the field the server would reject is marked', () => {
+  beforeEach(() => {
+    store.saved = undefined;
+  });
+  const marked = (input: HTMLElement): string | null => input.getAttribute('aria-invalid');
+
+  it.each([
+    ['birth weight', () => screen.getByLabelText('kg')],
+    ['birth length', () => screen.getAllByLabelText('cm')[0]],
+    ['birth head circumference', () => screen.getAllByLabelText('cm')[1]],
+  ])('a %s of 0 or below', (_name, field) => {
+    render(<VitalsBirthHistoryCard collapsedByDefault={false} />);
+    fireEvent.change(field(), { target: { value: '0' } });
+    expect(marked(field())).toBe('true');
+    fireEvent.change(field(), { target: { value: '-2' } });
+    expect(marked(field())).toBe('true');
+    fireEvent.change(field(), { target: { value: '3' } });
+    expect(marked(field())).toBe('false');
+  });
+
+  it('days typed with weeks empty marks the days', () => {
+    render(<VitalsBirthHistoryCard collapsedByDefault={false} />);
+    fireEvent.change(screen.getByLabelText('days'), { target: { value: '3' } });
+    expect(marked(screen.getByLabelText('days'))).toBe('true');
+    expect(marked(weeksInput())).toBe('false');
+  });
+});

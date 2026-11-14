@@ -18,7 +18,7 @@ import { VitalsUnitInputRow } from '../components/VitalsUnitInputRow';
 import { VITALS_FORM_BORDER_TRANSITION, VITALS_FORM_ERROR_BORDER } from '../constants';
 import { useVitalsUnitInputOrder } from '../hooks/useVitalsUnitInputOrder';
 import { PairedMeasureState } from '../usePairedMeasure';
-import { useBirthHistoryLocalState } from './useBirthHistoryLocalState';
+import { BirthHistoryField, useBirthHistoryLocalState } from './useBirthHistoryLocalState';
 
 interface VitalsBirthHistoryCardProps {
   /** Collapsed until staff open it (patients 24 months and older); open otherwise. */
@@ -131,6 +131,7 @@ const BirthHistoryForm = ({
     state.invalidReason ?? (value && Object.keys(value).length === 0 ? 'Enter at least one field' : undefined);
   const measureRow = (
     label: string,
+    field: BirthHistoryField,
     measure: PairedMeasureState,
     metricUnit: string,
     imperialUnit: string
@@ -143,7 +144,7 @@ const BirthHistoryForm = ({
             label={metricUnit}
             value={measure.metricText}
             disabled={isSaving}
-            isInputError={measure.invalid}
+            isInputError={state.isInvalid(field)}
             onChange={measure.handleMetricChange}
           />
         }
@@ -152,7 +153,7 @@ const BirthHistoryForm = ({
             label={imperialUnit}
             value={measure.imperialText}
             disabled={isSaving}
-            isInputError={measure.invalid}
+            isInputError={state.isInvalid(field)}
             onChange={measure.handleImperialChange}
           />
         }
@@ -192,21 +193,21 @@ const BirthHistoryForm = ({
             label="weeks"
             value={state.weeks}
             disabled={isSaving}
-            isInputError={state.weeksInvalid}
+            isInputError={state.isInvalid('gestationalAgeWeeks')}
             onChange={(e) => state.setWeeks(e.target.value)}
           />
           <VitalsTextInputFiled
             label="days"
             value={state.days}
             disabled={isSaving}
-            isInputError={state.daysInvalid}
+            isInputError={state.isInvalid('gestationalAgeDays')}
             onChange={(e) => state.setDays(e.target.value)}
           />
         </Box>
       </Row>
-      {measureRow('Birth weight', state.weight, 'kg', 'lbs')}
-      {measureRow('Birth length', state.length, 'cm', 'inches')}
-      {measureRow('Birth head circumference', state.headCircumference, 'cm', 'inches')}
+      {measureRow('Birth weight', 'birthWeightKg', state.weight, 'kg', 'lbs')}
+      {measureRow('Birth length', 'birthLengthCm', state.length, 'cm', 'inches')}
+      {measureRow('Birth head circumference', 'birthHeadCircumferenceCm', state.headCircumference, 'cm', 'inches')}
       {/* A disabled button fires no hover, so the span carries it (MedicationsConfiguration). */}
       <Tooltip title={disabledReason ?? ''} placement="top">
         <span>

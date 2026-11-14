@@ -65,8 +65,12 @@ describe('birth history card: gestational age follows the server rules', () => {
   });
 
   it('marks the field the server would reject', () => {
-    expect([withAge('50', '').weeksInvalid, withAge('50', '').daysInvalid]).toEqual([true, false]);
-    expect([withAge('38', '7').weeksInvalid, withAge('38', '7').daysInvalid]).toEqual([false, true]);
+    const marks = (state: ReturnType<typeof withAge>): boolean[] => [
+      state.isInvalid('gestationalAgeWeeks'),
+      state.isInvalid('gestationalAgeDays'),
+    ];
+    expect(marks(withAge('50', ''))).toEqual([true, false]);
+    expect(marks(withAge('38', '7'))).toEqual([false, true]);
   });
 
   it('20 to 45 weeks and 0 to 6 days save', () => {
