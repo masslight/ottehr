@@ -19,7 +19,7 @@ const LAB_ROWS: LabRow[] = [
     exclude: /indirect|unconjugated/i,
   },
   { key: 'transcutaneousBilirubin', analyte: /transcutaneous|\btcb\b/i },
-  { key: 'newbornTotalBilirubin', analyte: /bilirubin/i, exclude: /direct|conjugated|indirect|unconjugated/i },
+  { key: 'newbornTotalBilirubin', analyte: /bilirubin/i, exclude: /direct|conjugated|indirect|unconjugated|cord/i },
 ];
 
 /**

@@ -157,6 +157,16 @@ describe('buildNewbornBilirubinFlowsheet', () => {
     expect(rowsOf(lab('TcB', ['72898-0'], 200, at, 'N', 'in-house'))).toEqual(['transcutaneousBilirubin']);
   });
 
+  test('by name, an uncoded cord blood bilirubin stays off Total bilirubin (blood), like the coded one', () => {
+    const at = '2007-04-03T18:00:00.000Z';
+    const visits = buildNewbornBilirubinFlowsheet({
+      ...data,
+      vitals: [],
+      labs: { e1: [lab('Bilirubin, cord blood', [], 2.1, at), lab('Cord blood bilirubin, total', [], 2.3, at)] },
+    });
+    expect(visits[0]?.values.newbornTotalBilirubin).toBeUndefined();
+  });
+
   test('an unlinked outside result is its own column, dated by the result, with its own day of life', () => {
     const outside = {
       ...data,
