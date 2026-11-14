@@ -8,7 +8,7 @@ describe('VaccineScheduleAdminPage', () => {
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual(['Children', 'Adults', 'Seasonal']);
     expect(
       screen.getByText(
-        /Childhood schedule from CDC CDSi Supporting Data 4\.64, with AIRA medical societies \(AAP\/AAFP\/ACOG\/IDSA\) Supporting Data 26\.1 for COVID-19, Influenza and RSV; AAP immunization schedule 2026 for HPV\./
+        /Childhood schedule from CDC CDSi Supporting Data 4\.64, with AAP immunization schedule 2026 for HPV, Measles, Mumps, Rubella, Varicella, Diphtheria, Tetanus and Pertussis; AIRA medical societies \(AAP\/AAFP\/ACOG\/IDSA\) Supporting Data 26\.1 for COVID-19, Influenza and RSV\./
       )
     ).toBeInTheDocument();
     expect(screen.getByText('Hep B')).toBeInTheDocument();
