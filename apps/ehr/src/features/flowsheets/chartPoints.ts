@@ -1,5 +1,5 @@
 import { FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
-import { FlowsheetChart } from './registry';
+import { FlowsheetChart, FLOWSHEETS } from './registry';
 
 /** The AAP 2022 bilirubin figures run from birth to 14 days: hours of life 0–336. */
 export const HOURS_OF_LIFE_MAX = 336;
@@ -30,9 +30,13 @@ const TO_CHART_UNIT: Record<string, Record<string, number>> = {
   transcutaneousBilirubin: { 'umol/l': 1 / 17.1 },
 };
 
-/** The reading's value in the chart's unit; undefined for a unit the chart can't plot. A vital carries no unit. */
+/** A vital (a Vitals flowsheet measure) is saved in its row's unit and carries none; a lab result carries its own. */
+const VITAL_KEYS = new Set(FLOWSHEETS.find((f) => f.id === 'vitals')?.rows.flatMap((row) => row.keys));
+
+/** The reading's value in the chart's unit; undefined for a unit the chart can't plot, or a lab result with none. */
 const inChartUnit = (key: string, value: number, unit: string | undefined, chartUnit: string): number | undefined => {
-  if (!unit || normalUnit(unit) === normalUnit(chartUnit)) return value;
+  if (!unit) return VITAL_KEYS.has(key) ? value : undefined;
+  if (normalUnit(unit) === normalUnit(chartUnit)) return value;
   const factor = TO_CHART_UNIT[key]?.[normalUnit(unit)];
   return factor === undefined ? undefined : Number((value * factor).toFixed(2));
 };

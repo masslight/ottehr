@@ -9,7 +9,12 @@ import {
 } from '../../src/features/flowsheets/chartPoints';
 import { FLOWSHEETS } from '../../src/features/flowsheets/registry';
 
-const reading = (value: number, time: string): FlowsheetValue => ({ time, value, readings: [{ time, value }] });
+const reading = (value: number, time: string, unit?: string): FlowsheetValue => ({
+  time,
+  value,
+  unit,
+  readings: [{ time, value, unit }],
+});
 
 const visit = (values: Record<string, FlowsheetValue>): FlowsheetVisit => ({
   start: '2026-07-13T14:00:00.000Z',
@@ -26,8 +31,8 @@ describe('newborn bilirubin chart x-axis: hours of life when the time of birth i
   const t1 = '2026-07-13T14:20:00.000Z';
   const t2 = '2026-07-13T18:00:00.000Z';
   const withHours = visit({
-    transcutaneousBilirubin: reading(13.1, t1),
-    newbornTotalBilirubin: reading(13.8, t2),
+    transcutaneousBilirubin: reading(13.1, t1, 'mg/dL'),
+    newbornTotalBilirubin: reading(13.8, t2, 'mg/dL'),
     hoursOfLife: {
       ...reading(82, t2),
       readings: [
@@ -36,7 +41,7 @@ describe('newborn bilirubin chart x-axis: hours of life when the time of birth i
       ],
     },
   });
-  const withoutHours = visit({ newbornTotalBilirubin: reading(13.8, t2) });
+  const withoutHours = visit({ newbornTotalBilirubin: reading(13.8, t2, 'mg/dL') });
 
   it('the bilirubin chart asks for the hours axis and uses it only when a visit carries hours of life', () => {
     expect(bilirubin.hoursOfLife).toBe(true);
@@ -56,7 +61,7 @@ describe('newborn bilirubin chart x-axis: hours of life when the time of birth i
   it('only readings within 0–336 h plot on the hours axis; a visit without hours has no point there', () => {
     expect(HOURS_OF_LIFE_MAX).toBe(336);
     const late = visit({
-      newbornTotalBilirubin: reading(9, t2),
+      newbornTotalBilirubin: reading(9, t2, 'mg/dL'),
       hoursOfLife: reading(400, t2),
     });
     expect(chartPoint(late, 'newbornTotalBilirubin', true, 'mg/dL')).toBeUndefined();
@@ -96,6 +101,14 @@ describe('trend charts plot only readings in the chart unit, converting the stan
     expect(
       chartPoint(at('transcutaneousBilirubin', lab(171, 'µmol/L')), 'transcutaneousBilirubin', false, 'mg/dL')
     ).toEqual([start, 10]);
+  });
+
+  it('a lab reading with no unit does not plot (it stays in the grid); a vital never has one and plots', () => {
+    const noUnit = (value: number): FlowsheetValue => ({ time: t, value, readings: [{ time: t, value }] });
+    expect(chartPoint(at('creatinine', noUnit(88)), 'creatinine', false, 'mg/dL')).toBeUndefined();
+    expect(chartPoint(at('tsh', noUnit(2.1)), 'tsh', false, 'mIU/L')).toBeUndefined();
+    expect(chartPoint(at('weight', noUnit(61.5)), 'weight', false, 'kg')).toEqual([start, 61.5]);
+    expect(chartPoint(at('systolic', noUnit(120)), 'systolic', false, 'mm Hg')).toEqual([start, 120]);
   });
 
   it('a reading in any other unit does not plot (it stays in the grid)', () => {
