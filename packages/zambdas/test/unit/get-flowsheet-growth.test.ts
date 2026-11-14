@@ -477,6 +477,20 @@ describe('corrected age for preterm infants (gestational age < 37 weeks)', () =>
     expect(point.x).toBeLessThan(0);
   });
 
+  test('before the due date: weight-for-length has no percentile and is not plotted either', () => {
+    const withLength = {
+      ...preterm,
+      observations: [...preterm.observations, vital(VitalFieldNames.VitalHeight, 'e0', '2024-01-30T14:06:00.000Z', 46)],
+    };
+    const { visits, growth } = buildGrowthFlowsheet(withLength);
+    const early = visits.find((visit) => visit.encounterId === 'e0')!;
+    expect(early.values.weightForLengthPercentile).toBeUndefined();
+    const point = growth!.points.find((p) => p.chart === 'who-wfl' && p.encounterId === 'e0')!;
+    expect(point).toMatchObject({ note: 'before the due date', x: 46 });
+    expect(point.z).toBeUndefined();
+    expect(point.percentile).toBeUndefined();
+  });
+
   test('CDC (from 24 months) is never corrected, nor is a term infant', () => {
     const { visits, growth } = buildGrowthFlowsheet(preterm);
     const tenYears = visits.find((visit) => visit.encounterId === 'e2')!;

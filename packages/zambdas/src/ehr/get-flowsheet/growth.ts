@@ -203,17 +203,17 @@ const visitChartPoints = (
       x,
       y: measurement.value,
     };
-    // Before the due date a preterm infant's age-based point is listed but has no percentile and is not plotted.
-    const score = chart.x === 'age' && x < 0 ? undefined : scoreOn(id, x, measurement.value, sex);
+    // Before the due date a preterm infant's point is listed but has no percentile and is not plotted.
+    const beforeDueDate = (age.corrected ?? age.months) < 0;
+    const score = beforeDueDate ? undefined : scoreOn(id, x, measurement.value, sex);
     if (!score) {
       points.push({
         ...point,
-        note:
-          chart.x === 'length'
-            ? 'length outside the 45–110 cm table'
-            : x < 0
-            ? 'before the due date'
-            : 'outside the table',
+        note: beforeDueDate
+          ? 'before the due date'
+          : chart.x === 'length'
+          ? 'length outside the 45–110 cm table'
+          : 'outside the table',
       });
       return;
     }
@@ -314,7 +314,9 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources, asOf?:
       }
 
       // Weight-for-length (WHO, under 24 months) pairs the weight with the same visit's length.
-      if (sex && ageMonths !== undefined && ageMonths >= 0 && ageMonths < WHO_MAX_MONTHS) {
+      // Like the other measures, none before a preterm infant's due date.
+      const wflAge = ageAt(time);
+      if (sex && wflAge && (wflAge.corrected ?? wflAge.months) >= 0 && wflAge.months < WHO_MAX_MONTHS) {
         const percentile = fromImplausible
           ? 'implausible'
           : weightForLengthPercentileOf(weight.value, height.value, sex);
