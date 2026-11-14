@@ -68,7 +68,7 @@ export default function VfcBorrowingLog(): ReactElement {
                 <TableCell>Date</TableCell>
                 <TableCell>Patient</TableCell>
                 <TableCell>Vaccine · lot</TableCell>
-                <TableCell>Stock used → owed to</TableCell>
+                <TableCell>Stock used → patient's stock</TableCell>
                 <TableCell>Eligibility</TableCell>
                 <TableCell>Reason</TableCell>
                 <TableCell>By</TableCell>
