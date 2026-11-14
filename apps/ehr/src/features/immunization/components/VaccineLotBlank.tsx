@@ -131,8 +131,8 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
       ].toLowerCase()} lot for a VFC-eligible child?`
     : 'Use VFC stock for a patient who is not VFC eligible?';
   const borrowingBody = eligible
-    ? `${who} is VFC eligible. Giving lot ${pending?.lotNumber} counts as borrowing: it goes on the Vaccine Borrowing Report, and the dose must be paid back from VFC stock.`
-    : `${who} is not VFC eligible. VFC vaccine is only for eligible children, so this dose counts as borrowing: it goes on the Vaccine Borrowing Report and must be replaced with private stock.`;
+    ? `${who} is VFC eligible. Giving lot ${pending?.lotNumber} counts as borrowing: it goes on the Vaccine borrowing log, and the dose must be paid back from VFC stock.`
+    : `${who} is not VFC eligible. VFC vaccine is only for eligible children, so this dose counts as borrowing: it goes on the Vaccine borrowing log and must be replaced with private stock.`;
 
   return (
     <>
