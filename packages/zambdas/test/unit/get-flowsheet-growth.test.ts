@@ -401,6 +401,21 @@ describe('growth chart data (the cards the EHR draws)', () => {
     expect(byChart['cdc-wfa'].implausible).toBeUndefined();
   });
 
+  test('the grid BMI percentile agrees with the chart: implausible when its weight or height is', () => {
+    // 100 cm at 10 years is implausible for age; the BMI from it is plausible on its own.
+    const output = buildGrowthFlowsheet({
+      ...resources,
+      observations: [
+        vital(VitalFieldNames.VitalWeight, 'e2', '2034-01-10T14:05:00.000Z', 32),
+        vital(VitalFieldNames.VitalHeight, 'e2', '2034-01-10T14:06:00.000Z', 100),
+      ],
+    });
+    expect(output.growth!.points.find((point) => point.chart === 'cdc-bmi')?.implausible).toBe(true);
+    expect(output.visits[0].values.heightPercentile.value).toBe('implausible');
+    expect(output.visits[0].values.bmi.value).toBe(32);
+    expect(output.visits[0].values.bmiPercentile.value).toBe('implausible');
+  });
+
   test('a length outside the 45–110 cm table is listed with the report note and no z', () => {
     const long = buildGrowthFlowsheet({
       ...resources,

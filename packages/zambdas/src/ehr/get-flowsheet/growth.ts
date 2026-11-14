@@ -299,16 +299,22 @@ export const buildGrowthFlowsheet = (resources: GrowthFlowsheetResources, asOf?:
     if (typeof weight?.value === 'number' && typeof height?.value === 'number') {
       const time = later(weight.time, height.time);
       const ageMonths = birthDate ? ageMonthsAt(birthDate, time, visit.timezone) : undefined;
+      // A BMI or weight-for-length built from an implausible weight or length is implausible too, as in the report
+      // and on the chart.
+      const fromImplausible = [values.weightPercentile, values.heightPercentile].some(
+        (p) => p?.value === 'implausible'
+      );
       if (bmiAppliesAt(ageMonths)) {
-        addWithPercentile('bmi', { time, value: weight.value / Math.pow(height.value / 100, 2) });
+        const bmi = { time, value: weight.value / Math.pow(height.value / 100, 2) };
+        if (!fromImplausible) addWithPercentile('bmi', bmi);
+        else {
+          add('bmi', bmi);
+          add('bmiPercentile', { time, value: 'implausible' });
+        }
       }
 
-      // Weight-for-length (WHO, under 24 months) pairs the weight with the same visit's length; a pair built
-      // from an implausible weight or length is implausible too, as in the report.
+      // Weight-for-length (WHO, under 24 months) pairs the weight with the same visit's length.
       if (sex && ageMonths !== undefined && ageMonths >= 0 && ageMonths < WHO_MAX_MONTHS) {
-        const fromImplausible = [values.weightPercentile, values.heightPercentile].some(
-          (p) => p?.value === 'implausible'
-        );
         const percentile = fromImplausible
           ? 'implausible'
           : weightForLengthPercentileOf(weight.value, height.value, sex);
