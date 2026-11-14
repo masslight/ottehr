@@ -13,6 +13,8 @@ const NEUROTOXICITY_RISK_FACTORS = [
   'Significant clinical instability in the previous 24 hours',
 ];
 
+const readingKey = (reading: BiliToolReading): string => `${reading.kind}-${reading.time}`;
+
 interface BiliToolDialogProps {
   open: boolean;
   onClose: () => void;
@@ -60,14 +62,15 @@ export const BiliToolDialog = ({ open, onClose, birthHistory, readings }: BiliTo
           </Typography>
           <div>
             <Typography color="text.secondary">Result to send</Typography>
+            {/* A blood result and a skin meter reading can share a time, so each choice is its kind and time. */}
             <RadioGroup
-              value={reading?.time ?? ''}
-              onChange={(e) => setReading(readings.find((r) => r.time === e.target.value))}
+              value={reading ? readingKey(reading) : ''}
+              onChange={(e) => setReading(readings.find((r) => readingKey(r) === e.target.value))}
             >
               {readings.map((r) => (
                 <FormControlLabel
-                  key={`${r.kind}-${r.time}`}
-                  value={r.time}
+                  key={readingKey(r)}
+                  value={readingKey(r)}
                   control={<Radio size="small" />}
                   label={formatBiliToolReading(r)}
                 />
