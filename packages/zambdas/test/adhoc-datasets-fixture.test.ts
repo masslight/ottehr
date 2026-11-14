@@ -51,6 +51,15 @@ import {
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from 'utils/lib/types/data/screening-questions/constants';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
+
+// Pin the screening-questions config to the base set so the test is not affected by
+// per-instance overlay replacements (overlays may slim the config to fewer questions,
+// breaking fixture assertions about which screening answers are resolved to text).
+vi.mock('utils/lib/ottehr-config/screening-questions', async () => {
+  const { baseScreeningQuestionsConfig } = await import('utils/lib/types/data/screening-questions/config');
+  return { patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
+
 import { CONTAINED_MEDICATION_ID } from '../src/ehr/immunization/common';
 import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';

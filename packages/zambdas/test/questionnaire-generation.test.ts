@@ -4,7 +4,53 @@ import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
 import { VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
+
+// Per-instance overlays may set mobileOptIn without hideControlLabel, omitting the
+// hide-control-label FHIR extension from the generated questionnaire items. The reference
+// JSONs in test/data/ were generated from the base config which keeps hideControlLabel: true.
+// Restore the extension on mobile-opt-in so the test is overlay-independent.
+vi.mock('utils/lib/ottehr-config/intake-paperwork', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/intake-paperwork')>();
+  const URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label';
+  const restore = (items: any[]): any[] =>
+    items.map((item) => {
+      const p = item.item ? { ...item, item: restore(item.item) } : item;
+      if (p.linkId !== 'mobile-opt-in') return p;
+      const exts: any[] = p.extension ?? [];
+      return !exts.some((e: any) => e.url === URL)
+        ? { ...p, extension: [...exts, { url: URL, valueBoolean: true }] }
+        : p;
+    });
+  return {
+    ...original,
+    IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE: () => {
+      const q = original.IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE();
+      return { ...q, item: restore(q.item ?? []) };
+    },
+  };
+});
+
+vi.mock('utils/lib/ottehr-config/intake-paperwork-virtual', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/intake-paperwork-virtual')>();
+  const URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/hide-control-label';
+  const restore = (items: any[]): any[] =>
+    items.map((item) => {
+      const p = item.item ? { ...item, item: restore(item.item) } : item;
+      if (p.linkId !== 'mobile-opt-in') return p;
+      const exts: any[] = p.extension ?? [];
+      return !exts.some((e: any) => e.url === URL)
+        ? { ...p, extension: [...exts, { url: URL, valueBoolean: true }] }
+        : p;
+    });
+  return {
+    ...original,
+    VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE: () => {
+      const q = original.VIRTUAL_INTAKE_PAPERWORK_QUESTIONNAIRE();
+      return { ...q, item: restore(q.item ?? []) };
+    },
+  };
+});
 import BookingQuestionnaire from './data/booking-questionnaire.json';
 import IntakePaperworkQuestionnaire from './data/intake-paperwork-questionnaire.json';
 import PatientRecordQuestionnaire from './data/patient-record-questionnaire.json';

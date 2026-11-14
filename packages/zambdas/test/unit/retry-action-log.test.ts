@@ -13,6 +13,19 @@ import {
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// Pin the feature-flags config so the test is not affected by per-instance overlay values.
+// The overlay may set skipSendingVisitNoteToPatientPortalEnabled=true which causes the
+// email retry path to throw before the test's assertions are reached.
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/feature-flags')>();
+  return {
+    FEATURE_FLAGS_CONFIG: Object.freeze({
+      ...original.FEATURE_FLAGS_CONFIG,
+      skipSendingVisitNoteToPatientPortalEnabled: false,
+    }),
+  };
+});
+
 const mockSendEmail = vi.fn();
 vi.mock('../../src/shared/communication', () => ({
   getEmailClient: () => ({

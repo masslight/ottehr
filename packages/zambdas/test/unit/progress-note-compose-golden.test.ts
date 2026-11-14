@@ -5,6 +5,14 @@
  */
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Pin the screening-questions config to the base set so the golden snapshot is not affected by
+// per-instance overlay replacements. The overlay may remove covid/travel questions, causing
+// additionalQuestions in the composed progress note to differ from the pinned snapshot.
+vi.mock('utils/lib/ottehr-config/screening-questions', async () => {
+  const { baseScreeningQuestionsConfig } = await import('utils/lib/types/data/screening-questions/config');
+  return { patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';

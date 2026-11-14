@@ -32,6 +32,56 @@ import { createPdfBytes } from '../src/shared/pdf';
 // patches, per-form PDF fan-out, type-code grouping, attachment dedup, creation-time
 // sorting, and reference wiring — runs for real.
 
+// Pin the consent-forms config to the original HIPAA+CTT two-form set so the test is not
+// affected by per-instance overlay replacements. The two forms have distinct type codes
+// (64292-6 vs 59284-0/patient-registration), producing two separate createFilesDocumentReferences
+// calls as the test asserts.
+vi.mock('utils/lib/ottehr-config/consent-forms', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/consent-forms')>();
+  const BASELINE_FORMS: Parameters<typeof original.resolveConsentFormsPaths>[0] = [
+    {
+      id: 'hipaa-acknowledgement',
+      formTitle: 'HIPAA Acknowledgement',
+      resourceTitle: 'HIPAA forms',
+      assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+      publicUrl: '/hipaa_notice_template.pdf',
+      type: {
+        coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Policy' }],
+        text: 'HIPAA Acknowledgement forms',
+      },
+      createsConsentResource: false,
+    },
+    {
+      id: 'consent-to-treat',
+      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
+      resourceTitle: 'Consent forms',
+      assetPath: {
+        default: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+        byState: { IL: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf' },
+      },
+      publicUrl: '/consent_to_treat_template.pdf',
+      type: {
+        coding: [
+          { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+          {
+            system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+            code: 'patient-registration',
+            display: 'Patient Registration Consent',
+          },
+        ],
+        text: 'Consent forms',
+      },
+      createsConsentResource: true,
+    },
+  ];
+  return {
+    ...original,
+    CONSENT_FORMS_CONFIG: Object.freeze({ forms: BASELINE_FORMS }),
+    getConsentFormsForLocation: (locationState?: string) =>
+      original.resolveConsentFormsPaths(BASELINE_FORMS, locationState),
+  };
+});
+
 vi.mock('utils/lib/fhir/helpers', async (importOriginal) => {
   const original = await importOriginal<typeof import('utils/lib/fhir/helpers')>();
   return { ...original, createFilesDocumentReferences: vi.fn(), createConsentResource: vi.fn() };
