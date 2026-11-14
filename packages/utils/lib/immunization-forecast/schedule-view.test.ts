@@ -9,12 +9,12 @@ const lane = (lanes: VaccineScheduleLane[], group: string): VaccineScheduleLane 
 };
 
 describe('buildVaccineScheduleView', () => {
-  it('cites the shipped data: CDC CDSi 4.64, AIRA 26.1 for the seasonal antigens, the AAP for HPV', () => {
+  it('cites the shipped data: CDC CDSi 4.64, AIRA 26.1 for the seasonal antigens, the AAP for HPV, MMR, varicella and DTaP', () => {
     expect(view.dataVersion).toBe('2026-11');
     expect(view.sources.map((source) => [source.version, source.antigens.length])).toEqual([
       ['4.64', 17],
       ['26.1', 3],
-      ['2026', 1],
+      ['2026', 8],
     ]);
   });
 

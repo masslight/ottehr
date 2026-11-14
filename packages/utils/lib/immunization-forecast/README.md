@@ -86,9 +86,16 @@ Current version **2026-11**:
 
 AIRA's medical-societies release 26.1 covers **only** the respiratory-season antigens; AIRA has not published
 CDSi-format data for the rest of the 2026 AAP childhood schedule ("currently out of scope" in its release notes), so
-the childhood routine schedule comes from the CDC data. Differences from the AAP 2026 schedule that this data
-therefore cannot encode must be checked against AAP's published schedule when AIRA ships a fuller release; the
-known one is the AAP's MMRV guidance (CDC 4.65 reverted its MMRV change under the legal stay). CDC 4.65/4.66 and
+the childhood routine schedule comes from the CDC data, with the AAP 2026 schedule's differences applied on top by
+`data/aap-overrides.ts` (the forecast and the Admin › Vaccine Schedule page run with them; the CDSi test cases do
+not): HPV recommended from 9 years with the AAP's "between 9 and 12 years" guidance in place of ACIP's "11 or 12";
+MMRV preferable for MMR/varicella dose 1 from 12 months (no preference vs MMR + varicella), with the AAP's dose 2
+preference for MMRV at 4–6 years as guidance text only, since CDSi ranks no preferable vaccine above another; DTaP
+dose 4 from 12 months when 6 months have passed since dose 3 (CDC 4.64 forecasts it from 15 months). Not applied:
+MenQuadfi from 6 weeks (no shipped MenACWY series starts before 10 years), the AAP's "should be offered" status for
+COVID-19 at 2–18 years (no CDSi or engine status for it) and the mNEXSPIKE 12-week interval (CDSi intervals cannot
+depend on the product about to be given). Re-check the list against AAP's published schedule when AIRA ships a
+fuller release or the data version moves (CDC 4.65 reverted its MMRV change under the legal stay). CDC 4.65/4.66 and
 test cases 4.46/4.47 are on cdc.gov behind a bot check that refuses scripted downloads; 4.64 and test cases 4.45
 came from AIRA's mirror.
 
