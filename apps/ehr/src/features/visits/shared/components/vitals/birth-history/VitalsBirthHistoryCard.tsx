@@ -39,8 +39,8 @@ const VitalsBirthHistoryCard: React.FC<VitalsBirthHistoryCardProps> = ({ collaps
   const save = useSaveBirthHistory(patient?.id);
   const [toggledCollapsed, setToggledCollapsed] = useState<boolean>();
   const [editing, setEditing] = useState(false);
-  // Once saved, the card rests collapsed on its summary line until staff choose Edit.
-  const isCollapsed = toggledCollapsed ?? (collapsedByDefault || (!!saved && !editing));
+  // Under 24 months the card stays open, also after a save; from 24 months it rests collapsed on its summary line.
+  const isCollapsed = toggledCollapsed ?? collapsedByDefault;
 
   const summary = saved ? formatBirthHistorySummary(saved) : '';
   const dateOfBirth = patient?.birthDate ? DateTime.fromISO(patient.birthDate).toFormat(DISPLAY_DATE_FORMAT) : '';
