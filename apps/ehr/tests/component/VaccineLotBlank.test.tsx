@@ -126,6 +126,8 @@ describe('VaccineLotBlank', () => {
     const options = within(list).getAllByRole('option');
     expect(options.at(-1)).toHaveTextContent('Lot X0001');
     expect(within(options.at(-1)!).getByText('Expired')).toBeInTheDocument();
+    // a VFC lot for an eligible child, but expired: only the Expired tag
+    expect(within(options.at(-1)!).queryByText('Matches eligibility')).not.toBeInTheDocument();
 
     fireEvent.click(within(list).getByTestId(dataTestIds.vaccineLotBlank.option('lot-x')));
     expect(screen.getByText('Use an expired lot?')).toBeInTheDocument();

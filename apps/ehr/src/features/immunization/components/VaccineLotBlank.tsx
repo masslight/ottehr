@@ -140,7 +140,7 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
                       <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <b>Lot {lot.lotNumber}</b>
                         <FundingChip fundingSource={lot.fundingSource} />
-                        {matches === true && (
+                        {matches === true && !expired && (
                           <Chip
                             size="small"
                             label="Matches eligibility"
@@ -152,7 +152,7 @@ export const VaccineLotBlank: FC<VaccineLotBlankProps> = ({
                             }}
                           />
                         )}
-                        {matches === false && (
+                        {matches === false && !expired && (
                           <Chip size="small" label="Other stock" sx={{ height: 20, fontSize: 12 }} />
                         )}
                         {expired && (
