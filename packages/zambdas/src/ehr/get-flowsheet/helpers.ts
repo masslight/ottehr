@@ -218,7 +218,8 @@ export const buildVitalsFlowsheet = (resources: VitalsFlowsheetResources): Flows
       });
     });
 
-    visits.push({ ...visit, start, values });
+    // No column for a visit with nothing to show (only a vision screening, or only an infant BMI).
+    if (Object.keys(values).length > 0) visits.push({ ...visit, start, values });
   });
 
   return newestFirst(visits);

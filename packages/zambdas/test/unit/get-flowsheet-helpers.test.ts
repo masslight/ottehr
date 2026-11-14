@@ -178,6 +178,24 @@ describe('buildVitalsFlowsheet', () => {
     expect(at('2024-03-09')?.values.bmi).toMatchObject({ value: 23.4 });
   });
 
+  test('no column for a visit with nothing to show (only a vision screening, or only an infant BMI)', () => {
+    const onlyHidden = buildVitalsFlowsheet({
+      appointments,
+      encounters,
+      conditions,
+      practitioners,
+      birthDate: '2026-01-01',
+      observations: [
+        vital(VitalFieldNames.VitalVision, 'e1', '2026-03-09T15:05:00.000Z', {
+          component: [{ code: { text: 'left' }, valueString: '20/20' }],
+        }),
+        vital(VitalFieldNames.VitalBMI, 'e2', '2026-11-06T14:10:00.000Z', { valueQuantity: { value: 16.2 } }),
+        vital(VitalFieldNames.VitalTemperature, 'e3', '2026-03-12T10:00:00.000Z', { valueQuantity: { value: 37.1 } }),
+      ],
+    });
+    expect(onlyHidden.map((v) => v.encounterId)).toEqual(['e3']);
+  });
+
   test('lists every reading of a measure in the visit, oldest first', () => {
     expect(visits[2].values.heartRate.readings).toEqual([
       { time: '2026-03-09T15:05:00.000Z', value: 80, flag: undefined },
