@@ -1,4 +1,5 @@
-import { FlowsheetDiagnosis, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
+import { FlowsheetDiagnosis, FlowsheetMedication, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
+import { MedicationOrderStatuses } from 'utils/lib/types/api/medication-administration.types';
 import { conditionColumns, LabRow } from './columns';
 import { FlowsheetData, FlowsheetDataKind } from './patient-data';
 
@@ -28,6 +29,13 @@ const LAB_ROWS: LabRow[] = [
 
 const unique = (names: string[]): string[] => [...new Set(names)];
 
+/** A drug actually prescribed (eRx, not cancelled, voided or a draft) or given (in-house, fully or partly). */
+const prescribedOrGiven = (medication: FlowsheetMedication): boolean =>
+  medication.source === 'eRx'
+    ? !['cancelled', 'entered-in-error', 'draft'].includes(medication.status)
+    : medication.status === MedicationOrderStatuses.administered ||
+      medication.status === MedicationOrderStatuses['administered-partly'];
+
 const diagnosisText = (diagnoses: FlowsheetDiagnosis[]): string =>
   diagnoses.map((d) => [d.code, d.display].filter(Boolean).join(' — ')).join('; ');
 
@@ -44,7 +52,7 @@ export const buildThyroidFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => 
   });
 
   Object.entries(data.medications ?? {}).forEach(([encounterId, medications]) => {
-    const drugs = medications.filter((m) => THYROID_MEDICATION.test(m.name));
+    const drugs = medications.filter((m) => THYROID_MEDICATION.test(m.name) && prescribedOrGiven(m));
     if (drugs.length === 0) return;
     const visit = columns.columnFor(encounterId, drugs.map((m) => m.time).find(Boolean));
     if (!visit) return;

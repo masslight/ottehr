@@ -3,7 +3,7 @@ import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { FlowsheetLabResult } from 'utils/lib/types/api/flowsheets.types';
+import { FlowsheetLabResult, FlowsheetMedication } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, test } from 'vitest';
 import { buildLabResults, FlowsheetData, unlinkedResultKey } from '../../src/ehr/get-flowsheet/patient-data';
 import { buildThyroidFlowsheet } from '../../src/ehr/get-flowsheet/thyroid';
@@ -254,5 +254,41 @@ describe('a "<" or ">" result', () => {
       { value: '<0.01', unit: undefined },
       { value: '>=100', unit: 'mIU/L' },
     ]);
+  });
+});
+
+describe('thyroid medication: only drugs actually prescribed or given', () => {
+  test('leaves out cancelled, entered-in-error and draft prescriptions and in-house orders not given', () => {
+    const med = (name: string, source: 'eRx' | 'in-house', status: string): FlowsheetMedication => ({
+      name,
+      source,
+      status,
+      time: '2023-02-06T14:30:00.000Z',
+    });
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      labs: {},
+      diagnoses: {},
+      medications: {
+        e1: [
+          med('levothyroxine 25 mcg tablet', 'eRx', 'cancelled'),
+          med('levothyroxine 50 mcg tablet', 'eRx', 'active'),
+          med('levothyroxine 75 mcg tablet', 'eRx', 'entered-in-error'),
+          med('levothyroxine 88 mcg tablet', 'eRx', 'draft'),
+          med('levothyroxine 100 mcg tablet', 'eRx', 'stopped'),
+          med('methimazole 5 mg tablet', 'in-house', 'pending'),
+          med('methimazole 10 mg tablet', 'in-house', 'cancelled'),
+          med('methimazole 15 mg tablet', 'in-house', 'administered-not'),
+          med('methimazole 20 mg tablet', 'in-house', 'administered-partly'),
+          med('methimazole 30 mg tablet', 'in-house', 'administered'),
+        ],
+        e2: [med('levothyroxine 25 mcg tablet', 'eRx', 'cancelled')],
+      },
+    });
+    // A visit whose only thyroid drug was cancelled gets no column.
+    expect(visits.map((v) => v.encounterId)).toEqual(['e1']);
+    expect(visits[0].values.thyroidMedication.value).toBe(
+      'levothyroxine 50 mcg tablet; levothyroxine 100 mcg tablet; methimazole 20 mg tablet; methimazole 30 mg tablet'
+    );
   });
 });
