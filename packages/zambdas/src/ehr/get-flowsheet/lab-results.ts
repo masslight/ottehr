@@ -176,14 +176,19 @@ const isUrineCultureResult = (lab: FlowsheetLabResult): boolean =>
 
 /** A susceptibility's value: susceptible, intermediate or resistant. */
 const SUSCEPTIBILITY = /^\s*[SIR]\s*$/i;
+/** An antibiotic concentration (an MIC's unit); organism counts are in CFU, never in mass per volume. */
+const MIC_UNIT = /^\s*(mg\/l|(u|µ|μ|mc)g\/ml)\s*$/i;
 
 /**
  * The culture's own result reads as reported ("No growth"); an organism reads its name and count as reported. Other
- * coded results of the same order, and uncoded ones valued only S, I or R (susceptibilities), are left out.
+ * coded results of the same order are left out, and so are uncoded susceptibilities: valued or interpreted S, I or R,
+ * or an MIC (a value in an antibiotic-concentration unit).
  */
 const cultureText = (lab: FlowsheetLabResult): string => {
   if (hasCode(lab, 'urineCulture') || URINE_CULTURE_NAME.test(lab.analyte)) return lab.valueText;
-  if (lab.loincCodes.length > 0 || SUSCEPTIBILITY.test(lab.valueText)) return '';
+  const susceptibility =
+    SUSCEPTIBILITY.test(lab.valueText) || SUSCEPTIBILITY.test(lab.interpretation) || MIC_UNIT.test(lab.unit);
+  if (lab.loincCodes.length > 0 || susceptibility) return '';
   return [lab.analyte, lab.valueText].filter(Boolean).join(' ');
 };
 

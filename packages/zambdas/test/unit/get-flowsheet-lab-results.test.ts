@@ -35,7 +35,7 @@ interface LabOptions {
   /** The ordered test's name and LOINC codes (the report's for an unsolicited result). */
   test?: string;
   testCodes?: string[];
-  flag?: 'H' | 'L' | '';
+  flag?: 'H' | 'L' | 'A' | 'S' | 'R' | '';
   at?: string;
   fasting?: boolean;
 }
@@ -284,6 +284,24 @@ describe('buildLabResultsFlowsheet', () => {
         lab('Cefazolin', { ...culture, text: ' i ' })
       )
     ).toEqual({ urineCulture: 'Escherichia coli >100,000 CFU/mL' });
+  });
+
+  test('urine culture: an uncoded susceptibility sent as a number (MIC) is left out; organism counts stay', () => {
+    const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
+    expect(
+      valuesOf(
+        lab('Escherichia coli', { ...culture, text: '>100,000 CFU/mL' }),
+        lab('Ampicillin', { ...culture, text: '>=32', unit: 'ug/mL', flag: 'R' }),
+        lab('Ciprofloxacin', { ...culture, value: 0.25, unit: 'mcg/mL' }),
+        lab('Gentamicin', { ...culture, text: '<=1', unit: 'mg/L' }),
+        lab('Nitrofurantoin', { ...culture, value: 16, flag: 'S' }),
+        // An organism sent as a count, flagged abnormal, is kept.
+        lab('Proteus mirabilis', { ...culture, value: 50000, unit: 'CFU/mL', flag: 'A' }),
+        lab('Klebsiella pneumoniae', { ...culture, text: '>100000' })
+      )
+    ).toEqual({
+      urineCulture: 'Escherichia coli >100,000 CFU/mL; Proteus mirabilis 50000; Klebsiella pneumoniae >100000',
+    });
   });
 
   test('HIV, hepatitis C and urine hCG show their text as reported; a text-only result on a number row is left out', () => {
