@@ -24,6 +24,7 @@ import {
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
+import { getOrderNumber, getOrderNumberFromDr } from 'utils/lib/helpers/labs/helpers';
 import { BirthHistoryDTO } from 'utils/lib/types/api/birth-history.types';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetDiagnosis, FlowsheetLabResult, FlowsheetMedication } from 'utils/lib/types/api/flowsheets.types';
@@ -252,8 +253,15 @@ const fetchLabResults = async (oystehr: Oystehr, patientId: string): Promise<Rec
     { name: '_tag', value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.unsolicited}` },
     { name: '_include', value: 'DiagnosticReport:result' },
   ]);
+  // A reflex report (the lab adds a test) has no basedOn, so it is not reached from its order either; it is placed
+  // on its order by the order's placer number, as get-lab-orders finds it.
+  const reflex = search<DiagnosticReport | Observation>(oystehr, 'DiagnosticReport', [
+    { name: 'subject', value: `Patient/${patientId}` },
+    { name: '_tag', value: `${LAB_DR_TYPE_TAG.system}|${LAB_DR_TYPE_TAG.code.reflex}` },
+    { name: '_include', value: 'DiagnosticReport:result' },
+  ]);
   const resources = (
-    await Promise.all([orders(IN_HOUSE_TEST_CODE_SYSTEM), orders(OYSTEHR_LAB_OI_CODE_SYSTEM), unlinked])
+    await Promise.all([orders(IN_HOUSE_TEST_CODE_SYSTEM), orders(OYSTEHR_LAB_OI_CODE_SYSTEM), unlinked, reflex])
   ).flat();
   const serviceRequests = resources.filter((r): r is ServiceRequest => r.resourceType === 'ServiceRequest');
 
@@ -332,10 +340,14 @@ export const buildLabResults = ({
     const orderId = report.basedOn
       ?.map((r) => getIdFromReference(r.reference, 'ServiceRequest'))
       .find((id): id is string => !!id);
-    const order = serviceRequests.find((sr) => sr.id === orderId);
+    const isReflex = report.meta?.tag?.some(
+      (t) => t.system === LAB_DR_TYPE_TAG.system && t.code === LAB_DR_TYPE_TAG.code.reflex
+    );
+    const orderNumber = isReflex && !orderId ? getOrderNumberFromDr(report) : undefined;
+    const order = serviceRequests.find((sr) => (orderNumber ? getOrderNumber(sr) === orderNumber : sr.id === orderId));
     const encounterId = getIdFromReference(order?.encounter?.reference ?? report.encounter?.reference, 'Encounter');
     // A report ordered here but whose order was not fetched (revoked, entered in error) stays off the flowsheet.
-    const key = encounterId ?? (orderId ? undefined : unlinkedResultKey(report.id));
+    const key = encounterId ?? (orderId || orderNumber ? undefined : unlinkedResultKey(report.id));
     if (!key) return;
 
     const isInHouse = !!order && isInHouseLabServiceRequest(order);

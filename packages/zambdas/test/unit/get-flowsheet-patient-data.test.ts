@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import {
   ActivityDefinition,
   Condition,
@@ -24,6 +25,7 @@ import {
 import {
   LAB_DR_TYPE_TAG,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LABS_FASTING_STATUS_EXT_URL,
 } from 'utils/lib/types/data/labs/labs.constants';
 import { describe, expect, test } from 'vitest';
@@ -31,6 +33,7 @@ import {
   buildLabResults,
   buildMedications,
   buildVisitDiagnoses,
+  fetchFlowsheetData,
   labFlagOf,
   unlinkedResultKey,
 } from '../../src/ehr/get-flowsheet/patient-data';
@@ -392,5 +395,93 @@ describe('buildLabResults', () => {
     expect(labFlagOf('')).toBeUndefined();
     expect(labFlagOf('L')).toBe(VitalAlertCriticality.Abnormal);
     expect(labFlagOf('LL')).toBe(VitalAlertCriticality.Critical);
+  });
+});
+
+describe('fetchFlowsheetData: reflex results', () => {
+  // Shapes from the labs code: a reflex report is a copy of the ordered report with the reflex tag, the reflex test's
+  // code and no basedOn (scripts/labs/reflex-test-helper.ts); get-lab-orders finds it by that tag and the order's
+  // placer number (checkForDiagnosticReportDrivenResults), and handle-lab-result has no ServiceRequest for it.
+  const placer = { system: OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM, value: 'ORD-1001' };
+  const order: ServiceRequest = {
+    resourceType: 'ServiceRequest',
+    id: 'sr-tsh',
+    status: 'completed',
+    intent: 'order',
+    subject: { reference: PATIENT },
+    encounter: { reference: 'Encounter/e1' },
+    identifier: [placer],
+    code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: 'TSHRFX' }], text: 'TSH w/ reflex to FT4' },
+  };
+  const result = (id: string, code: string, display: string, value: number, unit: string): Observation => ({
+    resourceType: 'Observation',
+    id,
+    status: 'final',
+    code: { coding: [{ system: 'http://loinc.org', code, display }] },
+    effectiveDateTime: '2026-03-10T13:00:00.000Z',
+    valueQuantity: { value, unit },
+  });
+  const ordered: DiagnosticReport = {
+    resourceType: 'DiagnosticReport',
+    id: 'dr-tsh',
+    status: 'final',
+    subject: { reference: PATIENT },
+    identifier: [placer, { type: { coding: [{ code: 'FILL' }] }, value: 'F-1' }],
+    basedOn: [{ reference: 'ServiceRequest/sr-tsh' }],
+    code: { coding: [{ system: 'http://loinc.org', code: '3016-3' }] },
+    result: [{ reference: 'Observation/o-tsh' }],
+  };
+  const reflex: DiagnosticReport = {
+    ...ordered,
+    id: 'dr-reflex',
+    meta: { tag: [{ system: LAB_DR_TYPE_TAG.system, code: LAB_DR_TYPE_TAG.code.reflex, display: 'reflex' }] },
+    identifier: [placer, { type: { coding: [{ code: 'FILL' }] }, value: 'F-2' }],
+    basedOn: undefined,
+    code: { coding: [{ code: '3051-0', system: 'http://loinc.org', display: 'Free T3, Blood' }] },
+    result: [{ reference: 'Observation/o-ft3' }],
+  };
+  const observations = [
+    result('o-tsh', '3016-3', 'TSH', 6.2, 'mIU/L'),
+    result('o-ft3', '3051-0', 'Free T3', 3.1, 'pg/mL'),
+  ];
+  const reports = [ordered, reflex];
+
+  // A FHIR server holding those resources, answering the searches it understands.
+  const bundle = (resources: unknown[]): unknown => ({
+    total: resources.length,
+    entry: resources.map((resource) => ({ resource, search: { mode: 'match' } })),
+    unbundle: () => resources,
+  });
+  const resultsOf = (drs: DiagnosticReport[]): Observation[] =>
+    observations.filter((o) => drs.some((dr) => dr.result?.some((r) => r.reference === `Observation/${o.id}`)));
+  const param = (params: { name: string; value: string }[], name: string): string | undefined =>
+    params.find((p) => p.name === name)?.value;
+  const search = async ({
+    resourceType,
+    params,
+  }: {
+    resourceType: string;
+    params: { name: string; value: string }[];
+  }): Promise<unknown> => {
+    if (resourceType === 'ServiceRequest' && param(params, 'code') === `${OYSTEHR_LAB_OI_CODE_SYSTEM}|`) {
+      const drs = reports.filter((dr) => dr.basedOn?.some((b) => b.reference === 'ServiceRequest/sr-tsh'));
+      return bundle([order, ...drs, ...resultsOf(drs)]);
+    }
+    if (resourceType === 'DiagnosticReport' && param(params, 'subject') === PATIENT) {
+      const tag = param(params, '_tag');
+      const drs = reports.filter((dr) => dr.meta?.tag?.some((t) => `${t.system}|${t.code}` === tag));
+      return bundle([...drs, ...resultsOf(drs)]);
+    }
+    return bundle([]);
+  };
+  const oystehr = { fhir: { search } } as unknown as Oystehr;
+
+  test('a reflex report (no basedOn) shows with its order, on the order’s visit', async () => {
+    const { labs } = await fetchFlowsheetData(oystehr, 'p1', ['labs']);
+    expect(Object.keys(labs ?? {})).toEqual(['e1']);
+    expect(labs?.e1.map((lab) => [lab.analyte, lab.value, lab.testName])).toEqual([
+      ['TSH', 6.2, 'TSH w/ reflex to FT4'],
+      ['Free T3', 3.1, 'TSH w/ reflex to FT4'],
+    ]);
   });
 });
