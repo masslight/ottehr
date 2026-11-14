@@ -4,7 +4,7 @@ import * as prettier from 'prettier';
 import { parseCdcNdcLookup, parseCvxPsv, parseMvxPsv } from 'utils/lib/types/data/immunization/vaccine-codes';
 
 // Renders the vaccine catalog's code tables from the CDC downloads in scripts/data/cdc-vaccines/: the CVX
-// vaccines a practice can switch on, the active MVX manufacturers, and the NDC crosswalk rows for those
+// vaccines a practice can add, the active MVX manufacturers, and the NDC crosswalk rows for those
 // vaccines. Run via `npm run codes:vaccines` after refreshing a download; a unit test in utils
 // (vaccine-codes.test.ts) fails when a committed table no longer matches its source.
 
@@ -43,7 +43,7 @@ async function main(): Promise<void> {
   const cvx = parseCvxPsv(read('cvx-active.psv'));
   await write(
     'cvx-vaccines.generated.ts',
-    ['The vaccines a practice can switch on in the In-House Medications catalog: current US CVX codes.', generated],
+    ['The vaccines a practice can add in the In-House Medications catalog: current US CVX codes.', generated],
     'CVX_VACCINES',
     'CvxVaccine',
     cvx

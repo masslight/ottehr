@@ -45,7 +45,7 @@ interface AdministrationDetails {
   mobile: string;
 }
 
-// Catalog vaccines the instance has switched on (the config-vaccine upgrade switches these on; see
+// Catalog vaccines the instance has added (the config-vaccine upgrade adds these; see
 // packages/zambdas/src/scripts/migrate-config-vaccines.ts). Each administration test gets a distinct one, which
 // keeps its MAR and progress-note entries unique.
 const vaccineKeys = ['115', '20', '113']; // Tdap, DTaP, Td

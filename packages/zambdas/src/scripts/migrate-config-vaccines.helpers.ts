@@ -117,7 +117,7 @@ export interface ConfigVaccineMigrationPlan {
 }
 
 /**
- * Which catalog entries to switch on for the config vaccines a project has. A config vaccine is a vaccine
+ * Which catalog entries to add for the config vaccines a project has. A config vaccine is a vaccine
  * Medication without a CVX; the catalog entry replacing it is skipped when one with that CVX is already active,
  * so a run can be repeated. Config vaccines that share a CVX fold into one entry.
  */
@@ -240,8 +240,8 @@ export async function migrateConfigVaccines(oystehr: Oystehr, dryRun: boolean): 
   };
   const label = (entry: PlannedCatalogVaccine): string =>
     `${entry.catalogName} (CVX ${entry.cvx}) for ${entry.configNames.join(', ')}`;
-  // Active catalog Medications by CVX: what the project has, plus what this run switches on, so a quick pick's
-  // catalog entry is switched on (or looked up) once however many quick picks need it.
+  // Active catalog Medications by CVX: what the project has, plus what this run adds, so a quick pick's
+  // catalog entry is added (or looked up) once however many quick picks need it.
   const catalogByCvx = new Map<string, Medication>();
   for (const medication of vaccineMedications) {
     const cvx = getMedicationCvx(medication);
@@ -252,7 +252,7 @@ export async function migrateConfigVaccines(oystehr: Oystehr, dryRun: boolean): 
   for (const configName of plan.unknown) console.log(`  ? not a shipped config vaccine, left alone: ${configName}`);
   for (const entry of plan.switchOn) {
     if (dryRun) {
-      console.log(`  + would switch on ${label(entry)}`);
+      console.log(`  + would add ${label(entry)}`);
       stats.switchedOn += 1;
       continue;
     }
@@ -262,7 +262,7 @@ export async function migrateConfigVaccines(oystehr: Oystehr, dryRun: boolean): 
       console.log(`  ✓ Medication/${medication.id}: ${label(entry)}`);
       stats.switchedOn += 1;
     } catch (error) {
-      console.error(`  ✗ failed to switch on ${label(entry)}:`, error);
+      console.error(`  ✗ failed to add ${label(entry)}:`, error);
       stats.failed += 1;
     }
   }

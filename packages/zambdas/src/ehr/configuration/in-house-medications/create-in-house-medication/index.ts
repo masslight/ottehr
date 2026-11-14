@@ -49,7 +49,7 @@ export const index = wrapHandler(
 
 /**
  * Switches a vaccine on: one catalog entry per CVX code, named as the CDC names it, with its inventory set up
- * (counted in doses) so lots can be received at once. Switching on a vaccine already in the catalog reactivates it.
+ * (counted in doses) so lots can be received at once. Adding a vaccine already in the catalog reactivates it.
  */
 export const createVaccine = async (oystehr: Oystehr, cvx: string): Promise<Medication> => {
   const vaccine = getCvxVaccine(cvx);

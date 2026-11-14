@@ -1,4 +1,4 @@
-// The one-time upgrade that switches on the catalog vaccine for each vaccine the retired config/oystehr/vaccines.json
+// The one-time upgrade that adds the catalog vaccine for each vaccine the retired config/oystehr/vaccines.json
 // created: the mapping table and the plan built from a project's vaccine Medications.
 import Oystehr from '@oystehr/sdk';
 import { ActivityDefinition, Bundle, Medication } from 'fhir/r4b';
@@ -72,7 +72,7 @@ describe('the config vaccine → catalog mapping', () => {
 });
 
 describe('planning the migration', () => {
-  it('switches on one catalog entry per CVX, folding config names that share one, and skips entries already on', () => {
+  it('adds one catalog entry per CVX, folding config names that share one, and skips entries already active', () => {
     const plan = planConfigVaccineMigration([
       configVaccine('old-mmr-1', 'MMR - Ped with Counseling'),
       configVaccine('old-mmr-2', 'MMR - Standard Admin'),
@@ -89,7 +89,7 @@ describe('planning the migration', () => {
     expect(plan.unknown).toEqual([]);
   });
 
-  it('an entry switched off is switched on again, and a name not in the table is left alone', () => {
+  it('an inactive entry is activated again, and a name not in the table is left alone', () => {
     const plan = planConfigVaccineMigration([
       configVaccine('old-tdap', 'Tdap (Adacel/Boostrix)'),
       catalogVaccine('cat-tdap', '115', 'inactive'),
@@ -212,7 +212,7 @@ describe('running the migration', () => {
     failed: 0,
   };
 
-  it('switches on the missing entries through the zambda builder and counts the rest', async () => {
+  it('adds the missing entries through the zambda builder and counts the rest', async () => {
     const oystehr = mockOystehr();
     const stats = await migrateConfigVaccines(oystehr, false);
 
@@ -237,7 +237,7 @@ describe('running the migration', () => {
     expect(updated(oystehr)[0].meta?.tag?.[0].code).toBe('immunization-quick-pick');
   });
 
-  it('a dry run writes nothing and reports what it would switch on and repoint', async () => {
+  it('a dry run writes nothing and reports what it would add and repoint', async () => {
     const oystehr = mockOystehr();
     const stats = await migrateConfigVaccines(oystehr, true);
 

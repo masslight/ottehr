@@ -3,7 +3,7 @@
 // scripts/data/cdc-vaccines/; `npm run codes:vaccines` turns them into the *.generated.ts tables next to
 // this file. The parsers live here so the generator and the test that keeps the tables in step share them.
 
-/** One vaccine the practice can switch on: one entry per CVX code. */
+/** One vaccine the practice can add: one entry per CVX code. */
 export interface CvxVaccine {
   cvx: string;
   /** CDC short description, the name staff see. */

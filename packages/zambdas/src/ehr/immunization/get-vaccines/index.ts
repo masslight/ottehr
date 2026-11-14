@@ -28,7 +28,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 /**
- * The vaccines the practice has switched on in the catalog (active, with a CVX code), by name. The 26 config
+ * The practice's active vaccines in the catalog (with a CVX code), by name. The 26 config
  * vaccines that predate the catalog have no CVX and are left out; old orders keep their own copy of the name.
  * The search is fixed here: the request carries nothing.
  */

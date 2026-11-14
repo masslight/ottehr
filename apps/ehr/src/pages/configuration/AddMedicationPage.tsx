@@ -36,7 +36,7 @@ export default function AddMedicationPage(): ReactElement {
     useState<ExtractObjectType<ErxSearchMedicationsResponse> | null>(null);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [debouncedSearchTermForPrecheck, setDebouncedSearchTermForPrecheck] = useState('');
-  // A vaccine is switched on from the CVX list; the practice picks the ones it gives.
+  // A vaccine is added from the CVX list; the practice picks the ones it gives.
   const [type, setType] = useState<CatalogMedicationType>('medication');
   const [selectedVaccines, setSelectedVaccines] = useState<CvxVaccine[]>([]);
   const navigate = useNavigate();
@@ -76,7 +76,7 @@ export default function AddMedicationPage(): ReactElement {
         const medication = await createInHouseMedication(oystehrZambda, { vaccine: { cvx: vaccine.cvx } });
         created.push(medication.id ?? '');
       }
-      enqueueSnackbar(created.length === 1 ? 'Vaccine switched on' : `${created.length} vaccines switched on`, {
+      enqueueSnackbar(created.length === 1 ? 'Vaccine added' : `${created.length} vaccines added`, {
         variant: 'success',
       });
       navigate(created.length === 1 && created[0] ? `/admin/medication/${created[0]}` : '/admin/medications');
@@ -85,7 +85,7 @@ export default function AddMedicationPage(): ReactElement {
         getApiError({
           error,
           defaultError: created.length
-            ? `${created.length} vaccines switched on before an error occurred`
+            ? `${created.length} vaccines added before an error occurred`
             : 'Failed to add the vaccine',
         }),
         { variant: 'error' }
@@ -247,8 +247,8 @@ export default function AddMedicationPage(): ReactElement {
                   >
                     {type === 'vaccine'
                       ? selectedVaccines.length > 1
-                        ? `Switch On ${selectedVaccines.length} Vaccines`
-                        : 'Switch On Vaccine'
+                        ? `Add ${selectedVaccines.length} Vaccines`
+                        : 'Add Vaccine'
                       : 'Create Medication'}
                   </LoadingButton>
                 </Grid>

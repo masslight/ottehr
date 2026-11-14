@@ -103,7 +103,7 @@ describe('switching a vaccine on (create-in-house-medication with `vaccine`)', (
   });
 });
 
-describe('get-vaccines: the switched-on vaccines', () => {
+describe('get-vaccines: the active vaccines', () => {
   it('lists active catalog vaccines with a CVX, sorted by name, and leaves out the old config names', async () => {
     const oldConfigVaccine: Medication = {
       resourceType: 'Medication',

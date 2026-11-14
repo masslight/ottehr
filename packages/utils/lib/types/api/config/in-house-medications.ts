@@ -76,7 +76,7 @@ export const InHouseMedicationInventorySchema = z.object({
 });
 export type InHouseMedicationInventory = z.infer<typeof InHouseMedicationInventorySchema>;
 
-/** A vaccine's stock is counted in doses, one per syringe or vial, and set up the moment it is switched on. */
+/** A vaccine's stock is counted in doses, one per syringe or vial, and set up the moment it is added. */
 export const VACCINE_DEFAULT_INVENTORY: InHouseMedicationInventory = {
   countedAs: 'dose',
   eachContains: { amount: 1, unit: 'unit' },

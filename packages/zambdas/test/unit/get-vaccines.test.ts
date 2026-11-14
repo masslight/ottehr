@@ -25,7 +25,7 @@ const mockOystehr = (medications: Medication[]): { oystehr: Oystehr; search: Ret
 };
 
 describe('get-vaccines', () => {
-  it('searches the switched-on catalog vaccines with a fixed query the request cannot change', async () => {
+  it('searches the active catalog vaccines with a fixed query the request cannot change', async () => {
     const { oystehr, search } = mockOystehr([]);
 
     await getVaccines(oystehr);
