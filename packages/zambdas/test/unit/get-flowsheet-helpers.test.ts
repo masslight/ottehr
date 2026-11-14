@@ -223,6 +223,20 @@ describe('buildVitalsFlowsheet', () => {
     });
     expect(visits[3]).toMatchObject({ appointmentId: undefined, encounterId: undefined, appointmentType: undefined });
   });
+
+  test('names the provider by first and last name, as the Visits tab does', () => {
+    const withMiddleName: Practitioner[] = [
+      { resourceType: 'Practitioner', id: 'dr1', name: [{ given: ['Ann', 'Marie'], family: 'Lee' }] },
+    ];
+    const visits = buildVitalsFlowsheet({
+      appointments,
+      encounters,
+      observations,
+      conditions,
+      practitioners: withMiddleName,
+    });
+    expect(visits[2].attending).toBe('Ann Lee');
+  });
 });
 
 describe('fetchVisits', () => {

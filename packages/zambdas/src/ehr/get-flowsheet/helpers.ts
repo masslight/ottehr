@@ -6,7 +6,7 @@ import { FOLLOWUP_SYSTEMS, getEncounterVisitType } from 'utils/lib/fhir/encounte
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
-import { getFullName } from 'utils/lib/fhir/patient';
+import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
@@ -148,7 +148,8 @@ export const describeVisit = (
     serviceCategory: serviceCategory?.code ?? serviceCategory?.display,
     reason: getReasonForVisitFromAppointment(appointment) ?? '',
     primaryDiagnosis: coding ? [coding.code, coding.display].filter(Boolean).join(' — ') : '',
-    attending: attending ? getFullName(attending) : '',
+    // First and last name, as the Visits tab shows the provider.
+    attending: attending ? `${getFirstName(attending)} ${getLastName(attending)}` : '',
   };
 };
 
