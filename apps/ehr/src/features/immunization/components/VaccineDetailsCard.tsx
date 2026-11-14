@@ -46,7 +46,7 @@ import {
 } from './immunizationLines';
 import { ImmunizationSectionLabel, ImmunizationSentences } from './ImmunizationSentences';
 import { OrderStatusChip } from './OrderStatusChip';
-import { needsVfcConfirmation, shownVfcEligibility, VfcUnconfirmedDialog } from './VfcEligibilityBox';
+import { needsVfcConfirmation, shownVfcEligibility } from './VfcEligibilityBox';
 
 interface Props {
   order: ImmunizationOrder;
@@ -62,6 +62,8 @@ const RELATIONSHIP_OPTIONS = EMERGENCY_CONTACT_RELATIONSHIPS.map((relationship) 
 interface ReasonValues {
   reason?: string;
   otherReason: string;
+  /** The dialog's "Confirm VFC eligibility" box. */
+  confirmVfc: boolean;
 }
 
 const lineFromOrder = (order: ImmunizationOrder): ImmunizationLine =>
@@ -84,11 +86,10 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     setLine(lineFromOrder(order));
     setContact(order.administrationDetails?.emergencyContact ?? {});
   }, [order]);
-  const reasonForm = useForm<ReasonValues>({ defaultValues: { otherReason: '' } });
+  const reasonForm = useForm<ReasonValues>({ defaultValues: { otherReason: '', confirmVfc: true } });
 
   const navigate = useNavigate();
   const [showAdministrationConfirmationDialog, setShowAdministrationConfirmationDialog] = useState<boolean>(false);
-  const [showVfcUnconfirmedDialog, setShowVfcUnconfirmedDialog] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [administrationType, setAdministrationType] = useState<AdministrationType>(ADMINISTERED);
   const [attempted, setAttempted] = useState(false);
@@ -174,11 +175,8 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     setAdministrationType(type);
     setAttempted(true);
     if (errorsFor(type).length > 0) return;
-    if (type !== NOT_ADMINISTERED && needsVfcConfirmation(vfc, line.administrationDetails.fundingSource)) {
-      setShowVfcUnconfirmedDialog(true);
-    } else {
-      setShowAdministrationConfirmationDialog(true);
-    }
+    reasonForm.setValue('confirmVfc', true);
+    setShowAdministrationConfirmationDialog(true);
   };
 
   const updateContact = (patch: Partial<ImmunizationEmergencyContact>): void =>
@@ -304,17 +302,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
         </Stack>
       </AccordionCard>
 
-      <VfcUnconfirmedDialog
-        open={showVfcUnconfirmedDialog}
-        encounterId={order.encounterId || undefined}
-        patientFirstName={resources?.patient?.firstName}
-        onClose={() => setShowVfcUnconfirmedDialog(false)}
-        onContinue={() => {
-          setShowVfcUnconfirmedDialog(false);
-          setShowAdministrationConfirmationDialog(true);
-        }}
-      />
-
       {/* The dialog's reason fields are react-hook-form inputs, so they get a form of their own. */}
       <FormProvider {...reasonForm}>
         <AdministrationConfirmationDialog
@@ -329,6 +316,11 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
             setShowAdministrationConfirmationDialog(false);
           }}
           handleConfirm={reasonForm.handleSubmit(onSubmit)}
+          encounterId={order.encounterId || undefined}
+          vfcUnconfirmed={
+            administrationType !== NOT_ADMINISTERED &&
+            needsVfcConfirmation(vfc, line.administrationDetails.fundingSource)
+          }
         />
       </FormProvider>
 

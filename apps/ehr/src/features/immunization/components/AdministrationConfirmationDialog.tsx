@@ -1,6 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useFormContext } from 'react-hook-form';
+import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -9,7 +10,10 @@ import {
   ReasonListCodes,
   reasonListValues,
 } from 'src/features/visits/in-person/components/medication-administration/medicationTypes';
+import { VFC_ELIGIBILITY_LABELS } from 'utils/lib/types/data/immunization/vfc';
 import { ADMINISTERED, AdministrationType } from '../common';
+import { useVfcEligibility } from '../hooks/useVaccineInventory';
+import { useConfirmVfcCategory } from './VfcEligibilityBox';
 
 interface Props {
   administrationType: AdministrationType;
@@ -20,7 +24,10 @@ interface Props {
   route: string | undefined;
   open: boolean;
   handleClose: () => void;
-  handleConfirm: () => void;
+  handleConfirm: () => void | Promise<void>;
+  encounterId?: string;
+  /** A dose from VFC stock is given while the visit's VFC eligibility isn't confirmed. */
+  vfcUnconfirmed?: boolean;
 }
 
 export const AdministrationConfirmationDialog: React.FC<Props> = ({
@@ -33,10 +40,21 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
   open,
   handleClose,
   handleConfirm,
+  encounterId,
+  vfcUnconfirmed = false,
 }) => {
   const methods = useFormContext();
   const reason = methods.watch('reason');
   const otherReason = methods.watch('otherReason');
+  const vfcCategory = useVfcEligibility(encounterId).data?.derived?.code;
+  const { confirm: confirmVfcCategory } = useConfirmVfcCategory(encounterId);
+  // With the box ticked, the pre-filled VFC category is confirmed first; a failed confirmation saves nothing.
+  const confirmThenSave = async (): Promise<void> => {
+    if (vfcUnconfirmed && vfcCategory && methods.getValues('confirmVfc') && !(await confirmVfcCategory(vfcCategory))) {
+      return;
+    }
+    await handleConfirm();
+  };
   return (
     <InPersonModal
       color="primary.main"
@@ -44,7 +62,7 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
       showEntityPreview={false}
       open={open}
       handleClose={handleClose}
-      handleConfirm={handleConfirm}
+      handleConfirm={confirmThenSave}
       disabled={
         administrationType !== ADMINISTERED && (!reason || (reason === ReasonListCodes.OTHER && !otherReason?.trim()))
       }
@@ -61,6 +79,20 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
             <strong>Immunization:</strong> {medicationName} / {dose}
             {unit} / {route}
           </Typography>
+          {vfcUnconfirmed && (
+            <>
+              <Typography>VFC eligibility isn't confirmed for this visit.</Typography>
+              {vfcCategory ? (
+                <CheckboxInput
+                  name="confirmVfc"
+                  label={`Confirm VFC eligibility: ${VFC_ELIGIBILITY_LABELS[vfcCategory].long}`}
+                  dataTestId={dataTestIds.administrationConfirmationDialog.vfcConfirmCheckbox}
+                />
+              ) : (
+                <Typography>Pick a category at the top.</Typography>
+              )}
+            </>
+          )}
           <Typography data-testid={dataTestIds.administrationConfirmationDialog.message}>
             Please confirm that you want to mark this immunization order as{' '}
             {<strong>{administrationType.label}</strong>}

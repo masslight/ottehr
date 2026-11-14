@@ -81,10 +81,18 @@ vi.mock('src/features/immunization/components/ImmunizationSentences', () => ({
 vi.mock('src/features/immunization/components/AdministrationConfirmationDialog', async () => {
   const { useFormContext } = await vi.importActual<typeof import('react-hook-form')>('react-hook-form');
   return {
-    AdministrationConfirmationDialog: ({ open, handleConfirm }: { open: boolean; handleConfirm: () => void }) => {
+    AdministrationConfirmationDialog: ({
+      open,
+      handleConfirm,
+      vfcUnconfirmed,
+    }: {
+      open: boolean;
+      handleConfirm: () => void;
+      vfcUnconfirmed?: boolean;
+    }) => {
       const { setValue } = useFormContext();
       return open ? (
-        <div data-testid="administration-confirmation-dialog">
+        <div data-testid="administration-confirmation-dialog" data-vfc-unconfirmed={String(!!vfcUnconfirmed)}>
           <button
             type="button"
             onClick={() => {
@@ -213,33 +221,37 @@ describe('VaccineDetailsCard - blank administration text', () => {
     expect(screen.queryByTestId('administration-confirmation-dialog')).not.toBeInTheDocument();
   });
 
-  it('warns before a VFC lot is given while VFC eligibility is not confirmed, and lets staff continue', async () => {
+  it('asks about VFC eligibility in the confirmation when a VFC lot is given while it is not confirmed', async () => {
     vfc.data = { applies: true, derived: { code: 'V02' } };
     renderCard('L1', { ...COMPLETE_ADMINISTRATION, fundingSource: 'vfc' });
 
     await userEvent.click(screen.getByRole('button', { name: 'Partly Administered' }));
-    expect(await screen.findByRole('dialog', { name: "VFC eligibility isn't confirmed" })).toBeInTheDocument();
-    expect(screen.queryByTestId('administration-confirmation-dialog')).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(await screen.findByTestId('administration-confirmation-dialog')).toBeInTheDocument();
+    expect(await screen.findByTestId('administration-confirmation-dialog')).toHaveAttribute(
+      'data-vfc-unconfirmed',
+      'true'
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('does not warn for marking a VFC dose not administered', async () => {
+  it('does not ask about VFC eligibility for marking a VFC dose not administered', async () => {
     vfc.data = { applies: true, derived: { code: 'V02' } };
     renderCard('L1', { ...COMPLETE_ADMINISTRATION, fundingSource: 'vfc' });
 
     await userEvent.click(screen.getByRole('button', { name: 'Not Administered' }));
-    expect(await screen.findByTestId('administration-confirmation-dialog')).toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: "VFC eligibility isn't confirmed" })).not.toBeInTheDocument();
+    expect(await screen.findByTestId('administration-confirmation-dialog')).toHaveAttribute(
+      'data-vfc-unconfirmed',
+      'false'
+    );
   });
 
-  it('does not warn for private stock', async () => {
+  it('does not ask about VFC eligibility for private stock', async () => {
     vfc.data = { applies: true, derived: { code: 'V02' } };
     renderCard('L1', { ...COMPLETE_ADMINISTRATION, fundingSource: 'private' });
 
     await userEvent.click(screen.getByRole('button', { name: 'Administered' }));
-    expect(await screen.findByTestId('administration-confirmation-dialog')).toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: "VFC eligibility isn't confirmed" })).not.toBeInTheDocument();
+    expect(await screen.findByTestId('administration-confirmation-dialog')).toHaveAttribute(
+      'data-vfc-unconfirmed',
+      'false'
+    );
   });
 });

@@ -954,6 +954,7 @@ export const dataTestIds = {
     vaccine: 'administration-dialog-vaccine',
     message: 'administration-dialog-message',
     reasonField: 'administration-dialog-reason-field',
+    vfcConfirmCheckbox: 'administration-dialog-vfc-confirm-checkbox',
   },
 
   inHouseMedicationAdministrationConfirmationDialog: {
@@ -1002,8 +1003,6 @@ export const dataTestIds = {
     confirmed: 'vfc-eligibility-confirmed',
     blank: 'vfc-eligibility-blank',
     confirmButton: 'vfc-eligibility-confirm-button',
-    unconfirmedDialog: 'vfc-eligibility-unconfirmed-dialog',
-    continueButton: 'vfc-eligibility-continue-button',
   },
 
   vaccineLotBlank: {

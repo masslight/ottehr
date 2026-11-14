@@ -1,9 +1,8 @@
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, List, ListItemButton, ListItemText } from '@mui/material';
+import { Box, List, ListItemButton, ListItemText } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PopoverBlank, Sentence } from 'src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
@@ -30,7 +29,7 @@ export const needsVfcConfirmation = (
 ): boolean => !!data?.applies && !data.confirmed && fundingSource === 'vfc';
 
 /** Confirms a category for the visit; a failure is shown and resolves false. */
-const useConfirm = (
+export const useConfirmVfcCategory = (
   encounterId: string | undefined
 ): { confirm: (code: VfcEligibilityCode) => Promise<boolean>; isPending: boolean } => {
   const { mutateAsync, isPending } = useConfirmVfcEligibility(encounterId);
@@ -58,7 +57,7 @@ interface VfcEligibilityBoxProps {
  */
 export const VfcEligibilityBox: FC<VfcEligibilityBoxProps> = ({ encounterId, readOnly = false }) => {
   const { data } = useVfcEligibility(encounterId);
-  const { confirm, isPending } = useConfirm(encounterId);
+  const { confirm, isPending } = useConfirmVfcCategory(encounterId);
 
   if (!data?.applies) return null;
   const { confirmed } = data;
@@ -121,66 +120,5 @@ export const VfcEligibilityBox: FC<VfcEligibilityBoxProps> = ({ encounterId, rea
         )
       )}
     </Sentence>
-  );
-};
-
-interface VfcUnconfirmedDialogProps {
-  open: boolean;
-  encounterId: string | undefined;
-  patientFirstName: string | undefined;
-  onClose: () => void;
-  /** Goes on to save the dose. */
-  onContinue: () => void;
-}
-
-/** Asked before a dose from VFC stock is saved as given while the visit's VFC eligibility is not confirmed. */
-export const VfcUnconfirmedDialog: FC<VfcUnconfirmedDialogProps> = ({
-  open,
-  encounterId,
-  patientFirstName,
-  onClose,
-  onContinue,
-}) => {
-  const derived = useVfcEligibility(encounterId).data?.derived?.code;
-  const { confirm, isPending } = useConfirm(encounterId);
-  const who = patientFirstName || 'The patient';
-
-  return (
-    <CustomDialog
-      open={open}
-      handleClose={onClose}
-      title="VFC eligibility isn't confirmed"
-      description={`${who} is getting VFC stock, but VFC eligibility hasn't been confirmed for this visit.${
-        derived ? '' : ' Pick a category at the top.'
-      }`}
-      dataTestId={dataTestIds.vfcEligibility.unconfirmedDialog}
-      maxWidth="xs"
-      fullWidth
-      actions={
-        <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
-          {derived && (
-            <LoadingButton
-              variant="contained"
-              loading={isPending}
-              onClick={async () => {
-                if (await confirm(derived)) onContinue();
-              }}
-              sx={ROUNDED_BUTTON_SX}
-              data-testid={dataTestIds.dialog.proceedButton}
-            >
-              Confirm and continue
-            </LoadingButton>
-          )}
-          <Button
-            variant={derived ? 'text' : 'contained'}
-            onClick={onContinue}
-            sx={ROUNDED_BUTTON_SX}
-            data-testid={dataTestIds.vfcEligibility.continueButton}
-          >
-            Continue
-          </Button>
-        </Box>
-      }
-    />
   );
 };

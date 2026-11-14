@@ -1,5 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
+import React from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
 import { VfcEligibilityResponse } from 'utils/lib/types/api/vfc-eligibility';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,7 +19,9 @@ vi.mock('src/features/immunization/hooks/useVaccineInventory', () => ({
 }));
 
 import { dataTestIds } from '../../src/constants/data-test-ids';
-import { VfcEligibilityBox, VfcUnconfirmedDialog } from '../../src/features/immunization/components/VfcEligibilityBox';
+import { ADMINISTERED } from '../../src/features/immunization/common';
+import { AdministrationConfirmationDialog } from '../../src/features/immunization/components/AdministrationConfirmationDialog';
+import { VfcEligibilityBox } from '../../src/features/immunization/components/VfcEligibilityBox';
 
 const setData = (data: VfcEligibilityResponse | undefined): void => {
   eligibility.data = data;
@@ -99,60 +104,95 @@ describe('VfcEligibilityBox', () => {
   });
 });
 
-describe('VfcUnconfirmedDialog', () => {
-  const onContinue = vi.fn();
-  const renderDialog = (): void => {
-    render(
-      <VfcUnconfirmedDialog
-        open
-        encounterId="enc-1"
-        patientFirstName="Nora"
-        onClose={vi.fn()}
-        onContinue={onContinue}
-      />
+describe('AdministrationConfirmationDialog - VFC eligibility not confirmed', () => {
+  const save = vi.fn();
+  const Dialog = ({ vfcUnconfirmed = true }: { vfcUnconfirmed?: boolean }): React.ReactElement => {
+    const methods = useForm({ defaultValues: { otherReason: '', confirmVfc: true } });
+    return (
+      <FormProvider {...methods}>
+        <AdministrationConfirmationDialog
+          administrationType={ADMINISTERED}
+          patientName="Nora Diaz"
+          medicationName="Tdap"
+          dose="0.5"
+          unit="mL"
+          route="Intramuscular"
+          open
+          handleClose={vi.fn()}
+          handleConfirm={save}
+          encounterId="enc-1"
+          vfcUnconfirmed={vfcUnconfirmed}
+        />
+      </FormProvider>
     );
   };
+  const markAdministered = (): void => {
+    fireEvent.click(screen.getByRole('button', { name: 'Mark as Administered' }));
+  };
+  const checkbox = (): HTMLInputElement =>
+    within(screen.getByTestId(dataTestIds.administrationConfirmationDialog.vfcConfirmCheckbox)).getByRole(
+      'checkbox'
+    ) as HTMLInputElement;
 
   beforeEach(() => {
     vi.clearAllMocks();
     confirm.mockResolvedValue({ applies: true });
   });
 
-  it('confirms the pre-filled category, then continues', async () => {
+  it('confirms the pre-filled category when the box is ticked, then saves', async () => {
     setData({ applies: true, derived: { code: 'V02' } });
-    renderDialog();
+    render(<Dialog />);
 
-    expect(screen.getByText("VFC eligibility isn't confirmed")).toBeInTheDocument();
-    expect(
-      screen.getByText("Nora is getting VFC stock, but VFC eligibility hasn't been confirmed for this visit.")
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm and continue' }));
-    await waitFor(() => expect(onContinue).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("VFC eligibility isn't confirmed for this visit.")).toBeInTheDocument();
+    expect(screen.getByText('Confirm VFC eligibility: Eligible: Medicaid')).toBeInTheDocument();
+    expect(checkbox()).toBeChecked();
+    markAdministered();
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(confirm).toHaveBeenCalledWith('V02');
+    expect(confirm.mock.invocationCallOrder[0]).toBeLessThan(save.mock.invocationCallOrder[0]);
   });
 
-  it('continues without confirming', () => {
+  it('saves without confirming when the box is unticked', async () => {
     setData({ applies: true, derived: { code: 'V02' } });
-    renderDialog();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(onContinue).toHaveBeenCalledTimes(1);
+    render(<Dialog />);
+    fireEvent.click(checkbox());
+    expect(checkbox()).not.toBeChecked();
+    markAdministered();
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(confirm).not.toHaveBeenCalled();
   });
 
-  it('does not continue when the confirmation fails', async () => {
+  it('does not save when the confirmation fails', async () => {
     confirm.mockRejectedValue(new Error('nope'));
     setData({ applies: true, derived: { code: 'V02' } });
-    renderDialog();
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm and continue' }));
+    render(<Dialog />);
+    markAdministered();
     await waitFor(() => expect(confirm).toHaveBeenCalled());
-    expect(onContinue).not.toHaveBeenCalled();
+    await waitFor(() => expect(enqueueSnackbar).toHaveBeenCalledWith('nope', { variant: 'error' }));
+    expect(save).not.toHaveBeenCalled();
   });
 
-  it('asks for a category at the top when nothing is pre-filled', () => {
+  it('asks for a category at the top when nothing is pre-filled, and saves without confirming', async () => {
     setData({ applies: true });
-    renderDialog();
-    expect(screen.getByText(/Pick a category at the top\.$/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Confirm and continue' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+    render(<Dialog />);
+    expect(screen.getByText('Pick a category at the top.')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId(dataTestIds.administrationConfirmationDialog.vfcConfirmCheckbox)
+    ).not.toBeInTheDocument();
+    markAdministered();
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('shows no VFC part otherwise', async () => {
+    setData({ applies: true, derived: { code: 'V02' } });
+    render(<Dialog vfcUnconfirmed={false} />);
+    expect(screen.queryByText("VFC eligibility isn't confirmed for this visit.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId(dataTestIds.administrationConfirmationDialog.vfcConfirmCheckbox)
+    ).not.toBeInTheDocument();
+    markAdministered();
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(confirm).not.toHaveBeenCalled();
   });
 });
