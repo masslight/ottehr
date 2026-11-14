@@ -355,9 +355,13 @@ export default function ReceiveShipmentDialog({
           </Button>
           {mismatch ? (
             <ConfirmationDialog
-              title="Receive under a different medication?"
-              description={`The FDA NDC directory says NDC ${product?.packageNdc ?? form.ndc.trim()} is ${
-                product?.name ?? 'a different medication'
+              title={`Receive under a different ${isVaccine ? 'vaccine' : 'medication'}?`}
+              description={`The ${
+                'vaccine' in lookup && lookup.vaccine ? 'CDC NDC crosswalk' : 'FDA NDC directory'
+              } says NDC ${product?.packageNdc ?? form.ndc.trim()} is ${
+                'vaccine' in lookup && lookup.vaccine
+                  ? lookup.vaccine.vaccineName
+                  : product?.name ?? 'a different medication'
               }, not ${name}.`}
               response={() => receive()}
               actionButtons={{ proceed: { text: receiveLabel, color: 'error', loading: saving }, reverse: true }}
