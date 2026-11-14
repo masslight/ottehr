@@ -636,8 +636,8 @@ export default function UpdateMedicationPage(): ReactElement {
             <Typography variant="body1">
               {isVaccine
                 ? status === 'active'
-                  ? 'Switching this vaccine off takes it out of the order screen. Orders already placed are not affected.'
-                  : 'Switching this vaccine on adds it to the vaccines the order screen offers.'
+                  ? 'Removing this vaccine makes it Inactive and takes it out of the order screen. Orders already placed are not affected.'
+                  : 'Activating this vaccine adds it to the vaccines the order screen offers.'
                 : status === 'active'
                 ? 'Removing this medication will make it so it can no longer be ordered for a visit. It will not affect any medications that have already been ordered.'
                 : 'Activating this medication will add it to the list of in-house medications that can be ordered for a visit.'}

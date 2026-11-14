@@ -13,8 +13,8 @@ import {
   GetImmunizationOrdersResponse,
   GetPatientImmunizationsResponse,
   GetVaccinesResponse,
-  RecordOutsideImmunizationRequest,
-  RecordOutsideImmunizationResponse,
+  RecordExternalImmunizationRequest,
+  RecordExternalImmunizationResponse,
   Vaccine,
 } from 'utils/lib/types/data/immunization/types';
 import { invalidateChartSections } from '../../shared/hooks/chartSectionCache';
@@ -135,7 +135,7 @@ export const useGetVaccines = (): UseQueryResult<Vaccine[], Error> => {
 
 export const GET_PATIENT_IMMUNIZATIONS_KEY = 'get-patient-immunizations';
 
-/** The patient's Immunization records: doses given here and outside, and the per-vaccine marks. */
+/** The patient's Immunization records: doses given here and externally, and the per-vaccine marks. */
 export const useGetPatientImmunizations = (
   patientId: string | undefined
 ): UseQueryResult<GetPatientImmunizationsResponse, Error> => {
@@ -175,17 +175,17 @@ export const useGetImmunizationForecast = (
 };
 
 /** Saves a dose administered externally straight into the patient's history. */
-export const useRecordOutsideImmunization = (): UseMutationResult<
-  RecordOutsideImmunizationResponse,
+export const useRecordExternalImmunization = (): UseMutationResult<
+  RecordExternalImmunizationResponse,
   Error,
-  RecordOutsideImmunizationRequest
+  RecordExternalImmunizationRequest
 > => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: RecordOutsideImmunizationRequest) => {
+    mutationFn: async (input: RecordExternalImmunizationRequest) => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
-      const response = await oystehrZambda.zambda.execute({ ...input, id: 'record-outside-immunization' });
+      const response = await oystehrZambda.zambda.execute({ ...input, id: 'record-external-immunization' });
       return chooseJson(response);
     },
     onSuccess: async () => {

@@ -6,7 +6,7 @@ import { activeMarksByGroup, buildForecastInput, isoDateOf } from './forecast-in
 const dose = (overrides: Partial<PatientImmunizationRecord>): PatientImmunizationRecord => ({
   id: 'd',
   vaccineName: 'Vaccine',
-  outside: false,
+  external: false,
   dateUnknown: false,
   ...overrides,
 });
@@ -21,7 +21,7 @@ const mark = (overrides: Partial<ImmunizationMark>): ImmunizationMark => ({
 });
 
 describe('buildForecastInput', () => {
-  it('turns records into engine doses: calendar dates, outside source code, undated kept as null', () => {
+  it('turns records into engine doses: calendar dates, external source code, undated kept as null', () => {
     const input = buildForecastInput(
       { dob: '2026-07-08', sex: 'female', asOf: '2026-11-10' },
       [
@@ -29,12 +29,12 @@ describe('buildForecastInput', () => {
         dose({
           id: 'out',
           cvx: '08',
-          outside: true,
+          external: true,
           dateGiven: '2026-07-08',
           sourceCode: '02',
           source: 'other-provider',
         }),
-        dose({ id: 'undated', cvx: '03', outside: true, dateUnknown: true, sourceCode: '01', source: 'unspecified' }),
+        dose({ id: 'undated', cvx: '03', external: true, dateUnknown: true, sourceCode: '01', source: 'unspecified' }),
         dose({ id: 'no-cvx', dateGiven: '2026-10-01T09:00:00.000Z' }),
       ],
       []
@@ -44,8 +44,8 @@ describe('buildForecastInput', () => {
     expect(input.asOf).toBe('2026-11-10');
     expect(input.doses).toEqual([
       { id: 'here', date: '2026-09-09', cvx: '120', source: 'administered' },
-      { id: 'out', date: '2026-07-08', cvx: '08', source: 'outside', outsideSource: '02' },
-      { id: 'undated', date: null, cvx: '03', source: 'outside', outsideSource: '01' },
+      { id: 'out', date: '2026-07-08', cvx: '08', source: 'external', externalSource: '02' },
+      { id: 'undated', date: null, cvx: '03', source: 'external', externalSource: '01' },
       { id: 'no-cvx', date: '2026-10-01', cvx: '', source: 'administered' },
     ]);
   });
@@ -88,14 +88,14 @@ describe('buildForecastInput', () => {
     expect(isoDateOf('2026-03-02', 'Pacific/Pago_Pago')).toBe('2026-03-02');
     expect(isoDateOf('2026-03-02', 'America/New_York')).toBe('2026-03-02');
     expect(isoDateOf('2026-02-30')).toBeUndefined();
-    // Maya (DOB 2025-03-06): an outside MMR on 2026-03-02, the 4-day grace day, is valid in New York
+    // Maya (DOB 2025-03-06): an external MMR on 2026-03-02, the 4-day grace day, is valid in New York
     const input = buildForecastInput(
       { dob: '2025-03-06', asOf: '2026-11-10' },
       [
         dose({
           id: 'mmr',
           cvx: '03',
-          outside: true,
+          external: true,
           dateGiven: '2026-03-02',
           sourceCode: '02',
           source: 'other-provider',

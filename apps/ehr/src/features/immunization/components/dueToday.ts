@@ -196,7 +196,7 @@ export const buildDueToday = (
 
 /** A vaccine is on the page once an order line names it. */
 export const isVaccineAdded = (vaccine: StockedVaccine, lines: ImmunizationFormValues[]): boolean =>
-  lines.some((line) => !line.outside && line.details.medication?.id === vaccine.id);
+  lines.some((line) => !line.external && line.details.medication?.id === vaccine.id);
 
 export interface DueTodayLotPick {
   /** The patient's VFC eligibility for the visit, once confirmed. */
@@ -272,7 +272,7 @@ export interface DuplicateGroups {
 
 /**
  * For each order line, the diseases an earlier line on the page already gives, any disease (due or not), grouped by
- * that earlier line. Outside lines and lines without a vaccine are left out. Informs only: never blocks saving.
+ * that earlier line. External lines and lines without a vaccine are left out. Informs only: never blocks saving.
  */
 export const duplicateGroupsByLine = (
   lines: ImmunizationFormValues[],
@@ -280,7 +280,7 @@ export const duplicateGroupsByLine = (
   cvxGroups: CvxGroups
 ): DuplicateGroups[][] => {
   const given = lines.map((line) =>
-    !line.outside && line.details.medication ? lineGroups(line, stocked, cvxGroups) : new Set<ImmunizationGroupId>()
+    !line.external && line.details.medication ? lineGroups(line, stocked, cvxGroups) : new Set<ImmunizationGroupId>()
   );
   return lines.map((_, index) => {
     // each disease is named once, against the first earlier line that gives it

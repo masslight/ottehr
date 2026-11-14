@@ -127,10 +127,10 @@ export interface GetVaccinesResponse {
   vaccines: Vaccine[];
 }
 
-// ── Immunization records (FHIR Immunization): doses given here, outside doses and per-vaccine marks ──
+// ── Immunization records (FHIR Immunization): doses given here, external doses and per-vaccine marks ──
 
-/** Where an outside dose's information came from: the CDC NIP001 list registries take for historical doses. */
-export type ImmunizationOutsideSource =
+/** Where an external dose's information came from: the CDC NIP001 list registries take for historical doses. */
+export type ImmunizationExternalSource =
   | 'written-record'
   | 'other-provider'
   | 'recall'
@@ -140,23 +140,23 @@ export type ImmunizationOutsideSource =
   | 'public-agency';
 
 /** A dose administered externally, as the order screen's external line holds it. Only the vaccine is required. */
-export interface OutsideImmunizationDetails {
+export interface ExternalImmunizationDetails {
   vaccine: { id?: string; name: string };
   cvx?: string;
   /** ISO date; absent when the exact date is not known. */
   dateGiven?: string;
   place?: string;
-  source?: ImmunizationOutsideSource;
+  source?: ImmunizationExternalSource;
   lot?: string;
   manufacturer?: string;
   mvx?: string;
 }
 
-export interface RecordOutsideImmunizationRequest extends OutsideImmunizationDetails {
+export interface RecordExternalImmunizationRequest extends ExternalImmunizationDetails {
   encounterId: string;
 }
 
-export interface RecordOutsideImmunizationResponse {
+export interface RecordExternalImmunizationResponse {
   immunizationId: string;
 }
 
@@ -191,18 +191,18 @@ export interface ImmunizationActor {
   name: string;
 }
 
-/** One dose in the patient's immunization history: given here (from an administered order) or outside. */
+/** One dose in the patient's immunization history: given here (from an administered order) or externally. */
 export interface PatientImmunizationRecord {
   id: string;
   vaccineName: string;
   cvx?: string;
-  outside: boolean;
-  /** ISO date-time (given here) or date (outside); absent when the date is unknown. */
+  external: boolean;
+  /** ISO date-time (given here) or date (external); absent when the date is unknown. */
   dateGiven?: string;
   dateUnknown: boolean;
   administeredBy?: ImmunizationActor;
   place?: string;
-  source?: ImmunizationOutsideSource | 'unspecified';
+  source?: ImmunizationExternalSource | 'unspecified';
   /** The CDC NIP001 code behind `source` ('04' = recall), as the forecast engine reads it. */
   sourceCode?: string;
   lot?: string;

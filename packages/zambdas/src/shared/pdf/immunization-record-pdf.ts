@@ -4,7 +4,7 @@ import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
-import { IMMUNIZATION_OUTSIDE_SOURCES, IMMUNIZATION_SOURCE_UNSPECIFIED } from 'utils/lib/fhir/immunization';
+import { IMMUNIZATION_EXTERNAL_SOURCES, IMMUNIZATION_SOURCE_UNSPECIFIED } from 'utils/lib/fhir/immunization';
 import {
   EvaluatedDose,
   ImmunizationForecast,
@@ -48,22 +48,22 @@ const DATE_FORMAT = 'MM/dd/yyyy';
 
 const formatDay = (isoDate: string): string => DateTime.fromISO(isoDate).toFormat(DATE_FORMAT);
 
-/** A record's date given on the day it was given: in the practice's zone for a dose given here, as entered outside. */
+/** A record's date given on the day it was given: in the practice's zone for a dose given here, as entered for an external one. */
 const formatDateGiven = (record: PatientImmunizationRecord | undefined, timezone: string): string => {
   if (!record?.dateGiven) return 'Date unknown';
   const given = DateTime.fromISO(record.dateGiven, { setZone: true });
-  return (record.outside ? given : given.setZone(timezone)).toFormat(DATE_FORMAT);
+  return (record.external ? given : given.setZone(timezone)).toFormat(DATE_FORMAT);
 };
 
 const sourceLabel = (record: PatientImmunizationRecord): string =>
-  IMMUNIZATION_OUTSIDE_SOURCES.find((source) => source.value === record.source)?.label ??
+  IMMUNIZATION_EXTERNAL_SOURCES.find((source) => source.value === record.source)?.label ??
   IMMUNIZATION_SOURCE_UNSPECIFIED.label;
 
-/** "Outside: Mercy Pediatrics, from a written record" — where and from what source an outside dose is known. */
-const outsideText = (record: PatientImmunizationRecord): string =>
-  ['Outside', [record.place, `from ${sourceLabel(record)}`].filter(Boolean).join(', ')].join(': ');
+/** "External: Mercy Pediatrics, from a written record" — where and from what source an external dose is known. */
+const externalText = (record: PatientImmunizationRecord): string =>
+  ['External', [record.place, `from ${sourceLabel(record)}`].filter(Boolean).join(', ')].join(': ');
 
-/** "03/02/2026 — DTaP, dose 1 · Outside: Mercy Pediatrics, from a written record". */
+/** "03/02/2026 — DTaP, dose 1 · External: Mercy Pediatrics, from a written record". */
 export const doseLine = (
   dose: Pick<EvaluatedDose, 'doseNumber' | 'status' | 'reason'>,
   record: PatientImmunizationRecord | undefined,
@@ -72,7 +72,7 @@ export const doseLine = (
   const name = record?.vaccineName || 'Vaccine';
   const number = dose.doseNumber != null ? `, dose ${dose.doseNumber}` : '';
   const parts = [`${formatDateGiven(record, timezone)} — ${name}${number}`];
-  if (record?.outside) parts.push(outsideText(record));
+  if (record?.external) parts.push(externalText(record));
   if (dose.status !== 'valid' && dose.reason)
     parts.push(dose.status === 'not-counted' ? dose.reason : `${dose.status}: ${dose.reason}`);
   return parts.join(' · ');

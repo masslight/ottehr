@@ -179,8 +179,8 @@ const PROJECTED_GRAY = '#8A96A3';
 /** A dose not given yet (next or projected): a dashed circle, darker than the outline bars so its number reads. */
 const FUTURE_CIRCLE_BORDER = '#7A8794';
 const FUTURE_CIRCLE_TEXT = '#4A5561';
-/** A dose given outside: filled like one given here, in a light navy tint. */
-const OUTSIDE_FILL = '#A9BCD9';
+/** A dose given externally: filled like one given here, in a light navy tint. */
+const EXTERNAL_FILL = '#A9BCD9';
 const EARLIEST_STRIPES = 'repeating-linear-gradient(45deg, #A9B4C0 0 3px, #EEF1F4 3px 7px)';
 const SEGMENT_STYLE: Record<
   TimelineSegment['kind'],
@@ -291,7 +291,7 @@ const Dose = ({
   onClick: () => void;
 }): ReactElement => {
   const theme = useTheme();
-  const outside = record?.outside ?? false;
+  const external = record?.external ?? false;
   const late = dose.timing === 'late';
   const label = dose.counted ? `${laneLabel} dose ${dose.doseNumber}` : `${laneLabel} dose not counted`;
   return (
@@ -310,18 +310,18 @@ const Dose = ({
           borderRadius: '50%',
           fontSize: 10,
           fontWeight: 600,
-          // filled = given (navy here, light blue outside); a not-counted dose is a gray outline
+          // filled = given (navy here, light blue externally); a not-counted dose is a gray outline
           border: `2px solid ${
             late
               ? theme.palette.error.main
               : !dose.counted
               ? theme.palette.text.disabled
-              : outside
-              ? OUTSIDE_FILL
+              : external
+              ? EXTERNAL_FILL
               : theme.palette.primary.dark
           }`,
-          bgcolor: !dose.counted ? '#fff' : outside ? OUTSIDE_FILL : theme.palette.primary.dark,
-          color: !dose.counted ? theme.palette.text.secondary : outside ? theme.palette.primary.dark : '#fff',
+          bgcolor: !dose.counted ? '#fff' : external ? EXTERNAL_FILL : theme.palette.primary.dark,
+          color: !dose.counted ? theme.palette.text.secondary : external ? theme.palette.primary.dark : '#fff',
           boxShadow: selected ? `0 0 0 3px ${theme.palette.primary.light}` : 'none',
           zIndex: 2,
         }}
@@ -421,12 +421,12 @@ const LaneStatusIcon = ({
 };
 
 /**
- * "Hep B dose 1 · Engerix-B · given 07/10/2026 (outside, late)", "MMR · date unknown (outside, not counted)": brand
+ * "Hep B dose 1 · Engerix-B · given 07/10/2026 (external, late)", "MMR · date unknown (external, not counted)": brand
  * when known and not just the lane's name, "dose" only with a number, a note only when it matters.
  */
 const givenDoseText = (laneLabel: string, dose: EvaluatedDose, record?: PatientImmunizationRecord): string => {
   const notes = [
-    record?.outside && 'outside',
+    record?.external && 'external',
     dose.counted && dose.timing === 'late' && 'late',
     !dose.counted && 'not counted',
   ].filter(Boolean);
@@ -755,7 +755,7 @@ export const ImmunizationTimeline = ({
                           px: 0.5,
                         }}
                       >
-                        Outside · Date unknown · not counted
+                        External · Date unknown · not counted
                       </ButtonBase>
                     )}
                     {mark && (
@@ -798,9 +798,9 @@ export const ImmunizationTimeline = ({
             [
               <LegendSwatch
                 key="o"
-                sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: OUTSIDE_FILL, boxSizing: 'border-box' }}
+                sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: EXTERNAL_FILL, boxSizing: 'border-box' }}
               />,
-              'Outside',
+              'External',
             ],
             [
               <LegendSwatch

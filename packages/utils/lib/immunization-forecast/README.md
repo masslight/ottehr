@@ -26,16 +26,16 @@ const result: ImmunizationForecast = forecastImmunizations(input);
 | `sex` | FHIR administrative gender; only the HPV series depend on it. |
 | `birthCountry` | Default `"U.S."`; only used for varicella immunity by date of birth. |
 | `asOf` | Assessment date (CDSi "assessment date"), ISO. Pass today in the practice's time zone. |
-| `doses[]` | `{ id, date: string \| null, cvx, source: 'administered' \| 'outside', outsideSource? }`. `outsideSource` is the NIP001 code (`IMMUNIZATION_REPORT_ORIGIN`): `'04'` = the patient's or family's recall. |
+| `doses[]` | `{ id, date: string \| null, cvx, source: 'administered' \| 'external', externalSource? }`. `externalSource` is the NIP001 code (`IMMUNIZATION_REPORT_ORIGIN`): `'04'` = the patient's or family's recall. |
 | `marks` | Per group: `{ type: 'immune' \| 'contraindicated' \| 'declined', date, by, note? }`. A mark overrides the group's status. |
 | `groups` | Optional list of group ids to compute. |
 
 Input rules (decisions #5 and #6):
 
 - Undated doses are shown (`status: 'not-counted'`, reason "Date unknown") but never counted.
-- Recalled doses (`outsideSource: '04'`) are not counted, **except** COVID-19, influenza, PPSV23 (CVX 33) and polio
+- Recalled doses (`externalSource: '04'`) are not counted, **except** COVID-19, influenza, PPSV23 (CVX 33) and polio
   given at 18 y or older (the CDC self-report rule).
-- Every other outside source counts like an administered dose.
+- Every other external source counts like an administered dose.
 - A CVX that maps to none of the forecast antigens is returned in `unmappedDoses`.
 
 ### Output

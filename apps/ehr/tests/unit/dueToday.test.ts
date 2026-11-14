@@ -372,7 +372,7 @@ describe('what ⊕ fills — option B', () => {
     const lines: ImmunizationFormValues[] = [fillFromDueToday(line, byId('prevnar'))];
     expect(vaccinesToAddAll(dueToday, lines).map((vaccine) => vaccine.name)).toEqual(['Pentacel', 'RotaTeq']);
     expect(isVaccineAdded(byId('prevnar'), lines)).toBe(true);
-    expect(isVaccineAdded(byId('prevnar'), [{ ...lines[0], outside: {} }])).toBe(false);
+    expect(isVaccineAdded(byId('prevnar'), [{ ...lines[0], external: {} }])).toBe(false);
   });
 });
 
@@ -397,13 +397,13 @@ describe('duplicateGroupsByLine — the duplicate warning on a later line', () =
     expect(duplicateWarningText(twice[1])).toBe('DTaP/Tdap/Td, Polio, Hep B are also in Pediarix above.');
   });
 
-  it('says nothing for different diseases, outside lines or lines without a vaccine', () => {
+  it('says nothing for different diseases, external lines or lines without a vaccine', () => {
     expect(
       duplicateGroupsByLine([typed('engerix', 'Engerix-B', '08'), typed('ipol', 'IPOL', '10')], stocked, cvxGroups)
     ).toEqual([[], []]);
     expect(
       duplicateGroupsByLine(
-        [{ ...typed('engerix', 'Engerix-B', '08'), outside: {} }, typed('engerix2', 'Engerix-B', '08'), base],
+        [{ ...typed('engerix', 'Engerix-B', '08'), external: {} }, typed('engerix2', 'Engerix-B', '08'), base],
         stocked,
         cvxGroups
       )

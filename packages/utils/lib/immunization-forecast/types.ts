@@ -27,7 +27,7 @@ export type ImmunizationGroupId =
 export type ForecastPatientSex = 'female' | 'male' | 'other' | 'unknown';
 
 /**
- * Source of an outside (historical) dose, as the CDC NIP001 "Immunization information source" code set used in
+ * Source of an external (historical) dose, as the CDC NIP001 "Immunization information source" code set used in
  * HL7 RXA-9 and FHIR Immunization.reportOrigin. Decision #5 wording in parentheses.
  */
 export const IMMUNIZATION_REPORT_ORIGIN = {
@@ -59,9 +59,9 @@ export interface ForecastDoseInput {
   /** ISO yyyy-mm-dd, or null when the date is unknown. Undated doses are shown but never counted. */
   date: string | null;
   cvx: string;
-  source: 'administered' | 'outside';
-  /** NIP001 code; only meaningful for source 'outside'. Missing = '01' (unspecified). */
-  outsideSource?: ImmunizationReportOrigin;
+  source: 'administered' | 'external';
+  /** NIP001 code; only meaningful for source 'external'. Missing = '01' (unspecified). */
+  externalSource?: ImmunizationReportOrigin;
 }
 
 export type ForecastMarkType = 'immune' | 'contraindicated' | 'declined';

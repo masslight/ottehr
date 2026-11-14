@@ -7,6 +7,7 @@ import {
   IMMUNIZATION_ADMINISTRATION_IDENTIFIER_SYSTEM,
   IMMUNIZATION_DATE_UNKNOWN,
   IMMUNIZATION_ENTERING_PROVIDER_CODE,
+  IMMUNIZATION_EXTERNAL_SOURCES,
   IMMUNIZATION_INFORMATION_SOURCE_SYSTEM,
   IMMUNIZATION_MARK_CLEARED_BY_URL,
   IMMUNIZATION_MARK_CLEARED_DATE_URL,
@@ -14,7 +15,6 @@ import {
   IMMUNIZATION_MARK_REASON_SYSTEM,
   IMMUNIZATION_MARKS,
   IMMUNIZATION_ORIGIN_SYSTEM,
-  IMMUNIZATION_OUTSIDE_SOURCES,
   IMMUNIZATION_SOURCE_UNSPECIFIED,
   immunizationFromMedicationAdministration,
   immunizationMarkToRecord,
@@ -28,9 +28,9 @@ import {
 import { CVX_CODE_SYSTEM_URL, MVX_CODE_SYSTEM_URL } from 'utils/lib/types/api/medication-administration.constants';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import {
+  ExternalImmunizationDetails,
   GetPatientImmunizationsResponse,
   ImmunizationMarkType,
-  OutsideImmunizationDetails,
   SaveImmunizationMarkRequest,
 } from 'utils/lib/types/data/immunization/types';
 import { APIError, APIErrorCode, INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
@@ -79,7 +79,7 @@ function optionalCode(value: unknown, field: string): string | undefined {
 }
 
 /** The external line's values, checked: the vaccine named, the date (when given) a real past date, the source known. */
-export function validateOutsideImmunizationDetails(body: any): OutsideImmunizationDetails {
+export function validateExternalImmunizationDetails(body: any): ExternalImmunizationDetails {
   const name = optionalText(body?.vaccine?.name, 'vaccine.name');
   if (!name) throw MISSING_REQUIRED_PARAMETERS(['vaccine.name']);
   const id = body?.vaccine?.id ? validateFhirId(body.vaccine.id, 'vaccine.id') : undefined;
@@ -94,7 +94,7 @@ export function validateOutsideImmunizationDetails(body: any): OutsideImmunizati
     }
   }
   const source = optionalText(body?.source, 'source');
-  if (source && !IMMUNIZATION_OUTSIDE_SOURCES.some((option) => option.value === source)) {
+  if (source && !IMMUNIZATION_EXTERNAL_SOURCES.some((option) => option.value === source)) {
     throw INVALID_INPUT_ERROR(`Unknown source "${source}"`);
   }
   return {
@@ -102,7 +102,7 @@ export function validateOutsideImmunizationDetails(body: any): OutsideImmunizati
     cvx: optionalCode(body?.cvx, 'cvx'),
     dateGiven,
     place: optionalText(body?.place, 'place'),
-    source: source as OutsideImmunizationDetails['source'],
+    source: source as ExternalImmunizationDetails['source'],
     lot: optionalText(body?.lot, 'lot'),
     manufacturer: optionalText(body?.manufacturer, 'manufacturer'),
     mvx: optionalCode(body?.mvx, 'mvx'),
@@ -110,17 +110,17 @@ export function validateOutsideImmunizationDetails(body: any): OutsideImmunizati
 }
 
 /**
- * An outside dose: an Immunization only (primarySource false, the source coded from CDC NIP001 and, where one matches, HL7 Immunization Origin), straight into the
+ * An external dose: an Immunization only (primarySource false, the source coded from CDC NIP001 and, where one matches, HL7 Immunization Origin), straight into the
  * history. No order, no stock, no billing. Without a date given, occurrenceString says the date is unknown.
  */
-export function buildOutsideImmunization(
-  details: OutsideImmunizationDetails,
+export function buildExternalImmunization(
+  details: ExternalImmunizationDetails,
   patient: Reference,
   encounter: Reference,
   recorder: Reference,
   now: DateTime = DateTime.now()
 ): Immunization {
-  const source = IMMUNIZATION_OUTSIDE_SOURCES.find((option) => option.value === details.source);
+  const source = IMMUNIZATION_EXTERNAL_SOURCES.find((option) => option.value === details.source);
   const origin = source ?? IMMUNIZATION_SOURCE_UNSPECIFIED;
   return {
     resourceType: 'Immunization',
@@ -237,7 +237,7 @@ export const activeMarkForGroup = (immunizations: Immunization[], vaccineGroup: 
 
 const dateKey = (value: string | undefined): string => value ?? '';
 
-/** Doses (given here and outside, newest first, undated last) and marks with their history (newest first). */
+/** Doses (given here and externally, newest first, undated last) and marks with their history (newest first). */
 export function buildPatientImmunizationsResponse(immunizations: Immunization[]): GetPatientImmunizationsResponse {
   const marks = immunizations.filter(isImmunizationMark);
   const doses = immunizations.filter(

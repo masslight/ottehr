@@ -247,11 +247,11 @@ describe('running the migration', () => {
     expect(oystehr.fhir.update).not.toHaveBeenCalled();
   });
 
-  it('counts a failed switch-on or repoint instead of stopping', async () => {
+  it('counts a failed add or repoint instead of stopping', async () => {
     const oystehr = mockOystehr();
     (oystehr.fhir.create as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('FHIR down'));
     const stats = await migrateConfigVaccines(oystehr, false);
-    // The MMR switch-on fails, and so does the MMR quick pick, which needs that same catalog entry.
+    // Adding MMR fails, and so does the MMR quick pick, which needs that same catalog entry.
     expect(stats.failed).toBe(2);
     expect(stats.added).toBe(0);
     expect(stats.quickPicksRepointed).toBe(0);

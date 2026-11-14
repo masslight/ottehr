@@ -37,7 +37,7 @@ import {
   useGetImmunizationForecast,
   useGetImmunizationOrders,
   useGetVaccines,
-  useRecordOutsideImmunization,
+  useRecordExternalImmunization,
 } from '../../visits/in-person/hooks/useImmunization';
 import {
   buildDueToday,
@@ -60,17 +60,17 @@ import {
 } from '../components/immunizationCodes';
 import {
   applyImmunizationQuickPick,
-  applyQuickPickToOutsideLine,
+  applyQuickPickToExternalLine,
   emptyImmunizationLine,
+  externalLineErrors,
+  externalLineToRequest,
   ImmunizationLine,
   immunizationLineErrors,
   immunizationLineFrom,
   immunizationLineToRequest,
   isUntouchedOrderLine,
   orderButtonLabel,
-  outsideLineErrors,
-  outsideLineToRequest,
-  toggleOutside,
+  toggleExternal,
 } from '../components/immunizationLines';
 import { ImmunizationSectionLabel, ImmunizationSentences } from '../components/ImmunizationSentences';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
@@ -96,7 +96,7 @@ const addVaccineToLines = (
   orderedProvider: InputImmunizationOrderDetails['orderedProvider'] | undefined,
   lotPick: DueTodayLotPick
 ): ImmunizationLine[] => {
-  const target = lines.find((line) => !line.outside && !line.details.medication);
+  const target = lines.find((line) => !line.external && !line.details.medication);
   return target
     ? lines.map((line) => (line === target ? fillFromDueToday(line, vaccine, quickPick, lotPick) : line))
     : [...lines, fillFromDueToday(emptyImmunizationLine(orderedProvider), vaccine, quickPick, lotPick)];
@@ -135,7 +135,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const [isOrderSaved, setIsOrderSaved] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { mutateAsync: createUpdateOrder } = useCreateUpdateImmunizationOrder();
-  const { mutateAsync: recordOutside } = useRecordOutsideImmunization();
+  const { mutateAsync: recordExternal } = useRecordExternalImmunization();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(encounterId);
 
   const currentUser = useEvolveUser();
@@ -173,15 +173,15 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const updateLine = (key: number, next: ImmunizationLine): void =>
     changeLines((current) => current.map((line) => (line.key === key ? next : line)));
   /** An untouched order line becomes the external one; otherwise one is added after the others. */
-  const addOutsideLine = (): void =>
+  const addExternalLine = (): void =>
     changeLines((current) => {
       const untouched = current.find(isUntouchedOrderLine);
       return untouched
-        ? current.map((line) => (line === untouched ? toggleOutside(line) : line))
-        : [...current, toggleOutside(emptyImmunizationLine(defaultProvider))];
+        ? current.map((line) => (line === untouched ? toggleExternal(line) : line))
+        : [...current, toggleExternal(emptyImmunizationLine(defaultProvider))];
     });
   const lineErrors = (line: ImmunizationLine): string[] =>
-    line.outside ? outsideLineErrors(line) : immunizationLineErrors(line);
+    line.external ? externalLineErrors(line) : immunizationLineErrors(line);
 
   // The draft holds every line of a new order, once the user has changed something; not the lines sent.
   useEffect(() => {
@@ -234,7 +234,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const addQuickPickLine = useCallback(
     (quickPick: ImmunizationQuickPickData): void =>
       changeLines((current) => {
-        const target = current.find((line) => !line.outside && !line.details.medication);
+        const target = current.find((line) => !line.external && !line.details.medication);
         return target
           ? current.map((line) => (line === target ? applyImmunizationQuickPick(line, quickPick, true) : line))
           : [...current, applyImmunizationQuickPick(emptyImmunizationLine(defaultProvider), quickPick, true)];
@@ -360,7 +360,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     const sent: ImmunizationLine[] = [];
     try {
       for (const line of lines) {
-        if (line.outside) await recordOutside(outsideLineToRequest(line, encounterId));
+        if (line.external) await recordExternal(externalLineToRequest(line, encounterId));
         else await createUpdateOrder(immunizationLineToRequest(line, encounterId, orderId));
         sent.push(line);
         if (isCreating) changeLines((current) => current.filter((item) => item.key !== line.key));
@@ -463,12 +463,12 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                       onQuickPick={(quickPick) =>
                         updateLine(
                           line.key,
-                          line.outside
-                            ? applyQuickPickToOutsideLine(line, quickPick)
+                          line.external
+                            ? applyQuickPickToExternalLine(line, quickPick)
                             : applyImmunizationQuickPick(line, quickPick, true)
                         )
                       }
-                      onSaveQuickPick={isAdmin && !line.outside ? () => openSaveQuickPickDialog(line) : undefined}
+                      onSaveQuickPick={isAdmin && !line.external ? () => openSaveQuickPickDialog(line) : undefined}
                       errors={orderAttempted ? lineErrors(line) : []}
                       readOnly={isReadOnly}
                       locationId={location?.id}
@@ -494,8 +494,8 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                       size="small"
                       startIcon={<Add />}
                       sx={{ textTransform: 'none' }}
-                      onClick={addOutsideLine}
-                      data-testid={dataTestIds.orderVaccinePage.addOutsideButton}
+                      onClick={addExternalLine}
+                      data-testid={dataTestIds.orderVaccinePage.addExternalButton}
                     >
                       Add an externally administered immunization
                     </Button>

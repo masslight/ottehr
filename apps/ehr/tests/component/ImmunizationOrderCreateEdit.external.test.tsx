@@ -4,10 +4,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockNavigate, mockCreateUpdateOrder, mockRecordOutside, mockEnqueueSnackbar } = vi.hoisted(() => ({
+const { mockNavigate, mockCreateUpdateOrder, mockRecordExternal, mockEnqueueSnackbar } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),
   mockCreateUpdateOrder: vi.fn(),
-  mockRecordOutside: vi.fn(),
+  mockRecordExternal: vi.fn(),
   mockEnqueueSnackbar: vi.fn(),
 }));
 
@@ -26,7 +26,7 @@ vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility',
   useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: false }),
 }));
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
-  useAppointmentData: () => ({ resources: { encounter: { id: 'enc-imm-outside' }, patient: { id: 'pat-1' } } }),
+  useAppointmentData: () => ({ resources: { encounter: { id: 'enc-imm-external' }, patient: { id: 'pat-1' } } }),
 }));
 vi.mock('../../src/features/visits/in-person/components/RoundedButton', () => ({
   ButtonRounded: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
@@ -61,7 +61,7 @@ vi.mock('../../src/features/immunization/hooks/useImmunizationQuickPickManagemen
 vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
   useCancelImmunizationOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateUpdateImmunizationOrder: () => ({ mutateAsync: mockCreateUpdateOrder, isPending: false }),
-  useRecordOutsideImmunization: () => ({ mutateAsync: mockRecordOutside, isPending: false }),
+  useRecordExternalImmunization: () => ({ mutateAsync: mockRecordExternal, isPending: false }),
   useGetImmunizationOrders: () => ({ data: undefined, isLoading: false }),
   useGetImmunizationForecast: () => ({ data: undefined, isLoading: false, isError: false }),
   useGetVaccines: () => ({ data: [], isLoading: false }),
@@ -79,7 +79,7 @@ vi.mock('../../src/features/immunization/components/ImmunizationSentences', () =
   ImmunizationSectionLabel: ({ children }: any) => <h3>{children}</h3>,
   ImmunizationSentences: ({ line, errors }: any) => (
     <div
-      data-testid={line.outside ? 'outside-line' : 'order-line'}
+      data-testid={line.external ? 'external-line' : 'order-line'}
       data-vaccine={line.details.medication?.name ?? ''}
       data-dose={line.details.dose ?? ''}
     >
@@ -93,29 +93,29 @@ import { ImmunizationFormValues } from '../../src/features/immunization/componen
 import { ImmunizationOrderCreateEdit } from '../../src/features/immunization/pages/ImmunizationOrderCreateEdit';
 import { useImmunizationOrderStore } from '../../src/state/draft-data.store';
 
-const ENCOUNTER_ID = 'enc-imm-outside';
+const ENCOUNTER_ID = 'enc-imm-external';
 const PROVIDER = { id: 'prov-1', name: 'Dr. Test' };
 
 const orderLine = (vaccine: string): ImmunizationFormValues => ({
   details: { medication: { id: `${vaccine}-id`, name: vaccine }, dose: '0.5', units: 'ml', orderedProvider: PROVIDER },
   administrationDetails: {},
 });
-const outsideLine = (vaccine: string, dateGiven?: string): ImmunizationFormValues => ({
+const externalLine = (vaccine: string, dateGiven?: string): ImmunizationFormValues => ({
   details: { medication: { id: `${vaccine}-id`, name: vaccine }, orderedProvider: PROVIDER },
   administrationDetails: { cvx: '20' },
-  outside: { dateGiven, place: 'Mercy Pediatrics', source: 'written-record' },
+  external: { dateGiven, place: 'Mercy Pediatrics', source: 'written-record' },
 });
 const seedLines = (...lines: ImmunizationFormValues[]): void => {
   useImmunizationOrderStore.getState().setDraft(ENCOUNTER_ID, { lines });
 };
 const lineKinds = (): string[] =>
-  screen.getAllByTestId(/^(order|outside)-line$/).map((line) => line.getAttribute('data-testid')!);
+  screen.getAllByTestId(/^(order|external)-line$/).map((line) => line.getAttribute('data-testid')!);
 
 describe('ImmunizationOrderCreateEdit — externally administered immunizations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCreateUpdateOrder.mockResolvedValue({ orderId: 'order-1' });
-    mockRecordOutside.mockResolvedValue({ immunizationId: 'imm-1' });
+    mockRecordExternal.mockResolvedValue({ immunizationId: 'imm-1' });
     useImmunizationOrderStore.setState({ draftsByEncounterId: {} });
   });
 
@@ -125,18 +125,18 @@ describe('ImmunizationOrderCreateEdit — externally administered immunizations'
     expect(lineKinds()).toEqual(['order-line']);
     expect(screen.getByTestId(dataTestIds.orderVaccinePage.orderVaccineButton)).toHaveTextContent('Order Immunization');
 
-    await user.click(screen.getByTestId(dataTestIds.orderVaccinePage.addOutsideButton));
-    expect(lineKinds()).toEqual(['outside-line']);
-    expect(screen.getByTestId(dataTestIds.orderVaccinePage.orderVaccineButton)).toHaveTextContent('Record 1 Outside');
+    await user.click(screen.getByTestId(dataTestIds.orderVaccinePage.addExternalButton));
+    expect(lineKinds()).toEqual(['external-line']);
+    expect(screen.getByTestId(dataTestIds.orderVaccinePage.orderVaccineButton)).toHaveTextContent('Record 1 External');
 
     await user.click(screen.getByRole('button', { name: 'Add another immunization' }));
-    await user.click(screen.getByTestId(dataTestIds.orderVaccinePage.addOutsideButton));
+    await user.click(screen.getByTestId(dataTestIds.orderVaccinePage.addExternalButton));
     // the empty order line just added converts; a second click adds a line
-    expect(lineKinds()).toEqual(['outside-line', 'outside-line']);
+    expect(lineKinds()).toEqual(['external-line', 'external-line']);
     await user.click(screen.getByRole('button', { name: 'Add another immunization' }));
-    expect(lineKinds()).toEqual(['outside-line', 'outside-line', 'order-line']);
+    expect(lineKinds()).toEqual(['external-line', 'external-line', 'order-line']);
     expect(screen.getByTestId(dataTestIds.orderVaccinePage.orderVaccineButton)).toHaveTextContent(
-      'Order Immunization · Record 2 Outside'
+      'Order Immunization · Record 2 External'
     );
   });
 
@@ -145,25 +145,25 @@ describe('ImmunizationOrderCreateEdit — externally administered immunizations'
     const user = userEvent.setup();
     render(<ImmunizationOrderCreateEdit />);
 
-    await user.click(screen.getByTestId(dataTestIds.orderVaccinePage.addOutsideButton));
+    await user.click(screen.getByTestId(dataTestIds.orderVaccinePage.addExternalButton));
 
-    expect(lineKinds()).toEqual(['order-line', 'outside-line']);
+    expect(lineKinds()).toEqual(['order-line', 'external-line']);
     expect(screen.getByTestId(dataTestIds.orderVaccinePage.orderVaccineButton)).toHaveTextContent(
-      'Order Immunization · Record 1 Outside'
+      'Order Immunization · Record 1 External'
     );
   });
 
-  it('one save orders the order lines and records the outside doses, undated ones without a date', async () => {
-    seedLines(orderLine('MMR'), outsideLine('DTaP', '2026-03-02'), outsideLine('Hep B'));
+  it('one save orders the order lines and records the external doses, undated ones without a date', async () => {
+    seedLines(orderLine('MMR'), externalLine('DTaP', '2026-03-02'), externalLine('Hep B'));
     const user = userEvent.setup();
     render(<ImmunizationOrderCreateEdit />);
 
-    await user.click(screen.getByRole('button', { name: 'Order Immunization · Record 2 Outside' }));
+    await user.click(screen.getByRole('button', { name: 'Order Immunization · Record 2 External' }));
 
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
     expect(mockCreateUpdateOrder).toHaveBeenCalledTimes(1);
     expect(mockCreateUpdateOrder.mock.calls[0][0].details.medication.name).toBe('MMR');
-    expect(mockRecordOutside.mock.calls.map(([request]) => request)).toEqual([
+    expect(mockRecordExternal.mock.calls.map(([request]) => request)).toEqual([
       {
         encounterId: ENCOUNTER_ID,
         vaccine: { id: 'DTaP-id', name: 'DTaP' },
@@ -185,13 +185,13 @@ describe('ImmunizationOrderCreateEdit — externally administered immunizations'
   });
 
   it('an external line without a vaccine stops the save and says so; its date and place are optional', async () => {
-    seedLines({ details: { orderedProvider: PROVIDER }, administrationDetails: {}, outside: {} });
+    seedLines({ details: { orderedProvider: PROVIDER }, administrationDetails: {}, external: {} });
     const user = userEvent.setup();
     render(<ImmunizationOrderCreateEdit />);
 
-    await user.click(screen.getByRole('button', { name: 'Record 1 Outside' }));
+    await user.click(screen.getByRole('button', { name: 'Record 1 External' }));
 
-    expect(mockRecordOutside).not.toHaveBeenCalled();
+    expect(mockRecordExternal).not.toHaveBeenCalled();
     expect(screen.getByTestId('line-errors')).toHaveTextContent('Pick the immunization');
   });
 });

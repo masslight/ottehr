@@ -59,7 +59,7 @@ describe('assessmentDate', () => {
   });
 });
 
-const outsideDose = (id: string, cvx: string, date: string): Immunization => ({
+const externalDose = (id: string, cvx: string, date: string): Immunization => ({
   resourceType: 'Immunization',
   id,
   status: 'completed',
@@ -119,9 +119,9 @@ describe('getImmunizationForecast', () => {
 
   it("runs the engine on the patient's records as of the visit's day in its location's zone, and returns them with the CVX → group map and the dob", async () => {
     mockGetAllPages.mockResolvedValue([
-      outsideDose('hepb-1', '08', '2026-07-08'),
+      externalDose('hepb-1', '08', '2026-07-08'),
       // 10:30 pm on Aug 10 in New York: the second dose is 33 days after the first, not 34
-      { ...outsideDose('hepb-2', '08', '2026-08-11T02:30:00.000Z'), primarySource: true, reportOrigin: undefined },
+      { ...externalDose('hepb-2', '08', '2026-08-11T02:30:00.000Z'), primarySource: true, reportOrigin: undefined },
       declinedRota,
     ]);
     const oystehr = mockOystehr({ 'Patient/pat-maya': maya, 'Encounter/enc-1': visit, 'Location/loc-ny': clinic });

@@ -85,7 +85,7 @@ function organizeHistory(rules: RulesData, dob: IsoDate, doses: ForecastDoseInpu
         (a) => (!a.beginAge || date >= addDuration(dob, a.beginAge)) && (!a.endAge || date < addDuration(dob, a.endAge))
       )
       .map((a) => a.antigen);
-    const isRecall = input.source === 'outside' && input.outsideSource === IMMUNIZATION_REPORT_ORIGIN.RECALL;
+    const isRecall = input.source === 'external' && input.externalSource === IMMUNIZATION_REPORT_ORIGIN.RECALL;
     const counted = isRecall
       ? antigens.filter(
           (antigen) =>

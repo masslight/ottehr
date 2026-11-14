@@ -31,7 +31,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-/** The patient's doses (given here, outside, undated) and marks with their history, for the engine and the UI. */
+/** The patient's doses (given here, external, undated) and marks with their history, for the engine and the UI. */
 export async function getPatientImmunizations(
   oystehr: Oystehr,
   input: GetPatientImmunizationsRequest

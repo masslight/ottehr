@@ -21,14 +21,14 @@ vi.mock('../../src/features/immunization/hooks/useImmunizationForecast', () => (
 
 import { ImmunizationTimelineContainer } from '../../src/features/immunization/timeline/ImmunizationTimelineContainer';
 
-// Maya, DOB 2026-07-08, seen on 2026-11-10: a birth Hep B dose outside, Pentacel + PCV20 + RotaTeq at 2 months,
-// an undated outside MMR, and rotavirus declined by the parent.
+// Maya, DOB 2026-07-08, seen on 2026-11-10: an external birth Hep B dose, Pentacel + PCV20 + RotaTeq at 2 months,
+// an undated external MMR, and rotavirus declined by the parent.
 const DOB = '2026-07-08';
 const AS_OF = '2026-11-10';
 const dose = (overrides: Partial<PatientImmunizationRecord>): PatientImmunizationRecord => ({
   id: 'd',
   vaccineName: 'Vaccine',
-  outside: false,
+  external: false,
   dateUnknown: false,
   ...overrides,
 });
@@ -37,7 +37,7 @@ const immunizations: PatientImmunizationRecord[] = [
     id: 'hepb-birth',
     vaccineName: 'Engerix-B',
     cvx: '08',
-    outside: true,
+    external: true,
     dateGiven: DOB,
     place: 'Mercy Hospital',
     source: 'other-provider',
@@ -57,7 +57,7 @@ const immunizations: PatientImmunizationRecord[] = [
     id: 'mmr-undated',
     vaccineName: 'MMR',
     cvx: '03',
-    outside: true,
+    external: true,
     dateUnknown: true,
     source: 'recall',
     sourceCode: '04',
@@ -189,7 +189,7 @@ describe('ImmunizationTimeline', () => {
     expect(Array.from(legend.children).map((item) => item.textContent?.trim())).toEqual([
       'When it was due',
       'Given here',
-      'Outside',
+      'External',
       'Not given yet',
       'Allowed but early',
       'Recommended',
@@ -201,7 +201,7 @@ describe('ImmunizationTimeline', () => {
     expect(screen.queryByText(/Age axis is stretched/)).not.toBeInTheDocument();
   });
 
-  it('fills given doses (navy here, light blue outside) and leaves doses not given yet dashed', () => {
+  it('fills given doses (navy here, light blue externally) and leaves doses not given yet dashed', () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
     const hepb = screen.getByTestId('immunization-lane-hepb');
     expect(within(hepb).getByRole('button', { name: 'Hep B dose 1' })).toHaveStyle({
@@ -232,20 +232,20 @@ describe('ImmunizationTimeline', () => {
       await screen.findByText(/^Declined 11\/10\/2026 · recorded by J\. Nurse\. Click to change or clear\.$/)
     ).toBeInTheDocument();
     expect(
-      within(screen.getByTestId('immunization-lane-mmr')).getByText('Outside · Date unknown · not counted')
+      within(screen.getByTestId('immunization-lane-mmr')).getByText('External · Date unknown · not counted')
     ).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Age range' })).toBeInTheDocument();
   });
 
-  it('shows a given dose as one line: brand and date, with a note only for outside, late or not counted', () => {
+  it('shows a given dose as one line: brand and date, with a note only for external, late or not counted', () => {
     render(<ImmunizationTimelineContainer patientId="maya" />);
     const details = screen.getByTestId('immunization-timeline-details');
     fireEvent.click(screen.getByRole('button', { name: 'DTaP/Tdap/Td dose 1' }));
     expect(details).toHaveTextContent(/^DTaP\/Tdap\/Td dose 1 · Pentacel · given 09\/09\/2026$/); // on time: no note
     fireEvent.click(screen.getByRole('button', { name: 'Hep B dose 1' }));
-    expect(details).toHaveTextContent(/^Hep B dose 1 · Engerix-B · given 07\/08\/2026 \(outside\)$/);
-    fireEvent.click(screen.getByText('Outside · Date unknown · not counted'));
-    expect(details).toHaveTextContent(/^MMR · date unknown \(outside, not counted\)$/);
+    expect(details).toHaveTextContent(/^Hep B dose 1 · Engerix-B · given 07\/08\/2026 \(external\)$/);
+    fireEvent.click(screen.getByText('External · Date unknown · not counted'));
+    expect(details).toHaveTextContent(/^MMR · date unknown \(external, not counted\)$/);
     expect(details).not.toHaveTextContent(/CVX|lot|mo\)/);
   });
 

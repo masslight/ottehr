@@ -34,7 +34,7 @@ const STATUS_TO_BG_COLOR: Record<string, Colors> = {
     text: '#616161',
   },
   // a dose administered externally, in the history only
-  outside: {
+  external: {
     bg: '#F4F6F8',
     text: '#616161',
   },
@@ -46,7 +46,7 @@ const STATUS_TO_LABEL: Record<string, string> = {
   'administered-partly': 'PARTLY-ADMINISTERED',
   'administered-not': 'NOT-ADMINISTERED',
   cancelled: 'CANCELLED',
-  outside: 'OUTSIDE',
+  external: 'EXTERNAL',
 };
 
 export const OrderStatusChip: React.FC<Props> = ({ status, dataTestId }) => {
@@ -58,7 +58,7 @@ export const OrderStatusChip: React.FC<Props> = ({ status, dataTestId }) => {
         padding: '0px 8px 0px 8px',
         borderRadius: '4px',
         height: '20px',
-        border: status === 'cancelled' || status === 'outside' ? '1px solid #BFC2C6' : 'none',
+        border: status === 'cancelled' || status === 'external' ? '1px solid #BFC2C6' : 'none',
         whiteSpace: 'nowrap',
       }}
       display="flex"

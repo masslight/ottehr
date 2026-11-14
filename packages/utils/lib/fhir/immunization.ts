@@ -11,9 +11,9 @@ import {
 } from '../types/api/medication-administration.constants';
 import {
   ImmunizationActor,
+  ImmunizationExternalSource,
   ImmunizationMark,
   ImmunizationMarkType,
-  ImmunizationOutsideSource,
   PatientImmunizationRecord,
 } from '../types/data/immunization/types';
 import { getCoding } from './helpers';
@@ -25,7 +25,7 @@ import { getVaccineDoseFunding, immunizationFundingFields } from './vfc';
 /**
  * The FHIR Immunization record of a dose. The order/MAR workflow keeps its MedicationAdministration; a dose given here
  * ALSO gets an Immunization (FHIR R4: "SHOULD also create and expose an equivalent Immunization instance"), linked to
- * the administration by this identifier. An outside dose and a per-vaccine mark are Immunizations only. The forecast
+ * the administration by this identifier. An external dose and a per-vaccine mark are Immunizations only. The forecast
  * engine, Flowsheets, the shot record and the registry read Immunization only.
  */
 export const IMMUNIZATION_ADMINISTRATION_IDENTIFIER_SYSTEM = ottehrIdentifierSystem(
@@ -53,7 +53,7 @@ const informationSourceCode = (immunization: Immunization): string | undefined =
 export const IMMUNIZATION_ORIGIN_SYSTEM = 'http://terminology.hl7.org/CodeSystem/immunization-origin';
 
 export interface ImmunizationSourceOption {
-  value: ImmunizationOutsideSource;
+  value: ImmunizationExternalSource;
   /** The NIP001 code and its display. */
   code: string;
   display: string;
@@ -63,7 +63,7 @@ export interface ImmunizationSourceOption {
   origin?: { code: string; display: string };
 }
 
-export const IMMUNIZATION_OUTSIDE_SOURCES: readonly ImmunizationSourceOption[] = [
+export const IMMUNIZATION_EXTERNAL_SOURCES: readonly ImmunizationSourceOption[] = [
   {
     value: 'written-record',
     code: '03',
@@ -121,7 +121,7 @@ export const IMMUNIZATION_SOURCE_UNSPECIFIED = {
   label: 'source unspecified',
 } as const;
 
-/** Written when the date an outside dose was given is not known: Immunization.occurrence[x] is required. */
+/** Written when the date an external dose was given is not known: Immunization.occurrence[x] is required. */
 export const IMMUNIZATION_DATE_UNKNOWN = 'unknown';
 
 /** The vaccine groups a mark can name: the v1 forecast coverage, one group per series. */
@@ -268,25 +268,25 @@ export function immunizationFromMedicationAdministration(
 const sourceFromReportOrigin = (immunization: Immunization): PatientImmunizationRecord['source'] | undefined => {
   const code = informationSourceCode(immunization);
   if (!code) return undefined;
-  return IMMUNIZATION_OUTSIDE_SOURCES.find((source) => source.code === code)?.value ?? 'unspecified';
+  return IMMUNIZATION_EXTERNAL_SOURCES.find((source) => source.code === code)?.value ?? 'unspecified';
 };
 
-/** A dose record for the history, the engine and the shot record; undated outside doses say so. */
+/** A dose record for the history, the engine and the shot record; undated external doses say so. */
 export function immunizationToRecord(immunization: Immunization): PatientImmunizationRecord {
-  const outside = immunization.primarySource === false;
+  const external = immunization.primarySource === false;
   const dateGiven = immunization.occurrenceDateTime;
   return {
     id: immunization.id!,
     vaccineName:
       immunization.vaccineCode.text ?? getCoding(immunization.vaccineCode, CVX_CODE_SYSTEM_URL)?.display ?? '',
     cvx: getCoding(immunization.vaccineCode, CVX_CODE_SYSTEM_URL)?.code,
-    outside,
+    external,
     dateGiven,
     dateUnknown: !dateGiven,
     administeredBy: performerActor(immunization, IMMUNIZATION_ADMINISTERING_PROVIDER_CODE),
     place: immunization.location?.display,
-    source: outside ? sourceFromReportOrigin(immunization) ?? 'unspecified' : undefined,
-    sourceCode: outside ? informationSourceCode(immunization) ?? IMMUNIZATION_SOURCE_UNSPECIFIED.code : undefined,
+    source: external ? sourceFromReportOrigin(immunization) ?? 'unspecified' : undefined,
+    sourceCode: external ? informationSourceCode(immunization) ?? IMMUNIZATION_SOURCE_UNSPECIFIED.code : undefined,
     lot: immunization.lotNumber,
     expirationDate: immunization.expirationDate,
     manufacturer: immunization.manufacturer?.display,

@@ -152,9 +152,9 @@ describe('suggestCptCodes', () => {
       cptOrigin: 'manual',
       administrationDetails: { ...emptyImmunizationLine().administrationDetails, cvx: '110', cptCodes: [] },
     });
-    const outside = line('MMR', '03', INTRAMUSCULAR, { outside: {} });
+    const external = line('MMR', '03', INTRAMUSCULAR, { external: {} });
     const empty = emptyImmunizationLine();
-    const codes = suggestCptCodes([manual, outside, empty, line('Prevnar 20', '216')], {
+    const codes = suggestCptCodes([manual, external, empty, line('Prevnar 20', '216')], {
       pediatric: true,
       counseledFor: all(true),
     });
@@ -178,7 +178,7 @@ describe('applyCptSuggestions', () => {
 
   it('drops its codes from a line made external', () => {
     const [suggested] = applyCptSuggestions([line('MMR', '03')], { pediatric: false, counseledFor: all(true) }).lines;
-    const result = applyCptSuggestions([{ ...suggested, outside: {} }], { pediatric: false, counseledFor: all(true) });
+    const result = applyCptSuggestions([{ ...suggested, external: {} }], { pediatric: false, counseledFor: all(true) });
     expect(result.lines[0].administrationDetails.cptCodes).toEqual([]);
     expect(result.lines[0].cptOrigin).toBeUndefined();
   });

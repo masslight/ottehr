@@ -37,12 +37,12 @@ const CVX = {
 };
 
 const given = (id: string, date: string, cvx: string): ForecastDoseInput => ({ id, date, cvx, source: 'administered' });
-const outside = (
+const external = (
   id: string,
   date: string | null,
   cvx: string,
-  outsideSource: ForecastDoseInput['outsideSource'] = IMMUNIZATION_REPORT_ORIGIN.OTHER_PROVIDER
-): ForecastDoseInput => ({ id, date, cvx, source: 'outside', outsideSource });
+  externalSource: ForecastDoseInput['externalSource'] = IMMUNIZATION_REPORT_ORIGIN.OTHER_PROVIDER
+): ForecastDoseInput => ({ id, date, cvx, source: 'external', externalSource });
 
 const group = (forecast: ImmunizationForecast, id: ImmunizationGroupId): ImmunizationGroupForecast => {
   const g = forecast.groups.find((x) => x.group === id);
@@ -56,7 +56,7 @@ describe('Maya Rivera, DOB 2026-07-08, 4-month well visit on 2026-11-10', () => 
     sex: 'female',
     asOf: TODAY,
     doses: [
-      outside('m1', '2026-07-08', CVX.engerixPeds), // birth dose at Mercy Hospital
+      external('m1', '2026-07-08', CVX.engerixPeds), // birth dose at Mercy Hospital
       given('m2', '2026-08-10', CVX.engerixPeds),
       given('m3', '2026-09-09', CVX.pentacel), // DTaP + IPV + Hib in one shot
       given('m4', '2026-09-09', CVX.pcv20),
@@ -154,20 +154,20 @@ describe('Maya Rivera, DOB 2026-07-08, 4-month well visit on 2026-11-10', () => 
       forecastImmunizations({ dob: '2026-07-08', sex: 'female', asOf: TODAY, doses: [], ...input }).groups.map(
         (g) => g.group
       );
-    expect(lanes({ doses: [outside('z1', '2026-09-09', '187')] })).toContain('zoster');
+    expect(lanes({ doses: [external('z1', '2026-09-09', '187')] })).toContain('zoster');
     expect(lanes({ groups: ['zoster'] })).toContain('zoster');
     expect(lanes({ dob: '1960-01-01' })).toContain('zoster');
   });
 });
 
 describe('Leo Okafor, DOB 2021-09-14, new-patient catch-up visit on 2026-11-10', () => {
-  const lakeside = (id: string, date: string, cvx: string): ForecastDoseInput => outside(id, date, cvx);
+  const lakeside = (id: string, date: string, cvx: string): ForecastDoseInput => external(id, date, cvx);
   const leo = forecastImmunizations({
     dob: '2021-09-14',
     sex: 'male',
     asOf: TODAY,
     doses: [
-      outside('l1', '2021-09-14', CVX.engerixPeds, IMMUNIZATION_REPORT_ORIGIN.WRITTEN_RECORD),
+      external('l1', '2021-09-14', CVX.engerixPeds, IMMUNIZATION_REPORT_ORIGIN.WRITTEN_RECORD),
       lakeside('l2', '2021-11-16', CVX.pediarix),
       lakeside('l3', '2021-11-16', CVX.actHib),
       lakeside('l4', '2021-11-16', CVX.pcv13),
@@ -182,7 +182,7 @@ describe('Leo Okafor, DOB 2021-09-14, new-patient catch-up visit on 2026-11-10',
       lakeside('l13', '2022-09-20', CVX.mmr),
       lakeside('l14', '2022-09-20', CVX.havrix),
       // Undated, recalled by the family: shown but never counted
-      outside('l15', null, CVX.mmr, IMMUNIZATION_REPORT_ORIGIN.RECALL),
+      external('l15', null, CVX.mmr, IMMUNIZATION_REPORT_ORIGIN.RECALL),
     ],
     marks: {
       var: { type: 'declined', date: '2026-10-02', by: 'Dr. A. Patel' },
@@ -282,10 +282,10 @@ describe('input rules', () => {
       dob: '1970-03-10',
       asOf: TODAY,
       doses: [
-        outside('flu', '2026-10-01', CVX.fluIIV3, IMMUNIZATION_REPORT_ORIGIN.RECALL),
-        outside('ppsv', '2025-03-10', CVX.ppsv23, IMMUNIZATION_REPORT_ORIGIN.RECALL),
-        outside('ipv', '1995-03-10', CVX.ipv, IMMUNIZATION_REPORT_ORIGIN.RECALL),
-        outside('mmr', '1985-03-10', CVX.mmr, IMMUNIZATION_REPORT_ORIGIN.RECALL),
+        external('flu', '2026-10-01', CVX.fluIIV3, IMMUNIZATION_REPORT_ORIGIN.RECALL),
+        external('ppsv', '2025-03-10', CVX.ppsv23, IMMUNIZATION_REPORT_ORIGIN.RECALL),
+        external('ipv', '1995-03-10', CVX.ipv, IMMUNIZATION_REPORT_ORIGIN.RECALL),
+        external('mmr', '1985-03-10', CVX.mmr, IMMUNIZATION_REPORT_ORIGIN.RECALL),
       ],
     });
     expect(group(adult, 'flu').doses[0]).toMatchObject({ id: 'flu', status: 'valid' });
@@ -300,17 +300,17 @@ describe('input rules', () => {
     const child = forecastImmunizations({
       dob: '2020-03-10',
       asOf: TODAY,
-      doses: [outside('ipv', '2020-05-10', CVX.ipv, IMMUNIZATION_REPORT_ORIGIN.RECALL)],
+      doses: [external('ipv', '2020-05-10', CVX.ipv, IMMUNIZATION_REPORT_ORIGIN.RECALL)],
     });
     expect(group(child, 'ipv').doses[0].status).toBe('not-counted');
     expect(group(child, 'ipv').next?.n).toBe(1);
   });
 
-  it('a written outside record counts like an administered dose', () => {
+  it('a written external record counts like an administered dose', () => {
     const f = forecastImmunizations({
       dob: '2026-01-10',
       asOf: TODAY,
-      doses: [outside('v', '2026-03-10', CVX.pentacel, IMMUNIZATION_REPORT_ORIGIN.WRITTEN_RECORD)],
+      doses: [external('v', '2026-03-10', CVX.pentacel, IMMUNIZATION_REPORT_ORIGIN.WRITTEN_RECORD)],
     });
     for (const id of ['dtap', 'hib', 'ipv'] as const) expect(group(f, id).doses[0].counted, id).toBe(true);
   });

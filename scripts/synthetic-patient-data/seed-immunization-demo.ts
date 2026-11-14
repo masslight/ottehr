@@ -75,12 +75,12 @@ import { medicationApplianceRoutes, vaccineSiteLocations } from 'utils/lib/types
 import { PATIENT_HAS_MEDICAID_URL } from 'utils/lib/types/constants';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { NDC_VACCINE_PRODUCTS } from 'utils/lib/types/data/immunization/ndc-vaccines.generated';
-import { ImmunizationOutsideSource } from 'utils/lib/types/data/immunization/types';
+import { ImmunizationExternalSource } from 'utils/lib/types/data/immunization/types';
 import { getCvxVaccine, getMvxManufacturer } from 'utils/lib/types/data/immunization/vaccine-lookup';
 import { VaccineFundingSource, VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
 import { administerImmunizationOrder } from '../../packages/zambdas/src/ehr/immunization/administer-order';
 import { buildImmunizationOrder } from '../../packages/zambdas/src/ehr/immunization/create-update-order';
-import { buildImmunizationMark, buildOutsideImmunization } from '../../packages/zambdas/src/ehr/immunization/records';
+import { buildExternalImmunization, buildImmunizationMark } from '../../packages/zambdas/src/ehr/immunization/records';
 import { arg, flag } from './shared/cli';
 import { SYNTHETIC_PATIENT_ID_SYSTEM } from './shared/constants';
 import { createOystehrFromToken, mintAccessToken, need } from './shared/oystehr-client';
@@ -135,18 +135,18 @@ const LEO: DemoPatient = {
   vfcEligibility: 'V01',
 };
 
-interface OutsideDose {
+interface ExternalDose {
   key: string;
   name: string;
   cvx: string;
   /** Absent for a dose whose date is not known. */
   dateGiven?: string;
   place: string;
-  source: ImmunizationOutsideSource;
+  source: ImmunizationExternalSource;
 }
 
 const LAKESIDE = 'Lakeside Pediatrics';
-const fromLakeside = (key: string, name: string, cvx: string, dateGiven: string): OutsideDose => ({
+const fromLakeside = (key: string, name: string, cvx: string, dateGiven: string): ExternalDose => ({
   key,
   name,
   cvx,
@@ -155,7 +155,7 @@ const fromLakeside = (key: string, name: string, cvx: string, dateGiven: string)
   source: 'other-provider',
 });
 
-const MAYA_OUTSIDE: OutsideDose[] = [
+const MAYA_EXTERNAL: ExternalDose[] = [
   {
     key: 'maya-hepb-1',
     name: 'Hep B (Engerix-B)',
@@ -184,7 +184,7 @@ const MAYA_GIVEN_HERE: ClinicDose[] = [
 const MAYA_TWO_MONTH_VISIT = '2026-09-09T10:15:00-04:00';
 const MAYA_TWO_MONTH_VISIT_KEY = 'maya-2-month-visit';
 
-const LEO_OUTSIDE: OutsideDose[] = [
+const LEO_EXTERNAL: ExternalDose[] = [
   fromLakeside('leo-hepb-1', 'Hep B', '08', '2021-09-14'),
   fromLakeside('leo-hepb-2', 'Hep B', '08', '2021-10-15'),
   fromLakeside('leo-hepb-3', 'Hep B', '08', '2022-03-16'),
@@ -312,7 +312,7 @@ async function resolvePractitioner(oystehr: Oystehr): Promise<Practitioner> {
 
 // ─── Catalog and lots ─────────────────────────────────────────────────────────
 
-/** As create-in-house-medication's createVaccine: one catalog entry per CVX, reactivated if switched off. */
+/** As create-in-house-medication's createVaccine: one catalog entry per CVX, reactivated if Inactive. */
 async function ensureCatalogVaccine(oystehr: Oystehr, cvx: string): Promise<Medication & { id: string }> {
   const vaccine = getCvxVaccine(cvx);
   if (!vaccine) throw new Error(`CVX ${cvx} is not in the vaccine list`);
@@ -641,7 +641,7 @@ async function seedHistory(
   oystehr: Oystehr,
   visit: DemoVisit,
   recorder: Reference,
-  outside: OutsideDose[],
+  external: ExternalDose[],
   declined: { key: string; group: string; note: string; at: string } | undefined
 ): Promise<void> {
   const patient: Reference = { reference: `Patient/${visit.patient.id}` };
@@ -652,11 +652,11 @@ async function seedHistory(
     requests.push({ method: 'POST', url: '/Immunization', resource: immunization });
   };
 
-  for (const dose of outside) {
+  for (const dose of external) {
     if (existing.has(dose.key)) continue;
     const recordedAt = DateTime.fromISO(dose.dateGiven ?? visit.patient.birthDate ?? '2026-01-01').plus({ days: 1 });
     post({
-      ...buildOutsideImmunization(
+      ...buildExternalImmunization(
         {
           vaccine: { name: dose.name },
           cvx: dose.cvx,
@@ -850,13 +850,13 @@ async function main(): Promise<void> {
   await ensureAttendingProvider(oystehr, ctx, leo, provider);
 
   log('Immunization history');
-  await seedHistory(oystehr, maya, recorder, MAYA_OUTSIDE, {
+  await seedHistory(oystehr, maya, recorder, MAYA_EXTERNAL, {
     key: 'maya-rota-declined',
     group: 'rota',
     note: 'Parents declined',
     at: MAYA_TWO_MONTH_VISIT,
   });
-  await seedHistory(oystehr, leo, recorder, LEO_OUTSIDE, undefined);
+  await seedHistory(oystehr, leo, recorder, LEO_EXTERNAL, undefined);
   const twoMonthVisit = await ensureTwoMonthVisit(oystehr, maya, location, provider);
   await seedClinicDoses(oystehr, maya, twoMonthVisit, MAYA_GIVEN_HERE, recorderPractitioner, provider);
   await ensureVfcEligibility(oystehr, maya, MAYA.vfcEligibility, performerReference);

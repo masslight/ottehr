@@ -38,7 +38,7 @@ const vaccineMedication = (
   code: { coding: [{ system: CVX_CODE_SYSTEM_URL, code: cvx }] },
 });
 
-describe('switching a vaccine on (create-in-house-medication with `vaccine`)', () => {
+describe('adding a vaccine (create-in-house-medication with `vaccine`)', () => {
   it('accepts a CVX from the list and nothing else', () => {
     expect(createValidate(input({ vaccine: { cvx: '03' } })).vaccine).toEqual({ cvx: '03' });
     expect(() => createValidate(input({ vaccine: { cvx: '999' } }))).toThrow('CVX code from the vaccine list');
@@ -70,7 +70,7 @@ describe('switching a vaccine on (create-in-house-medication with `vaccine`)', (
     });
   });
 
-  it('switching a vaccine on again reactivates the entry instead of making a second one', async () => {
+  it('adding a vaccine again reactivates the entry instead of making a second one', async () => {
     const existing = vaccineMedication('mmr-id', '03', 'MMR', 'inactive');
     const patch = vi.fn().mockResolvedValue({ ...existing, status: 'active' });
     const oystehr = {

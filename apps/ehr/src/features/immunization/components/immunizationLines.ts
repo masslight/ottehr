@@ -7,29 +7,29 @@ import {
   CreateUpdateImmunizationOrderRequest,
   ImmunizationCptCode,
   ImmunizationEmergencyContact,
-  ImmunizationOutsideSource,
+  ImmunizationExternalSource,
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
-  RecordOutsideImmunizationRequest,
+  RecordExternalImmunizationRequest,
 } from 'utils/lib/types/data/immunization/types';
 import { getMvxManufacturer } from 'utils/lib/types/data/immunization/vaccine-lookup';
 import { VfcEligibilityCode } from 'utils/lib/types/data/immunization/vfc';
 import type { CptOrigin } from './immunizationCodes';
 
 /** The external line's own blanks: when, where and from what source the dose was given. */
-export interface OutsideDoseValues {
+export interface ExternalDoseValues {
   dateGiven?: string;
   place?: string;
-  source?: ImmunizationOutsideSource;
+  source?: ImmunizationExternalSource;
 }
 
 /** What the order form holds for one immunization, in the shape the create endpoint takes: the order's details and
- * the administration details that can be entered at order time. A line with `outside` records a dose administered
+ * the administration details that can be entered at order time. A line with `external` records a dose administered
  * externally instead of ordering one: the vaccine, lot and manufacturer are the same blanks. */
 export interface ImmunizationFormValues {
   details: Partial<InputImmunizationOrderDetails>;
   administrationDetails: InputImmunizationOrderAdministrationDetails;
-  outside?: OutsideDoseValues;
+  external?: ExternalDoseValues;
   /** Where the CPT codes came from: the page only fills a line's codes while they are empty or its own. */
   cptOrigin?: CptOrigin;
 }
@@ -63,25 +63,25 @@ export const emptyImmunizationLine = (
 /** A line from saved values: a draft's, or the order being edited. */
 export const immunizationLineFrom = (
   values: Pick<ImmunizationFormValues, 'details'> &
-    Partial<Pick<ImmunizationFormValues, 'administrationDetails' | 'outside' | 'cptOrigin'>>
+    Partial<Pick<ImmunizationFormValues, 'administrationDetails' | 'external' | 'cptOrigin'>>
 ): ImmunizationLine => ({
   key: ++nextLineKey,
   details: { ...values.details },
   administrationDetails: { ...EMPTY_ADMINISTRATION_DETAILS, ...values.administrationDetails },
-  ...(values.outside ? { outside: { ...values.outside } } : {}),
+  ...(values.external ? { external: { ...values.external } } : {}),
   ...(values.cptOrigin ? { cptOrigin: values.cptOrigin } : {}),
 });
 
 /** A line nothing has been written in: "+ Add an externally administered immunization" converts it. */
 export const isUntouchedOrderLine = (line: ImmunizationFormValues): boolean =>
-  !line.outside && !line.details.medication && !line.details.dose && !line.details.units && !line.details.route;
+  !line.external && !line.details.medication && !line.details.dose && !line.details.units && !line.details.route;
 
 /** An order line becomes an external one and back: the × after "administered externally". */
-export const toggleOutside = <T extends ImmunizationFormValues>(line: T): T =>
-  line.outside ? { ...line, outside: undefined } : { ...line, outside: {} };
+export const toggleExternal = <T extends ImmunizationFormValues>(line: T): T =>
+  line.external ? { ...line, external: undefined } : { ...line, external: {} };
 
 /** On an external line a quick pick names the vaccine and its codes; its stock lot and expiry are not the dose's. */
-export const applyQuickPickToOutsideLine = <T extends ImmunizationFormValues>(
+export const applyQuickPickToExternalLine = <T extends ImmunizationFormValues>(
   line: T,
   quickPick: ImmunizationQuickPickData
 ): T => ({
@@ -158,24 +158,24 @@ export const immunizationLineErrors = (line: ImmunizationFormValues): string[] =
 };
 
 /** An external line needs only its vaccine; a date given cannot be in the future. */
-export const outsideLineErrors = (line: ImmunizationFormValues): string[] => {
+export const externalLineErrors = (line: ImmunizationFormValues): string[] => {
   const errors: string[] = [];
   if (!line.details.medication) errors.push('Pick the immunization');
-  const dateGiven = line.outside?.dateGiven ? DateTime.fromISO(line.outside.dateGiven) : undefined;
+  const dateGiven = line.external?.dateGiven ? DateTime.fromISO(line.external.dateGiven) : undefined;
   if (dateGiven && dateGiven.startOf('day') > DateTime.now().startOf('day')) {
     errors.push('The date given cannot be in the future');
   }
   return errors;
 };
 
-/** The order page's save button: the orders and the outside doses it will save, e.g. "Order Immunization · Record 2
- * Outside". */
+/** The order page's save button: the orders and the external doses it will save, e.g. "Order Immunization · Record 2
+ * External". */
 export const orderButtonLabel = (lines: ImmunizationFormValues[]): string => {
-  const outside = lines.filter((line) => line.outside).length;
-  const orders = lines.length - outside;
+  const external = lines.filter((line) => line.external).length;
+  const orders = lines.length - external;
   return [
     orders === 1 ? 'Order Immunization' : orders ? `Order ${orders} Immunizations` : '',
-    outside ? `Record ${outside} Outside` : '',
+    external ? `Record ${external} External` : '',
   ]
     .filter(Boolean)
     .join(' · ');
@@ -213,10 +213,10 @@ export const emergencyContactErrors = (contact: Partial<ImmunizationEmergencyCon
   return errors;
 };
 
-export const outsideLineToRequest = (
+export const externalLineToRequest = (
   line: ImmunizationFormValues,
   encounterId: string
-): RecordOutsideImmunizationRequest => ({
+): RecordExternalImmunizationRequest => ({
   encounterId,
   ...cleanupProperties({
     vaccine: line.details.medication,
@@ -224,9 +224,9 @@ export const outsideLineToRequest = (
     mvx: line.administrationDetails.mvx,
     manufacturer: line.details.manufacturer,
     lot: line.administrationDetails.lot,
-    dateGiven: line.outside?.dateGiven,
-    place: line.outside?.place,
-    source: line.outside?.source,
+    dateGiven: line.external?.dateGiven,
+    place: line.external?.place,
+    source: line.external?.source,
   }),
 });
 

@@ -1,4 +1,4 @@
-// Immunization records: the Immunization written alongside an administered order, outside doses, per-vaccine marks
+// Immunization records: the Immunization written alongside an administered order, external doses, per-vaccine marks
 // and the backfill's selection.
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Immunization, MedicationAdministration, Organization } from 'fhir/r4b';
@@ -28,13 +28,13 @@ import { describe, expect, it } from 'vitest';
 import { CONTAINED_MANUFACTURER_ORG_ID, CONTAINED_MEDICATION_ID } from '../../src/ehr/immunization/common';
 import {
   activeMarkForGroup,
+  buildExternalImmunization,
   buildImmunizationMark,
-  buildOutsideImmunization,
   buildPatientImmunizationsResponse,
   clearImmunizationMark,
   immunizationSyncRequest,
+  validateExternalImmunizationDetails,
   validateImmunizationMarkInput,
-  validateOutsideImmunizationDetails,
 } from '../../src/ehr/immunization/records';
 import { selectAdministrationsToBackfill } from '../../src/scripts/backfill-immunizations.helpers';
 
@@ -136,7 +136,7 @@ describe('Immunization alongside an administered order', () => {
       id: 'imm-1',
       vaccineName: 'Pentacel (DTaP-IPV/Hib)',
       cvx: '120',
-      outside: false,
+      external: false,
       dateGiven: '2026-11-10T10:15:00.000Z',
       dateUnknown: false,
       administeredBy: { id: 'nurse-1', name: 'J. Nurse' },
@@ -190,26 +190,26 @@ describe('Immunization alongside an administered order', () => {
   });
 });
 
-describe('outside doses', () => {
+describe('external doses', () => {
   it('needs the vaccine, a real past date when given and a known source', () => {
-    expect(() => validateOutsideImmunizationDetails({})).toThrow(/vaccine.name/);
-    expect(() => validateOutsideImmunizationDetails({ vaccine: { name: 'DTaP' }, dateGiven: 'yesterday' })).toThrow(
+    expect(() => validateExternalImmunizationDetails({})).toThrow(/vaccine.name/);
+    expect(() => validateExternalImmunizationDetails({ vaccine: { name: 'DTaP' }, dateGiven: 'yesterday' })).toThrow(
       /not a valid date/
     );
     expect(() =>
-      validateOutsideImmunizationDetails({
+      validateExternalImmunizationDetails({
         vaccine: { name: 'DTaP' },
         dateGiven: DateTime.now().plus({ days: 1 }).toISODate(),
       })
     ).toThrow(/future/);
-    expect(() => validateOutsideImmunizationDetails({ vaccine: { name: 'DTaP' }, source: 'hearsay' })).toThrow(
+    expect(() => validateExternalImmunizationDetails({ vaccine: { name: 'DTaP' }, source: 'hearsay' })).toThrow(
       /Unknown source/
     );
-    expect(() => validateOutsideImmunizationDetails({ vaccine: { name: 'DTaP', id: '../Patient' } })).toThrow(
+    expect(() => validateExternalImmunizationDetails({ vaccine: { name: 'DTaP', id: '../Patient' } })).toThrow(
       /not a valid id/
     );
     expect(
-      validateOutsideImmunizationDetails({
+      validateExternalImmunizationDetails({
         vaccine: { id: 'med-1', name: ' DTaP ' },
         dateGiven: '2026-03-02',
         place: 'Mercy Pediatrics',
@@ -229,7 +229,7 @@ describe('outside doses', () => {
   });
 
   it('is an Immunization only: primary source false, the source coded from NIP001 and HL7, the date or "unknown"', () => {
-    const dated = buildOutsideImmunization(
+    const dated = buildExternalImmunization(
       {
         vaccine: { name: 'DTaP' },
         cvx: '20',
@@ -271,7 +271,7 @@ describe('outside doses', () => {
       ],
     });
 
-    const undated = buildOutsideImmunization({ vaccine: { name: 'MMR' } }, patient, encounter, nurse, NOW);
+    const undated = buildExternalImmunization({ vaccine: { name: 'MMR' } }, patient, encounter, nurse, NOW);
     expect(undated.occurrenceDateTime).toBeUndefined();
     expect(undated.occurrenceString).toBe('unknown');
     // no HL7 Immunization Origin code means "unspecified": NIP001 only
@@ -288,14 +288,14 @@ describe('outside doses', () => {
 
     const record = immunizationToRecord({ ...undated, id: 'imm-2' });
     expect(record).toMatchObject({
-      outside: true,
+      external: true,
       dateUnknown: true,
       dateGiven: undefined,
       source: 'unspecified',
       sourceCode: '01',
     });
     expect(immunizationToRecord({ ...dated, id: 'imm-3' })).toMatchObject({
-      outside: true,
+      external: true,
       dateGiven: '2026-03-02',
       place: 'Mercy Pediatrics',
       source: 'written-record',
@@ -368,25 +368,25 @@ describe('per-vaccine marks', () => {
   it('the patient response lists doses newest first with undated last, marks with their history, no undone doses', () => {
     const given = { ...immunizationFromMedicationAdministration(administeredOrder()), id: 'given' };
     const undone = { ...immunizationFromMedicationAdministration(administeredOrder('not-done')), id: 'undone' };
-    const outside = {
-      ...buildOutsideImmunization(
+    const external = {
+      ...buildExternalImmunization(
         { vaccine: { name: 'MMR' }, dateGiven: '2026-11-11' },
         patient,
         encounter,
         nurse,
         NOW
       ),
-      id: 'outside',
+      id: 'external',
     };
     const undated = {
-      ...buildOutsideImmunization({ vaccine: { name: 'Hep B' } }, patient, encounter, nurse, NOW),
+      ...buildExternalImmunization({ vaccine: { name: 'Hep B' } }, patient, encounter, nurse, NOW),
       id: 'undated',
     };
     const mark = { ...buildImmunizationMark(input, patient, nurse, NOW), id: 'mark' };
 
-    const response = buildPatientImmunizationsResponse([undated, undone, given, mark, outside]);
+    const response = buildPatientImmunizationsResponse([undated, undone, given, mark, external]);
 
-    expect(response.immunizations.map((record) => record.id)).toEqual(['outside', 'given', 'undated']);
+    expect(response.immunizations.map((record) => record.id)).toEqual(['external', 'given', 'undated']);
     expect(response.marks.map((record) => record.id)).toEqual(['mark']);
   });
 });

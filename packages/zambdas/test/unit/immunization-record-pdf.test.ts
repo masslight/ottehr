@@ -11,7 +11,7 @@ const TZ = 'America/New_York';
 
 const record = (overrides: Partial<PatientImmunizationRecord> & { id: string }): PatientImmunizationRecord => ({
   vaccineName: 'Vaccine',
-  outside: false,
+  external: false,
   dateUnknown: !overrides.dateGiven,
   ...overrides,
 });
@@ -35,7 +35,7 @@ const forecastOf = (groups: ImmunizationGroupForecast[], unmappedIds: string[] =
   asOf: '2026-11-10',
   dataVersion: '2026-11',
   groups,
-  unmappedDoses: unmappedIds.map((id) => ({ id, cvx: '999', date: null, source: 'outside' })),
+  unmappedDoses: unmappedIds.map((id) => ({ id, cvx: '999', date: null, source: 'external' })),
 });
 
 describe('immunization record PDF — dose lines', () => {
@@ -48,29 +48,29 @@ describe('immunization record PDF — dose lines', () => {
     expect(line).toBe('08/10/2026 — Engerix-B, dose 2');
   });
 
-  it('labels an outside dose with where and from what source, and an undated one "Date unknown"', () => {
+  it('labels an external dose with where and from what source, and an undated one "Date unknown"', () => {
     expect(
       doseLine(
         { doseNumber: 1, status: 'valid' },
         record({
           id: 'o',
           vaccineName: 'Hep B',
-          outside: true,
+          external: true,
           dateGiven: '2026-07-08',
           place: 'Mercy Hospital',
           source: 'written-record',
         }),
         TZ
       )
-    ).toBe('07/08/2026 — Hep B, dose 1 · Outside: Mercy Hospital, from a written record');
+    ).toBe('07/08/2026 — Hep B, dose 1 · External: Mercy Hospital, from a written record');
 
     expect(
       doseLine(
         { doseNumber: null, status: 'not-counted', reason: 'Date unknown' },
-        record({ id: 'u', vaccineName: 'DTaP', outside: true, source: 'unspecified' }),
+        record({ id: 'u', vaccineName: 'DTaP', external: true, source: 'unspecified' }),
         TZ
       )
-    ).toBe('Date unknown — DTaP · Outside: from source unspecified · Date unknown');
+    ).toBe('Date unknown — DTaP · External: from source unspecified · Date unknown');
   });
 
   it('says why an invalid dose did not count', () => {
@@ -92,11 +92,11 @@ describe('immunization record PDF — groups', () => {
         id: 'h1',
         vaccineName: 'Hep B',
         cvx: '08',
-        outside: true,
+        external: true,
         dateGiven: '2026-07-08',
         place: 'Mercy Hospital',
       }),
-      record({ id: 'travel', vaccineName: 'Typhoid', cvx: '999', outside: true, dateGiven: '2026-10-01' }),
+      record({ id: 'travel', vaccineName: 'Typhoid', cvx: '999', external: true, dateGiven: '2026-10-01' }),
       record({ id: 'no-cvx', vaccineName: 'Mystery shot', dateGiven: '2026-09-15T14:00:00.000Z' }),
     ],
     marks: [],
@@ -144,7 +144,7 @@ describe('immunization record PDF — groups', () => {
         title: 'Hep B — Up to date',
         target: 'Target: 3',
         doses: [
-          '07/08/2026 — Hep B, dose 1 · Outside: Mercy Hospital, from source unspecified',
+          '07/08/2026 — Hep B, dose 1 · External: Mercy Hospital, from source unspecified',
           '08/10/2026 — Engerix-B, dose 2',
         ],
         mark: undefined,
@@ -173,7 +173,7 @@ describe('immunization record PDF — groups', () => {
   it('puts doses without a CVX and doses the forecast cannot place under "Other vaccines"', () => {
     expect(composeOtherDoses(forecastOf([], ['travel']), records, TZ)).toEqual([
       '09/15/2026 — Mystery shot',
-      '10/01/2026 — Typhoid · Outside: from source unspecified',
+      '10/01/2026 — Typhoid · External: from source unspecified',
     ]);
   });
 });

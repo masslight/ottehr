@@ -38,7 +38,7 @@ export { isThrough18 };
 
 /** A line the page fills the codes of: an order line with a vaccine whose codes are empty or the page's own. */
 export const takesSuggestedCodes = (line: ImmunizationFormValues): boolean =>
-  !line.outside &&
+  !line.external &&
   !!line.details.medication &&
   (line.cptOrigin === 'suggested' || (!line.cptOrigin && !line.administrationDetails.cptCodes?.length));
 
@@ -65,7 +65,7 @@ export const suggestCptCodes = (
     visitCptCodes.some((code) => FIRST_ADMIN_CODES.includes(code.trim())) ||
     lines.some(
       (line) =>
-        !line.outside &&
+        !line.external &&
         !takesSuggestedCodes(line) &&
         line.administrationDetails.cptCodes?.some((cpt) => FIRST_ADMIN_CODES.includes(cpt.code.trim()))
     );

@@ -27,12 +27,12 @@ import {
 import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
 import { BASE_ROUTE_OPTIONS, VACCINE_SITE_OPTIONS } from 'src/shared/utils/options';
-import { IMMUNIZATION_OUTSIDE_SOURCES } from 'utils/lib/fhir/immunization';
+import { IMMUNIZATION_EXTERNAL_SOURCES } from 'utils/lib/fhir/immunization';
 import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { MVX_MANUFACTURERS } from 'utils/lib/types/data/immunization/mvx-manufacturers.generated';
 import {
-  ImmunizationOutsideSource,
+  ImmunizationExternalSource,
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
   Vaccine,
@@ -44,10 +44,10 @@ import { useVaccineLotsOnHand } from '../hooks/useVaccineInventory';
 import { LineQuickPicks } from './DueTodayBox';
 import {
   applyLotToLine,
+  ExternalDoseValues,
   formatImmunizationCptCode,
   ImmunizationLine,
-  OutsideDoseValues,
-  toggleOutside,
+  toggleExternal,
 } from './immunizationLines';
 import { IMMUNIZATION_MENU_PAPER_SX, ImmunizationMenu } from './ImmunizationMenu';
 import { FundingChip, VaccineLotBlank } from './VaccineLotBlank';
@@ -62,7 +62,7 @@ const VIS_OPTIONS = [
   { value: 'given', label: 'given' },
   { value: 'not given', label: 'not given' },
 ];
-const SOURCE_OPTIONS = IMMUNIZATION_OUTSIDE_SOURCES.map((source) => ({ value: source.value, label: source.label }));
+const SOURCE_OPTIONS = IMMUNIZATION_EXTERNAL_SOURCES.map((source) => ({ value: source.value, label: source.label }));
 // The manufacturer is picked by its CDC MVX code; the lot pick fills it from the box's NDC.
 const MVX_OPTIONS = MVX_MANUFACTURERS.map((manufacturer) => ({
   value: manufacturer.mvx,
@@ -206,19 +206,19 @@ const ImmunizationBlank: FC<{
   );
 };
 
-interface OutsideImmunizationSentencesProps
+interface ExternalImmunizationSentencesProps
   extends Pick<
     ImmunizationSentencesProps,
     'line' | 'index' | 'onChange' | 'onRemove' | 'quickPicks' | 'onQuickPick' | 'errors' | 'readOnly'
   > {
-  outside: OutsideDoseValues;
+  external: ExternalDoseValues;
 }
 
 /** A dose administered externally, on the same line: "[vaccine] administered externally × on [date given] at [where],
  * from [source]", plus the lot and manufacturer (by MVX, as on an order line) when known. The × turns it back into an
  * order line. Saved straight into the history: no order, no stock, no billing, so the lot is typed, never picked
  * from inventory. */
-const OutsideImmunizationSentences: FC<OutsideImmunizationSentencesProps> = ({
+const ExternalImmunizationSentences: FC<ExternalImmunizationSentencesProps> = ({
   line,
   index,
   onChange,
@@ -227,16 +227,17 @@ const OutsideImmunizationSentences: FC<OutsideImmunizationSentencesProps> = ({
   onQuickPick,
   errors,
   readOnly,
-  outside,
+  external,
 }) => {
   const { details, administrationDetails } = line;
-  const updateOutside = (patch: OutsideDoseValues): void => onChange({ ...line, outside: { ...outside, ...patch } });
+  const updateExternal = (patch: ExternalDoseValues): void =>
+    onChange({ ...line, external: { ...external, ...patch } });
   // The lot sentence is offered as a link, like the instructions, and stays once opened or filled.
   const [lotOpen, setLotOpen] = useState(false);
   const lotShown = lotOpen || !!administrationDetails.lot || !!details.manufacturer || !!administrationDetails.mvx;
 
   return (
-    <Box sx={{ ...LINE_SX, borderColor: 'text.disabled' }} data-testid={dataTestIds.orderVaccinePage.outsideLine}>
+    <Box sx={{ ...LINE_SX, borderColor: 'text.disabled' }} data-testid={dataTestIds.orderVaccinePage.externalLine}>
       <Sentence onRemove={onRemove} removeLabel={`Remove immunization ${index + 1}`}>
         <ImmunizationBlank
           value={details.medication?.name}
@@ -249,37 +250,37 @@ const OutsideImmunizationSentences: FC<OutsideImmunizationSentencesProps> = ({
           administered externally
         </Box>
         {!readOnly && (
-          <RemoveButton label="Remove administered externally" onClick={() => onChange(toggleOutside(line))} />
+          <RemoveButton label="Remove administered externally" onClick={() => onChange(toggleExternal(line))} />
         )}{' '}
         on{' '}
         <DateTimeBlank
           kind="date"
           label="date given"
-          value={toDate(outside.dateGiven)}
-          onChange={(next) => updateOutside({ dateGiven: next?.toISODate() ?? undefined })}
+          value={toDate(external.dateGiven)}
+          onChange={(next) => updateExternal({ dateGiven: next?.toISODate() ?? undefined })}
           readOnly={readOnly}
-          dataTestId={dataTestIds.orderVaccinePage.outsideDate}
+          dataTestId={dataTestIds.orderVaccinePage.externalDate}
         />{' '}
         at{' '}
         <TextBlank
           label="where"
-          value={outside.place}
-          onChange={(place) => updateOutside({ place })}
+          value={external.place}
+          onChange={(place) => updateExternal({ place })}
           readOnly={readOnly}
-          dataTestId={dataTestIds.orderVaccinePage.outsidePlace}
+          dataTestId={dataTestIds.orderVaccinePage.externalPlace}
         />
         , from{' '}
         <SelectBlank
           label="source"
           title="Source"
           options={SOURCE_OPTIONS}
-          value={outside.source}
+          value={external.source}
           onChange={(source) =>
-            updateOutside({ source: (source as ImmunizationOutsideSource | undefined) ?? undefined })
+            updateExternal({ source: (source as ImmunizationExternalSource | undefined) ?? undefined })
           }
           readOnly={readOnly}
           clearable
-          dataTestId={dataTestIds.orderVaccinePage.outsideSource}
+          dataTestId={dataTestIds.orderVaccinePage.externalSource}
         />
         .
       </Sentence>
@@ -292,7 +293,7 @@ const OutsideImmunizationSentences: FC<OutsideImmunizationSentencesProps> = ({
             value={administrationDetails.lot}
             onChange={(lot) => onChange({ ...line, administrationDetails: { ...administrationDetails, lot } })}
             readOnly={readOnly}
-            dataTestId={dataTestIds.orderVaccinePage.outsideLot}
+            dataTestId={dataTestIds.orderVaccinePage.externalLot}
           />
           , made by{' '}
           <SelectBlank
@@ -531,9 +532,9 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
     </Button>
   );
 
-  if (line.outside) {
+  if (line.external) {
     return (
-      <OutsideImmunizationSentences
+      <ExternalImmunizationSentences
         line={line}
         index={index}
         onChange={onChange}
@@ -542,7 +543,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
         onQuickPick={onQuickPick}
         errors={errors}
         readOnly={readOnly}
-        outside={line.outside}
+        external={line.external}
       />
     );
   }

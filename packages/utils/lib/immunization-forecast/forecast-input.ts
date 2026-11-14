@@ -26,7 +26,7 @@ export interface ForecastPatientInput {
  * the value carries. A dose given at 10:30 pm is that day's dose, not the next UTC day's.
  */
 export const isoDateOf = (value: string, timezone?: string): string | undefined => {
-  // A date-only value (an outside dose) names its day already; parsed, it would take the process zone (UTC on a
+  // A date-only value (an external dose) names its day already; parsed, it would take the process zone (UTC on a
   // Lambda) and move to the day before when shifted into a western visit zone.
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return DateTime.fromISO(value).isValid ? value : undefined;
   const parsed = DateTime.fromISO(value, { setZone: true });
@@ -77,8 +77,8 @@ export function buildForecastInput(
       id: record.id,
       date: record.dateGiven ? isoDateOf(record.dateGiven, timezone) ?? null : null,
       cvx: record.cvx ?? '',
-      source: record.outside ? 'outside' : 'administered',
-      ...(record.outside && record.sourceCode && { outsideSource: record.sourceCode as ImmunizationReportOrigin }),
+      source: record.external ? 'external' : 'administered',
+      ...(record.external && record.sourceCode && { externalSource: record.sourceCode as ImmunizationReportOrigin }),
     })),
     marks: markInputs,
   };
