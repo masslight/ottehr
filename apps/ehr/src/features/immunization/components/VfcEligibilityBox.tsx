@@ -72,7 +72,7 @@ export const VfcEligibilityBox: FC<VfcEligibilityBoxProps> = ({ encounterId, var
         }}
       />
       <Typography variant="body2" fontWeight={700} data-testid={dataTestIds.vfcEligibility.confirmed}>
-        VFC: {VFC_ELIGIBILITY_LABELS[confirmed.code].short} ({confirmed.code})
+        VFC: {VFC_ELIGIBILITY_LABELS[confirmed.code].short}
       </Typography>
       <Typography variant="body2" color="text.secondary">
         {DateTime.fromISO(confirmed.confirmedAt).toLocal().toFormat(`${DISPLAY_DATE_FORMAT} hh:mm a`)}
@@ -109,7 +109,7 @@ export const VfcEligibilityBox: FC<VfcEligibilityBoxProps> = ({ encounterId, var
         </MenuItem>
         {VFC_ELIGIBILITY_CODES.map((option) => (
           <MenuItem key={option} value={option}>
-            {VFC_ELIGIBILITY_LABELS[option].long} ({option})
+            {VFC_ELIGIBILITY_LABELS[option].long}
           </MenuItem>
         ))}
       </Select>

@@ -78,7 +78,7 @@ describe('VfcEligibilityBox', () => {
     });
     render(<VfcEligibilityBox encounterId="enc-1" variant="strip" />);
 
-    expect(screen.getByTestId(dataTestIds.vfcEligibility.confirmed)).toHaveTextContent('VFC: Medicaid (V02)');
+    expect(screen.getByTestId(dataTestIds.vfcEligibility.confirmed)).toHaveTextContent('VFC: Medicaid');
     expect(screen.getByText(/J\. Ortiz/)).toBeInTheDocument();
     expect(screen.queryByTestId(dataTestIds.vfcEligibility.confirmButton)).not.toBeInTheDocument();
 

@@ -112,9 +112,7 @@ export default function VfcBorrowingLog(): ReactElement {
                     <FundingChip fundingSource={borrowing.owedTo} />
                   </TableCell>
                   <TableCell>
-                    {borrowing.vfcEligibility
-                      ? `${VFC_ELIGIBILITY_LABELS[borrowing.vfcEligibility].short} (${borrowing.vfcEligibility})`
-                      : ''}
+                    {borrowing.vfcEligibility ? VFC_ELIGIBILITY_LABELS[borrowing.vfcEligibility].short : ''}
                   </TableCell>
                   <TableCell>{borrowing.reason}</TableCell>
                   <TableCell>{borrowing.performerName}</TableCell>
