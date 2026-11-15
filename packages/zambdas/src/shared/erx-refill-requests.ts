@@ -17,6 +17,7 @@ import {
 import { CompoundOrder, QUANTITY_UNITS } from 'utils/lib/types/api/order-prescription.types';
 import { ERX_TASK, getTaskInputValue, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import { makePrescribedMedicationDTO, readPrescriptionMetadata } from './chart-data';
 
 export { readPrescriptionMetadata };
@@ -316,6 +317,8 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
   let pharmacyRequest: ErxPharmacyRefillRequest | undefined;
   let pharmacyChangeRequest: ErxPharmacyChangeRequest | undefined;
   let medicationRequestId: string | undefined;
+  // A patient's request names its patient; the prescription must be theirs (a pharmacy's comes from the eRx service).
+  let taskPatientReference: string | undefined;
   const code = getCoding(task.code, ERX_TASK.system)?.code;
   const kind =
     code === ERX_TASK.code.refillRequest ? 'refill' : code === ERX_TASK.code.changeRequest ? 'change' : undefined;
@@ -331,8 +334,13 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
     medicationRequestId = versions[versions.length - 1].focus?.reference?.split('/')[1];
   } else if (kind && task.groupIdentifier?.value === MANUAL_TASK.category.erx) {
     medicationRequestId = getTaskInputValue(task, MANUAL_TASK.input.orderId);
+    taskPatientReference =
+      task.input?.find((input) => input.type?.coding?.some((coding) => coding.code === MANUAL_TASK.input.patient))
+        ?.valueReference?.reference ?? '';
   }
   if (!kind || !medicationRequestId) throw INVALID_INPUT_ERROR(`Task ${taskId} is not a refill or change request`);
+  // Staff write a patient's request's order id: one prescription id, never a list for the search below.
+  if (!isValidUUID(medicationRequestId)) throw INVALID_INPUT_ERROR(`Task ${taskId} has no valid prescription id`);
 
   const resources = (
     await oystehr.fhir.search<MedicationRequest | Patient | Practitioner | Provenance>({
@@ -349,7 +357,12 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
     (resource): resource is MedicationRequest => resource.resourceType === 'MedicationRequest'
   );
   const patient = resources.find((resource): resource is Patient => resource.resourceType === 'Patient');
-  if (!medicationRequest) throw FHIR_RESOURCE_NOT_FOUND('MedicationRequest');
+  // Another patient's prescription reads as none, so the answer doesn't say it exists.
+  if (
+    !medicationRequest ||
+    (taskPatientReference !== undefined && medicationRequest.subject?.reference !== taskPatientReference)
+  )
+    throw FHIR_RESOURCE_NOT_FOUND('MedicationRequest');
   if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
   const prescriber = resources.find((resource): resource is Practitioner => resource.resourceType === 'Practitioner');
   return {
@@ -372,6 +385,18 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
     ),
     metadata: readPrescriptionMetadata(medicationRequest),
     prescriberName: prescriber && getFullName(prescriber),
-    patient,
+    patient: dialogPatient(patient),
   };
 };
+
+/** Only what the request dialog and its order form show or send of the patient: the name, sex and birth date, the
+ * phone and the first address. */
+const dialogPatient = ({ id, name, gender, birthDate, telecom, address }: Patient): Patient => ({
+  resourceType: 'Patient',
+  id,
+  ...(name ? { name } : {}),
+  ...(gender ? { gender } : {}),
+  ...(birthDate ? { birthDate } : {}),
+  ...(telecom ? { telecom: telecom.filter((point) => point.system === 'phone') } : {}),
+  ...(address?.[0] ? { address: [address[0]] } : {}),
+});

@@ -8,6 +8,7 @@ import {
   SURESCRIPTS_MESSAGE_ID_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { ERX_TASK, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
 import {
   getErxRequest,
@@ -363,37 +364,43 @@ describe('a pharmacy change request, as the dialog reads it', () => {
 });
 
 describe('a patient’s request that staff wrote down, as the dialog reads it', () => {
-  it('reads the task’s title and details, who took it and when', async () => {
-    const manual = (code: string, valueString: string): NonNullable<Task['input']>[number] => ({
-      type: { coding: [{ code }] },
-      valueString,
-    });
-    const task: Task = {
-      resourceType: 'Task',
-      id: 'task-1',
-      status: 'requested',
-      intent: 'order',
-      code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.refillRequest }] },
-      groupIdentifier: { value: MANUAL_TASK.category.erx },
-      authoredOn: '2026-10-28T10:00:00.000Z',
-      input: [
-        manual(MANUAL_TASK.input.title, 'Mom called for albuterol refill'),
-        manual(MANUAL_TASK.input.details, 'Out in 2 days'),
-        manual(MANUAL_TASK.input.providerName, 'Kim Front'),
-        manual(MANUAL_TASK.input.orderId, 'rx-1'),
-      ],
-    };
-    const oystehr = {
+  const RX_ID = '0d4f6a3e-6c1b-4b0e-9a3f-2b7c8d9e0f11';
+  const PATIENT_ID = '7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+  const manual = (code: string, valueString: string): NonNullable<Task['input']>[number] => ({
+    type: { coding: [{ code }] },
+    valueString,
+  });
+  const taskFor = (orderId: string, patientId = PATIENT_ID): Task => ({
+    resourceType: 'Task',
+    id: 'task-1',
+    status: 'requested',
+    intent: 'order',
+    code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.refillRequest }] },
+    groupIdentifier: { value: MANUAL_TASK.category.erx },
+    authoredOn: '2026-10-28T10:00:00.000Z',
+    input: [
+      manual(MANUAL_TASK.input.title, 'Mom called for albuterol refill'),
+      manual(MANUAL_TASK.input.details, 'Out in 2 days'),
+      manual(MANUAL_TASK.input.providerName, 'Kim Front'),
+      manual(MANUAL_TASK.input.orderId, orderId),
+      {
+        type: { coding: [{ code: MANUAL_TASK.input.patient }] },
+        valueReference: { reference: `Patient/${patientId}` },
+      },
+    ],
+  });
+  const oystehrWith = (task: Task, subjectId = PATIENT_ID): Oystehr =>
+    ({
       fhir: {
         get: vi.fn().mockResolvedValue(task),
         search: vi.fn().mockResolvedValue({
           unbundle: () => [
             {
               resourceType: 'MedicationRequest',
-              id: 'rx-1',
+              id: RX_ID,
               status: 'active',
               intent: 'order',
-              subject: { reference: 'Patient/patient-1' },
+              subject: { reference: `Patient/${subjectId}` },
               extension: [
                 {
                   url: PRESCRIPTION_ERX_METADATA_URL,
@@ -402,12 +409,27 @@ describe('a patient’s request that staff wrote down, as the dialog reads it', 
                 },
               ],
             },
-            { resourceType: 'Patient', id: 'patient-1' },
+            {
+              resourceType: 'Patient',
+              id: subjectId,
+              name: [{ given: ['Ana'], family: 'Diaz' }],
+              gender: 'female',
+              birthDate: '2019-04-02',
+              telecom: [
+                { system: 'phone', value: '+15125550187' },
+                { system: 'email', value: 'ana@example.com' },
+              ],
+              address: [{ line: ['1 Main St'], city: 'Austin', state: 'TX', postalCode: '78701' }, { city: 'Old' }],
+              identifier: [{ system: 'http://hl7.org/fhir/sid/us-ssn', value: '123-45-6789' }],
+              extension: [{ url: 'https://example.com/anything', valueString: 'x' }],
+            },
           ],
         }),
       },
-    } as unknown as Oystehr;
-    const response = await getErxRequest(oystehr, 'task-1');
+    }) as unknown as Oystehr;
+
+  it('reads the task’s title and details, who took it and when', async () => {
+    const response = await getErxRequest(oystehrWith(taskFor(RX_ID)), 'task-1');
     expect(response.patientRequest).toEqual({
       title: 'Mom called for albuterol refill',
       note: 'Out in 2 days',
@@ -421,6 +443,33 @@ describe('a patient’s request that staff wrote down, as the dialog reads it', 
       dose: '2',
       frequency: 'every 4 hours',
       durationDays: '',
+    });
+  });
+
+  // Review S5: the order id is staff-written, so it is one id, of a prescription of the task’s patient.
+  it('takes only one prescription id', async () => {
+    const oystehr = oystehrWith(taskFor(`${RX_ID},${RX_ID}`));
+    await expect(getErxRequest(oystehr, 'task-1')).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+    expect(oystehr.fhir.search).not.toHaveBeenCalled();
+  });
+
+  it('answers "not found" for a prescription of another patient', async () => {
+    const other = '9f8e7d6c-5b4a-4c3d-8e2f-1a0b9c8d7e6f';
+    await expect(getErxRequest(oystehrWith(taskFor(RX_ID), other), 'task-1')).rejects.toMatchObject({
+      message: 'The requested MedicationRequest resource could not be found',
+    });
+  });
+
+  it('returns only what the dialog shows of the patient', async () => {
+    const { patient } = await getErxRequest(oystehrWith(taskFor(RX_ID)), 'task-1');
+    expect(patient).toEqual({
+      resourceType: 'Patient',
+      id: PATIENT_ID,
+      name: [{ given: ['Ana'], family: 'Diaz' }],
+      gender: 'female',
+      birthDate: '2019-04-02',
+      telecom: [{ system: 'phone', value: '+15125550187' }],
+      address: [{ line: ['1 Main St'], city: 'Austin', state: 'TX', postalCode: '78701' }],
     });
   });
 });
