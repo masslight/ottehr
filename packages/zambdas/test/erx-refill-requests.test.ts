@@ -92,6 +92,28 @@ describe('eRx refill request tasks', () => {
     });
   });
 
+  it("is at the original prescription's visit location, so the Tasks page location filter finds it", async () => {
+    const create = vi.fn(async (task: Task) => ({ ...task, id: 'task-1' }));
+    const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
+      unbundle: () =>
+        resourceType === 'Encounter'
+          ? [
+              {
+                resourceType: 'Encounter',
+                id: 'encounter-1',
+                location: [{ location: { reference: 'Location/loc-north' } }],
+              },
+              { resourceType: 'Location', id: 'loc-north', name: 'North Clinic' },
+            ]
+          : [],
+    }));
+    const oystehr = { fhir: { search, get: async () => undefined, create } } as unknown as Oystehr;
+    await syncErxRequestTask(oystehr, renewal('requested'));
+    const task = create.mock.calls[0][0];
+    expect(task.location).toEqual({ reference: 'Location/loc-north', display: 'North Clinic' });
+    expect(task.meta?.tag).toContainEqual(expect.objectContaining({ code: 'loc-north', display: 'North Clinic' }));
+  });
+
   it('cancels the task once the request is withdrawn, and completes it once answered', () => {
     expect(refillRequestTaskAction(renewal('cancelled'), [ottehrTask('in-progress')])).toBe('cancel');
     expect(refillRequestTaskAction(renewal('cancelled'), [ottehrTask('cancelled')])).toBeUndefined();

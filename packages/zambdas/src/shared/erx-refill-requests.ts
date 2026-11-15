@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { MedicationRequest, Patient, Practitioner, Provenance, Task } from 'fhir/r4b';
+import { Encounter, Location, MedicationRequest, Patient, Practitioner, Provenance, Task } from 'fhir/r4b';
 import {
   ERX_CHANGE_REQUEST_TASK_CODE,
   ERX_REQUEST_TASK_CODE_SYSTEM,
@@ -75,13 +75,14 @@ export const changeRequestTitle = (changeTask: Task, medication: string | undefi
   }`;
 };
 
-/** The Ottehr eRx task for a renewal or change Task: basedOn it, in the original prescription's visit, assigned to
- * its owner (the original prescriber). */
+/** The Ottehr eRx task for a renewal or change Task: basedOn it, in the original prescription's visit and at that
+ * visit's location (for the Tasks page's location filter), assigned to its owner (the original prescriber). */
 export const makeErxRequestTask = (
   requestTask: Task,
   patient: Patient | undefined,
   prescriber: Practitioner | undefined,
-  original?: MedicationRequest
+  original?: MedicationRequest,
+  location?: Location
 ): Task => {
   const patientName = patient ? getFullName(patient) : 'unknown patient';
   const change = isChangeTask(requestTask);
@@ -96,6 +97,7 @@ export const makeErxRequestTask = (
       : refillRequestTitle(requestTask, patientName),
     code: { system: ERX_TASK.system, code: change ? ERX_TASK.code.changeRequest : ERX_TASK.code.refillRequest },
     encounterId: requestTask.encounter?.reference?.split('/')[1],
+    location: location?.id ? { id: location.id, name: location.name } : undefined,
     basedOn: [`Task/${requestTask.id}`],
   });
   const requestMessageId = messageId(requestTask);
@@ -105,6 +107,25 @@ export const makeErxRequestTask = (
     task.owner = createOwnerReference(prescriber.id, getFullName(prescriber));
   }
   return task;
+};
+
+const encounterLocation = async (oystehr: Oystehr, encounterId: string): Promise<Location | undefined> => {
+  const resources = (
+    await oystehr.fhir.search<Encounter | Location>({
+      resourceType: 'Encounter',
+      params: [
+        { name: '_id', value: encounterId },
+        { name: '_include', value: 'Encounter:location' },
+      ],
+    })
+  ).unbundle();
+  const encounter = resources.find((resource): resource is Encounter => resource.resourceType === 'Encounter');
+  const locationId = encounter?.location
+    ?.find((item) => item.location.reference?.startsWith('Location/'))
+    ?.location.reference?.split('/')[1];
+  return resources.find(
+    (resource): resource is Location => resource.resourceType === 'Location' && resource.id === locationId
+  );
 };
 
 /** Makes, completes or cancels the Ottehr task of a renewal or change Task (`refillRequestTaskAction`). */
@@ -132,7 +153,10 @@ export const syncErxRequestTask = async (oystehr: Oystehr, requestTask: Task): P
     );
   }
   if (action !== 'create') return [];
-  const [patient, prescriber, original] = await Promise.all([
+  const encounterId = requestTask.encounter?.reference?.startsWith('Encounter/')
+    ? requestTask.encounter.reference.split('/')[1]
+    : undefined;
+  const [patient, prescriber, original, location] = await Promise.all([
     requestTask.for?.reference?.startsWith('Patient/')
       ? oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: requestTask.for.reference.split('/')[1] })
       : undefined,
@@ -146,8 +170,10 @@ export const syncErxRequestTask = async (oystehr: Oystehr, requestTask: Task): P
           id: requestTask.focus.reference.split('/')[1],
         })
       : undefined,
+    // The original prescription's visit's location
+    encounterId ? encounterLocation(oystehr, encounterId) : undefined,
   ]);
-  const task = makeErxRequestTask(requestTask, patient, prescriber, original);
+  const task = makeErxRequestTask(requestTask, patient, prescriber, original, location);
   // Conditional, so deliveries racing each other make one task per request.
   const requestMessageId = messageId(task);
   return [
