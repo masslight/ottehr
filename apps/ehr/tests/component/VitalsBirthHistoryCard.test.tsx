@@ -25,11 +25,11 @@ vi.mock('src/hooks/useBirthHistory', async () => {
     }),
     useSaveBirthHistory: () => ({
       isPending: false,
-      mutate: (value: BirthHistoryDTO, options: { onSuccess: () => void }) => {
+      mutate: (value: BirthHistoryDTO, options: { onSuccess?: () => void }) => {
         // As save-birth-history does: an empty birth history deletes the saved one.
         store.saved = Object.keys(value).length > 0 ? { ...value, resourceId: 'obs-1' } : undefined;
         store.listeners.forEach((listener) => listener());
-        options.onSuccess();
+        options.onSuccess?.();
       },
     }),
   };
