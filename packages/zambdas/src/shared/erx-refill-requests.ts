@@ -70,7 +70,8 @@ const isChangeTask = (requestTask: Task): boolean =>
 export const changeRequestTitle = (changeTask: Task, medication: string | undefined, patientName: string): string => {
   const pharmacy = renewalInput(changeTask, 'pharmacy-name')?.valueString ?? changeTask.requester?.display;
   const code = renewalInput(changeTask, 'change-code')?.valueString;
-  const kind = code && (CHANGE_REQUEST_KINDS[code] ?? code);
+  // No raw codes: a kind Ottehr doesn't know reads "Other change", as the request dialog says it.
+  const kind = code && (CHANGE_REQUEST_KINDS[code] ?? 'Other change');
   return `Change request${pharmacy ? ` from ${pharmacy}` : ''}: ${medication ?? 'prescription'} for ${patientName}${
     kind ? ` — ${kind}` : ''
   }`;

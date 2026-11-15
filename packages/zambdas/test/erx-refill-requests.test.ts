@@ -265,6 +265,8 @@ describe('eRx change request tasks', () => {
       makeErxRequestTask(change('requested', [input('change-code', code)]), undefined, undefined).description;
     expect(titled('RM')).toMatch(/ — REMS requirements not met$/);
     expect(titled('U')).toMatch(/ — Prescriber authorization$/);
+    // A kind Ottehr doesn't know reads as one, as the request dialog says it.
+    expect(titled('ZZ')).toMatch(/ — Other change$/);
   });
 
   it('is a change request task named by the pharmacy, the original medication, the patient and the kind', () => {
