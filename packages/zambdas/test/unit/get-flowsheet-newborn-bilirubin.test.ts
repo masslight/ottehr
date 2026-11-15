@@ -1,5 +1,6 @@
 import { Appointment, Encounter, Location, Observation } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -247,6 +248,27 @@ describe('buildNewbornBilirubinFlowsheet', () => {
       newbornTotalBilirubin: 11.2,
       dayOfLife: 6,
     });
+  });
+
+  test('a follow-up without an appointment is dated by its first weight, not by another vital', () => {
+    const followUp: Encounter = {
+      resourceType: 'Encounter',
+      id: 'e-fu',
+      status: 'finished',
+      class: { code: 'AMB' },
+      type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+      period: { start: '2007-04-10T13:00:00.000Z' },
+    };
+    const visits = buildNewbornBilirubinFlowsheet({
+      ...data,
+      encounters: [...data.encounters, followUp],
+      vitals: [
+        vital(VitalFieldNames.VitalTemperature, 'e-fu', '2007-04-10T13:30:00.000Z', 36.9),
+        vital(VitalFieldNames.VitalWeight, 'e-fu', '2007-04-10T14:00:00.000Z', 3.4),
+      ],
+      labs: { 'e-fu': [lab('Bilirubin, total', ['1975-2'], 11.2, '2007-04-10T16:00:00.000Z')] },
+    });
+    expect(visits.map((v) => [v.encounterId, v.start])).toEqual([['e-fu', '2007-04-10T14:00:00.000Z']]);
   });
 
   test('only results from the first 2 months of life: a later CMP bilirubin and an adult one stay off', () => {

@@ -69,7 +69,13 @@ export const conditionColumns = (data: FlowsheetData, vitalKeys: string[]): Cond
   const columns = new Map<string, FlowsheetVisit>();
   buildVitalsFlowsheet({ ...data, observations: data.vitals ?? [] }).forEach((visit) => {
     const values = Object.fromEntries(Object.entries(visit.values).filter(([key]) => vitalKeys.includes(key)));
-    if (Object.keys(values).length > 0) columns.set(visit.encounterId ?? '', { ...visit, values });
+    if (Object.keys(values).length === 0) return;
+    // Without an appointment start, dated by the first vital this flowsheet shows, not by any vital.
+    const key = visit.encounterId ?? '';
+    const first = Object.values(values)
+      .flatMap((value) => value.readings.map((reading) => reading.time))
+      .sort(byInstant)[0];
+    columns.set(key, { ...visit, start: describeVisit(key, data).start ?? first, values });
   });
 
   // A visit without vitals is dated by its appointment, else by the data that puts it on the flowsheet.
