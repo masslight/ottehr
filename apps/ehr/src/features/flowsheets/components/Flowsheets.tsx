@@ -346,15 +346,17 @@ const VisitLink = ({ visit }: { visit: VisitColumn }): ReactElement =>
     <>{visit.label}</>
   );
 
-/** "Pre-booked In Person Visit / UC", as on the patient Visits tab; follow-ups and unsolicited results say so. */
+/** "Pre-booked In Person Visit / UC" or "Follow-up Encounter / UC", as on the patient Visits tab. */
 export const visitTypeLabel = (
   visit: FlowsheetVisit,
   resolveServiceCategoryAbbr: (codeOrName?: string) => string | undefined
 ): string => {
   if (visit.isOutsideResult) return 'Unsolicited result';
-  if (visit.isFollowUp) return 'Follow-up';
-  if (!visit.appointmentType) return '-';
-  const type = getVisitTypeLabelForTypeAndServiceMode({ type: visit.appointmentType, serviceMode: visit.serviceMode });
+  const type = visit.isFollowUp
+    ? visit.followUpType ?? '-'
+    : visit.appointmentType &&
+      getVisitTypeLabelForTypeAndServiceMode({ type: visit.appointmentType, serviceMode: visit.serviceMode });
+  if (!type) return '-';
   const category = resolveServiceCategoryAbbr(visit.serviceCategory);
   return category ? `${type} / ${category}` : type;
 };

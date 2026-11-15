@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Outlet, Route, Routes, useLocation } from 'react-router-dom';
-import { toColumns } from 'src/features/flowsheets/components/Flowsheets';
+import { toColumns, visitTypeLabel } from 'src/features/flowsheets/components/Flowsheets';
 import InPersonRouting from 'src/features/visits/in-person/routing/InPersonRouting';
 import { routesInPerson } from 'src/features/visits/in-person/routing/routesInPerson';
 import { FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
@@ -68,5 +68,12 @@ describe('a follow-up column header link', () => {
     ]);
     expect(scheduled.url).toBe('/in-person/a0/review-and-sign?encounterId=fu2');
     expect(orphan.url).toBeUndefined();
+  });
+
+  it('the Visits card types a follow-up as the Visits tab does: its type text and the service category', () => {
+    const resolve = (code?: string): string | undefined => (code === 'urgent-care' ? 'UC' : undefined);
+    const typed = { ...followUp, followUpType: 'Follow-up Encounter' };
+    expect(visitTypeLabel({ ...typed, serviceCategory: 'urgent-care' }, resolve)).toBe('Follow-up Encounter / UC');
+    expect(visitTypeLabel(typed, resolve)).toBe('Follow-up Encounter');
   });
 });

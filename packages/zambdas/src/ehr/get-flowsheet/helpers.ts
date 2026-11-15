@@ -18,6 +18,7 @@ import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.t
 import { ServiceMode } from 'utils/lib/types/common';
 import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { followUpVisitHistoryRowFromEncounter } from '../patient-visit-history/get';
 
 /** The patient's visits and what every flowsheet's visit columns are described from. */
 export interface VisitResources {
@@ -140,6 +141,23 @@ export const describeVisit = (
   );
   const location = resources.locations?.find((l) => l.id === locationId);
   const serviceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
+  // A follow-up's type, service category and reason, built as the Visits tab builds its follow-up row.
+  const originalCategory = getCoding(
+    resources.appointments.find(
+      (a) => a.id === getIdFromReference(original?.appointment?.[0]?.reference, 'Appointment')
+    )?.serviceCategory,
+    SERVICE_CATEGORY_SYSTEM
+  );
+  const followUpRow =
+    encounter && original
+      ? followUpVisitHistoryRowFromEncounter(encounter, {
+          practitioners: resources.practitioners,
+          locations: resources.locations ?? [],
+          originalEncounter: original,
+          serviceCategory: originalCategory?.code ?? originalCategory?.display,
+          appointments: resources.appointments,
+        })
+      : undefined;
 
   return {
     appointmentId: appointment?.id,
@@ -153,10 +171,11 @@ export const describeVisit = (
           originalAppointmentId: getIdFromReference(original?.appointment?.[0]?.reference, 'Appointment'),
         }
       : {}),
+    ...(followUpRow ? { followUpType: followUpRow.type } : {}),
     appointmentType: appointment && appointmentTypeForAppointment(appointment),
     serviceMode: appointment && (isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person']),
-    serviceCategory: serviceCategory?.code ?? serviceCategory?.display,
-    reason: getReasonForVisitFromAppointment(appointment) ?? '',
+    serviceCategory: followUpRow ? followUpRow.serviceCategory : serviceCategory?.code ?? serviceCategory?.display,
+    reason: (followUpRow ? followUpRow.visitReason : getReasonForVisitFromAppointment(appointment)) ?? '',
     primaryDiagnosis: coding ? [coding.code, coding.display].filter(Boolean).join(' — ') : '',
     // First and last name, as the Visits tab shows the provider.
     attending: attending ? `${getFirstName(attending)} ${getLastName(attending)}` : '',

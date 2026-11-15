@@ -1,7 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Condition, Encounter, Observation, Practitioner } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
-import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { PRIVATE_EXTENSION_BASE_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import {
+  buildFollowupEncounterType,
+  FOLLOWUP_SUBTYPE_SYSTEM,
+  FOLLOWUP_SYSTEMS,
+  FollowupSubtype,
+} from 'utils/lib/fhir/encounter';
 import {
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
@@ -257,6 +262,43 @@ describe('buildVitalsFlowsheet', () => {
       followupSubtype: 'annotation',
     });
     expect(describeVisit('e1', resources)).not.toHaveProperty('followupSubtype');
+  });
+
+  test('a follow-up reads as on the Visits tab: its type text, the service category and its own reason', () => {
+    const original = {
+      ...appointments[0],
+      serviceCategory: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: 'urgent-care' }] }],
+    };
+    const followUp = (id: string, subtype: FollowupSubtype, extra: Partial<Encounter>): Encounter => ({
+      resourceType: 'Encounter',
+      id,
+      status: 'finished',
+      class: { code: 'AMB' },
+      partOf: { reference: 'Encounter/e1' },
+      type: buildFollowupEncounterType(subtype),
+      ...extra,
+    });
+    const resources = {
+      appointments: [original, { ...appointments[1], description: 'Recheck rash' }],
+      encounters: [
+        ...encounters,
+        followUp('fu-a', 'annotation', { reasonCode: [{ text: 'Result - Lab' }] }),
+        followUp('fu-s', 'scheduled', { appointment: [{ reference: 'Appointment/a2' }] }),
+      ],
+      conditions,
+      practitioners,
+    };
+    expect(describeVisit('fu-a', resources)).toMatchObject({
+      followUpType: 'Follow-up Encounter',
+      serviceCategory: 'urgent-care',
+      reason: 'Result - Lab',
+    });
+    // A scheduled follow-up without a reason code falls back to its own appointment, as the Visits tab does.
+    expect(describeVisit('fu-s', resources)).toMatchObject({
+      followUpType: 'Follow-up Encounter',
+      serviceCategory: 'urgent-care',
+      reason: 'Recheck rash',
+    });
   });
 
   test('names the provider by first and last name, as the Visits tab does', () => {

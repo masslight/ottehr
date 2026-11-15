@@ -48,6 +48,8 @@ export interface FlowsheetVisit {
   /** A follow-up's subtype and its original visit's appointment: the header links there, as the Visits tab does. */
   followupSubtype?: FollowupSubtype;
   originalAppointmentId?: string;
+  /** A follow-up's type text ("Follow-up Encounter"), as the Visits tab shows it. */
+  followUpType?: string;
   /** An unlinked outside result (matched to the patient, not to a visit): a column of its own, dated by the result. */
   isOutsideResult?: boolean;
   /** The raw visit type, service mode and service category code; the EHR labels them as the Visits tab does. */
