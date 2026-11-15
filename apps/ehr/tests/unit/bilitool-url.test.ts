@@ -65,7 +65,7 @@ const visits: FlowsheetVisit[] = [
 ];
 const birthHistory = { timeOfBirth: '00:00', gestationalAgeWeeks: 38, gestationalAgeDays: 0 };
 
-describe('Open in BiliTool', () => {
+describe('BiliTool URL', () => {
   const readings = biliToolReadings(visits);
 
   it('lists every blood and skin-meter reading within 1–336 h in mg/dL or µmol/L, newest first', () => {

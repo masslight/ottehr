@@ -2,7 +2,7 @@ import { BirthHistoryDTO } from 'utils/lib/types/api/birth-history.types';
 import { FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { HOURS_OF_LIFE_MAX, hoursOfLifeAt } from './chartPoints';
 
-// "Open in BiliTool": a browser navigation to BiliTool's open results page with the reading(s) prefilled. The host
+// "BiliTool…": a browser navigation to BiliTool's open results page with the reading(s) prefilled. The host
 // is fixed, no token is sent, and every parameter is a number or enum computed here: nothing identifies the patient.
 export const BILITOOL_RESULTS_URL = 'https://emr.bilitool.org/results.php';
 export const BILITOOL_MIN_GESTATIONAL_WEEKS = 35;

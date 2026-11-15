@@ -52,7 +52,7 @@ export const BiliToolDialog = ({ open, onClose, birthHistory, readings }: BiliTo
     <CustomDialog
       open={open}
       handleClose={onClose}
-      title="Open in BiliTool"
+      title="Send to BiliTool"
       maxWidth="sm"
       fullWidth
       handleConfirm={openBiliTool}

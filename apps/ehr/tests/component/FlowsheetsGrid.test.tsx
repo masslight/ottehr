@@ -75,4 +75,14 @@ describe('Flowsheets grid', () => {
     expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(/same key/);
     consoleError.mockRestore();
   });
+
+  it('Newborn bilirubin\'s button reads "BiliTool…"', async () => {
+    render(
+      <MemoryRouter>
+        <Flowsheets patientId="p1" />
+      </MemoryRouter>
+    );
+    await userEvent.click(screen.getByRole('tab', { name: 'Newborn bilirubin' }));
+    expect(screen.getByRole('button', { name: 'BiliTool…' })).toBeInTheDocument();
+  });
 });

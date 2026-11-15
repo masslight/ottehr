@@ -28,6 +28,21 @@ describe('BiliToolDialog: result to send', () => {
   });
 });
 
+describe('BiliToolDialog: labels', () => {
+  it('the title is "Send to BiliTool"; its button stays "Open BiliTool"', () => {
+    render(
+      <BiliToolDialog
+        open
+        onClose={() => undefined}
+        birthHistory={{ timeOfBirth: '08:14', gestationalAgeWeeks: 38, gestationalAgeDays: 0 }}
+        readings={readings}
+      />
+    );
+    expect(screen.getByRole('dialog', { name: 'Send to BiliTool' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open BiliTool' })).toBeInTheDocument();
+  });
+});
+
 describe('BiliToolDialog: Open BiliTool hover', () => {
   const hoverText = async (): Promise<string | null> => {
     fireEvent.mouseOver(screen.getByRole('button', { name: 'Open BiliTool' }).parentElement!);

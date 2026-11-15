@@ -141,7 +141,7 @@ export const Flowsheets = ({
                 disabled={!!biliToolBlocked}
                 onClick={() => setBiliToolOpen(true)}
               >
-                Open in BiliTool
+                BiliTool…
               </RoundedButton>
             </span>
           </Tooltip>
