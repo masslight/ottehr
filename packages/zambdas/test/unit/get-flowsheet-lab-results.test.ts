@@ -38,11 +38,16 @@ interface LabOptions {
   flag?: 'H' | 'L' | 'A' | 'S' | 'R' | 'INTERMEDIATE' | '';
   at?: string;
   fasting?: boolean;
+  /** The result's Observation id and the ids it links to (hasMember, derivedFrom). */
+  id?: string;
+  links?: string[];
 }
 const lab = (
   analyte: string,
-  { codes = [], value, text, unit = '', test = '', testCodes = [], flag = '', at = AT, fasting }: LabOptions
+  { codes = [], value, text, unit = '', test = '', testCodes = [], flag = '', at = AT, fasting, id, links }: LabOptions
 ): FlowsheetLabResult => ({
+  observationId: id,
+  linkedObservationIds: links,
   analyte,
   loincCodes: codes,
   testName: test,
@@ -380,7 +385,7 @@ describe('buildLabResultsFlowsheet', () => {
     });
   });
 
-  test('urine culture: a coded organism ("Bacteria identified", 634-6 or 43409-2) shows as name and value; coded susceptibilities stay off', () => {
+  test('urine culture: a coded organism ("Bacteria identified", 634-6 or 43409-2) shows its value; coded susceptibilities stay off', () => {
     const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
     expect(
       valuesOf(
@@ -390,10 +395,10 @@ describe('buildLabResultsFlowsheet', () => {
         lab('Nitrofurantoin [Susceptibility] by MIC', { ...culture, codes: ['18955-5'], text: '<=16', unit: 'ug/mL' }),
         lab('Sensitivity Panel', { ...culture, codes: ['50545-3'], text: 'Ampicillin R; Nitrofurantoin S' })
       )
-    ).toEqual({ urineCulture: 'Bacteria identified Escherichia coli; Organism Enterococcus faecalis' });
+    ).toEqual({ urineCulture: 'Escherichia coli; Enterococcus faecalis' });
   });
 
-  test('urine culture: a coded colony count (19090-0 and its siblings) shows as name and value with its unit; coded susceptibilities stay off', () => {
+  test('urine culture: a coded colony count (19090-0 and its siblings) follows its organism with its unit, or alone shows its name; coded susceptibilities stay off', () => {
     const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
     expect(
       valuesOf(
@@ -401,7 +406,7 @@ describe('buildLabResultsFlowsheet', () => {
         lab('Colony count', { ...culture, codes: ['19090-0'], text: '>100000', unit: 'CFU/mL' }),
         lab('Ampicillin [Susceptibility]', { ...culture, codes: ['18864-9'], text: 'R' })
       )
-    ).toEqual({ urineCulture: 'Bacteria identified Escherichia coli; Colony count >100000 CFU/mL' });
+    ).toEqual({ urineCulture: 'Escherichia coli >100000 CFU/mL' });
     expect(
       valuesOf(
         lab('Colony Count', { ...culture, codes: ['19091-8'], value: 50000, unit: 'CFU/mL' }),
@@ -413,6 +418,40 @@ describe('buildLabResultsFlowsheet', () => {
         })
       )
     ).toEqual({ urineCulture: 'Colony Count 10,000-49,000 CFU/mL' });
+  });
+
+  test('urine culture: each coded organism reads with its own count, paired by order; only exact duplicate pairs go', () => {
+    const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
+    const organism = (name: string, id?: string): FlowsheetLabResult =>
+      lab('Bacteria identified', { ...culture, codes: ['634-6'], text: name, id });
+    const count = (text: string, id?: string, links?: string[]): FlowsheetLabResult =>
+      lab('Colony count', { ...culture, codes: ['19090-0'], text, unit: 'CFU/mL', id, links });
+    expect(
+      valuesOf(
+        organism('Escherichia coli'),
+        count('>100000'),
+        organism('Klebsiella pneumoniae'),
+        count('>100000'),
+        // The same organism and count sent twice.
+        organism('Klebsiella pneumoniae'),
+        count('>100000')
+      )
+    ).toEqual({ urineCulture: 'Escherichia coli >100000 CFU/mL; Klebsiella pneumoniae >100000 CFU/mL' });
+    // Organisms first, then counts that link to them (the count derived from, or a member of, its organism).
+    expect(
+      valuesOf(
+        organism('Escherichia coli', 'o1'),
+        organism('Enterococcus faecalis', 'o2'),
+        count('10000', 'c2', ['o2']),
+        count('>100000', 'c1', ['o1'])
+      )
+    ).toEqual({ urineCulture: 'Escherichia coli >100000 CFU/mL; Enterococcus faecalis 10000 CFU/mL' });
+    expect(
+      valuesOf(
+        lab('Bacteria identified', { ...culture, codes: ['634-6'], text: 'Escherichia coli', id: 'o1', links: ['c1'] }),
+        count('>100000', 'c1')
+      )
+    ).toEqual({ urineCulture: 'Escherichia coli >100000 CFU/mL' });
   });
 
   test('urine culture: an uncoded susceptibility (value S, I or R) is left out of the organism cell', () => {

@@ -314,6 +314,7 @@ describe('buildLabResults', () => {
   test('shapes external results with the lab’s saved interpretation, never a recomputed one', () => {
     expect(labs.e1).toEqual([
       {
+        observationId: 'o-glucose',
         analyte: 'Glucose',
         loincCodes: ['2345-7'],
         testName: 'Comprehensive metabolic panel',
@@ -329,6 +330,7 @@ describe('buildLabResults', () => {
         source: 'external',
       },
       {
+        observationId: 'o-a1c',
         analyte: 'Hemoglobin A1c',
         loincCodes: ['4548-4'],
         testName: 'Comprehensive metabolic panel',
@@ -349,6 +351,7 @@ describe('buildLabResults', () => {
   test('names an in-house result from its test definition and flags it from the report tag', () => {
     expect(labs.e2).toEqual([
       {
+        observationId: 'o-flu',
         analyte: 'Influenza A antigen',
         loincCodes: ['104730-7'],
         testName: 'Flu A',
@@ -369,6 +372,7 @@ describe('buildLabResults', () => {
   test('an unlinked outside result (no order, no visit) gets its own key, dated by the report', () => {
     expect(labs[unlinkedResultKey('dr-unlinked')]).toEqual([
       {
+        observationId: 'o-tsh',
         analyte: 'TSH',
         loincCodes: ['3016-3'],
         testName: 'TSH',
@@ -429,6 +433,54 @@ describe('buildLabResults', () => {
       [140, 'H', VitalAlertCriticality.Abnormal],
       [140, '', undefined],
       [6.1, 'A', VitalAlertCriticality.Abnormal],
+    ]);
+  });
+
+  test('keeps a result’s links to the report’s other Observations (a colony count to its organism)', () => {
+    const order: ServiceRequest = {
+      resourceType: 'ServiceRequest',
+      id: 'sr-uc',
+      status: 'completed',
+      intent: 'order',
+      subject: { reference: PATIENT },
+      encounter: { reference: 'Encounter/e9' },
+      code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: 'UC' }], text: 'Culture, Urine' },
+    };
+    const report: DiagnosticReport = {
+      resourceType: 'DiagnosticReport',
+      id: 'dr-uc',
+      status: 'final',
+      code: { text: 'Culture, Urine' },
+      basedOn: [{ reference: 'ServiceRequest/sr-uc' }],
+      result: [{ reference: 'Observation/o-org' }, { reference: 'Observation/o-count' }],
+    };
+    const observations: Observation[] = [
+      {
+        resourceType: 'Observation',
+        id: 'o-org',
+        status: 'final',
+        code: { coding: [{ system: 'http://loinc.org', code: '634-6' }] },
+        valueString: 'Escherichia coli',
+        hasMember: [{ reference: 'Observation/o-count' }],
+      },
+      {
+        resourceType: 'Observation',
+        id: 'o-count',
+        status: 'final',
+        code: { coding: [{ system: 'http://loinc.org', code: '19090-0' }] },
+        valueString: '>100000',
+        derivedFrom: [{ reference: 'Observation/o-org' }],
+      },
+    ];
+    const labs = buildLabResults({
+      serviceRequests: [order],
+      reports: [report],
+      observations,
+      activityDefinitions: [],
+    });
+    expect(labs.e9.map((lab) => [lab.observationId, lab.linkedObservationIds])).toEqual([
+      ['o-org', ['o-count']],
+      ['o-count', ['o-org']],
     ]);
   });
 

@@ -135,6 +135,9 @@ export interface FlowsheetMedication {
 }
 
 export interface FlowsheetLabResult {
+  /** The result's Observation id, and the ids of the report's Observations it links to (hasMember, derivedFrom). */
+  observationId?: string;
+  linkedObservationIds?: string[];
   analyte: string;
   loincCodes: string[];
   /** The ordered test (or, unordered, the report), which places results the lab did not code (culture organisms). */

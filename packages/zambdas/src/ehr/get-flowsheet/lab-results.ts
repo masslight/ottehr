@@ -361,42 +361,78 @@ const QUANTITY_TEXT = /^\s*[<>]?=?\s*[\d.,]+\s*$/;
  */
 const MIC_UNIT = /^\s*(mg\/l|(u|µ|μ|mc)g\/ml|mm)\s*$/i;
 
+/** A result as reported; a count sent as a quantity keeps its unit: ">100000 CFU/mL". */
+const reportedText = (lab: FlowsheetLabResult): string =>
+  QUANTITY_TEXT.test(lab.valueText) && lab.unit ? `${lab.valueText} ${lab.unit}` : lab.valueText;
+
+const isCultureOwnResult = (lab: FlowsheetLabResult): boolean =>
+  hasCode(lab, 'urineCulture') || URINE_CULTURE_NAME.test(lab.analyte);
+const isCodedCount = (lab: FlowsheetLabResult): boolean => hasCode(lab, 'urineCultureColonyCount');
+
 /**
- * The culture's own result reads as reported ("No growth"); an organism, uncoded or with an organism code, and a
- * coded colony count read their name and count as reported. Other coded results of the same order (susceptibilities) are left out, and so are
- * uncoded susceptibilities: valued or interpreted S, I or R, or an MIC (a value in an antibiotic-concentration unit).
+ * The culture's own result reads as reported ("No growth"), and so does a coded organism ("Escherichia coli"); an
+ * uncoded organism, and a coded colony count on its own, read their name and count as reported. Other coded results
+ * of the same order (susceptibilities) are left out, and so are uncoded susceptibilities: valued or interpreted S, I
+ * or R, or an MIC (a value in an antibiotic-concentration unit).
  */
 const cultureText = (lab: FlowsheetLabResult): string => {
-  // A count sent as a quantity keeps its unit: ">100000 CFU/mL".
-  const reported = QUANTITY_TEXT.test(lab.valueText) && lab.unit ? `${lab.valueText} ${lab.unit}` : lab.valueText;
-  if (hasCode(lab, 'urineCulture') || URINE_CULTURE_NAME.test(lab.analyte)) return reported;
+  const reported = reportedText(lab);
+  if (isCultureOwnResult(lab) || hasCode(lab, 'urineCultureOrganism')) return reported;
   const susceptibility =
     SUSCEPTIBILITY.test(lab.valueText) || SUSCEPTIBILITY.test(lab.interpretation) || MIC_UNIT.test(lab.unit);
-  if (hasCode(lab, 'urineCultureOrganism') || hasCode(lab, 'urineCultureColonyCount')) {
-    return [lab.analyte, reported].filter(Boolean).join(' ');
-  }
+  if (isCodedCount(lab)) return [lab.analyte, reported].filter(Boolean).join(' ');
   if (lab.loincCodes.length > 0 || susceptibility) return '';
   return [lab.analyte, reported].filter(Boolean).join(' ');
 };
 
-const unique = (texts: string[]): string[] => [...new Set(texts)];
+const linkedTo = (a: FlowsheetLabResult, b: FlowsheetLabResult): boolean =>
+  (!!b.observationId && !!a.linkedObservationIds?.includes(b.observationId)) ||
+  (!!a.observationId && !!b.linkedObservationIds?.includes(a.observationId));
+
+/**
+ * One report's culture texts in report order, each coded colony count after its organism ("Escherichia coli >100000
+ * CFU/mL"): the organism it links to, else, linking to none, the nearest organism before it without a count. Only
+ * exact duplicate texts are dropped.
+ */
+const cultureTexts = (labs: FlowsheetLabResult[]): string[] => {
+  const shown = labs.filter((lab) => cultureText(lab));
+  const organisms = shown.filter((lab) => !isCodedCount(lab) && !isCultureOwnResult(lab));
+  const countOf = new Map<FlowsheetLabResult, FlowsheetLabResult>();
+  shown.forEach((count, i) => {
+    if (!isCodedCount(count)) return;
+    const unpaired = organisms.filter((organism) => !countOf.has(organism));
+    const linked = shown.some((other) => linkedTo(count, other));
+    const organism = linked
+      ? unpaired.find((o) => linkedTo(count, o))
+      : unpaired.filter((o) => shown.indexOf(o) < i && !shown.some((other) => linkedTo(o, other))).pop();
+    if (organism) countOf.set(organism, count);
+  });
+  const paired = new Set(countOf.values());
+  const texts = shown
+    .filter((lab) => !paired.has(lab))
+    .map((lab) => {
+      const count = countOf.get(lab);
+      return count ? `${cultureText(lab)} ${reportedText(count)}` : cultureText(lab);
+    });
+  return [...new Set(texts)];
+};
 
 /** One Urine culture reading per report time in each column, listing every organism of that culture. */
 const addUrineCultures = (columns: ConditionColumns, labs: Record<string, FlowsheetLabResult[]>): void =>
   Object.entries(labs).forEach(([key, results]) => {
-    const byTime = new Map<string, string[]>();
+    const byTime = new Map<string, FlowsheetLabResult[]>();
     results.filter(isUrineCultureResult).forEach((lab) => {
-      const text = cultureText(lab);
-      if (!text) return;
       const time = lab.resultedAt ?? '';
-      byTime.set(time, [...(byTime.get(time) ?? []), text]);
+      byTime.set(time, [...(byTime.get(time) ?? []), lab]);
     });
     [...byTime]
       .sort(([a], [b]) => byInstant(a, b))
-      .forEach(([time, texts]) => {
+      .forEach(([time, cultureLabs]) => {
+        const texts = cultureTexts(cultureLabs);
+        if (texts.length === 0) return;
         const column = columns.columnFor(key, time || undefined);
         if (!column) return;
-        columns.addReading(column, 'urineCulture', { time: time || column.start, value: unique(texts).join('; ') });
+        columns.addReading(column, 'urineCulture', { time: time || column.start, value: texts.join('; ') });
       });
   });
 

@@ -390,7 +390,13 @@ export const buildLabResults = ({
       // tag says some result of the report is abnormal, so it flags only a report's single result.
       const fromReport = reportAbnormal && report.result?.length === 1 ? 'A' : '';
       const interpretation = obs.interpretation?.[0]?.coding?.[0]?.code ?? fromReport;
+      // A culture's colony count may link to its organism, or the organism to its count.
+      const linked = [...(obs.hasMember ?? []), ...(obs.derivedFrom ?? [])]
+        .map((r) => getIdFromReference(r.reference, 'Observation'))
+        .filter((id): id is string => !!id);
       pushTo(byEncounter, key, {
+        observationId: obs.id,
+        ...(linked.length > 0 && { linkedObservationIds: linked }),
         analyte: code?.text ?? code?.coding?.find((c) => c.display)?.display ?? testName,
         loincCodes: loincCodesOf(code),
         testName,
