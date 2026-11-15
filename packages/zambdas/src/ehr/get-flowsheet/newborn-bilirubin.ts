@@ -16,7 +16,7 @@ const LAB_ROWS: LabRow[] = [
   {
     key: 'newbornDirectBilirubin',
     analyte: /bilirubin.*(direct|conjugated)|(direct|conjugated).*bilirubin/i,
-    exclude: /indirect|unconjugated/i,
+    exclude: /indirect|unconjugated|cord/i,
   },
   { key: 'transcutaneousBilirubin', analyte: /transcutaneous|\btcb\b/i },
   {
