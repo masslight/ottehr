@@ -424,7 +424,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
     await user.click(screen.getByRole('button', { name: 'Send prescription' }));
     await waitFor(() =>
       expect(enqueueSnackbar).toHaveBeenCalledWith(
-        'Prescription sent to Sample Pharmacy One, but the task couldn’t be closed. Close it from the Tasks page.',
+        'Prescription sent to Sample Pharmacy One, but its task couldn’t be closed and is still open on the Tasks page.',
         { variant: 'warning' }
       )
     );

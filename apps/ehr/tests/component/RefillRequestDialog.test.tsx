@@ -256,7 +256,7 @@ describe('Refill request dialog', () => {
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
     await waitFor(() =>
       expect(enqueueSnackbar).toHaveBeenCalledWith(
-        'Approval sent to CVS Pharmacy #7741, but the task couldn’t be closed. Close it from the Tasks page.',
+        'Approval sent to CVS Pharmacy #7741, but its task couldn’t be closed and is still open on the Tasks page.',
         { variant: 'warning' }
       )
     );

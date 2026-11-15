@@ -195,7 +195,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     answer !== 'approve' ? reason !== '' : change ? !priorAuth || priorAuthorization.trim() !== '' : fillsValid;
 
   // Once an answer goes out the dialog closes and a toast says what went out. What went out stays sent when the task
-  // can't be completed: it's closed from the Tasks page instead.
+  // can't be completed: the task stays open on the Tasks page.
   const completeAfterSending = async (sentText: string): Promise<void> => {
     onClose();
     try {
@@ -203,7 +203,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
       enqueueSnackbar(sentText, { variant: 'success' });
     } catch (taskError) {
       console.error(`Error completing the task: ${taskError}`);
-      enqueueSnackbar(`${sentText}, but the task couldn’t be closed. Close it from the Tasks page.`, {
+      enqueueSnackbar(`${sentText}, but its task couldn’t be closed and is still open on the Tasks page.`, {
         variant: 'warning',
       });
     }
