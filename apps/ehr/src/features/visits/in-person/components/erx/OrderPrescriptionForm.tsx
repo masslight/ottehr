@@ -98,7 +98,8 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   const height = useVisitHeight(visit?.encounterId);
   const allergies = useVisitAllergies(visit?.encounterId);
   const user = useEvolveUser();
-  const isAdmin = user?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
+  // The roles that manage quick picks in Admin.
+  const isAdmin = user?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) ?? false;
   const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
   const readOnly = !visit && isAppointmentReadOnly;
   const { oystehrZambda } = useApiClients();

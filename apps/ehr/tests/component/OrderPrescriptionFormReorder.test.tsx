@@ -50,13 +50,17 @@ const SENT: PrescribedMedicationDTO = {
 const mocks = vi.hoisted(() => ({
   orderPrescription: vi.fn(),
   directoryRow: undefined as ErxDirectoryPharmacy | undefined,
+  roles: [] as string[],
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 vi.mock('src/api/api', () => ({ createPrescriptionQuickPick: vi.fn() }));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {}, oystehr: undefined }) }));
 vi.mock('src/hooks/useEvolveUser', () => ({
-  default: () => ({ profileResource: { id: 'practitioner-1' }, hasRole: () => false }),
+  default: () => ({
+    profileResource: { id: 'practitioner-1' },
+    hasRole: (roles: string[]) => roles.some((role) => mocks.roles.includes(role)),
+  }),
 }));
 vi.mock('src/hooks/useMergedQuickPicks', () => ({
   useMergedPrescriptionQuickPicks: () => ({ quickPicks: [], refetch: vi.fn() }),
@@ -125,6 +129,21 @@ describe('Order prescription form: Reorder', () => {
     Element.prototype.scrollIntoView = vi.fn();
     mocks.directoryRow = ORIGINAL_PHARMACY;
     mocks.orderPrescription.mockResolvedValue({});
+    mocks.roles = [];
+  });
+
+  it.each([
+    ['Administrator', true],
+    ['Manager', true],
+    ['Customer Support', true],
+    ['Provider', false],
+    ['Staff', false],
+  ])('offers Save as quick pick to %s: %s, as the admin quick pick tabs do', async (role, offered) => {
+    mocks.roles = [role];
+    render(<OrderPrescriptionForm />);
+    act(() => reorderPrescription(SENT));
+    await screen.findByRole('button', { name: 'Send Prescription' });
+    expect(screen.queryAllByRole('button', { name: 'Save as quick pick' }).length > 0).toBe(offered);
   });
 
   it('fills the empty line with the prescription as sent, to its pharmacy', async () => {
