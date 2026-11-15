@@ -504,6 +504,15 @@ describe('buildLabResultsFlowsheet', () => {
         lab('Organism 2', { ...culture, text: 'Enterococcus faecalis' })
       )
     ).toEqual({ urineCulture: 'Escherichia coli >100000 CFU/mL; Enterococcus faecalis' });
+    // Counts sent first throughout: each follows the next organism, as no unpaired organism comes before it.
+    expect(
+      valuesOf(
+        lab('Colony count', { ...culture, text: '>100000', unit: 'CFU/mL' }),
+        lab('Organism', { ...culture, text: 'Escherichia coli' }),
+        lab('Colony count', { ...culture, text: '10000-50000', unit: 'CFU/mL' }),
+        lab('Organism 2', { ...culture, text: 'Enterococcus faecalis' })
+      )
+    ).toEqual({ urineCulture: 'Escherichia coli >100000 CFU/mL; Enterococcus faecalis 10000-50000 CFU/mL' });
     expect(
       valuesOf(
         lab('Colony count', { ...culture, codes: ['19090-0'], text: '>100000', unit: 'CFU/mL' }),

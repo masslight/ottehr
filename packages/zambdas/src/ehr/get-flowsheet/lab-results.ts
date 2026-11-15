@@ -435,7 +435,7 @@ const linkedTo = (a: FlowsheetLabResult, b: FlowsheetLabResult): boolean =>
 /**
  * One report's culture texts in report order, each colony count, coded or not, after its organism ("Escherichia coli
  * >100000 CFU/mL"): the organism it links to, else, linking to none, the nearest organism before it without a count (or,
- * with no organism before it, the next one after it). Only exact duplicate texts are dropped.
+ * with no unpaired organism before it, the next one after it). Only exact duplicate texts are dropped.
  */
 const cultureTexts = (labs: FlowsheetLabResult[]): string[] => {
   const shown = labs.filter((lab) => cultureText(lab));
@@ -446,13 +446,10 @@ const cultureTexts = (labs: FlowsheetLabResult[]): string[] => {
     const unpaired = organisms.filter((organism) => !countOf.has(organism));
     const linked = shown.some((other) => linkedTo(count, other));
     const free = unpaired.filter((o) => !shown.some((other) => linkedTo(o, other)));
-    // Sent before every organism, it is the next one's.
-    const first = organisms.every((o) => shown.indexOf(o) > i);
+    // With no unpaired organism before it, it is the next one's.
     const organism = linked
       ? unpaired.find((o) => linkedTo(count, o))
-      : first
-      ? free[0]
-      : free.filter((o) => shown.indexOf(o) < i).pop();
+      : free.filter((o) => shown.indexOf(o) < i).pop() ?? free.find((o) => shown.indexOf(o) > i);
     if (organism) countOf.set(organism, count);
   });
   const paired = new Set(countOf.values());
