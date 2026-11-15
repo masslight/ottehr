@@ -453,6 +453,20 @@ describe('a patient’s request that staff wrote down, as the dialog reads it', 
     expect(oystehr.fhir.search).not.toHaveBeenCalled();
   });
 
+  // Review S2: a patient's change request names patient A and patient B's prescription. The dialog cancels and resends
+  // only the prescription this returns, so B's never reaches it.
+  it('answers "not found" for a change request on a prescription of another patient', async () => {
+    const other = '9f8e7d6c-5b4a-4c3d-8e2f-1a0b9c8d7e6f';
+    const change: Task = {
+      ...taskFor(RX_ID),
+      code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.changeRequest }] },
+    };
+    await expect(getErxRequest(oystehrWith(change, other), 'task-1')).rejects.toMatchObject({
+      message: 'The requested MedicationRequest resource could not be found',
+    });
+    await expect(getErxRequest(oystehrWith(change), 'task-1')).resolves.toMatchObject({ kind: 'change' });
+  });
+
   it('answers "not found" for a prescription of another patient', async () => {
     const other = '9f8e7d6c-5b4a-4c3d-8e2f-1a0b9c8d7e6f';
     await expect(getErxRequest(oystehrWith(taskFor(RX_ID), other), 'task-1')).rejects.toMatchObject({

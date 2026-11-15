@@ -521,6 +521,23 @@ describe('Refill request dialog: the order form outside a visit', () => {
     mocks.allergies = undefined;
   });
 
+  // Review S2: a patient's change request on another patient's prescription reads as not found on the server
+  // (get-erx-request), so the dialog has no prescription to cancel or send again.
+  it('cancels and sends nothing when the server finds no prescription of the task’s patient', async () => {
+    mocks.getErxRequest.mockRejectedValue(new Error('The requested MedicationRequest resource could not be found'));
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <RefillRequestDialog taskId="task-1" onClose={onClose} />
+      </QueryClientProvider>
+    );
+    expect(await screen.findByText('The requested MedicationRequest resource could not be found')).toBeInTheDocument();
+    expect(screen.queryByText(/^Original prescription/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send prescription' })).not.toBeInTheDocument();
+    expect(mocks.cancelPrescription).not.toHaveBeenCalled();
+    expect(mocks.orderPrescription).not.toHaveBeenCalled();
+    expect(mocks.completeTask).not.toHaveBeenCalled();
+  });
+
   it('sends nothing when the original’s cancellation fails, and leaves the task open', async () => {
     mocks.cancelPrescription.mockRejectedValue(new Error('The prescription was already filled'));
     const user = await open(PATIENT_CHANGE);
