@@ -412,7 +412,20 @@ describe('Refill request dialog: the order form outside a visit', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('stays sent when the task can’t be completed, with a warning to close it from the Tasks page', async () => {
+  it('says so when the patient’s request is on a prescription with no visit, offering no send', async () => {
+    await open({
+      taskId: 'task-1',
+      kind: 'refill',
+      patientRequest: { takenBy: 'Kim Front', taken: '2026-10-28T10:00:00.000Z' },
+      prescription: { ...PRESCRIPTION, encounterId: undefined },
+      patient: PATIENT,
+    });
+    expect(screen.getByText('This prescription has no visit to send from.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send prescription' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Decline' })).not.toBeInTheDocument();
+  });
+
+  it('stays sent when the task can’t be completed, with a warning that it is still open', async () => {
     mocks.completeTask.mockRejectedValue(new Error('Task update failed'));
     const user = await open({
       taskId: 'task-1',

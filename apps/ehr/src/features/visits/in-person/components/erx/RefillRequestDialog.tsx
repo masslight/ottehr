@@ -462,6 +462,10 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             </Box>
             {changeBlocked && <Alert severity="warning">{changeBlocked}</Alert>}
             {notEnrolled && notEnrolledAlert}
+            {/* A patient's request goes out as a new prescription on the original's visit. */}
+            {!request && !notEnrolled && !prescription.encounterId && (
+              <Alert severity="warning">This prescription has no visit to send from.</Alert>
+            )}
             {!request && orderForm}
             {request && !notEnrolled && (
               <Stack spacing={2}>
