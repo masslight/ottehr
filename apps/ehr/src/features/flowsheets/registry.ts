@@ -150,11 +150,8 @@ const newbornBilirubin: FlowsheetDefinition = {
 const panel = (group: string, rows: [string, string][]): FlowsheetRow[] =>
   rows.map(([label, key]) => ({ label, keys: [key], group }));
 
-/** The heading over tests outside a panel, so none reads as part of the panel above it. */
-const OTHER_TESTS = 'Other tests';
-
-// Rows in the requirements' order: panels, then standalone tests from most to least ordered. Rows without a result
-// for the patient are hidden, panel headings with them.
+// Rows in the requirements' order: panels, then the standalone tests under "Other tests", from most to least ordered.
+// Rows without a result for the patient are hidden, panel headings with them.
 const labResults: FlowsheetDefinition = {
   id: 'labResults',
   title: 'Lab results',
@@ -216,10 +213,6 @@ const labResults: FlowsheetDefinition = {
       ['Transferrin saturation', 'transferrinSaturation'],
       ['Ferritin', 'ferritin'],
     ]),
-    ...panel(OTHER_TESTS, [
-      ['HbA1c', 'hba1c'],
-      ['Vitamin D, 25-hydroxy', 'vitaminD'],
-    ]),
     ...panel('Urinalysis', [
       ['Color', 'uaColor'],
       ['Appearance', 'uaAppearance'],
@@ -234,7 +227,9 @@ const labResults: FlowsheetDefinition = {
       ['Leukocyte esterase', 'uaLeukocyteEsterase'],
       ['Urobilinogen', 'uaUrobilinogen'],
     ]),
-    ...panel(OTHER_TESTS, [
+    ...panel('Other tests', [
+      ['HbA1c', 'hba1c'],
+      ['Vitamin D, 25-hydroxy', 'vitaminD'],
       ['Vitamin B12', 'vitaminB12'],
       ['Urine albumin/creatinine ratio', 'urineAlbuminCreatinineRatio'],
       ['PSA', 'psa'],
