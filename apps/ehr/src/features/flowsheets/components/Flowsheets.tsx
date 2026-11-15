@@ -164,6 +164,10 @@ interface VisitColumn extends FlowsheetVisit {
   url?: string;
 }
 
+/** Times read 12-hour, as elsewhere in Ottehr. */
+const TIME_FORMAT = 'h:mm a';
+const DATE_TIME_FORMAT = `${DATE_FORMAT} ${TIME_FORMAT}`;
+
 /** A visit opens at Review & Sign; a follow-up as the Visits tab links it: its original visit, at its own note. */
 const headerUrl = (visit: FlowsheetVisit): string | undefined => {
   const id = visit.isFollowUp ? visit.originalAppointmentId : visit.appointmentId;
@@ -180,7 +184,7 @@ export const toColumns = (visits: FlowsheetVisit[]): VisitColumn[] => {
   return visits.map((visit, i) => {
     const day = days[i];
     const base =
-      days.filter((d) => d === day).length > 1 ? DateTime.fromISO(visit.start).toFormat(`${DATE_FORMAT} HH:mm`) : day;
+      days.filter((d) => d === day).length > 1 ? DateTime.fromISO(visit.start).toFormat(DATE_TIME_FORMAT) : day;
     return {
       ...visit,
       label: visit.isOutsideResult ? `${base} (unsolicited result)` : visit.isFollowUp ? `${base} (follow-up)` : base,
@@ -315,7 +319,7 @@ const CellValue = ({ cell, both }: { cell: Cell; both?: string }): ReactElement 
         <Stack>
           {cell.history.map((reading) => (
             <Typography key={reading.time} variant="caption">
-              {DateTime.fromISO(reading.time).toFormat('HH:mm')} {reading.text}
+              {DateTime.fromISO(reading.time).toFormat(TIME_FORMAT)} {reading.text}
               {reading.flag ? ` (${reading.flag})` : ''}
             </Typography>
           ))}
@@ -420,6 +424,12 @@ const FlowsheetBody = ({
             type: 'time',
             // The year at year boundaries, so two Aprils in a row are told apart.
             axisLabel: { hideOverlap: true, formatter: { year: '{yyyy}', month: '{MM}/{dd}', day: '{MM}/{dd}' } },
+            // The tooltip's heading: the reading's date and 12-hour time.
+            axisPointer: {
+              label: {
+                formatter: ({ value }: { value: number }) => DateTime.fromMillis(value).toFormat(DATE_TIME_FORMAT),
+              },
+            },
             splitLine: { show: false },
           },
       yAxis: {
