@@ -184,11 +184,12 @@ describe('DoseCalculator (plain, inline)', () => {
       steps: [{ dose: '1', frequency: 'once daily', durationDays: '2' }],
       durationDays: '3',
     });
+    // On a taper it changes the first step only: the "then" steps and the first step's duration stay.
     expect(withDose(line, { dose: '2', frequency: 'three times daily' })).toMatchObject({
       dose: '2',
       frequency: 'three times daily',
-      steps: [],
-      durationDays: '',
+      steps: [{ dose: '1', frequency: 'once daily', durationDays: '2' }],
+      durationDays: '3',
     });
     expect(withDose(line, { dose: '2' }).frequency).toBe('every 8 hours as needed');
     const course = withDose(line, {

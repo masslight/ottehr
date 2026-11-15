@@ -113,8 +113,8 @@ export interface DoseFill {
   note?: DoseNote;
 }
 
-/** The line with the calculator's dose used. Without steps of its own the dose is for the whole prescription: any
- * "then" steps go, and with them the first step's duration. */
+/** The line with the calculator's dose used. Without steps of its own it changes the first step only: a taper's
+ * "then" steps, and the first step's duration, stay as they are. */
 export const withDose = (line: PrescriptionLine, fill: DoseFill): PrescriptionLine => {
   const quantityUnit = line.quantityUnit || prescriptionQuantityUnit(line.medication) || '';
   const next = withDirections(
@@ -122,20 +122,18 @@ export const withDose = (line: PrescriptionLine, fill: DoseFill): PrescriptionLi
     {
       dose: fill.dose,
       frequency: fill.frequency ?? line.frequency,
-      steps: fill.steps ?? [],
-      ...(fill.durationDays !== undefined
-        ? { durationDays: fill.durationDays }
-        : line.steps.length && !fill.steps
-        ? { durationDays: '' }
-        : {}),
+      steps: fill.steps ?? line.steps,
+      ...(fill.durationDays !== undefined ? { durationDays: fill.durationDays } : {}),
     }
   );
+  // The kept steps keep how their doses were worked out.
+  const keptStepNotes = fill.steps ? [] : (line.doseNotes ?? []).slice(1);
   return {
     ...next,
     dosing: fill.dosing,
     maximum: lineMaximumOf(fill.dosing, 'calculator'),
     doseBy: fill.doseBy,
-    doseNotes: fill.note && [fill.note],
+    doseNotes: fill.note || keptStepNotes.some(Boolean) ? [fill.note, ...keptStepNotes] : undefined,
   };
 };
 
