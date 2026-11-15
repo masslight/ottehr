@@ -40,7 +40,8 @@ const toItem = ([code, method, longName]: string[]): LoincItem => {
   const end = name.includes(' [') ? name.indexOf(' [') : name.search(/ (?:in|of) /);
   const component = end >= 0 ? name.slice(0, end) : name;
   const property = end >= 0 ? /^ \[([^\]]*)\]/.exec(name.slice(end))?.[1] ?? '' : '';
-  const rest = end >= 0 ? name.slice(end).replace(/^ \[[^\]]*\]/, '') : '';
+  // A viral load names itself after the property: "[Units/volume] (viral load) in Serum or Plasma".
+  const rest = end >= 0 ? name.slice(end).replace(/^ \[[^\]]*\]( \(viral load\))?/, '') : '';
   const system = /^ (?:in|of) (.+?)(?: by .+| --.*)?$/.exec(rest)?.[1] ?? '';
   return {
     code,
@@ -91,6 +92,7 @@ const matches = (rule: LabRowRule, item: LoincItem): boolean =>
   rule.components.includes(item.component) &&
   rule.systems.includes(item.system) &&
   (!rule.properties || rule.properties.includes(item.property)) &&
+  !rule.excludeProperties?.includes(item.property) &&
   (!rule.methods || rule.methods.includes(item.method)) &&
   !rule.excludeMethods?.includes(item.method);
 

@@ -112,26 +112,62 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     ['uaProtein', ['20454-5', '5804-0']],
     ['uaBlood', ['5794-3']],
     ['uaLeukocyteEsterase', ['5799-2']],
+    ['hemoglobin', ['30350-3', '30352-9']],
+    ['rdw', ['788-0']],
+    ['monocytesAbsolute', ['742-7']],
+    ['eosinophilsAbsolute', ['711-2']],
+    ['basophilsAbsolute', ['704-7']],
+    ['anionGap', ['33037-3', '10466-1']],
+    ['pt', ['5902-2']],
+    ['inr', ['6301-6', '34714-6', '46418-0']],
+    ['hepatitisBSurfaceAntigen', ['5196-1']],
+    ['hepatitisBSurfaceAntibody', ['16935-9', '10900-9']],
+    ['hepatitisBCoreAntibody', ['16933-4', '13952-7']],
+    ['hepatitisCRna', ['11011-4', '11259-9']],
+    ['hiv1Rna', ['20447-9', '25835-0']],
+    ['chlamydia', ['42931-6', '50387-0', '53926-2']],
+    ['gonorrhea', ['60256-5', '50388-8', '53879-3']],
+    ['syphilisRpr', ['20507-0', '31147-2']],
+    ['syphilisTreponemalAntibody', ['47236-5', '24110-9']],
+    ['hpvHighRisk', ['59420-0', '69002-4', '71431-1']],
+    ['directBilirubin', ['1968-7']],
+    ['fingerstickGlucose', ['2339-0', '41653-7']],
+    ['lead', ['5671-3', '10368-9', '77307-7']],
+    ['igra', ['71773-6']],
+    ['fit', ['29771-3']],
+    ['lipoproteinA', ['10835-7']],
+    ['apoB', ['1884-6']],
+    ['ntProBnp', ['33762-6']],
+    ['bnp', ['30934-4']],
+    ['cystatinC', ['33863-2']],
+    ['ck', ['2157-6']],
+    ['serumHcg', ['21198-7', '19080-1']],
+    ['ttgIga', ['31017-7']],
   ])('%s carries the codes of its measure in every unit and method', (row, codes) => {
     codes.forEach((code) => expect(LAB_ROW_LOINC_CODES[row]).toContain(code));
   });
 
-  test('race-based eGFR, whole-blood glucose, RDW and timed glucose are on no row; no code is on two Lab results rows', () => {
-    // The Newborn bilirubin flowsheet's total row carries this flowsheet's total bilirubin codes as well.
-    const { newbornTotalBilirubin: _newborn, ...labResultsRows } = LAB_ROW_LOINC_CODES;
+  test('race-based eGFR, yes/no codes on number rows and timed glucose are on no row; no code is on two Lab results rows', () => {
+    // The Newborn bilirubin flowsheet's rows carry this flowsheet's bilirubin codes as well.
+    const { newbornTotalBilirubin: _total, newbornDirectBilirubin: _direct, ...labResultsRows } = LAB_ROW_LOINC_CODES;
     const all = Object.values(labResultsRows).flat();
     [
       '88293-6', // eGFR CKD-EPI among black population
       '88294-4', // eGFR CKD-EPI among non black population
       '48642-3', // eGFR MDRD among non black population
       '48643-1', // eGFR MDRD among black population
-      '2339-0', // Glucose in Blood
-      '788-0', // Erythrocyte distribution width (shares ESR's component)
+      '717-9', // Hemoglobin [Presence] in Blood
+      '11039-5', // C reactive protein [Presence] in Serum or Plasma
       '1521-4', // Glucose in Serum or Plasma --2 hours post 75 g glucose
-      '2888-6', // Protein in Urine is a urinalysis row, never total protein
-    ]
-      .slice(0, 7)
-      .forEach((code) => expect(all).not.toContain(code));
+      '50196-5', // Hemoglobin in Stool by guaiac (FOBT), not a FIT
+      '29539-4', // HIV 1 RNA [Log #/volume]: the count repeated
+      '45086-6', // Chlamydia trachomatis DNA in Nasopharynx: a newborn's, not an STI test
+    ].forEach((code) => expect(all).not.toContain(code));
+    // A meter glucose (whole or capillary blood) is its own row; RDW shares ESR's component but not its row.
+    ['2339-0', '41653-7', '32016-8'].forEach((code) => expect(LAB_ROW_LOINC_CODES.fingerstickGlucose).toContain(code));
+    ['2339-0', '41653-7', '32016-8'].forEach((code) => expect(LAB_ROW_LOINC_CODES.glucose).not.toContain(code));
+    expect(LAB_ROW_LOINC_CODES.rdw).toContain('788-0');
+    expect(LAB_ROW_LOINC_CODES.esr).not.toContain('788-0');
     expect(LAB_ROW_LOINC_CODES.totalProtein).not.toContain('2888-6');
     expect(new Set(all).size).toBe(all.length);
   });
@@ -379,6 +415,67 @@ describe('buildLabResultsFlowsheet', () => {
         lab('Hemoglobin', { codes: ['718-7'], text: 'Hemolyzed' })
       )
     ).toEqual({ hivAgAb: 'Non-reactive', hepatitisCAntibody: 'Negative', urineHcg: 'Negative' });
+  });
+
+  test('a fingerstick glucose is its own row, coded or named; the serum Glucose row keeps the lab glucose', () => {
+    expect(
+      valuesOf(
+        lab('Glucose', { codes: ['32016-8'], value: 112, test: 'Glucose Finger/Heel Stick' }),
+        lab('Glucose', { codes: ['2345-7'], value: 98, test: 'Basic metabolic panel', at: '2024-03-04T19:00:00.000Z' })
+      )
+    ).toEqual({ fingerstickGlucose: 112, glucose: 98 });
+    expect(valuesOf(lab('Glucose', { value: 140, test: 'POC Glucose' }))).toEqual({ fingerstickGlucose: 140 });
+    expect(valuesOf(lab('Glucose, capillary', { value: 140 }))).toEqual({ fingerstickGlucose: 140 });
+    expect(valuesOf(lab('Glucose', { value: 98, test: 'Comp. metabolic panel' }))).toEqual({ glucose: 98 });
+  });
+
+  test('hepatitis, HIV and STI results show their text as reported, coded or named; a number shows too', () => {
+    expect(
+      valuesOf(
+        lab('Hepatitis B Surface Antigen', { codes: ['5196-1'], text: 'Nonreactive' }),
+        lab('Hep B Surface Ab, Quant', { value: 245, unit: 'mIU/mL' }),
+        lab('Hepatitis B Core Ab, Total', { text: 'Negative' }),
+        lab('HCV RNA, Quantitative', { codes: ['11011-4'], text: 'Not detected' }),
+        lab('HIV-1 RNA, Quant', { text: '<20', unit: 'copies/mL' }),
+        lab('Chlamydia trachomatis RNA, TMA', { codes: ['42931-6'], text: 'Not detected' }),
+        lab('Neisseria gonorrhoeae RNA, TMA', { text: 'Not detected', test: 'CT/NG NAA, Urine' }),
+        lab('RPR', { codes: ['20507-0'], text: 'Reactive 1:8' }),
+        lab('QuantiFERON-TB Gold Plus', { codes: ['71773-6'], text: 'Negative' }),
+        lab('QuantiFERON Nil Value', { value: 0.04, unit: 'IU/mL' }),
+        lab('Fecal Immunochemical Test (FIT)', { text: 'Negative' })
+      )
+    ).toEqual({
+      hepatitisBSurfaceAntigen: 'Nonreactive',
+      hepatitisBSurfaceAntibody: 245,
+      hepatitisBCoreAntibody: 'Negative',
+      hepatitisCRna: 'Not detected',
+      hiv1Rna: '<20',
+      chlamydia: 'Not detected',
+      gonorrhea: 'Not detected',
+      syphilisRpr: 'Reactive 1:8',
+      igra: 'Negative',
+      fit: 'Negative',
+    });
+  });
+
+  test('a urine result stays off the blood rows: urine glucose, hemoglobin and hCG land on their urine rows', () => {
+    expect(
+      valuesOf(
+        lab('Glucose', { value: 50, test: 'Urinalysis (UA) Dipstick' }),
+        lab('Hemoglobin', { text: 'Negative', test: 'Urinalysis, Complete' }),
+        lab('Bilirubin, Direct', { text: 'Negative', test: 'Urinalysis' }),
+        lab('hCG', { text: 'Negative', test: 'Urine Pregnancy Test (HCG)' }),
+        lab('Lead', { value: 2, test: 'Heavy metals, urine' })
+      )
+    ).toEqual({ uaGlucose: 50, uaBlood: 'Negative', uaBilirubin: 'Negative', urineHcg: 'Negative' });
+    // Named for blood, they are the blood rows.
+    expect(
+      valuesOf(
+        lab('Bilirubin, Direct', { value: 0.2, test: 'Hepatic function panel' }),
+        lab('hCG, Quantitative', { value: 1200, unit: 'mIU/mL', test: 'hCG, Quantitative, Serum' }),
+        lab('Lead, Blood (Venous)', { value: 2 })
+      )
+    ).toEqual({ directBilirubin: 0.2, serumHcg: 1200, lead: 2 });
   });
 
   test('the Thyroid rows: Total T4, Free T3, Total T3 and TPO antibodies (as text too) after TSH and Free T4', () => {

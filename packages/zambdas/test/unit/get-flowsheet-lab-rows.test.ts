@@ -41,11 +41,13 @@ describe('LAB_ROW_LOINC_CODES', () => {
     ].forEach((code) => expect(all).not.toContain(code));
   });
 
-  test('the newborn total row is the CMP total bilirubin row plus heel-stick codes; no other code is on two rows', () => {
-    const { newbornTotalBilirubin, totalBilirubin, ...others } = LAB_ROW_LOINC_CODES;
+  test('the newborn bilirubin rows are the Lab results bilirubin rows plus heel-stick codes; no other code is on two rows', () => {
+    const { newbornTotalBilirubin, totalBilirubin, newbornDirectBilirubin, directBilirubin, ...others } =
+      LAB_ROW_LOINC_CODES;
     expect(newbornTotalBilirubin).toEqual(expect.arrayContaining(totalBilirubin));
+    expect(newbornDirectBilirubin).toEqual(expect.arrayContaining(directBilirubin));
     expect(totalBilirubin).not.toContain('42719-5');
-    const rest = [...Object.values(others).flat(), ...newbornTotalBilirubin];
+    const rest = [...Object.values(others).flat(), ...newbornTotalBilirubin, ...newbornDirectBilirubin];
     expect(new Set(rest).size).toBe(rest.length);
   });
 });

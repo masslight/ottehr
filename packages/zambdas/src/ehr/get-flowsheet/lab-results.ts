@@ -11,6 +11,8 @@ const GLUCOSE: Pick<LabRow, 'analyte' | 'exclude'> = {
   analyte: /glucose/i,
   exclude: /tolerance|\bgtt\b|post|hour|minute|whole blood|capillary|fluid/i,
 };
+/** A meter reading, by its test's or its own name ("Glucose Finger/Heel Stick", "POC Glucose"). */
+const FINGERSTICK = /capillary|whole blood|finger|heel|\bpoc\b|point.of.care|glucometer|\bmeter\b/i;
 const CRP = /c.?reactive|\bcrp\b/i;
 const HS_CRP = /hs.?crp|high.?sens|cardi/i;
 const EGFR: Pick<LabRow, 'analyte' | 'exclude'> = {
@@ -32,7 +34,11 @@ const urine = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ ...row, test: U
 const LAB_ROWS: LabRow[] = [
   ...serum([
     // CBC
-    { key: 'hemoglobin', analyte: /^(hemoglobin|hgb|hb)\b/i, exclude: /a1c|glyc|mean|\bmch|free|carboxy|met/i },
+    {
+      key: 'hemoglobin',
+      analyte: /^(hemoglobin|hgb|hb)\b/i,
+      exclude: /a1c|glyc|mean|\bmch|free|carboxy|met|fecal|stool|occult/i,
+    },
     { key: 'hematocrit', analyte: /hematocrit|\bhct\b/i },
     { key: 'mcv', analyte: /\bmcv\b|mean corpuscular volume/i },
     { key: 'mch', analyte: /\bmch\b|mean corpuscular hemoglobin/i, exclude: /conc|\bmchc\b/i },
@@ -54,7 +60,17 @@ const LAB_ROWS: LabRow[] = [
     { key: 'monocytesPercent', analyte: /monocyte|\bmono\b/i, exclude: /abs|#|count/i },
     { key: 'eosinophilsPercent', analyte: /eosinophil|\beos\b/i, exclude: /abs|#|count/i },
     { key: 'basophilsPercent', analyte: /basophil|\bbaso\b/i, exclude: /abs|#|count/i },
-    // CMP/BMP
+    { key: 'monocytesAbsolute', analyte: /(monocyte|\bmono\b).*(abs|#|count)|abs.*mono/i },
+    { key: 'eosinophilsAbsolute', analyte: /(eosinophil|\beos\b).*(abs|#|count)|abs.*eos/i },
+    { key: 'basophilsAbsolute', analyte: /(basophil|\bbaso\b).*(abs|#|count)|abs.*baso/i },
+    { key: 'rdw', analyte: /\brdw\b|distribution width/i },
+    // CMP/BMP. A meter glucose is listed first, so the serum Glucose row never takes it.
+    {
+      key: 'fingerstickGlucose',
+      analyte: /glucose/i,
+      exclude: /tolerance|\bgtt\b|post|hour|minute|fluid/i,
+      test: FINGERSTICK,
+    },
     { key: 'glucose', rule: 'fastingGlucose', fasting: true, ...GLUCOSE },
     { key: 'glucose', fasting: true, ...GLUCOSE },
     { key: 'bun', analyte: /\bbun\b|urea nitrogen/i, exclude: /ratio|\/|creat/i },
@@ -67,6 +83,7 @@ const LAB_ROWS: LabRow[] = [
     { key: 'chloride', analyte: /chloride|^cl$/i },
     { key: 'bicarbonate', analyte: /\bco2\b|carbon dioxide|bicarbonate|\bhco3\b/i, exclude: /partial|pco2|arterial/i },
     { key: 'calcium', analyte: /calcium/i, exclude: /ionized|corrected/i },
+    { key: 'anionGap', analyte: /anion gap/i },
     // CMP
     {
       key: 'totalProtein',
@@ -76,6 +93,13 @@ const LAB_ROWS: LabRow[] = [
     { key: 'albumin', analyte: /^albumin\b|albumin,? serum/i, exclude: /\/|ratio|micro|globulin|bound/i },
     { key: 'globulin', analyte: /^globulin\b|globulin,? total|total globulin/i, exclude: /\/|ratio|immuno|binding/i },
     { key: 'albuminGlobulinRatio', analyte: /a\/g ratio|albumin\/globulin|alb\/glob/i },
+    {
+      key: 'directBilirubin',
+      analyte: /bilirubin.*(direct|conjugated)|(direct|conjugated).*bilirubin/i,
+      exclude: /indirect|unconjugated/i,
+      // Serum or plasma, as for Total bilirubin.
+      excludeTest: /urin|\bua\b|cord|neonat|newborn|capillary|heel/i,
+    },
     {
       key: 'totalBilirubin',
       analyte: /bilirubin/i,
@@ -107,6 +131,35 @@ const LAB_ROWS: LabRow[] = [
     { key: 'tibc', analyte: /\btibc\b|iron binding capacity/i, exclude: /unsaturated|\buibc\b/i },
     { key: 'transferrinSaturation', analyte: /iron.*sat|sat.*iron|transferrin sat|% ?sat/i },
     { key: 'ferritin', analyte: /ferritin/i },
+    // Coagulation
+    { key: 'inr', analyte: /\binr\b|international normali[sz]ed ratio/i },
+    { key: 'pt', analyte: /\bpt\b|prothrombin time|\bprotime\b/i, exclude: /\binr\b|ptt|partial|mix/i },
+    // Hepatitis: shown as reported ("Negative", "Reactive", "<5 mIU/mL"), number or text.
+    {
+      key: 'hepatitisBSurfaceAntigen',
+      text: true,
+      analyte: /hep(atitis)? ?b.*surface.*(antigen|\bag\b)|\bhbsag\b|\bhbs ag\b/i,
+      exclude: /antibod|\bab\b/i,
+    },
+    {
+      key: 'hepatitisBSurfaceAntibody',
+      text: true,
+      analyte: /hep(atitis)? ?b.*surface.*(antibod|\bab\b)|\bhbsab\b|\bhbs ab\b|anti-?hbs\b/i,
+    },
+    {
+      key: 'hepatitisBCoreAntibody',
+      text: true,
+      analyte: /hep(atitis)? ?b.*core.*(antibod|\bab\b)|\bhbcab\b|\bhbc ab\b|anti-?hbc\b/i,
+      exclude: /igm/i,
+    },
+    {
+      key: 'hepatitisCRna',
+      text: true,
+      analyte: /(hepatitis c|\bhcv\b|hep c).*(\brna\b|viral load|pcr|quant)/i,
+      exclude: /genotyp|\blog\b/i,
+    },
+    // HIV and STI, shown as reported ("Not detected", "Reactive 1:8"); the swab and urine tests are below.
+    { key: 'hiv1Rna', text: true, analyte: /\bhiv.*(\brna\b|viral load)/i, exclude: /genotyp|resist|\blog\b/i },
     // Standalone tests
     { key: 'hba1c', analyte: /a1c|glycated|glycohemoglobin/i, exclude: /estimated|\beag\b|average glucose/i },
     { key: 'vitaminD', analyte: /25.?(oh|hydroxy)|vitamin d\b/i, exclude: /1,25|dihydroxy|\bd2\b|\bd3\b/i },
@@ -127,6 +180,35 @@ const LAB_ROWS: LabRow[] = [
       analyte: /hepatitis c|\bhcv\b|hep c/i,
       exclude: /\brna\b|viral load|genotyp|quant|pcr/i,
     },
+    { key: 'syphilisRpr', text: true, analyte: /\brpr\b|rapid plasma reagin/i },
+    {
+      key: 'syphilisTreponemalAntibody',
+      text: true,
+      analyte: /treponem|t\.? ?pallidum|\btp-?pa\b|\bfta\b/i,
+      exclude: /nontreponemal|non-treponemal|reagin|\brpr\b|igm/i,
+    },
+    {
+      key: 'igra',
+      text: true,
+      analyte: /quantiferon|\bigra\b|t-?spot|interferon.?gamma release|\btb gold\b/i,
+      // The tubes' numbers (nil, mitogen, TB antigen minus nil) stay off: the row is the test's result.
+      exclude: /\bnil\b|mitogen|\btb ?[12]\b|minus|antigen|\bag\b|value/i,
+    },
+    { key: 'lipoproteinA', analyte: /lipoprotein ?\(a\)|lipoprotein a\b|\blp ?\(a\)/i },
+    { key: 'apoB', analyte: /\bapo ?b\b|apolipoprotein b/i, exclude: /\/|ratio/i },
+    { key: 'ntProBnp', analyte: /nt-?pro-?bnp|pro.?bnp|n-terminal/i },
+    { key: 'bnp', analyte: /\bbnp\b|b-type natriuretic|brain natriuretic/i, exclude: /\bpro|n-terminal/i },
+    { key: 'cystatinC', analyte: /cystatin/i, exclude: /gfr|glomerular/i },
+    { key: 'ck', analyte: /\bck\b|creatine kinase|\bcpk\b/i, exclude: /\bmb\b|isoenz|index|relative/i },
+    {
+      key: 'serumHcg',
+      analyte: /hcg|chorio/i,
+      exclude: /free|alpha|tumor|qual/i,
+      // A pregnancy test that names no specimen is the urine one (below).
+      test: /quant|serum|plasma|blood/i,
+    },
+    { key: 'ttgIga', analyte: /transglutaminase|\bttg\b/i, exclude: /igg|igm/i },
+    { key: 'lead', analyte: /^lead\b|blood lead|\blead,? (blood|venous|capillary)/i },
     { key: 'esr', analyte: /sed rate|sedimentation|\besr\b/i },
     { key: 'uricAcid', analyte: /uric acid|urate/i },
     { key: 'folate', analyte: /folate|folic acid/i, exclude: /rbc|red cell/i },
@@ -134,6 +216,16 @@ const LAB_ROWS: LabRow[] = [
     { key: 'pth', analyte: /\bpth\b|parathyroid hormone|parathyrin/i, exclude: /related|rp\b|intraop/i },
     { key: 'phosphorus', analyte: /phosph(orus|ate)/i, exclude: /alkaline|acid|organo/i },
   ]),
+  // Swab or urine NAATs and the stool FIT, number or text as reported; their names say neither "urine" nor "serum".
+  {
+    key: 'chlamydia',
+    text: true,
+    analyte: /chlamydia|c\.? ?trachomatis/i,
+    exclude: /pneumoniae|psittaci|antibod|\bab\b|ig[gm]/i,
+  },
+  { key: 'gonorrhea', text: true, analyte: /gonorrh|n\.? ?gonorrhoeae|neisseria gon/i, exclude: /antibod|\bab\b/i },
+  { key: 'hpvHighRisk', text: true, analyte: /\bhpv\b|papilloma/i, exclude: /\b(16|18)\b|genotyp|low.?risk|vaccin/i },
+  { key: 'fit', text: true, analyte: /\bfit\b|immunochem|\bifobt\b|occult blood.*immuno/i, exclude: /guaiac/i },
   // Urine tests other than the urinalysis: an in-house POC ratio or pregnancy test need not say "urine".
   { key: 'urineAlbuminCreatinineRatio', analyte: /(micro)?albumin\/creat|albumin.*creatinine ratio|\buacr\b|\bacr\b/i },
   { key: 'urineHcg', text: true, analyte: /hcg|chorio|pregnan/i, test: /urin|pregnan/i, exclude: /serum|quant|blood/i },
