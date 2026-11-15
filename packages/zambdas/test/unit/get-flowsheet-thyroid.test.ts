@@ -389,6 +389,31 @@ describe('thyroid medication: only drugs actually prescribed or given', () => {
     ]);
   });
 
+  test('a follow-up with a thyroid diagnosis and medication but no labs is dated by the medication', () => {
+    const followUp: Encounter = {
+      resourceType: 'Encounter',
+      id: 'e-fu',
+      status: 'finished',
+      class: { code: 'AMB' },
+      type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+      period: { start: '2023-09-01T14:00:00.000Z' },
+    };
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      encounters: [...data.encounters, followUp],
+      diagnoses: { 'e-fu': [{ code: 'E03.9', display: 'Hypothyroidism, unspecified', primary: true }] },
+      medications: {
+        'e-fu': [
+          { name: 'levothyroxine 75 mcg tablet', source: 'eRx', status: 'active', time: '2023-09-03T15:10:00.000Z' },
+        ],
+      },
+      labs: {},
+    });
+    expect(visits.map((v) => [v.encounterId, v.start, v.values.thyroidDiagnosis?.value])).toEqual([
+      ['e-fu', '2023-09-03T15:10:00.000Z', 'E03.9 — Hypothyroidism, unspecified'],
+    ]);
+  });
+
   test('thyroid diagnoses coded outside E00–E07 (E89.0, C73, O90.5, R94.6, Z85.850) give a column; E89.1 does not', () => {
     const dx = (code: string): { code: string; display: string; primary: boolean } => ({
       code,

@@ -79,17 +79,7 @@ export const buildThyroidFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => 
   const columns = conditionColumns(data, VITAL_KEYS);
   columns.addLabs(THYROID_LAB_ROWS);
 
-  Object.entries(data.diagnoses ?? {}).forEach(([encounterId, diagnoses]) => {
-    const thyroid = diagnoses.filter((d) => THYROID_ICD10_PREFIXES.some((prefix) => d.code.startsWith(prefix)));
-    if (thyroid.length === 0) return;
-    // An annotation or free-form follow-up has no appointment start, so a diagnosis-only column is dated by the
-    // encounter.
-    const encounter = data.encounters.find((e) => e.id === encounterId);
-    const visit = columns.columnFor(encounterId, encounter?.period?.start);
-    if (!visit) return;
-    columns.addReading(visit, 'thyroidDiagnosis', { time: visit.start, value: diagnosisText(thyroid) });
-  });
-
+  // Medications before diagnoses: a follow-up without an appointment start or labs is dated by its medication.
   Object.entries(data.medications ?? {}).forEach(([encounterId, medications]) => {
     const drugs = medications.filter((m) => THYROID_MEDICATION.test(m.name) && prescribedOrGiven(m));
     if (drugs.length === 0) return;
@@ -99,6 +89,17 @@ export const buildThyroidFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => 
       time: drugs[0].time ?? visit.start,
       value: unique(drugs.map(medicationText)).join('; '),
     });
+  });
+
+  Object.entries(data.diagnoses ?? {}).forEach(([encounterId, diagnoses]) => {
+    const thyroid = diagnoses.filter((d) => THYROID_ICD10_PREFIXES.some((prefix) => d.code.startsWith(prefix)));
+    if (thyroid.length === 0) return;
+    // An annotation or free-form follow-up has no appointment start, so a diagnosis-only column is dated by the
+    // encounter.
+    const encounter = data.encounters.find((e) => e.id === encounterId);
+    const visit = columns.columnFor(encounterId, encounter?.period?.start);
+    if (!visit) return;
+    columns.addReading(visit, 'thyroidDiagnosis', { time: visit.start, value: diagnosisText(thyroid) });
   });
 
   // A visit is a column only when it holds something thyroid-related; vitals alone do not put it on the flowsheet.
