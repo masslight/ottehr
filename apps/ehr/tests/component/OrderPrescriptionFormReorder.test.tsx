@@ -145,6 +145,14 @@ describe('Order prescription form: Reorder', () => {
     });
   });
 
+  it('says the pharmacy changed for every prescription on the form when Reorder moves it', async () => {
+    await reorderAndSend();
+    expect(enqueueSnackbar).toHaveBeenCalledWith(
+      `Pharmacy changed to ${ORIGINAL_PHARMACY.name} for every prescription on the form`,
+      { variant: 'warning' }
+    );
+  });
+
   it('keeps the form’s pharmacy and warns when the original no longer takes e-prescriptions', async () => {
     mocks.directoryRow = undefined;
     await reorderAndSend();

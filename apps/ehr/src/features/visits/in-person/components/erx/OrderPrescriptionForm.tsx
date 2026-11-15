@@ -149,13 +149,17 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   useEffect(() => {
     if (!reorderPharmacy || reorderPharmacy.status === 'pending') return;
     const found = reorderPharmacy.row && directoryPharmacyToResult(reorderPharmacy.row);
-    if (found) setPickedPharmacy(found);
-    else
+    if (found) {
+      setPickedPharmacy(found);
+      // The form has one pharmacy, so its other lines move too.
+      if (found.ncpdpId !== pharmacy?.ncpdpId)
+        enqueueSnackbar(`Pharmacy changed to ${found.name} for every prescription on the form`, { variant: 'warning' });
+    } else
       enqueueSnackbar("The original pharmacy can't take e-prescriptions now. Pick another pharmacy.", {
         variant: 'warning',
       });
     setReorderNcpdpId(undefined);
-  }, [reorderPharmacy]);
+  }, [reorderPharmacy, pharmacy?.ncpdpId]);
 
   const [quickPickLineKey, setQuickPickLineKey] = useState<number | null>(null);
   const [quickPickName, setQuickPickName] = useState('');
