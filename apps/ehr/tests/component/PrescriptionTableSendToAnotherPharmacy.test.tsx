@@ -380,6 +380,20 @@ describe('Prescription table: send to another pharmacy', () => {
     expect(enqueueSnackbar).toHaveBeenCalledWith('Prescription sent to Sample Pharmacy Two', { variant: 'success' });
   });
 
+  it('says why the bar actions and Send to pharmacy are off: nothing ticked, no pharmacy picked', async () => {
+    const user = renderTable();
+    expect(await hoverTooltip(user, cancelButton())).toBe('Tick a prescription first');
+    await user.unhover(cancelButton().parentElement!);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    expect(await hoverTooltip(user, sendButton())).toBe('Tick a prescription first');
+    await user.unhover(sendButton().parentElement!);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    await user.click(within(row(AMOX.name!)).getByRole('button', { name: 'Send to another pharmacy' }));
+    const send = within(screen.getByRole('dialog')).getByRole('button', { name: 'Send to pharmacy' });
+    expect(send).toBeDisabled();
+    expect(await hoverTooltip(user, send)).toBe('Pick a pharmacy');
+  });
+
   it('waits for the patient’s allergies and vitals before it sends', async () => {
     mocks.noteLoading = true;
     const user = renderTable();

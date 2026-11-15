@@ -445,7 +445,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
               <Divider orientation="horizontal" />
 
               <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Tooltip title={readOnly ? SIGNED : ''}>
+                <Tooltip title={readOnly ? SIGNED : sending ? 'Sending…' : ''}>
                   <span>
                     <RoundedButton color="primary" onClick={clearForm} disabled={readOnly || sending}>
                       Clear Form

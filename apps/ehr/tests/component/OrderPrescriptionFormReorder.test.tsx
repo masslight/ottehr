@@ -151,6 +151,19 @@ describe('Order prescription form: Reorder', () => {
     }
   });
 
+  it('says why Clear Form is off while sending', async () => {
+    mocks.orderPrescription.mockImplementation(() => new Promise(() => undefined));
+    const user = userEvent.setup();
+    render(<OrderPrescriptionForm />);
+    act(() => reorderPrescription(SENT));
+    await user.click(await screen.findByRole('button', { name: 'Send Prescription' }));
+    await waitFor(() => expect(mocks.orderPrescription).toHaveBeenCalledTimes(1));
+    const clear = screen.getByRole('button', { name: 'Clear Form' });
+    expect(clear).toBeDisabled();
+    await user.hover(clear.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Sending…');
+  });
+
   it('waits for the allergies and vitals before sending, saying why on hover', async () => {
     mocks.loading = true;
     const user = userEvent.setup();

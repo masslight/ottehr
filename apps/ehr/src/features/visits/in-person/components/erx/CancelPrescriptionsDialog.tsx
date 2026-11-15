@@ -78,6 +78,7 @@ export const CancelPrescriptionsDialog: FC<CancelPrescriptionsDialogProps> = ({ 
       confirmText="Send cancellation"
       confirmLoading={sending}
       disabled={!reason || allergiesLoading}
+      disabledReason={reason ? undefined : 'Pick a reason'}
       fullWidth
       maxWidth="sm"
     />

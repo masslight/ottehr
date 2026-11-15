@@ -224,8 +224,11 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     await user.click(selectAll());
     await user.click(screen.getByRole('button', { name: 'Cancel prescriptions…' }));
     expect(within(screen.getByRole('dialog')).getByText('Cancel 2 prescriptions')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send cancellation' })).toBeDisabled();
+    const send = screen.getByRole('button', { name: 'Send cancellation' });
+    expect(send).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Keep prescriptions' })).toBeInTheDocument();
+    await user.hover(send.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Pick a reason');
   });
 
   it('waits for the patient’s allergies before it sends a cancellation', async () => {

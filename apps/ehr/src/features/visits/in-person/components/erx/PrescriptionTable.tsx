@@ -121,6 +121,8 @@ const getPractitionerName = (practitioner?: Practitioner): string | undefined =>
 
 // An open row and its details, tinted together.
 const EXPANDED_BG = 'rgba(25,118,210,.08)';
+// With nothing ticked, the bar's actions say so on hover.
+const NOTHING_TICKED = 'Tick a prescription first';
 
 export const PrescriptionTable: FC = () => {
   const { isLoading, isFetching, error, refetch, data: chartFields } = useChartSection('plan');
@@ -269,7 +271,7 @@ export const PrescriptionTable: FC = () => {
           {/* Always there, so the table doesn't move when rows are selected. */}
           <Stack direction="row" gap={2} alignItems="center" sx={{ minHeight: 32 }}>
             {selected.length > 0 && <Typography variant="body2">{selected.length} selected</Typography>}
-            <Tooltip title={cancelUnavailable ?? ''}>
+            <Tooltip title={cancelUnavailable ?? (selected.length ? '' : NOTHING_TICKED)}>
               <span>
                 <Button
                   size="small"
@@ -283,7 +285,7 @@ export const PrescriptionTable: FC = () => {
                 </Button>
               </span>
             </Tooltip>
-            <Tooltip title={sendElsewhereUnavailable ?? ''}>
+            <Tooltip title={sendElsewhereUnavailable ?? (selected.length ? '' : NOTHING_TICKED)}>
               <span>
                 <Button
                   size="small"
