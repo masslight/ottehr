@@ -186,6 +186,8 @@ export interface PrescriptionFrequency {
    * when "as needed" says nothing about how often. */
   dosesPerDay?: number;
   asNeeded: boolean;
+  /** One dose, once: no days to give, one day's supply. */
+  singleDose?: boolean;
 }
 
 /** A dose pack is taken by its own leaflet and dispensed as one package. */
@@ -207,6 +209,8 @@ export const PRESCRIPTION_FREQUENCIES: Record<string, PrescriptionFrequency> = {
   'every 12 hours': { dosesPerDay: 2, asNeeded: false },
   'every other day': { dosesPerDay: 0.5, asNeeded: false },
   'at bedtime': { dosesPerDay: 1, asNeeded: false },
+  // A single dose (fluconazole 150 mg once): the day's whole amount, for mg/kg per day too.
+  once: { dosesPerDay: 1, asNeeded: false, singleDose: true },
   'every 4 hours as needed': { dosesPerDay: 6, asNeeded: true },
   'every 4 to 6 hours as needed': { dosesPerDay: 6, asNeeded: true },
   'every 6 to 8 hours as needed': { dosesPerDay: 4, asNeeded: true },
@@ -285,7 +289,10 @@ export const prescriptionDispense = (
 ): { quantityValue: string; daysSupply: string } => {
   const form = prescriptionDoseForm(product);
   const steps = courseSteps(directions);
-  const stepDays = steps.map((step) => leadingNumber(step.durationDays));
+  // A single dose is one day's, whatever days are left from another frequency.
+  const stepDays = steps.map((step) =>
+    prescriptionFrequency(step.frequency)?.singleDose ? 1 : leadingNumber(step.durationDays)
+  );
   const days = total(stepDays);
   const daysSupply = days === undefined ? '' : String(days);
   if (form === 'inhaler' || steps.some((step) => step.frequency === PER_PACKAGE_FREQUENCY)) {
@@ -319,7 +326,8 @@ export const prescriptionDirectionsText = (
   const phrase = (step: PrescriptionStep, opening: string): string => {
     const amount = leadingNumber(step.dose);
     const frequency = pickedFrequency(step);
-    const days = leadingNumber(step.durationDays);
+    // A single dose reads "once", with no days.
+    const days = prescriptionFrequency(frequency)?.singleDose ? undefined : leadingNumber(step.durationDays);
     const dose = amount === undefined ? '' : unit ? doseAmountText(amount, unit, ascii) : String(amount);
     const duration =
       days === undefined

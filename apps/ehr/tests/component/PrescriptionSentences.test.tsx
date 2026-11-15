@@ -648,6 +648,16 @@ describe('PrescriptionSentences: suggestions first', () => {
     })
   );
 
+  // Review D6: a single dose has no days to fill.
+  it('asks for no days for a single dose', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={{ ...lineFor(LIQUIDS), dose: '5', route: 'by mouth' }} />);
+    await user.click(screen.getByRole('button', { name: 'frequency (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'once' }));
+    expect(screen.queryByRole('spinbutton', { name: 'duration' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue('Take 5 mL by mouth once.');
+  });
+
   // Only what sending checks is marked: an empty route isn't, and neither are dose and frequency.
   it("doesn't mark an empty route, dose or frequency as needed", () => {
     render(<Harness initial={{ ...lineFor(LIQUIDS), dose: '', route: '', patientInstructions: 'x' }} />);

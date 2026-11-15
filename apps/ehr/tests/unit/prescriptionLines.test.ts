@@ -817,6 +817,19 @@ describe('withCalculatorDosing', () => {
     });
   });
 
+  // Review D6: a single dose is the whole day's: 20 kg × 80 mg/kg/day ÷ 1 = 1,600 mg = 20 mL, once.
+  it('mg/kg/day: a single dose is the day’s amount, read "once" and dispensed once', () => {
+    const next = changed(perDay, { frequency: 'once' }, 20);
+    expect(next).toMatchObject({
+      dose: '20',
+      frequency: 'once',
+      patientInstructions: 'Take 20 mL by mouth once.',
+      quantityValue: '20',
+      daysSupply: '1',
+    });
+    expect(next.doseNotes?.[0]?.working).toBe('20 kg × 80 mg/kg/day ÷ 1 = 1600 mg → 20 mL = 1600 mg');
+  });
+
   it('mg/kg/day: keeps to the maximum, measuring down, and leaves the dose blank without a weight', () => {
     const capped = { ...perDay, dosing: { ...perDay.dosing!, maxPerDoseMg: 500 } };
     const next = changed(capped, { frequency: 'three times daily' }, 20);

@@ -26,6 +26,7 @@ import {
   PRESCRIPTION_FREQUENCIES,
   PRESCRIPTION_ROUTES,
   prescriptionDoseUnit,
+  prescriptionFrequency,
   PrescriptionRoute,
   PrescriptionStep,
   prescriptionVerb,
@@ -974,17 +975,22 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
         readOnly={readOnly}
         warn={at === '' && warns('frequency')}
       />{' '}
-      for{' '}
-      <TextBlank
-        label={`${at}duration`}
-        placeholder="days"
-        kind="number"
-        value={step.durationDays}
-        onChange={(durationDays) => onStep({ durationDays })}
-        readOnly={readOnly}
-        min={1}
-      />{' '}
-      {Number(step.durationDays) === 1 ? 'day' : 'days'}
+      {/* A single dose has no days. */}
+      {!prescriptionFrequency(step.frequency)?.singleDose && (
+        <>
+          for{' '}
+          <TextBlank
+            label={`${at}duration`}
+            placeholder="days"
+            kind="number"
+            value={step.durationDays}
+            onChange={(durationDays) => onStep({ durationDays })}
+            readOnly={readOnly}
+            min={1}
+          />{' '}
+          {Number(step.durationDays) === 1 ? 'day' : 'days'}
+        </>
+      )}
     </>
   );
 

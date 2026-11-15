@@ -177,14 +177,14 @@ const dosedRow = (
       placeholder: '#',
     };
     const where = !route || ROUTES_IN_VERB.includes(route) ? '' : ` ${route}`;
+    // A single dose has no days.
+    const single = prescriptionFrequency(picks[frequencyAt] ?? frequency)?.singleDose;
     return [
       `${prescriptionVerb(route)} `,
       doseBlank,
       `${unit ? ` ${doseUnitLabel(unit, dose?.amount)}` : ''}${where} `,
       frequencyBlank,
-      ' for ',
-      durationBlank,
-      ' days.',
+      ...(single ? ['.'] : [' for ', durationBlank, ' days.']),
     ];
   };
   const doseInfoFor = (picks: SentencePicks): string[] | undefined => {

@@ -316,6 +316,15 @@ describe('Suggestions from quick picks', () => {
     expect(within(suggestionRow(2)).queryByRole('img')).not.toBeInTheDocument();
   });
 
+  // Review D6: a single dose's row asks for no days.
+  it('writes a single-dose quick pick’s row with no days', () => {
+    const single = { ...BY_WEIGHT, dosing: { ...BY_WEIGHT.dosing!, frequency: 'once', durationDays: undefined } };
+    render(<Harness initial={liquidLine()} quickPicks={[single]} weight={WEIGHT} />);
+    const row = suggestionRow(0);
+    expect(row).toHaveTextContent('Take 9 mL by mouth once.');
+    expect(within(row).queryByRole('button', { name: /^Duration/ })).not.toBeInTheDocument();
+  });
+
   it('re-doses a quick pick saved by weight for each weight, with the working behind the ⓘ', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<Harness initial={liquidLine()} quickPicks={[BY_WEIGHT]} weight={WEIGHT} />);

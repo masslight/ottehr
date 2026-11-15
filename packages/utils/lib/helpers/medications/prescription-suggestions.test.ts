@@ -35,6 +35,7 @@ const IBUPROFEN_SUSP = liquid('Oral Suspension', 'ibuprofen', 20);
 const AMOXICILLIN_400_SUSP = liquid('Oral Suspension', 'amoxicillin', 80);
 const AMOXICILLIN_250_SUSP = liquid('Oral Suspension', 'amoxicillin', 50);
 const FLUCONAZOLE_SUSP = liquid('Powder for Oral Suspension', 'fluconazole', 40);
+const FLUCONAZOLE_TAB = each('Oral Tablet', 'fluconazole', 150);
 const AZITHROMYCIN_TAB = each('Oral Tablet', 'azithromycin', 250);
 const PREDNISONE_TAB = each('Oral Tablet', 'prednisone', 10);
 const METHYLPREDNISOLONE_TAB = each('Oral Tablet', 'methylprednisolone', 4);
@@ -132,6 +133,7 @@ describe('PRESCRIPTION_FREQUENCIES', () => {
       'every 12 hours',
       'every other day',
       'at bedtime',
+      'once',
       'every 4 hours as needed',
       'every 4 to 6 hours as needed',
       'every 6 to 8 hours as needed',
@@ -185,6 +187,23 @@ const PREDNISONE = {
   durationDays: '2',
   steps: ['3', '2', '1'].map((dose) => ({ dose, frequency: 'once daily', durationDays: '2' })),
 };
+
+// Review D6: a single dose (fluconazole 150 mg once) reads "once", with no days: ISMP lists "x1" as read as "for 1 day".
+describe('a single dose', () => {
+  const once = { dose: '1', route: 'by mouth' as const, frequency: 'once', durationDays: '' };
+
+  it('reads "once" with no days, and dispenses the one dose for one day', () => {
+    expect(PRESCRIPTION_FREQUENCIES.once).toEqual({ dosesPerDay: 1, asNeeded: false, singleDose: true });
+    expect(prescriptionDirectionsText(FLUCONAZOLE_TAB, once)).toBe('Take 1 tablet by mouth once.');
+    expect(prescriptionDispense(FLUCONAZOLE_TAB, once)).toEqual({ quantityValue: '1', daysSupply: '1' });
+  });
+
+  it('leaves out any days left from another frequency', () => {
+    const left = { ...once, durationDays: '7' };
+    expect(prescriptionDirectionsText(FLUCONAZOLE_TAB, left)).toBe('Take 1 tablet by mouth once.');
+    expect(prescriptionDispense(FLUCONAZOLE_TAB, left)).toEqual({ quantityValue: '1', daysSupply: '1' });
+  });
+});
 
 describe('prescriptionFrequency', () => {
   it('looks a frequency up by its own key only, never one every object has', () => {
