@@ -305,7 +305,7 @@ describe('Compound prescriptions: what must be filled before Send', () => {
     ]);
     expect(
       prescriptionLineErrors({ ...compoundLine('Cream', [ketoprofen()]), quantityUnit: '', patientInstructions: '' })
-    ).toEqual(['Pick a unit', 'Enter the directions']);
+    ).toEqual(['Enter the directions', 'Pick a unit']);
   });
 });
 

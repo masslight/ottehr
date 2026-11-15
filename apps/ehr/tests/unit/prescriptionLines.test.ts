@@ -95,12 +95,12 @@ const PAXLOVID = {
 };
 
 describe('prescriptionLineErrors', () => {
-  it('names everything an empty line still needs, in sentence order', () => {
+  it('names everything an empty line still needs, in screen order: the directions sit above the dispense line', () => {
     expect(prescriptionLineErrors(emptyPrescriptionLine())).toEqual([
       'Pick a medication',
+      'Enter the directions',
       'Quantity must be greater than 0',
       'Pick a unit',
-      'Enter the directions',
     ]);
   });
 

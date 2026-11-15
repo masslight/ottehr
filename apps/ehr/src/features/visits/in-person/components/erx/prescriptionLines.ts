@@ -782,8 +782,16 @@ const isWholeNumberInRange = (value: string, min: number, max: number): boolean 
   return value.trim() !== '' && Number.isInteger(number) && number >= min && number <= max;
 };
 
-// The order endpoint's limits, checked per line before anything is sent.
+// The order endpoint's limits, checked per line before anything is sent. In screen order (the diagnosis and the
+// directions sit above the dispense line), so the errors list as the line reads.
 const PrescriptionDetailsSchema = z.object({
+  diagnosis: z.object({ code: z.string().min(1), display: z.string() }).nullable(),
+  patientInstructions: z
+    .string()
+    .trim()
+    .min(1, 'Enter the directions')
+    .max(1000, 'Directions must be up to 1000 characters')
+    .refine((value) => value.length !== 1, 'Directions must be at least 2 characters'),
   quantityValue: z.string().refine((value) => Number(value) > 0, 'Quantity must be greater than 0'),
   quantityUnit: z.enum(QUANTITY_UNITS, { errorMap: () => ({ message: 'Pick a unit' }) }),
   daysSupply: z
@@ -795,14 +803,7 @@ const PrescriptionDetailsSchema = z.object({
   numberOfRefills: z
     .string()
     .refine((value) => isWholeNumberInRange(value, 0, 99), 'Refills must be a whole number from 0 to 99'),
-  patientInstructions: z
-    .string()
-    .trim()
-    .min(1, 'Enter the directions')
-    .max(1000, 'Directions must be up to 1000 characters')
-    .refine((value) => value.length !== 1, 'Directions must be at least 2 characters'),
   noteToPharmacy: z.string().trim().max(210, 'Note to pharmacy must be up to 210 characters'),
-  diagnosis: z.object({ code: z.string().min(1), display: z.string() }).nullable(),
 });
 
 // The medication first, as the line reads.
