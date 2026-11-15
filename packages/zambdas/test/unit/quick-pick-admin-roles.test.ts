@@ -54,3 +54,36 @@ describe.each([
     expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
   });
 });
+
+// Review S2: an update only writes over a quick pick of the category it names.
+describe('admin-update-quick-pick: what it writes over', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    requireAdminTierUser.mockResolvedValue(undefined);
+    mockOystehr.fhir.update.mockImplementation(async (resource: unknown) => resource);
+  });
+
+  it('looks the quick pick up by its id and its category tag', async () => {
+    mockOystehr.fhir.search.mockResolvedValue({
+      unbundle: () => [{ resourceType: 'ActivityDefinition', id: 'set-1' }],
+    });
+    const response = await call(updateRaw, { category: CATEGORY, quickPickId: 'set-1', quickPick: SET });
+    expect(mockOystehr.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'ActivityDefinition',
+      params: [
+        { name: '_id', value: 'set-1' },
+        { name: '_tag', value: `https://fhir.ottehr.com/CodeSystem/quick-pick-category|${CATEGORY}` },
+      ],
+    });
+    expect(response.statusCode).toBe(200);
+    expect(mockOystehr.fhir.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes nothing over another resource, or a quick pick of another category, and says only "not found"', async () => {
+    mockOystehr.fhir.search.mockResolvedValue({ unbundle: () => [] });
+    const response = await call(updateRaw, { category: CATEGORY, quickPickId: 'some-other-ad', quickPick: SET });
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body).message).toBe('The requested ActivityDefinition resource could not be found');
+    expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+  });
+});

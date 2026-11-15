@@ -1,13 +1,17 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
 import { Secrets } from 'utils/lib/secrets';
-import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireAdminTierUser } from '../../shared/auth';
 import { assertDefined, createClinicalOystehrClient, validateJsonBody, validateString } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { CATEGORY_CONFIG_MAP } from '../admin-create-quick-pick';
-import { activityDefinitionToQuickPick, quickPickToActivityDefinition } from '../shared/quick-pick-helpers';
+import {
+  activityDefinitionToQuickPick,
+  QUICK_PICK_TAG_SYSTEM,
+  quickPickToActivityDefinition,
+} from '../shared/quick-pick-helpers';
 
 interface QuickPickUpdateInputValidated {
   quickPickId: string;
@@ -29,6 +33,18 @@ export const index = wrapHandler(
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const config = CATEGORY_CONFIG_MAP[category];
+    // Only a quick pick of the category named is written over: not another ActivityDefinition, nor another kind of
+    // quick pick. Either way the caller hears only that it wasn't found.
+    const [existing] = (
+      await oystehr.fhir.search<ActivityDefinition>({
+        resourceType: 'ActivityDefinition',
+        params: [
+          { name: '_id', value: quickPickId },
+          { name: '_tag', value: `${QUICK_PICK_TAG_SYSTEM}|${config.category.tagCode}` },
+        ],
+      })
+    ).unbundle();
+    if (!existing) throw FHIR_RESOURCE_NOT_FOUND('ActivityDefinition');
     if (config.validator) {
       await config.validator(oystehr, quickPick, quickPickId);
     }
