@@ -212,8 +212,8 @@ const visitChartPoints = (
         note: beforeDueDate
           ? 'before the due date'
           : chart.x === 'length'
-          ? 'length outside the 45–110 cm table'
-          : 'outside the table',
+          ? 'length outside 45–110 cm'
+          : "outside the chart's age range",
       });
       return;
     }

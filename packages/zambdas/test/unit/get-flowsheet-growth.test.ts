@@ -416,7 +416,7 @@ describe('growth chart data (the cards the EHR draws)', () => {
     expect(output.visits[0].values.bmiPercentile.value).toBe('implausible');
   });
 
-  test('a length outside the 45–110 cm table is listed with the report note and no z', () => {
+  test('a length outside 45–110 cm is listed with its note and no z', () => {
     const long = buildGrowthFlowsheet({
       ...resources,
       observations: [
@@ -425,7 +425,7 @@ describe('growth chart data (the cards the EHR draws)', () => {
       ],
     }).growth!;
     const wfl = long.points.find((point) => point.chart === 'who-wfl')!;
-    expect(wfl).toMatchObject({ x: 44, y: 7.3, note: 'length outside the 45–110 cm table' });
+    expect(wfl).toMatchObject({ x: 44, y: 7.3, note: 'length outside 45–110 cm' });
     expect(wfl.z).toBeUndefined();
     expect(wfl.implausible).toBeUndefined();
   });
