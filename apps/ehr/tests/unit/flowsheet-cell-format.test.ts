@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, it, vi } from 'vitest';
 import { chartPoint } from '../../src/features/flowsheets/chartPoints';
@@ -66,6 +67,64 @@ describe('flowsheet cell formatting', () => {
       'warfarin 5 mg'
     );
     expect(cellOf({ label: 'INR', keys: ['inr'] }, visit({ inr: reading(2.4) })).text).toBe('2.4');
+  });
+});
+
+describe('flags of a cell with several readings', () => {
+  const at = (hour: number): string => `2026-07-13T${hour}:00:00.000Z`;
+
+  it('a lab cell shows the latest value with the worst flag of its readings; the hover keeps each flag', () => {
+    // A rectal swab "Detected" (abnormal) and a urine "Not detected", resulted together.
+    const chlamydia: FlowsheetValue = {
+      time: at(14),
+      value: 'Not detected',
+      readings: [
+        { time: at(14), value: 'Detected', flag: VitalAlertCriticality.Abnormal },
+        { time: at(14), value: 'Not detected' },
+      ],
+    };
+    const cell = cellOf({ label: 'Chlamydia', keys: ['chlamydia'] }, visit({ chlamydia }));
+    expect(cell.text).toBe('Not detected');
+    expect(cell.flag).toBe(VitalAlertCriticality.Abnormal);
+    expect(cell.history.map((h) => h.flag)).toEqual([VitalAlertCriticality.Abnormal, undefined]);
+
+    const potassium: FlowsheetValue = {
+      time: at(15),
+      value: 5.4,
+      flag: VitalAlertCriticality.Abnormal,
+      readings: [
+        { time: at(13), value: 6.8, flag: VitalAlertCriticality.Critical },
+        { time: at(15), value: 5.4, flag: VitalAlertCriticality.Abnormal },
+      ],
+    };
+    expect(cellOf({ label: 'Potassium', keys: ['potassium'] }, visit({ potassium })).flag).toBe(
+      VitalAlertCriticality.Critical
+    );
+  });
+
+  it('a vitals cell keeps the latest reading’s flag (a blood pressure after rest)', () => {
+    const systolic: FlowsheetValue = {
+      time: at(15),
+      value: 118,
+      readings: [
+        { time: at(14), value: 152, flag: VitalAlertCriticality.Abnormal },
+        { time: at(15), value: 118 },
+      ],
+    };
+    const diastolic: FlowsheetValue = {
+      time: at(15),
+      value: 76,
+      readings: [
+        { time: at(14), value: 96, flag: VitalAlertCriticality.Abnormal },
+        { time: at(15), value: 76 },
+      ],
+    };
+    const cell = cellOf(
+      { label: 'Blood pressure (mm Hg)', keys: ['systolic', 'diastolic'], digits: 0 },
+      visit({ systolic, diastolic })
+    );
+    expect(cell.text).toBe('118/76');
+    expect(cell.flag).toBeUndefined();
   });
 });
 

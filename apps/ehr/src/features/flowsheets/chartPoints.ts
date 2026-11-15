@@ -49,7 +49,7 @@ const TO_CHART_UNIT: Record<string, Record<string, number>> = {
  * A vital (a Vitals flowsheet measure) is saved in its row's metric unit and carries none (a weight charted in lbs is
  * converted); a lab result carries its own.
  */
-const VITAL_KEYS = new Set(FLOWSHEETS.find((f) => f.id === 'vitals')?.rows.flatMap((row) => row.keys));
+export const VITAL_KEYS = new Set(FLOWSHEETS.find((f) => f.id === 'vitals')?.rows.flatMap((row) => row.keys));
 
 /** The reading's value in the chart's unit; undefined for a unit the chart can't plot, or a lab result with none. */
 const inChartUnit = (key: string, value: number, unit: string | undefined, chartUnit: string): number | undefined => {

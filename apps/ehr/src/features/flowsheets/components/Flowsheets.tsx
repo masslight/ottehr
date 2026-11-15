@@ -44,7 +44,7 @@ import { VitalsHeaderUnitSystem } from 'utils/lib/types/api/progress-note-config
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { biliToolReadings, biliToolUnavailableReason } from '../biliTool';
-import { chartPoint, HOURS_OF_LIFE_MAX, usesHoursAxis, yAxisBounds } from '../chartPoints';
+import { chartPoint, HOURS_OF_LIFE_MAX, usesHoursAxis, VITAL_KEYS, yAxisBounds } from '../chartPoints';
 import { FlowsheetChart, FlowsheetDefinition, FlowsheetRow, FLOWSHEETS } from '../registry';
 import { BiliToolDialog } from './BiliToolDialog';
 import { GrowthCharts } from './GrowthCharts';
@@ -285,7 +285,12 @@ export const cellOf = (
     const at = readings.map((reading) => reading.readings[i]).filter((reading) => reading !== undefined);
     return { time: at[0].time, text: format(at), flag: worstFlag(at.map((reading) => reading.flag)) };
   });
-  return { text: format(readings), flag: worstFlag(readings.map((reading) => reading.flag)), history };
+  // A vital's latest reading decides its flag (a blood pressure after rest); a lab cell takes its readings' worst, since
+  // a second one is often another site (a rectal swab and a urine), not a repeat.
+  const flag = VITAL_KEYS.has(row.keys[0])
+    ? worstFlag(readings.map((reading) => reading.flag))
+    : worstFlag(history.map((reading) => reading.flag));
+  return { text: format(readings), flag, history };
 };
 
 export interface GroupHeading {
