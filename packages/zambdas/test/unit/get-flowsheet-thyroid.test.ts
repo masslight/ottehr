@@ -414,6 +414,32 @@ describe('thyroid medication: only drugs actually prescribed or given', () => {
     ]);
   });
 
+  test('a follow-up dated by its medications takes the earliest medication time, not the first drug listed', () => {
+    const followUp: Encounter = {
+      resourceType: 'Encounter',
+      id: 'e-fu',
+      status: 'finished',
+      class: { code: 'AMB' },
+      type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+    };
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      encounters: [...data.encounters, followUp],
+      medications: {
+        'e-fu': [
+          { name: 'levothyroxine 75 mcg tablet', source: 'eRx', status: 'active', time: '2023-09-05T15:10:00.000Z' },
+          { name: 'liothyronine 5 mcg tablet', source: 'eRx', status: 'active', time: '2023-09-03T09:00:00-04:00' },
+        ],
+      },
+      labs: {},
+    });
+    const followUpVisit = visits.find((v) => v.encounterId === 'e-fu');
+    expect([followUpVisit?.start, followUpVisit?.values.thyroidMedication?.readings[0].time]).toEqual([
+      '2023-09-03T09:00:00-04:00',
+      '2023-09-03T09:00:00-04:00',
+    ]);
+  });
+
   test('a follow-up without an appointment is dated by its first weight or heart rate, not by another vital', () => {
     const followUp: Encounter = {
       resourceType: 'Encounter',

@@ -1,6 +1,6 @@
 import { FlowsheetDiagnosis, FlowsheetMedication, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { MedicationOrderStatuses } from 'utils/lib/types/api/medication-administration.types';
-import { conditionColumns, LabRow } from './columns';
+import { byInstant, conditionColumns, LabRow } from './columns';
 import { FlowsheetData, FlowsheetDataKind } from './patient-data';
 
 // The birth date and sex, so the Weight and Heart rate flags are worked out as on the Vitals screen.
@@ -83,10 +83,15 @@ export const buildThyroidFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => 
   Object.entries(data.medications ?? {}).forEach(([encounterId, medications]) => {
     const drugs = medications.filter((m) => THYROID_MEDICATION.test(m.name) && prescribedOrGiven(m));
     if (drugs.length === 0) return;
-    const visit = columns.columnFor(encounterId, drugs.map((m) => m.time).find(Boolean));
+    // The earliest medication time (offsets differ), not the first drug listed.
+    const earliest = drugs
+      .map((m) => m.time)
+      .filter(Boolean)
+      .sort(byInstant)[0];
+    const visit = columns.columnFor(encounterId, earliest);
     if (!visit) return;
     columns.addReading(visit, 'thyroidMedication', {
-      time: drugs[0].time ?? visit.start,
+      time: earliest ?? visit.start,
       value: unique(drugs.map(medicationText)).join('; '),
     });
   });
