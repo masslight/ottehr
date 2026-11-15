@@ -1,4 +1,4 @@
-import { MenuItem, Stack, TextField } from '@mui/material';
+import { MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -6,7 +6,7 @@ import { CANCEL_PRESCRIPTION_REASONS, CancelPrescriptionReason } from 'utils/lib
 import { useCancelPrescription } from '../../../shared/hooks/useCancelPrescription';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { errorMessage, PrescriptionSummaryList, useSendEach } from './prescriptionDialogs';
-import { useErxSendDataLoading, useVisitAllergies } from './useVisitWeight';
+import { useErxSendDataFailed, useErxSendDataLoading, useVisitAllergies } from './useVisitWeight';
 
 interface CancelPrescriptionsDialogProps {
   prescriptions: PrescribedMedicationDTO[];
@@ -20,6 +20,7 @@ export const CancelPrescriptionsDialog: FC<CancelPrescriptionsDialogProps> = ({ 
   const allergies = useVisitAllergies();
   // A cancellation sends the allergies, so it waits for them.
   const allergiesLoading = useErxSendDataLoading(undefined, { vitals: false });
+  const allergiesFailed = useErxSendDataFailed(undefined, { vitals: false });
   const [reason, setReason] = useState<CancelPrescriptionReason | ''>('');
   const { sending, close, run } = useSendEach({ prescriptions, onClose, onSent });
   const several = prescriptions.length > 1;
@@ -71,6 +72,11 @@ export const CancelPrescriptionsDialog: FC<CancelPrescriptionsDialogProps> = ({ 
               </MenuItem>
             ))}
           </TextField>
+          {allergiesFailed && (
+            <Typography variant="body2" color="warning.dark">
+              {allergiesFailed}
+            </Typography>
+          )}
         </Stack>
       }
       closeButtonText={several ? 'Keep prescriptions' : 'Keep prescription'}

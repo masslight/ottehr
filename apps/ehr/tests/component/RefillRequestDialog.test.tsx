@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   allergies: undefined as PrescriptionAllergy[] | undefined,
   enrollment: undefined as { registered: boolean } | undefined,
   sendDataLoading: false,
+  sendDataFailed: undefined as string | undefined,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -28,6 +29,7 @@ vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () 
   useVisitHeight: () => mocks.height,
   useVisitAllergies: () => mocks.allergies,
   useErxSendDataLoading: () => mocks.sendDataLoading,
+  useErxSendDataFailed: () => mocks.sendDataFailed,
 }));
 vi.mock('../../src/features/visits/shared/hooks/useCheckSurescriptsEnrollment', () => ({
   useCheckSurescriptsEnrollment: () => ({ data: mocks.enrollment }),
@@ -110,6 +112,7 @@ describe('Refill request dialog', () => {
     mocks.allergies = undefined;
     mocks.enrollment = undefined;
     mocks.sendDataLoading = false;
+    mocks.sendDataFailed = undefined;
     mocks.respondToRenewal.mockResolvedValue({
       taskId: 'renewal-1',
       messageId: 'm',
@@ -159,6 +162,14 @@ describe('Refill request dialog', () => {
     mocks.sendDataLoading = true;
     await open();
     expect(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' })).toBeDisabled();
+  });
+
+  // Review D2-4: a failed load says so, and still sends (allergies and vitals are optional).
+  it('says when the allergies and vitals couldn’t load, and still sends', async () => {
+    mocks.sendDataFailed = "Couldn't load allergies and vitals: they won't be sent.";
+    await open();
+    expect(screen.getByText(mocks.sendDataFailed)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' })).toBeEnabled();
   });
 
   it('says how many fills the pharmacy asks for, "fill" for one', async () => {

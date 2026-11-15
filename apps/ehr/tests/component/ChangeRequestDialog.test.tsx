@@ -29,6 +29,7 @@ vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () 
   useVisitHeight: () => mocks.height,
   useVisitAllergies: () => mocks.allergies,
   useErxSendDataLoading: () => false,
+  useErxSendDataFailed: () => undefined,
 }));
 vi.mock('../../src/features/visits/in-person/hooks/useTasks', () => ({
   GET_TASKS_KEY: 'get-tasks',

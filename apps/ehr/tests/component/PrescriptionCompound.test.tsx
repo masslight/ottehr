@@ -88,6 +88,7 @@ vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () 
   useVisitHeight: () => undefined,
   useVisitAllergies: () => undefined,
   useErxSendDataLoading: () => false,
+  useErxSendDataFailed: () => undefined,
 }));
 vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => ({
   useIcd10SearchInput: () => ({ inputValue: '', setInputValue: () => undefined, options: [], isFetching: false }),

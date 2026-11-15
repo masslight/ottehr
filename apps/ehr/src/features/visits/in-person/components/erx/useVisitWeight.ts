@@ -64,6 +64,21 @@ export const useErxSendDataLoading = (encounterId?: string, { vitals = true } = 
   return noteLoading || currentLoading || allLoading;
 };
 
+/** What couldn't load of the allergies (and, unless left out, the height and weight) an order, an answer or a cancel
+ * sends, said above its Send: it still sends, since they're optional and the provider decides. None while they load
+ * or once they have. */
+export const useErxSendDataFailed = (encounterId?: string, { vitals = true } = {}): string | undefined => {
+  const { encounter } = useAppointmentData();
+  const note = useVisitNote(encounterId ? { encounterId } : {});
+  const current = useGetVitals(vitals ? encounterId ?? encounter?.id : undefined);
+  const all = useGetAllPatientVitals(vitals ? encounterId ?? encounter?.id : undefined);
+  const failed = [
+    !!note.error && !note.data && 'allergies',
+    ((current.isError && !current.data) || (all.isError && !all.data)) && 'vitals',
+  ].filter(Boolean);
+  return failed.length ? `Couldn't load ${failed.join(' and ')}: they won't be sent.` : undefined;
+};
+
 /** The patient's active allergies sent with an order, an answer to a request or a cancel, as the order form's
  * Allergies list reads them (the same query, so nothing is fetched twice). The visit is the page's, unless another one
  * is given. */

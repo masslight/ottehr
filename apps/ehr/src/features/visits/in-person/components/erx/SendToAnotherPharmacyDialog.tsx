@@ -14,7 +14,13 @@ import {
   isPrescriptionCancellable,
   prescriptionToOrderForPharmacy,
 } from './prescriptionStatus';
-import { useErxSendDataLoading, useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
+import {
+  useErxSendDataFailed,
+  useErxSendDataLoading,
+  useVisitAllergies,
+  useVisitHeight,
+  useVisitWeight,
+} from './useVisitWeight';
 
 const CANCEL_REASON: CancelPrescriptionReason = 'Duplicate order (different pharmacy)';
 
@@ -41,6 +47,7 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
   const weight = useVisitWeight();
   const allergies = useVisitAllergies();
   const sendDataLoading = useErxSendDataLoading();
+  const sendDataFailed = useErxSendDataFailed();
   const [pharmacy, setPharmacy] = useState<PharmacySearchResult | null>(null);
   const { sending, close, run } = useSendEach({ prescriptions, onClose, onSent });
   const several = prescriptions.length > 1;
@@ -131,6 +138,11 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
           {alreadyThere.length > 0 && (
             <Typography variant="body2" color="warning.dark">
               {ALREADY_THERE}, so left as is: {alreadyThere.map((prescription) => prescription.name).join(', ')}
+            </Typography>
+          )}
+          {sendDataFailed && (
+            <Typography variant="body2" color="warning.dark">
+              {sendDataFailed}
             </Typography>
           )}
         </Stack>

@@ -52,6 +52,7 @@ const mocks = vi.hoisted(() => ({
   directoryRow: undefined as ErxDirectoryPharmacy | undefined,
   roles: [] as string[],
   loading: false,
+  failed: undefined as string | undefined,
   readOnly: false,
   preferred: undefined as typeof PREFERRED | undefined,
 }));
@@ -114,6 +115,7 @@ vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () 
   useVisitHeight: () => undefined,
   useVisitAllergies: () => undefined,
   useErxSendDataLoading: () => mocks.loading,
+  useErxSendDataFailed: () => mocks.failed,
 }));
 vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => ({
   useIcd10SearchInput: () => ({ inputValue: '', setInputValue: () => undefined, options: [], isFetching: false }),
@@ -135,6 +137,7 @@ describe('Order prescription form: Reorder', () => {
     mocks.orderPrescription.mockResolvedValue({});
     mocks.roles = [];
     mocks.loading = false;
+    mocks.failed = undefined;
     mocks.readOnly = false;
     mocks.preferred = PREFERRED;
   });
@@ -175,6 +178,15 @@ describe('Order prescription form: Reorder', () => {
     expect(send).toBeDisabled();
     await user.hover(send.parentElement!);
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Loading allergies and vitals');
+  });
+
+  // Review D2-4: a failed load says so, and still sends (allergies and vitals are optional).
+  it('says when the allergies and vitals couldn’t load, and still sends', async () => {
+    mocks.failed = "Couldn't load allergies and vitals: they won't be sent.";
+    render(<OrderPrescriptionForm />);
+    act(() => reorderPrescription(SENT));
+    expect(await screen.findByText(mocks.failed)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send Prescription' })).toBeEnabled();
   });
 
   it.each([

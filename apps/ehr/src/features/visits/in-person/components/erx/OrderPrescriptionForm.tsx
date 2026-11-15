@@ -47,7 +47,13 @@ import { PrescriptionSentences } from './PrescriptionSentences';
 import { missingSetMembersText, withListedQuickPick, withPrescriptionSet } from './prescriptionSuggestions';
 import { refillLine } from './refillRequest';
 import { useReorderPrescriptionStore } from './reorderPrescription.store';
-import { useErxSendDataLoading, useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
+import {
+  useErxSendDataFailed,
+  useErxSendDataLoading,
+  useVisitAllergies,
+  useVisitHeight,
+  useVisitWeight,
+} from './useVisitWeight';
 
 // Layout from the procedure page: the side column sits beside the form once the page is wide enough.
 const SIDE_COLUMN_WIDTH = 340;
@@ -101,6 +107,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   const allergies = useVisitAllergies(visit?.encounterId);
   // Sending waits for what goes with it, so a prescription never goes out as if the patient had no allergies.
   const sendDataLoading = useErxSendDataLoading(visit?.encounterId);
+  const sendDataFailed = useErxSendDataFailed(visit?.encounterId);
   const user = useEvolveUser();
   // The roles that manage quick picks in Admin.
   const isAdmin = user?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) ?? false;
@@ -444,6 +451,11 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
 
               <Divider orientation="horizontal" />
 
+              {!readOnly && sendDataFailed && (
+                <Typography variant="body2" color="warning.dark">
+                  {sendDataFailed}
+                </Typography>
+              )}
               <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Tooltip title={readOnly ? SIGNED : sending ? 'Sending…' : ''}>
                   <span>

@@ -42,6 +42,7 @@ const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
   allergies: [] as { name?: string; current?: boolean }[],
   noteLoading: false,
+  noteFailed: false,
 }));
 
 // jsdom measures nothing, so the grid's virtualization would render no rows.
@@ -65,7 +66,12 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
 }));
 // The patient's allergies, as the order form's Allergies list reads them.
 vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
-  useVisitNote: () => (mocks.noteLoading ? { isLoading: true } : { data: { history: { allergies: mocks.allergies } } }),
+  useVisitNote: () =>
+    mocks.noteFailed
+      ? { error: new Error('failed') }
+      : mocks.noteLoading
+      ? { isLoading: true }
+      : { data: { history: { allergies: mocks.allergies } } },
 }));
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ appointment: { start: VISIT_START } }),
@@ -104,6 +110,7 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     vi.clearAllMocks();
     mocks.allergies = [];
     mocks.noteLoading = false;
+    mocks.noteFailed = false;
     vi.stubGlobal('fetch', mocks.fetch);
     mocks.fetch.mockResolvedValue(response(200, { messageId: 'm' }));
     mocks.refetch.mockResolvedValue({});
@@ -242,6 +249,20 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     expect(send).toBeDisabled();
     await user.hover(send.parentElement!);
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Loading allergies');
+  });
+
+  // Review D2-4: a failed load says so, and still sends (allergies are optional).
+  it('says when the allergies couldn’t load, and still sends the cancellation', async () => {
+    mocks.noteFailed = true;
+    const user = renderTable();
+    await user.click(selectAll());
+    await user.click(screen.getByRole('button', { name: 'Cancel prescriptions…' }));
+    await user.click(screen.getByRole('combobox', { name: /Reason/ }));
+    await user.click(screen.getByRole('option', { name: 'Patient request' }));
+    expect(
+      within(screen.getByRole('dialog')).getByText("Couldn't load allergies: they won't be sent.")
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send cancellation' })).toBeEnabled();
   });
 
   it('sends one cancellation per prescription, then refetches and clears the selection', async () => {

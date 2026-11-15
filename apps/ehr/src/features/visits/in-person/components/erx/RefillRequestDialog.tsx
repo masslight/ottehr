@@ -55,7 +55,13 @@ import {
   strengthChangeWarning,
   suggestionText,
 } from './refillRequest';
-import { useErxSendDataLoading, useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
+import {
+  useErxSendDataFailed,
+  useErxSendDataLoading,
+  useVisitAllergies,
+  useVisitHeight,
+  useVisitWeight,
+} from './useVisitWeight';
 
 type Answer = 'approve' | 'change' | 'deny' | 'pending';
 
@@ -147,6 +153,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const weight = useVisitWeight(data?.prescription.encounterId);
   const allergies = useVisitAllergies(data?.prescription.encounterId);
   const sendDataLoading = useErxSendDataLoading(data?.prescription.encounterId);
+  const sendDataFailed = useErxSendDataFailed(data?.prescription.encounterId);
   const [chosen, setChosen] = useState<Answer>('approve');
   const [fills, setFills] = useState<string>();
   const [suggestion, setSuggestion] = useState(0);
@@ -571,6 +578,11 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                     onChange={(event) => setNote(event.target.value)}
                     inputProps={{ maxLength: noteMax }}
                   />
+                )}
+                {!closed && answer !== 'change' && sendDataFailed && (
+                  <Typography variant="body2" color="warning.dark">
+                    {sendDataFailed}
+                  </Typography>
                 )}
               </Stack>
             )}
