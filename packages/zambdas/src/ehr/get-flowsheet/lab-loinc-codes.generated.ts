@@ -584,6 +584,28 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '106572-1', // Neisseria gonorrhoeae DNA [Presence] in Anal by NAA with probe detection
     '112402-3', // Neisseria gonorrhoeae DNA [Presence] in Mouth by NAA with probe detection
   ],
+  trichomonas: [
+    '6568-0', // Trichomonas vaginalis rRNA [Presence] in Genital specimen by Probe
+    '46154-1', // Trichomonas vaginalis rRNA [Presence] in Specimen by NAA with probe detection
+    '54144-1', // Trichomonas vaginalis DNA [Presence] in Vaginal fluid by Probe with signal amplification
+    '62461-9', // Trichomonas vaginalis DNA [Presence] in Vaginal fluid by NAA with probe detection
+    '69937-1', // Trichomonas vaginalis DNA [Presence] in Specimen by NAA with probe detection
+    '70165-6', // Trichomonas vaginalis rRNA [Presence] in Vaginal fluid by NAA with probe detection
+    '70166-4', // Trichomonas vaginalis rRNA [Presence] in Cervix by NAA with probe detection
+    '70167-2', // Trichomonas vaginalis rRNA [Presence] in Urine by NAA with probe detection
+    '90302-1', // Trichomonas vaginalis DNA [Presence] in Cervix by NAA with probe detection
+    '91844-1', // Trichomonas vaginalis DNA [Presence] in Genital specimen by NAA with probe detection
+    '92685-7', // Trichomonas vaginalis DNA [Presence] in Urine by NAA with probe detection
+    '92700-4', // Trichomonas vaginalis DNA [Presence] in Vaginal fluid by Probe
+    '100700-4', // Trichomonas vaginalis DNA [Presence] in Urethra by NAA with probe detection
+    '100701-2', // Trichomonas vaginalis rRNA [Presence] in Urethra by NAA with probe detection
+    '104806-5', // Trichomonas vaginalis DNA [Presence] in Specimen by Molgen
+    '105084-8', // Trichomonas vaginalis rRNA [Presence] in Specimen by Molgen
+    '106023-5', // Trichomonas vaginalis DNA [Presence] in Semen by NAA with probe detection
+    '106562-2', // Trichomonas vaginalis DNA [Presence] in Throat by NAA with probe detection
+    '106573-9', // Trichomonas vaginalis DNA [Presence] in Anal by NAA with probe detection
+    '112401-5', // Trichomonas vaginalis DNA [Presence] in Mouth by NAA with probe detection
+  ],
   syphilisRpr: [
     '11084-1', // Reagin Ab [Titer] in Serum
     '20507-0', // Reagin Ab [Presence] in Serum by RPR
@@ -693,6 +715,12 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '72516-8', // Glucose [Moles/volume] in Blood by Automated test strip
     '109888-8', // Glucose [Measurement] in Capillary blood
     '110939-6', // Glucose [Measurement] in Blood
+  ],
+  fastingFingerstickGlucose: [
+    '1556-0', // Fasting glucose [Mass/volume] in Capillary blood
+    '14770-2', // Fasting glucose [Moles/volume] in Capillary blood by Glucometer
+    '41604-0', // Fasting glucose [Mass/volume] in Capillary blood by Glucometer
+    '76629-5', // Fasting glucose [Moles/volume] in Blood
   ],
   vitaminD: [
     '1989-3', // 25-hydroxyvitamin D3 [Mass/volume] in Serum or Plasma

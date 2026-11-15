@@ -12,7 +12,11 @@ const GLUCOSE: Pick<LabRow, 'analyte' | 'exclude'> = {
   exclude: /tolerance|\bgtt\b|post|hour|minute|whole blood|capillary|fluid/i,
 };
 /** A meter reading, by its test's or its own name ("Glucose Finger/Heel Stick", "POC Glucose"). */
-const FINGERSTICK = /capillary|whole blood|finger|heel|\bpoc\b|point.of.care|glucometer|\bmeter\b/i;
+const FINGERSTICK_GLUCOSE: Pick<LabRow, 'analyte' | 'exclude' | 'test'> = {
+  analyte: /glucose/i,
+  exclude: /tolerance|\bgtt\b|post|hour|minute|fluid/i,
+  test: /capillary|whole blood|finger|heel|\bpoc\b|point.of.care|glucometer|\bmeter\b/i,
+};
 const CRP = /c.?reactive|\bcrp\b/i;
 const HS_CRP = /hs.?crp|high.?sens|cardi/i;
 const EGFR: Pick<LabRow, 'analyte' | 'exclude'> = {
@@ -44,7 +48,7 @@ const urine = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ ...row, test: U
 /**
  * Lab rows (codes: lab-row-rules.ts). The name patterns only place uncoded results; the first matching row wins, so
  * absolute counts, high-sensitivity CRP and ratios are listed before, or excluded from, the rows they share a name
- * with. Glucose and eGFR each take two rules under one key, and Lead three (see lab-row-rules.ts).
+ * with. Glucose, fingerstick glucose and eGFR each take two rules under one key, and Lead three (see lab-row-rules.ts).
  */
 const LAB_ROWS: LabRow[] = [
   ...serum([
@@ -80,12 +84,8 @@ const LAB_ROWS: LabRow[] = [
     { key: 'basophilsAbsolute', analyte: /(basophil|\bbaso\b).*(abs|#|count)|abs.*baso/i },
     { key: 'rdw', analyte: /\brdw\b|distribution width/i },
     // CMP/BMP. A meter glucose is listed first, so the serum Glucose row never takes it.
-    {
-      key: 'fingerstickGlucose',
-      analyte: /glucose/i,
-      exclude: /tolerance|\bgtt\b|post|hour|minute|fluid/i,
-      test: FINGERSTICK,
-    },
+    { key: 'fingerstickGlucose', rule: 'fastingFingerstickGlucose', fasting: true, ...FINGERSTICK_GLUCOSE },
+    { key: 'fingerstickGlucose', fasting: true, ...FINGERSTICK_GLUCOSE },
     { key: 'glucose', rule: 'fastingGlucose', fasting: true, ...GLUCOSE },
     { key: 'glucose', fasting: true, ...GLUCOSE },
     { key: 'bun', analyte: /\bbun\b|urea nitrogen/i, exclude: /ratio|\/|creat/i },
@@ -241,6 +241,7 @@ const LAB_ROWS: LabRow[] = [
     exclude: /pneumoniae|psittaci|antibod|\bab\b|ig[gm]/i,
   },
   { key: 'gonorrhea', text: true, analyte: /gonorrh|n\.? ?gonorrhoeae|neisseria gon/i, exclude: /antibod|\bab\b/i },
+  { key: 'trichomonas', text: true, analyte: /trichomon|\bt\.? ?vaginalis/i, exclude: /antibod|\bab\b/i },
   { key: 'hpvHighRisk', text: true, analyte: /\bhpv\b|papilloma/i, exclude: /\b(16|18)\b|genotyp|low.?risk|vaccin/i },
   { key: 'hpv16', text: true, analyte: /(\bhpv\b|papilloma).*\b16\b/i, exclude: /\b18\b|low.?risk|vaccin/i },
   { key: 'hpv18', text: true, analyte: /(\bhpv\b|papilloma).*\b18\b/i, exclude: /\b16\b|low.?risk|vaccin/i },
@@ -273,7 +274,9 @@ const preferEgfr2021 = (labs: FlowsheetLabResult[]): FlowsheetLabResult[] =>
 
 /** A fasting glucose code, or an uncoded result named fasting, marks the result fasting like the report can. */
 const markFasting = (lab: FlowsheetLabResult): FlowsheetLabResult =>
-  hasCode(lab, 'fastingGlucose') || (lab.loincCodes.length === 0 && /fasting/i.test(lab.analyte))
+  hasCode(lab, 'fastingGlucose') ||
+  hasCode(lab, 'fastingFingerstickGlucose') ||
+  (lab.loincCodes.length === 0 && /fasting/i.test(lab.analyte))
     ? { ...lab, fasting: true }
     : lab;
 

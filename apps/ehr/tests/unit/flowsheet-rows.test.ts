@@ -140,6 +140,7 @@ describe('Lab results rows', () => {
       'HIV-1 RNA',
       'Chlamydia',
       'Gonorrhea',
+      'Trichomonas',
       'Syphilis RPR',
       'Syphilis treponemal antibody',
       'HPV (high risk)',

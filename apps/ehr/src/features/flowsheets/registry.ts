@@ -265,6 +265,7 @@ const labResults: FlowsheetDefinition = {
       ['HIV-1 RNA', 'hiv1Rna'],
       ['Chlamydia', 'chlamydia'],
       ['Gonorrhea', 'gonorrhea'],
+      ['Trichomonas', 'trichomonas'],
       ['Syphilis RPR', 'syphilisRpr'],
       ['Syphilis treponemal antibody', 'syphilisTreponemalAntibody'],
       ['HPV (high risk)', 'hpvHighRisk'],

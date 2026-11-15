@@ -194,6 +194,11 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     systems: STI_SITES,
     properties: PRESENCE,
   },
+  trichomonas: {
+    components: ['Trichomonas vaginalis rRNA', 'Trichomonas vaginalis DNA'],
+    systems: STI_SITES,
+    properties: PRESENCE,
+  },
   // Reagin is the nontreponemal antibody; VDRL measures it too, but the row is the RPR.
   syphilisRpr: { components: ['Reagin Ab'], systems: SERUM_OR_PLASMA, methods: ['RPR', ''] },
   syphilisTreponemalAntibody: {
@@ -233,8 +238,10 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   },
   // Lab results: standalone tests
   hba1c: { components: ['Hemoglobin A1c/Hemoglobin.total'], systems: BLOOD },
-  // A meter reading on a fingerstick, kept apart from the lab's serum or plasma glucose.
+  // A meter reading on a fingerstick, kept apart from the lab's serum or plasma glucose; a fasting code marks it
+  // "fasting" like the Glucose row.
   fingerstickGlucose: { components: ['Glucose'], systems: ['Blood', 'Capillary blood'], excludeProperties: PRESENCE },
+  fastingFingerstickGlucose: { components: ['Fasting glucose'], systems: ['Blood', 'Capillary blood'] },
   vitaminD: {
     components: ['25-Hydroxyvitamin D3+25-Hydroxyvitamin D2', '25-hydroxyvitamin D3'],
     systems: SERUM_OR_PLASMA,

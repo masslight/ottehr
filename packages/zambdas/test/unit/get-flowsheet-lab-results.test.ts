@@ -134,6 +134,8 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     ['hpv18', ['77400-0', '61373-7', '75694-0']],
     ['directBilirubin', ['1968-7']],
     ['fingerstickGlucose', ['2339-0', '41653-7']],
+    ['fastingFingerstickGlucose', ['1556-0', '41604-0', '14770-2']],
+    ['trichomonas', ['70165-6', '70167-2', '69937-1']],
     ['lead', ['5671-3', '14807-2']],
     ['leadCapillary', ['10368-9']],
     ['leadVenous', ['77307-7']],
@@ -446,6 +448,16 @@ describe('buildLabResultsFlowsheet', () => {
     expect(valuesOf(lab('Glucose', { value: 98, test: 'Comp. metabolic panel' }))).toEqual({ glucose: 98 });
   });
 
+  test('a fasting fingerstick glucose, coded or named, is on Glucose (fingerstick) marked fasting, like Glucose', () => {
+    const fingerstick = (result: FlowsheetLabResult): [string | number, string | undefined] => {
+      const value = build({ e1: [result] })[0].values.fingerstickGlucose;
+      return [value.value, value.note];
+    };
+    expect(fingerstick(lab('Glucose, Fasting', { codes: ['41604-0'], value: 104 }))).toEqual([104, 'fasting']);
+    expect(fingerstick(lab('Fasting Glucose', { value: 98, test: 'POC Glucose' }))).toEqual([98, 'fasting']);
+    expect(fingerstick(lab('Glucose', { codes: ['32016-8'], value: 112 }))).toEqual([112, undefined]);
+  });
+
   test('hepatitis, HIV and STI results show their text as reported, coded or named; a number shows too', () => {
     expect(
       valuesOf(
@@ -456,6 +468,7 @@ describe('buildLabResultsFlowsheet', () => {
         lab('HIV-1 RNA, Quant', { text: '<20', unit: 'copies/mL' }),
         lab('Chlamydia trachomatis RNA, TMA', { codes: ['42931-6'], text: 'Not detected' }),
         lab('Neisseria gonorrhoeae RNA, TMA', { text: 'Not detected', test: 'CT/NG NAA, Urine' }),
+        lab('Trichomonas vaginalis RNA, TMA', { codes: ['70165-6'], text: 'Detected' }),
         lab('RPR', { codes: ['20507-0'], text: 'Reactive 1:8' }),
         lab('QuantiFERON-TB Gold Plus', { codes: ['71773-6'], text: 'Negative' }),
         lab('QuantiFERON Nil Value', { value: 0.04, unit: 'IU/mL' }),
@@ -469,6 +482,7 @@ describe('buildLabResultsFlowsheet', () => {
       hiv1Rna: '<20',
       chlamydia: 'Not detected',
       gonorrhea: 'Not detected',
+      trichomonas: 'Detected',
       syphilisRpr: 'Reactive 1:8',
       igra: 'Negative',
       fit: 'Negative',
