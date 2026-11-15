@@ -1,3 +1,4 @@
+import { celsiusToFahrenheit } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { FlowsheetChart, FLOWSHEETS } from './registry';
@@ -56,14 +57,17 @@ const TO_CHART_UNIT: Record<string, Record<string, number>> = {
 };
 
 /**
- * A vital (a Vitals flowsheet measure) is saved in its row's metric unit and carries none (a weight charted in lbs is
- * converted); a lab result carries its own.
+ * A vital (a Vitals flowsheet measure) is saved in its row's metric unit and carries none (a weight charted in lbs or a
+ * temperature in °F is converted); a lab result carries its own.
  */
 export const VITAL_KEYS = new Set(FLOWSHEETS.find((f) => f.id === 'vitals')?.rows.flatMap((row) => row.keys));
 
 /** The reading's value in the chart's unit; undefined for a unit the chart can't plot, or a lab result with none. */
 const inChartUnit = (key: string, value: number, unit: string | undefined, chartUnit: string): number | undefined => {
-  if (!unit) return VITAL_KEYS.has(key) ? (chartUnit === 'lbs' ? kgToLbs(value) : value) : undefined;
+  if (!unit) {
+    if (!VITAL_KEYS.has(key)) return undefined;
+    return chartUnit === 'lbs' ? kgToLbs(value) : chartUnit === '°F' ? celsiusToFahrenheit(value) : value;
+  }
   if (normalUnit(unit) === normalUnit(chartUnit)) return value;
   const factor = TO_CHART_UNIT[key]?.[normalUnit(unit)];
   return factor === undefined ? undefined : Number((value * factor).toFixed(2));

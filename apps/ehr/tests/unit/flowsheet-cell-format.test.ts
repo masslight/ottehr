@@ -6,6 +6,7 @@ import { chartPoint } from '../../src/features/flowsheets/chartPoints';
 import {
   bothUnits,
   cellOf,
+  chartInUnits,
   rowLabel,
   rowsToShow,
   toColumns,
@@ -206,10 +207,24 @@ describe('Vitals, Thyroid and Newborn bilirubin measures in the practice header 
     expect(bothUnits(rowOf('newbornBilirubin', 'weight'), 3.25)).toBe('3.25 kg ≈ 7.17 lbs');
   });
 
-  it('shows a temperature in °C, with °F on hover as vitals history does', () => {
+  it('shows a temperature in °C, or °F to 1 decimal when imperial, with both on hover as vitals history does', () => {
     const temperature = rowOf('vitals', 'temperature');
-    expect(cellOf(temperature, visit({ temperature: reading(37) }), 'imperial').text).toBe('37.0');
+    expect(cellOf(temperature, visit({ temperature: reading(37) })).text).toBe('37.0');
+    expect(rowLabel(temperature)).toBe('Temperature (°C)');
+    expect(cellOf(temperature, visit({ temperature: reading(37) }), 'imperial').text).toBe('98.6');
+    expect(cellOf(temperature, visit({ temperature: reading(38.3) }), 'imperial').text).toBe('100.9');
+    expect(rowLabel(temperature, 'imperial')).toBe('Temperature (°F)');
     expect(bothUnits(temperature, 37)).toBe('37.0 C ≈ 98.6 F');
+  });
+
+  it('the temperature chart is in °F when imperial, at least 95 to 104 °F tall (35 to 40 °C)', () => {
+    const chart = FLOWSHEETS.find((f) => f.id === 'vitals')!.charts.find((c) => c.title === 'Temperature')!;
+    expect([chart.unit, chart.yRange]).toEqual(['°C', [35, 40]]);
+    expect(chartInUnits(chart, 'metric')).toBe(chart);
+    expect(chartInUnits(chart, 'imperial')).toMatchObject({ unit: '°F', yRange: [95, 104] });
+    const t = visit({ temperature: reading(37) });
+    expect(chartPoint(t, 'temperature', false, '°F')).toEqual([Date.parse(t.start), 98.6]);
+    expect(chartPoint(t, 'temperature', false, '°C')).toEqual([Date.parse(t.start), 37]);
   });
 
   it('every weight chart switches to lbs when the practice header system is imperial', () => {

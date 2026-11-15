@@ -11,8 +11,8 @@ export interface FlowsheetRow {
   /** Leave the row out when no visit shown has a value for it (BMI rows for a patient under 2). */
   hideWhenEmpty?: boolean;
   /** A metric measure the grid can show imperial (practice header unit system) with both units on hover. */
-  imperial?: { label: string; unit: 'lbs' | 'in' };
-  /** A temperature in °C, with °F on hover as in vitals history ("37.0 C ≈ 98.6 F"). */
+  imperial?: { label: string; unit: 'lbs' | 'in' | '°F' };
+  /** A temperature in °C, its hover in both units as in vitals history ("37.0 C ≈ 98.6 F"). */
   fahrenheit?: boolean;
 }
 
@@ -28,9 +28,9 @@ export interface FlowsheetChart {
   yStep?: number;
   /** The y-axis is at least this tall, centred on the values; without yRange or minSpan, ±10% of the middle value. */
   minSpan?: number;
-  /** The unit when the practice's header unit system is imperial (a weight in lbs). */
-  imperialUnit?: 'lbs';
-  /** A temperature in °C, its hover with °F as in vitals history. */
+  /** The unit when the practice's header unit system is imperial (a weight in lbs, a temperature in °F). */
+  imperialUnit?: 'lbs' | '°F';
+  /** A temperature in °C (°F when imperial), its hover in both units as in vitals history. */
   fahrenheit?: boolean;
 }
 
@@ -47,7 +47,13 @@ const vitals: FlowsheetDefinition = {
   id: 'vitals',
   title: 'Vitals',
   rows: [
-    { label: 'Temperature (°C)', keys: ['temperature'], digits: 1, fahrenheit: true },
+    {
+      label: 'Temperature (°C)',
+      keys: ['temperature'],
+      digits: 1,
+      fahrenheit: true,
+      imperial: { label: 'Temperature (°F)', unit: '°F' },
+    },
     { label: 'Heart rate (/min)', keys: ['heartRate'], digits: 0 },
     { label: 'Respiratory rate (/min)', keys: ['respirationRate'], digits: 0 },
     { label: 'SpO₂ (%)', keys: ['oxygenSaturation'], digits: 0 },
@@ -77,6 +83,7 @@ const vitals: FlowsheetDefinition = {
     {
       title: 'Temperature',
       unit: '°C',
+      imperialUnit: '°F',
       yRange: [35, 40],
       fahrenheit: true,
       lines: [{ name: 'Temperature', key: 'temperature' }],

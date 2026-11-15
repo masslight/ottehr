@@ -36,7 +36,11 @@ import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCate
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
 import { getFollowUpProgressNotePathSegment } from 'utils/lib/fhir/encounter';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
-import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import {
+  celsiusToFahrenheit,
+  fahrenheitToCelsius,
+  roundTemperatureValue,
+} from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
@@ -235,9 +239,13 @@ interface Cell {
 // Lab units are saved as UCUM; show the count units the way people write them.
 const UCUM_DISPLAY: Record<string, string> = { '10*3/uL': '×10³/µL', '10*6/uL': '×10⁶/µL' };
 
-// Imperial from the stored metric value, at the vitals' display precision (lbs 2 decimals, inches 2 decimals).
-const toImperial = (value: number, unit: 'lbs' | 'in'): string =>
-  unit === 'lbs' ? kgToLbs(value).toFixed(2) : HeightMeasurement.fromCm(value).getInches().toFixed(2);
+// Imperial from the stored metric value, at the vitals' display precision (lbs and inches 2 decimals, °F 1).
+const toImperial = (value: number, unit: 'lbs' | 'in' | '°F'): string =>
+  unit === 'lbs'
+    ? kgToLbs(value).toFixed(2)
+    : unit === '°F'
+    ? celsiusToFahrenheit(value).toFixed(1)
+    : HeightMeasurement.fromCm(value).getInches().toFixed(2);
 
 /** The row label in the unit system shown. */
 export const rowLabel = (row: FlowsheetRow, unitSystem: VitalsHeaderUnitSystem = 'metric'): string =>
@@ -259,6 +267,19 @@ export const bothUnits = (row: FlowsheetRow, value: number | string): string | u
       )?.[1]} ≈ ${toImperial(value, row.imperial.unit)} ${row.imperial.unit}`
     : undefined;
 };
+
+/** A chart in the practice's header unit system: a weight in lbs, a temperature in °F (its range converted too). */
+export const chartInUnits = (chart: FlowsheetChart, unitSystem: VitalsHeaderUnitSystem): FlowsheetChart =>
+  unitSystem === 'imperial' && chart.imperialUnit
+    ? {
+        ...chart,
+        unit: chart.imperialUnit,
+        yRange:
+          chart.imperialUnit === '°F' && chart.yRange
+            ? [celsiusToFahrenheit(chart.yRange[0]), celsiusToFahrenheit(chart.yRange[1])]
+            : chart.yRange,
+      }
+    : chart;
 
 export const cellOf = (
   row: FlowsheetRow,
@@ -426,12 +447,9 @@ const FlowsheetBody = ({
 }): ReactElement => {
   const theme = useTheme();
   const unitSystem = useVitalsHeaderUnitSystem();
-  // A weight chart is in the practice's header unit, as the grid is.
+  // A weight or temperature chart is in the practice's header unit, as the grid is.
   const charts = useMemo(
-    () =>
-      definition.charts.map((chart) =>
-        unitSystem === 'imperial' && chart.imperialUnit ? { ...chart, unit: chart.imperialUnit } : chart
-      ),
+    () => definition.charts.map((chart) => chartInUnits(chart, unitSystem)),
     [definition, unitSystem]
   );
   const resolveServiceCategoryAbbr = useServiceCategoryAbbreviationResolver();
@@ -463,8 +481,10 @@ const FlowsheetBody = ({
         confine: true,
         // Canvas text, not HTML, as on the growth charts: nothing in a tooltip can become markup.
         renderMode: 'richText',
-        // A temperature reads in both units.
-        ...(chart.fahrenheit && { valueFormatter: (value: number) => withFahrenheit(value) }),
+        // A temperature reads in both units, from °C whichever the chart is in.
+        ...(chart.fahrenheit && {
+          valueFormatter: (value: number) => withFahrenheit(chart.unit === '°F' ? fahrenheitToCelsius(value) : value),
+        }),
       },
       // The card title already names a single line.
       legend: {
