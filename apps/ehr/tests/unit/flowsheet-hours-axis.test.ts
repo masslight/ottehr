@@ -73,6 +73,36 @@ describe('newborn bilirubin chart x-axis: hours of life when the time of birth i
   });
 });
 
+describe('newborn bilirubin chart by date (no time of birth): only to day 14 of life, as the hours axis', () => {
+  const day = (n: number, time: string): FlowsheetValue => reading(n, time);
+  const t1 = '2026-07-13T09:00:00.000Z';
+  const t2 = '2026-07-13T18:00:00.000Z';
+
+  it('a reading on day 14 plots; one after day 14 is left out', () => {
+    const day14 = visit({ newbornTotalBilirubin: reading(11.2, t1, 'mg/dL'), dayOfLife: day(14, t1) });
+    expect(chartPoint(day14, 'newbornTotalBilirubin', false, 'mg/dL')).toEqual([Date.parse(day14.start), 11.2]);
+    const day28 = visit({ newbornTotalBilirubin: reading(6.4, t1, 'mg/dL'), dayOfLife: day(28, t1) });
+    expect(chartPoint(day28, 'newbornTotalBilirubin', false, 'mg/dL')).toBeUndefined();
+  });
+
+  it('a reading takes the day of life of its own time: the latest one at or before it', () => {
+    // Results on day 14 (09:00) and, after midnight in the visit's zone, day 15 (18:00) in one column.
+    const both = visit({
+      transcutaneousBilirubin: reading(10.9, t1, 'mg/dL'),
+      newbornTotalBilirubin: reading(10.2, t2, 'mg/dL'),
+      dayOfLife: {
+        ...day(15, t2),
+        readings: [
+          { time: t1, value: 14 },
+          { time: t2, value: 15 },
+        ],
+      },
+    });
+    expect(chartPoint(both, 'transcutaneousBilirubin', false, 'mg/dL')).toEqual([Date.parse(both.start), 10.9]);
+    expect(chartPoint(both, 'newbornTotalBilirubin', false, 'mg/dL')).toBeUndefined();
+  });
+});
+
 describe('trend charts plot only readings in the chart unit, converting the standard pairs', () => {
   const t = '2026-07-13T18:00:00.000Z';
   const lab = (value: number, unit: string): FlowsheetValue => ({

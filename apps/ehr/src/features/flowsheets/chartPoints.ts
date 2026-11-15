@@ -11,6 +11,16 @@ export const hoursOfLifeAt = (visit: FlowsheetVisit, time: string): number | und
   return typeof hours === 'number' ? hours : undefined;
 };
 
+/** The same 14 days by day of life, for a chart by date (no time of birth). */
+const DAY_OF_LIFE_MAX = HOURS_OF_LIFE_MAX / 24;
+
+/** The day of life at a reading's time, when the flowsheet carries it: the latest one recorded at or before it. */
+const dayOfLifeAt = (visit: FlowsheetVisit, time: string): number | undefined => {
+  const day = visit.values.dayOfLife?.readings.filter((reading) => Date.parse(reading.time) <= Date.parse(time)).pop()
+    ?.value;
+  return typeof day === 'number' ? day : undefined;
+};
+
 /** A chart plots against hours of life when it asks to and any visit shown carries them; else against time. */
 export const usesHoursAxis = (chart: FlowsheetChart, visits: FlowsheetVisit[]): boolean =>
   !!chart.hoursOfLife && visits.some((visit) => visit.values.hoursOfLife !== undefined);
@@ -61,7 +71,8 @@ const inChartUnit = (key: string, value: number, unit: string | undefined, chart
 
 /**
  * [x, y] of a line's latest reading in a visit, in the chart's unit: x is the reading's hours of life (only within
- * 0–336 h) on the hours axis, else the visit start; undefined when there is nothing numeric to plot in that unit.
+ * 0–336 h) on the hours axis, else the visit start (with a day of life, only to day 14); undefined when there is
+ * nothing numeric to plot in that unit.
  */
 export const chartPoint = (
   visit: FlowsheetVisit,
@@ -73,7 +84,10 @@ export const chartPoint = (
   if (!reading || typeof reading.value !== 'number') return undefined;
   const value = inChartUnit(key, reading.value, reading.unit, chartUnit);
   if (value === undefined) return undefined;
-  if (!hoursAxis) return [Date.parse(visit.start), value];
+  if (!hoursAxis) {
+    const day = dayOfLifeAt(visit, reading.time);
+    return day !== undefined && day > DAY_OF_LIFE_MAX ? undefined : [Date.parse(visit.start), value];
+  }
   const hours = hoursOfLifeAt(visit, reading.time);
   return hours !== undefined && hours >= 0 && hours <= HOURS_OF_LIFE_MAX ? [hours, value] : undefined;
 };
