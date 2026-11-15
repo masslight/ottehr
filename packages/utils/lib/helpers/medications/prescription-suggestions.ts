@@ -161,15 +161,23 @@ const TABLET_FRACTIONS: [number, string, string][] = [
   [0.75, '¾', '3/4'],
 ];
 
-/** "½ tablet", "1½ tablets", "¼ tablet" for a part tablet ("1/2 tablet", "1 1/2 tablets" in `ascii`, for the text
- * sent); "2.5 mL", "2 tablets" otherwise. The dose itself stays a number; this is only how a sentence or the calculator
- * writes it. */
+/** A half as the text sent writes it: "half", "1 and a half". ISMP lists "1/2 tablet" as error-prone (read as 1 or 2
+ * tablets) and asks for words. */
+export const halfInWords = (whole: string): string => (whole ? `${whole} and a half` : 'half');
+
+/** "½ tablet", "1½ tablets", "¼ tablet" for a part tablet ("half tablet", "1 and a half tablets", "1/4 tablet" in
+ * `ascii`, for the text sent); "2.5 mL", "2 tablets" otherwise. The dose itself stays a number; this is only how a
+ * sentence or the calculator writes it. */
 export const doseAmountText = (amount: number, unit: string, ascii = false): string => {
   const whole = Math.floor(amount + 1e-9);
   const fraction =
     unit === 'tablet' ? TABLET_FRACTIONS.find(([part]) => Math.abs(amount - whole - part) < 1e-9) : undefined;
   if (!fraction) return `${amount} ${doseUnitLabel(unit, amount)}`;
-  const part = ascii ? `${whole ? `${whole} ` : ''}${fraction[2]}` : `${whole || ''}${fraction[1]}`;
+  const part = !ascii
+    ? `${whole || ''}${fraction[1]}`
+    : fraction[0] === 0.5
+    ? halfInWords(whole ? String(whole) : '')
+    : `${whole ? `${whole} ` : ''}${fraction[2]}`;
   return `${part} ${amount < 1 ? unit : doseUnitLabel(unit, amount)}`;
 };
 
@@ -300,7 +308,7 @@ export const prescriptionDispense = (
  * frequency or instructions are picked: a route alone says nothing. The verb follows the route, the dose unit the
  * dose form; an as-needed duration reads "for up to". Later steps follow as ", then 1 tablet by mouth once daily for
  * 4 days", a "directed" frequency keeps the route ("Take 14 mL by mouth as directed."), and the instructions end
- * the sentence (", with spacer"). `ascii` writes tablet fractions "1/2" for the text sent to the pharmacy. */
+ * the sentence (", with spacer"). `ascii` writes tablet fractions as the text sent to the pharmacy does ("half", "1/4"). */
 export const prescriptionDirectionsText = (
   product: PrescriptionProduct | null | undefined,
   directions: PrescriptionDirections,

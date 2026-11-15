@@ -14,7 +14,6 @@ import {
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import {
   applyPrescriptionQuickPick,
-  asciiFractions,
   compoundDetailsText,
   emptyPrescriptionLine,
   hasDirectionsBlanks,
@@ -23,14 +22,16 @@ import {
   prescriptionLineMetadata,
   prescriptionLineToOrder,
   quantityText,
+  sentSigInWords,
   withPrescriptionMetadata,
 } from './prescriptionLines';
 
 type RequestedMedication = ErxPharmacyRefillRequest['medication'];
 
-/** Whether the pharmacy sent our directions back: the same words in any case and spacing, "½" as "1/2". */
+/** Whether the pharmacy sent our directions back: the same words in any case and spacing, "½", "1/2" and "half" as
+ * one. */
 const sameSig = (requested: string, sent: string | undefined): boolean => {
-  const plain = (text: string): string => asciiFractions(text).toLowerCase().replace(/\s+/g, ' ').trim();
+  const plain = (text: string): string => sentSigInWords(text).toLowerCase().replace(/\s+/g, ' ').trim();
   return sent !== undefined && plain(requested) === plain(sent);
 };
 

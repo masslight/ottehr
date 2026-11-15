@@ -514,8 +514,8 @@ describe('prescriptionLineToOrder', () => {
     });
   });
 
-  // "½" on screen, ASCII to the pharmacy.
-  it('sends the directions the blanks wrote with ASCII fractions; the line keeps ½', () => {
+  // "½" on screen; to the pharmacy a half in words (ISMP lists "1/2 tablet" as read as 1 or 2 tablets), other parts ASCII.
+  it('sends the directions the blanks wrote with a half in words and other fractions in ASCII; the line keeps ½', () => {
     const line = withDirections(
       {
         ...complete(),
@@ -533,24 +533,24 @@ describe('prescriptionLineToOrder', () => {
     };
     expect(line.patientInstructions).toBe('Take ½ tablet by mouth twice daily for 10 days.');
     expect(prescriptionLineToOrder(line, context).patientInstructions).toBe(
-      'Take 1/2 tablet by mouth twice daily for 10 days.'
+      'Take half tablet by mouth twice daily for 10 days.'
     );
     const stepped = withDirections(line, { dose: '1.5' });
     expect(prescriptionLineToOrder(stepped, context).patientInstructions).toBe(
-      'Take 1 1/2 tablets by mouth twice daily for 10 days.'
+      'Take 1 and a half tablets by mouth twice daily for 10 days.'
     );
     // Directions the provider typed are sent as typed, apart from Unicode fractions.
     const typed = { ...line, patientInstructions: 'Take 1/2 tablet twice daily with food.' };
     expect(prescriptionLineToOrder(typed, context).patientInstructions).toBe('Take 1/2 tablet twice daily with food.');
     const typedUnicode = { ...line, patientInstructions: 'Take 1½ tablets, then ½ tablet' };
     expect(prescriptionLineToOrder(typedUnicode, context).patientInstructions).toBe(
-      'Take 1 1/2 tablets, then 1/2 tablet'
+      'Take 1 and a half tablets, then half tablet'
     );
     expect(typedUnicode.patientInstructions).toBe('Take 1½ tablets, then ½ tablet');
     // Edited after the blanks wrote them, and a quick pick's directions, the same.
     const edited = { ...line, patientInstructions: `${line.patientInstructions} With food.` };
     expect(prescriptionLineToOrder(edited, context).patientInstructions).toBe(
-      'Take 1/2 tablet by mouth twice daily for 10 days. With food.'
+      'Take half tablet by mouth twice daily for 10 days. With food.'
     );
     const picked = applyPrescriptionQuickPick(line, {
       id: 'qp',
@@ -1390,6 +1390,13 @@ describe('the blanks kept on the prescription for a re-fill (metadata)', () => {
     });
     // Sent again, the same blanks go with it.
     expect(prescriptionLineToOrder(refilled, context).metadata).toEqual(metadata);
+    // A half sent before it went in words ("1/2 tablet") still reads as the blanks' directions.
+    const tablet = detailed({ ndc: '00093117401', description: 'Penicillin V Potassium 500 MG Oral Tablet' });
+    const halfRefilled = withPrescriptionMetadata(
+      { ...stored, medication: tablet, patientInstructions: 'Take 1/2 tablet by mouth twice daily for 10 days.' },
+      { ...metadata, product: undefined, dose: '0.5', additionalInstructions: undefined }
+    );
+    expect(halfRefilled.patientInstructions).toBe('Take ½ tablet by mouth twice daily for 10 days.');
     // A changed blank rewrites the directions and the quantity, as after a suggestion.
     const changed = withDirections(refilled, { dose: '2' });
     expect(changed.patientInstructions).toBe('Take 2 capsules by mouth twice daily for 10 days. Take with food.');

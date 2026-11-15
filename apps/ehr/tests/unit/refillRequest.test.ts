@@ -365,11 +365,18 @@ describe('refill request: the original’s blanks fill the order form again', ()
       // Ours as sent, not the pharmacy's copy.
       patientInstructions: 'Take 1 tablet by mouth once daily',
     });
-    // "½" on screen, "1/2" as sent and as the pharmacy has it.
+    // "½" on screen, "half" as sent, and "1/2" as an older prescription went: all the same directions.
     const half = { ...ORIGINAL, instructions: 'Take ½ tablet by mouth once daily' };
     expect(refillLine(half, { ndc: '00093111101', sig: 'Take 1/2 tablet by mouth once daily' }, METADATA).dose).toBe(
       '1'
     );
+    expect(refillLine(half, { ndc: '00093111101', sig: 'Take half tablet by mouth once daily' }, METADATA).dose).toBe(
+      '1'
+    );
+    const older = { ...ORIGINAL, instructions: 'Take 1 1/2 tablets by mouth once daily' };
+    expect(
+      refillLine(older, { ndc: '00093111101', sig: 'Take 1 and a half tablets by mouth once daily' }, METADATA).dose
+    ).toBe('1');
   });
 
   it('keeps the pharmacy’s own directions as its text, with the blanks empty', () => {

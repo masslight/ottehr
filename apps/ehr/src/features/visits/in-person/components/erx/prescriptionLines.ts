@@ -9,6 +9,7 @@ import {
 } from 'utils/lib/helpers/medications/plain-dose';
 import {
   doseAmountText,
+  halfInWords,
   PrescriptionDirections,
   prescriptionDirectionsText,
   prescriptionDispense,
@@ -768,8 +769,8 @@ export const withPrescriptionMetadata = (
       numberOfRefills: line.numberOfRefills,
       patientInstructions: written,
     }),
-    // Sent with ASCII fractions; the screen keeps "½" while the blanks still write them.
-    patientInstructions: !sent || asciiFractions(written).trim() === asciiFractions(sent) ? written : sent,
+    // Sent with a half in words (or "1/2" before that); the screen keeps "½" while the blanks still write them.
+    patientInstructions: !sent || asciiFractions(written).trim() === sentSigInWords(sent) ? written : sent,
     additionalInstructions: metadata.additionalInstructions,
     dosing: metadata.dosing,
     maximum: lineMaximumOf(metadata.dosing, 'calculator'),
@@ -933,13 +934,21 @@ export const prescriptionAllergies = (allergies: AllergyDTO[] | undefined): Pres
   return active.length ? active : undefined;
 };
 
-const ASCII_FRACTIONS: Record<string, string> = { '¼': '1/4', '½': '1/2', '¾': '3/4' };
+const ASCII_FRACTIONS: Record<string, string> = { '¼': '1/4', '¾': '3/4' };
 
-/** "Take 1½ tablets, then ½ tablet" → "Take 1 1/2 tablets, then 1/2 tablet", for the text sent. */
+/** "Take 1½ tablets, then ¼ tablet" → "Take 1 and a half tablets, then 1/4 tablet", for the text sent: a half in words
+ * (`halfInWords`), the other parts in ASCII. */
 export const asciiFractions = (text: string): string =>
-  text.replace(
-    /(\d?)([¼½¾])/g,
-    (_, digit: string, fraction: string) => `${digit ? `${digit} ` : ''}${ASCII_FRACTIONS[fraction]}`
+  text.replace(/(\d?)([¼½¾])/g, (_, digit: string, fraction: string) =>
+    fraction === '½' ? halfInWords(digit) : `${digit ? `${digit} ` : ''}${ASCII_FRACTIONS[fraction]}`
+  );
+
+/** A sent sig in today's words, for comparing: a half as an older prescription went ("1/2 tablet", "1 1/2 tablets")
+ * reads as "half tablet", "1 and a half tablets". */
+export const sentSigInWords = (text: string): string =>
+  asciiFractions(text).replace(
+    /(?:\b(\d+) )?\b1\/2 (tablets?)\b/g,
+    (_, whole: string | undefined, unit: string) => `${halfInWords(whole ?? '')} ${unit}`
   );
 
 /** The order input for a line that passed `prescriptionLineErrors`. The route, dose, frequency, duration and
@@ -956,8 +965,8 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     quantityUnit: line.quantityUnit,
     ...(line.daysSupply ? { daysSupply: Number(line.daysSupply) } : {}),
     numberOfRefills: Number(line.numberOfRefills),
-    // Directions go with ASCII fractions ("1/2 tablet"): the blanks' written so, typed or quick-pick
-    // ones converted; the screen keeps "½". A compound's are typed.
+    // Directions go with a half in words ("half tablet") and other parts in ASCII ("1/4 tablet"): the blanks' written
+    // so, typed or quick-pick ones converted; the screen keeps "½". A compound's are typed.
     patientInstructions: (medication && fromBlanks
       ? asciiFractions(
           withAdditionalInstructions(
