@@ -1,6 +1,6 @@
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PrescriptionAllergy } from 'utils/lib/types/api/order-prescription.types';
-import { useGetHistoricalVitals, useGetVitals } from '../../../shared/components/vitals/hooks/useGetVitals';
+import { useGetAllPatientVitals, useGetVitals } from '../../../shared/components/vitals/hooks/useGetVitals';
 import { useVisitNote } from '../../../shared/hooks/useVisitNote';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { prescriptionAllergies } from './prescriptionLines';
@@ -26,20 +26,20 @@ const latestVital = (observations: { value?: number; lastUpdated?: string }[] | 
     : { value: latest.value, takenAt: latest.lastUpdated, thisVisit: true };
 };
 
-/** This visit's latest value of a vital, else the latest from an earlier visit, as the vitals endpoints the Vitals
- * page and the eRx readiness check already read (the same query keys, so nothing is fetched twice). The visit is the
- * page's, unless another one is given. */
+/** The patient's latest value of a vital from any visit, with when it was taken: the most recent is what the
+ * pharmacy is asked for. It reads the vitals endpoint the Vitals page uses; "thisVisit" says whether that latest value
+ * is the visit's own (the visit is the page's, unless another one is given). */
 const useVisitVital = (
   field: VitalFieldNames.VitalWeight | VitalFieldNames.VitalHeight,
   encounterId?: string
 ): LatestVital | undefined => {
   const { encounter } = useAppointmentData();
   const { data: current } = useGetVitals(encounterId ?? encounter?.id);
-  const { data: historical } = useGetHistoricalVitals(encounterId ?? encounter?.id);
+  const { data: all } = useGetAllPatientVitals(encounterId ?? encounter?.id);
+  const latest = latestVital(all?.[field]);
   const own = latestVital(current?.[field]);
-  if (own) return own;
-  const previous = latestVital(historical?.[field]);
-  return previous && { ...previous, thisVisit: false };
+  if (!latest) return own;
+  return { ...latest, thisVisit: !!own && own.takenAt === latest.takenAt && own.value === latest.value };
 };
 
 export const useVisitWeight = (encounterId?: string): VisitWeight | undefined => {
