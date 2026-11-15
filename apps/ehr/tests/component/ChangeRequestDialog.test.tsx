@@ -190,6 +190,22 @@ describe('Change request dialog', () => {
     expect(mocks.respondToChange.mock.calls[0][1].vitals).not.toHaveProperty('height');
   });
 
+  // No raw codes to staff: the sub-codes have no plain names to show, and a kind Ottehr doesn't know reads "Other change".
+  // (With a suggestion, so the dialog opens on Approve, not on the order form.)
+  const suggestions = (): object => ({ suggestions: OUT_OF_STOCK.pharmacyChangeRequest!.suggestions });
+  it('shows no sub-codes', async () => {
+    await open(CHANGE('U', { subCodes: ['A', 'B'], ...suggestions() }));
+    expect(screen.getByText('Prescriber authorization.')).toBeInTheDocument();
+    expect(screen.queryByText(/sub-codes/)).not.toBeInTheDocument();
+  });
+
+  it('shows a change kind it doesn’t know as "Other change"', async () => {
+    await open(CHANGE('ZZ', { subCodes: ['C'], ...suggestions() }));
+    expect(screen.getByText('Other change.')).toBeInTheDocument();
+    expect(screen.queryByText(/ZZ/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/sub-codes/)).not.toBeInTheDocument();
+  });
+
   it('offers Pending on every change request', async () => {
     const answers = (): string[] =>
       within(screen.getByText('Your answer').parentElement!)

@@ -401,9 +401,10 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             )}
             {change && (
               <Typography>
-                <b>{CHANGE_REQUEST_KINDS[change.code] ?? change.code}.</b>
+                {/* No raw codes: a kind Ottehr doesn't know reads "Other change", and the sub-codes, with no plain names
+                    to show, are left out. */}
+                <b>{CHANGE_REQUEST_KINDS[change.code] ?? 'Other change'}.</b>
                 {change.reason && ` “${change.reason}”`}
-                {change.subCodes.length > 0 && ` (sub-codes ${change.subCodes.join(', ')})`}
               </Typography>
             )}
             {data.patientRequest?.title && (
