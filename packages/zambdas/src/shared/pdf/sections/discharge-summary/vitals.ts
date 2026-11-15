@@ -73,13 +73,15 @@ export const createVitalsSectionForDischargeSummary = <
         ['HR', data.vitals.hr, 'Weight', data.vitals.weight],
         ['RR', data.vitals.rr, 'Height', data.vitals.height],
         ['BP', data.vitals.bp, 'BMI', data.vitals.bmi],
-        ['Last Menstrual Period', data.vitals.lastMenstrualPeriod, 'Vision', data.vitals.vision],
+        ['Last Menstrual Period', data.vitals.lastMenstrualPeriod],
+        ['Vision', data.vitals.vision],
         ['Head circumference', data.vitals.headCircumference],
-      ];
+      ].filter(([, value1, label2]) => label2 || value1);
 
       const leftX = client.getLeftBound();
+      const fullWidth = { leftBound: leftX, rightBound: client.getRightBound() };
       const colGap = 5;
-      const colWidth = (client.getRightBound() - leftX - colGap) / 2;
+      const colWidth = (fullWidth.rightBound - leftX - colGap) / 2;
       const rightX = leftX + colWidth + colGap;
 
       const rowSpacing = 6;
@@ -93,6 +95,7 @@ export const createVitalsSectionForDischargeSummary = <
       vitals.forEach(([label1, value1, label2, value2]) => {
         client.setPageByIndex(rowStartPage);
         client.setY(rowStartY);
+        const col1RightBound = label2 ? leftX + colWidth : fullWidth.rightBound;
 
         client.drawTextSequential(
           `${label1}: `,
@@ -102,20 +105,20 @@ export const createVitalsSectionForDischargeSummary = <
           },
           {
             leftBound: leftX,
-            rightBound: leftX + colWidth,
+            rightBound: col1RightBound,
           }
         );
 
         const label1Width = client.getTextDimensions(`${label1}: `, styles.textStyles.bold).width;
         client.drawTextSequential(
-          `${value1}`,
+          `${value1 ?? ''}`,
           {
             ...styles.textStyles.regular,
             newLineAfter: true,
           },
           {
             leftBound: leftX + label1Width,
-            rightBound: leftX + label1Width + colWidth,
+            rightBound: col1RightBound,
           }
         );
 
@@ -144,7 +147,7 @@ export const createVitalsSectionForDischargeSummary = <
 
         const label2Width = client.getTextDimensions(`${label2}: `, styles.textStyles.bold).width;
         client.drawTextSequential(
-          `${value2}`,
+          `${value2 ?? ''}`,
           {
             ...styles.textStyles.regular,
             newLineAfter: true,
@@ -172,9 +175,9 @@ export const createVitalsSectionForDischargeSummary = <
 
       const dotLines = data.vitals.dotVisionScreening ?? [];
       if (dotLines.length > 0) {
-        client.drawTextSequential('DOT Vision Screening', { ...styles.textStyles.bold, newLineAfter: true });
+        client.drawTextSequential('DOT Vision Screening', { ...styles.textStyles.bold, newLineAfter: true }, fullWidth);
         dotLines.forEach((line) => {
-          client.drawTextSequential(line, { ...styles.textStyles.regular, newLineAfter: true });
+          client.drawTextSequential(line, { ...styles.textStyles.regular, newLineAfter: true }, fullWidth);
         });
       }
 

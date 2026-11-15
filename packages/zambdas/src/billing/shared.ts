@@ -605,7 +605,7 @@ export async function searchPatientsByClinicalIds({
     }
   }
 
-  return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
+  return { total: 0, results: [] };
 }
 
 export interface ClinicalPatientIds {

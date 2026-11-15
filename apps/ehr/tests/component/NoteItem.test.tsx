@@ -49,8 +49,18 @@ describe('NoteItem', () => {
     renderNote(note({ edited: true, editorNames: ['Lina Grace', 'Sam Lee'] }));
 
     const byline = screen.getByText(/by Jane Smith/);
-    expect(byline).toHaveTextContent(/^01\/01\/2026 .* by Jane Smith, edited by Lina Grace, Sam Lee$/);
+    expect(byline).toHaveTextContent(/^01\/01\/2026 .* by Jane Smith, edited by Lina Grace; Sam Lee$/);
     expect(byline).not.toHaveTextContent('03/05/2026');
+  });
+
+  it('keeps each editor apart when their names carry credentials', () => {
+    renderNote(
+      note({ authorName: 'Jane Smith, MD', edited: true, editorNames: ['Lina Grace, MD, PhD', 'Sam Lee, NP'] })
+    );
+
+    expect(screen.getByText(/by Jane Smith/)).toHaveTextContent(
+      /by Jane Smith, MD, edited by Lina Grace, MD, PhD; Sam Lee, NP$/
+    );
   });
 
   it('marks a note only its author edited as "(edited)"', () => {

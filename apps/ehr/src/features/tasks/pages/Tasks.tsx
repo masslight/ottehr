@@ -27,10 +27,12 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
 import { useTaskNotes } from 'src/features/patient-notes/hooks/useTaskNotes';
 import {
+  ACTIVE_TASK_STATUSES,
   formatDate,
   TASKS_PAGE_SIZE,
   useCompleteTask,
   useGetTasks,
+  useMyActiveTaskLocations,
   VIEW_FAX,
 } from 'src/features/visits/in-person/hooks/useTasks';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -44,6 +46,7 @@ import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
 import { MoreTaskActions } from '../components/MoreTaskActions';
+import { MyTasksInOtherLocationsHint } from '../components/MyTasksInOtherLocationsHint';
 import { TaskActionButton } from '../components/TaskActionButton';
 import { TaskNotesButton } from '../components/TaskNotesButton';
 import { TaskNotesDialog } from '../components/TaskNotesDialog';
@@ -102,6 +105,20 @@ const toFilterValue = (value: unknown): string | string[] | undefined => {
     return items.length > 0 ? items : undefined;
   }
   return toItem(value);
+};
+
+const persistFilters = (values: Record<string, unknown>): URLSearchParams => {
+  const queryParams = new URLSearchParams();
+  const filtersToPersist: Record<string, string | string[]> = {};
+  for (const key in values) {
+    const value = toFilterValue(values[key]);
+    if (value) {
+      queryParams.set(key, Array.isArray(value) ? value.join(',') : value);
+      filtersToPersist[key] = value;
+    }
+  }
+  localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
+  return queryParams;
 };
 
 export const Tasks: React.FC = () => {
@@ -178,21 +195,7 @@ export const Tasks: React.FC = () => {
         values: true,
       },
       callback: ({ values }) => {
-        const queryParams = new URLSearchParams();
-        const filtersToPersist: Record<string, string | string[]> = {};
-        for (const key in values) {
-          const value = toFilterValue(values[key]);
-          if (value) {
-            queryParams.set(key, Array.isArray(value) ? value.join(',') : value);
-            filtersToPersist[key] = value;
-          }
-        }
-        setSearchParams(queryParams);
-        if (Object.keys(filtersToPersist).length > 0) {
-          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
-        } else {
-          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify({}));
-        }
+        setSearchParams(persistFilters(values));
       },
     });
     return () => callback();
@@ -211,7 +214,7 @@ export const Tasks: React.FC = () => {
     }
     if (searchParams.size === 0 && persistedFilters == null) {
       const queryParams = new URLSearchParams();
-      queryParams.set('status', 'ready,in-progress');
+      queryParams.set('status', ACTIVE_TASK_STATUSES.join(','));
       setSearchParams(queryParams);
     }
   }, [searchParams, setSearchParams]);
@@ -252,6 +255,17 @@ export const Tasks: React.FC = () => {
     return grouped;
   }, [taskNotes]);
   const [notesTaskId, setNotesTaskId] = useState<string | undefined>();
+
+  const myActiveTaskLocations = useMyActiveTaskLocations(currentUserProviderId);
+  const selectedLocationIds = searchParams.get('location')?.split(',') ?? [];
+  const myTasksInOtherLocations = myActiveTaskLocations.filter(
+    (location) => !selectedLocationIds.includes(location.id)
+  );
+  const showMyTasksInLocation = (locationId: string): void => {
+    setSearchParams(
+      persistFilters({ location: [locationId], assignedTo: currentUserProviderId, status: ACTIVE_TASK_STATUSES })
+    );
+  };
 
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const onNewTaskClick = (): void => {
@@ -303,6 +317,9 @@ export const Tasks: React.FC = () => {
             </Stack>
           </Paper>
         </FormProvider>
+        {myTasksInOtherLocations.length > 0 && (
+          <MyTasksInOtherLocationsHint locations={myTasksInOtherLocations} onSelect={showMyTasksInLocation} />
+        )}
         <Paper>
           <Box sx={{ position: 'relative' }}>
             {isTasksRefreshing && !isTasksLoading && (

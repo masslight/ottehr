@@ -1,9 +1,10 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
-import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
+import { Encounter, Location, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import { useMemo } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
@@ -13,7 +14,9 @@ import {
   TASK_LOCATION_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding, getExtension, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getLocationLabel, isLocationInPerson } from 'utils/lib/fhir/location';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
@@ -67,6 +70,20 @@ const TASK_STATUSES_TO_EXCLUDE = [
   'cancelled',
   'rejected', // labs sets tasks to rejected when we delete orders
 ];
+
+const TASK_BOARD_PARAMS: SearchParam[] = [
+  { name: '_tag', value: 'task' },
+  ...TASK_STATUSES_TO_EXCLUDE.map((status) => ({ name: 'status:not', value: status })),
+  ...TASK_CODES_TO_EXCLUDE.map((code) => ({ name: 'code:not', value: code })),
+];
+
+export const ACTIVE_TASK_STATUSES = ['ready', 'in-progress'];
+
+export interface TaskLocationCount {
+  id: string;
+  name: string;
+  count: number;
+}
 
 export interface TasksSearchParams {
   assignedTo?: string | null;
@@ -220,10 +237,7 @@ export const useGetTasks = (
     queryFn: async () => {
       if (!oystehr) throw new Error('oystehr not defined');
       const baseParams: SearchParam[] = [
-        {
-          name: '_tag',
-          value: 'task',
-        },
+        ...TASK_BOARD_PARAMS,
         {
           name: '_sort',
           value: '-authored-on',
@@ -232,8 +246,6 @@ export const useGetTasks = (
           name: '_total',
           value: 'accurate',
         },
-        ...TASK_STATUSES_TO_EXCLUDE.map((status) => ({ name: 'status:not', value: status })),
-        ...TASK_CODES_TO_EXCLUDE.map((code) => ({ name: 'code:not', value: code })),
       ];
       if (assignedTo) {
         baseParams.push({
@@ -314,6 +326,58 @@ export const useGetTasks = (
     staleTime: 5 * 1000,
     refetchInterval: options?.refetchInterval,
   });
+};
+
+export const countTasksByLocation = (tasks: FhirTask[], locationNames: Map<string, string>): TaskLocationCount[] => {
+  const counts = new Map<string, number>();
+  for (const task of tasks) {
+    const locationId = task.meta?.tag?.find((tag) => tag.system === TASK_LOCATION_SYSTEM)?.code;
+    if (locationId && locationNames.has(locationId)) counts.set(locationId, (counts.get(locationId) ?? 0) + 1);
+  }
+  return [...counts]
+    .map(([id, count]) => ({ id, name: locationNames.get(id) ?? id, count }))
+    .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+};
+
+export const useMyActiveTaskLocations = (practitionerId: string | undefined): TaskLocationCount[] => {
+  const { oystehr } = useApiClients();
+  const { data: tasks } = useQuery({
+    queryKey: [GET_TASKS_KEY, 'my-active-tasks', practitionerId],
+    queryFn: async () => {
+      if (!oystehr) throw new Error('oystehr not defined');
+      const tasks = await getAllFhirSearchPages<FhirTask>(
+        {
+          resourceType: 'Task',
+          params: [
+            ...TASK_BOARD_PARAMS,
+            { name: 'owner', value: 'Practitioner/' + practitionerId },
+            { name: 'status', value: ACTIVE_TASK_STATUSES.join(',') },
+          ],
+        },
+        oystehr
+      );
+      return tasks.filter((task) => task.resourceType === 'Task').filter(filterTasks);
+    },
+    enabled: oystehr != null && !!practitionerId,
+    staleTime: 5 * 1000,
+    refetchInterval: 30000,
+  });
+  const { data: locationNames } = useQuery({
+    queryKey: ['in-person-location-names'],
+    queryFn: async () => {
+      if (!oystehr) throw new Error('oystehr not defined');
+      const locations = await getAllFhirSearchPages<Location>({ resourceType: 'Location' }, oystehr);
+      return new Map(
+        locations.filter(isLocationInPerson).map((location) => [location.id ?? '', getLocationLabel(location)])
+      );
+    },
+    enabled: oystehr != null,
+    staleTime: 5 * 60 * 1000,
+  });
+  return useMemo(
+    () => (tasks && locationNames ? countTasksByLocation(tasks, locationNames) : []),
+    [tasks, locationNames]
+  );
 };
 
 export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskRequest> => {
