@@ -561,7 +561,7 @@ describe('buildLabResultsFlowsheet', () => {
     ).toEqual({ hivAgAb: 'Non-reactive', hepatitisCAntibody: 'Negative', urineHcg: 'Negative' });
   });
 
-  test('a rapid (point-of-care) HIV or hepatitis C antibody test lands on its screen row; an HIV immunoblot does not', () => {
+  test('a rapid (point-of-care) HIV or hepatitis C antibody test lands on its screen row; an HIV or HCV immunoblot or line blot does not', () => {
     expect(
       valuesOf(
         lab('HIV 1/2 Ab, Rapid', { codes: ['80387-4'], text: 'Non-reactive' }),
@@ -572,6 +572,13 @@ describe('buildLabResultsFlowsheet', () => {
       hepatitisCAntibody: 'Reactive',
     });
     expect(valuesOf(lab('HIV 1+2 Ab, Immunoblot', { codes: ['44873-8'], text: 'Positive' }))).toEqual({});
+    expect(
+      valuesOf(
+        lab('HCV Ab, Immunoblot', { codes: ['5199-5'], text: 'Positive' }),
+        lab('HCV IgG Ab, RIBA', { codes: ['33462-3'], text: 'Indeterminate' }),
+        lab('HCV IgG Ab, Line blot', { codes: ['112695-2'], text: 'Positive' })
+      )
+    ).toEqual({});
   });
 
   test('HIV Ag/Ab: an antibody-only result shows "(antibody only)", by its code or else its name; an Ag/Ab one no note', () => {

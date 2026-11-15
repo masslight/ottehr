@@ -460,13 +460,11 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
   ],
   hepatitisCAntibody: [
     '5198-7', // Hepatitis C virus Ab [Units/volume] in Serum by Immunoassay
-    '5199-5', // Hepatitis C virus Ab [Presence] in Serum by Immunoblot
     '13955-0', // Hepatitis C virus Ab [Presence] in Serum or Plasma by Immunoassay
     '16128-1', // Hepatitis C virus Ab [Presence] in Serum
     '16129-9', // Hepatitis C virus IgG Ab [Presence] in Serum
     '16936-7', // Hepatitis C virus IgG Ab [Units/volume] in Serum
     '22327-1', // Hepatitis C virus Ab [Units/volume] in Serum
-    '33462-3', // Hepatitis C virus IgG Ab [Presence] in Serum by Immunoblot
     '40726-2', // Hepatitis C virus IgG Ab [Presence] in Serum or Plasma by Immunoassay
     '57006-9', // Hepatitis C virus IgG Ab [Units/volume] in Serum by Immunoassay
     '72376-7', // Hepatitis C virus Ab [Presence] in Serum, Plasma or Blood by Rapid immunoassay
@@ -474,7 +472,6 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '95237-4', // Hepatitis C virus Ab [Interpretation] in Serum or Plasma
     '109962-1', // Hepatitis C virus IgG Ab [Measurement] in Serum
     '109963-9', // Hepatitis C virus Ab [Measurement] in Serum
-    '112695-2', // Hepatitis C virus IgG Ab [Presence] in Serum by Line blot
   ],
   hepatitisCRna: [
     '5010-4', // Hepatitis C virus RNA [Presence] in Blood by NAA with probe detection

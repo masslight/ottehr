@@ -166,9 +166,11 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood'],
   },
   // 'Serum, Plasma or Blood' is the rapid (point-of-care) test's.
+  // The screen; an immunoblot (RIBA) or line blot is a confirmation, as for HIV.
   hepatitisCAntibody: {
     components: ['Hepatitis C virus Ab', 'Hepatitis C virus IgG Ab'],
     systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood'],
+    excludeMethods: ['IB', 'Line blot'],
   },
   hepatitisCRna: {
     components: ['Hepatitis C virus RNA'],
