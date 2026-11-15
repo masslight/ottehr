@@ -167,6 +167,22 @@ describe('buildNewbornBilirubinFlowsheet', () => {
     expect(visits[0]?.values.newbornTotalBilirubin).toBeUndefined();
   });
 
+  test('by name, an uncoded urine bilirubin stays off Total bilirubin (blood), like the coded one', () => {
+    const at = '2007-04-03T18:00:00.000Z';
+    const visits = buildNewbornBilirubinFlowsheet({
+      ...data,
+      vitals: [],
+      labs: {
+        e1: [
+          lab('Bilirubin, urine', [], 1, at),
+          { ...lab('Bilirubin', [], 1, at), testName: 'Urinalysis' },
+          { ...lab('Bilirubin', [], 1, at), testName: 'UA w/ reflex microscopy' },
+        ],
+      },
+    });
+    expect(visits[0]?.values.newbornTotalBilirubin).toBeUndefined();
+  });
+
   test('an unlinked outside result is its own column, dated by the result, with its own day of life', () => {
     const outside = {
       ...data,
