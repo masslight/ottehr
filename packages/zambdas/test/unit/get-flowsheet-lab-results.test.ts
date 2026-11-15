@@ -288,7 +288,7 @@ describe('buildLabResultsFlowsheet', () => {
     expect(valuesOf(lab('eGFR', { value: 80 }))).toEqual({ egfr: 80 });
   });
 
-  test('eGFR: an uncoded 2021 CKD-EPI result, by its name, is the one shown for its draw too', () => {
+  test('eGFR: a 2021 CKD-EPI result by its name, uncoded or coded with another eGFR code, is the one shown for its draw too', () => {
     const egfrs = (...results: FlowsheetLabResult[]): (string | number)[] =>
       build({ e1: results })[0].values.egfr.readings.map((r) => r.value);
     expect(
@@ -307,6 +307,26 @@ describe('buildLabResultsFlowsheet', () => {
     expect(egfrs(lab('eGFR', { value: 80 }), lab('eGFR', { codes: ['98979-8'], value: 84 }))).toEqual([84]);
     // Without a 2021 result, every race-free one shows.
     expect(egfrs(lab('eGFR', { value: 80 }), lab('eGFR (MDRD)', { value: 78 }))).toEqual([80, 78]);
+    // Named 2021 but coded with another eGFR code (labs sent the 2021 equation under 62238-1), beside a coded MDRD.
+    expect(
+      egfrs(
+        lab('eGFR CKD-EPI 2021', { codes: ['62238-1'], value: 84 }),
+        lab('eGFR MDRD', { codes: ['77147-7'], value: 79 })
+      )
+    ).toEqual([84]);
+  });
+
+  test('eGFR: under 18 on the result date every race-free result shows, a pediatric one included; race-based ones never', () => {
+    const draw = [
+      lab('eGFR (CKD-EPI 2021)', { codes: ['98979-8'], value: 104 }),
+      lab('eGFR, bedside Schwartz', { codes: ['50384-7'], value: 92 }),
+      lab('GFR est AA', { codes: ['88293-6'], value: 118 }),
+    ];
+    const egfrsAt = (birthDate: string): (string | number)[] =>
+      buildLabResultsFlowsheet({ ...base, birthDate, labs: { e1: draw } })[0].values.egfr.readings.map((r) => r.value);
+    // AT is 2024-03-04: 16 years old, then 18 the day before.
+    expect(egfrsAt('2008-01-15')).toEqual([104, 92]);
+    expect(egfrsAt('2006-03-03')).toEqual([104]);
   });
 
   test('glucose: marked fasting by a fasting code, by the report’s fasting status, or by an uncoded name; otherwise not', () => {

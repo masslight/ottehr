@@ -1,10 +1,12 @@
 import { FlowsheetLabResult, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
+import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { byInstant, ConditionColumns, conditionColumns, LabRow } from './columns';
 import { LAB_ROW_LOINC_CODES } from './lab-loinc-codes.generated';
 import { FlowsheetData, FlowsheetDataKind } from './patient-data';
 import { THYROID_LAB_ROWS } from './thyroid';
 
-export const LAB_RESULTS_DATA_KINDS: FlowsheetDataKind[] = ['labs'];
+// The birth date, so a child's every race-free eGFR shows (see preferEgfr2021).
+export const LAB_RESULTS_DATA_KINDS: FlowsheetDataKind[] = ['birthDate', 'labs'];
 
 const URINE = /urin|\bua\b/i;
 const GLUCOSE: Pick<LabRow, 'analyte' | 'exclude'> = {
@@ -329,21 +331,32 @@ const LAB_ROWS: LabRow[] = [
   ]),
 ];
 
-/** An uncoded race-free eGFR, by its name. */
-const isUncodedEgfr = (lab: FlowsheetLabResult): boolean =>
-  lab.loincCodes.length === 0 && EGFR.analyte.test(lab.analyte) && !EGFR.exclude?.test(lab.analyte);
+/** A race-free eGFR without a 2021 code: by another eGFR code, else, uncoded, by its name. */
+const isRaceFreeEgfr = (lab: FlowsheetLabResult): boolean =>
+  hasCode(lab, 'egfr') ||
+  (lab.loincCodes.length === 0 && EGFR.analyte.test(lab.analyte) && !EGFR.exclude?.test(lab.analyte));
 const EGFR_2021 = /2021/;
-/** The 2021 race-free CKD-EPI eGFR, by its code, else by its name ("eGFR (CKD-EPI 2021)"). */
+/** The 2021 race-free CKD-EPI eGFR, by its code, else by its name ("eGFR (CKD-EPI 2021)"), coded or not. */
 const isEgfr2021 = (lab: FlowsheetLabResult): boolean =>
-  hasCode(lab, 'egfr2021') || (isUncodedEgfr(lab) && EGFR_2021.test(lab.analyte));
+  hasCode(lab, 'egfr2021') || (isRaceFreeEgfr(lab) && EGFR_2021.test(lab.analyte));
 /** Another race-free eGFR, by its code, else by its name. */
-const isOtherEgfr = (lab: FlowsheetLabResult): boolean =>
-  hasCode(lab, 'egfr') || (isUncodedEgfr(lab) && !EGFR_2021.test(lab.analyte));
+const isOtherEgfr = (lab: FlowsheetLabResult): boolean => isRaceFreeEgfr(lab) && !EGFR_2021.test(lab.analyte);
 
-/** Of one draw's eGFR results, only the 2021 race-free CKD-EPI one is shown when the lab sent it. */
-const preferEgfr2021 = (labs: FlowsheetLabResult[]): FlowsheetLabResult[] =>
+/** CKD-EPI is an adult equation, so a child's pediatric eGFR (Schwartz, CKiD) is never hidden behind it. */
+const ADULT_MONTHS = 18 * 12;
+
+/**
+ * Of one draw's eGFR results, only the 2021 race-free CKD-EPI one is shown when the lab sent it, from 18 years on the
+ * result date (or when the birth date is unknown).
+ */
+const preferEgfr2021 = (labs: FlowsheetLabResult[], birthDate: string | undefined): FlowsheetLabResult[] =>
   labs.filter(
-    (lab) => !(isOtherEgfr(lab) && labs.some((other) => isEgfr2021(other) && other.resultedAt === lab.resultedAt))
+    (lab) =>
+      !(
+        isOtherEgfr(lab) &&
+        (ageInMonthsOnDate(birthDate, lab.resultedAt) ?? ADULT_MONTHS) >= ADULT_MONTHS &&
+        labs.some((other) => isEgfr2021(other) && other.resultedAt === lab.resultedAt)
+      )
   );
 
 /** A fasting glucose code, or an uncoded result named fasting, marks the result fasting like the report can. */
@@ -448,7 +461,10 @@ const addUrineCultures = (columns: ConditionColumns, labs: Record<string, Flowsh
 
 export const buildLabResultsFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => {
   const labs = Object.fromEntries(
-    Object.entries(data.labs ?? {}).map(([key, results]) => [key, preferEgfr2021(results).map(markFasting)])
+    Object.entries(data.labs ?? {}).map(([key, results]) => [
+      key,
+      preferEgfr2021(results, data.birthDate).map(markFasting),
+    ])
   );
   // No vitals rows: a visit or an outside result is a column when it has a result for any row.
   const columns = conditionColumns({ ...data, labs }, []);
