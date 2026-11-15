@@ -48,7 +48,8 @@ const vitals: FlowsheetDefinition = {
     { label: 'Blood pressure (mm Hg)', keys: ['systolic', 'diastolic'], digits: 0 },
     { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
     { label: 'Height (cm)', keys: ['height'], digits: 1 },
-    { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1 },
+    // Measured in infants, so left out (like BMI under 2 years) when no visit shown has one.
+    { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1, hideWhenEmpty: true },
     // No BMI under 2 years, so the row is left out when no visit shown has one.
     { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1, hideWhenEmpty: true },
   ],
@@ -109,10 +110,11 @@ const thyroid: FlowsheetDefinition = {
   rows: [
     { label: 'TSH', keys: ['tsh'] },
     { label: 'Free T4', keys: ['freeT4'] },
-    { label: 'Total T4', keys: ['totalT4'] },
-    { label: 'Free T3', keys: ['freeT3'] },
-    { label: 'Total T3', keys: ['totalT3'] },
-    { label: 'TPO antibodies', keys: ['tpoAntibodies'] },
+    // Less often ordered, so left out when no visit shown has one.
+    { label: 'Total T4', keys: ['totalT4'], hideWhenEmpty: true },
+    { label: 'Free T3', keys: ['freeT3'], hideWhenEmpty: true },
+    { label: 'Total T3', keys: ['totalT3'], hideWhenEmpty: true },
+    { label: 'TPO antibodies', keys: ['tpoAntibodies'], hideWhenEmpty: true },
     { label: 'Thyroid medication', keys: ['thyroidMedication'] },
     { label: 'Thyroid diagnosis this visit', keys: ['thyroidDiagnosis'] },
     { label: 'Weight (kg)', keys: ['weight'], digits: 2 },

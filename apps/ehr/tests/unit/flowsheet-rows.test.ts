@@ -169,7 +169,7 @@ describe('Vitals rows', () => {
   const labels = (visits: FlowsheetVisit[]): string[] =>
     rowsToShow(vitals, visits).map((row) => ('heading' in row ? `# ${row.heading}` : row.label));
 
-  it('no BMI row when no visit shown has a BMI (a baby under 2); every other row stays', () => {
+  it('no BMI row when no visit shown has a BMI (a baby under 2)', () => {
     expect(labels([visit({ weight: reading(5.8) })])).toEqual([
       'Temperature (°C)',
       'Heart rate (/min)',
@@ -178,8 +178,34 @@ describe('Vitals rows', () => {
       'Blood pressure (mm Hg)',
       'Weight (kg)',
       'Height (cm)',
-      'Head circumference (cm)',
     ]);
     expect(labels([visit({ weight: reading(60) }), visit({ bmi: reading(22.1) })])).toContain('BMI (kg/m²)');
+  });
+
+  it('no Head circumference row when no visit shown has one (an adult)', () => {
+    expect(labels([visit({ weight: reading(60) })])).not.toContain('Head circumference (cm)');
+    expect(labels([visit({ weight: reading(5.8) }), visit({ headCircumference: reading(40.2) })])).toContain(
+      'Head circumference (cm)'
+    );
+  });
+});
+
+describe('Thyroid rows', () => {
+  const thyroid = FLOWSHEETS.find((f) => f.id === 'thyroid') as FlowsheetDefinition;
+  const labels = (visits: FlowsheetVisit[]): string[] =>
+    rowsToShow(thyroid, visits).map((row) => ('heading' in row ? `# ${row.heading}` : row.label));
+
+  it('the less common tests show only when a visit shown has one; the rest always show', () => {
+    expect(labels([visit({ tsh: reading(2.1) })])).toEqual([
+      'TSH',
+      'Free T4',
+      'Thyroid medication',
+      'Thyroid diagnosis this visit',
+      'Weight (kg)',
+      'Heart rate (/min)',
+    ]);
+    expect(labels([visit({ totalT3: reading(110) }), visit({ tpoAntibodies: reading(35) })])).toEqual(
+      expect.arrayContaining(['Total T3', 'TPO antibodies'])
+    );
   });
 });
