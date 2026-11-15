@@ -58,8 +58,6 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
     const vitals = prescriptionVitals(height, weight);
     await run(
       async (prescription, practitionerId) => {
-        if (isAt(prescription, pharmacy))
-          return `${prescription.name}: already sent to ${pharmacy.name}; nothing was sent`;
         const order = prescriptionToOrderForPharmacy(prescription, {
           practitionerId,
           pharmacy,
@@ -95,6 +93,10 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
         done: (sent) =>
           sent === 1 ? `Prescription sent to ${pharmacy.name}` : `${sent} prescriptions sent to ${pharmacy.name}`,
         partly: (sent, total) => `${sent} of ${total} sent to ${pharmacy.name}.`,
+      },
+      {
+        is: (prescription) => isAt(prescription, pharmacy),
+        say: (names) => `${ALREADY_THERE}, so left as is: ${names}`,
       }
     );
   };

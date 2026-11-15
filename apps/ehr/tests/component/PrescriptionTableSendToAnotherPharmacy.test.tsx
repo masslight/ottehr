@@ -518,9 +518,10 @@ describe('Prescription table: send to another pharmacy', () => {
         pharmacyPhone: '5125559999',
       },
     ]);
+    // Left as is, not failed.
     expect(enqueueSnackbar).toHaveBeenCalledWith(
-      `1 of 2 sent to Sample Pharmacy One. ${AMOX.name}: already sent to Sample Pharmacy One; nothing was sent`,
-      { variant: 'error' }
+      `Prescription sent to Sample Pharmacy One. Already sent to this pharmacy, so left as is: ${AMOX.name}`,
+      { variant: 'success' }
     );
   });
 });

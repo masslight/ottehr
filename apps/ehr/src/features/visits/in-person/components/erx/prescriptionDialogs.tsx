@@ -100,29 +100,34 @@ export const useSendEach = ({
   run: (
     // Undefined when it went, else what went wrong, naming the prescription.
     sendOne: (prescription: PrescribedMedicationDTO, practitionerId: string) => Promise<string | undefined>,
-    say: { done: (sent: number) => string; partly: (sent: number, total: number) => string }
+    say: { done: (sent: number) => string; partly: (sent: number, total: number) => string },
+    // Those left as is: not sent, and named as skipped rather than failed.
+    skip?: { is: (prescription: PrescribedMedicationDTO) => boolean; say: (names: string) => string }
   ) => Promise<void>;
 } => {
   const user = useEvolveUser();
   const [sending, setSending] = useState(false);
-  const run: ReturnType<typeof useSendEach>['run'] = async (sendOne, say) => {
+  const run: ReturnType<typeof useSendEach>['run'] = async (sendOne, say, skip) => {
     const practitionerId = user?.profileResource?.id;
     if (!practitionerId) {
       enqueueSnackbar('The provider could not be determined. Please reload and try again.', { variant: 'error' });
       return;
     }
     setSending(true);
+    const toSend = prescriptions.filter((prescription) => !skip?.is(prescription));
+    const skipped = prescriptions.filter((prescription) => skip?.is(prescription)).map(({ name }) => name);
+    const skippedNote = skip && skipped.length > 0 ? `. ${skip.say(skipped.join(', '))}` : '';
     const failures: string[] = [];
-    for (const prescription of prescriptions) {
+    for (const prescription of toSend) {
       const failure = await sendOne(prescription, practitionerId);
       if (failure) failures.push(failure);
     }
-    const sent = prescriptions.length - failures.length;
+    const sent = toSend.length - failures.length;
     if (failures.length === 0) {
-      enqueueSnackbar(say.done(sent), { variant: 'success' });
+      enqueueSnackbar(`${say.done(sent)}${skippedNote}`, { variant: 'success' });
     } else {
       enqueueSnackbar(
-        `${prescriptions.length > 1 ? `${say.partly(sent, prescriptions.length)} ` : ''}${failures.join('; ')}`,
+        `${toSend.length > 1 ? `${say.partly(sent, toSend.length)} ` : ''}${failures.join('; ')}${skippedNote}`,
         { variant: 'error' }
       );
     }
