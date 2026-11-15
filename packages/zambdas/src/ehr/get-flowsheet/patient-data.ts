@@ -330,6 +330,9 @@ const rangeText = (range: { text?: string; low?: Quantity; high?: Quantity } | u
   return '';
 };
 
+/** A plain number as text: digits with an optional sign and decimals, nothing else. */
+const PLAIN_NUMBER = /^\s*-?(\d+(\.\d*)?|\.\d+)\s*$/;
+
 /** Results by visit; an unlinked outside result's results are under its own key (see unlinkedResultKey). */
 export const buildLabResults = ({
   serviceRequests,
@@ -383,8 +386,11 @@ export const buildLabResults = ({
       const code = isInHouse ? obsDef?.code : obs.code;
       const quantity = obs.valueQuantity?.value;
       const comparator = obs.valueQuantity?.comparator ?? '';
-      // A "<0.01" result is text, so it keeps its sign and never plots as 0.01.
-      const value = comparator ? undefined : quantity;
+      // A "<0.01" result is text, so it keeps its sign and never plots as 0.01. A plain number sent as text ("5.2",
+      // as some feeds send numeric results) is a number.
+      const value = comparator
+        ? undefined
+        : quantity ?? (PLAIN_NUMBER.test(obs.valueString ?? '') ? Number(obs.valueString) : undefined);
       const coded = obs.valueCodeableConcept;
       // The in-house flag lives on the result Observation; older results only carry it as a tag on the report. The
       // tag says some result of the report is abnormal, so it flags only a report's single result.

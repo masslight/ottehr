@@ -484,6 +484,49 @@ describe('buildLabResults', () => {
     ]);
   });
 
+  test('a number sent as text ("5.2") is a number; other text stays text', () => {
+    const order: ServiceRequest = {
+      resourceType: 'ServiceRequest',
+      id: 'sr-st',
+      status: 'completed',
+      intent: 'order',
+      subject: { reference: PATIENT },
+      encounter: { reference: 'Encounter/e9' },
+      code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: 'TSH' }], text: 'TSH' },
+    };
+    const texts = ['5.2', ' 12 ', '-1.5', '1,000', '<0.01', '5.2 H', 'Positive'];
+    const report: DiagnosticReport = {
+      resourceType: 'DiagnosticReport',
+      id: 'dr-st',
+      status: 'final',
+      code: { text: 'TSH' },
+      basedOn: [{ reference: 'ServiceRequest/sr-st' }],
+      result: texts.map((_, i) => ({ reference: `Observation/o-st${i}` })),
+    };
+    const observations: Observation[] = texts.map((valueString, i) => ({
+      resourceType: 'Observation',
+      id: `o-st${i}`,
+      status: 'final',
+      code: { coding: [{ system: 'http://loinc.org', code: '3016-3' }] },
+      valueString,
+    }));
+    const labs = buildLabResults({
+      serviceRequests: [order],
+      reports: [report],
+      observations,
+      activityDefinitions: [],
+    });
+    expect(labs.e9.map((lab) => [lab.value, lab.valueText])).toEqual([
+      [5.2, '5.2'],
+      [12, ' 12 '],
+      [-1.5, '-1.5'],
+      [undefined, '1,000'],
+      [undefined, '<0.01'],
+      [undefined, '5.2 H'],
+      [undefined, 'Positive'],
+    ]);
+  });
+
   test('maps only saved interpretation codes to grid flags', () => {
     expect(labFlagOf('N')).toBeUndefined();
     expect(labFlagOf('')).toBeUndefined();
