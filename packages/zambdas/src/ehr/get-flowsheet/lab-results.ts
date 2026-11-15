@@ -176,8 +176,8 @@ const isUrineCultureResult = (lab: FlowsheetLabResult): boolean =>
   lab.testLoincCodes.some((code) => LAB_ROW_LOINC_CODES.urineCulture.includes(code)) ||
   URINE_CULTURE_NAME.test(lab.testName);
 
-/** A susceptibility's value: susceptible, intermediate or resistant. */
-const SUSCEPTIBILITY = /^\s*[SIR]\s*$/i;
+/** A susceptibility's value: susceptible, intermediate or resistant, as a letter or spelled out. */
+const SUSCEPTIBILITY = /^\s*([SIR]|susceptible|intermediate|resistant)\s*$/i;
 /** A quantity's text: a number, with its comparator if any. */
 const QUANTITY_TEXT = /^\s*[<>]?=?\s*[\d.,]+\s*$/;
 /**

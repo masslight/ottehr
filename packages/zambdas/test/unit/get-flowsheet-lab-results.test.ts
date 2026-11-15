@@ -35,7 +35,7 @@ interface LabOptions {
   /** The ordered test's name and LOINC codes (the report's for an unsolicited result). */
   test?: string;
   testCodes?: string[];
-  flag?: 'H' | 'L' | 'A' | 'S' | 'R' | '';
+  flag?: 'H' | 'L' | 'A' | 'S' | 'R' | 'INTERMEDIATE' | '';
   at?: string;
   fasting?: boolean;
 }
@@ -322,6 +322,18 @@ describe('buildLabResultsFlowsheet', () => {
     ).toEqual({
       urineCulture: 'Escherichia coli >100,000 CFU/mL; Proteus mirabilis 50000 CFU/mL; Klebsiella pneumoniae >100000',
     });
+  });
+
+  test('urine culture: an uncoded susceptibility spelled out (Susceptible, Intermediate, Resistant) is left out', () => {
+    const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
+    expect(
+      valuesOf(
+        lab('Escherichia coli', { ...culture, text: '>100,000 CFU/mL' }),
+        lab('Ampicillin', { ...culture, text: 'Resistant' }),
+        lab('Nitrofurantoin', { ...culture, text: ' susceptible ' }),
+        lab('Ceftriaxone', { ...culture, text: '<=1', flag: 'INTERMEDIATE' })
+      )
+    ).toEqual({ urineCulture: 'Escherichia coli >100,000 CFU/mL' });
   });
 
   test('urine culture: an uncoded disk-diffusion zone size (mm) is left out like an MIC', () => {
