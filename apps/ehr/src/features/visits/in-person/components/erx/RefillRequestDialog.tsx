@@ -154,7 +154,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const allergies = useVisitAllergies(data?.prescription.encounterId);
   const sendDataLoading = useErxSendDataLoading(data?.prescription.encounterId);
   const sendDataFailed = useErxSendDataFailed(data?.prescription.encounterId);
-  const [chosen, setChosen] = useState<Answer>('approve');
+  const [chosen, setChosen] = useState<Answer>();
   const [fills, setFills] = useState<string>();
   const [suggestion, setSuggestion] = useState(0);
   const [priorAuthorization, setPriorAuthorization] = useState('');
@@ -178,7 +178,8 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const priorAuth = change?.code === 'P';
   const suggestions = change?.suggestions ?? [];
   const selected = suggestions[suggestion];
-  // A drug-use alert with no suggestion is approved as written: the eRx service answers Approved with the original.
+  // A drug-use alert with no suggestion keeps Approve, to approve the original as written. The audited eRx service
+  // refuses that ("The prescription has no change to approve") until its release takes it (review R75).
   const asWritten = change?.code === 'D' && !suggestions.length;
   // Approve sends what the pharmacy asked; a change request with no suggestion has nothing to approve as is.
   const answers = priorAuth
@@ -186,7 +187,8 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     : change && !suggestions.length && !asWritten
     ? ANSWERS.filter((item) => item !== 'approve')
     : ANSWERS;
-  const answer = answers.includes(chosen) ? chosen : answers[0];
+  // A safety alert starts with no answer picked: the provider chooses.
+  const answer: Answer | undefined = chosen && answers.includes(chosen) ? chosen : asWritten ? undefined : answers[0];
   const prescription = data?.prescription;
   // The prescription the request is answered with, as the order form starts: the pharmacy's over the original's
   // blanks. A plain approval keeps those blanks on the new prescription too, while they still write its directions.
@@ -203,18 +205,19 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const fillsNumber = Number(fillsText);
   const fillsValid = Number.isInteger(fillsNumber) && fillsNumber >= 1 && fillsNumber <= 99;
   // Why the send button is off, while it is.
-  const notReady =
-    answer !== 'approve'
-      ? reason === ''
-        ? 'Pick a reason'
-        : undefined
-      : change
-      ? priorAuth && priorAuthorization.trim() === ''
-        ? 'Enter the prior authorization number'
-        : undefined
-      : fillsValid
-      ? undefined
-      : 'Enter fills from 1 to 99';
+  const notReady = !answer
+    ? 'Pick an answer'
+    : answer !== 'approve'
+    ? reason === ''
+      ? 'Pick a reason'
+      : undefined
+    : change
+    ? priorAuth && priorAuthorization.trim() === ''
+      ? 'Enter the prior authorization number'
+      : undefined
+    : fillsValid
+    ? undefined
+    : 'Enter fills from 1 to 99';
   const ready = !notReady;
 
   // Once an answer goes out the dialog closes and a toast says what went out. What went out stays sent when the task
@@ -233,9 +236,8 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   };
 
   const send = async (): Promise<void> => {
-    if (!request) return;
+    if (!request || !answer || answer === 'change') return;
     const trimmed = note.trim() || undefined;
-    if (answer === 'change') return;
     const metadata = answer === 'approve' && line ? approvalMetadata(line) : undefined;
     const vitals = answer === 'approve' ? prescriptionVitals(height, weight) : undefined;
     try {
@@ -513,7 +515,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                   exclusive
                   color="primary"
                   size="small"
-                  value={answer}
+                  value={answer ?? null}
                   disabled={closed}
                   onChange={(_e, next: Answer | null) => {
                     if (!next) return;
@@ -570,7 +572,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                     ))}
                   </TextField>
                 )}
-                {!closed && answer !== 'change' && (
+                {!closed && answer && answer !== 'change' && (
                   <TextField
                     label="Note to pharmacy (optional)"
                     inputRef={noteRef}

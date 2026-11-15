@@ -261,13 +261,20 @@ describe('Change request dialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  // The eRx service refuses this answer today (review R63): this only pins what the dialog sends.
-  it('sends a drug-use alert’s Approve with no suggestion or changes', async () => {
+  // Review R75: a safety alert starts with no answer picked, so the provider chooses; Approve is still offered. The
+  // eRx service refuses this answer today: this only pins what the dialog sends.
+  it('starts a drug-use alert with no suggestion on no answer, and sends its Approve with no suggestion or changes', async () => {
     const user = await open(CHANGE('D', { reason: 'Interacts with clopidogrel' }));
     expect(screen.getByText('Drug-use alert.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Approve' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Change' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    for (const name of ['Approve', 'Change', 'Deny', 'Pending']) {
+      expect(screen.getByRole('button', { name })).toHaveAttribute('aria-pressed', 'false');
+    }
+    const send = screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' });
+    expect(send).toBeDisabled();
+    await user.hover(send.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Pick an answer');
+    await user.click(screen.getByRole('button', { name: 'Approve' }));
+    await user.click(send);
     await waitFor(() => expect(mocks.completeTask).toHaveBeenCalled());
     expect(mocks.respondToChange.mock.calls[0][1]).toStrictEqual({
       taskId: 'change-1',
