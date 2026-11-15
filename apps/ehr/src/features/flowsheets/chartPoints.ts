@@ -29,6 +29,8 @@ const normalUnit = (unit: string): string =>
 /** Per line key, the factor from a lab unit (normalised) to the chart's unit: the standard conversions only. */
 const TO_CHART_UNIT: Record<string, Record<string, number>> = {
   tsh: { 'uiu/ml': 1 },
+  // mg/g with UCUM's creatinine annotation ("mg/g{creat}"), or as µg/mg: the same unit.
+  urineAlbuminCreatinineRatio: { 'mg/gcreat': 1, 'ug/mg': 1, 'ug/mgcreat': 1 },
   freeT4: { 'pmol/l': 1 / 12.87 },
   newbornTotalBilirubin: { 'umol/l': 1 / 17.1 },
   transcutaneousBilirubin: { 'umol/l': 1 / 17.1 },

@@ -76,6 +76,7 @@ const vitals: FlowsheetDefinition = {
       lines: [{ name: 'Temperature', key: 'temperature' }],
     },
     { title: 'Weight', unit: 'kg', imperialUnit: 'lbs', lines: [{ name: 'Weight', key: 'weight' }] },
+    { title: 'BMI', unit: 'kg/m²', lines: [{ name: 'BMI', key: 'bmi' }] },
     {
       title: 'Blood pressure',
       unit: 'mm Hg',
@@ -314,6 +315,11 @@ const labResults: FlowsheetDefinition = {
     { title: 'HbA1c', unit: '%', lines: [{ name: 'HbA1c', key: 'hba1c' }] },
     { title: 'Creatinine', unit: 'mg/dL', lines: [{ name: 'Creatinine', key: 'creatinine' }] },
     { title: 'eGFR', unit: 'mL/min/1.73m²', lines: [{ name: 'eGFR', key: 'egfr' }] },
+    {
+      title: 'Urine albumin/creatinine ratio',
+      unit: 'mg/g',
+      lines: [{ name: 'Urine albumin/creatinine ratio', key: 'urineAlbuminCreatinineRatio' }],
+    },
     { title: 'LDL cholesterol', unit: 'mg/dL', lines: [{ name: 'LDL cholesterol', key: 'ldlCholesterol' }] },
     { title: 'Hemoglobin', unit: 'g/dL', lines: [{ name: 'Hemoglobin', key: 'hemoglobin' }] },
   ],
