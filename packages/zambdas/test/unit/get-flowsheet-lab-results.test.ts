@@ -732,6 +732,41 @@ describe('buildLabResultsFlowsheet', () => {
     expect(valuesOf(lab('Trichomonas, urine sediment', { codes: ['5813-1'], text: 'Present' }))).toEqual({});
   });
 
+  test('Trichomonas: a wet-mount result shows "(wet mount)", by its code or else its name; a NAAT or antigen one no note', () => {
+    const trichomonas = (result: FlowsheetLabResult): [string | number, string | undefined] => {
+      const value = build({ e1: [result] })[0].values.trichomonas;
+      return [value.value, value.note];
+    };
+    expect(trichomonas(lab('Trichomonas, wet mount', { codes: ['14367-7'], text: 'None seen' }))).toEqual([
+      'None seen',
+      'wet mount',
+    ]);
+    expect(trichomonas(lab('Trichomonas vaginalis', { codes: ['6565-6'], text: 'Not seen' }))).toEqual([
+      'Not seen',
+      'wet mount',
+    ]);
+    expect(trichomonas(lab('Trichomonas vaginalis', { text: 'Not seen', test: 'Wet Prep' }))).toEqual([
+      'Not seen',
+      'wet mount',
+    ]);
+    expect(trichomonas(lab('Trichomonas', { text: 'None seen', test: 'Vaginal smear, microscopy' }))).toEqual([
+      'None seen',
+      'wet mount',
+    ]);
+    expect(trichomonas(lab('Trichomonas vaginalis RNA, TMA', { codes: ['70165-6'], text: 'Detected' }))).toEqual([
+      'Detected',
+      undefined,
+    ]);
+    expect(trichomonas(lab('Trichomonas vaginalis Ag', { codes: ['41511-7'], text: 'Negative' }))).toEqual([
+      'Negative',
+      undefined,
+    ]);
+    expect(trichomonas(lab('Trichomonas vaginalis NAAT', { text: 'Not detected' }))).toEqual([
+      'Not detected',
+      undefined,
+    ]);
+  });
+
   test('a urine result stays off the blood rows: urine glucose, hemoglobin and hCG land on their urine rows', () => {
     expect(
       valuesOf(

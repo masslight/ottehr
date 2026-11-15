@@ -72,10 +72,20 @@ const HPV_18: Pick<LabRow, 'analyte' | 'exclude' | 'text' | 'note'> = {
   note: hpv18With45,
 };
 
-const TRICHOMONAS: Pick<LabRow, 'analyte' | 'exclude' | 'text'> = {
+/** A wet mount, which misses many infections a NAAT finds: by its code, else by a test's or its own name. */
+const trichomonasWetMount = (lab: FlowsheetLabResult): string | undefined =>
+  (
+    lab.loincCodes.length > 0
+      ? hasCode(lab, 'trichomonasWetMount')
+      : /\bwet\b|microscop/i.test(`${lab.testName} ${lab.analyte}`)
+  )
+    ? 'wet mount'
+    : undefined;
+const TRICHOMONAS: Pick<LabRow, 'analyte' | 'exclude' | 'text' | 'note'> = {
   text: true,
   analyte: /trichomon|\bt\.? ?vaginalis/i,
   exclude: /antibod|\bab\b/i,
+  note: trichomonasWetMount,
 };
 
 /** Rows whose uncoded results come from blood tests: a urine test never lands on them (a row may exclude more). */
