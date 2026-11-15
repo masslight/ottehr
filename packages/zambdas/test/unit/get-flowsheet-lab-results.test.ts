@@ -819,6 +819,20 @@ describe('buildLabResultsFlowsheet', () => {
     expect(valuesOf(lab('Trichomonas vaginalis rRNA', { test: 'ThinPrep Pap', text: 'Not detected' }))).toEqual({
       trichomonas: 'Not detected',
     });
+    // Labcorp's name for its combined test (192520), and Aptima (a TMA test).
+    expect(
+      valuesOf(
+        lab('Trichomonas vaginalis', {
+          test: 'Gynecologic Pap Test (Image-guided), Liquid-based and Chlamydia/Gonococcus/Trichomonas NAA',
+          text: 'Negative',
+        })
+      )
+    ).toEqual({ trichomonas: 'Negative' });
+    expect(
+      valuesOf(lab('Trichomonas vaginalis', { test: 'ThinPrep Pap, Trichomonas vaginalis Aptima', text: 'Negative' }))
+    ).toEqual({ trichomonas: 'Negative' });
+    // "Naa" inside a word isn't the test.
+    expect(valuesOf(lab('Trichomonas vaginalis', { test: 'Pap smear, Naas Clinic', text: 'Present' }))).toEqual({});
     expect(valuesOf(lab('Trichomonas', { test: 'Pap smear', text: 'Present' }))).toEqual({});
   });
 
