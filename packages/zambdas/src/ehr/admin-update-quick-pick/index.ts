@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
 import { Secrets } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken, requireAdminTierUser } from '../../shared/auth';
 import { assertDefined, createClinicalOystehrClient, validateJsonBody, validateString } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -22,6 +22,8 @@ export const index = wrapHandler(
   'admin-update-quick-pick',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { secrets, quickPickId, quickPick, category } = validateInput(input);
+    // Quick picks are the practice's settings; every staff role can call any zambda, so the role is checked here.
+    await requireAdminTierUser(getUserToken(input), secrets);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);

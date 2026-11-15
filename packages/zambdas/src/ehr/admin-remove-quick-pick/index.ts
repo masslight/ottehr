@@ -4,7 +4,7 @@ import { ActivityDefinition } from 'fhir/r4b';
 import { validateDefined } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { QuickPickRemoveInput } from 'utils/lib/types/api/quick-picks.types';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken, requireAdminTierUser } from '../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody, validateString } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -24,6 +24,8 @@ export const index = wrapHandler(
   'admin-remove-quick-pick',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { secrets, quickPickId } = validateRequestParameters(input);
+    // Quick picks are the practice's settings; every staff role can call any zambda, so the role is checked here.
+    await requireAdminTierUser(getUserToken(input), secrets);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     await removeQuickPick(quickPickId, oystehr);
