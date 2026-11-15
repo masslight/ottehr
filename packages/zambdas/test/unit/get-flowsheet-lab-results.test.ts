@@ -283,6 +283,27 @@ describe('buildLabResultsFlowsheet', () => {
     expect(valuesOf(lab('eGFR', { value: 80 }))).toEqual({ egfr: 80 });
   });
 
+  test('eGFR: an uncoded 2021 CKD-EPI result, by its name, is the one shown for its draw too', () => {
+    const egfrs = (...results: FlowsheetLabResult[]): (string | number)[] =>
+      build({ e1: results })[0].values.egfr.readings.map((r) => r.value);
+    expect(
+      egfrs(
+        lab('eGFR', { value: 80 }),
+        lab('eGFR (CKD-EPI 2021)', { value: 84 }),
+        lab('eGFR African American', { value: 92 }),
+        // A later draw without a 2021 result shows its race-free result.
+        lab('eGFR', { value: 75, at: '2024-03-06T18:00:00.000Z' })
+      )
+    ).toEqual([84, 75]);
+    // Named 2021 beside a coded other race-free result, or coded 2021 beside a named one.
+    expect(egfrs(lab('eGFR', { codes: ['62238-1'], value: 80 }), lab('eGFR CKD-EPI 2021', { value: 84 }))).toEqual([
+      84,
+    ]);
+    expect(egfrs(lab('eGFR', { value: 80 }), lab('eGFR', { codes: ['98979-8'], value: 84 }))).toEqual([84]);
+    // Without a 2021 result, every race-free one shows.
+    expect(egfrs(lab('eGFR', { value: 80 }), lab('eGFR (MDRD)', { value: 78 }))).toEqual([80, 78]);
+  });
+
   test('glucose: marked fasting by a fasting code, by the report’s fasting status, or by an uncoded name; otherwise not', () => {
     const noteOf = (result: FlowsheetLabResult): string | undefined => build({ e1: [result] })[0].values.glucose.note;
     expect(noteOf(lab('Glucose', { codes: ['1558-6'], value: 92 }))).toBe('fasting');

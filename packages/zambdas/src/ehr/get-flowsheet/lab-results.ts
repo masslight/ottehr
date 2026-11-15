@@ -319,11 +319,21 @@ const LAB_ROWS: LabRow[] = [
   ]),
 ];
 
+/** An uncoded race-free eGFR, by its name. */
+const isUncodedEgfr = (lab: FlowsheetLabResult): boolean =>
+  lab.loincCodes.length === 0 && EGFR.analyte.test(lab.analyte) && !EGFR.exclude?.test(lab.analyte);
+const EGFR_2021 = /2021/;
+/** The 2021 race-free CKD-EPI eGFR, by its code, else by its name ("eGFR (CKD-EPI 2021)"). */
+const isEgfr2021 = (lab: FlowsheetLabResult): boolean =>
+  hasCode(lab, 'egfr2021') || (isUncodedEgfr(lab) && EGFR_2021.test(lab.analyte));
+/** Another race-free eGFR, by its code, else by its name. */
+const isOtherEgfr = (lab: FlowsheetLabResult): boolean =>
+  hasCode(lab, 'egfr') || (isUncodedEgfr(lab) && !EGFR_2021.test(lab.analyte));
+
 /** Of one draw's eGFR results, only the 2021 race-free CKD-EPI one is shown when the lab sent it. */
 const preferEgfr2021 = (labs: FlowsheetLabResult[]): FlowsheetLabResult[] =>
   labs.filter(
-    (lab) =>
-      !(hasCode(lab, 'egfr') && labs.some((other) => hasCode(other, 'egfr2021') && other.resultedAt === lab.resultedAt))
+    (lab) => !(isOtherEgfr(lab) && labs.some((other) => isEgfr2021(other) && other.resultedAt === lab.resultedAt))
   );
 
 /** A fasting glucose code, or an uncoded result named fasting, marks the result fasting like the report can. */
