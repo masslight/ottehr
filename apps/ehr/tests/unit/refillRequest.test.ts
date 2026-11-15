@@ -601,13 +601,13 @@ describe('change request: a suggestion of another strength with the same directi
         },
         AMOXICILLIN
       )
-    ).toBe('Different strength, same directions: 400 mg/5 mL → 250 mg/5 mL. Check the dose.');
+    ).toBe('Different strength, same amount: 400 mg/5 mL → 250 mg/5 mL. Check the dose.');
     expect(
       strengthChangeWarning(
         { description: 'Lisinopril 20 mg tablet', ndc: '00093111201', sig: 'TAKE 1 TABLET BY MOUTH ONCE DAILY' },
         ORIGINAL
       )
-    ).toBe('Different strength, same directions: 10 mg → 20 mg. Check the dose.');
+    ).toBe('Different strength, same amount: 10 mg → 20 mg. Check the dose.');
   });
 
   it('says nothing for the same strength from another maker or bottle', () => {
@@ -625,6 +625,51 @@ describe('change request: a suggestion of another strength with the same directi
       strengthChangeWarning(
         { description: 'Amoxicillin 80 mg/mL Susp', ndc: '65862007011', sig: 'Take 5 mL by mouth twice daily' },
         AMOXICILLIN
+      )
+    ).toBeUndefined();
+  });
+
+  // Review D3-1: mg of one drug can't be weighed against mg of another, so the warning is for the same ingredient only.
+  it('warns for another product with the same ingredient, and says nothing for another drug', () => {
+    expect(
+      strengthChangeWarning(
+        {
+          description: 'Amoxicillin-Pot Clavulanate 600-42.9 mg/5ml Susp',
+          ndc: '00093227573',
+          sig: 'Take 5 mL by mouth twice daily for 10 days',
+        },
+        AMOXICILLIN
+      )
+    ).toBe('Different strength, same amount: 400 mg/5 mL → 600-42.9 mg/5 mL. Check the dose.');
+    expect(
+      strengthChangeWarning(
+        { description: 'Cefdinir 250 mg/5ml Susp', ndc: '00093416073', sig: 'Take 5 mL by mouth twice daily' },
+        AMOXICILLIN
+      )
+    ).toBeUndefined();
+    const original = (name: string, instructions: string): PrescribedMedicationDTO => ({
+      resourceId: 'rx-3',
+      name,
+      instructions,
+      order: { ndc: '00000000001', medicationDescription: name },
+    });
+    expect(
+      strengthChangeWarning(
+        { description: 'Omeprazole 40 mg Capsule DR', ndc: '00093521998', sig: 'Take 1 capsule by mouth daily' },
+        original('Dexlansoprazole 60 mg Capsule DR', 'Take 1 capsule by mouth once daily.')
+      )
+    ).toBeUndefined();
+    expect(
+      strengthChangeWarning(
+        { description: 'Levocetirizine 5 mg Tab', ndc: '00093111301', sig: 'Take 1 tablet by mouth once daily' },
+        original('Cetirizine HCl 10 mg Tab', 'Take 1 tablet by mouth once daily.')
+      )
+    ).toBeUndefined();
+    // A salt or form word isn't an ingredient: these share only "Sodium" and "Oral Suspension".
+    expect(
+      strengthChangeWarning(
+        { description: 'Naproxen Sodium 125 mg/5ml Oral Suspension', ndc: '00093111401', sig: 'Take 5 mL by mouth' },
+        original('Docusate Sodium 50 mg/5ml Oral Suspension', 'Take 5 mL by mouth.')
       )
     ).toBeUndefined();
   });

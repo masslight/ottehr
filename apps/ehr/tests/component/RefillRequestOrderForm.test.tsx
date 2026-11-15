@@ -315,7 +315,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
 
   // Review D2-2: the Change form starts from the pharmacy's directions, here the original's amount of another strength.
   it('warns with the Change form, once, when another strength has the original’s amount', async () => {
-    const warning = 'Different strength, same directions: 10 mg → 20 mg. Check the dose.';
+    const warning = 'Different strength, same amount: 10 mg → 20 mg. Check the dose.';
     const user = await open(
       CHANGE_REQUEST('OS', [
         {

@@ -317,10 +317,10 @@ describe('Change request dialog', () => {
       CHANGE('G', {
         suggestions: [{ description, ndc: '64764017130', quantityValue: 30, quantityUnit: 'Capsule', sig }],
       });
-    const WARNING = 'Different strength, same directions: 60 mg → 30 mg. Check the dose.';
+    const WARNING = 'Different strength, same amount: 60 mg → 30 mg. Check the dose.';
 
     it('warns under the comparison, and still lets the approval go', async () => {
-      await open(suggestion('Dexlansoprazole 30 mg capsule', 'TAKE ONE CAPSULE BY MOUTH EVERY DAY'));
+      await open(suggestion('Dexilant 30 mg capsule', 'TAKE ONE CAPSULE BY MOUTH EVERY DAY'));
       expect(screen.getAllByText(WARNING)).toHaveLength(1);
       expect(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' })).toBeEnabled();
     });

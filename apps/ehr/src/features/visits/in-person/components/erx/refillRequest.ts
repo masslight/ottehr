@@ -41,7 +41,7 @@ const STRENGTH_MG: Record<string, number> = { mcg: 0.001, mg: 1, gm: 1000, g: 10
 
 /** A product's strength in its description ("Amoxicillin 400 mg/5ml Susp"), as the warning names it ("400 mg/5 mL")
  * and per mL to compare by, so "80 mg/mL" is the same strength. A combination's amounts go together ("400-57 mg"). */
-const strengthOf = (description: string | undefined): { text: string; key: string } | undefined => {
+const strengthOf = (description: string | undefined): { text: string; key: string; at: number } | undefined => {
   const match = description?.match(
     /(\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|%)(?![a-z])(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/i
   );
@@ -52,12 +52,29 @@ const strengthOf = (description: string | undefined): { text: string; key: strin
   const values = amounts.split('-').map((amount) => (Number(amount) * (factor ?? 1)) / Number(per ?? 1));
   const ml = perMl ? `/${per ? `${per} ` : ''}mL` : '';
   return {
+    at: match.index ?? 0,
     text: `${amounts}${unit === '%' ? '' : ' '}${unit}${ml}`,
     key: `${values.map((value) => roundNumberToDecimalPlaces(value, 6)).join('-')} ${factor ? 'mg' : unit}${
       perMl ? '/mL' : ''
     }`,
   };
 };
+
+/** Salt, form and release words two drugs' names can share: "Cetirizine HCl" and "Levocetirizine" share none. */
+const NOT_INGREDIENT = new Set(
+  'sodium potassium pot calcium magnesium hcl hydrochloride sulfate phosphate trihydrate monohydrate oral suspension susp solution soln tablet tablets tab capsule capsules cap chewable odt dr er xr hfa'.split(
+    ' '
+  )
+);
+
+/** The ingredient words of a name, before its strength: "Amoxicillin-Pot Clavulanate 600-42.9 mg" → amoxicillin,
+ * clavulanate. */
+const ingredientWords = (name: string, strengthAt: number): string[] =>
+  name
+    .slice(0, strengthAt)
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((word) => word.length > 1 && !NOT_INGREDIENT.has(word));
 
 const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4' };
 
@@ -73,19 +90,24 @@ const sigAmount = (sig: string | undefined): string | undefined => {
   return match ? `${NUMBER_WORDS[match[1]] ?? match[1]} ${match[2]}` : undefined;
 };
 
-/** The warning when the pharmacy suggests another strength with directions that give the same amount: the same mL of
- * another concentration is another dose. None for the same strength from another maker or bottle. A warning only. */
+/** The warning when the pharmacy suggests another strength of the same ingredient with directions that give the same
+ * amount: the same mL of another concentration is another dose. None for the same strength from another maker or
+ * bottle, and none for another drug, whose mg can't be weighed against the original's (a brand name against its
+ * generic reads as another drug). A warning only. */
 export const strengthChangeWarning = (
   request: RequestedMedication,
   prescription: PrescribedMedicationDTO
 ): string | undefined => {
-  const from = strengthOf(prescription.order?.medicationDescription ?? prescription.name);
+  const originalName = prescription.order?.medicationDescription ?? prescription.name;
+  const from = strengthOf(originalName);
   const to = strengthOf(request.description);
   const amount = sigAmount(request.sig);
   if (!from || !to || from.key === to.key || amount === undefined || amount !== sigAmount(prescription.instructions)) {
     return undefined;
   }
-  return `Different strength, same directions: ${from.text} → ${to.text}. Check the dose.`;
+  const ingredients = ingredientWords(originalName ?? '', from.at);
+  if (!ingredientWords(request.description ?? '', to.at).some((word) => ingredients.includes(word))) return undefined;
+  return `Different strength, same amount: ${from.text} → ${to.text}. Check the dose.`;
 };
 
 const allowedText = (allowed: boolean | undefined): string | undefined =>
