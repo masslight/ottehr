@@ -4,7 +4,10 @@ import { useAuthToken } from 'src/hooks/useAuthToken';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { CheckPractitionerEnrollmentOutput } from 'utils/lib/types/api/practitioner-enrollment.types';
 
-export const useCheckSurescriptsEnrollment = (): UseQueryResult<CheckPractitionerEnrollmentOutput, Error> => {
+export const useCheckSurescriptsEnrollment = ({ enabled = true }: { enabled?: boolean } = {}): UseQueryResult<
+  CheckPractitionerEnrollmentOutput,
+  Error
+> => {
   const token = useAuthToken();
   const user = useEvolveUser();
   const practitionerId = user?.profileResource?.id;
@@ -17,6 +20,6 @@ export const useCheckSurescriptsEnrollment = (): UseQueryResult<CheckPractitione
       }
       return checkPractitionerEnrollment(token, practitionerId);
     },
-    enabled: !!token && !!practitionerId,
+    enabled: enabled && !!token && !!practitionerId,
   });
 };

@@ -1,4 +1,5 @@
 import { useMutation, UseMutationResult, useQueryClient } from '@tanstack/react-query';
+import { enqueueSnackbar } from 'notistack';
 import { enrollPractitioner, listActiveLocations, listScheduleOwners } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useAuthToken } from 'src/hooks/useAuthToken';
@@ -59,4 +60,25 @@ export const useEnrollSurescriptsPractitioner = (): UseMutationResult<
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['surescripts-practitioner-enrollment'] }),
   });
+};
+
+/** Enrolls the signed-in provider, as the eRx (Surescripts) page and the user menu do, and says how it went: the eRx
+ * service's reason when it refuses. */
+export const useEnrollSurescriptsWithToast = (): { enroll: () => Promise<void>; isEnrolling: boolean } => {
+  const { mutateAsync, isPending } = useEnrollSurescriptsPractitioner();
+  const enroll = async (): Promise<void> => {
+    try {
+      await mutateAsync();
+      enqueueSnackbar('Enrolled in Surescripts', { variant: 'success' });
+    } catch (enrollError) {
+      console.error(`Error enrolling in Surescripts: ${enrollError}`);
+      enqueueSnackbar(
+        enrollError instanceof Error && enrollError.message
+          ? enrollError.message
+          : 'An error occurred while enrolling in Surescripts. Please try again.',
+        { variant: 'error' }
+      );
+    }
+  };
+  return { enroll, isEnrolling: isPending };
 };
