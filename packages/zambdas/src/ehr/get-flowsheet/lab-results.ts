@@ -362,8 +362,8 @@ const QUANTITY_TEXT = /^\s*[<>]?=?\s*[\d.,]+\s*$/;
 const MIC_UNIT = /^\s*(mg\/l|(u|µ|μ|mc)g\/ml|mm)\s*$/i;
 
 /**
- * The culture's own result reads as reported ("No growth"); an organism, uncoded or with an organism code, reads its
- * name and count as reported. Other coded results of the same order (susceptibilities) are left out, and so are
+ * The culture's own result reads as reported ("No growth"); an organism, uncoded or with an organism code, and a
+ * coded colony count read their name and count as reported. Other coded results of the same order (susceptibilities) are left out, and so are
  * uncoded susceptibilities: valued or interpreted S, I or R, or an MIC (a value in an antibiotic-concentration unit).
  */
 const cultureText = (lab: FlowsheetLabResult): string => {
@@ -372,7 +372,9 @@ const cultureText = (lab: FlowsheetLabResult): string => {
   if (hasCode(lab, 'urineCulture') || URINE_CULTURE_NAME.test(lab.analyte)) return reported;
   const susceptibility =
     SUSCEPTIBILITY.test(lab.valueText) || SUSCEPTIBILITY.test(lab.interpretation) || MIC_UNIT.test(lab.unit);
-  if (hasCode(lab, 'urineCultureOrganism')) return [lab.analyte, reported].filter(Boolean).join(' ');
+  if (hasCode(lab, 'urineCultureOrganism') || hasCode(lab, 'urineCultureColonyCount')) {
+    return [lab.analyte, reported].filter(Boolean).join(' ');
+  }
   if (lab.loincCodes.length > 0 || susceptibility) return '';
   return [lab.analyte, reported].filter(Boolean).join(' ');
 };

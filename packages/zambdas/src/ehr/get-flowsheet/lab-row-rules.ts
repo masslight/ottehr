@@ -280,6 +280,8 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   urineCulture: { components: ['Bacteria identified'], systems: URINE, methods: ['Culture'] },
   // An organism of that culture, when the lab codes it (634-6, 43409-2); its susceptibilities have other codes.
   urineCultureOrganism: { components: ['Bacteria identified'], systems: ['Specimen', 'Isolate'] },
+  // An organism's count, when the lab codes it apart from the organism (19090-0).
+  urineCultureColonyCount: { components: ['Colony count'], systems: ['Urine', 'Specimen'] },
   // LOINC names ESR "Erythrocyte [Sedimentation Rate] in Blood"; RDW and morphology share the component.
   esr: { components: ['Erythrocyte'], properties: ['Sedimentation Rate'], systems: BLOOD },
   uricAcid: { components: ['Urate'], systems: SERUM_OR_PLASMA },

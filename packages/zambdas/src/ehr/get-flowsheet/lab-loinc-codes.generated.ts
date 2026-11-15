@@ -821,6 +821,16 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '43409-2', // Bacteria identified in Isolate by Culture
     '75756-7', // Bacteria identified in Isolate by MS.MALDI-TOF
   ],
+  urineCultureColonyCount: [
+    '564-5', // Colony count [#] in Specimen by Visual count
+    '19090-0', // Colony count [#/volume] in Urine
+    '19091-8', // Colony count [#] in Urine by Visual count
+    '20774-6', // Colony count [Units/volume] in Specimen by Visual count
+    '20775-3', // Colony count [Units/volume] in Specimen by Viability count FDA method
+    '38436-2', // Colony count [#/mass] in Specimen by Visual count
+    '49223-1', // Colony count [#/volume] in Specimen by Visual count
+    '101509-8', // Colony count [#/volume] in Specimen by Culture Standard Plate Count
+  ],
   esr: [
     '4537-7', // Erythrocyte [Sedimentation Rate] in Blood by Westergren method
     '4538-5', // Erythrocyte [Sedimentation Rate] in Blood by Wintrobe method

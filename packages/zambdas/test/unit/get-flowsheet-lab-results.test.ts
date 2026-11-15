@@ -393,6 +393,28 @@ describe('buildLabResultsFlowsheet', () => {
     ).toEqual({ urineCulture: 'Bacteria identified Escherichia coli; Organism Enterococcus faecalis' });
   });
 
+  test('urine culture: a coded colony count (19090-0 and its siblings) shows as name and value with its unit; coded susceptibilities stay off', () => {
+    const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
+    expect(
+      valuesOf(
+        lab('Bacteria identified', { ...culture, codes: ['634-6'], text: 'Escherichia coli' }),
+        lab('Colony count', { ...culture, codes: ['19090-0'], text: '>100000', unit: 'CFU/mL' }),
+        lab('Ampicillin [Susceptibility]', { ...culture, codes: ['18864-9'], text: 'R' })
+      )
+    ).toEqual({ urineCulture: 'Bacteria identified Escherichia coli; Colony count >100000 CFU/mL' });
+    expect(
+      valuesOf(
+        lab('Colony Count', { ...culture, codes: ['19091-8'], value: 50000, unit: 'CFU/mL' }),
+        lab('Colony Count', {
+          ...culture,
+          codes: ['49223-1'],
+          text: '10,000-49,000 CFU/mL',
+          at: '2024-03-04T18:05:00Z',
+        })
+      )
+    ).toEqual({ urineCulture: 'Colony Count 10,000-49,000 CFU/mL' });
+  });
+
   test('urine culture: an uncoded susceptibility (value S, I or R) is left out of the organism cell', () => {
     const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
     expect(
