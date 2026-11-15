@@ -27,7 +27,11 @@ export const bodySchema = z
         longitude: z.number(),
       })
       .optional(),
-    placesId: z.string().optional(),
+    // It goes into the Places API path, with the API key: a place id's characters only, so it can't change the path.
+    placesId: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]+$/, 'must be a Google place id')
+      .optional(),
     skipErxMatch: z.boolean().optional(),
     pharmaciesOnly: z.boolean().optional(),
   })
