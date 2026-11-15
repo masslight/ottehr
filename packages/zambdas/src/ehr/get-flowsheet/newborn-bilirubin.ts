@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { byInstant, conditionColumns, LabRow } from './columns';
+import { describeVisit } from './helpers';
 import { FlowsheetData, FlowsheetDataKind } from './patient-data';
 
 export const NEWBORN_BILIRUBIN_DATA_KINDS: FlowsheetDataKind[] = ['birthDate', 'birthHistory', 'vitals', 'labs'];
@@ -68,20 +69,24 @@ const NEWBORN_MONTHS = 2;
 
 export const buildNewbornBilirubinFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => {
   const birthDate = /^\d{4}-\d{2}-\d{2}$/.test(data.birthDate ?? '') ? data.birthDate : undefined;
-  // A day of slack: the birth date is read as UTC midnight, and a US evening result on the last day is already the
-  // next day in UTC.
-  const cutoff = birthDate
-    ? DateTime.fromISO(birthDate, { zone: 'utc' }).plus({ months: NEWBORN_MONTHS, days: 1 })
-    : undefined;
+  // The last day of life kept, counted like the Day of life row: by calendar day in the visit's zone.
+  const birth = birthDate ? DateTime.fromISO(birthDate, { zone: 'utc' }) : undefined;
+  const lastDay = birth?.plus({ months: NEWBORN_MONTHS }).diff(birth, 'days').days;
   // Without a birth date a newborn's result can't be told from an adult's, so none is placed.
   const labs =
-    cutoff && data.labs
+    birthDate && lastDay !== undefined && data.labs
       ? Object.fromEntries(
-          Object.entries(data.labs).map(([key, results]) => [
-            key,
+          Object.entries(data.labs).map(([key, results]) => {
+            const zone = describeVisit(key, data).timezone;
             // An undated result (no effective or issued time) can't be placed, so it stays.
-            results.filter((result) => !result.resultedAt || DateTime.fromISO(result.resultedAt) < cutoff),
-          ])
+            return [
+              key,
+              results.filter(
+                (result) =>
+                  !result.resultedAt || (dayOfLifeAt(birthDate, result.resultedAt, zone) ?? Infinity) <= lastDay
+              ),
+            ];
+          })
         )
       : {};
   const columns = conditionColumns({ ...data, labs }, VITAL_KEYS);

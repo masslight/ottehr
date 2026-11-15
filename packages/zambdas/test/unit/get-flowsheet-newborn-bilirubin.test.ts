@@ -319,6 +319,17 @@ describe('buildNewbornBilirubinFlowsheet', () => {
       expect(visit.values.dayOfLife.value).toBe(1);
     });
 
+    test('the 2-month cutoff is by calendar day in the location zone: 9 PM on the last day is kept, the next morning is not', () => {
+      const lastDay = (at: string): FlowsheetData => ({
+        ...evening,
+        birthDate: '2026-03-01',
+        labs: { e5: [lab('Bilirubin, total', ['1975-2'], 0.9, at)] },
+      });
+      // 2026-05-01 21:00 in New York (EDT) is 2026-05-02 01:00 UTC.
+      expect(buildNewbornBilirubinFlowsheet(lastDay('2026-05-02T01:00:00.000Z'))).toHaveLength(1);
+      expect(buildNewbornBilirubinFlowsheet(lastDay('2026-05-02T13:00:00.000Z'))).toHaveLength(0);
+    });
+
     test('without the location the UTC calendar day is used, as before', () => {
       const [visit] = buildNewbornBilirubinFlowsheet({ ...evening, locations: undefined });
       expect(visit.timezone).toBeUndefined();
