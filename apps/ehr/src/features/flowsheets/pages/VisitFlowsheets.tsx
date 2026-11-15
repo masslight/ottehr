@@ -5,7 +5,7 @@ import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryTog
 import { Loader } from 'src/features/visits/shared/components/Loader';
 import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { Flowsheets } from '../components/Flowsheets';
+import { Flowsheets, FlowsheetUnitToggle, useFlowsheetUnitSystem } from '../components/Flowsheets';
 
 type VisitRange = 'up-to-visit' | 'all';
 
@@ -16,6 +16,7 @@ export const VisitFlowsheets = (): ReactElement => {
     appointmentError,
   } = useAppointmentData();
   const [range, setRange] = useState<VisitRange>('up-to-visit');
+  const [unitSystem, setUnitSystem] = useFlowsheetUnitSystem();
 
   if (isAppointmentLoading) return <Loader />;
   if (appointmentError) return <Typography>Error: {appointmentError.message}</Typography>;
@@ -33,15 +34,18 @@ export const VisitFlowsheets = (): ReactElement => {
         label="Flowsheets"
         showIntakeNotesButton={false}
         actions={
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={range}
-            onChange={(_, value: VisitRange | null) => value && setRange(value)}
-          >
-            <ContainedPrimaryToggleButton value="up-to-visit">Up to this visit</ContainedPrimaryToggleButton>
-            <ContainedPrimaryToggleButton value="all">All visits</ContainedPrimaryToggleButton>
-          </ToggleButtonGroup>
+          <Stack direction="row" spacing={2}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              value={range}
+              onChange={(_, value: VisitRange | null) => value && setRange(value)}
+            >
+              <ContainedPrimaryToggleButton value="up-to-visit">Up to this visit</ContainedPrimaryToggleButton>
+              <ContainedPrimaryToggleButton value="all">All visits</ContainedPrimaryToggleButton>
+            </ToggleButtonGroup>
+            <FlowsheetUnitToggle value={unitSystem} onChange={setUnitSystem} />
+          </Stack>
         }
       />
       <Flowsheets
@@ -49,6 +53,7 @@ export const VisitFlowsheets = (): ReactElement => {
         birthDate={patient.birthDate}
         asOf={asOf}
         currentAppointmentId={appointment?.id}
+        unitSystem={unitSystem}
       />
     </Stack>
   );

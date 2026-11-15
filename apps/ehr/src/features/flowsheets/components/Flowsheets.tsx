@@ -16,6 +16,7 @@ import {
   TableHead,
   TableRow,
   Tabs,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
   useTheme,
@@ -24,6 +25,7 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
+import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { EChart } from 'src/features/report-builder/runtime/components/EChart';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
@@ -44,7 +46,11 @@ import {
 import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
-import { VitalsHeaderUnitSystem } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import {
+  VITALS_HEADER_UNIT_SYSTEM_LABELS,
+  VITALS_HEADER_UNIT_SYSTEMS,
+  VitalsHeaderUnitSystem,
+} from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { biliToolReadings, biliToolUnavailableReason } from '../biliTool';
@@ -63,7 +69,41 @@ interface FlowsheetsProps {
   asOf?: string;
   /** Visit tab only: the open visit, whose column is highlighted. */
   currentAppointmentId?: string;
+  /** Visit tab only: the Metric/Imperial switch's value, the switch sitting in the page header. */
+  unitSystem?: VitalsHeaderUnitSystem;
 }
+
+/**
+ * The Metric/Imperial switch's value: the practice's visit header setting until the provider switches. Not
+ * remembered, so the flowsheet opens on the practice setting every time (the setting may arrive after the first render).
+ */
+export const useFlowsheetUnitSystem = (): [VitalsHeaderUnitSystem, (unitSystem: VitalsHeaderUnitSystem) => void] => {
+  const practiceSetting = useVitalsHeaderUnitSystem();
+  const [picked, setPicked] = useState<VitalsHeaderUnitSystem>();
+  return [picked ?? practiceSetting, setPicked];
+};
+
+/** Metric/Imperial for every tab's rows, row titles and trend charts; it changes no saved value. */
+export const FlowsheetUnitToggle = ({
+  value,
+  onChange,
+}: {
+  value: VitalsHeaderUnitSystem;
+  onChange: (unitSystem: VitalsHeaderUnitSystem) => void;
+}): ReactElement => (
+  <ToggleButtonGroup
+    exclusive
+    size="small"
+    value={value}
+    onChange={(_, unitSystem: VitalsHeaderUnitSystem | null) => unitSystem && onChange(unitSystem)}
+  >
+    {VITALS_HEADER_UNIT_SYSTEMS.map((unitSystem) => (
+      <ContainedPrimaryToggleButton key={unitSystem} value={unitSystem}>
+        {VITALS_HEADER_UNIT_SYSTEM_LABELS[unitSystem]}
+      </ContainedPrimaryToggleButton>
+    ))}
+  </ToggleButtonGroup>
+);
 
 /** Growth charts end at 20 years. */
 const GROWTH_MAX_MONTHS = 240;
@@ -85,7 +125,11 @@ export const Flowsheets = ({
   title,
   asOf,
   currentAppointmentId,
+  unitSystem: headerUnitSystem,
 }: FlowsheetsProps): ReactElement => {
+  // The patient tab holds its own switch; the visit tab's is in its page header.
+  const [ownUnitSystem, setOwnUnitSystem] = useFlowsheetUnitSystem();
+  const unitSystem = headerUnitSystem ?? ownUnitSystem;
   // Until a tab is picked, the one for the patient's age (the birth date may arrive after the first render).
   const [picked, setPicked] = useState<FlowsheetDefinition>();
   const selected = picked ?? openingFlowsheet(birthDate, asOf);
@@ -171,6 +215,7 @@ export const Flowsheets = ({
           visits={data.visits}
           growth={data.growth}
           currentAppointmentId={currentAppointmentId}
+          unitSystem={unitSystem}
         />
       )}
     </Stack>
@@ -178,9 +223,12 @@ export const Flowsheets = ({
 
   return title ? (
     <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
-      <Typography variant="h4" color="primary.dark">
-        {title}
-      </Typography>
+      <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Typography variant="h4" color="primary.dark">
+          {title}
+        </Typography>
+        <FlowsheetUnitToggle value={unitSystem} onChange={setOwnUnitSystem} />
+      </Stack>
       {content}
     </Paper>
   ) : (
@@ -439,16 +487,17 @@ const FlowsheetBody = ({
   visits,
   growth,
   currentAppointmentId,
+  unitSystem,
 }: {
   definition: FlowsheetDefinition;
   visits: FlowsheetVisit[];
   /** The Growth flowsheet's chart cards, drawn in place of the trend charts. */
   growth?: GrowthChartData;
   currentAppointmentId?: string;
+  unitSystem: VitalsHeaderUnitSystem;
 }): ReactElement => {
   const theme = useTheme();
-  const unitSystem = useVitalsHeaderUnitSystem();
-  // A weight or temperature chart is in the practice's header unit, as the grid is.
+  // A weight or temperature chart is in the Metric/Imperial switch's unit, as the grid is.
   const charts = useMemo(
     () => definition.charts.map((chart) => chartInUnits(chart, unitSystem)),
     [definition, unitSystem]
