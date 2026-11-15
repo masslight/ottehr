@@ -2,7 +2,7 @@ import { ListScheduleOwnersResponse, ScheduleListItem } from 'utils/lib/types/ap
 import { describe, expect, test } from 'vitest';
 import { pickEnrollmentLocationId } from '../../src/features/visits/shared/hooks/useEnrollSurescriptsPractitioner';
 
-const schedule = (locationId: string, locationName: string, active = true): ScheduleListItem => ({
+const schedule = (locationId: string, locationName: string | undefined, active = true): ScheduleListItem => ({
   resourceType: 'Schedule',
   id: `schedule-${locationId}`,
   timezone: 'America/New_York',
@@ -38,9 +38,14 @@ describe('pickEnrollmentLocationId', () => {
     expect(pickEnrollmentLocationId('me', list, activeLocations)).toBe('loc-b');
   });
 
-  test("ignores another provider's schedules and falls back to the practice's first active location", () => {
+  test('puts a schedule whose location has no name after the named ones', () => {
+    const list = providers('me', [schedule('loc-first', undefined), schedule('loc-b', 'Beta Clinic')]);
+    expect(pickEnrollmentLocationId('me', list, activeLocations)).toBe('loc-b');
+  });
+
+  test("ignores another provider's schedules and falls back to the practice's active location first by name", () => {
     const list = providers('someone-else', [schedule('loc-a', 'Alpha Clinic')]);
-    expect(pickEnrollmentLocationId('me', list, activeLocations)).toBe('loc-first');
+    expect(pickEnrollmentLocationId('me', list, activeLocations)).toBe('loc-a');
   });
 
   test('returns undefined when the practice has no active location', () => {
