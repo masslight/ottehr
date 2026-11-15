@@ -14,7 +14,7 @@ import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommen
 // `encounterId`: another visit's, in place of the page's (the eRx order form outside a visit).
 export const AllergiesContainer: FC<{ notes?: NoteDTO[]; encounterId?: string }> = ({ notes, encounterId }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { data: note } = useVisitNote(encounterId ? { encounterId } : {});
+  const { data: note, isLoading, error } = useVisitNote(encounterId ? { encounterId } : {});
   const theme = useTheme();
   const aiAdded = useAiAddedRecommendations();
 
@@ -39,7 +39,10 @@ export const AllergiesContainer: FC<{ notes?: NoteDTO[]; encounterId?: string }>
           );
         })
       ) : (
-        <Typography color={theme.palette.text.secondary}>No known allergies</Typography>
+        // "None" only once the note says so, not while it loads or after it failed.
+        <Typography color={theme.palette.text.secondary}>
+          {isLoading ? 'Loading…' : error && !note ? "Couldn't load allergies" : 'No known allergies'}
+        </Typography>
       )}
 
       {notes && notes.length > 0 && (

@@ -41,6 +41,7 @@ const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
   fetch: vi.fn(),
   allergies: [] as { name?: string; current?: boolean }[],
+  noteLoading: false,
 }));
 
 // jsdom measures nothing, so the grid's virtualization would render no rows.
@@ -64,7 +65,7 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
 }));
 // The patient's allergies, as the order form's Allergies list reads them.
 vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
-  useVisitNote: () => ({ data: { history: { allergies: mocks.allergies } } }),
+  useVisitNote: () => (mocks.noteLoading ? { isLoading: true } : { data: { history: { allergies: mocks.allergies } } }),
 }));
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ appointment: { start: VISIT_START } }),
@@ -102,6 +103,7 @@ describe('Prescription table: cancel eRx prescriptions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.allergies = [];
+    mocks.noteLoading = false;
     vi.stubGlobal('fetch', mocks.fetch);
     mocks.fetch.mockResolvedValue(response(200, { messageId: 'm' }));
     mocks.refetch.mockResolvedValue({});
@@ -222,6 +224,16 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     expect(within(screen.getByRole('dialog')).getByText('Cancel 2 prescriptions')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send cancellation' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Keep prescriptions' })).toBeInTheDocument();
+  });
+
+  it('waits for the patient’s allergies before it sends a cancellation', async () => {
+    mocks.noteLoading = true;
+    const user = renderTable();
+    await user.click(selectAll());
+    await user.click(screen.getByRole('button', { name: 'Cancel prescriptions…' }));
+    await user.click(screen.getByRole('combobox', { name: /Reason/ }));
+    await user.click(screen.getByRole('option', { name: 'Patient request' }));
+    expect(screen.getByRole('button', { name: 'Send cancellation' })).toBeDisabled();
   });
 
   it('sends one cancellation per prescription, then refetches and clears the selection', async () => {

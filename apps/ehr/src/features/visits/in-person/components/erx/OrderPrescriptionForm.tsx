@@ -1,5 +1,5 @@
 import { Add } from '@mui/icons-material';
-import { Box, Button, Divider, FormHelperText, Stack, Typography, useTheme } from '@mui/material';
+import { Box, Button, Divider, FormHelperText, Stack, Tooltip, Typography, useTheme } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useRef, useState } from 'react';
@@ -47,7 +47,7 @@ import { PrescriptionSentences } from './PrescriptionSentences';
 import { missingSetMembersText, withListedQuickPick, withPrescriptionSet } from './prescriptionSuggestions';
 import { refillLine } from './refillRequest';
 import { useReorderPrescriptionStore } from './reorderPrescription.store';
-import { useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
+import { useErxSendDataLoading, useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
 
 // Layout from the procedure page: the side column sits beside the form once the page is wide enough.
 const SIDE_COLUMN_WIDTH = 340;
@@ -97,6 +97,8 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   const weightKg = calculatorWeightKg(weightText, weight);
   const height = useVisitHeight(visit?.encounterId);
   const allergies = useVisitAllergies(visit?.encounterId);
+  // Sending waits for what goes with it, so a prescription never goes out as if the patient had no allergies.
+  const sendDataLoading = useErxSendDataLoading(visit?.encounterId);
   const user = useEvolveUser();
   // The roles that manage quick picks in Admin.
   const isAdmin = user?.hasRole([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport]) ?? false;
@@ -444,15 +446,19 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
                 <RoundedButton color="primary" onClick={clearForm} disabled={readOnly || sending}>
                   Clear Form
                 </RoundedButton>
-                <RoundedButton
-                  color="primary"
-                  variant="contained"
-                  disabled={readOnly}
-                  loading={sending}
-                  onClick={() => void send()}
-                >
-                  {sendLabel ?? (lines.length === 1 ? 'Send Prescription' : `Send ${lines.length} Prescriptions`)}
-                </RoundedButton>
+                <Tooltip title={!readOnly && sendDataLoading ? 'Loading allergies and vitals' : ''}>
+                  <span>
+                    <RoundedButton
+                      color="primary"
+                      variant="contained"
+                      disabled={readOnly || sendDataLoading}
+                      loading={sending}
+                      onClick={() => void send()}
+                    >
+                      {sendLabel ?? (lines.length === 1 ? 'Send Prescription' : `Send ${lines.length} Prescriptions`)}
+                    </RoundedButton>
+                  </span>
+                </Tooltip>
               </Box>
             </Stack>
           </AccordionCard>

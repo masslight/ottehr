@@ -97,6 +97,7 @@ const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
   fetch: vi.fn(),
   allergies: [] as { name?: string; current?: boolean }[],
+  noteLoading: false,
 }));
 
 // Google and the Surescripts directory find the sample pharmacies.
@@ -135,7 +136,7 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
 }));
 // The patient's allergies, as the order form's Allergies list reads them.
 vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
-  useVisitNote: () => ({ data: { history: { allergies: mocks.allergies } } }),
+  useVisitNote: () => (mocks.noteLoading ? { isLoading: true } : { data: { history: { allergies: mocks.allergies } } }),
 }));
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ appointment: { start: '2026-10-28T08:00:00.000Z' } }),
@@ -200,6 +201,7 @@ describe('Prescription table: send to another pharmacy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.allergies = [];
+    mocks.noteLoading = false;
     vi.stubGlobal('fetch', mocks.fetch);
     mocks.fetch.mockResolvedValue(response(200, { medicationRequestId: 'new', messageId: 'm', status: {} }));
     mocks.refetch.mockResolvedValue({});
@@ -376,6 +378,17 @@ describe('Prescription table: send to another pharmacy', () => {
       { ...newOrder(DENIED), daysSupply: 10, noteToPharmacy: 'Shake well' },
     ]);
     expect(enqueueSnackbar).toHaveBeenCalledWith('Prescription sent to Sample Pharmacy Two', { variant: 'success' });
+  });
+
+  it('waits for the patient’s allergies and vitals before it sends', async () => {
+    mocks.noteLoading = true;
+    const user = renderTable();
+    await user.click(within(row(AMOX.name!)).getByRole('button', { name: 'Send to another pharmacy' }));
+    const dialog = screen.getByRole('dialog');
+    await user.type(within(dialog).getByRole('combobox', { name: 'Pharmacy' }), 'Two');
+    await user.click(await screen.findByRole('option', { name: /Sample Pharmacy Two/ }));
+    expect(await within(dialog).findByText(/Send to Sample Pharmacy Two/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Send to pharmacy' })).toBeDisabled();
   });
 
   it('only sends an errored prescription again, leaving out what it never had', async () => {

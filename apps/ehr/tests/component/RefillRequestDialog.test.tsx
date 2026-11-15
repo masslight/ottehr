@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   weight: undefined as { kg: number; takenAt?: string; thisVisit: boolean } | undefined,
   allergies: undefined as PrescriptionAllergy[] | undefined,
   enrollment: undefined as { registered: boolean } | undefined,
+  sendDataLoading: false,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -26,6 +27,7 @@ vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () 
   useVisitWeight: () => mocks.weight,
   useVisitHeight: () => mocks.height,
   useVisitAllergies: () => mocks.allergies,
+  useErxSendDataLoading: () => mocks.sendDataLoading,
 }));
 vi.mock('../../src/features/visits/shared/hooks/useCheckSurescriptsEnrollment', () => ({
   useCheckSurescriptsEnrollment: () => ({ data: mocks.enrollment }),
@@ -107,6 +109,7 @@ describe('Refill request dialog', () => {
     mocks.weight = undefined;
     mocks.allergies = undefined;
     mocks.enrollment = undefined;
+    mocks.sendDataLoading = false;
     mocks.respondToRenewal.mockResolvedValue({
       taskId: 'renewal-1',
       messageId: 'm',
@@ -141,6 +144,12 @@ describe('Refill request dialog', () => {
     expect(screen.queryByRole('button', { name: 'Send denial' })).not.toBeInTheDocument();
     // What the pharmacy asked is still there to read.
     expect(within(section('Pharmacy’s request')).getByText('Pharmacy asks for 3 fills')).toBeInTheDocument();
+  });
+
+  it('waits for the patient’s allergies and vitals before it sends an answer', async () => {
+    mocks.sendDataLoading = true;
+    await open();
+    expect(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' })).toBeDisabled();
   });
 
   it('says how many fills the pharmacy asks for, "fill" for one', async () => {

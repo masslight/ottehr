@@ -53,6 +53,17 @@ export const useVisitHeight = (encounterId?: string): { cm: number; takenAt?: st
   return vital && { cm: vital.value, takenAt: vital.takenAt };
 };
 
+/** Whether the allergies (and, unless left out, the height and weight) an order, an answer or a cancel sends are
+ * still loading: sending waits for them, so none goes out as if the patient had none. The visit is the page's, unless
+ * another one is given. */
+export const useErxSendDataLoading = (encounterId?: string, { vitals = true } = {}): boolean => {
+  const { encounter } = useAppointmentData();
+  const { isLoading: noteLoading } = useVisitNote(encounterId ? { encounterId } : {});
+  const { isLoading: currentLoading } = useGetVitals(vitals ? encounterId ?? encounter?.id : undefined);
+  const { isLoading: allLoading } = useGetAllPatientVitals(vitals ? encounterId ?? encounter?.id : undefined);
+  return noteLoading || currentLoading || allLoading;
+};
+
 /** The patient's active allergies sent with an order, an answer to a request or a cancel, as the order form's
  * Allergies list reads them (the same query, so nothing is fetched twice). The visit is the page's, unless another one
  * is given. */

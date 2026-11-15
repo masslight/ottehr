@@ -14,7 +14,7 @@ import {
   isPrescriptionCancellable,
   prescriptionToOrderForPharmacy,
 } from './prescriptionStatus';
-import { useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
+import { useErxSendDataLoading, useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
 
 const CANCEL_REASON: CancelPrescriptionReason = 'Duplicate order (different pharmacy)';
 
@@ -40,6 +40,7 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
   const height = useVisitHeight();
   const weight = useVisitWeight();
   const allergies = useVisitAllergies();
+  const sendDataLoading = useErxSendDataLoading();
   const [pharmacy, setPharmacy] = useState<PharmacySearchResult | null>(null);
   const { sending, close, run } = useSendEach({ prescriptions, onClose, onSent });
   const several = prescriptions.length > 1;
@@ -136,7 +137,7 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
       handleConfirm={send}
       confirmText="Send to pharmacy"
       confirmLoading={sending}
-      disabled={!pharmacy}
+      disabled={!pharmacy || sendDataLoading}
       fullWidth
       maxWidth="sm"
     />

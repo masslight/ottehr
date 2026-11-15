@@ -6,7 +6,7 @@ import { CANCEL_PRESCRIPTION_REASONS, CancelPrescriptionReason } from 'utils/lib
 import { useCancelPrescription } from '../../../shared/hooks/useCancelPrescription';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { errorMessage, PrescriptionSummaryList, useSendEach } from './prescriptionDialogs';
-import { useVisitAllergies } from './useVisitWeight';
+import { useErxSendDataLoading, useVisitAllergies } from './useVisitWeight';
 
 interface CancelPrescriptionsDialogProps {
   prescriptions: PrescribedMedicationDTO[];
@@ -18,6 +18,8 @@ export const CancelPrescriptionsDialog: FC<CancelPrescriptionsDialogProps> = ({ 
   const { mutateAsync: cancelPrescription } = useCancelPrescription();
   const { patient } = useAppointmentData();
   const allergies = useVisitAllergies();
+  // A cancellation sends the allergies, so it waits for them.
+  const allergiesLoading = useErxSendDataLoading(undefined, { vitals: false });
   const [reason, setReason] = useState<CancelPrescriptionReason | ''>('');
   const { sending, close, run } = useSendEach({ prescriptions, onClose, onSent });
   const several = prescriptions.length > 1;
@@ -75,7 +77,7 @@ export const CancelPrescriptionsDialog: FC<CancelPrescriptionsDialogProps> = ({ 
       handleConfirm={send}
       confirmText="Send cancellation"
       confirmLoading={sending}
-      disabled={!reason}
+      disabled={!reason || allergiesLoading}
       fullWidth
       maxWidth="sm"
     />

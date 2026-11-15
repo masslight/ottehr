@@ -52,7 +52,7 @@ import {
   requestRows,
   suggestionText,
 } from './refillRequest';
-import { useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
+import { useErxSendDataLoading, useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
 
 type Answer = 'approve' | 'change' | 'deny' | 'pending';
 
@@ -143,6 +143,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const height = useVisitHeight(data?.prescription.encounterId);
   const weight = useVisitWeight(data?.prescription.encounterId);
   const allergies = useVisitAllergies(data?.prescription.encounterId);
+  const sendDataLoading = useErxSendDataLoading(data?.prescription.encounterId);
   const [chosen, setChosen] = useState<Answer>('approve');
   const [fills, setFills] = useState<string>();
   const [suggestion, setSuggestion] = useState(0);
@@ -549,7 +550,12 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
           {closed ? 'Close' : 'Cancel'}
         </RoundedButton>
         {request && !closed && !notEnrolled && answer !== 'change' && (
-          <RoundedButton variant="contained" disabled={!ready} loading={respond.isPending} onClick={() => void send()}>
+          <RoundedButton
+            variant="contained"
+            disabled={!ready || sendDataLoading}
+            loading={respond.isPending}
+            onClick={() => void send()}
+          >
             {answer === 'deny' ? 'Send denial' : `Send to ${pharmacyName}`}
           </RoundedButton>
         )}

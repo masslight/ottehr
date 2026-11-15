@@ -51,6 +51,7 @@ const mocks = vi.hoisted(() => ({
   orderPrescription: vi.fn(),
   directoryRow: undefined as ErxDirectoryPharmacy | undefined,
   roles: [] as string[],
+  loading: false,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -110,6 +111,7 @@ vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () 
   useVisitWeight: () => undefined,
   useVisitHeight: () => undefined,
   useVisitAllergies: () => undefined,
+  useErxSendDataLoading: () => mocks.loading,
 }));
 vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => ({
   useIcd10SearchInput: () => ({ inputValue: '', setInputValue: () => undefined, options: [], isFetching: false }),
@@ -130,6 +132,18 @@ describe('Order prescription form: Reorder', () => {
     mocks.directoryRow = ORIGINAL_PHARMACY;
     mocks.orderPrescription.mockResolvedValue({});
     mocks.roles = [];
+    mocks.loading = false;
+  });
+
+  it('waits for the allergies and vitals before sending, saying why on hover', async () => {
+    mocks.loading = true;
+    const user = userEvent.setup();
+    render(<OrderPrescriptionForm />);
+    act(() => reorderPrescription(SENT));
+    const send = await screen.findByRole('button', { name: 'Send Prescription' });
+    expect(send).toBeDisabled();
+    await user.hover(send.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Loading allergies and vitals');
   });
 
   it.each([
