@@ -203,7 +203,10 @@ export const prescriptionActionUnavailableText = (
 /** The same prescription again, for another pharmacy, from its stored order; undefined when a field is missing. */
 export const prescriptionToOrderForPharmacy = (
   prescription: PrescribedMedicationDTO,
-  context: { practitionerId: string; pharmacy: PharmacySearchResult } & Pick<OrderPrescriptionInput, 'vitals'>
+  context: { practitionerId: string; pharmacy: PharmacySearchResult } & Pick<
+    OrderPrescriptionInput,
+    'vitals' | 'allergies'
+  >
 ): OrderPrescriptionInput | undefined => {
   const order = prescription.order;
   if (!order || missingOrderFields(prescription).length) return undefined;
@@ -224,6 +227,7 @@ export const prescriptionToOrderForPharmacy = (
     ...(order.diagnosisCode ? { diagnosisCode: order.diagnosisCode } : {}),
     ...(order.diagnosisDescription ? { diagnosisDescription: order.diagnosisDescription } : {}),
     ...(context.vitals ? { vitals: context.vitals } : {}),
+    ...(context.allergies ? { allergies: context.allergies } : {}),
   };
   const { compound } = order;
   if (compound) {

@@ -37,7 +37,11 @@ const PRED = prescription('mr-pred', 'Prednisolone 15 mg/5ml Sol', 'active', [
 ]);
 const ONDANSETRON = prescription('mr-ond', 'Ondansetron 4 mg/5ml Sol', 'draft', [ordered]);
 
-const mocks = vi.hoisted(() => ({ refetch: vi.fn(), fetch: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  refetch: vi.fn(),
+  fetch: vi.fn(),
+  allergies: [] as { name?: string; current?: boolean }[],
+}));
 
 // jsdom measures nothing, so the grid's virtualization would render no rows.
 vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
@@ -57,6 +61,10 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
     data: { prescribedMedications: [AMOX, IBU, PRED, ONDANSETRON], prescribedMedicationsRequesterPractitioners: [] },
     refetch: mocks.refetch,
   }),
+}));
+// The patient's allergies, as the order form's Allergies list reads them.
+vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
+  useVisitNote: () => ({ data: { history: { allergies: mocks.allergies } } }),
 }));
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ appointment: { start: VISIT_START } }),
@@ -93,6 +101,7 @@ const cancelBothWithReason = async (user: ReturnType<typeof userEvent.setup>): P
 describe('Prescription table: cancel eRx prescriptions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.allergies = [];
     vi.stubGlobal('fetch', mocks.fetch);
     mocks.fetch.mockResolvedValue(response(200, { messageId: 'm' }));
     mocks.refetch.mockResolvedValue({});
@@ -231,6 +240,18 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     expect(enqueueSnackbar).toHaveBeenCalledWith('2 cancellations sent', { variant: 'success' });
     expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('sends the patient’s active allergies with each cancellation', async () => {
+    mocks.allergies = [
+      { name: 'Penicillins', current: true },
+      { name: 'Latex', current: false },
+    ];
+    const user = renderTable();
+    await cancelBothWithReason(user);
+    await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
+    const allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }];
+    expect(mocks.fetch.mock.calls.map((call) => JSON.parse(call[1].body).allergies)).toEqual([allergies, allergies]);
   });
 
   it('names the prescriptions whose cancellation failed, with the service message', async () => {

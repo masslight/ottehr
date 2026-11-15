@@ -82,7 +82,11 @@ const ERR_INCOMPLETE = {
   order: { ...prescription('mr-err2', 'x', 'stopped', '').order, ndc: undefined },
 };
 
-const mocks = vi.hoisted(() => ({ refetch: vi.fn(), fetch: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  refetch: vi.fn(),
+  fetch: vi.fn(),
+  allergies: [] as { name?: string; current?: boolean }[],
+}));
 
 // Google and the Surescripts directory find the sample pharmacies.
 vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', async () => {
@@ -117,6 +121,10 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
     },
     refetch: mocks.refetch,
   }),
+}));
+// The patient's allergies, as the order form's Allergies list reads them.
+vi.mock('../../src/features/visits/shared/hooks/useVisitNote', () => ({
+  useVisitNote: () => ({ data: { history: { allergies: mocks.allergies } } }),
 }));
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({ appointment: { start: '2026-10-28T08:00:00.000Z' } }),
@@ -180,6 +188,7 @@ const newOrder = (item: PrescribedMedicationDTO): Record<string, unknown> => ({
 describe('Prescription table: send to another pharmacy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.allergies = [];
     vi.stubGlobal('fetch', mocks.fetch);
     mocks.fetch.mockResolvedValue(response(200, { medicationRequestId: 'new', messageId: 'm', status: {} }));
     mocks.refetch.mockResolvedValue({});
@@ -327,6 +336,17 @@ describe('Prescription table: send to another pharmacy', () => {
     ]);
     expect(enqueueSnackbar).toHaveBeenCalledWith('Prescription sent to Sample Pharmacy Two', { variant: 'success' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('sends the patient’s active allergies with the cancellation and the new prescription', async () => {
+    mocks.allergies = [{ name: 'Penicillins', current: true }];
+    const user = renderTable();
+    await user.click(within(row(AMOX.name!)).getByRole('button', { name: 'Send to another pharmacy' }));
+    await pickPharmacyAndSend(user);
+    await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
+    const allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }];
+    expect(calls('/v4/cancel-prescription')).toMatchObject([{ allergies }]);
+    expect(calls('/v4/order-prescription')).toMatchObject([{ allergies }]);
   });
 
   it('only sends an errored prescription again, leaving out what it never had', async () => {

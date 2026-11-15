@@ -47,7 +47,7 @@ import { PrescriptionSentences } from './PrescriptionSentences';
 import { missingSetMembersText, withListedQuickPick, withPrescriptionSet } from './prescriptionSuggestions';
 import { refillLine } from './refillRequest';
 import { useReorderPrescriptionStore } from './reorderPrescription.store';
-import { useVisitHeight, useVisitWeight } from './useVisitWeight';
+import { useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
 
 // Layout from the procedure page: the side column sits beside the form once the page is wide enough.
 const SIDE_COLUMN_WIDTH = 340;
@@ -96,6 +96,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   const [weightText, setWeightText] = useState<string>();
   const weightKg = calculatorWeightKg(weightText, weight);
   const height = useVisitHeight(visit?.encounterId);
+  const allergies = useVisitAllergies(visit?.encounterId);
   const user = useEvolveUser();
   const isAdmin = user?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
   const { isAppointmentReadOnly } = useGetAppointmentAccessibility();
@@ -227,6 +228,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
           ? undefined
           : { kg: weightKg, takenAt: weightText === undefined ? weight?.takenAt : undefined }
       ),
+      allergies,
     };
     setSending(true);
     const sent: PrescriptionLine[] = [];

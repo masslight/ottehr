@@ -13,6 +13,7 @@ import {
   maximumWarnings,
   mgPerMeasure,
   pickedStrength,
+  prescriptionAllergies,
   PrescriptionLine,
   prescriptionLineErrors,
   prescriptionLineMetadata,
@@ -548,6 +549,37 @@ describe('prescriptionLineToOrder', () => {
     expect(
       prescriptionLineToOrder({ ...picked, quantityUnit: 'Tablet', quantityValue: '20' }, context).patientInstructions
     ).toBe('Take 3/4 tablet daily');
+  });
+
+  it('sends the allergies given, and none when there are none', () => {
+    const context = { patientId: 'p', practitionerId: 'pr', encounterId: 'e', pharmacy: PHARMACY };
+    const allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }] as const;
+    expect(prescriptionLineToOrder(complete(), { ...context, allergies: [...allergies] })).toMatchObject({ allergies });
+    expect(prescriptionLineToOrder(complete(), context)).not.toHaveProperty('allergies');
+  });
+});
+
+describe('prescriptionAllergies', () => {
+  it('sends the active allergies by name only, as the clinician’s, cut to 105 characters', () => {
+    expect(
+      prescriptionAllergies([
+        { id: '1234', name: ' Penicillins ', current: true },
+        { name: 'Latex', current: false },
+        { name: 'x'.repeat(120), current: true },
+        { name: '  ', current: true },
+        { id: '99', current: true },
+      ])
+    ).toStrictEqual([
+      { name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' },
+      { name: 'x'.repeat(105), adverseEvent: 'Allergy to substance', source: 'Clinician' },
+    ]);
+  });
+
+  // An empty list would tell the pharmacy the patient has no known allergies, which Ottehr doesn't record.
+  it('is undefined, never empty, when no allergy is active', () => {
+    expect(prescriptionAllergies(undefined)).toBeUndefined();
+    expect(prescriptionAllergies([])).toBeUndefined();
+    expect(prescriptionAllergies([{ name: 'Latex', current: false }])).toBeUndefined();
   });
 });
 

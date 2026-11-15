@@ -8,6 +8,7 @@ import {
 import {
   COMPOUND_DOSAGE_FORMS,
   OrderPrescriptionInput,
+  PrescriptionAllergy,
   PrescriptionVitals,
 } from 'utils/lib/types/api/order-prescription.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
@@ -177,13 +178,15 @@ export const refillLine = (
     : started;
 };
 
-/** "Change": the renewal response approving the prescription the order form holds, with the vitals its order sends.
+/** "Change": the renewal response approving the prescription the order form holds, with the vitals and allergies its
+ * order sends.
  * Its fills are the first fill plus the refills written; the eRx service sends what differs from the request as the
  * changes, and keeps the order's blanks (`metadata`) on the new prescription as it would a new order's. */
 export const renewalApproval = (
   renewalTaskId: string,
   line: PrescriptionLine,
-  vitals?: PrescriptionVitals
+  vitals?: PrescriptionVitals,
+  allergies?: PrescriptionAllergy[]
 ): Extract<RenewalResponseInput, { decision: 'approve' }> => {
   const order = answerOrder(line);
   if (order.numberOfRefills > 98) throw new Error('Refills must be 98 or fewer in answer to a refill request.');
@@ -194,6 +197,7 @@ export const renewalApproval = (
     changes: orderChanges(order),
     ...(order.metadata ? { metadata: order.metadata } : {}),
     ...(vitals ? { vitals } : {}),
+    ...(allergies ? { allergies } : {}),
   };
 };
 
@@ -228,13 +232,14 @@ const orderChanges = (
 });
 
 /** "Change" of a change request: the prescription the order form holds, over the selected suggestion
- * (none when the pharmacy sent none), with the vitals its order sends. The eRx service picks Approved or
- * ApprovedWithChanges. */
+ * (none when the pharmacy sent none), with the vitals and allergies its order sends. The eRx service picks Approved
+ * or ApprovedWithChanges. */
 export const changeApproval = (
   changeTaskId: string,
   suggestion: number | undefined,
   line: PrescriptionLine,
-  vitals?: PrescriptionVitals
+  vitals?: PrescriptionVitals,
+  allergies?: PrescriptionAllergy[]
 ): Extract<ChangeResponseInput, { decision: 'approve' }> => {
   const order = answerOrder(line);
   return {
@@ -244,22 +249,24 @@ export const changeApproval = (
     changes: { ...orderChanges(order), numberOfRefills: order.numberOfRefills },
     ...(order.metadata ? { metadata: order.metadata } : {}),
     ...(vitals ? { vitals } : {}),
+    ...(allergies ? { allergies } : {}),
   };
 };
 
 /** A change request's answer given in the dialog: the selected suggestion approved as the pharmacy sent it (none
  * for a drug-use alert approved as written), a prior authorization request approved with its number, or a denial or
  * pending answer with its reason. An approval keeps the blanks given (`approvalMetadata`) on the new prescription, and
- * sends the patient's vitals. */
+ * sends the patient's vitals; every answer sends the patient's allergies. */
 export const changeResponse = (
   changeTaskId: string,
   decision: 'approve' | 'deny' | 'pending',
-  { suggestion, priorAuthorization, reason, note, metadata, vitals }: ChangeAnswerDetails
+  { suggestion, priorAuthorization, reason, note, metadata, vitals, allergies }: ChangeAnswerDetails
 ): ChangeResponseInput => {
   if (decision === 'approve') {
     return {
       taskId: changeTaskId,
       decision,
+      ...(allergies ? { allergies } : {}),
       note,
       ...(priorAuthorization
         ? { priorAuthorization: { number: priorAuthorization, status: 'approved' } }
@@ -273,6 +280,7 @@ export const changeResponse = (
   return {
     taskId: changeTaskId,
     decision,
+    ...(allergies ? { allergies } : {}),
     reason,
     [decision === 'deny' ? 'denialReason' : 'note']: note,
   } as ChangeResponseInput;
@@ -287,6 +295,7 @@ interface ChangeAnswerDetails {
   /** The blanks the new prescription keeps, for an approval */
   metadata?: PrescriptionOrderMetadata;
   vitals?: PrescriptionVitals;
+  allergies?: PrescriptionAllergy[];
 }
 
 /** A suggestion's line under its name, only what the pharmacy sent: "30 capsules · Take 1 … · 30 days · 2 refills",

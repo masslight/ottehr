@@ -208,4 +208,12 @@ describe('sending a prescription to another pharmacy', () => {
   it('leaves the vitals out when the visit has none', () => {
     expect(prescriptionToOrderForPharmacy(stored, context)).not.toHaveProperty('vitals');
   });
+
+  it('sends the patient’s allergies with the new order, and none when there are none', () => {
+    const allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }] as const;
+    expect(prescriptionToOrderForPharmacy(stored, { ...context, allergies: [...allergies] })).toMatchObject({
+      allergies,
+    });
+    expect(prescriptionToOrderForPharmacy(stored, context)).not.toHaveProperty('allergies');
+  });
 });

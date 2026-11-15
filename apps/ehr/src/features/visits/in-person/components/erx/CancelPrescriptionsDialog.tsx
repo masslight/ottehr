@@ -6,6 +6,7 @@ import { CANCEL_PRESCRIPTION_REASONS, CancelPrescriptionReason } from 'utils/lib
 import { useCancelPrescription } from '../../../shared/hooks/useCancelPrescription';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
 import { errorMessage, PrescriptionSummaryList, useSendEach } from './prescriptionDialogs';
+import { useVisitAllergies } from './useVisitWeight';
 
 interface CancelPrescriptionsDialogProps {
   prescriptions: PrescribedMedicationDTO[];
@@ -16,6 +17,7 @@ interface CancelPrescriptionsDialogProps {
 export const CancelPrescriptionsDialog: FC<CancelPrescriptionsDialogProps> = ({ prescriptions, onClose, onSent }) => {
   const { mutateAsync: cancelPrescription } = useCancelPrescription();
   const { patient } = useAppointmentData();
+  const allergies = useVisitAllergies();
   const [reason, setReason] = useState<CancelPrescriptionReason | ''>('');
   const { sending, close, run } = useSendEach({ prescriptions, onClose, onSent });
   const several = prescriptions.length > 1;
@@ -26,7 +28,12 @@ export const CancelPrescriptionsDialog: FC<CancelPrescriptionsDialogProps> = ({ 
     await run(
       async (prescription, practitionerId) => {
         try {
-          await cancelPrescription({ medicationRequestId: prescription.resourceId!, practitionerId, reason });
+          await cancelPrescription({
+            medicationRequestId: prescription.resourceId!,
+            practitionerId,
+            reason,
+            ...(allergies ? { allergies } : {}),
+          });
           return undefined;
         } catch (error) {
           console.error(`Error canceling prescription: ${error}`);

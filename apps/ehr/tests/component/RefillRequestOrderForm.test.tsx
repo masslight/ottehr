@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
 import { GetErxRequestResponse } from 'utils/lib/types/api/erx.types';
+import { PrescriptionAllergy } from 'utils/lib/types/api/order-prescription.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RefillRequestDialog } from '../../src/features/visits/in-person/components/erx/RefillRequestDialog';
 
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   completeTask: vi.fn(),
   chartSectionOptions: [] as unknown[],
   height: undefined as { cm: number; takenAt?: string } | undefined,
+  allergies: undefined as PrescriptionAllergy[] | undefined,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -85,6 +87,7 @@ vi.mock('../../src/features/visits/shared/components/review-tab/components/Medic
 vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () => ({
   useVisitWeight: () => undefined,
   useVisitHeight: () => mocks.height,
+  useVisitAllergies: () => mocks.allergies,
 }));
 vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => ({
   useIcd10SearchInput: () => ({ inputValue: '', setInputValue: () => undefined, options: [], isFetching: false }),
@@ -232,6 +235,16 @@ describe('Refill request dialog: the order form outside a visit', () => {
       height: { value: 162, unit: 'cm', measuredDate: '2026-09-14' },
     });
     mocks.height = undefined;
+  });
+
+  it('Change sends the allergies the order form sends', async () => {
+    mocks.allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }];
+    const user = await open(PHARMACY_REQUEST);
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    await waitFor(() => expect(mocks.respondToRenewal).toHaveBeenCalled());
+    expect(mocks.respondToRenewal.mock.calls[0][1].allergies).toEqual(mocks.allergies);
+    mocks.allergies = undefined;
   });
 
   it('Change of a compound’s refill request answers with the compound, and no NDC', async () => {
@@ -461,6 +474,16 @@ describe('Refill request dialog: the order form outside a visit', () => {
       expect(enqueueSnackbar).toHaveBeenCalledWith('Prescription sent to Sample Pharmacy One', { variant: 'success' })
     );
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('sends the patient’s allergies with a patient’s change: its cancellation and its new prescription', async () => {
+    mocks.allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }];
+    const user = await open(PATIENT_CHANGE);
+    await user.click(screen.getByRole('button', { name: 'Send prescription' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalled());
+    expect(mocks.cancelPrescription.mock.calls[0][0].allergies).toEqual(mocks.allergies);
+    expect(mocks.orderPrescription.mock.calls[0][0].allergies).toEqual(mocks.allergies);
+    mocks.allergies = undefined;
   });
 
   it('sends nothing when the original’s cancellation fails, and leaves the task open', async () => {

@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => ({
   chartDiagnoses: [] as { code: string; display: string; isPrimary?: boolean }[],
   weight: undefined as { kg: number; takenAt?: string; thisVisit: boolean } | undefined,
   height: undefined as { cm: number; takenAt?: string } | undefined,
+  allergies: undefined as { name: string; adverseEvent: 'Allergy to substance'; source: 'Clinician' }[] | undefined,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -88,6 +89,7 @@ vi.mock('../../src/features/visits/shared/components/review-tab/components/Medic
 vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () => ({
   useVisitWeight: () => mocks.weight,
   useVisitHeight: () => mocks.height,
+  useVisitAllergies: () => mocks.allergies,
 }));
 vi.mock('../../src/features/admin/patient-education/useIcd10SearchInput', () => ({
   useIcd10SearchInput: () => ({ inputValue: '', setInputValue: () => undefined, options: [], isFetching: false }),
@@ -189,5 +191,25 @@ describe('Order prescription form: height and weight', () => {
     mocks.height = undefined;
     await sendQuickPick();
     expect(mocks.orderPrescription.mock.calls[0][0]).not.toHaveProperty('vitals');
+  });
+});
+
+describe('Order prescription form: allergies', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.chartDiagnoses = [STREP];
+    mocks.orderPrescription.mockResolvedValue({});
+  });
+
+  it('go with the order', async () => {
+    mocks.allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }];
+    await sendQuickPick();
+    expect(mocks.orderPrescription.mock.calls[0][0].allergies).toEqual(mocks.allergies);
+    mocks.allergies = undefined;
+  });
+
+  it('are left out when the patient has none', async () => {
+    await sendQuickPick();
+    expect(mocks.orderPrescription.mock.calls[0][0]).not.toHaveProperty('allergies');
   });
 });

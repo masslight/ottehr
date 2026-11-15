@@ -151,6 +151,14 @@ export interface PrescriptionVitals {
   weight?: { value: number; unit: 'kg'; measuredDate: string };
 }
 
+/** One of the patient's allergies sent with an order, an answer to a request or a cancel; an empty list would say
+ * NoKnownAllergies. A code goes with its qualifier: Ottehr sends neither. */
+export interface PrescriptionAllergy {
+  name: string;
+  adverseEvent: 'Allergy to substance' | 'Drug allergy' | 'Food allergy' | 'Drug intolerance' | 'Food intolerance';
+  source: 'Patient' | 'Clinician' | 'Other';
+}
+
 interface OrderPrescriptionCommonInput {
   medicationDescription: string;
   substitutionAllowed: boolean;
@@ -170,6 +178,7 @@ interface OrderPrescriptionCommonInput {
   diagnosisCode?: string;
   diagnosisDescription?: string;
   vitals?: PrescriptionVitals;
+  allergies?: PrescriptionAllergy[];
 }
 
 /** A prescription for one product. */
@@ -217,6 +226,7 @@ export interface CancelPrescriptionInput {
   medicationRequestId: string;
   practitionerId: string;
   reason: CancelPrescriptionReason;
+  allergies?: PrescriptionAllergy[];
 }
 
 export interface CancelPrescriptionOutput {

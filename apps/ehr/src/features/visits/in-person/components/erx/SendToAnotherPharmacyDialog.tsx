@@ -10,7 +10,7 @@ import { PharmacySearch } from './PharmacySearch';
 import { errorMessage, PrescriptionSummaryList, useSendEach } from './prescriptionDialogs';
 import { prescriptionVitals } from './prescriptionLines';
 import { isPrescriptionCancellable, prescriptionToOrderForPharmacy } from './prescriptionStatus';
-import { useVisitHeight, useVisitWeight } from './useVisitWeight';
+import { useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
 
 const CANCEL_REASON: CancelPrescriptionReason = 'Duplicate order (different pharmacy)';
 
@@ -35,6 +35,7 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
   const { mutateAsync: orderPrescription } = useOrderPrescription();
   const height = useVisitHeight();
   const weight = useVisitWeight();
+  const allergies = useVisitAllergies();
   const [pharmacy, setPharmacy] = useState<PharmacySearchResult | null>(null);
   const { sending, close, run } = useSendEach({ prescriptions, onClose, onSent });
   const several = prescriptions.length > 1;
@@ -56,6 +57,7 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
           practitionerId,
           pharmacy,
           vitals,
+          allergies,
         });
         if (!order) return `${prescription.name}: its order is incomplete; nothing was sent`;
         const cancelling = isPrescriptionCancellable(prescription);
@@ -65,6 +67,7 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
               medicationRequestId: prescription.resourceId!,
               practitionerId,
               reason: CANCEL_REASON,
+              ...(allergies ? { allergies } : {}),
             });
           } catch (error) {
             console.error(`Error canceling prescription: ${error}`);

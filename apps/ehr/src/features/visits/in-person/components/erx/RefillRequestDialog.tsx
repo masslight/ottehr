@@ -51,7 +51,7 @@ import {
   requestRows,
   suggestionText,
 } from './refillRequest';
-import { useVisitHeight, useVisitWeight } from './useVisitWeight';
+import { useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
 
 type Answer = 'approve' | 'change' | 'deny' | 'pending';
 
@@ -137,9 +137,11 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     queryFn: () => getErxRequest(oystehrZambda!, { taskId }),
     enabled: !!oystehrZambda,
   });
-  // An approval sends the vitals as the order form does: the original's visit's, else an earlier one's.
+  // An approval sends the vitals as the order form does: the original's visit's, else an earlier one's. Every answer
+  // sends the patient's allergies.
   const height = useVisitHeight(data?.prescription.encounterId);
   const weight = useVisitWeight(data?.prescription.encounterId);
+  const allergies = useVisitAllergies(data?.prescription.encounterId);
   const [chosen, setChosen] = useState<Answer>('approve');
   const [fills, setFills] = useState<string>();
   const [suggestion, setSuggestion] = useState(0);
@@ -218,10 +220,12 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
               note: trimmed,
               metadata,
               vitals,
+              allergies,
             })
           : ({
               taskId: refill!.renewalTaskId,
               decision: answer,
+              ...(allergies ? { allergies } : {}),
               ...(answer === 'approve'
                 ? {
                     numberOfRefills: fillsNumber,
@@ -278,8 +282,14 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             onSend: async (line, order) => {
               await respond.mutateAsync(
                 change
-                  ? changeApproval(change.changeTaskId, selected ? suggestion : undefined, line, order.vitals)
-                  : renewalApproval(refill!.renewalTaskId, line, order.vitals)
+                  ? changeApproval(
+                      change.changeTaskId,
+                      selected ? suggestion : undefined,
+                      line,
+                      order.vitals,
+                      order.allergies
+                    )
+                  : renewalApproval(refill!.renewalTaskId, line, order.vitals, order.allergies)
               );
             },
             sendLabel: `Send to ${pharmacyName}`,
@@ -295,6 +305,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                   medicationRequestId: prescription.resourceId!,
                   practitionerId: order.practitionerId,
                   reason: 'Prescription/Therapy change',
+                  ...(order.allergies ? { allergies: order.allergies } : {}),
                 });
                 setOriginalCancelled(true);
               }

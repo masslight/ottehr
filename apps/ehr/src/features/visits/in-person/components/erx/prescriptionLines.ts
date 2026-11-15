@@ -22,6 +22,7 @@ import {
   PrescriptionStep,
   SuggestedPrescriptionFields,
 } from 'utils/lib/helpers/medications/prescription-suggestions';
+import { AllergyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PrescriptionOrderMetadata } from 'utils/lib/types/api/erx.types';
 import {
   MedicationIngredient,
@@ -39,6 +40,7 @@ import {
   CompoundOrderIngredient,
   CompoundStrengthUnit,
   OrderPrescriptionInput,
+  PrescriptionAllergy,
   PrescriptionVitals,
   QUANTITY_UNITS,
   QuantityUnit,
@@ -886,6 +888,7 @@ interface OrderContext {
   encounterId: string;
   pharmacy: PharmacySearchResult;
   vitals?: PrescriptionVitals;
+  allergies?: PrescriptionAllergy[];
 }
 
 /** The height and weight an order or an approval sends, each with the day it was measured; a weight with no time (typed
@@ -901,6 +904,19 @@ export const prescriptionVitals = (
     ...(height ? { height: { value: height.cm, unit: 'cm', measuredDate: measuredDate(height.takenAt) } } : {}),
     ...(weight ? { weight: { value: weight.kg, unit: 'kg', measuredDate: measuredDate(weight.takenAt) } } : {}),
   };
+};
+
+/** The patient's active allergies an order, an answer to a request or a cancel sends, by name only (the allergen id is
+ * the eRx vendor's, with no SCRIPT qualifier); none when there are none, since an empty list would say "no known
+ * allergies", which Ottehr doesn't record. Ottehr charts no category or type, so each is an allergy to a substance. */
+export const prescriptionAllergies = (allergies: AllergyDTO[] | undefined): PrescriptionAllergy[] | undefined => {
+  const active = (allergies ?? []).flatMap((allergy) => {
+    const name = allergy.name?.trim().slice(0, 105);
+    return allergy.current === true && name
+      ? [{ name, adverseEvent: 'Allergy to substance' as const, source: 'Clinician' as const }]
+      : [];
+  });
+  return active.length ? active : undefined;
 };
 
 const ASCII_FRACTIONS: Record<string, string> = { '¼': '1/4', '½': '1/2', '¾': '3/4' };
@@ -946,6 +962,7 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
       ? { diagnosisCode: line.diagnosis.code.trim(), diagnosisDescription: line.diagnosis.display.trim() }
       : {}),
     ...(context.vitals ? { vitals: context.vitals } : {}),
+    ...(context.allergies ? { allergies: context.allergies } : {}),
   };
   if (compound) {
     const entered = compoundToOrder(compound);

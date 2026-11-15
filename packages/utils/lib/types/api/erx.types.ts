@@ -3,7 +3,7 @@ import z from 'zod';
 import { DOSE_BASES } from '../../helpers/medications/plain-dose';
 import { PRESCRIPTION_ROUTES } from '../../helpers/medications/prescription-suggestions';
 import { PrescribedMedicationDTO, PrescribedMedicationOrderDTO } from './chart-data/chart-data.types';
-import type { CompoundOrder, PrescriptionVitals } from './order-prescription.types';
+import type { CompoundOrder, PrescriptionAllergy, PrescriptionVitals } from './order-prescription.types';
 
 export const GetErxOrdersInputSchema = z.object({
   encounterIds: z.array(z.string()),
@@ -42,8 +42,8 @@ export const RENEWAL_PENDING_REASONS = [
 
 /** What the renewal-response endpoint takes: an approval (the number of fills, 1–99, what the provider changed, which
  * is either an NDC or a compound, never both, the blanks the new prescription keeps for a re-fill and the patient's
- * vitals, as order-prescription takes them), a denial or a pending answer. */
-export type RenewalResponseInput = { taskId: string } & (
+ * vitals, as order-prescription takes them), a denial or a pending answer; any of them with the patient's allergies. */
+export type RenewalResponseInput = { taskId: string; allergies?: PrescriptionAllergy[] } & (
   | {
       decision: 'approve';
       numberOfRefills: number;
@@ -95,7 +95,7 @@ export const CHANGE_REQUEST_KINDS: Record<string, string> = {
 /** What the change-response endpoint takes: an approval of one of the pharmacy's suggestions (by its position) with
  * what the provider changed over it (the eRx service picks Approved or ApprovedWithChanges), a denial or a pending
  * answer. A prior authorization request (P) is approved with the prior authorization, never with changes. */
-export type ChangeResponseInput = { taskId: string } & (
+export type ChangeResponseInput = { taskId: string; allergies?: PrescriptionAllergy[] } & (
   | {
       decision: 'approve';
       requestedMedicationIndex?: number;

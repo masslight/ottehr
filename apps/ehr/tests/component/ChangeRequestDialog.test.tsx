@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   completeTask: vi.fn(),
   height: undefined as { cm: number; takenAt?: string } | undefined,
   weight: undefined as { kg: number; takenAt?: string; thisVisit: boolean } | undefined,
+  allergies: undefined as { name: string; adverseEvent: 'Allergy to substance'; source: 'Clinician' }[] | undefined,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -26,6 +27,7 @@ vi.mock('src/hooks/useAuthToken', () => ({ useAuthToken: () => 'user-token' }));
 vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () => ({
   useVisitWeight: () => mocks.weight,
   useVisitHeight: () => mocks.height,
+  useVisitAllergies: () => mocks.allergies,
 }));
 vi.mock('../../src/features/visits/in-person/hooks/useTasks', () => ({
   GET_TASKS_KEY: 'get-tasks',
@@ -208,6 +210,18 @@ describe('Change request dialog', () => {
     await user.click(screen.getByRole('combobox', { name: /Reason/ }));
     await user.click(screen.getByRole('option', { name: 'Change not appropriate' }));
     await waitFor(() => expect(screen.getByLabelText(/Note to pharmacy/)).toHaveFocus());
+  });
+
+  it('sends the patient’s allergies with a denial', async () => {
+    mocks.allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }];
+    const user = await open(OUT_OF_STOCK);
+    await user.click(screen.getByRole('button', { name: 'Deny' }));
+    await user.click(screen.getByRole('combobox', { name: /Reason/ }));
+    await user.click(screen.getByRole('option', { name: 'Change not appropriate' }));
+    await user.click(screen.getByRole('button', { name: 'Send denial' }));
+    await waitFor(() => expect(mocks.respondToChange).toHaveBeenCalled());
+    expect(mocks.respondToChange.mock.calls[0][1]).toMatchObject({ decision: 'deny', allergies: mocks.allergies });
+    mocks.allergies = undefined;
   });
 
   it('denies a change request with a change denial reason', async () => {

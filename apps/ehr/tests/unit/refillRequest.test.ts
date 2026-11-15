@@ -261,6 +261,24 @@ describe('change request: the answers', () => {
     });
   });
 
+  it('sends the patient’s allergies with every answer, and none when there are none', () => {
+    const allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }] as const;
+    const given = { allergies: [...allergies] };
+    expect(changeResponse('change-1', 'approve', { suggestion: 0, ...given })).toMatchObject({ allergies });
+    expect(changeResponse('change-1', 'deny', { reason: 'Change not appropriate', ...given })).toMatchObject({
+      allergies,
+    });
+    expect(changeResponse('change-1', 'pending', { reason: 'Patient has labs/tests pending', ...given })).toMatchObject(
+      { allergies }
+    );
+    expect(changeResponse('change-1', 'deny', { reason: 'Change not appropriate' })).not.toHaveProperty('allergies');
+    expect(changeApproval('change-1', undefined, refillLine(ORIGINAL), undefined, [...allergies])).toMatchObject({
+      allergies,
+    });
+    expect(renewalApproval('renewal-1', refillLine(ORIGINAL), undefined, [...allergies])).toMatchObject({ allergies });
+    expect(renewalApproval('renewal-1', refillLine(ORIGINAL))).not.toHaveProperty('allergies');
+  });
+
   it('“Change” sends the whole prescription over the selected suggestion, refills as written', () => {
     const line = refillLine(ORIGINAL, OMEPRAZOLE);
     expect(changeApproval('change-1', 0, line)).toEqual({

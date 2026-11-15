@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { GetErxRequestResponse } from 'utils/lib/types/api/erx.types';
+import { PrescriptionAllergy } from 'utils/lib/types/api/order-prescription.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RefillRequestDialog } from '../../src/features/visits/in-person/components/erx/RefillRequestDialog';
 
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   completeTask: vi.fn(),
   height: undefined as { cm: number; takenAt?: string } | undefined,
   weight: undefined as { kg: number; takenAt?: string; thisVisit: boolean } | undefined,
+  allergies: undefined as PrescriptionAllergy[] | undefined,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -22,6 +24,7 @@ vi.mock('src/hooks/useAuthToken', () => ({ useAuthToken: () => 'user-token' }));
 vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () => ({
   useVisitWeight: () => mocks.weight,
   useVisitHeight: () => mocks.height,
+  useVisitAllergies: () => mocks.allergies,
 }));
 vi.mock('../../src/features/visits/in-person/hooks/useTasks', () => ({
   GET_TASKS_KEY: 'get-tasks',
@@ -98,6 +101,7 @@ describe('Refill request dialog', () => {
     vi.clearAllMocks();
     mocks.height = undefined;
     mocks.weight = undefined;
+    mocks.allergies = undefined;
     mocks.respondToRenewal.mockResolvedValue({
       taskId: 'renewal-1',
       messageId: 'm',
@@ -185,6 +189,22 @@ describe('Refill request dialog', () => {
     expect(mocks.respondToRenewal.mock.calls[0][1].vitals).toEqual({
       height: { value: 162, unit: 'cm', measuredDate: '2026-09-14' },
     });
+  });
+
+  it('sends the patient’s allergies with an approval and with a denial', async () => {
+    mocks.allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }];
+    let user = await open();
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    await waitFor(() => expect(mocks.respondToRenewal).toHaveBeenCalledTimes(1));
+    expect(mocks.respondToRenewal.mock.calls[0][1]).toMatchObject({ decision: 'approve', allergies: mocks.allergies });
+    cleanup();
+    user = await open();
+    await user.click(screen.getByRole('button', { name: 'Deny' }));
+    await user.click(screen.getByRole('combobox', { name: /Reason/ }));
+    await user.click(screen.getByRole('option', { name: 'Patient needs appointment' }));
+    await user.click(screen.getByRole('button', { name: 'Send denial' }));
+    await waitFor(() => expect(mocks.respondToRenewal).toHaveBeenCalledTimes(2));
+    expect(mocks.respondToRenewal.mock.calls[1][1]).toMatchObject({ decision: 'deny', allergies: mocks.allergies });
   });
 
   it('shows a compound the pharmacy asks to renew as the prescriptions table does', async () => {

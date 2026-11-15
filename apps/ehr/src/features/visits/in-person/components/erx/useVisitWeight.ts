@@ -1,6 +1,9 @@
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { PrescriptionAllergy } from 'utils/lib/types/api/order-prescription.types';
 import { useGetHistoricalVitals, useGetVitals } from '../../../shared/components/vitals/hooks/useGetVitals';
+import { useVisitNote } from '../../../shared/hooks/useVisitNote';
 import { useAppointmentData } from '../../../shared/stores/appointment/appointment.store';
+import { prescriptionAllergies } from './prescriptionLines';
 
 /** The weight the dose calculator starts from, in kg as the vitals keep it. */
 export interface VisitWeight {
@@ -48,4 +51,12 @@ export const useVisitWeight = (encounterId?: string): VisitWeight | undefined =>
 export const useVisitHeight = (encounterId?: string): { cm: number; takenAt?: string } | undefined => {
   const vital = useVisitVital(VitalFieldNames.VitalHeight, encounterId);
   return vital && { cm: vital.value, takenAt: vital.takenAt };
+};
+
+/** The patient's active allergies sent with an order, an answer to a request or a cancel, as the order form's
+ * Allergies list reads them (the same query, so nothing is fetched twice). The visit is the page's, unless another one
+ * is given. */
+export const useVisitAllergies = (encounterId?: string): PrescriptionAllergy[] | undefined => {
+  const { data: note } = useVisitNote(encounterId ? { encounterId } : {});
+  return prescriptionAllergies(note?.history.allergies);
 };
