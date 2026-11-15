@@ -960,16 +960,15 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     quantityUnit: line.quantityUnit,
     ...(line.daysSupply ? { daysSupply: Number(line.daysSupply) } : {}),
     numberOfRefills: Number(line.numberOfRefills),
-    // Directions go with a half in words ("half tablet") and other parts in ASCII ("1/4 tablet"): the blanks' written
-    // so, typed or quick-pick ones converted; the screen keeps "½". A compound's are typed.
-    patientInstructions: (medication && fromBlanks
-      ? asciiFractions(
-          withAdditionalInstructions(
+    // Directions go with a half in words ("half tablet", "½" or "1/2" alike) and other parts in ASCII ("1/4 tablet"):
+    // the blanks' written so, typed or quick-pick ones converted; the screen keeps "½". A compound's are typed.
+    patientInstructions: sentSigInWords(
+      medication && fromBlanks
+        ? withAdditionalInstructions(
             prescriptionDirectionsText(medication, line, { ascii: true }),
             line.additionalInstructions
           )
-        )
-      : asciiFractions(line.patientInstructions)
+        : line.patientInstructions
     ).trim(),
     ...(line.noteToPharmacy.trim() ? { noteToPharmacy: line.noteToPharmacy.trim() } : {}),
     pharmacyId: context.pharmacy.ncpdpId,

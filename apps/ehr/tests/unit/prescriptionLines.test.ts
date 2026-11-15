@@ -539,9 +539,14 @@ describe('prescriptionLineToOrder', () => {
     expect(prescriptionLineToOrder(stepped, context).patientInstructions).toBe(
       'Take 1 and a half tablets by mouth twice daily for 10 days.'
     );
-    // Directions the provider typed are sent as typed, apart from Unicode fractions.
+    // Directions the provider typed are sent as typed, apart from fractions: a half, "½" or "1/2", in words (review
+    // D2-6), the other parts in ASCII.
     const typed = { ...line, patientInstructions: 'Take 1/2 tablet twice daily with food.' };
-    expect(prescriptionLineToOrder(typed, context).patientInstructions).toBe('Take 1/2 tablet twice daily with food.');
+    expect(prescriptionLineToOrder(typed, context).patientInstructions).toBe('Take half tablet twice daily with food.');
+    const typedQuarter = { ...line, patientInstructions: 'Take 1 1/2 tablets, then 1 1/4 tablets' };
+    expect(prescriptionLineToOrder(typedQuarter, context).patientInstructions).toBe(
+      'Take 1 and a half tablets, then 1 1/4 tablets'
+    );
     const typedUnicode = { ...line, patientInstructions: 'Take 1½ tablets, then ½ tablet' };
     expect(prescriptionLineToOrder(typedUnicode, context).patientInstructions).toBe(
       'Take 1 and a half tablets, then half tablet'
