@@ -444,6 +444,30 @@ describe('prescriptionDispense', () => {
     ).toEqual({ quantityValue: '4', daysSupply: '7' });
   });
 
+  // Review D3-3: every other day over n days gives a dose on days 1, 3, 5 …, so ceil(n / 2) doses, not n / 2.
+  it('counts every other day’s doses on days 1, 3, 5 …', () => {
+    const prednisone = (durationDays: string): ReturnType<typeof prescriptionDispense> =>
+      prescriptionDispense(PREDNISONE_TAB, {
+        dose: '2',
+        route: 'by mouth',
+        frequency: 'every other day',
+        durationDays,
+      });
+    expect(prednisone('7')).toEqual({ quantityValue: '8', daysSupply: '7' });
+    expect(prednisone('5')).toEqual({ quantityValue: '6', daysSupply: '5' });
+    expect(prednisone('1')).toEqual({ quantityValue: '2', daysSupply: '1' });
+    expect(prednisone('28')).toEqual({ quantityValue: '28', daysSupply: '28' });
+    // Prednisolone 15 mg/5 mL, 13.5 mL a dose over 5 days: 3 doses.
+    expect(
+      prescriptionDispense(liquid('Oral Solution', 'prednisolone', 3), {
+        dose: '13.5',
+        route: 'by mouth',
+        frequency: 'every other day',
+        durationDays: '5',
+      })
+    ).toEqual({ quantityValue: '41', daysSupply: '5' });
+  });
+
   it('counts an as-needed frequency at its most frequent, and none at all for a bare "as needed"', () => {
     const directions = {
       dose: '1',

@@ -280,9 +280,9 @@ const total = (values: (number | undefined)[]): number | undefined =>
     : undefined;
 
 /** The quantity to dispense and the days supply for the picks, as the form holds them: `''` when they can't be
- * worked out. Dose × doses a day × days, summed over the steps and rounded up, an as-needed frequency at its most
- * frequent; one inhaler or dose pack whatever the doses; nothing for a cream or for drops, whose package sizes the
- * product's details don't give. */
+ * worked out. Dose × doses a day × days (every other day: a dose on days 1, 3, 5 …), summed over the steps and
+ * rounded up, an as-needed frequency at its most frequent; one inhaler or dose pack whatever the doses; nothing for a
+ * cream or for drops, whose package sizes the product's details don't give. */
 export const prescriptionDispense = (
   product: PrescriptionProduct | null | undefined,
   directions: PrescriptionDirections
@@ -304,7 +304,9 @@ export const prescriptionDispense = (
       const amount = leadingNumber(step.dose);
       const perDay = prescriptionFrequency(step.frequency)?.dosesPerDay;
       const days = stepDays[i];
-      return amount !== undefined && perDay !== undefined && days !== undefined ? amount * perDay * days : undefined;
+      if (amount === undefined || perDay === undefined || days === undefined) return undefined;
+      // Under once a day, the doses fall on days 1, 3, 5 …: 7 days every other day is 4 doses.
+      return amount * (perDay < 1 ? Math.ceil(perDay * days) : perDay * days);
     })
   );
   const quantity = !uncounted && doses !== undefined ? Math.ceil(doses) : undefined;
