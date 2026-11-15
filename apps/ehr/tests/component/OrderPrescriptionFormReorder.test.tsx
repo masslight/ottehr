@@ -157,7 +157,7 @@ describe('Order prescription form: Reorder', () => {
     mocks.directoryRow = undefined;
     await reorderAndSend();
     expect(enqueueSnackbar).toHaveBeenCalledWith(
-      "The original pharmacy can't take e-prescriptions now. Pick another pharmacy.",
+      `The original pharmacy can't take e-prescriptions now. Sending to ${PREFERRED.name}.`,
       { variant: 'warning' }
     );
     expect(mocks.orderPrescription.mock.calls[0][0]).toMatchObject({ pharmacyId: PREFERRED.ncpdpId });

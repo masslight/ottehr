@@ -155,11 +155,14 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
       if (found.ncpdpId !== pharmacy?.ncpdpId)
         enqueueSnackbar(`Pharmacy changed to ${found.name} for every prescription on the form`, { variant: 'warning' });
     } else
-      enqueueSnackbar("The original pharmacy can't take e-prescriptions now. Pick another pharmacy.", {
-        variant: 'warning',
-      });
+      enqueueSnackbar(
+        `The original pharmacy can't take e-prescriptions now. ${
+          pharmacy ? `Sending to ${pharmacy.name}.` : 'Pick another pharmacy.'
+        }`,
+        { variant: 'warning' }
+      );
     setReorderNcpdpId(undefined);
-  }, [reorderPharmacy, pharmacy?.ncpdpId]);
+  }, [reorderPharmacy, pharmacy]);
 
   const [quickPickLineKey, setQuickPickLineKey] = useState<number | null>(null);
   const [quickPickName, setQuickPickName] = useState('');
