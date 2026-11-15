@@ -11,6 +11,7 @@ import {
 import { PrescriptionSentences } from '../../src/features/visits/in-person/components/erx/PrescriptionSentences';
 import {
   missingSetMembersText,
+  prescriptionSuggestionsFor,
   withListedQuickPick,
   withPrescriptionSet,
 } from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
@@ -527,10 +528,10 @@ describe('Prescription sets on the order form', () => {
   });
 
   describe('suggestions', () => {
-    it('lists the product’s quick picks first and its sets after them, three in all', () => {
+    it('lists the product’s quick picks first and its sets after them', () => {
       render(<Form initial={[amoxLine()]} />);
-      // Amox as written, Amox strep, then Acute otitis (set); Ear infection (set) is fourth. Bronchitis is Inactive.
-      expect(screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })).toHaveLength(4);
+      // Amox as written, Amox strep, then Acute otitis and Ear infection (sets). Bronchitis is Inactive.
+      expect(screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })).toHaveLength(5);
       expect(suggestionRow(0)).toHaveTextContent('Take 5 mL by mouth twice daily for 10 days.');
       expect(suggestionRow(0)).not.toHaveTextContent('Set ·');
       expect(suggestionRow(1)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
@@ -538,7 +539,7 @@ describe('Prescription sets on the order form', () => {
       const setRow = suggestionRow(2);
       expect(setRow).toHaveTextContent('Acute otitis');
       expect(within(setRow).getByText('Set · 2')).toBeInTheDocument();
-      expect(screen.queryByText('Ear infection')).not.toBeInTheDocument();
+      expect(suggestionRow(3)).toHaveTextContent('Ear infection');
       expect(screen.queryByText('Bronchitis')).not.toBeInTheDocument();
     });
 
@@ -632,18 +633,46 @@ describe('Prescription sets on the order form', () => {
       expect(shownRow(5)).toHaveTextContent('Take 5 mL by mouth twice daily for 10 days.');
     });
 
-    it('a set whose row the cap of three would cut still shows, first', async () => {
+    it('a set picked leads, ahead of the quick picks and the other set', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} />);
       await openMenu(user);
-      // Fourth for Amox by default: Amox as written, Amox strep, Acute otitis.
+      // Fourth for Amox by default: Amox as written, Amox strep, Acute otitis, Ear infection.
       await user.click(within(quickPickColumn()).getByText('Ear infection'));
       await openSuggestions(user, 2);
       expect(shownRow(0)).toHaveTextContent(/Ear infectionSet · 2/);
       expect(shownRow(1)).toHaveTextContent('Take 5 mL by mouth twice daily for 10 days.');
       expect(shownRow(2)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
       expect(shownRow(2)).not.toHaveTextContent('Set ·');
-      expect(shownRow(3)).toHaveTextContent('Other');
+      expect(shownRow(3)).toHaveTextContent(/Acute otitisSet · 2/);
+      expect(shownRow(4)).toHaveTextContent('Other');
+    });
+
+    it('up to 3 quick picks and up to 2 sets, so a product with 3 quick picks still shows its sets', () => {
+      const more = ['qp-a', 'qp-b', 'qp-c'].map((id) => ({ ...SAVED_TEXT, id, name: id }));
+      const sets = ['set-1', 'set-2', 'set-3'].map((id) => set(id, id, ['qp-strep']));
+      const rows = prescriptionSuggestionsFor({ medication: AMOX, quickPicks: [BY_WEIGHT, ...more], sets });
+      expect(rows.map((row) => row.setName ?? row.id)).toEqual([
+        'quick-pick-qp-strep',
+        'quick-pick-qp-a',
+        'quick-pick-qp-b',
+        'set-1',
+        'set-2',
+      ]);
+      // The row the line was filled from leads, however far down.
+      const picked = prescriptionSuggestionsFor({
+        medication: AMOX,
+        quickPicks: [BY_WEIGHT, ...more],
+        sets,
+        picked: 'set-set-3',
+      });
+      expect(picked.map((row) => row.setName ?? row.id)).toEqual([
+        'set-3',
+        'quick-pick-qp-strep',
+        'quick-pick-qp-a',
+        'quick-pick-qp-b',
+        'set-1',
+      ]);
     });
   });
 

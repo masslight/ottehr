@@ -67,8 +67,10 @@ export interface PrescriptionSuggestionQuery {
   picked?: string;
 }
 
-/** How many of the product's quick picks the box shows, before "Other". */
+/** How many of the product's quick picks the box shows, and then how many of its sets, before "Other": each has its
+ * own cap, so a product with many quick picks still shows its sets. */
 export const QUICK_PICK_SUGGESTIONS = 3;
+export const SET_SUGGESTIONS = 2;
 
 /** The day counts a duration blank offers. */
 const DURATION_DAYS = ['3', '5', '7', '10', '14', '30'];
@@ -307,7 +309,7 @@ const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | u
 };
 
 /** The suggestions for a product: the practice's quick picks for exactly this product and its Active sets with one,
- * up to `QUICK_PICK_SUGGESTIONS` together, quick picks first and sets after; the box adds "Other" (Write my own). A
+ * up to `QUICK_PICK_SUGGESTIONS` quick picks first and up to `SET_SUGGESTIONS` sets after; the box adds "Other" (Write my own). A
  * set's row is its quick pick for the product, named for the set, with what else it adds. The row the line was
  * filled from comes first, however far down. Where more suggestion data plugs in. */
 export const prescriptionSuggestionsFor = ({
@@ -337,11 +339,15 @@ export const prescriptionSuggestionsFor = ({
     };
     return [{ name: set.name, row }];
   });
-  // Sets, used less often, follow the quick picks; each keeps the list's order. The picked row leads, before the cap.
-  const rows = [...single, ...fromSets].map(({ row }) => row);
-  const at = rows.findIndex((row) => row.id === picked);
-  const ordered = at > 0 ? [rows[at], ...rows.filter((_, i) => i !== at)] : rows;
-  return ordered.slice(0, QUICK_PICK_SUGGESTIONS);
+  // Sets, used less often, follow the quick picks; each keeps the list's order. The picked row leads, before the caps.
+  const pickedFirst = (rows: PrescriptionSuggestionRow[]): PrescriptionSuggestionRow[] => {
+    const at = rows.findIndex((row) => row.id === picked);
+    return at > 0 ? [rows[at], ...rows.filter((_, i) => i !== at)] : rows;
+  };
+  return pickedFirst([
+    ...pickedFirst(single.map(({ row }) => row)).slice(0, QUICK_PICK_SUGGESTIONS),
+    ...pickedFirst(fromSets.map(({ row }) => row)).slice(0, SET_SUGGESTIONS),
+  ]);
 };
 
 /** The lines a set puts where `line` is. Picked from the medication menu, an empty line takes its first quick pick
