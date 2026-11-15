@@ -18,7 +18,7 @@ import React, { ReactElement, useMemo, useRef, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { EChart } from 'src/features/report-builder/runtime/components/EChart';
-import { LmsRow } from 'utils/lib/helpers/vitals/growth-lms';
+import { LmsRow, percentOf95thText } from 'utils/lib/helpers/vitals/growth-lms';
 import {
   FlowsheetVisit,
   GrowthChartData,
@@ -207,7 +207,10 @@ const GrowthCard = ({
                     <TableCell sx={cellSx}>{formatGrowthValue(point, view)}</TableCell>
                     {point.percentile && point.z !== undefined ? (
                       <>
-                        <TableCell sx={cellSx}>{point.percentile}</TableCell>
+                        <TableCell sx={cellSx}>
+                          {point.percentile}
+                          {percentOf95thText(point.percentOf95th)}
+                        </TableCell>
                         <TableCell sx={cellSx}>{point.z.toFixed(2)}</TableCell>
                       </>
                     ) : (

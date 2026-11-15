@@ -93,6 +93,8 @@ export interface GrowthChartPoint {
   z?: number;
   /** "88th", "<1st", ">99th"; absent when the point is not on the line (see note). */
   percentile?: string;
+  /** BMI-for-age at or above the 95th percentile: the BMI as a whole percent of the 95th (severe obesity from 120). */
+  percentOf95th?: number;
   /** Biologically implausible, or built from an implausible measurement: a red ✕, kept off the line. */
   implausible?: boolean;
   /** Why the point is not on the line, when it is not. */

@@ -9,7 +9,10 @@ import {
   formatPercentile,
   lmsAt,
   modifiedZ,
+  percentOf95thText,
   PRETERM_BEFORE_DAYS,
+  valueAtZ,
+  Z_95TH,
   zOf,
 } from 'utils/lib/helpers/vitals/growth-lms';
 import { bmiAppliesAt } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
@@ -162,6 +165,8 @@ const ageChartFor = (measure: GrowthMeasure, ageMonths: number): GrowthChartId |
 interface Score {
   z: number;
   percentile: string;
+  /** BMI at or above the 95th percentile: its percent of the 95th. */
+  percentOf95th?: number;
   implausible: boolean;
   /** The z the implausible limits apply to: CDC's modified z, else z. */
   flagZ: number;
@@ -174,11 +179,21 @@ export const scoreOn = (chartId: GrowthChartId, x: number, y: number, sex: Sex):
   if (!p) return undefined;
   const z = zOf(p, y, chart.restricted);
   const flagZ = chart.modified ? modifiedZ(p, y) : z;
-  return { z, percentile: formatPercentile(z), implausible: flagZ < chart.flag[0] || flagZ > chart.flag[1], flagZ };
+  // Above the 97th the CDC curves can't tell children apart, so a BMI from the 95th up also reads as its percent of
+  // the 95th (AAP 2023: severe obesity from 120%).
+  const p95 = chart.measure === 'bmi' ? valueAtZ(p, Z_95TH) : undefined;
+  const percentOf95th = p95 !== undefined && y >= p95 ? Math.round((100 * y) / p95) : undefined;
+  return {
+    z,
+    percentile: formatPercentile(z),
+    ...(percentOf95th !== undefined && { percentOf95th }),
+    implausible: flagZ < chart.flag[0] || flagZ > chart.flag[1],
+    flagZ,
+  };
 };
 
 const percentileText = (score: Score | undefined): string | undefined =>
-  score && (score.implausible ? 'implausible' : score.percentile);
+  score && (score.implausible ? 'implausible' : score.percentile + percentOf95thText(score.percentOf95th));
 
 /**
  * The percentile text for a measurement, 'implausible' when flagged, undefined when no table covers it or the
@@ -263,7 +278,16 @@ const visitChartPoints = (
       : bad.length
       ? `from an implausible ${bad.join(' and ')} ${NOT_ON_LINE}`
       : undefined;
-    points.push({ ...point, z: score.z, ...(note ? { implausible: true, note } : { percentile: score.percentile }) });
+    points.push({
+      ...point,
+      z: score.z,
+      ...(note
+        ? { implausible: true, note }
+        : {
+            percentile: score.percentile,
+            ...(score.percentOf95th !== undefined && { percentOf95th: score.percentOf95th }),
+          }),
+    });
   });
   return points;
 };

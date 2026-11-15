@@ -169,6 +169,9 @@ describe('growth chart option (the cards ported from the OTR-3741 report)', () =
     const wfl = point({ chart: 'who-wfl', x: 65.04, y: 7.3 });
     expect(formatGrowthValue(wfl, GROWTH_CHART_VIEWS['who-wfl'])).toBe('7.30 kg @ 65.0 cm');
     expect(growthTooltip(wfl, GROWTH_CHART_VIEWS['who-wfl'])).toContain('7.30 kg ≈ 16.09 lbs at 65.0 cm');
+    // A BMI at or above the 95th adds its percent of the 95th.
+    const bmi = point({ chart: 'cdc-bmi', x: 120.5, y: 32.1, percentile: '>99th', percentOf95th: 143 });
+    expect(growthTooltip(bmi, GROWTH_CHART_VIEWS['cdc-bmi'])).toMatch(/\n>99th percentile \(143% of 95th\)$/);
   });
 
   it('shows both units: kg left / lbs right on weight charts, cm / in on length and head charts, BMI alone', () => {

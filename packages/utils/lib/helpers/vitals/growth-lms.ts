@@ -88,6 +88,13 @@ const ordinal = (n: number): string => {
   return n + (suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]);
 };
 
+/** The 95th percentile's z-score. */
+export const Z_95TH = 1.6449;
+
+/** A BMI at or above the 95th percentile as its percent of the 95th: " (143% of 95th)"; '' without one. */
+export const percentOf95thText = (percent: number | undefined): string =>
+  percent === undefined ? '' : ` (${percent}% of 95th)`;
+
 /** "88th", "<1st", ">99th" — as the growth-charts report shows percentiles. */
 export const formatPercentile = (z: number): string => {
   const p = normCdf(z) * 100;

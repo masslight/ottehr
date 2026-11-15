@@ -318,6 +318,18 @@ describe('buildGrowthFlowsheet', () => {
 });
 
 describe('growth chart data (the cards the EHR draws)', () => {
+  test('a BMI at or above the 95th percentile also reads as its percent of the 95th, in the cell and on its point', () => {
+    // CDC BMI-for-age boys at 120.5 months: P95 = M (1 + L S z)^(1/L), z = 1.6449.
+    const { L, M, S } = lmsAt(GROWTH_TABLES['CDC bmi male'], 120.5)!;
+    const p95 = M * Math.pow(1 + L * S * 1.6449, 1 / L);
+    expect(scoreOn('cdc-bmi', 120.5, 1.43 * p95, 'male')).toMatchObject({ percentile: '>99th', percentOf95th: 143 });
+    expect(percentileOf('bmi', 1.43 * p95, 120.5, 'male')).toBe('>99th (143% of 95th)');
+    expect(percentileOf('bmi', p95 * 1.0001, 120.5, 'male')).toBe('95th (100% of 95th)');
+    expect(percentileOf('bmi', p95 * 0.99, 120.5, 'male')).toMatch(/^9[45]th$/);
+    // Only BMI: a weight above the 95th has no percent of it.
+    expect(scoreOn('cdc-wfa', 120.5, 60, 'male')?.percentOf95th).toBeUndefined();
+  });
+
   test('z is 0 and the percentile 50th at a table row median, on WHO and CDC charts', () => {
     // WHO weight-for-age boys 12 months: M = 9.6479; CDC BMI-for-age girls at the 120.5-month row.
     expect(scoreOn('who-wfa', 12, 9.6479, 'male')).toMatchObject({ z: 0, percentile: '50th', implausible: false });

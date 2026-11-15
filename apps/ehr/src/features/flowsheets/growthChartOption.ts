@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { DATE_FORMAT } from 'src/helpers/formatDateTime';
-import { LmsRow, valueAtZ, zForPercentile } from 'utils/lib/helpers/vitals/growth-lms';
+import { LmsRow, percentOf95thText, valueAtZ, zForPercentile } from 'utils/lib/helpers/vitals/growth-lms';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { GrowthChartId, GrowthChartPoint, GrowthChartSet } from 'utils/lib/types/api/flowsheets.types';
@@ -202,10 +202,15 @@ export const formatGrowthValueBothUnits = (point: GrowthChartPoint, view: Growth
 
 export const formatGrowthDate = (iso: string): string => DateTime.fromISO(iso).toFormat(DATE_FORMAT);
 
-/** The tooltip: "08/10/2026 · 19 y 4 mo · 73.00 kg ≈ 160.94 lbs" then "88th percentile" or the ⚠ note. Plain text, never HTML. */
+/**
+ * The tooltip: "08/10/2026 · 19 y 4 mo · 73.00 kg ≈ 160.94 lbs" then "88th percentile" (">99th percentile (143% of
+ * 95th)" for a high BMI) or the ⚠ note. Plain text, never HTML.
+ */
 export const growthTooltip = (point: GrowthChartPoint, view: GrowthChartView): string =>
   `${formatGrowthDate(point.time)} · ${point.age} · ${formatGrowthValueBothUnits(point, view)}\n${
-    point.percentile ? `${point.percentile} percentile` : `⚠ ${point.note ?? ''}`
+    point.percentile
+      ? `${point.percentile} percentile${percentOf95thText(point.percentOf95th)}`
+      : `⚠ ${point.note ?? ''}`
   }`;
 
 export interface GrowthChartOption {
