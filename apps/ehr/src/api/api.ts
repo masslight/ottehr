@@ -700,7 +700,8 @@ export const checkPractitionerEnrollment = async (
 
 export const enrollPractitioner = async (
   token: string,
-  practitionerId: string
+  practitionerId: string,
+  locationId: string
 ): Promise<CheckPractitionerEnrollmentOutput> => {
   const projectId = import.meta.env.VITE_APP_PROJECT_ID;
   const response = await fetch(`${ERX_API_URL}/v4/practitioner/${practitionerId}`, {
@@ -709,6 +710,7 @@ export const enrollPractitioner = async (
       Authorization: `Bearer ${token}`,
       'x-zapehr-project-id': projectId,
     },
+    body: JSON.stringify({ locationId }),
   });
   const body = await response.json().catch(() => undefined);
   if (!response.ok) {
