@@ -40,6 +40,25 @@ const LEAD: Pick<LabRow, 'analyte' | 'note'> = {
   note: leadSpecimen,
 };
 
+/**
+ * An HIV screen that tests for antibodies only (it misses a recent infection for longer than an Ag/Ab test): by its
+ * code, else by a test's or its own name that says antibody but not antigen ("Ag/Ab", p24, 4th generation).
+ */
+const hivAntibodyOnly = (lab: FlowsheetLabResult): string | undefined => {
+  const name = `${lab.testName} ${lab.analyte}`;
+  const antibodyOnly =
+    lab.loincCodes.length > 0
+      ? hasCode(lab, 'hivAb')
+      : /antibod|\bab\b/i.test(name) && !/antigen|\bag\b|p24|\b4th\b|fourth/i.test(name);
+  return antibodyOnly ? 'antibody only' : undefined;
+};
+const HIV_SCREEN: Pick<LabRow, 'analyte' | 'exclude' | 'text' | 'note'> = {
+  text: true,
+  analyte: /\bhiv\b/i,
+  exclude: /\brna\b|viral load|genotyp|confirm|differentiation|western/i,
+  note: hivAntibodyOnly,
+};
+
 /** Rows whose uncoded results come from blood tests: a urine test never lands on them (a row may exclude more). */
 const serum = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ excludeTest: URINE, ...row }));
 /** Urinalysis rows: uncoded results only from a urine test, shown as reported, number or text. */
@@ -48,7 +67,8 @@ const urine = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ ...row, test: U
 /**
  * Lab rows (codes: lab-row-rules.ts). The name patterns only place uncoded results; the first matching row wins, so
  * absolute counts, high-sensitivity CRP and ratios are listed before, or excluded from, the rows they share a name
- * with. Glucose, fingerstick glucose and eGFR each take two rules under one key, and Lead three (see lab-row-rules.ts).
+ * with. Glucose, fingerstick glucose, eGFR and HIV Ag/Ab each take two rules under one key, and Lead three (see
+ * lab-row-rules.ts).
  */
 const LAB_ROWS: LabRow[] = [
   ...serum([
@@ -183,12 +203,8 @@ const LAB_ROWS: LabRow[] = [
     { key: 'magnesium', analyte: /magnesium|^mg$/i },
     { key: 'hsCrp', analyte: HS_CRP, exclude: /troponin/i },
     { key: 'crp', analyte: CRP, exclude: HS_CRP },
-    {
-      key: 'hivAgAb',
-      text: true,
-      analyte: /\bhiv\b/i,
-      exclude: /\brna\b|viral load|genotyp|confirm|differentiation|western/i,
-    },
+    { key: 'hivAgAb', ...HIV_SCREEN },
+    { key: 'hivAgAb', rule: 'hivAb', ...HIV_SCREEN },
     {
       key: 'hepatitisCAntibody',
       text: true,

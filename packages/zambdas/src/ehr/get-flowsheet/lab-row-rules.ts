@@ -176,10 +176,15 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     excludeProperties: LOG_COUNT,
   },
   // Lab results: HIV and STI
-  // The antigen/antibody screen, or an antibody-only screen such as a rapid (point-of-care) test; an immunoblot is a
-  // confirmation, not a screen.
+  // The antigen/antibody screen, or (hivAb, on the same row, marked "antibody only") an antibody-only screen such as
+  // a rapid (point-of-care) test; an immunoblot is a confirmation, not a screen.
   hivAgAb: {
-    components: ['HIV 1+2 Ab+HIV1 p24 Ag', 'HIV 1+2 Ab and HIV1 p24 Ag', 'HIV 1+2 Ab', 'HIV 1+2 IgG Ab'],
+    components: ['HIV 1+2 Ab+HIV1 p24 Ag', 'HIV 1+2 Ab and HIV1 p24 Ag'],
+    systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood', 'Blood'],
+    excludeMethods: ['IB'],
+  },
+  hivAb: {
+    components: ['HIV 1+2 Ab', 'HIV 1+2 IgG Ab'],
     systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood', 'Blood'],
     excludeMethods: ['IB'],
   },

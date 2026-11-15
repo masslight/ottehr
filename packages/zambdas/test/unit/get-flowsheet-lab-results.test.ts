@@ -102,7 +102,8 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     ['crp', ['1988-5']],
     ['hsCrp', ['30522-7']],
     ['urineCulture', ['630-4']],
-    ['hivAgAb', ['56888-1', '80387-4', '75666-8', '73906-0', '31201-7']],
+    ['hivAgAb', ['56888-1', '75666-8', '58900-2']],
+    ['hivAb', ['80387-4', '73906-0', '31201-7', '73905-2']],
     ['hepatitisCAntibody', ['16128-1', '13955-0', '72376-7', '89359-4']],
     ['esr', ['4537-7', '30341-2']],
     ['urineHcg', ['2106-3', '2112-1']],
@@ -442,6 +443,48 @@ describe('buildLabResultsFlowsheet', () => {
       hepatitisCAntibody: 'Reactive',
     });
     expect(valuesOf(lab('HIV 1+2 Ab, Immunoblot', { codes: ['44873-8'], text: 'Positive' }))).toEqual({});
+  });
+
+  test('HIV Ag/Ab: an antibody-only result shows "(antibody only)", by its code or else its name; an Ag/Ab one no note', () => {
+    const hiv = (result: FlowsheetLabResult): [string | number, string | undefined] => {
+      const value = build({ e1: [result] })[0].values.hivAgAb;
+      return [value.value, value.note];
+    };
+    // By code: the rapid and lab antibody tests, whatever the name says; the 4th-generation Ag/Ab test has no note.
+    expect(hiv(lab('HIV 1/2 Ab, Rapid', { codes: ['80387-4'], text: 'Non-reactive' }))).toEqual([
+      'Non-reactive',
+      'antibody only',
+    ]);
+    expect(hiv(lab('HIV', { codes: ['73906-0'], text: 'Non-reactive', test: 'OraQuick' }))).toEqual([
+      'Non-reactive',
+      'antibody only',
+    ]);
+    expect(hiv(lab('HIV 1+2 Ab', { codes: ['31201-7'], text: 'Nonreactive' }))).toEqual([
+      'Nonreactive',
+      'antibody only',
+    ]);
+    expect(hiv(lab('HIV Ag/Ab Antibody', { codes: ['56888-1'], text: 'Non-reactive' }))).toEqual([
+      'Non-reactive',
+      undefined,
+    ]);
+    expect(hiv(lab('HIV 1/2 Ag/Ab, 4th Gen', { codes: ['75666-8'], text: 'Non-reactive' }))).toEqual([
+      'Non-reactive',
+      undefined,
+    ]);
+    // By name: says antibody and not antigen, Ag/Ab, p24 or 4th generation.
+    expect(hiv(lab('HIV 1/2 Antibody Screen', { text: 'Non-reactive' }))).toEqual(['Non-reactive', 'antibody only']);
+    expect(hiv(lab('HIV-1/2', { text: 'Non-reactive', test: 'HIV-1/2 Ab, Rapid' }))).toEqual([
+      'Non-reactive',
+      'antibody only',
+    ]);
+    expect(hiv(lab('HIV-1/2 Ag/Ab', { text: 'Non-reactive' }))).toEqual(['Non-reactive', undefined]);
+    expect(hiv(lab('HIV 1/2 Antigen and Antibody', { text: 'Non-reactive' }))).toEqual(['Non-reactive', undefined]);
+    expect(hiv(lab('HIV Ab', { text: 'Non-reactive', test: 'HIV 4th generation screen' }))).toEqual([
+      'Non-reactive',
+      undefined,
+    ]);
+    expect(hiv(lab('HIV p24 Ag + Ab', { text: 'Non-reactive' }))).toEqual(['Non-reactive', undefined]);
+    expect(hiv(lab('HIV Screen', { text: 'Non-reactive' }))).toEqual(['Non-reactive', undefined]);
   });
 
   test('a fingerstick glucose is its own row, coded or named; the serum Glucose row keeps the lab glucose', () => {
