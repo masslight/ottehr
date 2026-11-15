@@ -249,7 +249,7 @@ describe('Prescription quick picks admin', () => {
     expect(within(dialog).getByText('Name is required')).toBeInTheDocument();
     expect(within(dialog).getByText('Pick a medication and strength')).toBeInTheDocument();
     expect(within(dialog).getByText('Dose must be greater than 0')).toBeInTheDocument();
-    expect(within(dialog).getByText('A scheduled frequency is required for mg/kg per day')).toBeInTheDocument();
+    expect(within(dialog).getByText('A frequency with doses a day is required for mg/kg per day')).toBeInTheDocument();
     expect(within(dialog).getByText('Link must be an https link')).toBeInTheDocument();
     expect(within(dialog).getByText('Info is required with a link')).toBeInTheDocument();
     expect(api.createPrescriptionQuickPick).not.toHaveBeenCalled();
@@ -578,7 +578,7 @@ describe('prescriptionQuickPickFromForm: frequency', () => {
     const perDay = { ...dosed, basis: 'mg/kg/day' as const };
     for (const frequency of ['', 'as needed', 'as directed', 'per package instructions']) {
       expect(prescriptionQuickPickFromForm({ ...perDay, frequency }).errors?.frequency).toBe(
-        'A scheduled frequency is required for mg/kg per day'
+        'A frequency with doses a day is required for mg/kg per day'
       );
       expect(prescriptionQuickPickFromForm({ ...dosed, frequency }).errors).toBeUndefined();
     }

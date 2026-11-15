@@ -194,10 +194,11 @@ const FormSchema = z
     if (!values.compound && blank(values.ndc)) issue('ndc', 'Pick a medication and strength');
     if (values.doseMode !== 'dosing') return;
     if (blank(values.rate) || !(Number(values.rate) > 0)) issue('rate', 'Dose must be greater than 0');
-    // Only a scheduled frequency gives the doses a day ("as needed" doesn't), as the backend checks.
+    // Only a frequency with a count of doses a day ("every 6 hours as needed" has one; "as needed" and "as directed"
+    // don't), as the backend checks.
     const scheduled = prescriptionFrequency(values.frequency)?.dosesPerDay !== undefined;
     if (values.basis === 'mg/kg/day' && !scheduled) {
-      issue('frequency', 'A scheduled frequency is required for mg/kg per day');
+      issue('frequency', 'A frequency with doses a day is required for mg/kg per day');
     }
     if (!blank(values.maxPerDayMg) && !scheduled) {
       issue('maxPerDayMg', 'A maximum per day needs a scheduled frequency');
