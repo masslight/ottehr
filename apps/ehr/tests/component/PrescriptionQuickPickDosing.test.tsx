@@ -126,10 +126,15 @@ const Harness = ({
 const liquidLine = (): PrescriptionLine => withProduct(emptyPrescriptionLine(), LIQUIDS, LIQUIDS.strengths[0]);
 
 /** The suggestions box's rows by position, "Other" last; the quick pick's name is only behind each row's ⓘ. */
+/** The rows' "+" buttons, without the "Write my own" link. */
+const rowButtons = (): HTMLElement[] =>
+  screen
+    .getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })
+    .filter((button) => !button.classList.contains('MuiLink-root'));
+
 const suggestionRow = (index: number): HTMLElement =>
   // The "+" sits in a box with the ⓘ; the row is the box around that.
-  screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })[index].closest('.MuiBox-root')!
-    .parentElement!;
+  rowButtons()[index].closest('.MuiBox-root')!.parentElement!;
 
 /** What the row's ⓘ by its "+" says. */
 const hoverInfo = async (
@@ -274,10 +279,10 @@ describe('Save as quick pick: the product', () => {
 });
 
 describe('Suggestions from quick picks', () => {
-  it('shows the quick picks for exactly this product, each name behind its ⓘ only, then "Other"', async () => {
+  it('shows the quick picks for exactly this product, each name behind its ⓘ only, then "Write my own"', async () => {
     const user = userEvent.setup();
     render(<Harness initial={liquidLine()} quickPicks={[BY_WEIGHT, OTHER_PRODUCT, SAVED_TEXT]} weight={WEIGHT} />);
-    expect(screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })).toHaveLength(3);
+    expect(rowButtons()).toHaveLength(3);
     // No name on the rows themselves.
     expect(screen.queryByText(/Amox (strep|as written)/)).not.toBeInTheDocument();
     expect(suggestionRow(0)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
@@ -292,7 +297,7 @@ describe('Suggestions from quick picks', () => {
       /^Quick pick: Amox as written$/
     );
     await user.unhover(info);
-    // "Other" has none.
+    // "Write my own" has none.
     expect(within(suggestionRow(2)).queryByRole('img')).not.toBeInTheDocument();
   });
 
@@ -473,7 +478,7 @@ describe('Suggestions from quick picks', () => {
     expect(written).toBeDisabled();
     await user.hover(written.parentElement!);
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
-      /^Amox as written is dispensed as-written, not calculated\.$/
+      /^Amox as written is saved as written, not calculated\.$/
     );
     const icon = within(suggestionRow(1)).getByRole('button', { name: 'Dose calculator for Amox capped' });
     expect(icon).toBeEnabled();

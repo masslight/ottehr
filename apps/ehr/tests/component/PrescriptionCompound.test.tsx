@@ -354,6 +354,9 @@ describe('Compound prescriptions: the order sent', () => {
     await pickUnit(user, 'unit', 'Grams');
     await user.clear(screen.getByRole('spinbutton', { name: 'refills' }));
     await user.type(screen.getByRole('spinbutton', { name: 'refills' }), '1');
+    // "1 refill", not "1 refills".
+    expect(document.body).toHaveTextContent(/\brefill\./);
+    expect(document.body).not.toHaveTextContent(/\brefills\./);
 
     await user.click(screen.getByRole('button', { name: 'Send Prescription' }));
     await waitFor(() => expect(mocks.orderPrescription).toHaveBeenCalledTimes(1));

@@ -57,7 +57,7 @@ export const DoseCalculatorPopup: FC<{
 /** Where a row's quick pick is saved as written: the calculator icon, disabled, so the rows' sentences line up, and a
  * hover saying why. A disabled button gets no hover, so a span around it takes the tooltip. */
 export const DoseCalculatorAsWritten: FC<{ quickPickName: string; label: string }> = ({ quickPickName, label }) => (
-  <Tooltip title={`${quickPickName} is dispensed as-written, not calculated.`}>
+  <Tooltip title={`${quickPickName} is saved as written, not calculated.`}>
     <Box component="span">
       <IconButton size="small" aria-label={label} disabled sx={ICON_SX}>
         <Calculate sx={{ fontSize: 18 }} />

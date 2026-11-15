@@ -114,6 +114,8 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     renderTable();
     expect(screen.queryByRole('columnheader', { name: 'Patient instructions (SIG)' })).not.toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Order added' })).not.toBeInTheDocument();
+    // Named as in Details.
+    expect(screen.getByRole('columnheader', { name: 'Prescriber' })).toBeInTheDocument();
     expect(screen.queryByText(AMOX.instructions!)).not.toBeInTheDocument();
     const names = [AMOX, IBU, PRED, ONDANSETRON].map((item) => item.name!);
     const order = screen

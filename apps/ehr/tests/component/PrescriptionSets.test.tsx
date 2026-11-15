@@ -98,6 +98,12 @@ const EAR_INFECTION = set('set-ear', 'Ear infection', ['qp-strep', 'qp-ibu']);
 const RETIRED = set('set-old', 'Bronchitis', ['qp-strep'], 'Inactive');
 const SETS = [ACUTE_OTITIS, RETIRED, EAR_INFECTION];
 
+// Each row's "+" ("Write my own" is also the last row's link, which isn't one).
+const rowButtons = (): HTMLElement[] =>
+  screen
+    .getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })
+    .filter((button) => !button.classList.contains('MuiLink-root'));
+
 const notices: string[] = [];
 let latest: PrescriptionLine[] = [];
 
@@ -156,9 +162,7 @@ const withoutKey = ({ key: _key, ...line }: PrescriptionLine): Omit<Prescription
 
 const amoxLine = (): PrescriptionLine => withProduct(emptyPrescriptionLine(), LIQUIDS, LIQUIDS.strengths[0]);
 
-const suggestionRow = (index: number): HTMLElement =>
-  screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })[index].closest('.MuiBox-root')!
-    .parentElement!;
+const suggestionRow = (index: number): HTMLElement => rowButtons()[index].closest('.MuiBox-root')!.parentElement!;
 
 const openMenu = async (user: ReturnType<typeof userEvent.setup>, index = 0): Promise<void> => {
   await user.click(screen.getAllByRole('button', { name: /^medication/ })[index]);
@@ -531,7 +535,7 @@ describe('Prescription sets on the order form', () => {
     it('lists the product’s quick picks first and its sets after them', () => {
       render(<Form initial={[amoxLine()]} />);
       // Amox as written, Amox strep, then Acute otitis and Ear infection (sets). Bronchitis is Inactive.
-      expect(screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ })).toHaveLength(5);
+      expect(rowButtons()).toHaveLength(5);
       expect(suggestionRow(0)).toHaveTextContent('Take 5 mL by mouth twice daily for 10 days.');
       expect(suggestionRow(0)).not.toHaveTextContent('Set ·');
       expect(suggestionRow(1)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
@@ -595,10 +599,7 @@ describe('Prescription sets on the order form', () => {
   describe('the suggestion the line was filled from comes first', () => {
     // Every row of every line's box in order, the one "In use" (no "+") among them.
     const shownRow = (index: number): HTMLElement =>
-      [
-        ...screen.getAllByRole('button', { name: /^(Use this prescription|Write my own)$/ }),
-        ...screen.queryAllByRole('img', { name: 'In use' }),
-      ]
+      [...rowButtons(), ...screen.queryAllByRole('img', { name: 'In use' })]
         .sort((x, y) => (x.compareDocumentPosition(y) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
         [index].closest('.MuiBox-root')!.parentElement!;
     // A line a quick pick or set filled starts with its suggestions folded: each box opened to read its rows.
@@ -645,7 +646,7 @@ describe('Prescription sets on the order form', () => {
       expect(shownRow(2)).toHaveTextContent('Take 9 mL by mouth twice daily for 10 days.');
       expect(shownRow(2)).not.toHaveTextContent('Set ·');
       expect(shownRow(3)).toHaveTextContent(/Acute otitisSet · 2/);
-      expect(shownRow(4)).toHaveTextContent('Other');
+      expect(shownRow(4)).toHaveTextContent('Write my own');
     });
 
     it('up to 3 quick picks and up to 2 sets, so a product with 3 quick picks still shows its sets', () => {

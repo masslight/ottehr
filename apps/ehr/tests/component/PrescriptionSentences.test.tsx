@@ -135,7 +135,8 @@ const pickAmoxicillin = async (user: ReturnType<typeof userEvent.setup>, strengt
 
 /** Picks the suggestions' last row, "Other", which shows the line's blanks empty. */
 const pickOther = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
-  await user.click(screen.getByRole('button', { name: 'Write my own' }));
+  // The "+" of the last row; its link reads the same.
+  await user.click(screen.getAllByRole('button', { name: 'Write my own' }).at(-1)!);
 };
 
 /** Opens the suggestions box again: using a row or "Other" folds it to its title. */
@@ -409,7 +410,7 @@ describe('PrescriptionSentences: suggestions first', () => {
     render(<Harness initial={emptyPrescriptionLine()} />);
     await pickAmoxicillin(user);
     expect(screen.queryByText('Suggested prescriptions')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Write my own' })).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('button', { name: 'Write my own' })[0] ?? null).not.toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(null);
     expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue('');
     // A new strength with none stays open too.
@@ -429,6 +430,7 @@ describe('PrescriptionSentences: suggestions first', () => {
       for (const name of ['dose', 'duration', 'quantity', 'days supply', 'refills']) {
         expect(screen.queryByRole('spinbutton', { name })).not.toBeInTheDocument();
       }
+      expect(screen.queryByText('Other')).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /^substitution/ })).not.toBeInTheDocument();
       expect(directionsShown()).toBe(false);
 
@@ -581,11 +583,11 @@ describe('PrescriptionSentences: suggestions first', () => {
   );
 
   it(
-    'uses "Other" from its blue link as from its "+"',
+    'uses "Write my own" from its blue link as from its "+"',
     withRows([DOSED_ROW], async () => {
       const user = userEvent.setup();
       render(<Harness initial={lineFor(LIQUIDS)} />);
-      const other = screen.getByRole('button', { name: 'Other' });
+      const other = screen.getAllByRole('button', { name: 'Write my own' })[0];
       expect(other).toHaveClass('MuiLink-root');
       await user.click(other);
       expect(screen.getByRole('button', { name: 'Show suggestions' })).toHaveAttribute('aria-expanded', 'false');
@@ -603,9 +605,11 @@ describe('PrescriptionSentences: suggestions first', () => {
       expect(screen.getByRole('button', { name: 'Show suggestions' })).toHaveAttribute('aria-expanded', 'false');
       // Only the title line stays.
       expect(screen.getByText('Suggested prescriptions')).toBeInTheDocument();
-      await waitFor(() => expect(screen.queryByRole('button', { name: 'Write my own' })).not.toBeInTheDocument());
+      await waitFor(() =>
+        expect(screen.queryAllByRole('button', { name: 'Write my own' })[0] ?? null).not.toBeInTheDocument()
+      );
       await showSuggestions(user);
-      expect(screen.getByRole('button', { name: 'Write my own' })).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Write my own' })[0]).toBeInTheDocument();
       // The title itself toggles too.
       await user.click(screen.getByText('Suggested prescriptions'));
       expect(screen.getByRole('button', { name: 'Show suggestions' })).toBeInTheDocument();
@@ -639,7 +643,7 @@ describe('PrescriptionSentences: suggestions first', () => {
       await user.click(screen.getByRole('button', { name: 'strength (empty)' }));
       await user.click(screen.getByRole('option', { name: '2% Ointment' }));
       expect(screen.getByRole('button', { name: 'Hide suggestions' })).toHaveAttribute('aria-expanded', 'true');
-      expect(screen.getByRole('button', { name: 'Write my own' })).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Write my own' })[0]).toBeInTheDocument();
       medicationSearch.others = [];
     })
   );
@@ -750,7 +754,7 @@ describe('PrescriptionSentences: dabrams’s testing round', () => {
       await showSuggestions(user);
       // Opening the suggestions again changes nothing already entered.
       expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue('Take as directed.');
-      expect(screen.getByRole('button', { name: 'Write my own' })).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Write my own' })[0]).toBeInTheDocument();
     })
   );
 });

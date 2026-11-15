@@ -196,7 +196,8 @@ describe('Prescription quick picks admin', () => {
     const row = (await screen.findByText('Amoxicillin caps')).closest('tr') as HTMLElement;
     await user.click(within(row).getByTitle('Edit'));
     const dialog = await screen.findByRole('dialog');
-    await chooseOption(user, 'Diagnosis', 'J02.0 — Streptococcal pharyngitis');
+    // Written as the list and the order form write it.
+    await chooseOption(user, 'Diagnosis', 'Streptococcal pharyngitis J02.0');
     await user.click(within(dialog).getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(api.updatePrescriptionQuickPick).toHaveBeenCalledTimes(1));

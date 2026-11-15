@@ -195,7 +195,7 @@ export const PrescriptionTable: FC = () => {
       {
         sortable: false,
         field: 'provider',
-        headerName: 'Provider',
+        headerName: 'Prescriber',
         width: 160,
         valueGetter: ({ row }) =>
           getPractitionerName(

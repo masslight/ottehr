@@ -7,7 +7,7 @@ import { DoseInfoHover, SourceText } from './DoseCalculatorCard';
 /**
  * The suggestions box above a prescription line, as looks only. A row is the shared `SuggestedSentence`: its
  * segments make the sentence (a quick pick's directions as written, or its dose re-worked as blanks), `details` the
- * lines under a set's row. "Other" (Write my own) is always the last row.
+ * lines under a set's row. "Write my own" is always the last row.
  */
 
 // Its sentence is a blue "Other" link (the lead below), doing what its "+" does.
@@ -77,13 +77,13 @@ export const ErxSuggestionsBox = <T extends ErxSuggestionRow>({
       isAdded={(row, picks) => isRow(row) && (isAdded?.(row, picks) ?? false)}
       onAdd={(row, picks) => (isRow(row) ? onPick(row, picks) : onOther())}
       renderPicker={renderPicker && ((row, blank, pick) => (isRow(row) ? renderPicker(row, blank, pick) : undefined))}
-      // "Other" is a link. A quick pick's row, or one with a dose blank: its dose tool starts the sentence (the calculator icon when it has
+      // "Write my own" is a link. A quick pick's row, or one with a dose blank: its dose tool starts the sentence (the calculator icon when it has
       // saved dosing, else the icon disabled, its hover saying it's as written). The ⓘ by its "+" has its quick pick
       // and working.
       renderLead={(row, picks) =>
         !isRow(row) ? (
           <Link component="button" type="button" onClick={onOther} sx={{ verticalAlign: 'baseline' }}>
-            Other
+            Write my own
           </Link>
         ) : row.doseAt !== undefined || row.quickPickName !== undefined ? (
           <>

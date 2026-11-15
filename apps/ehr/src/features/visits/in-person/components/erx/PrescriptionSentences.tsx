@@ -1393,7 +1393,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                 need
                 min={0}
               />{' '}
-              refills.
+              {Number(line.numberOfRefills) === 1 ? 'refill' : 'refills'}.
             </Sentence>
 
             <Sentence>

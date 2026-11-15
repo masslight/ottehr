@@ -507,7 +507,12 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
               helperText: `${values.noteToPharmacy.length} / 210`,
             })}
             {/* Using the quick pick fills the prescription's diagnosis with it. */}
-            <PrimaryDiagnosisInput value={values.diagnosis} onChange={(diagnosis) => set({ diagnosis })} />
+            <PrimaryDiagnosisInput
+              value={values.diagnosis}
+              onChange={(diagnosis) => set({ diagnosis })}
+              // As the list and the order form write it.
+              optionLabel={(diagnosis) => `${diagnosis.display} ${diagnosis.code}`}
+            />
             {field('sourceLabel', 'Info (optional)', { placeholder: 'e.g. AAP guideline' })}
             {field('sourceUrl', 'Info link (optional)', { placeholder: 'https://' })}
           </Stack>
