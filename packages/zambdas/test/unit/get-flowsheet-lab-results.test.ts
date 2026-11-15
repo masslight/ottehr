@@ -564,6 +564,19 @@ describe('buildLabResultsFlowsheet', () => {
     });
   });
 
+  test('urine culture: a column without an appointment is dated by its first result, a culture included', () => {
+    const culture = { test: 'Urine Culture', testCodes: ['630-4'] };
+    const visits = build({
+      [unlinkedResultKey('dr-9')]: [
+        lab('Hemoglobin', { codes: ['718-7'], value: 13.1, at: '2024-06-01T10:00:00.000Z' }),
+        lab('Urine Culture', { ...culture, codes: ['630-4'], text: 'No growth', at: '2024-06-01T09:00:00.000Z' }),
+      ],
+    });
+    expect(visits.map((v) => [v.start, v.values.hemoglobin.value, v.values.urineCulture.value])).toEqual([
+      ['2024-06-01T09:00:00.000Z', 13.1, 'No growth'],
+    ]);
+  });
+
   test('urine culture: reports are ordered by instant, so the later one is the cell', () => {
     const culture = { test: 'Urine Culture', testCodes: ['630-4'] };
     const visits = build({

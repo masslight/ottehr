@@ -54,8 +54,12 @@ export interface ConditionColumns {
   /** The column for an encounter id or an unlinked-result key, made on first use and dated by `fallbackStart`. */
   columnFor: (key: string, fallbackStart: string | undefined) => FlowsheetVisit | undefined;
   addReading: (column: FlowsheetVisit, key: string, reading: FlowsheetReading) => void;
-  /** Every lab result that lands on one of `rows` (text ones only on rows that take text, or "<"/">" ones), in its column. */
-  addLabs: (rows: LabRow[]) => void;
+  /**
+   * Every lab result that lands on one of `rows` (text ones only on rows that take text, or "<"/">" ones), in its
+   * column. `otherStarts` gives, by column key, the first time of a result on none of `rows` (a urine culture's): a
+   * column dated by its data takes the earlier of it and its first result.
+   */
+  addLabs: (rows: LabRow[], otherStarts?: Record<string, string | undefined>) => void;
   /** The columns that hold one of the condition's own items, newest first. */
   list: () => FlowsheetVisit[];
 }
@@ -92,7 +96,7 @@ export const conditionColumns = (data: FlowsheetData, vitalKeys: string[]): Cond
   const addReading: ConditionColumns['addReading'] = (column, key, reading) => {
     column.values[key] = { ...reading, readings: [...(column.values[key]?.readings ?? []), reading] };
   };
-  const addLabs: ConditionColumns['addLabs'] = (rows) =>
+  const addLabs: ConditionColumns['addLabs'] = (rows, otherStarts) =>
     Object.entries(data.labs ?? {}).forEach(([key, labs]) => {
       // Oldest first, so the latest result of each row in the column is the cell value; every one is kept.
       const matched = labs
@@ -105,7 +109,7 @@ export const conditionColumns = (data: FlowsheetData, vitalKeys: string[]): Cond
         })
         .sort((a, b) => byResultedAt(a.lab, b.lab));
       if (matched.length === 0) return;
-      const column = columnFor(key, matched[0].lab.resultedAt);
+      const column = columnFor(key, [matched[0].lab.resultedAt, otherStarts?.[key]].filter(Boolean).sort(byInstant)[0]);
       if (!column) return;
       matched.forEach(({ row, lab, value }) => {
         addReading(column, row.key, {

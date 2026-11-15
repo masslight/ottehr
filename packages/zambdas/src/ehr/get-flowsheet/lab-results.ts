@@ -1,4 +1,4 @@
-import { FlowsheetLabResult, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
+import { FlowsheetLabResult, FlowsheetReading, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { byInstant, ConditionColumns, conditionColumns, LabRow } from './columns';
 import { LAB_ROW_LOINC_CODES } from './lab-loinc-codes.generated';
@@ -450,24 +450,36 @@ const cultureTexts = (labs: FlowsheetLabResult[]): string[] => {
   return [...new Set(texts)];
 };
 
-/** One Urine culture reading per report time in each column, listing every organism of that culture. */
-const addUrineCultures = (columns: ConditionColumns, labs: Record<string, FlowsheetLabResult[]>): void =>
-  Object.entries(labs).forEach(([key, results]) => {
-    const byTime = new Map<string, FlowsheetLabResult[]>();
-    results.filter(isUrineCultureResult).forEach((lab) => {
-      const time = lab.resultedAt ?? '';
-      byTime.set(time, [...(byTime.get(time) ?? []), lab]);
-    });
-    [...byTime]
-      .sort(([a], [b]) => byInstant(a, b))
-      .forEach(([time, cultureLabs]) => {
-        const texts = cultureTexts(cultureLabs);
-        if (texts.length === 0) return;
-        const column = columns.columnFor(key, time || undefined);
-        if (!column) return;
-        columns.addReading(column, 'urineCulture', { time: time || column.start, value: texts.join('; ') });
+/**
+ * Each column's Urine culture readings, oldest first: one per report time ('' when undated), listing every organism
+ * of that culture.
+ */
+const urineCultureReadings = (labs: Record<string, FlowsheetLabResult[]>): Record<string, FlowsheetReading[]> =>
+  Object.fromEntries(
+    Object.entries(labs).map(([key, results]) => {
+      const byTime = new Map<string, FlowsheetLabResult[]>();
+      results.filter(isUrineCultureResult).forEach((lab) => {
+        const time = lab.resultedAt ?? '';
+        byTime.set(time, [...(byTime.get(time) ?? []), lab]);
       });
-  });
+      const readings = [...byTime]
+        .sort(([a], [b]) => byInstant(a, b))
+        .flatMap(([time, cultureLabs]) => {
+          const texts = cultureTexts(cultureLabs);
+          return texts.length > 0 ? [{ time, value: texts.join('; ') }] : [];
+        });
+      return [key, readings];
+    })
+  );
+
+const addUrineCultures = (columns: ConditionColumns, cultures: Record<string, FlowsheetReading[]>): void =>
+  Object.entries(cultures).forEach(([key, readings]) =>
+    readings.forEach(({ time, value }) => {
+      const column = columns.columnFor(key, time || undefined);
+      if (!column) return;
+      columns.addReading(column, 'urineCulture', { time: time || column.start, value });
+    })
+  );
 
 export const buildLabResultsFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => {
   const labs = Object.fromEntries(
@@ -478,7 +490,12 @@ export const buildLabResultsFlowsheet = (data: FlowsheetData): FlowsheetVisit[] 
   );
   // No vitals rows: a visit or an outside result is a column when it has a result for any row.
   const columns = conditionColumns({ ...data, labs }, []);
-  columns.addLabs(LAB_ROWS);
-  addUrineCultures(columns, labs);
+  const cultures = urineCultureReadings(labs);
+  // A column without an appointment is dated by its first result, a urine culture's included.
+  columns.addLabs(
+    LAB_ROWS,
+    Object.fromEntries(Object.entries(cultures).map(([key, readings]) => [key, readings.find((r) => r.time)?.time]))
+  );
+  addUrineCultures(columns, cultures);
   return columns.list();
 };
