@@ -116,7 +116,7 @@ export const PharmacySearch: FC<{
   unavailable?: (pharmacy: PharmacySearchResult) => string | undefined;
   /** Before anything is typed: the patient's saved pharmacy... */
   onFile?: OnFilePharmacy;
-  /** ...and the pharmacies the patient's prescriptions went to, by NCPDP ID. */
+  /** ...and the pharmacies this visit's prescriptions went to, by NCPDP ID. */
   sentBefore?: { ncpdpId: string; name?: string }[];
 }> = ({ onPick, unavailable, onFile, sentBefore = [] }) => {
   const [query, setQuery] = useState('');
