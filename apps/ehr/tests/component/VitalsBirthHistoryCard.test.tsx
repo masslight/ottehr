@@ -8,6 +8,7 @@ import VitalsBirthHistoryCard from '../../src/features/visits/shared/components/
 const store = vi.hoisted(() => ({
   saved: undefined as BirthHistoryDTO | undefined,
   listeners: new Set<() => void>(),
+  locked: false,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -37,7 +38,7 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () =>
   useAppointmentData: () => ({ resources: { patient: { id: 'p1', birthDate: '2026-10-01' } } }),
 }));
 vi.mock('src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
-  useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: false }),
+  useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: store.locked }),
 }));
 vi.mock('src/features/visits/shared/components/vitals/hooks/useVitalsUnitInputOrder', () => ({
   useVitalsUnitInputOrder: () => 'metric-imperial',
@@ -49,6 +50,10 @@ const hoverText = async (button: HTMLElement): Promise<string | null> => {
   return (await screen.findByRole('tooltip')).textContent;
 };
 const weeksInput = (): HTMLInputElement => screen.getByLabelText('weeks');
+
+beforeEach(() => {
+  store.locked = false;
+});
 
 describe('Birth history card: Save', () => {
   beforeEach(() => {
@@ -76,17 +81,37 @@ describe('Birth history card: clearing a saved birth history', () => {
 
   it('Save is enabled with every field emptied, and saving removes it', () => {
     render(<VitalsBirthHistoryCard collapsedByDefault={false} />);
-    expect(screen.getAllByText(/34 wk/).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByText('Edit'));
     fireEvent.change(weeksInput(), { target: { value: '' } });
     fireEvent.change(screen.getByLabelText('days'), { target: { value: '' } });
     expect(saveButton().disabled).toBe(false);
     fireEvent.click(saveButton());
     expect(store.saved).toBeUndefined();
-    // As if none was ever saved: no summary, an empty form.
-    expect(screen.queryByText(/34 wk/)).toBeNull();
+    // As if none was ever saved: an empty form, and no summary once collapsed.
     expect(weeksInput().value).toBe('');
     expect(saveButton().disabled).toBe(true);
+    fireEvent.click(screen.getByText('Birth history'));
+    expect(screen.queryByText(/34 wk/)).toBeNull();
+  });
+});
+
+describe('Birth history card: a saved birth history', () => {
+  beforeEach(() => {
+    store.saved = { resourceId: 'obs-1', gestationalAgeWeeks: 34, gestationalAgeDays: 5 };
+  });
+
+  it('collapsed, the header shows the summary', () => {
+    render(<VitalsBirthHistoryCard collapsedByDefault />);
+    expect(screen.getByText('34 wk 5 d')).toBeTruthy();
+    expect(screen.queryByLabelText('weeks')).toBeNull();
+  });
+
+  it('expanded, the body is the form filled with the saved values, with no summary and no Edit', () => {
+    render(<VitalsBirthHistoryCard collapsedByDefault={false} />);
+    expect(weeksInput().value).toBe('34');
+    expect((screen.getByLabelText('days') as HTMLInputElement).value).toBe('5');
+    expect(screen.queryByText(/34 wk/)).toBeNull();
+    expect(screen.queryByText('Edit')).toBeNull();
+    expect(saveButton().disabled).toBe(false);
   });
 });
 
@@ -94,21 +119,47 @@ describe('Birth history card: after Save', () => {
   beforeEach(() => {
     store.saved = undefined;
   });
-  // The summary shows in the header always and in the body only while the card is open.
-  const saveWeeks = (collapsedByDefault: boolean): number => {
+  // The card stays as it was, open with the saved values in the fields and no summary in the header.
+  const saveWeeks = (collapsedByDefault: boolean): void => {
     render(<VitalsBirthHistoryCard collapsedByDefault={collapsedByDefault} />);
     if (collapsedByDefault) fireEvent.click(screen.getByText('Birth history'));
     fireEvent.change(weeksInput(), { target: { value: '38' } });
     fireEvent.click(saveButton());
-    return screen.getAllByText('38 wk').length;
+    expect(store.saved?.gestationalAgeWeeks).toBe(38);
+    expect(weeksInput().value).toBe('38');
+    expect(screen.queryByText('38 wk')).toBeNull();
   };
 
   it('under 24 months the card stays open', () => {
-    expect(saveWeeks(false)).toBe(2);
+    saveWeeks(false);
   });
 
-  it('from 24 months the card collapses to its summary', () => {
-    expect(saveWeeks(true)).toBe(1);
+  it('from 24 months the card stays open too, and collapsing it shows the summary', () => {
+    saveWeeks(true);
+    fireEvent.click(screen.getByText('Birth history'));
+    expect(screen.getByText('38 wk')).toBeTruthy();
+  });
+});
+
+describe('Birth history card: a locked visit', () => {
+  beforeEach(() => {
+    store.locked = true;
+  });
+
+  it('shows the saved values in disabled fields, with no Save', () => {
+    store.saved = { resourceId: 'obs-1', gestationalAgeWeeks: 34, gestationalAgeDays: 5 };
+    render(<VitalsBirthHistoryCard collapsedByDefault={false} />);
+    expect(weeksInput().value).toBe('34');
+    expect(weeksInput().disabled).toBe(true);
+    expect(screen.queryByTestId(dataTestIds.vitalsPage.birthHistorySaveButton)).toBeNull();
+    expect(screen.queryByText(/34 wk/)).toBeNull();
+  });
+
+  it('with nothing saved shows "No birth history recorded"', () => {
+    store.saved = undefined;
+    render(<VitalsBirthHistoryCard collapsedByDefault={false} />);
+    expect(screen.getByText('No birth history recorded')).toBeTruthy();
+    expect(screen.queryByLabelText('weeks')).toBeNull();
   });
 });
 

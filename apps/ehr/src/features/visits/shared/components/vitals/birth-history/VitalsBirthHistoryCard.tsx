@@ -1,4 +1,4 @@
-import { Box, Button, Grid, Tooltip, Typography } from '@mui/material';
+import { Box, Grid, Tooltip, Typography } from '@mui/material';
 import { LocalizationProvider, TimePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';
@@ -38,8 +38,7 @@ const VitalsBirthHistoryCard: React.FC<VitalsBirthHistoryCardProps> = ({ collaps
   const saved = data?.birthHistory;
   const save = useSaveBirthHistory(patient?.id);
   const [toggledCollapsed, setToggledCollapsed] = useState<boolean>();
-  const [editing, setEditing] = useState(false);
-  // Under 24 months the card stays open, also after a save; from 24 months it rests collapsed on its summary line.
+  // Under 24 months the card starts open; from 24 months it starts collapsed on its summary line. A save keeps it as it is.
   const isCollapsed = toggledCollapsed ?? collapsedByDefault;
 
   const summary = saved ? formatBirthHistorySummary(saved) : '';
@@ -52,48 +51,30 @@ const VitalsBirthHistoryCard: React.FC<VitalsBirthHistoryCardProps> = ({ collaps
           <Typography variant="h6" color="primary.dark">
             Birth history
           </Typography>
-          {summary && <Typography variant="body2">{summary}</Typography>}
+          {isCollapsed && summary && <Typography variant="body2">{summary}</Typography>}
         </Box>
       }
       collapsed={isCollapsed}
       onSwitch={() => setToggledCollapsed(!isCollapsed)}
       dataTestId={dataTestIds.vitalsPage.birthHistoryHeader}
-      headerItem={
-        saved && !isReadOnly && !editing ? (
-          <Button
-            size="small"
-            variant="text"
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditing(true);
-              setToggledCollapsed(false);
-            }}
-          >
-            Edit
-          </Button>
-        ) : undefined
-      }
     >
-      {!isLoading && !isReadOnly && (!saved || editing) && (
+      {!isLoading && (saved || !isReadOnly) && (
         <BirthHistoryForm
           key={saved?.resourceId ?? 'new'}
           saved={saved}
           dateOfBirth={dateOfBirth}
+          isReadOnly={isReadOnly}
           isSaving={save.isPending}
           onSave={(value) =>
             save.mutate(value, {
-              onSuccess: () => {
-                setEditing(false);
-                setToggledCollapsed(undefined);
-              },
               onError: () => enqueueSnackbar('Error saving birth history', { variant: 'error' }),
             })
           }
         />
       )}
-      {(isReadOnly || (saved && !editing)) && (
-        <Typography sx={{ px: 2, py: 1.5 }} color={summary ? 'text.primary' : 'text.secondary'}>
-          {summary || 'No birth history recorded'}
+      {!isLoading && !saved && isReadOnly && (
+        <Typography sx={{ px: 2, py: 1.5 }} color="text.secondary">
+          No birth history recorded
         </Typography>
       )}
     </AccordionCard>
@@ -116,17 +97,21 @@ const Row = ({ label, children }: { label: string; children: ReactNode }): JSX.E
 const BirthHistoryForm = ({
   saved,
   dateOfBirth,
+  isReadOnly,
   isSaving,
   onSave,
 }: {
   saved?: BirthHistory;
   dateOfBirth: string;
+  /** A locked visit shows the saved values in disabled fields, with no Save. */
+  isReadOnly: boolean;
   isSaving: boolean;
   onSave: (value: BirthHistory) => void;
 }): JSX.Element => {
   const state = useBirthHistoryLocalState(saved);
   const unitInputOrder = useVitalsUnitInputOrder();
   const value = state.getValue();
+  const disabled = isSaving || isReadOnly;
   // Emptying every field of a saved birth history removes it; with none saved there is nothing to save.
   const disabledReason =
     state.invalidReason ??
@@ -145,7 +130,7 @@ const BirthHistoryForm = ({
           <VitalsTextInputFiled
             label={metricUnit}
             value={measure.metricText}
-            disabled={isSaving}
+            disabled={disabled}
             isInputError={state.isInvalid(field)}
             onChange={measure.handleMetricChange}
           />
@@ -154,7 +139,7 @@ const BirthHistoryForm = ({
           <VitalsTextInputFiled
             label={imperialUnit}
             value={measure.imperialText}
-            disabled={isSaving}
+            disabled={disabled}
             isInputError={state.isInvalid(field)}
             onChange={measure.handleImperialChange}
           />
@@ -184,7 +169,7 @@ const BirthHistoryForm = ({
           <TimePicker
             value={state.timeOfBirth}
             onChange={state.setTimeOfBirth}
-            disabled={isSaving}
+            disabled={disabled}
             slotProps={{ textField: { size: 'small', sx: { backgroundColor: 'white', maxWidth: 200 } } }}
           />
         </LocalizationProvider>
@@ -194,14 +179,14 @@ const BirthHistoryForm = ({
           <VitalsTextInputFiled
             label="weeks"
             value={state.weeks}
-            disabled={isSaving}
+            disabled={disabled}
             isInputError={state.isInvalid('gestationalAgeWeeks')}
             onChange={(e) => state.setWeeks(e.target.value)}
           />
           <VitalsTextInputFiled
             label="days"
             value={state.days}
-            disabled={isSaving}
+            disabled={disabled}
             isInputError={state.isInvalid('gestationalAgeDays')}
             onChange={(e) => state.setDays(e.target.value)}
           />
@@ -211,21 +196,23 @@ const BirthHistoryForm = ({
       {measureRow('Birth length', 'birthLengthCm', state.length, 'cm', 'inches')}
       {measureRow('Birth head circumference', 'birthHeadCircumferenceCm', state.headCircumference, 'cm', 'inches')}
       {/* A disabled button fires no hover, so the span carries it (MedicationsConfiguration). */}
-      <Tooltip title={disabledReason ?? ''} placement="top">
-        <span>
-          <RoundedButton
-            size="small"
-            color="primary"
-            disabled={!!disabledReason}
-            loading={isSaving}
-            onClick={() => value && onSave(value)}
-            sx={{ height: '40px', px: 3 }}
-            data-testid={dataTestIds.vitalsPage.birthHistorySaveButton}
-          >
-            Save
-          </RoundedButton>
-        </span>
-      </Tooltip>
+      {!isReadOnly && (
+        <Tooltip title={disabledReason ?? ''} placement="top">
+          <span>
+            <RoundedButton
+              size="small"
+              color="primary"
+              disabled={!!disabledReason}
+              loading={isSaving}
+              onClick={() => value && onSave(value)}
+              sx={{ height: '40px', px: 3 }}
+              data-testid={dataTestIds.vitalsPage.birthHistorySaveButton}
+            >
+              Save
+            </RoundedButton>
+          </span>
+        </Tooltip>
+      )}
     </Box>
   );
 };
