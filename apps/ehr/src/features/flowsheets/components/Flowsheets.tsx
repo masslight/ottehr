@@ -422,8 +422,17 @@ const FlowsheetBody = ({
           }
         : {
             type: 'time',
-            // The year at year boundaries, so two Aprils in a row are told apart.
-            axisLabel: { hideOverlap: true, formatter: { year: '{yyyy}', month: '{MM}/{dd}', day: '{MM}/{dd}' } },
+            // The year at year boundaries, so two Aprils in a row are told apart; 12-hour times for short spans.
+            axisLabel: {
+              hideOverlap: true,
+              formatter: {
+                year: '{yyyy}',
+                month: '{MM}/{dd}',
+                day: '{MM}/{dd}',
+                hour: '{h} {A}',
+                minute: '{h}:{mm} {A}',
+              },
+            },
             // The tooltip's heading: the reading's date and 12-hour time.
             axisPointer: {
               label: {
