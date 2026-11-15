@@ -150,6 +150,14 @@ describe('Vitals and Thyroid measures in the practice header unit system', () =>
     expect(bothUnits(temperature, 37)).toBe('37.0 C ≈ 98.6 F');
   });
 
+  it('every weight chart switches to lbs when the practice header system is imperial', () => {
+    const weightCharts = FLOWSHEETS.flatMap((f) => f.charts.filter((c) => c.lines.some((l) => l.key === 'weight')));
+    expect(weightCharts.map((c) => [c.unit, c.imperialUnit])).toEqual([
+      ['kg', 'lbs'],
+      ['kg', 'lbs'],
+    ]);
+  });
+
   it('plots a weight in lbs on a chart in lbs', () => {
     expect(chartPoint(v, 'weight', false, 'lbs')).toEqual([Date.parse(v.start), 212.39]);
     expect(chartPoint(v, 'weight', false, 'kg')).toEqual([Date.parse(v.start), 96.34]);

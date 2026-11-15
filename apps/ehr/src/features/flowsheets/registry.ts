@@ -142,7 +142,7 @@ const thyroid: FlowsheetDefinition = {
   charts: [
     { title: 'TSH', unit: 'mIU/L', lines: [{ name: 'TSH', key: 'tsh' }] },
     { title: 'Free T4', unit: 'ng/dL', lines: [{ name: 'Free T4', key: 'freeT4' }] },
-    { title: 'Weight', unit: 'kg', lines: [{ name: 'Weight', key: 'weight' }] },
+    { title: 'Weight', unit: 'kg', imperialUnit: 'lbs', lines: [{ name: 'Weight', key: 'weight' }] },
     { title: 'Heart rate', unit: '/min', minSpan: 40, lines: [{ name: 'Heart rate', key: 'heartRate' }] },
   ],
 };
