@@ -811,8 +811,21 @@ const PrescriptionLineSchema = z
   .object({
     medication: z.object(
       {
-        ndc: z.string().regex(/^\d{11}$/, 'Medication must have an 11-digit NDC'),
-        description: z.string().trim().min(1).max(105, 'Medication name must be up to 105 characters'),
+        // The pharmacy network's limits; staff can't edit either, so the message says what to do.
+        ndc: z
+          .string()
+          .regex(
+            /^\d{11}$/,
+            'This product has no 11-digit NDC, which the pharmacy network needs. Pick the medication again or write it as a compound.'
+          ),
+        description: z
+          .string()
+          .trim()
+          .min(1)
+          .max(
+            105,
+            "This product's name is too long for the pharmacy network. Pick another strength or write it as a compound."
+          ),
       },
       { invalid_type_error: 'Pick a medication' }
     ),
