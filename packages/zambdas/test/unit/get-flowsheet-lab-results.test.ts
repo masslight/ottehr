@@ -5,6 +5,7 @@ import { FlowsheetLabResult, FlowsheetVisit } from 'utils/lib/types/api/flowshee
 import { describe, expect, test } from 'vitest';
 import { LAB_ROW_LOINC_CODES } from '../../src/ehr/get-flowsheet/lab-loinc-codes.generated';
 import { buildLabResultsFlowsheet } from '../../src/ehr/get-flowsheet/lab-results';
+import { LAB_ROW_RULES } from '../../src/ehr/get-flowsheet/lab-row-rules';
 import { FlowsheetData, unlinkedResultKey } from '../../src/ehr/get-flowsheet/patient-data';
 
 const PATIENT = 'Patient/p1';
@@ -186,6 +187,22 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     expect(LAB_ROW_LOINC_CODES.esr).not.toContain('788-0');
     expect(LAB_ROW_LOINC_CODES.totalProtein).not.toContain('2888-6');
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  test('the yes/no antibody screens take a blood-only code, as HIV does; Anion gap and eGFR take none', () => {
+    [
+      'hivAgAb',
+      'hivAb',
+      'hepatitisBSurfaceAntigen',
+      'hepatitisBSurfaceAntibody',
+      'hepatitisBCoreAntibody',
+      'hepatitisCAntibody',
+      'syphilisTreponemalAntibody',
+    ].forEach((row) => expect(LAB_ROW_RULES[row].systems).toContain('Blood'));
+    ['22585-4', '13288-6'].forEach((code) => expect(LAB_ROW_LOINC_CODES.syphilisTreponemalAntibody).toContain(code));
+    // A whole-blood anion gap comes from a blood gas analyzer (another formula and normal values); eGFR is
+    // calculated from a serum creatinine.
+    ['anionGap', 'egfr', 'egfr2021'].forEach((row) => expect(LAB_ROW_RULES[row].systems).not.toContain('Blood'));
   });
 
   test('total bilirubin takes serum, plasma or blood, a heel-stick (42719-5, 97770-2) included; cord blood does not', () => {

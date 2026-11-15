@@ -644,11 +644,13 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '6561-5', // Treponema pallidum IgG Ab [Presence] in Serum
     '8041-6', // Treponema pallidum Ab [Presence] in Serum by Hemagglutination
     '11597-2', // Treponema pallidum Ab [Units/volume] in Serum
+    '13288-6', // Treponema pallidum Ab [Units/volume] in Blood by Immunofluorescence
     '17723-8', // Treponema pallidum Ab [Presence] in Serum by Immobilization
     '17724-6', // Treponema pallidum Ab [Units/volume] in Serum by Immunofluorescence
     '17725-3', // Treponema pallidum Ab [Units/volume] in Serum by Latex agglutination
     '17726-1', // Treponema pallidum IgG Ab [Presence] in Serum by Immunofluorescence
     '17727-9', // Treponema pallidum IgG Ab [Units/volume] in Serum by Immunofluorescence
+    '22585-4', // Treponema pallidum Ab [Units/volume] in Blood
     '22587-0', // Treponema pallidum Ab [Presence] in Serum
     '22590-4', // Treponema pallidum Ab [Titer] in Serum
     '22592-0', // Treponema pallidum IgG Ab [Units/volume] in Serum

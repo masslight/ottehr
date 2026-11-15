@@ -62,6 +62,9 @@ const EGFR_RACE_METHODS = [
 // A newborn's bilirubin is often run on a heel-stick (whole, capillary or venous blood) sample, at any age a blood
 // one; a cord blood level is taken at delivery and stays off.
 const SERUM_PLASMA_OR_BLOOD = [...SERUM_OR_PLASMA, 'Blood', 'Capillary blood', 'Venous blood'];
+// A yes/no screen reads the same on any blood sample: 'Serum, Plasma or Blood' or 'Blood' is a rapid
+// (point-of-care) test's, a fingerstick one included.
+const SCREEN_SYSTEMS = [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood', 'Blood'];
 
 export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   // Thyroid
@@ -155,21 +158,20 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   // Lab results: hepatitis. Core antibody is the total; its IgM is another component.
   hepatitisBSurfaceAntigen: {
     components: ['Hepatitis B virus surface Ag'],
-    systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood'],
+    systems: SCREEN_SYSTEMS,
   },
   hepatitisBSurfaceAntibody: {
     components: ['Hepatitis B virus surface Ab'],
-    systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood'],
+    systems: SCREEN_SYSTEMS,
   },
   hepatitisBCoreAntibody: {
     components: ['Hepatitis B virus core Ab'],
-    systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood'],
+    systems: SCREEN_SYSTEMS,
   },
-  // 'Serum, Plasma or Blood' is the rapid (point-of-care) test's.
   // The screen; an immunoblot (RIBA) or line blot is a confirmation, as for HIV.
   hepatitisCAntibody: {
     components: ['Hepatitis C virus Ab', 'Hepatitis C virus IgG Ab'],
-    systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood'],
+    systems: SCREEN_SYSTEMS,
     excludeMethods: ['IB', 'Line blot'],
   },
   hepatitisCRna: {
@@ -182,12 +184,12 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   // a rapid (point-of-care) test; an immunoblot is a confirmation, not a screen.
   hivAgAb: {
     components: ['HIV 1+2 Ab+HIV1 p24 Ag', 'HIV 1+2 Ab and HIV1 p24 Ag'],
-    systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood', 'Blood'],
+    systems: SCREEN_SYSTEMS,
     excludeMethods: ['IB'],
   },
   hivAb: {
     components: ['HIV 1+2 Ab', 'HIV 1+2 IgG Ab'],
-    systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood', 'Blood'],
+    systems: SCREEN_SYSTEMS,
     excludeMethods: ['IB'],
   },
   hiv1Rna: { components: ['HIV 1 RNA'], systems: [...SERUM_OR_PLASMA, 'Blood'], excludeProperties: LOG_COUNT },
@@ -223,7 +225,7 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   syphilisRpr: { components: ['Reagin Ab'], systems: SERUM_OR_PLASMA, methods: ['RPR', ''] },
   syphilisTreponemalAntibody: {
     components: ['Treponema pallidum Ab', 'Treponema pallidum IgG+IgM Ab', 'Treponema pallidum IgG Ab'],
-    systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood'],
+    systems: SCREEN_SYSTEMS,
   },
   // The pooled high-risk types the cervical screening tests report (not 16 or 18 alone, nor the low-risk types).
   hpvHighRisk: {
