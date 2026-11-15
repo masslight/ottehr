@@ -638,6 +638,17 @@ export const getUser = async (token: string): Promise<User> => {
 
 const ERX_API_URL = import.meta.env.VITE_APP_ERX_API_URL ?? 'https://erx-api.zapehr.com';
 
+/** An eRx service error for staff: its message, in plain words where it's one Ottehr knows, else `fallback`. The
+ * HTTP status goes to the console only. */
+const erxServiceError = (body: { message?: unknown } | undefined, status: number, fallback: string): Error => {
+  console.error(`eRx service error (${status}): ${body?.message ?? 'no message'}`);
+  const message = typeof body?.message === 'string' ? body.message : undefined;
+  if (message && /is not registered with Surescripts/i.test(message)) {
+    return new Error('You are not enrolled in Surescripts e-prescribing.');
+  }
+  return new Error(message || fallback);
+};
+
 export const orderPrescription = async (
   token: string,
   parameters: OrderPrescriptionInput
@@ -653,8 +664,7 @@ export const orderPrescription = async (
   });
   const body = await response.json().catch(() => undefined);
   if (!response.ok) {
-    console.log(response);
-    throw new Error(body?.message ?? `Failed to order prescription (${response.status})`);
+    throw erxServiceError(body, response.status, "The prescription couldn't be sent. Please try again.");
   }
   return body as OrderPrescriptionOutput;
 };
@@ -674,7 +684,7 @@ export const cancelPrescription = async (
   });
   const body = await response.json().catch(() => undefined);
   if (!response.ok) {
-    throw new Error(body?.message ?? `Failed to cancel prescription (${response.status})`);
+    throw erxServiceError(body, response.status, "The cancellation couldn't be sent. Please try again.");
   }
   return body as CancelPrescriptionOutput;
 };
@@ -714,7 +724,7 @@ export const enrollPractitioner = async (
   });
   const body = await response.json().catch(() => undefined);
   if (!response.ok) {
-    throw new Error(body?.message ?? `Failed to enroll in Surescripts (${response.status})`);
+    throw erxServiceError(body, response.status, 'An error occurred while enrolling in Surescripts. Please try again.');
   }
   return body as CheckPractitionerEnrollmentOutput;
 };
@@ -759,7 +769,11 @@ const respondToRequest = async (
   });
   const body = await response.json().catch(() => undefined);
   if (!response.ok) {
-    throw new Error(body?.message ?? `Failed to answer the ${kind} request (${response.status})`);
+    throw erxServiceError(
+      body,
+      response.status,
+      `The answer to the ${kind} request couldn't be sent. Please try again.`
+    );
   }
   return body as RenewalResponseOutput;
 };

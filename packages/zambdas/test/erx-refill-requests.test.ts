@@ -259,6 +259,13 @@ describe('eRx change request tasks', () => {
     expect(refillRequestTaskAction(change('completed', []), [ottehrTask('in-progress')])).toBe('complete');
   });
 
+  it('names REMS and prescriber authorization requests in words, never by their code', () => {
+    const titled = (code: string): string | undefined =>
+      makeErxRequestTask(change('requested', [input('change-code', code)]), undefined, undefined).description;
+    expect(titled('RM')).toMatch(/ — REMS requirements not met$/);
+    expect(titled('U')).toMatch(/ — Prescriber authorization$/);
+  });
+
   it('is a change request task named by the pharmacy, the original medication, the patient and the kind', () => {
     const task = makeErxRequestTask(
       change('requested', [input('change-code', 'OS')]),

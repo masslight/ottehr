@@ -9,7 +9,14 @@ import {
 } from 'utils/lib/types/api/order-prescription.types';
 import { compoundOrderIngredients, isQuantityUnit } from './prescriptionLines';
 
-export type PrescriptionChip = 'Sending' | 'Sent' | 'Sent by fax' | 'Error' | 'Cancel requested' | 'Cancelled';
+export type PrescriptionChip =
+  | 'Sending'
+  | 'Sent'
+  | 'Sent by fax'
+  | 'Error'
+  | 'Cancel requested'
+  | 'Cancelled'
+  | 'Other';
 
 const CANCEL_EVENT_CODES = ['cancelrequested', 'cancelled', 'canceldenied'];
 
@@ -61,7 +68,8 @@ export const erxEventText = (event: ErxEventDTO): string | undefined => {
   return event.text;
 };
 
-/** The status chip and the latest event under it; no chip for a status the eRx service doesn't set. */
+/** The status chip and the latest event under it; "Other" for a status the eRx service doesn't set, its FHIR code on
+ * hover. */
 export const prescriptionStatusView = (
   prescription: PrescribedMedicationDTO
 ): { chip?: PrescriptionChip; detail?: string } => {
@@ -97,7 +105,7 @@ export const prescriptionStatusView = (
       return { chip: sentChip(prescription), detail: fillEvent && FILL_EVENT_TEXT[fillEvent.code](fillEvent) };
     }
     default:
-      return {};
+      return prescription.status ? { chip: 'Other', detail: `Status code: ${prescription.status}` } : {};
   }
 };
 
@@ -136,15 +144,15 @@ const missingOrderFields = (prescription: PrescribedMedicationDTO): string[] => 
         ]),
       ]
     : [
-        ['NDC', order?.ndc],
+        ['product code', order?.ndc],
         ['medication description', order?.medicationDescription],
       ];
   const required: [string, unknown][] = [
     ['patient', order?.patientId],
-    ['encounter', prescription.encounterId],
+    ['visit', prescription.encounterId],
     ...product,
     ['quantity', order?.quantityValue],
-    ['quantity unit', isQuantityUnit(order?.quantityUnit) ? order?.quantityUnit : undefined],
+    ['unit', isQuantityUnit(order?.quantityUnit) ? order?.quantityUnit : undefined],
     ['refills', order?.numberOfRefills],
     ...(compound ? [] : [['substitution', order?.substitutionAllowed] as [string, unknown]]),
     ['patient instructions', prescription.instructions],

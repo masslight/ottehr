@@ -108,7 +108,16 @@ describe('prescription status chip and latest event', () => {
       rx('active', faxed, accepted, event('dispensed', undefined, DISPENSED_AT)),
       { chip: 'Sent by fax', detail: `Dispensed ${DateTime.fromISO(DISPENSED_AT).toFormat('MM/dd')}` },
     ],
-    ['a status the eRx service does not set', rx('completed'), {}],
+    // Never the FHIR code as the chip: "Other", with the code on hover.
+    ['a status the eRx service does not set', rx('completed'), { chip: 'Other', detail: 'Status code: completed' }],
+    [
+      'cancel denied with a reason code the pharmacy sent no description for',
+      rx('active', accepted, cancelRequested, {
+        ...event('canceldenied', 'Cancellation denied by pharmacy:'),
+        cancelResponse: { denialReasonCode: { code: 'AA' } },
+      }),
+      { chip: 'Sent', detail: 'Cancel denied' },
+    ],
   ])('%s', (_name, prescription, expected) => {
     expect(prescriptionStatusView(prescription)).toEqual(expected);
   });
@@ -143,6 +152,14 @@ describe('a faxed prescription’s actions', () => {
         rx('active', faxed, accepted, cancelRequested, event('canceldenied')),
       ])
     ).toBe("Cancel isn't available for prescriptions with status Cancel denied.");
+  });
+});
+
+describe('an action on a status the eRx service does not set', () => {
+  it('names it "Other", never the FHIR code', () => {
+    expect(prescriptionActionUnavailableText('cancel', [rx('entered-in-error')])).toBe(
+      "Cancel isn't available for prescriptions with status Other."
+    );
   });
 });
 

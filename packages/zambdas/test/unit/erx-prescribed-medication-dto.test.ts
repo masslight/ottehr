@@ -113,6 +113,20 @@ describe('makePrescribedMedicationDTO events: the pharmacy’s cancel reply', ()
       priorDispensing: true,
     });
   });
+
+  it('keeps no description for a reason code the pharmacy sent without one, so staff never see the bare code', () => {
+    const denied: Provenance = {
+      ...makeProvenance('canceldenied', '2026-10-27T17:00:00.000Z', 'Cancellation denied by pharmacy:'),
+      extension: [
+        {
+          url: ERX_CANCEL_RESPONSE_EXTENSION_URL,
+          extension: [{ url: 'denialReasonCode', valueCoding: { code: 'AA' } }],
+        },
+      ],
+    };
+    const [event] = makePrescribedMedicationDTO(makeMedicationRequest(), [denied]).events!;
+    expect(event.cancelResponse?.denialReasonCode).toEqual({ code: 'AA', display: undefined });
+  });
 });
 
 // Review #6: a Provenance may target its prescription by a versioned or an absolute reference.

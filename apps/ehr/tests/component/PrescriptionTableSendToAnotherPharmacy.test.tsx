@@ -235,7 +235,7 @@ describe('Prescription table: send to another pharmacy', () => {
     expect(cancelButton()).toBeEnabled();
     expect(sendButton()).toBeDisabled();
     expect(await hoverTooltip(user, sendButton())).toBe(
-      `Send to another pharmacy isn't available for ${CEPH.name}: missing quantity unit.`
+      `Send to another pharmacy isn't available for ${CEPH.name}: missing unit.`
     );
   });
 
@@ -265,7 +265,7 @@ describe('Prescription table: send to another pharmacy', () => {
     );
     expect(action(ERR_INCOMPLETE.name!, 'Send to another pharmacy')).toBeDisabled();
     expect(await tooltipOf(action(ERR_INCOMPLETE.name!, 'Send to another pharmacy'))).toBe(
-      `Send to another pharmacy isn't available for ${ERR_INCOMPLETE.name}: missing NDC.`
+      `Send to another pharmacy isn't available for ${ERR_INCOMPLETE.name}: missing product code.`
     );
     // Details and history are always there.
     expect(action(PRED.name!, 'Details')).toBeEnabled();
@@ -416,6 +416,24 @@ describe('Prescription table: send to another pharmacy', () => {
     await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
     expect(enqueueSnackbar).toHaveBeenCalledWith(
       `0 of 2 sent to Sample Pharmacy Two. ${AMOX.name}: cancellation sent, but sending to Sample Pharmacy Two failed (Pharmacy rejected the order); ${ERR.name}: sending to Sample Pharmacy Two failed (Pharmacy rejected the order)`,
+      { variant: 'error' }
+    );
+  });
+
+  it('says in plain words when the eRx service fails with no message, or names a prescriber not enrolled', async () => {
+    mocks.fetch.mockImplementation(async (url: string) =>
+      url.endsWith('/v4/order-prescription')
+        ? response(500, undefined)
+        : response(400, { message: 'Practitioner 4b1c-9e is not registered with Surescripts' })
+    );
+    const user = renderTable();
+    await user.click(checkbox(AMOX.name!));
+    await user.click(checkbox(ERR.name!));
+    await user.click(sendButton());
+    await pickPharmacyAndSend(user);
+    await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
+    expect(enqueueSnackbar).toHaveBeenCalledWith(
+      `0 of 2 sent to Sample Pharmacy Two. ${AMOX.name}: cancellation failed (You are not enrolled in Surescripts e-prescribing.); nothing was sent; ${ERR.name}: sending to Sample Pharmacy Two failed (The prescription couldn't be sent. Please try again.)`,
       { variant: 'error' }
     );
   });

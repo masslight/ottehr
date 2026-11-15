@@ -90,6 +90,9 @@ export const CHANGE_REQUEST_KINDS: Record<string, string> = {
   S: 'Script clarification',
   D: 'Drug-use alert',
   P: 'Prior authorization',
+  RM: 'REMS requirements not met',
+  // The eRx service's "Prescriber Authorization"
+  U: 'Prescriber authorization',
 };
 
 /** What the change-response endpoint takes: an approval of one of the pharmacy's suggestions (by its position) with

@@ -44,6 +44,7 @@ const prescriptionChipMapper = {
   'Cancel requested': medicationStatusMapper['entered-in-error'],
   Error: medicationStatusMapper.stopped,
   Cancelled: medicationStatusMapper.cancelled,
+  Other: medicationStatusMapper.cancelled,
 };
 
 // Colored on the button, so a disabled one still greys out.

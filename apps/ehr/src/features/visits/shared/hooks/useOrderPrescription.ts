@@ -9,7 +9,7 @@ export const useOrderPrescription = (): UseMutationResult<OrderPrescriptionOutpu
   return useMutation({
     mutationFn: async (input: OrderPrescriptionInput) => {
       if (!token) {
-        throw new Error('API client not available');
+        throw new Error('Please reload and try again.');
       }
       return orderPrescription(token, input);
     },

@@ -230,8 +230,8 @@ export interface ErxEventDTO {
 export interface ErxCancelResponseDTO {
   /** Approved/Note */
   note?: string;
-  /** Denied/ReasonCode, with its NCPDP description */
-  denialReasonCode?: { code: string; display: string };
+  /** Denied/ReasonCode, with its NCPDP description when the pharmacy sent one (staff never see the bare code) */
+  denialReasonCode?: { code: string; display?: string };
   /** Denied/DenialReason, free text */
   denialReason?: string;
   /** Prior Dispensing: the pharmacy already dispensed it */

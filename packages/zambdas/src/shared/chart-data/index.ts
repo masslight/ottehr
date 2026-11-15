@@ -389,7 +389,7 @@ const makeCancelResponse = (provenance: Provenance): ErxCancelResponseDTO | unde
   const coding = part('denialReasonCode')?.valueCoding;
   return {
     note: part('note')?.valueString,
-    denialReasonCode: coding?.code ? { code: coding.code, display: coding.display ?? coding.code } : undefined,
+    denialReasonCode: coding?.code ? { code: coding.code, display: coding.display } : undefined,
     denialReason: part('denialReason')?.valueString,
     priorDispensing: part('priorDispensing')?.valueBoolean,
   };

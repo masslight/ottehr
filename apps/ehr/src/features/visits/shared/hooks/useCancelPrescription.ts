@@ -13,7 +13,7 @@ export const useCancelPrescription = (): UseMutationResult<
   return useMutation({
     mutationFn: async (input: CancelPrescriptionInput) => {
       if (!token) {
-        throw new Error('API client not available');
+        throw new Error('Please reload and try again.');
       }
       return cancelPrescription(token, input);
     },

@@ -153,7 +153,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const noteRef = useRef<HTMLInputElement>(null);
   const respond = useMutation({
     mutationFn: async (body: RenewalResponseInput | ChangeResponseInput) => {
-      if (!token) throw new Error('API client not available');
+      if (!token) throw new Error('Please reload and try again.');
       return change
         ? respondToChange(token, body as ChangeResponseInput)
         : respondToRenewal(token, body as RenewalResponseInput);
