@@ -187,8 +187,9 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
     : change && !suggestions.length && !asWritten
     ? ANSWERS.filter((item) => item !== 'approve')
     : ANSWERS;
-  // A safety alert starts with no answer picked: the provider chooses.
-  const answer: Answer | undefined = chosen && answers.includes(chosen) ? chosen : asWritten ? undefined : answers[0];
+  // A safety alert starts with no answer picked, with or without a suggestion: the provider chooses.
+  const answer: Answer | undefined =
+    chosen && answers.includes(chosen) ? chosen : change?.code === 'D' ? undefined : answers[0];
   const prescription = data?.prescription;
   // The prescription the request is answered with, as the order form starts: the pharmacy's over the original's
   // blanks. A plain approval keeps those blanks on the new prescription too, while they still write its directions.

@@ -287,6 +287,42 @@ describe('Change request dialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  // Review D3-6: with a suggestion too, a safety alert starts with no answer picked, so a provider who clicks through
+  // doesn't accept the pharmacist's change without choosing.
+  it('starts a drug-use alert with a suggestion on no answer, and approves the suggestion once picked', async () => {
+    const user = await open(
+      CHANGE('D', {
+        reason: 'Dose high for age',
+        suggestions: [
+          {
+            description: 'Dexilant 30 mg capsule',
+            ndc: '64764017130',
+            quantityValue: 30,
+            quantityUnit: 'Capsule',
+            sig: 'Take 1 capsule by mouth once daily',
+          },
+        ],
+      })
+    );
+    expect(screen.getByText('Drug-use alert.')).toBeInTheDocument();
+    for (const name of ['Approve', 'Change', 'Deny', 'Pending']) {
+      expect(screen.getByRole('button', { name })).toHaveAttribute('aria-pressed', 'false');
+    }
+    const send = screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' });
+    expect(send).toBeDisabled();
+    await user.hover(send.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Pick an answer');
+    await user.click(screen.getByRole('button', { name: 'Approve' }));
+    await user.click(send);
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalled());
+    expect(mocks.respondToChange.mock.calls[0][1]).toStrictEqual({
+      taskId: 'change-1',
+      decision: 'approve',
+      requestedMedicationIndex: 0,
+      note: undefined,
+    });
+  });
+
   it('approves a prior authorization request with its number, with no Change', async () => {
     const user = await open(CHANGE('P', { reason: 'Plan requires prior authorization' }));
     expect(screen.getByText('Prior authorization.')).toBeInTheDocument();
