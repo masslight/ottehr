@@ -128,7 +128,7 @@ describe('growth measures in the practice header unit system', () => {
   });
 });
 
-describe('Vitals and Thyroid measures in the practice header unit system', () => {
+describe('Vitals, Thyroid and Newborn bilirubin measures in the practice header unit system', () => {
   const rowOf = (id: string, key: string): FlowsheetRow =>
     FLOWSHEETS.find((f) => f.id === id)!.rows.find((row) => row.keys[0] === key)!;
   const v = visit({ weight: reading(96.34), height: reading(175.3), headCircumference: reading(44.2) });
@@ -142,6 +142,9 @@ describe('Vitals and Thyroid measures in the practice header unit system', () =>
     expect(cellOf(rowOf('thyroid', 'weight'), v, 'imperial').text).toBe('212.39');
     expect(cellOf(rowOf('thyroid', 'weight'), v).text).toBe('96.34');
     expect(bothUnits(rowOf('thyroid', 'weight'), 96.34)).toBe('96.34 kg ≈ 212.39 lbs');
+    expect(cellOf(rowOf('newbornBilirubin', 'weight'), visit({ weight: reading(3.25) }), 'imperial').text).toBe('7.17');
+    expect(rowLabel(rowOf('newbornBilirubin', 'weight'), 'imperial')).toBe('Weight (lbs)');
+    expect(bothUnits(rowOf('newbornBilirubin', 'weight'), 3.25)).toBe('3.25 kg ≈ 7.17 lbs');
   });
 
   it('shows a temperature in °C, with °F on hover as vitals history does', () => {

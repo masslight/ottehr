@@ -155,7 +155,7 @@ const newbornBilirubin: FlowsheetDefinition = {
     { label: 'Direct (conjugated) bilirubin', keys: ['newbornDirectBilirubin'] },
     { label: 'Transcutaneous bilirubin (TcB)', keys: ['transcutaneousBilirubin'] },
     { label: 'Day of life', keys: ['dayOfLife'], digits: 0 },
-    { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 2, imperial: { label: 'Weight (lbs)', unit: 'lbs' } },
   ],
   charts: [
     {
