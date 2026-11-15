@@ -124,7 +124,8 @@ export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
     imperial: LBS,
     xAxis: LENGTH_CM,
     xIsLength: true,
-    inOtherSet: true,
+    // CDC (2 to 20 years) has no weight-for-length chart here.
+    inOtherSet: false,
   },
   'who-hcfa': {
     title: 'Head circumference-for-age',

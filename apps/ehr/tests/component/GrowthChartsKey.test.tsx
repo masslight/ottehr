@@ -45,4 +45,23 @@ describe('Growth chart out-of-range note', () => {
     expect(screen.getByText('1 measurement is outside 2 to 20 years — see the other chart set.')).toBeInTheDocument();
     expect(screen.getByText('1 measurement is outside 2 to 20 years.')).toBeInTheDocument();
   });
+
+  it('never points to the other chart set from weight-for-length, which CDC lacks', () => {
+    const cdcPoint = { ...growth.points[0], chart: 'cdc-wfa' as const, x: 30, y: 13 };
+    render(
+      <GrowthCharts
+        growth={{
+          ...growth,
+          points: [...growth.points, cdcPoint],
+          outsideRange: { 'who-wfa': 1, 'who-wfl': 1 },
+        }}
+        visits={[]}
+      />
+    );
+    const notes = screen.getAllByText(/^1 measurement is outside/).map((note) => note.textContent);
+    expect(notes).toEqual([
+      '1 measurement is outside birth to 24 months — see the other chart set.',
+      '1 measurement is outside birth to 24 months.',
+    ]);
+  });
 });
