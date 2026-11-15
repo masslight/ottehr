@@ -292,6 +292,41 @@ describe('buildVitalsFlowsheet', () => {
     expect(describeVisit('e1', resources)).not.toHaveProperty('followupSubtype');
   });
 
+  test("a scheduled follow-up is dated by its own appointment's start; an annotation or free-form one by its data", () => {
+    const followUp = (id: string, subtype: FollowupSubtype, appointmentId?: string): Encounter => ({
+      resourceType: 'Encounter',
+      id,
+      status: 'finished',
+      class: { code: 'AMB' },
+      partOf: { reference: 'Encounter/e1' },
+      ...(appointmentId ? { appointment: [{ reference: `Appointment/${appointmentId}` }] } : {}),
+      type: buildFollowupEncounterType(subtype),
+    });
+    const resources = {
+      appointments,
+      encounters: [
+        ...encounters,
+        followUp('fu-s', 'scheduled', 'a2'),
+        // An annotation follow-up linked to its original visit's appointment does not take that start.
+        followUp('fu-a', 'annotation', 'a1'),
+        followUp('fu-f', 'free-form'),
+      ],
+      conditions,
+      practitioners,
+    };
+    expect(describeVisit('fu-s', resources).start).toBe(appointments[1].start);
+    expect(describeVisit('fu-a', resources).start).toBeUndefined();
+    expect(describeVisit('fu-f', resources).start).toBeUndefined();
+    expect(describeVisit('e1', resources).start).toBe(appointments[0].start);
+    // So the vitals column of a scheduled follow-up is dated by its appointment, not its first vital.
+    const observation = vital(VitalFieldNames.VitalHeartbeat, 'fu-s', '2030-01-01T10:00:00.000Z', {
+      valueQuantity: { value: 72 },
+    });
+    expect(
+      buildVitalsFlowsheet({ ...resources, observations: [observation] }).map((v) => [v.encounterId, v.start])
+    ).toEqual([['fu-s', appointments[1].start]]);
+  });
+
   test('a follow-up reads as on the Visits tab: its type text, the service category and its own reason', () => {
     const original = {
       ...appointments[0],

@@ -70,7 +70,8 @@ export const buildThyroidFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => 
   Object.entries(data.diagnoses ?? {}).forEach(([encounterId, diagnoses]) => {
     const thyroid = diagnoses.filter((d) => THYROID_ICD10_PREFIXES.some((prefix) => d.code.startsWith(prefix)));
     if (thyroid.length === 0) return;
-    // A follow-up has no appointment start, so a diagnosis-only column is dated by the encounter.
+    // An annotation or free-form follow-up has no appointment start, so a diagnosis-only column is dated by the
+    // encounter.
     const encounter = data.encounters.find((e) => e.id === encounterId);
     const visit = columns.columnFor(encounterId, encounter?.period?.start);
     if (!visit) return;

@@ -119,8 +119,9 @@ export const groupByEncounter = <T>(items: T[], reference: (item: T) => string |
 };
 
 /**
- * A visit column's header fields for one encounter. `start` is the appointment start; it is absent for a
- * follow-up or an unknown encounter, which the flowsheet then dates by its own data.
+ * A visit column's header fields for one encounter. `start` is the appointment start, a scheduled follow-up's own
+ * appointment's too; it is absent for any other follow-up or an unknown encounter, which the flowsheet then dates
+ * by its own data.
  */
 export const describeVisit = (
   encounterId: string,
@@ -167,7 +168,8 @@ export const describeVisit = (
   return {
     appointmentId: appointment?.id,
     encounterId: encounter?.id,
-    start: (!isFollowUp && appointment?.start) || undefined,
+    // An annotation or free-form follow-up has no appointment of its own (a linked one is the original visit's).
+    start: (getEncounterVisitType(encounter) !== 'follow-up' && appointment?.start) || undefined,
     timezone: location && getTimezone(location),
     isFollowUp,
     ...(encounter && isFollowUp
