@@ -341,6 +341,33 @@ describe('thyroid medication: only drugs actually prescribed or given', () => {
     );
   });
 
+  test('an in-house drug shows its dose given, the way an eRx name shows its strength, unless its name says it', () => {
+    const inHouse = (name: string, dose: string | undefined, time: string): FlowsheetMedication => ({
+      name,
+      source: 'in-house',
+      status: 'administered',
+      dose,
+      time,
+    });
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      labs: {},
+      diagnoses: {},
+      medications: {
+        e1: [
+          inHouse('Levothyroxine', '50 mcg', '2023-02-06T14:30:00.000Z'),
+          inHouse('Levothyroxine', '75 mcg', '2023-02-06T14:40:00.000Z'),
+          inHouse('Methimazole 10 MG tablet', '10 mg', '2023-02-06T14:50:00.000Z'),
+          inHouse('Liothyronine', undefined, '2023-02-06T15:00:00.000Z'),
+        ],
+      },
+    });
+    // A dose change at the visit shows.
+    expect(visits[0].values.thyroidMedication.value).toBe(
+      'Levothyroxine 50 mcg; Levothyroxine 75 mcg; Methimazole 10 MG tablet; Liothyronine'
+    );
+  });
+
   test('a follow-up whose only thyroid item is a diagnosis is a column, dated by the encounter', () => {
     const followUp: Encounter = {
       resourceType: 'Encounter',

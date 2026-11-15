@@ -60,6 +60,13 @@ const prescribedOrGiven = (medication: FlowsheetMedication): boolean =>
     : medication.status === MedicationOrderStatuses.administered ||
       medication.status === MedicationOrderStatuses['administered-partly'];
 
+/**
+ * A drug as eRx names it, with its strength ("levothyroxine 50 mcg tablet"): an in-house order adds the dose given
+ * ("Levothyroxine 50 mcg") unless its name already says it.
+ */
+const medicationText = ({ name, source, dose }: FlowsheetMedication): string =>
+  source === 'in-house' && dose && !name.toLowerCase().includes(dose.toLowerCase()) ? `${name} ${dose}` : name;
+
 const diagnosisText = (diagnoses: FlowsheetDiagnosis[]): string =>
   diagnoses.map((d) => [d.code, d.display].filter(Boolean).join(' — ')).join('; ');
 
@@ -85,7 +92,7 @@ export const buildThyroidFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => 
     if (!visit) return;
     columns.addReading(visit, 'thyroidMedication', {
       time: drugs[0].time ?? visit.start,
-      value: unique(drugs.map((drug) => drug.name)).join('; '),
+      value: unique(drugs.map(medicationText)).join('; '),
     });
   });
 
