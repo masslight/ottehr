@@ -623,9 +623,11 @@ export async function fetchAdHocEncounterRows(
       );
     }
     if (includeIntake) {
-      // Birth history is one patient-level Observation (no encounter); the newest per patient wins.
+      // Birth history is one patient-level Observation (no encounter; older per-visit ones share its tag); the newest
+      // per patient wins.
       const birthHistories = await fetchScoped<Observation>('Observation', 'subject', Array.from(patientMap.keys()), [
         { name: '_tag', value: `${BIRTH_HISTORY_META_SYSTEM}|${BIRTH_HISTORY_CODE}` },
+        { name: 'encounter:missing', value: 'true' },
         { name: 'status:not', value: 'entered-in-error,cancelled' },
       ]);
       birthHistories.sort((a, b) => (b.meta?.lastUpdated ?? '').localeCompare(a.meta?.lastUpdated ?? ''));

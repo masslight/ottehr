@@ -5,13 +5,20 @@ import {
   formatBirthHistorySummary,
   formatGestationalAge,
 } from 'utils/lib/helpers/vitals/birth-history.helper';
-import { BIRTH_HISTORY_META_SYSTEM, BirthHistory, BirthHistorySchema } from 'utils/lib/types/api/birth-history.types';
+import {
+  BIRTH_HISTORY_CODE,
+  BIRTH_HISTORY_META_SYSTEM,
+  BirthHistory,
+  BirthHistorySchema,
+} from 'utils/lib/types/api/birth-history.types';
 import { describe, expect, test, vi } from 'vitest';
 import {
+  fetchBirthHistoryObservation,
   makeBirthHistoryDTO,
   makeBirthHistoryObservation,
   saveBirthHistoryObservation,
 } from '../../src/shared/birth-history';
+import { fillMeta } from '../../src/shared/helpers';
 
 const full: BirthHistory = {
   timeOfBirth: '03:42',
@@ -90,6 +97,70 @@ describe('saving a birth history', () => {
     expect((await saveBirthHistoryObservation(oystehr, 'p1', { gestationalAgeWeeks: 38 }, existing))?.id).toBe('obs-1');
     expect((await saveBirthHistoryObservation(oystehr, 'p1', { gestationalAgeWeeks: 38 }))?.id).toBe('obs-new');
     expect(calls.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe('an older per-visit birth history Observation', () => {
+  // develop's save-chart-data wrote one Observation per field and visit (makeBirthHistoryObservationResource), tagged
+  // getMetaWFieldName('birth-history') = fillMeta('birth-history', 'birth-history'): the patient-level record's tag.
+  const legacy: Observation = {
+    resourceType: 'Observation',
+    id: 'legacy-1',
+    meta: { ...fillMeta('birth-history', 'birth-history'), lastUpdated: '2026-11-01T00:00:00.000Z' },
+    subject: { reference: 'Patient/p1' },
+    encounter: { reference: 'Encounter/e1' },
+    status: 'final',
+    code: { coding: [{ system: 'http://loinc.org', code: '76516-4', display: 'Gestational age--at birth' }] },
+    valueQuantity: { value: 38, system: 'http://unitsofmeasure.org', code: 'wk' },
+  };
+  const patientLevel: Observation = {
+    ...makeBirthHistoryObservation('p1', full),
+    id: 'obs-1',
+    meta: { ...makeBirthHistoryObservation('p1', full).meta, lastUpdated: '2026-10-01T00:00:00.000Z' },
+  };
+  // A FHIR server holding `stored`: it applies the search's tag, status, encounter:missing, sort and count.
+  const server = (
+    stored: Observation[]
+  ): { oystehr: Oystehr; deleted: ReturnType<typeof vi.fn>; updated: ReturnType<typeof vi.fn> } => {
+    const deleted = vi.fn(async () => undefined);
+    const updated = vi.fn(async (o: Observation) => o);
+    const search = vi.fn(async ({ params }: { params: { name: string; value: string }[] }) => {
+      const param = (name: string): string | undefined => params.find((p) => p.name === name)?.value;
+      const [system, code] = (param('_tag') ?? '').split('|');
+      const found = stored
+        .filter((o) => o.meta?.tag?.some((t) => t.system === system && t.code === code))
+        .filter((o) => !(param('status:not') ?? '').split(',').includes(o.status))
+        .filter((o) => param('encounter:missing') !== 'true' || !o.encounter)
+        .sort((a, b) => (b.meta?.lastUpdated ?? '').localeCompare(a.meta?.lastUpdated ?? ''))
+        .slice(0, Number(param('_count') ?? stored.length));
+      return { unbundle: () => found };
+    });
+    return { oystehr: { fhir: { search, delete: deleted, update: updated } } as unknown as Oystehr, deleted, updated };
+  };
+
+  test('carries the patient-level record’s tag', () => {
+    expect(legacy.meta?.tag).toEqual([{ system: BIRTH_HISTORY_META_SYSTEM, code: BIRTH_HISTORY_CODE }]);
+  });
+
+  test('is never read as the patient’s birth history, alone or newer than the patient-level one', async () => {
+    expect(await fetchBirthHistoryObservation(server([legacy]).oystehr, 'p1')).toBeUndefined();
+    expect((await fetchBirthHistoryObservation(server([legacy, patientLevel]).oystehr, 'p1'))?.id).toBe('obs-1');
+  });
+
+  test('is never overwritten by a save nor deleted by a clear', async () => {
+    const { oystehr, deleted, updated } = server([legacy]);
+    const existing = await fetchBirthHistoryObservation(oystehr, 'p1');
+    await saveBirthHistoryObservation(oystehr, 'p1', {}, existing);
+    expect(deleted).not.toHaveBeenCalled();
+    const cleared = server([legacy, patientLevel]);
+    await saveBirthHistoryObservation(
+      cleared.oystehr,
+      'p1',
+      { gestationalAgeWeeks: 39 },
+      await fetchBirthHistoryObservation(cleared.oystehr, 'p1')
+    );
+    expect(cleared.updated.mock.calls.map(([o]) => o.id)).toEqual(['obs-1']);
+    expect(updated).not.toHaveBeenCalled();
   });
 });
 

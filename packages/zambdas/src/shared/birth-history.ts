@@ -11,7 +11,11 @@ import {
 
 const UCUM_SYSTEM = 'http://unitsofmeasure.org';
 
-/** The patient's birth history Observation (the newest, should more than one ever exist), if saved. */
+/**
+ * The patient's birth history Observation (the newest, should more than one ever exist), if saved. Only a
+ * patient-level one: older per-visit birth history Observations carry the same tag and are never read, saved over or
+ * deleted.
+ */
 export const fetchBirthHistoryObservation = async (
   oystehr: Oystehr,
   patientId: string
@@ -22,6 +26,7 @@ export const fetchBirthHistoryObservation = async (
       params: [
         { name: 'patient._id', value: patientId },
         { name: '_tag', value: `${BIRTH_HISTORY_META_SYSTEM}|${BIRTH_HISTORY_CODE}` },
+        { name: 'encounter:missing', value: 'true' },
         { name: 'status:not', value: 'entered-in-error,cancelled' },
         { name: '_sort', value: '-_lastUpdated' },
         { name: '_count', value: '1' },
