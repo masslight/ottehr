@@ -11,6 +11,7 @@ import {
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
 } from 'utils/lib/fhir/vitals';
+import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import {
   FHIRObservationInterpretation,
   FHIRObservationInterpretationSystem,
@@ -22,9 +23,11 @@ import { FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { ServiceMode } from 'utils/lib/types/common';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
+import { DEFAULT_VITALS_ALERT_CONFIG, vitalsAlertConfigToVitalsDef } from 'utils/lib/utils/vitals-alert-config';
 import { describe, expect, test, vi } from 'vitest';
 import { buildVitalsFlowsheet, describeVisit, fetchVisits } from '../../src/ehr/get-flowsheet/helpers';
 import { index } from '../../src/ehr/get-flowsheet/index';
+import { resolveVitalAlertCriticality } from '../../src/shared/vitals-alert-config';
 
 // wrapHandler's Sentry plumbing is not under test; make `index` the bare handler so its errors surface.
 vi.mock('../../src/shared/sentry', async (importOriginal) => ({
@@ -172,6 +175,31 @@ describe('buildVitalsFlowsheet', () => {
     expect(visits[0].values).toEqual({
       weight: { time: '2026-11-06T14:10:00.000Z', value: 61.5, flag: undefined, readings: [expect.any(Object)] },
     });
+  });
+
+  test('with the practice thresholds, flags each vital as get-vitals does: 39.6 °C saved unflagged on a 5-year-old is abnormal', () => {
+    const fever = vital(VitalFieldNames.VitalTemperature, 'e1', '2026-03-09T15:05:00.000Z', {
+      valueQuantity: { value: 39.6 },
+    });
+    const resources = { appointments, encounters, conditions, practitioners, birthDate: '2021-01-01' };
+    const vitalsAlertConfig = vitalsAlertConfigToVitalsDef(DEFAULT_VITALS_ALERT_CONFIG);
+    const flagged = buildVitalsFlowsheet({ ...resources, observations: [fever], vitalsAlertConfig });
+    expect(flagged[0].values.temperature.flag).toBe(VitalAlertCriticality.Abnormal);
+    // The same flag the Vitals screen gets for every fixture reading.
+    const visit = buildVitalsFlowsheet({ ...resources, gender: 'female', observations, vitalsAlertConfig }).find(
+      (v) => v.encounterId === 'e1'
+    )!;
+    const getVitals = (o: Observation): VitalAlertCriticality | undefined =>
+      resolveVitalAlertCriticality(o, makeVitalsObservationDTO(o)!, {
+        patientDOB: '2021-01-01',
+        patientSex: 'female',
+        vitalsAlertConfig,
+      });
+    expect(visit.values.heartRate.readings.map((r) => r.flag)).toEqual([
+      getVitals(observations[1]),
+      getVitals(observations[2]),
+    ]);
+    expect(visit.values.temperature.flag).toBe(getVitals(observations[0]));
   });
 
   test('drops a saved BMI for a visit under 2 years, keeps it from 2 years', () => {

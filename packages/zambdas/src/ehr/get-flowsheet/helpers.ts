@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Condition, Encounter, Location, Observation, Practitioner } from 'fhir/r4b';
+import { Appointment, Condition, Encounter, Location, Observation, Patient, Practitioner } from 'fhir/r4b';
 import { appointmentTypeForAppointment, getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
 import { PRIVATE_EXTENSION_BASE_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { FOLLOWUP_SYSTEMS, getEncounterVisitType, getFollowupSubtype } from 'utils/lib/fhir/encounter';
@@ -10,6 +10,7 @@ import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
+import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
 import { bmiAppliesAt } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -18,6 +19,7 @@ import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.t
 import { ServiceMode } from 'utils/lib/types/common';
 import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { resolveVitalAlertCriticality } from '../../shared/vitals-alert-config';
 import { followUpVisitHistoryRowFromEncounter } from '../patient-visit-history/get';
 
 /** The patient's visits and what every flowsheet's visit columns are described from. */
@@ -35,6 +37,9 @@ export interface VitalsFlowsheetResources extends VisitResources {
   observations: Observation[];
   /** For the no-BMI-under-2 rule; without it every saved BMI shows. */
   birthDate?: string;
+  gender?: Patient['gender'];
+  /** The practice's current vitals thresholds: with them each flag is worked out as get-vitals does. */
+  vitalsAlertConfig?: VitalsSchema;
 }
 
 const searchByIds = async <T extends Condition | Practitioner>(
@@ -239,7 +244,14 @@ export const buildVitalsFlowsheet = (resources: VitalsFlowsheetResources): Flows
     observations.forEach((o) => {
       const dto = makeVitalsObservationDTO(o);
       if (!dto || (dto.field === VitalFieldNames.VitalBMI && !bmiApplies)) return;
-      const flag = getVitalDTOCriticalityFromObservation(o);
+      // As get-vitals flags it for the Vitals screen; without the thresholds, the flag saved on the Observation.
+      const flag = resources.vitalsAlertConfig
+        ? resolveVitalAlertCriticality(o, dto, {
+            patientDOB: resources.birthDate,
+            patientSex: resources.gender,
+            vitalsAlertConfig: resources.vitalsAlertConfig,
+          })
+        : getVitalDTOCriticalityFromObservation(o);
       Object.entries(measuresOf(dto)).forEach(([key, value]) => {
         // makeVitalsObservationDTO substitutes 0 for a missing reading; no vital here can really be 0.
         if (!value) return;
