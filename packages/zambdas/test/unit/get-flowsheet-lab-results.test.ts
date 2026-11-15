@@ -102,8 +102,8 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     ['crp', ['1988-5']],
     ['hsCrp', ['30522-7']],
     ['urineCulture', ['630-4']],
-    ['hivAgAb', ['56888-1']],
-    ['hepatitisCAntibody', ['16128-1', '13955-0']],
+    ['hivAgAb', ['56888-1', '80387-4', '75666-8', '73906-0', '31201-7']],
+    ['hepatitisCAntibody', ['16128-1', '13955-0', '72376-7', '89359-4']],
     ['esr', ['4537-7', '30341-2']],
     ['urineHcg', ['2106-3', '2112-1']],
     ['pth', ['2731-8']],
@@ -419,6 +419,19 @@ describe('buildLabResultsFlowsheet', () => {
         lab('Hemoglobin', { codes: ['718-7'], text: 'Hemolyzed' })
       )
     ).toEqual({ hivAgAb: 'Non-reactive', hepatitisCAntibody: 'Negative', urineHcg: 'Negative' });
+  });
+
+  test('a rapid (point-of-care) HIV or hepatitis C antibody test lands on its screen row; an HIV immunoblot does not', () => {
+    expect(
+      valuesOf(
+        lab('HIV 1/2 Ab, Rapid', { codes: ['80387-4'], text: 'Non-reactive' }),
+        lab('HCV Ab, Rapid', { codes: ['72376-7'], text: 'Non-reactive' })
+      )
+    ).toEqual({ hivAgAb: 'Non-reactive', hepatitisCAntibody: 'Non-reactive' });
+    expect(valuesOf(lab('HCV IgG Ab, Rapid', { codes: ['89359-4'], text: 'Reactive' }))).toEqual({
+      hepatitisCAntibody: 'Reactive',
+    });
+    expect(valuesOf(lab('HIV 1+2 Ab, Immunoblot', { codes: ['44873-8'], text: 'Positive' }))).toEqual({});
   });
 
   test('a fingerstick glucose is its own row, coded or named; the serum Glucose row keeps the lab glucose', () => {

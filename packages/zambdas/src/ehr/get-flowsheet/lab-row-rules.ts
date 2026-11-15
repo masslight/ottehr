@@ -163,14 +163,24 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     components: ['Hepatitis B virus core Ab'],
     systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood'],
   },
-  hepatitisCAntibody: { components: ['Hepatitis C virus Ab'], systems: SERUM_OR_PLASMA },
+  // 'Serum, Plasma or Blood' is the rapid (point-of-care) test's.
+  hepatitisCAntibody: {
+    components: ['Hepatitis C virus Ab', 'Hepatitis C virus IgG Ab'],
+    systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood'],
+  },
   hepatitisCRna: {
     components: ['Hepatitis C virus RNA'],
     systems: [...SERUM_OR_PLASMA, 'Blood'],
     excludeProperties: LOG_COUNT,
   },
   // Lab results: HIV and STI
-  hivAgAb: { components: ['HIV 1+2 Ab+HIV1 p24 Ag', 'HIV 1+2 Ab and HIV1 p24 Ag'], systems: SERUM_OR_PLASMA },
+  // The antigen/antibody screen, or an antibody-only screen such as a rapid (point-of-care) test; an immunoblot is a
+  // confirmation, not a screen.
+  hivAgAb: {
+    components: ['HIV 1+2 Ab+HIV1 p24 Ag', 'HIV 1+2 Ab and HIV1 p24 Ag', 'HIV 1+2 Ab', 'HIV 1+2 IgG Ab'],
+    systems: [...SERUM_OR_PLASMA, 'Serum, Plasma or Blood', 'Blood'],
+    excludeMethods: ['IB'],
+  },
   hiv1Rna: { components: ['HIV 1 RNA'], systems: [...SERUM_OR_PLASMA, 'Blood'], excludeProperties: LOG_COUNT },
   chlamydia: {
     components: ['Chlamydia trachomatis rRNA', 'Chlamydia trachomatis DNA'],

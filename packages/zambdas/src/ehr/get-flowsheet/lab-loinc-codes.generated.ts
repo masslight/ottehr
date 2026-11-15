@@ -443,9 +443,18 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '5199-5', // Hepatitis C virus Ab [Presence] in Serum by Immunoblot
     '13955-0', // Hepatitis C virus Ab [Presence] in Serum or Plasma by Immunoassay
     '16128-1', // Hepatitis C virus Ab [Presence] in Serum
+    '16129-9', // Hepatitis C virus IgG Ab [Presence] in Serum
+    '16936-7', // Hepatitis C virus IgG Ab [Units/volume] in Serum
     '22327-1', // Hepatitis C virus Ab [Units/volume] in Serum
+    '33462-3', // Hepatitis C virus IgG Ab [Presence] in Serum by Immunoblot
+    '40726-2', // Hepatitis C virus IgG Ab [Presence] in Serum or Plasma by Immunoassay
+    '57006-9', // Hepatitis C virus IgG Ab [Units/volume] in Serum by Immunoassay
+    '72376-7', // Hepatitis C virus Ab [Presence] in Serum, Plasma or Blood by Rapid immunoassay
+    '89359-4', // Hepatitis C virus IgG Ab [Presence] in Serum, Plasma or Blood by Rapid immunoassay
     '95237-4', // Hepatitis C virus Ab [Interpretation] in Serum or Plasma
+    '109962-1', // Hepatitis C virus IgG Ab [Measurement] in Serum
     '109963-9', // Hepatitis C virus Ab [Measurement] in Serum
+    '112695-2', // Hepatitis C virus IgG Ab [Presence] in Serum by Line blot
   ],
   hepatitisCRna: [
     '5010-4', // Hepatitis C virus RNA [Presence] in Blood by NAA with probe detection
@@ -463,8 +472,18 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '111469-3', // Hepatitis C virus RNA [Measurement] in Serum or Plasma
   ],
   hivAgAb: [
+    '5223-3', // HIV 1+2 Ab [Units/volume] in Serum or Plasma by Immunoassay
+    '7918-6', // HIV 1+2 Ab [Presence] in Serum
+    '22357-8', // HIV 1+2 Ab [Units/volume] in Serum
+    '31201-7', // HIV 1+2 Ab [Presence] in Serum or Plasma by Immunoassay
+    '40733-8', // HIV 1+2 IgG Ab [Presence] in Serum or Plasma by Immunoassay
+    '43009-0', // HIV 1+2 IgG Ab [Presence] in Serum
     '56888-1', // HIV 1+2 Ab+HIV1 p24 Ag [Presence] in Serum or Plasma by Immunoassay
     '58900-2', // HIV 1+2 Ab+HIV1 p24 Ag [Units/volume] in Serum or Plasma by Immunoassay
+    '73905-2', // HIV 1+2 IgG Ab [Presence] in Serum or Plasma by Rapid immunoassay
+    '73906-0', // HIV 1+2 IgG Ab [Presence] in Blood by Rapid immunoassay
+    '75666-8', // HIV 1+2 Ab and HIV1 p24 Ag [Identifier] in Serum, Plasma or Blood by Rapid immunoassay
+    '80387-4', // HIV 1+2 Ab [Presence] in Serum, Plasma or Blood by Rapid immunoassay
     '105080-6', // HIV 1+2 Ab+HIV1 p24 Ag [Presence] in Serum or Plasma
     '108720-4', // HIV 1+2 Ab+HIV1 p24 Ag [Measurement] in Serum or Plasma
     '112693-7', // HIV 1+2 Ab and HIV1 p24 Ag [Identifier] in Serum
