@@ -84,13 +84,17 @@ describe('Flowsheet times', () => {
       </MemoryRouter>
     );
     await userEvent.click(screen.getByRole('tab', { name: 'Vitals' }));
-    const { formatter } = (charts[charts.length - 1].xAxis.axisLabel ?? {}) as { formatter?: Record<string, string> };
-    // ECharts picks a template by the tick's level; format a tick at each level as ECharts does.
-    const tick = (level: string, iso: string): string =>
-      echarts.time.format(Date.parse(iso), formatter?.[level] ?? '', false);
-    expect(tick('hour', local(16))).toBe('4 PM');
-    expect(tick('minute', local(16, 30))).toBe('4:30 PM');
-    expect(tick('day', local(16))).toBe('07/13');
-    expect(tick('month', local(16))).toBe('07/13');
+    const { formatter } = (charts[charts.length - 1].xAxis.axisLabel ?? {}) as {
+      formatter?: (value: number) => string;
+    };
+    // ECharts formats the function's result as a template; plain text comes through as is.
+    const tick = (iso: string): string =>
+      echarts.time.format(Date.parse(iso), formatter?.(Date.parse(iso)) ?? '', false);
+    expect(tick(local(16))).toBe('4 PM');
+    expect(tick(local(16, 30))).toBe('4:30 PM');
+    // After midnight the hour is 12, never 0; midnight itself is the day's tick.
+    expect(tick(local(0, 30))).toBe('12:30 AM');
+    expect(tick(local(0))).toBe('07/13');
+    expect(tick(DateTime.fromISO(local(0)).set({ month: 1, day: 1 }).toISO()!)).toBe('2026');
   });
 });

@@ -346,6 +346,16 @@ const VisitLink = ({ visit }: { visit: VisitColumn }): ReactElement =>
     <>{visit.label}</>
   );
 
+/**
+ * A trend chart time tick: the year on January 1 (so two Aprils in a row are told apart), the date at midnight, else
+ * the 12-hour time for short spans. Luxon, since ECharts' {h} reads midnight as "0:30 AM".
+ */
+const timeTickLabel = (value: number): string => {
+  const tick = DateTime.fromMillis(value);
+  if (tick.hour === 0 && tick.minute === 0) return tick.toFormat(tick.month === 1 && tick.day === 1 ? 'yyyy' : 'MM/dd');
+  return tick.toFormat(tick.minute === 0 ? 'h a' : TIME_FORMAT);
+};
+
 /** "Pre-booked In Person Visit / UC" or "Follow-up Encounter / UC", as on the patient Visits tab. */
 export const visitTypeLabel = (
   visit: FlowsheetVisit,
@@ -424,17 +434,7 @@ const FlowsheetBody = ({
           }
         : {
             type: 'time',
-            // The year at year boundaries, so two Aprils in a row are told apart; 12-hour times for short spans.
-            axisLabel: {
-              hideOverlap: true,
-              formatter: {
-                year: '{yyyy}',
-                month: '{MM}/{dd}',
-                day: '{MM}/{dd}',
-                hour: '{h} {A}',
-                minute: '{h}:{mm} {A}',
-              },
-            },
+            axisLabel: { hideOverlap: true, formatter: timeTickLabel },
             // The tooltip's heading: the reading's date and 12-hour time.
             axisPointer: {
               label: {
