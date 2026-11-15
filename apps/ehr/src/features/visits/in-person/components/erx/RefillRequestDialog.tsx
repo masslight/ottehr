@@ -36,6 +36,7 @@ import {
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
 import { useCancelPrescription } from '../../../shared/hooks/useCancelPrescription';
+import { useCheckSurescriptsEnrollment } from '../../../shared/hooks/useCheckSurescriptsEnrollment';
 import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription';
 import { GET_TASKS_KEY, useCompleteErxTask } from '../../hooks/useTasks';
 import { OrderPrescriptionForm } from './OrderPrescriptionForm';
@@ -182,6 +183,10 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const pharmacyName = request?.pharmacy.name ?? 'the pharmacy';
   const contact = patientAddressAndPhone(data?.patient);
   const closed = !!request && (request.withdrawn || request.closed);
+  // The eRx service takes an answer only from an enrolled prescriber, sent under their name: anyone else reads it.
+  const { data: enrollment } = useCheckSurescriptsEnrollment();
+  const notEnrolled = !closed && enrollment?.registered === false;
+  const notEnrolledAlert = <Alert severity="warning">You are not enrolled in Surescripts e-prescribing.</Alert>;
   const asked = refill?.medication.requestedRefills;
   const fillsText = fills ?? asked?.toString() ?? '';
   const fillsNumber = Number(fillsText);
@@ -263,7 +268,11 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
       : undefined;
   // A new prescription in the order form, saved to the original's visit: the pharmacy's request changed and approved
   // (sent to the pharmacy that asked), or a patient's request (sent as a new prescription, to any pharmacy).
-  const showForm = !!data && !!prescription?.encounterId && (request ? answer === 'change' && !closed : !changeBlocked);
+  const showForm =
+    !!data &&
+    !!prescription?.encounterId &&
+    !notEnrolled &&
+    (request ? answer === 'change' && !closed : !changeBlocked);
   const orderForm = showForm && (
     <OrderPrescriptionForm
       // Picking another suggestion starts the form again from it.
@@ -452,8 +461,9 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
               </Box>
             </Box>
             {changeBlocked && <Alert severity="warning">{changeBlocked}</Alert>}
+            {notEnrolled && notEnrolledAlert}
             {!request && orderForm}
-            {request && (
+            {request && !notEnrolled && (
               <Stack spacing={2}>
                 <SectionHeading>Your answer</SectionHeading>
                 <ToggleButtonGroup
@@ -534,7 +544,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
         <RoundedButton onClick={onClose} disabled={respond.isPending}>
           {closed ? 'Close' : 'Cancel'}
         </RoundedButton>
-        {request && !closed && answer !== 'change' && (
+        {request && !closed && !notEnrolled && answer !== 'change' && (
           <RoundedButton variant="contained" disabled={!ready} loading={respond.isPending} onClick={() => void send()}>
             {answer === 'deny' ? 'Send denial' : `Send to ${pharmacyName}`}
           </RoundedButton>

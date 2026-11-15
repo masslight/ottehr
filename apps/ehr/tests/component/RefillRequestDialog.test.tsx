@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   height: undefined as { cm: number; takenAt?: string } | undefined,
   weight: undefined as { kg: number; takenAt?: string; thisVisit: boolean } | undefined,
   allergies: undefined as PrescriptionAllergy[] | undefined,
+  enrollment: undefined as { registered: boolean } | undefined,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -25,6 +26,9 @@ vi.mock('../../src/features/visits/in-person/components/erx/useVisitWeight', () 
   useVisitWeight: () => mocks.weight,
   useVisitHeight: () => mocks.height,
   useVisitAllergies: () => mocks.allergies,
+}));
+vi.mock('../../src/features/visits/shared/hooks/useCheckSurescriptsEnrollment', () => ({
+  useCheckSurescriptsEnrollment: () => ({ data: mocks.enrollment }),
 }));
 vi.mock('../../src/features/visits/in-person/hooks/useTasks', () => ({
   GET_TASKS_KEY: 'get-tasks',
@@ -102,6 +106,7 @@ describe('Refill request dialog', () => {
     mocks.height = undefined;
     mocks.weight = undefined;
     mocks.allergies = undefined;
+    mocks.enrollment = undefined;
     mocks.respondToRenewal.mockResolvedValue({
       taskId: 'renewal-1',
       messageId: 'm',
@@ -125,6 +130,17 @@ describe('Refill request dialog', () => {
     expect(within(original).getByText('Essential hypertension (I10)')).toBeInTheDocument();
     expect(within(section('Patient Info')).getByText('(512) 555-0187')).toBeInTheDocument();
     expect(screen.queryByText(/asked again/)).not.toBeInTheDocument();
+  });
+
+  it('is read-only for a user not enrolled in Surescripts, saying so where the answer would be', async () => {
+    mocks.enrollment = { registered: false };
+    await open();
+    expect(screen.getByText('You are not enrolled in Surescripts e-prescribing.')).toBeInTheDocument();
+    expect(screen.queryByText('Your answer')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send to CVS Pharmacy #7741' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send denial' })).not.toBeInTheDocument();
+    // What the pharmacy asked is still there to read.
+    expect(within(section('Pharmacy’s request')).getByText('Pharmacy asks for 3 fills')).toBeInTheDocument();
   });
 
   it('says how many fills the pharmacy asks for, "fill" for one', async () => {
