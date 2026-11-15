@@ -186,7 +186,7 @@ export const PharmacySearch: FC<{
         ...(directoryResults.data ?? []).map((pharmacy) => ({
           kind: 'pharmacy' as const,
           key: pharmacy.ncpdpId,
-          group: 'Compounding, mail-order and other pharmacies',
+          group: 'Pharmacies that take e-prescriptions',
           name: pharmacy.name,
           address: pharmacy.address,
           pharmacy,

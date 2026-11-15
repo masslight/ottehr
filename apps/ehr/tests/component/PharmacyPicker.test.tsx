@@ -215,22 +215,22 @@ describe('eRx pharmacy picker', () => {
     await user.click(
       await screen.findByRole('option', { name: 'Search compounding, mail-order and other pharmacies for "heb"' })
     );
-    expect(await screen.findByText('Compounding, mail-order and other pharmacies')).toBeInTheDocument();
+    expect(await screen.findByText('Pharmacies that take e-prescriptions')).toBeInTheDocument();
     expect(mocks.searchPharmacyDirectory).toHaveBeenCalledWith('user-token', { name: 'heb' });
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
       'Back to Google results',
       'HEB PHARMACY #6122400 S CONGRESS AVE, AUSTIN, TX 78704',
     ]);
     await user.click(screen.getByRole('option', { name: 'Back to Google results' }));
-    expect(screen.queryByText('Compounding, mail-order and other pharmacies')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pharmacies that take e-prescriptions')).not.toBeInTheDocument();
     // With the keyboard, as any other row.
     await user.keyboard('{ArrowUp}{Enter}');
-    await screen.findByText('Compounding, mail-order and other pharmacies');
+    await screen.findByText('Pharmacies that take e-prescriptions');
     await user.click(await screen.findByRole('option', { name: /HEB PHARMACY #612/ }));
     expect(onPick).toHaveBeenCalledWith(result(HEB));
     // Typing again returns to Google.
     await user.type(field, ' x');
-    expect(screen.queryByText('Compounding, mail-order and other pharmacies')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pharmacies that take e-prescriptions')).not.toBeInTheDocument();
   });
 
   it.each([
