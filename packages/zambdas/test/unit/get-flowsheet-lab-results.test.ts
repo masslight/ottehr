@@ -474,6 +474,22 @@ describe('buildLabResultsFlowsheet', () => {
     ).toEqual({ urineCulture: 'Escherichia coli >100000 CFU/mL' });
   });
 
+  test('urine culture: an uncoded colony count follows its uncoded organism, without a generic "Organism" name', () => {
+    const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
+    expect(
+      valuesOf(
+        lab('Organism', { ...culture, text: 'Escherichia coli' }),
+        lab('Colony count', { ...culture, text: '>100000', unit: 'CFU/mL' }),
+        lab('Organism 2', { ...culture, text: 'Enterococcus faecalis' }),
+        lab('Colony Count', { ...culture, text: '10000-50000', unit: 'CFU/mL' })
+      )
+    ).toEqual({ urineCulture: 'Escherichia coli >100000 CFU/mL; Enterococcus faecalis 10000-50000 CFU/mL' });
+    // A count with no organism before it still reads with its name.
+    expect(valuesOf(lab('Colony count', { ...culture, text: '>100000', unit: 'CFU/mL' }))).toEqual({
+      urineCulture: 'Colony count >100000 CFU/mL',
+    });
+  });
+
   test('urine culture: an uncoded susceptibility (value S, I or R) is left out of the organism cell', () => {
     const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
     expect(
@@ -536,6 +552,16 @@ describe('buildLabResultsFlowsheet', () => {
         lab('Enterococcus faecalis', { ...culture, value: 20000, unit: 'CFU/mL' })
       )
     ).toEqual({ urineCulture: 'Final report; Escherichia coli >100000 CFU/mL; Enterococcus faecalis 20000 CFU/mL' });
+    // A range keeps its unit too.
+    expect(
+      valuesOf(
+        lab('Proteus mirabilis', { ...culture, text: '10000-50000', unit: 'CFU/mL' }),
+        lab('Bacteria identified', { ...culture, codes: ['634-6'], text: 'Klebsiella pneumoniae' }),
+        lab('Colony count', { ...culture, codes: ['19090-0'], text: '10,000 to 50,000', unit: 'CFU/mL' })
+      )
+    ).toEqual({
+      urineCulture: 'Proteus mirabilis 10000-50000 CFU/mL; Klebsiella pneumoniae 10,000 to 50,000 CFU/mL',
+    });
   });
 
   test('urine culture: reports are ordered by instant, so the later one is the cell', () => {

@@ -379,8 +379,8 @@ const isUrineCultureResult = (lab: FlowsheetLabResult): boolean =>
 
 /** A susceptibility's value: susceptible, intermediate or resistant, as a letter or spelled out. */
 const SUSCEPTIBILITY = /^\s*([SIR]|susceptible|intermediate|resistant)\s*$/i;
-/** A quantity's text: a number, with its comparator if any. */
-const QUANTITY_TEXT = /^\s*[<>]?=?\s*[\d.,]+\s*$/;
+/** A quantity's text: a number, with its comparator if any, or a range ("10000-50000", "10,000 to 50,000"). */
+const QUANTITY_TEXT = /^\s*[<>]?=?\s*[\d.,]+(\s*(-|–|to)\s*[\d.,]+)?\s*$/i;
 /**
  * A susceptibility's unit: an antibiotic concentration (MIC) or a disk-diffusion zone size in mm; organism counts
  * are in CFU, never in either.
@@ -394,10 +394,16 @@ const reportedText = (lab: FlowsheetLabResult): string =>
 const isCultureOwnResult = (lab: FlowsheetLabResult): boolean =>
   hasCode(lab, 'urineCulture') || URINE_CULTURE_NAME.test(lab.analyte);
 const isCodedCount = (lab: FlowsheetLabResult): boolean => hasCode(lab, 'urineCultureColonyCount');
+/** A colony count, coded or, uncoded, by its name ("Colony count"). */
+const isCount = (lab: FlowsheetLabResult): boolean =>
+  isCodedCount(lab) || (lab.loincCodes.length === 0 && /colony count|\bcfu\b/i.test(lab.analyte));
+/** An uncoded result's name that only says it is an organism ("Organism", "Organism 2", "Result"), not which. */
+const GENERIC_ORGANISM_NAME = /^\s*(organism|result)\s*\d*\s*$/i;
 
 /**
- * The culture's own result reads as reported ("No growth"), and so does a coded organism ("Escherichia coli"); an
- * uncoded organism, and a coded colony count on its own, read their name and count as reported. Other coded results
+ * The culture's own result reads as reported ("No growth"), and so does a coded organism ("Escherichia coli"), or an
+ * uncoded one named only "Organism"; any other uncoded organism, and a colony count on its own, read their name and
+ * count as reported. Other coded results
  * of the same order (susceptibilities) are left out, and so are uncoded susceptibilities: valued or interpreted S, I
  * or R, or an MIC (a value in an antibiotic-concentration unit).
  */
@@ -408,6 +414,7 @@ const cultureText = (lab: FlowsheetLabResult): string => {
     SUSCEPTIBILITY.test(lab.valueText) || SUSCEPTIBILITY.test(lab.interpretation) || MIC_UNIT.test(lab.unit);
   if (isCodedCount(lab)) return [lab.analyte, reported].filter(Boolean).join(' ');
   if (lab.loincCodes.length > 0 || susceptibility) return '';
+  if (GENERIC_ORGANISM_NAME.test(lab.analyte)) return reported;
   return [lab.analyte, reported].filter(Boolean).join(' ');
 };
 
@@ -416,16 +423,16 @@ const linkedTo = (a: FlowsheetLabResult, b: FlowsheetLabResult): boolean =>
   (!!a.observationId && !!b.linkedObservationIds?.includes(a.observationId));
 
 /**
- * One report's culture texts in report order, each coded colony count after its organism ("Escherichia coli >100000
- * CFU/mL"): the organism it links to, else, linking to none, the nearest organism before it without a count. Only
+ * One report's culture texts in report order, each colony count, coded or not, after its organism ("Escherichia coli
+ * >100000 CFU/mL"): the organism it links to, else, linking to none, the nearest organism before it without a count. Only
  * exact duplicate texts are dropped.
  */
 const cultureTexts = (labs: FlowsheetLabResult[]): string[] => {
   const shown = labs.filter((lab) => cultureText(lab));
-  const organisms = shown.filter((lab) => !isCodedCount(lab) && !isCultureOwnResult(lab));
+  const organisms = shown.filter((lab) => !isCount(lab) && !isCultureOwnResult(lab));
   const countOf = new Map<FlowsheetLabResult, FlowsheetLabResult>();
   shown.forEach((count, i) => {
-    if (!isCodedCount(count)) return;
+    if (!isCount(count)) return;
     const unpaired = organisms.filter((organism) => !countOf.has(organism));
     const linked = shown.some((other) => linkedTo(count, other));
     const organism = linked
