@@ -17,14 +17,15 @@ const LAB_ROWS: LabRow[] = [
     key: 'newbornDirectBilirubin',
     analyte: /bilirubin.*(direct|conjugated)|(direct|conjugated).*bilirubin/i,
     exclude: /indirect|unconjugated|cord/i,
+    excludeTest: /cord/i,
   },
   { key: 'transcutaneousBilirubin', analyte: /transcutaneous|\btcb\b/i },
   {
     key: 'newbornTotalBilirubin',
     analyte: /bilirubin/i,
     exclude: /direct|conjugated|indirect|unconjugated|cord/i,
-    // A urine bilirubin (named, or from a urinalysis) is not a blood result.
-    excludeTest: /urin|\bua\b/i,
+    // A urine or cord blood bilirubin (in its name or its test's) is not the infant's blood result.
+    excludeTest: /urin|\bua\b|cord/i,
   },
 ];
 

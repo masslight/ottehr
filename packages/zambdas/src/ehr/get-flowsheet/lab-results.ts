@@ -18,8 +18,8 @@ const EGFR: Pick<LabRow, 'analyte' | 'exclude'> = {
   exclude: /black|african|non.?af/i,
 };
 
-/** Rows whose uncoded results come from blood tests: a urine test never lands on them. */
-const serum = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ ...row, excludeTest: URINE }));
+/** Rows whose uncoded results come from blood tests: a urine test never lands on them (a row may exclude more). */
+const serum = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ excludeTest: URINE, ...row }));
 /** Urinalysis rows: uncoded results only from a urine test, shown as reported, number or text. */
 const urine = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ ...row, test: URINE, text: true }));
 
@@ -79,6 +79,7 @@ const LAB_ROWS: LabRow[] = [
       key: 'totalBilirubin',
       analyte: /bilirubin/i,
       exclude: /direct|conjugated|indirect|unconjugated|neonat|transcut/i,
+      excludeTest: /urin|\bua\b|cord/i,
     },
     {
       key: 'alkalinePhosphatase',

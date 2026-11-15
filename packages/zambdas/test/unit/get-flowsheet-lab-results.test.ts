@@ -141,6 +141,15 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     expect(valuesOf(lab('Bilirubin, total', { codes: ['42719-5'], value: 9.9 }))).toEqual({});
     expect(valuesOf(lab('Bilirubin, total', { codes: ['1975-2'], value: 0.6 }))).toEqual({ totalBilirubin: 0.6 });
   });
+
+  test('by name, a cord blood bilirubin named only by its test stays off Total bilirubin', () => {
+    expect(valuesOf(lab('Bilirubin, Total', { test: 'Cord Blood Evaluation', value: 2.1 }))).toEqual({});
+    // A urinalysis bilirubin still goes to its Urinalysis row, and a CMP's to Total bilirubin.
+    expect(valuesOf(lab('Bilirubin', { test: 'Urinalysis', value: 1 }))).toEqual({ uaBilirubin: 1 });
+    expect(valuesOf(lab('Bilirubin, Total', { test: 'Comprehensive metabolic panel', value: 0.6 }))).toEqual({
+      totalBilirubin: 0.6,
+    });
+  });
 });
 
 describe('buildLabResultsFlowsheet', () => {

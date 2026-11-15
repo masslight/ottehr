@@ -180,6 +180,22 @@ describe('buildNewbornBilirubinFlowsheet', () => {
     expect(visits[0]?.values.newbornTotalBilirubin).toBeUndefined();
   });
 
+  test('by name, a cord blood bilirubin named only by its test stays off both serum rows', () => {
+    const at = '2007-04-03T18:00:00.000Z';
+    const visits = buildNewbornBilirubinFlowsheet({
+      ...data,
+      vitals: [],
+      labs: {
+        e1: [
+          { ...lab('Bilirubin, Total', [], 2.1, at), testName: 'Cord Blood Evaluation' },
+          { ...lab('Bilirubin, Direct', [], 0.3, at), testName: 'Cord Blood Evaluation' },
+        ],
+      },
+    });
+    expect(visits[0]?.values.newbornTotalBilirubin).toBeUndefined();
+    expect(visits[0]?.values.newbornDirectBilirubin).toBeUndefined();
+  });
+
   test('by name, an uncoded urine bilirubin stays off Total bilirubin (blood), like the coded one', () => {
     const at = '2007-04-03T18:00:00.000Z';
     const visits = buildNewbornBilirubinFlowsheet({
