@@ -447,7 +447,7 @@ const FlowsheetBody = ({
       : undefined;
 
   // ECharts option per chart. Series names and units come from the registry, values are numbers, so the
-  // default tooltip renders nothing a user or patient typed.
+  // tooltip shows nothing a user or patient typed.
   const chartOption = (chart: FlowsheetChart): Record<string, unknown> => {
     const hoursAxis = usesHoursAxis(chart, columns);
     return {
@@ -456,6 +456,8 @@ const FlowsheetBody = ({
       tooltip: {
         trigger: 'axis',
         confine: true,
+        // Canvas text, not HTML, as on the growth charts: nothing in a tooltip can become markup.
+        renderMode: 'richText',
         // A temperature reads in both units.
         ...(chart.fahrenheit && { valueFormatter: (value: number) => withFahrenheit(value) }),
       },

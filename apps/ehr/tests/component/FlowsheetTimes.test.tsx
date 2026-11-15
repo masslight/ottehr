@@ -37,6 +37,7 @@ const visits = [
 
 const charts: {
   xAxis: { axisPointer?: { label?: { formatter?: (p: { value: number }) => string } } } & Record<string, unknown>;
+  tooltip: { renderMode?: string };
 }[] = [];
 vi.mock('src/api/api', () => ({}));
 vi.mock('src/hooks/useGetFlowsheet', () => ({
@@ -75,6 +76,8 @@ describe('Flowsheet times', () => {
 
     const tooltipLabel = charts[charts.length - 1].xAxis.axisPointer?.label?.formatter;
     expect(tooltipLabel?.({ value: Date.parse(local(14, 5)) })).toBe('07/13/2026 2:05 PM');
+    // Plain canvas text, never HTML.
+    expect(charts[charts.length - 1].tooltip.renderMode).toBe('richText');
   });
 
   it('label the trend chart axis 12-hour for a short span, and dates as MM/dd', async () => {
