@@ -822,7 +822,7 @@ describe('buildLabResultsFlowsheet', () => {
     expect(valuesOf(lab('Trichomonas', { test: 'Pap smear', text: 'Present' }))).toEqual({});
   });
 
-  test('Trichomonas: a wet-mount result shows "(wet mount)", by its code or else its name; a NAAT or antigen one no note', () => {
+  test('Trichomonas: a wet-mount or culture result shows "(wet mount)" or "(culture)", by its code or else its name; a NAAT or antigen one no note', () => {
     const trichomonas = (result: FlowsheetLabResult): [string | number, string | undefined] => {
       const value = build({ e1: [result] })[0].values.trichomonas;
       return [value.value, value.note];
@@ -847,9 +847,18 @@ describe('buildLabResultsFlowsheet', () => {
       'Detected',
       undefined,
     ]);
+    // A culture misses about as many infections as a wet mount (CDC 2021).
     expect(trichomonas(lab('Trichomonas culture', { codes: ['91790-6'], text: 'Negative' }))).toEqual([
       'Negative',
-      undefined,
+      'culture',
+    ]);
+    expect(trichomonas(lab('Trichomonas sp identified', { codes: ['10728-4'], text: 'None' }))).toEqual([
+      'None',
+      'culture',
+    ]);
+    expect(trichomonas(lab('Trichomonas vaginalis', { text: 'Not detected', test: 'Trichomonas Culture' }))).toEqual([
+      'Not detected',
+      'culture',
     ]);
     expect(trichomonas(lab('Trichomonas vaginalis Ag', { codes: ['41511-7'], text: 'Negative' }))).toEqual([
       'Negative',

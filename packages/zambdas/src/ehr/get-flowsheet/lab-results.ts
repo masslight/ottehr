@@ -76,22 +76,25 @@ const HPV_18: Pick<LabRow, 'analyte' | 'exclude' | 'text' | 'note'> = {
   note: hpv18With45,
 };
 
-/** A wet mount, which misses many infections a NAAT finds: by its code, else by a test's or its own name. */
-const trichomonasWetMount = (lab: FlowsheetLabResult): string | undefined =>
-  (
-    lab.loincCodes.length > 0
-      ? hasCode(lab, 'trichomonasWetMount')
-      : /\bwet\b|microscop/i.test(`${lab.testName} ${lab.analyte}`)
-  )
-    ? 'wet mount'
-    : undefined;
+/** A wet mount or a culture, which miss many infections a NAAT finds: by its code, else by a test's or its own name. */
+const trichomonasMethod = (lab: FlowsheetLabResult): string | undefined => {
+  if (lab.loincCodes.length > 0) {
+    return hasCode(lab, 'trichomonasWetMount')
+      ? 'wet mount'
+      : hasCode(lab, 'trichomonasCulture')
+      ? 'culture'
+      : undefined;
+  }
+  const name = `${lab.testName} ${lab.analyte}`;
+  return /\bwet\b|microscop/i.test(name) ? 'wet mount' : /cultur/i.test(name) ? 'culture' : undefined;
+};
 const TRICHOMONAS: Pick<LabRow, 'analyte' | 'exclude' | 'excludeTest' | 'text' | 'note'> = {
   text: true,
   analyte: /trichomon|\bt\.? ?vaginalis/i,
   exclude: /antibod|\bab\b/i,
   // A Trichomonas seen on a Pap test isn't diagnostic and needs a retest (CDC 2021); a NAAT run on the Pap vial is.
   excludeTest: /^(?!.*(\bnaat\b|\bdna\b|\br?rna\b|\bpcr\b|\btma\b|amplif|\bprobe\b)).*(\bpap\b|papanicolaou|\bcyto)/i,
-  note: trichomonasWetMount,
+  note: trichomonasMethod,
 };
 
 /** Rows whose uncoded results come from blood tests: a urine test never lands on them (a row may exclude more). */
