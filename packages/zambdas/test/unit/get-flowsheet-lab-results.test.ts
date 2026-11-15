@@ -134,7 +134,9 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     ['hpv18', ['77400-0', '61373-7', '75694-0']],
     ['directBilirubin', ['1968-7']],
     ['fingerstickGlucose', ['2339-0', '41653-7']],
-    ['lead', ['5671-3', '10368-9', '77307-7']],
+    ['lead', ['5671-3', '14807-2']],
+    ['leadCapillary', ['10368-9']],
+    ['leadVenous', ['77307-7']],
     ['igra', ['71773-6']],
     ['fit', ['29771-3']],
     ['lipoproteinA', ['10835-7']],
@@ -458,6 +460,23 @@ describe('buildLabResultsFlowsheet', () => {
       igra: 'Negative',
       fit: 'Negative',
     });
+  });
+
+  test('lead: shows its specimen, from the code when it names one, else from the test or result name; else none', () => {
+    const lead = (result: FlowsheetLabResult): [string | number, string | undefined] => {
+      const value = build({ e1: [result] })[0].values.lead;
+      return [value.value, value.note];
+    };
+    expect(lead(lab('Lead', { codes: ['10368-9'], value: 6, test: 'Lead, Venous' }))).toEqual([6, 'capillary']);
+    expect(lead(lab('Lead, Blood', { codes: ['77307-7'], value: 2.1 }))).toEqual([2.1, 'venous']);
+    expect(lead(lab('Lead', { codes: ['5671-3'], value: 3.6, test: 'Lead, Blood (Capillary)' }))).toEqual([
+      3.6,
+      'capillary',
+    ]);
+    expect(lead(lab('Lead, Blood (Venous)', { value: 2 }))).toEqual([2, 'venous']);
+    expect(lead(lab('Lead', { value: 5.1, test: 'Lead Screen, Fingerstick' }))).toEqual([5.1, 'capillary']);
+    expect(lead(lab('Lead', { codes: ['5671-3'], value: 1.2 }))).toEqual([1.2, undefined]);
+    expect(lead(lab('Blood Lead', { value: 1.2 }))).toEqual([1.2, undefined]);
   });
 
   test('a genotyped HPV report: HPV 16 and HPV 18 (18/45) are their own rows, coded or named; a pooled 16/18 is on none', () => {

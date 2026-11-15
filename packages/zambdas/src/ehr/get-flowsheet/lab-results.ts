@@ -21,6 +21,21 @@ const EGFR: Pick<LabRow, 'analyte' | 'exclude'> = {
   exclude: /black|african|non.?af/i,
 };
 
+const hasCode = (lab: FlowsheetLabResult, rule: string): boolean =>
+  lab.loincCodes.some((code) => LAB_ROW_LOINC_CODES[rule].includes(code));
+
+/** A lead level's specimen: the one its code names, else the one its test's or its own name does. */
+const leadSpecimen = (lab: FlowsheetLabResult): string | undefined => {
+  if (hasCode(lab, 'leadCapillary')) return 'capillary';
+  if (hasCode(lab, 'leadVenous')) return 'venous';
+  const name = `${lab.testName} ${lab.analyte}`;
+  return /capillary|finger|heel/i.test(name) ? 'capillary' : /venous/i.test(name) ? 'venous' : undefined;
+};
+const LEAD: Pick<LabRow, 'analyte' | 'note'> = {
+  analyte: /^lead\b|blood lead|\blead,? (blood|venous|capillary)/i,
+  note: leadSpecimen,
+};
+
 /** Rows whose uncoded results come from blood tests: a urine test never lands on them (a row may exclude more). */
 const serum = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ excludeTest: URINE, ...row }));
 /** Urinalysis rows: uncoded results only from a urine test, shown as reported, number or text. */
@@ -29,7 +44,7 @@ const urine = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ ...row, test: U
 /**
  * Lab rows (codes: lab-row-rules.ts). The name patterns only place uncoded results; the first matching row wins, so
  * absolute counts, high-sensitivity CRP and ratios are listed before, or excluded from, the rows they share a name
- * with. Glucose and eGFR each take two rules under one key (see lab-row-rules.ts).
+ * with. Glucose and eGFR each take two rules under one key, and Lead three (see lab-row-rules.ts).
  */
 const LAB_ROWS: LabRow[] = [
   ...serum([
@@ -208,7 +223,9 @@ const LAB_ROWS: LabRow[] = [
       test: /quant|serum|plasma|blood/i,
     },
     { key: 'ttgIga', analyte: /transglutaminase|\bttg\b/i, exclude: /igg|igm/i },
-    { key: 'lead', analyte: /^lead\b|blood lead|\blead,? (blood|venous|capillary)/i },
+    { key: 'lead', rule: 'leadCapillary', ...LEAD },
+    { key: 'lead', rule: 'leadVenous', ...LEAD },
+    { key: 'lead', ...LEAD },
     { key: 'esr', analyte: /sed rate|sedimentation|\besr\b/i },
     { key: 'uricAcid', analyte: /uric acid|urate/i },
     { key: 'folate', analyte: /folate|folic acid/i, exclude: /rbc|red cell/i },
@@ -246,9 +263,6 @@ const LAB_ROWS: LabRow[] = [
     { key: 'uaUrobilinogen', analyte: /urobilinogen/i },
   ]),
 ];
-
-const hasCode = (lab: FlowsheetLabResult, rule: string): boolean =>
-  lab.loincCodes.some((code) => LAB_ROW_LOINC_CODES[rule].includes(code));
 
 /** Of one draw's eGFR results, only the 2021 race-free CKD-EPI one is shown when the lab sent it. */
 const preferEgfr2021 = (labs: FlowsheetLabResult[]): FlowsheetLabResult[] =>

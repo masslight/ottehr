@@ -783,10 +783,14 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
   ],
   lead: [
     '5671-3', // Lead [Mass/volume] in Blood
-    '10368-9', // Lead [Mass/volume] in Capillary blood
     '14807-2', // Lead [Moles/volume] in Blood
-    '77307-7', // Lead [Mass/volume] in Venous blood
     '109578-5', // Lead [Measurement] in Blood
+  ],
+  leadCapillary: [
+    '10368-9', // Lead [Mass/volume] in Capillary blood
+  ],
+  leadVenous: [
+    '77307-7', // Lead [Mass/volume] in Venous blood
   ],
   igra: [
     '45323-3', // Mycobacterium tuberculosis tuberculin stimulated gamma interferon [Presence] in Blood

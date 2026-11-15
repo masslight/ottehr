@@ -22,6 +22,8 @@ export interface LabRow {
   text?: boolean;
   /** Mark a result the lab reports as fasting with the "fasting" note. */
   fasting?: boolean;
+  /** Any other note on a result the row takes, e.g. a lead level's specimen ("capillary"). */
+  note?: (lab: FlowsheetLabResult) => string | undefined;
 }
 
 const FASTING_NOTE = 'fasting';
@@ -104,7 +106,7 @@ export const conditionColumns = (data: FlowsheetData, vitalKeys: string[]): Cond
           time: lab.resultedAt ?? column.start,
           value,
           unit: lab.unit || undefined,
-          note: row.fasting && lab.fasting ? FASTING_NOTE : undefined,
+          note: row.fasting && lab.fasting ? FASTING_NOTE : row.note?.(lab),
           flag: lab.flag,
         });
       });

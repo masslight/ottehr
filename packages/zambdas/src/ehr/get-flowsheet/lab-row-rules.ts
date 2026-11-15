@@ -254,7 +254,10 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     systems: SERUM_OR_PLASMA,
     excludeProperties: PRESENCE,
   },
-  lead: { components: ['Lead'], systems: BLOOD_ANY, excludeProperties: PRESENCE },
+  // A rule per specimen, so the row can show a capillary (fingerstick) screen apart from a venous level.
+  lead: { components: ['Lead'], systems: BLOOD, excludeProperties: PRESENCE },
+  leadCapillary: { components: ['Lead'], systems: ['Capillary blood'], excludeProperties: PRESENCE },
+  leadVenous: { components: ['Lead'], systems: ['Venous blood'], excludeProperties: PRESENCE },
   // The test's interpretation ("Negative"), not its tubes' numbers; LOINC names one code's system "Blood Qualitative".
   igra: {
     components: [
