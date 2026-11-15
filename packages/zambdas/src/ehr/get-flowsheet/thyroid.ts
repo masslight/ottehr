@@ -36,14 +36,19 @@ const THYROID_MEDICATION =
 
 /**
  * Lab rows (codes: lab-row-rules.ts), also Lab results' Thyroid rows. The name patterns only place uncoded results:
- * the free hormones are listed before the totals, and a total row never takes a result whose name says "free".
+ * the free hormones are listed before the totals, and a total row never takes a result whose name says "free". An
+ * index (Free T4 Index), an uptake (T3 Uptake) or reverse T3 is another test, on no row.
  */
 export const THYROID_LAB_ROWS: LabRow[] = [
   { key: 'tsh', analyte: /\btsh\b|thyrotropin|thyroid stimulating/i, exclude: /receptor|antibod|binding|globulin/i },
-  { key: 'freeT4', analyte: /free t4|ft4|thyroxine.*free/i },
-  { key: 'totalT4', analyte: /^t4\b|total t4|thyroxine/i, exclude: /free|receptor|antibod|binding|globulin/i },
-  { key: 'freeT3', analyte: /free t3|ft3|t3.*free/i },
-  { key: 'totalT3', analyte: /^t3\b|total t3|triiodothyronine/i, exclude: /free/i },
+  { key: 'freeT4', analyte: /free t4|ft4|thyroxine.*free|t4,? free/i, exclude: /index/i },
+  {
+    key: 'totalT4',
+    analyte: /^t4\b|total t4|thyroxine/i,
+    exclude: /free|index|receptor|antibod|binding|globulin/i,
+  },
+  { key: 'freeT3', analyte: /free t3|ft3|t3.*free/i, exclude: /index/i },
+  { key: 'totalT3', analyte: /^t3\b|total t3|triiodothyronine/i, exclude: /free|uptake|reverse|\brt3\b/i },
   // Often reported qualitatively ("Negative"), so a text-only result is kept, as on Lab results' qualitative rows.
   { key: 'tpoAntibodies', analyte: /tpo|peroxidase/i, text: true },
   // A thyroid cancer survivor's follow-up tests; the antibodies, like TPO's, are often reported qualitatively.

@@ -831,6 +831,28 @@ describe('buildLabResultsFlowsheet', () => {
     });
   });
 
+  test('uncoded names: an index, an uptake, reverse T3 and an AST/ALT ratio stay off the hormone and enzyme rows; "T4, Free" is Free T4', () => {
+    [
+      'Free T4 Index',
+      'FTI',
+      'Free Thyroxine Index',
+      'T4 Index',
+      'Free T3 Index',
+      'T3 Uptake',
+      'Triiodothyronine Uptake',
+      'Reverse T3',
+      'Triiodothyronine, Reverse',
+      'AST/ALT Ratio',
+      'ALT/AST',
+      'SGOT/SGPT Ratio',
+    ].forEach((name) => expect([name, valuesOf(lab(name, { value: 1.2 }))]).toEqual([name, {}]));
+    expect(valuesOf(lab('T4, Free', { value: 1.1 }), lab('T3, Free', { value: 3.1 }))).toEqual({
+      freeT4: 1.1,
+      freeT3: 3.1,
+    });
+    expect(valuesOf(lab('AST (SGOT)', { value: 31 }), lab('ALT/SGPT', { value: 28 }))).toEqual({ ast: 31, alt: 28 });
+  });
+
   test('a visit is a column only with a result for a row; an unlinked outside result is its own column; newest first', () => {
     expect(build({ e1: [lab('Influenza A antigen', { codes: ['104730-7'], text: 'Detected' })] })).toEqual([]);
     const visits = build({

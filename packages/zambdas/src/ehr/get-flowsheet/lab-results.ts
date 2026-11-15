@@ -19,6 +19,8 @@ const FINGERSTICK_GLUCOSE: Pick<LabRow, 'analyte' | 'exclude' | 'test'> = {
   exclude: /tolerance|\bgtt\b|post|hour|minute|fluid/i,
   test: /capillary|whole blood|finger|heel|\bpoc\b|point.of.care|glucometer|\bmeter\b/i,
 };
+const AST_ALT_RATIO =
+  /ratio|(\bast\b|aspartate|sgot).*(\balt\b|alanine|sgpt)|(\balt\b|alanine|sgpt).*(\bast\b|aspartate|sgot)/i;
 const CRP = /c.?reactive|\bcrp\b/i;
 const HS_CRP = /hs.?crp|high.?sens|cardi/i;
 const EGFR: Pick<LabRow, 'analyte' | 'exclude'> = {
@@ -178,8 +180,9 @@ const LAB_ROWS: LabRow[] = [
       analyte: /alkaline phosphatase|alk phos|\balp\b/i,
       exclude: /isoenz|bone|intestinal|liver/i,
     },
-    { key: 'ast', analyte: /\bast\b|aspartate|\bsgot\b/i },
-    { key: 'alt', analyte: /\balt\b|alanine|\bsgpt\b/i },
+    // An AST/ALT (De Ritis) ratio names both and is on neither.
+    { key: 'ast', analyte: /\bast\b|aspartate|\bsgot\b/i, exclude: AST_ALT_RATIO },
+    { key: 'alt', analyte: /\balt\b|alanine|\bsgpt\b/i, exclude: AST_ALT_RATIO },
     // Lipid panel
     { key: 'totalCholesterol', analyte: /cholesterol/i, exclude: /ldl|hdl|non|ratio|\//i },
     { key: 'ldlCholesterol', analyte: /\bldl\b/i, exclude: /ratio|\/|vldl|particle|size|pattern/i },
