@@ -130,6 +130,8 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     ['syphilisRpr', ['20507-0', '31147-2']],
     ['syphilisTreponemalAntibody', ['47236-5', '24110-9']],
     ['hpvHighRisk', ['59420-0', '69002-4', '71431-1']],
+    ['hpv16', ['77399-4', '61372-9', '115798-1']],
+    ['hpv18', ['77400-0', '61373-7', '75694-0']],
     ['directBilirubin', ['1968-7']],
     ['fingerstickGlucose', ['2339-0', '41653-7']],
     ['lead', ['5671-3', '10368-9', '77307-7']],
@@ -456,6 +458,26 @@ describe('buildLabResultsFlowsheet', () => {
       igra: 'Negative',
       fit: 'Negative',
     });
+  });
+
+  test('a genotyped HPV report: HPV 16 and HPV 18 (18/45) are their own rows, coded or named; a pooled 16/18 is on none', () => {
+    expect(
+      valuesOf(
+        lab('HPV 16', { codes: ['77399-4'], text: 'Detected' }),
+        lab('HPV 18', { codes: ['77400-0'], text: 'Not detected' }),
+        lab('Other high risk HPV', { codes: ['71431-1'], text: 'Not detected' })
+      )
+    ).toEqual({ hpv16: 'Detected', hpv18: 'Not detected', hpvHighRisk: 'Not detected' });
+    expect(
+      valuesOf(
+        lab('HPV Genotype 16', { text: 'Detected' }),
+        lab('HPV 18/45', { text: 'Not detected' }),
+        lab('HPV High Risk Other', { text: 'Not detected' })
+      )
+    ).toEqual({ hpv16: 'Detected', hpv18: 'Not detected', hpvHighRisk: 'Not detected' });
+    expect(
+      valuesOf(lab('HPV 16/18', { codes: ['70061-7'], text: 'Detected' }), lab('HPV 16/18', { text: 'Detected' }))
+    ).toEqual({});
   });
 
   test('a urine result stays off the blood rows: urine glucose, hemoglobin and hCG land on their urine rows', () => {

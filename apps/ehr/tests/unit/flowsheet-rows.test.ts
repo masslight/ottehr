@@ -141,6 +141,8 @@ describe('Lab results rows', () => {
       'Syphilis RPR',
       'Syphilis treponemal antibody',
       'HPV (high risk)',
+      'HPV 16',
+      'HPV 18',
       '# Urinalysis',
       'Color',
       'Appearance',

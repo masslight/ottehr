@@ -200,6 +200,25 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     systems: CERVICAL,
     properties: PRESENCE,
   },
+  // The genotyping tests' own HPV 16 and HPV 18 (with 18/45) results; a pooled 16/18 result is on neither row.
+  hpv16: {
+    components: [
+      'Human papilloma virus 16 DNA',
+      'Human papilloma virus 16 mRNA',
+      'Human papilloma virus 16 E6+E7 mRNA',
+    ],
+    systems: CERVICAL,
+    properties: PRESENCE,
+  },
+  hpv18: {
+    components: [
+      'Human papilloma virus 18 DNA',
+      'Human papilloma virus 18+45 mRNA',
+      'Human papilloma virus 18+45 E6+E7 mRNA',
+    ],
+    systems: CERVICAL,
+    properties: PRESENCE,
+  },
   // Lab results: standalone tests
   hba1c: { components: ['Hemoglobin A1c/Hemoglobin.total'], systems: BLOOD },
   // A meter reading on a fingerstick, kept apart from the lab's serum or plasma glucose.

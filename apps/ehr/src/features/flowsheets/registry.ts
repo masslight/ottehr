@@ -264,6 +264,8 @@ const labResults: FlowsheetDefinition = {
       ['Syphilis RPR', 'syphilisRpr'],
       ['Syphilis treponemal antibody', 'syphilisTreponemalAntibody'],
       ['HPV (high risk)', 'hpvHighRisk'],
+      ['HPV 16', 'hpv16'],
+      ['HPV 18', 'hpv18'],
     ]),
     ...panel('Urinalysis', [
       ['Color', 'uaColor'],

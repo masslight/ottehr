@@ -613,6 +613,32 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '114963-2', // Human papilloma virus 16+18+31+33+35+39+45+51+52+56+58+59+66+68 DNA [Presence] in Specimen by Molgen
     '115799-9', // Human papilloma virus 16+18+31+33+35+39+45+51+52+56+58+59+66+68 DNA [Presence] in Vaginal fluid by NAA with probe detection
   ],
+  hpv16: [
+    '59263-4', // Human papilloma virus 16 DNA [Presence] in Cervix by Probe with signal amplification
+    '61372-9', // Human papilloma virus 16 DNA [Presence] in Specimen by NAA with probe detection
+    '77399-4', // Human papilloma virus 16 DNA [Presence] in Cervix by NAA with probe detection
+    '82456-5', // Human papilloma virus 16 E6+E7 mRNA [Presence] in Cervix by NAA with probe detection
+    '91856-5', // Human papilloma virus 16 DNA [Presence] in Genital specimen by NAA with probe detection
+    '106508-5', // Human papilloma virus 16 mRNA [Presence] in Vaginal fluid by NAA with probe detection
+    '107460-8', // Human papilloma virus 16 E6+E7 mRNA [Presence] in Specimen by NAA with probe detection
+    '114966-5', // Human papilloma virus 16 mRNA [Presence] in Specimen by Molgen
+    '114967-3', // Human papilloma virus 16 E6+E7 mRNA [Presence] in Specimen by Molgen
+    '114968-1', // Human papilloma virus 16 DNA [Presence] in Specimen by Molgen
+    '115798-1', // Human papilloma virus 16 DNA [Presence] in Vaginal fluid by NAA with probe detection
+  ],
+  hpv18: [
+    '59264-2', // Human papilloma virus 18 DNA [Presence] in Cervix by Probe with signal amplification
+    '61373-7', // Human papilloma virus 18 DNA [Presence] in Specimen by NAA with probe detection
+    '75694-0', // Human papilloma virus 18+45 E6+E7 mRNA [Presence] in Cervix by NAA with probe detection
+    '77400-0', // Human papilloma virus 18 DNA [Presence] in Cervix by NAA with probe detection
+    '91854-0', // Human papilloma virus 18 DNA [Presence] in Genital specimen by NAA with probe detection
+    '106509-3', // Human papilloma virus 18+45 mRNA [Presence] in Vaginal fluid by NAA with probe detection
+    '107461-6', // Human papilloma virus 18+45 E6+E7 mRNA [Presence] in Specimen by NAA with probe detection
+    '114954-1', // Human papilloma virus 18+45 mRNA [Presence] in Specimen by Molgen
+    '114955-8', // Human papilloma virus 18+45 E6+E7 mRNA [Presence] in Specimen by Molgen
+    '114956-6', // Human papilloma virus 18 DNA [Presence] in Specimen by Molgen
+    '115796-5', // Human papilloma virus 18 DNA [Presence] in Vaginal fluid by NAA with probe detection
+  ],
   hba1c: [
     '4548-4', // Hemoglobin A1c/Hemoglobin.total in Blood
     '4549-2', // Hemoglobin A1c/Hemoglobin.total in Blood by Electrophoresis
