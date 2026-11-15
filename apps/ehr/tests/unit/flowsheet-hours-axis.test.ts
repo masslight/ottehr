@@ -106,6 +106,16 @@ describe('trend charts plot only readings in the chart unit, converting the stan
     ).toEqual([start, 10]);
   });
 
+  it('creatinine in µmol/L, hemoglobin in g/L and LDL in mmol/L convert to the chart unit', () => {
+    expect(chartPoint(at('creatinine', lab(70, 'umol/L')), 'creatinine', false, 'mg/dL')).toEqual([start, 0.79]);
+    expect(chartPoint(at('creatinine', lab(88.4, 'µmol/L')), 'creatinine', false, 'mg/dL')).toEqual([start, 1]);
+    expect(chartPoint(at('hemoglobin', lab(120, 'g/L')), 'hemoglobin', false, 'g/dL')).toEqual([start, 12]);
+    expect(chartPoint(at('ldlCholesterol', lab(2.6, 'mmol/L')), 'ldlCholesterol', false, 'mg/dL')).toEqual([
+      start,
+      100.54,
+    ]);
+  });
+
   it('a lab reading with no unit does not plot (it stays in the grid); a vital never has one and plots', () => {
     const noUnit = (value: number): FlowsheetValue => ({ time: t, value, readings: [{ time: t, value }] });
     expect(chartPoint(at('creatinine', noUnit(88)), 'creatinine', false, 'mg/dL')).toBeUndefined();
@@ -116,8 +126,8 @@ describe('trend charts plot only readings in the chart unit, converting the stan
 
   it('a reading in any other unit does not plot (it stays in the grid)', () => {
     expect(chartPoint(at('freeT4', lab(1.2, 'pg/mL')), 'freeT4', false, 'ng/dL')).toBeUndefined();
-    expect(chartPoint(at('creatinine', lab(70, 'umol/L')), 'creatinine', false, 'mg/dL')).toBeUndefined();
-    expect(chartPoint(at('hemoglobin', lab(120, 'g/L')), 'hemoglobin', false, 'g/dL')).toBeUndefined();
+    expect(chartPoint(at('creatinine', lab(70, 'mmol/L')), 'creatinine', false, 'mg/dL')).toBeUndefined();
+    expect(chartPoint(at('hemoglobin', lab(7.4, 'mmol/L')), 'hemoglobin', false, 'g/dL')).toBeUndefined();
     expect(
       chartPoint(at('urineAlbuminCreatinineRatio', lab(3.4, 'mg/mmol')), 'urineAlbuminCreatinineRatio', false, 'mg/g')
     ).toBeUndefined();

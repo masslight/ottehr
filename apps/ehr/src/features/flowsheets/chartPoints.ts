@@ -32,6 +32,9 @@ const TO_CHART_UNIT: Record<string, Record<string, number>> = {
   // mg/g with UCUM's creatinine annotation ("mg/g{creat}"), or as µg/mg: the same unit.
   urineAlbuminCreatinineRatio: { 'mg/gcreat': 1, 'ug/mg': 1, 'ug/mgcreat': 1 },
   freeT4: { 'pmol/l': 1 / 12.87 },
+  creatinine: { 'umol/l': 1 / 88.4 },
+  hemoglobin: { 'g/l': 1 / 10 },
+  ldlCholesterol: { 'mmol/l': 38.67 },
   newbornTotalBilirubin: { 'umol/l': 1 / 17.1 },
   transcutaneousBilirubin: { 'umol/l': 1 / 17.1 },
 };
