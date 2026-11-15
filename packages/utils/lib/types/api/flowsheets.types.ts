@@ -1,5 +1,6 @@
 import { MedicationRequest } from 'fhir/r4b';
 import { z } from 'zod';
+import { FollowupSubtype } from '../../fhir/encounter';
 import { LmsRow } from '../../helpers/vitals/growth-lms';
 import { ServiceMode } from '../common';
 import { AppointmentType } from './appointment.types';
@@ -44,6 +45,9 @@ export interface FlowsheetVisit {
   /** The visit location's IANA time zone, for calendar-day math; absent when the visit has no location. */
   timezone?: string;
   isFollowUp: boolean;
+  /** A follow-up's subtype and its original visit's appointment: the header links there, as the Visits tab does. */
+  followupSubtype?: FollowupSubtype;
+  originalAppointmentId?: string;
   /** An unlinked outside result (matched to the patient, not to a visit): a column of its own, dated by the result. */
   isOutsideResult?: boolean;
   /** The raw visit type, service mode and service category code; the EHR labels them as the Visits tab does. */

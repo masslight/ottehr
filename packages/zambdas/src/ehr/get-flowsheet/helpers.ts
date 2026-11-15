@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Appointment, Condition, Encounter, Location, Observation, Practitioner } from 'fhir/r4b';
 import { appointmentTypeForAppointment, getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
 import { PRIVATE_EXTENSION_BASE_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
-import { FOLLOWUP_SYSTEMS, getEncounterVisitType } from 'utils/lib/fhir/encounter';
+import { FOLLOWUP_SYSTEMS, getEncounterVisitType, getFollowupSubtype } from 'utils/lib/fhir/encounter';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { isTelemedAppointment, OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
@@ -124,6 +124,10 @@ export const describeVisit = (
   const appointmentId = getIdFromReference(encounter?.appointment?.[0]?.reference, 'Appointment');
   const appointment = resources.appointments.find((a) => a.id === appointmentId);
   const isFollowUp = !!encounter && getEncounterVisitType(encounter) !== 'main';
+  // The Visits tab links a follow-up through its original visit's appointment (partOf).
+  const original = isFollowUp
+    ? resources.encounters.find((e) => e.id === getIdFromReference(encounter?.partOf?.reference, 'Encounter'))
+    : undefined;
 
   const primary = encounter?.diagnosis?.find((d) => d.rank === 1) ?? encounter?.diagnosis?.[0];
   const conditionId = getIdFromReference(primary?.condition.reference, 'Condition');
@@ -143,6 +147,12 @@ export const describeVisit = (
     start: (!isFollowUp && appointment?.start) || undefined,
     timezone: location && getTimezone(location),
     isFollowUp,
+    ...(encounter && isFollowUp
+      ? {
+          followupSubtype: getFollowupSubtype(encounter),
+          originalAppointmentId: getIdFromReference(original?.appointment?.[0]?.reference, 'Appointment'),
+        }
+      : {}),
     appointmentType: appointment && appointmentTypeForAppointment(appointment),
     serviceMode: appointment && (isTelemedAppointment(appointment) ? ServiceMode.virtual : ServiceMode['in-person']),
     serviceCategory: serviceCategory?.code ?? serviceCategory?.display,

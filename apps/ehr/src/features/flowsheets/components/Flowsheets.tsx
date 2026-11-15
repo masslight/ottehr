@@ -34,6 +34,7 @@ import { DATE_FORMAT } from 'src/helpers/formatDateTime';
 import { useGetFlowsheet } from 'src/hooks/useGetFlowsheet';
 import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
+import { getFollowUpProgressNotePathSegment } from 'utils/lib/fhir/encounter';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -163,6 +164,16 @@ interface VisitColumn extends FlowsheetVisit {
   url?: string;
 }
 
+/** A visit opens at Review & Sign; a follow-up as the Visits tab links it: its original visit, at its own note. */
+const headerUrl = (visit: FlowsheetVisit): string | undefined => {
+  const id = visit.isFollowUp ? visit.originalAppointmentId : visit.appointmentId;
+  if (!id) return undefined;
+  return getInPersonUrlByAppointmentType(
+    { id, encounterId: visit.encounterId ?? '', isFollowUp: visit.isFollowUp },
+    visit.isFollowUp ? getFollowUpProgressNotePathSegment(visit.followupSubtype) : ROUTER_PATH.REVIEW_AND_SIGN
+  );
+};
+
 // Newest first; the time is added only when two columns share a day. Dates render in the browser's zone.
 export const toColumns = (visits: FlowsheetVisit[]): VisitColumn[] => {
   const days = visits.map((visit) => DateTime.fromISO(visit.start).toFormat(DATE_FORMAT));
@@ -173,12 +184,7 @@ export const toColumns = (visits: FlowsheetVisit[]): VisitColumn[] => {
     return {
       ...visit,
       label: visit.isOutsideResult ? `${base} (unsolicited result)` : visit.isFollowUp ? `${base} (follow-up)` : base,
-      url: visit.appointmentId
-        ? getInPersonUrlByAppointmentType(
-            { id: visit.appointmentId, encounterId: visit.encounterId ?? '', isFollowUp: visit.isFollowUp },
-            ROUTER_PATH.REVIEW_AND_SIGN
-          )
-        : undefined,
+      url: headerUrl(visit),
     };
   });
 };

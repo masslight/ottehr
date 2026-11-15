@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Condition, Encounter, Observation, Practitioner } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
-import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { FOLLOWUP_SUBTYPE_SYSTEM, FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
 import {
   VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
@@ -222,6 +222,41 @@ describe('buildVitalsFlowsheet', () => {
       attending: '',
     });
     expect(visits[3]).toMatchObject({ appointmentId: undefined, encounterId: undefined, appointmentType: undefined });
+  });
+
+  test('a follow-up carries its subtype and its original visit appointment, for the Visits tab link', () => {
+    const followUp = (id: string, subtype: string): Encounter => ({
+      resourceType: 'Encounter',
+      id,
+      status: 'finished',
+      class: { code: 'AMB' },
+      partOf: { reference: 'Encounter/e1' },
+      appointment: [{ reference: 'Appointment/a2' }],
+      type: [
+        {
+          coding: [
+            { system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code },
+            { system: FOLLOWUP_SUBTYPE_SYSTEM, code: subtype },
+          ],
+        },
+      ],
+    });
+    const resources = {
+      appointments,
+      encounters: [...encounters, followUp('fu-s', 'scheduled'), followUp('fu-a', 'annotation')],
+      conditions,
+      practitioners,
+    };
+    expect(describeVisit('fu-s', resources)).toMatchObject({
+      appointmentId: 'a2',
+      originalAppointmentId: 'a1',
+      followupSubtype: 'scheduled',
+    });
+    expect(describeVisit('fu-a', resources)).toMatchObject({
+      originalAppointmentId: 'a1',
+      followupSubtype: 'annotation',
+    });
+    expect(describeVisit('e1', resources)).not.toHaveProperty('followupSubtype');
   });
 
   test('names the provider by first and last name, as the Visits tab does', () => {
