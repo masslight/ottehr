@@ -527,6 +527,42 @@ describe('buildLabResults', () => {
     ]);
   });
 
+  test('a count sent as a range reads "low-high" with its unit, and is not a number', () => {
+    const order: ServiceRequest = {
+      resourceType: 'ServiceRequest',
+      id: 'sr-rg',
+      status: 'completed',
+      intent: 'order',
+      subject: { reference: PATIENT },
+      encounter: { reference: 'Encounter/e9' },
+      code: { coding: [{ system: OYSTEHR_LAB_OI_CODE_SYSTEM, code: 'UC' }], text: 'Culture, Urine' },
+    };
+    const report: DiagnosticReport = {
+      resourceType: 'DiagnosticReport',
+      id: 'dr-rg',
+      status: 'final',
+      code: { text: 'Culture, Urine' },
+      basedOn: [{ reference: 'ServiceRequest/sr-rg' }],
+      result: [{ reference: 'Observation/o-rg' }],
+    };
+    const observations: Observation[] = [
+      {
+        resourceType: 'Observation',
+        id: 'o-rg',
+        status: 'final',
+        code: { text: 'Proteus mirabilis' },
+        valueRange: { low: { value: 10000, unit: 'CFU/mL' }, high: { value: 50000, unit: 'CFU/mL' } },
+      },
+    ];
+    const labs = buildLabResults({
+      serviceRequests: [order],
+      reports: [report],
+      observations,
+      activityDefinitions: [],
+    });
+    expect(labs.e9.map((lab) => [lab.value, lab.valueText, lab.unit])).toEqual([[undefined, '10000-50000', 'CFU/mL']]);
+  });
+
   test('maps only saved interpretation codes to grid flags', () => {
     expect(labFlagOf('N')).toBeUndefined();
     expect(labFlagOf('')).toBeUndefined();

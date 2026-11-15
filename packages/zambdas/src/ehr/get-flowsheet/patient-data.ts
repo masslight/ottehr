@@ -412,10 +412,17 @@ export const buildLabResults = ({
         valueText:
           quantity !== undefined
             ? `${comparator}${quantity}`
-            : obs.valueString ?? coded?.text ?? coded?.coding?.[0]?.display ?? coded?.coding?.[0]?.code ?? '',
+            : obs.valueString ??
+              coded?.text ??
+              coded?.coding?.[0]?.display ??
+              coded?.coding?.[0]?.code ??
+              // A range ("10000-50000" CFU/mL, as a culture's colony count may come) is text, never a number.
+              rangeText(obs.valueRange),
         unit:
           obs.valueQuantity?.unit ??
           obs.valueQuantity?.code ??
+          obs.valueRange?.low?.unit ??
+          obs.valueRange?.high?.unit ??
           obsDef?.quantitativeDetails?.unit?.coding?.[0]?.code ??
           '',
         referenceRange: rangeText(obs.referenceRange?.[0] ?? obsDef?.qualifiedInterval?.[0]?.range),

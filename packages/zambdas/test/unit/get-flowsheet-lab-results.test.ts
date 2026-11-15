@@ -492,10 +492,24 @@ describe('buildLabResultsFlowsheet', () => {
         lab('Colony count', { ...culture, text: '>100000', unit: 'CFU/mL' })
       )
     ).toEqual({ urineCulture: 'ESCHERICHIA  COLI >100000 CFU/mL' });
-    // A count with no organism before it still reads with its name.
+    // A count with no organism at all still reads with its name.
     expect(valuesOf(lab('Colony count', { ...culture, text: '>100000', unit: 'CFU/mL' }))).toEqual({
       urineCulture: 'Colony count >100000 CFU/mL',
     });
+    // A count sent before its organism, with no organism before it, follows the next organism after it.
+    expect(
+      valuesOf(
+        lab('Colony count', { ...culture, text: '>100000', unit: 'CFU/mL' }),
+        lab('Organism', { ...culture, text: 'Escherichia coli' }),
+        lab('Organism 2', { ...culture, text: 'Enterococcus faecalis' })
+      )
+    ).toEqual({ urineCulture: 'Escherichia coli >100000 CFU/mL; Enterococcus faecalis' });
+    expect(
+      valuesOf(
+        lab('Colony count', { ...culture, codes: ['19090-0'], text: '>100000', unit: 'CFU/mL' }),
+        lab('Bacteria identified', { ...culture, codes: ['634-6'], text: 'Escherichia coli' })
+      )
+    ).toEqual({ urineCulture: 'Escherichia coli >100000 CFU/mL' });
   });
 
   test('urine culture: an uncoded susceptibility (value S, I or R) is left out of the organism cell', () => {
