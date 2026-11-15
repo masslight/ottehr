@@ -14,6 +14,7 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -192,8 +193,20 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const fillsText = fills ?? asked?.toString() ?? '';
   const fillsNumber = Number(fillsText);
   const fillsValid = Number.isInteger(fillsNumber) && fillsNumber >= 1 && fillsNumber <= 99;
-  const ready =
-    answer !== 'approve' ? reason !== '' : change ? !priorAuth || priorAuthorization.trim() !== '' : fillsValid;
+  // Why the send button is off, while it is.
+  const notReady =
+    answer !== 'approve'
+      ? reason === ''
+        ? 'Pick a reason'
+        : undefined
+      : change
+      ? priorAuth && priorAuthorization.trim() === ''
+        ? 'Enter the prior authorization number'
+        : undefined
+      : fillsValid
+      ? undefined
+      : 'Enter fills from 1 to 99';
+  const ready = !notReady;
 
   // Once an answer goes out the dialog closes and a toast says what went out. What went out stays sent when the task
   // can't be completed: the task stays open on the Tasks page.
@@ -550,14 +563,18 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
           {closed ? 'Close' : 'Cancel'}
         </RoundedButton>
         {request && !closed && !notEnrolled && answer !== 'change' && (
-          <RoundedButton
-            variant="contained"
-            disabled={!ready || sendDataLoading}
-            loading={respond.isPending}
-            onClick={() => void send()}
-          >
-            {answer === 'deny' ? 'Send denial' : `Send to ${pharmacyName}`}
-          </RoundedButton>
+          <Tooltip title={notReady ?? (sendDataLoading ? 'Loading allergies and vitals' : '')}>
+            <span>
+              <RoundedButton
+                variant="contained"
+                disabled={!ready || sendDataLoading}
+                loading={respond.isPending}
+                onClick={() => void send()}
+              >
+                {answer === 'deny' ? 'Send denial' : `Send to ${pharmacyName}`}
+              </RoundedButton>
+            </span>
+          </Tooltip>
         )}
       </DialogActions>
     </Dialog>

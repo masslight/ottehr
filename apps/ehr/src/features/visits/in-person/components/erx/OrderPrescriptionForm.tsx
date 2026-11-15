@@ -76,6 +76,8 @@ interface OrderPrescriptionFormProps {
   hidePatientInfo?: boolean;
 }
 
+/** Why the form's buttons are off on a signed visit; the Reorder action says the same. */
+const SIGNED = 'The visit is signed';
 export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   visit,
   initialLine,
@@ -443,10 +445,14 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
               <Divider orientation="horizontal" />
 
               <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <RoundedButton color="primary" onClick={clearForm} disabled={readOnly || sending}>
-                  Clear Form
-                </RoundedButton>
-                <Tooltip title={!readOnly && sendDataLoading ? 'Loading allergies and vitals' : ''}>
+                <Tooltip title={readOnly ? SIGNED : ''}>
+                  <span>
+                    <RoundedButton color="primary" onClick={clearForm} disabled={readOnly || sending}>
+                      Clear Form
+                    </RoundedButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title={readOnly ? SIGNED : sendDataLoading ? 'Loading allergies and vitals' : ''}>
                   <span>
                     <RoundedButton
                       color="primary"

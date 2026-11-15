@@ -52,6 +52,7 @@ const mocks = vi.hoisted(() => ({
   directoryRow: undefined as ErxDirectoryPharmacy | undefined,
   roles: [] as string[],
   loading: false,
+  readOnly: false,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -89,7 +90,7 @@ vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
   useSearchMedications: () => ({ data: [], isFetching: false, isError: false }),
 }));
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
-  useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: false }),
+  useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: mocks.readOnly }),
 }));
 vi.mock('../../src/features/visits/shared/hooks/useOrderPrescription', () => ({
   useOrderPrescription: () => ({ mutateAsync: mocks.orderPrescription }),
@@ -133,6 +134,21 @@ describe('Order prescription form: Reorder', () => {
     mocks.orderPrescription.mockResolvedValue({});
     mocks.roles = [];
     mocks.loading = false;
+    mocks.readOnly = false;
+  });
+
+  it('says why Send and Clear Form are off on a signed visit', async () => {
+    mocks.readOnly = true;
+    const user = userEvent.setup();
+    render(<OrderPrescriptionForm />);
+    for (const name of ['Send Prescription', 'Clear Form']) {
+      const button = screen.getByRole('button', { name });
+      expect(button).toBeDisabled();
+      await user.hover(button.parentElement!);
+      expect(await screen.findByRole('tooltip')).toHaveTextContent('The visit is signed');
+      await user.unhover(button.parentElement!);
+      await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+    }
   });
 
   it('waits for the allergies and vitals before sending, saying why on hover', async () => {

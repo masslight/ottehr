@@ -37,10 +37,20 @@ vi.mock('src/components/input/LocationSelectInput', () => ({
   getLocationLabel: () => '',
 }));
 vi.mock('src/features/visits/in-person/components/InPersonModal', () => ({
-  InPersonModal: ({ ContentComponent, disabled }: { ContentComponent: ReactNode; disabled?: boolean }) => (
+  InPersonModal: ({
+    ContentComponent,
+    disabled,
+    disabledReason,
+  }: {
+    ContentComponent: ReactNode;
+    disabled?: boolean;
+    disabledReason?: string;
+  }) => (
     <div>
       {ContentComponent}
-      <button disabled={disabled}>Create new task</button>
+      <button disabled={disabled} title={disabled ? disabledReason : undefined}>
+        Create new task
+      </button>
     </div>
   ),
 }));
@@ -115,6 +125,11 @@ describe('New task: a refill or change request', () => {
     expect(create).toBeEnabled();
     await user.click(screen.getByText(checkbox).previousElementSibling!.querySelector('input')!);
     expect(create).toBeDisabled();
+    expect(create).toHaveAttribute('title', 'Pick a prescription');
+    // The other request can't be checked with it, and says so.
+    const other = checkbox === 'Refill request' ? 'Change request' : 'Refill request';
+    await user.hover(screen.getByText(other).closest('.MuiStack-root')!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(`Uncheck ${checkbox} first`);
     await user.type(screen.getByLabelText('Prescription'), 'rx-1');
     expect(create).toBeEnabled();
   });

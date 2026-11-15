@@ -209,8 +209,15 @@ export const PharmacySearch: FC<{
           address: '',
         },
       ];
+  // A row with no directory match yet is still being looked up (no chip), else it has none.
   const whyNot = (option: PharmacyOption): string | undefined =>
-    option.kind === 'pharmacy' ? (option.pharmacy ? unavailable?.(option.pharmacy) : "Can't e-prescribe") : undefined;
+    option.kind !== 'pharmacy'
+      ? undefined
+      : option.pharmacy
+      ? unavailable?.(option.pharmacy)
+      : option.erx === undefined
+      ? 'Checking whether it takes e-prescriptions'
+      : "Can't e-prescribe";
   const error = checkError ?? (notice ? sameZip.error : directory ? directoryResults.error : places.error)?.message;
   // Why the list is empty; while typing it shows above the row that switches between Google and the directory.
   const status = error ? (
@@ -321,7 +328,7 @@ export const PharmacySearch: FC<{
                 </li>
               );
             }
-            const why = option.kind === 'pharmacy' && option.pharmacy ? unavailable?.(option.pharmacy) : undefined;
+            const why = whyNot(option);
             const item = (
               <li {...props} key={option.key} style={why ? { pointerEvents: 'auto' } : undefined}>
                 <span>{option.name}</span>

@@ -150,6 +150,15 @@ describe('eRx pharmacy picker', () => {
     expect(onPick).toHaveBeenCalledWith(result(WALGREENS));
   });
 
+  it('says on hover why a pharmacy still being looked up can’t be picked yet', async () => {
+    const user = userEvent.setup();
+    renderPicker({ onFile: { ...ON_FILE, pharmacy: undefined } });
+    const onFile = screen.getByRole('option', { name: /CVS Pharmacy \(preferred\)/ });
+    expect(onFile).toHaveAttribute('aria-disabled', 'true');
+    await user.hover(onFile);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Checking whether it takes e-prescriptions');
+  });
+
   it('shows a saved pharmacy that matches nothing as one that can’t e-prescribe', () => {
     renderPicker({ onFile: { ...ON_FILE, pharmacy: null } });
     const onFile = screen.getByRole('option', { name: /CVS Pharmacy \(preferred\)/ });

@@ -146,6 +146,15 @@ describe('Refill request dialog', () => {
     expect(within(section('Pharmacy’s request')).getByText('Pharmacy asks for 3 fills')).toBeInTheDocument();
   });
 
+  it('says why its send button is off: a denial needs a reason', async () => {
+    const user = await open();
+    await user.click(screen.getByRole('button', { name: 'Deny' }));
+    const send = screen.getByRole('button', { name: 'Send denial' });
+    expect(send).toBeDisabled();
+    await user.hover(send.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Pick a reason');
+  });
+
   it('waits for the patient’s allergies and vitals before it sends an answer', async () => {
     mocks.sendDataLoading = true;
     await open();

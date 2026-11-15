@@ -11,6 +11,7 @@ import {
   IconButton,
   SxProps,
   Theme,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -29,6 +30,8 @@ export interface CustomDialogProps {
   confirmLoading?: boolean;
   error?: string;
   disabled?: boolean;
+  /** Why the confirm button is off, on hover while it is. */
+  disabledReason?: string;
   dataTestId?: string;
   actions?: React.ReactNode;
   maxWidth?: DialogProps['maxWidth'];
@@ -49,6 +52,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
   confirmLoading,
   error,
   disabled,
+  disabledReason,
   dataTestId,
   actions,
   maxWidth,
@@ -56,6 +60,23 @@ export const CustomDialog: FC<CustomDialogProps> = ({
   sx,
 }) => {
   const theme = useTheme();
+  const confirmButton = (
+    <LoadingButton
+      disabled={disabled}
+      loading={confirmLoading}
+      variant="contained"
+      onClick={handleConfirm}
+      sx={{
+        fontWeight: 500,
+        borderRadius: '100px',
+        mr: '8px',
+        textTransform: 'none',
+      }}
+      data-testid={dataTestIds.dialog.proceedButton}
+    >
+      {confirmText}
+    </LoadingButton>
+  );
 
   return (
     <Dialog
@@ -114,23 +135,15 @@ export const CustomDialog: FC<CustomDialogProps> = ({
         <DialogActions sx={{ px: 2 }}>{actions}</DialogActions>
       ) : (
         <DialogActions sx={{ justifyContent: 'start', px: 2 }}>
-          {handleConfirm && (
-            <LoadingButton
-              disabled={disabled}
-              loading={confirmLoading}
-              variant="contained"
-              onClick={handleConfirm}
-              sx={{
-                fontWeight: 500,
-                borderRadius: '100px',
-                mr: '8px',
-                textTransform: 'none',
-              }}
-              data-testid={dataTestIds.dialog.proceedButton}
-            >
-              {confirmText}
-            </LoadingButton>
-          )}
+          {handleConfirm &&
+            // Why it's off, on hover while it is: only where a reason is given, so other dialogs stay as they are.
+            (disabledReason ? (
+              <Tooltip title={disabled ? disabledReason : ''}>
+                <span>{confirmButton}</span>
+              </Tooltip>
+            ) : (
+              confirmButton
+            ))}
           <Button
             variant={handleConfirm ? 'text' : 'contained'}
             onClick={handleClose}

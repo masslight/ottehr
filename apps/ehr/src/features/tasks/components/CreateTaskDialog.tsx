@@ -1,4 +1,4 @@
-import { Stack } from '@mui/material';
+import { Stack, Tooltip } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
 import { FieldValues, FormProvider, useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
@@ -252,6 +252,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
         // A refill or change request is on a prescription.
         ((refillRequest || changeRequest) && !formValue.order)
       }
+      disabledReason={(refillRequest || changeRequest) && !formValue.order ? 'Pick a prescription' : undefined}
       description={''}
       title={'New Task'}
       confirmText={'Create new task'}
@@ -277,8 +278,16 @@ export const CreateTaskDialog: React.FC<Props> = ({
             />
             {isErx && FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED && (
               <Stack direction="row">
-                <CheckboxInput name="refillRequest" label="Refill request" disabled={changeRequest} />
-                <CheckboxInput name="changeRequest" label="Change request" disabled={refillRequest} />
+                <Tooltip title={changeRequest ? 'Uncheck Change request first' : ''}>
+                  <Stack>
+                    <CheckboxInput name="refillRequest" label="Refill request" disabled={changeRequest} />
+                  </Stack>
+                </Tooltip>
+                <Tooltip title={refillRequest ? 'Uncheck Refill request first' : ''}>
+                  <Stack>
+                    <CheckboxInput name="changeRequest" label="Change request" disabled={refillRequest} />
+                  </Stack>
+                </Tooltip>
               </Stack>
             )}
             {(!isErx || refillRequest || changeRequest) && (
