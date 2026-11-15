@@ -448,6 +448,7 @@ const FlowsheetBody = ({
         name: chart.unit,
         min: ({ min, max }: { min: number; max: number }) => yAxisBounds(chart, min, max)[0],
         max: ({ min, max }: { min: number; max: number }) => yAxisBounds(chart, min, max)[1],
+        interval: chart.yStep,
       },
       series: chart.lines.map((line) => ({
         name: line.name,

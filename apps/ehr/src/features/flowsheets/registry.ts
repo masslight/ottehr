@@ -22,6 +22,8 @@ export interface FlowsheetChart {
   hoursOfLife?: boolean;
   /** The y-axis always shows at least this range, widened to fit any value outside it. */
   yRange?: [number, number];
+  /** The y-axis tick step, where ECharts' own would miss the range's ends (85 to 100 by 3s tops out at 99). */
+  yStep?: number;
   /** The y-axis is at least this tall, centred on the values; without yRange or minSpan, ±10% of the middle value. */
   minSpan?: number;
 }
@@ -52,7 +54,7 @@ const vitals: FlowsheetDefinition = {
   ],
   charts: [
     { title: 'Heart rate', unit: '/min', minSpan: 40, lines: [{ name: 'Heart rate', key: 'heartRate' }] },
-    { title: 'SpO₂', unit: '%', yRange: [85, 100], lines: [{ name: 'SpO₂', key: 'oxygenSaturation' }] },
+    { title: 'SpO₂', unit: '%', yRange: [85, 100], yStep: 5, lines: [{ name: 'SpO₂', key: 'oxygenSaturation' }] },
     { title: 'Temperature', unit: '°C', yRange: [35, 40], lines: [{ name: 'Temperature', key: 'temperature' }] },
     { title: 'Weight', unit: 'kg', lines: [{ name: 'Weight', key: 'weight' }] },
     {
