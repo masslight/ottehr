@@ -9,7 +9,11 @@ import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription
 import { PharmacySearch } from './PharmacySearch';
 import { errorMessage, PrescriptionSummaryList, useSendEach } from './prescriptionDialogs';
 import { prescriptionVitals } from './prescriptionLines';
-import { isPrescriptionCancellable, prescriptionToOrderForPharmacy } from './prescriptionStatus';
+import {
+  isPrescriptionCancelDenied,
+  isPrescriptionCancellable,
+  prescriptionToOrderForPharmacy,
+} from './prescriptionStatus';
 import { useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
 
 const CANCEL_REASON: CancelPrescriptionReason = 'Duplicate order (different pharmacy)';
@@ -41,6 +45,8 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
   const several = prescriptions.length > 1;
   // Of several, those already at the pharmacy picked are left as they are; it can't be picked for one, or for all.
   const alreadyThere = pharmacy ? prescriptions.filter((prescription) => isAt(prescription, pharmacy)) : [];
+  // A denied cancel can't be asked again, so the first prescription stays live at its pharmacy.
+  const cancelDenied = prescriptions.filter(isPrescriptionCancelDenied);
 
   // Each prescription in turn: a sent one is cancelled first, and the new one goes out without waiting for the
   // pharmacy to confirm; a cancellation that fails sends nothing, so the patient never has two. An errored one only
@@ -114,6 +120,11 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
               </Typography>
             </Typography>
           )}
+          {cancelDenied.map((prescription) => (
+            <Typography key={prescription.resourceId} variant="body2" color="warning.dark">
+              {prescription.name} stays live at {prescription.pharmacyName ?? 'its pharmacy'}: its cancel was denied.
+            </Typography>
+          ))}
           {alreadyThere.length > 0 && (
             <Typography variant="body2" color="warning.dark">
               {ALREADY_THERE}, so left as is: {alreadyThere.map((prescription) => prescription.name).join(', ')}

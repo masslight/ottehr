@@ -105,9 +105,18 @@ export const prescriptionStatusView = (
 export const isPrescriptionCancellable = (prescription: PrescribedMedicationDTO): boolean =>
   prescription.status === 'active' && !prescription.events?.some((event) => event.code === 'cancelrequested');
 
-/** Sending to another pharmacy cancels a sent prescription (so only a cancellable one) and resends an errored one. */
+/** A sent prescription whose cancellation the pharmacy refused: it stays live there, and can't be cancelled again. */
+export const isPrescriptionCancelDenied = (prescription: PrescribedMedicationDTO): boolean =>
+  prescription.status === 'active' &&
+  latestEvent(prescription, (event) => CANCEL_EVENT_CODES.includes(event.code))?.code === 'canceldenied';
+
+/** Sending to another pharmacy cancels a sent prescription (so only a cancellable one) and resends an errored one.
+ * After a denied cancel it sends the new one with no second cancel, which the eRx service refuses; the dialog warns
+ * that the first stays live at its pharmacy. */
 const canSendToAnotherPharmacyByStatus = (prescription: PrescribedMedicationDTO): boolean =>
-  isPrescriptionCancellable(prescription) || prescription.status === 'stopped';
+  isPrescriptionCancellable(prescription) ||
+  prescription.status === 'stopped' ||
+  isPrescriptionCancelDenied(prescription);
 
 const isCompoundDosageForm = (form: string | undefined): form is CompoundDosageForm =>
   COMPOUND_DOSAGE_FORMS.includes(form as CompoundDosageForm);

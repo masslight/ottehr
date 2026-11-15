@@ -77,6 +77,17 @@ const PRED = prescription('mr-pred', 'Prednisolone 15 mg/5ml Sol', 'active', '20
   },
 ]);
 const OND = prescription('mr-ond', 'Ondansetron 4 mg/5ml Sol', 'draft', '2026-10-28T08:00:00.000Z', [ordered]);
+// The pharmacy refused its cancel (already picked up); the eRx service takes no second cancel request.
+const DENIED = prescription('mr-denied', 'Cefuroxime 250 mg/5ml Susp', 'active', '2026-10-28T06:00:00.000Z', [
+  ordered,
+  accepted,
+  {
+    code: 'cancelrequested',
+    text: 'Cancellation requested with reason: Sent in error',
+    recorded: '2026-10-28T06:01:00Z',
+  },
+  { code: 'canceldenied', text: 'Cancellation denied by pharmacy: Picked up', recorded: '2026-10-28T06:02:00Z' },
+]);
 const ERR_INCOMPLETE = {
   ...prescription('mr-err2', 'Cefdinir 250 mg/5ml Susp', 'stopped', '2026-10-28T07:00:00.000Z', []),
   order: { ...prescription('mr-err2', 'x', 'stopped', '').order, ndc: undefined },
@@ -114,7 +125,7 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
     isLoading: false,
     isFetching: false,
     data: {
-      prescribedMedications: [AMOX, ERR, CEPH, PRED, OND, ERR_INCOMPLETE],
+      prescribedMedications: [AMOX, ERR, CEPH, PRED, OND, ERR_INCOMPLETE, DENIED],
       prescribedMedicationsRequesterPractitioners: [
         { resourceType: 'Practitioner', id: 'practitioner-1', name: [{ given: ['Dana'], family: 'Abrams' }] },
       ],
@@ -347,6 +358,24 @@ describe('Prescription table: send to another pharmacy', () => {
     const allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }];
     expect(calls('/v4/cancel-prescription')).toMatchObject([{ allergies }]);
     expect(calls('/v4/order-prescription')).toMatchObject([{ allergies }]);
+  });
+
+  it('after a denied cancel, sends the new prescription with no second cancel, warning the first stays live', async () => {
+    const user = renderTable();
+    expect(within(row(DENIED.name!)).getByRole('button', { name: 'Cancel prescription' })).toBeDisabled();
+    await user.click(within(row(DENIED.name!)).getByRole('button', { name: 'Send to another pharmacy' }));
+    expect(
+      within(screen.getByRole('dialog')).getByText(
+        `${DENIED.name} stays live at Apex Discount Drugs: its cancel was denied.`
+      )
+    ).toBeInTheDocument();
+    await pickPharmacyAndSend(user);
+    await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
+    expect(calls('/v4/cancel-prescription')).toEqual([]);
+    expect(calls('/v4/order-prescription')).toEqual([
+      { ...newOrder(DENIED), daysSupply: 10, noteToPharmacy: 'Shake well' },
+    ]);
+    expect(enqueueSnackbar).toHaveBeenCalledWith('Prescription sent to Sample Pharmacy Two', { variant: 'success' });
   });
 
   it('only sends an errored prescription again, leaving out what it never had', async () => {
