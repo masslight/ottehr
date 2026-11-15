@@ -244,7 +244,8 @@ describe('Change request dialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('approves a drug-use alert with no suggestion as written, with no suggestion or changes', async () => {
+  // The eRx service refuses this answer today (review R63): this only pins what the dialog sends.
+  it('sends a drug-use alert’s Approve with no suggestion or changes', async () => {
     const user = await open(CHANGE('D', { reason: 'Interacts with clopidogrel' }));
     expect(screen.getByText('Drug-use alert.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Approve' })).toHaveAttribute('aria-pressed', 'true');

@@ -353,8 +353,8 @@ const MenuMessage: FC<{ children: ReactNode }> = ({ children }) => (
   </Typography>
 );
 
-/** The line's medication menu: the medication search's results in the left column, then "+ compound"; the
- * practice's sets and quick picks in the right, both following what's typed. Focus stays in the field: Up/Down move
+/** The line's medication menu: the practice's quick picks, then its sets, in the left column; the medication search's
+ * results, then "+ compound", in the right, both following what's typed. Focus stays in the field: Up/Down move
  * within a column, Left/Right (once a row is highlighted) between them, Enter picks. */
 const MedicationMenu: FC<{
   quickPicks: PrescriptionQuickPickData[];
@@ -719,7 +719,7 @@ interface PrescriptionSentencesProps {
   onRemove?: () => void;
   quickPicks: PrescriptionQuickPickData[];
   onQuickPick: (quickPick: PrescriptionQuickPickData) => void;
-  /** The practice's prescription sets: the Active ones are listed above the quick picks in the medication menu and suggested with them.
+  /** The practice's prescription sets: the Active ones are listed after the quick picks in the medication menu and suggested with them.
    * Inactive ones wait for review in Admin. */
   sets?: PrescriptionSetQuickPickData[];
   /** A set picked from the medication menu, or `used` from its suggestion row (the line as the row made it, and its quick pick

@@ -234,7 +234,8 @@ describe('change request: the answers', () => {
     });
   });
 
-  it('approves a drug-use alert with no suggestion as written: no suggestion, no changes', () => {
+  // The eRx service refuses this answer today (review R63): this only pins what is sent.
+  it('answers Approve to a drug-use alert with no suggestion or changes', () => {
     const response = changeResponse('change-1', 'approve', { note: 'Monitor' });
     expect(response).toStrictEqual({ taskId: 'change-1', decision: 'approve', note: 'Monitor' });
   });

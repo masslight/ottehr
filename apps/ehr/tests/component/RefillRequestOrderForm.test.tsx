@@ -300,7 +300,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
     expect(changes).not.toHaveProperty('ndc');
   });
 
-  it('shows the patient’s info once: the order form’s, while it’s open', async () => {
+  it('shows the patient’s info once: the dialog’s, also while the order form is open', async () => {
     const user = await open({
       ...PHARMACY_REQUEST,
       patient: { ...PATIENT, telecom: [{ system: 'phone', value: '5125550187' }] },

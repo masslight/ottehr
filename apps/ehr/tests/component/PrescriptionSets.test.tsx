@@ -245,7 +245,7 @@ describe('Prescription sets on the order form', () => {
       expect(screen.queryByText('Type to search more')).not.toBeInTheDocument();
     });
 
-    it('typed: the search’s medications on the left, the matching quick picks and then sets on the right', async () => {
+    it('typed: the matching quick picks and then sets on the left, the search’s medications on the right', async () => {
       const user = userEvent.setup();
       render(<Form initial={[emptyPrescriptionLine()]} />);
       await openMenu(user);

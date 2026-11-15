@@ -387,8 +387,6 @@ interface SelectBlankProps {
   need?: boolean;
   /** Offers "Clear" at the end of the list, as the old dropdown's clear button did. */
   clearable?: boolean;
-  /** Shown in the popover when there is nothing to pick. */
-  emptyText?: string;
   dataTestId?: string;
   helperText?: string;
   /** Shows the picked option as the list does, not lower-cased for running prose (a field of its own, not a sentence). */
@@ -405,7 +403,6 @@ export const SelectBlank: FC<SelectBlankProps> = ({
   readOnly,
   need,
   clearable,
-  emptyText,
   dataTestId,
   helperText,
   otherValue,
@@ -456,11 +453,6 @@ export const SelectBlank: FC<SelectBlankProps> = ({
             />
           )}
           <List dense disablePadding role="listbox" aria-label={title ?? label}>
-            {shown.length === 0 && emptyText && (
-              <Typography sx={{ fontSize: '14px', color: 'text.secondary', fontStyle: 'italic', px: 1, py: 0.5 }}>
-                {emptyText}
-              </Typography>
-            )}
             {shown.map((option, i) => (
               <Fragment key={option.value}>
                 {option.group && option.group !== shown[i - 1]?.group && (
@@ -834,8 +826,6 @@ interface SentenceProps {
   onRemove?: () => void;
   removeLabel?: string;
   dataTestId?: string;
-  /** A sentence worked out from the ones above it (the eRx dispense line): smaller and gray, blanks still editable. */
-  muted?: boolean;
 }
 
 /** U+2060 WORD JOINER: no line break on either side, and it takes no space. */
@@ -909,7 +899,7 @@ function attachPunctuation(children: ReactNode): ReactNode[] {
   );
 }
 
-export const Sentence: FC<SentenceProps> = ({ children, onRemove, removeLabel, dataTestId, muted }) => (
+export const Sentence: FC<SentenceProps> = ({ children, onRemove, removeLabel, dataTestId }) => (
   <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }} data-testid={dataTestId}>
     <Typography
       component="div"
@@ -918,7 +908,6 @@ export const Sentence: FC<SentenceProps> = ({ children, onRemove, removeLabel, d
         flex: 1,
         minWidth: 0,
         overflowWrap: 'anywhere',
-        ...(muted && { color: 'text.secondary', fontSize: '0.9em' }),
       }}
     >
       {attachPunctuation(children)}
