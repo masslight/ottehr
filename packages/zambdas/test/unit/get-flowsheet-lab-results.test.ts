@@ -812,6 +812,14 @@ describe('buildLabResultsFlowsheet', () => {
     // A Trichomonas seen on a Pap test isn't diagnostic: it needs a retest (CDC 2021).
     expect(valuesOf(lab('Trichomonas vaginalis', { test: 'Pap smear, ThinPrep', text: 'Present' }))).toEqual({});
     expect(valuesOf(lab('Trichomonas vaginalis', { test: 'Cervical cytology', text: 'Present' }))).toEqual({});
+    // A NAAT run on the Pap vial is diagnostic and lands.
+    expect(
+      valuesOf(lab('Trichomonas vaginalis', { test: 'Pap with reflex Trichomonas NAAT', text: 'Not detected' }))
+    ).toEqual({ trichomonas: 'Not detected' });
+    expect(valuesOf(lab('Trichomonas vaginalis rRNA', { test: 'ThinPrep Pap', text: 'Not detected' }))).toEqual({
+      trichomonas: 'Not detected',
+    });
+    expect(valuesOf(lab('Trichomonas', { test: 'Pap smear', text: 'Present' }))).toEqual({});
   });
 
   test('Trichomonas: a wet-mount result shows "(wet mount)", by its code or else its name; a NAAT or antigen one no note', () => {

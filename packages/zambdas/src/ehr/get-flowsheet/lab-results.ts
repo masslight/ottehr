@@ -89,8 +89,8 @@ const TRICHOMONAS: Pick<LabRow, 'analyte' | 'exclude' | 'excludeTest' | 'text' |
   text: true,
   analyte: /trichomon|\bt\.? ?vaginalis/i,
   exclude: /antibod|\bab\b/i,
-  // A Trichomonas seen on a Pap test isn't diagnostic and needs a retest (CDC 2021).
-  excludeTest: /\bpap\b|papanicolaou|\bcyto/i,
+  // A Trichomonas seen on a Pap test isn't diagnostic and needs a retest (CDC 2021); a NAAT run on the Pap vial is.
+  excludeTest: /^(?!.*(\bnaat\b|\bdna\b|\br?rna\b|\bpcr\b|\btma\b|amplif|\bprobe\b)).*(\bpap\b|papanicolaou|\bcyto)/i,
   note: trichomonasWetMount,
 };
 
