@@ -201,7 +201,8 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     systems: STI_SITES,
     properties: PRESENCE,
   },
-  // The NAAT or the rapid antigen test, or (trichomonasWetMount, on the same row) the office wet mount.
+  // The NAAT or the rapid antigen test, or (trichomonasWetMount and trichomonasCulture, on the same row) the office
+  // wet mount or a culture. A Trichomonas seen on a Pap test isn't diagnostic and needs a retest (CDC 2021).
   trichomonas: {
     components: ['Trichomonas vaginalis rRNA', 'Trichomonas vaginalis DNA', 'Trichomonas vaginalis Ag'],
     systems: STI_SITES,
@@ -212,6 +213,11 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     systems: STI_SITES,
     properties: PRESENCE,
     methods: ['Wet preparation'],
+  },
+  trichomonasCulture: {
+    components: ['Trichomonas vaginalis', 'Trichomonas sp identified'],
+    systems: [...STI_SITES, 'Urine sediment'],
+    methods: ['Organism specific culture'],
   },
   // Reagin is the nontreponemal antibody; VDRL measures it too, but the row is the RPR.
   syphilisRpr: { components: ['Reagin Ab'], systems: SERUM_OR_PLASMA, methods: ['RPR', ''] },

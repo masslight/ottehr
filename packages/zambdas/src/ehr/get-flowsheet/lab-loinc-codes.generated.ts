@@ -621,6 +621,13 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '14368-5', // Trichomonas vaginalis [Presence] in Urethra by Wet preparation
     '32766-8', // Trichomonas vaginalis [Presence] in Specimen by Wet preparation
   ],
+  trichomonasCulture: [
+    '10728-4', // Trichomonas sp identified in Genital specimen by Organism specific culture
+    '68458-9', // Trichomonas sp identified in Specimen by Organism specific culture
+    '81316-2', // Trichomonas vaginalis [Presence] in Urine sediment by Organism specific culture
+    '90285-8', // Trichomonas vaginalis [Presence] in Vaginal fluid by Organism specific culture
+    '91790-6', // Trichomonas vaginalis [Presence] in Genital specimen by Organism specific culture
+  ],
   syphilisRpr: [
     '11084-1', // Reagin Ab [Titer] in Serum
     '20507-0', // Reagin Ab [Presence] in Serum by RPR

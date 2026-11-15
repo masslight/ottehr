@@ -145,6 +145,7 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     ['fastingFingerstickGlucose', ['1556-0', '41604-0', '14770-2']],
     ['trichomonas', ['70165-6', '70167-2', '69937-1', '41511-7', '6566-4']],
     ['trichomonasWetMount', ['14367-7', '6565-6']],
+    ['trichomonasCulture', ['90285-8', '91790-6', '10728-4', '68458-9']],
     ['lead', ['5671-3', '14807-2']],
     ['leadCapillary', ['10368-9']],
     ['leadVenous', ['77307-7']],
@@ -784,7 +785,7 @@ describe('buildLabResultsFlowsheet', () => {
     expect(valuesOf(lab('HPV 16', { text: 'Detected' }))).toEqual({ hpv16: 'Detected' });
   });
 
-  test('a coded Trichomonas rapid antigen or wet-mount result lands on Trichomonas; a culture or Pap code does not', () => {
+  test('a coded Trichomonas rapid antigen, wet-mount or culture result lands on Trichomonas; a urine sediment one and a Pap test do not', () => {
     expect(valuesOf(lab('Trichomonas vaginalis Ag', { codes: ['41511-7'], text: 'Positive' }))).toEqual({
       trichomonas: 'Positive',
     });
@@ -794,8 +795,16 @@ describe('buildLabResultsFlowsheet', () => {
     expect(valuesOf(lab('Trichomonas, wet mount', { codes: ['14367-7'], text: 'None seen' }))).toEqual({
       trichomonas: 'None seen',
     });
-    expect(valuesOf(lab('Trichomonas culture', { codes: ['90285-8'], text: 'Negative' }))).toEqual({});
+    expect(valuesOf(lab('Trichomonas culture', { codes: ['90285-8'], text: 'Negative' }))).toEqual({
+      trichomonas: 'Negative',
+    });
+    expect(valuesOf(lab('Trichomonas sp identified', { codes: ['10728-4'], text: 'None' }))).toEqual({
+      trichomonas: 'None',
+    });
     expect(valuesOf(lab('Trichomonas, urine sediment', { codes: ['5813-1'], text: 'Present' }))).toEqual({});
+    // A Trichomonas seen on a Pap test isn't diagnostic: it needs a retest (CDC 2021).
+    expect(valuesOf(lab('Trichomonas vaginalis', { test: 'Pap smear, ThinPrep', text: 'Present' }))).toEqual({});
+    expect(valuesOf(lab('Trichomonas vaginalis', { test: 'Cervical cytology', text: 'Present' }))).toEqual({});
   });
 
   test('Trichomonas: a wet-mount result shows "(wet mount)", by its code or else its name; a NAAT or antigen one no note', () => {
@@ -821,6 +830,10 @@ describe('buildLabResultsFlowsheet', () => {
     ]);
     expect(trichomonas(lab('Trichomonas vaginalis RNA, TMA', { codes: ['70165-6'], text: 'Detected' }))).toEqual([
       'Detected',
+      undefined,
+    ]);
+    expect(trichomonas(lab('Trichomonas culture', { codes: ['91790-6'], text: 'Negative' }))).toEqual([
+      'Negative',
       undefined,
     ]);
     expect(trichomonas(lab('Trichomonas vaginalis Ag', { codes: ['41511-7'], text: 'Negative' }))).toEqual([

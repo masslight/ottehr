@@ -85,10 +85,12 @@ const trichomonasWetMount = (lab: FlowsheetLabResult): string | undefined =>
   )
     ? 'wet mount'
     : undefined;
-const TRICHOMONAS: Pick<LabRow, 'analyte' | 'exclude' | 'text' | 'note'> = {
+const TRICHOMONAS: Pick<LabRow, 'analyte' | 'exclude' | 'excludeTest' | 'text' | 'note'> = {
   text: true,
   analyte: /trichomon|\bt\.? ?vaginalis/i,
   exclude: /antibod|\bab\b/i,
+  // A Trichomonas seen on a Pap test isn't diagnostic and needs a retest (CDC 2021).
+  excludeTest: /\bpap\b|papanicolaou|\bcyto/i,
   note: trichomonasWetMount,
 };
 
@@ -100,8 +102,8 @@ const urine = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ ...row, test: U
 /**
  * Lab rows (codes: lab-row-rules.ts). The name patterns only place uncoded results; the first matching row wins, so
  * absolute counts, high-sensitivity CRP and ratios are listed before, or excluded from, the rows they share a name
- * with. Glucose, fingerstick glucose, eGFR, HIV Ag/Ab, Trichomonas and HPV 18 each take two rules under one key, and
- * Lead three (see lab-row-rules.ts).
+ * with. Glucose, fingerstick glucose, eGFR, HIV Ag/Ab and HPV 18 each take two rules under one key, and Trichomonas
+ * and Lead three (see lab-row-rules.ts).
  */
 const LAB_ROWS: LabRow[] = [
   ...serum([
@@ -293,6 +295,7 @@ const LAB_ROWS: LabRow[] = [
   { key: 'gonorrhea', text: true, analyte: /gonorrh|n\.? ?gonorrhoeae|neisseria gon/i, exclude: /antibod|\bab\b/i },
   { key: 'trichomonas', ...TRICHOMONAS },
   { key: 'trichomonas', rule: 'trichomonasWetMount', ...TRICHOMONAS },
+  { key: 'trichomonas', rule: 'trichomonasCulture', ...TRICHOMONAS },
   // A name that lists a high-risk type other than 16, 18 or 45 is the pooled result, even when it lists 16 and 18.
   {
     key: 'hpvHighRisk',
