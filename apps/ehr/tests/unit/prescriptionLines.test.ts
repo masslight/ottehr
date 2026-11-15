@@ -869,6 +869,15 @@ describe('maximumWarnings', () => {
     ]);
   });
 
+  // Review D2-3: every other day, a day's amount is the one dose given that day.
+  it('takes every other day’s dose as its day’s amount', () => {
+    expect(
+      maximumWarnings(
+        liquid({ dose: '10', frequency: 'every other day', maximum: { maxPerDayMg: 600, from: 'calculator' } })
+      )
+    ).toEqual([{ blank: 'frequency', text: '800 mg a day is above the 600 mg a day maximum.' }]);
+  });
+
   it('has nothing to say without a maximum, a dose, a count of doses, or a form measured in mg', () => {
     expect(maximumWarnings(liquid({ dose: '10', maximum: undefined }))).toEqual([]);
     expect(maximumWarnings(liquid({ dose: '' }))).toEqual([]);

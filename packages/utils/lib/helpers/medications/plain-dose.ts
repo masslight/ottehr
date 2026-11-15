@@ -79,6 +79,11 @@ export const doseRoundingNote = (amountText: string, deliveredMg: number, aimedM
   }%) ${difference > 0 ? 'over' : 'under'} ${num(aimedMg)} mg`;
 };
 
+/** The doses given on a day the medication is taken: one for a frequency under one a day ("every other day"), so a
+ * per-day rate or maximum is that day's amount, as alternate-day doses are written. */
+export const dosesOnDosingDay = (dosesPerDay: number | undefined): number | undefined =>
+  dosesPerDay === undefined ? undefined : Math.max(dosesPerDay, 1);
+
 /** The mg a dose may not go over, and how the hover says so: the lower of the per-dose maximum and the per-day
  * maximum over the doses a day. */
 const doseCap = (
@@ -115,11 +120,12 @@ export const plainDose = ({
   if (basis !== 'fixed' && !weightKg) return undefined;
   if (basis === 'mg/kg/day' && !dosesPerDay) return undefined;
   const kg = weightKg ?? 0;
+  const perDay = dosesOnDosingDay(dosesPerDay);
   const worked = roundNumberToDecimalPlaces(
-    basis === 'fixed' ? rate : basis === 'mg/kg/dose' ? kg * rate : (kg * rate) / (dosesPerDay ?? 1),
+    basis === 'fixed' ? rate : basis === 'mg/kg/dose' ? kg * rate : (kg * rate) / (perDay ?? 1),
     2
   );
-  const cap = doseCap(maxPerDoseMg, maxPerDayMg, dosesPerDay);
+  const cap = doseCap(maxPerDoseMg, maxPerDayMg, perDay);
   const capMg = cap?.mg ?? Infinity;
   const capped = worked > capMg;
   const aimed = capped ? capMg : worked;
@@ -136,7 +142,7 @@ export const plainDose = ({
       ? `${num(worked)} mg`
       : basis === 'mg/kg/dose'
       ? `${num(kg)} kg × ${num(rate)} mg/kg/dose = ${num(worked)} mg`
-      : `${num(kg)} kg × ${num(rate)} mg/kg/day ÷ ${num(dosesPerDay ?? 1)} = ${num(worked)} mg`;
+      : `${num(kg)} kg × ${num(rate)} mg/kg/day ÷ ${num(perDay ?? 1)} = ${num(worked)} mg`;
   const note = doseRoundingNote(amountText, delivered, aimed);
   const capText = cap?.text ?? '';
   const how = basis === 'fixed' ? 'as entered' : 'by weight';
@@ -151,7 +157,7 @@ export const plainDose = ({
     : !capped
     ? undefined
     : cap?.perDay
-    ? `Capped at the ${mgText(maxPerDayMg ?? 0)} a day maximum (${mgText(worked * (dosesPerDay ?? 1))} a day ${how})`
+    ? `Capped at the ${mgText(maxPerDayMg ?? 0)} a day maximum (${mgText(worked * (perDay ?? 1))} a day ${how})`
     : `Capped at the ${mgText(capMg)} maximum (${mgText(worked)} ${how})`;
   return {
     amount,

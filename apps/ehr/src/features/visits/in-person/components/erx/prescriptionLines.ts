@@ -2,6 +2,7 @@ import { DateTime } from 'luxon';
 import {
   DoseMeasure,
   doseRoundingNote,
+  dosesOnDosingDay,
   mgText as warningMg,
   nearestMeasurable,
   PlainDose,
@@ -302,7 +303,7 @@ export const maximumWarnings = (line: PrescriptionLine): MaximumWarning[] => {
   const dose = numberOrUndefined(line.dose);
   if (!maximum || !mg || !dose || dose <= 0) return [];
   const perDose = roundNumberToDecimalPlaces(dose * mg, 2);
-  const dosesPerDay = prescriptionFrequency(line.frequency)?.dosesPerDay;
+  const dosesPerDay = dosesOnDosingDay(prescriptionFrequency(line.frequency)?.dosesPerDay);
   const perDay = dosesPerDay === undefined ? undefined : roundNumberToDecimalPlaces(perDose * dosesPerDay, 2);
   const over = (amount: number | undefined, max: number | undefined): max is number =>
     amount !== undefined && max !== undefined && amount > max + 1e-9;

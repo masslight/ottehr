@@ -188,4 +188,24 @@ describe('plainDose', () => {
       '1 tablet = 500 mg, above the 500 mg a day maximum (250 mg per dose); the smallest measurable amount'
     );
   });
+
+  // Review D2-3: an every-other-day rate per day is the dosing day's amount, as alternate-day steroids are written
+  // (KDIGO 2025, 1.5 mg/kg "on alternate days"): never divided by 0.5, and the per-day maximum caps that day's dose.
+  it('takes a per-day rate and maximum as the dosing day’s, under one dose a day', () => {
+    // Prednisolone 15 mg/5 mL (3 mg/mL), 20 kg, 2 mg/kg/day every other day.
+    const eod = {
+      weightKg: 20,
+      mgPerMeasure: 3,
+      measure: 'mL' as const,
+      basis: 'mg/kg/day' as const,
+      dosesPerDay: 0.5,
+    };
+    expect(plainDose({ ...eod, rate: 2 })).toMatchObject({
+      amount: 13.5,
+      working: '20 kg × 2 mg/kg/day ÷ 1 = 40 mg',
+    });
+    const capped = plainDose({ ...eod, rate: 4, maxPerDayMg: 60 });
+    expect(capped?.amount).toBe(20);
+    expect(capped?.capNote).toBe('Capped at the 60 mg a day maximum (80 mg a day by weight)');
+  });
 });
