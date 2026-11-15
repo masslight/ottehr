@@ -49,15 +49,16 @@ export async function removeQuickPick(quickPickId: string, oystehr: Oystehr): Pr
   if (!hasQuickPickTag) {
     throw new Error(`ActivityDefinition ${quickPickId} is not a quick pick resource`);
   }
-  existing.status = 'retired';
-  await oystehr.fhir.update(existing);
+  // Its sets first: if one fails to update, the quick pick stays, and no set is left Active with a missing member.
   if (tags.some((t) => t.system === QUICK_PICK_TAG_SYSTEM && t.code === PRESCRIPTION_QUICK_PICK_CATEGORY.tagCode)) {
     await takeOutOfPrescriptionSets(oystehr, quickPickId, existing.title ?? existing.name ?? '');
   }
+  existing.status = 'retired';
+  await oystehr.fhir.update(existing);
 }
 
 /** A removed prescription quick pick leaves every set that has it; those sets turn Inactive, noting the removal,
- * until someone reviews and saves them. */
+ * until someone reviews and saves them. A set whose last member it was is left with none, Inactive with the note. */
 export async function takeOutOfPrescriptionSets(
   oystehr: Oystehr,
   quickPickId: string,

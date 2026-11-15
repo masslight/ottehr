@@ -152,7 +152,7 @@ describe('admin-remove-quick-pick - prescription sets', () => {
     });
   });
 
-  test('removing a prescription quick pick retires it and updates its sets', async () => {
+  test('removing a prescription quick pick updates its sets, then retires it', async () => {
     const quickPick = quickPickToActivityDefinition(
       { name: 'Amox otitis' },
       PRESCRIPTION_QUICK_PICK_CATEGORY,
@@ -160,12 +160,24 @@ describe('admin-remove-quick-pick - prescription sets', () => {
     );
     const { oystehr, update } = mockOystehr([setAd('set-1', EAR_INFECTION)], quickPick);
     await removeQuickPick('qp-amox', oystehr);
-    expect(update.mock.calls[0][0]).toMatchObject({ id: 'qp-amox', status: 'retired' });
-    expect(update.mock.calls[1][0]).toMatchObject({ id: 'set-1' });
+    expect(update.mock.calls[0][0]).toMatchObject({ id: 'set-1' });
     expect(
-      activityDefinitionToQuickPick(update.mock.calls[1][0], PRESCRIPTION_SET_QUICK_PICK_CATEGORY).removedMembers?.[0]
+      activityDefinitionToQuickPick(update.mock.calls[0][0], PRESCRIPTION_SET_QUICK_PICK_CATEGORY).removedMembers?.[0]
         .name
     ).toBe('Amox otitis');
+    expect(update.mock.calls[1][0]).toMatchObject({ id: 'qp-amox', status: 'retired' });
+  });
+
+  test('a set that fails to update leaves the quick pick in place', async () => {
+    const quickPick = quickPickToActivityDefinition(
+      { name: 'Amox otitis' },
+      PRESCRIPTION_QUICK_PICK_CATEGORY,
+      'qp-amox'
+    );
+    const { oystehr, update } = mockOystehr([setAd('set-1', EAR_INFECTION)], quickPick);
+    update.mockRejectedValueOnce(new Error('set update failed'));
+    await expect(removeQuickPick('qp-amox', oystehr)).rejects.toThrow('set update failed');
+    expect(update.mock.calls.map(([resource]) => resource.id)).toEqual(['set-1']);
   });
 
   test('removing another kind of quick pick leaves the sets alone', async () => {
