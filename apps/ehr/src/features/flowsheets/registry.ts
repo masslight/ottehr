@@ -67,6 +67,12 @@ const vitals: FlowsheetDefinition = {
   ],
   charts: [
     { title: 'Heart rate', unit: '/min', minSpan: 40, lines: [{ name: 'Heart rate', key: 'heartRate' }] },
+    {
+      title: 'Respiratory rate',
+      unit: '/min',
+      minSpan: 20,
+      lines: [{ name: 'Respiratory rate', key: 'respirationRate' }],
+    },
     { title: 'SpO₂', unit: '%', yRange: [85, 100], yStep: 5, lines: [{ name: 'SpO₂', key: 'oxygenSaturation' }] },
     {
       title: 'Temperature',

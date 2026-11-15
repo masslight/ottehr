@@ -172,6 +172,18 @@ describe('trend chart y-axis: a small change does not fill the chart', () => {
     expect(yAxisBounds(chart('Heart rate'), 98, 102)).toEqual([80, 120]);
   });
 
+  it('Vitals charts respiratory rate after heart rate, at least 20 /min tall, centred on the values', () => {
+    const vitals = FLOWSHEETS.find((f) => f.id === 'vitals')!.charts;
+    expect(vitals.map((c) => `${c.title} (${c.unit})`).slice(0, 3)).toEqual([
+      'Heart rate (/min)',
+      'Respiratory rate (/min)',
+      'SpO₂ (%)',
+    ]);
+    expect(chart('Respiratory rate').lines).toEqual([{ name: 'Respiratory rate', key: 'respirationRate' }]);
+    expect(yAxisBounds(chart('Respiratory rate'), 16, 18)).toEqual([5, 30]);
+    expect(yAxisBounds(chart('Respiratory rate'), 24, 60)).toEqual([20, 65]);
+  });
+
   it('labs and weight span at least ±10% of the middle value; bounds are round numbers', () => {
     expect(yAxisBounds(chart('Creatinine'), 0.78, 0.82)).toEqual([0.7, 0.9]);
     expect(yAxisBounds(chart('Weight'), 3.1, 3.3)).toEqual([2.85, 3.55]);
