@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, it, vi } from 'vitest';
+import { chartPoint } from '../../src/features/flowsheets/chartPoints';
 import {
   bothUnits,
   cellOf,
@@ -8,7 +9,7 @@ import {
   rowsToShow,
   toColumns,
 } from '../../src/features/flowsheets/components/Flowsheets';
-import { FLOWSHEETS } from '../../src/features/flowsheets/registry';
+import { FlowsheetRow, FLOWSHEETS } from '../../src/features/flowsheets/registry';
 
 // The component imports the api client through its data hook; the formatting under test never calls it.
 vi.mock('src/api/api', () => ({}));
@@ -124,5 +125,33 @@ describe('growth measures in the practice header unit system', () => {
     expect(cellOf(percentile, v, 'imperial').text).toBe('60th');
     expect(bothUnits(percentile, '60th')).toBeUndefined();
     expect(rowLabel(percentile, 'imperial')).toBe('Weight percentile');
+  });
+});
+
+describe('Vitals and Thyroid measures in the practice header unit system', () => {
+  const rowOf = (id: string, key: string): FlowsheetRow =>
+    FLOWSHEETS.find((f) => f.id === id)!.rows.find((row) => row.keys[0] === key)!;
+  const v = visit({ weight: reading(96.34), height: reading(175.3), headCircumference: reading(44.2) });
+
+  it('shows weight, height and head circumference imperial when the practice header system is imperial', () => {
+    expect(cellOf(rowOf('vitals', 'weight'), v, 'imperial').text).toBe('212.39');
+    expect(rowLabel(rowOf('vitals', 'weight'), 'imperial')).toBe('Weight (lbs)');
+    expect(cellOf(rowOf('vitals', 'height'), v, 'imperial').text).toBe('69.02');
+    expect(rowLabel(rowOf('vitals', 'height'), 'imperial')).toBe('Height (in)');
+    expect(rowLabel(rowOf('vitals', 'headCircumference'), 'imperial')).toBe('Head circumference (in)');
+    expect(cellOf(rowOf('thyroid', 'weight'), v, 'imperial').text).toBe('212.39');
+    expect(cellOf(rowOf('thyroid', 'weight'), v).text).toBe('96.34');
+    expect(bothUnits(rowOf('thyroid', 'weight'), 96.34)).toBe('96.34 kg ≈ 212.39 lbs');
+  });
+
+  it('shows a temperature in °C, with °F on hover as vitals history does', () => {
+    const temperature = rowOf('vitals', 'temperature');
+    expect(cellOf(temperature, visit({ temperature: reading(37) }), 'imperial').text).toBe('37.0');
+    expect(bothUnits(temperature, 37)).toBe('37.0 C ≈ 98.6 F');
+  });
+
+  it('plots a weight in lbs on a chart in lbs', () => {
+    expect(chartPoint(v, 'weight', false, 'lbs')).toEqual([Date.parse(v.start), 212.39]);
+    expect(chartPoint(v, 'weight', false, 'kg')).toEqual([Date.parse(v.start), 96.34]);
   });
 });

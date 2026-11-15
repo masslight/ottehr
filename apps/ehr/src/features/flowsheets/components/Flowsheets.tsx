@@ -36,6 +36,7 @@ import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCate
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
 import { getFollowUpProgressNotePathSegment } from 'utils/lib/fhir/encounter';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { celsiusToFahrenheit, roundTemperatureValue } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
@@ -242,13 +243,22 @@ const toImperial = (value: number, unit: 'lbs' | 'in'): string =>
 export const rowLabel = (row: FlowsheetRow, unitSystem: VitalsHeaderUnitSystem = 'metric'): string =>
   row.imperial && unitSystem === 'imperial' ? row.imperial.label : row.label;
 
-/** "5.80 kg ≈ 12.79 lbs" for a convertible row's reading, metric first; undefined for other rows. */
-export const bothUnits = (row: FlowsheetRow, value: number | string): string | undefined =>
-  row.imperial && typeof value === 'number' && row.digits !== undefined
+/** A °C temperature with °F, as vitals history shows it: "37.0 C ≈ 98.6 F". */
+const withFahrenheit = (celsius: number): string =>
+  `${roundTemperatureValue(celsius).toFixed(1)} C ≈ ${celsiusToFahrenheit(celsius).toFixed(1)} F`;
+
+/**
+ * "5.80 kg ≈ 12.79 lbs" for a convertible row's reading, metric first, or "37.0 C ≈ 98.6 F" for a temperature;
+ * undefined for other rows.
+ */
+export const bothUnits = (row: FlowsheetRow, value: number | string): string | undefined => {
+  if (row.fahrenheit && typeof value === 'number') return withFahrenheit(value);
+  return row.imperial && typeof value === 'number' && row.digits !== undefined
     ? `${roundNumberToDecimalPlaces(value, row.digits).toFixed(row.digits)} ${row.label.match(
         /\((.+)\)/
       )?.[1]} ≈ ${toImperial(value, row.imperial.unit)} ${row.imperial.unit}`
     : undefined;
+};
 
 export const cellOf = (
   row: FlowsheetRow,
@@ -411,6 +421,14 @@ const FlowsheetBody = ({
 }): ReactElement => {
   const theme = useTheme();
   const unitSystem = useVitalsHeaderUnitSystem();
+  // A weight chart is in the practice's header unit, as the grid is.
+  const charts = useMemo(
+    () =>
+      definition.charts.map((chart) =>
+        unitSystem === 'imperial' && chart.imperialUnit ? { ...chart, unit: chart.imperialUnit } : chart
+      ),
+    [definition, unitSystem]
+  );
   const resolveServiceCategoryAbbr = useServiceCategoryAbbreviationResolver();
   const columns = useMemo(() => toColumns(visits), [visits]);
   const rows = useMemo(() => rowsToShow(definition, visits), [definition, visits]);
@@ -435,7 +453,12 @@ const FlowsheetBody = ({
     return {
       // Theme blues, told apart by lightness, in place of the ECharts defaults (low contrast on white).
       color: [theme.palette.primary.main, theme.palette.primary.dark, theme.palette.text.secondary],
-      tooltip: { trigger: 'axis', confine: true },
+      tooltip: {
+        trigger: 'axis',
+        confine: true,
+        // A temperature reads in both units.
+        ...(chart.fahrenheit && { valueFormatter: (value: number) => withFahrenheit(value) }),
+      },
       // The card title already names a single line.
       legend: {
         show: chart.lines.length > 1,
@@ -594,7 +617,7 @@ const FlowsheetBody = ({
         />
       ) : (
         <Grid container spacing={2}>
-          {definition.charts.filter(hasPoints).map((chart) => (
+          {charts.filter(hasPoints).map((chart) => (
             <Grid item xs={12} md={chart.lines.length > 1 ? 12 : 6} key={chart.title}>
               <AccordionCard label={`${chart.title} (${chart.unit})`}>
                 <Box sx={{ p: 2 }}>

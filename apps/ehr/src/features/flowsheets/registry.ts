@@ -12,6 +12,8 @@ export interface FlowsheetRow {
   hideWhenEmpty?: boolean;
   /** A metric measure the grid can show imperial (practice header unit system) with both units on hover. */
   imperial?: { label: string; unit: 'lbs' | 'in' };
+  /** A temperature in °C, with °F on hover as in vitals history ("37.0 C ≈ 98.6 F"). */
+  fahrenheit?: boolean;
 }
 
 export interface FlowsheetChart {
@@ -26,6 +28,10 @@ export interface FlowsheetChart {
   yStep?: number;
   /** The y-axis is at least this tall, centred on the values; without yRange or minSpan, ±10% of the middle value. */
   minSpan?: number;
+  /** The unit when the practice's header unit system is imperial (a weight in lbs). */
+  imperialUnit?: 'lbs';
+  /** A temperature in °C, its hover with °F as in vitals history. */
+  fahrenheit?: boolean;
 }
 
 export interface FlowsheetDefinition {
@@ -41,23 +47,35 @@ const vitals: FlowsheetDefinition = {
   id: 'vitals',
   title: 'Vitals',
   rows: [
-    { label: 'Temperature (°C)', keys: ['temperature'], digits: 1 },
+    { label: 'Temperature (°C)', keys: ['temperature'], digits: 1, fahrenheit: true },
     { label: 'Heart rate (/min)', keys: ['heartRate'], digits: 0 },
     { label: 'Respiratory rate (/min)', keys: ['respirationRate'], digits: 0 },
     { label: 'SpO₂ (%)', keys: ['oxygenSaturation'], digits: 0 },
     { label: 'Blood pressure (mm Hg)', keys: ['systolic', 'diastolic'], digits: 0 },
-    { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
-    { label: 'Height (cm)', keys: ['height'], digits: 1 },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 2, imperial: { label: 'Weight (lbs)', unit: 'lbs' } },
+    { label: 'Height (cm)', keys: ['height'], digits: 1, imperial: { label: 'Height (in)', unit: 'in' } },
     // Measured in infants, so left out (like BMI under 2 years) when no visit shown has one.
-    { label: 'Head circumference (cm)', keys: ['headCircumference'], digits: 1, hideWhenEmpty: true },
+    {
+      label: 'Head circumference (cm)',
+      keys: ['headCircumference'],
+      digits: 1,
+      hideWhenEmpty: true,
+      imperial: { label: 'Head circumference (in)', unit: 'in' },
+    },
     // No BMI under 2 years, so the row is left out when no visit shown has one.
     { label: 'BMI (kg/m²)', keys: ['bmi'], digits: 1, hideWhenEmpty: true },
   ],
   charts: [
     { title: 'Heart rate', unit: '/min', minSpan: 40, lines: [{ name: 'Heart rate', key: 'heartRate' }] },
     { title: 'SpO₂', unit: '%', yRange: [85, 100], yStep: 5, lines: [{ name: 'SpO₂', key: 'oxygenSaturation' }] },
-    { title: 'Temperature', unit: '°C', yRange: [35, 40], lines: [{ name: 'Temperature', key: 'temperature' }] },
-    { title: 'Weight', unit: 'kg', lines: [{ name: 'Weight', key: 'weight' }] },
+    {
+      title: 'Temperature',
+      unit: '°C',
+      yRange: [35, 40],
+      fahrenheit: true,
+      lines: [{ name: 'Temperature', key: 'temperature' }],
+    },
+    { title: 'Weight', unit: 'kg', imperialUnit: 'lbs', lines: [{ name: 'Weight', key: 'weight' }] },
     {
       title: 'Blood pressure',
       unit: 'mm Hg',
@@ -117,7 +135,7 @@ const thyroid: FlowsheetDefinition = {
     { label: 'TPO antibodies', keys: ['tpoAntibodies'], hideWhenEmpty: true },
     { label: 'Thyroid medication', keys: ['thyroidMedication'] },
     { label: 'Thyroid diagnosis this visit', keys: ['thyroidDiagnosis'] },
-    { label: 'Weight (kg)', keys: ['weight'], digits: 2 },
+    { label: 'Weight (kg)', keys: ['weight'], digits: 2, imperial: { label: 'Weight (lbs)', unit: 'lbs' } },
     { label: 'Heart rate (/min)', keys: ['heartRate'], digits: 0 },
   ],
   charts: [
