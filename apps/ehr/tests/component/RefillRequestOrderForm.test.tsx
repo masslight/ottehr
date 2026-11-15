@@ -311,6 +311,27 @@ describe('Refill request dialog: the order form outside a visit', () => {
     expect(screen.getAllByText('(512) 555-0187')).toHaveLength(1);
   });
 
+  // Review D2: the Change form starts from the pharmacy's copy of the original's directions, for another product.
+  it('warns with the Change form, once, when another product has the original’s directions', async () => {
+    const warning = 'Different product, same directions: check the dose';
+    const user = await open(
+      CHANGE_REQUEST('OS', [
+        {
+          description: 'Lisinopril 20 mg tablet',
+          ndc: '00093111201',
+          quantityValue: 30,
+          quantityUnit: 'Tablet',
+          sig: 'Take 1 tablet by mouth once daily',
+        },
+      ])
+    );
+    expect(screen.getAllByText(warning)).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    expect(screen.getAllByText(warning)).toHaveLength(1);
+    expect(screen.getByText('Your answer').parentElement).toContainElement(screen.getByText(warning));
+    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue('Take 1 tablet by mouth once daily');
+  });
+
   it('Change of a change request starts from the selected suggestion and answers with it', async () => {
     const user = await open(
       CHANGE_REQUEST('T', [

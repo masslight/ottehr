@@ -35,6 +35,18 @@ const sameSig = (requested: string, sent: string | undefined): boolean => {
   return sent !== undefined && plain(requested) === plain(sent);
 };
 
+/** Shown when the pharmacy suggests another product with the original's directions: the same mL of another
+ * concentration is another dose. A warning only. */
+export const SAME_DIRECTIONS_WARNING = 'Different product, same directions: check the dose';
+
+/** Whether the suggestion is another product (by NDC) with the original's directions. */
+export const differentProductSameSig = (request: RequestedMedication, prescription: PrescribedMedicationDTO): boolean =>
+  request.ndc !== undefined &&
+  prescription.order?.ndc !== undefined &&
+  request.ndc !== prescription.order.ndc &&
+  request.sig !== undefined &&
+  sameSig(request.sig, prescription.instructions);
+
 const allowedText = (allowed: boolean | undefined): string | undefined =>
   allowed === undefined ? undefined : allowed ? 'Allowed' : 'Not allowed';
 

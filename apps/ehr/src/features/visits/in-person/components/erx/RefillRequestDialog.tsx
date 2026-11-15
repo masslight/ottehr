@@ -48,9 +48,11 @@ import {
   approvalMetadata,
   changeApproval,
   changeResponse,
+  differentProductSameSig,
   refillLine,
   renewalApproval,
   requestRows,
+  SAME_DIRECTIONS_WARNING,
   suggestionText,
 } from './refillRequest';
 import { useErxSendDataLoading, useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
@@ -273,6 +275,15 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const reasons = answer !== 'deny' ? RENEWAL_PENDING_REASONS : change ? CHANGE_DENIAL_REASONS : RENEWAL_DENIAL_REASONS;
   // The pharmacy's medication the original is compared with: a refill request's, or the selected suggestion.
   const compared = (change ? selected : refill?.medication) ?? {};
+  // Under the comparison, or with the Change form once it is open; never blocks.
+  const sameDirections = !!change &&
+    !!selected &&
+    !!prescription &&
+    differentProductSameSig(selected, prescription) && (
+      <Typography variant="body2" color="warning.dark">
+        {SAME_DIRECTIONS_WARNING}
+      </Typography>
+    );
   const noteMax = answer === 'deny' ? 210 : 70;
 
   // A patient's change replaces the original as Send to another pharmacy does, so what blocks that blocks it.
@@ -474,6 +485,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                 />
               </Box>
             </Box>
+            {!showForm && sameDirections}
             {changeBlocked && <Alert severity="warning">{changeBlocked}</Alert>}
             {notEnrolled && notEnrolledAlert}
             {/* A patient's request goes out as a new prescription on the original's visit. */}
@@ -503,6 +515,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                     </ToggleButton>
                   ))}
                 </ToggleButtonGroup>
+                {showForm && sameDirections}
                 {orderForm}
                 {!closed && answer === 'approve' && priorAuth && (
                   <TextField

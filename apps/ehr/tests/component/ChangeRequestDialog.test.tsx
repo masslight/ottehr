@@ -285,4 +285,32 @@ describe('Change request dialog', () => {
     );
     expect(onClose).toHaveBeenCalled();
   });
+
+  // Review D2: another product with the original's directions can change the dose (400 mg/5 mL to 250 mg/5 mL, 5 mL
+  // each time): warned, never blocked.
+  describe('another product with the same directions', () => {
+    const SAME_SIG = CHANGE('OS', {
+      suggestions: [
+        {
+          description: 'Dexlansoprazole 30 mg capsule',
+          ndc: '64764017130',
+          quantityValue: 30,
+          quantityUnit: 'Capsule',
+          sig: 'TAKE 1 CAPSULE BY MOUTH ONCE DAILY',
+        },
+      ],
+    });
+    const WARNING = 'Different product, same directions: check the dose';
+
+    it('warns under the comparison, and still lets the approval go', async () => {
+      await open(SAME_SIG);
+      expect(screen.getAllByText(WARNING)).toHaveLength(1);
+      expect(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' })).toBeEnabled();
+    });
+
+    it('doesn’t warn for other directions', async () => {
+      await open(OUT_OF_STOCK);
+      expect(screen.queryByText(WARNING)).not.toBeInTheDocument();
+    });
+  });
 });
