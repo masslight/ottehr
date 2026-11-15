@@ -547,6 +547,15 @@ describe('prescriptionLineToOrder', () => {
     expect(prescriptionLineToOrder(typedQuarter, context).patientInstructions).toBe(
       'Take 1 and a half tablets, then 1 1/4 tablets'
     );
+    // Review D3-4: "1-1/2" is 1 and a half, and a half before "to" is in words too, as ISMP asks for every half.
+    const typedHyphen = { ...line, patientInstructions: 'Take 1-1/2 tablets by mouth daily' };
+    expect(prescriptionLineToOrder(typedHyphen, context).patientInstructions).toBe(
+      'Take 1 and a half tablets by mouth daily'
+    );
+    const typedRange = { ...line, patientInstructions: 'Take 1/2 to 1 tablet by mouth, then 1-1/2 to 2 tablets' };
+    expect(prescriptionLineToOrder(typedRange, context).patientInstructions).toBe(
+      'Take half to 1 tablet by mouth, then 1 and a half to 2 tablets'
+    );
     const typedUnicode = { ...line, patientInstructions: 'Take 1½ tablets, then ½ tablet' };
     expect(prescriptionLineToOrder(typedUnicode, context).patientInstructions).toBe(
       'Take 1 and a half tablets, then half tablet'

@@ -938,12 +938,13 @@ export const asciiFractions = (text: string): string =>
     fraction === '½' ? halfInWords(digit) : `${digit ? `${digit} ` : ''}${ASCII_FRACTIONS[fraction]}`
   );
 
-/** A sent sig in today's words, for comparing: a half as an older prescription went ("1/2 tablet", "1 1/2 tablets")
- * reads as "half tablet", "1 and a half tablets". */
+/** A sent sig in today's words, for comparing: a half as an older prescription went ("1/2 tablet", "1 1/2 tablets",
+ * "1-1/2 tablets", "1/2 to 1 tablet") reads as "half tablet", "1 and a half tablets", "half to 1 tablet". */
 export const sentSigInWords = (text: string): string =>
   asciiFractions(text).replace(
-    /(?:\b(\d+) )?\b1\/2 (tablets?)\b/g,
-    (_, whole: string | undefined, unit: string) => `${halfInWords(whole ?? '')} ${unit}`
+    /(?:\b(\d+)[ -])?\b1\/2( to \d+(?:\.\d+)?)? (tablets?)\b/g,
+    (_, whole: string | undefined, upTo: string | undefined, unit: string) =>
+      `${halfInWords(whole ?? '')}${upTo ?? ''} ${unit}`
   );
 
 /** The order input for a line that passed `prescriptionLineErrors`. The route, dose, frequency, duration and
