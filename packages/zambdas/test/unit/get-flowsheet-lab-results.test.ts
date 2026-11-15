@@ -532,7 +532,7 @@ describe('buildLabResultsFlowsheet', () => {
     ).toEqual({ directBilirubin: 0.2, serumHcg: 1200, lead: 2 });
   });
 
-  test('the Thyroid rows: Total T4, Free T3, Total T3 and TPO antibodies (as text too) after TSH and Free T4', () => {
+  test('the Thyroid rows: Total T4, Free T3, Total T3, TPO antibodies (as text too) and thyroglobulin after TSH and Free T4', () => {
     expect(
       valuesOf(
         lab('TSH', { codes: ['3016-3'], value: 6.2 }),
@@ -540,9 +540,20 @@ describe('buildLabResultsFlowsheet', () => {
         lab('T4, Total', { codes: ['3026-2'], value: 7.1 }),
         lab('Free T3', { value: 2.8 }),
         lab('Triiodothyronine (T3)', { value: 110 }),
-        lab('Thyroid Peroxidase (TPO) Ab', { codes: ['8099-4'], text: 'Negative' })
+        lab('Thyroid Peroxidase (TPO) Ab', { codes: ['8099-4'], text: 'Negative' }),
+        lab('Thyroglobulin', { codes: ['3013-0'], value: 0.4 }),
+        lab('Thyroglobulin Ab', { text: '<1.0' })
       )
-    ).toEqual({ tsh: 6.2, freeT4: 0.9, totalT4: 7.1, freeT3: 2.8, totalT3: 110, tpoAntibodies: 'Negative' });
+    ).toEqual({
+      tsh: 6.2,
+      freeT4: 0.9,
+      totalT4: 7.1,
+      freeT3: 2.8,
+      totalT3: 110,
+      tpoAntibodies: 'Negative',
+      thyroglobulin: 0.4,
+      thyroglobulinAntibodies: '<1.0',
+    });
   });
 
   test('a visit is a column only with a result for a row; an unlinked outside result is its own column; newest first', () => {

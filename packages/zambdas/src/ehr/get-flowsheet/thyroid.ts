@@ -11,8 +11,8 @@ const VITAL_KEYS = ['weight', 'heartRate'];
 
 /**
  * ICD-10 disorders of the thyroid gland (E00–E07), plus thyroid diagnoses coded elsewhere: hypothyroidism after
- * surgery or radiation (E89.0), thyroid cancer (C73), postpartum thyroiditis (O90.5) and abnormal thyroid function
- * tests (R94.6).
+ * surgery or radiation (E89.0), thyroid cancer (C73), postpartum thyroiditis (O90.5), abnormal thyroid function
+ * tests (R94.6) and a history of thyroid cancer (Z85.850).
  */
 const THYROID_ICD10_PREFIXES = [
   'E00',
@@ -27,6 +27,7 @@ const THYROID_ICD10_PREFIXES = [
   'C73',
   'O90.5',
   'R94.6',
+  'Z85.850',
 ];
 
 /** Thyroid hormones and antithyroid drugs, by generic or brand name (a saved name may carry only the brand). */
@@ -45,6 +46,9 @@ export const THYROID_LAB_ROWS: LabRow[] = [
   { key: 'totalT3', analyte: /^t3\b|total t3|triiodothyronine/i, exclude: /free/i },
   // Often reported qualitatively ("Negative"), so a text-only result is kept, as on Lab results' qualitative rows.
   { key: 'tpoAntibodies', analyte: /tpo|peroxidase/i, text: true },
+  // A thyroid cancer survivor's follow-up tests; the antibodies, like TPO's, are often reported qualitatively.
+  { key: 'thyroglobulin', analyte: /thyroglobulin/i, exclude: /antibod|\bab\b|recovery|interfer/i },
+  { key: 'thyroglobulinAntibodies', analyte: /thyroglobulin.*(antibod|\bab\b)|anti-?thyroglobulin/i, text: true },
 ];
 
 const unique = (names: string[]): string[] => [...new Set(names)];

@@ -134,6 +134,8 @@ const thyroid: FlowsheetDefinition = {
     { label: 'Free T3', keys: ['freeT3'], hideWhenEmpty: true },
     { label: 'Total T3', keys: ['totalT3'], hideWhenEmpty: true },
     { label: 'TPO antibodies', keys: ['tpoAntibodies'], hideWhenEmpty: true },
+    { label: 'Thyroglobulin', keys: ['thyroglobulin'], hideWhenEmpty: true },
+    { label: 'Thyroglobulin antibodies', keys: ['thyroglobulinAntibodies'], hideWhenEmpty: true },
     { label: 'Thyroid medication', keys: ['thyroidMedication'] },
     { label: 'Thyroid diagnosis this visit', keys: ['thyroidDiagnosis'] },
     { label: 'Weight (kg)', keys: ['weight'], digits: 2, imperial: { label: 'Weight (lbs)', unit: 'lbs' } },
@@ -238,6 +240,8 @@ const labResults: FlowsheetDefinition = {
       ['Free T3', 'freeT3'],
       ['Total T3', 'totalT3'],
       ['TPO antibodies', 'tpoAntibodies'],
+      ['Thyroglobulin', 'thyroglobulin'],
+      ['Thyroglobulin antibodies', 'thyroglobulinAntibodies'],
     ]),
     ...panel('Iron panel', [
       ['Iron', 'iron'],

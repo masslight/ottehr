@@ -71,6 +71,8 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   freeT3: { components: ['Triiodothyronine (T3) Free'], systems: SERUM_OR_PLASMA },
   totalT3: { components: ['Triiodothyronine (T3)'], systems: SERUM_OR_PLASMA },
   tpoAntibodies: { components: ['Thyroperoxidase Ab'], systems: SERUM_OR_PLASMA },
+  thyroglobulin: { components: ['Thyroglobulin'], systems: SERUM_OR_PLASMA },
+  thyroglobulinAntibodies: { components: ['Thyroglobulin Ab', 'Thyroglobulin IgG Ab'], systems: SERUM_OR_PLASMA },
   // Newborn bilirubin. The total row also carries the CMP total bilirubin row's serum codes. "Direct" is the
   // glucuronidated plus albumin-bound fraction and "conjugated" the glucuronidated one.
   newbornTotalBilirubin: { components: ['Bilirubin.total'], systems: SERUM_PLASMA_OR_BLOOD },

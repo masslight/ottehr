@@ -61,6 +61,21 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '56477-3', // Thyroperoxidase Ab [Units/volume] in Serum or Plasma by Immunoassay
     '111275-4', // Thyroperoxidase Ab [Measurement] in Serum or Plasma
   ],
+  thyroglobulin: [
+    '3013-0', // Thyroglobulin [Mass/volume] in Serum or Plasma
+    '14918-7', // Thyroglobulin [Moles/volume] in Serum or Plasma
+  ],
+  thyroglobulinAntibodies: [
+    '5380-1', // Thyroglobulin Ab [Units/volume] in Serum by Radioimmunoassay (RIA)
+    '5381-9', // Thyroglobulin Ab [Titer] in Serum by Latex agglutination
+    '8098-6', // Thyroglobulin Ab [Units/volume] in Serum or Plasma
+    '15210-8', // Thyroglobulin Ab [Presence] in Serum
+    '38504-7', // Thyroglobulin Ab [Titer] in Serum by Immunofluorescence
+    '56536-6', // Thyroglobulin Ab [Units/volume] in Serum or Plasma by Immunoassay
+    '56635-6', // Thyroglobulin IgG Ab [Units/volume] in Serum
+    '83117-2', // Thyroglobulin IgG Ab [Units/volume] in Serum or Plasma by Immunoassay
+    '110119-5', // Thyroglobulin Ab [Measurement] in Serum
+  ],
   newbornTotalBilirubin: [
     '1975-2', // Bilirubin.total [Mass/volume] in Serum or Plasma
     '14631-6', // Bilirubin.total [Moles/volume] in Serum or Plasma

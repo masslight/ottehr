@@ -219,6 +219,31 @@ describe('buildThyroidFlowsheet', () => {
     expect(rowsOf(lab('Thyroxine binding globulin', [], 18, 'ug/mL', at))).toEqual([]);
     expect(rowsOf(lab('Thyroxine (T4)', [], 8.1, 'ug/dL', at))).toEqual(['totalT4']);
   });
+
+  test('thyroglobulin and its antibodies are two rows, by LOINC or by name; the antibodies as text too', () => {
+    const at = '2023-02-06T18:00:00.000Z';
+    const labsOnly: FlowsheetData = { ...data, vitals: [], diagnoses: undefined, medications: undefined };
+    const valuesOf = (...labs: FlowsheetLabResult[]): Record<string, string | number> =>
+      Object.fromEntries(
+        Object.entries(buildThyroidFlowsheet({ ...labsOnly, labs: { e1: labs } })[0]?.values ?? {}).map(([key, v]) => [
+          key,
+          v.value,
+        ])
+      );
+    expect(
+      valuesOf(
+        lab('Thyroglobulin', ['3013-0'], 0.4, 'ng/mL', at),
+        lab('Thyroglobulin Ab', ['56536-6'], undefined, '', at)
+      )
+    ).toEqual({ thyroglobulin: 0.4, thyroglobulinAntibodies: 'Negative' });
+    expect(
+      valuesOf(
+        lab('Thyroglobulin, Tumor Marker', [], 0.2, 'ng/mL', at),
+        lab('Thyroglobulin Antibody', [], 1.1, 'IU/mL', at),
+        lab('Thyroglobulin Recovery', [], 95, '%', at)
+      )
+    ).toEqual({ thyroglobulin: 0.2, thyroglobulinAntibodies: 1.1 });
+  });
 });
 
 describe('a TPO antibody result sent only as text', () => {
@@ -337,7 +362,7 @@ describe('thyroid medication: only drugs actually prescribed or given', () => {
     ]);
   });
 
-  test('thyroid diagnoses coded outside E00–E07 (E89.0, C73, O90.5, R94.6) give a column; E89.1 does not', () => {
+  test('thyroid diagnoses coded outside E00–E07 (E89.0, C73, O90.5, R94.6, Z85.850) give a column; E89.1 does not', () => {
     const dx = (code: string): { code: string; display: string; primary: boolean } => ({
       code,
       display: '',
@@ -345,18 +370,18 @@ describe('thyroid medication: only drugs actually prescribed or given', () => {
     });
     const visits = buildThyroidFlowsheet({
       ...data,
-      diagnoses: { e1: [dx('E89.0'), dx('C73')], e2: [dx('O90.5')], e3: [dx('R94.6')] },
+      diagnoses: { e1: [dx('E89.0'), dx('C73')], e2: [dx('O90.5')], e3: [dx('R94.6'), dx('Z85.850')] },
       medications: {},
       labs: {},
     });
     expect(Object.fromEntries(visits.map((v) => [v.encounterId, v.values.thyroidDiagnosis?.value]))).toEqual({
       e1: 'E89.0; C73',
       e2: 'O90.5',
-      e3: 'R94.6',
+      e3: 'R94.6; Z85.850',
     });
     const postProcedural = buildThyroidFlowsheet({
       ...data,
-      diagnoses: { e1: [dx('E89.1'), dx('C74.9'), dx('O90.4'), dx('R94.5')] },
+      diagnoses: { e1: [dx('E89.1'), dx('C74.9'), dx('O90.4'), dx('R94.5'), dx('Z85.858')] },
       medications: {},
       labs: {},
     });

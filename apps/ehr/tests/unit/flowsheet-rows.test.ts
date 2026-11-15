@@ -119,6 +119,8 @@ describe('Lab results rows', () => {
       'Free T3',
       'Total T3',
       'TPO antibodies',
+      'Thyroglobulin',
+      'Thyroglobulin antibodies',
       '# Iron panel',
       'Iron',
       'TIBC',
@@ -257,5 +259,15 @@ describe('Thyroid rows', () => {
     expect(labels([visit({ totalT3: reading(110) }), visit({ tpoAntibodies: reading(35) })])).toEqual(
       expect.arrayContaining(['Total T3', 'TPO antibodies'])
     );
+    expect(labels([visit({ thyroglobulin: reading(0.4), thyroglobulinAntibodies: reading('Negative') })])).toEqual([
+      'TSH',
+      'Free T4',
+      'Thyroglobulin',
+      'Thyroglobulin antibodies',
+      'Thyroid medication',
+      'Thyroid diagnosis this visit',
+      'Weight (kg)',
+      'Heart rate (/min)',
+    ]);
   });
 });
