@@ -236,7 +236,7 @@ describe('ProgressNoteAdminPage', () => {
     vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
     render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
     expect(
-      await screen.findByText('Units for weight in the visit header and on the Growth flowsheet')
+      await screen.findByText('Units for weight in the visit header, and for the Growth flowsheet')
     ).toBeInTheDocument();
   });
 
