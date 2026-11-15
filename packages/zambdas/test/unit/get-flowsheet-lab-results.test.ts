@@ -335,6 +335,17 @@ describe('buildLabResultsFlowsheet', () => {
     ).toEqual({ urineCulture: 'Final report; Escherichia coli >100000 CFU/mL; Enterococcus faecalis 20000 CFU/mL' });
   });
 
+  test('urine culture: reports are ordered by instant, so the later one is the cell', () => {
+    const culture = { test: 'Urine Culture', testCodes: ['630-4'] };
+    const visits = build({
+      e1: [
+        lab('Urine Culture', { ...culture, codes: ['630-4'], text: 'Preliminary: growth', at: '2024-03-04T14:00:00Z' }),
+        lab('Urine Culture', { ...culture, codes: ['630-4'], text: 'No growth', at: '2024-03-04T10:30:00-05:00' }),
+      ],
+    });
+    expect(visits[0].values.urineCulture.value).toBe('No growth');
+  });
+
   test('HIV, hepatitis C and urine hCG show their text as reported; a text-only result on a number row is left out', () => {
     expect(
       valuesOf(

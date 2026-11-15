@@ -180,3 +180,32 @@ describe('Open in BiliTool', () => {
     ).toEqual([]);
   });
 });
+
+describe('BiliTool reading order with mixed UTC offsets', () => {
+  // 11.4 at 10:30 New York time (15:30Z) is later than 9.1 at 14:00Z, though its text sorts first.
+  const later = '2026-03-03T10:30:00-05:00';
+  const earlier = '2026-03-03T14:00:00Z';
+  const mixed = [
+    visit({
+      newbornTotalBilirubin: value([
+        { time: later, value: 11.4, unit: 'mg/dL' },
+        { time: earlier, value: 9.1, unit: 'mg/dL' },
+      ]),
+      hoursOfLife: value([
+        { time: later, value: 50.5 },
+        { time: earlier, value: 49 },
+      ]),
+    }),
+  ];
+
+  it('lists newest first by instant, starts on the newest, and sends the earlier result as the trend', () => {
+    const readings = biliToolReadings(mixed);
+    expect(readings.map((r) => r.value)).toEqual([11.4, 9.1]);
+    expect(defaultBiliToolReading(readings)?.value).toBe(11.4);
+    const url = new URL(
+      buildBiliToolUrl({ reading: readings[0], readings, gestationalWeeks: 38, neuroRiskFactors: false })
+    );
+    expect(url.searchParams.get('ageHours')).toBe('49,51');
+    expect(url.searchParams.get('totalBilirubin')).toBe('9.1,11.4');
+  });
+});

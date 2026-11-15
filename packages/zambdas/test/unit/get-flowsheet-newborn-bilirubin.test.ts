@@ -212,6 +212,22 @@ describe('buildNewbornBilirubinFlowsheet', () => {
     expect(visits[0]?.values.newbornTotalBilirubin).toBeUndefined();
   });
 
+  test('orders results by instant, not by text: 10:30-05:00 (15:30Z) is later than 14:00Z', () => {
+    const later = '2007-04-03T10:30:00-05:00';
+    const earlier = '2007-04-03T14:00:00Z';
+    const [visit] = buildNewbornBilirubinFlowsheet({
+      ...data,
+      vitals: [],
+      birthHistory: { timeOfBirth: '08:00', gestationalAgeWeeks: 38 },
+      labs: {
+        e1: [lab('Bilirubin, total', ['1975-2'], 9.1, earlier), lab('Bilirubin, total', ['1975-2'], 11.4, later)],
+      },
+    });
+    expect(visit.values.newbornTotalBilirubin.value).toBe(11.4);
+    expect(visit.values.newbornTotalBilirubin.readings.map((r) => r.value)).toEqual([9.1, 11.4]);
+    expect(visit.values.hoursOfLife.readings.map((r) => r.time)).toEqual([earlier, later]);
+  });
+
   test('an unlinked outside result is its own column, dated by the result, with its own day of life', () => {
     const outside = {
       ...data,

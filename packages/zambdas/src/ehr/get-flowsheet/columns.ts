@@ -42,8 +42,11 @@ export const labRowFor = (rows: LabRow[], lab: FlowsheetLabResult): LabRow | und
   );
 };
 
-const byResultedAt = (a: FlowsheetLabResult, b: FlowsheetLabResult): number =>
-  (a.resultedAt ?? '').localeCompare(b.resultedAt ?? '');
+/** Oldest first by instant: labs send times with their own UTC offsets, so the text order can be wrong. */
+export const byInstant = (a: string | undefined, b: string | undefined): number =>
+  (Date.parse(a ?? '') || 0) - (Date.parse(b ?? '') || 0);
+
+const byResultedAt = (a: FlowsheetLabResult, b: FlowsheetLabResult): number => byInstant(a.resultedAt, b.resultedAt);
 
 export interface ConditionColumns {
   /** The column for an encounter id or an unlinked-result key, made on first use and dated by `fallbackStart`. */

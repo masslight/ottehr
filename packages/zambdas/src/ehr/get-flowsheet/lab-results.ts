@@ -1,5 +1,5 @@
 import { FlowsheetLabResult, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
-import { ConditionColumns, conditionColumns, LabRow } from './columns';
+import { byInstant, ConditionColumns, conditionColumns, LabRow } from './columns';
 import { LAB_ROW_LOINC_CODES } from './lab-loinc-codes.generated';
 import { FlowsheetData, FlowsheetDataKind } from './patient-data';
 
@@ -211,7 +211,7 @@ const addUrineCultures = (columns: ConditionColumns, labs: Record<string, Flowsh
       byTime.set(time, [...(byTime.get(time) ?? []), text]);
     });
     [...byTime]
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => byInstant(a, b))
       .forEach(([time, texts]) => {
         const column = columns.columnFor(key, time || undefined);
         if (!column) return;

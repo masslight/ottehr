@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
-import { conditionColumns, LabRow } from './columns';
+import { byInstant, conditionColumns, LabRow } from './columns';
 import { FlowsheetData, FlowsheetDataKind } from './patient-data';
 
 export const NEWBORN_BILIRUBIN_DATA_KINDS: FlowsheetDataKind[] = ['birthDate', 'birthHistory', 'vitals', 'labs'];
@@ -97,7 +97,7 @@ export const buildNewbornBilirubinFlowsheet = (data: FlowsheetData): FlowsheetVi
     const resultTimes = Object.entries(visit.values)
       .filter(([key]) => !VITAL_KEYS.includes(key))
       .flatMap(([, value]) => value.readings.map((reading) => reading.time));
-    [...new Set(resultTimes)].sort().forEach((time) => {
+    [...new Set(resultTimes)].sort(byInstant).forEach((time) => {
       const dayOfLife = dayOfLifeAt(birthDate, time, visit.timezone);
       if (dayOfLife !== undefined) columns.addReading(visit, 'dayOfLife', { time, value: dayOfLife });
       const hoursOfLife = timeOfBirth ? hoursOfLifeAt(birthDate, timeOfBirth, time, visit.timezone) : undefined;

@@ -52,7 +52,7 @@ export const biliToolReadings = (visits: FlowsheetVisit[]): BiliToolReading[] =>
         })
       )
     )
-    .sort((a, b) => b.time.localeCompare(a.time));
+    .sort((a, b) => Date.parse(b.time) - Date.parse(a.time));
 
 /** The reading the dialog starts on: the newest blood result; nothing when there is none. */
 export const defaultBiliToolReading = (readings: BiliToolReading[]): BiliToolReading | undefined =>
@@ -98,8 +98,11 @@ export interface BiliToolLaunch {
 export const buildBiliToolUrl = ({ reading, readings, gestationalWeeks, neuroRiskFactors }: BiliToolLaunch): string => {
   const trend = [
     ...readings
-      .filter((r) => r.kind === reading.kind && r.units === reading.units && r.time < reading.time)
-      .sort((a, b) => a.time.localeCompare(b.time)),
+      // Compared as instants: results carry their own UTC offsets.
+      .filter(
+        (r) => r.kind === reading.kind && r.units === reading.units && Date.parse(r.time) < Date.parse(reading.time)
+      )
+      .sort((a, b) => Date.parse(a.time) - Date.parse(b.time)),
     reading,
   ];
   const clampHours = (hours: number): number => Math.min(HOURS_OF_LIFE_MAX, Math.max(MIN_AGE_HOURS, Math.round(hours)));
