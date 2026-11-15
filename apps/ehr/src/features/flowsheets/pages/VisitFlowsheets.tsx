@@ -44,7 +44,12 @@ export const VisitFlowsheets = (): ReactElement => {
           </ToggleButtonGroup>
         }
       />
-      <Flowsheets patientId={patient.id} asOf={asOf} currentAppointmentId={appointment?.id} />
+      <Flowsheets
+        patientId={patient.id}
+        birthDate={patient.birthDate}
+        asOf={asOf}
+        currentAppointmentId={appointment?.id}
+      />
     </Stack>
   );
 };

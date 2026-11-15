@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { FlowsheetValue, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, it, vi } from 'vitest';
-import { cellOf, rowsToShow } from '../../src/features/flowsheets/components/Flowsheets';
+import { cellOf, openingFlowsheet, rowsToShow } from '../../src/features/flowsheets/components/Flowsheets';
 import { FlowsheetDefinition, FLOWSHEETS } from '../../src/features/flowsheets/registry';
 
 // The component imports the api client through its data hook; the row logic under test never calls it.
@@ -28,6 +28,17 @@ const labelsOf = (visits: FlowsheetVisit[]): string[] =>
 describe('flowsheet list', () => {
   it('lists the flowsheets A to Z', () => {
     expect(FLOWSHEETS.map((f) => f.title)).toEqual(['Growth', 'Lab results', 'Newborn bilirubin', 'Thyroid', 'Vitals']);
+  });
+
+  it('opens on Growth under 20 years and on Vitals from 20, by calendar years at this visit, else today', () => {
+    const opening = (birthDate: string | undefined, asOf?: string): string => openingFlowsheet(birthDate, asOf).id;
+    expect(opening('2006-07-14', '2026-07-13T23:59:59.999-04:00')).toBe('growth');
+    expect(opening('2006-07-13', '2026-07-13T23:59:59.999-04:00')).toBe('vitals');
+    expect(opening('1968-02-01', '2026-07-13T23:59:59.999-04:00')).toBe('vitals');
+    // A visit before the 20th birthday opens on Growth for a patient now an adult.
+    expect(opening('1990-01-01', '2009-06-01T23:59:59.999-04:00')).toBe('growth');
+    expect(opening('1990-01-01')).toBe('vitals');
+    expect(opening(undefined)).toBe('growth');
   });
 });
 

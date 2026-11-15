@@ -41,6 +41,7 @@ import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data
 import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
 import { VitalsHeaderUnitSystem } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
+import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
 import { biliToolReadings, biliToolUnavailableReason } from '../biliTool';
 import { chartPoint, HOURS_OF_LIFE_MAX, usesHoursAxis, yAxisBounds } from '../chartPoints';
 import { FlowsheetChart, FlowsheetDefinition, FlowsheetRow, FLOWSHEETS } from '../registry';
@@ -49,6 +50,8 @@ import { GrowthCharts } from './GrowthCharts';
 
 interface FlowsheetsProps {
   patientId: string;
+  /** The patient's birth date, for the flowsheet that opens. */
+  birthDate?: string;
   /** Patient tab only: the tab's title; the flowsheets then sit in a white Paper like the other patient tabs. */
   title?: string;
   /** Visit tab only: hide visits after this instant. */
@@ -57,9 +60,30 @@ interface FlowsheetsProps {
   currentAppointmentId?: string;
 }
 
+/** Growth charts end at 20 years. */
+const GROWTH_MAX_MONTHS = 240;
+
+/**
+ * The flowsheet that opens: Growth under 20 years, Vitals from 20, by the age at `asOf` (this visit), else today, in
+ * calendar months as Growth counts them. Growth without a birth date.
+ */
+export const openingFlowsheet = (birthDate: string | undefined, asOf: string | undefined): FlowsheetDefinition => {
+  const ageMonths = ageInMonthsOnDate(birthDate, asOf);
+  const id = ageMonths !== undefined && ageMonths >= GROWTH_MAX_MONTHS ? 'vitals' : 'growth';
+  return FLOWSHEETS.find((flowsheet) => flowsheet.id === id) ?? FLOWSHEETS[0];
+};
+
 /** A tab per flowsheet plus the selected one: grid, trend charts, visit list. */
-export const Flowsheets = ({ patientId, title, asOf, currentAppointmentId }: FlowsheetsProps): ReactElement => {
-  const [selected, setSelected] = useState<FlowsheetDefinition>(FLOWSHEETS[0]);
+export const Flowsheets = ({
+  patientId,
+  birthDate,
+  title,
+  asOf,
+  currentAppointmentId,
+}: FlowsheetsProps): ReactElement => {
+  // Until a tab is picked, the one for the patient's age (the birth date may arrive after the first render).
+  const [picked, setPicked] = useState<FlowsheetDefinition>();
+  const selected = picked ?? openingFlowsheet(birthDate, asOf);
   const { data, isLoading, error } = useGetFlowsheet({ patientId, flowsheetId: selected.id, asOf });
   const [biliToolOpen, setBiliToolOpen] = useState(false);
   // Newborn bilirubin: BiliTool takes the readings shown (up to this visit on the visit tab).
@@ -78,7 +102,7 @@ export const Flowsheets = ({ patientId, title, asOf, currentAppointmentId }: Flo
         <Tabs
           value={selected.id}
           onChange={(_, id: FlowsheetDefinition['id']) =>
-            setSelected(FLOWSHEETS.find((flowsheet) => flowsheet.id === id) ?? FLOWSHEETS[0])
+            setPicked(FLOWSHEETS.find((flowsheet) => flowsheet.id === id) ?? FLOWSHEETS[0])
           }
           variant="scrollable"
           scrollButtons="auto"
