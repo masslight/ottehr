@@ -145,20 +145,20 @@ describe('the history’s words for an event', () => {
 describe('a faxed prescription’s actions', () => {
   it('name its status while it waits, and Cancel denied once the pharmacy refused a cancel', () => {
     expect(prescriptionActionUnavailableText('cancel', [rx('draft', faxed)])).toBe(
-      "Cancel isn't available for prescriptions with status Sent by fax."
+      "Cancel prescription isn't available for prescriptions with status Sent by fax."
     );
     expect(
       prescriptionActionUnavailableText('cancel', [
         rx('active', faxed, accepted, cancelRequested, event('canceldenied')),
       ])
-    ).toBe("Cancel isn't available for prescriptions with status Cancel denied.");
+    ).toBe("Cancel prescription isn't available for prescriptions with status Cancel denied.");
   });
 });
 
 describe('an action on a status the eRx service does not set', () => {
   it('names it "Other", never the FHIR code', () => {
     expect(prescriptionActionUnavailableText('cancel', [rx('entered-in-error')])).toBe(
-      "Cancel isn't available for prescriptions with status Other."
+      "Cancel prescription isn't available for prescriptions with status Other."
     );
   });
 });
@@ -189,7 +189,7 @@ describe('a compound is cancelled as a product is', () => {
 
   it('names the status first for a compound no action applies to', () => {
     expect(prescriptionActionUnavailableText('cancel', [compound('cancelled')])).toBe(
-      "Cancel isn't available for prescriptions with status Cancelled."
+      "Cancel prescription isn't available for prescriptions with status Cancelled."
     );
   });
 });

@@ -540,7 +540,8 @@ const MedicationMenu: FC<{
             {group('Quick picks', listed.quickPicks, 0)}
             {group('Prescription sets', listed.sets, listed.quickPicks.length)}
           </Box>
-          {quickPickPicks.length === 0 && <MenuMessage>No quick picks match</MenuMessage>}
+          {/* Before anything is typed, an empty list matched nothing. */}
+          {quickPickPicks.length === 0 && query.trim() && <MenuMessage>No quick picks match</MenuMessage>}
           {listed.more && <MenuMessage>Type to search more</MenuMessage>}
         </Box>
         <Box
@@ -1379,16 +1380,21 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                 need
               />
               ,{' '}
-              <TextBlank
-                label="days supply"
-                placeholder="days"
-                kind="number"
-                value={line.daysSupply}
-                onChange={(daysSupply) => update({ daysSupply })}
-                readOnly={readOnly}
-                min={1}
-              />
-              -day supply,{' '}
+              {/* Optional: empty, the blank reads "days supply" without "-day supply" after it, and read-only it's
+                  left out. */}
+              {!(readOnly && !line.daysSupply) && (
+                <>
+                  <TextBlank
+                    label="days supply"
+                    kind="number"
+                    value={line.daysSupply}
+                    onChange={(daysSupply) => update({ daysSupply })}
+                    readOnly={readOnly}
+                    min={1}
+                  />
+                  {line.daysSupply ? '-day supply' : ''},{' '}
+                </>
+              )}
               <TextBlank
                 label="refills"
                 kind="number"

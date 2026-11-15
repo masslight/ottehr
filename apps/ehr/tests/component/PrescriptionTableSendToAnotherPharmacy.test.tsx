@@ -227,7 +227,7 @@ describe('Prescription table: send to another pharmacy', () => {
     expect(cancelButton()).toBeDisabled();
     expect(sendButton()).toBeEnabled();
     expect(await hoverTooltip(user, cancelButton())).toBe(
-      "Cancel isn't available for prescriptions with status Error."
+      "Cancel prescription isn't available for prescriptions with status Error."
     );
     await user.unhover(cancelButton().parentElement!);
     await user.click(checkbox(ERR.name!));
@@ -257,7 +257,7 @@ describe('Prescription table: send to another pharmacy', () => {
     expect(action(ERR.name!, 'Send to another pharmacy')).toBeEnabled();
     expect(action(ERR.name!, 'Cancel prescription')).toBeDisabled();
     expect(await tooltipOf(action(ERR.name!, 'Cancel prescription'))).toBe(
-      "Cancel isn't available for prescriptions with status Error."
+      "Cancel prescription isn't available for prescriptions with status Error."
     );
     expect(action(OND.name!, 'Send to another pharmacy')).toBeDisabled();
     expect(await tooltipOf(action(OND.name!, 'Send to another pharmacy'))).toBe(

@@ -52,6 +52,8 @@ const RINSE_UNREADABLE: PrescribedMedicationDTO = {
   ...CREAM_ERRORED,
   resourceId: 'mr-rinse',
   name: 'Mouth rinse',
+  // A prescriber with no first name on file.
+  provider: 'practitioner-2',
   sent: '2026-10-28T10:00:00.000Z',
   order: {
     ...CREAM.order,
@@ -92,6 +94,7 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
       prescribedMedications: [CREAM, CREAM_ERRORED, RINSE_UNREADABLE],
       prescribedMedicationsRequesterPractitioners: [
         { resourceType: 'Practitioner', id: 'practitioner-1', name: [{ given: ['Dana'], family: 'Abrams' }] },
+        { resourceType: 'Practitioner', id: 'practitioner-2', name: [{ family: 'Lee' }] },
       ],
     },
     refetch: mocks.refetch,
@@ -216,5 +219,11 @@ describe('Prescription table: compounds', () => {
     expect((await screen.findByRole('tooltip')).textContent).toBe(
       "Send to another pharmacy isn't available for Mouth rinse: missing dosage form, ingredient 2 amount."
     );
+  });
+
+  it('names a prescriber with no first name by the last name alone, with no trailing comma', () => {
+    renderTable();
+    expect(within(row('Compound: Mouth rinse')).getByText('Lee')).toBeInTheDocument();
+    expect(within(row('Compound: Mouth rinse')).queryByText('Lee,')).not.toBeInTheDocument();
   });
 });

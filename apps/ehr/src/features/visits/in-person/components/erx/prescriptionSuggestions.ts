@@ -184,7 +184,7 @@ const dosedRow = (
       doseBlank,
       `${unit ? ` ${doseUnitLabel(unit, dose?.amount)}` : ''}${where} `,
       frequencyBlank,
-      ...(single ? ['.'] : [' for ', durationBlank, ' days.']),
+      ...(single ? ['.'] : [' for ', durationBlank, Number(picks[durationAt] ?? days) === 1 ? ' day.' : ' days.']),
     ];
   };
   const doseInfoFor = (picks: SentencePicks): string[] | undefined => {

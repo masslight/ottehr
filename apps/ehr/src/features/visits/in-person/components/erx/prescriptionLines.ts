@@ -1334,7 +1334,7 @@ export const quickPickNameInUse = (
   quickPicks: Pick<PrescriptionQuickPickData, 'id' | 'name'>[]
 ): string | undefined =>
   nameTaken(name, quickPicks)
-    ? `A quick pick named '${name.trim()}' already exists. Edit it in Admin → Quick Picks, or choose another name.`
+    ? `A quick pick named "${name.trim()}" already exists. Edit it in Admin → Quick Picks, or choose another name.`
     : undefined;
 
 /** Why the order form's "Save as Quick Pick" can't save the line: every quick pick orders a product, or a compound

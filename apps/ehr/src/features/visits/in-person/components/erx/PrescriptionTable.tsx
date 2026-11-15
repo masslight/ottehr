@@ -14,6 +14,7 @@ import { Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useMemo, useState } from 'react';
 import { MappedStatusChip } from 'src/components/MappedStatusChip';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { medicationStatusMapper } from '../../../shared/components/plan-tab/ERxContainer';
@@ -114,14 +115,9 @@ const isRowSelectable = (prescription: PrescribedMedicationDTO): boolean =>
   isPrescriptionActionAvailable('cancel', prescription) ||
   isPrescriptionActionAvailable('sendToAnotherPharmacy', prescription);
 
-const getPractitionerName = (practitioner?: Practitioner): string | undefined => {
-  if (!practitioner) {
-    return;
-  }
-  const givenName = practitioner.name?.[0]?.given?.at(0) ?? '';
-  const familyName = practitioner.name?.[0]?.family ?? '';
-  return `${familyName}, ${givenName}`.trim();
-};
+// "Last, First", or the one name on file without a stray comma.
+const getPractitionerName = (practitioner?: Practitioner): string | undefined =>
+  practitioner && getFullestAvailableName(practitioner, true);
 
 // An open row and its details, tinted together.
 const EXPANDED_BG = 'rgba(25,118,210,.08)';

@@ -776,3 +776,35 @@ describe('PrescriptionSentences: dabrams’s testing round', () => {
     })
   );
 });
+
+describe('PrescriptionSentences: the days supply', () => {
+  /** The "Pharmacy dispenses …" sentence's text. */
+  const dispenseSentence = (): string =>
+    screen.getByText(/^Pharmacy dispenses/).closest('.MuiTypography-root')!.textContent ?? '';
+
+  it('leaves "-day supply" out while the days supply is empty, and reads "10-day supply" once filled', async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={withSuggestion(lineFor(LIQUIDS), { ...FIELDS, daysSupply: '' })} />);
+    expect(dispenseSentence()).not.toMatch(/day supply/);
+    expect(screen.getByRole('spinbutton', { name: 'days supply' })).toHaveAttribute('placeholder', 'days supply');
+    await user.type(screen.getByRole('spinbutton', { name: 'days supply' }), '10');
+    expect(dispenseSentence()).toMatch(/-day supply, /);
+  });
+
+  it('read-only, leaves an empty days supply out of the sentence', () => {
+    render(
+      <PrescriptionSentences
+        line={withSuggestion(lineFor(LIQUIDS), { ...FIELDS, daysSupply: '' })}
+        index={0}
+        onChange={() => undefined}
+        quickPicks={[]}
+        onQuickPick={() => undefined}
+        visitDiagnoses={[]}
+        errors={[]}
+        readOnly
+      />
+    );
+    expect(dispenseSentence()).not.toMatch(/day supply|days supply/);
+    expect(dispenseSentence()).toMatch(/, 0 refills\.$/);
+  });
+});

@@ -163,7 +163,8 @@ const missingOrderFields = (prescription: PrescribedMedicationDTO): string[] => 
 export type PrescriptionAction = 'cancel' | 'sendToAnotherPharmacy';
 
 export const PRESCRIPTION_ACTION_NAMES: Record<PrescriptionAction, string> = {
-  cancel: 'Cancel',
+  // The row button's name, so its hover reads the same.
+  cancel: 'Cancel prescription',
   sendToAnotherPharmacy: 'Send to another pharmacy',
 };
 

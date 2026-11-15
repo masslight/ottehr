@@ -682,3 +682,14 @@ describe('Prescription sets on the order form', () => {
     expect(missingSetMembersText(2)).toBe('2 prescriptions in this set no longer exist.');
   });
 });
+
+describe('The medication menu with no quick picks', () => {
+  it('says nothing about quick picks until something is typed', async () => {
+    const user = userEvent.setup();
+    render(<Form initial={[emptyPrescriptionLine()]} quickPicks={[]} sets={[]} />);
+    await openMenu(user);
+    expect(screen.queryByText('No quick picks match')).not.toBeInTheDocument();
+    await user.type(field(), 'zz');
+    expect(screen.getByText('No quick picks match')).toBeInTheDocument();
+  });
+});

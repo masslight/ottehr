@@ -200,7 +200,7 @@ describe('Save as quick pick: the calculator’s dosing', () => {
     // It only adds: a name already in use (trimmed, any case) isn't saved, and the name field says why.
     const nameError = quickPickNameInUse('  amox STREP ', [BY_WEIGHT]);
     expect(nameError).toBe(
-      "A quick pick named 'amox STREP' already exists. Edit it in Admin → Quick Picks, or choose another name."
+      'A quick pick named "amox STREP" already exists. Edit it in Admin → Quick Picks, or choose another name.'
     );
     expect(quickPickNameInUse('Amox strep 2', [BY_WEIGHT])).toBeUndefined();
     const named = render(
@@ -1190,5 +1190,19 @@ describe('The calculator’s "Measure to"', () => {
     );
     const calculator = await openCalculator(user);
     expect(within(calculator).queryByRole('button', { name: /^measure to/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('Suggestion rows: one day', () => {
+  it('reads "for 1 day", not "for 1 days"', () => {
+    const ONE_DAY: PrescriptionQuickPickData = {
+      ...BY_WEIGHT,
+      id: 'qp-one-day',
+      name: 'Amox one day',
+      dosing: { ...BY_WEIGHT.dosing!, durationDays: 1 },
+    };
+    render(<Harness initial={liquidLine()} quickPicks={[ONE_DAY]} weight={WEIGHT} />);
+    expect(suggestionRow(0).textContent).toMatch(/for 1 day\./);
+    expect(suggestionRow(0).textContent).not.toMatch(/1 days/);
   });
 });
