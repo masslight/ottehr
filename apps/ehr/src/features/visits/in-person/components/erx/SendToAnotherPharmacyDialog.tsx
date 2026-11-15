@@ -10,6 +10,7 @@ import { PharmacySearch } from './PharmacySearch';
 import { errorMessage, PrescriptionSummaryList, useSendEach } from './prescriptionDialogs';
 import { prescriptionVitals } from './prescriptionLines';
 import {
+  cancelDeniedWarning,
   isPrescriptionCancelDenied,
   isPrescriptionCancellable,
   prescriptionToOrderForPharmacy,
@@ -132,7 +133,7 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
           )}
           {cancelDenied.map((prescription) => (
             <Typography key={prescription.resourceId} variant="body2" color="warning.dark">
-              {prescription.name} stays live at {prescription.pharmacyName ?? 'its pharmacy'}: its cancel was denied.
+              {cancelDeniedWarning(prescription)}
             </Typography>
           ))}
           {alreadyThere.length > 0 && (

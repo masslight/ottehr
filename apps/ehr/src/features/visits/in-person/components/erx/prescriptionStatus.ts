@@ -118,6 +118,16 @@ export const isPrescriptionCancelDenied = (prescription: PrescribedMedicationDTO
   prescription.status === 'active' &&
   latestEvent(prescription, (event) => CANCEL_EVENT_CODES.includes(event.code))?.code === 'canceldenied';
 
+/** "<name> stays live at <pharmacy>: its cancel was denied (Already dispensed).", with the pharmacy's reason when it
+ * gave one: what tells staff whether the patient needs a second copy. */
+export const cancelDeniedWarning = (prescription: PrescribedMedicationDTO): string => {
+  const denied = latestEvent(prescription, (event) => event.code === 'canceldenied');
+  const details = denied ? cancelReplyDetails(denied) : [];
+  return `${prescription.name} stays live at ${prescription.pharmacyName ?? 'its pharmacy'}: its cancel was denied${
+    details.length ? ` (${details.join('; ')})` : ''
+  }.`;
+};
+
 /** Sending to another pharmacy cancels a sent prescription (so only a cancellable one) and resends an errored one.
  * After a denied cancel it sends the new one with no second cancel, which the eRx service refuses; the dialog warns
  * that the first stays live at its pharmacy. */

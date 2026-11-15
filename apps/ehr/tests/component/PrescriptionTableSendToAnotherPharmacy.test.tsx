@@ -375,7 +375,7 @@ describe('Prescription table: send to another pharmacy', () => {
     await user.click(within(row(DENIED.name!)).getByRole('button', { name: 'Send to another pharmacy' }));
     expect(
       within(screen.getByRole('dialog')).getByText(
-        `${DENIED.name} stays live at Apex Discount Drugs: its cancel was denied.`
+        `${DENIED.name} stays live at Apex Discount Drugs: its cancel was denied (Picked up).`
       )
     ).toBeInTheDocument();
     await pickPharmacyAndSend(user);

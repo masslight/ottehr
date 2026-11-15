@@ -2,6 +2,7 @@ import { DateTime } from 'luxon';
 import { ErxEventDTO, PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { describe, expect, it } from 'vitest';
 import {
+  cancelDeniedWarning,
   erxEventText,
   isPrescriptionActionAvailable,
   isPrescriptionCancellable,
@@ -120,6 +121,28 @@ describe('prescription status chip and latest event', () => {
     ],
   ])('%s', (_name, prescription, expected) => {
     expect(prescriptionStatusView(prescription)).toEqual(expected);
+  });
+});
+
+// Review D2-8: the pharmacy's reason is what tells staff whether a second copy is needed.
+describe('the warning that a denied-cancel prescription stays live', () => {
+  it('gives the pharmacy’s reason when there is one', () => {
+    expect(
+      cancelDeniedWarning({
+        ...rx('active', accepted, cancelRequested, {
+          ...event('canceldenied'),
+          cancelResponse: { priorDispensing: true },
+        }),
+        name: 'Amoxicillin 400 mg/5ml Susp',
+        pharmacyName: 'Apex Discount Drugs',
+      })
+    ).toBe('Amoxicillin 400 mg/5ml Susp stays live at Apex Discount Drugs: its cancel was denied (Already dispensed).');
+    expect(
+      cancelDeniedWarning({
+        ...rx('active', accepted, cancelRequested, event('canceldenied', 'Cancellation denied by pharmacy:')),
+        name: 'Cefuroxime 250 mg/5ml Susp',
+      })
+    ).toBe('Cefuroxime 250 mg/5ml Susp stays live at its pharmacy: its cancel was denied.');
   });
 });
 
