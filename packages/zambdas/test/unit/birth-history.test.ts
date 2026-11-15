@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Observation } from 'fhir/r4b';
 import {
   formatBirthHistoryNoteLines,
@@ -5,8 +6,12 @@ import {
   formatGestationalAge,
 } from 'utils/lib/helpers/vitals/birth-history.helper';
 import { BIRTH_HISTORY_META_SYSTEM, BirthHistory, BirthHistorySchema } from 'utils/lib/types/api/birth-history.types';
-import { describe, expect, test } from 'vitest';
-import { makeBirthHistoryDTO, makeBirthHistoryObservation } from '../../src/shared/birth-history';
+import { describe, expect, test, vi } from 'vitest';
+import {
+  makeBirthHistoryDTO,
+  makeBirthHistoryObservation,
+  saveBirthHistoryObservation,
+} from '../../src/shared/birth-history';
 
 const full: BirthHistory = {
   timeOfBirth: '03:42',
@@ -53,6 +58,38 @@ describe('birth history storage (one patient-level Observation per patient)', ()
     expect(BirthHistorySchema.safeParse({ gestationalAgeWeeks: 34.5 }).success).toBe(false);
     expect(BirthHistorySchema.safeParse({ gestationalAgeDays: 3 }).success).toBe(false);
     expect(BirthHistorySchema.safeParse({ gestationalAgeWeeks: 34, gestationalAgeDays: 7 }).success).toBe(false);
+  });
+});
+
+describe('saving a birth history', () => {
+  const fhir = (): {
+    create: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+  } => ({
+    create: vi.fn(async (o: Observation) => ({ ...o, id: 'obs-new' })),
+    update: vi.fn(async (o: Observation) => o),
+    delete: vi.fn(async () => undefined),
+  });
+  const existing: Observation = { ...makeBirthHistoryObservation('p1', full), id: 'obs-1' };
+
+  test('every field emptied over a saved one deletes it, so the patient reads as never having one', async () => {
+    const calls = fhir();
+    const saved = await saveBirthHistoryObservation({ fhir: calls } as unknown as Oystehr, 'p1', {}, existing);
+    expect(saved).toBeUndefined();
+    expect(calls.delete).toHaveBeenCalledWith({ resourceType: 'Observation', id: 'obs-1' });
+    expect(calls.update).not.toHaveBeenCalled();
+    expect(calls.create).not.toHaveBeenCalled();
+  });
+
+  test('an empty one with nothing saved saves nothing; a value updates the saved one or creates it', async () => {
+    const calls = fhir();
+    const oystehr = { fhir: calls } as unknown as Oystehr;
+    expect(await saveBirthHistoryObservation(oystehr, 'p1', {})).toBeUndefined();
+    expect(calls.create).not.toHaveBeenCalled();
+    expect((await saveBirthHistoryObservation(oystehr, 'p1', { gestationalAgeWeeks: 38 }, existing))?.id).toBe('obs-1');
+    expect((await saveBirthHistoryObservation(oystehr, 'p1', { gestationalAgeWeeks: 38 }))?.id).toBe('obs-new');
+    expect(calls.delete).not.toHaveBeenCalled();
   });
 });
 

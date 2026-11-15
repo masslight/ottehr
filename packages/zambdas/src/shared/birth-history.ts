@@ -71,6 +71,24 @@ export const makeBirthHistoryObservation = (
   };
 };
 
+/**
+ * Saves the patient's birth history over `existing`, or as a new Observation. Every field emptied deletes it, so the
+ * patient reads as never having had one; undefined when none is left.
+ */
+export const saveBirthHistoryObservation = async (
+  oystehr: Oystehr,
+  patientId: string,
+  history: BirthHistory,
+  existing?: Observation
+): Promise<Observation | undefined> => {
+  if (Object.values(history).every((value) => value === undefined)) {
+    if (existing?.id) await oystehr.fhir.delete({ resourceType: 'Observation', id: existing.id });
+    return undefined;
+  }
+  const observation = makeBirthHistoryObservation(patientId, history, existing);
+  return existing ? oystehr.fhir.update<Observation>(observation) : oystehr.fhir.create<Observation>(observation);
+};
+
 export const makeBirthHistoryDTO = (observation: Observation): BirthHistoryDTO => {
   const codes = BIRTH_HISTORY_COMPONENT_CODES;
   const find = (code: string): ObservationComponent | undefined =>

@@ -127,8 +127,10 @@ const BirthHistoryForm = ({
   const state = useBirthHistoryLocalState(saved);
   const unitInputOrder = useVitalsUnitInputOrder();
   const value = state.getValue();
+  // Emptying every field of a saved birth history removes it; with none saved there is nothing to save.
   const disabledReason =
-    state.invalidReason ?? (value && Object.keys(value).length === 0 ? 'Enter at least one field' : undefined);
+    state.invalidReason ??
+    (!saved && value && Object.keys(value).length === 0 ? 'Enter at least one field' : undefined);
   const measureRow = (
     label: string,
     field: BirthHistoryField,

@@ -25,7 +25,8 @@ vi.mock('src/hooks/useBirthHistory', async () => {
     useSaveBirthHistory: () => ({
       isPending: false,
       mutate: (value: BirthHistoryDTO, options: { onSuccess: () => void }) => {
-        store.saved = { ...value, resourceId: 'obs-1' };
+        // As save-birth-history does: an empty birth history deletes the saved one.
+        store.saved = Object.keys(value).length > 0 ? { ...value, resourceId: 'obs-1' } : undefined;
         store.listeners.forEach((listener) => listener());
         options.onSuccess();
       },
@@ -65,6 +66,27 @@ describe('Birth history card: Save', () => {
     fireEvent.change(weeksInput(), { target: { value: '50' } });
     expect(saveButton().disabled).toBe(true);
     expect(await hoverText(saveButton())).toBe('Enter gestational age weeks as a whole number from 20 to 45');
+  });
+});
+
+describe('Birth history card: clearing a saved birth history', () => {
+  beforeEach(() => {
+    store.saved = { resourceId: 'obs-1', gestationalAgeWeeks: 34, gestationalAgeDays: 5 };
+  });
+
+  it('Save is enabled with every field emptied, and saving removes it', () => {
+    render(<VitalsBirthHistoryCard collapsedByDefault={false} />);
+    expect(screen.getAllByText(/34 wk/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByText('Edit'));
+    fireEvent.change(weeksInput(), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText('days'), { target: { value: '' } });
+    expect(saveButton().disabled).toBe(false);
+    fireEvent.click(saveButton());
+    expect(store.saved).toBeUndefined();
+    // As if none was ever saved: no summary, an empty form.
+    expect(screen.queryByText(/34 wk/)).toBeNull();
+    expect(weeksInput().value).toBe('');
+    expect(saveButton().disabled).toBe(true);
   });
 });
 
