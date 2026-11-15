@@ -150,6 +150,9 @@ const newbornBilirubin: FlowsheetDefinition = {
 const panel = (group: string, rows: [string, string][]): FlowsheetRow[] =>
   rows.map(([label, key]) => ({ label, keys: [key], group }));
 
+/** The heading over tests outside a panel, so none reads as part of the panel above it. */
+const OTHER_TESTS = 'Other tests';
+
 // Rows in the requirements' order: panels, then standalone tests from most to least ordered. Rows without a result
 // for the patient are hidden, panel headings with them.
 const labResults: FlowsheetDefinition = {
@@ -213,8 +216,10 @@ const labResults: FlowsheetDefinition = {
       ['Transferrin saturation', 'transferrinSaturation'],
       ['Ferritin', 'ferritin'],
     ]),
-    { label: 'HbA1c', keys: ['hba1c'] },
-    { label: 'Vitamin D, 25-hydroxy', keys: ['vitaminD'] },
+    ...panel(OTHER_TESTS, [
+      ['HbA1c', 'hba1c'],
+      ['Vitamin D, 25-hydroxy', 'vitaminD'],
+    ]),
     ...panel('Urinalysis', [
       ['Color', 'uaColor'],
       ['Appearance', 'uaAppearance'],
@@ -229,22 +234,24 @@ const labResults: FlowsheetDefinition = {
       ['Leukocyte esterase', 'uaLeukocyteEsterase'],
       ['Urobilinogen', 'uaUrobilinogen'],
     ]),
-    { label: 'Vitamin B12', keys: ['vitaminB12'] },
-    { label: 'Urine albumin/creatinine ratio', keys: ['urineAlbuminCreatinineRatio'] },
-    { label: 'PSA', keys: ['psa'] },
-    { label: 'Magnesium', keys: ['magnesium'] },
-    { label: 'CRP', keys: ['crp'] },
-    { label: 'hs-CRP', keys: ['hsCrp'] },
-    { label: 'Urine culture', keys: ['urineCulture'] },
-    { label: 'HIV Ag/Ab', keys: ['hivAgAb'] },
-    { label: 'Hepatitis C antibody', keys: ['hepatitisCAntibody'] },
-    { label: 'ESR', keys: ['esr'] },
-    { label: 'Uric acid', keys: ['uricAcid'] },
-    { label: 'Folate', keys: ['folate'] },
-    { label: 'Testosterone, total', keys: ['testosterone'] },
-    { label: 'Urine pregnancy (hCG)', keys: ['urineHcg'] },
-    { label: 'PTH', keys: ['pth'] },
-    { label: 'Phosphorus', keys: ['phosphorus'] },
+    ...panel(OTHER_TESTS, [
+      ['Vitamin B12', 'vitaminB12'],
+      ['Urine albumin/creatinine ratio', 'urineAlbuminCreatinineRatio'],
+      ['PSA', 'psa'],
+      ['Magnesium', 'magnesium'],
+      ['CRP', 'crp'],
+      ['hs-CRP', 'hsCrp'],
+      ['Urine culture', 'urineCulture'],
+      ['HIV Ag/Ab', 'hivAgAb'],
+      ['Hepatitis C antibody', 'hepatitisCAntibody'],
+      ['ESR', 'esr'],
+      ['Uric acid', 'uricAcid'],
+      ['Folate', 'folate'],
+      ['Testosterone, total', 'testosterone'],
+      ['Urine pregnancy (hCG)', 'urineHcg'],
+      ['PTH', 'pth'],
+      ['Phosphorus', 'phosphorus'],
+    ]),
   ],
   charts: [
     { title: 'HbA1c', unit: '%', lines: [{ name: 'HbA1c', key: 'hba1c' }] },

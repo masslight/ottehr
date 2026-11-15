@@ -43,15 +43,49 @@ describe('Lab results rows', () => {
       'Platelets',
       '# CMP/BMP',
       'Creatinine',
+      '# Other tests',
       'HbA1c',
       '# Urinalysis',
       'Color',
+      '# Other tests',
       'Urine culture',
     ]);
   });
 
+  it('puts the rows outside a panel under "Other tests", so none reads as part of Iron panel or Urinalysis', () => {
+    const values = Object.fromEntries(
+      labResults.rows.filter((row) => !row.group || row.group === 'Other tests').map((row) => [row.keys[0], reading(1)])
+    );
+    expect(labelsOf([visit({ ferritin: reading(40), uaUrobilinogen: reading('Normal'), ...values })])).toEqual([
+      '# Iron panel',
+      'Ferritin',
+      '# Other tests',
+      'HbA1c',
+      'Vitamin D, 25-hydroxy',
+      '# Urinalysis',
+      'Urobilinogen',
+      '# Other tests',
+      'Vitamin B12',
+      'Urine albumin/creatinine ratio',
+      'PSA',
+      'Magnesium',
+      'CRP',
+      'hs-CRP',
+      'Urine culture',
+      'HIV Ag/Ab',
+      'Hepatitis C antibody',
+      'ESR',
+      'Uric acid',
+      'Folate',
+      'Testosterone, total',
+      'Urine pregnancy (hCG)',
+      'PTH',
+      'Phosphorus',
+    ]);
+  });
+
   it('hides a panel heading whose rows are all empty, and shows nothing for a patient with no results', () => {
-    expect(labelsOf([visit({ hba1c: reading(5.6) })])).toEqual(['HbA1c']);
+    expect(labelsOf([visit({ hba1c: reading(5.6) })])).toEqual(['# Other tests', 'HbA1c']);
     expect(labelsOf([])).toEqual([]);
   });
 
