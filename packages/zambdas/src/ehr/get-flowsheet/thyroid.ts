@@ -9,8 +9,25 @@ export const THYROID_DATA_KINDS: FlowsheetDataKind[] = ['birthDate', 'vitals', '
 /** The vitals rows the Thyroid flowsheet shows; every other vital stays on the Vitals flowsheet. */
 const VITAL_KEYS = ['weight', 'heartRate'];
 
-/** ICD-10 disorders of the thyroid gland (E00–E07). */
-const THYROID_ICD10_PREFIXES = ['E00', 'E01', 'E02', 'E03', 'E04', 'E05', 'E06', 'E07'];
+/**
+ * ICD-10 disorders of the thyroid gland (E00–E07), plus thyroid diagnoses coded elsewhere: hypothyroidism after
+ * surgery or radiation (E89.0), thyroid cancer (C73), postpartum thyroiditis (O90.5) and abnormal thyroid function
+ * tests (R94.6).
+ */
+const THYROID_ICD10_PREFIXES = [
+  'E00',
+  'E01',
+  'E02',
+  'E03',
+  'E04',
+  'E05',
+  'E06',
+  'E07',
+  'E89.0',
+  'C73',
+  'O90.5',
+  'R94.6',
+];
 
 /** Thyroid hormones and antithyroid drugs, by generic or brand name (a saved name may carry only the brand). */
 const THYROID_MEDICATION =

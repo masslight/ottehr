@@ -337,6 +337,32 @@ describe('thyroid medication: only drugs actually prescribed or given', () => {
     ]);
   });
 
+  test('thyroid diagnoses coded outside E00–E07 (E89.0, C73, O90.5, R94.6) give a column; E89.1 does not', () => {
+    const dx = (code: string): { code: string; display: string; primary: boolean } => ({
+      code,
+      display: '',
+      primary: true,
+    });
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      diagnoses: { e1: [dx('E89.0'), dx('C73')], e2: [dx('O90.5')], e3: [dx('R94.6')] },
+      medications: {},
+      labs: {},
+    });
+    expect(Object.fromEntries(visits.map((v) => [v.encounterId, v.values.thyroidDiagnosis?.value]))).toEqual({
+      e1: 'E89.0; C73',
+      e2: 'O90.5',
+      e3: 'R94.6',
+    });
+    const postProcedural = buildThyroidFlowsheet({
+      ...data,
+      diagnoses: { e1: [dx('E89.1'), dx('C74.9'), dx('O90.4'), dx('R94.5')] },
+      medications: {},
+      labs: {},
+    });
+    expect(postProcedural).toEqual([]);
+  });
+
   test('a drug saved by its brand name alone is listed too', () => {
     const brands = [
       'Synthroid 50 mcg tablet',
