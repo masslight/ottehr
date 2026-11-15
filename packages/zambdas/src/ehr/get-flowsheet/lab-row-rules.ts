@@ -229,7 +229,8 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     systems: CERVICAL,
     properties: PRESENCE,
   },
-  // The genotyping tests' own HPV 16 and HPV 18 (with 18/45) results; a pooled 16/18 result is its own row.
+  // The genotyping tests' own HPV 16 and HPV 18 results, and (hpv18And45, on the HPV 18 row, marked "18/45") the
+  // pooled 18/45 one; a pooled 16/18 result is its own row.
   hpv16: {
     components: [
       'Human papilloma virus 16 DNA',
@@ -239,12 +240,9 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     systems: CERVICAL,
     properties: PRESENCE,
   },
-  hpv18: {
-    components: [
-      'Human papilloma virus 18 DNA',
-      'Human papilloma virus 18+45 mRNA',
-      'Human papilloma virus 18+45 E6+E7 mRNA',
-    ],
+  hpv18: { components: ['Human papilloma virus 18 DNA'], systems: CERVICAL, properties: PRESENCE },
+  hpv18And45: {
+    components: ['Human papilloma virus 18+45 mRNA', 'Human papilloma virus 18+45 E6+E7 mRNA'],
     systems: CERVICAL,
     properties: PRESENCE,
   },

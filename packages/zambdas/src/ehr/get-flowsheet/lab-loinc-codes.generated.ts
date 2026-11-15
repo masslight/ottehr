@@ -703,15 +703,17 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
   hpv18: [
     '59264-2', // Human papilloma virus 18 DNA [Presence] in Cervix by Probe with signal amplification
     '61373-7', // Human papilloma virus 18 DNA [Presence] in Specimen by NAA with probe detection
-    '75694-0', // Human papilloma virus 18+45 E6+E7 mRNA [Presence] in Cervix by NAA with probe detection
     '77400-0', // Human papilloma virus 18 DNA [Presence] in Cervix by NAA with probe detection
     '91854-0', // Human papilloma virus 18 DNA [Presence] in Genital specimen by NAA with probe detection
+    '114956-6', // Human papilloma virus 18 DNA [Presence] in Specimen by Molgen
+    '115796-5', // Human papilloma virus 18 DNA [Presence] in Vaginal fluid by NAA with probe detection
+  ],
+  hpv18And45: [
+    '75694-0', // Human papilloma virus 18+45 E6+E7 mRNA [Presence] in Cervix by NAA with probe detection
     '106509-3', // Human papilloma virus 18+45 mRNA [Presence] in Vaginal fluid by NAA with probe detection
     '107461-6', // Human papilloma virus 18+45 E6+E7 mRNA [Presence] in Specimen by NAA with probe detection
     '114954-1', // Human papilloma virus 18+45 mRNA [Presence] in Specimen by Molgen
     '114955-8', // Human papilloma virus 18+45 E6+E7 mRNA [Presence] in Specimen by Molgen
-    '114956-6', // Human papilloma virus 18 DNA [Presence] in Specimen by Molgen
-    '115796-5', // Human papilloma virus 18 DNA [Presence] in Vaginal fluid by NAA with probe detection
   ],
   hpv16And18: [
     '70061-7', // Human papilloma virus 16 and 18 DNA [Presence] in Specimen by NAA with probe detection

@@ -132,7 +132,8 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     ['syphilisTreponemalAntibody', ['47236-5', '24110-9']],
     ['hpvHighRisk', ['59420-0', '69002-4', '71431-1']],
     ['hpv16', ['77399-4', '61372-9', '115798-1']],
-    ['hpv18', ['77400-0', '61373-7', '75694-0']],
+    ['hpv18', ['77400-0', '61373-7']],
+    ['hpv18And45', ['75694-0', '106509-3']],
     ['hpv16And18', ['70061-7', '114965-7', '114970-7']],
     ['directBilirubin', ['1968-7']],
     ['fingerstickGlucose', ['2339-0', '41653-7']],
@@ -603,6 +604,22 @@ describe('buildLabResultsFlowsheet', () => {
     expect(valuesOf(lab('HPV 16 and 18', { codes: ['114970-7'], text: 'Detected' }))).toEqual({
       hpv16And18: 'Detected',
     });
+  });
+
+  test('HPV 18: a pooled 18/45 result shows "(18/45)", by its code or else its name; an HPV 18 one no note', () => {
+    const hpv18 = (result: FlowsheetLabResult): [string | number, string | undefined] => {
+      const value = build({ e1: [result] })[0].values.hpv18;
+      return [value.value, value.note];
+    };
+    expect(hpv18(lab('HPV 18/45', { codes: ['75694-0'], text: 'Not detected' }))).toEqual(['Not detected', '18/45']);
+    expect(hpv18(lab('HPV 18', { codes: ['106509-3'], text: 'Detected' }))).toEqual(['Detected', '18/45']);
+    expect(hpv18(lab('HPV 18', { codes: ['77400-0'], text: 'Detected' }))).toEqual(['Detected', undefined]);
+    expect(hpv18(lab('HPV Genotype 18/45', { text: 'Detected' }))).toEqual(['Detected', '18/45']);
+    expect(hpv18(lab('HPV 18,45', { text: 'Not detected' }))).toEqual(['Not detected', '18/45']);
+    expect(hpv18(lab('HPV 18', { text: 'Detected', test: 'HPV genotyping 16, 18, 45' }))).toEqual([
+      'Detected',
+      undefined,
+    ]);
   });
 
   test('an uncoded pooled high-risk HPV result whose name lists 16 and 18 among other types is HPV (high risk)', () => {

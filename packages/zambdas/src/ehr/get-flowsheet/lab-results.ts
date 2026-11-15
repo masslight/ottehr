@@ -62,6 +62,16 @@ const HIV_SCREEN: Pick<LabRow, 'analyte' | 'exclude' | 'text' | 'note'> = {
   note: hivAntibodyOnly,
 };
 
+/** A pooled HPV 18/45 result on the HPV 18 row: by its code, else by its own name ("HPV 18/45"). */
+const hpv18With45 = (lab: FlowsheetLabResult): string | undefined =>
+  (lab.loincCodes.length > 0 ? hasCode(lab, 'hpv18And45') : /\b45\b/.test(lab.analyte)) ? '18/45' : undefined;
+const HPV_18: Pick<LabRow, 'analyte' | 'exclude' | 'text' | 'note'> = {
+  text: true,
+  analyte: /(\bhpv\b|papilloma).*\b18\b/i,
+  exclude: new RegExp(`\\b16\\b|${HPV_OTHER_TYPE.source}|low.?risk|vaccin`, 'i'),
+  note: hpv18With45,
+};
+
 const TRICHOMONAS: Pick<LabRow, 'analyte' | 'exclude' | 'text'> = {
   text: true,
   analyte: /trichomon|\bt\.? ?vaginalis/i,
@@ -76,8 +86,8 @@ const urine = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ ...row, test: U
 /**
  * Lab rows (codes: lab-row-rules.ts). The name patterns only place uncoded results; the first matching row wins, so
  * absolute counts, high-sensitivity CRP and ratios are listed before, or excluded from, the rows they share a name
- * with. Glucose, fingerstick glucose, eGFR, HIV Ag/Ab and Trichomonas each take two rules under one key, and Lead
- * three (see lab-row-rules.ts).
+ * with. Glucose, fingerstick glucose, eGFR, HIV Ag/Ab, Trichomonas and HPV 18 each take two rules under one key, and
+ * Lead three (see lab-row-rules.ts).
  */
 const LAB_ROWS: LabRow[] = [
   ...serum([
@@ -281,12 +291,8 @@ const LAB_ROWS: LabRow[] = [
     analyte: /(\bhpv\b|papilloma).*\b16\b/i,
     exclude: new RegExp(`\\b18\\b|${HPV_OTHER_TYPE.source}|low.?risk|vaccin`, 'i'),
   },
-  {
-    key: 'hpv18',
-    text: true,
-    analyte: /(\bhpv\b|papilloma).*\b18\b/i,
-    exclude: new RegExp(`\\b16\\b|${HPV_OTHER_TYPE.source}|low.?risk|vaccin`, 'i'),
-  },
+  { key: 'hpv18', ...HPV_18 },
+  { key: 'hpv18', rule: 'hpv18And45', ...HPV_18 },
   {
     key: 'hpv16And18',
     text: true,
