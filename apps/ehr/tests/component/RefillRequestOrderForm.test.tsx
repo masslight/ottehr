@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
 import { GetErxRequestResponse } from 'utils/lib/types/api/erx.types';
 import { PrescriptionAllergy } from 'utils/lib/types/api/order-prescription.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RefillRequestDialog } from '../../src/features/visits/in-person/components/erx/RefillRequestDialog';
 
@@ -523,19 +524,33 @@ describe('Refill request dialog: the order form outside a visit', () => {
 
   // Review S2: a patient's change request on another patient's prescription reads as not found on the server
   // (get-erx-request), so the dialog has no prescription to cancel or send again.
-  it('cancels and sends nothing when the server finds no prescription of the task’s patient', async () => {
-    mocks.getErxRequest.mockRejectedValue(new Error('The requested MedicationRequest resource could not be found'));
+  const openFailing = (error: unknown): void => {
+    mocks.getErxRequest.mockRejectedValue(error);
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <RefillRequestDialog taskId="task-1" onClose={onClose} />
       </QueryClientProvider>
     );
-    expect(await screen.findByText('The requested MedicationRequest resource could not be found')).toBeInTheDocument();
+  };
+  it('cancels and sends nothing when the server finds no prescription of the task’s patient', async () => {
+    // The zambda's FHIR_RESOURCE_NOT_FOUND, as the SDK hands it on: its code and its developer message.
+    openFailing(
+      Object.assign(new Error('The requested MedicationRequest resource could not be found'), {
+        code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+      })
+    );
+    expect(await screen.findByText("This request's prescription can't be found.")).toBeInTheDocument();
+    expect(screen.queryByText(/resource could not be found/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Original prescription/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send prescription' })).not.toBeInTheDocument();
     expect(mocks.cancelPrescription).not.toHaveBeenCalled();
     expect(mocks.orderPrescription).not.toHaveBeenCalled();
     expect(mocks.completeTask).not.toHaveBeenCalled();
+  });
+
+  it('shows another failure’s message as it is', async () => {
+    openFailing(new Error('Task task-1 is not a refill or change request'));
+    expect(await screen.findByText('Task task-1 is not a refill or change request')).toBeInTheDocument();
   });
 
   it('sends nothing when the original’s cancellation fails, and leaves the task open', async () => {

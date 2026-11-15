@@ -34,6 +34,7 @@ import {
   RENEWAL_PENDING_REASONS,
   RenewalResponseInput,
 } from 'utils/lib/types/api/erx.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
 import { useCancelPrescription } from '../../../shared/hooks/useCancelPrescription';
@@ -390,7 +391,14 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
       </DialogTitle>
       <DialogContent>
         {isLoading && <CircularProgress size={24} />}
-        {error && <Alert severity="error">{errorMessage(error)}</Alert>}
+        {error && (
+          <Alert severity="error">
+            {/* Not found includes another patient's prescription (get-erx-request): plain words, not the server's. */}
+            {(error as { code?: unknown }).code === APIErrorCode.FHIR_RESOURCE_NOT_FOUND
+              ? "This request's prescription can't be found."
+              : errorMessage(error)}
+          </Alert>
+        )}
         {data && prescription && (
           <Stack spacing={2}>
             {closed && (
