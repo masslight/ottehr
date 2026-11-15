@@ -330,10 +330,27 @@ describe('buildNewbornBilirubinFlowsheet', () => {
       expect(buildNewbornBilirubinFlowsheet(lastDay('2026-05-02T13:00:00.000Z'))).toHaveLength(0);
     });
 
+    test('one day-of-life value per day: a morning TcB and an afternoon serum result on day 3 show "3" once', () => {
+      const sameDay = buildNewbornBilirubinFlowsheet({
+        ...evening,
+        birthDate: '2026-03-01',
+        labs: {
+          e5: [
+            lab('TcB', [], 9.8, '2026-03-04T14:00:00.000Z', 'N', 'in-house'),
+            lab('Bilirubin, total', ['1975-2'], 10.4, '2026-03-04T20:00:00.000Z'),
+          ],
+        },
+      });
+      expect(sameDay[0].values.dayOfLife.readings.map((r) => [r.time, r.value])).toEqual([
+        ['2026-03-04T14:00:00.000Z', 3],
+      ]);
+      expect(sameDay[0].values.dayOfLife.value).toBe(3);
+    });
+
     test('without the location the UTC calendar day is used, as before', () => {
       const [visit] = buildNewbornBilirubinFlowsheet({ ...evening, locations: undefined });
       expect(visit.timezone).toBeUndefined();
-      expect(visit.values.dayOfLife.readings.map((r) => r.value)).toEqual([1, 1]);
+      expect(visit.values.dayOfLife.readings.map((r) => r.value)).toEqual([1]);
     });
   });
 });

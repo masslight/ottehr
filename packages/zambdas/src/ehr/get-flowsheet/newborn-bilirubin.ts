@@ -95,8 +95,8 @@ export const buildNewbornBilirubinFlowsheet = (data: FlowsheetData): FlowsheetVi
   // A visit is a column only when it holds a bilirubin result; weight alone does not put it on the flowsheet.
   const visits = columns.list();
   const timeOfBirth = data.birthHistory?.timeOfBirth;
-  // One day-of-life (and, with a time of birth, hours-of-life) reading per result time, so a result from the day
-  // after the visit shows its own day. Hours of life are the chart's x-axis when known.
+  // One day-of-life reading per day with results, so a result from the day after the visit shows its own day, and
+  // (with a time of birth) one hours-of-life reading per result time: the chart's x-axis when known.
   visits.forEach((visit) => {
     if (!birthDate) return;
     const resultTimes = Object.entries(visit.values)
@@ -104,7 +104,9 @@ export const buildNewbornBilirubinFlowsheet = (data: FlowsheetData): FlowsheetVi
       .flatMap(([, value]) => value.readings.map((reading) => reading.time));
     [...new Set(resultTimes)].sort(byInstant).forEach((time) => {
       const dayOfLife = dayOfLifeAt(birthDate, time, visit.timezone);
-      if (dayOfLife !== undefined) columns.addReading(visit, 'dayOfLife', { time, value: dayOfLife });
+      const days = visit.values.dayOfLife?.readings.map((reading) => reading.value) ?? [];
+      if (dayOfLife !== undefined && !days.includes(dayOfLife))
+        columns.addReading(visit, 'dayOfLife', { time, value: dayOfLife });
       const hoursOfLife = timeOfBirth ? hoursOfLifeAt(birthDate, timeOfBirth, time, visit.timezone) : undefined;
       if (hoursOfLife !== undefined) columns.addReading(visit, 'hoursOfLife', { time, value: hoursOfLife });
     });
