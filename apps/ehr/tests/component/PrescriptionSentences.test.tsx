@@ -648,6 +648,14 @@ describe('PrescriptionSentences: suggestions first', () => {
     })
   );
 
+  // Only what sending checks is marked: an empty route isn't, and neither are dose and frequency.
+  it("doesn't mark an empty route, dose or frequency as needed", () => {
+    render(<Harness initial={{ ...lineFor(LIQUIDS), dose: '', route: '', patientInstructions: 'x' }} />);
+    expect(screen.getByRole('button', { name: 'route (empty)' })).not.toHaveAttribute('data-needed');
+    expect(screen.getByRole('button', { name: 'frequency (empty)' })).not.toHaveAttribute('data-needed');
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).not.toHaveAttribute('data-needed');
+  });
+
   it('opens a line that already has directions (a quick pick, an edited line) shown', () => {
     const { unmount } = render(
       <Harness initial={{ ...lineFor(LIQUIDS), patientInstructions: 'Take 5 mL by mouth twice daily.' }} />

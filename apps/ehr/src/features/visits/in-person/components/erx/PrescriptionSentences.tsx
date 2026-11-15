@@ -1320,7 +1320,6 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                         onChange(withDirections(line, { route: (value as PrescriptionRoute | undefined) ?? '' }))
                       }
                       readOnly={readOnly}
-                      need
                     />{' '}
                   </>
                 )}
