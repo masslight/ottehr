@@ -178,10 +178,13 @@ const isUrineCultureResult = (lab: FlowsheetLabResult): boolean =>
 
 /** A susceptibility's value: susceptible, intermediate or resistant. */
 const SUSCEPTIBILITY = /^\s*[SIR]\s*$/i;
-/** An antibiotic concentration (an MIC's unit); organism counts are in CFU, never in mass per volume. */
 /** A quantity's text: a number, with its comparator if any. */
 const QUANTITY_TEXT = /^\s*[<>]?=?\s*[\d.,]+\s*$/;
-const MIC_UNIT = /^\s*(mg\/l|(u|µ|μ|mc)g\/ml)\s*$/i;
+/**
+ * A susceptibility's unit: an antibiotic concentration (MIC) or a disk-diffusion zone size in mm; organism counts
+ * are in CFU, never in either.
+ */
+const MIC_UNIT = /^\s*(mg\/l|(u|µ|μ|mc)g\/ml|mm)\s*$/i;
 
 /**
  * The culture's own result reads as reported ("No growth"); an organism reads its name and count as reported. Other

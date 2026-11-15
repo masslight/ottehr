@@ -324,6 +324,17 @@ describe('buildLabResultsFlowsheet', () => {
     });
   });
 
+  test('urine culture: an uncoded disk-diffusion zone size (mm) is left out like an MIC', () => {
+    const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
+    expect(
+      valuesOf(
+        lab('Escherichia coli', { ...culture, text: '>100,000 CFU/mL' }),
+        lab('Ampicillin', { ...culture, value: 18, unit: 'mm' }),
+        lab('Ciprofloxacin', { ...culture, text: '>=21', unit: ' MM ' })
+      )
+    ).toEqual({ urineCulture: 'Escherichia coli >100,000 CFU/mL' });
+  });
+
   test('urine culture: an organism count sent as a quantity keeps its unit', () => {
     const culture = { test: 'Urine Culture', testCodes: ['630-4'] };
     expect(
