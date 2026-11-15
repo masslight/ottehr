@@ -474,8 +474,8 @@ export const ENCOUNTER_LAYERS = {
     label: 'Vital signs',
     description:
       'Temperature (°F and °C), heart rate, blood pressure, SpO₂, respiration, weight (kg and lbs), height (cm, ' +
-      'inches, feet/inches), BMI, how each was taken (route / position / room air or supplemental O₂ with its ' +
-      'flow rate and delivery type), weight refused, vision ' +
+      'inches, feet/inches), head circumference (cm and inches), BMI, how each was taken (route / position / ' +
+      'room air or supplemental O₂ with its flow rate and delivery type), weight refused, vision ' +
       '(visual acuity, DOT vision screening), last menstrual period, and who recorded the vitals and when.',
     schema: z.object({
       temperatureF: z
