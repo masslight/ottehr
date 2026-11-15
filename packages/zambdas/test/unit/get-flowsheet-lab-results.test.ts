@@ -358,6 +358,19 @@ describe('buildLabResultsFlowsheet', () => {
     });
   });
 
+  test('urine culture: a coded organism ("Bacteria identified", 634-6 or 43409-2) shows as name and value; coded susceptibilities stay off', () => {
+    const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
+    expect(
+      valuesOf(
+        lab('Bacteria identified', { ...culture, codes: ['634-6'], text: 'Escherichia coli' }),
+        lab('Organism', { ...culture, codes: ['43409-2'], text: 'Enterococcus faecalis' }),
+        lab('Ampicillin [Susceptibility]', { ...culture, codes: ['18864-9'], text: 'R' }),
+        lab('Nitrofurantoin [Susceptibility] by MIC', { ...culture, codes: ['18955-5'], text: '<=16', unit: 'ug/mL' }),
+        lab('Sensitivity Panel', { ...culture, codes: ['50545-3'], text: 'Ampicillin R; Nitrofurantoin S' })
+      )
+    ).toEqual({ urineCulture: 'Bacteria identified Escherichia coli; Organism Enterococcus faecalis' });
+  });
+
   test('urine culture: an uncoded susceptibility (value S, I or R) is left out of the organism cell', () => {
     const culture = { test: 'Culture, Urine', testCodes: ['630-4'] };
     expect(

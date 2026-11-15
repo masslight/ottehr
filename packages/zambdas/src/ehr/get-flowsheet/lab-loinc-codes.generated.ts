@@ -802,6 +802,23 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
   urineCulture: [
     '630-4', // Bacteria identified in Urine by Culture
   ],
+  urineCultureOrganism: [
+    '634-6', // Bacteria identified in Specimen by Aerobe culture
+    '635-3', // Bacteria identified in Specimen by Anaerobe culture
+    '636-1', // Bacteria identified in Specimen by Sterile body fluid culture
+    '6463-4', // Bacteria identified in Specimen by Culture
+    '14325-5', // Bacteria identified in Specimen by Environmental culture
+    '20877-7', // Bacteria identified in Isolate by Animal inoculation
+    '20878-5', // Bacteria identified in Isolate by Anaerobe culture
+    '21020-3', // Bacteria identified in Specimen by Anaerobe+Aerobe culture
+    '23667-9', // Bacteria identified in Specimen
+    '32355-0', // Bacteria identified in Specimen by Respiratory culture
+    '32367-5', // Bacteria identified in Isolate by Aerobe culture
+    '42661-9', // Bacteria identified in Isolate by Pulsed-Field Gel Electrophoresis (PFGE)
+    '42803-7', // Bacteria identified in Isolate
+    '43409-2', // Bacteria identified in Isolate by Culture
+    '75756-7', // Bacteria identified in Isolate by MS.MALDI-TOF
+  ],
   esr: [
     '4537-7', // Erythrocyte [Sedimentation Rate] in Blood by Westergren method
     '4538-5', // Erythrocyte [Sedimentation Rate] in Blood by Wintrobe method

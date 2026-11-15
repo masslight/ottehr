@@ -278,8 +278,10 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     excludeProperties: PRESENCE,
   },
   hsCrp: { components: ['C reactive protein'], systems: SERUM_OR_PLASMA, methods: ['High sensitivity'] },
-  // The culture itself (630-4), as the report's or a result's code; organisms carry lab-local codes.
+  // The culture itself (630-4), as the report's or a result's code.
   urineCulture: { components: ['Bacteria identified'], systems: URINE, methods: ['Culture'] },
+  // An organism of that culture, when the lab codes it (634-6, 43409-2); its susceptibilities have other codes.
+  urineCultureOrganism: { components: ['Bacteria identified'], systems: ['Specimen', 'Isolate'] },
   // LOINC names ESR "Erythrocyte [Sedimentation Rate] in Blood"; RDW and morphology share the component.
   esr: { components: ['Erythrocyte'], properties: ['Sedimentation Rate'], systems: BLOOD },
   uricAcid: { components: ['Urate'], systems: SERUM_OR_PLASMA },

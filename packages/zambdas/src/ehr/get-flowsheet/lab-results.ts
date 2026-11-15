@@ -330,7 +330,7 @@ const markFasting = (lab: FlowsheetLabResult): FlowsheetLabResult =>
 
 const URINE_CULTURE_NAME = /urine culture|culture,? urine/i;
 
-/** A result of a urine culture order or report, including its organisms, which carry lab-local codes. */
+/** A result of a urine culture order or report, including its organisms, coded or not. */
 const isUrineCultureResult = (lab: FlowsheetLabResult): boolean =>
   lab.testLoincCodes.some((code) => LAB_ROW_LOINC_CODES.urineCulture.includes(code)) ||
   URINE_CULTURE_NAME.test(lab.testName);
@@ -346,9 +346,9 @@ const QUANTITY_TEXT = /^\s*[<>]?=?\s*[\d.,]+\s*$/;
 const MIC_UNIT = /^\s*(mg\/l|(u|µ|μ|mc)g\/ml|mm)\s*$/i;
 
 /**
- * The culture's own result reads as reported ("No growth"); an organism reads its name and count as reported. Other
- * coded results of the same order are left out, and so are uncoded susceptibilities: valued or interpreted S, I or R,
- * or an MIC (a value in an antibiotic-concentration unit).
+ * The culture's own result reads as reported ("No growth"); an organism, uncoded or with an organism code, reads its
+ * name and count as reported. Other coded results of the same order (susceptibilities) are left out, and so are
+ * uncoded susceptibilities: valued or interpreted S, I or R, or an MIC (a value in an antibiotic-concentration unit).
  */
 const cultureText = (lab: FlowsheetLabResult): string => {
   // A count sent as a quantity keeps its unit: ">100000 CFU/mL".
@@ -356,6 +356,7 @@ const cultureText = (lab: FlowsheetLabResult): string => {
   if (hasCode(lab, 'urineCulture') || URINE_CULTURE_NAME.test(lab.analyte)) return reported;
   const susceptibility =
     SUSCEPTIBILITY.test(lab.valueText) || SUSCEPTIBILITY.test(lab.interpretation) || MIC_UNIT.test(lab.unit);
+  if (hasCode(lab, 'urineCultureOrganism')) return [lab.analyte, reported].filter(Boolean).join(' ');
   if (lab.loincCodes.length > 0 || susceptibility) return '';
   return [lab.analyte, reported].filter(Boolean).join(' ');
 };
