@@ -402,7 +402,9 @@ describe('Prescription table: send to another pharmacy', () => {
     await user.type(within(dialog).getByRole('combobox', { name: 'Pharmacy' }), 'Two');
     await user.click(await screen.findByRole('option', { name: /Sample Pharmacy Two/ }));
     expect(await within(dialog).findByText(/Send to Sample Pharmacy Two/)).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Send to pharmacy' })).toBeDisabled();
+    const send = within(dialog).getByRole('button', { name: 'Send to pharmacy' });
+    expect(send).toBeDisabled();
+    expect(await hoverTooltip(user, send)).toBe('Loading allergies and vitals');
   });
 
   it('only sends an errored prescription again, leaving out what it never had', async () => {

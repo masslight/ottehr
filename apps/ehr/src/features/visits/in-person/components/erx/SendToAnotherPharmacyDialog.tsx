@@ -140,7 +140,7 @@ export const SendToAnotherPharmacyDialog: FC<SendToAnotherPharmacyDialogProps> =
       confirmText="Send to pharmacy"
       confirmLoading={sending}
       disabled={!pharmacy || sendDataLoading}
-      disabledReason={pharmacy ? undefined : 'Pick a pharmacy'}
+      disabledReason={!pharmacy ? 'Pick a pharmacy' : sendDataLoading ? 'Loading allergies and vitals' : undefined}
       fullWidth
       maxWidth="sm"
     />

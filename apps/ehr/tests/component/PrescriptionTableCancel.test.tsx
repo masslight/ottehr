@@ -238,7 +238,10 @@ describe('Prescription table: cancel eRx prescriptions', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel prescriptions…' }));
     await user.click(screen.getByRole('combobox', { name: /Reason/ }));
     await user.click(screen.getByRole('option', { name: 'Patient request' }));
-    expect(screen.getByRole('button', { name: 'Send cancellation' })).toBeDisabled();
+    const send = screen.getByRole('button', { name: 'Send cancellation' });
+    expect(send).toBeDisabled();
+    await user.hover(send.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Loading allergies');
   });
 
   it('sends one cancellation per prescription, then refetches and clears the selection', async () => {
