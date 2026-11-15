@@ -417,7 +417,9 @@ const cultureText = (lab: FlowsheetLabResult): string => {
     SUSCEPTIBILITY.test(lab.valueText) || SUSCEPTIBILITY.test(lab.interpretation) || MIC_UNIT.test(lab.unit);
   if (isCodedCount(lab)) return [lab.analyte, reported].filter(Boolean).join(' ');
   if (lab.loincCodes.length > 0 || susceptibility) return '';
-  if (GENERIC_ORGANISM_NAME.test(lab.analyte)) return reported;
+  // A generic name, or one the value repeats ("Escherichia coli" = "Escherichia coli"), isn't shown before it.
+  const squash = (text: string): string => text.replace(/\s+/g, '').toLowerCase();
+  if (GENERIC_ORGANISM_NAME.test(lab.analyte) || squash(lab.analyte) === squash(lab.valueText)) return reported;
   return [lab.analyte, reported].filter(Boolean).join(' ');
 };
 

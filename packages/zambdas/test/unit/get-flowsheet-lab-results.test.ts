@@ -485,6 +485,13 @@ describe('buildLabResultsFlowsheet', () => {
         lab('Colony Count', { ...culture, text: '10000-50000', unit: 'CFU/mL' })
       )
     ).toEqual({ urineCulture: 'Escherichia coli >100000 CFU/mL; Enterococcus faecalis 10000-50000 CFU/mL' });
+    // An organism sent as both its name and its value reads once, ignoring case and spaces.
+    expect(
+      valuesOf(
+        lab('Escherichia coli', { ...culture, text: 'ESCHERICHIA  COLI' }),
+        lab('Colony count', { ...culture, text: '>100000', unit: 'CFU/mL' })
+      )
+    ).toEqual({ urineCulture: 'ESCHERICHIA  COLI >100000 CFU/mL' });
     // A count with no organism before it still reads with its name.
     expect(valuesOf(lab('Colony count', { ...culture, text: '>100000', unit: 'CFU/mL' }))).toEqual({
       urineCulture: 'Colony count >100000 CFU/mL',
