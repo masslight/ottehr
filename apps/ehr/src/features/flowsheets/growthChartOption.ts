@@ -159,7 +159,8 @@ export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
     unit: 'kg/m²',
     digits: 1,
     xAxis: AGE_YEARS,
-    inOtherSet: true,
+    // WHO (birth to 24 months) has no BMI chart.
+    inOtherSet: false,
   },
 };
 

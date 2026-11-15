@@ -36,3 +36,13 @@ describe('Growth chart key', () => {
     expect(keys).toHaveLength(1);
   });
 });
+
+describe('Growth chart out-of-range note', () => {
+  it('points to the other chart set only where it has that chart: never from BMI-for-age, which WHO lacks', () => {
+    render(
+      <GrowthCharts growth={{ ...growth, ageMonths: 30, outsideRange: { 'cdc-wfa': 1, 'cdc-bmi': 1 } }} visits={[]} />
+    );
+    expect(screen.getByText('1 measurement is outside 2 to 20 years — see the other chart set.')).toBeInTheDocument();
+    expect(screen.getByText('1 measurement is outside 2 to 20 years.')).toBeInTheDocument();
+  });
+});

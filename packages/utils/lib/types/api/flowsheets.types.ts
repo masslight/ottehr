@@ -99,7 +99,7 @@ export interface GrowthChartData {
   ageMonths?: number;
   /** Oldest first. */
   points: GrowthChartPoint[];
-  /** Per chart, how many measurements of its measure fall outside its set's age range. */
+  /** Per chart, how many measurements of its measure fall in the other set's age range instead of its own. */
   outsideRange: Partial<Record<GrowthChartId, number>>;
   /** The LMS rows of every chart for the patient's sex, for the percentile curves. */
   tables: Record<GrowthChartId, LmsRow[]>;

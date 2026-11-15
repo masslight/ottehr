@@ -172,7 +172,7 @@ const NOT_ON_LINE = '— not plotted on the line';
 /**
  * The visit's point on every chart its measurements belong to, as the report's chartRows builds them: one weight,
  * height, BMI and head circumference per visit (the cell values), weight-for-length from the same visit's pair.
- * A measurement outside a chart's set counts in outsideRange instead.
+ * A measurement in the other set's age range counts in outsideRange instead.
  */
 const visitChartPoints = (
   values: Record<string, FlowsheetValue>,
@@ -190,8 +190,10 @@ const visitChartPoints = (
     const age = typeof measurement?.value === 'number' ? ageAt(measurement.time) : undefined;
     if (typeof measurement?.value !== 'number' || age === undefined) return;
     if (chart.x === 'length' && typeof length !== 'number') return; // a weight without a same-visit length
-    if (chartSetAt(age.months) !== chart.set) {
-      outsideRange[id] = (outsideRange[id] ?? 0) + 1;
+    const set = chartSetAt(age.months);
+    if (set !== chart.set) {
+      // Counted only when the other set's age range has it; one after 20 years is on no chart.
+      if (set) outsideRange[id] = (outsideRange[id] ?? 0) + 1;
       return;
     }
     const x = chart.x === 'length' && typeof length === 'number' ? length : age.corrected ?? age.months;

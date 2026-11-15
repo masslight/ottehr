@@ -370,6 +370,20 @@ describe('growth chart data (the cards the EHR draws)', () => {
     expect(growth!.points.map((point) => point.time)).toEqual(growth!.points.map((point) => point.time).sort());
   });
 
+  test('outsideRange counts only measurements the other chart set draws: one after 20 years is on neither', () => {
+    // Born 2024-01-10: the 6-month visit (WHO) and a visit at 26 years (no chart set).
+    const adult = buildGrowthFlowsheet({
+      ...resources,
+      appointments: [appointments[0], { ...appointments[1], start: '2050-01-10T14:00:00.000Z' }],
+      observations: [
+        ...observations.filter((o) => o.encounter?.reference === 'Encounter/e1'),
+        vital(VitalFieldNames.VitalWeight, 'e2', '2050-01-10T14:05:00.000Z', 62),
+        vital(VitalFieldNames.VitalHeight, 'e2', '2050-01-10T14:06:00.000Z', 165),
+      ],
+    }).growth!;
+    expect(adult.outsideRange).toEqual({ 'cdc-wfa': 1, 'cdc-sfa': 1 });
+  });
+
   test('implausible values keep their z but get a note instead of a percentile, and taint BMI and weight-for-length', () => {
     const heavy = buildGrowthFlowsheet({
       ...resources,
