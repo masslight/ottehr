@@ -137,7 +137,8 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     ['directBilirubin', ['1968-7']],
     ['fingerstickGlucose', ['2339-0', '41653-7']],
     ['fastingFingerstickGlucose', ['1556-0', '41604-0', '14770-2']],
-    ['trichomonas', ['70165-6', '70167-2', '69937-1']],
+    ['trichomonas', ['70165-6', '70167-2', '69937-1', '41511-7', '6566-4']],
+    ['trichomonasWetMount', ['14367-7', '6565-6']],
     ['lead', ['5671-3', '14807-2']],
     ['leadCapillary', ['10368-9']],
     ['leadVenous', ['77307-7']],
@@ -209,8 +210,20 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
         lab('Bilirubin, Total', { test: 'Bilirubin, capillary', value: 9.1, at: at(13) })
       )
     ).toEqual([11.2, 10.1, 9.4, 9.1]);
-    // A direct bilirubin stays serum or plasma only.
-    expect(valuesOf(lab('Bilirubin, Direct', { test: 'Neonatal Bilirubin, Capillary', value: 0.4 }))).toEqual({});
+  });
+
+  test('by name, a heel-stick or neonatal direct bilirubin is on Direct bilirubin too; cord blood and urine stay off', () => {
+    expect(valuesOf(lab('Bilirubin, Direct', { test: 'Neonatal Bilirubin, Capillary', value: 0.4 }))).toEqual({
+      directBilirubin: 0.4,
+    });
+    expect(valuesOf(lab('Neonatal Bilirubin, Direct', { value: 1.6 }))).toEqual({ directBilirubin: 1.6 });
+    expect(valuesOf(lab('Bilirubin, Conjugated', { test: 'Bilirubin, heel stick', value: 1.1 }))).toEqual({
+      directBilirubin: 1.1,
+    });
+    expect(valuesOf(lab('Bilirubin, Direct', { test: 'Cord blood bilirubin', value: 0.3 }))).toEqual({});
+    expect(valuesOf(lab('Bilirubin, Direct', { test: 'Bilirubin, urine', value: 0.3 }))).toEqual({ uaBilirubin: 0.3 });
+    // Coded, the serum or plasma direct bilirubin as before (LOINC has no blood direct bilirubin code).
+    expect(LAB_ROW_LOINC_CODES.directBilirubin).toEqual(LAB_ROW_LOINC_CODES.newbornDirectBilirubin);
   });
 });
 
@@ -577,6 +590,34 @@ describe('buildLabResultsFlowsheet', () => {
     expect(valuesOf(lab('HPV 16 and 18', { codes: ['114970-7'], text: 'Detected' }))).toEqual({
       hpv16And18: 'Detected',
     });
+  });
+
+  test('an uncoded pooled high-risk HPV result whose name lists 16 and 18 among other types is HPV (high risk)', () => {
+    [
+      'HPV High Risk DNA (16,18,31,33,35,39,45,51,52,56,58,59,68)',
+      'HPV DNA High Risk Types 16/18/31/33/35/39/45/51/52/56/58/59/66/68',
+      'HPV 16, 18, 31, 33, 35, 45, 51, 52, 56',
+      'HPV, high risk',
+      'Other high risk HPV (31,33,35,39,45,51,52,56,58,59,66,68)',
+    ].forEach((name) => expect(valuesOf(lab(name, { text: 'Detected' }))).toEqual({ hpvHighRisk: 'Detected' }));
+    // 16, 18 and 18/45 alone keep their rows.
+    expect(valuesOf(lab('HPV 16/18', { text: 'Detected' }))).toEqual({ hpv16And18: 'Detected' });
+    expect(valuesOf(lab('HPV 18/45', { text: 'Detected' }))).toEqual({ hpv18: 'Detected' });
+    expect(valuesOf(lab('HPV 16', { text: 'Detected' }))).toEqual({ hpv16: 'Detected' });
+  });
+
+  test('a coded Trichomonas rapid antigen or wet-mount result lands on Trichomonas; a culture or Pap code does not', () => {
+    expect(valuesOf(lab('Trichomonas vaginalis Ag', { codes: ['41511-7'], text: 'Positive' }))).toEqual({
+      trichomonas: 'Positive',
+    });
+    expect(valuesOf(lab('OSOM Trichomonas', { codes: ['6566-4'], text: 'Negative' }))).toEqual({
+      trichomonas: 'Negative',
+    });
+    expect(valuesOf(lab('Trichomonas, wet mount', { codes: ['14367-7'], text: 'None seen' }))).toEqual({
+      trichomonas: 'None seen',
+    });
+    expect(valuesOf(lab('Trichomonas culture', { codes: ['90285-8'], text: 'Negative' }))).toEqual({});
+    expect(valuesOf(lab('Trichomonas, urine sediment', { codes: ['5813-1'], text: 'Present' }))).toEqual({});
   });
 
   test('a urine result stays off the blood rows: urine glucose, hemoglobin and hCG land on their urine rows', () => {

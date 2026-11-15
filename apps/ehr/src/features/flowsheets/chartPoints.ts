@@ -16,21 +16,27 @@ export const usesHoursAxis = (chart: FlowsheetChart, visits: FlowsheetVisit[]): 
   !!chart.hoursOfLife && visits.some((visit) => visit.values.hoursOfLife !== undefined);
 
 /**
- * "µIU/mL", "uIU/mL", UCUM's "u[IU]/mL" and "mL/min/{1.73_m2}" read alike: lower case, u for µ, no spaces,
- * brackets, braces or underscores.
+ * "µIU/mL", "uIU/mL", UCUM's "u[IU]/mL" and "mL/min/{1.73_m2}" read alike: lower case, u for µ or mc ("mcg"), no
+ * spaces, brackets, braces or underscores.
  */
 const normalUnit = (unit: string): string =>
   unit
     .toLowerCase()
-    .replace(/[µμ]/g, 'u')
+    .replace(/[µμ]|mc(?=g)/g, 'u')
     .replace(/[\s{}[\]_]/g, '')
     .replace('²', '2');
 
 /** Per line key, the factor from a lab unit (normalised) to the chart's unit: the standard conversions only. */
 const TO_CHART_UNIT: Record<string, Record<string, number>> = {
   tsh: { 'uiu/ml': 1 },
-  // mg/g with UCUM's creatinine annotation ("mg/g{creat}"), or as µg/mg: the same unit.
-  urineAlbuminCreatinineRatio: { 'mg/gcreat': 1, 'ug/mg': 1, 'ug/mgcreat': 1 },
+  // mg/g with UCUM's creatinine annotation ("mg/g{creat}"), or as µg/mg ("mcg/mg creat"): the same unit.
+  urineAlbuminCreatinineRatio: {
+    'mg/gcreat': 1,
+    'mg/gcreatinine': 1,
+    'ug/mg': 1,
+    'ug/mgcreat': 1,
+    'ug/mgcreatinine': 1,
+  },
   freeT4: { 'pmol/l': 1 / 12.87 },
   creatinine: { 'umol/l': 1 / 88.4 },
   hemoglobin: { 'g/l': 1 / 10 },

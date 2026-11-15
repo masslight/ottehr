@@ -41,11 +41,11 @@ describe('LAB_ROW_LOINC_CODES', () => {
     ].forEach((code) => expect(all).not.toContain(code));
   });
 
-  test('the newborn bilirubin rows carry the Lab results bilirubin rows’ codes (total: the same); no other code is on two rows', () => {
+  test('the newborn bilirubin rows carry the Lab results bilirubin rows’ codes (the same); no other code is on two rows', () => {
     const { newbornTotalBilirubin, totalBilirubin, newbornDirectBilirubin, directBilirubin, ...others } =
       LAB_ROW_LOINC_CODES;
     expect(newbornTotalBilirubin).toEqual(totalBilirubin);
-    expect(newbornDirectBilirubin).toEqual(expect.arrayContaining(directBilirubin));
+    expect(newbornDirectBilirubin).toEqual(directBilirubin);
     const rest = [...Object.values(others).flat(), ...newbornTotalBilirubin, ...newbornDirectBilirubin];
     expect(new Set(rest).size).toBe(rest.length);
   });

@@ -133,12 +133,23 @@ describe('trend charts plot only readings in the chart unit, converting the stan
     ).toBeUndefined();
   });
 
-  it('the Vitals BMI and Lab results urine albumin/creatinine charts: mg/g as UCUM or µg/mg writes it plots', () => {
+  it('the Vitals BMI and Lab results urine albumin/creatinine charts: mg/g as UCUM, µg/mg or mcg/mg writes it plots', () => {
     const charts = FLOWSHEETS.flatMap((f) => f.charts.map((c) => [f.id, c.title, c.unit]));
     expect(charts).toContainEqual(['vitals', 'BMI', 'kg/m²']);
     expect(charts).toContainEqual(['labResults', 'Urine albumin/creatinine ratio', 'mg/g']);
     expect(chartPoint(at('bmi', reading(27.4, t)), 'bmi', false, 'kg/m²')).toEqual([start, 27.4]);
-    ['mg/g', 'mg/g{creat}', 'mg/g creat', 'ug/mg', 'µg/mg{creat}'].forEach((unit) =>
+    [
+      'mg/g',
+      'mg/g{creat}',
+      'mg/g creat',
+      'mg/g creatinine',
+      'ug/mg',
+      'µg/mg{creat}',
+      'mcg/mg creat',
+      'mcg/mg',
+      'MCG/MG CREAT',
+      'mcg/mg creatinine',
+    ].forEach((unit) =>
       expect(
         chartPoint(at('urineAlbuminCreatinineRatio', lab(42, unit)), 'urineAlbuminCreatinineRatio', false, 'mg/g')
       ).toEqual([start, 42])

@@ -25,6 +25,9 @@ const EGFR: Pick<LabRow, 'analyte' | 'exclude'> = {
   exclude: /black|african|non.?af/i,
 };
 
+/** A high-risk HPV type other than 16, 18 or 45 (which a genotyping test reports with 18), as a name lists it. */
+const HPV_OTHER_TYPE = /\b(31|33|35|39|51|52|56|58|59|66|68)\b/;
+
 const hasCode = (lab: FlowsheetLabResult, rule: string): boolean =>
   lab.loincCodes.some((code) => LAB_ROW_LOINC_CODES[rule].includes(code));
 
@@ -59,6 +62,12 @@ const HIV_SCREEN: Pick<LabRow, 'analyte' | 'exclude' | 'text' | 'note'> = {
   note: hivAntibodyOnly,
 };
 
+const TRICHOMONAS: Pick<LabRow, 'analyte' | 'exclude' | 'text'> = {
+  text: true,
+  analyte: /trichomon|\bt\.? ?vaginalis/i,
+  exclude: /antibod|\bab\b/i,
+};
+
 /** Rows whose uncoded results come from blood tests: a urine test never lands on them (a row may exclude more). */
 const serum = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ excludeTest: URINE, ...row }));
 /** Urinalysis rows: uncoded results only from a urine test, shown as reported, number or text. */
@@ -67,8 +76,8 @@ const urine = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ ...row, test: U
 /**
  * Lab rows (codes: lab-row-rules.ts). The name patterns only place uncoded results; the first matching row wins, so
  * absolute counts, high-sensitivity CRP and ratios are listed before, or excluded from, the rows they share a name
- * with. Glucose, fingerstick glucose, eGFR and HIV Ag/Ab each take two rules under one key, and Lead three (see
- * lab-row-rules.ts).
+ * with. Glucose, fingerstick glucose, eGFR, HIV Ag/Ab and Trichomonas each take two rules under one key, and Lead
+ * three (see lab-row-rules.ts).
  */
 const LAB_ROWS: LabRow[] = [
   ...serum([
@@ -132,8 +141,8 @@ const LAB_ROWS: LabRow[] = [
       key: 'directBilirubin',
       analyte: /bilirubin.*(direct|conjugated)|(direct|conjugated).*bilirubin/i,
       exclude: /indirect|unconjugated/i,
-      // Serum or plasma only: not urine, cord blood, or a heel-stick (neonatal capillary) sample.
-      excludeTest: /urin|\bua\b|cord|neonat|newborn|capillary|heel/i,
+      // Serum, plasma or blood, a heel-stick included, as for Total bilirubin; not urine or cord blood.
+      excludeTest: /urin|\bua\b|cord/i,
     },
     {
       key: 'totalBilirubin',
@@ -257,11 +266,33 @@ const LAB_ROWS: LabRow[] = [
     exclude: /pneumoniae|psittaci|antibod|\bab\b|ig[gm]/i,
   },
   { key: 'gonorrhea', text: true, analyte: /gonorrh|n\.? ?gonorrhoeae|neisseria gon/i, exclude: /antibod|\bab\b/i },
-  { key: 'trichomonas', text: true, analyte: /trichomon|\bt\.? ?vaginalis/i, exclude: /antibod|\bab\b/i },
-  { key: 'hpvHighRisk', text: true, analyte: /\bhpv\b|papilloma/i, exclude: /\b(16|18)\b|genotyp|low.?risk|vaccin/i },
-  { key: 'hpv16', text: true, analyte: /(\bhpv\b|papilloma).*\b16\b/i, exclude: /\b18\b|low.?risk|vaccin/i },
-  { key: 'hpv18', text: true, analyte: /(\bhpv\b|papilloma).*\b18\b/i, exclude: /\b16\b|low.?risk|vaccin/i },
-  { key: 'hpv16And18', text: true, analyte: /(\bhpv\b|papilloma).*\b16\b.*\b18\b/i, exclude: /low.?risk|vaccin/i },
+  { key: 'trichomonas', ...TRICHOMONAS },
+  { key: 'trichomonas', rule: 'trichomonasWetMount', ...TRICHOMONAS },
+  // A name that lists a high-risk type other than 16, 18 or 45 is the pooled result, even when it lists 16 and 18.
+  {
+    key: 'hpvHighRisk',
+    text: true,
+    analyte: /\bhpv\b|papilloma/i,
+    exclude: new RegExp(`^(?!.*${HPV_OTHER_TYPE.source}).*\\b(16|18)\\b|genotyp|low.?risk|vaccin`, 'i'),
+  },
+  {
+    key: 'hpv16',
+    text: true,
+    analyte: /(\bhpv\b|papilloma).*\b16\b/i,
+    exclude: new RegExp(`\\b18\\b|${HPV_OTHER_TYPE.source}|low.?risk|vaccin`, 'i'),
+  },
+  {
+    key: 'hpv18',
+    text: true,
+    analyte: /(\bhpv\b|papilloma).*\b18\b/i,
+    exclude: new RegExp(`\\b16\\b|${HPV_OTHER_TYPE.source}|low.?risk|vaccin`, 'i'),
+  },
+  {
+    key: 'hpv16And18',
+    text: true,
+    analyte: /(\bhpv\b|papilloma).*\b16\b.*\b18\b/i,
+    exclude: new RegExp(`${HPV_OTHER_TYPE.source}|low.?risk|vaccin`, 'i'),
+  },
   { key: 'fit', text: true, analyte: /\bfit\b|immunochem|\bifobt\b|occult blood.*immuno/i, exclude: /guaiac/i },
   // Urine tests other than the urinalysis: an in-house POC ratio or pregnancy test need not say "urine".
   { key: 'urineAlbuminCreatinineRatio', analyte: /(micro)?albumin\/creat|albumin.*creatinine ratio|\buacr\b|\bacr\b/i },

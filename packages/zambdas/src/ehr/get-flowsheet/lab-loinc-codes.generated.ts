@@ -592,7 +592,11 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '112402-3', // Neisseria gonorrhoeae DNA [Presence] in Mouth by NAA with probe detection
   ],
   trichomonas: [
+    '6566-4', // Trichomonas vaginalis Ag [Presence] in Genital specimen by Immunoassay
+    '6567-2', // Trichomonas vaginalis Ag [Presence] in Genital specimen by Immunofluorescence
     '6568-0', // Trichomonas vaginalis rRNA [Presence] in Genital specimen by Probe
+    '31978-0', // Trichomonas vaginalis Ag [Presence] in Genital specimen
+    '41511-7', // Trichomonas vaginalis Ag [Presence] in Vaginal fluid
     '46154-1', // Trichomonas vaginalis rRNA [Presence] in Specimen by NAA with probe detection
     '54144-1', // Trichomonas vaginalis DNA [Presence] in Vaginal fluid by Probe with signal amplification
     '62461-9', // Trichomonas vaginalis DNA [Presence] in Vaginal fluid by NAA with probe detection
@@ -612,6 +616,13 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '106562-2', // Trichomonas vaginalis DNA [Presence] in Throat by NAA with probe detection
     '106573-9', // Trichomonas vaginalis DNA [Presence] in Anal by NAA with probe detection
     '112401-5', // Trichomonas vaginalis DNA [Presence] in Mouth by NAA with probe detection
+  ],
+  trichomonasWetMount: [
+    '6565-6', // Trichomonas vaginalis [Presence] in Genital specimen by Wet preparation
+    '14366-9', // Trichomonas vaginalis [Presence] in Cervix by Wet preparation
+    '14367-7', // Trichomonas vaginalis [Presence] in Vaginal fluid by Wet preparation
+    '14368-5', // Trichomonas vaginalis [Presence] in Urethra by Wet preparation
+    '32766-8', // Trichomonas vaginalis [Presence] in Specimen by Wet preparation
   ],
   syphilisRpr: [
     '11084-1', // Reagin Ab [Titer] in Serum

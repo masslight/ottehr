@@ -73,7 +73,7 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   tpoAntibodies: { components: ['Thyroperoxidase Ab'], systems: SERUM_OR_PLASMA },
   thyroglobulin: { components: ['Thyroglobulin'], systems: SERUM_OR_PLASMA },
   thyroglobulinAntibodies: { components: ['Thyroglobulin Ab', 'Thyroglobulin IgG Ab'], systems: SERUM_OR_PLASMA },
-  // Newborn bilirubin. The total row carries the same codes as the CMP total bilirubin row. "Direct" is the
+  // Newborn bilirubin. Both rows carry the same codes as the CMP bilirubin rows. "Direct" is the
   // glucuronidated plus albumin-bound fraction and "conjugated" the glucuronidated one.
   newbornTotalBilirubin: { components: ['Bilirubin.total'], systems: SERUM_PLASMA_OR_BLOOD },
   newbornDirectBilirubin: {
@@ -199,10 +199,17 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
     systems: STI_SITES,
     properties: PRESENCE,
   },
+  // The NAAT or the rapid antigen test, or (trichomonasWetMount, on the same row) the office wet mount.
   trichomonas: {
-    components: ['Trichomonas vaginalis rRNA', 'Trichomonas vaginalis DNA'],
+    components: ['Trichomonas vaginalis rRNA', 'Trichomonas vaginalis DNA', 'Trichomonas vaginalis Ag'],
     systems: STI_SITES,
     properties: PRESENCE,
+  },
+  trichomonasWetMount: {
+    components: ['Trichomonas vaginalis'],
+    systems: STI_SITES,
+    properties: PRESENCE,
+    methods: ['Wet preparation'],
   },
   // Reagin is the nontreponemal antibody; VDRL measures it too, but the row is the RPR.
   syphilisRpr: { components: ['Reagin Ab'], systems: SERUM_OR_PLASMA, methods: ['RPR', ''] },
@@ -281,10 +288,10 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   urineHcg: { components: ['Choriogonadotropin', 'Choriogonadotropin.beta subunit'], systems: URINE },
   pth: { components: ['Parathyrin.intact'], systems: SERUM_OR_PLASMA },
   phosphorus: { components: ['Phosphate'], systems: SERUM_OR_PLASMA },
-  // Every age, serum or plasma: a newborn's heel-stick direct bilirubin stays on Newborn bilirubin.
+  // Every age, serum, plasma or blood, a heel-stick included, as for Total bilirubin.
   directBilirubin: {
     components: ['Bilirubin.direct', 'Bilirubin.conjugated'],
-    systems: SERUM_OR_PLASMA,
+    systems: SERUM_PLASMA_OR_BLOOD,
     excludeProperties: PRESENCE,
   },
   // A rule per specimen, so the row can show a capillary (fingerstick) screen apart from a venous level.
