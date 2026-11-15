@@ -302,31 +302,29 @@ describe('Change request dialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  // Review D2: another product with the original's directions can change the dose (400 mg/5 mL to 250 mg/5 mL, 5 mL
-  // each time): warned, never blocked.
-  describe('another product with the same directions', () => {
-    const SAME_SIG = CHANGE('OS', {
-      suggestions: [
-        {
-          description: 'Dexlansoprazole 30 mg capsule',
-          ndc: '64764017130',
-          quantityValue: 30,
-          quantityUnit: 'Capsule',
-          sig: 'TAKE 1 CAPSULE BY MOUTH ONCE DAILY',
-        },
-      ],
-    });
-    const WARNING = 'Different product, same directions: check the dose';
+  // Review D2-2: another strength with the original's amount is another dose (400 mg/5 mL to 250 mg/5 mL, 5 mL each
+  // time), in whatever words the pharmacy writes it: warned, never blocked. The same strength from another maker isn't.
+  describe('another strength with the same directions', () => {
+    const suggestion = (description: string, sig: string): GetErxRequestResponse =>
+      CHANGE('G', {
+        suggestions: [{ description, ndc: '64764017130', quantityValue: 30, quantityUnit: 'Capsule', sig }],
+      });
+    const WARNING = 'Different strength, same directions: 60 mg → 30 mg. Check the dose.';
 
     it('warns under the comparison, and still lets the approval go', async () => {
-      await open(SAME_SIG);
+      await open(suggestion('Dexlansoprazole 30 mg capsule', 'TAKE ONE CAPSULE BY MOUTH EVERY DAY'));
       expect(screen.getAllByText(WARNING)).toHaveLength(1);
       expect(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' })).toBeEnabled();
     });
 
-    it('doesn’t warn for other directions', async () => {
-      await open(OUT_OF_STOCK);
-      expect(screen.queryByText(WARNING)).not.toBeInTheDocument();
+    it('doesn’t warn for the same strength from another maker', async () => {
+      await open(suggestion('Dexlansoprazole 60 mg capsule', 'Take 1 capsule by mouth once daily'));
+      expect(screen.queryByText(/^Different strength/)).not.toBeInTheDocument();
+    });
+
+    it('doesn’t warn for another amount', async () => {
+      await open(suggestion('Dexlansoprazole 30 mg capsule', 'Take 2 capsules by mouth once daily'));
+      expect(screen.queryByText(/^Different strength/)).not.toBeInTheDocument();
     });
   });
 });

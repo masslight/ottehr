@@ -312,9 +312,9 @@ describe('Refill request dialog: the order form outside a visit', () => {
     expect(screen.getAllByText('(512) 555-0187')).toHaveLength(1);
   });
 
-  // Review D2: the Change form starts from the pharmacy's copy of the original's directions, for another product.
-  it('warns with the Change form, once, when another product has the original’s directions', async () => {
-    const warning = 'Different product, same directions: check the dose';
+  // Review D2-2: the Change form starts from the pharmacy's directions, here the original's amount of another strength.
+  it('warns with the Change form, once, when another strength has the original’s amount', async () => {
+    const warning = 'Different strength, same directions: 10 mg → 20 mg. Check the dose.';
     const user = await open(
       CHANGE_REQUEST('OS', [
         {

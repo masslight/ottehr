@@ -49,11 +49,10 @@ import {
   approvalMetadata,
   changeApproval,
   changeResponse,
-  differentProductSameSig,
   refillLine,
   renewalApproval,
   requestRows,
-  SAME_DIRECTIONS_WARNING,
+  strengthChangeWarning,
   suggestionText,
 } from './refillRequest';
 import { useErxSendDataLoading, useVisitAllergies, useVisitHeight, useVisitWeight } from './useVisitWeight';
@@ -277,14 +276,12 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   // The pharmacy's medication the original is compared with: a refill request's, or the selected suggestion.
   const compared = (change ? selected : refill?.medication) ?? {};
   // Under the comparison, or with the Change form once it is open; never blocks.
-  const sameDirections = !!change &&
-    !!selected &&
-    !!prescription &&
-    differentProductSameSig(selected, prescription) && (
-      <Typography variant="body2" color="warning.dark">
-        {SAME_DIRECTIONS_WARNING}
-      </Typography>
-    );
+  const strengthWarning = change && selected && prescription && strengthChangeWarning(selected, prescription);
+  const sameDirections = strengthWarning && (
+    <Typography variant="body2" color="warning.dark">
+      {strengthWarning}
+    </Typography>
+  );
   const noteMax = answer === 'deny' ? 210 : 70;
 
   // A patient's change replaces the original as Send to another pharmacy does, so what blocks that blocks it.

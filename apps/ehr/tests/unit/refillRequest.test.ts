@@ -13,6 +13,7 @@ import {
   refillLine,
   renewalApproval,
   requestRows,
+  strengthChangeWarning,
   suggestionText,
 } from '../../src/features/visits/in-person/components/erx/refillRequest';
 
@@ -577,5 +578,66 @@ describe('refill request: the original’s blanks fill the order form again', ()
     expect(
       changeResponse('change-1', 'pending', { reason: 'Patient has labs/tests pending', metadata: METADATA })
     ).not.toHaveProperty('metadata');
+  });
+});
+
+// Review D2-2: the same amount of another strength is another dose, whatever words the pharmacy's sig uses; the same
+// strength from another maker or bottle (another NDC) isn't.
+describe('change request: a suggestion of another strength with the same directions', () => {
+  const AMOXICILLIN: PrescribedMedicationDTO = {
+    resourceId: 'rx-2',
+    name: 'Amoxicillin 400 mg/5ml Susp',
+    instructions: 'Take 5 mL by mouth twice daily for 10 days.',
+    order: { ndc: '00093415573', medicationDescription: 'Amoxicillin 400 mg/5ml Susp' },
+  };
+
+  it('names both strengths when the pharmacy rewords the same amount', () => {
+    expect(
+      strengthChangeWarning(
+        {
+          description: 'Amoxicillin 250 mg/5ml Susp',
+          ndc: '00093415273',
+          sig: 'Take 5 ml by mouth 2 times a day for 10 days',
+        },
+        AMOXICILLIN
+      )
+    ).toBe('Different strength, same directions: 400 mg/5 mL → 250 mg/5 mL. Check the dose.');
+    expect(
+      strengthChangeWarning(
+        { description: 'Lisinopril 20 mg tablet', ndc: '00093111201', sig: 'TAKE 1 TABLET BY MOUTH ONCE DAILY' },
+        ORIGINAL
+      )
+    ).toBe('Different strength, same directions: 10 mg → 20 mg. Check the dose.');
+  });
+
+  it('says nothing for the same strength from another maker or bottle', () => {
+    expect(
+      strengthChangeWarning(
+        {
+          description: 'Amoxicillin 400 mg/5ml Susp',
+          ndc: '65862007010',
+          sig: 'Take 5 mL by mouth twice daily for 10 days.',
+        },
+        AMOXICILLIN
+      )
+    ).toBeUndefined();
+    expect(
+      strengthChangeWarning(
+        { description: 'Amoxicillin 80 mg/mL Susp', ndc: '65862007011', sig: 'Take 5 mL by mouth twice daily' },
+        AMOXICILLIN
+      )
+    ).toBeUndefined();
+  });
+
+  it('says nothing when the amount differs, or the pharmacy sent no directions', () => {
+    expect(
+      strengthChangeWarning(
+        { description: 'Amoxicillin 250 mg/5ml Susp', ndc: '00093415273', sig: 'Take 8 mL by mouth twice daily' },
+        AMOXICILLIN
+      )
+    ).toBeUndefined();
+    expect(
+      strengthChangeWarning({ description: 'Amoxicillin 250 mg/5ml Susp', ndc: '00093415273' }, AMOXICILLIN)
+    ).toBeUndefined();
   });
 });

@@ -11,6 +11,7 @@ import {
   PrescriptionAllergy,
   PrescriptionVitals,
 } from 'utils/lib/types/api/order-prescription.types';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import {
   applyPrescriptionQuickPick,
@@ -35,17 +36,57 @@ const sameSig = (requested: string, sent: string | undefined): boolean => {
   return sent !== undefined && plain(requested) === plain(sent);
 };
 
-/** Shown when the pharmacy suggests another product with the original's directions: the same mL of another
- * concentration is another dose. A warning only. */
-export const SAME_DIRECTIONS_WARNING = 'Different product, same directions: check the dose';
+/** mg in a strength unit a description writes; another unit (mEq, units, %) compares as written. */
+const STRENGTH_MG: Record<string, number> = { mcg: 0.001, mg: 1, gm: 1000, g: 1000 };
 
-/** Whether the suggestion is another product (by NDC) with the original's directions. */
-export const differentProductSameSig = (request: RequestedMedication, prescription: PrescribedMedicationDTO): boolean =>
-  request.ndc !== undefined &&
-  prescription.order?.ndc !== undefined &&
-  request.ndc !== prescription.order.ndc &&
-  request.sig !== undefined &&
-  sameSig(request.sig, prescription.instructions);
+/** A product's strength in its description ("Amoxicillin 400 mg/5ml Susp"), as the warning names it ("400 mg/5 mL")
+ * and per mL to compare by, so "80 mg/mL" is the same strength. A combination's amounts go together ("400-57 mg"). */
+const strengthOf = (description: string | undefined): { text: string; key: string } | undefined => {
+  const match = description?.match(
+    /(\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|%)(?![a-z])(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/i
+  );
+  if (!match) return undefined;
+  const [, amounts, written, perMl, per] = match;
+  const unit = written.toLowerCase() === 'meq' ? 'mEq' : written.toLowerCase();
+  const factor = STRENGTH_MG[unit];
+  const values = amounts.split('-').map((amount) => (Number(amount) * (factor ?? 1)) / Number(per ?? 1));
+  const ml = perMl ? `/${per ? `${per} ` : ''}mL` : '';
+  return {
+    text: `${amounts}${unit === '%' ? '' : ' '}${unit}${ml}`,
+    key: `${values.map((value) => roundNumberToDecimalPlaces(value, 6)).join('-')} ${factor ? 'mg' : unit}${
+      perMl ? '/mL' : ''
+    }`,
+  };
+};
+
+const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4' };
+
+/** The amount a sig gives each time, in any words: "Take 5 ml …" and "TAKE 5 ML …" as "5 ml", "1/2 tablet" as
+ * "half tablet", "one tablet" as "1 tablet". */
+const sigAmount = (sig: string | undefined): string | undefined => {
+  const match =
+    sig === undefined
+      ? null
+      : sentSigInWords(sig)
+          .toLowerCase()
+          .match(/\b(\d+(?:\.\d+)?(?: and a half)?|half|one|two|three|four)\s*(ml|tablet|capsule|puff|drop|spray)s?\b/);
+  return match ? `${NUMBER_WORDS[match[1]] ?? match[1]} ${match[2]}` : undefined;
+};
+
+/** The warning when the pharmacy suggests another strength with directions that give the same amount: the same mL of
+ * another concentration is another dose. None for the same strength from another maker or bottle. A warning only. */
+export const strengthChangeWarning = (
+  request: RequestedMedication,
+  prescription: PrescribedMedicationDTO
+): string | undefined => {
+  const from = strengthOf(prescription.order?.medicationDescription ?? prescription.name);
+  const to = strengthOf(request.description);
+  const amount = sigAmount(request.sig);
+  if (!from || !to || from.key === to.key || amount === undefined || amount !== sigAmount(prescription.instructions)) {
+    return undefined;
+  }
+  return `Different strength, same directions: ${from.text} → ${to.text}. Check the dose.`;
+};
 
 const allowedText = (allowed: boolean | undefined): string | undefined =>
   allowed === undefined ? undefined : allowed ? 'Allowed' : 'Not allowed';
