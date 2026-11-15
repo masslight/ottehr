@@ -740,17 +740,23 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '14743-9', // Glucose [Moles/volume] in Capillary blood by Glucometer
     '15074-8', // Glucose [Moles/volume] in Blood
     '32016-8', // Glucose [Mass/volume] in Capillary blood
+    '39480-9', // Glucose [Moles/volume] in Venous blood
+    '41652-9', // Glucose [Mass/volume] in Venous blood
     '41653-7', // Glucose [Mass/volume] in Capillary blood by Glucometer
     '51596-5', // Glucose [Moles/volume] in Capillary blood
     '72516-8', // Glucose [Moles/volume] in Blood by Automated test strip
+    '104597-0', // Glucose [Mass/volume] in Venous blood by Glucometer
+    '109529-8', // Glucose [Measurement] in Venous blood
     '109888-8', // Glucose [Measurement] in Capillary blood
     '110939-6', // Glucose [Measurement] in Blood
   ],
   fastingFingerstickGlucose: [
     '1556-0', // Fasting glucose [Mass/volume] in Capillary blood
+    '1557-8', // Fasting glucose [Mass/volume] in Venous blood
     '14770-2', // Fasting glucose [Moles/volume] in Capillary blood by Glucometer
     '41604-0', // Fasting glucose [Mass/volume] in Capillary blood by Glucometer
     '76629-5', // Fasting glucose [Moles/volume] in Blood
+    '101476-0', // Fasting glucose [Moles/volume] in Venous blood
   ],
   vitaminD: [
     '1989-3', // 25-hydroxyvitamin D3 [Mass/volume] in Serum or Plasma

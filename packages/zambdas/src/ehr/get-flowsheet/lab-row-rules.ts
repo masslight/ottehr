@@ -266,9 +266,9 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   // Lab results: standalone tests
   hba1c: { components: ['Hemoglobin A1c/Hemoglobin.total'], systems: BLOOD },
   // A meter reading on a fingerstick, kept apart from the lab's serum or plasma glucose; a fasting code marks it
-  // "fasting" like the Glucose row.
-  fingerstickGlucose: { components: ['Glucose'], systems: ['Blood', 'Capillary blood'], excludeProperties: PRESENCE },
-  fastingFingerstickGlucose: { components: ['Fasting glucose'], systems: ['Blood', 'Capillary blood'] },
+  // "fasting" like the Glucose row. A venous whole-blood reading is almost always a meter or point-of-care one too.
+  fingerstickGlucose: { components: ['Glucose'], systems: BLOOD_ANY, excludeProperties: PRESENCE },
+  fastingFingerstickGlucose: { components: ['Fasting glucose'], systems: BLOOD_ANY },
   vitaminD: {
     components: ['25-Hydroxyvitamin D3+25-Hydroxyvitamin D2', '25-hydroxyvitamin D3'],
     systems: SERUM_OR_PLASMA,

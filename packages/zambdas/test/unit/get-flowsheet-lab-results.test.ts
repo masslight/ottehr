@@ -705,6 +705,14 @@ describe('buildLabResultsFlowsheet', () => {
     expect(valuesOf(lab('Glucose', { value: 98, test: 'Comp. metabolic panel' }))).toEqual({ glucose: 98 });
   });
 
+  test('a venous whole-blood glucose (almost always a meter or point-of-care reading) is on Glucose (fingerstick)', () => {
+    ['41652-9', '104597-0'].forEach((code) => {
+      expect(LAB_ROW_LOINC_CODES.fingerstickGlucose).toContain(code);
+      expect(LAB_ROW_LOINC_CODES.glucose).not.toContain(code);
+    });
+    expect(valuesOf(lab('Glucose', { codes: ['41652-9'], value: 104 }))).toEqual({ fingerstickGlucose: 104 });
+  });
+
   test('a fasting fingerstick glucose, coded or named, is on Glucose (fingerstick) marked fasting, like Glucose', () => {
     const fingerstick = (result: FlowsheetLabResult): [string | number, string | undefined] => {
       const value = build({ e1: [result] })[0].values.fingerstickGlucose;
