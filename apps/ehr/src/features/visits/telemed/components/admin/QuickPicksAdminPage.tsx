@@ -416,8 +416,12 @@ export default function QuickPicksAdminPage(): ReactElement {
             {FEATURE_FLAGS.DME_ORDERS_ENABLED && <Tab label="DME" value="dme" sx={{ textTransform: 'none' }} />}
             <Tab label="Immunizations" value="immunizations" sx={{ textTransform: 'none' }} />
             <Tab label="In-House Medications" value="in-house-medications" sx={{ textTransform: 'none' }} />
-            <Tab label="Prescriptions" value="prescriptions" sx={{ textTransform: 'none' }} />
-            <Tab label="Prescription Sets" value="prescription-sets" sx={{ textTransform: 'none' }} />
+            {FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED && (
+              <Tab label="Prescriptions" value="prescriptions" sx={{ textTransform: 'none' }} />
+            )}
+            {FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED && (
+              <Tab label="Prescription Sets" value="prescription-sets" sx={{ textTransform: 'none' }} />
+            )}
             <Tab label="Insurance" value="insurance" sx={{ textTransform: 'none' }} />
             <Tab label="Patient Instructions" value="patient-instructions" sx={{ textTransform: 'none' }} />
             <Tab label="Quick Texts" value="quick-texts" sx={{ textTransform: 'none' }} />
@@ -526,12 +530,16 @@ export default function QuickPicksAdminPage(): ReactElement {
         <TabPanel value="in-house-medications" sx={{ px: 0 }}>
           <InHouseMedicationQuickPicksPage />
         </TabPanel>
-        <TabPanel value="prescriptions" sx={{ px: 0 }}>
-          <PrescriptionQuickPicksPage />
-        </TabPanel>
-        <TabPanel value="prescription-sets" sx={{ px: 0 }}>
-          <PrescriptionSetsPage />
-        </TabPanel>
+        {FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED && (
+          <TabPanel value="prescriptions" sx={{ px: 0 }}>
+            <PrescriptionQuickPicksPage />
+          </TabPanel>
+        )}
+        {FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED && (
+          <TabPanel value="prescription-sets" sx={{ px: 0 }}>
+            <PrescriptionSetsPage />
+          </TabPanel>
+        )}
         <TabPanel value="insurance" sx={{ px: 0 }}>
           <InsuranceQuickPickPage />
         </TabPanel>

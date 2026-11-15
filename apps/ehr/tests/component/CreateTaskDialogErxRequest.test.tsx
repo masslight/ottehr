@@ -44,6 +44,19 @@ vi.mock('src/features/visits/in-person/components/InPersonModal', () => ({
     </div>
   ),
 }));
+const flags = vi.hoisted(() => ({ surescriptsErx: true }));
+vi.mock('src/constants/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('src/constants/feature-flags')>();
+  return {
+    ...actual,
+    FEATURE_FLAGS: {
+      ...actual.FEATURE_FLAGS,
+      get SURESCRIPTS_ERX_ENABLED() {
+        return flags.surescriptsErx;
+      },
+    },
+  };
+});
 vi.mock('src/features/visits/in-person/hooks/useTasks', () => ({
   useCreateManualTask: () => ({ mutateAsync: vi.fn() }),
 }));
@@ -74,6 +87,20 @@ vi.mock('../../src/features/tasks/common', () => {
 import { CreateTaskDialog } from '../../src/features/tasks/components/CreateTaskDialog';
 
 describe('New task: a refill or change request', () => {
+  it('offers no Refill or Change request without Surescripts eRx', async () => {
+    flags.surescriptsErx = false;
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <CreateTaskDialog open handleClose={vi.fn()} />
+      </MemoryRouter>
+    );
+    await user.type(screen.getByLabelText('Category'), MANUAL_TASK.category.erx);
+    expect(screen.queryByText('Refill request')).not.toBeInTheDocument();
+    expect(screen.queryByText('Change request')).not.toBeInTheDocument();
+    flags.surescriptsErx = true;
+  });
+
   it.each(['Refill request', 'Change request'])('%s can’t be created without a prescription', async (checkbox) => {
     const user = userEvent.setup();
     render(

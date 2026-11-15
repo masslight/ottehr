@@ -8,6 +8,7 @@ import { getLocationLabel, LocationSelectInput } from 'src/components/input/Loca
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -274,7 +275,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
               getOptionLabel={(option) => TASK_CATEGORY_LABEL[option]}
               required
             />
-            {isErx && (
+            {isErx && FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED && (
               <Stack direction="row">
                 <CheckboxInput name="refillRequest" label="Refill request" disabled={changeRequest} />
                 <CheckboxInput name="changeRequest" label="Change request" disabled={refillRequest} />
