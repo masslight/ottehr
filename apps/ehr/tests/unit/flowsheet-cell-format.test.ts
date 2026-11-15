@@ -69,6 +69,15 @@ describe('flowsheet cell formatting', () => {
     );
     expect(cellOf({ label: 'INR', keys: ['inr'] }, visit({ inr: reading(2.4) })).text).toBe('2.4');
   });
+
+  it('a urine specific gravity always shows 3 decimals, as labs report it; other lab numbers drop trailing zeros', () => {
+    const labRow = (key: string): FlowsheetRow =>
+      FLOWSHEETS.find((f) => f.id === 'labResults')!.rows.find((row) => row.keys[0] === key)!;
+    expect(cellOf(labRow('uaSpecificGravity'), visit({ uaSpecificGravity: reading(1.02) })).text).toBe('1.020');
+    expect(cellOf(labRow('uaSpecificGravity'), visit({ uaSpecificGravity: reading(1.005) })).text).toBe('1.005');
+    expect(cellOf(labRow('uaPh'), visit({ uaPh: reading(6.0) })).text).toBe('6');
+    expect(cellOf(labRow('potassium'), visit({ potassium: reading(4.1) })).text).toBe('4.1');
+  });
 });
 
 describe('flags of a cell with several readings', () => {

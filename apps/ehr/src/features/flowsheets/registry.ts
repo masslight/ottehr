@@ -185,8 +185,8 @@ const newbornBilirubin: FlowsheetDefinition = {
   ],
 };
 
-const panel = (group: string, rows: [string, string][]): FlowsheetRow[] =>
-  rows.map(([label, key]) => ({ label, keys: [key], group }));
+const panel = (group: string, rows: [string, string, Pick<FlowsheetRow, 'digits'>?][]): FlowsheetRow[] =>
+  rows.map(([label, key, extra]) => ({ label, keys: [key], group, ...extra }));
 
 // Rows in the requirements' order: panels, then the standalone tests under "Other tests", from most to least ordered.
 // Rows without a result for the patient are hidden, panel headings with them.
@@ -289,7 +289,8 @@ const labResults: FlowsheetDefinition = {
     ...panel('Urinalysis', [
       ['Color', 'uaColor'],
       ['Appearance', 'uaAppearance'],
-      ['Specific gravity', 'uaSpecificGravity'],
+      // As labs report it (1.020); other lab numbers drop trailing zeros.
+      ['Specific gravity', 'uaSpecificGravity', { digits: 3 }],
       ['pH', 'uaPh'],
       ['Protein', 'uaProtein'],
       ['Glucose', 'uaGlucose'],
