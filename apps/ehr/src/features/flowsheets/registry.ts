@@ -271,6 +271,7 @@ const labResults: FlowsheetDefinition = {
       ['HPV (high risk)', 'hpvHighRisk'],
       ['HPV 16', 'hpv16'],
       ['HPV 18', 'hpv18'],
+      ['HPV 16/18', 'hpv16And18'],
     ]),
     ...panel('Urinalysis', [
       ['Color', 'uaColor'],

@@ -146,6 +146,7 @@ describe('Lab results rows', () => {
       'HPV (high risk)',
       'HPV 16',
       'HPV 18',
+      'HPV 16/18',
       '# Urinalysis',
       'Color',
       'Appearance',

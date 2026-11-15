@@ -245,6 +245,7 @@ const LAB_ROWS: LabRow[] = [
   { key: 'hpvHighRisk', text: true, analyte: /\bhpv\b|papilloma/i, exclude: /\b(16|18)\b|genotyp|low.?risk|vaccin/i },
   { key: 'hpv16', text: true, analyte: /(\bhpv\b|papilloma).*\b16\b/i, exclude: /\b18\b|low.?risk|vaccin/i },
   { key: 'hpv18', text: true, analyte: /(\bhpv\b|papilloma).*\b18\b/i, exclude: /\b16\b|low.?risk|vaccin/i },
+  { key: 'hpv16And18', text: true, analyte: /(\bhpv\b|papilloma).*\b16\b.*\b18\b/i, exclude: /low.?risk|vaccin/i },
   { key: 'fit', text: true, analyte: /\bfit\b|immunochem|\bifobt\b|occult blood.*immuno/i, exclude: /guaiac/i },
   // Urine tests other than the urinalysis: an in-house POC ratio or pregnancy test need not say "urine".
   { key: 'urineAlbuminCreatinineRatio', analyte: /(micro)?albumin\/creat|albumin.*creatinine ratio|\buacr\b|\bacr\b/i },

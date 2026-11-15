@@ -700,6 +700,12 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '114956-6', // Human papilloma virus 18 DNA [Presence] in Specimen by Molgen
     '115796-5', // Human papilloma virus 18 DNA [Presence] in Vaginal fluid by NAA with probe detection
   ],
+  hpv16And18: [
+    '70061-7', // Human papilloma virus 16 and 18 DNA [Presence] in Specimen by NAA with probe detection
+    '114964-0', // Human papilloma virus 16+18 E6+E7 mRNA [Presence] in Specimen by Molgen
+    '114965-7', // Human papilloma virus 16+18 DNA [Presence] in Specimen by Molgen
+    '114970-7', // Human papilloma virus 16 and 18 DNA [Presence] in Specimen by Molgen
+  ],
   hba1c: [
     '4548-4', // Hemoglobin A1c/Hemoglobin.total in Blood
     '4549-2', // Hemoglobin A1c/Hemoglobin.total in Blood by Electrophoresis
