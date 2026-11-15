@@ -17,10 +17,10 @@ const THYROID_MEDICATION =
   /levothyroxine|synthroid|levoxyl|unithroid|tirosint|euthyrox|levo-?t\b|levothroid|thyquidity|ermeza|eltroxin|liothyronine|cytomel|triostat|liotrix|thyrolar|armour|desiccated|\bthyroid\b|nature-?throid|westhroid|adthyza|methimazole|tapazole|northyx|carbimazole|propylthiouracil|\bptu\b/i;
 
 /**
- * Lab rows (codes: lab-row-rules.ts). The name patterns only place uncoded results: the free hormones are listed
- * before the totals, and a total row never takes a result whose name says "free".
+ * Lab rows (codes: lab-row-rules.ts), also Lab results' Thyroid rows. The name patterns only place uncoded results:
+ * the free hormones are listed before the totals, and a total row never takes a result whose name says "free".
  */
-const LAB_ROWS: LabRow[] = [
+export const THYROID_LAB_ROWS: LabRow[] = [
   { key: 'tsh', analyte: /\btsh\b|thyrotropin|thyroid stimulating/i, exclude: /receptor|antibod|binding|globulin/i },
   { key: 'freeT4', analyte: /free t4|ft4|thyroxine.*free/i },
   { key: 'totalT4', analyte: /^t4\b|total t4|thyroxine/i, exclude: /free|receptor|antibod|binding|globulin/i },
@@ -44,7 +44,7 @@ const diagnosisText = (diagnoses: FlowsheetDiagnosis[]): string =>
 
 export const buildThyroidFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => {
   const columns = conditionColumns(data, VITAL_KEYS);
-  columns.addLabs(LAB_ROWS);
+  columns.addLabs(THYROID_LAB_ROWS);
 
   Object.entries(data.diagnoses ?? {}).forEach(([encounterId, diagnoses]) => {
     const thyroid = diagnoses.filter((d) => THYROID_ICD10_PREFIXES.some((prefix) => d.code.startsWith(prefix)));

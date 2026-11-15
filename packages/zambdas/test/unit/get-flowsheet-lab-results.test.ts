@@ -381,6 +381,19 @@ describe('buildLabResultsFlowsheet', () => {
     ).toEqual({ hivAgAb: 'Non-reactive', hepatitisCAntibody: 'Negative', urineHcg: 'Negative' });
   });
 
+  test('the Thyroid rows: Total T4, Free T3, Total T3 and TPO antibodies (as text too) after TSH and Free T4', () => {
+    expect(
+      valuesOf(
+        lab('TSH', { codes: ['3016-3'], value: 6.2 }),
+        lab('Free T4', { value: 0.9 }),
+        lab('T4, Total', { codes: ['3026-2'], value: 7.1 }),
+        lab('Free T3', { value: 2.8 }),
+        lab('Triiodothyronine (T3)', { value: 110 }),
+        lab('Thyroid Peroxidase (TPO) Ab', { codes: ['8099-4'], text: 'Negative' })
+      )
+    ).toEqual({ tsh: 6.2, freeT4: 0.9, totalT4: 7.1, freeT3: 2.8, totalT3: 110, tpoAntibodies: 'Negative' });
+  });
+
   test('a visit is a column only with a result for a row; an unlinked outside result is its own column; newest first', () => {
     expect(build({ e1: [lab('Influenza A antigen', { codes: ['104730-7'], text: 'Detected' })] })).toEqual([]);
     const visits = build({

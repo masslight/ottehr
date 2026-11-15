@@ -210,6 +210,10 @@ const labResults: FlowsheetDefinition = {
     ...panel('Thyroid', [
       ['TSH', 'tsh'],
       ['Free T4', 'freeT4'],
+      ['Total T4', 'totalT4'],
+      ['Free T3', 'freeT3'],
+      ['Total T3', 'totalT3'],
+      ['TPO antibodies', 'tpoAntibodies'],
     ]),
     ...panel('Iron panel', [
       ['Iron', 'iron'],

@@ -2,6 +2,7 @@ import { FlowsheetLabResult, FlowsheetVisit } from 'utils/lib/types/api/flowshee
 import { byInstant, ConditionColumns, conditionColumns, LabRow } from './columns';
 import { LAB_ROW_LOINC_CODES } from './lab-loinc-codes.generated';
 import { FlowsheetData, FlowsheetDataKind } from './patient-data';
+import { THYROID_LAB_ROWS } from './thyroid';
 
 export const LAB_RESULTS_DATA_KINDS: FlowsheetDataKind[] = ['labs'];
 
@@ -95,9 +96,8 @@ const LAB_ROWS: LabRow[] = [
     { key: 'hdlCholesterol', analyte: /\bhdl\b/i, exclude: /ratio|\/|non|particle/i },
     { key: 'triglycerides', analyte: /triglycerid|\btrig\b/i },
     { key: 'nonHdlCholesterol', analyte: /non.?hdl/i },
-    // Thyroid
-    { key: 'tsh', analyte: /\btsh\b|thyrotropin|thyroid stimulating/i, exclude: /receptor|antibod|binding|globulin/i },
-    { key: 'freeT4', analyte: /free t4|ft4|thyroxine.*free/i },
+    // Thyroid: the Thyroid flowsheet's rows
+    ...THYROID_LAB_ROWS,
     // Iron panel
     {
       key: 'iron',
