@@ -377,8 +377,9 @@ const CellValue = ({ cell, both }: { cell: Cell; both?: string }): ReactElement 
       placement="top"
       title={
         <Stack>
-          {cell.history.map((reading) => (
-            <Typography key={reading.time} variant="caption">
+          {/* By position: two results of one report share a time. */}
+          {cell.history.map((reading, index) => (
+            <Typography key={index} variant="caption">
               {DateTime.fromISO(reading.time).toFormat(TIME_FORMAT)} {reading.text}
               {reading.flag ? ` (${reading.flag})` : ''}
             </Typography>
