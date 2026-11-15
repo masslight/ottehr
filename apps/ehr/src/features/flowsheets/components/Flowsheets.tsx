@@ -560,7 +560,13 @@ const FlowsheetBody = ({
       </TableContainer>
 
       {growth ? (
-        <GrowthCharts growth={growth} visits={visits} currentAppointmentId={currentAppointmentId} />
+        // Keyed by the age, so new data for another age (e.g. back to "Up to this visit") reopens on its chart set.
+        <GrowthCharts
+          key={growth.ageMonths}
+          growth={growth}
+          visits={visits}
+          currentAppointmentId={currentAppointmentId}
+        />
       ) : (
         <Grid container spacing={2}>
           {definition.charts.filter(hasPoints).map((chart) => (
