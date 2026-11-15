@@ -268,7 +268,8 @@ export const buildGrowthChartOption = (
     dataZoom: [{ type: 'inside', disabled: true }],
     grid: {
       left: 56,
-      right: view.imperial ? 64 : 40,
+      // Room right of the grid for the percentile labels, then the imperial axis past them.
+      right: view.imperial ? 80 : 40,
       top: 16,
       bottom: 44,
       show: true,
@@ -313,6 +314,8 @@ export const buildGrowthChartOption = (
             {
               type: 'value',
               position: 'right',
+              // Past the percentile labels at the curves' right end.
+              offset: 16,
               min: view.imperial.convert(yMin),
               max: view.imperial.convert(yMax),
               interval: view.imperial.convert(step),
