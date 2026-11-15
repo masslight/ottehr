@@ -266,5 +266,7 @@ export const prescriptionToOrderForPharmacy = (
     ndc: order.ndc!,
     medicationDescription: order.medicationDescription!,
     substitutionAllowed: order.substitutionAllowed!,
+    // The blanks the directions were written from, so a later Reorder or refill of the new one fills them again.
+    ...(order.metadata ? { metadata: order.metadata } : {}),
   };
 };

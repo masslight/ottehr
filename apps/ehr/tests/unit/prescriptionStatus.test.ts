@@ -222,6 +222,14 @@ describe('sending a prescription to another pharmacy', () => {
     expect(order).not.toHaveProperty('writtenDate');
   });
 
+  it('carries the original’s directions blanks, so a later Reorder or refill of the new one fills them again', () => {
+    const metadata = { version: 1, dose: '1', frequency: 'twice daily' } as never;
+    expect(prescriptionToOrderForPharmacy({ ...stored, order: { ...stored.order, metadata } }, context)).toMatchObject({
+      metadata,
+    });
+    expect(prescriptionToOrderForPharmacy(stored, context)).not.toHaveProperty('metadata');
+  });
+
   it('leaves the vitals out when the visit has none', () => {
     expect(prescriptionToOrderForPharmacy(stored, context)).not.toHaveProperty('vitals');
   });
