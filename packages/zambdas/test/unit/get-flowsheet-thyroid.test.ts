@@ -1,5 +1,6 @@
 import { Appointment, DiagnosticReport, Encounter, Observation, ServiceRequest } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -290,6 +291,27 @@ describe('thyroid medication: only drugs actually prescribed or given', () => {
     expect(visits[0].values.thyroidMedication.value).toBe(
       'levothyroxine 50 mcg tablet; levothyroxine 100 mcg tablet; methimazole 20 mg tablet; methimazole 30 mg tablet'
     );
+  });
+
+  test('a follow-up whose only thyroid item is a diagnosis is a column, dated by the encounter', () => {
+    const followUp: Encounter = {
+      resourceType: 'Encounter',
+      id: 'e-fu',
+      status: 'finished',
+      class: { code: 'AMB' },
+      type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+      period: { start: '2023-09-01T14:00:00.000Z' },
+    };
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      encounters: [...data.encounters, followUp],
+      diagnoses: { 'e-fu': [{ code: 'E03.9', display: 'Hypothyroidism, unspecified', primary: true }] },
+      medications: {},
+      labs: {},
+    });
+    expect(visits.map((v) => [v.encounterId, v.start, v.isFollowUp, v.values.thyroidDiagnosis?.value])).toEqual([
+      ['e-fu', '2023-09-01T14:00:00.000Z', true, 'E03.9 — Hypothyroidism, unspecified'],
+    ]);
   });
 
   test('a drug saved by its brand name alone is listed too', () => {
