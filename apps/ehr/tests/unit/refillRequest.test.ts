@@ -674,6 +674,27 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBeUndefined();
   });
 
+  // Review D3-2: albuterol's "2.5 mg/3 mL", "0.83 mg/mL" and "0.083%" are the same solution (a liquid's % is g per
+  // 100 mL, so ×10 mg/mL), and 2.5 ÷ 3 is 0.833: strengths within 2% are the same. Half the strength still warns.
+  it('says nothing for the same strength written per 3 mL, per mL or as a percent', () => {
+    const albuterol: PrescribedMedicationDTO = {
+      resourceId: 'rx-4',
+      name: 'Albuterol Sulfate (2.5 MG/3ML) 0.083% Nebu Soln',
+      instructions: 'Inhale 3 mL by nebulizer every 4 hours as needed.',
+      order: { ndc: '00487950101', medicationDescription: 'Albuterol Sulfate (2.5 MG/3ML) 0.083% Nebu Soln' },
+    };
+    const sig = 'Inhale 3 mL via nebulizer every 4 hours as needed';
+    for (const description of ['albuterol 0.83 MG/ML Inhalation Solution', 'ALBUTEROL SULFATE 0.083% NEB SOLN']) {
+      expect(strengthChangeWarning({ description, ndc: '00487950102', sig }, albuterol)).toBeUndefined();
+    }
+    expect(
+      strengthChangeWarning(
+        { description: 'Albuterol Sulfate (1.25 MG/3ML) 0.042% Nebu Soln', ndc: '00487950103', sig },
+        albuterol
+      )
+    ).toBe('Different strength, same amount: 2.5 mg/3 mL → 1.25 mg/3 mL. Check the dose.');
+  });
+
   it('says nothing when the amount differs, or the pharmacy sent no directions', () => {
     expect(
       strengthChangeWarning(

@@ -11,7 +11,6 @@ import {
   PrescriptionAllergy,
   PrescriptionVitals,
 } from 'utils/lib/types/api/order-prescription.types';
-import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import {
   applyPrescriptionQuickPick,
@@ -36,29 +35,42 @@ const sameSig = (requested: string, sent: string | undefined): boolean => {
   return sent !== undefined && plain(requested) === plain(sent);
 };
 
-/** mg in a strength unit a description writes; another unit (mEq, units, %) compares as written. */
+/** mg in a strength unit a description writes; another unit (mEq, units) compares as written. */
 const STRENGTH_MG: Record<string, number> = { mcg: 0.001, mg: 1, gm: 1000, g: 1000 };
+
+interface Strength {
+  text: string;
+  /** mg per mL for a liquid (a % is g per 100 mL, so ×10 mg/mL), else per unit, a combination's amounts in order. */
+  values: number[];
+  unit: string;
+  at: number;
+}
 
 /** A product's strength in its description ("Amoxicillin 400 mg/5ml Susp"), as the warning names it ("400 mg/5 mL")
  * and per mL to compare by, so "80 mg/mL" is the same strength. A combination's amounts go together ("400-57 mg"). */
-const strengthOf = (description: string | undefined): { text: string; key: string; at: number } | undefined => {
+const strengthOf = (description: string | undefined): Strength | undefined => {
   const match = description?.match(
     /(\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|%)(?![a-z])(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/i
   );
   if (!match) return undefined;
   const [, amounts, written, perMl, per] = match;
   const unit = written.toLowerCase() === 'meq' ? 'mEq' : written.toLowerCase();
-  const factor = STRENGTH_MG[unit];
-  const values = amounts.split('-').map((amount) => (Number(amount) * (factor ?? 1)) / Number(per ?? 1));
+  const factor = unit === '%' ? 10 : STRENGTH_MG[unit];
   const ml = perMl ? `/${per ? `${per} ` : ''}mL` : '';
   return {
-    at: match.index ?? 0,
     text: `${amounts}${unit === '%' ? '' : ' '}${unit}${ml}`,
-    key: `${values.map((value) => roundNumberToDecimalPlaces(value, 6)).join('-')} ${factor ? 'mg' : unit}${
-      perMl ? '/mL' : ''
-    }`,
+    values: amounts.split('-').map((amount) => (Number(amount) * (factor ?? 1)) / Number(per ?? 1)),
+    unit: `${factor ? 'mg' : unit}${perMl || unit === '%' ? '/mL' : ''}`,
+    at: match.index ?? 0,
   };
 };
+
+/** Strengths within 2% are one: "2.5 mg/3 mL" is 0.833 mg/mL, the "0.83 mg/mL" of the same solution. A real change of
+ * strength is a quarter or more (400 to 250 mg/5 mL, 1.25 to 2.5 mg/3 mL). */
+const sameStrength = (a: Strength, b: Strength): boolean =>
+  a.unit === b.unit &&
+  a.values.length === b.values.length &&
+  a.values.every((value, i) => Math.abs(value - b.values[i]) <= 0.02 * Math.max(value, b.values[i]));
 
 /** Salt, form and release words two drugs' names can share: "Cetirizine HCl" and "Levocetirizine" share none. */
 const NOT_INGREDIENT = new Set(
@@ -102,7 +114,13 @@ export const strengthChangeWarning = (
   const from = strengthOf(originalName);
   const to = strengthOf(request.description);
   const amount = sigAmount(request.sig);
-  if (!from || !to || from.key === to.key || amount === undefined || amount !== sigAmount(prescription.instructions)) {
+  if (
+    !from ||
+    !to ||
+    sameStrength(from, to) ||
+    amount === undefined ||
+    amount !== sigAmount(prescription.instructions)
+  ) {
     return undefined;
   }
   const ingredients = ingredientWords(originalName ?? '', from.at);
