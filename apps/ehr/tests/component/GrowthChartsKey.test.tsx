@@ -1,10 +1,17 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { LmsRow } from 'utils/lib/helpers/vitals/growth-lms';
 import { GROWTH_CHART_IDS, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, it, vi } from 'vitest';
 import { GrowthCharts } from '../../src/features/flowsheets/components/GrowthCharts';
 
-vi.mock('src/features/report-builder/runtime/components/EChart', () => ({ EChart: () => null }));
+// The charts' hover handlers, so a test can hover a point the way ECharts reports it.
+const hovers: ((datum: Record<string, unknown> | null) => void)[] = [];
+vi.mock('src/features/report-builder/runtime/components/EChart', () => ({
+  EChart: ({ onHover }: { onHover?: (datum: Record<string, unknown> | null) => void }) => {
+    if (onHover) hovers.push(onHover);
+    return null;
+  },
+}));
 
 // A small WHO-like table (months 0-24) for every chart; one weight at 6 months, so only weight-for-age has a point.
 const table: LmsRow[] = Array.from({ length: 25 }, (_, month) => [month, 0, 3.3 + month * 0.37, 0.12]);
@@ -63,5 +70,17 @@ describe('Growth chart out-of-range note', () => {
       '1 measurement is outside birth to 24 months — see the other chart set.',
       '1 measurement is outside birth to 24 months.',
     ]);
+  });
+});
+
+describe('Growth chart hover', () => {
+  it('hovering a point marks its table row (ECharts hands back a copy of the point, not the same object)', () => {
+    hovers.length = 0;
+    render(<GrowthCharts growth={growth} visits={[]} />);
+    const row = screen.getByText('54th').closest('tr')!;
+    expect(row).not.toHaveClass('Mui-selected');
+    // Every card's chart reports the hover; only weight-for-age has the point.
+    act(() => hovers.forEach((hover) => hover({ point: { ...growth.points[0] } })));
+    expect(row).toHaveClass('Mui-selected');
   });
 });

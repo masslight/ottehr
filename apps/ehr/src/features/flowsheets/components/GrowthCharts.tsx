@@ -197,7 +197,8 @@ const GrowthCard = ({
                   <TableRow
                     key={point.time}
                     hover
-                    selected={hover === point}
+                    // By time (the row key): ECharts hands back a copy of the point, never the same object.
+                    selected={hover?.time === point.time}
                     onMouseEnter={() => hoverRow(point)}
                     onMouseLeave={() => hoverRow(null)}
                   >
