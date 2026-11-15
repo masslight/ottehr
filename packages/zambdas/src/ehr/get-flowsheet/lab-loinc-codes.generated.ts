@@ -327,6 +327,11 @@ export const LAB_ROW_LOINC_CODES: Record<string, string[]> = {
     '1975-2', // Bilirubin.total [Mass/volume] in Serum or Plasma
     '14631-6', // Bilirubin.total [Moles/volume] in Serum or Plasma
     '35194-0', // Bilirubin.total [Mass or Moles/volume] in Serum or Plasma
+    '42719-5', // Bilirubin.total [Mass/volume] in Blood
+    '54363-7', // Bilirubin.total [Moles/volume] in Blood
+    '59828-4', // Bilirubin.total [Mass/volume] in Venous blood
+    '89871-8', // Bilirubin.total [Moles/volume] in Venous blood
+    '97770-2', // Bilirubin.total [Moles/volume] in Capillary blood
     '109063-8', // Bilirubin.total [Measurement] in Serum or Plasma
   ],
   alkalinePhosphatase: [

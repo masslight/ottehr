@@ -59,8 +59,8 @@ const EGFR_RACE_METHODS = [
   'Creatinine-based formula (CKD-EPI)/1.73 sq M among black population',
   'Creatinine-based formula (CKD-EPI)/1.73 sq M among non black population',
 ];
-// A newborn's bilirubin is often run on a heel-stick (whole, capillary or venous blood) sample; a cord blood level
-// is taken at delivery and stays off.
+// A newborn's bilirubin is often run on a heel-stick (whole, capillary or venous blood) sample, at any age a blood
+// one; a cord blood level is taken at delivery and stays off.
 const SERUM_PLASMA_OR_BLOOD = [...SERUM_OR_PLASMA, 'Blood', 'Capillary blood', 'Venous blood'];
 
 export const LAB_ROW_RULES: Record<string, LabRowRule> = {
@@ -73,7 +73,7 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   tpoAntibodies: { components: ['Thyroperoxidase Ab'], systems: SERUM_OR_PLASMA },
   thyroglobulin: { components: ['Thyroglobulin'], systems: SERUM_OR_PLASMA },
   thyroglobulinAntibodies: { components: ['Thyroglobulin Ab', 'Thyroglobulin IgG Ab'], systems: SERUM_OR_PLASMA },
-  // Newborn bilirubin. The total row also carries the CMP total bilirubin row's serum codes. "Direct" is the
+  // Newborn bilirubin. The total row carries the same codes as the CMP total bilirubin row. "Direct" is the
   // glucuronidated plus albumin-bound fraction and "conjugated" the glucuronidated one.
   newbornTotalBilirubin: { components: ['Bilirubin.total'], systems: SERUM_PLASMA_OR_BLOOD },
   newbornDirectBilirubin: {
@@ -126,7 +126,7 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   albumin: { components: ['Albumin'], systems: SERUM_OR_PLASMA, excludeProperties: PRESENCE },
   globulin: { components: ['Globulin'], systems: SERUM_OR_PLASMA },
   albuminGlobulinRatio: { components: ['Albumin/Globulin'], systems: SERUM_OR_PLASMA },
-  totalBilirubin: { components: ['Bilirubin.total'], systems: SERUM_OR_PLASMA },
+  totalBilirubin: { components: ['Bilirubin.total'], systems: SERUM_PLASMA_OR_BLOOD },
   alkalinePhosphatase: { components: ['Alkaline phosphatase'], systems: SERUM_OR_PLASMA },
   ast: { components: ['Aspartate aminotransferase'], systems: SERUM_OR_PLASMA, excludeProperties: PRESENCE },
   alt: { components: ['Alanine aminotransferase'], systems: SERUM_OR_PLASMA },
@@ -267,7 +267,7 @@ export const LAB_ROW_RULES: Record<string, LabRowRule> = {
   urineHcg: { components: ['Choriogonadotropin', 'Choriogonadotropin.beta subunit'], systems: URINE },
   pth: { components: ['Parathyrin.intact'], systems: SERUM_OR_PLASMA },
   phosphorus: { components: ['Phosphate'], systems: SERUM_OR_PLASMA },
-  // Every age, serum or plasma: a newborn's heel-stick result stays on Newborn bilirubin.
+  // Every age, serum or plasma: a newborn's heel-stick direct bilirubin stays on Newborn bilirubin.
   directBilirubin: {
     components: ['Bilirubin.direct', 'Bilirubin.conjugated'],
     systems: SERUM_OR_PLASMA,

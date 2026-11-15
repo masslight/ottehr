@@ -178,10 +178,12 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
-  test('total bilirubin is serum or plasma only: a heel-stick (42719-5) result is not a CMP result', () => {
-    expect(LAB_ROW_LOINC_CODES.totalBilirubin).not.toContain('42719-5');
-    expect(valuesOf(lab('Bilirubin, total', { codes: ['42719-5'], value: 9.9 }))).toEqual({});
+  test('total bilirubin takes serum, plasma or blood, a heel-stick (42719-5, 97770-2) included; cord blood does not', () => {
+    ['42719-5', '97770-2', '59828-4'].forEach((code) => expect(LAB_ROW_LOINC_CODES.totalBilirubin).toContain(code));
+    expect(LAB_ROW_LOINC_CODES.totalBilirubin).not.toContain('48624-1');
+    expect(valuesOf(lab('Bilirubin, total', { codes: ['42719-5'], value: 9.9 }))).toEqual({ totalBilirubin: 9.9 });
     expect(valuesOf(lab('Bilirubin, total', { codes: ['1975-2'], value: 0.6 }))).toEqual({ totalBilirubin: 0.6 });
+    expect(valuesOf(lab('Bilirubin, total', { codes: ['48624-1'], value: 2.1 }))).toEqual({});
   });
 
   test('by name, a cord blood bilirubin named only by its test stays off Total bilirubin', () => {
@@ -193,15 +195,20 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
     });
   });
 
-  test('by name, a heel-stick or neonatal capillary bilirubin stays off Total bilirubin, like the coded one', () => {
+  test('by name, a heel-stick or neonatal capillary bilirubin is on Total bilirubin, like the coded one', () => {
+    const totals = (...results: FlowsheetLabResult[]): (string | number)[] =>
+      build({ e1: results })[0].values.totalBilirubin.readings.map((r) => r.value);
+    const at = (hour: number): string => `2024-03-04T${hour}:00:00.000Z`;
     expect(
-      valuesOf(
-        lab('Bilirubin, Total', { test: 'Neonatal Bilirubin, Capillary', value: 11.2 }),
-        lab('Bilirubin, Total', { test: 'Newborn bilirubin', value: 10.1 }),
-        lab('Bilirubin, Total', { test: 'Bilirubin, heel stick', value: 9.4 }),
-        lab('Bilirubin, Total', { test: 'Bilirubin, capillary', value: 9.1 })
+      totals(
+        lab('Bilirubin, Total', { test: 'Neonatal Bilirubin, Capillary', value: 11.2, at: at(10) }),
+        lab('Bilirubin, Total', { test: 'Newborn bilirubin', value: 10.1, at: at(11) }),
+        lab('Bilirubin, Total', { test: 'Bilirubin, heel stick', value: 9.4, at: at(12) }),
+        lab('Bilirubin, Total', { test: 'Bilirubin, capillary', value: 9.1, at: at(13) })
       )
-    ).toEqual({});
+    ).toEqual([11.2, 10.1, 9.4, 9.1]);
+    // A direct bilirubin stays serum or plasma only.
+    expect(valuesOf(lab('Bilirubin, Direct', { test: 'Neonatal Bilirubin, Capillary', value: 0.4 }))).toEqual({});
   });
 });
 

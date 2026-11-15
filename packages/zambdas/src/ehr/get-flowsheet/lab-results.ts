@@ -112,15 +112,15 @@ const LAB_ROWS: LabRow[] = [
       key: 'directBilirubin',
       analyte: /bilirubin.*(direct|conjugated)|(direct|conjugated).*bilirubin/i,
       exclude: /indirect|unconjugated/i,
-      // Serum or plasma, as for Total bilirubin.
+      // Serum or plasma only: not urine, cord blood, or a heel-stick (neonatal capillary) sample.
       excludeTest: /urin|\bua\b|cord|neonat|newborn|capillary|heel/i,
     },
     {
       key: 'totalBilirubin',
       analyte: /bilirubin/i,
-      exclude: /direct|conjugated|indirect|unconjugated|neonat|transcut/i,
-      // Serum or plasma only: not urine, cord blood, or a heel-stick (neonatal capillary) sample.
-      excludeTest: /urin|\bua\b|cord|neonat|newborn|capillary|heel/i,
+      exclude: /direct|conjugated|indirect|unconjugated|transcut/i,
+      // Serum, plasma or blood, a heel-stick included; not urine or cord blood.
+      excludeTest: /urin|\bua\b|cord/i,
     },
     {
       key: 'alkalinePhosphatase',
