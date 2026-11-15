@@ -95,6 +95,8 @@ export interface GrowthChartView {
   xIsLength?: boolean;
   /** The measure has a chart in the other set too (the out-of-range note points there). */
   inOtherSet: boolean;
+  /** The percentile curves, when the chart draws others than its set's. */
+  percentiles?: number[];
 }
 
 export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
@@ -162,6 +164,8 @@ export const GROWTH_CHART_VIEWS: Record<GrowthChartId, GrowthChartView> = {
     xAxis: AGE_YEARS,
     // WHO (birth to 24 months) has no BMI chart.
     inOtherSet: false,
+    // The 85th too: the overweight cut-off (CDC).
+    percentiles: [3, 5, 10, 25, 50, 75, 85, 90, 95, 97],
   },
 };
 
@@ -239,7 +243,7 @@ export const buildGrowthChartOption = (
   const { xAxis } = view;
 
   const rows = table.filter((row) => row[0] >= xAxis.min && row[0] <= xAxis.max);
-  const curves = set.percentiles.map((pct) => {
+  const curves = (view.percentiles ?? set.percentiles).map((pct) => {
     const z = zForPercentile(pct);
     return { pct, data: rows.map((row) => [row[0], valueAtZ({ L: row[1], M: row[2], S: row[3] }, z)]) };
   });

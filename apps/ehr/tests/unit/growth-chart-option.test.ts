@@ -90,6 +90,21 @@ describe('growth chart option (the cards ported from the OTR-3741 report)', () =
     expect(yAxis.name).toBe('Weight (kg)');
   });
 
+  it('BMI-for-age also draws the 85th, the overweight cut-off, with its end label; the other CDC charts do not', () => {
+    const curveLabels = (chart: 'cdc-bmi' | 'cdc-wfa' | 'cdc-sfa'): string[] =>
+      seriesOf(buildGrowthChartOption(chart, 'male', table, []).option)
+        .filter((s) => s.endLabel)
+        .map((s) => s.endLabel.formatter);
+    expect(curveLabels('cdc-bmi')).toEqual(['3', '5', '10', '25', '50', '75', '85', '90', '95', '97']);
+    expect(curveLabels('cdc-wfa')).toEqual(['3', '5', '10', '25', '50', '75', '90', '95', '97']);
+    expect(curveLabels('cdc-sfa')).toEqual(['3', '5', '10', '25', '50', '75', '90', '95', '97']);
+    // The patient series and its index follow the curves.
+    const bmiPoint = point({ chart: 'cdc-bmi', x: 120, y: 16 });
+    const bmi = buildGrowthChartOption('cdc-bmi', 'male', table, [bmiPoint]);
+    expect(seriesOf(bmi.option)[10].name).toBe('Patient');
+    expect(bmi.locate.get(bmiPoint)?.seriesIndex).toBe(10);
+  });
+
   it('joins the patient points by a line, this visit larger and outlined in EHR blue, and locates each row', () => {
     const earlier = point({ encounterId: 'e0', time: '2026-04-10T14:05:00.000Z', age: '3 mo', x: 3, y: 4.6 });
     const current = point({ encounterId: 'e1' });
