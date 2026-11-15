@@ -3,7 +3,8 @@ import { MedicationOrderStatuses } from 'utils/lib/types/api/medication-administ
 import { conditionColumns, LabRow } from './columns';
 import { FlowsheetData, FlowsheetDataKind } from './patient-data';
 
-export const THYROID_DATA_KINDS: FlowsheetDataKind[] = ['vitals', 'diagnoses', 'medications', 'labs'];
+// The birth date and sex, so the Weight and Heart rate flags are worked out as on the Vitals screen.
+export const THYROID_DATA_KINDS: FlowsheetDataKind[] = ['birthDate', 'vitals', 'diagnoses', 'medications', 'labs'];
 
 /** The vitals rows the Thyroid flowsheet shows; every other vital stays on the Vitals flowsheet. */
 const VITAL_KEYS = ['weight', 'heartRate'];

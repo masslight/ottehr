@@ -6,8 +6,9 @@ import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/char
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { FlowsheetLabResult, FlowsheetMedication } from 'utils/lib/types/api/flowsheets.types';
 import { describe, expect, test } from 'vitest';
+import { NEWBORN_BILIRUBIN_DATA_KINDS } from '../../src/ehr/get-flowsheet/newborn-bilirubin';
 import { buildLabResults, FlowsheetData, unlinkedResultKey } from '../../src/ehr/get-flowsheet/patient-data';
-import { buildThyroidFlowsheet } from '../../src/ehr/get-flowsheet/thyroid';
+import { buildThyroidFlowsheet, THYROID_DATA_KINDS } from '../../src/ehr/get-flowsheet/thyroid';
 
 const PATIENT = 'Patient/p1';
 
@@ -116,6 +117,15 @@ const data: FlowsheetData = {
     ],
   },
 };
+
+describe('flowsheets with vitals rows', () => {
+  test('load the birth date with the vitals, so Weight and Heart rate are flagged as on the Vitals screen', () => {
+    [THYROID_DATA_KINDS, NEWBORN_BILIRUBIN_DATA_KINDS].forEach((kinds) => {
+      expect(kinds).toContain('vitals');
+      expect(kinds).toContain('birthDate');
+    });
+  });
+});
 
 describe('buildThyroidFlowsheet', () => {
   const visits = buildThyroidFlowsheet(data);
