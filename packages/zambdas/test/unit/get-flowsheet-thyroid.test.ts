@@ -221,6 +221,19 @@ describe('buildThyroidFlowsheet', () => {
   });
 });
 
+describe('a TPO antibody result sent only as text', () => {
+  test('"Negative" is the cell and gives the visit a column, as on Lab results\' qualitative rows', () => {
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      vitals: [],
+      medications: {},
+      diagnoses: {},
+      labs: { e1: [lab('Thyroid peroxidase Ab', ['8099-4'], undefined, '', '2023-02-06T18:00:00.000Z')] },
+    });
+    expect(visits.map((visit) => [visit.encounterId, visit.values.tpoAntibodies?.value])).toEqual([['e1', 'Negative']]);
+  });
+});
+
 describe('a "<" or ">" result', () => {
   const order: ServiceRequest = {
     resourceType: 'ServiceRequest',

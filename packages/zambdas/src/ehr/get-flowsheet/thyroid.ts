@@ -26,7 +26,8 @@ const LAB_ROWS: LabRow[] = [
   { key: 'totalT4', analyte: /^t4\b|total t4|thyroxine/i, exclude: /free|receptor|antibod|binding|globulin/i },
   { key: 'freeT3', analyte: /free t3|ft3|t3.*free/i },
   { key: 'totalT3', analyte: /^t3\b|total t3|triiodothyronine/i, exclude: /free/i },
-  { key: 'tpoAntibodies', analyte: /tpo|peroxidase/i },
+  // Often reported qualitatively ("Negative"), so a text-only result is kept, as on Lab results' qualitative rows.
+  { key: 'tpoAntibodies', analyte: /tpo|peroxidase/i, text: true },
 ];
 
 const unique = (names: string[]): string[] => [...new Set(names)];
