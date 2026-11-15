@@ -1199,6 +1199,12 @@ const compoundLineToQuickPick = (
   ...(line.diagnosis ? { diagnosis: line.diagnosis } : {}),
 });
 
+/** Whether a quick pick saved from the line keeps the calculator's dosing: a dose "Use this dose" wrote, with no later
+ * steps (not the calculator's), and the directions not typed over (re-dosing would rebuild them and lose what was
+ * typed). Otherwise it is saved as written. */
+const savesDosing = (line: PrescriptionLine): line is PrescriptionLine & { dosing: CalculatorDosing } =>
+  !!line.dosing && line.steps.length === 0 && follows(line.patientInstructions, line.generated.patientInstructions);
+
 const productLineToQuickPick = (line: PrescriptionLine, name: string): Omit<PrescriptionQuickPickData, 'id'> => ({
   name: name.trim(),
   ndc: line.medication?.ndc,
@@ -1213,9 +1219,8 @@ const productLineToQuickPick = (line: PrescriptionLine, name: string): Omit<Pres
   patientInstructions: line.patientInstructions.trim() || undefined,
   noteToPharmacy: line.noteToPharmacy.trim() || undefined,
   ...(line.diagnosis ? { diagnosis: line.diagnosis } : {}),
-  // The calculator's settings with the line's frequency and duration, for a dose "Use this dose" wrote; a course's
-  // later steps aren't the calculator's.
-  ...(line.dosing && line.steps.length === 0
+  // The calculator's settings with the line's frequency and duration (see savesDosing).
+  ...(savesDosing(line)
     ? {
         dosing: {
           ...line.dosing,
@@ -1271,8 +1276,8 @@ export const suggestedQuickPickName = (line: PrescriptionLine): string => {
   const amount = numberOrUndefined(line.dose);
   const doseUnit = prescriptionDoseUnit(line.medication);
   const durationDays = numberOrUndefined(line.durationDays);
-  // As prescriptionLineToQuickPick saves it: a course's later steps aren't the calculator's.
-  const savedDosing = line.dosing && line.steps.length === 0 ? line.dosing : undefined;
+  // As prescriptionLineToQuickPick saves it.
+  const savedDosing = savesDosing(line) ? line.dosing : undefined;
   const name = [
     line.medication?.description ?? line.compound?.name.trim(),
     savedDosing

@@ -227,6 +227,21 @@ describe('Save as quick pick: the calculator’s dosing', () => {
     expect(prescriptionLineToQuickPick(latest!, 'Amox strep')).not.toHaveProperty('dosing');
     expect(suggestedQuickPickName(latest!)).toBe('Amoxicillin 400 mg/5ml Susp | 7 mL | twice daily | 10 days');
   });
+
+  // Review W43: re-dosing would rebuild the directions and lose what was typed.
+  it('saves as written when the directions were typed over', () => {
+    const dosed = withListedQuickPick(liquidLine(), BY_WEIGHT, WEIGHT.kg);
+    expect(prescriptionLineToQuickPick(dosed, 'Mine').dosing).toEqual(BY_WEIGHT.dosing);
+    const typed = 'Take 9 mL by mouth twice daily for 10 days. Give with food.';
+    const saved = prescriptionLineToQuickPick({ ...dosed, patientInstructions: typed }, 'Mine');
+    expect(saved).not.toHaveProperty('dosing');
+    expect(saved.patientInstructions).toBe(typed);
+    expect(suggestedQuickPickName({ ...dosed, patientInstructions: typed })).toBe(
+      'Amoxicillin 400 mg/5ml Susp | 9 mL | twice daily | 10 days'
+    );
+    // Chosen again, it keeps them.
+    expect(withListedQuickPick(liquidLine(), { ...saved, id: 'qp-mine' }, WEIGHT.kg).patientInstructions).toBe(typed);
+  });
 });
 
 describe('Save as quick pick: the suggested name', () => {
