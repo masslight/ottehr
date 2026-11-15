@@ -8,6 +8,7 @@ import { makePrescribedMedicationDTO } from '../../shared/chart-data';
 import { createClinicalOystehrClient, validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { safeValidate } from '../../shared/validation';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-erx-orders';
@@ -57,7 +58,7 @@ export async function getErxOrders(
 }
 
 function validateRequestParameters(input: ZambdaInput): GetErxOrdersInput & Pick<ZambdaInput, 'secrets'> {
-  const { encounterIds } = GetErxOrdersInputSchema.parse(validateJsonBody(input));
+  const { encounterIds } = safeValidate(GetErxOrdersInputSchema, validateJsonBody(input));
   return {
     encounterIds,
     secrets: input.secrets,

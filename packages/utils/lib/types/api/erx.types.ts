@@ -6,7 +6,8 @@ import { PrescribedMedicationDTO, PrescribedMedicationOrderDTO } from './chart-d
 import type { CompoundOrder, PrescriptionAllergy, PrescriptionVitals } from './order-prescription.types';
 
 export const GetErxOrdersInputSchema = z.object({
-  encounterIds: z.array(z.string()),
+  // Each goes into the search: one encounter id each, and at least one (none would search every visit).
+  encounterIds: z.array(z.string().uuid()).min(1),
 });
 
 export type GetErxOrdersInput = z.infer<typeof GetErxOrdersInputSchema>;
