@@ -156,8 +156,8 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
     const found = reorderPharmacy.row && directoryPharmacyToResult(reorderPharmacy.row);
     if (found) {
       setPickedPharmacy(found);
-      // The form has one pharmacy, so its other lines move too.
-      if (found.ncpdpId !== pharmacy?.ncpdpId)
+      // The form has one pharmacy, so its other lines move too: said only when it had a different one.
+      if (pharmacy && found.ncpdpId !== pharmacy.ncpdpId)
         enqueueSnackbar(`Pharmacy changed to ${found.name} for every prescription on the form`, { variant: 'warning' });
     } else
       enqueueSnackbar(

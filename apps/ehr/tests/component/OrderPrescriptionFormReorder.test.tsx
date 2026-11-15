@@ -53,6 +53,7 @@ const mocks = vi.hoisted(() => ({
   roles: [] as string[],
   loading: false,
   readOnly: false,
+  preferred: undefined as typeof PREFERRED | undefined,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -82,7 +83,7 @@ vi.mock('../../src/features/visits/shared/hooks/useChartSection', () => ({
 }));
 // The saved pharmacy matches the directory; the original's NCPDP ID finds its row, or none when it's gone.
 vi.mock('../../src/features/visits/shared/hooks/useErxPharmacies', () => ({
-  usePreferredPharmacy: () => ({ data: PREFERRED }),
+  usePreferredPharmacy: () => ({ data: mocks.preferred }),
   usePharmaciesByNcpdpId: (ncpdpIds: string[]) =>
     ncpdpIds.map((ncpdpId) => ({ ncpdpId, row: mocks.directoryRow, status: 'success' })),
 }));
@@ -135,6 +136,7 @@ describe('Order prescription form: Reorder', () => {
     mocks.roles = [];
     mocks.loading = false;
     mocks.readOnly = false;
+    mocks.preferred = PREFERRED;
   });
 
   it('says why Send and Clear Form are off on a signed visit', async () => {
@@ -213,6 +215,13 @@ describe('Order prescription form: Reorder', () => {
       `Pharmacy changed to ${ORIGINAL_PHARMACY.name} for every prescription on the form`,
       { variant: 'warning' }
     );
+  });
+
+  it('says nothing changed when the form had no pharmacy before Reorder', async () => {
+    mocks.preferred = undefined;
+    await reorderAndSend();
+    expect(mocks.orderPrescription.mock.calls[0][0]).toMatchObject({ pharmacyId: ORIGINAL_PHARMACY.ncpdpId });
+    expect(enqueueSnackbar).not.toHaveBeenCalledWith(expect.stringMatching(/^Pharmacy changed/), expect.anything());
   });
 
   it('keeps the form’s pharmacy and warns when the original no longer takes e-prescriptions', async () => {
