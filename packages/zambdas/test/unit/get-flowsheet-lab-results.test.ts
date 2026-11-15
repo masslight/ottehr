@@ -150,6 +150,17 @@ describe('LAB_ROW_LOINC_CODES for the Lab results rows', () => {
       totalBilirubin: 0.6,
     });
   });
+
+  test('by name, a heel-stick or neonatal capillary bilirubin stays off Total bilirubin, like the coded one', () => {
+    expect(
+      valuesOf(
+        lab('Bilirubin, Total', { test: 'Neonatal Bilirubin, Capillary', value: 11.2 }),
+        lab('Bilirubin, Total', { test: 'Newborn bilirubin', value: 10.1 }),
+        lab('Bilirubin, Total', { test: 'Bilirubin, heel stick', value: 9.4 }),
+        lab('Bilirubin, Total', { test: 'Bilirubin, capillary', value: 9.1 })
+      )
+    ).toEqual({});
+  });
 });
 
 describe('buildLabResultsFlowsheet', () => {

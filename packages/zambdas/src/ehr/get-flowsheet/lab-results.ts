@@ -79,7 +79,8 @@ const LAB_ROWS: LabRow[] = [
       key: 'totalBilirubin',
       analyte: /bilirubin/i,
       exclude: /direct|conjugated|indirect|unconjugated|neonat|transcut/i,
-      excludeTest: /urin|\bua\b|cord/i,
+      // Serum or plasma only: not urine, cord blood, or a heel-stick (neonatal capillary) sample.
+      excludeTest: /urin|\bua\b|cord|neonat|newborn|capillary|heel/i,
     },
     {
       key: 'alkalinePhosphatase',
