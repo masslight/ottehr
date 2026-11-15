@@ -520,6 +520,20 @@ describe('prescriptionQuickPickFromForm: the name', () => {
   });
 });
 
+describe('prescriptionQuickPickFromForm: the pharmacy network’s limits', () => {
+  // Staff can't edit the product's name or NDC, so the messages say what to do, as the order form's do.
+  it('says what to do about a product name or NDC the network can’t take', () => {
+    const values = prescriptionQuickPickFormValues(AS_WRITTEN);
+    expect(prescriptionQuickPickFromForm({ ...values, medicationDescription: 'A'.repeat(106) }).errors).toEqual({
+      medicationDescription:
+        "This product's name is too long for the pharmacy network. Pick another strength or write it as a compound.",
+    });
+    expect(prescriptionQuickPickFromForm({ ...values, ndc: '1234' }).errors).toEqual({
+      ndc: 'This product has no 11-digit NDC, which the pharmacy network needs. Pick the medication again or write it as a compound.',
+    });
+  });
+});
+
 describe('prescriptionQuickPickFromForm: the product’s details', () => {
   it('keeps the details a quick pick was saved with, and saves none for one saved before them', () => {
     const saved = {

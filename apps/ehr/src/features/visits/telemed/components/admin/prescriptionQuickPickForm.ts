@@ -17,6 +17,8 @@ import {
   compoundToOrder,
   nameTaken,
   numberOrUndefined,
+  PRODUCT_NAME_TOO_LONG_MESSAGE,
+  PRODUCT_NDC_MESSAGE,
   productDetailsOf,
 } from '../../../in-person/components/erx/prescriptionLines';
 
@@ -149,8 +151,8 @@ const isHttpsUrl = (value: string): boolean => {
 const FormSchema = z
   .object({
     name: z.string().trim().min(1, 'Name is required'),
-    medicationDescription: z.string().max(105, 'Medication name must be up to 105 characters'),
-    ndc: z.string().refine((value) => blank(value) || /^\d{11}$/.test(value), 'Medication must have an 11-digit NDC'),
+    medicationDescription: z.string().max(105, PRODUCT_NAME_TOO_LONG_MESSAGE),
+    ndc: z.string().refine((value) => blank(value) || /^\d{11}$/.test(value), PRODUCT_NDC_MESSAGE),
     compound: z.custom<CompoundLine | null>(),
     doseMode: z.enum(['as-written', 'dosing']),
     patientInstructions: z.string().trim().max(1000, 'Directions must be up to 1000 characters'),

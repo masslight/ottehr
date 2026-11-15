@@ -807,26 +807,20 @@ const PrescriptionDetailsSchema = z.object({
   noteToPharmacy: z.string().trim().max(210, 'Note to pharmacy must be up to 210 characters'),
 });
 
+// The pharmacy network's limits on the product; staff can't edit either, so each says what to do. The admin quick
+// pick form says the same.
+export const PRODUCT_NDC_MESSAGE =
+  'This product has no 11-digit NDC, which the pharmacy network needs. Pick the medication again or write it as a compound.';
+export const PRODUCT_NAME_TOO_LONG_MESSAGE =
+  "This product's name is too long for the pharmacy network. Pick another strength or write it as a compound.";
+
 // The medication first, as the line reads.
 const PrescriptionLineSchema = z
   .object({
     medication: z.object(
       {
-        // The pharmacy network's limits; staff can't edit either, so the message says what to do.
-        ndc: z
-          .string()
-          .regex(
-            /^\d{11}$/,
-            'This product has no 11-digit NDC, which the pharmacy network needs. Pick the medication again or write it as a compound.'
-          ),
-        description: z
-          .string()
-          .trim()
-          .min(1)
-          .max(
-            105,
-            "This product's name is too long for the pharmacy network. Pick another strength or write it as a compound."
-          ),
+        ndc: z.string().regex(/^\d{11}$/, PRODUCT_NDC_MESSAGE),
+        description: z.string().trim().min(1).max(105, PRODUCT_NAME_TOO_LONG_MESSAGE),
       },
       { invalid_type_error: 'Pick a medication' }
     ),
