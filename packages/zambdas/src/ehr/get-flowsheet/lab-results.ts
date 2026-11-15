@@ -179,6 +179,8 @@ const isUrineCultureResult = (lab: FlowsheetLabResult): boolean =>
 /** A susceptibility's value: susceptible, intermediate or resistant. */
 const SUSCEPTIBILITY = /^\s*[SIR]\s*$/i;
 /** An antibiotic concentration (an MIC's unit); organism counts are in CFU, never in mass per volume. */
+/** A quantity's text: a number, with its comparator if any. */
+const QUANTITY_TEXT = /^\s*[<>]?=?\s*[\d.,]+\s*$/;
 const MIC_UNIT = /^\s*(mg\/l|(u|µ|μ|mc)g\/ml)\s*$/i;
 
 /**
@@ -187,11 +189,13 @@ const MIC_UNIT = /^\s*(mg\/l|(u|µ|μ|mc)g\/ml)\s*$/i;
  * or an MIC (a value in an antibiotic-concentration unit).
  */
 const cultureText = (lab: FlowsheetLabResult): string => {
-  if (hasCode(lab, 'urineCulture') || URINE_CULTURE_NAME.test(lab.analyte)) return lab.valueText;
+  // A count sent as a quantity keeps its unit: ">100000 CFU/mL".
+  const reported = QUANTITY_TEXT.test(lab.valueText) && lab.unit ? `${lab.valueText} ${lab.unit}` : lab.valueText;
+  if (hasCode(lab, 'urineCulture') || URINE_CULTURE_NAME.test(lab.analyte)) return reported;
   const susceptibility =
     SUSCEPTIBILITY.test(lab.valueText) || SUSCEPTIBILITY.test(lab.interpretation) || MIC_UNIT.test(lab.unit);
   if (lab.loincCodes.length > 0 || susceptibility) return '';
-  return [lab.analyte, lab.valueText].filter(Boolean).join(' ');
+  return [lab.analyte, reported].filter(Boolean).join(' ');
 };
 
 const unique = (texts: string[]): string[] => [...new Set(texts)];

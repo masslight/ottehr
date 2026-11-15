@@ -320,8 +320,19 @@ describe('buildLabResultsFlowsheet', () => {
         lab('Klebsiella pneumoniae', { ...culture, text: '>100000' })
       )
     ).toEqual({
-      urineCulture: 'Escherichia coli >100,000 CFU/mL; Proteus mirabilis 50000; Klebsiella pneumoniae >100000',
+      urineCulture: 'Escherichia coli >100,000 CFU/mL; Proteus mirabilis 50000 CFU/mL; Klebsiella pneumoniae >100000',
     });
+  });
+
+  test('urine culture: an organism count sent as a quantity keeps its unit', () => {
+    const culture = { test: 'Urine Culture', testCodes: ['630-4'] };
+    expect(
+      valuesOf(
+        lab('Urine Culture', { ...culture, text: 'Final report' }),
+        lab('Escherichia coli', { ...culture, text: '>100000', unit: 'CFU/mL' }),
+        lab('Enterococcus faecalis', { ...culture, value: 20000, unit: 'CFU/mL' })
+      )
+    ).toEqual({ urineCulture: 'Final report; Escherichia coli >100000 CFU/mL; Enterococcus faecalis 20000 CFU/mL' });
   });
 
   test('HIV, hepatitis C and urine hCG show their text as reported; a text-only result on a number row is left out', () => {
