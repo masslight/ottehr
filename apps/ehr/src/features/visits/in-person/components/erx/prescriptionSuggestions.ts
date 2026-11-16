@@ -307,12 +307,22 @@ const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | u
   const dosing = quickPick.dosing && quickPickDosingSummary(quickPick.dosing);
   const saved = (row.length ? dosing : undefined) || quickPick.patientInstructions || dosing || 'No directions saved.';
   const segments = row.length && !noDose ? row : [saved];
-  const sentence = assembleSentence(
-    segments.map((segment) =>
-      isSentenceBlank(segment) && segment.initial === undefined ? { ...segment, initial: segment.placeholder } : segment
-    ),
-    []
-  );
+  // An empty optional blank is left out with its words ("for # days"), as its line sends it; an empty required one
+  // shows its placeholder ("(enter weight)").
+  const emptyOptional = (segment?: SentenceSegment): boolean =>
+    !!segment && isSentenceBlank(segment) && !!segment.optional && segment.initial === undefined;
+  const shown = segments.map((segment, i) => {
+    if (typeof segment === 'string') {
+      let text = segment;
+      if (emptyOptional(segments[i + 1])) text = text.replace(/\S+\s*$/, ''); // "for"
+      if (emptyOptional(segments[i - 1])) text = text.replace(/^[^.!?]*/, ''); // "days"
+      return text;
+    }
+    return isSentenceBlank(segment) && segment.initial === undefined
+      ? { ...segment, initial: emptyOptional(segment) ? '' : segment.placeholder }
+      : segment;
+  });
+  const sentence = assembleSentence(shown, []);
   return `Also adds: ${medicationDescription ?? quickPick.compound?.description ?? quickPick.name}. ${
     /[.!?]$/.test(sentence) ? sentence : `${sentence}.`
   }`;

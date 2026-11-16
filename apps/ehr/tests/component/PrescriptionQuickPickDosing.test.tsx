@@ -1358,3 +1358,42 @@ describe('Suggestion rows: one day', () => {
     expect(suggestionRow(0).textContent).not.toMatch(/1 days/);
   });
 });
+
+// Lead 3: an empty optional blank is left out of "Also adds", not shown as its placeholder; a required one still shows.
+describe('Also adds: a quick pick with no days', () => {
+  const IBUPROFEN = detailed({ ndc: '00904585354', description: 'Ibuprofen (Oral Liquid) 100 mg/5ml Susp' });
+  const NO_DAYS: PrescriptionQuickPickData = {
+    id: 'qp-ibu',
+    name: 'Ibuprofen fever',
+    ...IBUPROFEN,
+    medicationDescription: IBUPROFEN.description,
+    quantityUnit: 'Milliliter',
+    numberOfRefills: 0,
+    dosing: { rate: 10, basis: 'mg/kg/dose', frequency: 'every 6 to 8 hours as needed', maxPerDoseMg: 400 },
+  };
+  const set: PrescriptionSetQuickPickData = {
+    id: 'set-ear',
+    name: 'Ear infection',
+    status: 'Active',
+    memberIds: [BY_WEIGHT.id!, NO_DAYS.id!],
+  };
+  const alsoAdds = (medication: typeof PRODUCT, weightKg: number | undefined): string[] | undefined =>
+    prescriptionSuggestionsFor({ medication, weightKg, quickPicks: [BY_WEIGHT, NO_DAYS], sets: [set] }).find(
+      (row) => row.setName
+    )?.details;
+
+  it('ends after the frequency, with no "for # days"', () => {
+    expect(alsoAdds(PRODUCT, WEIGHT.kg)).toEqual([
+      'Also adds: Ibuprofen (Oral Liquid) 100 mg/5ml Susp. Take 14 mL by mouth every 6 to 8 hours as needed.',
+    ]);
+  });
+
+  it('still shows a required blank with no value, and the days of one that has them', () => {
+    expect(alsoAdds(PRODUCT, undefined)).toEqual([
+      'Also adds: Ibuprofen (Oral Liquid) 100 mg/5ml Susp. Take (enter weight) mL by mouth every 6 to 8 hours as needed.',
+    ]);
+    expect(alsoAdds(IBUPROFEN, WEIGHT.kg)).toEqual([
+      'Also adds: Amox strep. Take 9 mL by mouth twice daily for 10 days.',
+    ]);
+  });
+});
