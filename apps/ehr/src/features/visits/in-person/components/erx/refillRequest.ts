@@ -121,8 +121,9 @@ const strengthOf = (description: string | undefined): Strength | undefined => {
 };
 
 /** Where each of `as`'s ingredients is in `strength`, by name with 80c's matching ("formoterol 0.005 / mometasone 0.2"
- * for "Mometasone-Formoterol" is [1, 0]); of 2, one matched gives the other the remaining amount ("Bisoprolol-HCTZ");
- * undefined unless each matches exactly one, all different. */
+ * for "Mometasone-Formoterol" is [1, 0]); undefined unless each matches exactly one, all different: one left over
+ * ("HCTZ") isn't given the other amount, which may be another drug's ("HYDROcodone/Ibuprofen" against acetaminophen /
+ * hydrocodone, decision 229). */
 const ingredientOrder = (strength: Strength, as: Strength): number[] | undefined => {
   if (strength.names.length !== strength.values.length || as.names.length !== as.values.length) return undefined;
   const order = as.names.map((words) => {
@@ -131,15 +132,13 @@ const ingredientOrder = (strength: Strength, as: Strength): number[] | undefined
     );
     return found.length === 1 ? found[0] : -1;
   });
-  const missing = order.indexOf(-1);
-  if (order.length === 2 && missing !== -1 && order[1 - missing] !== -1) order[missing] = 1 - order[1 - missing];
   return order.every((j) => j !== -1) && new Set(order).size === order.length ? order : undefined;
 };
 
 /** A strength as another names its own: in its unit, per its volume and with the ingredients in its order, matched by
  * name ("formoterol 0.005 MG / mometasone 0.2 MG" as "Mometasone-Formoterol 100-5 mcg" names it is "200-5 mcg"); a
  * combination whose names can't be matched with its own name and strength as written, as amounts without their names
- * could be read against the wrong ingredient (decision 221). As written when it can't be: another kind of unit,
+ * could be read against the wrong ingredient (decisions 221, 229). As written when it can't be: another kind of unit,
  * another number of ingredients, or an amount past 4 significant digits. */
 const strengthAs = (strength: Strength, as: Strength): string => {
   if (strength.unit !== as.unit || strength.values.length !== as.values.length) return strength.text;

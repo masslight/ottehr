@@ -1085,8 +1085,8 @@ describe('change request: a suggestion of another strength with the same directi
         'Inhale 3 mL every 6 hours'
       )
     ).toBe('Different strength, same amount: 0.5-2.5 mg/3 mL → 0.501-1.251 mg/3 mL. Check the dose.');
-    // Decision 200: each amount goes to its ingredient by name, not by size; a name that can't be matched ("HCTZ")
-    // gets the amount the other leaves (decision 221).
+    // Decision 200: each amount goes to its ingredient by name, not by size; with a name that can't be matched
+    // ("HCTZ"), the pharmacy's name and strength as written (decision 229).
     const tab = 'Take 1 tablet by mouth once daily';
     const rxnormZiac = (bisoprolol: string): string =>
       `bisoprolol fumarate ${bisoprolol} MG / hydrochlorothiazide 6.25 MG Oral Tablet`;
@@ -1097,7 +1097,7 @@ describe('change request: a suggestion of another strength with the same directi
       'Different strength, same amount: 10-6.25 mg → 2.5-6.25 mg. Check the dose.'
     );
     expect(warning(rxnormZiac('10'), 'Bisoprolol-HCTZ 2.5-6.25 mg Tab', tab)).toBe(
-      'Different strength, same amount: 2.5-6.25 mg → 10-6.25 mg. Check the dose.'
+      'Different strength, same amount: 2.5-6.25 mg → bisoprolol fumarate 10 MG / hydrochlorothiazide 6.25 MG. Check the dose.'
     );
     // Past 4 significant digits in the original's terms (1.2501 mg/3 mL): as the request names it.
     expect(
@@ -1109,9 +1109,8 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBe('Different strength, same amount: 2.5 mg/3 mL → 0.4167 mg/mL. Check the dose.');
   });
 
-  // Decision 221: Ottehr's products join their ingredients with "/" after a form group ("(Oral Pill)"); with 2
-  // ingredients and 1 matched by name, the other gets the remaining amount; with none matched, the pharmacy's own
-  // name and strength as written.
+  // Decision 221: Ottehr's products join their ingredients with "/" after a form group ("(Oral Pill)"); unless every
+  // name is matched, the pharmacy's own name and strength as written (decision 229).
   it("matches the amounts to the ingredients of Ottehr's product names", () => {
     const original = (name: string, instructions: string): PrescribedMedicationDTO => ({
       resourceId: 'rx-15',
@@ -1144,16 +1143,27 @@ describe('change request: a suggestion of another strength with the same directi
         'Inhale 2 puffs twice daily'
       )
     ).toBe('Different strength, same amount: 5-100 mcg → 5-200 mcg. Check the dose.');
-    // "HCTZ" matches no name, so it gets the amount bisoprolol leaves.
+    // "HCTZ" matches no name: as the pharmacy wrote it.
     expect(
       warning('Bisoprolol-HCTZ 10-6.25 mg Tab', 'Bisoprolol/hydroCHLOROthiazide (Oral Pill) 2.5-6.25 mg Tab', tab)
-    ).toBe('Different strength, same amount: 2.5-6.25 mg → 10-6.25 mg. Check the dose.');
+    ).toBe('Different strength, same amount: 2.5-6.25 mg → Bisoprolol-HCTZ 10-6.25 mg. Check the dose.');
+    // Another combination sharing hydrocodone: acetaminophen's 325 is never shown where ibuprofen's 200 was.
+    expect(
+      warning(
+        'acetaminophen 325 MG / hydrocodone bitartrate 10 MG Oral Tablet',
+        'HYDROcodone/Ibuprofen (Oral Pill) 5-200 mg Tab',
+        pain
+      )
+    ).toBe(
+      'Different strength, same amount: 5-200 mg → acetaminophen 325 MG / hydrocodone bitartrate 10 MG. Check the dose.'
+    );
     expect(warning('Hydrocodone Bitartrate and Acetaminophen 10-325 mg Tab', norco, pain)).toBe(
       'Different strength, same amount: 325-5 mg → Hydrocodone Bitartrate and Acetaminophen 10-325 mg. Check the dose.'
     );
   });
 
-  // Decision 211: the ingredient check reads every ingredient the pharmacy names, not just the first.
+  // Decision 211: the ingredient check reads every ingredient the pharmacy names, not just the first. "APAP" matches no
+  // name, so the strength is the pharmacy's as written (decision 229).
   it('warns of an opioid strength change whichever order the pharmacy names the ingredients in', () => {
     const sig = 'Take 1 tablet by mouth every 6 hours as needed for pain';
     const apap: PrescribedMedicationDTO = {
@@ -1167,7 +1177,7 @@ describe('change request: a suggestion of another strength with the same directi
       'hydrocodone bitartrate 10 MG / acetaminophen 325 MG Oral Tablet',
     ]) {
       expect(strengthChangeWarning({ description, ndc: '00000000002', sig }, apap)).toBe(
-        'Different strength, same amount: 5-325 mg → 10-325 mg. Check the dose.'
+        `Different strength, same amount: 5-325 mg → ${description.replace(' Oral Tablet', '')}. Check the dose.`
       );
     }
   });
