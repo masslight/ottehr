@@ -1018,6 +1018,34 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBe('Different strength, same amount: 100000 units/mL → 200000 units/mL. Check the dose.');
   });
 
+  // Review D7-2: RxNorm writes an inhaler's ingredients per actuation ("0.08 MG/ACTUAT / … 0.0045 MG/ACTUAT").
+  it('reads a combination inhaler written per actuation as the combination', () => {
+    const original = (name: string, instructions: string): PrescribedMedicationDTO => ({
+      resourceId: 'rx-13',
+      name,
+      instructions,
+      order: { ndc: '00000000001', medicationDescription: name },
+    });
+    const sig = 'Inhale 2 puffs twice daily';
+    const symbicort = original('Budesonide-Formoterol 80-4.5 mcg/act Aerosol', sig);
+    const rxnorm = (budesonide: string): string =>
+      `budesonide ${budesonide} MG/ACTUAT / formoterol fumarate dihydrate 0.0045 MG/ACTUAT Metered Dose Inhaler`;
+    expect(strengthChangeWarning({ description: rxnorm('0.08'), ndc: '00000000002', sig }, symbicort)).toBeUndefined();
+    expect(
+      strengthChangeWarning(
+        {
+          description: 'fluticasone propionate 0.1 MG/ACTUAT / salmeterol 0.05 MG/ACTUAT Dry Powder Inhaler',
+          ndc: '00000000003',
+          sig: 'Inhale 1 puff twice daily',
+        },
+        original('Fluticasone-Salmeterol 100-50 mcg/dose Aerosol Powder', 'Inhale 1 puff twice daily')
+      )
+    ).toBeUndefined();
+    expect(strengthChangeWarning({ description: rxnorm('0.16'), ndc: '00000000004', sig }, symbicort)).toBe(
+      'Different strength, same amount: 80-4.5 mcg → 0.16-0.0045 mg. Check the dose.'
+    );
+  });
+
   it('says nothing when the amount differs, or the pharmacy sent no directions', () => {
     expect(
       strengthChangeWarning(

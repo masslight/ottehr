@@ -63,21 +63,26 @@ interface Strength {
 /** A product's strength in its description ("Amoxicillin 400 mg/5ml Susp"), as the warning names it ("400 mg/5 mL")
  * and per mL to compare by, so "80 mg/mL" is the same strength. A combination's amounts go together ("400-57 mg").
  * "100,000 unit" and "100000 UNT" are 100000 units. A combination written per ingredient, as RxNorm does ("875 MG /
- * clavulanate potassium 125 MG"), reads as "875-125 mg"; one with an ingredient in another unit ("10000 UNT/ML /
+ * clavulanate potassium 125 MG"), or per actuation ("0.08 MG/ACTUAT / formoterol … 0.0045 MG/ACTUAT"), reads as
+ * "875-125 mg" or "0.08-0.0045 mg"; one with an ingredient in another unit ("10000 UNT/ML /
  * trimethoprim sulfate 1 MG/ML") has no strength it can compare. */
 const strengthOf = (description: string | undefined): Strength | undefined => {
   if (!description) return undefined;
   const match = description.match(
-    /((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:-\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|unt|%)(?![a-z])(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/i
+    /((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:-\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|unt|%)(?![a-z])(?:\s*\/\s*(\d+(?:\.\d+)?)?\s*(ml|actuat|act|dose|inh)\b)?/i
   );
   if (!match) return undefined;
-  const [, writtenAmounts, written, perMl, per] = match;
+  const [, writtenAmounts, written, per, perWord] = match;
+  const perMl = /^ml$/i.test(perWord ?? '');
   const unit = strengthUnit(written);
   let amounts = writtenAmounts.replace(/,/g, '');
-  const next = /\s*\/\s*(?:[a-z][a-z -]*\s)?(\d+(?:\.\d+)?)\s*([a-z%]+)(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/iy;
+  const next =
+    /\s*\/\s*(?:[a-z][a-z -]*\s)?(\d+(?:\.\d+)?)\s*([a-z%]+)(?:\s*\/\s*(\d+(?:\.\d+)?)?\s*(ml|actuat|act|dose|inh)\b)?/iy;
   next.lastIndex = (match.index ?? 0) + match[0].length;
+  // Per mL, per actuation ("act", "actuat", "dose", "inh") or per unit: each ingredient's must be the same.
+  const perOf = (word: string | undefined): string => (!word ? '' : /^ml$/i.test(word) ? 'ml' : 'act');
   for (let more = next.exec(description); more; more = next.exec(description)) {
-    if (strengthUnit(more[2]) !== unit || !more[3] !== !perMl || more[4] !== per) {
+    if (strengthUnit(more[2]) !== unit || perOf(more[4]) !== perOf(perWord) || more[3] !== per) {
       // Another ingredient in another unit; anything else ("/ 100 mL") ends the strength.
       if (STRENGTH_UNIT.test(more[2])) return undefined;
       break;
