@@ -160,6 +160,18 @@ export const PharmacySearch: FC<{
     sentBefore.map(({ ncpdpId }) => ncpdpId).filter((ncpdpId) => ncpdpId !== onFile?.pharmacy?.ncpdpId)
   );
 
+  const sentOptions: PharmacyOption[] = sent.map(({ ncpdpId, row, status }) => {
+    const pharmacy = row && directoryPharmacyToResult(row);
+    return {
+      kind: 'pharmacy' as const,
+      key: ncpdpId,
+      group: 'Sent to before',
+      name: row?.name ?? sentBefore.find((item) => item.ncpdpId === ncpdpId)?.name ?? ncpdpId,
+      address: pharmacy?.address ?? '',
+      pharmacy,
+      erx: status === 'success' ? Boolean(pharmacy) : undefined,
+    };
+  });
   const beforeTyping: PharmacyOption[] = [
     ...(onFile
       ? [
@@ -174,22 +186,15 @@ export const PharmacySearch: FC<{
           },
         ]
       : []),
-    ...sent.map(({ ncpdpId, row, status }) => {
-      const pharmacy = row && directoryPharmacyToResult(row);
-      return {
-        kind: 'pharmacy' as const,
-        key: ncpdpId,
-        group: 'Sent to before',
-        name: row?.name ?? sentBefore.find((item) => item.ncpdpId === ncpdpId)?.name ?? ncpdpId,
-        address: pharmacy?.address ?? '',
-        pharmacy,
-        erx: status === 'success' ? Boolean(pharmacy) : undefined,
-      };
-    }),
+    ...sentOptions,
   ];
 
   const typed = query.trim();
   const matched = notice?.matches?.pharmacies ?? [];
+  // Before typing, the pharmacies sent to before still show, under the saved pharmacy's matches (decision 196).
+  const sentUnder = pickedNotice
+    ? []
+    : sentOptions.filter(({ key }) => !matched.some((match) => match.ncpdpId === key));
   const options: PharmacyOption[] = notice
     ? [
         // With the phone, which may be all that tells them apart.
@@ -201,8 +206,13 @@ export const PharmacySearch: FC<{
           address: [pharmacy.address, formatPhoneNumberDisplay(pharmacy.phone)].filter(Boolean).join(' · '),
           pharmacy,
         })),
+        ...sentUnder,
         ...(sameZip.data ?? [])
-          .filter((pharmacy) => !matched.some((match) => match.ncpdpId === pharmacy.ncpdpId))
+          .filter(
+            (pharmacy) =>
+              !matched.some((match) => match.ncpdpId === pharmacy.ncpdpId) &&
+              !sentUnder.some(({ key }) => key === pharmacy.ncpdpId)
+          )
           .map((pharmacy) => ({
             kind: 'pharmacy' as const,
             key: pharmacy.ncpdpId,

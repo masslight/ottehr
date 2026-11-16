@@ -190,6 +190,25 @@ describe('eRx pharmacy picker', () => {
     expect(onPick).toHaveBeenCalledWith(result(HEB));
   });
 
+  // Decision 196: a pharmacy this visit already sent to isn't lost under the matches.
+  it('still lists the ones sent to before under a saved pharmacy’s matches', async () => {
+    const twin = result(directoryRow({ ncpdpId: '4400005', phone: '5125550199' })) as never;
+    renderPicker({
+      onFile: { ...ON_FILE, pharmacy: null, several: { zipCode: '78704', matches: [result(CVS) as never, twin] } },
+      sentBefore: [{ ncpdpId: WALGREENS.ncpdpId, name: 'Walgreens' }],
+    });
+    expect(await screen.findByText('Sent to before')).toBeInTheDocument();
+    await screen.findByText('Can receive e-prescriptions in 78704');
+    await screen.findByRole('option', { name: /WALGREENS #09552.*eRx ✓/ });
+    // Once each: the one sent to before isn't listed again with its zip.
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'CVS/PHARMACY #77411200 S CONGRESS AVE, AUSTIN, TX 78704 · (512) 555-0142',
+      'CVS/PHARMACY #77411200 S CONGRESS AVE, AUSTIN, TX 78704 · (512) 555-0199',
+      'WALGREENS #09552eRx ✓2501 S LAMAR BLVD, AUSTIN, TX 78704',
+      'HEB PHARMACY #6122400 S CONGRESS AVE, AUSTIN, TX 78704',
+    ]);
+  });
+
   it('checks a Google pick against the directory and picks the match', async () => {
     const user = userEvent.setup();
     const onPick = renderPicker();
