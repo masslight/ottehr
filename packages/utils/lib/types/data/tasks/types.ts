@@ -55,7 +55,9 @@ export type CreateManualTaskRequest = z.input<typeof CreateManualTaskRequestSche
 
 export const MANUAL_TASK = {
   category: {
+    dme: 'manual-dme',
     externalLab: 'manual-external-lab',
+    immunization: 'manual-immunization',
     inHouseLab: 'manual-in-house-lab',
     inHouseMedications: 'manual-in-house-medications',
     nursingOrders: 'manual-nursing-orders',

@@ -7,6 +7,7 @@ import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTasks';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
@@ -25,7 +26,9 @@ import { useGetPatientVisitHistory } from '../../../hooks/useGetPatientVisitHist
 import {
   getPatientLabel,
   TASK_CATEGORY_LABEL,
+  useDmeOrdersOptions,
   useExternalLabOrdersOptions,
+  useImmunizationOrdersOptions,
   useInHouseLabOrdersOptions,
   useInHouseMedicationsOptions,
   useNursingOrdersOptions,
@@ -124,6 +127,12 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const { radiologyOrdersLoading, radiologyOrdersOptions } = useRadiologyOrdersOptions(encounterId, refreshKey);
   const { proceduresLoading, proceduresOptions } = useProceduresOptions(encounterId);
   const { inHouseMedicationsLoading, inHouseMedicationsOptions } = useInHouseMedicationsOptions(encounterId);
+  const { immunizationOrdersLoading, immunizationOrdersOptions } = useImmunizationOrdersOptions(
+    formValue.category === MANUAL_TASK.category.immunization ? encounterId : ''
+  );
+  const { dmeOrdersLoading, dmeOrdersOptions } = useDmeOrdersOptions(
+    formValue.category === MANUAL_TASK.category.dme ? encounterId : ''
+  );
 
   const ordersLoading =
     formValue.category === MANUAL_TASK.category.inHouseLab
@@ -138,6 +147,10 @@ export const CreateTaskDialog: React.FC<Props> = ({
       ? proceduresLoading
       : formValue.category === MANUAL_TASK.category.inHouseMedications
       ? inHouseMedicationsLoading
+      : formValue.category === MANUAL_TASK.category.immunization
+      ? immunizationOrdersLoading
+      : formValue.category === MANUAL_TASK.category.dme
+      ? dmeOrdersLoading
       : false;
 
   const orderOptions =
@@ -153,6 +166,10 @@ export const CreateTaskDialog: React.FC<Props> = ({
       ? proceduresOptions
       : formValue.category === MANUAL_TASK.category.inHouseMedications
       ? inHouseMedicationsOptions
+      : formValue.category === MANUAL_TASK.category.immunization
+      ? immunizationOrdersOptions
+      : formValue.category === MANUAL_TASK.category.dme
+      ? dmeOrdersOptions
       : [];
 
   useEffect(() => {
@@ -210,6 +227,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const orderFullUrl = urlParams['*'];
   const serviceRequestId = urlParams['serviceRequestID'];
   const procedureId = urlParams['procedureId'];
+  const dmeOrderId = urlParams['dmeOrderId'];
+  const orderId = urlParams['orderId'];
   useEffect(() => {
     if (!open) {
       return;
@@ -229,6 +248,12 @@ export const CreateTaskDialog: React.FC<Props> = ({
     } else if (procedureId) {
       methods.setValue('category', MANUAL_TASK.category.procedures);
       methods.setValue('order', procedureId);
+    } else if (orderFullUrl?.startsWith('immunization/order') && orderId) {
+      methods.setValue('category', MANUAL_TASK.category.immunization);
+      methods.setValue('order', orderId);
+    } else if (FEATURE_FLAGS.DME_ORDERS_ENABLED && orderFullUrl?.startsWith('dme') && dmeOrderId) {
+      methods.setValue('category', MANUAL_TASK.category.dme);
+      methods.setValue('order', dmeOrderId);
     } else {
       methods.setValue('category', null);
       methods.setValue('order', null);
@@ -237,7 +262,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
     methods.setValue('taskDetails', null);
     methods.setValue('assignee', null);
     methods.setValue('location', null);
-  }, [orderFullUrl, serviceRequestId, procedureId, methods, open]);
+  }, [orderFullUrl, serviceRequestId, procedureId, orderId, dmeOrderId, methods, open]);
 
   // Visit context implies the location; declared after the URL-context effect above so its 'location' clear on open runs first.
   useEffect(() => {
@@ -275,8 +300,11 @@ export const CreateTaskDialog: React.FC<Props> = ({
             <SelectInput
               name="category"
               label="Category"
-              options={Object.values(MANUAL_TASK.category)}
+              options={Object.values(MANUAL_TASK.category).filter(
+                (category) => category !== MANUAL_TASK.category.dme || FEATURE_FLAGS.DME_ORDERS_ENABLED
+              )}
               getOptionLabel={(option) => TASK_CATEGORY_LABEL[option]}
+              onOptionSelected={() => methods.setValue('order', null)}
               required
             />
             <SelectInput

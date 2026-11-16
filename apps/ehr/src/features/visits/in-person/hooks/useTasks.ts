@@ -41,7 +41,12 @@ import {
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
-import { getDmeOrderDetailsUrl, getRadiologyOrderEditUrl, getVisitDocumentsUrl } from '../routing/helpers';
+import {
+  getDmeOrderDetailsUrl,
+  getImmunizationVaccineDetailsUrl,
+  getRadiologyOrderEditUrl,
+  getVisitDocumentsUrl,
+} from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
@@ -572,7 +577,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
   // Helper function to add encounterId query parameter if it's a follow-up
   const addEncounterIdToLink = (link: string | undefined): string | undefined => {
     if (!link || !isFollowUp || !encounterId) return link;
-    return `${link}?encounterId=${encounterId}`;
+    return `${link}${link.includes('?') ? '&' : '?'}encounterId=${encounterId}`;
   };
 
   if (category === LAB_ORDER_TASK.category) {
@@ -755,6 +760,18 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
         action = {
           name: GO_TO_TASK,
           link: addEncounterIdToLink(`/in-person/${appointmentId}/procedures/${orderId}`),
+        };
+      }
+      if (category === MANUAL_TASK.category.immunization) {
+        action = {
+          name: GO_TO_TASK,
+          link: addEncounterIdToLink(`${getImmunizationVaccineDetailsUrl(appointmentId ?? '')}?scrollTo=${orderId}`),
+        };
+      }
+      if (category === MANUAL_TASK.category.dme) {
+        action = {
+          name: GO_TO_TASK,
+          link: addEncounterIdToLink(getDmeOrderDetailsUrl(appointmentId ?? '', orderId)),
         };
       }
     } else if (appointmentId && isTaskProgressNoteSection(progressNoteSection)) {
