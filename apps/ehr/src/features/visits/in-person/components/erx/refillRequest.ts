@@ -191,7 +191,13 @@ export const requestRows = (request: RequestedMedication, prescription: Prescrib
     request.quantityUnit === undefined
       ? { ...quantity, differs: row('', request.quantityValue?.toString(), order.quantityValue?.toString()).differs }
       : quantity,
-    row('Directions', request.sig, prescription.instructions),
+    {
+      ...row('Directions', request.sig, prescription.instructions),
+      differs:
+        request.sig !== undefined &&
+        prescription.instructions !== undefined &&
+        !sameSig(request.sig, prescription.instructions),
+    },
     row('Days supply', request.daysSupply?.toString(), order.daysSupply?.toString()),
     row('Substitution', allowedText(request.substitutionAllowed), allowedText(order.substitutionAllowed)),
     // Fills asked for and refills written count differently, so a refill request's aren't compared; a change

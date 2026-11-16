@@ -87,6 +87,27 @@ describe('refill request: what the pharmacy sent', () => {
     expect(row(rows, 'Substitution').differs).toBe(false);
   });
 
+  // Review D5-4: directions that differ only in case, spacing or how a half is written read the same, as `sameSig`.
+  it('marks directions only when they read differently, not for case, spacing or a half', () => {
+    for (const sig of [
+      'TAKE 1 TABLET BY MOUTH ONCE DAILY',
+      'Take 1 tablet  by mouth once daily ',
+      'take 1 tablet by mouth once daily',
+    ]) {
+      expect(row(requestRows({ sig }, ORIGINAL), 'Directions')).toMatchObject({ request: sig, differs: false });
+    }
+    expect(
+      row(
+        requestRows(
+          { sig: 'TAKE 1/2 TABLET BY MOUTH ONCE DAILY' },
+          { ...ORIGINAL, instructions: 'Take half tablet by mouth once daily' }
+        ),
+        'Directions'
+      ).differs
+    ).toBe(false);
+    expect(row(requestRows({ sig: 'TAKE 2 TABLETS BY MOUTH ONCE DAILY' }, ORIGINAL), 'Directions').differs).toBe(true);
+  });
+
   it('compares a quantity sent with no unit by its value, shown as sent', () => {
     expect(row(requestRows({ quantityValue: 30 }, ORIGINAL), 'Quantity')).toMatchObject({
       request: '30',
