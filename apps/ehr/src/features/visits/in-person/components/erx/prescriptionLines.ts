@@ -800,9 +800,9 @@ export const withPrescriptionMetadata = (
 /** An amount in the instructions: a number, or a number word one to ten or "half", then a dose word ("10 mL daily",
  * "one teaspoon"). A time, a volume of water or a number of days isn't one ("every 6 hours", "mix in 8 oz of water",
  * "for 10 days"). The dose words are the refill reader's (`sigAmount`) with mg, g, tsp, teaspoon, packet and capful
- * (decisions 219, 223). */
+ * (decisions 219, 223), and lozenge, troche, patch, insert, suppository, tablespoon and scoop (decision 244). */
 const INSTRUCTIONS_AMOUNT =
-  /\b(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|half)\s*(?:ml|milliliters?|tab(?:let)?s?|cap(?:sule)?s?|puffs?|drops?|sprays?|mg|g|tsp|teaspoons?|packets?|capfuls?)\b/i;
+  /\b(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|half)\s*(?:ml|milliliters?|tab(?:let)?s?|cap(?:sule)?s?|puffs?|drops?|sprays?|mg|g|tsp|teaspoons?|packets?|capfuls?|lozenges?|troches?|patch(?:es)?|inserts?|suppositor(?:y|ies)|tablespoons?|tbsp|scoops?)\b/i;
 
 const isWholeNumberInRange = (value: string, min: number, max: number): boolean => {
   const number = Number(value);

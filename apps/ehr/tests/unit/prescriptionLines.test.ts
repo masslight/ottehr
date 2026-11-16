@@ -266,6 +266,30 @@ describe('prescriptionLineErrors', () => {
     }
   });
 
+  // Decision 244 (D12-5): the units decisions 212 and 217 added are dose words too.
+  it('takes a lozenge, patch, insert, suppository, tablespoon or scoop as an amount "as directed"', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const errors = (instructions: string): string[] =>
+      prescriptionLineErrors({
+        ...withDirections(liquid, { frequency: 'as directed', instructions }),
+        quantityValue: '100',
+      });
+    for (const instructions of [
+      'dissolve 1 lozenge in the mouth 5 times daily for 14 days',
+      'dissolve 1 troche in the mouth 5 times daily for 14 days',
+      'apply 1 patch to the site 30 minutes before the procedure',
+      'apply 2 patches to the back daily',
+      '1 insert at bedtime for 3 nights',
+      'one suppository at bedtime',
+      '2 suppositories daily',
+      '1 tablespoon daily',
+      '2 tbsp daily',
+      '1 scoop in 8 oz of water daily',
+    ]) {
+      expect(errors(instructions)).toEqual([]);
+    }
+  });
+
   // Decision 186: a line waiting for a pick hides its sentences, so it isn't asked for what they hold.
   it('asks only for the pick while the line waits for one', () => {
     const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
