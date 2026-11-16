@@ -1,9 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { DeviceRequest, DocumentReference, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Coverage, DeviceRequest, DocumentReference, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { BUCKET_NAMES, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
-import { createFilesDocumentReferences, genderMap } from 'utils/lib/fhir/helpers';
+import {
+  createFilesDocumentReferences,
+  genderMap,
+  getAllPractitionerCredentials,
+  getPlanIdAndNameFromCoverage,
+} from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
@@ -17,13 +22,16 @@ import {
   formatDmeBillingCode,
   formatDmeDuration,
 } from 'utils/lib/types/api/dme.types';
-import { formatDateForLabs, formatDOB } from 'utils/lib/utils/dateUtils';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
+import { formatDateForDisplay, formatDateForLabs, formatDOB } from 'utils/lib/utils/dateUtils';
 import { parseDmeOrder } from '../dme';
 import { getPatientLastFirstName } from '../patients';
+import { ensureSpace } from './helpers/render/blockHeader';
 import { drawFieldLine } from './helpers/render/drawFieldLine';
 import { DataComposer, PdfRenderConfig, renderPdf, StyleFactory, uploadPdfToStorage } from './pdf-common';
+import { PDF_CLIENT_STYLES } from './pdf-consts';
 import { rgbNormalized } from './pdf-utils';
-import { AssetPaths, PdfClient, PdfData, PdfSection, PdfStyles } from './types';
+import { AssetPaths, PdfClient, PdfData, PdfSection, PdfStyles, TextStyle } from './types';
 
 export const DME_ORDER_FORM_DOC_REF_DOCTYPE = {
   system: 'http://ottehr.org/fhir/StructureDefinition/dme-order-form',
@@ -51,13 +59,25 @@ export interface DmeOrderFormInput {
   practitioners: Practitioner[];
   location?: Location;
   timezone: string;
+  coverages: OrderedCoveragesWithSubscribers;
   oystehr: Oystehr;
+}
+
+interface InsuranceBlock {
+  rank: 'Primary' | 'Secondary';
+  name?: string;
+  subscriberNumber?: string;
+  subscriberName?: string;
+  subscriberDob?: string;
+  relationship?: string;
+  address?: string;
 }
 
 export interface DmeOrderFormData extends PdfData {
   orderingClinic: OrganizationBlock;
   thirdParty?: OrganizationBlock;
   patient: { name: string; dob: string; sex?: string; id: string; phone?: string; address?: string };
+  insurance: { billClass: string; coverages: InsuranceBlock[] };
   order: {
     orderedAt: string;
     itemName: string;
@@ -71,9 +91,27 @@ export interface DmeOrderFormData extends PdfData {
     fulfillment: string;
     dispensed?: string;
   };
-  orderingProvider: { name: string; npi?: string; signatureName: string };
+  orderingProvider: { name: string; npi?: string; signatureName: string; credentials?: string };
   inHouse: boolean;
 }
+
+const composeInsuranceBlock = (
+  rank: InsuranceBlock['rank'],
+  coverage: Coverage | undefined,
+  subscriber: RelatedPerson | Patient | undefined,
+  oystehr: Oystehr
+): InsuranceBlock | undefined => {
+  if (!coverage) return undefined;
+  return {
+    rank,
+    name: getPlanIdAndNameFromCoverage(coverage).planName || undefined,
+    subscriberNumber: coverage.subscriberId,
+    subscriberName: subscriber ? getFullestAvailableName(subscriber, true) : undefined,
+    subscriberDob: formatDateForDisplay(subscriber?.birthDate) || undefined,
+    relationship: coverage.relationship?.coding?.[0]?.display,
+    address: subscriber?.address?.[0] ? oystehr.fhir.formatAddress(subscriber.address[0]) : undefined,
+  };
+};
 
 const dmeFulfillmentText = (order: DmeOrderDTO): string => {
   if (order.external) return 'Fulfilled by external site / third party';
@@ -83,13 +121,17 @@ const dmeFulfillmentText = (order: DmeOrderDTO): string => {
 };
 
 export const composeDmeOrderFormData: DataComposer<DmeOrderFormInput, DmeOrderFormData> = (input) => {
-  const { deviceRequest, patient, practitioners, location, timezone, oystehr } = input;
+  const { deviceRequest, patient, practitioners, location, timezone, coverages, oystehr } = input;
   const practitionerNames = Object.fromEntries(
     practitioners.flatMap((practitioner) =>
       practitioner.id ? [[practitioner.id, getFullestAvailableName(practitioner) ?? '']] : []
     )
   );
   const order = parseDmeOrder(deviceRequest, practitionerNames);
+  const insuranceBlocks = [
+    composeInsuranceBlock('Primary', coverages.primary, coverages.primarySubscriber, oystehr),
+    composeInsuranceBlock('Secondary', coverages.secondary, coverages.secondarySubscriber, oystehr),
+  ].filter((block): block is InsuranceBlock => block !== undefined);
 
   const orderingPractitioner = practitioners.find((p) => p.id === order.orderedBy.practitionerId);
   const practitionerName = orderingPractitioner?.name?.[0];
@@ -116,6 +158,10 @@ export const composeDmeOrderFormData: DataComposer<DmeOrderFormInput, DmeOrderFo
       phone: standardizePhoneNumber(patient.telecom?.find((t) => t.system === 'phone')?.value),
       address: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : undefined,
     },
+    insurance: {
+      billClass: insuranceBlocks.length ? 'Third-Party Bill (T)' : 'Patient Bill (P)',
+      coverages: insuranceBlocks,
+    },
     order: {
       orderedAt: formatDateForLabs(order.orderedAt, timezone),
       itemName: order.itemName,
@@ -135,6 +181,9 @@ export const composeDmeOrderFormData: DataComposer<DmeOrderFormInput, DmeOrderFo
       name: order.orderedBy.name,
       npi: orderingPractitioner?.identifier?.find((id) => id.system === FHIR_IDENTIFIER_NPI)?.value,
       signatureName,
+      credentials: orderingPractitioner
+        ? getAllPractitionerCredentials(orderingPractitioner).join(', ') || undefined
+        : undefined,
     },
     inHouse: !order.external,
   };
@@ -158,7 +207,9 @@ const createDmeOrderFormStyles: StyleFactory = (assets) => {
       orgName: { fontSize: 13, font: assets.fonts.bold, spacing: 3, newLineAfter: true },
       patientName: { fontSize: 13, font: assets.fonts.bold, spacing: 3, newLineAfter: true },
       itemHeading: { fontSize: 15, font: assets.fonts.bold, spacing: 6, newLineAfter: true },
+      faxResults: { fontSize: 12, font: assets.fonts.bold, spacing: 3, newLineAfter: true },
       signature: { fontSize: 20, font: assets.fonts.signature, spacing: 5, newLineAfter: true },
+      signatureCredentials: { fontSize: 13, font: assets.fonts.regular, spacing: 5, newLineAfter: true },
       regular: bodyLine,
       fieldText: bodyLine,
       caption: { fontSize: 9, font: assets.fonts.regular, spacing: 2, newLineAfter: true },
@@ -183,7 +234,13 @@ const drawOrganizationBlock = (client: PdfClient, styles: PdfStyles, label: stri
 const fromColumn: PdfSection<DmeOrderFormData, OrganizationBlock> = {
   preferredWidth: 'column',
   dataSelector: (data) => data.orderingClinic,
-  render: (client, clinic, styles) => drawOrganizationBlock(client, styles, 'From:', clinic),
+  render: (client, clinic, styles) => {
+    drawOrganizationBlock(client, styles, 'From:', { ...clinic, fax: undefined });
+    if (clinic.fax) {
+      client.drawText('Please fax results to:', styles.textStyles.faxResults);
+      client.drawText(clinic.fax, styles.textStyles.faxResults);
+    }
+  },
 };
 
 const toColumn: PdfSection<DmeOrderFormData, OrganizationBlock> = {
@@ -212,6 +269,34 @@ const patientSection: PdfSection<DmeOrderFormData, DmeOrderFormData['patient']> 
   },
 };
 
+const billClassSection: PdfSection<DmeOrderFormData, DmeOrderFormData['insurance']> = {
+  preferredWidth: 'full',
+  dataSelector: (data) => data.insurance,
+  render: (client, insurance, styles) => {
+    client.drawSeparatedLine(styles.lineStyles.separator);
+    drawFieldLine(client, styles, { label: 'Bill Class:', value: insurance.billClass });
+  },
+};
+
+const insuranceColumn = (index: number): PdfSection<DmeOrderFormData, InsuranceBlock> => ({
+  preferredWidth: 'column',
+  dataSelector: (data) => data.insurance.coverages[index],
+  render: (client, coverage, styles) => {
+    client.newLine(6);
+    const fields: [string, string | undefined][] = [
+      [`${coverage.rank} Insurance Name:`, coverage.name],
+      ['Subscriber Number:', coverage.subscriberNumber],
+      ['Subscriber Name:', coverage.subscriberName],
+      ['Subscriber DOB:', coverage.subscriberDob],
+      ['Relation to Subscriber:', coverage.relationship],
+      ['Address:', coverage.address],
+    ];
+    fields.forEach(([label, value]) => {
+      if (value) drawFieldLine(client, styles, { label, value });
+    });
+  },
+});
+
 const orderSection: PdfSection<DmeOrderFormData, DmeOrderFormData['order']> = {
   preferredWidth: 'full',
   dataSelector: (data) => data.order,
@@ -238,17 +323,42 @@ const orderSection: PdfSection<DmeOrderFormData, DmeOrderFormData['order']> = {
   },
 };
 
+const keepBlockOnOnePage = (client: PdfClient, styles: PdfStyles, lines: TextStyle[], gaps: number): void => {
+  const { thickness, margin } = styles.lineStyles.separator;
+  const linesHeight = lines.reduce(
+    (height, style) => height + client.getTextDimensions('Ag', style).height + style.spacing,
+    0
+  );
+  ensureSpace(
+    client,
+    PDF_CLIENT_STYLES.initialPage,
+    thickness + (margin?.top ?? 0) + (margin?.bottom ?? 0) + linesHeight + gaps
+  );
+};
+
 const providerSignatureSection: PdfSection<DmeOrderFormData, DmeOrderFormData['orderingProvider']> = {
   preferredWidth: 'full',
   dataSelector: (data) => data.orderingProvider,
   render: (client, provider, styles) => {
+    const { sectionLabel, regular, signature, caption } = styles.textStyles;
+    keepBlockOnOnePage(client, styles, [sectionLabel, regular, signature, regular, caption], 24);
     client.drawSeparatedLine(styles.lineStyles.separator);
     client.drawText('Ordering Provider:', styles.textStyles.sectionLabel);
     if (provider.name) {
       client.drawText(`${provider.name}${provider.npi ? `, NPI: ${provider.npi}` : ''}`, styles.textStyles.regular);
     }
     client.newLine(24);
-    if (provider.signatureName) client.drawText(provider.signatureName, styles.textStyles.signature);
+    if (provider.signatureName) {
+      const signatureStyle = styles.textStyles.signature;
+      client.drawText(provider.signatureName, { ...signatureStyle, newLineAfter: !provider.credentials });
+      if (provider.credentials) {
+        client.drawStartXPosSpecifiedText(
+          `, ${provider.credentials}`,
+          styles.textStyles.signatureCredentials,
+          client.getLeftBound() + client.getTextDimensions(provider.signatureName, signatureStyle).width
+        );
+      }
+    }
     client.drawText(SIGNATURE_BLANK, styles.textStyles.regular);
     client.drawText('Provider Signature', styles.textStyles.caption);
   },
@@ -259,6 +369,8 @@ const proofOfDeliverySection: PdfSection<DmeOrderFormData, DmeOrderFormData> = {
   dataSelector: (data) => data,
   shouldRender: (data) => data.inHouse,
   render: (client, _data, styles) => {
+    const { sectionLabel, regular, fieldText } = styles.textStyles;
+    keepBlockOnOnePage(client, styles, [sectionLabel, regular, fieldText, fieldText], 24 + 12);
     client.drawSeparatedLine(styles.lineStyles.separator);
     client.drawText('Proof of Delivery:', styles.textStyles.sectionLabel);
     client.drawText('I acknowledge that I have received the item(s) listed above.', styles.textStyles.regular);
@@ -274,7 +386,17 @@ const dmeOrderFormRenderConfig: PdfRenderConfig<DmeOrderFormData> = {
   headerBodySeparator: false,
   assetPaths: dmeOrderFormAssetPaths,
   styleFactory: createDmeOrderFormStyles,
-  sections: [fromColumn, toColumn, patientSection, orderSection, providerSignatureSection, proofOfDeliverySection],
+  sections: [
+    fromColumn,
+    toColumn,
+    patientSection,
+    billClassSection,
+    insuranceColumn(0),
+    insuranceColumn(1),
+    orderSection,
+    providerSignatureSection,
+    proofOfDeliverySection,
+  ],
 };
 
 export const createDmeOrderFormPdfBytes = async (input: DmeOrderFormInput, token: string): Promise<Uint8Array> =>
