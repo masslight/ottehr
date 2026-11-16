@@ -11,7 +11,7 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { AR_STAGE, emptyClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PROVISIONAL_BALANCE_HINT } from '../../src/constants/claimStatus';
+import { PROVISIONAL_BALANCE_HINT, UNDETERMINED_PATIENT_RESP_HINT } from '../../src/constants/claimStatus';
 import ClaimDetail, { InsuranceSection } from '../../src/pages/ClaimDetail';
 
 const {
@@ -149,10 +149,12 @@ export const makeClaim = (arStage: string): ClaimDetailResponse => ({
   allowed: 0,
   insurancePaid: 0,
   patientResp: 0,
+  derivedPatientResp: 0,
   patientPaid: 0,
   writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
+  patientRespDetermined: false,
   firstSubmittedDate: '',
   remits: [],
   insurancePayments: [],
@@ -541,9 +543,11 @@ describe('ClaimDetail — service line remit details', () => {
     allowed: 176.83,
     insurancePaid: 136.83,
     patientResp: 40,
+    derivedPatientResp: 40,
     patientPaid: 60,
     balance: -20,
     adjudicated: true,
+    patientRespDetermined: true,
     remits: [remit],
     insurancePayments: [
       makePayment({
@@ -914,6 +918,25 @@ describe('ClaimDetail — service line remit details', () => {
     expect(within(totals).getByText('-$20.00')).toBeInTheDocument();
   });
 
+  it('warns when the reported patient responsibility differs from what the remit amounts imply', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits({ patientResp: 0, derivedPatientResp: 40 }));
+    renderDetail();
+    await openRemitsTab();
+
+    const warning = await screen.findByRole('alert', { name: 'Patient responsibility discrepancy' });
+    expect(warning).toHaveTextContent('Payers reported $0.00 patient responsibility');
+    expect(warning).toHaveTextContent('the remit amounts imply $40.00');
+  });
+
+  it('shows no discrepancy warning when the reported and derived patient responsibility agree', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
+    renderDetail();
+    await openRemitsTab();
+
+    await screen.findByRole('group', { name: 'Remit totals' });
+    expect(screen.queryByRole('alert', { name: 'Patient responsibility discrepancy' })).not.toBeInTheDocument();
+  });
+
   it('shows the service lines as before when no ERA is matched', async () => {
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits({ remits: [], insurancePayments: [] }));
     renderDetail();
@@ -1210,15 +1233,29 @@ describe('ClaimDetail — provisional balance indicator', () => {
     expect(await screen.findByRole('img', { name: PROVISIONAL_BALANCE_HINT })).toBeInTheDocument();
   });
 
-  it('does not flag the balance once the claim is adjudicated', async () => {
+  it('flags the balance as provisional when remits came back but none reported patient responsibility', async () => {
+    // e.g. a CO-B16 denial: the open balance may still be the payer's
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.patient),
       adjudicated: true,
+      patientRespDetermined: false,
+    });
+    renderDetail();
+
+    expect(await screen.findByRole('img', { name: UNDETERMINED_PATIENT_RESP_HINT })).toBeInTheDocument();
+  });
+
+  it('does not flag the balance once a remit reports patient responsibility', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      adjudicated: true,
+      patientRespDetermined: true,
     });
     renderDetail();
 
     await screen.findAllByText('Jane Doe');
     expect(screen.queryByRole('img', { name: PROVISIONAL_BALANCE_HINT })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: UNDETERMINED_PATIENT_RESP_HINT })).not.toBeInTheDocument();
   });
 });
 

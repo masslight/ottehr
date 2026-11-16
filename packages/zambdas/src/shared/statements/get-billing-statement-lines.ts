@@ -96,13 +96,20 @@ export function computeBillingStatementAmounts(params: {
   const payments = summarizeClaimPayments(claimResponses, claim.total?.value ?? 0, patientPaid, writeOffsTotal);
 
   const insurancePaidCents = Math.max(toCents(payments.insurancePaid), 0);
-  const unadjudicatedRespCents = hasReachedPatientAr(claim) ? toCents(claim.total?.value) : 0;
-  const patientRespCents = Math.max(payments.adjudicated ? toCents(payments.patientResp) : unadjudicatedRespCents, 0);
+  // until a remit reports PR, the patient owes what's still open only once the claim is moved to
+  // patient AR
+  const undeterminedRespCents = hasReachedPatientAr(claim)
+    ? Math.max(toCents(claim.total?.value) - insurancePaidCents, 0)
+    : 0;
+  const patientRespCents = Math.max(
+    payments.patientRespDetermined ? toCents(payments.patientResp) : undeterminedRespCents,
+    0
+  );
   const chargedCents = insurancePaidCents + patientRespCents;
   const patientPaidCents = toCents(payments.patientPaid);
   const writeOffsCents = toCents(payments.writeOffsTotal);
   const balanceCents =
-    hasReachedPatientAr(claim) || payments.adjudicated ? toCents(payments.balance) : unadjudicatedRespCents;
+    hasReachedPatientAr(claim) || payments.patientRespDetermined ? toCents(payments.balance) : undeterminedRespCents;
   const deductibleSumCents = latestRemitLines.reduce(
     (total, line) => total + toCents(patientRespBuckets(line.adjustments).deductible),
     0

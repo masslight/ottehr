@@ -5,6 +5,7 @@ import {
   KeyboardArrowRight as KeyboardArrowRightIcon,
 } from '@mui/icons-material';
 import {
+  Alert,
   Box,
   ClickAwayListener,
   Collapse,
@@ -769,6 +770,21 @@ function RemitLineCard({
 export function RemitTotals({ claim }: { claim: ClaimDetailResponse }): ReactElement {
   const insurancePaid = useMemo(() => insurancePaidByDesignation(claim.remits, claimPayerNames(claim)), [claim]);
   return (
+    <>
+      <RemitTotalsBar claim={claim} insurancePaid={insurancePaid} />
+      <PatientRespDiscrepancyWarning claim={claim} />
+    </>
+  );
+}
+
+function RemitTotalsBar({
+  claim,
+  insurancePaid,
+}: {
+  claim: ClaimDetailResponse;
+  insurancePaid: ReturnType<typeof insurancePaidByDesignation>;
+}): ReactElement {
+  return (
     <Box
       role="group"
       aria-label="Remit totals"
@@ -804,6 +820,24 @@ export function RemitTotals({ claim }: { claim: ClaimDetailResponse }): ReactEle
       <Total label="Patient Paid" value={formatCurrency(claim.patientPaid)} />
       <Total label="Balance" value={formatCurrency(claim.balance)} />
     </Box>
+  );
+}
+
+// Patient responsibility comes from the payers' PR adjustments; the claim also derives what the
+// remits' amounts imply the patient owes. The two agree when every remit is complete and balances,
+// so a difference means a remit is probably missing its PR or other adjustments (e.g. a manually
+// keyed one) and a biller should check it before billing the patient.
+function PatientRespDiscrepancyWarning({ claim }: { claim: ClaimDetailResponse }): ReactElement | null {
+  const toCents = (amount: number): number => Math.round(amount * 100);
+  // before any remit reports PR the balance is already flagged provisional; there's nothing to compare
+  if (!claim.patientRespDetermined) return null;
+  if (toCents(claim.patientResp) === toCents(claim.derivedPatientResp)) return null;
+  return (
+    <Alert severity="warning" sx={{ mt: 1 }} aria-label="Patient responsibility discrepancy">
+      Payers reported {formatCurrency(claim.patientResp)} patient responsibility, but the remit amounts imply{' '}
+      {formatCurrency(claim.derivedPatientResp)}. A remit may be missing its patient responsibility or other adjustments
+      — review the remits before billing the patient.
+    </Alert>
   );
 }
 

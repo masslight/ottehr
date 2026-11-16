@@ -1,6 +1,18 @@
 import { AR_STAGE } from 'utils/lib/types/data/billing/claim-status';
 
 export const PROVISIONAL_BALANCE_HINT = 'No remittance received yet, balance is provisional';
+export const UNDETERMINED_PATIENT_RESP_HINT =
+  'No remittance has reported patient responsibility yet, balance is provisional and may still be owed by a payer';
+
+// Why a claim's balance is provisional, or undefined once a remit has said what the patient owes.
+export function provisionalBalanceHint(claim: {
+  adjudicated: boolean;
+  patientRespDetermined: boolean;
+}): string | undefined {
+  if (!claim.adjudicated) return PROVISIONAL_BALANCE_HINT;
+  if (!claim.patientRespDetermined) return UNDETERMINED_PATIENT_RESP_HINT;
+  return undefined;
+}
 
 export const CLAIM_STATUS_COLORS: Record<string, 'warning' | 'info' | 'error' | 'success' | 'primary' | 'default'> = {
   open: 'warning',

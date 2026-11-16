@@ -49,11 +49,18 @@ export interface ClaimResponseAmounts {
 export interface ClaimPaymentSummary {
   allowed: number;
   insurancePaid: number;
+  // what the payers reported the patient owes (PR adjustments, see ClaimBalances.patientResp)
   patientResp: number;
+  // what the remits' amounts imply the patient owes (see ClaimBalances.derivedPatientResp); equal to
+  // patientResp when every remit is complete and balances, so a difference is worth a biller's look
+  derivedPatientResp: number;
   patientPaid: number;
   writeOffsTotal: number;
   balance: number;
   adjudicated: boolean;
+  // false until a remit reports PR: before that it's unknown whether the patient or a payer owes the
+  // open balance (e.g. a CO-B16 denial awaiting a corrected claim), so it is provisional
+  patientRespDetermined: boolean;
 }
 
 function allAdjudications(claimResponse: ClaimResponse): ClaimResponseItemAdjudication[] {
@@ -244,14 +251,19 @@ export interface ClaimBalances {
   insurancePaid: number;
   // the latest remit's PR; undefined when that remit carries none
   reportedPatientResp: number | undefined;
+  // whether any remit so far reported PR (even 0), i.e. a payer has said what the patient owes
+  patientRespReported: boolean;
   // summed over remits that report allowed
   writeOffsBeyondAllowed: number;
   // summed over remits that report allowed: how much of the claim's reduction to allowed they carried
   reductionCarried: number;
   // summed over remits that report no allowed amount
   writeOffsWithoutAllowed: number;
-  // what the patient owes per the remits so far (see resolvePatientResp)
+  // what the patient owes per X12: the latest remit's PR adjustments (CLP05), 0 when it reports none
+  // (see reportedPatientRespOf)
   patientResp: number;
+  // what the patient owes per the remits' amounts: basis - paid - write-offs (see derivePatientResp)
+  derivedPatientResp: number;
 }
 
 export function initialClaimBalances(billed: number): ClaimBalances {
@@ -260,10 +272,12 @@ export function initialClaimBalances(billed: number): ClaimBalances {
     allowed: undefined,
     insurancePaid: 0,
     reportedPatientResp: undefined,
+    patientRespReported: false,
     writeOffsBeyondAllowed: 0,
     reductionCarried: 0,
     writeOffsWithoutAllowed: 0,
     patientResp: 0,
+    derivedPatientResp: 0,
   };
 }
 
@@ -275,23 +289,33 @@ export function applyRemit(balances: ClaimBalances, remit: RemitAmounts): ClaimB
     allowed: remit.allowed ?? balances.allowed,
     insurancePaid: balances.insurancePaid + remit.paid,
     reportedPatientResp: remit.patientResp,
+    patientRespReported: balances.patientRespReported || remit.patientResp !== undefined,
     writeOffsBeyondAllowed: balances.writeOffsBeyondAllowed + (reportsAllowed ? remit.writeOffsBeyondAllowed : 0),
     reductionCarried: balances.reductionCarried + remit.reductionToAllowed,
     writeOffsWithoutAllowed: balances.writeOffsWithoutAllowed + (reportsAllowed ? 0 : remit.writeOffs),
   };
-  return { ...next, patientResp: resolvePatientResp(next) };
+  // Both ceilinged to 0: a reversal reports what it took back as negative PR, and the patient owes
+  // nothing rather than less than nothing — otherwise a payment they made counts twice as credit.
+  return {
+    ...next,
+    patientResp: Math.max(reportedPatientRespOf(next), 0),
+    derivedPatientResp: Math.max(derivePatientResp(next), 0),
+  };
 }
 
-// Patient responsibility is what the latest remit's PR says the patient owes: after COB the last
-// payer's PR already accounts for what prior payers paid, so summing PR across payers would
-// double-count the share of the primary's PR the secondary covered. Without PR on the latest remit
-// it's derived (see derivePatientResp). Ceilinged to 0 either way: a reversal reports what it took
-// back as negative PR, and the patient owes nothing rather than less than nothing — otherwise a
-// payment they made counts twice as credit.
-function resolvePatientResp(balances: ClaimBalances): number {
-  return Math.max(balances.reportedPatientResp ?? derivePatientResp(balances), 0);
+// Patient responsibility as X12 defines it: CLP05 is the sum of the PR adjustments (RFI 2548), and
+// only PR amounts may be billed to the patient. It's the latest remit's: after COB the last payer's
+// PR already accounts for what prior payers paid, and a secondary that paid the prior PR reports
+// none, so summing PR across payers would double-count. No PR on the latest remit means the payer
+// assigned the patient nothing.
+function reportedPatientRespOf(balances: ClaimBalances): number {
+  return balances.reportedPatientResp ?? 0;
 }
 
+// What the remits' amounts imply the patient owes, as a check on the reported PR: on complete
+// remits that balance (charge = paid + every adjustment) the two agree, so a difference points at
+// a remit missing its PR or other adjustments, e.g. a manually keyed one.
+//
 // basis - insurancePaid - whatever payers wrote off on top of the basis. The basis is the latest
 // allowed amount, or billed when no remit reports one (AMT*B6 is optional, and manual ERAs may
 // leave it blank).
@@ -336,6 +360,11 @@ export function claimBalanceSteps(claimResponses: ClaimResponse[], billed: numbe
 
 // The claim's payment summary: the balances after its last remit, plus what the patient paid and
 // the write-offs recorded on the claim.
+//
+// Until a remit reports PR, nobody has said what the patient owes: the claim's balance is whatever
+// is still open (billed less what was paid and written off on the claim), provisional, and not yet
+// the patient's. Payer adjustments don't close it: CO-B16 "doesn't qualify as a new-patient visit"
+// is a denial awaiting a corrected claim, not a settled amount.
 export function summarizeClaimPayments(
   claimResponses: ClaimResponse[],
   billed: number,
@@ -349,10 +378,26 @@ export function summarizeClaimPayments(
       allowed: 0,
       insurancePaid: 0,
       patientResp: 0,
+      derivedPatientResp: 0,
       patientPaid,
       writeOffsTotal,
       balance: billed - patientPaid - writeOffsTotal,
       adjudicated: false,
+      patientRespDetermined: false,
+    };
+  }
+
+  if (!balances.patientRespReported) {
+    return {
+      allowed: balances.allowed ?? 0,
+      insurancePaid: balances.insurancePaid,
+      patientResp: 0,
+      derivedPatientResp: balances.derivedPatientResp,
+      patientPaid,
+      writeOffsTotal,
+      balance: billed - balances.insurancePaid - patientPaid - writeOffsTotal,
+      adjudicated: true,
+      patientRespDetermined: false,
     };
   }
 
@@ -360,15 +405,17 @@ export function summarizeClaimPayments(
     allowed: balances.allowed ?? 0,
     insurancePaid: balances.insurancePaid,
     patientResp: balances.patientResp,
+    derivedPatientResp: balances.derivedPatientResp,
     patientPaid,
     writeOffsTotal,
     balance: balances.patientResp - patientPaid - writeOffsTotal,
     adjudicated: true,
+    patientRespDetermined: true,
   };
 }
 
-// claims count toward the patient's balance when receiving a remit or reaching patient AR. an
-// un-adjudicated claim's billed amount is pending insurance, not patient-owed
+// claims count toward the patient's balance once a remit reports what the patient owes (PR) or the
+// claim reaches patient AR. Until then the open amount may still be a payer's, not patient-owed
 export function summarizePatientBalance(
   entries: {
     payments: ClaimPaymentSummary;
@@ -380,7 +427,10 @@ export function summarizePatientBalance(
   currentBalance: number;
 } {
   const claimBalances = entries.map(({ payments, reachedPatientAr }) =>
-    roundNumberToDecimalPlaces(payments.adjudicated || reachedPatientAr ? payments.balance : -payments.patientPaid, 2)
+    roundNumberToDecimalPlaces(
+      payments.patientRespDetermined || reachedPatientAr ? payments.balance : -payments.patientPaid,
+      2
+    )
   );
   return {
     claimsWithPatientBalance: claimBalances.filter((balance) => balance > 0).length,

@@ -789,6 +789,7 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     writeOffsTotal: payments.writeOffsTotal,
     claimBalance: payments.balance,
     adjudicated: payments.adjudicated,
+    patientRespDetermined: payments.patientRespDetermined,
     responsibleParty: 'Primary',
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

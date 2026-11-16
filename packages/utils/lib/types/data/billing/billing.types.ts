@@ -359,6 +359,8 @@ export interface BillingClaimItem {
   writeOffsTotal: number;
   claimBalance: number;
   adjudicated: boolean;
+  // false until a remit reports PR: claimBalance is then provisional and may still be a payer's
+  patientRespDetermined: boolean;
   responsibleParty: string;
   tags: string[];
 }
@@ -632,11 +634,17 @@ export interface ClaimDetailResponse {
   billed: number;
   allowed: number;
   insurancePaid: number;
+  // what the payers reported the patient owes: the latest remit's PR adjustments (X12 CLP05)
   patientResp: number;
+  // what the remits' amounts imply the patient owes (basis - paid - write-offs); differs from
+  // patientResp only when a remit is incomplete or doesn't balance
+  derivedPatientResp: number;
   patientPaid: number;
   writeOffsTotal: number;
   balance: number;
   adjudicated: boolean;
+  // false until a remit reports PR: balance is then provisional and may still be a payer's
+  patientRespDetermined: boolean;
   // when Oystehr first sent the claim to the payer; '' when it was never submitted from Ottehr
   firstSubmittedDate: string;
   remits: ClaimRemit[];
