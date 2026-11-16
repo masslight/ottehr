@@ -202,6 +202,7 @@
     "react-hook-form": "7.64.0",
     "react-i18next": "^12.2.0",
     "react-imask": "^7.6.1",
+    "react-is": "^18.2.0",
     "react-markdown": "^9.0.0",
     "react-router-dom": "^6.3.0",
     "react-window": "^1.8.10",
@@ -277,5 +278,8 @@
   "optionalDependencies": {
     "@esbuild/linux-x64": "^0.25.10",
     "@rollup/rollup-linux-x64-gnu": "4.24.0"
+  },
+  "overrides": {
+    "react-is": "^18.2.0"
   }
 }

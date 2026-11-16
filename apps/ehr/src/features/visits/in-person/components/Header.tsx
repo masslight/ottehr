@@ -25,7 +25,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { TypographyOptions } from '@mui/material/styles/createTypography';
+import { TypographyVariantsOptions } from '@mui/material/styles';
 import { styled } from '@mui/system';
 import { useQueryClient } from '@tanstack/react-query';
 import { Appointment } from 'fhir/r4b';
@@ -102,7 +102,7 @@ const HeaderWrapper = styled(Box)(({ theme }) => ({
 }));
 
 const PatientName = styled(Typography)(({ theme }) => ({
-  ...(theme?.typography as TypographyOptions).h4,
+  ...(theme?.typography as TypographyVariantsOptions).h4,
   textAlign: 'left',
   fontWeight: 'bold',
   color: theme.palette.primary.dark,

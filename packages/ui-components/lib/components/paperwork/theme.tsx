@@ -6,7 +6,7 @@ import {
   PaletteOptions,
   ThemeProvider,
 } from '@mui/material';
-import { TypographyOptions } from '@mui/material/styles/createTypography';
+import { TypographyVariantsOptions } from '@mui/material/styles';
 import _ from 'lodash';
 import { createContext, FC, PropsWithChildren, useContext } from 'react';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
@@ -190,7 +190,7 @@ const paperworkComponentOverrides: Components = {
 
 // Only the variants actually rendered by SharedPagedQuestionnaire/form-components
 // (h2-h5, body1, body2, caption). No h1/h6/subtitle/overline — nothing renders them here.
-const paperworkTypographyOverrides: TypographyOptions = {
+const paperworkTypographyOverrides: TypographyVariantsOptions = {
   fontFamily: textFonts.join(','),
   h2: { fontSize: 26, fontWeight: '600', fontFamily: headerFonts.join(','), lineHeight: '140%' },
   h3: { fontSize: 20, fontWeight: '600', fontFamily: headerFonts.join(','), lineHeight: '140%' },
