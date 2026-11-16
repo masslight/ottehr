@@ -270,6 +270,38 @@ describe('eRx pharmacy picker', () => {
     expect(onPick).toHaveBeenCalledWith(result(twin));
   });
 
+  // Decisions 202/206: a twin with no NPI can't take an order, so only the rows with one count.
+  it('picks a Google pick matching 2 directory rows when only one has an NPI', async () => {
+    const user = userEvent.setup();
+    const twin = directoryRow({ ncpdpId: '4400005', phone: '5125550199', npi: undefined });
+    mocks.searchPharmacyDirectory.mockImplementation(async (token: string, query: ErxDirectoryQuery) => [
+      ...(await searchDirectory(token, query)),
+      ...(query.address === '1200 s' ? [twin] : []),
+    ]);
+    const onPick = renderPicker();
+    await user.type(screen.getByRole('combobox', { name: 'Pharmacy' }), 'cvs congress');
+    await user.click(await screen.findByRole('option', { name: /CVS Pharmacy/ }));
+    await waitFor(() => expect(onPick).toHaveBeenCalledWith(result(CVS)));
+    expect(screen.queryByText(/More than one pharmacy matches/)).not.toBeInTheDocument();
+  });
+
+  it('says a Google pick matching 2 directory rows with no NPI can’t receive e-prescriptions', async () => {
+    const user = userEvent.setup();
+    const noNpi = (row: ErxDirectoryPharmacy): ErxDirectoryPharmacy => ({ ...row, npi: undefined });
+    mocks.searchPharmacyDirectory.mockImplementation(async (token: string, query: ErxDirectoryQuery) =>
+      query.address === '1200 s'
+        ? [noNpi(CVS), noNpi(directoryRow({ ncpdpId: '4400005' }))]
+        : searchDirectory(token, query)
+    );
+    const onPick = renderPicker();
+    await user.type(screen.getByRole('combobox', { name: 'Pharmacy' }), 'cvs congress');
+    await user.click(await screen.findByRole('option', { name: /CVS Pharmacy/ }));
+    expect(
+      await screen.findByText("CVS Pharmacy can't receive e-prescriptions. Pick another pharmacy.")
+    ).toBeInTheDocument();
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
   it('offers the directory search from 3 characters, as Google', async () => {
     const user = userEvent.setup();
     renderPicker();
@@ -355,6 +387,36 @@ describe('preferred pharmacy lookup', () => {
     const saved = { name: "Wilson's Family Pharmacy", address: '418 E Oltorf St, Austin, TX 78704' };
     const { result: hook } = renderHook(() => usePreferredPharmacy('patient-1', saved), { wrapper });
     await waitFor(() => expect(hook.current.data).toBeNull());
+  });
+
+  // Decisions 202/206.
+  it('matches the saved pharmacy to the one directory row with an NPI, by its address or its place', async () => {
+    const twin = directoryRow({ ncpdpId: '4400005', phone: '5125550199', npi: undefined });
+    mocks.searchPharmacyDirectory.mockImplementation(async (token: string, query: ErxDirectoryQuery) => [
+      ...(await searchDirectory(token, query)),
+      ...(query.address === '1200 s' ? [twin] : []),
+    ]);
+    const typed = { name: 'CVS Pharmacy', address: '1200 S Congress Ave, Austin, TX 78704' };
+    const { result: byAddress } = renderHook(() => usePreferredPharmacy('patient-1', typed), { wrapper });
+    await waitFor(() => expect(byAddress.current.data).toEqual(result(CVS)));
+    const picked = { ...typed, placesId: 'place-cvs' };
+    const { result: byPlace } = renderHook(() => usePreferredPharmacy('patient-2', picked), { wrapper });
+    await waitFor(() => expect(byPlace.current.data).toEqual(result(CVS)));
+  });
+
+  it('is null when the saved pharmacy matches 2 directory rows with no NPI', async () => {
+    mocks.searchPharmacyDirectory.mockResolvedValue([
+      { ...CVS, npi: undefined },
+      { ...CVS, ncpdpId: '4400005', npi: undefined },
+    ]);
+    const typed = { name: 'CVS Pharmacy', address: '1200 S Congress Ave, Austin, TX 78704' };
+    const { result: byAddress } = renderHook(() => usePreferredPharmacy('patient-1', typed), { wrapper });
+    await waitFor(() => expect(byAddress.current.isSuccess).toBe(true));
+    expect(byAddress.current.data).toBeNull();
+    const picked = { ...typed, placesId: 'place-cvs' };
+    const { result: byPlace } = renderHook(() => usePreferredPharmacy('patient-2', picked), { wrapper });
+    await waitFor(() => expect(byPlace.current.isSuccess).toBe(true));
+    expect(byPlace.current.data).toBeNull();
   });
 
   it('says when more than one directory pharmacy matches the saved pharmacy, by its address or its place', async () => {

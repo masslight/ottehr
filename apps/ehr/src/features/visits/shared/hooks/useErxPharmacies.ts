@@ -25,16 +25,16 @@ const findDirectoryPharmacies = async (token: string, place: PharmacyPlace): Pro
   return query ? directoryPharmacyMatches(place, await searchPharmacyDirectory(token, query)) : [];
 };
 
-/** The one directory pharmacy matched, if it can be ordered to: none when several match (ambiguous). */
-const onlyPharmacy = (matches: ErxDirectoryPharmacy[]): PharmacySearchResult | undefined =>
-  matches.length === 1 ? directoryPharmacyToResult(matches[0]) : undefined;
+/** The one directory pharmacy matched that an order can go to: none when several can (ambiguous). */
+const onlyPharmacy = (matches: PharmacySearchResult[]): PharmacySearchResult | undefined =>
+  matches.length === 1 ? matches[0] : undefined;
 
 export interface CheckedPlace {
   name: string;
   zipCode?: string;
   /** Undefined when the place isn't a directory pharmacy that takes e-prescriptions. */
   pharmacy?: PharmacySearchResult;
-  /** More than one directory pharmacy matches the place, so which one it is can't be told. */
+  /** More than one directory pharmacy an order can go to matches the place, so which one it is can't be told. */
   several?: boolean;
   /** The directory pharmacies matched that an order can go to. */
   matches?: PharmacySearchResult[];
@@ -50,13 +50,14 @@ const checkPlace = async (token: string, searchPlaces: SearchPlaces, placesId: s
   const name = details?.name ?? '';
   const parts = details?.addressComponents;
   if (!parts) return { name };
-  const matches = await findDirectoryPharmacies(token, { name, ...parts });
+  // Only the matches an order can go to count: a twin with no NPI isn't the right one (decision 202).
+  const matches = orderable(await findDirectoryPharmacies(token, { name, ...parts }));
   return {
     name,
     zipCode: parts.zipCode?.slice(0, 5),
     pharmacy: onlyPharmacy(matches),
     several: matches.length > 1,
-    matches: orderable(matches),
+    matches,
   };
 };
 
@@ -126,8 +127,8 @@ export const usePharmaciesByNcpdpId = (
   }));
 };
 
-/** A saved pharmacy that more than one directory pharmacy matches, so which one it is can't be told: its zip, and
- * the matches an order can go to. */
+/** A saved pharmacy that more than one directory pharmacy an order can go to matches, so which one it is can't be
+ * told: its zip, and those matches. */
 export interface SeveralPreferred {
   several: true;
   zipCode?: string;
@@ -154,9 +155,9 @@ export const usePreferredPharmacy = (
         return several ? { several: true as const, zipCode, matches: matches ?? [] } : pharmacy ?? null;
       }
       const place = parseAddressText(saved!.name, saved!.address);
-      const matches = place ? await findDirectoryPharmacies(token!, place) : [];
+      const matches = place ? orderable(await findDirectoryPharmacies(token!, place)) : [];
       return matches.length > 1
-        ? { several: true as const, zipCode: place?.zipCode, matches: orderable(matches) }
+        ? { several: true as const, zipCode: place?.zipCode, matches }
         : onlyPharmacy(matches) ?? null;
     },
     enabled: Boolean(token) && Boolean(apiClient) && Boolean(saved),
