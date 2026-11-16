@@ -290,9 +290,11 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
 
   const reasons = answer !== 'deny' ? RENEWAL_PENDING_REASONS : change ? CHANGE_DENIAL_REASONS : RENEWAL_DENIAL_REASONS;
   // The pharmacy's medication the original is compared with: a refill request's, or the selected suggestion.
-  const compared = (change ? selected : refill?.medication) ?? {};
-  // Under the comparison, or with the Change form once it is open; never blocks.
-  const strengthWarning = change && selected && prescription && strengthChangeWarning(selected, prescription);
+  const requested = change ? selected : refill?.medication;
+  const compared = requested ?? {};
+  // Under the comparison, or with the Change form once it is open; never blocks. A refill can come back at another
+  // strength just as a change can.
+  const strengthWarning = requested && prescription && strengthChangeWarning(requested, prescription);
   const sameDirections = strengthWarning && (
     <Typography variant="body2" color="warning.dark">
       {strengthWarning}

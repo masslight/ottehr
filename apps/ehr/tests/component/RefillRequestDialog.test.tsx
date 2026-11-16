@@ -279,6 +279,36 @@ describe('Refill request dialog', () => {
     ).toHaveAttribute('data-differs', 'true');
   });
 
+  // Decision 251: a refill can come back at another strength just as a change can.
+  it('warns when the requested medication is another strength with the same amount', async () => {
+    const original = 'Amoxicillin 400 mg/5ml Susp';
+    await open({
+      ...REQUEST,
+      pharmacyRequest: {
+        ...REQUEST.pharmacyRequest!,
+        medication: {
+          description: 'Amoxicillin 250 mg/5ml Susp',
+          ndc: '00093415273',
+          sig: 'Take 5 mL by mouth twice daily for 10 days',
+        },
+      },
+      prescription: {
+        ...REQUEST.prescription!,
+        name: original,
+        instructions: 'Take 5 mL by mouth twice daily for 10 days.',
+        order: { ...REQUEST.prescription!.order!, ndc: '00093415573', medicationDescription: original },
+      },
+    });
+    expect(
+      screen.getByText('Different strength, same amount: 400 mg/5 mL → 250 mg/5 mL. Check the dose.')
+    ).toBeInTheDocument();
+  });
+
+  it('doesn’t warn on a refill of the same strength', async () => {
+    await open();
+    expect(screen.queryByText(/^Different strength/)).not.toBeInTheDocument();
+  });
+
   it('stays sent when the task can’t be completed, with a warning to close it from the Tasks page', async () => {
     mocks.completeTask.mockRejectedValue(new Error('Task update failed'));
     const user = await open();
