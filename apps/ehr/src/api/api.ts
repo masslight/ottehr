@@ -702,6 +702,8 @@ export const checkPractitionerEnrollment = async (
     },
   });
   const body = await response.json().catch(() => undefined);
+  // eRx v4 answers 403 to a role it gives no eRx access: that user isn't an enrolled prescriber.
+  if (response.status === 403) return { registered: false };
   if (!response.ok) {
     throw new Error(body?.message ?? `Failed to check Surescripts registration (${response.status})`);
   }

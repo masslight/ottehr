@@ -7,7 +7,9 @@ import { ERXSurescriptsBody } from '../../src/features/visits/in-person/componen
 const mocks = vi.hoisted(() => ({ roles: [] as string[], checkPractitionerEnrollment: vi.fn() }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
-vi.mock('src/api/api', () => ({ checkPractitionerEnrollment: mocks.checkPractitionerEnrollment }));
+vi.mock('src/api/api', () => ({
+  checkPractitionerEnrollment: (...args: unknown[]) => mocks.checkPractitionerEnrollment(...args),
+}));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 vi.mock('src/hooks/useAuthToken', () => ({ useAuthToken: () => 'user-token' }));
 vi.mock('src/hooks/useEvolveUser', () => ({
@@ -36,6 +38,7 @@ const renderBody = (): void => {
 describe('eRx (Surescripts) page: Enroll', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
     mocks.checkPractitionerEnrollment.mockResolvedValue({ registered: false });
   });
 
@@ -51,5 +54,19 @@ describe('eRx (Surescripts) page: Enroll', () => {
     renderBody();
     expect(await screen.findByText('You are not enrolled in Surescripts e-prescribing.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Enroll' })).not.toBeInTheDocument();
+  });
+
+  // Review item 109: eRx v4 answers the check with 403 for a role it gives no eRx access, which isn't an outage.
+  it('reads eRx v4’s 403 on the check as not enrolled', async () => {
+    const { checkPractitionerEnrollment } = await vi.importActual<typeof import('src/api/api')>('src/api/api');
+    mocks.checkPractitionerEnrollment.mockImplementation(checkPractitionerEnrollment);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ message: 'Forbidden', code: '4031' }), { status: 403 }))
+    );
+    mocks.roles = [RoleType.Staff];
+    renderBody();
+    expect(await screen.findByText('You are not enrolled in Surescripts e-prescribing.')).toBeInTheDocument();
+    expect(screen.queryByText(/Unable to check your Surescripts registration/)).not.toBeInTheDocument();
   });
 });
