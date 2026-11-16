@@ -208,12 +208,13 @@ export const isPrescriptionActionAvailable = (
   prescription: PrescribedMedicationDTO
 ): boolean => !prescriptionActionBlocker(action, prescription);
 
-/** Why an action can't be taken on every one of the prescriptions, naming the statuses and missing fields. */
+/** Why an action can't be taken on every one of the prescriptions, naming the statuses and missing fields. `name` is
+ * what the text calls the action, where a screen offers it under another name. */
 export const prescriptionActionUnavailableText = (
   action: PrescriptionAction,
-  prescriptions: PrescribedMedicationDTO[]
+  prescriptions: PrescribedMedicationDTO[],
+  name = PRESCRIPTION_ACTION_NAMES[action]
 ): string | undefined => {
-  const name = PRESCRIPTION_ACTION_NAMES[action];
   const statuses = new Set<string>();
   const missing: string[] = [];
   for (const prescription of prescriptions) {

@@ -44,7 +44,12 @@ import { GET_TASKS_KEY, useCompleteErxTask } from '../../hooks/useTasks';
 import { OrderPrescriptionForm } from './OrderPrescriptionForm';
 import { errorMessage, patientAddressAndPhone, patientNameGenderBirthDate } from './prescriptionDialogs';
 import { prescriptionVitals } from './prescriptionLines';
-import { isPrescriptionCancellable, prescriptionActionUnavailableText } from './prescriptionStatus';
+import {
+  cancelDeniedWarning,
+  isPrescriptionCancelDenied,
+  isPrescriptionCancellable,
+  prescriptionActionUnavailableText,
+} from './prescriptionStatus';
 import {
   approvalMetadata,
   changeApproval,
@@ -295,10 +300,12 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const noteMax = answer === 'deny' ? 210 : 70;
 
   // A patient's change replaces the original as Send to another pharmacy does, so what blocks that blocks it.
-  const changeBlocked =
-    !request && data?.kind === 'change' && prescription && !originalCancelled
-      ? prescriptionActionUnavailableText('sendToAnotherPharmacy', [prescription])
-      : undefined;
+  const patientChange = !request && data?.kind === 'change' && prescription && !originalCancelled;
+  const changeBlocked = patientChange
+    ? prescriptionActionUnavailableText('sendToAnotherPharmacy', [prescription], 'A change')
+    : undefined;
+  // As there, a denied cancel can't be asked again, so the original stays live at its pharmacy.
+  const changeCancelDenied = patientChange && isPrescriptionCancelDenied(prescription);
   // A new prescription in the order form, saved to the original's visit: the pharmacy's request changed and approved
   // (sent to the pharmacy that asked), or a patient's request (sent as a new prescription, to any pharmacy).
   const showForm =
@@ -507,6 +514,11 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             {/* A patient's request goes out as a new prescription on the original's visit. */}
             {!request && !notEnrolled && !prescription.encounterId && (
               <Alert severity="warning">This prescription has no visit to send from.</Alert>
+            )}
+            {showForm && changeCancelDenied && (
+              <Typography variant="body2" color="warning.dark">
+                {cancelDeniedWarning(prescription)}
+              </Typography>
             )}
             {!request && orderForm}
             {request && !notEnrolled && (

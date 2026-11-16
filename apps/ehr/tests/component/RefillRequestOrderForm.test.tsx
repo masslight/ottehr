@@ -482,11 +482,54 @@ describe('Refill request dialog: the order form outside a visit', () => {
       prescription: { ...PATIENT_CHANGE.prescription, events: [{ code: 'cancelrequested' }] },
     });
     expect(
-      screen.getByText("Send to another pharmacy isn't available for prescriptions with status Cancel requested.")
+      screen.getByText("A change isn't available for prescriptions with status Cancel requested.")
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send prescription' })).not.toBeInTheDocument();
     expect(mocks.cancelPrescription).not.toHaveBeenCalled();
     expect(mocks.orderPrescription).not.toHaveBeenCalled();
+  });
+
+  // Review item 110: this dialog has no "Send to another pharmacy", so its message names its own action.
+  it('names its own action when a patient’s change isn’t available for the original', async () => {
+    await open({ ...PATIENT_CHANGE, prescription: { ...PATIENT_CHANGE.prescription, status: 'cancelled' } });
+    expect(screen.getByText("A change isn't available for prescriptions with status Cancelled.")).toBeInTheDocument();
+    expect(screen.queryByText(/Send to another pharmacy/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send prescription' })).not.toBeInTheDocument();
+  });
+
+  // Review item 110: as Send to another pharmacy does after a denied cancel, the new one goes with no cancel, and the
+  // dialog warns first that the original stays live at its pharmacy.
+  it('warns before a patient’s change that an original whose cancel was denied stays live, and sends with no cancel', async () => {
+    const user = await open({
+      ...PATIENT_CHANGE,
+      prescription: {
+        ...PATIENT_CHANGE.prescription,
+        pharmacyName: 'CVS Pharmacy #7741',
+        events: [
+          { code: 'cancelrequested' },
+          { code: 'canceldenied', text: 'Cancellation denied by pharmacy: Already dispensed' },
+        ],
+      },
+    });
+    expect(
+      screen.getByText(
+        'Lisinopril 10 mg tablet stays live at CVS Pharmacy #7741: its cancel was denied (Already dispensed).'
+      )
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Send prescription' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    expect(mocks.cancelPrescription).not.toHaveBeenCalled();
+    expect(mocks.orderPrescription).toHaveBeenCalledTimes(1);
+  });
+
+  // An errored original never reached a pharmacy: it goes again with no cancel and no "stays live" warning.
+  it('sends a patient’s change on an errored original with no cancel and no warning', async () => {
+    const user = await open({ ...PATIENT_CHANGE, prescription: { ...PATIENT_CHANGE.prescription, status: 'stopped' } });
+    expect(screen.queryByText(/stays live/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Send prescription' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    expect(mocks.cancelPrescription).not.toHaveBeenCalled();
+    expect(mocks.orderPrescription).toHaveBeenCalledTimes(1);
   });
 
   it('answers a patient’s change request with a new prescription, cancelling the original first', async () => {
