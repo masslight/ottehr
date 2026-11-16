@@ -49,6 +49,8 @@ export interface DoseCalculatorCardProps {
   picker?: { title: string; options: string[]; value?: string; onChange: (value: string | undefined) => void };
   onFieldChange?: (id: string, value: string) => void;
   onChoiceChange?: (id: string, value: string) => void;
+  /** Under the inputs, in an orange box: a typed weight isn't the one the pharmacy gets. */
+  weightWarning?: string;
   /** "Use this dose"; never offered while waiting. */
   onUse?: () => void;
 }
@@ -260,6 +262,7 @@ export const DoseCalculatorCard: FC<DoseCalculatorCardProps> = ({
   picker,
   onFieldChange,
   onChoiceChange,
+  weightWarning,
   onUse,
 }) => (
   <Box
@@ -306,6 +309,7 @@ export const DoseCalculatorCard: FC<DoseCalculatorCardProps> = ({
       </Box>
     )}
     {display.fields && <Fields fields={display.fields} onFieldChange={onFieldChange} onChoiceChange={onChoiceChange} />}
+    {weightWarning && <DoseWarningBoxes warnings={[weightWarning]} info={[]} testId="dose-weight-warning" />}
     {display.look === 'own' ? (
       <ResultDisplay result={display.result} />
     ) : (

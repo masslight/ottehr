@@ -1,6 +1,5 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DateTime } from 'luxon';
 import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrderPrescriptionForm } from '../../src/features/visits/in-person/components/erx/OrderPrescriptionForm';
@@ -172,19 +171,30 @@ describe('Order prescription form: height and weight', () => {
     });
   });
 
-  it('send a weight typed in the dose calculator, as today’s, in place of the vitals’', async () => {
-    await sendQuickPick(async (user) => {
-      await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
-      const weight = within(screen.getByRole('dialog', { name: 'Dose calculator' })).getByRole('spinbutton', {
-        name: 'weight',
-      });
-      await user.clear(weight);
-      await user.type(weight, '30');
-      await user.keyboard('{Escape}');
+  // Decision 7: a weight typed in the dose calculator only works out the dose; the vitals' goes out.
+  const typeWeight = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
+    await user.click(screen.getByRole('button', { name: 'Dose calculator' }));
+    const weight = within(screen.getByRole('dialog', { name: 'Dose calculator' })).getByRole('spinbutton', {
+      name: 'weight',
     });
+    await user.clear(weight);
+    await user.type(weight, '30');
+    await user.keyboard('{Escape}');
+  };
+
+  it('send the vitals’ weight, not one typed in the dose calculator', async () => {
+    await sendQuickPick(typeWeight);
     expect(mocks.orderPrescription.mock.calls[0][0].vitals).toEqual({
       height: { value: 131.5, unit: 'cm', measuredDate: '2026-10-08' },
-      weight: { value: 30, unit: 'kg', measuredDate: DateTime.local().toISODate() },
+      weight: { value: 28.12, unit: 'kg', measuredDate: '2026-10-08' },
+    });
+  });
+
+  it('send no weight when only the dose calculator has one', async () => {
+    mocks.weight = undefined;
+    await sendQuickPick(typeWeight);
+    expect(mocks.orderPrescription.mock.calls[0][0].vitals).toEqual({
+      height: { value: 131.5, unit: 'cm', measuredDate: '2026-10-08' },
     });
   });
 

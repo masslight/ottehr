@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
 import { DOSE_STEP, DoseBasis, ML_MEASURE_STEPS, plainDose } from 'utils/lib/helpers/medications/plain-dose';
 import {
@@ -216,6 +217,20 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
     maxPerDayMg,
   });
 
+  // A typed weight only works out the dose: the pharmacy gets the charted one (decision 7), so a different one warns.
+  const typedKg = weightText === undefined ? undefined : numberOrUndefined(weightText);
+  const chartedKg = weight && roundNumberToDecimalPlaces(weight.kg, 2);
+  const weightWarning =
+    basis === 'fixed' || typedKg === undefined || typedKg === chartedKg
+      ? undefined
+      : `${
+          weight
+            ? `The pharmacy gets the charted weight, ${chartedKg} kg${
+                weight.takenAt ? ` (${DateTime.fromISO(weight.takenAt).toLocal().toFormat('MMM d')})` : ''
+              }.`
+            : 'No charted weight is sent to the pharmacy.'
+        } This weight only works out the dose.`;
+
   const fields: DoseField[] = [
     ...(basis === 'fixed'
       ? []
@@ -344,6 +359,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
               : undefined
           }
           display={display}
+          weightWarning={weightWarning}
           onFieldChange={(id, value) => (id === 'weight' ? onWeightText(value) : pick({ [id]: value }))}
           onChoiceChange={(id, value) =>
             id === 'measureTo'

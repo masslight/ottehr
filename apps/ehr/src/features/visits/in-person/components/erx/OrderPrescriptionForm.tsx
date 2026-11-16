@@ -250,13 +250,8 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
       practitionerId,
       encounterId,
       pharmacy,
-      // A weight typed in the dose calculator is today's, in place of the vitals'.
-      vitals: prescriptionVitals(
-        height,
-        weightKg === undefined
-          ? undefined
-          : { kg: weightKg, takenAt: weightText === undefined ? weight?.takenAt : undefined }
-      ),
+      // The charted height and weight: one typed in the dose calculator only works out the dose (decision 7).
+      vitals: prescriptionVitals(height, weight),
       allergies,
     };
     setSending(true);

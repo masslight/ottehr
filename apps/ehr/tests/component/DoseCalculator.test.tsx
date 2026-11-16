@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DateTime } from 'luxon';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import {
@@ -351,6 +352,35 @@ describe('DoseCalculator (plain, inline)', () => {
     render(<Harness initial={withProduct(emptyPrescriptionLine(), drops, drops.strengths[0])} />);
     const calculator = await openCalculator(user);
     expect(calculator).toHaveTextContent('Not for this dose form: liquids, tablets and capsules only');
+  });
+
+  // Decision 7: a typed weight only works out the dose; the pharmacy gets the charted one, and the card says so.
+  it('warns that the pharmacy gets the charted weight when a typed one differs, or that none goes without one', async () => {
+    const user = userEvent.setup();
+    const initial = withDirections(withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0]), {
+      frequency: 'twice daily',
+    });
+    const { unmount } = render(<Harness initial={initial} weight={WEIGHT} />);
+    let calculator = await openCalculator(user);
+    expect(within(calculator).queryByTestId('dose-weight-warning')).not.toBeInTheDocument();
+    const weight = within(calculator).getByRole('spinbutton', { name: 'weight' });
+    await user.clear(weight);
+    await user.type(weight, '28.12');
+    expect(within(calculator).queryByTestId('dose-weight-warning')).not.toBeInTheDocument();
+    await user.clear(weight);
+    await user.type(weight, '30');
+    const date = DateTime.fromISO(WEIGHT.takenAt!).toLocal().toFormat('MMM d');
+    expect(within(calculator).getByTestId('dose-weight-warning')).toHaveTextContent(
+      `The pharmacy gets the charted weight, 28.12 kg (${date}). This weight only works out the dose.`
+    );
+    unmount();
+    render(<Harness initial={initial} />);
+    calculator = await openCalculator(user);
+    expect(within(calculator).queryByTestId('dose-weight-warning')).not.toBeInTheDocument();
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'weight' }), '30');
+    expect(within(calculator).getByTestId('dose-weight-warning')).toHaveTextContent(
+      'No charted weight is sent to the pharmacy. This weight only works out the dose.'
+    );
   });
 
   it('notes an earlier visit’s weight for the suggestions, and a typed weight wins', () => {
