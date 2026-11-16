@@ -21,6 +21,7 @@ import {
   prescriptionQuantityUnit,
   prescriptionRoute,
   PrescriptionStep,
+  sentenceSteps,
   SuggestedPrescriptionFields,
 } from 'utils/lib/helpers/medications/prescription-suggestions';
 import { AllergyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -875,9 +876,13 @@ export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
     (issue) => !(noStrength && issue.message === 'Pick a medication')
   );
   const messages = issues.map((issue) => issue.message);
-  // Directions the blanks write need an amount, where the product has a unit to count it in (a cream's needn't). It
-  // goes after the medication's and diagnosis's problems, as the line reads.
-  if (directionsFromBlanks(line) && !line.dose.trim() && prescriptionDoseUnit(line.medication) !== undefined) {
+  // Directions the blanks write need an amount in every step they say, where the product has a unit to count it in (a
+  // cream's needn't). It goes after the medication's and diagnosis's problems, as the line reads.
+  if (
+    directionsFromBlanks(line) &&
+    sentenceSteps(line).some((step) => !step.dose.trim()) &&
+    prescriptionDoseUnit(line.medication) !== undefined
+  ) {
     const at = issues.findIndex((issue) => !['medication', 'diagnosis'].includes(String(issue.path[0])));
     messages.splice(at === -1 ? messages.length : at, 0, 'Enter the dose');
   }

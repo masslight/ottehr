@@ -173,6 +173,28 @@ describe('prescriptionLineErrors', () => {
     expect(prescriptionLineErrors({ ...peg, quantityValue: '510', quantityUnit: 'Gram' })).toEqual([]);
   });
 
+  // Decision 189 (D8-2): every step the sentence says needs its dose; an empty first step before "then" steps says
+  // nothing, so it needs none.
+  it('asks for the dose of every step the directions say', () => {
+    const tablet = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[1]);
+    const step = (dose: string): { dose: string; frequency: string; durationDays: string } => ({
+      dose,
+      frequency: 'once daily',
+      durationDays: '3',
+    });
+    const missed = withDirections(tablet, { ...step('4'), steps: [step(''), step('1')] });
+    expect(missed.patientInstructions).toBe(
+      'Take 4 tablets by mouth once daily for 3 days, then by mouth once daily for 3 days, then 1 tablet by mouth once daily for 3 days.'
+    );
+    expect(prescriptionLineErrors({ ...missed, quantityValue: '15' })).toEqual(['Enter the dose']);
+    const emptyFirst = withDirections(tablet, { steps: [step('2'), step('1')] });
+    expect(prescriptionLineErrors({ ...emptyFirst, quantityValue: '9' })).toEqual([]);
+    const context = { patientId: 'p', practitionerId: 'pr', encounterId: 'e', pharmacy: PHARMACY };
+    expect(prescriptionLineToOrder({ ...emptyFirst, quantityValue: '9' }, context).patientInstructions).toBe(
+      'Take 2 tablets by mouth once daily for 3 days, then 1 tablet by mouth once daily for 3 days.'
+    );
+  });
+
   // Decision 186: a line waiting for a pick hides its sentences, so it isn't asked for what they hold.
   it('asks only for the pick while the line waits for one', () => {
     const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);

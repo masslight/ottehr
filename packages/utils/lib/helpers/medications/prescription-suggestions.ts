@@ -279,6 +279,17 @@ const courseSteps = (directions: PrescriptionDirections): PrescriptionStep[] => 
   ),
 ];
 
+/** The steps the directions sentence says: an empty first step before filled "then" steps says nothing, the first
+ * filled one opening the sentence. */
+export const sentenceSteps = (directions: PrescriptionDirections): PrescriptionStep[] => {
+  const [first, ...rest] = courseSteps(directions);
+  const empty =
+    leadingNumber(first.dose) === undefined &&
+    !pickedFrequency(first) &&
+    leadingNumber(first.durationDays) === undefined;
+  return empty && rest.length ? rest : [first, ...rest];
+};
+
 /** The steps' values added up, or nothing when any step can't say. */
 const total = (values: (number | undefined)[]): number | undefined =>
   values.every((value): value is number => value !== undefined)
@@ -348,10 +359,9 @@ export const prescriptionDirectionsText = (
   const bare = leadingNumber(first.dose) === undefined && !pickedFrequency(first);
   const instructions = (directions.instructions ?? '').trim().replace(/\.$/, '');
   if (bare && rest.length === 0 && !instructions) return '';
-  // An empty first step before filled "then" steps says nothing: the first filled one opens the sentence.
-  const empty = bare && leadingNumber(first.durationDays) === undefined;
-  const said = empty && rest.length ? rest : [first, ...rest];
-  const course = said.map((step, i) => phrase(step, i === 0 ? prescriptionVerb(route) : 'then')).join(', ');
+  const course = sentenceSteps(directions)
+    .map((step, i) => phrase(step, i === 0 ? prescriptionVerb(route) : 'then'))
+    .join(', ');
   // "Inhale with spacer", not "Inhale, with spacer": a comma only once a step says something to follow.
   const tail = instructions ? `${bare && rest.length === 0 ? ' ' : ', '}${instructions}` : '';
   return `${course}${tail}.`;
