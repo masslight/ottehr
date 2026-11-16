@@ -56,6 +56,7 @@ import {
   changeResponse,
   refillLine,
   renewalApproval,
+  renewalLineErrors,
   requestRows,
   strengthChangeWarning,
   suggestionText,
@@ -347,6 +348,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
                   : renewalApproval(refill!.renewalTaskId, line, order.vitals, order.allergies)
               );
             },
+            ...(change ? {} : { sendLineErrors: renewalLineErrors }),
             sendLabel: `Send to ${pharmacyName}`,
           }
         : data.kind === 'change'

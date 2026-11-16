@@ -73,6 +73,8 @@ interface OrderPrescriptionFormProps {
   pharmacy?: PharmacySearchResult;
   /** Sends the prescription in place of ordering it (the answer to a pharmacy's request). */
   onSend?: (line: PrescriptionLine, order: OrderPrescriptionInput) => Promise<void>;
+  /** Line problems of that answer, beside the order form's own. */
+  sendLineErrors?: (line: PrescriptionLine) => string[];
   sendLabel?: string;
   /** After every prescription went, with the pharmacy it went to. */
   onSent?: (pharmacy: PharmacySearchResult) => void;
@@ -89,6 +91,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   initialLine,
   pharmacy: fixedPharmacy,
   onSend,
+  sendLineErrors,
   sendLabel,
   onSent,
   quietSent,
@@ -223,11 +226,16 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
     }
   };
 
+  const lineErrors = (line: PrescriptionLine): string[] => [
+    ...prescriptionLineErrors(line),
+    ...(sendLineErrors?.(line) ?? []),
+  ];
+
   // The order endpoint takes one prescription, so each line is sent in turn; a sent line leaves the form, so a
   // failure part-way leaves exactly the unsent ones to try again.
   const send = async (): Promise<void> => {
     setSendAttempted(true);
-    if (!pharmacy || lines.some((line) => prescriptionLineErrors(line).length > 0)) return;
+    if (!pharmacy || lines.some((line) => lineErrors(line).length > 0)) return;
     const practitionerId = user?.profileResource?.id;
     if (!patient?.id || !encounterId || !practitionerId) {
       enqueueSnackbar('The patient, encounter or provider could not be determined. Please reload and try again.', {
@@ -434,7 +442,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
                     weight={weight}
                     weightText={weightText}
                     onWeightText={setWeightText}
-                    errors={sendAttempted ? prescriptionLineErrors(line) : []}
+                    errors={sendAttempted ? lineErrors(line) : []}
                     readOnly={readOnly}
                   />
                 ))}

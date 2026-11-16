@@ -341,6 +341,13 @@ export const refillLine = (
     : started;
 };
 
+const RENEWAL_REFILLS_MESSAGE = 'Refills must be 98 or fewer in answer to a refill request';
+
+/** The line problems of a refill request's answer, beside the order form's: eRx v4 takes up to 99 fills, and the answer
+ * sends the refills plus the first fill. The order form's own check takes refills up to 99. */
+export const renewalLineErrors = (line: PrescriptionLine): string[] =>
+  Number(line.numberOfRefills) === 99 ? [RENEWAL_REFILLS_MESSAGE] : [];
+
 /** "Change": the renewal response approving the prescription the order form holds, with the vitals and allergies its
  * order sends.
  * Its fills are the first fill plus the refills written; the eRx service sends what differs from the request as the
@@ -352,7 +359,7 @@ export const renewalApproval = (
   allergies?: PrescriptionAllergy[]
 ): Extract<RenewalResponseInput, { decision: 'approve' }> => {
   const order = answerOrder(line);
-  if (order.numberOfRefills > 98) throw new Error('Refills must be 98 or fewer in answer to a refill request.');
+  if (order.numberOfRefills > 98) throw new Error(`${RENEWAL_REFILLS_MESSAGE}.`);
   return {
     taskId: renewalTaskId,
     decision: 'approve',

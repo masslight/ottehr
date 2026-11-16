@@ -385,6 +385,18 @@ describe('Refill request dialog: the order form outside a visit', () => {
     });
   });
 
+  // Claim audit r7, flag 2: eRx v4 takes up to 99 fills, and the answer sends the refills plus the first fill.
+  it('says under the line that a refill request’s Change takes 98 refills or fewer, and sends nothing', async () => {
+    const user = await open(PHARMACY_REQUEST);
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    await user.clear(screen.getByRole('spinbutton', { name: 'refills' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'refills' }), '99');
+    await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
+    expect(await screen.findByText('Refills must be 98 or fewer in answer to a refill request.')).toBeInTheDocument();
+    expect(mocks.respondToRenewal).not.toHaveBeenCalled();
+    expect(enqueueSnackbar).not.toHaveBeenCalled();
+  });
+
   it('shows a failed Change like other send errors, and leaves the task open', async () => {
     mocks.respondToRenewal.mockRejectedValue(new Error('Amoxicillin is no longer available. Pick it again.'));
     const user = await open(PHARMACY_REQUEST);
