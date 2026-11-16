@@ -9,10 +9,10 @@ export interface RadiologyDiagnosis {
 }
 
 /**
- * Multi-select ICD-10 diagnosis picker shared by the radiology order forms (diagnosis is optional at
- * order time) and the preliminary-read entry on the order details page (where it is required). Owns
- * its own ICD-10 search; pass `quickPickOptions` to surface a known set of diagnoses (e.g. the
- * encounter's charted diagnoses) while the search box is empty.
+ * Multi-select ICD-10 diagnosis picker shared by the radiology order forms and the preliminary-read
+ * entry on the order details page (diagnosis is optional in both). Owns its own ICD-10 search; pass
+ * `quickPickOptions` to surface a known set of diagnoses (e.g. the encounter's charted diagnoses) while
+ * the search box is empty.
  */
 export const RadiologyDiagnosisField: React.FC<{
   value: RadiologyDiagnosis[];

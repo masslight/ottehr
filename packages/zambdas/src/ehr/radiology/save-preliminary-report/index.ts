@@ -53,8 +53,8 @@ async function performEffect(
 ): Promise<SaveRadiologyReportZambdaOutput> {
   const { serviceRequestId, report: preliminaryReport, diagnosisCodes, performedById } = validatedInput.body;
 
-  // Diagnosis is optional at order time but required to save a preliminary read (enforced in
-  // validateInput). Validate the ICD-10 codes up front so we fail fast before touching AdvaPACS.
+  // Diagnosis is optional here, as it is at order time. Validate any ICD-10 codes up front so we fail
+  // fast before touching AdvaPACS.
   const diagnoses = await validateICD10Codes(diagnosisCodes, oystehr);
 
   // Both fetched up front, so a failure here happens before the single-shot AdvaPACS report POST.
@@ -94,19 +94,25 @@ async function performEffect(
   // diagnosis after it and that patch failed, the order would be stranded without a diagnosis and
   // could never be retried. Writing it first makes a failed run safe to re-run: the patch is
   // idempotent (replace) and dedupes on retry, and the report creation still runs afterwards.
-  console.group('Updating service request diagnosis in Oystehr');
-  const reasonCode: CodeableConcept[] = diagnoses.map((diagnosis) => ({ coding: [diagnosis] }));
-  const hasExistingReasonCode = Array.isArray(serviceRequest.reasonCode) && serviceRequest.reasonCode.length > 0;
-  const reasonCodeOperation: Operation = hasExistingReasonCode
-    ? { op: 'replace', path: '/reasonCode', value: reasonCode }
-    : { op: 'add', path: '/reasonCode', value: reasonCode };
-  await oystehr.fhir.patch({
-    resourceType: 'ServiceRequest',
-    id: serviceRequestId,
-    operations: [reasonCodeOperation],
-  });
-  console.groupEnd();
-  console.debug('Service request diagnosis updated successfully');
+  //
+  // Diagnosis is optional: omitting `diagnosisCodes` leaves the order's diagnoses as they are, while a
+  // list replaces them — an empty one clears them (FHIR forbids an empty `reasonCode` array).
+  const reasonCodeOperation = diagnosisCodes
+    ? buildReasonCodeOperation(
+        diagnoses.map((diagnosis) => ({ coding: [diagnosis] })),
+        Array.isArray(serviceRequest.reasonCode) && serviceRequest.reasonCode.length > 0
+      )
+    : undefined;
+  if (reasonCodeOperation) {
+    console.group('Updating service request diagnosis in Oystehr');
+    await oystehr.fhir.patch({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+      operations: [reasonCodeOperation],
+    });
+    console.groupEnd();
+    console.debug('Service request diagnosis updated successfully');
+  }
 
   // Fetch the corresponding service request from AdvaPACS using the accession number
   console.group('Fetching service request from AdvaPACS');
@@ -133,6 +139,22 @@ async function performEffect(
 
   return {};
 }
+
+/**
+ * The patch that makes the order's `reasonCode` match the diagnoses saved with the read: `add`/`replace` for a
+ * non-empty list, `remove` to clear existing ones (FHIR forbids an empty array), nothing when both are empty.
+ */
+export const buildReasonCodeOperation = (
+  reasonCode: CodeableConcept[],
+  hasExistingReasonCode: boolean
+): Operation | undefined => {
+  if (reasonCode.length === 0) {
+    return hasExistingReasonCode ? { op: 'remove', path: '/reasonCode' } : undefined;
+  }
+  return hasExistingReasonCode
+    ? { op: 'replace', path: '/reasonCode', value: reasonCode }
+    : { op: 'add', path: '/reasonCode', value: reasonCode };
+};
 
 /**
  * In-house, performed, not yet reported — checked here because the performer patch below runs before AdvaPACS

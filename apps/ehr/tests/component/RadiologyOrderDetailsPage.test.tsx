@@ -46,14 +46,13 @@ vi.mock('../../src/features/radiology/components/RadiologyOrderHistoryCard', () 
 }));
 
 // Stub the ICD-10 diagnosis picker (it uses react-query internally); expose a button that
-// selects a fixed diagnosis and surface the validation message so tests can drive the flow.
+// selects a fixed diagnosis so tests can drive the flow.
 vi.mock('../../src/features/radiology/components/RadiologyDiagnosisField', () => ({
-  RadiologyDiagnosisField: ({ onChange, error, helperText }: any) => (
+  RadiologyDiagnosisField: ({ onChange }: any) => (
     <div data-testid="report-dx-field">
       <button type="button" onClick={() => onChange([{ code: 'A00', display: 'Cholera' }])}>
         mock-add-dx
       </button>
-      {error ? <span>{helperText}</span> : null}
     </div>
   ),
 }));
@@ -124,7 +123,6 @@ const FINAL_REPORT_TEXTBOX_LABEL = 'Internal final read report';
 const FINAL_REPORT_REQUIRED_MESSAGE = 'Final report is required';
 const SAVE_PRELIMINARY_REPORT_BTN_LABEL = 'Save Preliminary Report';
 const PRELIMINARY_REPORT_TEXTBOX_LABEL = 'Preliminary Read';
-const DIAGNOSIS_REQUIRED_MESSAGE = 'Please enter a diagnosis to continue';
 const ADD_DX_BTN_LABEL = 'mock-add-dx';
 
 // By test id rather than accessible name: the section headings are display copy and get retitled.
@@ -354,16 +352,27 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       expect(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL })).toBeInTheDocument();
     });
 
-    it('shows a validation error and does not call handleSaveReport when no diagnosis is selected', async () => {
+    // Diagnosis is optional on the preliminary read, as it is at order time.
+    it('saves the preliminary read without a diagnosis', async () => {
       const user = userEvent.setup();
       const mockHandleSaveReport = vi.fn();
       mockUsePatientRadiologyOrders.mockReturnValue(performedHookResult({ handleSaveReport: mockHandleSaveReport }));
 
       renderPage();
+      await user.type(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL }), 'Prelim findings');
       await user.click(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL }));
 
-      expect(screen.getByText(DIAGNOSIS_REQUIRED_MESSAGE)).toBeInTheDocument();
-      expect(mockHandleSaveReport).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(mockHandleSaveReport).toHaveBeenCalledWith(
+          SERVICE_REQUEST_ID,
+          'Prelim findings',
+          'preliminary',
+          [],
+          CURRENT_USER_ID
+        )
+      );
+      // Nothing to add to the encounter's chart/Assessment.
+      expect(mockSaveChartData).not.toHaveBeenCalled();
     });
 
     it('calls handleSaveReport with the report text and selected diagnosis codes', async () => {
@@ -582,9 +591,8 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         await user.click(screen.getByTestId(dataTestIds.radiologyPage.savePerformedByButton));
 
         expect(mockHandleSavePerformedBy).toHaveBeenCalledWith(SERVICE_REQUEST_ID, CURRENT_USER_ID);
-        // No read was written, and no diagnosis was demanded, to record it.
+        // No read was written to record it.
         expect(mockHandleSaveReport).not.toHaveBeenCalled();
-        expect(screen.queryByText(DIAGNOSIS_REQUIRED_MESSAGE)).not.toBeInTheDocument();
       });
 
       it('saves the performer the user picked rather than the default', async () => {
@@ -626,7 +634,6 @@ describe('RadiologyOrderDetailsPage - final report', () => {
 
         await user.click(getPerformedBySelect());
         await user.click(screen.getByRole('option', { name: 'Dr. Test' }));
-        // A diagnosis is required alongside the performer, otherwise the save is blocked.
         await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
         await user.type(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL }), 'No acute findings');
         await user.click(screen.getByRole('button', { name: 'Save Preliminary Report' }));
@@ -670,8 +677,6 @@ describe('RadiologyOrderDetailsPage - final report', () => {
         );
         renderPage();
 
-        // The diagnosis is validated first, so it has to be filled in for the performer check to run.
-        await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
         await user.type(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL }), 'No acute findings');
         await user.click(screen.getByRole('button', { name: 'Save Preliminary Report' }));
 
