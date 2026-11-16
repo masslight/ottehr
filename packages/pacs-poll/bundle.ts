@@ -57,9 +57,6 @@ const main = async (): Promise<void> => {
       sourcemap: true,
       platform: 'node',
       format: 'esm',
-      banner: {
-        js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
-      },
       treeShaking: true,
       plugins: [
         copy({
