@@ -871,13 +871,19 @@ export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
   const result = PrescriptionLineSchema.safeParse(line);
   // A drug with no strength yet is asked for its strength, before any pick among suggestions it can't have yet.
   const noStrength = line.drug !== null && line.medication === null;
+  const issues = (result.success ? [] : result.error.issues).filter(
+    (issue) => !(noStrength && issue.message === 'Pick a medication')
+  );
+  const messages = issues.map((issue) => issue.message);
+  // Directions the blanks write need an amount, where the product has a unit to count it in (a cream's needn't). It
+  // goes after the medication's and diagnosis's problems, as the line reads.
+  if (directionsFromBlanks(line) && !line.dose.trim() && prescriptionDoseUnit(line.medication) !== undefined) {
+    const at = issues.findIndex((issue) => !['medication', 'diagnosis'].includes(String(issue.path[0])));
+    messages.splice(at === -1 ? messages.length : at, 0, 'Enter the dose');
+  }
   return [
     ...(noStrength ? ['Pick a strength'] : line.awaitingPick ? ['Pick a suggestion or Write my own'] : []),
-    ...(result.success
-      ? []
-      : new Set(
-          result.error.issues.map((issue) => issue.message).filter((m) => !(noStrength && m === 'Pick a medication'))
-        )),
+    ...new Set(messages),
   ];
 };
 

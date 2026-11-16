@@ -136,6 +136,23 @@ describe('prescriptionLineErrors', () => {
     ]);
     expect(prescriptionLineErrors({ ...complete(), patientInstructions: 'ud' })).toEqual([]);
   });
+
+  // Claim audit r7, flag 1: directions the blanks write with no amount ("Take by mouth twice daily for 10 days.").
+  it('asks for the dose while the blanks write the directions, before the dispense line’s problems', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const noDose = withDirections(liquid, { frequency: 'twice daily', durationDays: '10' });
+    expect(noDose.patientInstructions).toBe('Take by mouth twice daily for 10 days.');
+    expect(prescriptionLineErrors({ ...noDose, quantityValue: '100' })).toEqual(['Enter the dose']);
+    expect(prescriptionLineErrors(noDose)).toEqual(['Enter the dose', 'Quantity must be greater than 0']);
+    // Typed directions are the provider's; a dose, or a cream's directions with no unit to count in, need none.
+    const typed = 'Take as directed by your doctor.';
+    expect(prescriptionLineErrors({ ...noDose, patientInstructions: typed, quantityValue: '100' })).toEqual([]);
+    expect(prescriptionLineErrors({ ...withDirections(noDose, { dose: '5' }), quantityValue: '100' })).toEqual([]);
+    const ointment = withDirections(withProduct(emptyPrescriptionLine(), MUPIROCIN, MUPIROCIN.strengths[0]), {
+      frequency: 'twice daily',
+    });
+    expect(prescriptionLineErrors({ ...ointment, quantityValue: '22', quantityUnit: 'Gram' })).toEqual([]);
+  });
 });
 
 describe('withDrug', () => {
