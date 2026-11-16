@@ -11,6 +11,7 @@ import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/r
 import { SendSupportChatMessageInputSchema, SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { PATIENT_REQUEST_TASK } from 'utils/lib/types/data/tasks/types';
 import { INVALID_INPUT_ERROR, NOT_AUTHORIZED } from 'utils/lib/types/errors';
+import { findActivePromptIndex } from 'utils/lib/utils/support-chat';
 import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
@@ -65,11 +66,13 @@ export const index = wrapHandler(
 
     const openTask = openTasks.at(0);
 
-    const lastMessage = thread.at(-1);
+    const promptIndex = findActivePromptIndex(thread.map((message) => toThreadMessage(message).kind));
+    const lastIndex = promptIndex >= 0 ? promptIndex : thread.length - 1;
+    const lastMessage = lastIndex >= 0 ? thread[lastIndex] : undefined;
 
     const step = resolveStep({
       last: lastMessage ? toThreadMessage(lastMessage) : undefined,
-      requestText: thread.at(-2)?.payload?.[0]?.contentString,
+      requestText: lastIndex > 0 ? thread[lastIndex - 1].payload?.[0]?.contentString : undefined,
       action,
       visits: visits.map((visit) => ({ id: visit.appointmentId, label: visit.label })),
       hasOpenTask: !!openTask,
