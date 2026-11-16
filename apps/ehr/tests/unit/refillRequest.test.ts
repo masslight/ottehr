@@ -106,6 +106,14 @@ describe('refill request: what the pharmacy sent', () => {
       ).differs
     ).toBe(false);
     expect(row(requestRows({ sig: 'TAKE 2 TABLETS BY MOUTH ONCE DAILY' }, ORIGINAL), 'Directions').differs).toBe(true);
+    // Review D6-6: nor for a final period, or a number written against its unit ("5mL").
+    const cefdinir = { ...ORIGINAL, instructions: 'Take 5 mL by mouth once daily for 10 days' };
+    for (const sig of ['Take 5 mL by mouth once daily for 10 days.', 'TAKE 5ML BY MOUTH ONCE DAILY FOR 10 DAYS']) {
+      expect(row(requestRows({ sig }, cefdinir), 'Directions').differs).toBe(false);
+    }
+    expect(
+      row(requestRows({ sig: 'Take 5 mL by mouth twice daily for 10 days.' }, cefdinir), 'Directions').differs
+    ).toBe(true);
   });
 
   it('compares a quantity sent with no unit by its value, shown as sent', () => {

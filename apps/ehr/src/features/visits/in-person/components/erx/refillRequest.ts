@@ -28,10 +28,16 @@ import {
 
 type RequestedMedication = ErxPharmacyRefillRequest['medication'];
 
-/** Whether the pharmacy sent our directions back: the same words in any case and spacing, "½", "1/2" and "half" as
- * one. */
+/** Whether the pharmacy sent our directions back: the same words in any case and spacing ("5mL" is "5 mL"), with or
+ * without a final period, "½", "1/2" and "half" as one. */
 const sameSig = (requested: string, sent: string | undefined): boolean => {
-  const plain = (text: string): string => sentSigInWords(text).toLowerCase().replace(/\s+/g, ' ').trim();
+  const plain = (text: string): string =>
+    sentSigInWords(text)
+      .toLowerCase()
+      .replace(/(\d)([a-z])/g, '$1 $2')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/\.$/, '');
   return sent !== undefined && plain(requested) === plain(sent);
 };
 
