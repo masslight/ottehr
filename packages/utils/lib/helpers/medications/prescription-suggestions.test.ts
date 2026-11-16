@@ -83,16 +83,27 @@ describe('the RxNorm dose form table', () => {
   });
 
   // Decision 188 (D8-1): a powder dosed per packet or capful (MiraLAX "17000 MG Powder for Oral Solution") isn't counted
-  // in mL, so it has no dose unit, quantity unit or calculator, as a cream; one per mL is unchanged.
+  // in mL, so it has no quantity unit or calculator; one per mL is unchanged. Decision 203 (D9-1): one with a single
+  // ingredient in mg is dosed in g; a combination packet has no one amount in g, so no dose unit, as a cream.
   it('counts no mL for a liquid whose strength isn’t per mL', () => {
-    const peg = {
-      doseForm: 'Powder for Oral Solution',
-      ingredients: [{ name: 'polyethylene glycol 3350', amount: 17000, unit: 'MG', per: 1, perUnit: 'EACH' }],
-    };
+    const peg = each('Powder for Oral Solution', 'polyethylene glycol 3350', 17000);
     expect(prescriptionRoute(peg)).toBe('by mouth');
-    expect(prescriptionDoseUnit(peg)).toBeUndefined();
+    expect(prescriptionDoseUnit(peg)).toBe('g');
     expect(prescriptionQuantityUnit(peg)).toBeUndefined();
     expect(measureOf(peg)).toBeUndefined();
+    const once = { route: 'by mouth' as const, frequency: 'once daily', durationDays: '30' };
+    expect(prescriptionDirectionsText(peg, { ...once, dose: '17' })).toBe('Take 17 g by mouth once daily for 30 days.');
+    expect(prescriptionDirectionsText(peg, { ...once, dose: '1' })).toBe('Take 1 g by mouth once daily for 30 days.');
+    const azithromycin = each('Powder for Oral Suspension', 'azithromycin', 1000);
+    expect(
+      prescriptionDirectionsText(azithromycin, { dose: '1', route: 'by mouth', frequency: 'once', durationDays: '' })
+    ).toBe('Take 1 g by mouth once.');
+    const omeprazoleBicarbonate = {
+      doseForm: 'Powder for Oral Suspension',
+      ingredients: [ingredient('omeprazole', 20, 'EACH'), ingredient('sodium bicarbonate', 1680, 'EACH')],
+    };
+    expect(prescriptionDoseUnit(omeprazoleBicarbonate)).toBeUndefined();
+    expect(prescriptionRoute(omeprazoleBicarbonate)).toBe('by mouth');
     for (const perMl of [
       AMOXICILLIN_400_SUSP,
       FLUCONAZOLE_SUSP,

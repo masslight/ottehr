@@ -89,7 +89,8 @@ const DOSE_FORMS: Record<string, DoseFormFacts> = {
 
 /** The facts of the product's dose form, if it has one the table lists. Object.hasOwn, as utils' lib setting (no
  * es2022) spells it: "constructor" is no dose form. A liquid whose strength isn't per mL (a powder dosed per packet or
- * capful, "17000 MG Powder for Oral Solution") keeps only its route: it isn't counted or dispensed in mL. */
+ * capful, "17000 MG Powder for Oral Solution") keeps only its route: it isn't counted or dispensed in mL. Such a powder
+ * of one ingredient in mg is dosed in g ("Take 17 g by mouth"), never measured or dispensed by the line (decision 203). */
 const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFormFacts | undefined => {
   const doseForm = product?.doseForm;
   const facts =
@@ -97,9 +98,11 @@ const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFor
       ? DOSE_FORMS[doseForm]
       : undefined;
   const ingredients = product?.ingredients ?? [];
-  return facts?.unit === 'mL' && ingredients.length && ingredients.every((item) => item.perUnit !== 'ML')
-    ? { route: facts.route }
-    : facts;
+  if (!(facts?.unit === 'mL' && ingredients.length && ingredients.every((item) => item.perUnit !== 'ML'))) return facts;
+  const [only] = ingredients;
+  const grams =
+    ingredients.length === 1 && only.unit === 'MG' && only.perUnit === 'EACH' && doseForm?.startsWith('Powder');
+  return grams ? { route: facts.route, unit: 'g' } : { route: facts.route };
 };
 
 /** The line's dose form for a product ("Oral Capsule" → capsule), if its RxNorm dose form says. */
@@ -155,9 +158,13 @@ export const prescriptionVerb = (route: PrescriptionRoute | '' | undefined): str
 /** Routes the verb already says: "Inhale 2 puffs inhaled" would repeat itself. */
 export const ROUTES_IN_VERB: readonly PrescriptionRoute[] = ['inhaled', 'by injection'];
 
-/** "tablet" → "tablets" unless the amount is exactly 1; "mL" never changes. */
+/** "tablet" → "tablets" unless the amount is exactly 1; "mL" and "g" never change. */
 export const doseUnitLabel = (unit: string, amount: number | undefined): string =>
-  unit === 'mL' || amount === 1 ? unit : /[^aeiou]y$/.test(unit) ? `${unit.slice(0, -1)}ies` : `${unit}s`;
+  unit === 'mL' || unit === 'g' || amount === 1
+    ? unit
+    : /[^aeiou]y$/.test(unit)
+    ? `${unit.slice(0, -1)}ies`
+    : `${unit}s`;
 
 /** The tablet fractions a scored tablet is split to, as the directions write them: on screen, and in the text sent to
  * the pharmacy (ASCII there, its encoding through the eRx service unchecked). */

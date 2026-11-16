@@ -7,6 +7,7 @@ import {
   PrescriptionLine,
   prescriptionLineErrors,
   withCompound,
+  withDirections,
   withProduct,
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
@@ -732,17 +733,59 @@ describe('PrescriptionSentences: the dose', () => {
     expect(screen.queryByRole('img', { name: 'dose re-measured' })).not.toBeInTheDocument();
   });
 
+  // Decision 203 (D9-1): a product with no dose unit has no dose blank, so no bare number is typed; one already on the
+  // line (saved before) keeps its blank, to clear it.
   it('warns under the sentence when the product gives the dose no unit, until the directions are typed over', async () => {
     const user = userEvent.setup();
     // As the search returns a product without its dose form: nothing to write "5" in.
     const bare = { name: 'Amoxicillin', strengths: [{ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }] };
-    render(<Harness initial={withProduct(emptyPrescriptionLine(), bare, bare.strengths[0])} />);
+    const { unmount } = render(<Harness initial={withProduct(emptyPrescriptionLine(), bare, bare.strengths[0])} />);
+    expect(screen.queryByRole('spinbutton', { name: 'dose' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('line-dose-no-unit')).not.toBeInTheDocument();
-    await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '5');
+    unmount();
+    render(
+      <Harness initial={withDirections(withProduct(emptyPrescriptionLine(), bare, bare.strengths[0]), { dose: '5' })} />
+    );
+    expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveValue(5);
     expect(screen.getByTestId('line-dose-no-unit')).toHaveTextContent(NO_DOSE_UNIT_WARNING);
     expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue('Take 5.');
     await user.type(screen.getByRole('textbox', { name: 'directions' }), ' mL');
     expect(screen.queryByTestId('line-dose-no-unit')).not.toBeInTheDocument();
+  });
+});
+
+describe('PrescriptionSentences: the dose blank', () => {
+  // Decision 203 (D9-1): a powder dosed per packet or capful is dosed in g; a cream has no dose blank.
+  it('writes a powder’s dose in g, and has none for a cream', async () => {
+    const user = userEvent.setup();
+    const peg = {
+      name: 'Polyethylene Glycol 3350',
+      strengths: [
+        {
+          strength: '17 GM/SCOOP Powder',
+          ndcs: ['11523723401'],
+          doseForm: 'Powder for Oral Solution',
+          ingredients: [{ name: 'polyethylene glycol 3350', amount: 17000, unit: 'MG', per: 1, perUnit: 'EACH' }],
+        },
+      ],
+    };
+    const { unmount } = render(
+      <Harness
+        initial={withDirections(withProduct(emptyPrescriptionLine(), peg, peg.strengths[0]), {
+          frequency: 'once daily',
+        })}
+      />
+    );
+    await user.type(screen.getByRole('spinbutton', { name: 'dose' }), '17');
+    expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue('Take 17 g by mouth once daily.');
+    unmount();
+    const mupirocin = {
+      name: 'Mupirocin (Topical)',
+      strengths: [detailed({ strength: '2% Ointment', ndcs: ['00093101042'] })],
+    };
+    render(<Harness initial={withProduct(emptyPrescriptionLine(), mupirocin, mupirocin.strengths[0])} />);
+    expect(screen.queryByRole('spinbutton', { name: 'dose' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'route: on the skin' })).toBeInTheDocument();
   });
 });
 

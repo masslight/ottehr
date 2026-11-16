@@ -948,22 +948,26 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     route?: ReactNode
   ): ReactNode => (
     <>
-      <TextBlank
-        label={`${at}dose`}
-        // The calculator's settings by weight wait for one, as a quick pick's suggestion row does.
-        placeholder={
-          at === '' && line.dosing && line.dosing.basis !== 'fixed' && !weightKg && !step.dose
-            ? '(enter weight)'
-            : undefined
-        }
-        kind="number"
-        value={step.dose}
-        onChange={(dose) => onStep({ dose })}
-        readOnly={readOnly}
-        min={0}
-        step={0.5}
-        warn={at === '' && warns('dose')}
-      />
+      {/* A product with no dose unit (a cream) has no dose blank, so no bare number is typed; one already there keeps
+        it, to clear it (decision 203). */}
+      {(doseUnit || step.dose.trim()) && (
+        <TextBlank
+          label={`${at}dose`}
+          // The calculator's settings by weight wait for one, as a quick pick's suggestion row does.
+          placeholder={
+            at === '' && line.dosing && line.dosing.basis !== 'fixed' && !weightKg && !step.dose
+              ? '(enter weight)'
+              : undefined
+          }
+          kind="number"
+          value={step.dose}
+          onChange={(dose) => onStep({ dose })}
+          readOnly={readOnly}
+          min={0}
+          step={0.5}
+          warn={at === '' && warns('dose')}
+        />
+      )}
       {doseUnit && ` ${doseUnitLabel(doseUnit, Number(step.dose) || undefined)}`}
       {/* A later step's ⓘ follows its dose; the first step's leads its sentence, by the calculator. */}
       {at !== '' && doseInfo(step, at, doseNote)} {route}

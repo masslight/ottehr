@@ -153,7 +153,8 @@ describe('prescriptionLineErrors', () => {
       frequency: 'twice daily',
     });
     expect(prescriptionLineErrors({ ...ointment, quantityValue: '22', quantityUnit: 'Gram' })).toEqual([]);
-    // Decision 188: nor does a powder dosed per packet or capful, which has no mL to count in.
+    // Decision 188: a powder dosed per packet or capful has no mL to count in. Decision 203 (D9-1): it's dosed in g, so
+    // it needs its dose.
     const PEG = {
       name: 'Polyethylene Glycol 3350',
       strengths: [
@@ -167,11 +168,15 @@ describe('prescriptionLineErrors', () => {
     };
     const peg = withDirections(withProduct(emptyPrescriptionLine(), PEG, PEG.strengths[0]), {
       frequency: 'once daily',
-      instructions: 'mix 17 g (1 capful) in 8 oz of water',
+      durationDays: '30',
+      instructions: 'mix in 8 oz of water',
     });
-    expect(peg.patientInstructions).toBe('Take by mouth once daily, mix 17 g (1 capful) in 8 oz of water.');
+    expect(peg.patientInstructions).toBe('Take by mouth once daily for 30 days, mix in 8 oz of water.');
     expect(peg.quantityUnit).toBe('');
-    expect(prescriptionLineErrors({ ...peg, quantityValue: '510', quantityUnit: 'Gram' })).toEqual([]);
+    expect(prescriptionLineErrors({ ...peg, quantityValue: '510', quantityUnit: 'Gram' })).toEqual(['Enter the dose']);
+    const dosed = withDirections(peg, { dose: '17' });
+    expect(dosed.patientInstructions).toBe('Take 17 g by mouth once daily for 30 days, mix in 8 oz of water.');
+    expect(prescriptionLineErrors({ ...dosed, quantityValue: '510', quantityUnit: 'Gram' })).toEqual([]);
   });
 
   // Decision 189 (D8-2): every step the sentence says needs its dose; an empty first step before "then" steps says
