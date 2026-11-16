@@ -561,6 +561,37 @@ describe('withProduct', () => {
     expect(stronger.doseNotes?.[0]).toBeUndefined();
   });
 
+  // Decision 222: a product with no dose unit has nothing to count a kept dose in, so it's emptied.
+  it('empties the dose for a new strength with no dose unit', () => {
+    const tobramycin = {
+      name: 'Tobramycin (Ophthalmic)',
+      strengths: [
+        {
+          strength: '0.3% Sol',
+          ndcs: ['00000000011'],
+          doseForm: 'Ophthalmic Solution',
+          ingredients: [{ name: 'tobramycin', amount: 3, unit: 'MG', per: 1, perUnit: 'ML' }],
+        },
+        {
+          strength: '0.3% Ointment',
+          ndcs: ['00000000012'],
+          doseForm: 'Ophthalmic Ointment',
+          ingredients: [{ name: 'tobramycin', amount: 3, unit: 'MG', per: 1, perUnit: 'G' }],
+        },
+      ],
+    };
+    const drops = withDirections(withProduct(emptyPrescriptionLine(), tobramycin, tobramycin.strengths[0]), {
+      dose: '1',
+      frequency: 'every 4 hours',
+      durationDays: '7',
+    });
+    expect(drops.patientInstructions).toBe('Put 1 drop in the eye every 4 hours for 7 days.');
+    const ointment = withProduct(drops, tobramycin, tobramycin.strengths[1]);
+    expect(ointment.dose).toBe('');
+    expect(ointment.patientInstructions).toBe('Put in the eye every 4 hours for 7 days.');
+    expect(lineMissingDoseUnit(ointment)).toBe(false);
+  });
+
   it('drops the picks, steps, instructions and directions when another drug is picked', () => {
     const liquid = withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]), {
       dose: '5',
