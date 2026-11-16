@@ -876,6 +876,23 @@ describe('change request: a suggestion of another strength with the same directi
     for (const [from, to, sig] of swaps) {
       expect(strengthChangeWarning({ description: to, ndc: '00000000003', sig }, original(from, sig))).toBeUndefined();
     }
+    // Review D6-4: route and label words ("Ophthalmic", "OPHTH", "Otic", "Child") aren't a shared ingredient either.
+    const routeSwaps: [string, string, string][] = [
+      ['Ofloxacin Ophthalmic 0.3% Soln', 'MOXIFLOXACIN OPHTH 0.5% SOLN', 'Put 1 drop in each eye four times daily'],
+      ['Ofloxacin Otic 0.3% Soln', 'CIPROFLOXACIN OTIC 0.2% SOLN', 'Put 5 drops in the ear twice daily'],
+      ['Tobramycin Ophthalmic 0.3% Soln', 'Erythromycin Ophthalmic 0.5% Oint', 'Put 1 drop in each eye'],
+      ['Child Ibuprofen 100 mg/5ml Susp', 'CHILD ACETAMINOPHEN 160 MG/5ML SUSP', 'Take 5 mL by mouth'],
+      ['Pediatric Ibuprofen 100 mg/5ml Liquid', 'Pediatric Acetaminophen 160 mg/5ml Liquid', 'Take 5 mL by mouth'],
+    ];
+    for (const [from, to, sig] of routeSwaps) {
+      expect(strengthChangeWarning({ description: to, ndc: '00000000003', sig }, original(from, sig))).toBeUndefined();
+    }
+    expect(
+      strengthChangeWarning(
+        { description: 'OFLOXACIN OPHTH 0.5% SOLN', ndc: '00000000003', sig: 'Put 1 drop in each eye' },
+        original('Ofloxacin Ophthalmic 0.3% Soln', 'Put 1 drop in each eye')
+      )
+    ).toBe('Different strength, same amount: 0.3% → 0.5%. Check the dose.');
     // The same ingredient for another age group is still another strength.
     expect(
       strengthChangeWarning(

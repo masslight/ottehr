@@ -83,10 +83,11 @@ const sameStrength = (a: Strength, b: Strength): boolean =>
   a.values.length === b.values.length &&
   a.values.every((value, i) => Math.abs(value - b.values[i]) <= 0.02 * Math.max(value, b.values[i]));
 
-/** Salt, form, release and label words two drugs' names can share: "Cetirizine HCl" and "Levocetirizine" share none,
- * nor do "Childrens Ibuprofen" and "Childrens Acetaminophen" ("Children's" reads as "children"). */
+/** Salt, form, route, release and label words two drugs' names can share: "Cetirizine HCl" and "Levocetirizine" share
+ * none, nor do "Childrens Ibuprofen" and "Childrens Acetaminophen" ("Children's" reads as "children"), nor "Ofloxacin
+ * Ophthalmic" and "MOXIFLOXACIN OPHTH". */
 const NOT_INGREDIENT = new Set(
-  'sodium potassium pot calcium magnesium hcl hydrochloride sulfate phosphate trihydrate monohydrate oral suspension susp solution soln tablet tablets tab capsule capsules cap chewable odt dr er xr hfa for children childrens infant infants junior adult'.split(
+  'sodium potassium pot calcium magnesium hcl hydrochloride sulfate phosphate trihydrate monohydrate oral suspension susp solution soln tablet tablets tab capsule capsules cap chewable odt dr er xr hfa ophthalmic ophth otic nasal topical inhalation neb liquid syrup drops for child children childrens pediatric infant infants junior adult'.split(
     ' '
   )
 );
