@@ -943,10 +943,11 @@ export const asciiFractions = (text: string): string =>
 /** A sent sig in today's words, for comparing: a half as an older prescription went, in any case ("1/2 tablet",
  * "1 1/2 tablets", "1-1/2 tablets", "1/2 tab", "1/2 to 1 tablet", "1/2-1 tablet", "1/2 or 1 1/2 tablets") reads as
  * "half tablet", "1 and a half tablets", "half tab", "half to 1 tablet", "half or 1 and a half tablets". A number that
- * ends a day or week range or follows "day" or "week" ("days 6-10 1/2 tablet", "week 2 1/2 tablet") isn't the whole. */
+ * follows a day or week word, alone or ending a range ("days 6-10 1/2 tablet", "days 6 to 10", "wk 2 1/2 tab"), isn't
+ * the whole; a dose range keeps it ("1-1 1/2 tablets" is "1-1 and a half tablets"). */
 export const sentSigInWords = (text: string): string =>
   asciiFractions(text).replace(
-    /(?:(?<!\d-|\bdays?\s|\bweeks?\s)\b(\d+)[ -])?\b1\/2(?:\s*(-|to|or)\s*(\d+(?:\.\d+)?)([ -]1\/2)?)? (tab(?:let)?s?)\b/gi,
+    /(?:(?<!\b(?:days?|d|weeks?|wks?)\s*(?:\d+\s*(?:-|–|to|through|thru)\s*)?)\b(\d+)[ -])?\b1\/2(?:\s*(-|to|or)\s*(\d+(?:\.\d+)?)([ -]1\/2)?)? (tab(?:let)?s?)\b/gi,
     (
       _,
       whole: string | undefined,

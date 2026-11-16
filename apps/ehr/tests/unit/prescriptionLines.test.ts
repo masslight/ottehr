@@ -633,6 +633,27 @@ describe('prescriptionLineToOrder', () => {
     for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
   });
 
+  // Review D6-1: only a day or week word makes a range a taper step; a dose range "1-1 1/2 tablets" keeps its whole.
+  it('reads a range as a taper step only after a day or week word', () => {
+    const cases: [string, string][] = [
+      ['Days 6 to 10 1/2 tablet daily', 'Days 6 to 10 half tablet daily'],
+      ['Days 6 through 10 1/2 tablet daily', 'Days 6 through 10 half tablet daily'],
+      ['Days 6 thru 10 1/2 tablet daily', 'Days 6 thru 10 half tablet daily'],
+      ['Days 6–10 1/2 tablet daily', 'Days 6–10 half tablet daily'],
+      ['Wk 2 1/2 tab daily', 'Wk 2 half tab daily'],
+      ['D6-10 1/2 tab daily', 'D6-10 half tab daily'],
+      ['Days 4-6 1 1/2 tablets daily', 'Days 4-6 1 and a half tablets daily'],
+      // A dose range: the whole stays.
+      [
+        'Take 1-1 1/2 tablets by mouth every 6 hours as needed',
+        'Take 1-1 and a half tablets by mouth every 6 hours as needed',
+      ],
+      ['Take 2-2 1/2 tablets by mouth', 'Take 2-2 and a half tablets by mouth'],
+      ['Take 1 to 1 1/2 tablets by mouth', 'Take 1 to 1 and a half tablets by mouth'],
+    ];
+    for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
+  });
+
   it('sends the allergies given, and none when there are none', () => {
     const context = { patientId: 'p', practitionerId: 'pr', encounterId: 'e', pharmacy: PHARMACY };
     const allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }] as const;
