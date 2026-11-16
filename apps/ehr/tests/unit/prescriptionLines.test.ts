@@ -305,6 +305,11 @@ describe('prescriptionLineErrors', () => {
       'every 6 hours as needed, maximum of 3.5 g a day',
       'no more than 4 tablets a day',
       '40 mg per kg per day divided twice daily',
+      // Decision 253: a limit can have a colon or up to 3 words before its amount.
+      'max: 40 mg per dose',
+      'maximum daily dose 3000 mg',
+      'every 6 hours as needed, daily max: 3,000 mg',
+      'no more than a total of 4 tablets a day',
     ]) {
       expect(errors(instructions)).toEqual(['Enter the dose']);
     }
@@ -313,6 +318,7 @@ describe('prescriptionLineErrors', () => {
       '10 mL daily for 3 days, do not exceed 3000 mg per day',
       'up to 3 patches at once',
       '1,000 mg twice daily',
+      'max 2 doses a day, 5 mL each',
     ]) {
       expect(errors(instructions)).toEqual([]);
     }
