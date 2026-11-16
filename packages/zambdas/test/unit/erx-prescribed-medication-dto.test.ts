@@ -4,11 +4,14 @@ import {
   ERX_CANCEL_RESPONSE_EXTENSION_URL,
   ERX_EVENT_CODE_SYSTEM,
   PRESCRIPTION_ERX_PHARMACY_ID_URL,
+  PRESCRIPTION_ERX_PHARMACY_NAME_URL,
 } from 'utils/lib/fhir/constants';
 import { describe, expect, it, vi } from 'vitest';
 import { getErxOrders } from '../../src/ehr/get-erx-orders';
 import { makePrescribedMedicationDTO } from '../../src/shared/chart-data';
 import { planSection } from '../../src/shared/chart-sections/sections/plan';
+import { fetchErxPharmacies } from '../../src/shared/erx';
+import { groupPrescriptionsByPharmacy } from '../../src/shared/pdf/helpers/pharmacy';
 
 const makeMedicationRequest = (overrides: Partial<MedicationRequest> = {}): MedicationRequest => ({
   resourceType: 'MedicationRequest',
@@ -34,6 +37,97 @@ describe('makePrescribedMedicationDTO pharmacy id', () => {
       extension: [{ url: PRESCRIPTION_ERX_PHARMACY_ID_URL, valueInteger: 2026 }],
     });
     expect(makePrescribedMedicationDTO(medicationRequest).pharmacyId).toBe('2026');
+  });
+});
+
+describe('makePrescribedMedicationDTO pharmacy', () => {
+  // A prescription as eRx v4 stores it (staging MedicationRequest 9dbfda9f, 2026-11-02; ids replaced): the pharmacy is
+  // one nested extension holding its id, NPI, name and phone.
+  const erxV4Prescription: MedicationRequest = {
+    resourceType: 'MedicationRequest',
+    id: 'med-request-1',
+    meta: {
+      tag: [{ system: 'https://tags.fhir.oystehr.com/erx-medication', code: 'erx-medication' }],
+      lastUpdated: '2026-11-02T17:01:09.671Z',
+    },
+    status: 'active',
+    intent: 'order',
+    subject: { reference: 'Patient/patient-1' },
+    requester: { reference: 'Practitioner/practitioner-1' },
+    encounter: { reference: 'Encounter/encounter-1' },
+    authoredOn: '2026-11-02',
+    medicationCodeableConcept: {
+      coding: [
+        {
+          system: 'http://hl7.org/fhir/sid/ndc',
+          code: '00121075908',
+          display: 'prednisoLONE (Oral Liquid) 15 mg/5ml Sol',
+        },
+      ],
+    },
+    dosageInstruction: [
+      { patientInstruction: 'Take 18.5 mL by mouth once daily for 5 days, then 9 mL by mouth once daily for 5 days.' },
+    ],
+    dispenseRequest: {
+      quantity: {
+        value: 138,
+        unit: 'Milliliter',
+        system: 'http://ncicb.nci.nih.gov/xml/owl/EVS/Thesaurus.owl',
+        code: 'C28254',
+      },
+      numberOfRepeatsAllowed: 0,
+      expectedSupplyDuration: { value: 10, unit: 'days', system: 'http://unitsofmeasure.org', code: 'd' },
+    },
+    substitution: { allowedBoolean: true },
+    extension: [
+      {
+        url: 'https://extensions.fhir.oystehr.com/prescription/erx-pharmacy',
+        extension: [
+          { url: 'id', valueString: '8253041' },
+          { url: 'npi', valueString: '9048400144' },
+          { url: 'name', valueString: 'Apex Discount Drugs' },
+          { url: 'phone', valueString: '3047287774' },
+        ],
+      },
+      {
+        url: 'https://extensions.fhir.oystehr.com/prescription/erx-metadata',
+        valueString: '{"version":1,"route":"by mouth","dose":"18.5","frequency":"once daily","durationDays":"5"}',
+      },
+    ],
+  };
+
+  it('reads the name and id eRx v4 writes in its nested extension', () => {
+    const dto = makePrescribedMedicationDTO(erxV4Prescription);
+    expect(dto.pharmacyName).toBe('Apex Discount Drugs');
+    expect(dto.pharmacyId).toBe('8253041');
+  });
+
+  it('still reads the older flat extensions', () => {
+    const dto = makePrescribedMedicationDTO(
+      makeMedicationRequest({
+        extension: [
+          { url: PRESCRIPTION_ERX_PHARMACY_ID_URL, valueString: '8253041' },
+          { url: PRESCRIPTION_ERX_PHARMACY_NAME_URL, valueString: 'Apex Discount Drugs' },
+        ],
+      })
+    );
+    expect(dto.pharmacyName).toBe('Apex Discount Drugs');
+    expect(dto.pharmacyId).toBe('8253041');
+  });
+
+  it('has no pharmacy without either', () => {
+    const dto = makePrescribedMedicationDTO(makeMedicationRequest());
+    expect(dto.pharmacyName).toBeUndefined();
+    expect(dto.pharmacyId).toBeUndefined();
+  });
+
+  it('reaches the visit note’s pharmacy block and its lookup', async () => {
+    const dto = makePrescribedMedicationDTO(erxV4Prescription);
+    const getPharmacy = vi.fn().mockResolvedValue({ id: '8253041', name: 'Apex Discount Drugs (directory)' });
+    const looked = await fetchErxPharmacies({ erx: { getPharmacy } } as unknown as Oystehr, [dto]);
+    expect(getPharmacy).toHaveBeenCalledWith({ pharmacyId: '8253041' });
+    expect(groupPrescriptionsByPharmacy([dto], looked)[0].pharmacy?.name).toBe('Apex Discount Drugs (directory)');
+    expect(groupPrescriptionsByPharmacy([dto], {})[0].pharmacy?.name).toBe('Apex Discount Drugs');
   });
 });
 

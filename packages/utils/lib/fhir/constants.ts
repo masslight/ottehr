@@ -1238,6 +1238,9 @@ export const PREFERRED_PHARMACY_PLACES_ID_URL = ottehrExtensionUrl('pharmacy-pla
 export const PREFERRED_PHARMACY_ERX_ID_FOR_SYNC_URL =
   'https://extensions.fhir.oystehr.com/patient/erx-preferred-pharmacy-id';
 
+// The pharmacy eRx v4 sent a prescription to: one extension with `id`, `npi`, `name` and `phone` (valueString) inside
+export const PRESCRIPTION_ERX_PHARMACY_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-pharmacy';
+// Older flat extensions, still read as a fallback
 export const PRESCRIPTION_ERX_PHARMACY_ID_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-pharmacy-id';
 export const PRESCRIPTION_ERX_PHARMACY_NAME_URL = 'https://extensions.fhir.oystehr.com/prescription/erx-pharmacy-name';
 // The order's `metadata` (the directions blanks, `PrescriptionOrderMetadata`) as the eRx service keeps it: JSON in valueString

@@ -46,6 +46,7 @@ import {
   PRESCRIPTION_ERX_METADATA_URL,
   PRESCRIPTION_ERX_PHARMACY_ID_URL,
   PRESCRIPTION_ERX_PHARMACY_NAME_URL,
+  PRESCRIPTION_ERX_PHARMACY_URL,
   PRIVATE_EXTENSION_BASE_URL,
   PROCEDURE_TYPE_SYSTEM,
 } from 'utils/lib/fhir/constants';
@@ -370,10 +371,16 @@ export function makeMedicationDTO(medication: MedicationStatement): MedicationDT
   };
 }
 
-// The eRx service writes the pharmacy id as a string; an integer is still read as a fallback.
-const getPharmacyId = (medRequest: MedicationRequest): string | undefined => {
-  const extension = medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_ID_URL);
-  return extension?.valueString ?? extension?.valueInteger?.toString();
+// eRx v4 writes the pharmacy as one nested extension; the older flat id (a string, or an integer) and name
+// extensions are still read as a fallback.
+const getPharmacy = (medRequest: MedicationRequest): { id?: string; name?: string } => {
+  const nested = medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_URL)?.extension;
+  const part = (url: string): string | undefined => nested?.find((e) => e.url === url)?.valueString;
+  const flatId = medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_ID_URL);
+  return {
+    id: part('id') ?? flatId?.valueString ?? flatId?.valueInteger?.toString(),
+    name: part('name') ?? medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_NAME_URL)?.valueString,
+  };
 };
 
 /** The MedicationRequest id a reference points at, relative ("MedicationRequest/<id>") or absolute, and with or
@@ -522,6 +529,7 @@ export function makePrescribedMedicationDTO(
 ): PrescribedMedicationDTO {
   const events = makeErxEvents(medRequest, provenances);
   const order = makePrescribedMedicationOrder(medRequest);
+  const pharmacy = getPharmacy(medRequest);
   return {
     resourceId: medRequest.id,
     // A compound goes by its name, or the medication's text where the service stores no contained Medication.
@@ -542,8 +550,8 @@ export function makePrescribedMedicationDTO(
     )?.value,
     encounterId: medRequest.encounter?.reference?.split('/')?.[1],
     isRenewal: getBooleanExtensionValue(medRequest, FHIR_EXTENSION.MedicationRequest.isRenewal.url),
-    pharmacyId: getPharmacyId(medRequest),
-    pharmacyName: medRequest.extension?.find((e) => e.url === PRESCRIPTION_ERX_PHARMACY_NAME_URL)?.valueString,
+    pharmacyId: pharmacy.id,
+    pharmacyName: pharmacy.name,
     sent:
       events.find((event) => event.code === 'ordered')?.recorded ??
       medRequest.authoredOn ??
