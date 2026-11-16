@@ -789,6 +789,23 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBeUndefined();
   });
 
+  // Review D6-3: prednisone and prednisolone are equal mg for mg, so they weigh as one ingredient.
+  it('warns between prednisolone and prednisone, which are equal mg for mg', () => {
+    const prednisolone: PrescribedMedicationDTO = {
+      resourceId: 'rx-11',
+      name: 'Prednisolone 15 mg/5ml Soln',
+      instructions: 'Take 10 mL by mouth daily for 5 days',
+      order: { ndc: '00000000001', medicationDescription: 'Prednisolone 15 mg/5ml Soln' },
+    };
+    const sig = 'TAKE 10 ML BY MOUTH DAILY FOR 5 DAYS';
+    expect(
+      strengthChangeWarning({ description: 'PREDNISONE 5 MG/5ML SOLN', ndc: '00000000002', sig }, prednisolone)
+    ).toBe('Different strength, same amount: 15 mg/5 mL → 5 mg/5 mL. Check the dose.');
+    expect(
+      strengthChangeWarning({ description: 'Prednisone 15 mg/5ml Soln', ndc: '00000000003', sig }, prednisolone)
+    ).toBeUndefined();
+  });
+
   // Review D3-1: mg of one drug can't be weighed against mg of another, so the warning is for the same ingredient only.
   it('warns for another product with the same ingredient, and says nothing for another drug', () => {
     expect(

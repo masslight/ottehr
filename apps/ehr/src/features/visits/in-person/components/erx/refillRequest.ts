@@ -100,10 +100,16 @@ const ingredientWords = (name: string, strengthAt: number): string[] =>
     .split(/[^a-z]+/)
     .filter((word) => word.length > 1 && !NOT_INGREDIENT.has(word));
 
+/** Different ingredients that weigh as one because they're equal mg for mg: 5 mg prednisone is 5 mg prednisolone in
+ * the corticosteroid equivalence tables. */
+const EQUAL_MG_INGREDIENTS = [['prednisone', 'prednisolone']];
+
 /** One ingredient word, or a shortened one of 4 or more letters that starts the other: "amox" is "amoxicillin", "clav"
- * is "clavulanate". */
+ * is "clavulanate". An `EQUAL_MG_INGREDIENTS` pair is one too. */
 const sameIngredient = (a: string, b: string): boolean =>
-  a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a)));
+  a === b ||
+  (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a))) ||
+  EQUAL_MG_INGREDIENTS.some((pair) => pair.includes(a) && pair.includes(b));
 
 const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4' };
 const AMOUNT_UNITS: Record<string, string> = { milliliter: 'ml', tab: 'tablet', cap: 'capsule' };
