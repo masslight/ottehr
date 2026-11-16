@@ -997,10 +997,11 @@ export const asciiFractions = (text: string): string =>
  * "half tablet", "1 and a half tablets", "half tab", "half to 1 tablet", "half or 1 and a half tablets". A number that
  * follows a day or week word, alone or ending a range ("days 6-10 1/2 tablet", "days 6 to 10", "wk 2 1/2 tab"), isn't
  * the whole; a dose range keeps it ("1-1 1/2 tablets" is "1-1 and a half tablets"), and so does the next step after
- * a duration, a day or week word after a number ("for 3 days 1 1/2 tablets"). */
+ * a duration, a day or week word after a number ("for 3 days 1 1/2 tablets"). "1/2tab", "1/2-tablet" and "1/2 of a
+ * tablet" are halves too (decision 78). */
 export const sentSigInWords = (text: string): string =>
   asciiFractions(text).replace(
-    /(?:(?<!(?<!\d\s*)\b(?:days?|d|weeks?|wks?)\s*(?:\d+\s*(?:-|–|to|through|thru)\s*)?)\b(\d+)[ -])?\b1\/2(?:\s*(-|to|or)\s*(\d+(?:\.\d+)?)([ -]1\/2)?)? (tab(?:let)?s?)\b/gi,
+    /(?:(?<!(?<!\d\s*)\b(?:days?|d|weeks?|wks?)\s*(?:\d+\s*(?:-|–|to|through|thru)\s*)?)\b(\d+)[ -])?\b1\/2(?:\s*(-|to|or)\s*(\d+(?:\.\d+)?)([ -]1\/2)?)?[ -]?((?:of an? )?tab(?:let)?s?)\b/gi,
     (
       _,
       whole: string | undefined,

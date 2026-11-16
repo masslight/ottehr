@@ -1026,6 +1026,28 @@ describe('prescriptionLineToOrder', () => {
     for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
   });
 
+  // Decision 78 review: the asked edge cases, and a half written with no space, a hyphen or "of a" before "tablet".
+  it('puts a half in words in the edge cases, and leaves a half mL and "11/2" as typed', () => {
+    const cases: [string, string][] = [
+      ['Take 1 1/2 tablets', 'Take 1 and a half tablets'],
+      ['Take 1/2-1 tablet', 'Take half to 1 tablet'],
+      ['take 1/2 tab', 'take half tab'],
+      ['Take 1/2 to 1 tablet', 'Take half to 1 tablet'],
+      ['Take 1 tablet for 1-2 days 1/2 tablet daily', 'Take 1 tablet for 1-2 days half tablet daily'],
+      ['Take 1 tablet for 1-2 days 1 1/2 tablets daily', 'Take 1 tablet for 1-2 days 1 and a half tablets daily'],
+      ['Take 1/2tab daily', 'Take half tab daily'],
+      ['Take 1 1/2tabs daily', 'Take 1 and a half tabs daily'],
+      ['Take 1/2-tablet daily', 'Take half tablet daily'],
+      ['Take 1/2 of a tablet daily', 'Take half of a tablet daily'],
+      // Unchanged: no tablet, or no half.
+      ['Take 1/2 mL daily', 'Take 1/2 mL daily'],
+      ['Take 2 1/2 mL daily', 'Take 2 1/2 mL daily'],
+      ['Take 11/2 tablets', 'Take 11/2 tablets'],
+      ['Take 1/2 capsule', 'Take 1/2 capsule'],
+    ];
+    for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
+  });
+
   it('sends the allergies given, and none when there are none', () => {
     const context = { patientId: 'p', practitionerId: 'pr', encounterId: 'e', pharmacy: PHARMACY };
     const allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }] as const;
