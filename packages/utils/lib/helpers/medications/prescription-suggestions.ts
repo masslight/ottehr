@@ -11,7 +11,17 @@ import { assembleSentence } from '../suggested-sentences';
 /** The product facts the helpers read. */
 export type PrescriptionProduct = Pick<MedicationProductDetails, 'doseForm' | 'ingredients'>;
 
-export type PrescriptionDoseForm = 'tablet' | 'capsule' | 'liquid' | 'inhaler' | 'topical' | 'patch' | 'suppository';
+export type PrescriptionDoseForm =
+  | 'tablet'
+  | 'capsule'
+  | 'liquid'
+  | 'inhaler'
+  | 'topical'
+  | 'patch'
+  | 'suppository'
+  | 'packet'
+  | 'lozenge'
+  | 'insert';
 
 /** Plain-English routes, as the directions read them. */
 export const PRESCRIPTION_ROUTES = [
@@ -63,8 +73,8 @@ const DOSE_FORMS: Record<string, DoseFormFacts> = {
   'Powder for Oral Suspension': ORAL_LIQUID,
   'Powder for Oral Solution': ORAL_LIQUID,
   'Granules for Oral Solution': ORAL_LIQUID,
-  'Oral Granules': { route: 'by mouth', unit: 'packet' },
-  'Oral Lozenge': { route: 'by mouth', unit: 'lozenge' },
+  'Oral Granules': { form: 'packet', route: 'by mouth', unit: 'packet' },
+  'Oral Lozenge': { form: 'lozenge', route: 'by mouth', unit: 'lozenge' },
   'Metered Dose Inhaler': INHALER,
   'Inhalation Spray': INHALER,
   'Dry Powder Inhaler': INHALER,
@@ -85,12 +95,12 @@ const DOSE_FORMS: Record<string, DoseFormFacts> = {
   'Topical Solution': { route: 'on the skin' },
   'Topical Spray': { route: 'on the skin' },
   'Transdermal System': { form: 'patch', route: 'on the skin', unit: 'patch' },
-  'Medicated Patch': { route: 'on the skin', unit: 'patch' },
+  'Medicated Patch': { form: 'patch', route: 'on the skin', unit: 'patch' },
   // Swished and spat, not swallowed: no route.
   Mouthwash: { unit: 'mL' },
   'Rectal Suppository': { form: 'suppository', route: 'rectally', unit: 'suppository' },
   'Vaginal Cream': { form: 'topical', route: 'vaginally' },
-  'Vaginal Insert': { route: 'vaginally', unit: 'insert' },
+  'Vaginal Insert': { form: 'insert', route: 'vaginally', unit: 'insert' },
   'Injectable Solution': { form: 'liquid', route: 'by injection', unit: 'mL' },
   'Injectable Suspension': { form: 'liquid', route: 'by injection', unit: 'mL' },
   'Auto-Injector': { route: 'by injection' },
@@ -101,7 +111,8 @@ const DOSE_FORMS: Record<string, DoseFormFacts> = {
  * es2022) spells it: "constructor" is no dose form. A liquid whose strength isn't per mL (a powder dosed per packet or
  * capful, "17000 MG Powder for Oral Solution", a fosfomycin sachet) keeps only its route: it isn't counted or dispensed in mL. Such a powder
  * of one ingredient in mg is dosed in g ("Take 17 g by mouth") from 1000 mg a packet, in packets below ("Take 3 packets"
- * of sapropterin 100 mg, never 3 g), never measured or dispensed by the line (decisions 203, 218). */
+ * of sapropterin 100 mg, never 3 g), never measured or dispensed by the line (decisions 203, 218). A sachet of granules
+ * for oral solution is dispensed in packets (decision 231). */
 const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFormFacts | undefined => {
   const doseForm = product?.doseForm;
   const facts =
@@ -116,7 +127,9 @@ const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFor
     only.unit === 'MG' &&
     only.perUnit === 'EACH' &&
     /^(?:Powder|Granules) for/.test(doseForm ?? '');
-  return packet ? { route: facts.route, unit: only.amount >= 1000 ? 'g' : 'packet' } : { route: facts.route };
+  if (!packet) return { route: facts.route };
+  const unit = only.amount >= 1000 ? 'g' : 'packet';
+  return /^Granules/.test(doseForm ?? '') ? { form: 'packet', route: facts.route, unit } : { route: facts.route, unit };
 };
 
 /** The line's dose form for a product ("Oral Capsule" → capsule), if its RxNorm dose form says. */
@@ -145,6 +158,9 @@ const QUANTITY_UNIT: Record<PrescriptionDoseForm, QuantityUnit> = {
   topical: 'Gram',
   patch: 'Patch',
   suppository: 'Suppository',
+  packet: 'Packet',
+  lozenge: 'Lozenge',
+  insert: 'Insert',
 };
 
 /** The unit a product is dispensed in, when its dose form says. */
@@ -319,8 +335,9 @@ const total = (values: (number | undefined)[]): number | undefined =>
 
 /** The quantity to dispense and the days supply for the picks, as the form holds them: `''` when they can't be
  * worked out. Dose × doses a day × days (every other day: a dose on days 1, 3, 5 …), summed over the steps and
- * rounded up, an as-needed frequency at its most frequent; one inhaler or dose pack whatever the doses; nothing for a
- * cream or for drops, whose package sizes the product's details don't give. */
+ * rounded up, an as-needed frequency at its most frequent; one inhaler or dose pack whatever the doses; a sachet dosed
+ * in g in sachets (3 g of a 3000 mg sachet is 1); nothing for a cream or for drops, whose package sizes the product's
+ * details don't give. */
 export const prescriptionDispense = (
   product: PrescriptionProduct | null | undefined,
   directions: PrescriptionDirections
@@ -347,7 +364,10 @@ export const prescriptionDispense = (
       return amount * (perDay < 1 ? Math.ceil(perDay * days) : perDay * days);
     })
   );
-  const quantity = !uncounted && doses !== undefined ? Math.ceil(doses) : undefined;
+  const sachetMg =
+    form === 'packet' && prescriptionDoseUnit(product) === 'g' ? product?.ingredients?.[0]?.amount : undefined;
+  const counted = doses !== undefined && sachetMg ? (doses * 1000) / sachetMg : doses;
+  const quantity = !uncounted && counted !== undefined ? Math.ceil(counted) : undefined;
   return { quantityValue: quantity === undefined ? '' : String(quantity), daysSupply };
 };
 

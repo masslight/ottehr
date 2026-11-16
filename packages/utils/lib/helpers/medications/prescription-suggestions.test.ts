@@ -4,6 +4,7 @@ import { measureOf } from './plain-dose';
 import {
   isCombinationProduct,
   PRESCRIPTION_FREQUENCIES,
+  PrescriptionDirections,
   prescriptionDirectionsText,
   prescriptionDispense,
   prescriptionDoseForm,
@@ -54,9 +55,9 @@ describe('the RxNorm dose form table', () => {
     ['Chewable Tablet', 'tablet', 'by mouth', 'tablet', 'Tablet'],
     ['Tablet for Oral Suspension', 'tablet', 'by mouth', 'tablet', 'Tablet'],
     ['Effervescent Oral Tablet', 'tablet', 'by mouth', 'tablet', 'Tablet'],
-    ['Oral Granules', undefined, 'by mouth', 'packet', undefined],
-    ['Oral Lozenge', undefined, 'by mouth', 'lozenge', undefined],
-    ['Vaginal Insert', undefined, 'vaginally', 'insert', undefined],
+    ['Oral Granules', 'packet', 'by mouth', 'packet', 'Packet'],
+    ['Oral Lozenge', 'lozenge', 'by mouth', 'lozenge', 'Lozenge'],
+    ['Vaginal Insert', 'insert', 'vaginally', 'insert', 'Insert'],
     ['Oral Suspension', 'liquid', 'by mouth', 'mL', 'Milliliter'],
     ['Oral Solution', 'liquid', 'by mouth', 'mL', 'Milliliter'],
     ['Metered Dose Inhaler', 'inhaler', 'inhaled', 'puff', 'Inhaler'],
@@ -72,7 +73,7 @@ describe('the RxNorm dose form table', () => {
     ['Topical Ointment', 'topical', 'on the skin', undefined, 'Gram'],
     ['Topical Spray', undefined, 'on the skin', undefined, undefined],
     ['Transdermal System', 'patch', 'on the skin', 'patch', 'Patch'],
-    ['Medicated Patch', undefined, 'on the skin', 'patch', undefined],
+    ['Medicated Patch', 'patch', 'on the skin', 'patch', 'Patch'],
     // Swished and spat, not swallowed: the provider picks its route.
     ['Mouthwash', undefined, undefined, 'mL', undefined],
     ['Rectal Suppository', 'suppository', 'rectally', 'suppository', 'Suppository'],
@@ -150,9 +151,44 @@ describe('the RxNorm dose form table', () => {
     );
     const fosfomycin = each('Granules for Oral Solution', 'fosfomycin', 3000);
     expect(prescriptionDoseUnit(fosfomycin)).toBe('g');
-    expect(prescriptionQuantityUnit(fosfomycin)).toBeUndefined();
+    expect(prescriptionQuantityUnit(fosfomycin)).toBe('Packet');
     expect(prescriptionDirectionsText(fosfomycin, { ...once, dose: '3' })).toBe('Take 3 g by mouth once.');
     expect(prescriptionDoseUnit(each('Granules for Oral Solution', 'example', 500))).toBe('packet');
+  });
+
+  // Decision 231: granules, lozenges, inserts and medicated patches are counted one at a time, as tablets are; a sachet
+  // of granules for oral solution is counted in sachets, dosed in g or in packets.
+  it('works out the quantity of granules, lozenges, inserts, medicated patches and sachets', () => {
+    const daily = (dose: string, frequency: string, durationDays: string): PrescriptionDirections => ({
+      dose,
+      route: 'by mouth',
+      frequency,
+      durationDays,
+    });
+    expect(prescriptionDispense(each('Oral Granules', 'montelukast', 4), daily('1', 'at bedtime', '30'))).toEqual({
+      quantityValue: '30',
+      daysSupply: '30',
+    });
+    expect(
+      prescriptionDispense(each('Oral Lozenge', 'clotrimazole', 10), daily('1', 'four times daily', '14')).quantityValue
+    ).toBe('56');
+    expect(
+      prescriptionDispense(each('Vaginal Insert', 'clotrimazole', 200), daily('1', 'at bedtime', '3')).quantityValue
+    ).toBe('3');
+    const lidocaine = { doseForm: 'Medicated Patch', ingredients: [ingredient('lidocaine', 0.05, 'MG')] };
+    expect(prescriptionDispense(lidocaine, daily('1', 'once daily', '30')).quantityValue).toBe('30');
+    const fosfomycin = each('Granules for Oral Solution', 'fosfomycin', 3000);
+    expect(prescriptionDispense(fosfomycin, daily('3', 'once', ''))).toEqual({ quantityValue: '1', daysSupply: '1' });
+    const sachet = each('Granules for Oral Solution', 'example', 500);
+    expect(prescriptionQuantityUnit(sachet)).toBe('Packet');
+    expect(prescriptionDispense(sachet, daily('2', 'twice daily', '5')).quantityValue).toBe('20');
+    // A combination sachet has no dose unit: typed, as before.
+    const combination = {
+      doseForm: 'Granules for Oral Solution',
+      ingredients: [ingredient('one', 100, 'EACH'), ingredient('two', 200, 'EACH')],
+    };
+    expect(prescriptionQuantityUnit(combination)).toBeUndefined();
+    expect(prescriptionDispense(combination, daily('1', 'once daily', '5')).quantityValue).toBe('');
   });
 
   // Decision 212: a lidocaine patch and a chlorhexidine mouthwash have their dose blank.
