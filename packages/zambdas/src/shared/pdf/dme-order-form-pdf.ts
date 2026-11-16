@@ -30,7 +30,7 @@ import { ensureSpace } from './helpers/render/blockHeader';
 import { drawFieldLine } from './helpers/render/drawFieldLine';
 import { DataComposer, PdfRenderConfig, renderPdf, StyleFactory, uploadPdfToStorage } from './pdf-common';
 import { PDF_CLIENT_STYLES } from './pdf-consts';
-import { rgbNormalized } from './pdf-utils';
+import { rgbNormalized, splitLongStringToPageSize } from './pdf-utils';
 import { AssetPaths, PdfClient, PdfData, PdfSection, PdfStyles, TextStyle } from './types';
 
 export const DME_ORDER_FORM_DOC_REF_DOCTYPE = {
@@ -334,8 +334,8 @@ const keepBlockOnOnePage = (
   const { thickness, margin } = styles.lineStyles.separator;
   const lineWidth = client.getRightBound() - client.getLeftBound();
   const linesHeight = lines.reduce((height, { text, style }) => {
-    const dimensions = client.getTextDimensions(text, style);
-    return height + Math.max(1, Math.ceil(dimensions.width / lineWidth)) * (dimensions.height + style.spacing);
+    const lineCount = Math.max(1, splitLongStringToPageSize(text, style.font, style.fontSize, lineWidth).length);
+    return height + lineCount * (client.getTextDimensions(text, style).height + style.spacing);
   }, 0);
   ensureSpace(
     client,
@@ -344,21 +344,35 @@ const keepBlockOnOnePage = (
   );
 };
 
+const layOutSignature = (
+  client: PdfClient,
+  styles: PdfStyles,
+  provider: DmeOrderFormData['orderingProvider']
+): { lastLineWidth: number; credentialsBeside: boolean } => {
+  const { signature, signatureCredentials } = styles.textStyles;
+  const lineWidth = client.getRightBound() - client.getLeftBound();
+  const nameLines = splitLongStringToPageSize(provider.signatureName, signature.font, signature.fontSize, lineWidth);
+  const lastLineWidth = client.getTextDimensions(nameLines[nameLines.length - 1] ?? '', signature).width;
+  const credentialsWidth = client.getTextDimensions(`, ${provider.credentials}`, signatureCredentials).width;
+  return { lastLineWidth, credentialsBeside: !!provider.credentials && lastLineWidth + credentialsWidth <= lineWidth };
+};
+
 const providerSignatureSection: PdfSection<DmeOrderFormData, DmeOrderFormData['orderingProvider']> = {
   preferredWidth: 'full',
   dataSelector: (data) => data.orderingProvider,
   render: (client, provider, styles) => {
-    const { sectionLabel, regular, signature, caption } = styles.textStyles;
+    const { sectionLabel, regular, signature, signatureCredentials, caption } = styles.textStyles;
     const providerLine = provider.name && `${provider.name}${provider.npi ? `, NPI: ${provider.npi}` : ''}`;
-    const signatureLine =
-      provider.signatureName && `${provider.signatureName}${provider.credentials ? `, ${provider.credentials}` : ''}`;
+    const { lastLineWidth, credentialsBeside } = layOutSignature(client, styles, provider);
+    const credentialsBelow = provider.signatureName && !credentialsBeside ? provider.credentials : undefined;
     keepBlockOnOnePage(
       client,
       styles,
       [
         { text: 'Ordering Provider:', style: sectionLabel },
         ...(providerLine ? [{ text: providerLine, style: regular }] : []),
-        ...(signatureLine ? [{ text: signatureLine, style: signature }] : []),
+        ...(provider.signatureName ? [{ text: provider.signatureName, style: signature }] : []),
+        ...(credentialsBelow ? [{ text: credentialsBelow, style: signatureCredentials }] : []),
         { text: SIGNATURE_BLANK, style: regular },
         { text: 'Provider Signature', style: caption },
       ],
@@ -369,15 +383,16 @@ const providerSignatureSection: PdfSection<DmeOrderFormData, DmeOrderFormData['o
     if (providerLine) client.drawText(providerLine, regular);
     client.newLine(24);
     if (provider.signatureName) {
-      client.drawText(provider.signatureName, { ...signature, newLineAfter: !provider.credentials });
-      if (provider.credentials) {
-        const signatureDims = client.getTextDimensions(provider.signatureName, signature);
+      client.drawText(provider.signatureName, { ...signature, newLineAfter: !credentialsBeside });
+      if (credentialsBeside) {
         client.drawStartXPosSpecifiedText(
           `, ${provider.credentials}`,
-          styles.textStyles.signatureCredentials,
-          client.getLeftBound() + signatureDims.width
+          signatureCredentials,
+          client.getLeftBound() + lastLineWidth
         );
-        client.newLine(signatureDims.height + signature.spacing);
+        client.newLine(client.getTextDimensions(provider.signatureName, signature).height + signature.spacing);
+      } else if (credentialsBelow) {
+        client.drawText(credentialsBelow, { ...signatureCredentials, newLineAfter: true });
       }
     }
     client.drawText(SIGNATURE_BLANK, regular);

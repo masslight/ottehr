@@ -408,8 +408,13 @@ describe('DME order form PDF', () => {
       })
     );
     const pageOf = (text: string): PDFPage => find(drawn, text).page;
+    const credentialsIndex = drawn.findIndex((entry) => entry.text === ', MD');
+    const lastSignatureLine = drawn[credentialsIndex - 1];
 
     expect(pageOf('Provider Signature')).toBe(pageOf('Ordering Provider:'));
+    expect(lastSignatureLine.text).not.toBe(`Jane ${family}`);
+    expect(drawn[credentialsIndex].y).toBe(lastSignatureLine.y);
+    expect(drawn[credentialsIndex].x).toBeGreaterThan(lastSignatureLine.x);
   });
 
   it('moves the proof of delivery to the next page whole rather than splitting it', async () => {
