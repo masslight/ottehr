@@ -285,9 +285,21 @@ describe('prescriptionLineErrors', () => {
       '1 tablespoon daily',
       '2 tbsp daily',
       '1 scoop in 8 oz of water daily',
+      // Decision 260 (D14-4): "mls", "teaspoonful(s)", "tablespoonful(s)" and the characters ½, ¼ and ¾.
+      '7.5mls every 6 hours',
+      '1.5 teaspoonfuls every 6 hours',
+      '1 teaspoonful at bedtime',
+      '1 tablespoonful daily',
+      '2 tablespoonfuls daily',
+      '½ tsp every 6 hours',
+      '¼ tablet daily',
+      '¾ teaspoon daily',
+      '1½ tsp every 6 hours',
     ]) {
       expect(errors(instructions)).toEqual([]);
     }
+    // A fraction character alone, with no dose word, is still no amount.
+    expect(errors('½ every 6 hours')).toEqual(['Enter the dose']);
   });
 
   // Decision 245 (D12-6): a maximum ("do not exceed 3000 mg per day") or a rate by weight ("40 mg/kg") isn't a dose.
