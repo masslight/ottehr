@@ -100,6 +100,11 @@ const ingredientWords = (name: string, strengthAt: number): string[] =>
     .split(/[^a-z]+/)
     .filter((word) => word.length > 1 && !NOT_INGREDIENT.has(word));
 
+/** One ingredient word, or a shortened one of 4 or more letters that starts the other: "amox" is "amoxicillin", "clav"
+ * is "clavulanate". */
+const sameIngredient = (a: string, b: string): boolean =>
+  a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a)));
+
 const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4' };
 
 /** The amount a sig gives each time, in any words: "Take 5 ml …" and "TAKE 5 ML …" as "5 ml", "1/2 tablet" as
@@ -138,7 +143,13 @@ export const strengthChangeWarning = (
     return undefined;
   }
   const ingredients = ingredientWords(originalName ?? '', from.at);
-  if (!ingredientWords(request.description ?? '', to.at).some((word) => ingredients.includes(word))) return undefined;
+  if (
+    !ingredientWords(request.description ?? '', to.at).some((word) =>
+      ingredients.some((other) => sameIngredient(word, other))
+    )
+  ) {
+    return undefined;
+  }
   return `Different strength, same amount: ${from.text} → ${to.text}. Check the dose.`;
 };
 

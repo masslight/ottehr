@@ -690,6 +690,51 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBeUndefined();
   });
 
+  // Review D5-2: a pharmacy's shortened name ("AMOX-CLAV", "AMOX") is the same ingredient when a word of 4 or more
+  // letters starts the other.
+  it('warns for a shortened name of the same ingredient', () => {
+    const augmentin: PrescribedMedicationDTO = {
+      resourceId: 'rx-8',
+      name: 'Amoxicillin-Pot Clavulanate 400-57 mg/5ml Susp',
+      instructions: 'Take 5 mL by mouth twice daily for 10 days',
+      order: { ndc: '00000000001', medicationDescription: 'Amoxicillin-Pot Clavulanate 400-57 mg/5ml Susp' },
+    };
+    expect(
+      strengthChangeWarning(
+        {
+          description: 'AMOX-CLAV 250-62.5 MG/5 ML SUSP',
+          ndc: '00000000002',
+          sig: 'GIVE 5 ML BY MOUTH TWICE DAILY FOR 10 DAYS',
+        },
+        augmentin
+      )
+    ).toBe('Different strength, same amount: 400-57 mg/5 mL → 250-62.5 mg/5 mL. Check the dose.');
+    expect(
+      strengthChangeWarning(
+        { description: 'AMOX 250MG/5ML SUS', ndc: '00000000003', sig: 'TAKE 5 ML BY MOUTH TWICE DAILY' },
+        AMOXICILLIN
+      )
+    ).toBe('Different strength, same amount: 400 mg/5 mL → 250 mg/5 mL. Check the dose.');
+    // Under 4 letters, or a word that doesn't start the other, isn't the same ingredient.
+    expect(
+      strengthChangeWarning(
+        { description: 'AMO 250MG/5ML SUS', ndc: '00000000004', sig: 'TAKE 5 ML BY MOUTH TWICE DAILY' },
+        AMOXICILLIN
+      )
+    ).toBeUndefined();
+    expect(
+      strengthChangeWarning(
+        { description: 'Levocetirizine 5 mg Tab', ndc: '00000000005', sig: 'Take 1 tablet by mouth once daily' },
+        {
+          resourceId: 'rx-9',
+          name: 'Cetirizine HCl 10 mg Tab',
+          instructions: 'Take 1 tablet by mouth once daily.',
+          order: { ndc: '00000000006', medicationDescription: 'Cetirizine HCl 10 mg Tab' },
+        }
+      )
+    ).toBeUndefined();
+  });
+
   // Review D3-1: mg of one drug can't be weighed against mg of another, so the warning is for the same ingredient only.
   it('warns for another product with the same ingredient, and says nothing for another drug', () => {
     expect(
