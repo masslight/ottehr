@@ -966,6 +966,50 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBe('Different strength, same amount: 875-125 mg → 500-125 mg. Check the dose.');
   });
 
+  // Review D6-5: RxNorm writes a combination's ingredients in alphabetical order, so the amounts compare in any order.
+  // A strength it can't fully read, with an ingredient in another unit, says nothing; "UNT" is units.
+  it('compares a combination in any order, and says nothing for one in mixed units', () => {
+    const original = (name: string, instructions: string): PrescribedMedicationDTO => ({
+      resourceId: 'rx-12',
+      name,
+      instructions,
+      order: { ndc: '00000000001', medicationDescription: name },
+    });
+    const same: [string, string, string][] = [
+      [
+        'Tobramycin-Dexamethasone 0.3-0.1 % Ophth Susp',
+        'dexamethasone 1 MG/ML / tobramycin 3 MG/ML Ophthalmic Suspension',
+        'Put 1 drop in each eye every 6 hours',
+      ],
+      [
+        'Brompheniramine-Pseudoephedrine-DM 2-30-10 mg/5ml Syrup',
+        'brompheniramine maleate 0.4 MG/ML / dextromethorphan hydrobromide 2 MG/ML / pseudoephedrine hydrochloride 6 MG/ML Oral Solution',
+        'Take 5 mL by mouth every 6 hours',
+      ],
+      [
+        'Polymyxin B-Trimethoprim 10000-0.1 unit/mL-% Ophth Soln',
+        'polymyxin B sulfate 10000 UNT/ML / trimethoprim sulfate 1 MG/ML Ophthalmic Solution',
+        'Put 1 drop in each eye every 3 hours',
+      ],
+    ];
+    for (const [from, to, sig] of same) {
+      expect(strengthChangeWarning({ description: to, ndc: '00000000002', sig }, original(from, sig))).toBeUndefined();
+    }
+    const sig = 'Take 1 tablet by mouth every 6 hours';
+    expect(
+      strengthChangeWarning(
+        { description: 'acetaminophen 325 MG / hydrocodone bitartrate 10 MG Oral Tablet', ndc: '00000000003', sig },
+        original('Hydrocodone-Acetaminophen 7.5-325 mg Tab', sig)
+      )
+    ).toBe('Different strength, same amount: 7.5-325 mg → 325-10 mg. Check the dose.');
+    expect(
+      strengthChangeWarning(
+        { description: 'NYSTATIN 200000 UNT/ML SUSP', ndc: '00000000004', sig: 'Take 1 mL by mouth' },
+        original('Nystatin 100000 unit/mL Susp', 'Take 1 mL by mouth')
+      )
+    ).toBe('Different strength, same amount: 100000 units/mL → 200000 units/mL. Check the dose.');
+  });
+
   it('says nothing when the amount differs, or the pharmacy sent no directions', () => {
     expect(
       strengthChangeWarning(

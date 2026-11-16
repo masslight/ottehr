@@ -35,12 +35,20 @@ const sameSig = (requested: string, sent: string | undefined): boolean => {
   return sent !== undefined && plain(requested) === plain(sent);
 };
 
+const STRENGTH_UNIT = /^(?:mcg|mg|gm|g|meq|units?|unt|%)$/i;
+
+/** A strength unit as the warning names it: "MEQ" is "mEq", "unit" and "UNT" are "units". */
+const strengthUnit = (written: string): string => {
+  const lower = written.toLowerCase();
+  return lower === 'meq' ? 'mEq' : lower === 'unit' || lower === 'unt' ? 'units' : lower;
+};
+
 /** mg in a strength unit a description writes; another unit (mEq, units) compares as written. */
 const STRENGTH_MG: Record<string, number> = { mcg: 0.001, mg: 1, gm: 1000, g: 1000 };
 
 interface Strength {
   text: string;
-  /** mg per mL for a liquid (a % is g per 100 mL, so ×10 mg/mL), else per unit, a combination's amounts in order. */
+  /** mg per mL for a liquid (a % is g per 100 mL, so ×10 mg/mL), else per unit, a combination's amounts as written. */
   values: number[];
   unit: string;
   at: number;
@@ -48,24 +56,28 @@ interface Strength {
 
 /** A product's strength in its description ("Amoxicillin 400 mg/5ml Susp"), as the warning names it ("400 mg/5 mL")
  * and per mL to compare by, so "80 mg/mL" is the same strength. A combination's amounts go together ("400-57 mg").
- * "100,000 unit" is 100000 units. A combination written per ingredient, as RxNorm does ("875 MG / clavulanate
- * potassium 125 MG"), reads as "875-125 mg". */
+ * "100,000 unit" and "100000 UNT" are 100000 units. A combination written per ingredient, as RxNorm does ("875 MG /
+ * clavulanate potassium 125 MG"), reads as "875-125 mg"; one with an ingredient in another unit ("10000 UNT/ML /
+ * trimethoprim sulfate 1 MG/ML") has no strength it can compare. */
 const strengthOf = (description: string | undefined): Strength | undefined => {
   if (!description) return undefined;
   const match = description.match(
-    /((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:-\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|%)(?![a-z])(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/i
+    /((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:-\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|unt|%)(?![a-z])(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/i
   );
   if (!match) return undefined;
   const [, writtenAmounts, written, perMl, per] = match;
+  const unit = strengthUnit(written);
   let amounts = writtenAmounts.replace(/,/g, '');
   const next = /\s*\/\s*(?:[a-z][a-z -]*\s)?(\d+(?:\.\d+)?)\s*([a-z%]+)(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/iy;
   next.lastIndex = (match.index ?? 0) + match[0].length;
   for (let more = next.exec(description); more; more = next.exec(description)) {
-    if (more[2].toLowerCase() !== written.toLowerCase() || !more[3] !== !perMl || more[4] !== per) break;
+    if (strengthUnit(more[2]) !== unit || !more[3] !== !perMl || more[4] !== per) {
+      // Another ingredient in another unit; anything else ("/ 100 mL") ends the strength.
+      if (STRENGTH_UNIT.test(more[2])) return undefined;
+      break;
+    }
     amounts += `-${more[1]}`;
   }
-  const lower = written.toLowerCase();
-  const unit = lower === 'meq' ? 'mEq' : lower === 'unit' ? 'units' : lower;
   const factor = unit === '%' ? 10 : STRENGTH_MG[unit];
   const ml = perMl ? `/${per ? `${per} ` : ''}mL` : '';
   return {
@@ -77,11 +89,17 @@ const strengthOf = (description: string | undefined): Strength | undefined => {
 };
 
 /** Strengths within 2% are one: "2.5 mg/3 mL" is 0.833 mg/mL, the "0.83 mg/mL" of the same solution. A real change of
- * strength is a quarter or more (400 to 250 mg/5 mL, 1.25 to 2.5 mg/3 mL). */
-const sameStrength = (a: Strength, b: Strength): boolean =>
-  a.unit === b.unit &&
-  a.values.length === b.values.length &&
-  a.values.every((value, i) => Math.abs(value - b.values[i]) <= 0.02 * Math.max(value, b.values[i]));
+ * strength is a quarter or more (400 to 250 mg/5 mL, 1.25 to 2.5 mg/3 mL). A combination's amounts compare in any
+ * order, as RxNorm writes its ingredients alphabetically ("0.3-0.1%" tobramycin-dexamethasone is "1-3 mg/mL"). */
+const sameStrength = (a: Strength, b: Strength): boolean => {
+  const sorted = (values: number[]): number[] => [...values].sort((x, y) => x - y);
+  const [aValues, bValues] = [sorted(a.values), sorted(b.values)];
+  return (
+    a.unit === b.unit &&
+    aValues.length === bValues.length &&
+    aValues.every((value, i) => Math.abs(value - bValues[i]) <= 0.02 * Math.max(value, bValues[i]))
+  );
+};
 
 /** Salt, form, route, release and label words two drugs' names can share: "Cetirizine HCl" and "Levocetirizine" share
  * none, nor do "Childrens Ibuprofen" and "Childrens Acetaminophen" ("Children's" reads as "children"), nor "Ofloxacin
