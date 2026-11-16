@@ -907,7 +907,7 @@ describe('change request: a suggestion of another strength with the same directi
         { description: 'Childrens Ibuprofen 100 mg/5ml Susp', ndc: '00000000004', sig: 'Take 1.25 mL by mouth' },
         original('Infants Ibuprofen 50 mg/1.25ml Susp', 'Take 1.25 mL by mouth')
       )
-    ).toBe('Different strength, same amount: 50 mg/1.25 mL → 100 mg/5 mL. Check the dose.');
+    ).toBe('Different strength, same amount: 50 mg/1.25 mL → 25 mg/1.25 mL. Check the dose.');
   });
 
   // Review D3-2: albuterol's "2.5 mg/3 mL", "0.83 mg/mL" and "0.083%" are the same solution (a liquid's % is g per
@@ -1009,7 +1009,7 @@ describe('change request: a suggestion of another strength with the same directi
         { description: 'acetaminophen 325 MG / hydrocodone bitartrate 10 MG Oral Tablet', ndc: '00000000003', sig },
         original('Hydrocodone-Acetaminophen 7.5-325 mg Tab', sig)
       )
-    ).toBe('Different strength, same amount: 7.5-325 mg → 325-10 mg. Check the dose.');
+    ).toBe('Different strength, same amount: 7.5-325 mg → 10-325 mg. Check the dose.');
     expect(
       strengthChangeWarning(
         { description: 'NYSTATIN 200000 UNT/ML SUSP', ndc: '00000000004', sig: 'Take 1 mL by mouth' },
@@ -1042,8 +1042,50 @@ describe('change request: a suggestion of another strength with the same directi
       )
     ).toBeUndefined();
     expect(strengthChangeWarning({ description: rxnorm('0.16'), ndc: '00000000004', sig }, symbicort)).toBe(
-      'Different strength, same amount: 80-4.5 mcg → 0.16-0.0045 mg. Check the dose.'
+      'Different strength, same amount: 80-4.5 mcg → 160-4.5 mcg. Check the dose.'
     );
+  });
+
+  // Decisions 182 and 193 (D8-6): the request's strength reads in the original's unit, per its volume and with its
+  // ingredients in its order, matched by size; as the request names it when that can't be done cleanly.
+  it("names the request's strength as the original names its own", () => {
+    const original = (name: string, instructions: string): PrescribedMedicationDTO => ({
+      resourceId: 'rx-14',
+      name,
+      instructions,
+      order: { ndc: '00000000001', medicationDescription: name },
+    });
+    const warning = (description: string, from: string, sig: string): string | undefined =>
+      strengthChangeWarning({ description, ndc: '00000000002', sig }, original(from, sig));
+    expect(
+      warning(
+        'formoterol fumarate 0.005 MG/ACTUAT / mometasone furoate 0.2 MG/ACTUAT Metered Dose Inhaler',
+        'Mometasone-Formoterol 100-5 mcg/act Aerosol',
+        'Inhale 2 puffs twice daily'
+      )
+    ).toBe('Different strength, same amount: 100-5 mcg → 200-5 mcg. Check the dose.');
+    expect(
+      warning(
+        'amoxicillin 120 MG/ML / clavulanate potassium 8.58 MG/ML Oral Suspension',
+        'Amoxicillin-Pot Clavulanate 400-57 mg/5ml Susp',
+        'Take 5 mL twice daily'
+      )
+    ).toBe('Different strength, same amount: 400-57 mg/5 mL → 600-42.9 mg/5 mL. Check the dose.');
+    expect(
+      warning(
+        'fluticasone propionate 0.11 MG/ACTUAT Metered Dose Inhaler',
+        'Fluticasone Propionate HFA 44 mcg/act Aerosol',
+        'Inhale 2 puffs twice daily'
+      )
+    ).toBe('Different strength, same amount: 44 mcg → 110 mcg. Check the dose.');
+    // Past 4 significant digits in the original's terms (1.2501 mg/3 mL): as the request names it.
+    expect(
+      warning(
+        'albuterol 0.4167 MG/ML Inhalation Solution',
+        'Albuterol Sulfate 2.5 mg/3ml Nebu Soln',
+        'Inhale 3 mL by nebulizer'
+      )
+    ).toBe('Different strength, same amount: 2.5 mg/3 mL → 0.4167 mg/mL. Check the dose.');
   });
 
   it('says nothing when the amount differs, or the pharmacy sent no directions', () => {

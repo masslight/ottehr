@@ -58,6 +58,9 @@ interface Strength {
   values: number[];
   unit: string;
   at: number;
+  /** As the text names it: what follows the amounts (" mcg", " mg/5 mL", "%"), and its amount per value. */
+  suffix: string;
+  perValue: number;
 }
 
 /** A product's strength in its description ("Amoxicillin 400 mg/5ml Susp"), as the warning names it ("400 mg/5 mL")
@@ -91,12 +94,30 @@ const strengthOf = (description: string | undefined): Strength | undefined => {
   }
   const factor = unit === '%' ? 10 : STRENGTH_MG[unit];
   const ml = perMl ? `/${per ? `${per} ` : ''}mL` : '';
+  const suffix = `${unit === '%' ? '' : ' '}${unit}${ml}`;
+  const perValue = Number(per ?? 1) / (factor ?? 1);
   return {
-    text: `${amounts}${unit === '%' ? '' : ' '}${unit}${ml}`,
-    values: amounts.split('-').map((amount) => (Number(amount) * (factor ?? 1)) / Number(per ?? 1)),
+    text: `${amounts}${suffix}`,
+    values: amounts.split('-').map((amount) => Number(amount) / perValue),
     unit: `${factor ? 'mg' : unit}${perMl || unit === '%' ? '/mL' : ''}`,
     at: match.index ?? 0,
+    suffix,
+    perValue,
   };
+};
+
+/** A strength as another names its own: in its unit, per its volume and with the ingredients in its order, matched by
+ * size ("0.005-0.2 mg" as "100-5 mcg" names it is "200-5 mcg"). As written when it can't be: another kind of unit,
+ * another number of ingredients, or an amount past 4 significant digits. */
+const strengthAs = (strength: Strength, as: Strength): string => {
+  if (strength.unit !== as.unit || strength.values.length !== as.values.length) return strength.text;
+  const sorted = [...strength.values].sort((x, y) => x - y);
+  const bySize = as.values.map((_, i) => i).sort((x, y) => as.values[x] - as.values[y]);
+  const amounts: number[] = [];
+  bySize.forEach((i, rank) => (amounts[i] = Number((sorted[rank] * as.perValue).toPrecision(6))));
+  return amounts.every((amount) => amount === Number(amount.toPrecision(4)))
+    ? `${amounts.join('-')}${as.suffix}`
+    : strength.text;
 };
 
 /** Strengths within 2% are one: "2.5 mg/3 mL" is 0.833 mg/mL, the "0.83 mg/mL" of the same solution. A real change of
@@ -187,7 +208,7 @@ export const strengthChangeWarning = (
   ) {
     return undefined;
   }
-  return `Different strength, same amount: ${from.text} → ${to.text}. Check the dose.`;
+  return `Different strength, same amount: ${from.text} → ${strengthAs(to, from)}. Check the dose.`;
 };
 
 const allowedText = (allowed: boolean | undefined): string | undefined =>
