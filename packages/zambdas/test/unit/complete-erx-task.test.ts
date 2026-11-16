@@ -1,6 +1,8 @@
+import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { FHIR_RESOURCE_NOT_FOUND, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ZambdaInput } from '../../src/shared/types/common';
 import { createMockZambdaInput } from './validate-request-parameters/helpers';
 
 const mocks = vi.hoisted(() => ({
@@ -36,7 +38,8 @@ const task = (category: string): Task => ({
   groupIdentifier: { value: category },
 });
 const found = (tasks: Task[]): { unbundle: () => Task[] } => ({ unbundle: () => tasks });
-const call = (): Promise<unknown> => index(createMockZambdaInput({ taskId: TASK_ID }));
+const call = (): Promise<unknown> =>
+  (index as (input: ZambdaInput) => Promise<APIGatewayProxyResult>)(createMockZambdaInput({ taskId: TASK_ID }));
 
 // Decisions 19/67/88: any staff member completes an eRx task, a patient user never does, and a caller can't tell a
 // missing task from another kind of task.
