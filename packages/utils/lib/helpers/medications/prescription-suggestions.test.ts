@@ -130,7 +130,6 @@ describe('the RxNorm dose form table', () => {
   it('doses a powder packet under 1000 mg in packets', () => {
     const sapropterin = each('Powder for Oral Solution', 'sapropterin dihydrochloride', 100);
     expect(prescriptionDoseUnit(sapropterin)).toBe('packet');
-    expect(prescriptionQuantityUnit(sapropterin)).toBeUndefined();
     const once = { route: 'by mouth' as const, frequency: 'once daily', durationDays: '30' };
     expect(prescriptionDirectionsText(sapropterin, { ...once, dose: '3' })).toBe(
       'Take 3 packets by mouth once daily for 30 days.'
@@ -189,6 +188,21 @@ describe('the RxNorm dose form table', () => {
     };
     expect(prescriptionQuantityUnit(combination)).toBeUndefined();
     expect(prescriptionDispense(combination, daily('1', 'once daily', '5')).quantityValue).toBe('');
+  });
+
+  // Decision 236: a powder packet dosed in packets is counted in packets, as 231's sachets are. One dosed in g stays
+  // typed: MiraLAX's 17000 MG is a capful of a bottle (17 GM/SCOOP) as often as a packet, which the product doesn't say.
+  it('works out the quantity of a powder packet, not of a powder dosed in g', () => {
+    const once = { route: 'by mouth' as const, frequency: 'once daily', durationDays: '30' };
+    const sapropterin = each('Powder for Oral Solution', 'sapropterin dihydrochloride', 100);
+    expect(prescriptionQuantityUnit(sapropterin)).toBe('Packet');
+    expect(prescriptionDispense(sapropterin, { ...once, dose: '3' })).toEqual({
+      quantityValue: '90',
+      daysSupply: '30',
+    });
+    const peg = each('Powder for Oral Solution', 'polyethylene glycol 3350', 17000);
+    expect(prescriptionQuantityUnit(peg)).toBeUndefined();
+    expect(prescriptionDispense(peg, { ...once, dose: '17' }).quantityValue).toBe('');
   });
 
   // Decision 212: a lidocaine patch and a chlorhexidine mouthwash have their dose blank.

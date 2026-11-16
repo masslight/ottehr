@@ -112,7 +112,8 @@ const DOSE_FORMS: Record<string, DoseFormFacts> = {
  * capful, "17000 MG Powder for Oral Solution", a fosfomycin sachet) keeps only its route: it isn't counted or dispensed in mL. Such a powder
  * of one ingredient in mg is dosed in g ("Take 17 g by mouth") from 1000 mg a packet, in packets below ("Take 3 packets"
  * of sapropterin 100 mg, never 3 g), never measured or dispensed by the line (decisions 203, 218). A sachet of granules
- * for oral solution is dispensed in packets (decision 231). */
+ * for oral solution is dispensed in packets (decision 231), as is a powder for oral solution dosed in packets; one
+ * dosed in g isn't, as MiraLAX's 17000 MG is a capful of a bottle as often as a packet (decision 236). */
 const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFormFacts | undefined => {
   const doseForm = product?.doseForm;
   const facts =
@@ -129,7 +130,8 @@ const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFor
     /^(?:Powder|Granules) for/.test(doseForm ?? '');
   if (!packet) return { route: facts.route };
   const unit = only.amount >= 1000 ? 'g' : 'packet';
-  return /^Granules/.test(doseForm ?? '') ? { form: 'packet', route: facts.route, unit } : { route: facts.route, unit };
+  const counted = /^Granules/.test(doseForm ?? '') || (doseForm === 'Powder for Oral Solution' && unit === 'packet');
+  return counted ? { form: 'packet', route: facts.route, unit } : { route: facts.route, unit };
 };
 
 /** The line's dose form for a product ("Oral Capsule" → capsule), if its RxNorm dose form says. */
