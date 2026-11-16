@@ -6,6 +6,7 @@ import { ALL_EHR_STAFF_ROLES, RoleType } from '../user.types';
 export const VITAL_ALERT_TYPES = [
   'vital-weight',
   'vital-height',
+  'vital-head-circumference',
   'vital-temperature',
   'vital-heartbeat',
   'vital-respiration-rate',
@@ -21,6 +22,7 @@ export const MAX_VITAL_ALERT_AGE_RANGES = 15;
 export const VITAL_ALERT_UNITS: Record<VitalAlertType, string> = {
   'vital-weight': 'kg',
   'vital-height': 'cm',
+  'vital-head-circumference': 'cm',
   'vital-temperature': 'celsius',
   'vital-heartbeat': 'bpm',
   'vital-respiration-rate': '',
@@ -31,6 +33,7 @@ export const VITAL_ALERT_UNITS: Record<VitalAlertType, string> = {
 export const VITAL_MEASUREMENT_STEP: Record<VitalAlertType, number> = {
   'vital-weight': 0.1,
   'vital-height': 0.1,
+  'vital-head-circumference': 0.1,
   'vital-temperature': 0.1,
   'vital-heartbeat': 1,
   'vital-respiration-rate': 1,
@@ -41,6 +44,7 @@ export const VITAL_MEASUREMENT_STEP: Record<VitalAlertType, number> = {
 export const VITAL_ALERT_LABELS: Record<VitalAlertType, string> = {
   'vital-weight': 'Weight',
   'vital-height': 'Height',
+  'vital-head-circumference': 'Head circumference',
   'vital-temperature': 'Temperature',
   'vital-heartbeat': 'Heart rate',
   'vital-respiration-rate': 'Respiration rate',
@@ -65,6 +69,7 @@ export const MAX_PERCENTAGE_VITAL_VALUE = 100;
 export const VITAL_ALERT_LEVELS_BY_TYPE: Record<VitalAlertType, readonly VitalAlertLevel[]> = {
   'vital-weight': VITAL_ALERT_LEVELS,
   'vital-height': VITAL_ALERT_LEVELS,
+  'vital-head-circumference': VITAL_ALERT_LEVELS,
   'vital-temperature': VITAL_ALERT_LEVELS,
   'vital-heartbeat': VITAL_ALERT_LEVELS,
   'vital-respiration-rate': VITAL_ALERT_LEVELS,

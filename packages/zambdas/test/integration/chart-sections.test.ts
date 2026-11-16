@@ -72,7 +72,6 @@ const chartPayload = (
   ],
   surgicalHistory: [{ code: '42820', display: 'Tonsillectomy and adenoidectomy' }],
   episodeOfCare: [{ code: 'hospitalization', display: `${label} hospitalization` }],
-  birthHistory: [{ field: 'weight', value: 3.4, note: 'Term delivery' }],
   diagnosis: [
     { code: 'J02.9', display: 'Acute pharyngitis, unspecified', isPrimary: true },
     { code: 'R50.9', display: 'Fever, unspecified', isPrimary: false },
@@ -197,7 +196,6 @@ describe('get-chart-section and get-visit-note golden integration', () => {
     expect(history.inhouseMedications).toEqual([]);
     expect(history.surgicalHistory).toEqual(patientA.saved.surgicalHistory);
     expect(history.episodeOfCare).toEqual(patientA.saved.episodeOfCare);
-    expect(history.birthHistory).toEqual([expect.objectContaining({ field: 'weight', value: 3.4 })]);
   });
 
   it('screening, exam, assessment and plan carry the visit-level lists', () => {

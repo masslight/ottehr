@@ -7,7 +7,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { useVitalsDraftStore } from 'src/state/draft-data.store';
 import { toVitalOxygenSatObservationMethod } from 'utils/lib/fhir/vitals';
 import { getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
-import { areVitalsSameDay, calculateBMI } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
+import { areVitalsSameDay, bmiAppliesAt, calculateBMI } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { toVitalsSupplementalO2DeliveryType } from 'utils/lib/helpers/vitals/vitals-oxygen-saturation.helper';
 import { fahrenheitToCelsius } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
@@ -16,6 +16,7 @@ import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.const
 import {
   VitalsBloodPressureObservationDTO,
   VitalsBMIObservationDTO,
+  VitalsHeadCircumferenceObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -30,7 +31,10 @@ import {
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GetVitalsResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { textToNumericValue } from 'utils/lib/utils/convert';
+import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
+import { useAppointmentData } from '../../../stores/appointment/appointment.store';
 import { useBloodPressureLocalState } from '../blood-pressure/useBloodPressureLocalState';
+import { useHeadCircumferenceLocalState } from '../head-circumference/useHeadCircumferenceLocalState';
 import { useHeartbeatLocalState } from '../heartbeat/useHeartbeatLocalState';
 import { useHeightLocalState } from '../heights/useHeightLocalState';
 import { useLMPLocalState } from '../last-menstrual-period/useLMPLocalState';
@@ -83,6 +87,7 @@ export interface VitalCardRefs {
   oxygenSat: React.RefObject<HTMLDivElement>;
   weight: React.RefObject<HTMLDivElement>;
   height: React.RefObject<HTMLDivElement>;
+  headCircumference: React.RefObject<HTMLDivElement>;
   vision: React.RefObject<HTMLDivElement>;
   lmp: React.RefObject<HTMLDivElement>;
 }
@@ -95,6 +100,10 @@ export interface VitalsFields {
   oxygenSat: VitalField<VitalsOxygenSatObservationDTO, ReturnType<typeof useOxygenSatLocalState>>;
   weight: VitalField<VitalsWeightObservationDTO, ReturnType<typeof useWeightLocalState>>;
   height: VitalField<VitalsHeightObservationDTO, ReturnType<typeof useHeightLocalState>>;
+  headCircumference: VitalField<
+    VitalsHeadCircumferenceObservationDTO,
+    ReturnType<typeof useHeadCircumferenceLocalState>
+  >;
   // BMI is derived and read-only — the read-only subset of a VitalField.
   bmi: Pick<VitalField<VitalsBMIObservationDTO>, 'current' | 'historical' | 'delete'>;
   vision: VitalField<VitalsVisionObservationDTO, ReturnType<typeof useVisionLocalState>>;
@@ -152,6 +161,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
   const oxygenSatState = useOxygenSatLocalState();
   const weightState = useWeightLocalState();
   const heightState = useHeightLocalState();
+  const headCircumferenceState = useHeadCircumferenceLocalState();
   const visionState = useVisionLocalState();
   const dotVisionState = useDotVisionScreeningLocalState();
   const lmpState = useLMPLocalState();
@@ -202,6 +212,9 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     }
     if (d.height && isFinite(d.height.value)) {
       heightState.handleCmChange(e(String(d.height.value)));
+    }
+    if (d.headCircumference && isFinite(d.headCircumference.value)) {
+      headCircumferenceState.handleCmChange(e(String(d.headCircumference.value)));
     }
     if (d.vision) {
       if (d.vision.leftEyeVisionText)
@@ -542,6 +555,38 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     [heightState, encounterId, setDraft]
   );
 
+  const handleHeadCircumferenceCmChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      headCircumferenceState.handleCmChange(e);
+      const measurement = HeightMeasurement.fromCmText(e.target.value);
+      setDraft(encounterId, {
+        headCircumference: measurement
+          ? ({
+              field: VitalFieldNames.VitalHeadCircumference,
+              value: measurement.getCm(),
+            } as VitalsHeadCircumferenceObservationDTO)
+          : undefined,
+      });
+    },
+    [headCircumferenceState, encounterId, setDraft]
+  );
+
+  const handleHeadCircumferenceInchesChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
+      headCircumferenceState.handleInchesChange(e);
+      const measurement = HeightMeasurement.fromInchesText(e.target.value);
+      setDraft(encounterId, {
+        headCircumference: measurement
+          ? ({
+              field: VitalFieldNames.VitalHeadCircumference,
+              value: measurement.getCm(),
+            } as VitalsHeadCircumferenceObservationDTO)
+          : undefined,
+      });
+    },
+    [headCircumferenceState, encounterId, setDraft]
+  );
+
   const handleVisionLeftEyeChange = useCallback(
     (event: { target: { value: string } }): void => {
       visionState.handleLeftEyeChange(event);
@@ -727,6 +772,11 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
 
   const { id: appointmentId } = useParams();
   const { oystehrZambda } = useApiClients();
+  const {
+    resources: { patient, appointment },
+  } = useAppointmentData();
+  // No BMI under 2 years: the growth charts use weight-for-length instead.
+  const bmiApplies = bmiAppliesAt(ageInMonthsOnDate(patient?.birthDate, appointment?.start));
 
   const [isBatchSaving, setIsBatchSaving] = useState(false);
   const [isSavingDot, setIsSavingDot] = useState(false);
@@ -765,6 +815,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
   const oxygenSatCardRef = useRef<HTMLDivElement>(null);
   const weightCardRef = useRef<HTMLDivElement>(null);
   const heightCardRef = useRef<HTMLDivElement>(null);
+  const headCircumferenceCardRef = useRef<HTMLDivElement>(null);
   const visionCardRef = useRef<HTMLDivElement>(null);
   const lmpCardRef = useRef<HTMLDivElement>(null);
 
@@ -791,10 +842,11 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     }
   }, [dotVisionState, finalizeDotVisionDocument, handleSaveVital]);
 
-  // Saves a derived BMI when both inputs exist. Doesn't refetch; caller refetches once. Returns whether it saved.
+  // Saves a derived BMI when both inputs exist and the patient is 2 or older. Doesn't refetch; caller refetches
+  // once. Returns whether it saved.
   const saveBMI = useCallback(
     async (weightKg: number | undefined, heightCm: number | undefined): Promise<boolean> => {
-      if (!weightKg || !heightCm) return false;
+      if (!bmiApplies || !weightKg || !heightCm) return false;
       const bmiDto: VitalsBMIObservationDTO = {
         field: VitalFieldNames.VitalBMI,
         value: calculateBMI(weightKg, heightCm),
@@ -802,7 +854,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       await saveVitals(bmiDto);
       return true;
     },
-    [saveVitals]
+    [saveVitals, bmiApplies]
   );
 
   const handleDeleteVital = useCallback(
@@ -821,6 +873,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     oxygenSat: oxygenSatCardRef,
     weight: weightCardRef,
     height: heightCardRef,
+    headCircumference: headCircumferenceCardRef,
     vision: visionCardRef,
     lmp: lmpCardRef,
   };
@@ -841,6 +894,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       [VitalFieldNames.VitalOxygenSaturation]: { ref: oxygenSatCardRef, state: oxygenSatState },
       [VitalFieldNames.VitalWeight]: { ref: weightCardRef, state: weightState },
       [VitalFieldNames.VitalHeight]: { ref: heightCardRef, state: heightState },
+      [VitalFieldNames.VitalHeadCircumference]: { ref: headCircumferenceCardRef, state: headCircumferenceState },
       [VitalFieldNames.VitalVision]: { ref: visionCardRef, state: visionState },
       [VitalFieldNames.VitalLastMenstrualPeriod]: { ref: lmpCardRef, state: lmpState },
     };
@@ -916,6 +970,8 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
           setDraft(encounterId, { oxygenSat: undefined });
         if (savedFields.includes(VitalFieldNames.VitalWeight)) setDraft(encounterId, { weight: undefined });
         if (savedFields.includes(VitalFieldNames.VitalHeight)) setDraft(encounterId, { height: undefined });
+        if (savedFields.includes(VitalFieldNames.VitalHeadCircumference))
+          setDraft(encounterId, { headCircumference: undefined });
         if (savedFields.includes(VitalFieldNames.VitalVision)) setDraft(encounterId, { vision: undefined });
         if (savedFields.includes(VitalFieldNames.VitalLastMenstrualPeriod)) setDraft(encounterId, { lmp: undefined });
         if (savedFields.includes(VitalFieldNames.VitalHeight) || savedFields.includes(VitalFieldNames.VitalWeight)) {
@@ -970,6 +1026,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     oxygenSatState,
     weightState,
     heightState,
+    headCircumferenceState,
     visionState,
     dotVisionState,
     finalizeDotVisionDocument,
@@ -1026,6 +1083,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
               [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen Saturation',
               [VitalFieldNames.VitalWeight]: 'Weight',
               [VitalFieldNames.VitalHeight]: 'Height',
+              [VitalFieldNames.VitalHeadCircumference]: 'Head Circumference',
               [VitalFieldNames.VitalBMI]: 'BMI',
               [VitalFieldNames.VitalVision]: 'Vision',
               [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',
@@ -1077,6 +1135,12 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
       [VitalFieldNames.VitalHeight]: createFieldSaveHandler(VitalFieldNames.VitalHeight, heightState, true, () =>
         setDraft(encounterId, { height: undefined })
       ),
+      [VitalFieldNames.VitalHeadCircumference]: createFieldSaveHandler(
+        VitalFieldNames.VitalHeadCircumference,
+        headCircumferenceState,
+        false,
+        () => setDraft(encounterId, { headCircumference: undefined })
+      ),
       [VitalFieldNames.VitalVision]: createFieldSaveHandler(VitalFieldNames.VitalVision, visionState, false, () =>
         setDraft(encounterId, { vision: undefined })
       ),
@@ -1096,6 +1160,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     oxygenSatState,
     weightState,
     heightState,
+    headCircumferenceState,
     visionState,
     lmpState,
     setDraft,
@@ -1239,6 +1304,27 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
         setDraft(encounterId, { height: undefined });
       },
     },
+    headCircumference: {
+      save: saveHandlers[VitalFieldNames.VitalHeadCircumference],
+      saveWithDto: handleSaveVital,
+      delete: handleDeleteVital,
+      isSaving: fieldSavingStates[VitalFieldNames.VitalHeadCircumference] ?? false,
+      isValid: headCircumferenceState.isValid,
+      hasData: headCircumferenceState.hasData,
+      current:
+        (encounterVitals?.[VitalFieldNames.VitalHeadCircumference] as VitalsHeadCircumferenceObservationDTO[]) ?? [],
+      historical:
+        (historicalVitals?.[VitalFieldNames.VitalHeadCircumference] as VitalsHeadCircumferenceObservationDTO[]) ?? [],
+      localState: {
+        ...headCircumferenceState,
+        handleCmChange: handleHeadCircumferenceCmChange,
+        handleInchesChange: handleHeadCircumferenceInchesChange,
+      },
+      onClearForm: () => {
+        headCircumferenceState.clearForm();
+        setDraft(encounterId, { headCircumference: undefined });
+      },
+    },
     bmi: {
       current: (encounterVitals?.[VitalFieldNames.VitalBMI] as VitalsBMIObservationDTO[]) ?? [],
       historical: (historicalVitals?.[VitalFieldNames.VitalBMI] as VitalsBMIObservationDTO[]) ?? [],
@@ -1301,6 +1387,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     oxygenSatState.hasData ||
     (weightState.hasData && !weightState.isPatientRefusedSelected) ||
     heightState.hasData ||
+    headCircumferenceState.hasData ||
     visionState.hasData ||
     dotVisionState.hasData ||
     lmpState.hasData;
@@ -1313,6 +1400,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     oxygenSatState.clearForm();
     weightState.clearForm();
     heightState.clearForm();
+    headCircumferenceState.clearForm();
     visionState.clearForm();
     lmpState.clearForm();
     clearDraft(encounterId);
@@ -1324,6 +1412,7 @@ export const useVitalsManagement = ({ encounterId }: UseVitalsManagementProps): 
     oxygenSatState,
     weightState,
     heightState,
+    headCircumferenceState,
     visionState,
     lmpState,
     clearDraft,

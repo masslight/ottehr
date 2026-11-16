@@ -26,7 +26,7 @@ describe('Review & Sign FHIR budget', () => {
     vi.useRealTimers();
   });
 
-  it('costs one chart read, six FHIR round trips and 32 searches for the whole page', async () => {
+  it('costs one chart read, six FHIR round trips and 31 searches for the whole page', async () => {
     await buildVisitNote({ oystehr: server.oystehr, m2mToken: 'token' }, GOLDEN_IDS.encounterId);
 
     const urls = server.recorded.flatMap((call) => call.urls);
@@ -39,7 +39,7 @@ describe('Review & Sign FHIR budget', () => {
     }).toEqual({
       chartReads: 1,
       fhirHttpRequests: CHART_BATCH_TARGET_CONCURRENCY,
-      fhirSearches: 32,
+      fhirSearches: 31,
       repeatedSearches: 0,
       largestBatch: 6,
     });

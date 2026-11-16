@@ -387,6 +387,7 @@ const VitalsSchema = z
     oxygenSaturation: VitalReadingNumeric.optional().describe('% SpO2'),
     weight: VitalReadingWithUnit.optional().describe('lb or kg'),
     height: VitalReadingWithUnit.optional().describe('in or cm'),
+    headCircumference: VitalReadingWithUnit.optional().describe('in or cm; infants and toddlers'),
     visionLeft: z.string().optional().describe('e.g. "20/20"'),
     visionRight: z.string().optional(),
     lmp: isoDate.optional().describe('Last menstrual period'),

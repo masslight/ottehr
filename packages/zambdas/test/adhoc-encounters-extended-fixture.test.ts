@@ -86,6 +86,7 @@ import {
 } from '../src/ehr/immunization/common';
 import { inHouseResults } from '../src/shared/adhoc-datasets/encounter-orders';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
+import { makeBirthHistoryObservation } from '../src/shared/birth-history';
 import { makeNoteResource } from '../src/shared/chart-data';
 import { makeExamObservationResource, makeObservationResource } from '../src/shared/chart-data';
 
@@ -614,7 +615,7 @@ const vitals: Observation[] = [
     },
     '2026-07-01T14:06:00.000Z'
   ),
-  vital('enc-1', { field: VitalFieldNames.VitalWeight, value: 70 }, '2026-07-01T14:07:00.000Z'),
+  vital('enc-1', { field: VitalFieldNames.VitalWeight, value: 70.25 }, '2026-07-01T14:07:00.000Z'),
   vital('enc-1', { field: VitalFieldNames.VitalHeight, value: 170 }, '2026-07-01T14:07:00.000Z'),
   vital(
     'enc-1',
@@ -908,6 +909,15 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   // What an untagged MedicationRequest search would return — the dataset must ask for the eRx tag.
   MedicationRequest: [prescription, inHouseMedicationRequest],
   'MedicationRequest:erx': [prescription],
+  // Saved once per patient from the Vitals card, with no encounter.
+  'Observation:birth-history': [
+    makeBirthHistoryObservation('pat-1', {
+      gestationalAgeWeeks: 38,
+      gestationalAgeDays: 4,
+      timeOfBirth: '08:14',
+      birthWeightKg: 3.25,
+    }),
+  ],
   'ServiceRequest:radiology': [statXray, attending],
   'ServiceRequest:orders': [
     externalLabRequest,
@@ -933,6 +943,8 @@ const jobIdFor = (resourceType: string, params: { name: string; value: string }[
     return 'ServiceRequest:radiology';
   if (resourceType === 'ServiceRequest' && params.some((p) => p.value === 'Task:based-on'))
     return 'ServiceRequest:orders';
+  if (resourceType === 'Observation' && params.some((p) => p.name === '_tag' && p.value.endsWith('|birth-history')))
+    return 'Observation:birth-history';
   if (resourceType === 'DocumentReference' && params.some((p) => p.name === 'related'))
     return 'DocumentReference:related';
   if (
@@ -1140,12 +1152,12 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     expect(signed).toMatchObject({
       // the existing fields keep their values
       temperatureF: 98.6,
-      weightKg: 70,
+      weightKg: 70.25,
       heightCm: 170,
       // the same readings in the chart's other units
       temperatureC: 37,
       temperatureCReadings: [37],
-      weightLbs: 154.3,
+      weightLbs: 154.87,
       heightInches: 66.93,
       heightFeetInches: `5'7"`,
       temperatureMethod: 'Oral',
@@ -1220,6 +1232,15 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       { question: paperworkScreeningField.question, answer: paperworkScreeningOption.label },
     ]);
     expect(signed.patientScreeningQuestions).toEqual([paperworkScreeningField.question]);
+  });
+
+  it("intake: the patient's birth history, saved once per patient, as the visit note lists it", async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeIntake: true });
+    expect(rows.find((r) => r.encounterId === 'enc-1')!.birthHistory).toEqual([
+      'Time of birth: 08:14 AM',
+      'Gestational age: 38 wk 4 d',
+      'Birth weight: 3.25 kg ≈ 7.17 lbs',
+    ]);
   });
 
   it('follow-up: note details on the follow-up row, the note count on the visit row', async () => {

@@ -35,7 +35,6 @@ export const validateBundleAndExtractSavedChartData = (
     prescribedMedications: [],
     notes: [],
     vitalsObservations: [],
-    birthHistory: [],
   };
 
   let resources = parseCreatedResourcesBundle(bundle);

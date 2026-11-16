@@ -85,7 +85,6 @@ const goldenNote = (): VisitNoteResponse =>
       inhouseMedications: [],
       surgicalHistory: [],
       episodeOfCare: [],
-      birthHistory: [],
       medicationsInformationSourcePractitioners: [],
     },
     screening: { observations: [covid] },

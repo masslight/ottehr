@@ -253,15 +253,6 @@ exports[`chart sections — golden fixture > history section > matches its snaps
       "resourceId": "allergy-penicillin",
     },
   ],
-  "birthHistory": [
-    {
-      "field": "weight",
-      "flag": undefined,
-      "note": "Term delivery",
-      "resourceId": "obs-birth-weight",
-      "value": 3.4,
-    },
-  ],
   "conditions": [
     {
       "code": "J45.909",
@@ -815,15 +806,6 @@ exports[`chart sections — golden fixture > visit note > matches its snapshot 1
         "name": "Penicillin",
         "note": "hives",
         "resourceId": "allergy-penicillin",
-      },
-    ],
-    "birthHistory": [
-      {
-        "field": "weight",
-        "flag": undefined,
-        "note": "Term delivery",
-        "resourceId": "obs-birth-weight",
-        "value": 3.4,
       },
     ],
     "conditions": [

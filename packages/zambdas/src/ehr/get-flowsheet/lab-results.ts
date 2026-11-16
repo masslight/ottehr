@@ -1,0 +1,513 @@
+import { FlowsheetLabResult, FlowsheetReading, FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
+import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
+import { byInstant, ConditionColumns, conditionColumns, LabRow } from './columns';
+import { LAB_ROW_LOINC_CODES } from './lab-loinc-codes.generated';
+import { FlowsheetData, FlowsheetDataKind } from './patient-data';
+import { THYROID_LAB_ROWS } from './thyroid';
+
+// The birth date, so a child's every race-free eGFR shows (see preferEgfr2021).
+export const LAB_RESULTS_DATA_KINDS: FlowsheetDataKind[] = ['birthDate', 'labs'];
+
+const URINE = /urin|\bua\b/i;
+const GLUCOSE: Pick<LabRow, 'analyte' | 'exclude'> = {
+  analyte: /glucose/i,
+  exclude: /tolerance|\bgtt\b|post|hour|minute|whole blood|capillary|fluid/i,
+};
+/** A meter reading, by its test's or its own name ("Glucose Finger/Heel Stick", "POC Glucose"). */
+const FINGERSTICK_GLUCOSE: Pick<LabRow, 'analyte' | 'exclude' | 'test'> = {
+  analyte: /glucose/i,
+  exclude: /tolerance|\bgtt\b|post|hour|minute|fluid/i,
+  test: /capillary|whole blood|finger|heel|\bpoc\b|point.of.care|glucometer|\bmeter\b/i,
+};
+const AST_ALT_RATIO =
+  /ratio|(\bast\b|aspartate|sgot).*(\balt\b|alanine|sgpt)|(\balt\b|alanine|sgpt).*(\bast\b|aspartate|sgot)/i;
+const CRP = /c.?reactive|\bcrp\b/i;
+const HS_CRP = /hs.?crp|high.?sens|cardi/i;
+const EGFR: Pick<LabRow, 'analyte' | 'exclude'> = {
+  analyte: /\begfr\b|\bgfr\b|glomerular/i,
+  // A race-based result is never shown, whatever equation it names.
+  exclude: /black|african|non.?af/i,
+};
+
+/** A high-risk HPV type other than 16, 18 or 45 (which a genotyping test reports with 18), as a name lists it. */
+const HPV_OTHER_TYPE = /\b(31|33|35|39|51|52|56|58|59|66|68)\b/;
+
+const hasCode = (lab: FlowsheetLabResult, rule: string): boolean =>
+  lab.loincCodes.some((code) => LAB_ROW_LOINC_CODES[rule].includes(code));
+
+/** A lead level's specimen: the one its code names, else the one its test's or its own name does. */
+const leadSpecimen = (lab: FlowsheetLabResult): string | undefined => {
+  if (hasCode(lab, 'leadCapillary')) return 'capillary';
+  if (hasCode(lab, 'leadVenous')) return 'venous';
+  const name = `${lab.testName} ${lab.analyte}`;
+  return /capillary|finger|heel/i.test(name) ? 'capillary' : /venous/i.test(name) ? 'venous' : undefined;
+};
+const LEAD: Pick<LabRow, 'analyte' | 'note'> = {
+  analyte: /^lead\b|blood lead|\blead,? (blood|venous|capillary)/i,
+  note: leadSpecimen,
+};
+
+/**
+ * An HIV screen that tests for antibodies only (it misses a recent infection for longer than an Ag/Ab test): by its
+ * code, else by a test's or its own name that says antibody but not antigen ("Ag/Ab", p24, 4th generation).
+ */
+const hivAntibodyOnly = (lab: FlowsheetLabResult): string | undefined => {
+  const name = `${lab.testName} ${lab.analyte}`;
+  const antibodyOnly =
+    lab.loincCodes.length > 0
+      ? hasCode(lab, 'hivAb')
+      : /antibod|\bab\b/i.test(name) && !/antigen|\bag\b|p24|\b4th\b|fourth/i.test(name);
+  return antibodyOnly ? 'antibody only' : undefined;
+};
+const HIV_SCREEN: Pick<LabRow, 'analyte' | 'exclude' | 'text' | 'note'> = {
+  text: true,
+  analyte: /\bhiv\b/i,
+  exclude: /\brna\b|viral load|genotyp|confirm|differentiation|western/i,
+  note: hivAntibodyOnly,
+};
+
+/** A pooled HPV 18/45 result on the HPV 18 row: by its code, else by its own name ("HPV 18/45"). */
+const hpv18With45 = (lab: FlowsheetLabResult): string | undefined =>
+  (lab.loincCodes.length > 0 ? hasCode(lab, 'hpv18And45') : /\b45\b/.test(lab.analyte)) ? '18/45' : undefined;
+const HPV_18: Pick<LabRow, 'analyte' | 'exclude' | 'text' | 'note'> = {
+  text: true,
+  analyte: /(\bhpv\b|papilloma).*\b18\b/i,
+  exclude: new RegExp(`\\b16\\b|${HPV_OTHER_TYPE.source}|low.?risk|vaccin`, 'i'),
+  note: hpv18With45,
+};
+
+/** A wet mount or a culture, which miss many infections a NAAT finds: by its code, else by a test's or its own name. */
+const trichomonasMethod = (lab: FlowsheetLabResult): string | undefined => {
+  if (lab.loincCodes.length > 0) {
+    return hasCode(lab, 'trichomonasWetMount')
+      ? 'wet mount'
+      : hasCode(lab, 'trichomonasCulture')
+      ? 'culture'
+      : undefined;
+  }
+  const name = `${lab.testName} ${lab.analyte}`;
+  return /\bwet\b|microscop/i.test(name) ? 'wet mount' : /cultur/i.test(name) ? 'culture' : undefined;
+};
+const TRICHOMONAS: Pick<LabRow, 'analyte' | 'exclude' | 'excludeTest' | 'text' | 'note'> = {
+  text: true,
+  analyte: /trichomon|\bt\.? ?vaginalis/i,
+  exclude: /antibod|\bab\b/i,
+  // A Trichomonas seen on a Pap test isn't diagnostic and needs a retest (CDC 2021); a NAAT run on the Pap vial is
+  // (Labcorp names one "... Trichomonas NAA"; Aptima is a TMA test).
+  excludeTest:
+    /^(?!.*(\bnaat?\b|\bdna\b|\br?rna\b|\bpcr\b|\btma\b|aptima|amplif|\bprobe\b)).*(\bpap\b|papanicolaou|\bcyto)/i,
+  note: trichomonasMethod,
+};
+
+/** Rows whose uncoded results come from blood tests: a urine test never lands on them (a row may exclude more). */
+const serum = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ excludeTest: URINE, ...row }));
+/** Urinalysis rows: uncoded results only from a urine test, shown as reported, number or text. */
+const urine = (rows: LabRow[]): LabRow[] => rows.map((row) => ({ ...row, test: URINE, text: true }));
+
+/**
+ * Lab rows (codes: lab-row-rules.ts). The name patterns only place uncoded results; the first matching row wins, so
+ * absolute counts, high-sensitivity CRP and ratios are listed before, or excluded from, the rows they share a name
+ * with. Glucose, fingerstick glucose, eGFR, HIV Ag/Ab and HPV 18 each take two rules under one key, and Trichomonas
+ * and Lead three (see lab-row-rules.ts).
+ */
+const LAB_ROWS: LabRow[] = [
+  ...serum([
+    // CBC
+    {
+      key: 'hemoglobin',
+      analyte: /^(hemoglobin|hgb|hb)\b/i,
+      exclude: /a1c|glyc|mean|\bmch|free|carboxy|met|fecal|stool|occult/i,
+    },
+    { key: 'hematocrit', analyte: /hematocrit|\bhct\b/i },
+    { key: 'mcv', analyte: /\bmcv\b|mean corpuscular volume/i },
+    { key: 'mch', analyte: /\bmch\b|mean corpuscular hemoglobin/i, exclude: /conc|\bmchc\b/i },
+    { key: 'mchc', analyte: /\bmchc\b|mean corpuscular hemoglobin conc/i },
+    {
+      key: 'rbc',
+      analyte: /\brbc\b|erythrocyte|red blood cell/i,
+      exclude: /distribution|\brdw\b|morph|cast|sediment/i,
+    },
+    { key: 'wbc', analyte: /\bwbc\b|leukocyte|white blood cell/i, exclude: /esterase|morph|cast|differential/i },
+    { key: 'platelets', analyte: /platelet|\bplt\b/i, exclude: /\bmpv\b|mean|morph|volume/i },
+    {
+      key: 'neutrophilsAbsolute',
+      analyte: /(neutrophil|\bneut\b|granulocyte).*(abs|#|count)|abs.*(neutrophil|granulocyte)/i,
+    },
+    { key: 'lymphocytesAbsolute', analyte: /(lymphocyte|\blymph\b).*(abs|#|count)|abs.*lymph/i },
+    { key: 'neutrophilsPercent', analyte: /neutrophil|\bneut\b|granulocyte/i, exclude: /abs|#|count|band|immature/i },
+    { key: 'lymphocytesPercent', analyte: /lymphocyte|\blymph\b/i, exclude: /abs|#|count|atyp|reactive|variant/i },
+    { key: 'monocytesPercent', analyte: /monocyte|\bmono\b/i, exclude: /abs|#|count/i },
+    { key: 'eosinophilsPercent', analyte: /eosinophil|\beos\b/i, exclude: /abs|#|count/i },
+    { key: 'basophilsPercent', analyte: /basophil|\bbaso\b/i, exclude: /abs|#|count/i },
+    { key: 'monocytesAbsolute', analyte: /(monocyte|\bmono\b).*(abs|#|count)|abs.*mono/i },
+    { key: 'eosinophilsAbsolute', analyte: /(eosinophil|\beos\b).*(abs|#|count)|abs.*eos/i },
+    { key: 'basophilsAbsolute', analyte: /(basophil|\bbaso\b).*(abs|#|count)|abs.*baso/i },
+    { key: 'rdw', analyte: /\brdw\b|distribution width/i },
+    // CMP/BMP. A meter glucose is listed first, so the serum Glucose row never takes it.
+    { key: 'fingerstickGlucose', rule: 'fastingFingerstickGlucose', fasting: true, ...FINGERSTICK_GLUCOSE },
+    { key: 'fingerstickGlucose', fasting: true, ...FINGERSTICK_GLUCOSE },
+    { key: 'glucose', rule: 'fastingGlucose', fasting: true, ...GLUCOSE },
+    { key: 'glucose', fasting: true, ...GLUCOSE },
+    { key: 'bun', analyte: /\bbun\b|urea nitrogen/i, exclude: /ratio|\/|creat/i },
+    { key: 'creatinine', analyte: /creatinine/i, exclude: /ratio|\/|bun|urea|albumin|protein|clearance|gfr/i },
+    { key: 'egfr', rule: 'egfr2021', ...EGFR },
+    { key: 'egfr', ...EGFR },
+    { key: 'bunCreatinineRatio', analyte: /bun\/creat|urea nitrogen\/creat|bun.*creatinine ratio/i },
+    { key: 'sodium', analyte: /sodium|^na$/i },
+    { key: 'potassium', analyte: /potassium|^k$/i },
+    { key: 'chloride', analyte: /chloride|^cl$/i },
+    { key: 'bicarbonate', analyte: /\bco2\b|carbon dioxide|bicarbonate|\bhco3\b/i, exclude: /partial|pco2|arterial/i },
+    { key: 'calcium', analyte: /calcium/i, exclude: /ionized|corrected/i },
+    { key: 'anionGap', analyte: /anion gap/i },
+    // CMP
+    {
+      key: 'totalProtein',
+      analyte: /^protein\b|total protein|protein,? total/i,
+      exclude: /\/|ratio|protein [sc]\b|electro|binding/i,
+    },
+    { key: 'albumin', analyte: /^albumin\b|albumin,? serum/i, exclude: /\/|ratio|micro|globulin|bound/i },
+    { key: 'globulin', analyte: /^globulin\b|globulin,? total|total globulin/i, exclude: /\/|ratio|immuno|binding/i },
+    { key: 'albuminGlobulinRatio', analyte: /a\/g ratio|albumin\/globulin|alb\/glob/i },
+    {
+      key: 'directBilirubin',
+      analyte: /bilirubin.*(direct|conjugated)|(direct|conjugated).*bilirubin/i,
+      exclude: /indirect|unconjugated/i,
+      // Serum, plasma or blood, a heel-stick included, as for Total bilirubin; not urine or cord blood.
+      excludeTest: /urin|\bua\b|cord/i,
+    },
+    {
+      key: 'totalBilirubin',
+      analyte: /bilirubin/i,
+      exclude: /direct|conjugated|indirect|unconjugated|transcut/i,
+      // Serum, plasma or blood, a heel-stick included; not urine or cord blood.
+      excludeTest: /urin|\bua\b|cord/i,
+    },
+    {
+      key: 'alkalinePhosphatase',
+      analyte: /alkaline phosphatase|alk phos|\balp\b/i,
+      exclude: /isoenz|bone|intestinal|liver/i,
+    },
+    // An AST/ALT (De Ritis) ratio names both and is on neither.
+    { key: 'ast', analyte: /\bast\b|aspartate|\bsgot\b/i, exclude: AST_ALT_RATIO },
+    { key: 'alt', analyte: /\balt\b|alanine|\bsgpt\b/i, exclude: AST_ALT_RATIO },
+    // Lipid panel
+    { key: 'totalCholesterol', analyte: /cholesterol/i, exclude: /ldl|hdl|non|ratio|\//i },
+    { key: 'ldlCholesterol', analyte: /\bldl\b/i, exclude: /ratio|\/|vldl|particle|size|pattern/i },
+    { key: 'hdlCholesterol', analyte: /\bhdl\b/i, exclude: /ratio|\/|non|particle/i },
+    { key: 'triglycerides', analyte: /triglycerid|\btrig\b/i },
+    { key: 'nonHdlCholesterol', analyte: /non.?hdl/i },
+    // Thyroid: the Thyroid flowsheet's rows
+    ...THYROID_LAB_ROWS,
+    // Iron panel
+    {
+      key: 'iron',
+      analyte: /^iron\b|iron,? (serum|total)|total iron/i,
+      exclude: /binding|saturation|\btibc\b|\buibc\b|%/i,
+    },
+    { key: 'tibc', analyte: /\btibc\b|iron binding capacity/i, exclude: /unsaturated|\buibc\b/i },
+    { key: 'transferrinSaturation', analyte: /iron.*sat|sat.*iron|transferrin sat|% ?sat/i },
+    { key: 'ferritin', analyte: /ferritin/i },
+    // Coagulation
+    { key: 'inr', analyte: /\binr\b|international normali[sz]ed ratio/i },
+    { key: 'pt', analyte: /\bpt\b|prothrombin time|\bprotime\b/i, exclude: /\binr\b|ptt|partial|mix/i },
+    // Hepatitis: shown as reported ("Negative", "Reactive", "<5 mIU/mL"), number or text.
+    {
+      key: 'hepatitisBSurfaceAntigen',
+      text: true,
+      analyte: /hep(atitis)? ?b.*surface.*(antigen|\bag\b)|\bhbsag\b|\bhbs ag\b/i,
+      exclude: /antibod|\bab\b/i,
+    },
+    {
+      key: 'hepatitisBSurfaceAntibody',
+      text: true,
+      analyte: /hep(atitis)? ?b.*surface.*(antibod|\bab\b)|\bhbsab\b|\bhbs ab\b|anti-?hbs\b/i,
+    },
+    {
+      key: 'hepatitisBCoreAntibody',
+      text: true,
+      analyte: /hep(atitis)? ?b.*core.*(antibod|\bab\b)|\bhbcab\b|\bhbc ab\b|anti-?hbc\b/i,
+      exclude: /igm/i,
+    },
+    {
+      key: 'hepatitisCRna',
+      text: true,
+      analyte: /(hepatitis c|\bhcv\b|hep c).*(\brna\b|viral load|pcr|quant)/i,
+      exclude: /genotyp|\blog\b/i,
+    },
+    // HIV and STI, shown as reported ("Not detected", "Reactive 1:8"); the swab and urine tests are below.
+    { key: 'hiv1Rna', text: true, analyte: /\bhiv.*(\brna\b|viral load)/i, exclude: /genotyp|resist|\blog\b/i },
+    // Standalone tests
+    { key: 'hba1c', analyte: /a1c|glycated|glycohemoglobin/i, exclude: /estimated|\beag\b|average glucose/i },
+    { key: 'vitaminD', analyte: /25.?(oh|hydroxy)|vitamin d\b/i, exclude: /1,25|dihydroxy|\bd2\b|\bd3\b/i },
+    { key: 'vitaminB12', analyte: /b.?12|cobalamin/i, exclude: /binding|unsat|methylmalonic/i },
+    { key: 'psa', analyte: /\bpsa\b|prostate specific/i, exclude: /free|ratio|%|\//i },
+    { key: 'magnesium', analyte: /magnesium|^mg$/i },
+    { key: 'hsCrp', analyte: HS_CRP, exclude: /troponin/i },
+    { key: 'crp', analyte: CRP, exclude: HS_CRP },
+    { key: 'hivAgAb', ...HIV_SCREEN },
+    { key: 'hivAgAb', rule: 'hivAb', ...HIV_SCREEN },
+    {
+      key: 'hepatitisCAntibody',
+      text: true,
+      analyte: /hepatitis c|\bhcv\b|hep c/i,
+      exclude: /\brna\b|viral load|genotyp|quant|pcr/i,
+    },
+    { key: 'syphilisRpr', text: true, analyte: /\brpr\b|rapid plasma reagin/i },
+    {
+      key: 'syphilisTreponemalAntibody',
+      text: true,
+      analyte: /treponem|t\.? ?pallidum|\btp-?pa\b|\bfta\b/i,
+      exclude: /nontreponemal|non-treponemal|reagin|\brpr\b|igm/i,
+    },
+    {
+      key: 'igra',
+      text: true,
+      analyte: /quantiferon|\bigra\b|t-?spot|interferon.?gamma release|\btb gold\b/i,
+      // The tubes' numbers (nil, mitogen, TB antigen minus nil) stay off: the row is the test's result.
+      exclude: /\bnil\b|mitogen|\btb ?[12]\b|minus|antigen|\bag\b|value/i,
+    },
+    { key: 'lipoproteinA', analyte: /lipoprotein ?\(a\)|lipoprotein a\b|\blp ?\(a\)/i },
+    { key: 'apoB', analyte: /\bapo ?b\b|apolipoprotein b/i, exclude: /\/|ratio/i },
+    { key: 'ntProBnp', analyte: /nt-?pro-?bnp|pro.?bnp|n-terminal/i },
+    { key: 'bnp', analyte: /\bbnp\b|b-type natriuretic|brain natriuretic/i, exclude: /\bpro|n-terminal/i },
+    { key: 'cystatinC', analyte: /cystatin/i, exclude: /gfr|glomerular/i },
+    { key: 'ck', analyte: /\bck\b|creatine kinase|\bcpk\b/i, exclude: /\bmb\b|isoenz|index|relative/i },
+    {
+      key: 'serumHcg',
+      analyte: /hcg|chorio/i,
+      exclude: /free|alpha|tumor|qual/i,
+      // A pregnancy test that names no specimen is the urine one (below).
+      test: /quant|serum|plasma|blood/i,
+    },
+    { key: 'ttgIga', analyte: /transglutaminase|\bttg\b/i, exclude: /igg|igm/i },
+    { key: 'lead', rule: 'leadCapillary', ...LEAD },
+    { key: 'lead', rule: 'leadVenous', ...LEAD },
+    { key: 'lead', ...LEAD },
+    { key: 'esr', analyte: /sed rate|sedimentation|\besr\b/i },
+    { key: 'uricAcid', analyte: /uric acid|urate/i },
+    { key: 'folate', analyte: /folate|folic acid/i, exclude: /rbc|red cell/i },
+    { key: 'testosterone', analyte: /testosterone/i, exclude: /free|bioavail|%|\bshbg\b/i },
+    { key: 'pth', analyte: /\bpth\b|parathyroid hormone|parathyrin/i, exclude: /related|rp\b|intraop/i },
+    { key: 'phosphorus', analyte: /phosph(orus|ate)/i, exclude: /alkaline|acid|organo/i },
+  ]),
+  // Swab or urine NAATs and the stool FIT, number or text as reported; their names say neither "urine" nor "serum".
+  {
+    key: 'chlamydia',
+    text: true,
+    analyte: /chlamydia|c\.? ?trachomatis/i,
+    exclude: /pneumoniae|psittaci|antibod|\bab\b|ig[gm]/i,
+  },
+  { key: 'gonorrhea', text: true, analyte: /gonorrh|n\.? ?gonorrhoeae|neisseria gon/i, exclude: /antibod|\bab\b/i },
+  { key: 'trichomonas', ...TRICHOMONAS },
+  { key: 'trichomonas', rule: 'trichomonasWetMount', ...TRICHOMONAS },
+  { key: 'trichomonas', rule: 'trichomonasCulture', ...TRICHOMONAS },
+  // A name that lists a high-risk type other than 16, 18 or 45 is the pooled result, even when it lists 16 and 18.
+  {
+    key: 'hpvHighRisk',
+    text: true,
+    analyte: /\bhpv\b|papilloma/i,
+    exclude: new RegExp(`^(?!.*${HPV_OTHER_TYPE.source}).*\\b(16|18)\\b|genotyp|low.?risk|vaccin`, 'i'),
+  },
+  {
+    key: 'hpv16',
+    text: true,
+    analyte: /(\bhpv\b|papilloma).*\b16\b/i,
+    exclude: new RegExp(`\\b18\\b|${HPV_OTHER_TYPE.source}|low.?risk|vaccin`, 'i'),
+  },
+  { key: 'hpv18', ...HPV_18 },
+  { key: 'hpv18', rule: 'hpv18And45', ...HPV_18 },
+  {
+    key: 'hpv16And18',
+    text: true,
+    analyte: /(\bhpv\b|papilloma).*\b16\b.*\b18\b/i,
+    exclude: new RegExp(`${HPV_OTHER_TYPE.source}|low.?risk|vaccin`, 'i'),
+  },
+  { key: 'fit', text: true, analyte: /\bfit\b|immunochem|\bifobt\b|occult blood.*immuno/i, exclude: /guaiac/i },
+  // Urine tests other than the urinalysis: an in-house POC ratio or pregnancy test need not say "urine".
+  { key: 'urineAlbuminCreatinineRatio', analyte: /(micro)?albumin\/creat|albumin.*creatinine ratio|\buacr\b|\bacr\b/i },
+  { key: 'urineHcg', text: true, analyte: /hcg|chorio|pregnan/i, test: /urin|pregnan/i, exclude: /serum|quant|blood/i },
+  ...urine([
+    { key: 'uaColor', analyte: /colou?r/i },
+    { key: 'uaAppearance', analyte: /appearance|clarity|turbid/i },
+    { key: 'uaSpecificGravity', analyte: /specific gravity|sp\.? ?gr/i },
+    { key: 'uaPh', analyte: /\bph\b/i },
+    { key: 'uaProtein', analyte: /protein|albumin/i, exclude: /creatinine|\/|ratio|micro/i },
+    { key: 'uaGlucose', analyte: /glucose/i },
+    { key: 'uaKetones', analyte: /ketone/i },
+    { key: 'uaBilirubin', analyte: /bilirubin|\bbili\b/i },
+    { key: 'uaBlood', analyte: /blood|hemoglobin|\bhgb\b|occult/i, exclude: /cells|\brbc\b/i },
+    { key: 'uaNitrite', analyte: /nitrite/i },
+    { key: 'uaLeukocyteEsterase', analyte: /leuk|esterase/i },
+    { key: 'uaUrobilinogen', analyte: /urobilinogen/i },
+  ]),
+];
+
+/** A race-free eGFR without a 2021 code: by another eGFR code, else, uncoded, by its name. */
+const isRaceFreeEgfr = (lab: FlowsheetLabResult): boolean =>
+  hasCode(lab, 'egfr') ||
+  (lab.loincCodes.length === 0 && EGFR.analyte.test(lab.analyte) && !EGFR.exclude?.test(lab.analyte));
+const EGFR_2021 = /2021/;
+/** The 2021 race-free CKD-EPI eGFR, by its code, else by its name ("eGFR (CKD-EPI 2021)"), coded or not. */
+const isEgfr2021 = (lab: FlowsheetLabResult): boolean =>
+  hasCode(lab, 'egfr2021') || (isRaceFreeEgfr(lab) && EGFR_2021.test(lab.analyte));
+/** Another race-free eGFR, by its code, else by its name. */
+const isOtherEgfr = (lab: FlowsheetLabResult): boolean => isRaceFreeEgfr(lab) && !EGFR_2021.test(lab.analyte);
+
+/** CKD-EPI is an adult equation, so a child's pediatric eGFR (Schwartz, CKiD) is never hidden behind it. */
+const ADULT_MONTHS = 18 * 12;
+
+/**
+ * Of one draw's eGFR results, only the 2021 race-free CKD-EPI one is shown when the lab sent it, from 18 years on the
+ * result date (or when the birth date is unknown).
+ */
+const preferEgfr2021 = (labs: FlowsheetLabResult[], birthDate: string | undefined): FlowsheetLabResult[] =>
+  labs.filter(
+    (lab) =>
+      !(
+        isOtherEgfr(lab) &&
+        (ageInMonthsOnDate(birthDate, lab.resultedAt) ?? ADULT_MONTHS) >= ADULT_MONTHS &&
+        labs.some((other) => isEgfr2021(other) && other.resultedAt === lab.resultedAt)
+      )
+  );
+
+/** A fasting glucose code, or an uncoded result named fasting, marks the result fasting like the report can. */
+const markFasting = (lab: FlowsheetLabResult): FlowsheetLabResult =>
+  hasCode(lab, 'fastingGlucose') ||
+  hasCode(lab, 'fastingFingerstickGlucose') ||
+  (lab.loincCodes.length === 0 && /fasting/i.test(lab.analyte))
+    ? { ...lab, fasting: true }
+    : lab;
+
+const URINE_CULTURE_NAME = /urine culture|culture,? urine/i;
+
+/** A result of a urine culture order or report, including its organisms, coded or not. */
+const isUrineCultureResult = (lab: FlowsheetLabResult): boolean =>
+  lab.testLoincCodes.some((code) => LAB_ROW_LOINC_CODES.urineCulture.includes(code)) ||
+  URINE_CULTURE_NAME.test(lab.testName);
+
+/** A susceptibility's value: susceptible, intermediate or resistant, as a letter or spelled out. */
+const SUSCEPTIBILITY = /^\s*([SIR]|susceptible|intermediate|resistant)\s*$/i;
+/** A quantity's text: a number, with its comparator if any, or a range ("10000-50000", "10,000 to 50,000"). */
+const QUANTITY_TEXT = /^\s*[<>]?=?\s*[\d.,]+(\s*(-|–|to)\s*[\d.,]+)?\s*$/i;
+/**
+ * A susceptibility's unit: an antibiotic concentration (MIC) or a disk-diffusion zone size in mm; organism counts
+ * are in CFU, never in either.
+ */
+const MIC_UNIT = /^\s*(mg\/l|(u|µ|μ|mc)g\/ml|mm)\s*$/i;
+
+/** A result as reported; a count sent as a quantity keeps its unit: ">100000 CFU/mL". */
+const reportedText = (lab: FlowsheetLabResult): string =>
+  QUANTITY_TEXT.test(lab.valueText) && lab.unit ? `${lab.valueText} ${lab.unit}` : lab.valueText;
+
+const isCultureOwnResult = (lab: FlowsheetLabResult): boolean =>
+  hasCode(lab, 'urineCulture') || URINE_CULTURE_NAME.test(lab.analyte);
+const isCodedCount = (lab: FlowsheetLabResult): boolean => hasCode(lab, 'urineCultureColonyCount');
+/** A colony count, coded or, uncoded, by its name ("Colony count"). */
+const isCount = (lab: FlowsheetLabResult): boolean =>
+  isCodedCount(lab) || (lab.loincCodes.length === 0 && /colony count|\bcfu\b/i.test(lab.analyte));
+/** An uncoded result's name that only says it is an organism ("Organism", "Organism 2", "Result"), not which. */
+const GENERIC_ORGANISM_NAME = /^\s*(organism|result)\s*\d*\s*$/i;
+
+/**
+ * The culture's own result reads as reported ("No growth"), and so does a coded organism ("Escherichia coli"), or an
+ * uncoded one named only "Organism"; any other uncoded organism, and a colony count on its own, read their name and
+ * count as reported. Other coded results
+ * of the same order (susceptibilities) are left out, and so are uncoded susceptibilities: valued or interpreted S, I
+ * or R, or an MIC (a value in an antibiotic-concentration unit).
+ */
+const cultureText = (lab: FlowsheetLabResult): string => {
+  const reported = reportedText(lab);
+  if (isCultureOwnResult(lab) || hasCode(lab, 'urineCultureOrganism')) return reported;
+  const susceptibility =
+    SUSCEPTIBILITY.test(lab.valueText) || SUSCEPTIBILITY.test(lab.interpretation) || MIC_UNIT.test(lab.unit);
+  if (isCodedCount(lab)) return [lab.analyte, reported].filter(Boolean).join(' ');
+  if (lab.loincCodes.length > 0 || susceptibility) return '';
+  // A generic name, or one the value repeats ("Escherichia coli" = "Escherichia coli"), isn't shown before it.
+  const squash = (text: string): string => text.replace(/\s+/g, '').toLowerCase();
+  if (GENERIC_ORGANISM_NAME.test(lab.analyte) || squash(lab.analyte) === squash(lab.valueText)) return reported;
+  return [lab.analyte, reported].filter(Boolean).join(' ');
+};
+
+const linkedTo = (a: FlowsheetLabResult, b: FlowsheetLabResult): boolean =>
+  (!!b.observationId && !!a.linkedObservationIds?.includes(b.observationId)) ||
+  (!!a.observationId && !!b.linkedObservationIds?.includes(a.observationId));
+
+/**
+ * One report's culture texts in report order, each colony count, coded or not, after its organism ("Escherichia coli
+ * >100000 CFU/mL"): the organism it links to, else, linking to none, the nearest organism before it without a count (or,
+ * with no unpaired organism before it, the next one after it). Only exact duplicate texts are dropped.
+ */
+const cultureTexts = (labs: FlowsheetLabResult[]): string[] => {
+  const shown = labs.filter((lab) => cultureText(lab));
+  const organisms = shown.filter((lab) => !isCount(lab) && !isCultureOwnResult(lab));
+  const countOf = new Map<FlowsheetLabResult, FlowsheetLabResult>();
+  shown.forEach((count, i) => {
+    if (!isCount(count)) return;
+    const unpaired = organisms.filter((organism) => !countOf.has(organism));
+    const linked = shown.some((other) => linkedTo(count, other));
+    const free = unpaired.filter((o) => !shown.some((other) => linkedTo(o, other)));
+    // With no unpaired organism before it, it is the next one's.
+    const organism = linked
+      ? unpaired.find((o) => linkedTo(count, o))
+      : free.filter((o) => shown.indexOf(o) < i).pop() ?? free.find((o) => shown.indexOf(o) > i);
+    if (organism) countOf.set(organism, count);
+  });
+  const paired = new Set(countOf.values());
+  const texts = shown
+    .filter((lab) => !paired.has(lab))
+    .map((lab) => {
+      const count = countOf.get(lab);
+      return count ? `${cultureText(lab)} ${reportedText(count)}` : cultureText(lab);
+    });
+  return [...new Set(texts)];
+};
+
+/**
+ * Each column's Urine culture readings, oldest first: one per report time ('' when undated), listing every organism
+ * of that culture.
+ */
+const urineCultureReadings = (labs: Record<string, FlowsheetLabResult[]>): Record<string, FlowsheetReading[]> =>
+  Object.fromEntries(
+    Object.entries(labs).map(([key, results]) => {
+      const byTime = new Map<string, FlowsheetLabResult[]>();
+      results.filter(isUrineCultureResult).forEach((lab) => {
+        const time = lab.resultedAt ?? '';
+        byTime.set(time, [...(byTime.get(time) ?? []), lab]);
+      });
+      const readings = [...byTime]
+        .sort(([a], [b]) => byInstant(a, b))
+        .flatMap(([time, cultureLabs]) => {
+          const texts = cultureTexts(cultureLabs);
+          return texts.length > 0 ? [{ time, value: texts.join('; ') }] : [];
+        });
+      return [key, readings];
+    })
+  );
+
+const addUrineCultures = (columns: ConditionColumns, cultures: Record<string, FlowsheetReading[]>): void =>
+  Object.entries(cultures).forEach(([key, readings]) =>
+    readings.forEach(({ time, value }) => {
+      const column = columns.columnFor(key, time || undefined);
+      if (!column) return;
+      columns.addReading(column, 'urineCulture', { time: time || column.start, value });
+    })
+  );
+
+export const buildLabResultsFlowsheet = (data: FlowsheetData): FlowsheetVisit[] => {
+  const labs = Object.fromEntries(
+    Object.entries(data.labs ?? {}).map(([key, results]) => [
+      key,
+      preferEgfr2021(results, data.birthDate).map(markFasting),
+    ])
+  );
+  // No vitals rows: a visit or an outside result is a column when it has a result for any row.
+  const columns = conditionColumns({ ...data, labs }, []);
+  const cultures = urineCultureReadings(labs);
+  // A column without an appointment is dated by its first result, a urine culture's included.
+  columns.addLabs(
+    LAB_ROWS,
+    Object.fromEntries(Object.entries(cultures).map(([key, readings]) => [key, readings.find((r) => r.time)?.time]))
+  );
+  addUrineCultures(columns, cultures);
+  return columns.list();
+};

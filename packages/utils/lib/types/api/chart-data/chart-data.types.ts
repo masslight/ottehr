@@ -68,7 +68,6 @@ export interface AllChartValues {
   addendumNote?: FreeTextNoteDTO;
   notes?: NoteDTO[];
   vitalsObservations?: VitalsObservationDTO[];
-  birthHistory?: BirthHistoryDTO[];
   aiChat?: AIChatDetails;
   externalLabResults?: EncounterExternalLabResult;
   inHouseLabResults?: EncounterInHouseLabResult;
@@ -93,7 +92,6 @@ export type RequestedFields =
   | 'inHouseLabResults'
   | 'practitioners'
   | 'medicalDecision'
-  | 'birthHistory'
   | 'patientInfoConfirmed'
   | 'addendumNote'
   | 'medications'
@@ -258,6 +256,11 @@ export interface VitalsHeightObservationDTO extends VitalsNumericValueObservatio
   field: Extract<VitalFieldNames, 'vital-height'>;
 }
 
+/** Head circumference in cm. */
+export interface VitalsHeadCircumferenceObservationDTO extends VitalsNumericValueObservationDTO {
+  field: Extract<VitalFieldNames, 'vital-head-circumference'>;
+}
+
 export interface VitalsBMIObservationDTO extends VitalsNumericValueObservationDTO {
   field: Extract<VitalFieldNames, 'vital-bmi'>;
 }
@@ -349,6 +352,7 @@ export type VitalsObservationDTO =
   | VitalsRespirationRateObservationDTO
   | VitalsWeightObservationDTO
   | VitalsHeightObservationDTO
+  | VitalsHeadCircumferenceObservationDTO
   | VitalsBMIObservationDTO
   | VitalsVisionObservationDTO
   | VitalsLastMenstrualPeriodObservationDTO;
@@ -453,13 +457,6 @@ export interface DiagnosisDTO extends SaveableDTO {
   addedViaLabOrder?: boolean;
   /** Recorded only for diagnoses first created through procedure documentation. */
   addedViaProcedure?: boolean;
-}
-
-export interface BirthHistoryDTO extends SaveableDTO {
-  field: 'age' | 'weight' | 'length' | 'preg-compl' | 'del-compl';
-  value?: number;
-  flag?: boolean;
-  note?: string;
 }
 
 export const SCHOOL_NOTE_CODE = 'school';

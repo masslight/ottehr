@@ -10,18 +10,38 @@ export interface EChartProps {
   height?: number;
   /** Called with the clicked datum (e.g. to drive a drill-down). */
   onClick?: (datum: Record<string, unknown>) => void;
+  /** Called with the hovered datum, and with null when the pointer leaves it. */
+  onHover?: (datum: Record<string, unknown> | null) => void;
+  /** Called with the chart instance once it exists (e.g. to dispatch showTip from outside the chart). */
+  onReady?: (chart: echarts.ECharts) => void;
 }
+
+type EventParams = { name?: unknown; value?: unknown; seriesName?: unknown; dataIndex?: unknown; data?: unknown };
+
+// A consistent datum for EVERY data shape. ECharts gives the category name, the value, the series and the point
+// index even when series data is plain numbers (the common case). Object-form data points are spread on top so
+// their own fields are available too.
+const datumOf = (params: EventParams): Record<string, unknown> => {
+  const base = { name: params.name, value: params.value, seriesName: params.seriesName, dataIndex: params.dataIndex };
+  return params.data && typeof params.data === 'object'
+    ? { ...base, ...(params.data as Record<string, unknown>) }
+    : base;
+};
 
 // Renders an ECharts option with the accumulated display fixes: full-width grid with contained
 // labels, automatic dataZoom (pan/zoom + slider) for crowded cartesian charts, every category label
 // rendered (no auto-thinning). The option's own grid/dataZoom/axisLabel settings win.
-export function EChart({ option, height = 400, onClick }: EChartProps): React.ReactElement {
+export function EChart({ option, height = 400, onClick, onHover, onReady }: EChartProps): React.ReactElement {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   // A series with no points draws bare axes that read as a broken report — say so instead.
   const isEmpty = seriesPointCount(option) === 0;
   const clickRef = useRef(onClick);
   clickRef.current = onClick;
+  const hoverRef = useRef(onHover);
+  hoverRef.current = onHover;
+  const readyRef = useRef(onReady);
+  readyRef.current = onReady;
   const [error, setError] = useState<string | null>(null);
 
   // Create the chart ONCE. Re-initializing on every option change (a click updates parent state, so
@@ -33,28 +53,11 @@ export function EChart({ option, height = 400, onClick }: EChartProps): React.Re
     const chart = echarts.init(ref.current);
     chartRef.current = chart;
 
-    chart.on(
-      'click',
-      (params: { name?: unknown; value?: unknown; seriesName?: unknown; dataIndex?: unknown; data?: unknown }) => {
-        if (!clickRef.current) return;
-
-        // Forward a consistent datum for EVERY data shape. ECharts gives the category name, the value,
-        // the series and the point index even when series data is plain numbers (the common case).
-        // Object-form data points are spread on top so their own fields are available too.
-        const base = {
-          name: params.name,
-          value: params.value,
-          seriesName: params.seriesName,
-          dataIndex: params.dataIndex,
-        };
-        const datum =
-          params.data && typeof params.data === 'object'
-            ? { ...base, ...(params.data as Record<string, unknown>) }
-            : base;
-
-        clickRef.current(datum);
-      }
-    );
+    chart.on('click', (params: EventParams) => clickRef.current?.(datumOf(params)));
+    chart.on('mouseover', (params: EventParams) => hoverRef.current?.(datumOf(params)));
+    chart.on('mouseout', () => hoverRef.current?.(null));
+    chart.on('globalout', () => hoverRef.current?.(null));
+    readyRef.current?.(chart);
 
     const onResize = (): void => chart.resize();
     window.addEventListener('resize', onResize);

@@ -19,6 +19,18 @@ describe('canonicalizeVitalUnit', () => {
     expect(canonicalizeVitalUnit('vital-height', 5, 'ft')).toEqual({ value: 60, unit: 'in' });
   });
 
+  it('converts a head circumference written in cm, mm or inches, but never in metres or feet', () => {
+    expect(canonicalizeVitalUnit('vital-head-circumference', 350, 'mm')).toEqual({ value: 35, unit: 'cm' });
+    expect(canonicalizeVitalUnit('vital-head-circumference', 35, 'cm')).toEqual({ value: 35, unit: 'cm' });
+    expect(canonicalizeVitalUnit('vital-head-circumference', 14, 'in')).toEqual({ value: 14, unit: 'in' });
+    expect(canonicalizeVitalUnit('vital-head-circumference', 0.35, 'm')).toBeUndefined();
+    expect(canonicalizeVitalUnit('vital-head-circumference', 1, 'ft')).toBeUndefined();
+    expect(parseVitalDisplay('vital-head-circumference', '1 ft')).toMatchObject({
+      status: 'unrecognized-unit',
+      writtenUnit: 'ft',
+    });
+  });
+
   it('converts every mass unit a provider might write into kg or lb', () => {
     expect(canonicalizeVitalUnit('vital-weight', 22.4, 'kg')).toEqual({ value: 22.4, unit: 'kg' });
     expect(canonicalizeVitalUnit('vital-weight', 500, 'g')).toEqual({ value: 0.5, unit: 'kg' });

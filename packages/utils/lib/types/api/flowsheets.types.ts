@@ -1,0 +1,159 @@
+import { MedicationRequest } from 'fhir/r4b';
+import { z } from 'zod';
+import { FollowupSubtype } from '../../fhir/encounter';
+import { LmsRow } from '../../helpers/vitals/growth-lms';
+import { ServiceMode } from '../common';
+import { AppointmentType } from './appointment.types';
+import { BirthHistoryDTO } from './birth-history.types';
+import { VitalAlertCriticality } from './chart-data/chart-data.constants';
+
+/** The flowsheets the EHR registry offers; the get-flowsheet zambda accepts nothing else. */
+export const FLOWSHEET_IDS = ['growth', 'labResults', 'newbornBilirubin', 'thyroid', 'vitals'] as const;
+export type FlowsheetId = (typeof FLOWSHEET_IDS)[number];
+
+export const GetFlowsheetInputSchema = z.object({
+  patientId: z.string().uuid(),
+  flowsheetId: z.enum(FLOWSHEET_IDS),
+  /** Only visits dated on or before this instant are returned. */
+  asOf: z.string().datetime({ offset: true }).optional(),
+});
+export type GetFlowsheetInput = z.infer<typeof GetFlowsheetInputSchema>;
+
+export interface FlowsheetReading {
+  /** The reading's effective time (ISO). */
+  time: string;
+  /** A number for measures and lab values; text for things like a medication name with its strength. */
+  value: number | string;
+  /** Shown after the value when the row label does not carry the unit (lab units vary by lab). */
+  unit?: string;
+  /** A fixed qualifier shown in parentheses after the value, e.g. "fasting" on a fasting glucose. */
+  note?: string;
+  /** The criticality saved on the Observation; never recomputed. */
+  flag?: VitalAlertCriticality;
+}
+
+/** The latest reading of a measure in a visit, plus every reading of it (oldest first). */
+export interface FlowsheetValue extends FlowsheetReading {
+  readings: FlowsheetReading[];
+}
+
+export interface FlowsheetVisit {
+  appointmentId?: string;
+  encounterId?: string;
+  /** Appointment start, or the first reading's time when the readings are not linked to an appointment. */
+  start: string;
+  /** The visit location's IANA time zone, for calendar-day math; absent when the visit has no location. */
+  timezone?: string;
+  isFollowUp: boolean;
+  /** A follow-up's subtype and its original visit's appointment: the header links there, as the Visits tab does. */
+  followupSubtype?: FollowupSubtype;
+  originalAppointmentId?: string;
+  /** A follow-up's type text ("Follow-up Encounter"), as the Visits tab shows it. */
+  followUpType?: string;
+  /** An unlinked outside result (matched to the patient, not to a visit): a column of its own, dated by the result. */
+  isOutsideResult?: boolean;
+  /** The raw visit type, service mode and service category code; the EHR labels them as the Visits tab does. */
+  appointmentType?: AppointmentType;
+  serviceMode?: ServiceMode;
+  serviceCategory?: string;
+  reason: string;
+  primaryDiagnosis: string;
+  attending: string;
+  /** Measure key (see the EHR registry) -> the visit's reading. */
+  values: Record<string, FlowsheetValue>;
+}
+
+export interface GetFlowsheetOutput {
+  visits: FlowsheetVisit[];
+  /** Growth flowsheet only; absent without a full birth date and a male/female sex. */
+  growth?: GrowthChartData;
+  /** Newborn bilirubin only: the patient's birth history (time of birth, gestational age), when recorded. */
+  birthHistory?: BirthHistoryDTO;
+}
+
+// The growth charts (ported from the OTR-3741 growth-charts report): WHO birth to 24 months, CDC 2 to 20 years.
+
+export type GrowthChartSet = 'who' | 'cdc';
+/** wfa = weight-for-age, lfa = length-for-age, wfl = weight-for-length, hcfa = head circumference-for-age, sfa = stature-for-age. */
+export const GROWTH_CHART_IDS = ['who-wfa', 'who-lfa', 'who-wfl', 'who-hcfa', 'cdc-wfa', 'cdc-sfa', 'cdc-bmi'] as const;
+export type GrowthChartId = (typeof GROWTH_CHART_IDS)[number];
+
+/** One visit's measurement on one growth chart. */
+export interface GrowthChartPoint {
+  chart: GrowthChartId;
+  encounterId?: string;
+  /** The measurement's time (ISO). */
+  time: string;
+  /** Age at the measurement, clinical style ("3 d", "12 mo", "4 y 6 mo"). */
+  age: string;
+  /** Age in months, or the same visit's length in cm on weight-for-length. */
+  x: number;
+  y: number;
+  /** z-score; absent when x is outside the chart's table. */
+  z?: number;
+  /** "88th", "<1st", ">99th"; absent when the point is not on the line (see note). */
+  percentile?: string;
+  /** BMI-for-age at or above the 95th percentile: the BMI as a whole percent of the 95th (severe obesity from 120). */
+  percentOf95th?: number;
+  /** Biologically implausible, or built from an implausible measurement: a red ✕, kept off the line. */
+  implausible?: boolean;
+  /** Why the point is not on the line, when it is not. */
+  note?: string;
+}
+
+export interface GrowthChartData {
+  sex: 'male' | 'female';
+  /** Age in months at asOf (this visit), else now: the chart set that opens. */
+  ageMonths?: number;
+  /** Oldest first. */
+  points: GrowthChartPoint[];
+  /** Per chart, how many measurements of its measure fall in the other set's age range instead of its own. */
+  outsideRange: Partial<Record<GrowthChartId, number>>;
+  /** The LMS rows of every chart for the patient's sex, for the percentile curves. */
+  tables: Record<GrowthChartId, LmsRow[]>;
+}
+
+// The per-patient data the flowsheet fetchers shape their rows from. Per-visit kinds are keyed by encounter id.
+
+/** One of a visit's charted diagnoses (ICD-10); the primary one comes first in its list. */
+export interface FlowsheetDiagnosis {
+  code: string;
+  display: string;
+  primary: boolean;
+}
+
+/** A drug prescribed (eRx) or given in the clinic (in-house) during a visit; the name carries the strength. */
+export interface FlowsheetMedication {
+  name: string;
+  source: 'eRx' | 'in-house';
+  /** eRx: the prescription status; in-house: the order status (pending, administered, ...). */
+  status: MedicationRequest['status'] | string;
+  /** In-house only: the dose given, e.g. "2.5 mg". */
+  dose?: string;
+  /** eRx: when it was written; in-house: when it was given (or ordered, if never given). */
+  time?: string;
+}
+
+export interface FlowsheetLabResult {
+  /** The result's Observation id, and the ids of the report's Observations it links to (hasMember, derivedFrom). */
+  observationId?: string;
+  linkedObservationIds?: string[];
+  analyte: string;
+  loincCodes: string[];
+  /** The ordered test (or, unordered, the report), which places results the lab did not code (culture organisms). */
+  testName: string;
+  testLoincCodes: string[];
+  /** The report's fasting status says the patient was fasting. */
+  fasting?: boolean;
+  /** Numeric result; absent for text or coded results (see valueText). */
+  value?: number;
+  valueText: string;
+  unit: string;
+  referenceRange: string;
+  /** The interpretation code the lab saved (e.g. H, L, N, A); '' when none. Never recomputed. */
+  interpretation: string;
+  /** The grid flag for that saved interpretation. */
+  flag?: VitalAlertCriticality;
+  resultedAt?: string;
+  source: 'external' | 'in-house';
+}

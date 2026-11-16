@@ -1,0 +1,757 @@
+import ErrorIcon from '@mui/icons-material/Error';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
+import {
+  alpha,
+  Box,
+  Grid,
+  Link,
+  Paper,
+  Stack,
+  Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tabs,
+  ToggleButtonGroup,
+  Tooltip,
+  Typography,
+  useTheme,
+} from '@mui/material';
+import { DateTime } from 'luxon';
+import React, { ReactElement, useMemo, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import { AccordionCard } from 'src/components/AccordionCard';
+import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { EChart } from 'src/features/report-builder/runtime/components/EChart';
+import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
+import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
+import { Loader } from 'src/features/visits/shared/components/Loader';
+import { useVitalsHeaderUnitSystem } from 'src/features/visits/shared/components/vitals/hooks/useVitalsHeaderUnitSystem';
+import { DATE_FORMAT } from 'src/helpers/formatDateTime';
+import { useGetFlowsheet } from 'src/hooks/useGetFlowsheet';
+import { useServiceCategoryAbbreviationResolver } from 'src/hooks/useServiceCategoryAbbreviation';
+import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
+import { getFollowUpProgressNotePathSegment } from 'utils/lib/fhir/encounter';
+import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import {
+  celsiusToFahrenheit,
+  fahrenheitToCelsius,
+  roundTemperatureValue,
+} from 'utils/lib/helpers/vitals/vitals-temperature.helper';
+import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { VitalAlertCriticality } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { FlowsheetReading, FlowsheetVisit, GrowthChartData } from 'utils/lib/types/api/flowsheets.types';
+import {
+  VITALS_HEADER_UNIT_SYSTEM_LABELS,
+  VITALS_HEADER_UNIT_SYSTEMS,
+  VitalsHeaderUnitSystem,
+} from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
+import { ageInMonthsOnDate } from 'utils/lib/utils/dateUtils';
+import { biliToolReadings, biliToolUnavailableReason } from '../biliTool';
+import { chartPoint, HOURS_OF_LIFE_MAX, usesHoursAxis, VITAL_KEYS, yAxisBounds } from '../chartPoints';
+import { FlowsheetChart, FlowsheetDefinition, FlowsheetRow, FLOWSHEETS } from '../registry';
+import { BiliToolDialog } from './BiliToolDialog';
+import { GrowthCharts } from './GrowthCharts';
+
+interface FlowsheetsProps {
+  patientId: string;
+  /** The patient's birth date, for the flowsheet that opens. */
+  birthDate?: string;
+  /** Patient tab only: the tab's title; the flowsheets then sit in a white Paper like the other patient tabs. */
+  title?: string;
+  /** Visit tab only: hide visits after this instant. */
+  asOf?: string;
+  /** Visit tab only: the open visit, whose column is highlighted. */
+  currentAppointmentId?: string;
+  /** Visit tab only: the Metric/Imperial switch's value, the switch sitting in the page header. */
+  unitSystem?: VitalsHeaderUnitSystem;
+}
+
+/**
+ * The Metric/Imperial switch's value: the practice's visit header setting until the provider switches. Not
+ * remembered, so the flowsheet opens on the practice setting every time (the setting may arrive after the first render).
+ */
+export const useFlowsheetUnitSystem = (): [VitalsHeaderUnitSystem, (unitSystem: VitalsHeaderUnitSystem) => void] => {
+  const practiceSetting = useVitalsHeaderUnitSystem();
+  const [picked, setPicked] = useState<VitalsHeaderUnitSystem>();
+  return [picked ?? practiceSetting, setPicked];
+};
+
+/** Metric/Imperial for every tab's rows, row titles and trend charts; it changes no saved value. */
+export const FlowsheetUnitToggle = ({
+  value,
+  onChange,
+}: {
+  value: VitalsHeaderUnitSystem;
+  onChange: (unitSystem: VitalsHeaderUnitSystem) => void;
+}): ReactElement => (
+  <ToggleButtonGroup
+    exclusive
+    size="small"
+    value={value}
+    onChange={(_, unitSystem: VitalsHeaderUnitSystem | null) => unitSystem && onChange(unitSystem)}
+  >
+    {VITALS_HEADER_UNIT_SYSTEMS.map((unitSystem) => (
+      <ContainedPrimaryToggleButton key={unitSystem} value={unitSystem}>
+        {VITALS_HEADER_UNIT_SYSTEM_LABELS[unitSystem]}
+      </ContainedPrimaryToggleButton>
+    ))}
+  </ToggleButtonGroup>
+);
+
+/** Growth charts end at 20 years. */
+const GROWTH_MAX_MONTHS = 240;
+
+/**
+ * The flowsheet that opens: Growth under 20 years, Vitals from 20, by the age at `asOf` (this visit), else today, in
+ * calendar months as Growth counts them. Growth without a birth date.
+ */
+export const openingFlowsheet = (birthDate: string | undefined, asOf: string | undefined): FlowsheetDefinition => {
+  const ageMonths = ageInMonthsOnDate(birthDate, asOf);
+  const id = ageMonths !== undefined && ageMonths >= GROWTH_MAX_MONTHS ? 'vitals' : 'growth';
+  return FLOWSHEETS.find((flowsheet) => flowsheet.id === id) ?? FLOWSHEETS[0];
+};
+
+/** A tab per flowsheet plus the selected one: grid, trend charts, visit list. */
+export const Flowsheets = ({
+  patientId,
+  birthDate,
+  title,
+  asOf,
+  currentAppointmentId,
+  unitSystem: headerUnitSystem,
+}: FlowsheetsProps): ReactElement => {
+  // The patient tab holds its own switch; the visit tab's is in its page header.
+  const [ownUnitSystem, setOwnUnitSystem] = useFlowsheetUnitSystem();
+  const unitSystem = headerUnitSystem ?? ownUnitSystem;
+  // Until a tab is picked, the one for the patient's age (the birth date may arrive after the first render).
+  const [picked, setPicked] = useState<FlowsheetDefinition>();
+  const selected = picked ?? openingFlowsheet(birthDate, asOf);
+  const { data, isLoading, error } = useGetFlowsheet({ patientId, flowsheetId: selected.id, asOf });
+  const [biliToolOpen, setBiliToolOpen] = useState(false);
+  // Newborn bilirubin: BiliTool takes the readings shown (up to this visit on the visit tab).
+  const readings = useMemo(
+    () => (selected.id === 'newbornBilirubin' && data ? biliToolReadings(data.visits) : []),
+    [selected.id, data]
+  );
+  // On Newborn bilirubin the button is always there once loaded; disabled, its hover says what BiliTool still needs.
+  const showBiliTool = selected.id === 'newbornBilirubin' && !!data;
+  const biliToolBlocked = showBiliTool ? biliToolUnavailableReason(data?.birthHistory, readings) : undefined;
+
+  const content = (
+    <Stack spacing={2}>
+      {/* The patient-page tab row: house tab label style, scrolling when there are more flowsheets than fit. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs
+          value={selected.id}
+          onChange={(_, id: FlowsheetDefinition['id']) =>
+            setPicked(FLOWSHEETS.find((flowsheet) => flowsheet.id === id) ?? FLOWSHEETS[0])
+          }
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{ flexGrow: 1, minWidth: 0 }}
+        >
+          {FLOWSHEETS.map((flowsheet) => (
+            <Tab
+              key={flowsheet.id}
+              value={flowsheet.id}
+              label={
+                <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                  {flowsheet.title}
+                </Typography>
+              }
+            />
+          ))}
+        </Tabs>
+        {showBiliTool && (
+          // The span is what the tooltip listens on: a disabled button fires no pointer events of its own.
+          <Tooltip
+            title={biliToolBlocked ?? ''}
+            placement="top"
+            arrow
+            // Body text size: the MUI default (11 px) is small for a sentence the provider has to act on.
+            slotProps={{ tooltip: { sx: { fontSize: 14 } } }}
+          >
+            <span style={{ display: 'inline-flex', cursor: biliToolBlocked ? 'not-allowed' : undefined }}>
+              <RoundedButton
+                size="small"
+                startIcon={<OpenInNewIcon />}
+                disabled={!!biliToolBlocked}
+                onClick={() => setBiliToolOpen(true)}
+              >
+                BiliTool…
+              </RoundedButton>
+            </span>
+          </Tooltip>
+        )}
+      </Box>
+      {showBiliTool && !biliToolBlocked && biliToolOpen && data?.birthHistory && (
+        <BiliToolDialog
+          open
+          onClose={() => setBiliToolOpen(false)}
+          birthHistory={data.birthHistory}
+          readings={readings}
+        />
+      )}
+      {isLoading ? (
+        <Loader height="300px" />
+      ) : error ? (
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="body1">Could not load the flowsheet. Please try again.</Typography>
+        </Box>
+      ) : !data?.visits.length ? (
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="body1">No data for this patient</Typography>
+        </Box>
+      ) : (
+        <FlowsheetBody
+          definition={selected}
+          visits={data.visits}
+          growth={data.growth}
+          currentAppointmentId={currentAppointmentId}
+          unitSystem={unitSystem}
+        />
+      )}
+    </Stack>
+  );
+
+  return title ? (
+    <Paper sx={{ padding: 3 }} component={Stack} spacing={2}>
+      <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Typography variant="h4" color="primary.dark">
+          {title}
+        </Typography>
+        <FlowsheetUnitToggle value={unitSystem} onChange={setOwnUnitSystem} />
+      </Stack>
+      {content}
+    </Paper>
+  ) : (
+    content
+  );
+};
+
+interface VisitColumn extends FlowsheetVisit {
+  label: string;
+  url?: string;
+}
+
+/** Times read 12-hour, as elsewhere in Ottehr. */
+const TIME_FORMAT = 'h:mm a';
+const DATE_TIME_FORMAT = `${DATE_FORMAT} ${TIME_FORMAT}`;
+
+/** A visit opens at Review & Sign; a follow-up as the Visits tab links it: its original visit, at its own note. */
+const headerUrl = (visit: FlowsheetVisit): string | undefined => {
+  const id = visit.isFollowUp ? visit.originalAppointmentId : visit.appointmentId;
+  if (!id) return undefined;
+  return getInPersonUrlByAppointmentType(
+    { id, encounterId: visit.encounterId ?? '', isFollowUp: visit.isFollowUp },
+    visit.isFollowUp ? getFollowUpProgressNotePathSegment(visit.followupSubtype) : ROUTER_PATH.REVIEW_AND_SIGN
+  );
+};
+
+// Newest first; the time is added only when two columns share a day. Dates render in the browser's zone.
+export const toColumns = (visits: FlowsheetVisit[]): VisitColumn[] => {
+  const days = visits.map((visit) => DateTime.fromISO(visit.start).toFormat(DATE_FORMAT));
+  return visits.map((visit, i) => {
+    const day = days[i];
+    const base =
+      days.filter((d) => d === day).length > 1 ? DateTime.fromISO(visit.start).toFormat(DATE_TIME_FORMAT) : day;
+    return {
+      ...visit,
+      label: visit.isOutsideResult ? `${base} (unsolicited result)` : visit.isFollowUp ? `${base} (follow-up)` : base,
+      url: headerUrl(visit),
+    };
+  });
+};
+
+const worstFlag = (flags: (VitalAlertCriticality | undefined)[]): VitalAlertCriticality | undefined =>
+  flags.includes(VitalAlertCriticality.Critical)
+    ? VitalAlertCriticality.Critical
+    : flags.includes(VitalAlertCriticality.Abnormal)
+    ? VitalAlertCriticality.Abnormal
+    : undefined;
+
+interface Cell {
+  text: string;
+  flag?: VitalAlertCriticality;
+  /** Every reading of the row in this visit, oldest first (shown on hover when there is more than one). */
+  history: { time: string; text: string; flag?: VitalAlertCriticality }[];
+}
+
+// Lab units are saved as UCUM; show the count units the way people write them.
+const UCUM_DISPLAY: Record<string, string> = { '10*3/uL': '×10³/µL', '10*6/uL': '×10⁶/µL' };
+
+// Imperial from the stored metric value, at the vitals' display precision (lbs and inches 2 decimals, °F 1).
+const toImperial = (value: number, unit: 'lbs' | 'in' | '°F'): string =>
+  unit === 'lbs'
+    ? kgToLbs(value).toFixed(2)
+    : unit === '°F'
+    ? celsiusToFahrenheit(value).toFixed(1)
+    : HeightMeasurement.fromCm(value).getInches().toFixed(2);
+
+/** The row label in the unit system shown. */
+export const rowLabel = (row: FlowsheetRow, unitSystem: VitalsHeaderUnitSystem = 'metric'): string =>
+  row.imperial && unitSystem === 'imperial' ? row.imperial.label : row.label;
+
+/** A °C temperature with °F, as vitals history shows it: "37.0 C ≈ 98.6 F". */
+const withFahrenheit = (celsius: number): string =>
+  `${roundTemperatureValue(celsius).toFixed(1)} C ≈ ${celsiusToFahrenheit(celsius).toFixed(1)} F`;
+
+/**
+ * "5.80 kg ≈ 12.79 lbs" for a convertible row's reading, metric first, or "37.0 C ≈ 98.6 F" for a temperature;
+ * undefined for other rows.
+ */
+export const bothUnits = (row: FlowsheetRow, value: number | string): string | undefined => {
+  if (row.fahrenheit && typeof value === 'number') return withFahrenheit(value);
+  return row.imperial && typeof value === 'number' && row.digits !== undefined
+    ? `${roundNumberToDecimalPlaces(value, row.digits).toFixed(row.digits)} ${row.label.match(
+        /\((.+)\)/
+      )?.[1]} ≈ ${toImperial(value, row.imperial.unit)} ${row.imperial.unit}`
+    : undefined;
+};
+
+/** A chart in the practice's header unit system: a weight in lbs, a temperature in °F (its range converted too). */
+export const chartInUnits = (chart: FlowsheetChart, unitSystem: VitalsHeaderUnitSystem): FlowsheetChart =>
+  unitSystem === 'imperial' && chart.imperialUnit
+    ? {
+        ...chart,
+        unit: chart.imperialUnit,
+        yRange:
+          chart.imperialUnit === '°F' && chart.yRange
+            ? [celsiusToFahrenheit(chart.yRange[0]), celsiusToFahrenheit(chart.yRange[1])]
+            : chart.yRange,
+      }
+    : chart;
+
+export const cellOf = (
+  row: FlowsheetRow,
+  visit: FlowsheetVisit,
+  unitSystem: VitalsHeaderUnitSystem = 'metric'
+): Cell => {
+  const readings = row.keys.map((key) => visit.values[key]).filter((reading) => reading !== undefined);
+  if (readings.length < row.keys.length) return { text: '', history: [] };
+  // Numbers show exactly the row's digits (3.10, not 3.1); text (a drug name, a coded lab result) is shown as saved.
+  // A convertible row shows imperial when the practice's header unit system is imperial.
+  const formatOne = ({ value, unit, note }: FlowsheetReading): string => {
+    const text =
+      typeof value === 'number' && row.imperial && unitSystem === 'imperial'
+        ? toImperial(value, row.imperial.unit)
+        : typeof value === 'number' && row.digits !== undefined
+        ? roundNumberToDecimalPlaces(value, row.digits).toFixed(row.digits)
+        : String(value);
+    const withUnit = unit ? `${text} ${UCUM_DISPLAY[unit] ?? unit}` : text;
+    return note ? `${withUnit} (${note})` : withUnit;
+  };
+  const format = (at: FlowsheetReading[]): string => at.map(formatOne).join('/');
+  // A two-key row (blood pressure) reads both keys from one Observation, so the readings pair up by index.
+  const history = readings[0].readings.map((_, i) => {
+    const at = readings.map((reading) => reading.readings[i]).filter((reading) => reading !== undefined);
+    return { time: at[0].time, text: format(at), flag: worstFlag(at.map((reading) => reading.flag)) };
+  });
+  // A vital's latest reading decides its flag (a blood pressure after rest); a lab cell takes its readings' worst, since
+  // a second one is often another site (a rectal swab and a urine), not a repeat.
+  const flag = VITAL_KEYS.has(row.keys[0])
+    ? worstFlag(readings.map((reading) => reading.flag))
+    : worstFlag(history.map((reading) => reading.flag));
+  return { text: format(readings), flag, history };
+};
+
+export interface GroupHeading {
+  heading: string;
+}
+
+/**
+ * The grid's rows in order, with a heading before each run of grouped rows. A hide-empty flowsheet shows only the
+ * rows some column has a value for, so a heading whose rows are all empty goes too.
+ */
+export const rowsToShow = (
+  definition: FlowsheetDefinition,
+  visits: FlowsheetVisit[]
+): (FlowsheetRow | GroupHeading)[] => {
+  const rows = definition.rows.filter(
+    (row) => !(definition.hideEmptyRows || row.hideWhenEmpty) || visits.some((visit) => cellOf(row, visit).text)
+  );
+  return rows.flatMap((row, i) =>
+    row.group && row.group !== rows[i - 1]?.group ? [{ heading: row.group }, row] : [row]
+  );
+};
+
+const FlagMark = ({ flag }: { flag?: VitalAlertCriticality }): ReactElement | null => {
+  const theme = useTheme();
+  const sx = { ml: '4px', verticalAlign: 'middle' };
+  if (flag === VitalAlertCriticality.Critical)
+    return (
+      <Tooltip title="Critical">
+        <ErrorIcon fontSize="small" aria-label="Critical" sx={{ ...sx, color: theme.palette.error.main }} />
+      </Tooltip>
+    );
+  if (flag === VitalAlertCriticality.Abnormal)
+    return (
+      <Tooltip title="Abnormal">
+        <WarningAmberOutlinedIcon
+          fontSize="small"
+          aria-label="Abnormal"
+          sx={{ ...sx, color: theme.palette.warning.dark }}
+        />
+      </Tooltip>
+    );
+  return null;
+};
+
+/**
+ * The cell value; with more than one reading, "+ N more" and a hover list of every reading (local time). A
+ * convertible measure shows both units on hover.
+ */
+const CellValue = ({ cell, both }: { cell: Cell; both?: string }): ReactElement => {
+  if (cell.history.length < 2) {
+    // An empty cell shows the house "-", as the Visits card does.
+    if (!both || !cell.text) return <>{cell.text || '-'}</>;
+    return (
+      <Tooltip title={both}>
+        <Box component="span">{cell.text}</Box>
+      </Tooltip>
+    );
+  }
+  // As the lab tables show several values in one cell: the latest, then "+ N more", every reading on hover.
+  return (
+    <Tooltip
+      arrow
+      placement="top"
+      title={
+        <Stack>
+          {/* By position: two results of one report share a time. */}
+          {cell.history.map((reading, index) => (
+            <Typography key={index} variant="caption">
+              {DateTime.fromISO(reading.time).toFormat(TIME_FORMAT)} {reading.text}
+              {reading.flag ? ` (${reading.flag})` : ''}
+            </Typography>
+          ))}
+          {both && <Typography variant="caption">{both}</Typography>}
+        </Stack>
+      }
+    >
+      <Box component="span">
+        {cell.text}{' '}
+        <Box component="span" sx={{ color: 'text.secondary' }}>
+          + {cell.history.length - 1} more
+        </Box>
+      </Box>
+    </Tooltip>
+  );
+};
+
+const VisitLink = ({ visit }: { visit: VisitColumn }): ReactElement =>
+  visit.url ? (
+    <Link component={RouterLink} to={visit.url}>
+      {visit.label}
+    </Link>
+  ) : (
+    <>{visit.label}</>
+  );
+
+/**
+ * A trend chart time tick: the year on January 1 (so two Aprils in a row are told apart), the date at midnight, else
+ * the 12-hour time for short spans. Luxon, since ECharts' {h} reads midnight as "0:30 AM".
+ */
+const timeTickLabel = (value: number): string => {
+  const tick = DateTime.fromMillis(value);
+  if (tick.hour === 0 && tick.minute === 0) return tick.toFormat(tick.month === 1 && tick.day === 1 ? 'yyyy' : 'MM/dd');
+  return tick.toFormat(tick.minute === 0 ? 'h a' : TIME_FORMAT);
+};
+
+/** "Pre-booked In Person Visit / UC" or "Follow-up Encounter / UC", as on the patient Visits tab. */
+export const visitTypeLabel = (
+  visit: FlowsheetVisit,
+  resolveServiceCategoryAbbr: (codeOrName?: string) => string | undefined
+): string => {
+  if (visit.isOutsideResult) return 'Unsolicited result';
+  const type = visit.isFollowUp
+    ? visit.followUpType ?? '-'
+    : visit.appointmentType &&
+      getVisitTypeLabelForTypeAndServiceMode({ type: visit.appointmentType, serviceMode: visit.serviceMode });
+  if (!type) return '-';
+  const category = resolveServiceCategoryAbbr(visit.serviceCategory);
+  return category ? `${type} / ${category}` : type;
+};
+
+const pinned = { position: 'sticky', left: 0, zIndex: 1, backgroundColor: 'background.paper', minWidth: 190 };
+
+const FlowsheetBody = ({
+  definition,
+  visits,
+  growth,
+  currentAppointmentId,
+  unitSystem,
+}: {
+  definition: FlowsheetDefinition;
+  visits: FlowsheetVisit[];
+  /** The Growth flowsheet's chart cards, drawn in place of the trend charts. */
+  growth?: GrowthChartData;
+  currentAppointmentId?: string;
+  unitSystem: VitalsHeaderUnitSystem;
+}): ReactElement => {
+  const theme = useTheme();
+  // A weight or temperature chart is in the Metric/Imperial switch's unit, as the grid is.
+  const charts = useMemo(
+    () => definition.charts.map((chart) => chartInUnits(chart, unitSystem)),
+    [definition, unitSystem]
+  );
+  const resolveServiceCategoryAbbr = useServiceCategoryAbbreviationResolver();
+  const columns = useMemo(() => toColumns(visits), [visits]);
+  const rows = useMemo(() => rowsToShow(definition, visits), [definition, visits]);
+  // The open visit's own (main) column; its follow-up columns are not it.
+  const isCurrent = (visit: VisitColumn): boolean =>
+    !!currentAppointmentId && visit.appointmentId === currentAppointmentId && !visit.isFollowUp;
+  // A tint over the cell's own background, so the sticky header stays opaque.
+  const tint = alpha(theme.palette.primary.main, 0.1);
+  const currentSx = (visit: VisitColumn): Record<string, unknown> =>
+    isCurrent(visit) ? { backgroundImage: `linear-gradient(${tint}, ${tint})` } : {};
+  const flagColor = (flag?: VitalAlertCriticality): string | undefined =>
+    flag === VitalAlertCriticality.Critical
+      ? theme.palette.error.main
+      : flag === VitalAlertCriticality.Abnormal
+      ? theme.palette.warning.dark
+      : undefined;
+
+  // ECharts option per chart. Series names and units come from the registry, values are numbers, so the
+  // tooltip shows nothing a user or patient typed.
+  const chartOption = (chart: FlowsheetChart): Record<string, unknown> => {
+    const hoursAxis = usesHoursAxis(chart, columns);
+    return {
+      // Theme blues, told apart by lightness, in place of the ECharts defaults (low contrast on white).
+      color: [theme.palette.primary.main, theme.palette.primary.dark, theme.palette.text.secondary],
+      tooltip: {
+        trigger: 'axis',
+        confine: true,
+        // Canvas text, not HTML, as on the growth charts: nothing in a tooltip can become markup.
+        renderMode: 'richText',
+        // A temperature reads in both units, from °C whichever the chart is in.
+        ...(chart.fahrenheit && {
+          valueFormatter: (value: number) => withFahrenheit(chart.unit === '°F' ? fahrenheitToCelsius(value) : value),
+        }),
+      },
+      // The card title already names a single line.
+      legend: {
+        show: chart.lines.length > 1,
+        top: 0,
+        selectedMode: false,
+        data: chart.lines.map((line) => line.name),
+      },
+      // Our own disabled dataZoom keeps the EChart wrapper from adding its slider.
+      dataZoom: [{ type: 'inside', disabled: true }],
+      xAxis: hoursAxis
+        ? {
+            type: 'value',
+            min: 0,
+            max: HOURS_OF_LIFE_MAX,
+            interval: 24,
+            name: 'Age (hours)',
+            nameLocation: 'middle',
+            nameGap: 28,
+            splitLine: { show: false },
+          }
+        : {
+            type: 'time',
+            axisLabel: { hideOverlap: true, formatter: timeTickLabel },
+            // The tooltip's heading: the reading's date and 12-hour time.
+            axisPointer: {
+              label: {
+                formatter: ({ value }: { value: number }) => DateTime.fromMillis(value).toFormat(DATE_TIME_FORMAT),
+              },
+            },
+            splitLine: { show: false },
+          },
+      yAxis: {
+        type: 'value',
+        name: chart.unit,
+        min: ({ min, max }: { min: number; max: number }) => yAxisBounds(chart, min, max)[0],
+        max: ({ min, max }: { min: number; max: number }) => yAxisBounds(chart, min, max)[1],
+        interval: chart.yStep,
+      },
+      series: chart.lines.map((line) => ({
+        name: line.name,
+        type: 'line',
+        showSymbol: true,
+        symbolSize: 6,
+        data: columns
+          .slice()
+          .reverse()
+          .flatMap((visit) => {
+            // Only numeric readings plot; a text value (e.g. a coded lab result) has no point.
+            const value = chartPoint(visit, line.key, hoursAxis, chart.unit);
+            if (!value) return [];
+            const color = flagColor(visit.values[line.key].flag);
+            return [
+              color ? { value, symbolSize: 11, itemStyle: { color, borderColor: '#fff', borderWidth: 1 } } : { value },
+            ];
+          }),
+      })),
+    };
+  };
+  const hasPoints = (chart: FlowsheetChart): boolean =>
+    chart.lines.some((line) =>
+      columns.some((visit) => chartPoint(visit, line.key, usesHoursAxis(chart, columns), chart.unit))
+    );
+  // The flags a chart draws as larger coloured points, for the key under it.
+  const plottedFlags = (chart: FlowsheetChart): VitalAlertCriticality[] =>
+    [VitalAlertCriticality.Abnormal, VitalAlertCriticality.Critical].filter((flag) =>
+      chart.lines.some((line) =>
+        columns.some(
+          (visit) =>
+            visit.values[line.key]?.flag === flag &&
+            chartPoint(visit, line.key, usesHoursAxis(chart, columns), chart.unit)
+        )
+      )
+    );
+
+  return (
+    <>
+      {/* Sticky dates and a capped height keep the dates and the horizontal scrollbar in view, as in PatientsMergeDifference. */}
+      <TableContainer
+        sx={{ border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'background.paper', maxHeight: '60vh' }}
+      >
+        <Table stickyHeader size="small" sx={{ width: 'max-content', minWidth: '100%' }}>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ ...pinned, zIndex: 3, fontWeight: 700 }}>Measure</TableCell>
+              {columns.map((visit, i) => (
+                <TableCell
+                  key={`${visit.start}-${i}`}
+                  sx={{ fontWeight: 700, whiteSpace: 'nowrap', verticalAlign: 'bottom', ...currentSx(visit) }}
+                >
+                  {isCurrent(visit) && (
+                    <Typography variant="caption" display="block" color="primary.dark">
+                      This visit
+                    </Typography>
+                  )}
+                  <VisitLink visit={visit} />
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.map((row) =>
+              'heading' in row ? (
+                <TableRow key={row.heading}>
+                  {/* The lab tables' panel heading row (LabsTableBundleHeaderRow). */}
+                  <TableCell
+                    colSpan={columns.length + 1}
+                    sx={{
+                      ...pinned,
+                      p: '8px 18px',
+                      fontWeight: 500,
+                      color: 'primary.dark',
+                      backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                    }}
+                  >
+                    {row.heading}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                <TableRow key={`${row.group ?? ''}-${row.label}`}>
+                  <TableCell sx={{ ...pinned, fontWeight: 600 }}>{rowLabel(row, unitSystem)}</TableCell>
+                  {columns.map((visit, i) => {
+                    const cell = cellOf(row, visit, unitSystem);
+                    const latest = row.keys.length === 1 ? visit.values[row.keys[0]]?.value : undefined;
+                    // Text (a coded result, a drug name) wraps in a narrow column instead of widening it.
+                    const isText = typeof latest === 'string';
+                    return (
+                      <TableCell
+                        key={`${visit.start}-${i}`}
+                        sx={{
+                          whiteSpace: isText ? 'normal' : 'nowrap',
+                          ...(isText ? { minWidth: 120, maxWidth: 160 } : {}),
+                          color: flagColor(cell.flag) ?? (cell.text ? 'text.primary' : 'text.disabled'),
+                          fontWeight: cell.flag ? 'bold' : undefined,
+                          ...currentSx(visit),
+                        }}
+                      >
+                        <CellValue cell={cell} both={latest !== undefined ? bothUnits(row, latest) : undefined} />
+                        <FlagMark flag={cell.flag} />
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              )
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {growth ? (
+        // Keyed by the age, so new data for another age (e.g. back to "Up to this visit") reopens on its chart set.
+        <GrowthCharts
+          key={growth.ageMonths}
+          growth={growth}
+          visits={visits}
+          currentAppointmentId={currentAppointmentId}
+        />
+      ) : (
+        <Grid container spacing={2}>
+          {charts.filter(hasPoints).map((chart) => (
+            <Grid item xs={12} md={chart.lines.length > 1 ? 12 : 6} key={chart.title}>
+              <AccordionCard label={`${chart.title} (${chart.unit})`}>
+                <Box sx={{ p: 2 }}>
+                  <EChart option={chartOption(chart)} height={280} />
+                  {plottedFlags(chart).length > 0 && (
+                    <Typography variant="caption" color="text.secondary" component="p">
+                      {plottedFlags(chart).map((flag) => (
+                        <span key={flag}>
+                          <Box component="span" sx={{ color: flagColor(flag) }}>
+                            ●
+                          </Box>{' '}
+                          {flag === VitalAlertCriticality.Critical ? 'critical' : 'abnormal'}
+                          {'   '}
+                        </span>
+                      ))}
+                    </Typography>
+                  )}
+                </Box>
+              </AccordionCard>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      {/* Column names and visit type labels as on the patient Visits tab; "-" for an empty cell. */}
+      <AccordionCard label="Visits">
+        <TableContainer sx={{ bgcolor: 'background.paper' }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                {['Date', 'Type & Service Category', 'Reason for visit', 'Primary diagnosis', 'Provider'].map(
+                  (header) => (
+                    <TableCell key={header} sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      {header}
+                    </TableCell>
+                  )
+                )}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {columns.map((visit, i) => (
+                <TableRow key={`${visit.start}-${i}`}>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                    <VisitLink visit={visit} />
+                  </TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                    {visitTypeLabel(visit, resolveServiceCategoryAbbr)}
+                  </TableCell>
+                  <TableCell>{visit.reason || '-'}</TableCell>
+                  <TableCell>{visit.primaryDiagnosis || '-'}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{visit.attending || '-'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </AccordionCard>
+    </>
+  );
+};

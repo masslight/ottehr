@@ -6,7 +6,7 @@ import { DoubleColumnContainer } from 'src/components/DoubleColumnContainer';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { vitalsConfig } from 'utils/lib/helpers/vitals/config-schema';
-import { formatWeight, formatWeightKg, formatWeightLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { formatWeight } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsWeightObservationDTO, VitalsWeightOption } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { useGetAppointmentAccessibility } from '../../../hooks/useGetAppointmentAccessibility';
@@ -134,7 +134,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({ field }): JSX.Ele
                     metricInput={
                       <VitalsTextInputFiled
                         label="Weight (kg)"
-                        value={localState.weightKg ? formatWeightKg(localState.weightKg) : ''}
+                        value={localState.kgText}
                         disabled={field.isSaving || localState.isPatientRefusedSelected}
                         isInputError={localState.validationError}
                         onChange={localState.handleKgInput}
@@ -145,7 +145,7 @@ const VitalsWeightsCard: React.FC<VitalsWeightsCardProps> = ({ field }): JSX.Ele
                     imperialInput={
                       <VitalsTextInputFiled
                         label="Weight (lbs)"
-                        value={localState.weightKg ? formatWeightLbs(localState.weightKg) : ''}
+                        value={localState.lbsText}
                         disabled={field.isSaving || localState.isPatientRefusedSelected}
                         isInputError={localState.validationError}
                         onChange={localState.handleLbsInput}

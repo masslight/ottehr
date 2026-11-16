@@ -1,0 +1,536 @@
+import { Appointment, DiagnosticReport, Encounter, Observation, ServiceRequest } from 'fhir/r4b';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { FOLLOWUP_SYSTEMS } from 'utils/lib/fhir/encounter';
+import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
+import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { FlowsheetLabResult, FlowsheetMedication } from 'utils/lib/types/api/flowsheets.types';
+import { describe, expect, test } from 'vitest';
+import { NEWBORN_BILIRUBIN_DATA_KINDS } from '../../src/ehr/get-flowsheet/newborn-bilirubin';
+import { buildLabResults, FlowsheetData, unlinkedResultKey } from '../../src/ehr/get-flowsheet/patient-data';
+import { buildThyroidFlowsheet, THYROID_DATA_KINDS } from '../../src/ehr/get-flowsheet/thyroid';
+
+const PATIENT = 'Patient/p1';
+
+const appointment = (id: string, start: string): Appointment => ({
+  resourceType: 'Appointment',
+  id,
+  status: 'fulfilled',
+  start,
+  meta: { tag: [{ code: OTTEHR_MODULE.IP }] },
+  participant: [{ actor: { reference: PATIENT }, status: 'accepted' }],
+});
+const encounter = (id: string, appointmentId: string): Encounter => ({
+  resourceType: 'Encounter',
+  id,
+  status: 'finished',
+  class: { code: 'AMB' },
+  subject: { reference: PATIENT },
+  appointment: [{ reference: `Appointment/${appointmentId}` }],
+});
+const vital = (field: VitalFieldNames, encounterId: string, effectiveDateTime: string, value: number): Observation => ({
+  resourceType: 'Observation',
+  id: `${field}-${encounterId}-${effectiveDateTime}`,
+  status: 'final',
+  code: { text: field },
+  subject: { reference: PATIENT },
+  encounter: { reference: `Encounter/${encounterId}` },
+  effectiveDateTime,
+  meta: { tag: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`, code: field }] },
+  valueQuantity: { value },
+});
+const lab = (
+  analyte: string,
+  loincCodes: string[],
+  value: number | undefined,
+  unit: string,
+  resultedAt: string,
+  interpretation = 'N'
+): FlowsheetLabResult => ({
+  analyte,
+  loincCodes,
+  testName: '',
+  testLoincCodes: [],
+  value,
+  valueText: value === undefined ? 'Negative' : String(value),
+  unit,
+  referenceRange: '',
+  interpretation,
+  flag: interpretation === 'H' || interpretation === 'L' ? VitalAlertCriticality.Abnormal : undefined,
+  resultedAt,
+  source: 'external',
+});
+
+// Visit e1: the diagnosis visit — HR, weight and temperature, a thyroid panel (TSH high, free T4 low, TPO), PHQ-9
+// labs that do not belong here, levothyroxine started.
+// Visit e2: a follow-up with no vitals, labs matched by analyte name only (no LOINC), a repeat levothyroxine.
+// Visit e3: a visit with HR and weight but nothing thyroid-related, which stays off the flowsheet.
+const data: FlowsheetData = {
+  appointments: [
+    appointment('a1', '2023-02-06T14:00:00.000Z'),
+    appointment('a2', '2023-06-05T14:00:00.000Z'),
+    appointment('a3', '2024-01-08T14:30:00.000Z'),
+  ],
+  encounters: [encounter('e1', 'a1'), encounter('e2', 'a2'), encounter('e3', 'a3')],
+  conditions: [],
+  practitioners: [],
+  vitals: [
+    vital(VitalFieldNames.VitalHeartbeat, 'e1', '2023-02-06T14:10:00.000Z', 64),
+    vital(VitalFieldNames.VitalWeight, 'e1', '2023-02-06T14:10:00.000Z', 63),
+    vital(VitalFieldNames.VitalTemperature, 'e1', '2023-02-06T14:10:00.000Z', 36.4),
+    vital(VitalFieldNames.VitalHeartbeat, 'e3', '2024-01-08T14:40:00.000Z', 70),
+    vital(VitalFieldNames.VitalWeight, 'e3', '2024-01-08T14:40:00.000Z', 62),
+  ],
+  diagnoses: {
+    e1: [
+      { code: 'E03.9', display: 'Hypothyroidism, unspecified', primary: true },
+      { code: 'F32.1', display: 'Major depressive disorder, single episode, moderate', primary: false },
+    ],
+    e2: [{ code: 'E05.00', display: 'Thyrotoxicosis with diffuse goiter', primary: true }],
+    e3: [{ code: 'J06.9', display: 'URI', primary: true }],
+  },
+  medications: {
+    e1: [
+      { name: 'sertraline 50 mg tablet', source: 'eRx', status: 'active', time: '2023-02-06T14:30:00.000Z' },
+      { name: 'levothyroxine 50 mcg tablet', source: 'eRx', status: 'active', time: '2023-02-06T14:30:00.000Z' },
+    ],
+    e2: [
+      { name: 'Methimazole 10 mg tablet', source: 'in-house', status: 'administered', dose: '10 mg' },
+      { name: 'methimazole 10 mg tablet', source: 'eRx', status: 'active', time: '2023-06-05T14:30:00.000Z' },
+    ],
+    e3: [{ name: 'amoxicillin 500 mg capsule', source: 'eRx', status: 'active' }],
+  },
+  labs: {
+    e1: [
+      lab('TSH', ['3016-3'], 8.9, 'mIU/L', '2023-02-06T18:00:00.000Z', 'H'),
+      lab('Free T4', ['3024-7'], 0.7, 'ng/dL', '2023-02-06T18:00:00.000Z', 'L'),
+      lab('Thyroid peroxidase antibodies', ['8099-4'], 210, 'IU/mL', '2023-02-06T18:00:00.000Z', 'H'),
+      lab('Hemoglobin A1c', ['4548-4'], 5.4, '%', '2023-02-06T18:00:00.000Z'),
+    ],
+    e2: [
+      lab('Thyrotropin', [], 0.1, 'uIU/mL', '2023-06-05T18:00:00.000Z', 'L'),
+      lab('Thyroxine (T4), free', [], 2.4, 'ng/dL', '2023-06-05T18:00:00.000Z', 'H'),
+      lab('T4, total', [], 14.1, 'ug/dL', '2023-06-05T18:00:00.000Z', 'H'),
+      lab('Triiodothyronine (T3)', [], 240, 'ng/dL', '2023-06-05T18:00:00.000Z', 'H'),
+      lab('T3, free', [], 6.1, 'pg/mL', '2023-06-05T18:00:00.000Z', 'H'),
+      lab('TSH', [], undefined, '', '2023-06-05T18:00:00.000Z'),
+    ],
+  },
+};
+
+describe('flowsheets with vitals rows', () => {
+  test('load the birth date with the vitals, so Weight and Heart rate are flagged as on the Vitals screen', () => {
+    [THYROID_DATA_KINDS, NEWBORN_BILIRUBIN_DATA_KINDS].forEach((kinds) => {
+      expect(kinds).toContain('vitals');
+      expect(kinds).toContain('birthDate');
+    });
+  });
+});
+
+describe('buildThyroidFlowsheet', () => {
+  const visits = buildThyroidFlowsheet(data);
+  const values = (encounterId: string): Record<string, string | number> =>
+    Object.fromEntries(
+      Object.entries(visits.find((v) => v.encounterId === encounterId)!.values).map(([key, v]) => [key, v.value])
+    );
+
+  test('newest first; a visit with nothing thyroid-related is left out', () => {
+    expect(visits.map((v) => v.encounterId)).toEqual(['e2', 'e1']);
+  });
+
+  test('a visit with only vitals (HR, weight) gets no column; one with a thyroid row value does', () => {
+    const vitalsOnly: FlowsheetData = { ...data, diagnoses: undefined, medications: undefined, labs: {} };
+    expect(buildThyroidFlowsheet(vitalsOnly)).toEqual([]);
+
+    const withOneLab: FlowsheetData = { ...vitalsOnly, labs: { e1: [data.labs!.e1[0]] } };
+    const [visit] = buildThyroidFlowsheet(withOneLab);
+    expect(visit.encounterId).toBe('e1');
+    expect(Object.keys(visit.values).sort()).toEqual(['heartRate', 'tsh', 'weight']);
+  });
+
+  test('the diagnosis visit: HR and weight only, labs by LOINC with saved flags, thyroid drugs and diagnoses only', () => {
+    expect(values('e1')).toEqual({
+      heartRate: 64,
+      weight: 63,
+      tsh: 8.9,
+      freeT4: 0.7,
+      tpoAntibodies: 210,
+      thyroidDiagnosis: 'E03.9 — Hypothyroidism, unspecified',
+      thyroidMedication: 'levothyroxine 50 mcg tablet',
+    });
+    const { tsh, freeT4, tpoAntibodies } = visits.find((v) => v.encounterId === 'e1')!.values;
+    expect([tsh.unit, tsh.flag]).toEqual(['mIU/L', VitalAlertCriticality.Abnormal]);
+    expect([freeT4.unit, freeT4.flag]).toEqual(['ng/dL', VitalAlertCriticality.Abnormal]);
+    expect([tpoAntibodies.unit, tpoAntibodies.flag]).toEqual(['IU/mL', VitalAlertCriticality.Abnormal]);
+  });
+
+  test('a visit without vitals is dated by its appointment; labs match by analyte name, free before total; in-house and eRx drugs both listed', () => {
+    const visit = visits.find((v) => v.encounterId === 'e2')!;
+    expect(visit.start).toBe('2023-06-05T14:00:00.000Z');
+    expect(values('e2')).toEqual({
+      tsh: 0.1,
+      freeT4: 2.4,
+      totalT4: 14.1,
+      freeT3: 6.1,
+      totalT3: 240,
+      thyroidDiagnosis: 'E05.00 — Thyrotoxicosis with diffuse goiter',
+      thyroidMedication: 'Methimazole 10 mg tablet; methimazole 10 mg tablet',
+    });
+    // The text-only TSH result is left out; the numeric one is the cell.
+    expect(visit.values.tsh.readings).toHaveLength(1);
+  });
+
+  test('an unlinked outside result is its own column, dated by the result, placed among the visits', () => {
+    const outside = {
+      ...data,
+      labs: {
+        ...data.labs,
+        [unlinkedResultKey('dr-9')]: [lab('TSH', ['11579-0'], 2.3, 'mIU/L', '2023-04-10T12:00:00.000Z')],
+      },
+    };
+    const columns = buildThyroidFlowsheet(outside);
+    expect(columns.map((c) => c.encounterId)).toEqual(['e2', undefined, 'e1']);
+    const [, column] = columns;
+    expect(column).toMatchObject({
+      start: '2023-04-10T12:00:00.000Z',
+      isOutsideResult: true,
+      isFollowUp: false,
+    });
+    expect(column.appointmentId).toBeUndefined();
+    expect(Object.keys(column.values)).toEqual(['tsh']);
+    expect(column.values.tsh).toMatchObject({ value: 2.3, unit: 'mIU/L', time: '2023-04-10T12:00:00.000Z' });
+  });
+
+  test('a coded result lands by LOINC only; by name, a TSH receptor antibody is not a TSH and TBG is not a T4', () => {
+    const at = '2023-02-06T18:00:00.000Z';
+    const labsOnly: FlowsheetData = { ...data, vitals: [], diagnoses: undefined, medications: undefined };
+    const rowsOf = (...labs: FlowsheetLabResult[]): string[] =>
+      Object.keys(buildThyroidFlowsheet({ ...labsOnly, labs: { e1: labs } })[0]?.values ?? {}).sort();
+
+    expect(rowsOf(lab('TSH receptor antibody', ['5385-0'], 2.1, 'IU/L', at))).toEqual([]);
+    // Free T4 in pmol/L (14920-3) and TSH by a third-generation assay (11580-8) are the same measures, other units.
+    expect(rowsOf(lab('T4 free', ['14920-3'], 14, 'pmol/L', at), lab('TSH', ['11580-8'], 1.1, 'mIU/L', at))).toEqual([
+      'freeT4',
+      'tsh',
+    ]);
+    // A coded result never falls back to its name: a urine bilirubin named "TSH" is not a TSH.
+    expect(rowsOf(lab('TSH', ['5770-3'], 1.1, 'mIU/L', at))).toEqual([]);
+    expect(rowsOf(lab('TSH receptor antibody', [], 2.1, 'IU/L', at))).toEqual([]);
+    expect(rowsOf(lab('Thyroxine binding globulin', [], 18, 'ug/mL', at))).toEqual([]);
+    expect(rowsOf(lab('Thyroxine (T4)', [], 8.1, 'ug/dL', at))).toEqual(['totalT4']);
+  });
+
+  test('thyroglobulin and its antibodies are two rows, by LOINC or by name; the antibodies as text too', () => {
+    const at = '2023-02-06T18:00:00.000Z';
+    const labsOnly: FlowsheetData = { ...data, vitals: [], diagnoses: undefined, medications: undefined };
+    const valuesOf = (...labs: FlowsheetLabResult[]): Record<string, string | number> =>
+      Object.fromEntries(
+        Object.entries(buildThyroidFlowsheet({ ...labsOnly, labs: { e1: labs } })[0]?.values ?? {}).map(([key, v]) => [
+          key,
+          v.value,
+        ])
+      );
+    expect(
+      valuesOf(
+        lab('Thyroglobulin', ['3013-0'], 0.4, 'ng/mL', at),
+        lab('Thyroglobulin Ab', ['56536-6'], undefined, '', at)
+      )
+    ).toEqual({ thyroglobulin: 0.4, thyroglobulinAntibodies: 'Negative' });
+    expect(
+      valuesOf(
+        lab('Thyroglobulin, Tumor Marker', [], 0.2, 'ng/mL', at),
+        lab('Thyroglobulin Antibody', [], 1.1, 'IU/mL', at),
+        lab('Thyroglobulin Recovery', [], 95, '%', at)
+      )
+    ).toEqual({ thyroglobulin: 0.2, thyroglobulinAntibodies: 1.1 });
+  });
+});
+
+describe('a TPO antibody result sent only as text', () => {
+  test('"Negative" is the cell and gives the visit a column, as on Lab results\' qualitative rows', () => {
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      vitals: [],
+      medications: {},
+      diagnoses: {},
+      labs: { e1: [lab('Thyroid peroxidase Ab', ['8099-4'], undefined, '', '2023-02-06T18:00:00.000Z')] },
+    });
+    expect(visits.map((visit) => [visit.encounterId, visit.values.tpoAntibodies?.value])).toEqual([['e1', 'Negative']]);
+  });
+});
+
+describe('a "<" or ">" result', () => {
+  const order: ServiceRequest = {
+    resourceType: 'ServiceRequest',
+    id: 'sr1',
+    status: 'completed',
+    intent: 'order',
+    subject: { reference: PATIENT },
+    encounter: { reference: 'Encounter/e1' },
+    code: { text: 'TSH' },
+  };
+  const tsh = (id: string, effectiveDateTime: string, extra: Partial<Observation>): Observation => ({
+    resourceType: 'Observation',
+    id,
+    status: 'final',
+    code: { coding: [{ system: 'http://loinc.org', code: '3016-3', display: 'TSH' }] },
+    effectiveDateTime,
+    ...extra,
+  });
+  const report: DiagnosticReport = {
+    resourceType: 'DiagnosticReport',
+    id: 'dr1',
+    status: 'final',
+    code: { text: 'TSH' },
+    basedOn: [{ reference: 'ServiceRequest/sr1' }],
+    result: [{ reference: 'Observation/o1' }, { reference: 'Observation/o2' }, { reference: 'Observation/o3' }],
+  };
+  const labs = buildLabResults({
+    serviceRequests: [order],
+    reports: [report],
+    observations: [
+      tsh('o1', '2023-02-06T18:00:00.000Z', { valueQuantity: { value: 0.01, comparator: '<', unit: 'mIU/L' } }),
+      tsh('o2', '2023-02-06T19:00:00.000Z', { valueString: '<0.01' }),
+      tsh('o3', '2023-02-06T20:00:00.000Z', { valueQuantity: { value: 100, comparator: '>=', unit: 'mIU/L' } }),
+    ],
+    activityDefinitions: [],
+  });
+
+  test('keeps its sign as text, sent as a quantity with a comparator or as text, on a numeric row', () => {
+    const [visit] = buildThyroidFlowsheet({ ...data, vitals: [], medications: {}, diagnoses: {}, labs });
+    expect(visit.values.tsh.readings.map(({ value, unit }) => ({ value, unit }))).toEqual([
+      { value: '<0.01', unit: 'mIU/L' },
+      { value: '<0.01', unit: undefined },
+      { value: '>=100', unit: 'mIU/L' },
+    ]);
+  });
+});
+
+describe('thyroid medication: only drugs actually prescribed or given', () => {
+  test('leaves out cancelled, entered-in-error and draft prescriptions and in-house orders not given', () => {
+    const med = (name: string, source: 'eRx' | 'in-house', status: string): FlowsheetMedication => ({
+      name,
+      source,
+      status,
+      time: '2023-02-06T14:30:00.000Z',
+    });
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      labs: {},
+      diagnoses: {},
+      medications: {
+        e1: [
+          med('levothyroxine 25 mcg tablet', 'eRx', 'cancelled'),
+          med('levothyroxine 50 mcg tablet', 'eRx', 'active'),
+          med('levothyroxine 75 mcg tablet', 'eRx', 'entered-in-error'),
+          med('levothyroxine 88 mcg tablet', 'eRx', 'draft'),
+          med('levothyroxine 100 mcg tablet', 'eRx', 'stopped'),
+          med('methimazole 5 mg tablet', 'in-house', 'pending'),
+          med('methimazole 10 mg tablet', 'in-house', 'cancelled'),
+          med('methimazole 15 mg tablet', 'in-house', 'administered-not'),
+          med('methimazole 20 mg tablet', 'in-house', 'administered-partly'),
+          med('methimazole 30 mg tablet', 'in-house', 'administered'),
+        ],
+        e2: [med('levothyroxine 25 mcg tablet', 'eRx', 'cancelled')],
+      },
+    });
+    // A visit whose only thyroid drug was cancelled gets no column.
+    expect(visits.map((v) => v.encounterId)).toEqual(['e1']);
+    expect(visits[0].values.thyroidMedication.value).toBe(
+      'levothyroxine 50 mcg tablet; levothyroxine 100 mcg tablet; methimazole 20 mg tablet; methimazole 30 mg tablet'
+    );
+  });
+
+  test('an in-house drug shows its dose given, the way an eRx name shows its strength, unless its name says it', () => {
+    const inHouse = (name: string, dose: string | undefined, time: string): FlowsheetMedication => ({
+      name,
+      source: 'in-house',
+      status: 'administered',
+      dose,
+      time,
+    });
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      labs: {},
+      diagnoses: {},
+      medications: {
+        e1: [
+          inHouse('Levothyroxine', '50 mcg', '2023-02-06T14:30:00.000Z'),
+          inHouse('Levothyroxine', '75 mcg', '2023-02-06T14:40:00.000Z'),
+          inHouse('Methimazole 10 MG tablet', '10 mg', '2023-02-06T14:50:00.000Z'),
+          inHouse('Liothyronine', undefined, '2023-02-06T15:00:00.000Z'),
+        ],
+      },
+    });
+    // A dose change at the visit shows.
+    expect(visits[0].values.thyroidMedication.value).toBe(
+      'Levothyroxine 50 mcg; Levothyroxine 75 mcg; Methimazole 10 MG tablet; Liothyronine'
+    );
+  });
+
+  test('a follow-up whose only thyroid item is a diagnosis is a column, dated by the encounter', () => {
+    const followUp: Encounter = {
+      resourceType: 'Encounter',
+      id: 'e-fu',
+      status: 'finished',
+      class: { code: 'AMB' },
+      type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+      period: { start: '2023-09-01T14:00:00.000Z' },
+    };
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      encounters: [...data.encounters, followUp],
+      diagnoses: { 'e-fu': [{ code: 'E03.9', display: 'Hypothyroidism, unspecified', primary: true }] },
+      medications: {},
+      labs: {},
+    });
+    expect(visits.map((v) => [v.encounterId, v.start, v.isFollowUp, v.values.thyroidDiagnosis?.value])).toEqual([
+      ['e-fu', '2023-09-01T14:00:00.000Z', true, 'E03.9 — Hypothyroidism, unspecified'],
+    ]);
+  });
+
+  test('a follow-up with a thyroid diagnosis and medication but no labs is dated by the medication', () => {
+    const followUp: Encounter = {
+      resourceType: 'Encounter',
+      id: 'e-fu',
+      status: 'finished',
+      class: { code: 'AMB' },
+      type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+      period: { start: '2023-09-01T14:00:00.000Z' },
+    };
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      encounters: [...data.encounters, followUp],
+      diagnoses: { 'e-fu': [{ code: 'E03.9', display: 'Hypothyroidism, unspecified', primary: true }] },
+      medications: {
+        'e-fu': [
+          { name: 'levothyroxine 75 mcg tablet', source: 'eRx', status: 'active', time: '2023-09-03T15:10:00.000Z' },
+        ],
+      },
+      labs: {},
+    });
+    expect(visits.map((v) => [v.encounterId, v.start, v.values.thyroidDiagnosis?.value])).toEqual([
+      ['e-fu', '2023-09-03T15:10:00.000Z', 'E03.9 — Hypothyroidism, unspecified'],
+    ]);
+  });
+
+  test('a follow-up dated by its medications takes the earliest medication time, not the first drug listed', () => {
+    const followUp: Encounter = {
+      resourceType: 'Encounter',
+      id: 'e-fu',
+      status: 'finished',
+      class: { code: 'AMB' },
+      type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+    };
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      encounters: [...data.encounters, followUp],
+      medications: {
+        'e-fu': [
+          { name: 'levothyroxine 75 mcg tablet', source: 'eRx', status: 'active', time: '2023-09-05T15:10:00.000Z' },
+          { name: 'liothyronine 5 mcg tablet', source: 'eRx', status: 'active', time: '2023-09-03T09:00:00-04:00' },
+        ],
+      },
+      labs: {},
+    });
+    const followUpVisit = visits.find((v) => v.encounterId === 'e-fu');
+    expect([followUpVisit?.start, followUpVisit?.values.thyroidMedication?.readings[0].time]).toEqual([
+      '2023-09-03T09:00:00-04:00',
+      '2023-09-03T09:00:00-04:00',
+    ]);
+  });
+
+  test('a follow-up without an appointment is dated by its first weight or heart rate, not by another vital', () => {
+    const followUp: Encounter = {
+      resourceType: 'Encounter',
+      id: 'e-fu',
+      status: 'finished',
+      class: { code: 'AMB' },
+      type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+      period: { start: '2023-09-01T14:00:00.000Z' },
+    };
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      encounters: [...data.encounters, followUp],
+      vitals: [
+        vital(VitalFieldNames.VitalTemperature, 'e-fu', '2023-09-03T14:30:00.000Z', 37),
+        vital(VitalFieldNames.VitalHeartbeat, 'e-fu', '2023-09-03T15:00:00.000Z', 72),
+      ],
+      diagnoses: {},
+      medications: {},
+      labs: { 'e-fu': [lab('TSH', ['3016-3'], 2.1, 'mIU/L', '2023-09-03T17:00:00.000Z')] },
+    });
+    expect(visits.map((v) => [v.encounterId, v.start, Object.keys(v.values)])).toEqual([
+      ['e-fu', '2023-09-03T15:00:00.000Z', ['heartRate', 'tsh']],
+    ]);
+  });
+
+  test('thyroid diagnoses coded outside E00–E07 (E89.0, C73, O90.5, R94.6, Z85.850) give a column; E89.1 does not', () => {
+    const dx = (code: string): { code: string; display: string; primary: boolean } => ({
+      code,
+      display: '',
+      primary: true,
+    });
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      diagnoses: { e1: [dx('E89.0'), dx('C73')], e2: [dx('O90.5')], e3: [dx('R94.6'), dx('Z85.850')] },
+      medications: {},
+      labs: {},
+    });
+    expect(Object.fromEntries(visits.map((v) => [v.encounterId, v.values.thyroidDiagnosis?.value]))).toEqual({
+      e1: 'E89.0; C73',
+      e2: 'O90.5',
+      e3: 'R94.6; Z85.850',
+    });
+    const postProcedural = buildThyroidFlowsheet({
+      ...data,
+      diagnoses: { e1: [dx('E89.1'), dx('C74.9'), dx('O90.4'), dx('R94.5'), dx('Z85.858')] },
+      medications: {},
+      labs: {},
+    });
+    expect(postProcedural).toEqual([]);
+  });
+
+  test('a drug saved by its brand name alone is listed too', () => {
+    const brands = [
+      'Synthroid 50 mcg tablet',
+      'Levoxyl 50 mcg tablet',
+      'Unithroid 50 mcg tablet',
+      'Tirosint 50 mcg capsule',
+      'Euthyrox 50 mcg tablet',
+      'Levo-T 50 mcg tablet',
+      'Levothroid 50 mcg tablet',
+      'Thyquidity 100 mcg/5 mL solution',
+      'Ermeza 150 mcg/5 mL solution',
+      'Eltroxin 50 mcg tablet',
+      'Cytomel 5 mcg tablet',
+      'Triostat 10 mcg/mL injection',
+      'Thyrolar 1 tablet',
+      'Armour Thyroid 60 mg tablet',
+      'NP Thyroid 30 mg tablet',
+      'WP Thyroid 32.5 mg tablet',
+      'Nature-Throid 32.5 mg tablet',
+      'Westhroid 32.5 mg tablet',
+      'Adthyza 30 mg tablet',
+      'Thyroid 60 mg tablet',
+      'Tapazole 5 mg tablet',
+      'Northyx 5 mg tablet',
+      'Carbimazole 5 mg tablet',
+      'PTU 50 mg tablet',
+    ];
+    const visits = buildThyroidFlowsheet({
+      ...data,
+      labs: {},
+      diagnoses: {},
+      medications: {
+        e1: [...brands, 'Sertraline 50 mg tablet', 'Levetiracetam 250 mg tablet'].map((name) => ({
+          name,
+          source: 'eRx' as const,
+          status: 'active',
+          time: '2023-02-06T14:30:00.000Z',
+        })),
+      },
+    });
+    expect(visits[0].values.thyroidMedication.value).toBe(brands.join('; '));
+  });
+});

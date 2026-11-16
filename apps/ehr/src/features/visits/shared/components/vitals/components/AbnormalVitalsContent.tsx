@@ -16,6 +16,7 @@ export const AbnormalVitalsContent: React.FC = () => {
   const oxygenSaturation = values?.[VitalFieldNames.VitalOxygenSaturation] ?? [];
   const weight = values?.[VitalFieldNames.VitalWeight] ?? [];
   const height = values?.[VitalFieldNames.VitalHeight] ?? [];
+  const headCircumference = values?.[VitalFieldNames.VitalHeadCircumference] ?? [];
 
   const any =
     temperature.length +
@@ -24,7 +25,8 @@ export const AbnormalVitalsContent: React.FC = () => {
       bloodPressure.length +
       oxygenSaturation.length +
       weight.length +
-      height.length >
+      height.length +
+      headCircumference.length >
     0;
 
   if (!any) return <Typography variant="body2">No abnormal values found.</Typography>;
@@ -102,6 +104,17 @@ export const AbnormalVitalsContent: React.FC = () => {
           <AssessmentTitle>Height</AssessmentTitle>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {height.map((i: VitalsObservationDTO) => (
+              <VitalHistoryElement key={i.resourceId} historyEntry={{ ...i }} />
+            ))}
+          </Box>
+        </>
+      )}
+
+      {headCircumference.length > 0 && (
+        <>
+          <AssessmentTitle>Head circumference</AssessmentTitle>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {headCircumference.map((i: VitalsObservationDTO) => (
               <VitalHistoryElement key={i.resourceId} historyEntry={{ ...i }} />
             ))}
           </Box>

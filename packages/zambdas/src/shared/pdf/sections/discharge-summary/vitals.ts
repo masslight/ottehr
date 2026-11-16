@@ -1,21 +1,24 @@
 import { mapVitalsToDisplay } from 'utils/lib/helpers/visit-note/map-vitals-to-display.helper';
+import { bmiAppliesAt } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { getDotVisionScreeningLines } from 'utils/lib/helpers/vitals/vitals-vision.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsVisionObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { compareDates } from 'utils/lib/utils/dateUtils';
+import { ageInMonthsOnDate, compareDates } from 'utils/lib/utils/dateUtils';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, VitalsDataInDischargeSummary } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
 
 export const composeVitalsForDischargeSummary: DataComposer<
-  { allChartData: AllChartData },
+  { allChartData: AllChartData; birthDate?: string; visitStart?: string },
   VitalsDataInDischargeSummary
-> = ({ allChartData }) => {
+> = ({ allChartData, birthDate, visitStart }) => {
   const { additionalChartData } = allChartData;
 
-  const newestFirst = [...(additionalChartData?.vitalsObservations ?? [])].sort((a, b) =>
-    compareDates(a.lastUpdated, b.lastUpdated)
-  );
+  // No BMI under 2 years, even one saved before the rule (as the progress note does).
+  const bmiApplies = bmiAppliesAt(ageInMonthsOnDate(birthDate, visitStart));
+  const newestFirst = [...(additionalChartData?.vitalsObservations ?? [])]
+    .filter((o) => bmiApplies || o.field !== VitalFieldNames.VitalBMI)
+    .sort((a, b) => compareDates(a.lastUpdated, b.lastUpdated));
   const vitals = mapVitalsToDisplay(newestFirst, false);
 
   // The Vision grid cell should show the latest Snellen acuity reading only; DOT screening is
@@ -47,6 +50,7 @@ export const composeVitalsForDischargeSummary: DataComposer<
       oxygenSat: vitals?.['vital-oxygen-sat']?.[0] ?? '',
       weight: vitals?.['vital-weight']?.[0] ?? '',
       height: vitals?.['vital-height']?.[0] ?? '',
+      headCircumference: vitals?.['vital-head-circumference']?.[0] ?? '',
       bmi: vitals?.['vital-bmi']?.[0] ?? '',
       vision: acuityDisplayLines[0] ?? '',
       dotVisionScreening: getDotVisionScreeningLines(latestDotEntry?.dotVisionScreening, { includeDocument: true }),
@@ -71,6 +75,7 @@ export const createVitalsSectionForDischargeSummary = <
         ['BP', data.vitals.bp, 'BMI', data.vitals.bmi],
         ['Last Menstrual Period', data.vitals.lastMenstrualPeriod],
         ['Vision', data.vitals.vision],
+        ['Head circumference', data.vitals.headCircumference],
       ].filter(([, value1, label2]) => label2 || value1);
 
       const leftX = client.getLeftBound();

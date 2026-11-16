@@ -1,0 +1,451 @@
+import Oystehr from '@oystehr/sdk';
+import { Appointment, Condition, Encounter, Observation, Practitioner } from 'fhir/r4b';
+import { PRIVATE_EXTENSION_BASE_URL, SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
+import {
+  buildFollowupEncounterType,
+  FOLLOWUP_SUBTYPE_SYSTEM,
+  FOLLOWUP_SYSTEMS,
+  FollowupSubtype,
+} from 'utils/lib/fhir/encounter';
+import {
+  VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE,
+  VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
+} from 'utils/lib/fhir/vitals';
+import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
+import {
+  FHIRObservationInterpretation,
+  FHIRObservationInterpretationSystem,
+  VitalAlertCriticality,
+  VitalFieldNames,
+} from 'utils/lib/types/api/chart-data/chart-data.constants';
+import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { FlowsheetVisit } from 'utils/lib/types/api/flowsheets.types';
+import { ServiceMode } from 'utils/lib/types/common';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
+import { DEFAULT_VITALS_ALERT_CONFIG, vitalsAlertConfigToVitalsDef } from 'utils/lib/utils/vitals-alert-config';
+import { describe, expect, test, vi } from 'vitest';
+import { buildVitalsFlowsheet, describeVisit, fetchVisits } from '../../src/ehr/get-flowsheet/helpers';
+import { index } from '../../src/ehr/get-flowsheet/index';
+import { resolveVitalAlertCriticality } from '../../src/shared/vitals-alert-config';
+
+// wrapHandler's Sentry plumbing is not under test; make `index` the bare handler so its errors surface.
+vi.mock('../../src/shared/sentry', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  wrapHandler: (_name: string, handler: unknown) => handler,
+}));
+
+const PATIENT = 'Patient/p1';
+const interpretation = (code: FHIRObservationInterpretation): Observation['interpretation'] => [
+  { coding: [{ system: FHIRObservationInterpretationSystem, code }] },
+];
+
+const vital = (
+  field: VitalFieldNames,
+  encounterId: string,
+  effectiveDateTime: string,
+  extra: Partial<Observation>
+): Observation => ({
+  resourceType: 'Observation',
+  id: `${field}-${encounterId}-${effectiveDateTime}`,
+  status: 'final',
+  code: { text: field },
+  subject: { reference: PATIENT },
+  encounter: { reference: `Encounter/${encounterId}` },
+  effectiveDateTime,
+  meta: { tag: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}`, code: field }] },
+  ...extra,
+});
+
+const appointments: Appointment[] = [
+  {
+    resourceType: 'Appointment',
+    id: 'a1',
+    status: 'fulfilled',
+    start: '2026-03-09T15:00:00.000Z',
+    description: 'Cough',
+    appointmentType: { text: 'walkin' },
+    meta: { tag: [{ code: 'OTTEHR-IP' }] },
+    participant: [],
+  },
+  {
+    resourceType: 'Appointment',
+    id: 'a2',
+    status: 'fulfilled',
+    start: '2026-11-06T14:00:00.000Z',
+    meta: { tag: [{ code: 'OTTEHR-TM' }] },
+    participant: [],
+  },
+];
+
+const encounters: Encounter[] = [
+  {
+    resourceType: 'Encounter',
+    id: 'e1',
+    status: 'finished',
+    class: { code: 'AMB' },
+    appointment: [{ reference: 'Appointment/a1' }],
+    diagnosis: [{ condition: { reference: 'Condition/c2' } }, { condition: { reference: 'Condition/c1' }, rank: 1 }],
+    participant: [{ type: [{ coding: PRACTITIONER_CODINGS.Attender }], individual: { reference: 'Practitioner/dr1' } }],
+  },
+  {
+    resourceType: 'Encounter',
+    id: 'e2',
+    status: 'finished',
+    class: { code: 'AMB' },
+    appointment: [{ reference: 'Appointment/a2' }],
+  },
+  {
+    resourceType: 'Encounter',
+    id: 'e3',
+    status: 'finished',
+    class: { code: 'AMB' },
+    type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+    appointment: [{ reference: 'Appointment/a1' }],
+  },
+];
+
+const conditions: Condition[] = [
+  {
+    resourceType: 'Condition',
+    id: 'c1',
+    subject: { reference: PATIENT },
+    code: { coding: [{ code: 'J06.9', display: 'Acute URI' }] },
+  },
+  {
+    resourceType: 'Condition',
+    id: 'c2',
+    subject: { reference: PATIENT },
+    code: { coding: [{ code: 'R05.9', display: 'Cough' }] },
+  },
+];
+const practitioners: Practitioner[] = [
+  { resourceType: 'Practitioner', id: 'dr1', name: [{ given: ['Ada'], family: 'Lovelace' }] },
+];
+
+const observations: Observation[] = [
+  vital(VitalFieldNames.VitalTemperature, 'e1', '2026-03-09T15:05:00.000Z', { valueQuantity: { value: 37.2 } }),
+  // Two heart rates in one visit: the later one is kept, with its saved flag.
+  vital(VitalFieldNames.VitalHeartbeat, 'e1', '2026-03-09T15:05:00.000Z', { valueQuantity: { value: 80 } }),
+  vital(VitalFieldNames.VitalHeartbeat, 'e1', '2026-03-09T15:30:00.000Z', {
+    valueQuantity: { value: 131 },
+    interpretation: interpretation(FHIRObservationInterpretation.CriticalHigh),
+  }),
+  vital(VitalFieldNames.VitalBloodPressure, 'e1', '2026-03-09T15:05:00.000Z', {
+    component: [
+      {
+        code: { coding: [{ code: VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE }] },
+        valueQuantity: { value: 142 },
+        interpretation: interpretation(FHIRObservationInterpretation.AbnormalHigh),
+      },
+      { code: { coding: [{ code: VITAL_DIASTOLIC_BLOOD_PRESSURE_LOINC_CODE }] }, valueQuantity: { value: 88 } },
+    ],
+  }),
+  // A saved BMI is read as-is, with no height/weight to derive it from.
+  vital(VitalFieldNames.VitalBMI, 'e1', '2026-03-09T15:05:00.000Z', { valueQuantity: { value: 23.4 } }),
+  vital(VitalFieldNames.VitalWeight, 'e2', '2026-11-06T14:10:00.000Z', { valueQuantity: { value: 61.5 } }),
+  // Follow-up readings are dated by the reading, not the parent appointment.
+  vital(VitalFieldNames.VitalHeartbeat, 'e3', '2026-03-12T10:00:00.000Z', { valueQuantity: { value: 72 } }),
+  // Readings whose encounter is unknown are placed by their own date.
+  vital(VitalFieldNames.VitalHeartbeat, 'e-missing', '2025-12-01T09:00:00.000Z', { valueQuantity: { value: 66 } }),
+];
+
+describe('buildVitalsFlowsheet', () => {
+  const visits = buildVitalsFlowsheet({ appointments, encounters, observations, conditions, practitioners });
+
+  test('one column per encounter, newest first', () => {
+    expect(visits.map((v) => v.encounterId)).toEqual(['e2', 'e3', 'e1', undefined]);
+    expect(visits.map((v) => v.start)).toEqual([
+      '2026-11-06T14:00:00.000Z',
+      '2026-03-12T10:00:00.000Z',
+      '2026-03-09T15:00:00.000Z',
+      '2025-12-01T09:00:00.000Z',
+    ]);
+    expect(visits.map((v) => v.isFollowUp)).toEqual([false, true, false, false]);
+  });
+
+  test('keeps the latest reading per measure with the flag saved on the Observation', () => {
+    const e1 = visits[2];
+    expect(e1.values.temperature).toMatchObject({ value: 37.2, flag: undefined });
+    expect(e1.values.heartRate).toMatchObject({ value: 131, flag: VitalAlertCriticality.Critical });
+    expect(e1.values.systolic).toMatchObject({ value: 142, flag: VitalAlertCriticality.Abnormal });
+    expect(e1.values.diastolic).toMatchObject({ value: 88, flag: VitalAlertCriticality.Abnormal });
+    expect(e1.values.bmi).toMatchObject({ value: 23.4, flag: undefined });
+    expect(e1.values.weight).toBeUndefined();
+    expect(visits[0].values).toEqual({
+      weight: { time: '2026-11-06T14:10:00.000Z', value: 61.5, flag: undefined, readings: [expect.any(Object)] },
+    });
+  });
+
+  test('with the practice thresholds, flags each vital as get-vitals does: 39.6 °C saved unflagged on a 5-year-old is abnormal', () => {
+    const fever = vital(VitalFieldNames.VitalTemperature, 'e1', '2026-03-09T15:05:00.000Z', {
+      valueQuantity: { value: 39.6 },
+    });
+    const resources = { appointments, encounters, conditions, practitioners, birthDate: '2021-01-01' };
+    const vitalsAlertConfig = vitalsAlertConfigToVitalsDef(DEFAULT_VITALS_ALERT_CONFIG);
+    const flagged = buildVitalsFlowsheet({ ...resources, observations: [fever], vitalsAlertConfig });
+    expect(flagged[0].values.temperature.flag).toBe(VitalAlertCriticality.Abnormal);
+    // The same flag the Vitals screen gets for every fixture reading.
+    const visit = buildVitalsFlowsheet({ ...resources, gender: 'female', observations, vitalsAlertConfig }).find(
+      (v) => v.encounterId === 'e1'
+    )!;
+    const getVitals = (o: Observation): VitalAlertCriticality | undefined =>
+      resolveVitalAlertCriticality(o, makeVitalsObservationDTO(o)!, {
+        patientDOB: '2021-01-01',
+        patientSex: 'female',
+        vitalsAlertConfig,
+      });
+    expect(visit.values.heartRate.readings.map((r) => r.flag)).toEqual([
+      getVitals(observations[1]),
+      getVitals(observations[2]),
+    ]);
+    expect(visit.values.temperature.flag).toBe(getVitals(observations[0]));
+  });
+
+  test('drops a saved BMI for a visit under 2 years, keeps it from 2 years', () => {
+    const at = (birthDate: string): FlowsheetVisit | undefined =>
+      buildVitalsFlowsheet({ appointments, encounters, observations, conditions, practitioners, birthDate }).find(
+        (v) => v.encounterId === 'e1'
+      );
+    expect(at('2025-01-01')?.values.bmi).toBeUndefined();
+    expect(at('2024-03-09')?.values.bmi).toMatchObject({ value: 23.4 });
+  });
+
+  test('no column for a visit with nothing to show (only a vision screening, or only an infant BMI)', () => {
+    const onlyHidden = buildVitalsFlowsheet({
+      appointments,
+      encounters,
+      conditions,
+      practitioners,
+      birthDate: '2026-01-01',
+      observations: [
+        vital(VitalFieldNames.VitalVision, 'e1', '2026-03-09T15:05:00.000Z', {
+          component: [{ code: { text: 'left' }, valueString: '20/20' }],
+        }),
+        vital(VitalFieldNames.VitalBMI, 'e2', '2026-11-06T14:10:00.000Z', { valueQuantity: { value: 16.2 } }),
+        vital(VitalFieldNames.VitalTemperature, 'e3', '2026-03-12T10:00:00.000Z', { valueQuantity: { value: 37.1 } }),
+      ],
+    });
+    expect(onlyHidden.map((v) => v.encounterId)).toEqual(['e3']);
+  });
+
+  test('lists every reading of a measure in the visit, oldest first', () => {
+    expect(visits[2].values.heartRate.readings).toEqual([
+      { time: '2026-03-09T15:05:00.000Z', value: 80, flag: undefined },
+      { time: '2026-03-09T15:30:00.000Z', value: 131, flag: VitalAlertCriticality.Critical },
+    ]);
+    expect(visits[2].values.temperature.readings).toHaveLength(1);
+  });
+
+  test('describes the visit from its appointment, encounter and attending provider', () => {
+    expect(visits[2]).toMatchObject({
+      appointmentId: 'a1',
+      appointmentType: 'walk-in',
+      serviceMode: ServiceMode['in-person'],
+      reason: 'Cough',
+      primaryDiagnosis: 'J06.9 — Acute URI',
+      attending: 'Ada Lovelace',
+    });
+    expect(visits[0]).toMatchObject({
+      appointmentId: 'a2',
+      appointmentType: 'walk-in',
+      serviceMode: ServiceMode.virtual,
+      reason: '',
+      primaryDiagnosis: '',
+      attending: '',
+    });
+    expect(visits[3]).toMatchObject({ appointmentId: undefined, encounterId: undefined, appointmentType: undefined });
+  });
+
+  test('a follow-up carries its subtype and its original visit appointment, for the Visits tab link', () => {
+    const followUp = (id: string, subtype: string): Encounter => ({
+      resourceType: 'Encounter',
+      id,
+      status: 'finished',
+      class: { code: 'AMB' },
+      partOf: { reference: 'Encounter/e1' },
+      appointment: [{ reference: 'Appointment/a2' }],
+      type: [
+        {
+          coding: [
+            { system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code },
+            { system: FOLLOWUP_SUBTYPE_SYSTEM, code: subtype },
+          ],
+        },
+      ],
+    });
+    const resources = {
+      appointments,
+      encounters: [...encounters, followUp('fu-s', 'scheduled'), followUp('fu-a', 'annotation')],
+      conditions,
+      practitioners,
+    };
+    expect(describeVisit('fu-s', resources)).toMatchObject({
+      appointmentId: 'a2',
+      originalAppointmentId: 'a1',
+      followupSubtype: 'scheduled',
+    });
+    expect(describeVisit('fu-a', resources)).toMatchObject({
+      originalAppointmentId: 'a1',
+      followupSubtype: 'annotation',
+    });
+    expect(describeVisit('e1', resources)).not.toHaveProperty('followupSubtype');
+  });
+
+  test("a scheduled follow-up is dated by its own appointment's start; an annotation or free-form one by its data", () => {
+    const followUp = (id: string, subtype: FollowupSubtype, appointmentId?: string): Encounter => ({
+      resourceType: 'Encounter',
+      id,
+      status: 'finished',
+      class: { code: 'AMB' },
+      partOf: { reference: 'Encounter/e1' },
+      ...(appointmentId ? { appointment: [{ reference: `Appointment/${appointmentId}` }] } : {}),
+      type: buildFollowupEncounterType(subtype),
+    });
+    const resources = {
+      appointments,
+      encounters: [
+        ...encounters,
+        followUp('fu-s', 'scheduled', 'a2'),
+        // An annotation follow-up linked to its original visit's appointment does not take that start.
+        followUp('fu-a', 'annotation', 'a1'),
+        followUp('fu-f', 'free-form'),
+      ],
+      conditions,
+      practitioners,
+    };
+    expect(describeVisit('fu-s', resources).start).toBe(appointments[1].start);
+    expect(describeVisit('fu-a', resources).start).toBeUndefined();
+    expect(describeVisit('fu-f', resources).start).toBeUndefined();
+    expect(describeVisit('e1', resources).start).toBe(appointments[0].start);
+    // So the vitals column of a scheduled follow-up is dated by its appointment, not its first vital.
+    const observation = vital(VitalFieldNames.VitalHeartbeat, 'fu-s', '2030-01-01T10:00:00.000Z', {
+      valueQuantity: { value: 72 },
+    });
+    expect(
+      buildVitalsFlowsheet({ ...resources, observations: [observation] }).map((v) => [v.encounterId, v.start])
+    ).toEqual([['fu-s', appointments[1].start]]);
+  });
+
+  test('a follow-up reads as on the Visits tab: its type text, the service category and its own reason', () => {
+    const original = {
+      ...appointments[0],
+      serviceCategory: [{ coding: [{ system: SERVICE_CATEGORY_SYSTEM, code: 'urgent-care' }] }],
+    };
+    const followUp = (id: string, subtype: FollowupSubtype, extra: Partial<Encounter>): Encounter => ({
+      resourceType: 'Encounter',
+      id,
+      status: 'finished',
+      class: { code: 'AMB' },
+      partOf: { reference: 'Encounter/e1' },
+      type: buildFollowupEncounterType(subtype),
+      ...extra,
+    });
+    const resources = {
+      appointments: [original, { ...appointments[1], description: 'Recheck rash' }],
+      encounters: [
+        ...encounters,
+        followUp('fu-a', 'annotation', { reasonCode: [{ text: 'Result - Lab' }] }),
+        followUp('fu-s', 'scheduled', { appointment: [{ reference: 'Appointment/a2' }] }),
+      ],
+      conditions,
+      practitioners,
+    };
+    expect(describeVisit('fu-a', resources)).toMatchObject({
+      followUpType: 'Follow-up Encounter',
+      serviceCategory: 'urgent-care',
+      reason: 'Result - Lab',
+    });
+    // A scheduled follow-up without a reason code falls back to its own appointment, as the Visits tab does.
+    expect(describeVisit('fu-s', resources)).toMatchObject({
+      followUpType: 'Follow-up Encounter',
+      serviceCategory: 'urgent-care',
+      reason: 'Recheck rash',
+    });
+  });
+
+  test('names the provider by first and last name, as the Visits tab does', () => {
+    const withMiddleName: Practitioner[] = [
+      { resourceType: 'Practitioner', id: 'dr1', name: [{ given: ['Ann', 'Marie'], family: 'Lee' }] },
+    ];
+    const visits = buildVitalsFlowsheet({
+      appointments,
+      encounters,
+      observations,
+      conditions,
+      practitioners: withMiddleName,
+    });
+    expect(visits[2].attending).toBe('Ann Lee');
+  });
+});
+
+describe('fetchVisits', () => {
+  // A follow-up charted without an appointment (save-followup-encounter only links one when given an appointment id).
+  const followUp: Encounter = {
+    resourceType: 'Encounter',
+    id: 'e-fu',
+    status: 'finished',
+    class: { code: 'VR' },
+    subject: { reference: PATIENT },
+    type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }] }],
+    diagnosis: [{ condition: { reference: 'Condition/c1' } }],
+    participant: [{ type: [{ coding: PRACTITIONER_CODINGS.Attender }], individual: { reference: 'Practitioner/dr1' } }],
+  };
+  const bundle = (matches: unknown[], includes: unknown[] = []): unknown => ({
+    total: matches.length,
+    entry: [
+      ...matches.map((resource) => ({ resource, search: { mode: 'match' } })),
+      ...includes.map((resource) => ({ resource, search: { mode: 'include' } })),
+    ],
+    unbundle: () => [...matches, ...includes],
+  });
+  const has = (params: { name: string; value: string }[], name: string, value: string): boolean =>
+    params.some((p) => p.name === name && p.value === value);
+  const search = vi.fn(
+    async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => {
+      switch (resourceType) {
+        case 'Appointment':
+          return bundle([appointments[0]], [encounters[0], encounters[2]]);
+        case 'Encounter':
+          // Only a server-built query by this patient and the follow-up type reaches the unlinked follow-up.
+          return bundle(
+            has(params, 'subject', PATIENT) &&
+              has(params, 'type', `${FOLLOWUP_SYSTEMS.type.url}|${FOLLOWUP_SYSTEMS.type.code}`)
+              ? [encounters[2], followUp]
+              : []
+          );
+        case 'Condition':
+          return bundle(conditions);
+        case 'Practitioner':
+          return bundle(practitioners);
+        default:
+          return bundle([]);
+      }
+    }
+  );
+  const oystehr = { fhir: { search } } as unknown as Oystehr;
+
+  test('reaches a follow-up with no appointment, so its column is described', async () => {
+    const resources = await fetchVisits(oystehr, 'p1');
+    expect(resources.encounters.map((e) => e.id)).toEqual(['e1', 'e3', 'e-fu']);
+    expect(describeVisit('e-fu', resources)).toMatchObject({
+      encounterId: 'e-fu',
+      appointmentId: undefined,
+      isFollowUp: true,
+      start: undefined,
+      primaryDiagnosis: 'J06.9 — Acute URI',
+      attending: 'Ada Lovelace',
+    });
+  });
+});
+
+describe('get-flowsheet handler', () => {
+  test('refuses an unauthenticated call before looking at the body', async () => {
+    // An invalid body would be INVALID_INPUT if validation ran first; the missing bearer must win.
+    const handler = index as unknown as (input: unknown) => Promise<unknown>;
+    await expect(handler({ headers: {}, body: '{}', secrets: null })).rejects.toMatchObject({
+      code: APIErrorCode.NOT_AUTHORIZED,
+      statusCode: 401,
+    });
+  });
+});

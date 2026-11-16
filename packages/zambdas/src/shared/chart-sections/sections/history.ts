@@ -1,5 +1,4 @@
 import { Practitioner } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { ChartSearchParams, patientScopedSearch } from '../../chart-data/search-requests';
 import { mapChartResources } from '../map';
 import { ChartSectionDefinition } from '../types';
@@ -23,7 +22,6 @@ export const historySection: ChartSectionDefinition<'history'> = {
       patientScopedSearch('MedicationStatement', encounterId, { _tag: 'in-house-medication', ...medicationParams }),
       patientScopedSearch('Procedure', encounterId, { _tag: 'surgical-history' }),
       patientScopedSearch('EpisodeOfCare', encounterId, { _tag: 'hospitalization' }),
-      patientScopedSearch('Observation', encounterId, { _tag: `${PRIVATE_EXTENSION_BASE_URL}/birth-history|` }),
     ];
   },
   build: async ({ encounter, encounterId }, resources) => {
@@ -34,7 +32,6 @@ export const historySection: ChartSectionDefinition<'history'> = {
       inhouseMedications: [],
       surgicalHistory: [],
       episodeOfCare: [],
-      birthHistory: [],
     });
     return {
       allergies: mapped.allergies ?? [],
@@ -43,7 +40,6 @@ export const historySection: ChartSectionDefinition<'history'> = {
       inhouseMedications: mapped.inhouseMedications ?? [],
       surgicalHistory: mapped.surgicalHistory ?? [],
       episodeOfCare: mapped.episodeOfCare ?? [],
-      birthHistory: mapped.birthHistory ?? [],
       medicationsInformationSourcePractitioners: resources.filter(
         (r): r is Practitioner => r.resourceType === 'Practitioner'
       ),

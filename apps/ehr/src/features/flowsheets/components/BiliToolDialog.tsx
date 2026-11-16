@@ -1,0 +1,106 @@
+import { FormControlLabel, Radio, RadioGroup, Stack, Typography } from '@mui/material';
+import React, { ReactElement, useState } from 'react';
+import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { formatGestationalAge } from 'utils/lib/helpers/vitals/birth-history.helper';
+import { BirthHistoryDTO } from 'utils/lib/types/api/birth-history.types';
+import { BiliToolReading, buildBiliToolUrl, defaultBiliToolReading, formatBiliToolReading } from '../biliTool';
+
+/** BiliTool's neurotoxicity risk factors (AAP 2022), listed so the provider answers the one question it asks. */
+const NEUROTOXICITY_RISK_FACTORS = [
+  'Isoimmune hemolytic disease, G6PD deficiency or other hemolytic condition',
+  'Sepsis or suspected sepsis',
+  'Albumin < 3.0 g/dL',
+  'Significant clinical instability in the previous 24 hours',
+];
+
+const readingKey = (reading: BiliToolReading): string => `${reading.kind}-${reading.time}`;
+
+interface BiliToolDialogProps {
+  open: boolean;
+  onClose: () => void;
+  birthHistory: BirthHistoryDTO;
+  /** Newest first (biliToolReadings). */
+  readings: BiliToolReading[];
+}
+
+/** Picks the result to send and asks about neurotoxicity risk factors, then opens BiliTool in a new tab. */
+export const BiliToolDialog = ({ open, onClose, birthHistory, readings }: BiliToolDialogProps): ReactElement => {
+  const [reading, setReading] = useState<BiliToolReading | undefined>(() => defaultBiliToolReading(readings));
+  // Nothing pre-selected: the provider must answer before BiliTool opens.
+  const [riskFactors, setRiskFactors] = useState<'Yes' | 'No'>();
+
+  const unanswered = riskFactors === undefined;
+  const disabledReason = !reading
+    ? `Pick a result to send${unanswered ? ' and answer the risk-factor question' : ''}`
+    : unanswered
+    ? 'Answer the risk-factor question'
+    : undefined;
+
+  const openBiliTool = (): void => {
+    if (!reading || riskFactors === undefined || birthHistory.gestationalAgeWeeks === undefined) return;
+    const url = buildBiliToolUrl({
+      reading,
+      readings,
+      gestationalWeeks: birthHistory.gestationalAgeWeeks,
+      neuroRiskFactors: riskFactors === 'Yes',
+    });
+    window.open(url, '_blank', 'noopener,noreferrer');
+    onClose();
+  };
+
+  return (
+    <CustomDialog
+      open={open}
+      handleClose={onClose}
+      title="Send to BiliTool"
+      maxWidth="sm"
+      fullWidth
+      handleConfirm={openBiliTool}
+      confirmText="Open BiliTool"
+      closeButtonText="Cancel"
+      disabled={!!disabledReason}
+      disabledReason={disabledReason}
+      description={
+        <Stack spacing={2}>
+          <Typography>
+            <Typography component="span" color="text.secondary">
+              Gestational age{' '}
+            </Typography>
+            {formatGestationalAge(birthHistory.gestationalAgeWeeks, birthHistory.gestationalAgeDays)}
+          </Typography>
+          <div>
+            <Typography color="text.secondary">Result to send</Typography>
+            {/* A blood result and a skin meter reading can share a time, so each choice is its kind and time. */}
+            <RadioGroup
+              value={reading ? readingKey(reading) : ''}
+              onChange={(e) => setReading(readings.find((r) => readingKey(r) === e.target.value))}
+            >
+              {readings.map((r) => (
+                <FormControlLabel
+                  key={readingKey(r)}
+                  value={readingKey(r)}
+                  control={<Radio size="small" />}
+                  label={formatBiliToolReading(r)}
+                />
+              ))}
+            </RadioGroup>
+          </div>
+          <div>
+            <Typography color="text.secondary">Any neurotoxicity risk factors?</Typography>
+            <ul style={{ margin: '4px 0 8px', paddingLeft: 20 }}>
+              {NEUROTOXICITY_RISK_FACTORS.map((factor) => (
+                <li key={factor}>
+                  <Typography variant="body2">{factor}</Typography>
+                </li>
+              ))}
+            </ul>
+            <RadioGroup row value={riskFactors ?? ''} onChange={(e) => setRiskFactors(e.target.value as 'Yes' | 'No')}>
+              <FormControlLabel value="Yes" control={<Radio size="small" />} label="Yes" />
+              <FormControlLabel value="No" control={<Radio size="small" />} label="No" />
+            </RadioGroup>
+          </div>
+        </Stack>
+      }
+    />
+  );
+};

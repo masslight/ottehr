@@ -232,6 +232,16 @@ describe('ProgressNoteAdminPage', () => {
     });
   });
 
+  it('the header unit setting says it also sets the flowsheets’ weight, height and head circumference units', async () => {
+    vi.mocked(getProgressNoteConfig).mockResolvedValue(requiredProgressNoteConfig);
+    render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+    expect(
+      await screen.findByText(
+        'Units for weight in the visit header, and for weight, height and head circumference on the flowsheets'
+      )
+    ).toBeInTheDocument();
+  });
+
   it('saves the selected header unit system without changing the input order', async () => {
     vi.mocked(getProgressNoteConfig).mockResolvedValue({
       ...requiredProgressNoteConfig,

@@ -8,6 +8,7 @@ const SSN_SYSTEM = 'http://hl7.org/fhir/sid/us-ssn';
 import {
   isBloodPressureVitalObservation,
   isBMIVitalObservation,
+  isHeadCircumferenceVitalObservation,
   isHeartbeatVitalObservation,
   isHeightVitalObservation,
   isLastMenstrualPeriodVitalObservation,
@@ -131,6 +132,12 @@ const latestVital = <T extends VitalsObservationDTO>(
 /** Heights are stored in centimetres however they were entered, so one measurement backs every height token. */
 const latestHeight = (ctx: FormFillContext): HeightMeasurement | undefined => {
   const cm = latestVital(ctx, isHeightVitalObservation)?.value;
+  return cm === undefined ? undefined : HeightMeasurement.fromCm(cm);
+};
+
+/** Head circumference is stored in centimetres like height, and converts the same way. */
+const latestHeadCircumference = (ctx: FormFillContext): HeightMeasurement | undefined => {
+  const cm = latestVital(ctx, isHeadCircumferenceVitalObservation)?.value;
   return cm === undefined ? undefined : HeightMeasurement.fromCm(cm);
 };
 
@@ -355,6 +362,8 @@ export const TOKEN_RESOLVERS: Record<FormTokenKey, FormTokenResolver> = {
   'vitals.heightInches': (ctx) => latestHeight(ctx)?.getInches(),
   'vitals.heightFeet': (ctx) => latestHeight(ctx)?.getFeet(),
   'vitals.heightInchesRemainder': (ctx) => latestHeight(ctx)?.getInchRemainder(),
+  'vitals.headCircumferenceCm': (ctx) => latestHeadCircumference(ctx)?.getCm(),
+  'vitals.headCircumferenceInches': (ctx) => latestHeadCircumference(ctx)?.getInches(),
   'vitals.weightKg': (ctx) => latestWeightKg(ctx),
   'vitals.weightLbs': (ctx) => {
     const kg = latestWeightKg(ctx);

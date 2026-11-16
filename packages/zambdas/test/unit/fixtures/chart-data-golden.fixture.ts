@@ -53,7 +53,6 @@ import {
   createProcedureServiceRequest,
   followUpToPerformerMap,
   makeAllergyResource,
-  makeBirthHistoryObservationResource,
   makeClinicalImpressionResource,
   makeCommunicationResource,
   makeConditionResource,
@@ -387,12 +386,6 @@ export function buildGoldenChartResources(): GoldenChartResources {
       patientId,
       { resourceId: 'eoc-pneumonia', code: 'hospitalization', display: 'Pneumonia (2024)' },
       'hospitalization'
-    ),
-    makeBirthHistoryObservationResource(
-      encounterId,
-      patientId,
-      { resourceId: 'obs-birth-weight', field: 'weight', value: 3.4, note: 'Term delivery' },
-      'birth-history'
     ),
     // assessment
     makeDiagnosisConditionResource(

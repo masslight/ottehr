@@ -4,7 +4,6 @@ import {
   AccidentDTO,
   AIChatDetails,
   AllergyDTO,
-  BirthHistoryDTO,
   BooleanValueDTO,
   ClinicalImpressionDTO,
   CommunicationDTO,
@@ -73,7 +72,6 @@ export interface HistorySectionData {
   inhouseMedications: MedicationDTO[];
   surgicalHistory: CPTCodeDTO[];
   episodeOfCare: HospitalizationDTO[];
-  birthHistory: BirthHistoryDTO[];
   /**
    * The Practitioners the medication statements' informationSource references point to, so the history can
    * show who recorded each medication.
@@ -206,7 +204,6 @@ export const FIELD_TO_SECTION: Partial<Record<keyof GetChartDataResponse, ChartS
   inhouseMedications: 'history',
   surgicalHistory: 'history',
   episodeOfCare: 'history',
-  birthHistory: 'history',
   observations: 'screening',
   examObservations: 'exam',
   rosObservations: 'exam',

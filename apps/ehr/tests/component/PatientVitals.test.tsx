@@ -49,6 +49,12 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () =>
   }),
 }));
 
+// The birth history card reads and saves through React Query; the vitals tests don't exercise it.
+vi.mock('src/hooks/useBirthHistory', () => ({
+  useBirthHistory: () => ({ data: undefined, isLoading: false }),
+  useSaveBirthHistory: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
 vi.mock('src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({ isChartDataLoading: false, chartDataError: null }),
 }));
@@ -102,6 +108,9 @@ vi.mock('src/features/visits/shared/components/vitals/weights/VitalsWeightsCard'
 }));
 vi.mock('src/features/visits/shared/components/vitals/heights/VitalsHeightCard', () => ({
   default: ({ field }: any) => <div data-testid="height-card" data-has-data={String(field.hasData)} />,
+}));
+vi.mock('src/features/visits/shared/components/vitals/head-circumference/VitalsHeadCircumferenceCard', () => ({
+  default: ({ field }: any) => <div data-testid="head-circumference-card" data-has-data={String(field.hasData)} />,
 }));
 vi.mock('src/features/visits/shared/components/vitals/vision/VitalsVisionCard', () => ({
   default: ({ field }: any) => <div data-testid="vision-card" data-has-data={String(field.hasData)} />,

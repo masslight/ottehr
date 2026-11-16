@@ -33,6 +33,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
+import { Flowsheets } from 'src/features/flowsheets/components/Flowsheets';
 import { MedicalRecordDateRangeDialog } from 'src/features/medical-record-export/components/MedicalRecordDateRangeDialog';
 import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
 import { fetchMedicalRecordDocumentCount } from 'src/features/send-documents/api/documentPacketApi';
@@ -593,6 +594,14 @@ export default function PatientPage(): JSX.Element {
                         }
                       />
                     )}
+                    <Tab
+                      value="flowsheets"
+                      label={
+                        <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                          Flowsheets
+                        </Typography>
+                      }
+                    />
                   </TabList>
                 </Box>
 
@@ -623,6 +632,9 @@ export default function PatientPage(): JSX.Element {
                     <PatientRadiologyTab patientId={id || ''} />
                   </TabPanel>
                 )}
+                <TabPanel value="flowsheets" sx={{ p: 0 }}>
+                  <Flowsheets patientId={id || ''} birthDate={patient?.birthDate} title="Flowsheets" />
+                </TabPanel>
               </TabContext>
               {showAccountSettingsDialog ? (
                 <AccountSettingsDialog

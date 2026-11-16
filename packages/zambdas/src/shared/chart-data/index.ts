@@ -75,7 +75,6 @@ import {
   AI_OBSERVATION_META_SYSTEM,
   AllChartValues,
   AllergyDTO,
-  BirthHistoryDTO,
   BooleanValueDTO,
   ClinicalImpressionDTO,
   CommunicationDTO,
@@ -1234,96 +1233,6 @@ export function makeDiagnosisDTO(resource: Condition, isPrimary: boolean): Diagn
   };
 }
 
-const mapBirthHistoryFieldToCoding: {
-  [field in BirthHistoryDTO['field']]: { system: string; code: string; display: string };
-} = {
-  age: {
-    system: 'http://loinc.org',
-    code: '76516-4',
-    display: 'Gestational age--at birth',
-  },
-  weight: {
-    system: 'http://loinc.org',
-    code: '8339-4',
-    display: 'Birth weight Measured',
-  },
-  length: {
-    system: 'http://loinc.org',
-    code: '89269-5',
-    display: 'Body height Measured --at birth',
-  },
-  'preg-compl': {
-    system: 'http://loinc.org',
-    code: '65869-0',
-    display: 'Pregnancy complication',
-  },
-  'del-compl': {
-    system: 'http://loinc.org',
-    code: '73781-7',
-    display: 'Maternal morbidity',
-  },
-};
-
-const mapBirthHistoryFieldToValueQuantity: {
-  [field in BirthHistoryDTO['field']]: ((value: number) => { value: number; system: string; code: string }) | undefined;
-} = {
-  age: (value) => ({
-    value,
-    system: 'http://unitsofmeasure.org',
-    code: 'wk',
-  }),
-  weight: (value) => ({
-    value,
-    system: 'http://unitsofmeasure.org',
-    code: 'kg',
-  }),
-  length: (value) => ({
-    value,
-    system: 'http://unitsofmeasure.org',
-    code: 'cm',
-  }),
-  'preg-compl': undefined,
-  'del-compl': undefined,
-};
-
-export function makeBirthHistoryObservationResource(
-  encounterId: string,
-  patientId: string,
-  data: BirthHistoryDTO,
-  fieldName: ProviderChartDataFieldsNames
-): Observation {
-  const coding = mapBirthHistoryFieldToCoding[data.field];
-  const valueQuantity = mapBirthHistoryFieldToValueQuantity[data.field]?.(data.value!);
-
-  return {
-    id: data.resourceId,
-    resourceType: 'Observation',
-    subject: { reference: `Patient/${patientId}` },
-    encounter: { reference: `Encounter/${encounterId}` },
-    status: 'final',
-    code: {
-      coding: [coding],
-    },
-    note: data.note ? [{ text: data.note }] : undefined,
-    valueBoolean: data.flag,
-    valueQuantity,
-    meta: getMetaWFieldName(fieldName),
-  };
-}
-
-export function makeBirthHistoryDTO(resource: Observation): BirthHistoryDTO {
-  return {
-    resourceId: resource.id,
-    field: Object.keys(mapBirthHistoryFieldToCoding).find(
-      (field) =>
-        resource.code.coding?.[0]?.code === mapBirthHistoryFieldToCoding[field as BirthHistoryDTO['field']].code
-    ) as BirthHistoryDTO['field'],
-    note: resource.note?.[0]?.text,
-    flag: resource.valueBoolean,
-    value: resource.valueQuantity?.value,
-  };
-}
-
 export async function makeSchoolWorkDR(
   oystehr: Oystehr,
   pdfInfo: PdfInfo,
@@ -1591,12 +1500,6 @@ const mapResourceToChartDataFields = (
   ) {
     const dto = makeVitalsObservationDTO(resource);
     if (dto) data.vitalsObservations?.push(dto);
-    resourceMapped = true;
-  } else if (
-    resource?.resourceType === 'Observation' &&
-    chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/birth-history`)
-  ) {
-    data.birthHistory?.push(makeBirthHistoryDTO(resource));
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Procedure' &&

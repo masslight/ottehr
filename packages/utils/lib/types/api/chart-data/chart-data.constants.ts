@@ -27,7 +27,6 @@ export type ProviderChartDataFieldsNames =
   | 'addendum-note'
   | typeof NOTHING_TO_EAT_OR_DRINK_ID
   | typeof IN_PERSON_NOTE_ID
-  | 'birth-history'
   | 'procedure'
   | typeof ERX_MEDICATION_META_TAG_CODE
   | 'accident'
@@ -61,6 +60,7 @@ export enum VitalFieldNames {
   VitalRespirationRate = 'vital-respiration-rate',
   VitalWeight = 'vital-weight',
   VitalHeight = 'vital-height',
+  VitalHeadCircumference = 'vital-head-circumference',
   VitalBMI = 'vital-bmi',
   VitalVision = 'vital-vision',
   VitalLastMenstrualPeriod = 'vital-last-menstrual-period',

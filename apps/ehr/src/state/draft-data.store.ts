@@ -5,6 +5,7 @@ import {
   CPTCodeDTO,
   DiagnosisDTO,
   VitalsBloodPressureObservationDTO,
+  VitalsHeadCircumferenceObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -92,6 +93,7 @@ type VitalsDraft = Partial<
     respirationRate: VitalsRespirationRateObservationDTO;
     weight: VitalsWeightObservationDTO;
     height: VitalsHeightObservationDTO;
+    headCircumference: VitalsHeadCircumferenceObservationDTO;
     vision: VitalsVisionObservationDTO;
     lmp: VitalsLastMenstrualPeriodObservationDTO;
   } & GenericStateDraft
