@@ -103,15 +103,17 @@ const ingredientWords = (name: string, strengthAt: number): string[] =>
 const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4' };
 
 /** The amount a sig gives each time, in any words: "Take 5 ml …" and "TAKE 5 ML …" as "5 ml", "1/2 tablet" as
- * "half tablet", "one tablet" as "1 tablet". */
+ * "half tablet", "one tablet" and "1 tab" as "1 tablet". */
 const sigAmount = (sig: string | undefined): string | undefined => {
   const match =
     sig === undefined
       ? null
       : sentSigInWords(sig)
           .toLowerCase()
-          .match(/\b(\d+(?:\.\d+)?(?: and a half)?|half|one|two|three|four)\s*(ml|tablet|capsule|puff|drop|spray)s?\b/);
-  return match ? `${NUMBER_WORDS[match[1]] ?? match[1]} ${match[2]}` : undefined;
+          .match(
+            /\b(\d+(?:\.\d+)?(?: and a half)?|half|one|two|three|four)\s*(ml|tab(?:let)?|capsule|puff|drop|spray)s?\b/
+          );
+  return match ? `${NUMBER_WORDS[match[1]] ?? match[1]} ${match[2] === 'tab' ? 'tablet' : match[2]}` : undefined;
 };
 
 /** The warning when the pharmacy suggests another strength of the same ingredient with directions that give the same

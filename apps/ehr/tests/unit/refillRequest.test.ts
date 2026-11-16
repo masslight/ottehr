@@ -648,6 +648,27 @@ describe('change request: a suggestion of another strength with the same directi
         { ...prednisone, instructions: 'Take 1 and a half tablets by mouth daily' }
       )
     ).toBe(warning);
+    // Item 120: "tab" and "tabs" read as "tablet".
+    expect(strengthChangeWarning({ ...twenty, sig: 'TAKE 1/2 TAB BY MOUTH DAILY' }, prednisone)).toBe(warning);
+    expect(
+      strengthChangeWarning(
+        { ...twenty, sig: 'TAKE 2 TABS BY MOUTH DAILY' },
+        { ...prednisone, instructions: 'Take 2 tablets by mouth daily' }
+      )
+    ).toBe(warning);
+    expect(
+      strengthChangeWarning(
+        { ...twenty, sig: 'Take 1 tab by mouth daily' },
+        { ...prednisone, instructions: 'Take 1 tablet' }
+      )
+    ).toBe(warning);
+    // "tablespoon" isn't a tablet.
+    expect(
+      strengthChangeWarning(
+        { ...twenty, sig: 'Take 1 tablespoon daily' },
+        { ...prednisone, instructions: 'Take 1 tablet' }
+      )
+    ).toBeUndefined();
   });
 
   it('says nothing for the same strength from another maker or bottle', () => {
