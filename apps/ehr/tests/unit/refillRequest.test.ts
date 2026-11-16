@@ -693,6 +693,40 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBeUndefined();
   });
 
+  // Review D4-2 and D4-3: "unit" and "units" are one unit, "100,000" is 100000, and a name's age-group or form words
+  // ("Childrens", "Infants", "for") aren't a shared ingredient.
+  it('says nothing for units written another way, or for another drug with the same label words', () => {
+    const original = (name: string, instructions: string): PrescribedMedicationDTO => ({
+      resourceId: 'rx-6',
+      name,
+      instructions,
+      order: { ndc: '00000000001', medicationDescription: name },
+    });
+    const nystatin = original('Nystatin 100000 unit/mL Susp', 'Take 1 mL by mouth four times daily.');
+    const nystatinSig = 'Take 1 mL by mouth four times daily';
+    for (const description of ['Nystatin 100000 units/mL Susp', 'NYSTATIN 100,000 UNITS/ML SUSP']) {
+      expect(strengthChangeWarning({ description, ndc: '00000000002', sig: nystatinSig }, nystatin)).toBeUndefined();
+    }
+    const swaps: [string, string, string][] = [
+      ['Childrens Ibuprofen 100 mg/5ml Susp', 'Childrens Acetaminophen 160 mg/5ml Susp', 'Take 5 mL by mouth'],
+      ["Children's Ibuprofen 100 mg/5ml Susp", "Children's Acetaminophen 160 mg/5ml Susp", 'Take 5 mL by mouth'],
+      ['Infants Ibuprofen 50 mg/1.25ml Susp', "Infant's Acetaminophen 160 mg/5ml Susp", 'Take 1.25 mL by mouth'],
+      ['Junior Ibuprofen 100 mg Chewable Tab', 'Junior Acetaminophen 160 mg Chewable Tab', 'Chew 1 tablet'],
+      ['Adult Ibuprofen 200 mg Tab', 'Adult Acetaminophen 325 mg Tab', 'Take 1 tablet'],
+      ['Cefdinir for Oral Suspension 250 mg/5ml', 'Amoxicillin for Oral Suspension 400 mg/5ml', 'Take 5 mL by mouth'],
+    ];
+    for (const [from, to, sig] of swaps) {
+      expect(strengthChangeWarning({ description: to, ndc: '00000000003', sig }, original(from, sig))).toBeUndefined();
+    }
+    // The same ingredient for another age group is still another strength.
+    expect(
+      strengthChangeWarning(
+        { description: 'Childrens Ibuprofen 100 mg/5ml Susp', ndc: '00000000004', sig: 'Take 1.25 mL by mouth' },
+        original('Infants Ibuprofen 50 mg/1.25ml Susp', 'Take 1.25 mL by mouth')
+      )
+    ).toBe('Different strength, same amount: 50 mg/1.25 mL → 100 mg/5 mL. Check the dose.');
+  });
+
   // Review D3-2: albuterol's "2.5 mg/3 mL", "0.83 mg/mL" and "0.083%" are the same solution (a liquid's % is g per
   // 100 mL, so ×10 mg/mL), and 2.5 ÷ 3 is 0.833: strengths within 2% are the same. Half the strength still warns.
   it('says nothing for the same strength written per 3 mL, per mL or as a percent', () => {

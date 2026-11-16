@@ -47,14 +47,17 @@ interface Strength {
 }
 
 /** A product's strength in its description ("Amoxicillin 400 mg/5ml Susp"), as the warning names it ("400 mg/5 mL")
- * and per mL to compare by, so "80 mg/mL" is the same strength. A combination's amounts go together ("400-57 mg"). */
+ * and per mL to compare by, so "80 mg/mL" is the same strength. A combination's amounts go together ("400-57 mg").
+ * "100,000 unit" is 100000 units. */
 const strengthOf = (description: string | undefined): Strength | undefined => {
   const match = description?.match(
-    /(\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|%)(?![a-z])(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/i
+    /((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:-\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|%)(?![a-z])(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/i
   );
   if (!match) return undefined;
-  const [, amounts, written, perMl, per] = match;
-  const unit = written.toLowerCase() === 'meq' ? 'mEq' : written.toLowerCase();
+  const [, writtenAmounts, written, perMl, per] = match;
+  const amounts = writtenAmounts.replace(/,/g, '');
+  const lower = written.toLowerCase();
+  const unit = lower === 'meq' ? 'mEq' : lower === 'unit' ? 'units' : lower;
   const factor = unit === '%' ? 10 : STRENGTH_MG[unit];
   const ml = perMl ? `/${per ? `${per} ` : ''}mL` : '';
   return {
@@ -72,9 +75,10 @@ const sameStrength = (a: Strength, b: Strength): boolean =>
   a.values.length === b.values.length &&
   a.values.every((value, i) => Math.abs(value - b.values[i]) <= 0.02 * Math.max(value, b.values[i]));
 
-/** Salt, form and release words two drugs' names can share: "Cetirizine HCl" and "Levocetirizine" share none. */
+/** Salt, form, release and label words two drugs' names can share: "Cetirizine HCl" and "Levocetirizine" share none,
+ * nor do "Childrens Ibuprofen" and "Childrens Acetaminophen" ("Children's" reads as "children"). */
 const NOT_INGREDIENT = new Set(
-  'sodium potassium pot calcium magnesium hcl hydrochloride sulfate phosphate trihydrate monohydrate oral suspension susp solution soln tablet tablets tab capsule capsules cap chewable odt dr er xr hfa'.split(
+  'sodium potassium pot calcium magnesium hcl hydrochloride sulfate phosphate trihydrate monohydrate oral suspension susp solution soln tablet tablets tab capsule capsules cap chewable odt dr er xr hfa for children childrens infant infants junior adult'.split(
     ' '
   )
 );
