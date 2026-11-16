@@ -650,6 +650,7 @@ const ERX_SERVICE_MESSAGES: [RegExp, string][] = [
   [/is not a renewal request/i, "This task isn't a refill request."],
   [/^Location not found/i, "This visit's location can't be found."],
   [/renewal request has expired/i, 'This refill request has expired. The pharmacy needs to send a new one.'],
+  [/change request has expired/i, 'This change request has expired. The pharmacy needs to send a new one.'],
 ];
 
 /** A record id in a message staff can't act on. */

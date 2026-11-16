@@ -153,6 +153,13 @@ describe('prescriptionLineErrors', () => {
     });
     expect(prescriptionLineErrors({ ...ointment, quantityValue: '22', quantityUnit: 'Gram' })).toEqual([]);
   });
+
+  // Decision 186: a line waiting for a pick hides its sentences, so it isn't asked for what they hold.
+  it('asks only for the pick while the line waits for one', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const noDose = withDirections(liquid, { frequency: 'twice daily', durationDays: '10' });
+    expect(prescriptionLineErrors({ ...noDose, awaitingPick: true })).toEqual(['Pick a suggestion or Write my own']);
+  });
 });
 
 describe('withDrug', () => {

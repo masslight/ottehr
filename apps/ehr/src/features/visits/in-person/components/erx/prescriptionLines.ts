@@ -881,9 +881,11 @@ export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
     const at = issues.findIndex((issue) => !['medication', 'diagnosis'].includes(String(issue.path[0])));
     messages.splice(at === -1 ? messages.length : at, 0, 'Enter the dose');
   }
+  // A line waiting for a pick hides its blanks: what the pick fills isn't asked for yet.
+  const hidden = line.awaitingPick ? ['Enter the dose', 'Quantity must be greater than 0'] : [];
   return [
     ...(noStrength ? ['Pick a strength'] : line.awaitingPick ? ['Pick a suggestion or Write my own'] : []),
-    ...new Set(messages),
+    ...new Set(messages.filter((message) => !hidden.includes(message))),
   ];
 };
 

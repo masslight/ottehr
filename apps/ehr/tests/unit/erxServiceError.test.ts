@@ -1,7 +1,7 @@
 import { RenewalResponseInput } from 'utils/lib/types/api/erx.types';
 import { OrderPrescriptionInput } from 'utils/lib/types/api/order-prescription.types';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cancelPrescription, orderPrescription, respondToRenewal } from '../../src/api/api';
+import { cancelPrescription, orderPrescription, respondToChange, respondToRenewal } from '../../src/api/api';
 
 const ID = '3f2c9a1e-7b4d-4c8e-9f0a-1b2c3d4e5f60';
 
@@ -38,6 +38,12 @@ describe('eRx service errors', () => {
         'The renewal request has expired',
         answer,
         'This refill request has expired. The pharmacy needs to send a new one.',
+      ],
+      // Decision 186 (D8-7): eRx v4 writes the same for a change request.
+      [
+        'The change request has expired',
+        () => respondToChange('token', {} as never),
+        'This change request has expired. The pharmacy needs to send a new one.',
       ],
     ];
     for (const [message, call, plain] of cases) {
