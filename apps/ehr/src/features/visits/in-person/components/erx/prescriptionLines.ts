@@ -544,7 +544,8 @@ export const ingredientText = (
  * tablet or capsule, at least one), with a note on how far that is from the mg: the provider decides whether it will
  * do. Blank when either strength can't be read, so a dose is never carried over in the wrong measure. A form that
  * isn't measured in mg (puffs, drops) keeps its dose as it was: drops are a liquid, but counted in drops. Blank too for
- * a product with no dose unit to count it in: drops become an ointment (decision 222). */
+ * a product with no dose unit to count it in: drops become an ointment (decision 222), and for a kept dose in another
+ * unit or in packets of another mg: 3 packets of 100 mg aren't 3 of 500 mg (decision 243). */
 const remeasured = (
   dose: string,
   from: MedicationSearchResult,
@@ -552,9 +553,13 @@ const remeasured = (
 ): { dose: string; note?: DoseNote } => {
   const amount = numberOrUndefined(dose);
   if (amount === undefined || amount <= 0) return { dose };
-  if (prescriptionDoseUnit(to.medication) === undefined) return { dose: '' };
+  const unit = prescriptionDoseUnit(to.medication);
+  if (unit === undefined) return { dose: '' };
   const measure = measureOf(to.medication);
-  if (measure === undefined) return { dose };
+  if (measure === undefined) {
+    const samePacket = unit !== 'packet' || from.ingredients?.[0]?.amount === to.medication?.ingredients?.[0]?.amount;
+    return unit === prescriptionDoseUnit(from) && samePacket ? { dose } : { dose: '' };
+  }
   const fromMg = mgPerMeasure(from);
   const toMg = mgPerMeasure(to.medication);
   if (fromMg === undefined || toMg === undefined) return { dose: '' };

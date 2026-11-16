@@ -1,5 +1,5 @@
 import { PrescriptionOrderMetadataSchema } from 'utils/lib/types/api/erx.types';
-import { MedicationIngredient } from 'utils/lib/types/api/erx-search.types';
+import { MedicationIngredient, MedicationStrength } from 'utils/lib/types/api/erx-search.types';
 import { CompoundIngredientInput, CompoundInput, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
 import { describe, expect, it } from 'vitest';
 import {
@@ -590,6 +590,53 @@ describe('withProduct', () => {
     expect(ointment.dose).toBe('');
     expect(ointment.patientInstructions).toBe('Put in the eye every 4 hours for 7 days.');
     expect(lineMissingDoseUnit(ointment)).toBe(false);
+  });
+
+  // Decision 243 (D12-4): a count of packets is a count of the old packet's mg, and a count kept in another unit is
+  // another dose: emptied, as decision 222's is.
+  it('empties a dose in packets for a new mg per packet, and a kept dose for a new dose unit', () => {
+    const powder = (strength: string, ndc: string, name: string, amount: number): MedicationStrength => ({
+      strength,
+      ndcs: [ndc],
+      doseForm: 'Powder for Oral Solution',
+      ingredients: [{ name, amount, unit: 'MG', per: 1, perUnit: 'EACH' }],
+    });
+    const sapropterin = {
+      name: 'Sapropterin (Oral Powder)',
+      strengths: [
+        powder('100 mg Packet', '00000000021', 'sapropterin dihydrochloride', 100),
+        powder('500 mg Packet', '00000000022', 'sapropterin dihydrochloride', 500),
+      ],
+    };
+    const packets = withDirections(withProduct(emptyPrescriptionLine(), sapropterin, sapropterin.strengths[0]), {
+      dose: '3',
+      frequency: 'once daily',
+      durationDays: '30',
+    });
+    expect(packets.patientInstructions).toBe('Take 3 packets by mouth once daily for 30 days.');
+    const stronger = withProduct(packets, sapropterin, sapropterin.strengths[1]);
+    expect(stronger.dose).toBe('');
+    expect(stronger.patientInstructions).toBe('Take by mouth once daily for 30 days.');
+    const sevelamer = {
+      name: 'Sevelamer (Oral Powder)',
+      strengths: [
+        powder('800 mg Packet', '00000000023', 'sevelamer carbonate', 800),
+        powder('2.4 g Packet', '00000000024', 'sevelamer carbonate', 2400),
+      ],
+    };
+    const onePacket = withDirections(withProduct(emptyPrescriptionLine(), sevelamer, sevelamer.strengths[0]), {
+      dose: '1',
+      frequency: 'three times daily',
+    });
+    expect(withProduct(onePacket, sevelamer, sevelamer.strengths[1]).dose).toBe('');
+    const grams = withDirections(withProduct(emptyPrescriptionLine(), sevelamer, sevelamer.strengths[1]), {
+      dose: '2.4',
+      frequency: 'three times daily',
+    });
+    expect(withProduct(grams, sevelamer, sevelamer.strengths[0]).dose).toBe('');
+    // The same mg per packet keeps its count.
+    const again = withProduct(packets, sapropterin, { ...sapropterin.strengths[0], ndcs: ['00000000025'] });
+    expect(again.dose).toBe('3');
   });
 
   it('drops the picks, steps, instructions and directions when another drug is picked', () => {
