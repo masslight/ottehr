@@ -233,6 +233,7 @@ export interface GetErxRequestResponse {
   patient: Patient;
 }
 
-export const CompleteErxTaskInputSchema = z.object({ taskId: z.string().uuid() });
+// requestId: the request answered, the eRx service's renewal or change Task, or for a patient's request the task itself.
+export const CompleteErxTaskInputSchema = z.object({ taskId: z.string().uuid(), requestId: z.string().uuid() });
 
 export type CompleteErxTaskInput = z.infer<typeof CompleteErxTaskInputSchema>;

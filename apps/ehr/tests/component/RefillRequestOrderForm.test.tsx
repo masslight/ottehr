@@ -202,7 +202,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
     expect(mocks.chartSectionOptions).toContainEqual({ encounterId: 'encounter-9' });
     expect(screen.queryByRole('button', { name: /Add another prescription/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
-    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1', requestId: 'renewal-1' }));
     expect(mocks.orderPrescription).not.toHaveBeenCalled();
     expect(mocks.respondToRenewal).toHaveBeenCalledWith('user-token', {
       taskId: 'renewal-1',
@@ -351,7 +351,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
     await user.click(screen.getByRole('radio', { name: /Losartan/ }));
     await user.click(screen.getByRole('button', { name: 'Change' }));
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
-    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1', requestId: 'change-1' }));
     expect(mocks.orderPrescription).not.toHaveBeenCalled();
     expect(mocks.respondToChange).toHaveBeenCalledWith('user-token', {
       taskId: 'change-1',
@@ -428,7 +428,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
     expect(screen.getByText('Called; out in 2 days.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Deny' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Send prescription' }));
-    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1', requestId: 'task-1' }));
     expect(mocks.orderPrescription).toHaveBeenCalledWith(
       expect.objectContaining({
         patientId: 'patient-1',
@@ -547,7 +547,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
       )
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Send prescription' }));
-    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1', requestId: 'task-1' }));
     expect(mocks.cancelPrescription).not.toHaveBeenCalled();
     expect(mocks.orderPrescription).toHaveBeenCalledTimes(1);
   });
@@ -557,7 +557,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
     const user = await open({ ...PATIENT_CHANGE, prescription: { ...PATIENT_CHANGE.prescription, status: 'stopped' } });
     expect(screen.queryByText(/stays live/)).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Send prescription' }));
-    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1', requestId: 'task-1' }));
     expect(mocks.cancelPrescription).not.toHaveBeenCalled();
     expect(mocks.orderPrescription).toHaveBeenCalledTimes(1);
   });
@@ -570,7 +570,7 @@ describe('Refill request dialog: the order form outside a visit', () => {
     expect(screen.getByText('Change request from Maria Lopez')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Deny' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Send prescription' }));
-    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1', requestId: 'task-1' }));
     expect(mocks.cancelPrescription).toHaveBeenCalledWith({
       medicationRequestId: 'rx-1',
       practitionerId: 'practitioner-1',

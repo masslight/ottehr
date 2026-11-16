@@ -143,7 +143,7 @@ describe('Change request dialog', () => {
     // Pantoprazole sent no directions: nothing to compare.
     expect(within(original()).getByText('Take 1 capsule by mouth once daily')).not.toHaveAttribute('data-differs');
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
-    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1', requestId: 'change-1' }));
     expect(mocks.respondToChange).toHaveBeenCalledWith('user-token', {
       taskId: 'change-1',
       decision: 'approve',

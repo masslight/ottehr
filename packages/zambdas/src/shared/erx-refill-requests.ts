@@ -28,7 +28,7 @@ import { createOwnerReference, createTask } from './tasks';
 // A task nobody has completed, cancelled or refused yet
 const OPEN_TASK_STATUSES: Task['status'][] = ['requested', 'received', 'accepted', 'ready', 'in-progress', 'on-hold'];
 
-const isOpen = (task: Task): boolean => OPEN_TASK_STATUSES.includes(task.status);
+export const isOpen = (task: Task): boolean => OPEN_TASK_STATUSES.includes(task.status);
 
 // The request's Surescripts message id; on an Ottehr task, the request it was made for.
 const messageId = (task: Task): string | undefined =>

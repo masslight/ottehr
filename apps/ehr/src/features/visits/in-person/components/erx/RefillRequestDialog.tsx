@@ -232,7 +232,8 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const completeAfterSending = async (sentText: string): Promise<void> => {
     onClose();
     try {
-      await completeTask({ taskId });
+      // The request answered: the pharmacy's (the eRx service's Task), or a patient's, which is the task itself.
+      await completeTask({ taskId, requestId: refill?.renewalTaskId ?? change?.changeTaskId ?? taskId });
       enqueueSnackbar(sentText, { variant: 'success' });
     } catch (taskError) {
       console.error(`Error completing the task: ${taskError}`);

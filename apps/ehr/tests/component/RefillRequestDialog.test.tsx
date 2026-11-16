@@ -199,7 +199,7 @@ describe('Refill request dialog', () => {
     expect(screen.getByLabelText('Fills to authorize')).toHaveValue('3');
     await user.type(screen.getByLabelText('Note to pharmacy (optional)'), 'BP check soon');
     await user.click(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' }));
-    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1' }));
+    await waitFor(() => expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1', requestId: 'renewal-1' }));
     expect(mocks.respondToRenewal).toHaveBeenCalledWith('user-token', {
       taskId: 'renewal-1',
       decision: 'approve',

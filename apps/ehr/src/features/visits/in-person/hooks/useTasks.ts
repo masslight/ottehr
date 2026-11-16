@@ -497,13 +497,13 @@ export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRe
 };
 
 /** Completes an eRx task through its zambda (the refill request dialog). */
-export const useCompleteErxTask = (): UseMutationResult<void, Error, { taskId: string }> => {
+export const useCompleteErxTask = (): UseMutationResult<void, Error, { taskId: string; requestId: string }> => {
   const { oystehrZambda } = useApiClients();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ taskId }) => {
+    mutationFn: async (input) => {
       if (!oystehrZambda) throw new Error('oystehrZambda not defined');
-      await completeErxTask(oystehrZambda, { taskId });
+      await completeErxTask(oystehrZambda, input);
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false }),
   });
