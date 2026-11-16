@@ -7,6 +7,8 @@ export function createClinicalOystehrClient(token?: string, overrides?: Partial<
     services: {
       fhirApiUrl: import.meta.env.VITE_APP_FHIR_API_URL,
       projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
+      // Unset, the SDK's default (production) is used
+      terminologyApiUrl: import.meta.env.VITE_APP_TERMINOLOGY_API_URL,
       zambdaApiUrl:
         import.meta.env.VITE_APP_IS_LOCAL === 'true'
           ? import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL
