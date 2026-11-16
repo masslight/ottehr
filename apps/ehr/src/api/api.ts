@@ -638,15 +638,21 @@ export const getUser = async (token: string): Promise<User> => {
 
 const ERX_API_URL = import.meta.env.VITE_APP_ERX_API_URL ?? 'https://erx-api.zapehr.com';
 
+/** The eRx service's messages Ottehr knows, in plain words for staff. */
+const ERX_SERVICE_MESSAGES: [RegExp, string][] = [
+  [/is not registered with Surescripts/i, 'You are not enrolled in Surescripts e-prescribing.'],
+  [/must have an NPI identifier/i, 'Your profile has no NPI. Ask an administrator to add it.'],
+  [/must have a status of active/i, 'This prescription is no longer active.'],
+  [/^forbidden$/i, "You don't have permission to do this in e-prescribing."],
+];
+
 /** An eRx service error for staff: its message, in plain words where it's one Ottehr knows, else `fallback`. The
  * HTTP status goes to the console only. */
 const erxServiceError = (body: { message?: unknown } | undefined, status: number, fallback: string): Error => {
   console.error(`eRx service error (${status}): ${body?.message ?? 'no message'}`);
   const message = typeof body?.message === 'string' ? body.message : undefined;
-  if (message && /is not registered with Surescripts/i.test(message)) {
-    return new Error('You are not enrolled in Surescripts e-prescribing.');
-  }
-  return new Error(message || fallback);
+  const known = message && ERX_SERVICE_MESSAGES.find(([pattern]) => pattern.test(message));
+  return new Error(known ? known[1] : message || fallback);
 };
 
 export const orderPrescription = async (

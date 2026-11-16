@@ -473,6 +473,38 @@ describe('Prescription table: send to another pharmacy', () => {
     );
   });
 
+  // Review item 111: the eRx service's own words for a missing NPI, an inactive prescription and a refused role.
+  it('says in plain words when the eRx service finds no NPI or no active prescription', async () => {
+    mocks.fetch.mockImplementation(async (url: string) =>
+      url.endsWith('/v4/cancel-prescription')
+        ? response(400, { message: 'MedicationRequest must have a status of active' })
+        : response(400, { message: 'Practitioner 1f3c-77 must have an NPI identifier' })
+    );
+    const user = renderTable();
+    await user.click(checkbox(AMOX.name!));
+    await user.click(checkbox(ERR.name!));
+    await user.click(sendButton());
+    await pickPharmacyAndSend(user);
+    await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
+    expect(enqueueSnackbar).toHaveBeenCalledWith(
+      `0 of 2 sent to Sample Pharmacy Two. ${AMOX.name}: cancellation failed (This prescription is no longer active.); nothing was sent; ${ERR.name}: sending to Sample Pharmacy Two failed (Your profile has no NPI. Ask an administrator to add it.)`,
+      { variant: 'error' }
+    );
+  });
+
+  it('says in plain words when the eRx service refuses the user’s role', async () => {
+    mocks.fetch.mockImplementation(async () => response(403, { message: 'Forbidden', code: '4031' }));
+    const user = renderTable();
+    await user.click(checkbox(ERR.name!));
+    await user.click(sendButton());
+    await pickPharmacyAndSend(user);
+    await waitFor(() => expect(mocks.refetch).toHaveBeenCalledTimes(1));
+    expect(enqueueSnackbar).toHaveBeenCalledWith(
+      `${ERR.name}: sending to Sample Pharmacy Two failed (You don't have permission to do this in e-prescribing.)`,
+      { variant: 'error' }
+    );
+  });
+
   it('sends nothing for a prescription whose cancellation failed', async () => {
     mocks.fetch.mockImplementation(async (url: string) =>
       url.endsWith('/v4/cancel-prescription')
