@@ -132,7 +132,9 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
 
   // Until a pharmacy is picked (or after Clear Form), the line reads the saved one, when it matches the directory.
   const savedPharmacy = plan?.preferredPharmacies?.find((item) => item.primary) ?? plan?.preferredPharmacies?.[0];
-  const { data: preferredPharmacy } = usePreferredPharmacy(patient?.id, savedPharmacy);
+  const { data: preferred } = usePreferredPharmacy(patient?.id, savedPharmacy);
+  const several = preferred && 'several' in preferred ? preferred : undefined;
+  const preferredPharmacy = preferred && 'several' in preferred ? null : preferred;
   const [pickedPharmacy, setPickedPharmacy] = useState<PharmacySearchResult | null>(null);
   const pharmacy = fixedPharmacy ?? pickedPharmacy ?? preferredPharmacy ?? null;
   // The pharmacies this visit's prescriptions went to, once each, named as any of them names it.
@@ -386,6 +388,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
                           firstName: patient && getFirstName(patient),
                           saved: savedPharmacy,
                           pharmacy: preferredPharmacy,
+                          several,
                         }
                       }
                       sentBefore={sentBefore}

@@ -115,20 +115,30 @@ export const usePharmaciesByNcpdpId = (
   }));
 };
 
+/** A saved pharmacy that more than one directory pharmacy matches, so which one it is can't be told: its zip. */
+export interface SeveralPreferred {
+  several: true;
+  zipCode?: string;
+}
+
 /** The patient's saved pharmacy as a directory pharmacy, matched once per patient: by its Google place when it was
  * picked with Google, else by its saved address. Null when it matches none that takes e-prescriptions. */
 export const usePreferredPharmacy = (
   patientId: string | undefined,
   saved: PharmacyDTO | undefined
-): UseQueryResult<PharmacySearchResult | null, Error> => {
+): UseQueryResult<PharmacySearchResult | SeveralPreferred | null, Error> => {
   const token = useAuthToken();
   const apiClient = useOystehrAPIClient();
   return useQuery({
     queryKey: ['erx-preferred-pharmacy', patientId, saved],
     queryFn: async () => {
-      if (saved!.placesId) return (await checkPlace(token!, apiClient!.searchPlaces, saved!.placesId)).pharmacy ?? null;
+      if (saved!.placesId) {
+        const { pharmacy, several, zipCode } = await checkPlace(token!, apiClient!.searchPlaces, saved!.placesId);
+        return several ? { several: true as const, zipCode } : pharmacy ?? null;
+      }
       const place = parseAddressText(saved!.name, saved!.address);
-      return (place && onlyPharmacy(await findDirectoryPharmacies(token!, place))) ?? null;
+      const matches = place ? await findDirectoryPharmacies(token!, place) : [];
+      return matches.length > 1 ? { several: true as const, zipCode: place?.zipCode } : onlyPharmacy(matches) ?? null;
     },
     enabled: Boolean(token) && Boolean(apiClient) && Boolean(saved),
     staleTime: Infinity,

@@ -108,7 +108,11 @@ export interface OnFilePharmacy {
   saved: PharmacyDTO;
   /** Its directory match: null when there is none, undefined while it's being looked up. */
   pharmacy: PharmacySearchResult | null | undefined;
+  /** More than one directory pharmacy matches it: its zip. */
+  several?: { zipCode?: string };
 }
+
+const severalText = (name: string): string => `More than one pharmacy matches ${name}. Pick the right one below.`;
 
 export const PharmacySearch: FC<{
   onPick: (pharmacy: PharmacySearchResult) => void;
@@ -128,7 +132,13 @@ export const PharmacySearch: FC<{
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string>();
   // A picked place that can't be picked: why, and its zip for the list of those that can.
-  const [notice, setNotice] = useState<{ text: string; zipCode?: string }>();
+  const [pickedNotice, setNotice] = useState<{ text: string; zipCode?: string }>();
+  // Before anything is typed, a saved pharmacy matching more than one reads as a pick that does.
+  const notice =
+    pickedNotice ??
+    (onFile?.several && !query.trim()
+      ? { text: severalText(onFile.saved.name), zipCode: onFile.several.zipCode }
+      : undefined);
   const sameZip = usePharmacyDirectory(notice?.zipCode ? { zipCode: notice.zipCode } : undefined);
   // What was typed when the directory was searched for it; typing again goes back to Google.
   const [directory, setDirectory] = useState<string>();
@@ -245,11 +255,7 @@ export const PharmacySearch: FC<{
       const why = pharmacy && unavailable?.(pharmacy);
       if (pharmacy && !why) onPick(pharmacy);
       else if (pharmacy) setNotice({ text: `${pharmacy.name}: ${why}. Pick another pharmacy.` });
-      else if (several)
-        setNotice({
-          text: `More than one pharmacy matches ${name || option.name}. Pick the right one below.`,
-          zipCode,
-        });
+      else if (several) setNotice({ text: severalText(name || option.name), zipCode });
       else setNotice({ text: `${name || option.name} can't receive e-prescriptions. Pick another pharmacy.`, zipCode });
     } catch (e) {
       console.error('Error checking the pharmacy:', e);

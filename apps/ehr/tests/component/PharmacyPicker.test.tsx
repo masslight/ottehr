@@ -166,6 +166,19 @@ describe('eRx pharmacy picker', () => {
     expect(onFile).toHaveAttribute('aria-disabled', 'true');
   });
 
+  // Decision 181: as a Google pick matching 2 (decision 161), not "Can't e-prescribe".
+  it('says a saved pharmacy matching 2 directory pharmacies matches more than one, and lists those in its zip', async () => {
+    const user = userEvent.setup();
+    const onPick = renderPicker({ onFile: { ...ON_FILE, pharmacy: null, several: { zipCode: '78704' } } });
+    expect(
+      screen.getByText('More than one pharmacy matches CVS Pharmacy. Pick the right one below.')
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Can receive e-prescriptions in 78704')).toBeInTheDocument();
+    expect(screen.queryByText("Can't e-prescribe")).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: /HEB PHARMACY #612/ }));
+    expect(onPick).toHaveBeenCalledWith(result(HEB));
+  });
+
   it('checks a Google pick against the directory and picks the match', async () => {
     const user = userEvent.setup();
     const onPick = renderPicker();
@@ -303,5 +316,19 @@ describe('preferred pharmacy lookup', () => {
     const saved = { name: "Wilson's Family Pharmacy", address: '418 E Oltorf St, Austin, TX 78704' };
     const { result: hook } = renderHook(() => usePreferredPharmacy('patient-1', saved), { wrapper });
     await waitFor(() => expect(hook.current.data).toBeNull());
+  });
+
+  it('says when more than one directory pharmacy matches the saved pharmacy, by its address or its place', async () => {
+    const twin = directoryRow({ ncpdpId: '4400005' });
+    mocks.searchPharmacyDirectory.mockImplementation(async (token: string, query: ErxDirectoryQuery) => [
+      ...(await searchDirectory(token, query)),
+      ...(query.address === '1200 s' ? [twin] : []),
+    ]);
+    const typed = { name: 'CVS Pharmacy', address: '1200 S Congress Ave, Austin, TX 78704' };
+    const { result: byAddress } = renderHook(() => usePreferredPharmacy('patient-1', typed), { wrapper });
+    await waitFor(() => expect(byAddress.current.data).toEqual({ several: true, zipCode: '78704' }));
+    const picked = { ...typed, placesId: 'place-cvs' };
+    const { result: byPlace } = renderHook(() => usePreferredPharmacy('patient-2', picked), { wrapper });
+    await waitFor(() => expect(byPlace.current.data).toEqual({ several: true, zipCode: '78704' }));
   });
 });
