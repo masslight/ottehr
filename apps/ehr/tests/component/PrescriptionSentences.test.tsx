@@ -465,6 +465,50 @@ describe('PrescriptionSentences: suggestions first', () => {
     })
   );
 
+  // Decision 230: "In use" means using the row changes nothing, its refills, note and substitution included.
+  it(
+    'shows "In use" only while the refills, note and substitution are the row’s too',
+    withRows(
+      [
+        {
+          ...DOSED_ROW,
+          fill: () => ({ ...FIELDS, numberOfRefills: '1' }),
+          apply: (line) => ({
+            ...withSuggestion(line, FIELDS),
+            numberOfRefills: '1',
+            noteToPharmacy: 'Dispense in original bottle',
+            substitutionAllowed: false,
+          }),
+        },
+      ],
+      async () => {
+        const user = userEvent.setup();
+        render(<Harness initial={lineFor(LIQUIDS)} />);
+        await user.click(screen.getByRole('button', { name: 'Use this prescription' }));
+        await showSuggestions(user);
+        expect(screen.getByTitle('In use')).toBeInTheDocument();
+
+        const refills = screen.getByRole('spinbutton', { name: 'refills' });
+        await user.clear(refills);
+        await user.type(refills, '2');
+        expect(screen.queryByTitle('In use')).not.toBeInTheDocument();
+        await user.clear(refills);
+        await user.type(refills, '1');
+        expect(screen.getByTitle('In use')).toBeInTheDocument();
+
+        const note = screen.getByRole('textbox', { name: 'note to pharmacy' });
+        await user.type(note, '!');
+        expect(screen.queryByTitle('In use')).not.toBeInTheDocument();
+        await user.type(note, '{Backspace}');
+        expect(screen.getByTitle('In use')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: /^substitution/ }));
+        await user.click(screen.getByRole('option', { name: 'allowed' }));
+        expect(screen.queryByTitle('In use')).not.toBeInTheDocument();
+      }
+    )
+  );
+
   it(
     'hides the line again when the strength or the medication changes',
     withRows([DOSED_ROW], async () => {
