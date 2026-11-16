@@ -347,6 +347,11 @@ describe('prescriptionLineErrors', () => {
       'if more than mild put 2 drops in each eye',
       'if more than mild instill 2 drops in each eye',
       'IF FEVER LASTS MORE THAN A DAY GIVE 7.5 ML',
+      // Review D15-3: chew, dissolve, swallow and place are dose verbs too.
+      'if fever lasts more than a day chew 1 tablet',
+      'if pain lasts more than a day dissolve 1 tablet',
+      'if pain lasts more than a day swallow 2 tablets',
+      'if more than mild place 1 lozenge in the mouth',
     ]) {
       expect(errors(instructions)).toEqual([]);
     }
