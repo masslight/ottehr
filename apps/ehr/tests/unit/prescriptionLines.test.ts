@@ -319,6 +319,16 @@ describe('prescriptionLineErrors', () => {
       'up to 3 patches at once',
       '1,000 mg twice daily',
       'max 2 doses a day, 5 mL each',
+      // Decision 259 (D14-3): a dose verb ends the limit, as a comma does.
+      'if fever lasts more than a day give 7.5 mL every 6 hours',
+      'if pain lasts more than a day take 1 tablet',
+      'if wheezing for more than 1 hour inhale 2 puffs',
+      'if itching lasts more than a day apply 1 patch',
+      'if fever lasts more than one day insert 1 suppository',
+      'if more than mild use 2 sprays',
+      'if more than mild put 2 drops in each eye',
+      'if more than mild instill 2 drops in each eye',
+      'IF FEVER LASTS MORE THAN A DAY GIVE 7.5 ML',
     ]) {
       expect(errors(instructions)).toEqual([]);
     }
