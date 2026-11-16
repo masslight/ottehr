@@ -1085,8 +1085,8 @@ describe('change request: a suggestion of another strength with the same directi
         'Inhale 3 mL every 6 hours'
       )
     ).toBe('Different strength, same amount: 0.5-2.5 mg/3 mL → 0.501-1.251 mg/3 mL. Check the dose.');
-    // Decision 200: each amount goes to its ingredient by name, not by size; with a name that can't be matched
-    // ("HCTZ"), the amounts keep the pharmacy's order.
+    // Decision 200: each amount goes to its ingredient by name, not by size; a name that can't be matched ("HCTZ")
+    // gets the amount the other leaves (decision 221).
     const tab = 'Take 1 tablet by mouth once daily';
     const rxnormZiac = (bisoprolol: string): string =>
       `bisoprolol fumarate ${bisoprolol} MG / hydrochlorothiazide 6.25 MG Oral Tablet`;
@@ -1107,6 +1107,50 @@ describe('change request: a suggestion of another strength with the same directi
         'Inhale 3 mL by nebulizer'
       )
     ).toBe('Different strength, same amount: 2.5 mg/3 mL → 0.4167 mg/mL. Check the dose.');
+  });
+
+  // Decision 221: Ottehr's products join their ingredients with "/" after a form group ("(Oral Pill)"); with 2
+  // ingredients and 1 matched by name, the other gets the remaining amount; with none matched, the pharmacy's own
+  // name and strength as written.
+  it("matches the amounts to the ingredients of Ottehr's product names", () => {
+    const original = (name: string, instructions: string): PrescribedMedicationDTO => ({
+      resourceId: 'rx-15',
+      name,
+      instructions,
+      order: { ndc: '00000000001', medicationDescription: name },
+    });
+    const warning = (description: string, from: string, sig: string): string | undefined =>
+      strengthChangeWarning({ description, ndc: '00000000002', sig }, original(from, sig));
+    const pain = 'Take 1 tablet by mouth every 6 hours as needed for pain';
+    const norco = 'Acetaminophen/HYDROcodone (Oral Pill) 325-5 mg Tab';
+    expect(warning('Hydrocodone-Acetaminophen 10-325 mg Tab', norco, pain)).toBe(
+      'Different strength, same amount: 325-5 mg → 325-10 mg. Check the dose.'
+    );
+    expect(warning('acetaminophen 325 MG / hydrocodone bitartrate 10 MG Oral Tablet', norco, pain)).toBe(
+      'Different strength, same amount: 325-5 mg → 325-10 mg. Check the dose.'
+    );
+    const tab = 'Take 1 tablet by mouth once daily';
+    expect(
+      warning(
+        'Lisinopril-Hydrochlorothiazide 20-12.5 mg Tab',
+        'hydroCHLOROthiazide/Lisinopril (Oral Pill) 12.5-10 mg Tab',
+        tab
+      )
+    ).toBe('Different strength, same amount: 12.5-10 mg → 12.5-20 mg. Check the dose.');
+    expect(
+      warning(
+        'Mometasone-Formoterol 200-5 mcg/act Aerosol',
+        'Formoterol/Mometasone (Inhalant) 5-100 mcg/puff MDI 120 puff',
+        'Inhale 2 puffs twice daily'
+      )
+    ).toBe('Different strength, same amount: 5-100 mcg → 5-200 mcg. Check the dose.');
+    // "HCTZ" matches no name, so it gets the amount bisoprolol leaves.
+    expect(
+      warning('Bisoprolol-HCTZ 10-6.25 mg Tab', 'Bisoprolol/hydroCHLOROthiazide (Oral Pill) 2.5-6.25 mg Tab', tab)
+    ).toBe('Different strength, same amount: 2.5-6.25 mg → 10-6.25 mg. Check the dose.');
+    expect(warning('Hydrocodone Bitartrate and Acetaminophen 10-325 mg Tab', norco, pain)).toBe(
+      'Different strength, same amount: 325-5 mg → Hydrocodone Bitartrate and Acetaminophen 10-325 mg. Check the dose.'
+    );
   });
 
   it('says nothing when the amount differs, or the pharmacy sent no directions', () => {

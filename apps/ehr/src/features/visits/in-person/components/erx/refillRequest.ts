@@ -61,8 +61,11 @@ interface Strength {
   /** As the text names it: what follows the amounts (" mcg", " mg/5 mL", "%"), and its amount per value. */
   suffix: string;
   perValue: number;
-  /** Each amount's ingredient words, in its order: RxNorm's name before each amount, else the name's parts by "-". */
+  /** Each amount's ingredient words, in its order: RxNorm's name before each amount, else the name's parts by "-" or
+   * "/", without a form group ("Acetaminophen/HYDROcodone (Oral Pill)"). */
   names: string[][];
+  /** The name and strength as the description writes them: "Hydrocodone-Acetaminophen 10-325 mg". */
+  written: string;
 }
 
 /** A product's strength in its description ("Amoxicillin 400 mg/5ml Susp"), as the warning names it ("400 mg/5 mL")
@@ -88,6 +91,7 @@ const strengthOf = (description: string | undefined): Strength | undefined => {
   const perOf = (word: string | undefined): string => (!word ? '' : /^ml$/i.test(word) ? 'ml' : 'act');
   const before = description.slice(0, match.index ?? 0);
   const rxnormNames = [before];
+  let end = next.lastIndex;
   for (let more = next.exec(description); more; more = next.exec(description)) {
     if (strengthUnit(more[3]) !== unit || perOf(more[5]) !== perOf(perWord) || more[4] !== per) {
       // Another ingredient in another unit; anything else ("/ 100 mL") ends the strength.
@@ -96,6 +100,7 @@ const strengthOf = (description: string | undefined): Strength | undefined => {
     }
     amounts += `-${more[2]}`;
     rxnormNames.push(more[1]);
+    end = next.lastIndex;
   }
   const factor = unit === '%' ? 10 : STRENGTH_MG[unit];
   const ml = perMl ? `/${per ? `${per} ` : ''}mL` : '';
@@ -108,12 +113,16 @@ const strengthOf = (description: string | undefined): Strength | undefined => {
     at: match.index ?? 0,
     suffix,
     perValue,
-    names: (rxnormNames.length > 1 ? rxnormNames : before.split('-')).map((name) => ingredientWords(name, name.length)),
+    names: (rxnormNames.length > 1 ? rxnormNames : before.replace(/\([^)]*\)/g, '').split(/[-/]/)).map((name) =>
+      ingredientWords(name, name.length)
+    ),
+    written: description.slice(0, end).trim(),
   };
 };
 
 /** Where each of `as`'s ingredients is in `strength`, by name with 80c's matching ("formoterol 0.005 / mometasone 0.2"
- * for "Mometasone-Formoterol" is [1, 0]); undefined unless each matches exactly one, all different. */
+ * for "Mometasone-Formoterol" is [1, 0]); of 2, one matched gives the other the remaining amount ("Bisoprolol-HCTZ");
+ * undefined unless each matches exactly one, all different. */
 const ingredientOrder = (strength: Strength, as: Strength): number[] | undefined => {
   if (strength.names.length !== strength.values.length || as.names.length !== as.values.length) return undefined;
   const order = as.names.map((words) => {
@@ -122,17 +131,21 @@ const ingredientOrder = (strength: Strength, as: Strength): number[] | undefined
     );
     return found.length === 1 ? found[0] : -1;
   });
+  const missing = order.indexOf(-1);
+  if (order.length === 2 && missing !== -1 && order[1 - missing] !== -1) order[missing] = 1 - order[1 - missing];
   return order.every((j) => j !== -1) && new Set(order).size === order.length ? order : undefined;
 };
 
 /** A strength as another names its own: in its unit, per its volume and with the ingredients in its order, matched by
- * name ("formoterol 0.005 MG / mometasone 0.2 MG" as "Mometasone-Formoterol 100-5 mcg" names it is "200-5 mcg"); in
- * its own order when the names can't all be matched (decision 200). As written when it can't be: another kind of unit,
+ * name ("formoterol 0.005 MG / mometasone 0.2 MG" as "Mometasone-Formoterol 100-5 mcg" names it is "200-5 mcg"); a
+ * combination whose names can't be matched with its own name and strength as written, as amounts without their names
+ * could be read against the wrong ingredient (decision 221). As written when it can't be: another kind of unit,
  * another number of ingredients, or an amount past 4 significant digits. */
 const strengthAs = (strength: Strength, as: Strength): string => {
   if (strength.unit !== as.unit || strength.values.length !== as.values.length) return strength.text;
-  const order = ingredientOrder(strength, as) ?? strength.values.map((_, i) => i);
-  const amounts = order.map((j) => Number((strength.values[j] * as.perValue).toPrecision(6)));
+  const order = ingredientOrder(strength, as);
+  if (!order && strength.values.length > 1) return strength.written;
+  const amounts = (order ?? [0]).map((j) => Number((strength.values[j] * as.perValue).toPrecision(6)));
   return amounts.every((amount) => amount === Number(amount.toPrecision(4)))
     ? `${amounts.join('-')}${as.suffix}`
     : strength.text;
