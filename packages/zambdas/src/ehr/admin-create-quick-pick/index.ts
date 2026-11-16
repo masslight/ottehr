@@ -237,6 +237,24 @@ const assertNameUnused = async <T extends { id?: string; name: string }>(
   }
 };
 
+/** A set lists only prescription quick picks that exist: a dialog opened before one was removed would save it back,
+ * and the set Active again. The search is the practice's prescription quick picks, never built from the ids sent. */
+const assertMembersExist = async (oystehr: Oystehr, memberIds: string[]): Promise<void> => {
+  const existing = new Set(
+    (await searchQuickPicks(oystehr, PRESCRIPTION_QUICK_PICK_CATEGORY)).map((quickPick) => quickPick.id)
+  );
+  const missing = memberIds.filter((memberId) => !existing.has(memberId)).length;
+  if (missing) {
+    throw INVALID_INPUT_ERROR(
+      `${
+        missing === 1
+          ? '1 prescription in this set no longer exists'
+          : `${missing} prescriptions in this set no longer exist`
+      }. Reopen the set and save again.`
+    );
+  }
+};
+
 // Same limits as the DME order endpoint, so a saved pick can always be ordered as is.
 const dmeQuickPickSchema = DmeOrderFieldsSchema.pick({
   billingCodes: true,
@@ -305,7 +323,8 @@ const CATEGORIES: CategoryConfig[] = [
     category: PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
     requiredStringFields: ['name'],
     validator: async (oystehr, quickPick, quickPickId) => {
-      safeValidate(prescriptionSetQuickPickSchema, quickPick);
+      const { memberIds } = safeValidate(prescriptionSetQuickPickSchema, quickPick);
+      await assertMembersExist(oystehr, memberIds);
       await assertNameUnused(
         oystehr,
         PRESCRIPTION_SET_QUICK_PICK_CATEGORY,

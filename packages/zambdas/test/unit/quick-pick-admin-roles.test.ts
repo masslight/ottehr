@@ -64,9 +64,12 @@ describe('admin-update-quick-pick: what it writes over', () => {
   });
 
   it('looks the quick pick up by its id and its category tag', async () => {
-    mockOystehr.fhir.search.mockResolvedValue({
-      unbundle: () => [{ resourceType: 'ActivityDefinition', id: 'set-1' }],
-    });
+    // The set by its id, then the prescription quick picks its members must be.
+    mockOystehr.fhir.search.mockImplementation(async ({ params }: { params: { name: string }[] }) => ({
+      unbundle: () => [
+        { resourceType: 'ActivityDefinition', id: params.some(({ name }) => name === '_id') ? 'set-1' : 'qp-amox' },
+      ],
+    }));
     const response = await call(updateRaw, { category: CATEGORY, quickPickId: 'set-1', quickPick: SET });
     expect(mockOystehr.fhir.search).toHaveBeenCalledWith({
       resourceType: 'ActivityDefinition',

@@ -21,7 +21,8 @@ const AMOX_STREP = {
   substitutionAllowed: true,
 };
 
-const EAR_INFECTION = { name: 'Ear infection', status: 'Active', memberIds: ['qp-amox'] };
+// Its member is the quick pick each search below finds (the set's own check: its members exist).
+const EAR_INFECTION = { name: 'Ear infection', status: 'Active', memberIds: ['qp-1'] };
 
 /** A search that finds the given quick picks of the category, as saved. */
 const oystehrWith = <T extends { id?: string }>(
@@ -94,7 +95,13 @@ describe.each([
 
 describe('names are unique per category', () => {
   test('a set is checked against sets only, so it may share a quick pick’s name', async () => {
-    const search = vi.fn(async () => ({ unbundle: () => [] }));
+    const prescriptionTag = `${QUICK_PICK_TAG_SYSTEM}|${PRESCRIPTION_QUICK_PICK_CATEGORY.tagCode}`;
+    const search = vi.fn(async ({ params }: { params: { name: string; value: string }[] }) => ({
+      unbundle: () =>
+        params.some(({ value }) => value === prescriptionTag)
+          ? [quickPickToActivityDefinition(AMOX_STREP, PRESCRIPTION_QUICK_PICK_CATEGORY, 'qp-1')]
+          : [],
+    }));
     const validator = CATEGORY_CONFIG_MAP[PRESCRIPTION_SET_QUICK_PICK_CATEGORY.tagCode].validator;
     await validator?.({ fhir: { search } } as unknown as Oystehr, { ...EAR_INFECTION, name: 'Amox strep' });
     expect(search).toHaveBeenCalledWith(

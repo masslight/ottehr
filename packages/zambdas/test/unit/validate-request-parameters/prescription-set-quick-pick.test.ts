@@ -17,9 +17,20 @@ import {
 } from '../../../src/ehr/shared/quick-pick-helpers';
 import { createMockSecrets, createMockZambdaInput } from './helpers';
 
-const stubOystehr = {
-  fhir: { search: async () => ({ unbundle: () => [] }) },
-} as unknown as Oystehr;
+// The practice's prescription quick picks; no sets.
+const QUICK_PICKS = ['qp-amox', 'qp-ibuprofen'].map((id) =>
+  quickPickToActivityDefinition({ name: id }, PRESCRIPTION_QUICK_PICK_CATEGORY, id)
+);
+const search = vi.fn(async ({ params }: { params: { name: string; value: string }[] }) => ({
+  unbundle: () =>
+    params.some(
+      ({ name, value }) =>
+        name === '_tag' && value === `${QUICK_PICK_TAG_SYSTEM}|${PRESCRIPTION_QUICK_PICK_CATEGORY.tagCode}`
+    )
+      ? QUICK_PICKS
+      : [],
+}));
+const stubOystehr = { fhir: { search } } as unknown as Oystehr;
 
 const CATEGORY = PRESCRIPTION_SET_QUICK_PICK_CATEGORY.tagCode;
 
@@ -65,6 +76,25 @@ describe.each([
     await expect(
       validate({ ...EAR_INFECTION, removedMembers: [{ name: 'Amox', removedAt: '2026-10-27T14:00:00.000Z' }] })
     ).resolves.toBeUndefined();
+  });
+
+  // Claim audit r6, flag 2: a dialog opened before a quick pick was removed would save it back into the set.
+  test('refuses a quick pick that no longer exists, found by a search of its own making', async () => {
+    search.mockClear();
+    const one = await rejection(validate({ ...EAR_INFECTION, memberIds: ['qp-amox', 'qp-gone'] }));
+    expect(one?.code).toBe(APIErrorCode.INVALID_INPUT);
+    expect(one.message).toBe('1 prescription in this set no longer exists. Reopen the set and save again.');
+    const two = await rejection(validate({ ...EAR_INFECTION, memberIds: ['qp-gone', 'qp-amox', 'qp-old'] }));
+    expect(two.message).toBe('2 prescriptions in this set no longer exist. Reopen the set and save again.');
+    // Only the prescription quick picks are searched, never with the ids sent.
+    expect(search).toHaveBeenCalledWith({
+      resourceType: 'ActivityDefinition',
+      params: [
+        { name: '_tag', value: `${QUICK_PICK_TAG_SYSTEM}|${PRESCRIPTION_QUICK_PICK_CATEGORY.tagCode}` },
+        { name: 'status', value: 'active' },
+      ],
+    });
+    expect(JSON.stringify(search.mock.calls)).not.toContain('qp-gone');
   });
 
   test.each([
