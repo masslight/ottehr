@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  Link,
   MenuItem,
   Radio,
   RadioGroup,
@@ -21,8 +22,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, ReactNode, useRef, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { getErxRequest, respondToChange, respondToRenewal } from 'src/api/api';
 import { RoundedButton } from 'src/components/RoundedButton';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useAuthToken } from 'src/hooks/useAuthToken';
 import { getPatientName } from 'src/shared/utils/getPatientName';
@@ -41,6 +44,7 @@ import { useCancelPrescription } from '../../../shared/hooks/useCancelPrescripti
 import { useCheckSurescriptsEnrollment } from '../../../shared/hooks/useCheckSurescriptsEnrollment';
 import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription';
 import { GET_TASKS_KEY, useCompleteErxTask } from '../../hooks/useTasks';
+import { getErxSurescriptsUrl, withEncounterIdParam } from '../../routing/helpers';
 import { OrderPrescriptionForm } from './OrderPrescriptionForm';
 import { errorMessage, patientAddressAndPhone, patientNameGenderBirthDate } from './prescriptionDialogs';
 import { prescriptionVitals } from './prescriptionLines';
@@ -144,7 +148,7 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const { oystehrZambda } = useApiClients();
   const token = useAuthToken();
   const queryClient = useQueryClient();
-  const { mutateAsync: completeTask } = useCompleteErxTask();
+  const { mutateAsync: completeTask, isPending: completingTask } = useCompleteErxTask();
   const { mutateAsync: cancelPrescription } = useCancelPrescription();
   const { mutateAsync: orderPrescription } = useOrderPrescription();
   const [originalCancelled, setOriginalCancelled] = useState(false);
@@ -202,7 +206,19 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
   const line = prescription && refillLine(prescription, change ? selected : refill?.medication, data?.metadata);
   const pharmacyName = request?.pharmacy.name ?? 'the pharmacy';
   const contact = patientAddressAndPhone(data?.patient);
-  const closed = !!request && (request.withdrawn || request.closed);
+  const finished = !!request && (request.withdrawn || request.closed);
+  // eRx v4 refuses any answer once the pharmacy's expiry date has passed, and nothing closes the request then, so the
+  // dialog closes its task instead.
+  const expired = !!request && !finished && !!request.expires && new Date(request.expires) < new Date();
+  const closed = finished || expired;
+  // "Send a new prescription" goes to the eRx page of the original prescription's visit, when it has one.
+  const newPrescriptionUrl =
+    data?.visit && FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED
+      ? withEncounterIdParam(
+          getErxSurescriptsUrl(data.visit.appointmentId),
+          data.visit.followUp ? data.prescription.encounterId : undefined
+        )
+      : undefined;
   // The eRx service takes an answer only from an enrolled prescriber, sent under their name: anyone else reads it.
   const { data: enrollment } = useCheckSurescriptsEnrollment();
   const notEnrolled = !closed && enrollment?.registered === false;
@@ -240,6 +256,18 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
       enqueueSnackbar(`${sentText}, but its task couldn’t be closed and is still open on the Tasks page.`, {
         variant: 'warning',
       });
+    }
+  };
+
+  // The same call as after an answer: completed, not cancelled, because eRx v4 ignores a follow-up on a completed
+  // request but refuses one on a cancelled one.
+  const closeTask = async (): Promise<void> => {
+    try {
+      await completeTask({ taskId, requestId: refill?.renewalTaskId ?? change?.changeTaskId ?? taskId });
+      onClose();
+    } catch (taskError) {
+      console.error(`Error closing the task: ${taskError}`);
+      enqueueSnackbar(errorMessage(taskError), { variant: 'error' });
     }
   };
 
@@ -426,10 +454,23 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
         )}
         {data && prescription && (
           <Stack spacing={2}>
-            {closed && (
+            {finished && (
               <Alert severity={request.withdrawn ? 'warning' : 'info'}>
                 {request.withdrawn ? `${pharmacyName} withdrew this request.` : 'This request is closed.'} It can’t be
                 answered.
+              </Alert>
+            )}
+            {expired && (
+              <Alert severity="warning">
+                This request expired on {formatDateForDisplay(request.expires)}. To refill it,{' '}
+                {newPrescriptionUrl ? (
+                  <Link component={RouterLink} to={newPrescriptionUrl}>
+                    send a new prescription
+                  </Link>
+                ) : (
+                  'send a new prescription'
+                )}
+                .
               </Alert>
             )}
             {change && (
@@ -535,25 +576,29 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
             {request && !notEnrolled && (
               <Stack spacing={2}>
                 <SectionHeading>Your answer</SectionHeading>
-                <ToggleButtonGroup
-                  exclusive
-                  color="primary"
-                  size="small"
-                  value={answer ?? null}
-                  disabled={closed}
-                  onChange={(_e, next: Answer | null) => {
-                    if (!next) return;
-                    setChosen(next);
-                    setReason('');
-                    setNote('');
-                  }}
-                >
-                  {answers.map((key) => (
-                    <ToggleButton key={key} value={key} sx={{ textTransform: 'none' }}>
-                      {ANSWER_LABEL[key]}
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
+                <Tooltip title={expired ? 'The pharmacy’s request expired, so it can’t be answered.' : ''}>
+                  <Box sx={{ alignSelf: 'flex-start' }}>
+                    <ToggleButtonGroup
+                      exclusive
+                      color="primary"
+                      size="small"
+                      value={answer ?? null}
+                      disabled={closed}
+                      onChange={(_e, next: Answer | null) => {
+                        if (!next) return;
+                        setChosen(next);
+                        setReason('');
+                        setNote('');
+                      }}
+                    >
+                      {answers.map((key) => (
+                        <ToggleButton key={key} value={key} sx={{ textTransform: 'none' }}>
+                          {ANSWER_LABEL[key]}
+                        </ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                  </Box>
+                </Tooltip>
                 {showForm && sameDirections}
                 {orderForm}
                 {!closed && answer === 'approve' && priorAuth && (
@@ -619,6 +664,11 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
         <RoundedButton onClick={onClose} disabled={respond.isPending}>
           {closed ? 'Close' : 'Cancel'}
         </RoundedButton>
+        {expired && (
+          <RoundedButton variant="contained" loading={completingTask} onClick={() => void closeTask()}>
+            Close task
+          </RoundedButton>
+        )}
         {request && !closed && !notEnrolled && answer !== 'change' && (
           <Tooltip title={notReady ?? (sendDataLoading ? 'Loading allergies and vitals' : '')}>
             <span>

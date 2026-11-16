@@ -252,6 +252,21 @@ describe('a pharmacy refill request, as the dialog reads it', () => {
     ]);
     expect(request).toMatchObject({ withdrawn: true, closed: true });
   });
+
+  // eRx v4 refuses an answer once the pharmacy's expiry date passed, and nothing closes the request then.
+  it('reads the expiry date the pharmacy set, and none when it set none', () => {
+    const expiring = readPharmacyRefillRequest([
+      version('requested', 'm1', '2026-10-27T16:12:00.000Z', [
+        ...(renewal('requested').input ?? []),
+        {
+          type: { coding: [{ system: ERX_REQUEST_TASK_INPUT_SYSTEM, code: 'expiration-date' }] },
+          valueDateTime: '2026-11-10T00:00:00.000Z',
+        },
+      ]),
+    ]);
+    expect(expiring).toMatchObject({ expires: '2026-11-10T00:00:00.000Z', closed: false });
+    expect(readPharmacyRefillRequest([version('requested', 'm1', '2026-10-27T16:12:00.000Z')]).expires).toBeUndefined();
+  });
 });
 
 const change = (status: Task['status'], inputs: NonNullable<Task['input']>): Task => ({
@@ -486,6 +501,46 @@ describe('a patient’s request that staff wrote down, as the dialog reads it', 
     await expect(getErxRequest(oystehrWith(taskFor(RX_ID), other), 'task-1')).rejects.toMatchObject({
       message: 'The requested MedicationRequest resource could not be found',
     });
+  });
+
+  // The expired request's "send a new prescription" links to the eRx page of the original prescription's visit.
+  it("names the original prescription's visit, and none when its encounter has no appointment", async () => {
+    const withEncounter = (encounter: Record<string, unknown>): Oystehr => {
+      const oystehr = oystehrWith(taskFor(RX_ID));
+      const search = oystehr.fhir.search as ReturnType<typeof vi.fn>;
+      search.mockResolvedValue({
+        unbundle: () => [
+          {
+            resourceType: 'MedicationRequest',
+            id: RX_ID,
+            subject: { reference: `Patient/${PATIENT_ID}` },
+            encounter: { reference: 'Encounter/enc-1' },
+          },
+          { resourceType: 'Patient', id: PATIENT_ID },
+          { resourceType: 'Encounter', id: 'enc-1', status: 'finished', ...encounter },
+        ],
+      });
+      return oystehr;
+    };
+    const oystehr = withEncounter({ appointment: [{ reference: 'Appointment/appt-1' }] });
+    await expect(getErxRequest(oystehr, 'task-1')).resolves.toMatchObject({
+      visit: { appointmentId: 'appt-1', followUp: false },
+    });
+    expect((oystehr.fhir.search as ReturnType<typeof vi.fn>).mock.calls[0][0].params).toContainEqual({
+      name: '_include',
+      value: 'MedicationRequest:encounter',
+    });
+    await expect(
+      getErxRequest(
+        withEncounter({
+          appointment: [{ reference: 'Appointment/appt-1' }],
+          type: [{ coding: [{ system: 'http://snomed.info/sct', code: '390906007' }] }],
+        }),
+        'task-1'
+      )
+    ).resolves.toMatchObject({ visit: { appointmentId: 'appt-1', followUp: true } });
+    expect((await getErxRequest(withEncounter({}), 'task-1')).visit).toBeUndefined();
+    expect((await getErxRequest(oystehrWith(taskFor(RX_ID)), 'task-1')).visit).toBeUndefined();
   });
 
   it('returns only what the dialog shows of the patient', async () => {

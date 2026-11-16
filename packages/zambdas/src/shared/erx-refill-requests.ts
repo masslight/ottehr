@@ -6,8 +6,10 @@ import {
   ERX_REQUEST_TASK_INPUT_SYSTEM,
   SURESCRIPTS_MESSAGE_ID_SYSTEM,
 } from 'utils/lib/fhir/constants';
+import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { getFullName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   CHANGE_REQUEST_KINDS,
   ErxPharmacyChangeRequest,
@@ -40,8 +42,9 @@ export const renewalInput = (renewalTask: Task, code: string): NonNullable<Task[
 
 /** What a change of the renewal or change Task means for its Ottehr task: one is made while the request is open; it is
  * cancelled once the pharmacy withdraws the request (the eRx service cancels its Task), and completed once the eRx
- * service closes it otherwise (answered or expired). When the pharmacy asks again after its task was closed
- * unanswered, a new one is made for the newest request. */
+ * service closes it otherwise (answered). An expired request stays open at the eRx service, so staff close its task
+ * from the request dialog. When the pharmacy asks again after its task was closed unanswered, a new one is made for
+ * the newest request. */
 export const refillRequestTaskAction = (
   renewalTask: Task,
   ottehrTasks: Task[]
@@ -217,6 +220,7 @@ const readPharmacyRequest = (
     askedAgain,
     withdrawn: latest.status === 'cancelled',
     closed: !isOpen(latest),
+    expires: value('expiration-date')?.valueDateTime,
   };
 };
 
@@ -344,11 +348,12 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
   if (!isValidUUID(medicationRequestId)) throw INVALID_INPUT_ERROR(`Task ${taskId} has no valid prescription id`);
 
   const resources = (
-    await oystehr.fhir.search<MedicationRequest | Patient | Practitioner | Provenance>({
+    await oystehr.fhir.search<MedicationRequest | Patient | Practitioner | Provenance | Encounter>({
       resourceType: 'MedicationRequest',
       params: [
         { name: '_id', value: medicationRequestId },
         { name: '_include', value: 'MedicationRequest:subject' },
+        { name: '_include', value: 'MedicationRequest:encounter' },
         { name: '_include', value: 'MedicationRequest:requester' },
         { name: '_revinclude', value: 'Provenance:target' },
       ],
@@ -366,6 +371,12 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
     throw FHIR_RESOURCE_NOT_FOUND('MedicationRequest');
   if (!patient) throw FHIR_RESOURCE_NOT_FOUND('Patient');
   const prescriber = resources.find((resource): resource is Practitioner => resource.resourceType === 'Practitioner');
+  // The original prescription's visit, read as the request is opened, for the link to its eRx page.
+  const encounterId = getIdFromReference(medicationRequest.encounter?.reference, 'Encounter');
+  const encounter = resources.find(
+    (resource): resource is Encounter => resource.resourceType === 'Encounter' && resource.id === encounterId
+  );
+  const appointmentId = getIdFromReference(encounter?.appointment?.[0]?.reference, 'Appointment');
   return {
     taskId,
     kind,
@@ -387,6 +398,7 @@ export const getErxRequest = async (oystehr: Oystehr, taskId: string): Promise<G
     metadata: readPrescriptionMetadata(medicationRequest),
     prescriberName: prescriber && getFullName(prescriber),
     patient: dialogPatient(patient),
+    visit: appointmentId && encounter ? { appointmentId, followUp: isFollowupEncounter(encounter) } : undefined,
   };
 };
 

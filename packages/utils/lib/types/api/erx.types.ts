@@ -150,8 +150,11 @@ export interface ErxPharmacyRefillRequest {
   /** When the newest request came, when the pharmacy asked again */
   askedAgain?: string;
   withdrawn: boolean;
-  /** The eRx service closed it otherwise: answered or expired */
+  /** The eRx service closed it otherwise: answered */
   closed: boolean;
+  /** When the pharmacy's request expires, when it set a date: eRx v4 refuses an answer after it, and nothing closes the
+   * request then */
+  expires?: string;
 }
 
 /** A pharmacy's change request, only as the pharmacy sent it (S.207). */
@@ -231,6 +234,8 @@ export interface GetErxRequestResponse {
   metadata?: PrescriptionOrderMetadata;
   prescriberName?: string;
   patient: Patient;
+  /** The original prescription's visit, for a link to its eRx page; none when its encounter names no appointment */
+  visit?: { appointmentId: string; followUp: boolean };
 }
 
 // requestId: the request answered, the eRx service's renewal or change Task, or for a patient's request the task itself.

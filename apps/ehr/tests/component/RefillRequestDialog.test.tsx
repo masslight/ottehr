@@ -3,8 +3,10 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import { MemoryRouter } from 'react-router-dom';
 import { GetErxRequestResponse } from 'utils/lib/types/api/erx.types';
 import { PrescriptionAllergy } from 'utils/lib/types/api/order-prescription.types';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RefillRequestDialog } from '../../src/features/visits/in-person/components/erx/RefillRequestDialog';
 
@@ -18,9 +20,21 @@ const mocks = vi.hoisted(() => ({
   enrollment: undefined as { registered: boolean } | undefined,
   sendDataLoading: false,
   sendDataFailed: undefined as string | undefined,
+  surescripts: true,
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
+vi.mock('../../src/constants/feature-flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/constants/feature-flags')>();
+  return {
+    FEATURE_FLAGS: {
+      ...actual.FEATURE_FLAGS,
+      get SURESCRIPTS_ERX_ENABLED() {
+        return mocks.surescripts;
+      },
+    },
+  };
+});
 vi.mock('src/api/api', () => ({ getErxRequest: mocks.getErxRequest, respondToRenewal: mocks.respondToRenewal }));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 vi.mock('src/hooks/useAuthToken', () => ({ useAuthToken: () => 'user-token' }));
@@ -95,9 +109,11 @@ const open = async (request: GetErxRequestResponse = REQUEST): Promise<ReturnTyp
   mocks.getErxRequest.mockResolvedValue(request);
   const user = userEvent.setup();
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <RefillRequestDialog taskId="task-1" onClose={onClose} />
-    </QueryClientProvider>
+    <MemoryRouter>
+      <QueryClientProvider client={new QueryClient()}>
+        <RefillRequestDialog taskId="task-1" onClose={onClose} />
+      </QueryClientProvider>
+    </MemoryRouter>
   );
   await screen.findByText('Pharmacy’s request');
   return user;
@@ -113,6 +129,7 @@ describe('Refill request dialog', () => {
     mocks.enrollment = undefined;
     mocks.sendDataLoading = false;
     mocks.sendDataFailed = undefined;
+    mocks.surescripts = true;
     mocks.respondToRenewal.mockResolvedValue({
       taskId: 'renewal-1',
       messageId: 'm',
@@ -375,5 +392,82 @@ describe('Refill request dialog', () => {
     expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: /^Send/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+  });
+  describe('a request whose expiry date has passed', () => {
+    const EXPIRES = '2026-11-10T00:00:00.000Z';
+    const VISIT = { appointmentId: 'appt-1', followUp: false };
+    const expired = (visit: GetErxRequestResponse['visit']): GetErxRequestResponse => ({
+      ...REQUEST,
+      pharmacyRequest: { ...REQUEST.pharmacyRequest!, expires: EXPIRES },
+      prescription: { ...REQUEST.prescription, encounterId: 'enc-1' },
+      visit,
+    });
+    const sentence = `This request expired on ${formatDateForDisplay(EXPIRES)}. To refill it, send a new prescription.`;
+
+    it("says when it expired, linking to the eRx page of the original prescription's visit", async () => {
+      await open(expired(VISIT));
+      expect(screen.getByRole('alert')).toHaveTextContent(sentence);
+      expect(screen.getByRole('link', { name: 'send a new prescription' })).toHaveAttribute(
+        'href',
+        '/in-person/appt-1/erx-surescripts'
+      );
+    });
+
+    it('links to a follow-up visit by its encounter', async () => {
+      await open(expired({ appointmentId: 'appt-1', followUp: true }));
+      expect(screen.getByRole('link', { name: 'send a new prescription' })).toHaveAttribute(
+        'href',
+        '/in-person/appt-1/erx-surescripts?encounterId=enc-1'
+      );
+    });
+
+    it('says the same with no link when the visit can’t be found, or the eRx page is off', async () => {
+      await open(expired(undefined));
+      expect(screen.getByRole('alert')).toHaveTextContent(sentence);
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      cleanup();
+      mocks.surescripts = false;
+      await open(expired(VISIT));
+      expect(screen.getByRole('alert')).toHaveTextContent(sentence);
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    });
+
+    it('can’t be answered, and says why on hover', async () => {
+      const user = await open(expired(VISIT));
+      expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Deny' })).toBeDisabled();
+      expect(screen.queryByRole('button', { name: /^Send/ })).not.toBeInTheDocument();
+      await user.hover(screen.getByRole('group'));
+      expect(await screen.findByRole('tooltip')).toHaveTextContent(
+        'The pharmacy’s request expired, so it can’t be answered.'
+      );
+    });
+
+    it('closes its task as completed, the same call as after an answer', async () => {
+      const user = await open(expired(VISIT));
+      await user.click(screen.getByRole('button', { name: 'Close task' }));
+      expect(mocks.completeTask).toHaveBeenCalledWith({ taskId: 'task-1', requestId: 'renewal-1' });
+      expect(mocks.respondToRenewal).not.toHaveBeenCalled();
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+    });
+
+    it('stays open with an error when the task can’t be closed', async () => {
+      mocks.completeTask.mockRejectedValue(new Error('Task not found'));
+      const user = await open(expired(VISIT));
+      await user.click(screen.getByRole('button', { name: 'Close task' }));
+      await waitFor(() => expect(enqueueSnackbar).toHaveBeenCalledWith('Task not found', { variant: 'error' }));
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it('is answered as usual while its expiry date is still ahead', async () => {
+      await open({
+        ...expired(VISIT),
+        pharmacyRequest: { ...REQUEST.pharmacyRequest!, expires: '2999-01-01T00:00:00.000Z' },
+      });
+      expect(screen.queryByText(/expired/)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Send to CVS Pharmacy #7741' })).toBeEnabled();
+      expect(screen.queryByRole('button', { name: 'Close task' })).not.toBeInTheDocument();
+    });
   });
 });
