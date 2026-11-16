@@ -750,6 +750,36 @@ describe('A quick pick with dosing on drops or an inhaler, without a weight', ()
       ]);
     }
   });
+
+  // Decision 158: a dose the row doesn't work out (a combination product) never reads "Take  mL …".
+  it('gives a set the saved directions when no dose is worked out', () => {
+    const combo: PrescriptionQuickPickData = {
+      ...BY_WEIGHT,
+      id: 'qp-combo',
+      ndc: '00093227573',
+      medicationDescription: 'Amoxicillin-Clavulanate 400-57 mg/5ml Susp',
+      ...ERX_PRODUCT_DETAILS['00093227573'],
+    };
+    const bare: PrescriptionQuickPickData = { ...combo, id: 'qp-bare', patientInstructions: undefined };
+    const set: PrescriptionSetQuickPickData = {
+      id: 'set-combo',
+      name: 'Sinusitis',
+      status: 'Active',
+      memberIds: [BY_WEIGHT.id!, combo.id!, bare.id!],
+    };
+    for (const weightKg of [undefined, WEIGHT.kg]) {
+      const rows = prescriptionSuggestionsFor({
+        medication: PRODUCT,
+        weightKg,
+        quickPicks: [BY_WEIGHT, combo, bare],
+        sets: [set],
+      });
+      expect(rows.find((row) => row.setName)?.details).toEqual([
+        'Also adds: Amoxicillin-Clavulanate 400-57 mg/5ml Susp. Take 9 mL by mouth twice daily for 10 days.',
+        'Also adds: Amoxicillin-Clavulanate 400-57 mg/5ml Susp. No directions saved.',
+      ]);
+    }
+  });
 });
 
 describe('A quick pick saved before products had details', () => {
