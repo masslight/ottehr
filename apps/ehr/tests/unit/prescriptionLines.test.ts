@@ -594,6 +594,26 @@ describe('prescriptionLineToOrder', () => {
     for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
   });
 
+  // Review D5-1: a number ending a day or week range, or after "day" or "week", isn't the whole part of the half.
+  it('reads a taper step "days 6-10 1/2 tablet" as half a tablet', () => {
+    const cases: [string, string][] = [
+      [
+        'Take 1 tablet daily for days 1-5, then days 6-10 1/2 tablet daily',
+        'Take 1 tablet daily for days 1-5, then days 6-10 half tablet daily',
+      ],
+      ['Days 1-3 1 tablet daily, days 4-7 1/2 tablet daily', 'Days 1-3 1 tablet daily, days 4-7 half tablet daily'],
+      ['Week 2 1/2 tablet daily', 'Week 2 half tablet daily'],
+      ['Day 3 1/2 tablet daily', 'Day 3 half tablet daily'],
+      // Unchanged: a whole number of tablets, joined by a space or "-".
+      ['Take 1 1/2 tablets', 'Take 1 and a half tablets'],
+      ['Take 2-1/2 tablets', 'Take 2 and a half tablets'],
+      ['Take 10-1/2 tablets', 'Take 10 and a half tablets'],
+      ['Take 1 tablet daily for 5 days then 1/2 tablet daily', 'Take 1 tablet daily for 5 days then half tablet daily'],
+      ['Take 2 tablets twice daily x 2 1/2 days', 'Take 2 tablets twice daily x 2 1/2 days'],
+    ];
+    for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
+  });
+
   it('sends the allergies given, and none when there are none', () => {
     const context = { patientId: 'p', practitionerId: 'pr', encounterId: 'e', pharmacy: PHARMACY };
     const allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }] as const;
