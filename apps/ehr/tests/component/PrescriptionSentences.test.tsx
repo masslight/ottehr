@@ -113,6 +113,8 @@ const FIELDS = {
   numberOfRefills: '0',
   patientInstructions: 'Take 5 mL by mouth twice daily for 10 days.',
 };
+const OTITIS = { code: 'H66.90', display: 'Otitis media, unspecified, unspecified ear' };
+const PHARYNGITIS = { code: 'J02.9', display: 'Acute pharyngitis, unspecified' };
 const DOSED_ROW: PrescriptionSuggestionRow = {
   id: 'dosed',
   segments: ['Take 5 mL by mouth twice daily for 10 days.'],
@@ -507,6 +509,36 @@ describe('PrescriptionSentences: suggestions first', () => {
         expect(screen.queryByTitle('In use')).not.toBeInTheDocument();
       }
     )
+  );
+
+  // Decision 236: and its diagnosis, when it sets one; a row that sets none leaves the line's alone.
+  it(
+    'shows "In use" only while the diagnosis is the row’s too, when it sets one',
+    withRows(
+      [{ ...DOSED_ROW, apply: (line) => ({ ...withSuggestion(line, FIELDS), diagnosis: OTITIS }) }],
+      async () => {
+        const user = userEvent.setup();
+        render(<Harness initial={{ ...lineFor(LIQUIDS), diagnosis: PHARYNGITIS }} />);
+        await user.click(screen.getByRole('button', { name: 'Use this prescription' }));
+        await showSuggestions(user);
+        expect(screen.getByTitle('In use')).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Remove H66.90' }));
+        expect(screen.queryByTitle('In use')).not.toBeInTheDocument();
+      }
+    )
+  );
+
+  it(
+    'ignores the diagnosis for a row that sets none',
+    withRows([DOSED_ROW], async () => {
+      const user = userEvent.setup();
+      render(<Harness initial={{ ...lineFor(LIQUIDS), diagnosis: PHARYNGITIS }} />);
+      await user.click(screen.getByRole('button', { name: 'Use this prescription' }));
+      await showSuggestions(user);
+      expect(screen.getByTitle('In use')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Remove J02.9' }));
+      expect(screen.getByTitle('In use')).toBeInTheDocument();
+    })
   );
 
   it(

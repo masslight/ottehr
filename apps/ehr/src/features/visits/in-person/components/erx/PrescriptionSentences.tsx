@@ -870,10 +870,10 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
     setPicked(true);
     setAwaitingPick(false);
   };
-  /** A row is "In use" when using it would change none of the line's quantity, days supply, directions, refills, note
-   * and substitution (decision 230), and the line has a quantity, days supply or directions: on an empty line a row
-   * that fills none (a quick pick saved without them) still shows its "+", which then sets its refills, substitution
-   * and note. */
+  /** A row is "In use" when using it would change none of the line's quantity, days supply, directions, refills, note,
+   * substitution (decision 230) and diagnosis (decision 236: a row that sets none keeps the line's), and the line has a
+   * quantity, days supply or directions: on an empty line a row that fills none (a quick pick saved without them)
+   * still shows its "+", which then sets its refills, substitution and note. */
   const matches = (suggestion: PrescriptionSuggestionRow, picks: SentencePicks): boolean => {
     const filled = suggestion.fill(picks);
     const used = suggestion.apply(line, picks);
@@ -886,7 +886,8 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
       line.patientInstructions.trim() === filled.patientInstructions &&
       line.numberOfRefills.trim() === used.numberOfRefills.trim() &&
       line.noteToPharmacy.trim() === used.noteToPharmacy.trim() &&
-      line.substitutionAllowed === used.substitutionAllowed
+      line.substitutionAllowed === used.substitutionAllowed &&
+      line.diagnosis?.code === used.diagnosis?.code
     );
   };
   const strength = pickedStrength(line);
