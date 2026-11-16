@@ -322,6 +322,12 @@ describe('prescriptionLineErrors', () => {
       'maximum daily dose 3000 mg',
       'every 6 hours as needed, daily max: 3,000 mg',
       'no more than a total of 4 tablets a day',
+      // Review D15-1: a dose verb ends the limit only after "more than", so a maximum with a verb is still a limit.
+      'max use 12 puffs per day',
+      'maximum to take 4 tablets per day',
+      'max you can take: 4 tablets per day',
+      'MAXIMUM DAILY DOSE TAKE 6 TABLETS',
+      'Max use: 2 sprays per nostril daily',
     ]) {
       expect(errors(instructions)).toEqual(['Enter the dose']);
     }

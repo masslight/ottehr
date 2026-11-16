@@ -807,11 +807,12 @@ export const withPrescriptionMetadata = (
  * "teaspoonful", "tablespoonful" and the fractions ½, ¼ and ¾ (decision 260). A maximum isn't one either, an amount
  * after "exceed", "max", "maximum" or "more than" ("do not exceed 3000 mg per day"), nor a rate by weight ("40 mg/kg");
  * "up to 3 patches" is (decision 245). The limit word can have a colon or up to 3 words before the amount: "max: 40
- * mg", "maximum daily dose 3000 mg", "daily max: 3,000 mg" (decision 253). A dose verb ends the limit as a comma does:
- * "more than a day give 7.5 mL" is a dose (decision 259). "(?=\w)", or a fraction character, keeps V8 from trying the
+ * mg", "maximum daily dose 3000 mg", "daily max: 3,000 mg" (decision 253). After "more than", a dose verb ends the
+ * limit as a comma does: "more than a day give 7.5 mL" is a dose (decision 259), "max use 12 puffs" isn't (review
+ * D15-1). "(?=\w)", or a fraction character, keeps V8 from trying the
  * look back at every space, which takes quadratic time on a long run of them. */
 const INSTRUCTIONS_AMOUNT =
-  /(?:\b(?=\w)|(?=[½¼¾]))(?<!\d[.,]|\b(?:exceed|max|maximum|more\s+than)(?:\s+(?!(?:give|take|use|inhale|apply|insert|put|instill)\b)[a-z]+){0,3}(?:\s*:)?\s+)(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|half|[½¼¾])\s*(?:mls?|milliliters?|tab(?:let)?s?|cap(?:sule)?s?|puffs?|drops?|sprays?|mg|g|tsp|teaspoon(?:ful)?s?|packets?|capfuls?|lozenges?|troches?|patch(?:es)?|inserts?|suppositor(?:y|ies)|tablespoon(?:ful)?s?|tbsp|scoops?)\b(?!\s*(?:\/|per)\s*kg\b)/i;
+  /(?:\b(?=\w)|(?=[½¼¾]))(?<!\d[.,]|\b(?:(?:exceed|max|maximum)(?:\s+[a-z]+){0,3}|more\s+than(?:\s+(?!(?:give|take|use|inhale|apply|insert|put|instill)\b)[a-z]+){0,3})(?:\s*:)?\s+)(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|half|[½¼¾])\s*(?:mls?|milliliters?|tab(?:let)?s?|cap(?:sule)?s?|puffs?|drops?|sprays?|mg|g|tsp|teaspoon(?:ful)?s?|packets?|capfuls?|lozenges?|troches?|patch(?:es)?|inserts?|suppositor(?:y|ies)|tablespoon(?:ful)?s?|tbsp|scoops?)\b(?!\s*(?:\/|per)\s*kg\b)/i;
 
 const isWholeNumberInRange = (value: string, min: number, max: number): boolean => {
   const number = Number(value);
