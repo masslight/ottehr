@@ -686,6 +686,45 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBeUndefined();
   });
 
+  // Review D6-2: "cap", "caps" and "capsules" read as "capsule", and "milliliters" as "mL".
+  it('reads "cap" as a capsule and "milliliters" as mL', () => {
+    const oseltamivir: PrescribedMedicationDTO = {
+      resourceId: 'rx-10',
+      name: 'Oseltamivir Phosphate 30 mg Cap',
+      instructions: 'Take 1 capsule by mouth twice daily for 5 days',
+      order: { ndc: '00000000001', medicationDescription: 'Oseltamivir Phosphate 30 mg Cap' },
+    };
+    const warning = 'Different strength, same amount: 30 mg → 75 mg. Check the dose.';
+    for (const sig of ['TAKE 1 CAP BY MOUTH TWICE DAILY FOR 5 DAYS', 'Take one capsule by mouth twice daily']) {
+      expect(
+        strengthChangeWarning({ description: 'OSELTAMIVIR 75 MG CAP', ndc: '00000000002', sig }, oseltamivir)
+      ).toBe(warning);
+    }
+    expect(
+      strengthChangeWarning(
+        { description: 'OSELTAMIVIR 75 MG CAP', ndc: '00000000002', sig: 'TAKE 2 CAPS BY MOUTH TWICE DAILY' },
+        { ...oseltamivir, instructions: 'Take 2 capsules by mouth twice daily' }
+      )
+    ).toBe(warning);
+    expect(
+      strengthChangeWarning(
+        {
+          description: 'Amoxicillin 250 mg/5ml Susp',
+          ndc: '00093415273',
+          sig: 'TAKE 5 MILLILITERS BY MOUTH TWICE DAILY',
+        },
+        AMOXICILLIN
+      )
+    ).toBe('Different strength, same amount: 400 mg/5 mL → 250 mg/5 mL. Check the dose.');
+    // A capful isn't a capsule.
+    expect(
+      strengthChangeWarning(
+        { description: 'OSELTAMIVIR 75 MG CAP', ndc: '00000000002', sig: 'Take 1 capful by mouth' },
+        oseltamivir
+      )
+    ).toBeUndefined();
+  });
+
   it('says nothing for the same strength from another maker or bottle', () => {
     expect(
       strengthChangeWarning(

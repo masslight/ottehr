@@ -106,9 +106,10 @@ const sameIngredient = (a: string, b: string): boolean =>
   a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a)));
 
 const NUMBER_WORDS: Record<string, string> = { one: '1', two: '2', three: '3', four: '4' };
+const AMOUNT_UNITS: Record<string, string> = { milliliter: 'ml', tab: 'tablet', cap: 'capsule' };
 
-/** The amount a sig gives each time, in any words: "Take 5 ml …" and "TAKE 5 ML …" as "5 ml", "1/2 tablet" as
- * "half tablet", "one tablet" and "1 tab" as "1 tablet". */
+/** The amount a sig gives each time, in any words: "Take 5 ml …", "TAKE 5 ML …" and "5 milliliters" as "5 ml",
+ * "1/2 tablet" as "half tablet", "one tablet" and "1 tab" as "1 tablet", "1 cap" as "1 capsule". */
 const sigAmount = (sig: string | undefined): string | undefined => {
   const match =
     sig === undefined
@@ -116,9 +117,9 @@ const sigAmount = (sig: string | undefined): string | undefined => {
       : sentSigInWords(sig)
           .toLowerCase()
           .match(
-            /\b(\d+(?:\.\d+)?(?: and a half)?|half|one|two|three|four)\s*(ml|tab(?:let)?|capsule|puff|drop|spray)s?\b/
+            /\b(\d+(?:\.\d+)?(?: and a half)?|half|one|two|three|four)\s*(ml|milliliter|tab(?:let)?|cap(?:sule)?|puff|drop|spray)s?\b/
           );
-  return match ? `${NUMBER_WORDS[match[1]] ?? match[1]} ${match[2] === 'tab' ? 'tablet' : match[2]}` : undefined;
+  return match ? `${NUMBER_WORDS[match[1]] ?? match[1]} ${AMOUNT_UNITS[match[2]] ?? match[2]}` : undefined;
 };
 
 /** The warning when the pharmacy suggests another strength of the same ingredient with directions that give the same
