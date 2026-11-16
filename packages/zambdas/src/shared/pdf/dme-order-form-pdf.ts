@@ -323,12 +323,20 @@ const orderSection: PdfSection<DmeOrderFormData, DmeOrderFormData['order']> = {
   },
 };
 
-const keepBlockOnOnePage = (client: PdfClient, styles: PdfStyles, lines: TextStyle[], gaps: number): void => {
+const PROOF_OF_DELIVERY_TEXT = 'I acknowledge that I have received the item(s) listed above.';
+
+const keepBlockOnOnePage = (
+  client: PdfClient,
+  styles: PdfStyles,
+  lines: { text: string; style: TextStyle }[],
+  gaps: number
+): void => {
   const { thickness, margin } = styles.lineStyles.separator;
-  const linesHeight = lines.reduce(
-    (height, style) => height + client.getTextDimensions('Ag', style).height + style.spacing,
-    0
-  );
+  const lineWidth = client.getRightBound() - client.getLeftBound();
+  const linesHeight = lines.reduce((height, { text, style }) => {
+    const dimensions = client.getTextDimensions(text, style);
+    return height + Math.max(1, Math.ceil(dimensions.width / lineWidth)) * (dimensions.height + style.spacing);
+  }, 0);
   ensureSpace(
     client,
     PDF_CLIENT_STYLES.initialPage,
@@ -341,28 +349,39 @@ const providerSignatureSection: PdfSection<DmeOrderFormData, DmeOrderFormData['o
   dataSelector: (data) => data.orderingProvider,
   render: (client, provider, styles) => {
     const { sectionLabel, regular, signature, caption } = styles.textStyles;
-    keepBlockOnOnePage(client, styles, [sectionLabel, regular, signature, regular, caption], 24);
+    const providerLine = provider.name && `${provider.name}${provider.npi ? `, NPI: ${provider.npi}` : ''}`;
+    const signatureLine =
+      provider.signatureName && `${provider.signatureName}${provider.credentials ? `, ${provider.credentials}` : ''}`;
+    keepBlockOnOnePage(
+      client,
+      styles,
+      [
+        { text: 'Ordering Provider:', style: sectionLabel },
+        ...(providerLine ? [{ text: providerLine, style: regular }] : []),
+        ...(signatureLine ? [{ text: signatureLine, style: signature }] : []),
+        { text: SIGNATURE_BLANK, style: regular },
+        { text: 'Provider Signature', style: caption },
+      ],
+      24
+    );
     client.drawSeparatedLine(styles.lineStyles.separator);
-    client.drawText('Ordering Provider:', styles.textStyles.sectionLabel);
-    if (provider.name) {
-      client.drawText(`${provider.name}${provider.npi ? `, NPI: ${provider.npi}` : ''}`, styles.textStyles.regular);
-    }
+    client.drawText('Ordering Provider:', sectionLabel);
+    if (providerLine) client.drawText(providerLine, regular);
     client.newLine(24);
     if (provider.signatureName) {
-      const signatureStyle = styles.textStyles.signature;
-      client.drawText(provider.signatureName, { ...signatureStyle, newLineAfter: !provider.credentials });
+      client.drawText(provider.signatureName, { ...signature, newLineAfter: !provider.credentials });
       if (provider.credentials) {
-        const signatureDims = client.getTextDimensions(provider.signatureName, signatureStyle);
+        const signatureDims = client.getTextDimensions(provider.signatureName, signature);
         client.drawStartXPosSpecifiedText(
           `, ${provider.credentials}`,
           styles.textStyles.signatureCredentials,
           client.getLeftBound() + signatureDims.width
         );
-        client.newLine(signatureDims.height + signatureStyle.spacing);
+        client.newLine(signatureDims.height + signature.spacing);
       }
     }
-    client.drawText(SIGNATURE_BLANK, styles.textStyles.regular);
-    client.drawText('Provider Signature', styles.textStyles.caption);
+    client.drawText(SIGNATURE_BLANK, regular);
+    client.drawText('Provider Signature', caption);
   },
 };
 
@@ -372,10 +391,20 @@ const proofOfDeliverySection: PdfSection<DmeOrderFormData, DmeOrderFormData> = {
   shouldRender: (data) => data.inHouse,
   render: (client, _data, styles) => {
     const { sectionLabel, regular, fieldText } = styles.textStyles;
-    keepBlockOnOnePage(client, styles, [sectionLabel, regular, fieldText, fieldText], 24 + 12);
+    keepBlockOnOnePage(
+      client,
+      styles,
+      [
+        { text: 'Proof of Delivery:', style: sectionLabel },
+        { text: PROOF_OF_DELIVERY_TEXT, style: regular },
+        { text: `Patient / Guardian Signature: ${SIGNATURE_BLANK}`, style: fieldText },
+        { text: `Date: ${SIGNATURE_BLANK}`, style: fieldText },
+      ],
+      24 + 12
+    );
     client.drawSeparatedLine(styles.lineStyles.separator);
-    client.drawText('Proof of Delivery:', styles.textStyles.sectionLabel);
-    client.drawText('I acknowledge that I have received the item(s) listed above.', styles.textStyles.regular);
+    client.drawText('Proof of Delivery:', sectionLabel);
+    client.drawText(PROOF_OF_DELIVERY_TEXT, regular);
     client.newLine(24);
     drawFieldLine(client, styles, { label: 'Patient / Guardian Signature:', value: SIGNATURE_BLANK });
     client.newLine(12);

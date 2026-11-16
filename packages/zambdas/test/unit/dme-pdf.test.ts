@@ -399,6 +399,19 @@ describe('DME order form PDF', () => {
     expect(doc.getPageCount()).toBe(1);
   });
 
+  it('keeps the provider signature together when a long provider name wraps', async () => {
+    const family = 'Featherstonehaugh Montgomery Wellington Smythe Ashworth Blackwood Carrington Davenport Ellsworth';
+    const drawn = await drawnText(
+      makeInput(makeDeviceRequest(inHouseFields, true), {
+        coverages: twoCoverages,
+        practitioners: [{ ...practitioners[0], name: [{ given: ['Jane'], family, suffix: ['MD'] }] }],
+      })
+    );
+    const pageOf = (text: string): PDFPage => find(drawn, text).page;
+
+    expect(pageOf('Provider Signature')).toBe(pageOf('Ordering Provider:'));
+  });
+
   it('moves the proof of delivery to the next page whole rather than splitting it', async () => {
     const drawn = await drawnText(makeInput(makeDeviceRequest(inHouseFields, true), { coverages: twoCoverages }));
     const pageOf = (text: string): PDFPage => find(drawn, text).page;
