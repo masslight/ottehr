@@ -70,6 +70,9 @@ export interface PlainDose {
   /** Shown under the result when a maximum stopped the dose: "Capped at the 500 mg maximum (703 mg by weight)"; or,
    * when even the smallest measurable amount is over it, that it is above the maximum. */
   capNote?: string;
+  /** Shown under the result too, not only behind the ⓘ, when the measured dose is more than a quarter over the one
+   * worked out (a small dose measured up to the smallest step, or to a whole tablet): the rounding note. */
+  overNote?: string;
 }
 
 /** "1,920 mg": mg as the warnings read them, to 0.01 mg with thousands separators. */
@@ -191,5 +194,6 @@ export const plainDose = ({
         ? `${note} (rounded down to stay at or under the max ${capText})`
         : note,
     ...(capNote ? { capNote } : {}),
+    ...(!capNote && note && delivered > aimed * 1.25 ? { overNote: note } : {}),
   };
 };

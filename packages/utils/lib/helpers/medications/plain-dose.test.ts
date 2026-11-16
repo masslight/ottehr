@@ -92,6 +92,19 @@ describe('plainDose', () => {
     });
   });
 
+  // Decision 133: a measured dose more than a quarter over the dose worked out is said under the result too.
+  it('says under the result when the measured dose is more than a quarter over the one worked out', () => {
+    const newborn = { weightKg: 3, mgPerMeasure: 100, measure: 'mL' as const, basis: 'mg/kg/dose' as const, rate: 1 };
+    expect(plainDose(newborn)?.overNote).toBe('0.5 mL = 50 mg, 47 mg (1567%) over 3 mg');
+    expect(plainDose({ ...newborn, step: 0.1 })?.overNote).toBe('0.1 mL = 10 mg, 7 mg (233%) over 3 mg');
+    const capsules = { mgPerMeasure: 250, measure: 'capsule' as const, basis: 'mg/kg/dose' as const, rate: 25 };
+    expect(plainDose({ ...capsules, weightKg: 7 })?.overNote).toBe('1 capsule = 250 mg, 75 mg (43%) over 175 mg');
+    // A quarter or less over, or under: only the ⓘ.
+    expect(plainDose({ ...capsules, weightKg: 8 })?.roundingNote).toBe('1 capsule = 250 mg, 50 mg (25%) over 200 mg');
+    expect(plainDose({ ...capsules, weightKg: 8 })).not.toHaveProperty('overNote');
+    expect(plainDose({ ...capsules, weightKg: 28.12 })).not.toHaveProperty('overNote');
+  });
+
   it('waits for the weight, strength, rate and doses a day it needs', () => {
     expect(
       plainDose({ mgPerMeasure: 80, measure: 'mL', basis: 'mg/kg/day', rate: 25, dosesPerDay: 2 })
