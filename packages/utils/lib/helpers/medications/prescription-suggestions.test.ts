@@ -72,6 +72,9 @@ describe('the RxNorm dose form table', () => {
     ['Topical Ointment', 'topical', 'on the skin', undefined, 'Gram'],
     ['Topical Spray', undefined, 'on the skin', undefined, undefined],
     ['Transdermal System', 'patch', 'on the skin', 'patch', 'Patch'],
+    ['Medicated Patch', undefined, 'on the skin', 'patch', undefined],
+    // Swished and spat, not swallowed: the provider picks its route.
+    ['Mouthwash', undefined, undefined, 'mL', undefined],
     ['Rectal Suppository', 'suppository', 'rectally', 'suppository', 'Suppository'],
     ['Injectable Solution', 'liquid', 'by injection', 'mL', 'Milliliter'],
     ['Auto-Injector', undefined, 'by injection', undefined, undefined],
@@ -150,6 +153,24 @@ describe('the RxNorm dose form table', () => {
     expect(prescriptionQuantityUnit(fosfomycin)).toBeUndefined();
     expect(prescriptionDirectionsText(fosfomycin, { ...once, dose: '3' })).toBe('Take 3 g by mouth once.');
     expect(prescriptionDoseUnit(each('Granules for Oral Solution', 'example', 500))).toBe('packet');
+  });
+
+  // Decision 212: a lidocaine patch and a chlorhexidine mouthwash have their dose blank.
+  it('counts a medicated patch in patches and a mouthwash in mL', () => {
+    const lidocaine = { doseForm: 'Medicated Patch', ingredients: [ingredient('lidocaine', 0.05, 'MG')] };
+    expect(
+      prescriptionDirectionsText(lidocaine, {
+        dose: '1',
+        route: 'on the skin',
+        frequency: 'once daily',
+        durationDays: '',
+      })
+    ).toBe('Apply 1 patch on the skin once daily.');
+    const chlorhexidine = liquid('Mouthwash', 'chlorhexidine', 1.2);
+    expect(prescriptionDoseUnit(chlorhexidine)).toBe('mL');
+    expect(
+      prescriptionDirectionsText(chlorhexidine, { dose: '15', route: '', frequency: 'twice daily', durationDays: '' })
+    ).toBe('Take 15 mL twice daily.');
   });
 
   it('implies nothing for a product without details', () => {

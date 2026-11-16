@@ -85,6 +85,9 @@ const DOSE_FORMS: Record<string, DoseFormFacts> = {
   'Topical Solution': { route: 'on the skin' },
   'Topical Spray': { route: 'on the skin' },
   'Transdermal System': { form: 'patch', route: 'on the skin', unit: 'patch' },
+  'Medicated Patch': { route: 'on the skin', unit: 'patch' },
+  // Swished and spat, not swallowed: no route.
+  Mouthwash: { unit: 'mL' },
   'Rectal Suppository': { form: 'suppository', route: 'rectally', unit: 'suppository' },
   'Vaginal Cream': { form: 'topical', route: 'vaginally' },
   'Vaginal Insert': { route: 'vaginally', unit: 'insert' },
