@@ -785,9 +785,10 @@ describe('A quick pick with dosing on drops or an inhaler, without a weight', ()
         quickPicks: [BY_WEIGHT, combo, bare, empty],
         sets: [set],
       });
-      // Decision 191 (D8-4): one by weight with no directions saved (as Admin saves it) gives its dosing.
+      // Decision 191 (D8-4): one by weight with no directions saved (as Admin saves it) gives its dosing. Decision 204
+      // (D9-2): so does one with directions saved, which are the dose of the child it was saved for.
       expect(rows.find((row) => row.setName)?.details).toEqual([
-        'Also adds: Amoxicillin-Clavulanate 400-57 mg/5ml Susp. Take 9 mL by mouth twice daily for 10 days.',
+        'Also adds: Amoxicillin-Clavulanate 400-57 mg/5ml Susp. 25 mg/kg per dose, twice daily, 10 days.',
         'Also adds: Amoxicillin-Clavulanate 400-57 mg/5ml Susp. 25 mg/kg per dose, twice daily, 10 days.',
         'Also adds: Amoxicillin-Clavulanate 400-57 mg/5ml Susp. No directions saved.',
       ]);

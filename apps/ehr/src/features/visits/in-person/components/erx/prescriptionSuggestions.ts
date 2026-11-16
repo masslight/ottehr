@@ -292,8 +292,9 @@ const suggestionRowFor = (
 };
 
 /** Another quick pick of a set as its row would read for its own product: "Ibuprofen 100 mg/5ml Susp. Take 5 mL by
- * mouth every 6 hours as needed for 5 days." For drops or puffs, which the calculator doesn't dose, or a dose it
- * doesn't work out (a combination product), its saved directions, else its dosing: never "Take  mL …". */
+ * mouth every 6 hours as needed for 5 days." For drops or puffs, which the calculator doesn't dose, its saved
+ * directions, else its dosing; for a dose it doesn't work out (a combination product), its dosing, else its saved
+ * directions: never "Take  mL …". */
 const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | undefined): string => {
   const { medicationDescription } = quickPick;
   const product = quickPickProduct(quickPick);
@@ -301,10 +302,10 @@ const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | u
   const noDose = row.some(
     (s) => isSentenceBlank(s) && s.title === 'Dose' && (s.initial ?? s.placeholder) === undefined
   );
-  // One saved by weight with no directions (as Admin saves it) gives its dosing.
-  const saved =
-    quickPick.patientInstructions ||
-    (quickPick.dosing ? quickPickDosingSummary(quickPick.dosing) : 'No directions saved.');
+  // A product the calculator doses gives its dosing before its saved directions, one patient's dose (decision 204);
+  // drops and puffs their directions, else (saved by weight in Admin) their dosing.
+  const dosing = quickPick.dosing && quickPickDosingSummary(quickPick.dosing);
+  const saved = (row.length ? dosing : undefined) || quickPick.patientInstructions || dosing || 'No directions saved.';
   const segments = row.length && !noDose ? row : [saved];
   const sentence = assembleSentence(
     segments.map((segment) =>
