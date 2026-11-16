@@ -209,18 +209,22 @@ export const isPrescriptionActionAvailable = (
 ): boolean => !prescriptionActionBlocker(action, prescription);
 
 /** Why an action can't be taken on every one of the prescriptions, naming the statuses and missing fields. `name` is
- * what the text calls the action, where a screen offers it under another name. */
+ * what the text calls the action, where a screen offers it under another name; `saidElsewhere` the missing fields
+ * the screen names on its own. */
 export const prescriptionActionUnavailableText = (
   action: PrescriptionAction,
   prescriptions: PrescribedMedicationDTO[],
-  name = PRESCRIPTION_ACTION_NAMES[action]
+  name = PRESCRIPTION_ACTION_NAMES[action],
+  saidElsewhere: string[] = []
 ): string | undefined => {
   const statuses = new Set<string>();
   const missing: string[] = [];
   for (const prescription of prescriptions) {
     const blocker = prescriptionActionBlocker(action, prescription);
     if (blocker && 'status' in blocker) statuses.add(blocker.status);
-    if (blocker && 'missing' in blocker) missing.push(`${prescription.name}: missing ${blocker.missing.join(', ')}`);
+    const fields =
+      blocker && 'missing' in blocker ? blocker.missing.filter((field) => !saidElsewhere.includes(field)) : [];
+    if (fields.length) missing.push(`${prescription.name}: missing ${fields.join(', ')}`);
   }
   const parts = [
     statuses.size > 0 && `${name} isn't available for prescriptions with status ${[...statuses].join(', ')}.`,

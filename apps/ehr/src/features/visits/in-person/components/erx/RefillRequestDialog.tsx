@@ -301,8 +301,14 @@ export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onCl
 
   // A patient's change replaces the original as Send to another pharmacy does, so what blocks that blocks it.
   const patientChange = !request && data?.kind === 'change' && prescription && !originalCancelled;
+  // The missing visit has its own line below, unless the not-enrolled line takes its place.
   const changeBlocked = patientChange
-    ? prescriptionActionUnavailableText('sendToAnotherPharmacy', [prescription], 'A change')
+    ? prescriptionActionUnavailableText(
+        'sendToAnotherPharmacy',
+        [prescription],
+        'A change',
+        notEnrolled ? [] : ['visit']
+      )
     : undefined;
   // As there, a denied cancel can't be asked again, so the original stays live at its pharmacy.
   const changeCancelDenied = patientChange && isPrescriptionCancelDenied(prescription);

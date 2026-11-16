@@ -497,6 +497,24 @@ describe('Refill request dialog: the order form outside a visit', () => {
     expect(screen.queryByRole('button', { name: 'Send prescription' })).not.toBeInTheDocument();
   });
 
+  // Audit r5 flag 6: the missing visit has its own line, so "A change isn't available…" doesn't repeat it.
+  it('says once that a patient’s change has no visit to send from', async () => {
+    await open({ ...PATIENT_CHANGE, prescription: { ...PATIENT_CHANGE.prescription, encounterId: undefined } });
+    expect(screen.getByText('This prescription has no visit to send from.')).toBeInTheDocument();
+    expect(screen.queryByText(/missing visit/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send prescription' })).not.toBeInTheDocument();
+  });
+
+  it('still names another field a patient’s change is missing, beside the missing visit', async () => {
+    await open({
+      ...PATIENT_CHANGE,
+      prescription: { ...PATIENT_CHANGE.prescription, encounterId: undefined, instructions: undefined },
+    });
+    expect(
+      screen.getByText("A change isn't available for Lisinopril 10 mg tablet: missing patient instructions.")
+    ).toBeInTheDocument();
+  });
+
   // Review item 110: as Send to another pharmacy does after a denied cancel, the new one goes with no cancel, and the
   // dialog warns first that the original stays live at its pharmacy.
   it('warns before a patient’s change that an original whose cancel was denied stays live, and sends with no cancel', async () => {
