@@ -116,6 +116,21 @@ describe('the RxNorm dose form table', () => {
     }
   });
 
+  // Decision 218 (D10-2): a packet under 1000 mg is dosed in packets, so 3 is never 3 g of a 100 mg packet.
+  it('doses a powder packet under 1000 mg in packets', () => {
+    const sapropterin = each('Powder for Oral Solution', 'sapropterin dihydrochloride', 100);
+    expect(prescriptionDoseUnit(sapropterin)).toBe('packet');
+    expect(prescriptionQuantityUnit(sapropterin)).toBeUndefined();
+    const once = { route: 'by mouth' as const, frequency: 'once daily', durationDays: '30' };
+    expect(prescriptionDirectionsText(sapropterin, { ...once, dose: '3' })).toBe(
+      'Take 3 packets by mouth once daily for 30 days.'
+    );
+    expect(prescriptionDirectionsText(sapropterin, { ...once, dose: '1' })).toBe(
+      'Take 1 packet by mouth once daily for 30 days.'
+    );
+    expect(prescriptionDoseUnit(each('Powder for Oral Suspension', 'azithromycin', 1000))).toBe('g');
+  });
+
   it('implies nothing for a product without details', () => {
     expect(prescriptionDoseForm({})).toBeUndefined();
     expect(prescriptionRoute(undefined)).toBeUndefined();

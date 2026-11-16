@@ -90,7 +90,8 @@ const DOSE_FORMS: Record<string, DoseFormFacts> = {
 /** The facts of the product's dose form, if it has one the table lists. Object.hasOwn, as utils' lib setting (no
  * es2022) spells it: "constructor" is no dose form. A liquid whose strength isn't per mL (a powder dosed per packet or
  * capful, "17000 MG Powder for Oral Solution") keeps only its route: it isn't counted or dispensed in mL. Such a powder
- * of one ingredient in mg is dosed in g ("Take 17 g by mouth"), never measured or dispensed by the line (decision 203). */
+ * of one ingredient in mg is dosed in g ("Take 17 g by mouth") from 1000 mg a packet, in packets below ("Take 3 packets"
+ * of sapropterin 100 mg, never 3 g), never measured or dispensed by the line (decisions 203, 218). */
 const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFormFacts | undefined => {
   const doseForm = product?.doseForm;
   const facts =
@@ -100,9 +101,9 @@ const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFor
   const ingredients = product?.ingredients ?? [];
   if (!(facts?.unit === 'mL' && ingredients.length && ingredients.every((item) => item.perUnit !== 'ML'))) return facts;
   const [only] = ingredients;
-  const grams =
+  const packet =
     ingredients.length === 1 && only.unit === 'MG' && only.perUnit === 'EACH' && doseForm?.startsWith('Powder');
-  return grams ? { route: facts.route, unit: 'g' } : { route: facts.route };
+  return packet ? { route: facts.route, unit: only.amount >= 1000 ? 'g' : 'packet' } : { route: facts.route };
 };
 
 /** The line's dose form for a product ("Oral Capsule" → capsule), if its RxNorm dose form says. */
