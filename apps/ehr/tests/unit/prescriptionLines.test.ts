@@ -697,6 +697,36 @@ describe('withProduct', () => {
     expect(again.dose).toBe('3');
   });
 
+  // Decision 258 (D14-2): a suppository, lozenge or insert is counted like a packet, so a count of another mg each is
+  // another dose. A patch's count is the dose, and a dose in g is a weight: both kept.
+  it('empties a counted dose for suppositories, lozenges or inserts of another mg', () => {
+    const each = (doseForm: string, name: string, amount: number, unit = 'MG'): MedicationStrength => ({
+      strength: `${amount} ${unit.toLowerCase()} ${doseForm}`,
+      ndcs: [String(amount).padStart(11, '0')],
+      doseForm,
+      ingredients: [{ name, amount, unit, per: 1, perUnit: 'EACH' }],
+    });
+    const kept = (name: string, from: MedicationStrength, to: MedicationStrength, dose: string): string => {
+      const drug = { name, strengths: [from, to] };
+      const line = withDirections(withProduct(emptyPrescriptionLine(), drug, from), { dose, frequency: 'once daily' });
+      return withProduct(line, drug, to).dose;
+    };
+    const acetaminophen = (amount: number): MedicationStrength => each('Rectal Suppository', 'acetaminophen', amount);
+    expect(kept('Acetaminophen (Rectal)', acetaminophen(120), acetaminophen(325), '2')).toBe('');
+    expect(kept('Acetaminophen (Rectal)', acetaminophen(120), acetaminophen(120), '2')).toBe('2');
+    const clotrimazole = (amount: number): MedicationStrength => each('Oral Lozenge', 'clotrimazole', amount);
+    expect(kept('Clotrimazole', clotrimazole(10), clotrimazole(20), '1')).toBe('');
+    const miconazole = (amount: number): MedicationStrength => each('Vaginal Insert', 'miconazole nitrate', amount);
+    expect(kept('Miconazole', miconazole(200), miconazole(100), '1')).toBe('');
+    const lidocaine = (amount: number): MedicationStrength => ({
+      ...each('Medicated Patch', 'lidocaine', amount),
+      ingredients: [{ name: 'lidocaine', amount, unit: 'MG', per: 1, perUnit: 'G' }],
+    });
+    expect(kept('Lidocaine (Topical)', lidocaine(40), lidocaine(50), '2')).toBe('2');
+    const lactulose = (amount: number): MedicationStrength => each('Powder for Oral Solution', 'lactulose', amount);
+    expect(kept('Lactulose', lactulose(10000), lactulose(20000), '10')).toBe('10');
+  });
+
   it('drops the picks, steps, instructions and directions when another drug is picked', () => {
     const liquid = withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]), {
       dose: '5',

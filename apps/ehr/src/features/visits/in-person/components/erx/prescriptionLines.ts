@@ -545,7 +545,8 @@ export const ingredientText = (
  * do. Blank when either strength can't be read, so a dose is never carried over in the wrong measure. A form that
  * isn't measured in mg (puffs, drops) keeps its dose as it was: drops are a liquid, but counted in drops. Blank too for
  * a product with no dose unit to count it in: drops become an ointment (decision 222), and for a kept dose in another
- * unit or in packets of another mg: 3 packets of 100 mg aren't 3 of 500 mg (decision 243). */
+ * unit or in packets of another mg: 3 packets of 100 mg aren't 3 of 500 mg (decision 243). Suppositories, lozenges
+ * and inserts are counted the same way: 2 of 120 mg aren't 2 of 325 mg (decision 258). */
 const remeasured = (
   dose: string,
   from: MedicationSearchResult,
@@ -557,7 +558,9 @@ const remeasured = (
   if (unit === undefined) return { dose: '' };
   const measure = measureOf(to.medication);
   if (measure === undefined) {
-    const samePacket = unit !== 'packet' || from.ingredients?.[0]?.amount === to.medication?.ingredients?.[0]?.amount;
+    const samePacket =
+      !['packet', 'suppository', 'lozenge', 'insert'].includes(unit) ||
+      from.ingredients?.[0]?.amount === to.medication?.ingredients?.[0]?.amount;
     return unit === prescriptionDoseUnit(from) && samePacket ? { dose } : { dose: '' };
   }
   const fromMg = mgPerMeasure(from);
