@@ -1153,6 +1153,25 @@ describe('change request: a suggestion of another strength with the same directi
     );
   });
 
+  // Decision 211: the ingredient check reads every ingredient the pharmacy names, not just the first.
+  it('warns of an opioid strength change whichever order the pharmacy names the ingredients in', () => {
+    const sig = 'Take 1 tablet by mouth every 6 hours as needed for pain';
+    const apap: PrescribedMedicationDTO = {
+      resourceId: 'rx-16',
+      name: 'Hydrocodone-APAP 5-325 mg Tab',
+      instructions: sig,
+      order: { ndc: '00000000001', medicationDescription: 'Hydrocodone-APAP 5-325 mg Tab' },
+    };
+    for (const description of [
+      'acetaminophen 325 MG / hydrocodone bitartrate 10 MG Oral Tablet',
+      'hydrocodone bitartrate 10 MG / acetaminophen 325 MG Oral Tablet',
+    ]) {
+      expect(strengthChangeWarning({ description, ndc: '00000000002', sig }, apap)).toBe(
+        'Different strength, same amount: 5-325 mg → 10-325 mg. Check the dose.'
+      );
+    }
+  });
+
   it('says nothing when the amount differs, or the pharmacy sent no directions', () => {
     expect(
       strengthChangeWarning(

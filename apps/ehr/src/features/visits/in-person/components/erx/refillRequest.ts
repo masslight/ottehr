@@ -232,11 +232,7 @@ export const strengthChangeWarning = (
     return undefined;
   }
   const ingredients = ingredientWords(originalName ?? '', from.at);
-  if (
-    !ingredientWords(request.description ?? '', to.at).some((word) =>
-      ingredients.some((other) => sameIngredient(word, other))
-    )
-  ) {
+  if (!to.names.flat().some((word) => ingredients.some((other) => sameIngredient(word, other)))) {
     return undefined;
   }
   return `Different strength, same amount: ${from.text} → ${strengthAs(to, from)}. Check the dose.`;
