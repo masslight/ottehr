@@ -126,14 +126,14 @@ describe('prescriptionLineErrors', () => {
     ]);
   });
 
-  // The network's limits (a name up to 105 characters, an 11-digit NDC): staff can't edit either, so say what to do.
-  it('says what to do about a product name or NDC the pharmacy network can’t take', () => {
+  // Surescripts' limits (a name up to 105 characters, an 11-digit NDC): staff can't edit either, so say what to do.
+  it('says what to do about a product name or NDC Surescripts can’t take', () => {
     const product = complete().medication!;
     expect(prescriptionLineErrors({ ...complete(), medication: { ...product, description: 'A'.repeat(106) } })).toEqual(
-      ["This product's name is too long for the pharmacy network. Pick another strength or write it as a compound."]
+      ["This product's name is too long for Surescripts. Pick another strength or write it as a compound."]
     );
     expect(prescriptionLineErrors({ ...complete(), medication: { ...product, ndc: '1234' } })).toEqual([
-      'This product has no 11-digit NDC, which the pharmacy network needs. Pick the medication again or write it as a compound.',
+      'This product has no 11-digit NDC, which Surescripts needs. Pick the medication again or write it as a compound.',
     ]);
   });
 
