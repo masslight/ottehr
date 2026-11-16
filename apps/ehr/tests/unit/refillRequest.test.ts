@@ -654,6 +654,23 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBe('Different strength, same amount: 10 mg → 20 mg. Check the dose.');
   });
 
+  // Review D14-1 (decision 257): the same NDC is the same product, whatever strength its description gives. Sodium
+  // fluoride is sold by its fluoride ion: 0.55 mg sodium fluoride is "0.25 MG" fluoride.
+  it('never warns when the request has the original NDC', () => {
+    const fluoride: PrescribedMedicationDTO = {
+      resourceId: 'rx-14',
+      name: 'Sodium fluoride (Chewable) 0.55 mg Tab',
+      instructions: 'Take 1 tablet by mouth once daily',
+      order: { ndc: '58657016012', medicationDescription: 'Sodium fluoride (Chewable) 0.55 mg Tab' },
+    };
+    const request = { description: 'SODIUM FLUORIDE 0.25 MG CHEW TAB', sig: 'CHEW 1 TABLET BY MOUTH DAILY' };
+    expect(strengthChangeWarning({ ...request, ndc: '58657016012' }, fluoride)).toBeUndefined();
+    // Another maker's NDC still warns: decision 257 adds no salt table.
+    expect(strengthChangeWarning({ ...request, ndc: '60258015501' }, fluoride)).toBe(
+      'Different strength, same amount: 0.55 mg → 0.25 mg. Check the dose.'
+    );
+  });
+
   // Review D4-1: pharmacy directions in upper case read the same amount, a half included.
   it('warns on a half tablet in upper case', () => {
     const prednisone: PrescribedMedicationDTO = {

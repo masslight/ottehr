@@ -215,11 +215,13 @@ const sigAmount = (sig: string | undefined): string | undefined => {
 /** The warning when the pharmacy suggests another strength of the same ingredient with directions that give the same
  * amount: the same mL of another concentration is another dose. None for the same strength from another maker or
  * bottle, and none for another drug, whose mg can't be weighed against the original's (a brand name against its
- * generic reads as another drug). A warning only. */
+ * generic reads as another drug). None for the original's NDC either: that's the same product, whatever strength
+ * its description gives ("0.25 MG" fluoride for 0.55 mg sodium fluoride, decision 257). A warning only. */
 export const strengthChangeWarning = (
   request: RequestedMedication,
   prescription: PrescribedMedicationDTO
 ): string | undefined => {
+  if (request.ndc && request.ndc === prescription.order?.ndc) return undefined;
   const originalName = prescription.order?.medicationDescription ?? prescription.name;
   const from = strengthOf(originalName);
   const to = strengthOf(request.description);
