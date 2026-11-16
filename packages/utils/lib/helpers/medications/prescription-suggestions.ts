@@ -190,12 +190,14 @@ export const prescriptionVerb = (route: PrescriptionRoute | '' | undefined): str
 /** Routes the verb already says: "Inhale 2 puffs inhaled" would repeat itself. */
 export const ROUTES_IN_VERB: readonly PrescriptionRoute[] = ['inhaled', 'by injection'];
 
-/** "tablet" → "tablets" unless the amount is exactly 1; "mL" and "g" never change. */
+/** "tablet" → "tablets" ("patch" → "patches") unless the amount is exactly 1; "mL" and "g" never change. */
 export const doseUnitLabel = (unit: string, amount: number | undefined): string =>
   unit === 'mL' || unit === 'g' || amount === 1
     ? unit
     : /[^aeiou]y$/.test(unit)
     ? `${unit.slice(0, -1)}ies`
+    : /(?:ch|sh|s|x)$/.test(unit)
+    ? `${unit}es`
     : `${unit}s`;
 
 /** The tablet fractions a scored tablet is split to, as the directions write them: on screen, and in the text sent to

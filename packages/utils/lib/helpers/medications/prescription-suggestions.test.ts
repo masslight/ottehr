@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MedicationIngredient } from '../../types/api/erx-search.types';
 import { measureOf } from './plain-dose';
 import {
+  doseUnitLabel,
   isCombinationProduct,
   PRESCRIPTION_FREQUENCIES,
   PrescriptionDirections,
@@ -221,6 +222,36 @@ describe('the RxNorm dose form table', () => {
     expect(
       prescriptionDirectionsText(chlorhexidine, { dose: '15', route: '', frequency: 'twice daily', durationDays: '' })
     ).toBe('Take 15 mL twice daily.');
+  });
+
+  // Decision 242 (D12-3): "patch" is "patches", as the Lidoderm label's "up to 3 patches".
+  it('writes each dose unit in the plural', () => {
+    const lidocaine = { doseForm: 'Medicated Patch', ingredients: [ingredient('lidocaine', 0.05, 'MG')] };
+    expect(
+      prescriptionDirectionsText(lidocaine, {
+        dose: '2',
+        route: 'on the skin',
+        frequency: 'once daily',
+        durationDays: '',
+      })
+    ).toBe('Apply 2 patches on the skin once daily.');
+    expect(
+      ['patch', 'lozenge', 'insert', 'packet', 'suppository', 'tablet', 'capsule', 'puff', 'spray', 'drop'].map(
+        (unit) => doseUnitLabel(unit, 2)
+      )
+    ).toEqual([
+      'patches',
+      'lozenges',
+      'inserts',
+      'packets',
+      'suppositories',
+      'tablets',
+      'capsules',
+      'puffs',
+      'sprays',
+      'drops',
+    ]);
+    expect(doseUnitLabel('patch', 1)).toBe('patch');
   });
 
   it('implies nothing for a product without details', () => {
