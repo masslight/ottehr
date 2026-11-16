@@ -241,11 +241,7 @@ export interface ClaimBalances {
   allowed: number | undefined;
   // every remit's paid, summed: reversals net out with their negative amounts
   insurancePaid: number;
-  // the latest remit's PR; undefined when that remit carries none
-  reportedPatientResp: number | undefined;
-  // whether any remit so far reported PR (even 0), i.e. a payer has said what the patient owes
-  patientRespReported: boolean;
-  // what the patient owes per X12 (see applyRemit); null while no remit has reported PR
+  // what the patient owes per the latest non-denial remit (see applyRemit); null until there is one
   patientResp: number | null;
 }
 
@@ -253,29 +249,32 @@ export function initialClaimBalances(): ClaimBalances {
   return {
     allowed: undefined,
     insurancePaid: 0,
-    reportedPatientResp: undefined,
-    patientRespReported: false,
     patientResp: null,
   };
+}
+
+// A remit that paid nothing and reported no PR is a denial, e.g. CO-B16 "doesn't qualify as a
+// new-patient visit": the claim awaits a correction, appeal or write-off, and the denial says nothing
+// about what the patient owes. A payment with no PR is not a denial: the payer assigned the patient
+// nothing, and its CO/OA/PI adjustments are settled.
+function isDenial(remit: RemitAmounts): boolean {
+  return remit.paid === 0 && remit.patientResp === undefined;
 }
 
 // Remits must be applied oldest first (sortClaimResponsesByRecency).
 //
 // Patient responsibility as X12 defines it: CLP05 is the sum of the PR adjustments (RFI 2548), and
-// only PR amounts may be billed to the patient. It's the latest remit's: after COB the last payer's
-// PR already accounts for what prior payers paid, and a secondary that paid the prior PR reports
-// none, so summing PR across payers would double-count. Once any remit has reported PR, no PR on
-// the latest remit means the payer assigned the patient nothing. Ceilinged to 0: a reversal reports
-// what it took back as negative PR, and the patient owes nothing rather than less than nothing —
-// otherwise a payment they made counts twice as credit.
+// only PR amounts may be billed to the patient. It's the latest non-denial remit's: after COB the
+// last payer's PR already accounts for what prior payers paid, and a secondary that paid the prior
+// PR reports none, so summing PR across payers would double-count. No PR on a non-denial remit means
+// the payer assigned the patient nothing; a denial leaves it as it was. Ceilinged to 0: a reversal
+// reports what it took back as negative PR, and the patient owes nothing rather than less than
+// nothing — otherwise a payment they made counts twice as credit.
 export function applyRemit(balances: ClaimBalances, remit: RemitAmounts): ClaimBalances {
-  const patientRespReported = balances.patientRespReported || remit.patientResp !== undefined;
   return {
     allowed: remit.allowed ?? balances.allowed,
     insurancePaid: balances.insurancePaid + remit.paid,
-    reportedPatientResp: remit.patientResp,
-    patientRespReported,
-    patientResp: patientRespReported ? Math.max(remit.patientResp ?? 0, 0) : null,
+    patientResp: isDenial(remit) ? balances.patientResp : Math.max(remit.patientResp ?? 0, 0),
   };
 }
 
@@ -302,10 +301,9 @@ export function claimBalanceSteps(claimResponses: ClaimResponse[], billed: numbe
 // The claim's payment summary: the balances after its last remit, plus what the patient paid and
 // the write-offs recorded on the claim.
 //
-// Until a remit reports PR, nobody has said what the patient owes: the claim's balance is whatever
-// is still open (billed less what was paid and written off on the claim), provisional, and not yet
-// the patient's. Payer adjustments don't close it: CO-B16 "doesn't qualify as a new-patient visit"
-// is a denial awaiting a corrected claim, not a settled amount.
+// While every remit is a denial (see isDenial), nobody has said what the patient owes: the claim's
+// balance is whatever is still open (billed less what was paid and written off on the claim),
+// provisional, and not yet the patient's. A denial's adjustments don't close it.
 export function summarizeClaimPayments(
   claimResponses: ClaimResponse[],
   billed: number,

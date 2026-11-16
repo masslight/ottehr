@@ -407,9 +407,9 @@ describe('computeBillingStatementAmounts', () => {
     expect(lines.map((line) => line.patientOwesCents)).toEqual([10_400, 33_900]);
   });
 
-  it('adds the lines up to the balance when no remit reported PR and a reversal left insurance paid negative', () => {
+  it('adds the lines up to the balance when a reversal leaves insurance paid negative', () => {
     // the payer pays 50 and later takes back 70 under a procedure the claim never carried; neither
-    // remit reports PR, so the claim in patient AR owes 443 billed - (-20) insurance paid
+    // remit reports PR, so the payer assigned the patient nothing
     const payment = claimResponse({
       item: [
         eraItem({
@@ -438,7 +438,64 @@ describe('computeBillingStatementAmounts', () => {
       writeOffsTotal: 0,
     });
 
-    expect(totals.balanceDueCents).toBe(46_300);
+    expect(totals.balanceDueCents).toBe(0);
+    expect(sumOf(lines, 'patientOwesCents')).toBe(totals.balanceDueCents);
+  });
+
+  it('does not bill the patient for a contractual write-off when the payment reports no PR', () => {
+    // 104 = 84 paid + 20 CO-45, 339 = 300 paid + 39 CO-45, no PR
+    const payment = claimResponse({
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 84), casAdjustment('CO', 20, '45')],
+        }),
+        eraItem({
+          sequence: 2,
+          procedureCode: '99203',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 300), casAdjustment('CO', 39, '45')],
+        }),
+      ],
+    });
+
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [payment],
+      patientPaid: 0,
+      writeOffsTotal: 0,
+    });
+
+    expect(totals.balanceDueCents).toBe(0);
+    expect(sumOf(lines, 'patientOwesCents')).toBe(0);
+  });
+
+  it('bills what is still open once a denied claim is moved to patient AR', () => {
+    // CO-B16 on the whole claim: nothing paid, no PR, so nobody has said what the patient owes until
+    // a biller moves the claim to the patient
+    const denial = claimResponse({
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 104, 'B16')],
+        }),
+        eraItem({
+          sequence: 2,
+          procedureCode: '99203',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 339, 'B16')],
+        }),
+      ],
+    });
+
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [denial],
+      patientPaid: 0,
+      writeOffsTotal: 0,
+    });
+
+    expect(totals.balanceDueCents).toBe(44_300);
     expect(sumOf(lines, 'patientOwesCents')).toBe(totals.balanceDueCents);
   });
 

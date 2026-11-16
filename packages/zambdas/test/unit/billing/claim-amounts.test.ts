@@ -663,13 +663,39 @@ describe('summarizeClaimPayments', () => {
     });
   });
 
-  it('subtracts insurance payments from the provisional balance before any PR is reported', () => {
+  it('settles a payment without PR: the patient owes nothing and its CO-45 is not left open', () => {
+    // billed 100, paid 80, CO-45 20, no allowed amount and no PR
     const cr = claimResponse('2026-01-01', {
       totalPaid: 80,
       itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 80), casAdjustment('CO', 20, '45')]],
     });
-    // the CO-45 isn't taken as settled while nobody has said what the patient owes
-    expect(summarizeClaimPayments([cr], 100, 5, 10)).toMatchObject({ patientResp: null, balance: 5 });
+    expect(summarizeClaimPayments([cr], 100)).toMatchObject({ patientResp: 0, balance: 0 });
+    expect(summarizeClaimPayments([cr], 100, 5, 10)).toMatchObject({ patientResp: 0, balance: -15 });
+  });
+
+  it('subtracts insurance payments from the provisional balance while every remit is a denial', () => {
+    // both remits paid nothing and reported no PR
+    const primaryDenial = claimResponse('2026-01-01', {
+      totalPaid: 0,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 100, 'B16')]],
+    });
+    const secondaryDenial = claimResponse('2026-02-01', {
+      totalPaid: 0,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('OA', 100, '23')]],
+    });
+    expect(summarizeClaimPayments([primaryDenial, secondaryDenial], 100, 5, 10)).toMatchObject({
+      patientResp: null,
+      balance: 85,
+    });
+  });
+
+  it('keeps patient responsibility from the latest non-denial remit when a denial follows it', () => {
+    const primary = claimMdClaimResponse('2026-01-01');
+    const secondaryDenial = claimResponse('2026-02-01', {
+      totalPaid: 0,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 20, '16')]],
+    });
+    expect(summarizeClaimPayments([primary, secondaryDenial], 100)).toMatchObject({ patientResp: 20, balance: 20 });
   });
 
   it('subtracts patientPaid from billed for an un-adjudicated claim', () => {
@@ -787,9 +813,8 @@ describe('applyRemit', () => {
     expect(applyRemit(initialClaimBalances(), remit)).toEqual({
       allowed: 100,
       insurancePaid: 98,
-      reportedPatientResp: undefined,
-      patientRespReported: false,
-      patientResp: null,
+      // a payment without PR: the payer assigned the patient nothing
+      patientResp: 0,
     });
   });
 });
