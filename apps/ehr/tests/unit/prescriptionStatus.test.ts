@@ -19,7 +19,6 @@ const event = (code: string, text?: string, recorded = '2026-10-27T17:00:00.000Z
   text,
   recorded,
 });
-const faxed = event('faxed', 'Surescripts faxed the prescription: Receiver unable to process');
 const cancelRequested = event('cancelrequested', 'Cancellation requested with reason: Sent in error');
 const cancelledWith = (cancelResponse: ErxEventDTO['cancelResponse']): ErxEventDTO => ({
   ...event('cancelled', 'Cancellation confirmed by pharmacy'),
@@ -103,12 +102,6 @@ describe('prescription status chip and latest event', () => {
         detail: 'Cancel denied: Reason code description; Picked up yesterday; Already dispensed',
       },
     ],
-    ['sent by fax', rx('draft', faxed), { chip: 'Sent by fax' }],
-    [
-      'sent by fax, then dispensed',
-      rx('active', faxed, accepted, event('dispensed', undefined, DISPENSED_AT)),
-      { chip: 'Sent by fax', detail: `Dispensed ${DateTime.fromISO(DISPENSED_AT).toFormat('MM/dd')}` },
-    ],
     // Never the FHIR code as the chip: "Other", with the code on hover.
     ['a status the eRx service does not set', rx('completed'), { chip: 'Other', detail: 'Status code: completed' }],
     [
@@ -147,8 +140,7 @@ describe('the warning that a denied-cancel prescription stays live', () => {
 });
 
 describe('the history’s words for an event', () => {
-  it('describes a fax after an electronic failure, and keeps the service’s text otherwise', () => {
-    expect(erxEventText(faxed)).toBe('Sent by fax after an electronic failure');
+  it('keeps the service’s text', () => {
     expect(erxEventText(cancelRequested)).toBe('Cancellation requested with reason: Sent in error');
   });
 
@@ -165,15 +157,10 @@ describe('the history’s words for an event', () => {
   });
 });
 
-describe('a faxed prescription’s actions', () => {
-  it('name its status while it waits, and Cancel denied once the pharmacy refused a cancel', () => {
-    expect(prescriptionActionUnavailableText('cancel', [rx('draft', faxed)])).toBe(
-      "Cancel prescription isn't available for prescriptions with status Sent by fax."
-    );
+describe('a denied-cancel prescription’s actions', () => {
+  it('name it Cancel denied, since it can’t be cancelled again', () => {
     expect(
-      prescriptionActionUnavailableText('cancel', [
-        rx('active', faxed, accepted, cancelRequested, event('canceldenied')),
-      ])
+      prescriptionActionUnavailableText('cancel', [rx('active', accepted, cancelRequested, event('canceldenied'))])
     ).toBe("Cancel prescription isn't available for prescriptions with status Cancel denied.");
   });
 });

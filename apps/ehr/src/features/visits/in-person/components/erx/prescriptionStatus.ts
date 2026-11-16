@@ -9,14 +9,7 @@ import {
 } from 'utils/lib/types/api/order-prescription.types';
 import { compoundOrderIngredients, isQuantityUnit } from './prescriptionLines';
 
-export type PrescriptionChip =
-  | 'Sending'
-  | 'Sent'
-  | 'Sent by fax'
-  | 'Error'
-  | 'Cancel requested'
-  | 'Cancelled'
-  | 'Other';
+export type PrescriptionChip = 'Sending' | 'Sent' | 'Error' | 'Cancel requested' | 'Cancelled' | 'Other';
 
 const CANCEL_EVENT_CODES = ['cancelrequested', 'cancelled', 'canceldenied'];
 
@@ -32,10 +25,6 @@ const FILL_EVENT_TEXT: Record<string, (event: ErxEventDTO) => string> = {
   renewalrequested: () => 'Refill requested by the pharmacy',
   changerequested: () => 'Change requested by the pharmacy',
 };
-
-// Surescripts couldn't deliver it electronically and faxed it instead.
-const sentChip = (prescription: PrescribedMedicationDTO): PrescriptionChip =>
-  prescription.events?.some((event) => event.code === 'faxed') ? 'Sent by fax' : 'Sent';
 
 const latestEvent = (
   prescription: PrescribedMedicationDTO,
@@ -61,7 +50,6 @@ const cancelReplyDetails = (event: ErxEventDTO): string[] => {
 
 /** The history's words for an event, where the service's own text isn't the one shown. */
 export const erxEventText = (event: ErxEventDTO): string | undefined => {
-  if (event.code === 'faxed') return 'Sent by fax after an electronic failure';
   const details = cancelReplyDetails(event);
   if (event.code === 'canceldenied' && details.length) return `Cancellation denied by pharmacy: ${details.join('; ')}`;
   if (event.code === 'cancelled') return [event.text, ...details].filter(Boolean).join(' · ');
@@ -75,9 +63,7 @@ export const prescriptionStatusView = (
 ): { chip?: PrescriptionChip; detail?: string } => {
   switch (prescription.status) {
     case 'draft':
-      return sentChip(prescription) === 'Sent by fax'
-        ? { chip: 'Sent by fax' }
-        : { chip: 'Sending', detail: 'Waiting for Surescripts' };
+      return { chip: 'Sending', detail: 'Waiting for Surescripts' };
     case 'stopped':
       return { chip: 'Error', detail: latestEvent(prescription, (event) => event.code.startsWith('error'))?.text };
     case 'cancelled': {
@@ -97,12 +83,12 @@ export const prescriptionStatusView = (
       if (cancelEvent?.code === 'canceldenied') {
         const details = cancelReplyDetails(cancelEvent);
         return {
-          chip: sentChip(prescription),
+          chip: 'Sent',
           detail: details.length ? `Cancel denied: ${details.join('; ')}` : 'Cancel denied',
         };
       }
       const fillEvent = latestEvent(prescription, (event) => event.code in FILL_EVENT_TEXT);
-      return { chip: sentChip(prescription), detail: fillEvent && FILL_EVENT_TEXT[fillEvent.code](fillEvent) };
+      return { chip: 'Sent', detail: fillEvent && FILL_EVENT_TEXT[fillEvent.code](fillEvent) };
     }
     default:
       return prescription.status ? { chip: 'Other', detail: `Status code: ${prescription.status}` } : {};
@@ -193,7 +179,7 @@ export const prescriptionActionBlocker = (
   if (!prescriptionActionAppliesByStatus(action, prescription)) {
     const { chip } = prescriptionStatusView(prescription);
     // A sent prescription whose cancellation was refused can't be cancelled again.
-    const cancelDenied = prescription.status === 'active' && (chip === 'Sent' || chip === 'Sent by fax');
+    const cancelDenied = prescription.status === 'active' && chip === 'Sent';
     return { status: cancelDenied ? 'Cancel denied' : chip ?? prescription.status ?? 'unknown' };
   }
   if (action === 'sendToAnotherPharmacy') {
