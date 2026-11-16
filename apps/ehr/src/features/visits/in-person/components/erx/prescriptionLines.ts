@@ -98,6 +98,8 @@ export interface PrescriptionLine extends PrescriptionDirections {
   /** The maximum the calculator or a quick pick brought, for the warnings only. It outlives a dose typed by hand (the
    * dosing doesn't), is never saved with a quick pick, and goes with the drug or strength. */
   maximum?: LineMaximum;
+  /** The quick pick a reordered line's dosing came from, by name, when it has no dose note to say (decision 227). */
+  dosingQuickPick?: string;
   /** The ingredient of a combination product the calculator dosed by, for its re-dosing and the maximum warnings.
    * Never saved with a quick pick; goes with the dosing's maximum, the drug or strength. */
   doseBy?: string;
@@ -379,10 +381,11 @@ const NOTHING_GENERATED: GeneratedFields = { patientInstructions: '', quantityVa
 export const emptyPrescriptionStep = (): PrescriptionStep => ({ dose: '', frequency: '', durationDays: '' });
 
 /** What the calculator or a quick pick's dosing left on the line, cleared together. */
-const NO_DOSING: Pick<PrescriptionLine, 'dosing' | 'maximum' | 'doseBy'> = {
+const NO_DOSING: Pick<PrescriptionLine, 'dosing' | 'maximum' | 'doseBy' | 'dosingQuickPick'> = {
   dosing: undefined,
   maximum: undefined,
   doseBy: undefined,
+  dosingQuickPick: undefined,
 };
 
 /** The directions blanks as they start, and as they go back to when the drug changes. */
@@ -716,6 +719,14 @@ export const directionsFromBlanks = (line: PrescriptionLine): boolean =>
 /** Whether the blanks were filled in, whether or not the directions were typed over afterwards. */
 export const hasDirectionsBlanks = (line: PrescriptionLine): boolean => line.generated.patientInstructions !== '';
 
+/** The quick pick the line's dosing came from, by name: its dose's note says, else its maximum's, else a reorder's
+ * (decisions 213, 227). */
+const dosingQuickPickOf = (line: PrescriptionLine): string | undefined => {
+  const note = line.doseNotes?.[0];
+  if (note) return note.quickPick?.name;
+  return line.maximum && line.maximum.from !== 'calculator' ? line.maximum.from.quickPick : line.dosingQuickPick;
+};
+
 /** The blanks behind the line's directions, as the order keeps them on the prescription for a re-fill
  * (`withPrescriptionMetadata` is the way back). The caller sends them while `hasDirectionsBlanks`. */
 export const prescriptionLineMetadata = (line: PrescriptionLine): PrescriptionOrderMetadata => ({
@@ -730,9 +741,7 @@ export const prescriptionLineMetadata = (line: PrescriptionLine): PrescriptionOr
   ...(line.additionalInstructions ? { additionalInstructions: line.additionalInstructions } : {}),
   ...(line.dosing ? { dosing: line.dosing } : {}),
   ...(line.doseBy !== undefined ? { doseBy: line.doseBy } : {}),
-  ...(line.dosing && line.maximum && line.maximum.from !== 'calculator'
-    ? { dosingQuickPick: line.maximum.from.quickPick }
-    : {}),
+  ...(line.dosing && dosingQuickPickOf(line) !== undefined ? { dosingQuickPick: dosingQuickPickOf(line) } : {}),
 });
 
 /** The line with the blanks a sent prescription was written from (`prescriptionLineMetadata`), filled as a suggestion
@@ -773,6 +782,7 @@ export const withPrescriptionMetadata = (
       metadata.dosing,
       metadata.dosingQuickPick !== undefined ? { quickPick: metadata.dosingQuickPick } : 'calculator'
     ),
+    dosingQuickPick: metadata.dosingQuickPick,
     doseBy: metadata.doseBy,
   };
 };
@@ -1302,12 +1312,9 @@ const mgText = (mg: number): string => `${roundNumberToDecimalPlaces(mg, 2)} mg`
 /** What the save dialog says a quick pick keeps of the line's dosing: "Saved by weight: 25 mg/kg per dose, twice
  * daily, 10 days, max 500 mg per dose (from the calculator)". A quick pick's dosing, the calculator never opened, is
  * "(from the quick pick)": the calculator's dose has no quick pick in its note (decision 197). Reordered, it has no
- * note, but its maximum keeps the quick pick (decision 213). */
+ * note, but the line keeps the quick pick's name (decisions 213, 227). */
 export const quickPickDosingText = (dosing: PrescriptionQuickPickDosing, line: PrescriptionLine): string => {
-  const note = line.doseNotes?.[0];
-  const fromQuickPick = note
-    ? Boolean(note.quickPick)
-    : Boolean(line.quickPicked) || (line.maximum !== undefined && line.maximum.from !== 'calculator');
+  const fromQuickPick = dosingQuickPickOf(line) !== undefined || (!line.doseNotes?.[0] && Boolean(line.quickPicked));
   return `${dosing.basis === 'fixed' ? 'Saved dose' : 'Saved by weight'}: ${quickPickDosingSummary(dosing)} (from the ${
     fromQuickPick ? 'quick pick' : 'calculator'
   })`;

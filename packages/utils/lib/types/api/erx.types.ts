@@ -210,7 +210,8 @@ export const PrescriptionOrderMetadataSchema = z.object({
     .optional(),
   /** The ingredient of a combination product the calculator dosed by. */
   doseBy: z.string().optional(),
-  /** The quick pick the dosing and its maximum came from, by name: not the dose calculator (decision 213). */
+  /** The quick pick the dosing (and its maximum, if any) came from, by name: not the dose calculator (decisions 213,
+   * 227). */
   dosingQuickPick: z.string().optional(),
 });
 

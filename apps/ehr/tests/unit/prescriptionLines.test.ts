@@ -1790,4 +1790,29 @@ describe('the blanks kept on the prescription for a re-fill (metadata)', () => {
     );
     expect(prescriptionLineMetadata(written)).not.toHaveProperty('dosingQuickPick');
   });
+
+  // Decision 227: a quick pick's dosing with no maximum keeps its quick pick's name too.
+  it('keeps the quick pick a dosing with no maximum came from', () => {
+    const picked: PrescriptionLine = {
+      ...written,
+      dosing: { rate: 45, basis: 'mg/kg/day' },
+      maximum: undefined,
+      doseNotes: [{ dose: '1', text: '', working: '18 kg × 45 mg/kg/day', quickPick: { name: 'Amox AOM' } }],
+    };
+    const metadata = prescriptionLineMetadata(picked);
+    expect(metadata.dosingQuickPick).toBe('Amox AOM');
+    const reordered = withPrescriptionMetadata(
+      { ...emptyPrescriptionLine(), medication: written.medication },
+      metadata
+    );
+    expect(reordered.maximum).toBeUndefined();
+    expect(quickPickDosingText(prescriptionLineToQuickPick(reordered, 'Again').dosing!, reordered)).toBe(
+      'Saved by weight: 45 mg/kg per day, twice daily, 10 days (from the quick pick)'
+    );
+    // Sent again, it still says so.
+    expect(prescriptionLineMetadata(reordered).dosingQuickPick).toBe('Amox AOM');
+    // The calculator's own dose is the calculator's.
+    const calculated: PrescriptionLine = { ...picked, doseNotes: [{ dose: '1', text: '', working: '18 kg' }] };
+    expect(prescriptionLineMetadata(calculated)).not.toHaveProperty('dosingQuickPick');
+  });
 });
