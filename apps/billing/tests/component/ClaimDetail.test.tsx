@@ -148,13 +148,11 @@ export const makeClaim = (arStage: string): ClaimDetailResponse => ({
   billed: 0,
   allowed: 0,
   insurancePaid: 0,
-  patientResp: 0,
-  derivedPatientResp: 0,
+  patientResp: null,
   patientPaid: 0,
   writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
-  patientRespDetermined: false,
   firstSubmittedDate: '',
   remits: [],
   insurancePayments: [],
@@ -543,11 +541,9 @@ describe('ClaimDetail — service line remit details', () => {
     allowed: 176.83,
     insurancePaid: 136.83,
     patientResp: 40,
-    derivedPatientResp: 40,
     patientPaid: 60,
     balance: -20,
     adjudicated: true,
-    patientRespDetermined: true,
     remits: [remit],
     insurancePayments: [
       makePayment({
@@ -918,23 +914,13 @@ describe('ClaimDetail — service line remit details', () => {
     expect(within(totals).getByText('-$20.00')).toBeInTheDocument();
   });
 
-  it('warns when the reported patient responsibility differs from what the remit amounts imply', async () => {
-    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits({ patientResp: 0, derivedPatientResp: 40 }));
+  it('shows patient responsibility as unknown while no remit has reported it', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits({ patientResp: null }));
     renderDetail();
     await openRemitsTab();
 
-    const warning = await screen.findByRole('alert', { name: 'Patient responsibility discrepancy' });
-    expect(warning).toHaveTextContent('Payers reported $0.00 patient responsibility');
-    expect(warning).toHaveTextContent('the remit amounts imply $40.00');
-  });
-
-  it('shows no discrepancy warning when the reported and derived patient responsibility agree', async () => {
-    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits());
-    renderDetail();
-    await openRemitsTab();
-
-    await screen.findByRole('group', { name: 'Remit totals' });
-    expect(screen.queryByRole('alert', { name: 'Patient responsibility discrepancy' })).not.toBeInTheDocument();
+    const totals = await screen.findByRole('group', { name: 'Remit totals' });
+    expect(within(totals).getByText('Unknown')).toBeInTheDocument();
   });
 
   it('shows the service lines as before when no ERA is matched', async () => {
@@ -1238,7 +1224,7 @@ describe('ClaimDetail — provisional balance indicator', () => {
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.patient),
       adjudicated: true,
-      patientRespDetermined: false,
+      patientResp: null,
     });
     renderDetail();
 
@@ -1249,7 +1235,7 @@ describe('ClaimDetail — provisional balance indicator', () => {
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.patient),
       adjudicated: true,
-      patientRespDetermined: true,
+      patientResp: 0,
     });
     renderDetail();
 

@@ -37,14 +37,12 @@ const activeStatuses = (overrides: Partial<ClaimStatusValues> = {}): ClaimStatus
 const payments = (overrides: Partial<ClaimPaymentSummary> = {}): ClaimPaymentSummary => ({
   allowed: 0,
   insurancePaid: 0,
-  patientResp: 0,
-  derivedPatientResp: 0,
+  // a remit reporting PR is what an adjudicated summary means in these tests
+  patientResp: overrides.adjudicated ? 0 : null,
   patientPaid: 0,
   writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
-  // a remit reporting PR is what an adjudicated summary means in these tests
-  patientRespDetermined: overrides.adjudicated ?? false,
   ...overrides,
 });
 

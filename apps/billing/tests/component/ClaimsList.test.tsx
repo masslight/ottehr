@@ -182,7 +182,6 @@ const makeRow = (
   writeOffsTotal: 0,
   claimBalance: 0,
   adjudicated: true,
-  patientRespDetermined: true,
   responsibleParty: '',
   tags: [],
 });

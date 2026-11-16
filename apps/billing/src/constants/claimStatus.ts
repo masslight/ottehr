@@ -1,16 +1,23 @@
 import { AR_STAGE } from 'utils/lib/types/data/billing/claim-status';
+import { formatCurrency } from 'utils/lib/utils/convert';
 
 export const PROVISIONAL_BALANCE_HINT = 'No remittance received yet, balance is provisional';
 export const UNDETERMINED_PATIENT_RESP_HINT =
   'No remittance has reported patient responsibility yet, balance is provisional and may still be owed by a payer';
 
+// Patient responsibility is null while no remit has reported it: unknown, which is not $0.
+export const UNKNOWN_PATIENT_RESP = 'Unknown';
+export function formatPatientResp(patientResp: number | null): string {
+  return patientResp === null ? UNKNOWN_PATIENT_RESP : formatCurrency(patientResp);
+}
+
 // Why a claim's balance is provisional, or undefined once a remit has said what the patient owes.
 export function provisionalBalanceHint(claim: {
   adjudicated: boolean;
-  patientRespDetermined: boolean;
+  patientResp: number | null;
 }): string | undefined {
   if (!claim.adjudicated) return PROVISIONAL_BALANCE_HINT;
-  if (!claim.patientRespDetermined) return UNDETERMINED_PATIENT_RESP_HINT;
+  if (claim.patientResp === null) return UNDETERMINED_PATIENT_RESP_HINT;
   return undefined;
 }
 

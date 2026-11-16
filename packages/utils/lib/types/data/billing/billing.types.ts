@@ -263,7 +263,8 @@ export interface EraClaimListItem {
   allowed: number;
   paid: number;
   posted: number;
-  patientResp: number;
+  // null while no remit has reported patient responsibility (PR): unknown, not 0
+  patientResp: number | null;
   // CLP01 patient control number: the patient account number echoed back from the submitted claim
   patientAccountNumber: string;
   // the focal coverage's subscriber id (the same field the claim detail screen shows); '' when the
@@ -354,13 +355,12 @@ export interface BillingClaimItem {
   billed: number;
   allowed: number;
   insurancePaid: number;
-  patientResp: number;
+  // null while no remit has reported patient responsibility (PR): unknown, not 0
+  patientResp: number | null;
   patientPaid: number;
   writeOffsTotal: number;
   claimBalance: number;
   adjudicated: boolean;
-  // false until a remit reports PR: claimBalance is then provisional and may still be a payer's
-  patientRespDetermined: boolean;
   responsibleParty: string;
   tags: string[];
 }
@@ -635,16 +635,12 @@ export interface ClaimDetailResponse {
   allowed: number;
   insurancePaid: number;
   // what the payers reported the patient owes: the latest remit's PR adjustments (X12 CLP05)
-  patientResp: number;
-  // what the remits' amounts imply the patient owes (basis - paid - write-offs); differs from
-  // patientResp only when a remit is incomplete or doesn't balance
-  derivedPatientResp: number;
+  // null while no remit has reported patient responsibility (PR): unknown, not 0
+  patientResp: number | null;
   patientPaid: number;
   writeOffsTotal: number;
   balance: number;
   adjudicated: boolean;
-  // false until a remit reports PR: balance is then provisional and may still be a payer's
-  patientRespDetermined: boolean;
   // when Oystehr first sent the claim to the payer; '' when it was never submitted from Ottehr
   firstSubmittedDate: string;
   remits: ClaimRemit[];
@@ -735,7 +731,8 @@ export interface PatientArClaimItem {
   billed: number;
   allowed: number;
   insurancePaid: number;
-  patientResp: number;
+  // null while no remit has reported patient responsibility (PR): unknown, not 0
+  patientResp: number | null;
   patientPaid: number;
   balance: number;
   adjudicated: boolean;
