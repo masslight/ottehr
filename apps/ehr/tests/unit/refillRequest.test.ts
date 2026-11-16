@@ -780,6 +780,38 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBeUndefined();
   });
 
+  // Decision 271: amounts compare as numbers, so a decimal is the same amount as a fraction or "half".
+  it('reads a decimal as the same amount as a fraction', () => {
+    const drug = (name: string, instructions: string): PrescribedMedicationDTO => ({
+      resourceId: 'rx-16',
+      name,
+      instructions,
+      order: { ndc: '00000000016', medicationDescription: name },
+    });
+    const tablet = (sig: string, instructions: string): string | undefined =>
+      strengthChangeWarning(
+        { description: 'IBUPROFEN 600 MG TAB', ndc: '00000000017', sig },
+        drug('Ibuprofen 400 mg Tab', instructions)
+      );
+    const liquid = (sig: string, instructions: string): string | undefined =>
+      strengthChangeWarning(
+        { description: 'AMOXICILLIN 400 MG/5ML SUSP', ndc: '00000000018', sig },
+        drug('Amoxicillin 250 mg/5ml Susp', instructions)
+      );
+    const tablets = 'Different strength, same amount: 400 mg → 600 mg. Check the dose.';
+    expect(tablet('TAKE 0.5 TABLET DAILY', 'Take ½ tablet by mouth daily')).toBe(tablets);
+    expect(tablet('TAKE 0.5 TABLET DAILY', 'Take half tablet by mouth daily')).toBe(tablets);
+    expect(tablet('TAKE 1.5 TABLETS DAILY', 'Take 1½ tablets by mouth daily')).toBe(tablets);
+    const liquids = 'Different strength, same amount: 250 mg/5 mL → 400 mg/5 mL. Check the dose.';
+    expect(liquid('GIVE 2 1/2 ML TWICE DAILY', 'Take 2.5 mL by mouth twice daily')).toBe(liquids);
+    expect(liquid('GIVE 0.5 TSP TWICE DAILY', 'Take ½ tsp by mouth twice daily')).toBe(liquids);
+    expect(liquid('GIVE 5.0 ML TWICE DAILY', 'Take 5 mL by mouth twice daily')).toBe(liquids);
+    // Different amounts still don't match, and a tsp is never mL.
+    expect(tablet('TAKE 0.5 TABLET DAILY', 'Take 1½ tablets by mouth daily')).toBeUndefined();
+    expect(liquid('GIVE 2.5 ML TWICE DAILY', 'Take 2 mL by mouth twice daily')).toBeUndefined();
+    expect(liquid('GIVE 0.5 TSP TWICE DAILY', 'Take 0.5 mL by mouth twice daily')).toBeUndefined();
+  });
+
   it('says nothing for the same strength from another maker or bottle', () => {
     expect(
       strengthChangeWarning(

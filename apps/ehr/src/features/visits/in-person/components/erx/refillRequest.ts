@@ -1,4 +1,3 @@
-import { halfInWords } from 'utils/lib/helpers/medications/prescription-suggestions';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
   ChangeResponseInput,
@@ -207,10 +206,10 @@ const AMOUNT_UNITS: Record<string, string> = {
   tablespoonful: 'tbsp',
 };
 
-/** The amount a sig gives each time, in any words: "Take 5 ml …", "TAKE 5 ML …" and "5 milliliters" as "5 ml",
- * "1/2 tablet" as "half tablet", "one tablet" and "1 tab" as "1 tablet", "1 cap" as "1 capsule". Teaspoons and
- * tablespoons too, kept as such, never as mL: "1 teaspoonful" is "1 tsp", "1 1/2 TSP" and "1½ tsp" are "1 and a half
- * tsp" (review D15-2). */
+/** The amount a sig gives each time, in any words, its number as a number: "Take 5 ml …", "TAKE 5.0 ML …" and
+ * "5 milliliters" as "5 ml", "1/2 tablet", "half tablet" and "0.5 tablet" as "0.5 tablet", "one tablet" and "1 tab" as
+ * "1 tablet", "1 cap" as "1 capsule" (decision 271). Teaspoons and tablespoons too, kept as such, never as mL:
+ * "1 teaspoonful" is "1 tsp", "1 1/2 TSP" and "1½ tsp" are "1.5 tsp" (review D15-2). */
 const sigAmount = (sig: string | undefined): string | undefined => {
   const match =
     sig === undefined
@@ -221,7 +220,9 @@ const sigAmount = (sig: string | undefined): string | undefined => {
             /\b(?:(\d+)[ -](?=1\/2))?(1\/2|\d+(?:\.\d+)?(?: and a half)?|half|one|two|three|four)\s*(ml|milliliter|tab(?:let)?|cap(?:sule)?|puff|drop|spray|tsp|teaspoon(?:ful)?|tbsp|tablespoon(?:ful)?)s?\b/
           );
   if (!match) return undefined;
-  const number = match[2] === '1/2' ? halfInWords(match[1] ?? '') : NUMBER_WORDS[match[2]] ?? match[2];
+  const said = NUMBER_WORDS[match[2]] ?? match[2];
+  const half = /half|1\/2/.test(said) ? 0.5 : 0;
+  const number = (said === '1/2' ? Number(match[1] ?? 0) : parseFloat(said) || 0) + half;
   return `${number} ${AMOUNT_UNITS[match[3]] ?? match[3]}`;
 };
 
