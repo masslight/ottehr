@@ -472,11 +472,16 @@ export const withCalculatorDosing = (
   const dose = measure && plainDose({ ...dosing, weightKg, mgPerMeasure: mg, measure, dosesPerDay });
   if (!dose) return { ...line, dose: '' };
   const amount = String(dose.amount);
+  // Reordered, the line has no note, only the quick pick's name (decision 236).
+  const reordered = !line.doseNotes?.[0] && dosingQuickPickOf(line);
   return {
     ...line,
     dose: amount,
     // Still the quick pick's dosing, if it was.
-    doseNotes: [calculatorDoseNote(dose, line.doseNotes?.[0]?.quickPick), ...(line.doseNotes ?? []).slice(1)],
+    doseNotes: [
+      calculatorDoseNote(dose, reordered ? { name: reordered } : line.doseNotes?.[0]?.quickPick),
+      ...(line.doseNotes ?? []).slice(1),
+    ],
   };
 };
 

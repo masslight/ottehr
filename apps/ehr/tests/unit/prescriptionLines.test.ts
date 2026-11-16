@@ -1815,4 +1815,29 @@ describe('the blanks kept on the prescription for a re-fill (metadata)', () => {
     const calculated: PrescriptionLine = { ...picked, doseNotes: [{ dose: '1', text: '', working: '18 kg' }] };
     expect(prescriptionLineMetadata(calculated)).not.toHaveProperty('dosingQuickPick');
   });
+
+  // Decision 236: a reordered quick pick's dosing, dosed again for another frequency, is still the quick pick's.
+  it('keeps the quick pick a reordered dosing came from when its frequency changes', () => {
+    const suspension = detailed({ ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' });
+    const picked: PrescriptionLine = {
+      ...written,
+      medication: suspension,
+      quantityUnit: 'Milliliter',
+      dose: '10',
+      dosing: { rate: 80, basis: 'mg/kg/day' },
+      maximum: undefined,
+      doseNotes: [{ dose: '10', text: '', working: '20 kg × 80 mg/kg/day', quickPick: { name: 'Amox AOM' } }],
+    };
+    const reordered = withPrescriptionMetadata(
+      { ...emptyPrescriptionLine(), medication: suspension },
+      prescriptionLineMetadata(picked)
+    );
+    const patch = { frequency: 'three times daily' };
+    const refrequenced = withDirections(withCalculatorDosing(reordered, patch, 20), patch);
+    expect(refrequenced.dose).not.toBe('10');
+    expect(quickPickDosingText(prescriptionLineToQuickPick(refrequenced, 'Again').dosing!, refrequenced)).toMatch(
+      /\(from the quick pick\)$/
+    );
+    expect(prescriptionLineMetadata(refrequenced).dosingQuickPick).toBe('Amox AOM');
+  });
 });
