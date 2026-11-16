@@ -110,13 +110,25 @@ describe('InsuranceCardOrientationHint', () => {
     expect(screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL })).toBeEnabled();
   });
 
-  it('renders the badge warning icon in the warning (orange) color', () => {
+  it('shows the warning as a warning (orange) Alert and makes Rotate the filled primary button', () => {
     setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
     renderHint();
 
-    const icon = screen.getByTestId('WarningAmberIcon');
-    expect(icon).toHaveClass('MuiSvgIcon-colorWarning');
-    expect(icon).toHaveClass('MuiChip-iconColorWarning');
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveClass('MuiAlert-colorWarning');
+    expect(alert).toHaveTextContent(CARD_MAY_BE_ROTATED_LABEL);
+    expect(screen.getByTestId('WarningAmberIcon')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL })).toHaveClass('MuiButton-contained');
+  });
+
+  it('keeps Rotate as a plain text button when the card is not flagged', () => {
+    setOrientationHint({ docRefId: DOC_REF_ID, readable: true });
+    renderHint();
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    const rotate = screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL });
+    expect(rotate).toHaveClass('MuiButton-text');
+    expect(rotate).toHaveTextContent('Rotate');
   });
 
   it('rotates 90 degrees clockwise on click and refreshes the displayed image', async () => {

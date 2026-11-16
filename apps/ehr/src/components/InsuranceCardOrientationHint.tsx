@@ -1,10 +1,11 @@
 import RotateRightIcon from '@mui/icons-material/RotateRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { Box, Chip, CircularProgress, IconButton, Tooltip } from '@mui/material';
+import { Alert, AlertTitle, Button, CircularProgress, Tooltip } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { rotateInsuranceCardImage } from 'src/api/api';
+import { TOOLBAR_NOTICE_SX } from 'src/components/FloatingCardPreview';
 import {
   CardOrdinal,
   useInsuranceCardExtraction,
@@ -35,15 +36,20 @@ interface InsuranceCardOrientationHintProps {
 }
 
 /**
- * Always-available rotate-90°-clockwise control for a displayed insurance-card image, plus a
- * conditional "Card may be rotated" warning chip when the OCR judged THIS face not right-side-up
- * (stored extraction `readable === false`). The control stays mounted across rotates so a
- * 180°/270° card can be fixed with repeated clicks; each successful rotate refreshes the image
- * and re-reads the extraction.
+ * Always-available "Rotate" (90° clockwise) button for a displayed insurance-card image, plus a
+ * conditional "Card may be rotated" warning when the OCR judged THIS face not right-side-up (stored
+ * extraction `readable === false`). The button stays mounted across rotates so a 180°/270° card can
+ * be fixed with repeated clicks; each successful rotate refreshes the image and re-reads the
+ * extraction.
  *
- * After a successful rotate the chip is also suppressed client-side for that DocumentReference
+ * Rendered into FloatingCardPreview's toolbar (via `headerActions`): the button sits with the other
+ * face actions, and the warning is a full-width Alert (TOOLBAR_NOTICE_SX) that drops onto its own
+ * line above the card image. While the warning shows, Rotate is the filled primary button so the
+ * fix is the obvious next step.
+ *
+ * After a successful rotate the warning is also suppressed client-side for that DocumentReference
  * id: the backend resets `readable` to null, but if that reset patch fails, the stale
- * `readable === false` must not re-show the chip and invite an over-rotate.
+ * `readable === false` must not re-show the warning and invite an over-rotate.
  */
 export default function InsuranceCardOrientationHint({
   patientId,
@@ -95,31 +101,33 @@ export default function InsuranceCardOrientationHint({
   };
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, marginTop: 0.5 }}>
+    <>
       {looksRotated && (
-        <Tooltip title="The scanned card doesn't look right-side-up. Rotate it until the text reads normally.">
-          <Chip
-            size="small"
-            variant="outlined"
-            icon={<WarningAmberIcon color="warning" />}
-            label={CARD_MAY_BE_ROTATED_LABEL}
-            sx={{ border: 'none' }}
-          />
-        </Tooltip>
+        <Alert
+          severity="warning"
+          icon={<WarningAmberIcon fontSize="inherit" />}
+          sx={{ ...TOOLBAR_NOTICE_SX, py: 0.25 }}
+        >
+          <AlertTitle sx={{ mb: 0, fontSize: 'inherit' }}>{CARD_MAY_BE_ROTATED_LABEL}</AlertTitle>
+          Rotate it until the text reads normally.
+        </Alert>
       )}
       <Tooltip title="Rotate 90° clockwise">
         {/* span keeps the tooltip working while the button is disabled */}
         <span>
-          <IconButton
+          <Button
             size="small"
+            variant={looksRotated ? 'contained' : 'text'}
             aria-label={ROTATE_CARD_BUTTON_LABEL}
             disabled={isRotating || !oystehrZambda}
             onClick={() => void handleRotate()}
+            startIcon={isRotating ? <CircularProgress size={16} color="inherit" /> : <RotateRightIcon />}
+            sx={{ minWidth: 'auto', px: 1.5 }}
           >
-            {isRotating ? <CircularProgress size={18} /> : <RotateRightIcon fontSize="small" />}
-          </IconButton>
+            Rotate
+          </Button>
         </span>
       </Tooltip>
-    </Box>
+    </>
   );
 }
