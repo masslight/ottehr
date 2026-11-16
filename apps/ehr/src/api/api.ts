@@ -645,15 +645,23 @@ const ERX_SERVICE_MESSAGES: [RegExp, string][] = [
   [/must have a first and last name/i, 'Your profile is missing a first or last name. Ask an administrator to add it.'],
   [/must have a status of active/i, 'This prescription is no longer active.'],
   [/^forbidden$/i, "You don't have permission to do this in e-prescribing."],
+  [/must have a location/i, 'This visit has no location. Add one to the visit and try again.'],
+  [/^MedicationRequest not found/i, "This prescription can't be found."],
+  [/is not a renewal request/i, "This task isn't a refill request."],
+  [/^Location not found/i, "This visit's location can't be found."],
+  [/renewal request has expired/i, 'This refill request has expired. The pharmacy needs to send a new one.'],
 ];
 
-/** An eRx service error for staff: its message, in plain words where it's one Ottehr knows, else `fallback`. The
- * HTTP status goes to the console only. */
+/** A record id in a message staff can't act on. */
+const RECORD_ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/** An eRx service error for staff: its message, in plain words where it's one Ottehr knows, else `fallback`, which also
+ * stands in for any other message naming a record id. The HTTP status and the message go to the console. */
 const erxServiceError = (body: { message?: unknown } | undefined, status: number, fallback: string): Error => {
   console.error(`eRx service error (${status}): ${body?.message ?? 'no message'}`);
   const message = typeof body?.message === 'string' ? body.message : undefined;
   const known = message && ERX_SERVICE_MESSAGES.find(([pattern]) => pattern.test(message));
-  return new Error(known ? known[1] : message || fallback);
+  return new Error(known ? known[1] : message && !RECORD_ID.test(message) ? message : fallback);
 };
 
 export const orderPrescription = async (
