@@ -610,6 +610,25 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBe('Different strength, same amount: 10 mg → 20 mg. Check the dose.');
   });
 
+  // Review D4-1: pharmacy directions in upper case read the same amount, a half included.
+  it('warns on a half tablet in upper case', () => {
+    const prednisone: PrescribedMedicationDTO = {
+      resourceId: 'rx-5',
+      name: 'Prednisone 10 mg tablet',
+      instructions: 'Take half tablet by mouth daily',
+      order: { ndc: '00054474025', medicationDescription: 'Prednisone 10 mg tablet' },
+    };
+    const twenty = { description: 'Prednisone 20 mg tablet', ndc: '00054474125' };
+    const warning = 'Different strength, same amount: 10 mg → 20 mg. Check the dose.';
+    expect(strengthChangeWarning({ ...twenty, sig: 'TAKE 1/2 TABLET BY MOUTH DAILY' }, prednisone)).toBe(warning);
+    expect(
+      strengthChangeWarning(
+        { ...twenty, sig: 'TAKE 1 1/2 TABLETS BY MOUTH DAILY' },
+        { ...prednisone, instructions: 'Take 1 and a half tablets by mouth daily' }
+      )
+    ).toBe(warning);
+  });
+
   it('says nothing for the same strength from another maker or bottle', () => {
     expect(
       strengthChangeWarning(

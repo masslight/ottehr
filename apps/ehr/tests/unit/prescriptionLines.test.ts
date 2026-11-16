@@ -19,6 +19,7 @@ import {
   prescriptionLineMetadata,
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
+  sentSigInWords,
   withCalculatorDosing,
   withCompound,
   withCompoundDose,
@@ -574,6 +575,23 @@ describe('prescriptionLineToOrder', () => {
     expect(
       prescriptionLineToOrder({ ...picked, quantityUnit: 'Tablet', quantityValue: '20' }, context).patientInstructions
     ).toBe('Take 3/4 tablet daily');
+  });
+
+  // Review D4-1 and D4-5: a half in any case, "1/2 tab", and a range with "-", "to" or "or", each half in words.
+  it('puts a half in words in any case, after "tab", and on both ends of a range', () => {
+    const cases: [string, string][] = [
+      ['TAKE 1/2 TABLET BY MOUTH DAILY', 'TAKE half TABLET BY MOUTH DAILY'],
+      ['TAKE 1 1/2 TABLETS BY MOUTH DAILY', 'TAKE 1 and a half TABLETS BY MOUTH DAILY'],
+      ['Take 1/2 tab by mouth', 'Take half tab by mouth'],
+      ['Take 1/2-1 tablet by mouth at bedtime', 'Take half to 1 tablet by mouth at bedtime'],
+      ['Take 1/2 - 1 tablet at bedtime', 'Take half to 1 tablet at bedtime'],
+      ['Take 1/2 or 1 tablet at bedtime', 'Take half or 1 tablet at bedtime'],
+      ['Take 1/2 to 1 1/2 tablets', 'Take half to 1 and a half tablets'],
+      // Unchanged: a quarter, and no half.
+      ['Take 1/4 tablet', 'Take 1/4 tablet'],
+      ['Take 11/2 tablets', 'Take 11/2 tablets'],
+    ];
+    for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
   });
 
   it('sends the allergies given, and none when there are none', () => {
