@@ -329,6 +329,9 @@ const CATEGORIES: CategoryConfig[] = [
     requiredStringFields: ['name'],
     validator: async (oystehr, quickPick, quickPickId) => {
       const { memberIds } = safeValidate(prescriptionSetQuickPickSchema, quickPick);
+      if (new Set(memberIds).size !== memberIds.length) {
+        throw INVALID_INPUT_ERROR('This set lists the same quick pick more than once. Remove one and save again.');
+      }
       await assertMembersExist(oystehr, memberIds);
       await assertNameUnused(
         oystehr,

@@ -97,6 +97,13 @@ describe.each([
     expect(JSON.stringify(search.mock.calls)).not.toContain('qp-gone');
   });
 
+  // Claim audit r7: the order form would add the same prescription twice.
+  test('refuses the same quick pick listed twice', async () => {
+    const error = await rejection(validate({ ...EAR_INFECTION, memberIds: ['qp-amox', 'qp-ibuprofen', 'qp-amox'] }));
+    expect(error?.code).toBe(APIErrorCode.INVALID_INPUT);
+    expect(error.message).toBe('This set lists the same quick pick more than once. Remove one and save again.');
+  });
+
   test.each([
     ['no name', { ...EAR_INFECTION, name: '' }],
     ['no status', { name: 'Ear infection', memberIds: ['qp-amox'] }],
