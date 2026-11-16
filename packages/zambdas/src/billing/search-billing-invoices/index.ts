@@ -14,7 +14,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { getClaimServiceDate } from '../claim-search';
-import { toBillingInvoiceSummary } from '../invoices';
+import { getInvoiceStatusDatesAndAmount } from '../invoices';
 import { createBillingClient, fhirName, findById, patientSearchParam, resolveLinkedPatientIds } from '../shared';
 import { SearchBillingInvoicesParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -82,7 +82,7 @@ export async function performEffect(
   const claimsById = await fetchClaims(oystehr, invoices);
 
   return {
-    invoices: invoices.map((invoice) => toListItem(invoice, patientsByRef, claimsById)),
+    invoices: invoices.map((invoice) => buildInvoiceListRow(invoice, patientsByRef, claimsById)),
     total: bundle.total ?? 0,
     offset,
     pageSize,
@@ -108,7 +108,7 @@ async function fetchClaims(oystehr: Oystehr, invoices: Invoice[]): Promise<Map<s
   return new Map(claims.map((claim) => [claim.id!, claim]));
 }
 
-function toListItem(
+function buildInvoiceListRow(
   invoice: Invoice,
   patientsByRef: Map<string, Patient>,
   claimsById: Map<string, Claim>
@@ -118,7 +118,7 @@ function toListItem(
   const serviceDate = claim && getClaimServiceDate(claim);
   const patient = patientsByRef.get(invoice.subject?.reference ?? '');
   return {
-    ...toBillingInvoiceSummary(invoice),
+    ...getInvoiceStatusDatesAndAmount(invoice),
     patientId: patient?.id,
     patientName: fhirName(patient),
     claimId: line?.claimId,

@@ -72,7 +72,7 @@ export async function fetchClaimInvoices(oystehr: Oystehr, claimId: string): Pro
   ).unbundle();
 }
 
-export const toBillingInvoiceSummary = (invoice: Invoice): BillingInvoiceSummary => ({
+export const getInvoiceStatusDatesAndAmount = (invoice: Invoice): BillingInvoiceSummary => ({
   id: invoice.id!,
   status: invoice.status as BillingInvoiceListStatus,
   issueDate: invoice.date ?? '',

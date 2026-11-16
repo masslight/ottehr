@@ -49,7 +49,7 @@ import {
 } from '../claim-amounts';
 import { getClaimServiceDate } from '../claim-search';
 import { buildEraRemitServiceLines } from '../era-remits';
-import { fetchClaimInvoices, toBillingInvoiceSummary } from '../invoices';
+import { fetchClaimInvoices, getInvoiceStatusDatesAndAmount } from '../invoices';
 import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
@@ -376,7 +376,7 @@ export async function performEffect(
     insurancePayments,
     patientPayments,
     writeOffs,
-    invoices: invoices.map(toBillingInvoiceSummary),
+    invoices: invoices.map(getInvoiceStatusDatesAndAmount),
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)
