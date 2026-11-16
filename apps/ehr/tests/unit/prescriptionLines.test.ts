@@ -654,6 +654,26 @@ describe('prescriptionLineToOrder', () => {
     for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
   });
 
+  // Review D7-1: a day or week word after a number is a duration ("for 3 days"), so the next step keeps its whole.
+  it('reads a duration before the next taper step as a duration, not a day', () => {
+    const cases: [string, string][] = [
+      [
+        'Take 2 tablets daily for 3 days\n1 1/2 tablets daily for 3 days\n1 tablet daily for 3 days',
+        'Take 2 tablets daily for 3 days\n1 and a half tablets daily for 3 days\n1 tablet daily for 3 days',
+      ],
+      [
+        'Take 2 tabs daily x 2 wks 1 1/2 tabs daily x 2 wks',
+        'Take 2 tabs daily x 2 wks 1 and a half tabs daily x 2 wks',
+      ],
+      ['Take 2 tablets daily x3 days 1 1/2 tablets daily', 'Take 2 tablets daily x3 days 1 and a half tablets daily'],
+      ['Take 2 tabs x 3 d 1 1/2 tabs daily', 'Take 2 tabs x 3 d 1 and a half tabs daily'],
+      // Still a day label: no number before it.
+      ['day 2 1 1/2 tabs daily', 'day 2 1 and a half tabs daily'],
+      ['then days 6-10 1/2 tablet daily', 'then days 6-10 half tablet daily'],
+    ];
+    for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
+  });
+
   it('sends the allergies given, and none when there are none', () => {
     const context = { patientId: 'p', practitionerId: 'pr', encounterId: 'e', pharmacy: PHARMACY };
     const allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }] as const;
