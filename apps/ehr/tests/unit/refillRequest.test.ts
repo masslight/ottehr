@@ -825,7 +825,9 @@ describe('change request: a suggestion of another strength with the same directi
         },
         AMOXICILLIN
       )
-    ).toBe('Different strength, same amount: 400 mg/5 mL → 600-42.9 mg/5 mL. Check the dose.');
+    ).toBe(
+      'Different strength, same amount: 400 mg/5 mL → Amoxicillin-Pot Clavulanate 600-42.9 mg/5ml. Check the dose.'
+    );
     expect(
       strengthChangeWarning(
         { description: 'Cefdinir 250 mg/5ml Susp', ndc: '00093416073', sig: 'Take 5 mL by mouth twice daily' },
@@ -1243,6 +1245,36 @@ describe('change request: a suggestion of another strength with the same directi
     expect(
       warning('LISINOPRIL-HCTZ 20/25 MG TAB', 'hydroCHLOROthiazide/Lisinopril (Oral Pill) 12.5-20 mg Tab', daily)
     ).toBe('Different strength, same amount: 12.5-20 mg → LISINOPRIL-HCTZ 20/25 MG. Check the dose.');
+  });
+
+  // Decision 241 (D12-2): another number of ingredients is another product, which only its name says.
+  it('names a product with another number of ingredients as the pharmacy wrote it', () => {
+    const original = (name: string, instructions: string): PrescribedMedicationDTO => ({
+      resourceId: 'rx-18',
+      name,
+      instructions,
+      order: { ndc: '00000000001', medicationDescription: name },
+    });
+    const warning = (description: string, from: string, sig: string): string | undefined =>
+      strengthChangeWarning({ description, ndc: '00000000002', sig }, original(from, sig));
+    const pain = 'Take 1 tablet by mouth every 6 hours as needed for pain';
+    const tab = 'Take 1 tablet by mouth twice daily';
+    expect(warning('OXYCODONE HCL 5 MG TAB', 'Acetaminophen/oxyCODONE (Oral Pill) 325-5 mg Tab', pain)).toBe(
+      'Different strength, same amount: 325-5 mg → OXYCODONE HCL 5 MG. Check the dose.'
+    );
+    expect(warning('OXYCODONE-ACETAMINOPHEN 5-325 MG TAB', 'oxyCODONE 5 mg Tab', pain)).toBe(
+      'Different strength, same amount: 5 mg → OXYCODONE-ACETAMINOPHEN 5-325 MG. Check the dose.'
+    );
+    expect(warning('AMOXICILLIN-CLAV 875/125 MG TAB', 'Amoxicillin 875 mg Tab', tab)).toBe(
+      'Different strength, same amount: 875 mg → AMOXICILLIN-CLAV 875/125 MG. Check the dose.'
+    );
+    expect(
+      warning(
+        'ALBUTEROL SULFATE 2.5 MG/3ML NEBU',
+        'Ipratropium-Albuterol 0.5-2.5 mg/3ml Soln',
+        'Inhale 3 mL every 6 hours'
+      )
+    ).toBe('Different strength, same amount: 0.5-2.5 mg/3 mL → ALBUTEROL SULFATE 2.5 MG/3ML. Check the dose.');
   });
 
   it('says nothing when the amount differs, or the pharmacy sent no directions', () => {

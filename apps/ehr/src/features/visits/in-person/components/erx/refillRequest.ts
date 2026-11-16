@@ -138,10 +138,12 @@ const ingredientOrder = (strength: Strength, as: Strength): number[] | undefined
 /** A strength as another names its own: in its unit, per its volume and with the ingredients in its order, matched by
  * name ("formoterol 0.005 MG / mometasone 0.2 MG" as "Mometasone-Formoterol 100-5 mcg" names it is "200-5 mcg"); a
  * combination whose names can't be matched with its own name and strength as written, as amounts without their names
- * could be read against the wrong ingredient (decisions 221, 229). As written when it can't be: another kind of unit,
- * another number of ingredients, or an amount past 4 significant digits. */
+ * could be read against the wrong ingredient (decisions 221, 229), as is one with another number of ingredients, which
+ * is another product ("OXYCODONE HCL 5 MG" against 325-5 mg, decision 241). As written when it can't be: another kind
+ * of unit, or an amount past 4 significant digits. */
 const strengthAs = (strength: Strength, as: Strength): string => {
-  if (strength.unit !== as.unit || strength.values.length !== as.values.length) return strength.text;
+  if (strength.values.length !== as.values.length) return strength.written;
+  if (strength.unit !== as.unit) return strength.text;
   const order = ingredientOrder(strength, as);
   if (!order && strength.values.length > 1) return strength.written;
   const amounts = (order ?? [0]).map((j) => Number((strength.values[j] * as.perValue).toPrecision(6)));
