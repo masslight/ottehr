@@ -748,6 +748,49 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBe('Different strength, same amount: 2.5 mg/3 mL → 1.25 mg/3 mL. Check the dose.');
   });
 
+  // Review D5-3: RxNorm writes a combination per ingredient ("875 MG / 125 MG"), the same as "875-125 mg".
+  it('reads a strength written per ingredient as the combination', () => {
+    const original = (name: string, instructions: string): PrescribedMedicationDTO => ({
+      resourceId: 'rx-7',
+      name,
+      instructions,
+      order: { ndc: '00000000001', medicationDescription: name },
+    });
+    const tablet = original('Amoxicillin-Pot Clavulanate 875-125 mg Tab', 'Take 1 tablet by mouth twice daily');
+    const liquid = original('Amoxicillin-Pot Clavulanate 400-57 mg/5ml Susp', 'Take 5 mL by mouth twice daily');
+    expect(
+      strengthChangeWarning(
+        {
+          description: 'amoxicillin 875 MG / clavulanate potassium 125 MG Oral Tablet',
+          ndc: '00000000002',
+          sig: 'Take 1 tablet by mouth twice daily',
+        },
+        tablet
+      )
+    ).toBeUndefined();
+    expect(
+      strengthChangeWarning(
+        {
+          description: 'amoxicillin 80 MG/ML / clavulanate potassium 11.4 MG/ML Oral Suspension',
+          ndc: '00000000003',
+          sig: 'Take 5 mL by mouth twice daily',
+        },
+        liquid
+      )
+    ).toBeUndefined();
+    // Another strength written so still warns, with its amounts together.
+    expect(
+      strengthChangeWarning(
+        {
+          description: 'amoxicillin 500 MG / clavulanate potassium 125 MG Oral Tablet',
+          ndc: '00000000004',
+          sig: 'Take 1 tablet by mouth twice daily',
+        },
+        tablet
+      )
+    ).toBe('Different strength, same amount: 875-125 mg → 500-125 mg. Check the dose.');
+  });
+
   it('says nothing when the amount differs, or the pharmacy sent no directions', () => {
     expect(
       strengthChangeWarning(

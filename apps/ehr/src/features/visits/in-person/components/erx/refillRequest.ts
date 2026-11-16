@@ -48,14 +48,22 @@ interface Strength {
 
 /** A product's strength in its description ("Amoxicillin 400 mg/5ml Susp"), as the warning names it ("400 mg/5 mL")
  * and per mL to compare by, so "80 mg/mL" is the same strength. A combination's amounts go together ("400-57 mg").
- * "100,000 unit" is 100000 units. */
+ * "100,000 unit" is 100000 units. A combination written per ingredient, as RxNorm does ("875 MG / clavulanate
+ * potassium 125 MG"), reads as "875-125 mg". */
 const strengthOf = (description: string | undefined): Strength | undefined => {
-  const match = description?.match(
+  if (!description) return undefined;
+  const match = description.match(
     /((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:-\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|%)(?![a-z])(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/i
   );
   if (!match) return undefined;
   const [, writtenAmounts, written, perMl, per] = match;
-  const amounts = writtenAmounts.replace(/,/g, '');
+  let amounts = writtenAmounts.replace(/,/g, '');
+  const next = /\s*\/\s*(?:[a-z][a-z -]*\s)?(\d+(?:\.\d+)?)\s*([a-z%]+)(\s*\/\s*(\d+(?:\.\d+)?)?\s*ml\b)?/iy;
+  next.lastIndex = (match.index ?? 0) + match[0].length;
+  for (let more = next.exec(description); more; more = next.exec(description)) {
+    if (more[2].toLowerCase() !== written.toLowerCase() || !more[3] !== !perMl || more[4] !== per) break;
+    amounts += `-${more[1]}`;
+  }
   const lower = written.toLowerCase();
   const unit = lower === 'meq' ? 'mEq' : lower === 'unit' ? 'units' : lower;
   const factor = unit === '%' ? 10 : STRENGTH_MG[unit];
