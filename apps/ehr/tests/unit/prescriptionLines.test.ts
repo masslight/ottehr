@@ -290,6 +290,34 @@ describe('prescriptionLineErrors', () => {
     }
   });
 
+  // Decision 245 (D12-6): a maximum ("do not exceed 3000 mg per day") or a rate by weight ("40 mg/kg") isn't a dose.
+  it('takes no maximum or mg/kg as an amount "as directed"', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const errors = (instructions: string): string[] =>
+      prescriptionLineErrors({
+        ...withDirections(liquid, { frequency: 'as directed', instructions }),
+        quantityValue: '100',
+      });
+    for (const instructions of [
+      'every 6 hours as needed, do not exceed 3000 mg per day',
+      'every 6 hours as needed for fever, max 40 mg/kg per day',
+      'every 6 hours as needed, do not exceed 3,000 mg per day',
+      'every 6 hours as needed, maximum of 3.5 g a day',
+      'no more than 4 tablets a day',
+      '40 mg per kg per day divided twice daily',
+    ]) {
+      expect(errors(instructions)).toEqual(['Enter the dose']);
+    }
+    for (const instructions of [
+      '10 mL daily',
+      '10 mL daily for 3 days, do not exceed 3000 mg per day',
+      'up to 3 patches at once',
+      '1,000 mg twice daily',
+    ]) {
+      expect(errors(instructions)).toEqual([]);
+    }
+  });
+
   // Decision 186: a line waiting for a pick hides its sentences, so it isn't asked for what they hold.
   it('asks only for the pick while the line waits for one', () => {
     const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);

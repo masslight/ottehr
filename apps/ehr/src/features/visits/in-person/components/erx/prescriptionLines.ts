@@ -800,9 +800,12 @@ export const withPrescriptionMetadata = (
 /** An amount in the instructions: a number, or a number word one to ten or "half", then a dose word ("10 mL daily",
  * "one teaspoon"). A time, a volume of water or a number of days isn't one ("every 6 hours", "mix in 8 oz of water",
  * "for 10 days"). The dose words are the refill reader's (`sigAmount`) with mg, g, tsp, teaspoon, packet and capful
- * (decisions 219, 223), and lozenge, troche, patch, insert, suppository, tablespoon and scoop (decision 244). */
+ * (decisions 219, 223), and lozenge, troche, patch, insert, suppository, tablespoon and scoop (decision 244). A maximum
+ * isn't one either, an amount after "exceed", "max", "maximum" or "more than" ("do not exceed 3000 mg per day"), nor a
+ * rate by weight ("40 mg/kg"); "up to 3 patches" is (decision 245). "(?=\w)" keeps V8 from trying the look back at
+ * every space, which takes quadratic time on a long run of them. */
 const INSTRUCTIONS_AMOUNT =
-  /\b(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|half)\s*(?:ml|milliliters?|tab(?:let)?s?|cap(?:sule)?s?|puffs?|drops?|sprays?|mg|g|tsp|teaspoons?|packets?|capfuls?|lozenges?|troches?|patch(?:es)?|inserts?|suppositor(?:y|ies)|tablespoons?|tbsp|scoops?)\b/i;
+  /\b(?=\w)(?<!\d[.,]|\b(?:exceed|max|maximum|more\s+than)(?:\s+of)?\s+)(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|half)\s*(?:ml|milliliters?|tab(?:let)?s?|cap(?:sule)?s?|puffs?|drops?|sprays?|mg|g|tsp|teaspoons?|packets?|capfuls?|lozenges?|troches?|patch(?:es)?|inserts?|suppositor(?:y|ies)|tablespoons?|tbsp|scoops?)\b(?!\s*(?:\/|per)\s*kg\b)/i;
 
 const isWholeNumberInRange = (value: string, min: number, max: number): boolean => {
   const number = Number(value);
