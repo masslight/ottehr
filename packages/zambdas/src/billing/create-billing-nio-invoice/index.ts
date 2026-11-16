@@ -1,4 +1,4 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, Invoice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -30,13 +30,18 @@ import { validateWithSchema } from '../../shared/validation';
 import {
   buildAttachmentDocumentReference,
   INVOICE_ATTACHMENT_PATH_PREFIX,
-  invoiceAttachmentOwner,
   newAttachmentLocation,
-  ownedAttachmentLocation,
   presignAttachment,
 } from '../attachments';
 import { issueInvoiceNumber } from '../invoice-number';
-import { ACTIVE_INVOICE_STATUSES, createInvoiceUnlessClaimsHaveOne, fetchActiveClaimInvoices } from '../invoices';
+import {
+  ACTIVE_INVOICE_STATUSES,
+  createInvoiceUnlessClaimsHaveOne,
+  fetchActiveClaimInvoices,
+  findInvoicePdf,
+  getInvoicePdfDownloadUrl,
+  invoicePdfParams,
+} from '../invoices';
 import { assembleNioInvoice } from '../nio-invoice';
 import { createBillingClient } from '../shared';
 
@@ -237,27 +242,6 @@ function savedInvoicePdf(invoice: Invoice, pdf: Omit<NioInvoicePdfData, 'invoice
   };
 }
 
-const invoicePdfParams = (invoiceId: string): SearchParam[] => [
-  {
-    name: 'related',
-    value: `Invoice/${invoiceId}`,
-  },
-  {
-    name: 'status',
-    value: 'current',
-  },
-];
-
-async function findInvoicePdf(oystehr: Oystehr, invoiceId: string): Promise<DocumentReference | undefined> {
-  const documentReferences = (
-    await oystehr.fhir.search<DocumentReference>({
-      resourceType: 'DocumentReference',
-      params: invoicePdfParams(invoiceId),
-    })
-  ).unbundle();
-  return documentReferences[0];
-}
-
 async function uploadInvoicePdf({
   oystehr,
   invoice,
@@ -307,10 +291,14 @@ async function toResponse({
   documentReference: DocumentReference;
   secrets: Secrets;
 }): Promise<CreateBillingNioInvoiceResponse> {
-  const location = ownedAttachmentLocation(documentReference, invoiceAttachmentOwner(invoice.id!, secrets));
   return {
     invoiceId: invoice.id!,
     invoiceNumber: getInvoiceNumber(invoice)!,
-    pdfUrl: await presignAttachment(oystehr, location, 'download'),
+    pdfUrl: await getInvoicePdfDownloadUrl({
+      oystehr,
+      invoiceId: invoice.id!,
+      documentReference,
+      secrets,
+    }),
   };
 }
