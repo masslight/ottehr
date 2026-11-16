@@ -209,7 +209,7 @@ const createDmeOrderFormStyles: StyleFactory = (assets) => {
       itemHeading: { fontSize: 15, font: assets.fonts.bold, spacing: 6, newLineAfter: true },
       faxResults: { fontSize: 12, font: assets.fonts.bold, spacing: 3, newLineAfter: true },
       signature: { fontSize: 20, font: assets.fonts.signature, spacing: 5, newLineAfter: true },
-      signatureCredentials: { fontSize: 13, font: assets.fonts.regular, spacing: 5, newLineAfter: true },
+      signatureCredentials: { fontSize: 13, font: assets.fonts.regular, spacing: 5 },
       regular: bodyLine,
       fieldText: bodyLine,
       caption: { fontSize: 9, font: assets.fonts.regular, spacing: 2, newLineAfter: true },
@@ -352,11 +352,13 @@ const providerSignatureSection: PdfSection<DmeOrderFormData, DmeOrderFormData['o
       const signatureStyle = styles.textStyles.signature;
       client.drawText(provider.signatureName, { ...signatureStyle, newLineAfter: !provider.credentials });
       if (provider.credentials) {
+        const signatureDims = client.getTextDimensions(provider.signatureName, signatureStyle);
         client.drawStartXPosSpecifiedText(
           `, ${provider.credentials}`,
           styles.textStyles.signatureCredentials,
-          client.getLeftBound() + client.getTextDimensions(provider.signatureName, signatureStyle).width
+          client.getLeftBound() + signatureDims.width
         );
+        client.newLine(signatureDims.height + signatureStyle.spacing);
       }
     }
     client.drawText(SIGNATURE_BLANK, styles.textStyles.regular);

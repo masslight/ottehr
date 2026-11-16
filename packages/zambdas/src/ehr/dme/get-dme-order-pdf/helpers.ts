@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { DeviceRequest, DocumentReference, Encounter, Location, Practitioner } from 'fhir/r4b';
+import { Coverage, DeviceRequest, DocumentReference, Encounter, Location, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
@@ -75,9 +75,14 @@ export const gatherDmeOrderFormInput = async (
       account,
       coverages.primary,
       coverages.secondary,
+      standaloneSubscriber(coverages.primary, coverages.primarySubscriber),
+      standaloneSubscriber(coverages.secondary, coverages.secondarySubscriber),
     ].flatMap((resource) => (resource ? [resource] : [])),
   };
 };
+
+const standaloneSubscriber = (coverage?: Coverage, subscriber?: RelatedPerson): RelatedPerson | undefined =>
+  coverage?.subscriber?.reference?.startsWith('RelatedPerson/') ? subscriber : undefined;
 
 export const makeDmeOrderFormVersion = (sources: OrderFormSource[]): string | undefined =>
   makeOrderFormVersion(DME_ORDER_FORM_TEMPLATE_VERSION, sources);

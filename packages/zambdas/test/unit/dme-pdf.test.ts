@@ -345,6 +345,19 @@ describe('DME order form PDF', () => {
     expect(credentials.x).toBeGreaterThan(signature.x);
   });
 
+  it('leaves the same room under the signature whether or not it carries credentials', async () => {
+    const roomUnderSignature = async (suffix?: string[]): Promise<number> => {
+      const drawn = await drawnText(
+        makeInput(makeDeviceRequest(inHouseFields), {
+          practitioners: [{ ...practitioners[0], name: [{ given: ['Jane'], family: 'Doe', suffix }] }],
+        })
+      );
+      return find(drawn, 'Jane Doe').y - find(drawn, 'Provider Signature').y;
+    };
+
+    expect(await roomUnderSignature(['MD'])).toBe(await roomUnderSignature());
+  });
+
   it('draws each insurance as a column in the order of the design, primary on the left', async () => {
     const drawn = await drawnText(makeInput(makeDeviceRequest(inHouseFields), { coverages: twoCoverages }));
     const fieldLabels = [
