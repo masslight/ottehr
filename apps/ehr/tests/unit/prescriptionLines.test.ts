@@ -195,6 +195,18 @@ describe('prescriptionLineErrors', () => {
     );
   });
 
+  // Decision 190 (D8-3): "as directed" with the amounts written in the instructions blank is complete.
+  it('asks for no dose "as directed" when the instructions say how much', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const asDirected = withDirections(liquid, { frequency: 'as directed' });
+    expect(prescriptionLineErrors({ ...asDirected, quantityValue: '100' })).toEqual(['Enter the dose']);
+    const written = withDirections(asDirected, { instructions: '10 mL daily for 3 days then 5 mL daily for 2 days' });
+    expect(written.patientInstructions).toBe(
+      'Take by mouth as directed, 10 mL daily for 3 days then 5 mL daily for 2 days.'
+    );
+    expect(prescriptionLineErrors({ ...written, quantityValue: '100' })).toEqual([]);
+  });
+
   // Decision 186: a line waiting for a pick hides its sentences, so it isn't asked for what they hold.
   it('asks only for the pick while the line waits for one', () => {
     const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);

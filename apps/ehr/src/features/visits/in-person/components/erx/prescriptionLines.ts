@@ -877,10 +877,12 @@ export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
   );
   const messages = issues.map((issue) => issue.message);
   // Directions the blanks write need an amount in every step they say, where the product has a unit to count it in (a
-  // cream's needn't). It goes after the medication's and diagnosis's problems, as the line reads.
+  // cream's needn't); "as directed" needs none once the instructions say how much. It goes after the medication's and
+  // diagnosis's problems, as the line reads.
+  const writtenOut = line.instructions.trim() !== '';
   if (
     directionsFromBlanks(line) &&
-    sentenceSteps(line).some((step) => !step.dose.trim()) &&
+    sentenceSteps(line).some((step) => !step.dose.trim() && !(step.frequency === 'as directed' && writtenOut)) &&
     prescriptionDoseUnit(line.medication) !== undefined
   ) {
     const at = issues.findIndex((issue) => !['medication', 'diagnosis'].includes(String(issue.path[0])));
