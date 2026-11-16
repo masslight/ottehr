@@ -73,11 +73,12 @@ interface Strength {
  * "10/325 MG" as "10-325 mg"). "100,000 unit" and "100000 UNT" are 100000 units. A combination written per
  * ingredient, as RxNorm does ("875 MG / clavulanate potassium 125 MG"), or per actuation ("0.08 MG/ACTUAT / formoterol
  * … 0.0045 MG/ACTUAT"), reads as "875-125 mg" or "0.08-0.0045 mg"; one with an ingredient in another unit ("10000
- * UNT/ML / trimethoprim sulfate 1 MG/ML") has no strength it can compare. */
+ * UNT/ML / trimethoprim sulfate 1 MG/ML") has no strength it can compare. Amounts are read from their first digit
+ * only, so a long run of digits takes linear time, not quadratic. */
 const strengthOf = (description: string | undefined): Strength | undefined => {
   if (!description) return undefined;
   const match = description.match(
-    /((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[-/]\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|unt|%)(?![a-z])(?:\s*\/\s*(\d+(?:\.\d+)?)?\s*(ml|actuat|act|dose|inh)\b)?/i
+    /(?<!\d|\d[-/.,])((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[-/]\d+(?:\.\d+)?)*)\s*(mcg|mg|gm|g|meq|units?|unt|%)(?![a-z])(?:\s*\/\s*(\d+(?:\.\d+)?)?\s*(ml|actuat|act|dose|inh)\b)?/i
   );
   if (!match) return undefined;
   const [, writtenAmounts, written, per, perWord] = match;
