@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { searchPharmacyDirectory } from 'src/api/api';
 import { useAuthToken } from 'src/hooks/useAuthToken';
 import {
+  directoryPharmacyMatches,
   directoryPharmacyToResult,
   directoryQueryForPlace,
-  matchDirectoryPharmacy,
   parseAddressText,
   PharmacyPlace,
 } from 'utils/lib/helpers/erx-pharmacy-match';
@@ -19,22 +19,23 @@ const MIN_PLACES_QUERY_LENGTH = 3;
 
 type SearchPlaces = (input: SearchPlacesInput) => Promise<SearchPlacesOutput>;
 
-/** The directory pharmacy at a place, if one matches and can be ordered to. */
-const findDirectoryPharmacy = async (
-  token: string,
-  place: PharmacyPlace
-): Promise<PharmacySearchResult | undefined> => {
+/** The directory pharmacies at a place. */
+const findDirectoryPharmacies = async (token: string, place: PharmacyPlace): Promise<ErxDirectoryPharmacy[]> => {
   const query = directoryQueryForPlace(place);
-  if (!query) return undefined;
-  const row = matchDirectoryPharmacy(place, await searchPharmacyDirectory(token, query));
-  return row && directoryPharmacyToResult(row);
+  return query ? directoryPharmacyMatches(place, await searchPharmacyDirectory(token, query)) : [];
 };
+
+/** The one directory pharmacy matched, if it can be ordered to: none when several match (ambiguous). */
+const onlyPharmacy = (matches: ErxDirectoryPharmacy[]): PharmacySearchResult | undefined =>
+  matches.length === 1 ? directoryPharmacyToResult(matches[0]) : undefined;
 
 export interface CheckedPlace {
   name: string;
   zipCode?: string;
   /** Undefined when the place isn't a directory pharmacy that takes e-prescriptions. */
   pharmacy?: PharmacySearchResult;
+  /** More than one directory pharmacy matches the place, so which one it is can't be told. */
+  several?: boolean;
 }
 
 /** A Google place checked against the directory: its details give its address parts, which are matched there. */
@@ -43,8 +44,8 @@ const checkPlace = async (token: string, searchPlaces: SearchPlaces, placesId: s
   const name = details?.name ?? '';
   const parts = details?.addressComponents;
   if (!parts) return { name };
-  const pharmacy = await findDirectoryPharmacy(token, { name, ...parts });
-  return { name, zipCode: parts.zipCode?.slice(0, 5), pharmacy };
+  const matches = await findDirectoryPharmacies(token, { name, ...parts });
+  return { name, zipCode: parts.zipCode?.slice(0, 5), pharmacy: onlyPharmacy(matches), several: matches.length > 1 };
 };
 
 /** The check of a picked Google place; undefined until the clients are ready. */
@@ -127,7 +128,7 @@ export const usePreferredPharmacy = (
     queryFn: async () => {
       if (saved!.placesId) return (await checkPlace(token!, apiClient!.searchPlaces, saved!.placesId)).pharmacy ?? null;
       const place = parseAddressText(saved!.name, saved!.address);
-      return (place && (await findDirectoryPharmacy(token!, place))) ?? null;
+      return (place && onlyPharmacy(await findDirectoryPharmacies(token!, place))) ?? null;
     },
     enabled: Boolean(token) && Boolean(apiClient) && Boolean(saved),
     staleTime: Infinity,

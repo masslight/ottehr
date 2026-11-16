@@ -241,10 +241,15 @@ export const PharmacySearch: FC<{
     if (!checkPlace) return;
     setChecking(true);
     try {
-      const { name, zipCode, pharmacy } = await checkPlace(option.placesId);
+      const { name, zipCode, pharmacy, several } = await checkPlace(option.placesId);
       const why = pharmacy && unavailable?.(pharmacy);
       if (pharmacy && !why) onPick(pharmacy);
       else if (pharmacy) setNotice({ text: `${pharmacy.name}: ${why}. Pick another pharmacy.` });
+      else if (several)
+        setNotice({
+          text: `More than one pharmacy matches ${name || option.name}. Pick the right one below.`,
+          zipCode,
+        });
       else setNotice({ text: `${name || option.name} can't receive e-prescriptions. Pick another pharmacy.`, zipCode });
     } catch (e) {
       console.error('Error checking the pharmacy:', e);

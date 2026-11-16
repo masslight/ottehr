@@ -54,17 +54,16 @@ export const pharmacyNamesMatch = (a: string, b: string): boolean => {
   return within(first, second) || within(second, first) || first[0] === second[0];
 };
 
-/** The directory row for a place: the same street number, street name and 5-digit zip, and a loosely matching name.
- * None when no row matches, or when several do (ambiguous). */
-export const matchDirectoryPharmacy = (
+/** The directory rows for a place: the same street number, street name and 5-digit zip, and a loosely matching name. */
+export const directoryPharmacyMatches = (
   place: PharmacyPlace,
   rows: ErxDirectoryPharmacy[]
-): ErxDirectoryPharmacy | undefined => {
+): ErxDirectoryPharmacy[] => {
   const number = words(place.streetNumber ?? '').join('');
   const streets = [place.streetShort, place.streetLong].flatMap((street) => (street ? [normalizeStreet(street)] : []));
   const zip = zip5(place.zipCode);
-  if (!number || !streets.length || zip.length !== 5) return undefined;
-  const matches = rows.filter((row) => {
+  if (!number || !streets.length || zip.length !== 5) return [];
+  return rows.filter((row) => {
     const [rowNumber, ...rowStreet] = normalizeStreet(row.address1).split(' ');
     return (
       rowNumber === number &&
@@ -73,6 +72,14 @@ export const matchDirectoryPharmacy = (
       pharmacyNamesMatch(place.name, row.name)
     );
   });
+};
+
+/** The directory row for a place: none when no row matches, or when several do (ambiguous). */
+export const matchDirectoryPharmacy = (
+  place: PharmacyPlace,
+  rows: ErxDirectoryPharmacy[]
+): ErxDirectoryPharmacy | undefined => {
+  const matches = directoryPharmacyMatches(place, rows);
   return matches.length === 1 ? matches[0] : undefined;
 };
 

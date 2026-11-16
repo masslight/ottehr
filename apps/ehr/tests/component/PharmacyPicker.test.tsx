@@ -199,6 +199,25 @@ describe('eRx pharmacy picker', () => {
     expect(onPick).toHaveBeenCalledWith(result(HEB));
   });
 
+  // Decision 161: two directory entries at the place can both take e-prescriptions; Ottehr can't tell which it is.
+  it('says a pick matching 2 directory pharmacies matches more than one, and lists those in its zip', async () => {
+    const user = userEvent.setup();
+    const twin = directoryRow({ ncpdpId: '4400005' });
+    mocks.searchPharmacyDirectory.mockImplementation(async (token: string, query: ErxDirectoryQuery) => [
+      ...(await searchDirectory(token, query)),
+      ...(query.zipCode || query.address === '1200 s' ? [twin] : []),
+    ]);
+    const onPick = renderPicker();
+    await user.type(screen.getByRole('combobox', { name: 'Pharmacy' }), 'cvs congress');
+    await user.click(await screen.findByRole('option', { name: /CVS Pharmacy/ }));
+    expect(
+      await screen.findByText('More than one pharmacy matches CVS Pharmacy. Pick the right one below.')
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Can receive e-prescriptions in 78704')).toBeInTheDocument();
+    expect(screen.getAllByRole('option', { name: /CVS\/PHARMACY #7741/ })).toHaveLength(2);
+    expect(onPick).not.toHaveBeenCalled();
+  });
+
   it('offers the directory search from 3 characters, as Google', async () => {
     const user = userEvent.setup();
     renderPicker();
