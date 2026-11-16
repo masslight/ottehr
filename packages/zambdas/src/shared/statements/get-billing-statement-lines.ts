@@ -97,9 +97,10 @@ export function computeBillingStatementAmounts(params: {
 
   const insurancePaidCents = Math.max(toCents(payments.insurancePaid), 0);
   // until a remit reports PR, the patient owes what's still open only once the claim is moved to
-  // patient AR
+  // patient AR. Signed insurance paid, as the claim balance uses: a reversal that leaves it net
+  // negative reopens that much, and clamping it here would make the lines disagree with the total
   const undeterminedRespCents = hasReachedPatientAr(claim)
-    ? Math.max(toCents(claim.total?.value) - insurancePaidCents, 0)
+    ? Math.max(toCents(claim.total?.value) - toCents(payments.insurancePaid), 0)
     : 0;
   const patientRespCents = Math.max(
     payments.patientResp !== null ? toCents(payments.patientResp) : undeterminedRespCents,

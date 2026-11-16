@@ -407,6 +407,41 @@ describe('computeBillingStatementAmounts', () => {
     expect(lines.map((line) => line.patientOwesCents)).toEqual([10_400, 33_900]);
   });
 
+  it('adds the lines up to the balance when no remit reported PR and a reversal left insurance paid negative', () => {
+    // the payer pays 50 and later takes back 70 under a procedure the claim never carried; neither
+    // remit reports PR, so the claim in patient AR owes 443 billed - (-20) insurance paid
+    const payment = claimResponse({
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 50), casAdjustment('CO', 54, '45')],
+        }),
+      ],
+    });
+    const takeBack = claimResponse({
+      id: 'cr-2',
+      created: '2026-08-20',
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '99999',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, -70), casAdjustment('CO', 70, '45')],
+        }),
+      ],
+    });
+
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [payment, takeBack],
+      patientPaid: 0,
+      writeOffsTotal: 0,
+    });
+
+    expect(totals.balanceDueCents).toBe(46_300);
+    expect(sumOf(lines, 'patientOwesCents')).toBe(totals.balanceDueCents);
+  });
+
   it('owes the patient nothing while an insured claim is still waiting on its payer', () => {
     const { lines, totals } = computeBillingStatementAmounts({
       claim: billingClaim({ arStage: AR_STAGE.insurancePayer }),
