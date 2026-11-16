@@ -1279,12 +1279,16 @@ export const prescriptionLineToQuickPick = (
 
 const mgText = (mg: number): string => `${roundNumberToDecimalPlaces(mg, 2)} mg`;
 
-/** What the save dialog says a quick pick keeps from the calculator: "Saved by weight: 25 mg/kg per dose, twice
- * daily, 10 days, max 500 mg per dose (from the calculator)". */
-export const quickPickDosingText = (dosing: PrescriptionQuickPickDosing): string =>
-  `${dosing.basis === 'fixed' ? 'Saved dose' : 'Saved by weight'}: ${quickPickDosingSummary(
-    dosing
-  )} (from the calculator)`;
+/** What the save dialog says a quick pick keeps of the line's dosing: "Saved by weight: 25 mg/kg per dose, twice
+ * daily, 10 days, max 500 mg per dose (from the calculator)". A quick pick's dosing, the calculator never opened, is
+ * "(from the quick pick)": the calculator's dose has no quick pick in its note (decision 197). */
+export const quickPickDosingText = (dosing: PrescriptionQuickPickDosing, line: PrescriptionLine): string => {
+  const note = line.doseNotes?.[0];
+  const fromQuickPick = note ? Boolean(note.quickPick) : Boolean(line.quickPicked);
+  return `${dosing.basis === 'fixed' ? 'Saved dose' : 'Saved by weight'}: ${quickPickDosingSummary(dosing)} (from the ${
+    fromQuickPick ? 'quick pick' : 'calculator'
+  })`;
+};
 
 /** "25 mg/kg per dose", "45 mg/kg per day", "500 mg per dose". */
 const dosingRuleText = ({ rate, basis }: Pick<PrescriptionQuickPickDosing, 'rate' | 'basis'>): string =>

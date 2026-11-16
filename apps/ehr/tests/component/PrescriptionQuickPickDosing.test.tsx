@@ -189,7 +189,7 @@ describe('Save as quick pick: the calculator’s dosing', () => {
         onClose={() => undefined}
         onSave={() => undefined}
         entityLabel="prescription"
-        details={quickPickDosingText(saved.dosing!)}
+        details={quickPickDosingText(saved.dosing!, latest!)}
       />
     );
     expect(screen.getByTestId('quick-pick-details')).toHaveTextContent(
@@ -860,6 +860,10 @@ describe('A quick pick from the medication menu', () => {
     expect(screen.getByRole('textbox', { name: 'directions' })).toHaveValue(
       'Take 4 mL by mouth twice daily for 10 days.'
     );
+    // Decision 197: saved again, the dialog says where the dosing is from; the calculator was never opened.
+    expect(quickPickDosingText(prescriptionLineToQuickPick(latest!, 'Again').dosing!, latest!)).toBe(
+      'Saved by weight: 25 mg/kg per dose, twice daily, 10 days (from the quick pick)'
+    );
   });
 
   it('without a weight leaves the dose to enter and keeps the settings on the line', async () => {
@@ -869,6 +873,7 @@ describe('A quick pick from the medication menu', () => {
     expect(latest).toMatchObject({ medication: PRODUCT, dose: '', frequency: 'twice daily', durationDays: '10' });
     expect(screen.getByRole('spinbutton', { name: 'dose' })).toHaveAttribute('placeholder', '(enter weight)');
     expect(prescriptionLineToQuickPick(latest!, 'Again').dosing).toEqual(BY_WEIGHT.dosing);
+    expect(quickPickDosingText(BY_WEIGHT.dosing!, latest!)).toMatch(/\(from the quick pick\)$/);
   });
 
   it('uses a quick pick without dosing as saved', async () => {

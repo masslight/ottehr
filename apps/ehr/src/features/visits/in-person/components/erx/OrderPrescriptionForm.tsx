@@ -538,7 +538,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
         onClose={() => setQuickPickLineKey(null)}
         onSave={() => void onSaveAsQuickPick()}
         entityLabel="prescription"
-        details={savedDosing && quickPickDosingText(savedDosing)}
+        details={savedDosing && quickPickLine && quickPickDosingText(savedDosing, quickPickLine)}
         placeholder="Quick pick name"
         nameError={quickPickNameError}
       />
