@@ -41,6 +41,14 @@ describe('useNavigateBack', () => {
     expect(await screen.findByRole('button', { name: 'Open docs' })).toBeInTheDocument();
   });
 
+  it('returns to the in-app page the user came from after the login redirect reset the history state', async () => {
+    renderAppAt('/visits');
+    window.history.replaceState({}, '', '/visits');
+    await userEvent.click(screen.getByRole('button', { name: 'Open docs' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByRole('button', { name: 'Open docs' })).toBeInTheDocument();
+  });
+
   it('opens the fallback page when the page was opened directly, e.g. in a new tab', async () => {
     renderAppAt('/patient/p1/docs');
     await userEvent.click(screen.getByRole('button', { name: 'Back' }));

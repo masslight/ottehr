@@ -70,6 +70,18 @@ describe('Patient Profile header', () => {
     expect(handleDiscard).toHaveBeenCalledTimes(2);
   });
 
+  it('leaves out the name last modified line when the page has none', () => {
+    render(
+      <CustomThemeProvider>
+        <MemoryRouter>
+          <Header id="patient-1" handleDiscard={vi.fn()} />
+        </MemoryRouter>
+      </CustomThemeProvider>
+    );
+
+    expect(screen.queryByTestId(dataTestIds.patientHeader.nameLastModified)).not.toBeInTheDocument();
+  });
+
   it('renders the print label icon in the accent blue used by the notes icon', () => {
     render(
       <CustomThemeProvider>

@@ -105,6 +105,7 @@ export const dataTestIds = {
   },
   patientHeader: {
     patientId: 'header-patient-id',
+    nameLastModified: 'header-patient-name-last-modified',
     patientName: 'header-patient-name',
     nameRow: 'header-patient-name-row',
     patientBirthSex: 'header-patient-birth-sex',
