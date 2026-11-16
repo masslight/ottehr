@@ -208,6 +208,48 @@ describe('Prescription sets admin', () => {
     expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Prescription set updated', { variant: 'success' });
   });
 
+  // Decision 159: "Reopen the set and save again." works on the same page: the refusal reloads both lists.
+  it('after a save refused for a removed quick pick, reopening the set shows the current list', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const row = (await screen.findByText('Ear infection')).closest('tr') as HTMLElement;
+    await user.click(within(row).getByTitle('Edit'));
+    const dialog = await screen.findByRole('dialog');
+    expect(memberNames(dialog)).toEqual(['Amox otitis', 'Ibuprofen pain']);
+    // Removed in another tab: the set is Inactive with a note, and the quick pick is gone.
+    api.getPrescriptionQuickPicks.mockResolvedValue({ quickPicks: [AMOX, DROPS] });
+    api.getPrescriptionSetQuickPicks.mockResolvedValue({
+      quickPicks: [
+        {
+          ...EAR_INFECTION,
+          status: 'Inactive',
+          memberIds: ['qp-amox'],
+          removedMembers: [{ name: 'Ibuprofen pain', removedAt: REMOVED_AT }],
+        },
+        STREP,
+      ],
+    });
+    api.updatePrescriptionSetQuickPick.mockRejectedValue({
+      code: 4000,
+      message: '1 prescription in this set no longer exists. Reopen the set and save again.',
+    });
+    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(mockEnqueueSnackbar).toHaveBeenCalledWith(
+        '1 prescription in this set no longer exists. Reopen the set and save again.',
+        { variant: 'error' }
+      )
+    );
+    await waitFor(() => expect(api.getPrescriptionQuickPicks).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(api.getPrescriptionSetQuickPicks).toHaveBeenCalledTimes(2));
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(within(screen.getByText('Ear infection').closest('tr') as HTMLElement).getByTitle('Edit'));
+    const reopened = await screen.findByRole('dialog');
+    expect(memberNames(reopened)).toEqual(['Amox otitis']);
+    expect(within(reopened).getByLabelText('Inactive')).toBeChecked();
+  });
+
   it('removes a set only after the confirmation', async () => {
     const user = userEvent.setup();
     renderPage();

@@ -65,8 +65,12 @@ interface SetFormErrors {
 
 export default function PrescriptionSetsPage(): ReactElement {
   const theme = useTheme();
-  const { data: sets = [], isLoading } = usePrescriptionSetQuickPicksQuery();
-  const { data: quickPicks = [], isLoading: quickPicksLoading } = usePrescriptionQuickPicksQuery();
+  const { data: sets = [], isLoading, refetch: refetchSets } = usePrescriptionSetQuickPicksQuery();
+  const {
+    data: quickPicks = [],
+    isLoading: quickPicksLoading,
+    refetch: refetchQuickPicks,
+  } = usePrescriptionQuickPicksQuery();
   const saveMutation = useSavePrescriptionSetQuickPickMutation();
   const removeMutation = useRemovePrescriptionSetQuickPickMutation();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -128,6 +132,9 @@ export default function PrescriptionSetsPage(): ReactElement {
           enqueueSnackbar(getApiError({ error, defaultError: 'Failed to save prescription set' }), {
             variant: 'error',
           });
+          // A refusal may come from lists changed elsewhere (a removed quick pick): reopening shows them as they are.
+          void refetchSets();
+          void refetchQuickPicks();
         },
       }
     );
