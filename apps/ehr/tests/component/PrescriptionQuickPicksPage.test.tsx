@@ -601,6 +601,17 @@ describe('prescriptionQuickPickFromForm: dosing', () => {
       prescriptionQuickPickFromForm(prescriptionQuickPickFormValues({ ...otic, ...ERX_PRODUCT_DETAILS['00093416173'] }))
         .errors
     ).toBeUndefined();
+    // Decision 188: nor a powder dosed per packet or capful, whose strength isn't per mL.
+    const peg = {
+      ...otic,
+      name: 'Miralax by weight',
+      medicationDescription: 'Polyethylene Glycol 3350 17 GM/SCOOP Powder',
+      doseForm: 'Powder for Oral Solution',
+      ingredients: [{ name: 'polyethylene glycol 3350', amount: 17000, unit: 'MG', per: 1, perUnit: 'EACH' }],
+    };
+    expect(prescriptionQuickPickFromForm(prescriptionQuickPickFormValues(peg)).errors).toEqual({
+      doseMode: 'The calculator doses liquids, tablets and capsules only',
+    });
   });
 });
 

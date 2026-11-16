@@ -88,12 +88,18 @@ const DOSE_FORMS: Record<string, DoseFormFacts> = {
 };
 
 /** The facts of the product's dose form, if it has one the table lists. Object.hasOwn, as utils' lib setting (no
- * es2022) spells it: "constructor" is no dose form. */
+ * es2022) spells it: "constructor" is no dose form. A liquid whose strength isn't per mL (a powder dosed per packet or
+ * capful, "17000 MG Powder for Oral Solution") keeps only its route: it isn't counted or dispensed in mL. */
 const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFormFacts | undefined => {
   const doseForm = product?.doseForm;
-  return doseForm !== undefined && Object.prototype.hasOwnProperty.call(DOSE_FORMS, doseForm)
-    ? DOSE_FORMS[doseForm]
-    : undefined;
+  const facts =
+    doseForm !== undefined && Object.prototype.hasOwnProperty.call(DOSE_FORMS, doseForm)
+      ? DOSE_FORMS[doseForm]
+      : undefined;
+  const ingredients = product?.ingredients ?? [];
+  return facts?.unit === 'mL' && ingredients.length && ingredients.every((item) => item.perUnit !== 'ML')
+    ? { route: facts.route }
+    : facts;
 };
 
 /** The line's dose form for a product ("Oral Capsule" → capsule), if its RxNorm dose form says. */

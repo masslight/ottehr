@@ -152,6 +152,25 @@ describe('prescriptionLineErrors', () => {
       frequency: 'twice daily',
     });
     expect(prescriptionLineErrors({ ...ointment, quantityValue: '22', quantityUnit: 'Gram' })).toEqual([]);
+    // Decision 188: nor does a powder dosed per packet or capful, which has no mL to count in.
+    const PEG = {
+      name: 'Polyethylene Glycol 3350',
+      strengths: [
+        {
+          strength: '17 GM/SCOOP Powder',
+          ndcs: ['11523723401'],
+          doseForm: 'Powder for Oral Solution',
+          ingredients: [{ name: 'polyethylene glycol 3350', amount: 17000, unit: 'MG', per: 1, perUnit: 'EACH' }],
+        },
+      ],
+    };
+    const peg = withDirections(withProduct(emptyPrescriptionLine(), PEG, PEG.strengths[0]), {
+      frequency: 'once daily',
+      instructions: 'mix 17 g (1 capful) in 8 oz of water',
+    });
+    expect(peg.patientInstructions).toBe('Take by mouth once daily, mix 17 g (1 capful) in 8 oz of water.');
+    expect(peg.quantityUnit).toBe('');
+    expect(prescriptionLineErrors({ ...peg, quantityValue: '510', quantityUnit: 'Gram' })).toEqual([]);
   });
 
   // Decision 186: a line waiting for a pick hides its sentences, so it isn't asked for what they hold.

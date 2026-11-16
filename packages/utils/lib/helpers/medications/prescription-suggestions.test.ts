@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MedicationIngredient } from '../../types/api/erx-search.types';
+import { measureOf } from './plain-dose';
 import {
   isCombinationProduct,
   PRESCRIPTION_FREQUENCIES,
@@ -79,6 +80,29 @@ describe('the RxNorm dose form table', () => {
     expect(prescriptionRoute({ doseForm })).toBe(route);
     expect(prescriptionDoseUnit({ doseForm })).toBe(unit);
     expect(prescriptionQuantityUnit({ doseForm })).toBe(quantityUnit);
+  });
+
+  // Decision 188 (D8-1): a powder dosed per packet or capful (MiraLAX "17000 MG Powder for Oral Solution") isn't counted
+  // in mL, so it has no dose unit, quantity unit or calculator, as a cream; one per mL is unchanged.
+  it('counts no mL for a liquid whose strength isn’t per mL', () => {
+    const peg = {
+      doseForm: 'Powder for Oral Solution',
+      ingredients: [{ name: 'polyethylene glycol 3350', amount: 17000, unit: 'MG', per: 1, perUnit: 'EACH' }],
+    };
+    expect(prescriptionRoute(peg)).toBe('by mouth');
+    expect(prescriptionDoseUnit(peg)).toBeUndefined();
+    expect(prescriptionQuantityUnit(peg)).toBeUndefined();
+    expect(measureOf(peg)).toBeUndefined();
+    for (const perMl of [
+      AMOXICILLIN_400_SUSP,
+      FLUCONAZOLE_SUSP,
+      liquid('Oral Solution', 'prednisolone', 3),
+      liquid('Inhalation Solution', 'albuterol', 0.83),
+    ]) {
+      expect(prescriptionDoseUnit(perMl)).toBe('mL');
+      expect(prescriptionQuantityUnit(perMl)).toBe('Milliliter');
+      expect(measureOf(perMl)).toBe('mL');
+    }
   });
 
   it('implies nothing for a product without details', () => {

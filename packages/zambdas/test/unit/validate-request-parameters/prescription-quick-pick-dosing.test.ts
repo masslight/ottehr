@@ -284,6 +284,19 @@ describe.each([
     }
   );
 
+  // Decision 188 (D8-1): nor a powder dosed per packet or capful, whose strength isn't per mL (MiraLAX).
+  test('refuses dosing for a liquid whose strength isn’t per mL', async () => {
+    const peg = {
+      doseForm: 'Powder for Oral Solution',
+      ingredients: [{ name: 'polyethylene glycol 3350', amount: 17000, unit: 'MG', per: 1, perUnit: 'EACH' }],
+    };
+    const error = await rejection(validate({ ...AMOX_STREP, ...peg }));
+    expect(error.message).toContain('is for liquids, tablets and capsules only');
+    await expect(
+      validate({ ...AMOX_STREP, ...DETAILS, doseForm: 'Powder for Oral Solution' })
+    ).resolves.toBeUndefined();
+  });
+
   test.each([
     ['an RxCUI that isn’t digits', { rxcui: '617430a' }],
     ['an empty dose form', { doseForm: '' }],
