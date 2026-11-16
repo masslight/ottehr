@@ -750,6 +750,36 @@ describe('change request: a suggestion of another strength with the same directi
     ).toBeUndefined();
   });
 
+  // Review D15-2: teaspoons and tablespoons are amounts, "½" and "1/2" alike. A teaspoon isn't turned into mL.
+  it('reads teaspoons and tablespoons as amounts', () => {
+    const amoxicillin = (instructions: string): PrescribedMedicationDTO => ({
+      resourceId: 'rx-15',
+      name: 'Amoxicillin 250 mg/5ml Susp',
+      instructions,
+      order: { ndc: '00093415573', medicationDescription: 'Amoxicillin 250 mg/5ml Susp' },
+    });
+    const warn = (sig: string, instructions: string): string | undefined =>
+      strengthChangeWarning(
+        { description: 'AMOXICILLIN 400 MG/5 ML SUSR', ndc: '00093416173', sig },
+        amoxicillin(instructions)
+      );
+    const warning = 'Different strength, same amount: 250 mg/5 mL → 400 mg/5 mL. Check the dose.';
+    for (const [sig, instructions] of [
+      ['GIVE 1 TSP BY MOUTH TWICE DAILY FOR 10 DAYS', 'Give by mouth as directed, 1 tsp twice daily for 10 days.'],
+      ['GIVE 1 TEASPOONFUL BY MOUTH TWICE DAILY', 'Give by mouth as directed, 1 teaspoonful twice daily for 10 days.'],
+      ['GIVE 2 TEASPOONS BY MOUTH TWICE DAILY', 'Give by mouth as directed, 2 tsp twice daily for 10 days.'],
+      ['GIVE 1/2 TSP BY MOUTH TWICE DAILY', 'Give by mouth as directed, ½ tsp twice daily for 10 days.'],
+      ['GIVE 1 1/2 TSP BY MOUTH TWICE DAILY', 'Give by mouth as directed, 1½ tsp twice daily for 10 days.'],
+      ['GIVE 1 TBSP BY MOUTH DAILY', 'Give by mouth as directed, 1 tablespoonful daily.'],
+    ]) {
+      expect(warn(sig, instructions)).toBe(warning);
+    }
+    expect(warn('GIVE 5 ML BY MOUTH TWICE DAILY', 'Give by mouth as directed, 1 tsp twice daily.')).toBeUndefined();
+    expect(
+      warn('GIVE 1 1/2 TSP BY MOUTH TWICE DAILY', 'Give by mouth as directed, ½ tsp twice daily.')
+    ).toBeUndefined();
+  });
+
   it('says nothing for the same strength from another maker or bottle', () => {
     expect(
       strengthChangeWarning(
