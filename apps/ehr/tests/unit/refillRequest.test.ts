@@ -148,6 +148,21 @@ describe('refill request: the prescription the order form starts with', () => {
     expect(line.diagnosis).toEqual({ code: 'I10', display: 'Essential hypertension' });
   });
 
+  // Audit r5 flag 3: the unit goes with the quantity, so the original's quantity comes with the original's unit.
+  it('takes the original’s unit when it takes the original’s quantity', () => {
+    for (const request of [
+      { description: 'Lisinopril 10 mg tablet', ndc: '00093111101' },
+      { description: 'Lisinopril 10 mg tablet', ndc: '00093111101', quantityUnit: 'Each' },
+    ]) {
+      expect(refillLine(ORIGINAL, request)).toMatchObject({ quantityValue: '30', quantityUnit: 'Tablet' });
+    }
+    // Another product starts with neither.
+    expect(refillLine(ORIGINAL, { description: 'Lisinopril 20 mg tablet', ndc: '00093111201' })).toMatchObject({
+      quantityValue: '',
+      quantityUnit: '',
+    });
+  });
+
   it('takes the quantity unit only from the request, else leaves it empty', () => {
     expect(refillLine(ORIGINAL, { quantityValue: 0.27, quantityUnit: 'Milliliter' }).quantityUnit).toBe('Milliliter');
     const line = refillLine(ORIGINAL, { description: 'Lisinopril 20 mg tablet', quantityValue: 90 });

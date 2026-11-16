@@ -244,8 +244,6 @@ export const refillLine = (
   metadata?: PrescriptionOrderMetadata
 ): PrescriptionLine => {
   const order = prescription.order ?? {};
-  // The unit goes with the quantity it came with: a request's own, else empty for the provider, never the original's.
-  const unit = request ? request.quantityUnit : order.quantityUnit;
   const compound = request ? request.compound : order.compound;
   // The original's directions, quantity and note were written for its product, never for another one: by NDC, else
   // by name.
@@ -256,6 +254,9 @@ export const refillLine = (
       : request.description === undefined ||
         request.description.trim().toLowerCase() ===
           (order.medicationDescription ?? prescription.name ?? '').trim().toLowerCase());
+  // The unit goes with the quantity it came with: the original's with the original's quantity, else the request's own
+  // (empty for the provider when it sent none).
+  const unit = request?.quantityValue === undefined && sameProduct ? order.quantityUnit : request?.quantityUnit;
   // The blanks were written for the original's product and directions: another product (or none named), or a sig of
   // the pharmacy's own, starts from the sig alone. A compound's directions are typed, with no blanks.
   const blanks =
