@@ -36,7 +36,13 @@ export interface CheckedPlace {
   pharmacy?: PharmacySearchResult;
   /** More than one directory pharmacy matches the place, so which one it is can't be told. */
   several?: boolean;
+  /** The directory pharmacies matched that an order can go to. */
+  matches?: PharmacySearchResult[];
 }
+
+/** The directory pharmacies matched that an order can go to (those with an NPI). */
+const orderable = (matches: ErxDirectoryPharmacy[]): PharmacySearchResult[] =>
+  matches.flatMap((row) => directoryPharmacyToResult(row) ?? []);
 
 /** A Google place checked against the directory: its details give its address parts, which are matched there. */
 const checkPlace = async (token: string, searchPlaces: SearchPlaces, placesId: string): Promise<CheckedPlace> => {
@@ -45,7 +51,13 @@ const checkPlace = async (token: string, searchPlaces: SearchPlaces, placesId: s
   const parts = details?.addressComponents;
   if (!parts) return { name };
   const matches = await findDirectoryPharmacies(token, { name, ...parts });
-  return { name, zipCode: parts.zipCode?.slice(0, 5), pharmacy: onlyPharmacy(matches), several: matches.length > 1 };
+  return {
+    name,
+    zipCode: parts.zipCode?.slice(0, 5),
+    pharmacy: onlyPharmacy(matches),
+    several: matches.length > 1,
+    matches: orderable(matches),
+  };
 };
 
 /** The check of a picked Google place; undefined until the clients are ready. */
@@ -89,8 +101,7 @@ export const usePharmacyDirectory = (
   const token = useAuthToken();
   return useQuery({
     queryKey: ['erx-pharmacy-directory', query],
-    queryFn: async () =>
-      (await searchPharmacyDirectory(token!, query!)).flatMap((row) => directoryPharmacyToResult(row) ?? []),
+    queryFn: async () => orderable(await searchPharmacyDirectory(token!, query!)),
     enabled: Boolean(token) && Boolean(query),
   });
 };
@@ -115,10 +126,12 @@ export const usePharmaciesByNcpdpId = (
   }));
 };
 
-/** A saved pharmacy that more than one directory pharmacy matches, so which one it is can't be told: its zip. */
+/** A saved pharmacy that more than one directory pharmacy matches, so which one it is can't be told: its zip, and
+ * the matches an order can go to. */
 export interface SeveralPreferred {
   several: true;
   zipCode?: string;
+  matches: PharmacySearchResult[];
 }
 
 /** The patient's saved pharmacy as a directory pharmacy, matched once per patient: by its Google place when it was
@@ -133,12 +146,18 @@ export const usePreferredPharmacy = (
     queryKey: ['erx-preferred-pharmacy', patientId, saved],
     queryFn: async () => {
       if (saved!.placesId) {
-        const { pharmacy, several, zipCode } = await checkPlace(token!, apiClient!.searchPlaces, saved!.placesId);
-        return several ? { several: true as const, zipCode } : pharmacy ?? null;
+        const { pharmacy, several, zipCode, matches } = await checkPlace(
+          token!,
+          apiClient!.searchPlaces,
+          saved!.placesId
+        );
+        return several ? { several: true as const, zipCode, matches: matches ?? [] } : pharmacy ?? null;
       }
       const place = parseAddressText(saved!.name, saved!.address);
       const matches = place ? await findDirectoryPharmacies(token!, place) : [];
-      return matches.length > 1 ? { several: true as const, zipCode: place?.zipCode } : onlyPharmacy(matches) ?? null;
+      return matches.length > 1
+        ? { several: true as const, zipCode: place?.zipCode, matches: orderable(matches) }
+        : onlyPharmacy(matches) ?? null;
     },
     enabled: Boolean(token) && Boolean(apiClient) && Boolean(saved),
     staleTime: Infinity,

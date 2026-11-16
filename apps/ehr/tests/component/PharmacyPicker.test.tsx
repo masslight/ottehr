@@ -169,12 +169,23 @@ describe('eRx pharmacy picker', () => {
   // Decision 181: as a Google pick matching 2 (decision 161), not "Can't e-prescribe".
   it('says a saved pharmacy matching 2 directory pharmacies matches more than one, and lists those in its zip', async () => {
     const user = userEvent.setup();
-    const onPick = renderPicker({ onFile: { ...ON_FILE, pharmacy: null, several: { zipCode: '78704' } } });
+    const twin = result(directoryRow({ ncpdpId: '4400005', phone: '5125550199' })) as never;
+    const onPick = renderPicker({
+      onFile: { ...ON_FILE, pharmacy: null, several: { zipCode: '78704', matches: [result(CVS) as never, twin] } },
+    });
     expect(
       screen.getByText('More than one pharmacy matches CVS Pharmacy. Pick the right one below.')
     ).toBeInTheDocument();
     expect(await screen.findByText('Can receive e-prescriptions in 78704')).toBeInTheDocument();
     expect(screen.queryByText("Can't e-prescribe")).not.toBeInTheDocument();
+    // Decision 192: the matches first, each with its phone, then the rest of the zip.
+    expect(screen.getByText('Matches CVS Pharmacy')).toBeInTheDocument();
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'CVS/PHARMACY #77411200 S CONGRESS AVE, AUSTIN, TX 78704 · (512) 555-0142',
+      'CVS/PHARMACY #77411200 S CONGRESS AVE, AUSTIN, TX 78704 · (512) 555-0199',
+      'HEB PHARMACY #6122400 S CONGRESS AVE, AUSTIN, TX 78704',
+      'WALGREENS #095522501 S LAMAR BLVD, AUSTIN, TX 78704',
+    ]);
     await user.click(screen.getByRole('option', { name: /HEB PHARMACY #612/ }));
     expect(onPick).toHaveBeenCalledWith(result(HEB));
   });
@@ -215,7 +226,7 @@ describe('eRx pharmacy picker', () => {
   // Decision 161: two directory entries at the place can both take e-prescriptions; Ottehr can't tell which it is.
   it('says a pick matching 2 directory pharmacies matches more than one, and lists those in its zip', async () => {
     const user = userEvent.setup();
-    const twin = directoryRow({ ncpdpId: '4400005' });
+    const twin = directoryRow({ ncpdpId: '4400005', phone: '5125550199' });
     mocks.searchPharmacyDirectory.mockImplementation(async (token: string, query: ErxDirectoryQuery) => [
       ...(await searchDirectory(token, query)),
       ...(query.zipCode || query.address === '1200 s' ? [twin] : []),
@@ -227,8 +238,17 @@ describe('eRx pharmacy picker', () => {
       await screen.findByText('More than one pharmacy matches CVS Pharmacy. Pick the right one below.')
     ).toBeInTheDocument();
     expect(await screen.findByText('Can receive e-prescriptions in 78704')).toBeInTheDocument();
-    expect(screen.getAllByRole('option', { name: /CVS\/PHARMACY #7741/ })).toHaveLength(2);
+    // Decision 192: the matches first, each with its phone so they can be told apart, then the rest of the zip.
+    expect(screen.getByText('Matches CVS Pharmacy')).toBeInTheDocument();
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'CVS/PHARMACY #77411200 S CONGRESS AVE, AUSTIN, TX 78704 · (512) 555-0142',
+      'CVS/PHARMACY #77411200 S CONGRESS AVE, AUSTIN, TX 78704 · (512) 555-0199',
+      'HEB PHARMACY #6122400 S CONGRESS AVE, AUSTIN, TX 78704',
+      'WALGREENS #095522501 S LAMAR BLVD, AUSTIN, TX 78704',
+    ]);
     expect(onPick).not.toHaveBeenCalled();
+    await user.click(screen.getAllByRole('option')[1]);
+    expect(onPick).toHaveBeenCalledWith(result(twin));
   });
 
   it('offers the directory search from 3 characters, as Google', async () => {
@@ -319,16 +339,17 @@ describe('preferred pharmacy lookup', () => {
   });
 
   it('says when more than one directory pharmacy matches the saved pharmacy, by its address or its place', async () => {
-    const twin = directoryRow({ ncpdpId: '4400005' });
+    const twin = directoryRow({ ncpdpId: '4400005', phone: '5125550199' });
     mocks.searchPharmacyDirectory.mockImplementation(async (token: string, query: ErxDirectoryQuery) => [
       ...(await searchDirectory(token, query)),
       ...(query.address === '1200 s' ? [twin] : []),
     ]);
+    const several = { several: true, zipCode: '78704', matches: [result(CVS), result(twin)] };
     const typed = { name: 'CVS Pharmacy', address: '1200 S Congress Ave, Austin, TX 78704' };
     const { result: byAddress } = renderHook(() => usePreferredPharmacy('patient-1', typed), { wrapper });
-    await waitFor(() => expect(byAddress.current.data).toEqual({ several: true, zipCode: '78704' }));
+    await waitFor(() => expect(byAddress.current.data).toEqual(several));
     const picked = { ...typed, placesId: 'place-cvs' };
     const { result: byPlace } = renderHook(() => usePreferredPharmacy('patient-2', picked), { wrapper });
-    await waitFor(() => expect(byPlace.current.data).toEqual({ several: true, zipCode: '78704' }));
+    await waitFor(() => expect(byPlace.current.data).toEqual(several));
   });
 });

@@ -2,6 +2,7 @@ import { Autocomplete, Box, PopperProps, TextField, Tooltip } from '@mui/materia
 import { createContext, FC, HTMLAttributes, ReactNode, useContext, useState } from 'react';
 import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { directoryPharmacyToResult } from 'utils/lib/helpers/erx-pharmacy-match';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { PharmacyDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ErxDirectoryQuery, PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
 import {
@@ -108,11 +109,23 @@ export interface OnFilePharmacy {
   saved: PharmacyDTO;
   /** Its directory match: null when there is none, undefined while it's being looked up. */
   pharmacy: PharmacySearchResult | null | undefined;
-  /** More than one directory pharmacy matches it: its zip. */
-  several?: { zipCode?: string };
+  /** More than one directory pharmacy matches it: its zip, and the matches an order can go to. */
+  several?: { zipCode?: string; matches: PharmacySearchResult[] };
 }
 
-const severalText = (name: string): string => `More than one pharmacy matches ${name}. Pick the right one below.`;
+/** Why a picked pharmacy can't be picked, and its zip for the list of those that can; when more than one directory
+ * pharmacy matches it, those listed first. */
+interface Notice {
+  text: string;
+  zipCode?: string;
+  matches?: { name: string; pharmacies: PharmacySearchResult[] };
+}
+
+const severalNotice = (name: string, zipCode: string | undefined, pharmacies: PharmacySearchResult[]): Notice => ({
+  text: `More than one pharmacy matches ${name}. Pick the right one below.`,
+  zipCode,
+  matches: { name, pharmacies },
+});
 
 export const PharmacySearch: FC<{
   onPick: (pharmacy: PharmacySearchResult) => void;
@@ -131,13 +144,13 @@ export const PharmacySearch: FC<{
   const checkPlace = useCheckPlace();
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string>();
-  // A picked place that can't be picked: why, and its zip for the list of those that can.
-  const [pickedNotice, setNotice] = useState<{ text: string; zipCode?: string }>();
+  // A picked place that can't be picked.
+  const [pickedNotice, setNotice] = useState<Notice>();
   // Before anything is typed, a saved pharmacy matching more than one reads as a pick that does.
   const notice =
     pickedNotice ??
     (onFile?.several && !query.trim()
-      ? { text: severalText(onFile.saved.name), zipCode: onFile.several.zipCode }
+      ? severalNotice(onFile.saved.name, onFile.several.zipCode, onFile.several.matches)
       : undefined);
   const sameZip = usePharmacyDirectory(notice?.zipCode ? { zipCode: notice.zipCode } : undefined);
   // What was typed when the directory was searched for it; typing again goes back to Google.
@@ -176,15 +189,29 @@ export const PharmacySearch: FC<{
   ];
 
   const typed = query.trim();
+  const matched = notice?.matches?.pharmacies ?? [];
   const options: PharmacyOption[] = notice
-    ? (sameZip.data ?? []).map((pharmacy) => ({
-        kind: 'pharmacy',
-        key: pharmacy.ncpdpId,
-        group: `Can receive e-prescriptions in ${notice.zipCode}`,
-        name: pharmacy.name,
-        address: pharmacy.address,
-        pharmacy,
-      }))
+    ? [
+        // With the phone, which may be all that tells them apart.
+        ...matched.map((pharmacy) => ({
+          kind: 'pharmacy' as const,
+          key: pharmacy.ncpdpId,
+          group: `Matches ${notice.matches?.name}`,
+          name: pharmacy.name,
+          address: [pharmacy.address, formatPhoneNumberDisplay(pharmacy.phone)].filter(Boolean).join(' · '),
+          pharmacy,
+        })),
+        ...(sameZip.data ?? [])
+          .filter((pharmacy) => !matched.some((match) => match.ncpdpId === pharmacy.ncpdpId))
+          .map((pharmacy) => ({
+            kind: 'pharmacy' as const,
+            key: pharmacy.ncpdpId,
+            group: `Can receive e-prescriptions in ${notice.zipCode}`,
+            name: pharmacy.name,
+            address: pharmacy.address,
+            pharmacy,
+          })),
+      ]
     : checking
     ? []
     : !typed
@@ -251,11 +278,11 @@ export const PharmacySearch: FC<{
     if (!checkPlace) return;
     setChecking(true);
     try {
-      const { name, zipCode, pharmacy, several } = await checkPlace(option.placesId);
+      const { name, zipCode, pharmacy, several, matches = [] } = await checkPlace(option.placesId);
       const why = pharmacy && unavailable?.(pharmacy);
       if (pharmacy && !why) onPick(pharmacy);
       else if (pharmacy) setNotice({ text: `${pharmacy.name}: ${why}. Pick another pharmacy.` });
-      else if (several) setNotice({ text: severalText(name || option.name), zipCode });
+      else if (several) setNotice(severalNotice(name || option.name, zipCode, matches));
       else setNotice({ text: `${name || option.name} can't receive e-prescriptions. Pick another pharmacy.`, zipCode });
     } catch (e) {
       console.error('Error checking the pharmacy:', e);
