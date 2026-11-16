@@ -208,6 +208,14 @@ describe('prescriptionLineErrors', () => {
     expect(prescriptionLineErrors({ ...written, quantityValue: '100' })).toEqual([]);
   });
 
+  // Decision 205 (D9-3): instructions with no amount don't say how much.
+  it('still asks for the dose "as directed" when the instructions hold no number', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const shake = withDirections(liquid, { frequency: 'as directed', instructions: 'shake well' });
+    expect(shake.patientInstructions).toBe('Take by mouth as directed, shake well.');
+    expect(prescriptionLineErrors({ ...shake, quantityValue: '100' })).toEqual(['Enter the dose']);
+  });
+
   // Decision 186: a line waiting for a pick hides its sentences, so it isn't asked for what they hold.
   it('asks only for the pick while the line waits for one', () => {
     const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
