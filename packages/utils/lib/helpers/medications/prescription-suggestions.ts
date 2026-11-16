@@ -43,11 +43,14 @@ const INHALER: DoseFormFacts = { form: 'inhaler', route: 'inhaled', unit: 'puff'
 const NASAL_SPRAY: DoseFormFacts = { route: 'in the nose', unit: 'spray' };
 
 /** RxNorm dose forms by their exact names (a controlled vocabulary), matched exactly: a form not listed implies
- * nothing, and the provider fills the route and unit. A spray has no dose form of the line's: its quantity unit stays
- * the provider's. A pack (a dose pack, a kit) says nothing of how it is taken. */
+ * nothing, and the provider fills the route and writes the amount in the directions. A spray has no dose form of the
+ * line's: its quantity unit stays the provider's. A pack (a dose pack, a kit) says nothing of how it is taken.
+ * "Granules for Oral Suspension" isn't listed: it's a packet (esomeprazole) or a bottle dosed in mL (baloxavir). */
 const DOSE_FORMS: Record<string, DoseFormFacts> = {
   'Oral Tablet': ORAL_TABLET,
   'Chewable Tablet': ORAL_TABLET,
+  'Tablet for Oral Suspension': ORAL_TABLET,
+  'Effervescent Oral Tablet': ORAL_TABLET,
   'Disintegrating Oral Tablet': ORAL_TABLET,
   'Delayed Release Oral Tablet': ORAL_TABLET,
   'Extended Release Oral Tablet': ORAL_TABLET,
@@ -59,6 +62,9 @@ const DOSE_FORMS: Record<string, DoseFormFacts> = {
   'Oral Solution': ORAL_LIQUID,
   'Powder for Oral Suspension': ORAL_LIQUID,
   'Powder for Oral Solution': ORAL_LIQUID,
+  'Granules for Oral Solution': ORAL_LIQUID,
+  'Oral Granules': { route: 'by mouth', unit: 'packet' },
+  'Oral Lozenge': { route: 'by mouth', unit: 'lozenge' },
   'Metered Dose Inhaler': INHALER,
   'Inhalation Spray': INHALER,
   'Dry Powder Inhaler': INHALER,
@@ -81,6 +87,7 @@ const DOSE_FORMS: Record<string, DoseFormFacts> = {
   'Transdermal System': { form: 'patch', route: 'on the skin', unit: 'patch' },
   'Rectal Suppository': { form: 'suppository', route: 'rectally', unit: 'suppository' },
   'Vaginal Cream': { form: 'topical', route: 'vaginally' },
+  'Vaginal Insert': { route: 'vaginally', unit: 'insert' },
   'Injectable Solution': { form: 'liquid', route: 'by injection', unit: 'mL' },
   'Injectable Suspension': { form: 'liquid', route: 'by injection', unit: 'mL' },
   'Auto-Injector': { route: 'by injection' },
@@ -89,7 +96,7 @@ const DOSE_FORMS: Record<string, DoseFormFacts> = {
 
 /** The facts of the product's dose form, if it has one the table lists. Object.hasOwn, as utils' lib setting (no
  * es2022) spells it: "constructor" is no dose form. A liquid whose strength isn't per mL (a powder dosed per packet or
- * capful, "17000 MG Powder for Oral Solution") keeps only its route: it isn't counted or dispensed in mL. Such a powder
+ * capful, "17000 MG Powder for Oral Solution", a fosfomycin sachet) keeps only its route: it isn't counted or dispensed in mL. Such a powder
  * of one ingredient in mg is dosed in g ("Take 17 g by mouth") from 1000 mg a packet, in packets below ("Take 3 packets"
  * of sapropterin 100 mg, never 3 g), never measured or dispensed by the line (decisions 203, 218). */
 const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFormFacts | undefined => {
@@ -102,7 +109,10 @@ const doseFormFacts = (product: PrescriptionProduct | null | undefined): DoseFor
   if (!(facts?.unit === 'mL' && ingredients.length && ingredients.every((item) => item.perUnit !== 'ML'))) return facts;
   const [only] = ingredients;
   const packet =
-    ingredients.length === 1 && only.unit === 'MG' && only.perUnit === 'EACH' && doseForm?.startsWith('Powder');
+    ingredients.length === 1 &&
+    only.unit === 'MG' &&
+    only.perUnit === 'EACH' &&
+    /^(?:Powder|Granules) for/.test(doseForm ?? '');
   return packet ? { route: facts.route, unit: only.amount >= 1000 ? 'g' : 'packet' } : { route: facts.route };
 };
 

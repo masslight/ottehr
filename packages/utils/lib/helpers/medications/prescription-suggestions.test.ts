@@ -52,6 +52,11 @@ describe('the RxNorm dose form table', () => {
     ['Oral Tablet', 'tablet', 'by mouth', 'tablet', 'Tablet'],
     ['Disintegrating Oral Tablet', 'tablet', 'by mouth', 'tablet', 'Tablet'],
     ['Chewable Tablet', 'tablet', 'by mouth', 'tablet', 'Tablet'],
+    ['Tablet for Oral Suspension', 'tablet', 'by mouth', 'tablet', 'Tablet'],
+    ['Effervescent Oral Tablet', 'tablet', 'by mouth', 'tablet', 'Tablet'],
+    ['Oral Granules', undefined, 'by mouth', 'packet', undefined],
+    ['Oral Lozenge', undefined, 'by mouth', 'lozenge', undefined],
+    ['Vaginal Insert', undefined, 'vaginally', 'insert', undefined],
     ['Oral Suspension', 'liquid', 'by mouth', 'mL', 'Milliliter'],
     ['Oral Solution', 'liquid', 'by mouth', 'mL', 'Milliliter'],
     ['Metered Dose Inhaler', 'inhaler', 'inhaled', 'puff', 'Inhaler'],
@@ -72,7 +77,8 @@ describe('the RxNorm dose form table', () => {
     ['Auto-Injector', undefined, 'by injection', undefined, undefined],
     // A pack says nothing of how it is taken; a form not in the table, or a near spelling, implies nothing.
     ['Pack', undefined, undefined, undefined, undefined],
-    ['Oral Lozenge', undefined, undefined, undefined, undefined],
+    // A bottle reconstituted to mL (baloxavir) and a packet (esomeprazole) are both "Granules for Oral Suspension".
+    ['Granules for Oral Suspension', undefined, undefined, undefined, undefined],
     ['oral tablet', undefined, undefined, undefined, undefined],
     ['constructor', undefined, undefined, undefined, undefined],
   ])('%s → %s, %s, %s, %s', (doseForm, form, route, unit, quantityUnit) => {
@@ -129,6 +135,21 @@ describe('the RxNorm dose form table', () => {
       'Take 1 packet by mouth once daily for 30 days.'
     );
     expect(prescriptionDoseUnit(each('Powder for Oral Suspension', 'azithromycin', 1000))).toBe('g');
+  });
+
+  // Decision 217 (D10-1): granules, lozenges and inserts are counted; a 1-ingredient sachet of granules for oral
+  // solution takes 218's rule.
+  it('counts granules in packets, and a sachet for oral solution as a powder', () => {
+    const once = { route: 'by mouth' as const, frequency: 'once', durationDays: '' };
+    const montelukast = each('Oral Granules', 'montelukast', 4);
+    expect(prescriptionDirectionsText(montelukast, { ...once, dose: '1', frequency: 'once daily' })).toBe(
+      'Take 1 packet by mouth once daily.'
+    );
+    const fosfomycin = each('Granules for Oral Solution', 'fosfomycin', 3000);
+    expect(prescriptionDoseUnit(fosfomycin)).toBe('g');
+    expect(prescriptionQuantityUnit(fosfomycin)).toBeUndefined();
+    expect(prescriptionDirectionsText(fosfomycin, { ...once, dose: '3' })).toBe('Take 3 g by mouth once.');
+    expect(prescriptionDoseUnit(each('Granules for Oral Solution', 'example', 500))).toBe('packet');
   });
 
   it('implies nothing for a product without details', () => {

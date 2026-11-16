@@ -179,6 +179,31 @@ describe('prescriptionLineErrors', () => {
     expect(prescriptionLineErrors({ ...dosed, quantityValue: '510', quantityUnit: 'Gram' })).toEqual([]);
   });
 
+  // Decision 217 (D10-1): granules have a dose unit again, so they need their dose.
+  it('asks for the dose of montelukast granules', () => {
+    const MONTELUKAST = {
+      name: 'Montelukast (Oral Granules)',
+      strengths: [
+        {
+          strength: '4 mg Granules',
+          ndcs: ['00006384130'],
+          doseForm: 'Oral Granules',
+          ingredients: [{ name: 'montelukast', amount: 4, unit: 'MG', per: 1, perUnit: 'EACH' }],
+        },
+      ],
+    };
+    const granules = withDirections(withProduct(emptyPrescriptionLine(), MONTELUKAST, MONTELUKAST.strengths[0]), {
+      frequency: 'once daily',
+      durationDays: '30',
+    });
+    expect(prescriptionLineErrors({ ...granules, quantityValue: '30', quantityUnit: 'Each' })).toEqual([
+      'Enter the dose',
+    ]);
+    const dosed = withDirections(granules, { dose: '1' });
+    expect(dosed.patientInstructions).toBe('Take 1 packet by mouth once daily for 30 days.');
+    expect(prescriptionLineErrors({ ...dosed, quantityValue: '30', quantityUnit: 'Each' })).toEqual([]);
+  });
+
   // Decision 189 (D8-2): every step the sentence says needs its dose; an empty first step before "then" steps says
   // nothing, so it needs none.
   it('asks for the dose of every step the directions say', () => {
