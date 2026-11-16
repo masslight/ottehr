@@ -114,7 +114,8 @@ const savedRow = (quickPick: PrescriptionQuickPickData, id: string): Prescriptio
  * dose blank waits ("(enter weight)"); a dose typed into it is the provider's, so the line keeps no settings. A
  * frequency picked on the row does as on the line (`withCalculatorDosing`): by mg/kg/day another count of doses a day
  * works the dose out again. A combination product's dose is
- * left to enter, with a note: which ingredient to dose by is the provider's pick in the calculator. */
+ * left to enter, with a note: which ingredient to dose by is the provider's pick in the calculator. So are drops and
+ * puffs, which it doesn't dose, with no "(enter weight)". */
 const dosedRow = (
   quickPick: PrescriptionQuickPickData,
   dosing: PrescriptionQuickPickDosing,
@@ -160,7 +161,7 @@ const dosedRow = (
       title: 'Dose',
       options: [],
       initial: doseText,
-      ...(!doseText && !combination && !noDetails && dosing.basis !== 'fixed' && !weightKg
+      ...(!doseText && measure && !combination && !noDetails && dosing.basis !== 'fixed' && !weightKg
         ? { placeholder: '(enter weight)' }
         : {}),
     };
@@ -290,13 +291,15 @@ const suggestionRowFor = (
 };
 
 /** Another quick pick of a set as its row would read for its own product: "Ibuprofen 100 mg/5ml Susp. Take 5 mL by
- * mouth every 6 hours as needed for 5 days." */
+ * mouth every 6 hours as needed for 5 days." For drops or puffs, which the calculator doesn't dose, its saved
+ * directions. */
 const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | undefined): string => {
   const { medicationDescription } = quickPick;
   const product = quickPickProduct(quickPick);
-  const segments = product
-    ? rowFor(quickPick, '', product, weightKg).segments
-    : [quickPick.patientInstructions || 'No directions saved.'];
+  const segments =
+    product && measureOf(product)
+      ? rowFor(quickPick, '', product, weightKg).segments
+      : [quickPick.patientInstructions || 'No directions saved.'];
   const sentence = assembleSentence(
     segments.map((segment) =>
       isSentenceBlank(segment) && segment.initial === undefined ? { ...segment, initial: segment.placeholder } : segment

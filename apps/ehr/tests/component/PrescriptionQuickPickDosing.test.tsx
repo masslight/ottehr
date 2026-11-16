@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { PrescriptionQuickPickData, PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { describe, expect, it, vi } from 'vitest';
 import { UNSCHEDULED_MESSAGE, withDose } from '../../src/features/visits/in-person/components/erx/DoseCalculator';
 import {
@@ -684,6 +684,71 @@ describe('A quick pick with dosing on drops', () => {
     );
     // 28.12 kg × 0.01 mg/kg/dose = 0.28 mg, which read as mL would be 1 "drop".
     expect(within(suggestionRow(0)).getByRole('button', { name: 'Dose: not picked' })).toBeInTheDocument();
+  });
+});
+
+// Claim audit r6, flag 1: the calculator doses no drops or puffs, so their row asks for no weight, and a set's "Also
+// adds" line gives the quick pick's saved directions for them, never a sentence missing its number.
+describe('A quick pick with dosing on drops or an inhaler, without a weight', () => {
+  const OTIC = {
+    ndc: '00000000002',
+    description: 'Ofloxacin 0.3% Otic Soln',
+    doseForm: 'Otic Solution',
+    ingredients: [{ name: 'ofloxacin', amount: 3, unit: 'MG', per: 1, perUnit: 'ML' }],
+  };
+  const otic: PrescriptionQuickPickData = {
+    id: 'qp-otic',
+    name: 'Oflox by weight',
+    ndc: OTIC.ndc,
+    medicationDescription: OTIC.description,
+    doseForm: OTIC.doseForm,
+    ingredients: OTIC.ingredients,
+    patientInstructions: 'Put 5 drops in the ear twice daily for 7 days.',
+    dosing: { rate: 10, basis: 'mg/kg/dose', frequency: 'twice daily', durationDays: 7 },
+  };
+  const INHALER = detailed({ ndc: '00054074287', description: 'Albuterol 90 mcg/actuat MDI' });
+  const inhaler: PrescriptionQuickPickData = {
+    ...otic,
+    id: 'qp-inhaler',
+    name: 'Albuterol by weight',
+    ndc: INHALER.ndc,
+    medicationDescription: INHALER.description,
+    doseForm: INHALER.doseForm,
+    ingredients: INHALER.ingredients,
+    patientInstructions: undefined,
+  };
+  const dose = (segments: unknown[]): unknown =>
+    segments.find((segment) => typeof segment === 'object' && (segment as { title?: string }).title === 'Dose');
+
+  it('asks for no weight on the row', () => {
+    for (const [medication, quickPick] of [
+      [OTIC, otic],
+      [INHALER, inhaler],
+    ] as const) {
+      const [row] = prescriptionSuggestionsFor({ medication, weightKg: undefined, quickPicks: [quickPick] });
+      expect(dose(row.segments)).not.toHaveProperty('placeholder');
+    }
+  });
+
+  it('gives a set the saved directions for them', () => {
+    const set: PrescriptionSetQuickPickData = {
+      id: 'set-ear',
+      name: 'Ear infection',
+      status: 'Active',
+      memberIds: [BY_WEIGHT.id!, otic.id!, inhaler.id!],
+    };
+    for (const weightKg of [undefined, WEIGHT.kg]) {
+      const rows = prescriptionSuggestionsFor({
+        medication: PRODUCT,
+        weightKg,
+        quickPicks: [BY_WEIGHT, otic, inhaler],
+        sets: [set],
+      });
+      expect(rows.find((row) => row.setName)?.details).toEqual([
+        'Also adds: Ofloxacin 0.3% Otic Soln. Put 5 drops in the ear twice daily for 7 days.',
+        'Also adds: Albuterol 90 mcg/actuat MDI. No directions saved.',
+      ]);
+    }
   });
 });
 
