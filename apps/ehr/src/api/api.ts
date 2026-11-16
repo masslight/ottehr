@@ -642,6 +642,7 @@ const ERX_API_URL = import.meta.env.VITE_APP_ERX_API_URL ?? 'https://erx-api.zap
 const ERX_SERVICE_MESSAGES: [RegExp, string][] = [
   [/is not registered with Surescripts/i, 'You are not enrolled in Surescripts e-prescribing.'],
   [/must have an NPI identifier/i, 'Your profile has no NPI. Ask an administrator to add it.'],
+  [/must have a first and last name/i, 'Your profile is missing a first or last name. Ask an administrator to add it.'],
   [/must have a status of active/i, 'This prescription is no longer active.'],
   [/^forbidden$/i, "You don't have permission to do this in e-prescribing."],
 ];

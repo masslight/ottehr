@@ -140,6 +140,31 @@ describe('User menu: Enroll in eRX', () => {
       );
     });
 
+    // Audit r5 flag 5: eRx v4's refusal for a profile with no first or last name, in plain words, with no record id.
+    it('says in plain words when eRx v4 finds no first or last name', async () => {
+      const { enrollPractitioner } = await vi.importActual<typeof import('src/api/api')>('src/api/api');
+      mocks.enrollPractitioner.mockImplementation(enrollPractitioner);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          async () =>
+            new Response(JSON.stringify({ message: 'Practitioner 1f3c-77 must have a first and last name' }), {
+              status: 400,
+            })
+        )
+      );
+      mocks.roles = [RoleType.Provider];
+      const events = await openMenu();
+      await events.click(await screen.findByText('Enroll in eRX'));
+      await waitFor(() =>
+        expect(enqueueSnackbar).toHaveBeenCalledWith(
+          'Your profile is missing a first or last name. Ask an administrator to add it.',
+          { variant: 'error' }
+        )
+      );
+      vi.unstubAllGlobals();
+    });
+
     it('hides it once the provider is registered in eRx v4', async () => {
       mocks.roles = [RoleType.Provider];
       mocks.checkPractitionerEnrollment.mockResolvedValue({ registered: true });
