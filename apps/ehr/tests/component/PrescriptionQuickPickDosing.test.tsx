@@ -746,7 +746,8 @@ describe('A quick pick with dosing on drops or an inhaler, without a weight', ()
       });
       expect(rows.find((row) => row.setName)?.details).toEqual([
         'Also adds: Ofloxacin 0.3% Otic Soln. Put 5 drops in the ear twice daily for 7 days.',
-        'Also adds: Albuterol 90 mcg/actuat MDI. No directions saved.',
+        // Decision 191: with no directions saved, its dosing.
+        'Also adds: Albuterol 90 mcg/actuat MDI. 10 mg/kg per dose, twice daily, 7 days.',
       ]);
     }
   });
@@ -770,21 +771,24 @@ describe('A quick pick with dosing on drops or an inhaler, without a weight', ()
       ...ERX_PRODUCT_DETAILS['00093227573'],
     };
     const bare: PrescriptionQuickPickData = { ...combo, id: 'qp-bare', patientInstructions: undefined };
+    const empty: PrescriptionQuickPickData = { ...bare, id: 'qp-empty', dosing: undefined };
     const set: PrescriptionSetQuickPickData = {
       id: 'set-combo',
       name: 'Sinusitis',
       status: 'Active',
-      memberIds: [BY_WEIGHT.id!, combo.id!, bare.id!],
+      memberIds: [BY_WEIGHT.id!, combo.id!, bare.id!, empty.id!],
     };
     for (const weightKg of [undefined, WEIGHT.kg]) {
       const rows = prescriptionSuggestionsFor({
         medication: PRODUCT,
         weightKg,
-        quickPicks: [BY_WEIGHT, combo, bare],
+        quickPicks: [BY_WEIGHT, combo, bare, empty],
         sets: [set],
       });
+      // Decision 191 (D8-4): one by weight with no directions saved (as Admin saves it) gives its dosing.
       expect(rows.find((row) => row.setName)?.details).toEqual([
         'Also adds: Amoxicillin-Clavulanate 400-57 mg/5ml Susp. Take 9 mL by mouth twice daily for 10 days.',
+        'Also adds: Amoxicillin-Clavulanate 400-57 mg/5ml Susp. 25 mg/kg per dose, twice daily, 10 days.',
         'Also adds: Amoxicillin-Clavulanate 400-57 mg/5ml Susp. No directions saved.',
       ]);
     }

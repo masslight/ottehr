@@ -38,6 +38,7 @@ import {
   mgPerMeasure,
   NO_DETAILS_MESSAGE,
   PrescriptionLine,
+  quickPickDosingSummary,
   quickPickProduct,
   withAdditionalInstructions,
   withSuggestion,
@@ -292,7 +293,7 @@ const suggestionRowFor = (
 
 /** Another quick pick of a set as its row would read for its own product: "Ibuprofen 100 mg/5ml Susp. Take 5 mL by
  * mouth every 6 hours as needed for 5 days." For drops or puffs, which the calculator doesn't dose, or a dose it
- * doesn't work out (a combination product), its saved directions: never "Take  mL …". */
+ * doesn't work out (a combination product), its saved directions, else its dosing: never "Take  mL …". */
 const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | undefined): string => {
   const { medicationDescription } = quickPick;
   const product = quickPickProduct(quickPick);
@@ -300,7 +301,11 @@ const alsoAddsText = (quickPick: PrescriptionQuickPickData, weightKg: number | u
   const noDose = row.some(
     (s) => isSentenceBlank(s) && s.title === 'Dose' && (s.initial ?? s.placeholder) === undefined
   );
-  const segments = row.length && !noDose ? row : [quickPick.patientInstructions || 'No directions saved.'];
+  // One saved by weight with no directions (as Admin saves it) gives its dosing.
+  const saved =
+    quickPick.patientInstructions ||
+    (quickPick.dosing ? quickPickDosingSummary(quickPick.dosing) : 'No directions saved.');
+  const segments = row.length && !noDose ? row : [saved];
   const sentence = assembleSentence(
     segments.map((segment) =>
       isSentenceBlank(segment) && segment.initial === undefined ? { ...segment, initial: segment.placeholder } : segment
