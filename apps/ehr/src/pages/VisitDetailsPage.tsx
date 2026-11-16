@@ -1167,6 +1167,7 @@ export default function VisitDetailsPage(): ReactElement {
           key={patientId}
           handleDiscard={navigateBack}
           id={patientId}
+          nameLastModified={nameLastModifiedOld || nameLastModified}
           encounterId={encounter?.id}
           fallbackPatient={patient}
           linkNameToPatientRecord
@@ -1457,14 +1458,6 @@ export default function VisitDetailsPage(): ReactElement {
                 </>
               )}
             </Grid>
-
-            {(nameLastModifiedOld || nameLastModified) && (
-              <Grid container direction="row" alignItems="center" gap={2} sx={{ marginLeft: 4 }}>
-                <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
-                  Name Last Modified {nameLastModifiedOld || nameLastModified}
-                </Typography>
-              </Grid>
-            )}
 
             {paperworkModifiedFlag && (
               <Grid container direction="row" marginTop={2}>

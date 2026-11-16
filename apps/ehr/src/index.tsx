@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { replaceUrlKeepingRouterState } from './helpers/misc.helper';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
@@ -56,6 +57,7 @@ root.render(
           connection: import.meta.env.VITE_APP_OYSTEHR_CONNECTION_NAME,
         }}
         cacheLocation="localstorage"
+        onRedirectCallback={(appState) => replaceUrlKeepingRouterState(appState?.returnTo || window.location.pathname)}
       >
         <ErrorBoundary
           onError={(error, errorInfo) => {

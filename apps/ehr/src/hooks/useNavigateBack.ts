@@ -1,7 +1,13 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export const useNavigateBack = (fallbackPath: string): (() => void) => {
   const navigate = useNavigate();
-  // A page opened in a new tab (e.g. from Outstanding Balance) has no in-app page to go back to.
-  return () => ((window.history.state as { idx?: number } | null)?.idx ? navigate(-1) : navigate(fallbackPath));
+  const location = useLocation();
+  return () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx;
+    // Auth0's login redirect replaces the history state, after which react-router stores NaN indexes.
+    const hasInAppPageBehind = Number.isFinite(idx) ? Boolean(idx) : location.key !== 'default';
+    if (hasInAppPageBehind) navigate(-1);
+    else navigate(fallbackPath);
+  };
 };
