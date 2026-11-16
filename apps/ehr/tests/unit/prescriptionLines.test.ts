@@ -249,6 +249,23 @@ describe('prescriptionLineErrors', () => {
     expect(prescriptionLineErrors({ ...shake, quantityValue: '100' })).toEqual(['Enter the dose']);
   });
 
+  // Decisions 219 and 223 (D10-3): a number counts only as an amount, a number or a number word followed by a dose
+  // word; a time, a volume of water or a number of days isn't one.
+  it('asks for the dose "as directed" unless the instructions give an amount', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const errors = (instructions: string): string[] =>
+      prescriptionLineErrors({
+        ...withDirections(liquid, { frequency: 'as directed', instructions }),
+        quantityValue: '100',
+      });
+    for (const instructions of ['mix in 8 oz of water', 'every 6 hours as needed for pain', 'for 10 days']) {
+      expect(errors(instructions)).toEqual(['Enter the dose']);
+    }
+    for (const instructions of ['10 mL daily', 'one teaspoon with food', 'half tablet at bedtime', '2 packets daily']) {
+      expect(errors(instructions)).toEqual([]);
+    }
+  });
+
   // Decision 186: a line waiting for a pick hides its sentences, so it isn't asked for what they hold.
   it('asks only for the pick while the line waits for one', () => {
     const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);

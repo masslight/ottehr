@@ -775,6 +775,13 @@ export const withPrescriptionMetadata = (
   };
 };
 
+/** An amount in the instructions: a number, or a number word one to ten or "half", then a dose word ("10 mL daily",
+ * "one teaspoon"). A time, a volume of water or a number of days isn't one ("every 6 hours", "mix in 8 oz of water",
+ * "for 10 days"). The dose words are the refill reader's (`sigAmount`) with mg, g, tsp, teaspoon, packet and capful
+ * (decisions 219, 223). */
+const INSTRUCTIONS_AMOUNT =
+  /\b(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|half)\s*(?:ml|milliliters?|tab(?:let)?s?|cap(?:sule)?s?|puffs?|drops?|sprays?|mg|g|tsp|teaspoons?|packets?|capfuls?)\b/i;
+
 const isWholeNumberInRange = (value: string, min: number, max: number): boolean => {
   const number = Number(value);
   return value.trim() !== '' && Number.isInteger(number) && number >= min && number <= max;
@@ -886,9 +893,9 @@ export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
   );
   const messages = issues.map((issue) => issue.message);
   // Directions the blanks write need an amount in every step they say, where the product has a unit to count it in (a
-  // cream's needn't); "as directed" needs none once the instructions say how much, with a number (decision 205). It goes
-  // after the medication's and diagnosis's problems, as the line reads.
-  const writtenOut = /\d/.test(line.instructions);
+  // cream's needn't); "as directed" needs none once the instructions say how much, with an amount (decisions 205, 219).
+  // It goes after the medication's and diagnosis's problems, as the line reads.
+  const writtenOut = INSTRUCTIONS_AMOUNT.test(line.instructions);
   if (
     directionsFromBlanks(line) &&
     sentenceSteps(line).some((step) => !step.dose.trim() && !(step.frequency === 'as directed' && writtenOut)) &&
