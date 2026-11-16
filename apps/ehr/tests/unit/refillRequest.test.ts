@@ -1078,6 +1078,27 @@ describe('change request: a suggestion of another strength with the same directi
         'Inhale 2 puffs twice daily'
       )
     ).toBe('Different strength, same amount: 44 mcg → 110 mcg. Check the dose.');
+    expect(
+      warning(
+        'albuterol 0.417 MG/ML / ipratropium bromide 0.167 MG/ML Inhalation Solution',
+        'Ipratropium-Albuterol 0.5-2.5 mg/3ml Soln',
+        'Inhale 3 mL every 6 hours'
+      )
+    ).toBe('Different strength, same amount: 0.5-2.5 mg/3 mL → 0.501-1.251 mg/3 mL. Check the dose.');
+    // Decision 200: each amount goes to its ingredient by name, not by size; with a name that can't be matched
+    // ("HCTZ"), the amounts keep the pharmacy's order.
+    const tab = 'Take 1 tablet by mouth once daily';
+    const rxnormZiac = (bisoprolol: string): string =>
+      `bisoprolol fumarate ${bisoprolol} MG / hydrochlorothiazide 6.25 MG Oral Tablet`;
+    expect(warning(rxnormZiac('10'), 'Bisoprolol-Hydrochlorothiazide 2.5-6.25 mg Tab', tab)).toBe(
+      'Different strength, same amount: 2.5-6.25 mg → 10-6.25 mg. Check the dose.'
+    );
+    expect(warning(rxnormZiac('2.5'), 'Bisoprolol-Hydrochlorothiazide 10-6.25 mg Tab', tab)).toBe(
+      'Different strength, same amount: 10-6.25 mg → 2.5-6.25 mg. Check the dose.'
+    );
+    expect(warning(rxnormZiac('10'), 'Bisoprolol-HCTZ 2.5-6.25 mg Tab', tab)).toBe(
+      'Different strength, same amount: 2.5-6.25 mg → 10-6.25 mg. Check the dose.'
+    );
     // Past 4 significant digits in the original's terms (1.2501 mg/3 mL): as the request names it.
     expect(
       warning(
