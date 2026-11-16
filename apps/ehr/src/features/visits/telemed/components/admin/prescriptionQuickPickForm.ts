@@ -1,4 +1,4 @@
-import { DOSE_BASES, DoseBasis } from 'utils/lib/helpers/medications/plain-dose';
+import { DOSE_BASES, DoseBasis, measureOf } from 'utils/lib/helpers/medications/plain-dose';
 import {
   PRESCRIPTION_FREQUENCIES,
   prescriptionFrequency,
@@ -57,6 +57,9 @@ export interface PrescriptionQuickPickFormValues {
 }
 
 export type PrescriptionQuickPickFormErrors = Partial<Record<keyof PrescriptionQuickPickFormValues, string>>;
+
+/** Why "By weight or fixed dose" is off for a product: drops, puffs and creams aren't dosed by the calculator. */
+export const NOT_DOSED_MESSAGE = 'The calculator doses liquids, tablets and capsules only';
 
 /** The basis choices, worded as the list's dose summary reads. */
 export const BASIS_LABELS: Record<DoseBasis, string> = {
@@ -154,6 +157,7 @@ const FormSchema = z
     medicationDescription: z.string().max(105, PRODUCT_NAME_TOO_LONG_MESSAGE),
     ndc: z.string().refine((value) => blank(value) || /^\d{11}$/.test(value), PRODUCT_NDC_MESSAGE),
     compound: z.custom<CompoundLine | null>(),
+    productDetails: z.custom<MedicationProductDetails>(),
     doseMode: z.enum(['as-written', 'dosing']),
     patientInstructions: z.string().trim().max(1000, 'Directions must be up to 1000 characters'),
     quantityValue: positive('Quantity'),
@@ -195,6 +199,9 @@ const FormSchema = z
     if (compoundError) issue('compound', compoundError);
     if (!values.compound && blank(values.ndc)) issue('ndc', 'Pick a medication and strength');
     if (values.doseMode !== 'dosing') return;
+    // Its dose would never be worked out, and its directions aren't saved. A product saved before its details can't
+    // tell.
+    if (values.productDetails.doseForm && !measureOf(values.productDetails)) issue('doseMode', NOT_DOSED_MESSAGE);
     if (blank(values.rate) || !(Number(values.rate) > 0)) issue('rate', 'Dose must be greater than 0');
     // Only a frequency with a count of doses a day ("every 6 hours as needed" has one; "as needed" and "as directed"
     // don't), as the backend checks.

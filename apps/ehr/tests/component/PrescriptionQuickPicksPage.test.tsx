@@ -299,6 +299,36 @@ describe('Prescription quick picks admin', () => {
     });
   });
 
+  // Review D7-3: the calculator doses no drops or puffs, so "By weight or fixed dose" would save nothing it can use.
+  it('turns off "By weight or fixed dose" for a product the calculator doesn’t dose, and says why on hover', async () => {
+    const user = userEvent.setup();
+    const inhaler: PrescriptionQuickPickData = {
+      id: 'qp-3',
+      name: 'Albuterol',
+      ndc: '00054074287',
+      medicationDescription: 'Albuterol 90 mcg/actuat MDI',
+      ...ERX_PRODUCT_DETAILS['00054074287'],
+      patientInstructions: 'Inhale 2 puffs every 4 hours as needed.',
+      numberOfRefills: 0,
+    };
+    const capsules = { ...AS_WRITTEN, id: 'qp-4', name: 'Amox caps', ...ERX_PRODUCT_DETAILS['00093310701'] };
+    api.getPrescriptionQuickPicks.mockResolvedValue({ quickPicks: [BY_WEIGHT, AS_WRITTEN, inhaler, capsules] });
+    renderPage();
+    await user.click(within((await screen.findByText('Albuterol')).closest('tr') as HTMLElement).getByTitle('Edit'));
+    const dialog = await screen.findByRole('dialog');
+    const dosing = within(dialog).getByLabelText('By weight or fixed dose');
+    expect(dosing).toBeDisabled();
+    await user.hover(dosing.closest('label')!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'The calculator doses liquids, tablets and capsules only'
+    );
+    // A product it doses: on.
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(within(screen.getByText('Amox caps').closest('tr') as HTMLElement).getByTitle('Edit'));
+    expect(within(await screen.findByRole('dialog')).getByLabelText('By weight or fixed dose')).toBeEnabled();
+  });
+
   it('removes a quick pick only after the confirmation', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -549,6 +579,28 @@ describe('prescriptionQuickPickFromForm: the product’s details', () => {
     };
     expect(resaved).not.toHaveProperty('doseForm');
     expect(resaved).not.toHaveProperty('ingredients');
+  });
+});
+
+// Review D7-3: saved with dosing, drops or an inhaler would lose their directions for a dose never worked out.
+describe('prescriptionQuickPickFromForm: dosing', () => {
+  it('is for a product the calculator doses; one saved before its details still can be', () => {
+    const otic = {
+      name: 'Oflox ear',
+      ndc: '00000000002',
+      medicationDescription: 'Ofloxacin 0.3% Otic Soln',
+      doseForm: 'Otic Solution',
+      dosing: { rate: 1, basis: 'fixed' as const, frequency: 'twice daily', durationDays: 7 },
+    };
+    expect(prescriptionQuickPickFromForm(prescriptionQuickPickFormValues(otic)).errors).toEqual({
+      doseMode: 'The calculator doses liquids, tablets and capsules only',
+    });
+    const { doseForm: _doseForm, ...older } = otic;
+    expect(prescriptionQuickPickFromForm(prescriptionQuickPickFormValues(older)).errors).toBeUndefined();
+    expect(
+      prescriptionQuickPickFromForm(prescriptionQuickPickFormValues({ ...otic, ...ERX_PRODUCT_DETAILS['00093416173'] }))
+        .errors
+    ).toBeUndefined();
   });
 });
 

@@ -25,6 +25,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
@@ -45,7 +46,7 @@ import {
   CompoundIngredientSentences,
   MedicationSearch,
 } from 'src/features/visits/in-person/components/erx/PrescriptionSentences';
-import { DOSE_BASES, DoseBasis } from 'utils/lib/helpers/medications/plain-dose';
+import { DOSE_BASES, DoseBasis, measureOf } from 'utils/lib/helpers/medications/plain-dose';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { MedicationSearchDrug } from 'utils/lib/types/api/erx-search.types';
 import {
@@ -68,6 +69,7 @@ import {
   BASIS_LABELS,
   emptyPrescriptionQuickPickForm,
   FREQUENCY_OPTIONS,
+  NOT_DOSED_MESSAGE,
   PrescriptionDoseMode,
   PrescriptionQuickPickFormErrors,
   PrescriptionQuickPickFormValues,
@@ -112,6 +114,8 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
 
   const set = (patch: Partial<PrescriptionQuickPickFormValues>): void => setValues((prev) => ({ ...prev, ...patch }));
   const { compound } = values;
+  // A product the calculator can't dose; one saved before its details can't tell, as the save check.
+  const notDosed = Boolean(values.productDetails.doseForm) && !measureOf(values.productDetails);
 
   const handleSave = (): void => {
     const result = prescriptionQuickPickFromForm(values, quickPicks, editingItem?.id);
@@ -405,8 +409,20 @@ export default function PrescriptionQuickPicksPage(): ReactElement {
                 onChange={(e) => set({ doseMode: e.target.value as PrescriptionDoseMode })}
               >
                 <FormControlLabel value="as-written" control={<Radio />} label="As written" />
-                <FormControlLabel value="dosing" control={<Radio />} label="By weight or fixed dose" />
+                <Tooltip title={notDosed ? NOT_DOSED_MESSAGE : ''}>
+                  <FormControlLabel
+                    value="dosing"
+                    control={<Radio />}
+                    label="By weight or fixed dose"
+                    disabled={notDosed}
+                  />
+                </Tooltip>
               </RadioGroup>
+            )}
+            {errors.doseMode && (
+              <Typography variant="caption" color="error">
+                {errors.doseMode}
+              </Typography>
             )}
 
             {values.doseMode === 'as-written' ? (

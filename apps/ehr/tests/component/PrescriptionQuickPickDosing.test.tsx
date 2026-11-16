@@ -751,6 +751,15 @@ describe('A quick pick with dosing on drops or an inhaler, without a weight', ()
     }
   });
 
+  // Review D7-3: dosing is saved only for a product the calculator doses (the server refuses it for others).
+  it('saves an older pick’s line on drops as written from the order form', () => {
+    const line = withListedQuickPick(emptyPrescriptionLine(), otic, WEIGHT.kg);
+    expect(line.dosing).toBeDefined();
+    const saved = prescriptionLineToQuickPick(line, 'Oflox again');
+    expect(saved).not.toHaveProperty('dosing');
+    expect(saved.patientInstructions).toBe(line.patientInstructions.trim());
+  });
+
   // Decision 158: a dose the row doesn't work out (a combination product) never reads "Take  mL …".
   it('gives a set the saved directions when no dose is worked out', () => {
     const combo: PrescriptionQuickPickData = {

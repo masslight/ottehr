@@ -3,6 +3,7 @@ import {
   DoseMeasure,
   doseRoundingNote,
   dosesOnDosingDay,
+  measureOf,
   mgText as warningMg,
   nearestMeasurable,
   PlainDose,
@@ -14,8 +15,6 @@ import {
   PrescriptionDirections,
   prescriptionDirectionsText,
   prescriptionDispense,
-  PrescriptionDoseForm,
-  prescriptionDoseForm,
   prescriptionDoseUnit,
   prescriptionFrequency,
   PrescriptionProduct,
@@ -481,20 +480,8 @@ export const withCalculatorDosing = (
 export const numberOrUndefined = (value: string): number | undefined =>
   value.trim() === '' || !Number.isFinite(Number(value)) ? undefined : Number(value);
 
-/** The forms the calculator measures a dose in; anything else (an inhaler, a cream) it leaves alone. */
-const MEASURE_OF: Partial<Record<PrescriptionDoseForm, DoseMeasure>> = {
-  liquid: 'mL',
-  tablet: 'tablet',
-  capsule: 'capsule',
-};
-
-/** The measure the calculator doses a product in, when its dose form is one it measures and a dose is counted in it:
- * drops are a liquid, but counted in drops, so never read as mL (as puffs aren't). */
-export const measureOf = (product: PrescriptionProduct | null | undefined): DoseMeasure | undefined => {
-  const form = prescriptionDoseForm(product);
-  const measure = form && MEASURE_OF[form];
-  return measure && prescriptionDoseUnit(product) === measure ? measure : undefined;
-};
+// The server checks a quick pick's dosing with the same measure.
+export { measureOf };
 
 /** What a quick pick's row says for a combination product with weight dosing: which ingredient is the provider's
  * pick, in the calculator. */
@@ -1235,7 +1222,10 @@ const compoundLineToQuickPick = (
  * steps (not the calculator's), and the directions not typed over (re-dosing would rebuild them and lose what was
  * typed). Otherwise it is saved as written. */
 const savesDosing = (line: PrescriptionLine): line is PrescriptionLine & { dosing: CalculatorDosing } =>
-  !!line.dosing && line.steps.length === 0 && follows(line.patientInstructions, line.generated.patientInstructions);
+  !!line.dosing &&
+  !!measureOf(line.medication) &&
+  line.steps.length === 0 &&
+  follows(line.patientInstructions, line.generated.patientInstructions);
 
 const productLineToQuickPick = (line: PrescriptionLine, name: string): Omit<PrescriptionQuickPickData, 'id'> => ({
   name: name.trim(),

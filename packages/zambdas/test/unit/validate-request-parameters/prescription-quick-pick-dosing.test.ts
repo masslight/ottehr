@@ -272,6 +272,18 @@ describe.each([
     await expect(validate({ ...AMOX_STREP, ...DETAILS })).resolves.toBeUndefined();
   });
 
+  // Review D7-3: the calculator doses liquids, tablets and capsules only, so dosing on drops or an inhaler is refused.
+  test.each([['Otic Solution'], ['Metered Dose Inhaler'], ['Topical Cream'], ['Not a dose form']])(
+    'refuses dosing for %s, and takes it as written',
+    async (doseForm) => {
+      const error = await rejection(validate({ ...AMOX_STREP, ...DETAILS, doseForm }));
+      expect(error?.code).toBe(APIErrorCode.INVALID_INPUT);
+      expect(error.message).toContain('is for liquids, tablets and capsules only');
+      const { dosing: _dosing, ...asWritten } = AMOX_STREP;
+      await expect(validate({ ...asWritten, ...DETAILS, doseForm })).resolves.toBeUndefined();
+    }
+  );
+
   test.each([
     ['an RxCUI that isn’t digits', { rxcui: '617430a' }],
     ['an empty dose form', { doseForm: '' }],

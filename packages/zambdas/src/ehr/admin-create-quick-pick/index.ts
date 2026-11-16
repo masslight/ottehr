@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
-import { DOSE_BASES } from 'utils/lib/helpers/medications/plain-dose';
+import { DOSE_BASES, measureOf } from 'utils/lib/helpers/medications/plain-dose';
 import { prescriptionFrequency } from 'utils/lib/helpers/medications/prescription-suggestions';
 import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedure-coding/format';
 import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
@@ -205,6 +205,11 @@ const prescriptionQuickPickSchema = z
     }
     for (const field of ['ndc', 'medicationDescription'] as const) {
       if (!pick[field]) ctx.addIssue({ code: 'custom', path: [field], message: 'is required' });
+    }
+    // The order form's calculator doses liquids, tablets and capsules only, by the dose form saved with the pick (the
+    // medication search's; one saved before it has none to tell by).
+    if (pick.dosing && pick.doseForm && !measureOf(pick)) {
+      ctx.addIssue({ code: 'custom', path: ['dosing'], message: 'is for liquids, tablets and capsules only' });
     }
   });
 

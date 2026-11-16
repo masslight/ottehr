@@ -1,5 +1,11 @@
 import { roundNumberToDecimalPlaces } from '../../utils/convert';
-import { doseAmountText } from './prescription-suggestions';
+import {
+  doseAmountText,
+  PrescriptionDoseForm,
+  prescriptionDoseForm,
+  prescriptionDoseUnit,
+  PrescriptionProduct,
+} from './prescription-suggestions';
 
 /**
  * The plain dose calculator's arithmetic: weight × rate (÷ doses a day), turned into the product's measure from its
@@ -9,6 +15,21 @@ import { doseAmountText } from './prescription-suggestions';
 
 /** What one measure of the product is: a mL of a liquid or one tablet or capsule. */
 export type DoseMeasure = 'mL' | 'tablet' | 'capsule';
+
+/** The forms the calculator measures a dose in; anything else (an inhaler, a cream) it leaves alone. */
+const MEASURE_OF: Partial<Record<PrescriptionDoseForm, DoseMeasure>> = {
+  liquid: 'mL',
+  tablet: 'tablet',
+  capsule: 'capsule',
+};
+
+/** The measure the calculator doses a product in, when its dose form is one it measures and a dose is counted in it:
+ * drops are a liquid, but counted in drops, so never read as mL (as puffs aren't). */
+export const measureOf = (product: PrescriptionProduct | null | undefined): DoseMeasure | undefined => {
+  const form = prescriptionDoseForm(product);
+  const measure = form && MEASURE_OF[form];
+  return measure && prescriptionDoseUnit(product) === measure ? measure : undefined;
+};
 
 /** How the rate is given: per kg per day, per kg per dose, or a dose in mg not by weight. */
 export const DOSE_BASES = ['mg/kg/day', 'mg/kg/dose', 'fixed'] as const;
