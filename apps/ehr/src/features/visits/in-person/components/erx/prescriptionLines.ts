@@ -545,7 +545,7 @@ export const ingredientText = (
 /** The dose as the same mg measured in another product, to the nearest amount it can measure (half a mL, a whole
  * tablet or capsule, at least one), with a note on how far that is from the mg: the provider decides whether it will
  * do. Blank when either strength can't be read, so a dose is never carried over in the wrong measure. A form that
- * isn't measured in mg (puffs, drops, a cream) keeps its dose as it was. */
+ * isn't measured in mg (puffs, drops, a cream) keeps its dose as it was: drops are a liquid, but counted in drops. */
 const remeasured = (
   dose: string,
   from: MedicationSearchResult,
@@ -554,7 +554,7 @@ const remeasured = (
   const amount = numberOrUndefined(dose);
   if (amount === undefined || amount <= 0) return { dose };
   const measure = measureOf(to.medication);
-  if (measure === undefined) return { dose };
+  if (measure === undefined || prescriptionDoseUnit(to.medication) !== measure) return { dose };
   const fromMg = mgPerMeasure(from);
   const toMg = mgPerMeasure(to.medication);
   if (fromMg === undefined || toMg === undefined) return { dose: '' };

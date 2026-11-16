@@ -387,6 +387,23 @@ describe('withProduct', () => {
       dose: '2',
       patientInstructions: 'Inhale 2 puffs.',
     });
+
+    // Audit r5 flag 1: drops aren't re-measured as mL either; a new strength keeps the drop count, with no note.
+    const ketotifen = {
+      name: 'Ketotifen',
+      strengths: [0.25, 0.35].map((amount, i) => ({
+        strength: `${amount} mg/ml Ophth Soln`,
+        ndcs: [`0000000000${i + 1}`],
+        doseForm: 'Ophthalmic Solution',
+        ingredients: [{ name: 'ketotifen', amount, unit: 'MG', per: 1, perUnit: 'ML' }],
+      })),
+    };
+    const drops = withDirections(withProduct(emptyPrescriptionLine(), ketotifen, ketotifen.strengths[0]), {
+      dose: '1',
+    });
+    const stronger = withProduct(drops, ketotifen, ketotifen.strengths[1]);
+    expect(stronger.dose).toBe('1');
+    expect(stronger.doseNotes?.[0]).toBeUndefined();
   });
 
   it('drops the picks, steps, instructions and directions when another drug is picked', () => {
