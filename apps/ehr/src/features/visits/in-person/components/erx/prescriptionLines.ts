@@ -422,6 +422,29 @@ export const emptyPrescriptionLine = (): PrescriptionLine => ({
 export const pickedStrength = (line: Pick<PrescriptionLine, 'drug' | 'medication'>): MedicationStrength | undefined =>
   line.drug?.strengths.find((strength) => strength.ndcs[0] === line.medication?.ndc);
 
+const SCHEDULE_NUMERALS = ['I', 'II', 'III', 'IV', 'V'];
+
+/** "C-II" for a strength the search says is a controlled drug (Schedules I to V); none for 0 or no schedule. */
+export const scheduleLabel = (strength: MedicationStrength | undefined): string | undefined => {
+  const numeral = strength?.schedule ? SCHEDULE_NUMERALS[strength.schedule - 1] : undefined;
+  return numeral && `C-${numeral}`;
+};
+
+export const CONTROLLED_DRUG_ERROR =
+  'Controlled drug: prescribe it on the eRX page until this page supports controlled drugs';
+
+/** Federal rules (21 CFR 1311) let a controlled drug be e-prescribed only with EPCS, which this page doesn't have
+ * yet: the line's strength, or a compound ingredient's, picked from the search at a schedule from 1 to 5. A product
+ * with no search hit (a quick pick, a reorder) has no schedule, and counts as not controlled. */
+export const controlledDrugErrors = (line: PrescriptionLine): string[] => {
+  const strengths = line.compound
+    ? line.compound.ingredients.map((ingredient) =>
+        pickedStrength({ drug: ingredient.drug, medication: ingredient.product })
+      )
+    : [pickedStrength(line)];
+  return strengths.some((strength) => scheduleLabel(strength)) ? [CONTROLLED_DRUG_ERROR] : [];
+};
+
 /** A value the provider left alone: empty, or exactly what the blanks last wrote. */
 const follows = (current: string, generated: string): boolean => current.trim() === '' || current === generated;
 
@@ -912,6 +935,7 @@ export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
         ? compoundOrderIngredients(compoundToOrder(line.compound), { value: total, unit: line.quantityUnit })
         : undefined;
     return [
+      ...controlledDrugErrors(line),
       ...errors,
       ...(conversion && 'errors' in conversion ? conversion.errors : []),
       ...(details.success ? [] : new Set(details.error.issues.map((issue) => issue.message))),
@@ -941,6 +965,7 @@ export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
     ? issues.filter((issue) => shownOnTop(issue.path)).map(({ message }) => message)
     : messages;
   return [
+    ...controlledDrugErrors(line),
     ...(noStrength ? ['Pick a strength'] : line.awaitingPick ? ['Pick a suggestion or Write my own'] : []),
     ...new Set(shown),
   ];

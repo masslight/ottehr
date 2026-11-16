@@ -70,6 +70,7 @@ import {
   pickedStrength,
   PrescriptionLine,
   productOf,
+  scheduleLabel,
   unitLabel,
   withCalculatorDosing,
   withCompound,
@@ -593,6 +594,14 @@ const MEDICATION_MENU_PAPER_SX = {
   maxHeight: 'min(440px, calc(100dvh - 32px))',
 };
 
+/** A drug's strengths, each a controlled drug's tagged with its schedule ("C-II") under it. */
+const strengthOptions = (drug: MedicationSearchDrug): BlankOption[] =>
+  drug.strengths.map((option) => ({
+    value: option.strength,
+    label: option.strength,
+    secondary: scheduleLabel(option),
+  }));
+
 /** A compound ingredient's units: an amount, a strength in the finished product, or the base (one per compound). */
 const compoundUnitOptions = (value: string, offerBase: boolean): BlankOption[] => [
   // The short groups first, ahead of the long list of amounts.
@@ -652,7 +661,7 @@ const CompoundIngredientSentence: FC<{
             label={`ingredient ${n} strength`}
             title="Strength"
             verbatim
-            options={drug.strengths.map((option) => option.strength)}
+            options={strengthOptions(drug)}
             value={strength?.strength}
             onChange={(value) => {
               const next = drug.strengths.find((option) => option.strength === value);
@@ -1262,7 +1271,7 @@ export const PrescriptionSentences: FC<PrescriptionSentencesProps> = ({
                   title="Strength"
                   // A product name ("250 mg/5ml Susp"), shown as the list spells it rather than lower-cased for prose.
                   verbatim
-                  options={line.drug.strengths.map((option) => option.strength)}
+                  options={strengthOptions(line.drug)}
                   value={strength?.strength}
                   onChange={(value) => {
                     const next = line.drug?.strengths.find((option) => option.strength === value);

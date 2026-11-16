@@ -9,6 +9,7 @@ import {
   compoundLineOf,
   compoundOrderIngredients,
   compoundToOrder,
+  CONTROLLED_DRUG_ERROR,
   emptyPrescriptionLine,
   ingredientText,
   lineMissingDoseUnit,
@@ -24,7 +25,9 @@ import {
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
   PRODUCT_NDC_MESSAGE,
+  productOf,
   quickPickDosingText,
+  scheduleLabel,
   sentSigInWords,
   withCalculatorDosing,
   withCompound,
@@ -379,6 +382,66 @@ describe('prescriptionLineErrors', () => {
       'Pick a suggestion or Write my own',
       PRODUCT_NDC_MESSAGE,
     ]);
+  });
+});
+
+// 21 CFR 1311: no controlled drug goes out from this page until it has EPCS. The search gives each strength RxNorm's
+// DEA schedule: 0 for none, 1 to 5 for Schedules I to V, absent when RxNorm has none.
+describe('a controlled drug', () => {
+  const OXYCODONE = {
+    name: 'Oxycodone',
+    strengths: [
+      { strength: '5 mg Tab', ndcs: ['00406055201'], schedule: 2 },
+      { strength: '10 mg Tab', ndcs: ['00406055301'], schedule: 0 },
+      { strength: '15 mg Tab', ndcs: ['00406055401'] },
+    ],
+  };
+  const onStrength = (index: number): PrescriptionLine => ({
+    ...complete(),
+    drug: OXYCODONE,
+    medication: productOf(OXYCODONE, OXYCODONE.strengths[index]),
+  });
+
+  it('names a schedule from 1 to 5 as C-I to C-V, and none for 0 or no schedule', () => {
+    expect([1, 2, 3, 4, 5].map((schedule) => scheduleLabel({ strength: '', ndcs: [], schedule }))).toEqual([
+      'C-I',
+      'C-II',
+      'C-III',
+      'C-IV',
+      'C-V',
+    ]);
+    expect(scheduleLabel({ strength: '', ndcs: [], schedule: 0 })).toBeUndefined();
+    expect(scheduleLabel({ strength: '', ndcs: [] })).toBeUndefined();
+    expect(scheduleLabel(undefined)).toBeUndefined();
+  });
+
+  it('can’t be sent once a controlled strength is picked, its error first as the medication’s', () => {
+    expect(prescriptionLineErrors(onStrength(0))).toEqual([CONTROLLED_DRUG_ERROR]);
+    expect(prescriptionLineErrors({ ...onStrength(0), quantityValue: '' })).toEqual([
+      CONTROLLED_DRUG_ERROR,
+      'Quantity must be greater than 0',
+    ]);
+  });
+
+  it('is not controlled with schedule 0 or no schedule, as before', () => {
+    expect(prescriptionLineErrors(onStrength(1))).toEqual([]);
+    expect(prescriptionLineErrors(onStrength(2))).toEqual([]);
+    // A quick pick or a reorder carries no search hit, so no schedule: nothing is made up for it.
+    expect(prescriptionLineErrors(complete())).toEqual([]);
+  });
+
+  it('can’t be sent as a compound ingredient picked at a controlled strength', () => {
+    const line = withCompound(emptyPrescriptionLine(), { drug: OXYCODONE });
+    const [first] = line.compound!.ingredients;
+    const at = (index: number): PrescriptionLine => ({
+      ...line,
+      compound: {
+        ...line.compound!,
+        ingredients: [{ ...first, product: productOf(OXYCODONE, OXYCODONE.strengths[index]) }],
+      },
+    });
+    expect(prescriptionLineErrors(at(0))[0]).toBe(CONTROLLED_DRUG_ERROR);
+    expect(prescriptionLineErrors(at(1))).not.toContain(CONTROLLED_DRUG_ERROR);
   });
 });
 

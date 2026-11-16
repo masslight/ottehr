@@ -23,6 +23,8 @@ export interface MedicationProductDetails {
 export interface MedicationStrength extends MedicationProductDetails {
   strength: string;
   ndcs: string[];
+  /** RxNorm's federal (DEA) schedule: 0 when not controlled, 1 to 5 for Schedules I to V; absent when RxNorm has none */
+  schedule?: number;
 }
 
 /** One drug in the terminology search, with every strength it comes in. */

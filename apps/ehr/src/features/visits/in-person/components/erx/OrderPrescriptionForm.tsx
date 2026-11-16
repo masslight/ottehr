@@ -32,6 +32,7 @@ import { calculatorWeightKg, previousVisitWeightNote } from './DoseCalculator';
 import { PharmacySearch } from './PharmacySearch';
 import { patientAddressAndPhone } from './prescriptionDialogs';
 import {
+  controlledDrugErrors,
   emptyPrescriptionLine,
   PrescriptionLine,
   prescriptionLineErrors,
@@ -440,7 +441,8 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
                     weight={weight}
                     weightText={weightText}
                     onWeightText={setWeightText}
-                    errors={sendAttempted ? lineErrors(line) : []}
+                    // A controlled drug's error shows as soon as it's picked; the rest once Send is tried.
+                    errors={sendAttempted ? lineErrors(line) : controlledDrugErrors(line)}
                     readOnly={readOnly}
                   />
                 ))}

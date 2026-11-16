@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
 import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -57,6 +57,7 @@ const mocks = vi.hoisted(() => ({
   preferred: undefined as typeof PREFERRED | undefined,
   refetchQuickPicks: vi.fn(),
   refetchSets: vi.fn(),
+  drugs: [] as unknown[],
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -91,7 +92,7 @@ vi.mock('../../src/features/visits/shared/hooks/useErxPharmacies', () => ({
     ncpdpIds.map((ncpdpId) => ({ ncpdpId, row: mocks.directoryRow, status: 'success' })),
 }));
 vi.mock('../../src/features/visits/shared/hooks/useErxSearch', () => ({
-  useSearchMedications: () => ({ data: [], isFetching: false, isError: false }),
+  useSearchMedications: () => ({ data: mocks.drugs, isFetching: false, isError: false }),
 }));
 vi.mock('../../src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: () => ({ isAppointmentReadOnly: mocks.readOnly }),
@@ -142,6 +143,7 @@ describe('Order prescription form: Reorder', () => {
     mocks.failed = undefined;
     mocks.readOnly = false;
     mocks.preferred = PREFERRED;
+    mocks.drugs = [];
   });
 
   it('says why Send and Clear Form are off on a signed visit', async () => {
@@ -258,5 +260,31 @@ describe('Order prescription form: Reorder', () => {
       { variant: 'warning' }
     );
     expect(mocks.orderPrescription.mock.calls[0][0]).toMatchObject({ pharmacyId: PREFERRED.ncpdpId });
+  });
+  // 21 CFR 1311: a controlled drug can't go out from this page until it has EPCS (requirement 48b).
+  it('tags a controlled strength C-II, and shows its error on the line as soon as it is picked, blocking Send', async () => {
+    mocks.drugs = [
+      {
+        name: 'Oxycodone',
+        strengths: [
+          { strength: '5 mg Tab', ndcs: ['00406055201'], schedule: 2 },
+          { strength: '10 mg Tab', ndcs: ['00406055301'], schedule: 0 },
+        ],
+      },
+    ];
+    const user = userEvent.setup();
+    render(<OrderPrescriptionForm />);
+    await user.click(screen.getByRole('button', { name: /^medication/ }));
+    await user.type(screen.getByRole('combobox', { name: 'Medication' }), 'oxy');
+    await user.click(await screen.findByRole('option', { name: 'Oxycodone' }));
+    await user.click(screen.getByRole('button', { name: 'strength (empty)' }));
+    expect(within(screen.getByRole('option', { name: /^5 mg Tab/ })).getByText('C-II')).toBeInTheDocument();
+    expect(within(screen.getByRole('option', { name: /^10 mg Tab/ })).queryByText(/^C-/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('option', { name: /^5 mg Tab/ }));
+    const error = 'Controlled drug: prescribe it on the eRX page until this page supports controlled drugs.';
+    expect(screen.getByText(error)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Send Prescription' }));
+    expect(screen.getByText(new RegExp(`^Controlled drug: prescribe it on the eRX page`))).toBeInTheDocument();
+    expect(mocks.orderPrescription).not.toHaveBeenCalled();
   });
 });
