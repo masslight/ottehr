@@ -55,6 +55,8 @@ const mocks = vi.hoisted(() => ({
   failed: undefined as string | undefined,
   readOnly: false,
   preferred: undefined as typeof PREFERRED | undefined,
+  refetchQuickPicks: vi.fn(),
+  refetchSets: vi.fn(),
 }));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
@@ -67,8 +69,8 @@ vi.mock('src/hooks/useEvolveUser', () => ({
   }),
 }));
 vi.mock('src/hooks/useMergedQuickPicks', () => ({
-  useMergedPrescriptionQuickPicks: () => ({ quickPicks: [], refetch: vi.fn() }),
-  useMergedPrescriptionSetQuickPicks: () => ({ quickPicks: [] }),
+  useMergedPrescriptionQuickPicks: () => ({ quickPicks: [], refetch: mocks.refetchQuickPicks }),
+  useMergedPrescriptionSetQuickPicks: () => ({ quickPicks: [], refetch: mocks.refetchSets }),
 }));
 vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
   useChartData: () => ({
@@ -201,6 +203,18 @@ describe('Order prescription form: Reorder', () => {
     act(() => reorderPrescription(SENT));
     await screen.findByRole('button', { name: 'Send Prescription' });
     expect(screen.queryAllByRole('button', { name: 'Save as quick pick' }).length > 0).toBe(offered);
+  });
+
+  // Audit r5 flag 2: a set lists quick picks, so reloading the quick picks reloads the sets too.
+  it('reloads the sets with the quick picks after Save as quick pick', async () => {
+    mocks.roles = ['Administrator'];
+    const user = userEvent.setup();
+    render(<OrderPrescriptionForm />);
+    act(() => reorderPrescription(SENT));
+    await user.click((await screen.findAllByRole('button', { name: 'Save as quick pick' }))[0]);
+    await user.click(await screen.findByRole('button', { name: 'Save Quick Pick' }));
+    await waitFor(() => expect(mocks.refetchQuickPicks).toHaveBeenCalledTimes(1));
+    expect(mocks.refetchSets).toHaveBeenCalledTimes(1);
   });
 
   it('fills the empty line with the prescription as sent, to its pharmacy', async () => {

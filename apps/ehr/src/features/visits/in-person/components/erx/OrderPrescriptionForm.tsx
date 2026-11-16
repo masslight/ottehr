@@ -121,7 +121,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   const { mutateAsync: saveChartData } = useSaveChartData();
   const visitDiagnoses = chartData?.diagnosis ?? [];
   const { quickPicks, refetch: refetchQuickPicks } = useMergedPrescriptionQuickPicks();
-  const { quickPicks: sets } = useMergedPrescriptionSetQuickPicks();
+  const { quickPicks: sets, refetch: refetchSets } = useMergedPrescriptionSetQuickPicks();
 
   const [lines, setLines] = useState<PrescriptionLine[]>(() => [initialLine ?? emptyPrescriptionLine()]);
   const [sendAttempted, setSendAttempted] = useState(false);
@@ -314,7 +314,8 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
       await createPrescriptionQuickPick(oystehrZambda, { quickPick: quickPickData });
       enqueueSnackbar(`Quick pick "${quickPickName}" created`, { variant: 'success' });
       setQuickPickLineKey(null);
-      void refetchQuickPicks();
+      // A set lists quick picks, so the sets reload with them: one removed elsewhere drops out of both.
+      void Promise.all([refetchQuickPicks(), refetchSets()]);
     } catch (error) {
       console.error('Failed to save quick pick:', error);
       enqueueSnackbar(getApiError({ error, defaultError: 'Failed to save quick pick' }), { variant: 'error' });
