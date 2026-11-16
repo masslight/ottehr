@@ -728,6 +728,9 @@ export const prescriptionLineMetadata = (line: PrescriptionLine): PrescriptionOr
   ...(line.additionalInstructions ? { additionalInstructions: line.additionalInstructions } : {}),
   ...(line.dosing ? { dosing: line.dosing } : {}),
   ...(line.doseBy !== undefined ? { doseBy: line.doseBy } : {}),
+  ...(line.dosing && line.maximum && line.maximum.from !== 'calculator'
+    ? { dosingQuickPick: line.maximum.from.quickPick }
+    : {}),
 });
 
 /** The line with the blanks a sent prescription was written from (`prescriptionLineMetadata`), filled as a suggestion
@@ -764,7 +767,10 @@ export const withPrescriptionMetadata = (
     patientInstructions: !sent || asciiFractions(written).trim() === sentSigInWords(sent) ? written : sent,
     additionalInstructions: metadata.additionalInstructions,
     dosing: metadata.dosing,
-    maximum: lineMaximumOf(metadata.dosing, 'calculator'),
+    maximum: lineMaximumOf(
+      metadata.dosing,
+      metadata.dosingQuickPick !== undefined ? { quickPick: metadata.dosingQuickPick } : 'calculator'
+    ),
     doseBy: metadata.doseBy,
   };
 };
@@ -1286,10 +1292,13 @@ const mgText = (mg: number): string => `${roundNumberToDecimalPlaces(mg, 2)} mg`
 
 /** What the save dialog says a quick pick keeps of the line's dosing: "Saved by weight: 25 mg/kg per dose, twice
  * daily, 10 days, max 500 mg per dose (from the calculator)". A quick pick's dosing, the calculator never opened, is
- * "(from the quick pick)": the calculator's dose has no quick pick in its note (decision 197). */
+ * "(from the quick pick)": the calculator's dose has no quick pick in its note (decision 197). Reordered, it has no
+ * note, but its maximum keeps the quick pick (decision 213). */
 export const quickPickDosingText = (dosing: PrescriptionQuickPickDosing, line: PrescriptionLine): string => {
   const note = line.doseNotes?.[0];
-  const fromQuickPick = note ? Boolean(note.quickPick) : Boolean(line.quickPicked);
+  const fromQuickPick = note
+    ? Boolean(note.quickPick)
+    : Boolean(line.quickPicked) || (line.maximum !== undefined && line.maximum.from !== 'calculator');
   return `${dosing.basis === 'fixed' ? 'Saved dose' : 'Saved by weight'}: ${quickPickDosingSummary(dosing)} (from the ${
     fromQuickPick ? 'quick pick' : 'calculator'
   })`;

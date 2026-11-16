@@ -1,3 +1,4 @@
+import { PrescriptionOrderMetadataSchema } from 'utils/lib/types/api/erx.types';
 import { MedicationIngredient } from 'utils/lib/types/api/erx-search.types';
 import { CompoundIngredientInput, CompoundInput, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
 import { describe, expect, it } from 'vitest';
@@ -11,6 +12,7 @@ import {
   emptyPrescriptionLine,
   ingredientText,
   lineMissingDoseUnit,
+  maximumOriginText,
   maximumWarnings,
   measureOf,
   mgPerMeasure,
@@ -22,6 +24,7 @@ import {
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
   PRODUCT_NDC_MESSAGE,
+  quickPickDosingText,
   sentSigInWords,
   withCalculatorDosing,
   withCompound,
@@ -1715,5 +1718,28 @@ describe('the blanks kept on the prescription for a re-fill (metadata)', () => {
     const changed = withDirections(refilled, { dose: '2' });
     expect(changed.patientInstructions).toBe('Take 2 capsules by mouth twice daily for 10 days. Take with food.');
     expect(changed.quantityValue).toBe('40');
+  });
+
+  // Decision 213: a quick pick's dosing, reordered, still says it's the quick pick's, by name only.
+  it('keeps the quick pick a maximum came from', () => {
+    const picked = {
+      ...written,
+      maximum: {
+        maxPerDoseMg: 500,
+        from: { quickPick: 'Augmentin ES AOM', source: { label: 'AAP', url: 'https://example.org' } },
+      },
+    };
+    const metadata = prescriptionLineMetadata(picked);
+    expect(PrescriptionOrderMetadataSchema.parse(metadata)).toEqual(metadata);
+    const reordered = withPrescriptionMetadata(
+      { ...emptyPrescriptionLine(), medication: written.medication },
+      metadata
+    );
+    expect(reordered.maximum).toEqual({ maxPerDoseMg: 500, from: { quickPick: 'Augmentin ES AOM' } });
+    expect(maximumOriginText(reordered.maximum!.from)).toBe('From the quick pick: Augmentin ES AOM');
+    expect(quickPickDosingText(prescriptionLineToQuickPick(reordered, 'Again').dosing!, reordered)).toMatch(
+      /\(from the quick pick\)$/
+    );
+    expect(prescriptionLineMetadata(written)).not.toHaveProperty('dosingQuickPick');
   });
 });
