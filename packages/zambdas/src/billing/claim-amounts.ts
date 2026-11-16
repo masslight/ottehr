@@ -49,9 +49,6 @@ export interface ClaimResponseAmounts {
 export interface ClaimPaymentSummary {
   allowed: number;
   insurancePaid: number;
-  // what the payers reported the patient owes (PR adjustments, see ClaimBalances.patientResp); null
-  // while no remit has reported PR: nobody has said yet whether the patient or a payer owes the open
-  // balance (e.g. a CO-B16 denial awaiting a corrected claim), so the balance is provisional
   patientResp: number | null;
   patientPaid: number;
   writeOffsTotal: number;

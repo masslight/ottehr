@@ -263,7 +263,6 @@ export interface EraClaimListItem {
   allowed: number;
   paid: number;
   posted: number;
-  // null while no remit has reported patient responsibility (PR): unknown, not 0
   patientResp: number | null;
   // CLP01 patient control number: the patient account number echoed back from the submitted claim
   patientAccountNumber: string;
@@ -355,7 +354,6 @@ export interface BillingClaimItem {
   billed: number;
   allowed: number;
   insurancePaid: number;
-  // null while no remit has reported patient responsibility (PR): unknown, not 0
   patientResp: number | null;
   patientPaid: number;
   writeOffsTotal: number;
@@ -634,8 +632,6 @@ export interface ClaimDetailResponse {
   billed: number;
   allowed: number;
   insurancePaid: number;
-  // what the payers reported the patient owes: the latest remit's PR adjustments (X12 CLP05)
-  // null while no remit has reported patient responsibility (PR): unknown, not 0
   patientResp: number | null;
   patientPaid: number;
   writeOffsTotal: number;
@@ -731,7 +727,6 @@ export interface PatientArClaimItem {
   billed: number;
   allowed: number;
   insurancePaid: number;
-  // null while no remit has reported patient responsibility (PR): unknown, not 0
   patientResp: number | null;
   patientPaid: number;
   balance: number;
