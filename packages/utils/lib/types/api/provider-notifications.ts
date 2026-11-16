@@ -84,6 +84,7 @@ export const TASK_CODE_TO_UI_CATEGORY: Record<string, UiTaskCategoryId> = {
   [MANUAL_TASK.category.inHouseMedications]: 'inHouseMedications',
   [MANUAL_TASK.category.nursingOrders]: 'nursingOrders',
   [DME_TASK.category]: 'dme',
+  [MANUAL_TASK.category.dme]: 'dme',
   [MANUAL_TASK.category.patientFollowUp]: 'patientFollowUp',
   [PATIENT_REQUEST_TASK.category]: 'patientRequest',
   [MANUAL_TASK.category.procedures]: 'procedures',

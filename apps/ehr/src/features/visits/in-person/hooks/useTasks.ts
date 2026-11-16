@@ -27,6 +27,7 @@ import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types'
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { isTaskProgressNoteSection } from 'utils/lib/types/data/tasks/progress-note-sections';
 import {
   CreateManualTaskRequest,
   ERX_TASK,
@@ -40,7 +41,12 @@ import {
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
-import { getDmeOrderDetailsUrl, getRadiologyOrderEditUrl, getVisitDocumentsUrl } from '../routing/helpers';
+import {
+  getDmeOrderDetailsUrl,
+  getImmunizationVaccineDetailsUrl,
+  getRadiologyOrderEditUrl,
+  getVisitDocumentsUrl,
+} from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
@@ -571,7 +577,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
   // Helper function to add encounterId query parameter if it's a follow-up
   const addEncounterIdToLink = (link: string | undefined): string | undefined => {
     if (!link || !isFollowUp || !encounterId) return link;
-    return `${link}?encounterId=${encounterId}`;
+    return `${link}${link.includes('?') ? '&' : '?'}encounterId=${encounterId}`;
   };
 
   if (category === LAB_ORDER_TASK.category) {
@@ -680,6 +686,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     const patientReference = getInputReference(MANUAL_TASK.input.patient, task);
     const appointmentId = getInputString(MANUAL_TASK.input.appointmentId, task);
     const orderId = getInputString(MANUAL_TASK.input.orderId, task);
+    const progressNoteSection = getInputString(MANUAL_TASK.input.progressNoteSection, task);
     const documentReferenceId = getInputString(MANUAL_TASK.input.documentReferenceId, task);
     // Follow-up tasks emitted by completed practice-managed forms carry a
     // document-reference-id; use it as a signal to route to the patient docs
@@ -755,6 +762,24 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           link: addEncounterIdToLink(`/in-person/${appointmentId}/procedures/${orderId}`),
         };
       }
+      if (category === MANUAL_TASK.category.immunization) {
+        action = {
+          name: GO_TO_TASK,
+          link: addEncounterIdToLink(`${getImmunizationVaccineDetailsUrl(appointmentId ?? '')}?scrollTo=${orderId}`),
+        };
+      }
+      if (category === MANUAL_TASK.category.dme) {
+        action = {
+          name: GO_TO_TASK,
+          link: addEncounterIdToLink(getDmeOrderDetailsUrl(appointmentId ?? '', orderId)),
+        };
+      }
+    } else if (appointmentId && isTaskProgressNoteSection(progressNoteSection)) {
+      const sectionLink = `/in-person/${appointmentId}/${progressNoteSection}`;
+      action = {
+        name: GO_TO_TASK,
+        link: encounterId ? `${sectionLink}?encounterId=${encounterId}` : sectionLink,
+      };
     } else if (appointmentId) {
       action = {
         name: GO_TO_TASK,
