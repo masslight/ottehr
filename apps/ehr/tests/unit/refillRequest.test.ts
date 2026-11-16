@@ -1182,6 +1182,69 @@ describe('change request: a suggestion of another strength with the same directi
     }
   });
 
+  // Decision 240 (D12-1): "10/325 MG" is a combination's amounts joined by "/", as "10-325 MG" is.
+  it('reads a combination strength written with "/" between its amounts', () => {
+    const original = (name: string, instructions: string): PrescribedMedicationDTO => ({
+      resourceId: 'rx-17',
+      name,
+      instructions,
+      order: { ndc: '00000000001', medicationDescription: name },
+    });
+    const warning = (description: string, from: string, sig: string): string | undefined =>
+      strengthChangeWarning({ description, ndc: '00000000002', sig }, original(from, sig));
+    const pain = 'Take 1 tablet by mouth every 6 hours as needed for pain';
+    const tab = 'Take 1 tablet by mouth twice daily';
+    const daily = 'Take 1 tablet by mouth once daily';
+    const susp = 'Take 5 mL by mouth twice daily';
+    const norco = 'Acetaminophen/HYDROcodone (Oral Pill) 325-5 mg Tab';
+    expect(warning('HYDROCODONE-ACETAMINOPHEN 10/325 MG TAB', norco, pain)).toBe(
+      'Different strength, same amount: 325-5 mg → 325-10 mg. Check the dose.'
+    );
+    expect(
+      warning('OXYCODONE-ACETAMINOPHEN 7.5/325 MG TAB', 'Acetaminophen/oxyCODONE (Oral Pill) 325-5 mg Tab', pain)
+    ).toBe('Different strength, same amount: 325-5 mg → 325-7.5 mg. Check the dose.');
+    expect(
+      warning(
+        'SULFAMETHOXAZOLE-TRIMETHOPRIM 800/160 MG TAB',
+        'Sulfamethoxazole/Trimethoprim (Oral Pill) 400-80 mg Tab',
+        tab
+      )
+    ).toBe('Different strength, same amount: 400-80 mg → 800-160 mg. Check the dose.');
+    expect(warning('AMOXICILLIN-CLAV 875/125 MG TAB', 'Amoxicillin/Clavulanate (Oral Pill) 500-125 mg Tab', tab)).toBe(
+      'Different strength, same amount: 500-125 mg → 875-125 mg. Check the dose.'
+    );
+    expect(
+      warning('AMOXICILLIN-CLAV 600/42.9 MG/5ML SUSP', 'Amoxicillin/Clavulanate (Oral Liquid) 400-57 mg/5ml Susp', susp)
+    ).toBe('Different strength, same amount: 400-57 mg/5 mL → 600-42.9 mg/5 mL. Check the dose.');
+    expect(
+      warning(
+        'BUDESONIDE-FORMOTEROL 160/4.5 MCG/ACT',
+        'Budesonide/Formoterol (Inhalant) 80-4.5 mcg/puff MDI 120 puff',
+        'Inhale 2 puffs twice daily'
+      )
+    ).toBe('Different strength, same amount: 80-4.5 mcg → 160-4.5 mcg. Check the dose.');
+    // The same strength written with "/" says nothing.
+    const same: [string, string, string][] = [
+      ['HYDROCODONE/APAP 5/325 MG TAB', norco, pain],
+      ['HYDROCODONE-ACETAMINOPHEN 5/325 MG TAB', norco, pain],
+      ['OXYCODONE-ACETAMINOPHEN 5/325 MG TAB', 'Acetaminophen/oxyCODONE (Oral Pill) 325-5 mg Tab', pain],
+      ['SULFAMETHOXAZOLE-TRIMETHOPRIM 800/160 MG TAB', 'Sulfamethoxazole/Trimethoprim (Oral Pill) 800-160 mg Tab', tab],
+      ['AMOXICILLIN-CLAV 875/125 MG TAB', 'Amoxicillin/Clavulanate (Oral Pill) 875-125 mg Tab', tab],
+      ['ACETAMINOPHEN-CODEINE 300/30 MG TAB', 'Acetaminophen/Codeine (Oral Pill) 300-30 mg Tab', pain],
+      [
+        'FLUTICASONE-SALMETEROL 250/50 MCG/DOSE',
+        'Fluticasone/Salmeterol (Inhalant) 250-50 mcg/puff DPI 60 puff',
+        'Inhale 1 puff twice daily',
+      ],
+      ['LISINOPRIL-HCTZ 20/12.5 MG TAB', 'hydroCHLOROthiazide/Lisinopril (Oral Pill) 12.5-20 mg Tab', daily],
+    ];
+    for (const [to, from, sig] of same) expect(warning(to, from, sig)).toBeUndefined();
+    // A name that can't be matched ("HCTZ"): as the pharmacy wrote it.
+    expect(
+      warning('LISINOPRIL-HCTZ 20/25 MG TAB', 'hydroCHLOROthiazide/Lisinopril (Oral Pill) 12.5-20 mg Tab', daily)
+    ).toBe('Different strength, same amount: 12.5-20 mg → LISINOPRIL-HCTZ 20/25 MG. Check the dose.');
+  });
+
   it('says nothing when the amount differs, or the pharmacy sent no directions', () => {
     expect(
       strengthChangeWarning(
