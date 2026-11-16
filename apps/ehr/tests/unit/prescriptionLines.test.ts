@@ -21,6 +21,7 @@ import {
   prescriptionLineMetadata,
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
+  PRODUCT_NDC_MESSAGE,
   sentSigInWords,
   withCalculatorDosing,
   withCompound,
@@ -212,6 +213,23 @@ describe('prescriptionLineErrors', () => {
     const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
     const noDose = withDirections(liquid, { frequency: 'twice daily', durationDays: '10' });
     expect(prescriptionLineErrors({ ...noDose, awaitingPick: true })).toEqual(['Pick a suggestion or Write my own']);
+  });
+
+  // Decision 198: nor for anything else its hidden blanks hold; the medication's own problems still show.
+  it('asks for nothing the hidden blanks hold while the line waits for a pick', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const waiting = {
+      ...withDirections(liquid, { frequency: 'twice daily', durationDays: '10' }),
+      quantityUnit: '' as const,
+      numberOfRefills: 'x',
+      noteToPharmacy: 'n'.repeat(211),
+      awaitingPick: true,
+    };
+    expect(prescriptionLineErrors(waiting)).toEqual(['Pick a suggestion or Write my own']);
+    expect(prescriptionLineErrors({ ...waiting, medication: { ...waiting.medication!, ndc: '123' } })).toEqual([
+      'Pick a suggestion or Write my own',
+      PRODUCT_NDC_MESSAGE,
+    ]);
   });
 });
 

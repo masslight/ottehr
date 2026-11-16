@@ -852,6 +852,9 @@ export const compoundErrors = (compound: CompoundLine): string[] => {
   ];
 };
 
+/** The medication's and diagnosis's problems: above the rest, as the line reads, and shown while it waits for a pick. */
+const shownOnTop = (path: (string | number)[]): boolean => ['medication', 'diagnosis'].includes(String(path[0]));
+
 /** Every problem with the line, in sentence order; empty when it can be sent. */
 export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
   if (line.compound) {
@@ -885,14 +888,16 @@ export const prescriptionLineErrors = (line: PrescriptionLine): string[] => {
     sentenceSteps(line).some((step) => !step.dose.trim() && !(step.frequency === 'as directed' && writtenOut)) &&
     prescriptionDoseUnit(line.medication) !== undefined
   ) {
-    const at = issues.findIndex((issue) => !['medication', 'diagnosis'].includes(String(issue.path[0])));
+    const at = issues.findIndex((issue) => !shownOnTop(issue.path));
     messages.splice(at === -1 ? messages.length : at, 0, 'Enter the dose');
   }
-  // A line waiting for a pick hides its blanks: what the pick fills isn't asked for yet.
-  const hidden = line.awaitingPick ? ['Enter the dose', 'Quantity must be greater than 0'] : [];
+  // A line waiting for a pick hides its blanks, so only the medication's and diagnosis's problems show (decision 198).
+  const shown = line.awaitingPick
+    ? issues.filter((issue) => shownOnTop(issue.path)).map(({ message }) => message)
+    : messages;
   return [
     ...(noStrength ? ['Pick a strength'] : line.awaitingPick ? ['Pick a suggestion or Write my own'] : []),
-    ...new Set(messages.filter((message) => !hidden.includes(message))),
+    ...new Set(shown),
   ];
 };
 
