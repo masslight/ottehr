@@ -1,3 +1,4 @@
+import { MedicationIngredient } from 'utils/lib/types/api/erx-search.types';
 import { CompoundIngredientInput, CompoundInput, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
 import { describe, expect, it } from 'vitest';
 import {
@@ -11,6 +12,7 @@ import {
   ingredientText,
   lineMissingDoseUnit,
   maximumWarnings,
+  measureOf,
   mgPerMeasure,
   pickedStrength,
   prescriptionAllergies,
@@ -977,6 +979,53 @@ describe('maximumWarnings', () => {
     const typed = withCalculatorDosing(line, { dose: '10' }, 28.12);
     expect(typed.dosing).toBeUndefined();
     expect(typed.maximum).toEqual(line.maximum);
+  });
+});
+
+// Review R6b: drops are a liquid, but counted in drops: never read as mL, as puffs aren't.
+describe('drops: counted in drops, never as mL', () => {
+  const inMgPerMl = (doseForm: string): { doseForm: string; ingredients: MedicationIngredient[] } => ({
+    doseForm,
+    ingredients: [{ name: 'ketotifen', amount: 0.25, unit: 'MG', per: 1, perUnit: 'ML' }],
+  });
+  const DROPS = ['Ophthalmic Solution', 'Ophthalmic Suspension', 'Otic Solution', 'Otic Suspension', 'Nasal Solution'];
+
+  it('has no measure or mg per measure for drops; oral liquids are still measured in mL', () => {
+    for (const doseForm of DROPS) {
+      expect(measureOf(inMgPerMl(doseForm))).toBeUndefined();
+      expect(mgPerMeasure(inMgPerMl(doseForm))).toBeUndefined();
+    }
+    for (const doseForm of ['Oral Solution', 'Oral Suspension', 'Powder for Oral Suspension']) {
+      expect(measureOf(inMgPerMl(doseForm))).toBe('mL');
+      expect(mgPerMeasure(inMgPerMl(doseForm))).toBe(0.25);
+    }
+  });
+
+  it('warns of no maximum for a dose in drops', () => {
+    const line = {
+      ...emptyPrescriptionLine(),
+      medication: { ndc: '1', description: 'Ketotifen 0.25 mg/ml Ophth Soln', ...inMgPerMl('Ophthalmic Solution') },
+      dose: '2',
+      frequency: 'twice daily',
+      maximum: { maxPerDoseMg: 0.1, maxPerDayMg: 0.2, from: 'calculator' as const },
+    };
+    expect(maximumWarnings(line)).toEqual([]);
+  });
+
+  it('works out no dose in mL for drops on a new frequency, as for puffs', () => {
+    const line: PrescriptionLine = {
+      ...emptyPrescriptionLine(),
+      medication: { ndc: '1', description: 'Ketotifen 0.25 mg/ml Ophth Soln', ...inMgPerMl('Ophthalmic Solution') },
+      dose: '2',
+      frequency: 'twice daily',
+      dosing: { rate: 0.02, basis: 'mg/kg/day' },
+    };
+    const puffs: PrescriptionLine = {
+      ...line,
+      medication: detailed({ ndc: '00054074287', description: 'Albuterol 90 mcg/puff MDI' }),
+    };
+    expect(withCalculatorDosing(puffs, { frequency: 'three times daily' }, 20).dose).toBe('');
+    expect(withCalculatorDosing(line, { frequency: 'three times daily' }, 20).dose).toBe('');
   });
 });
 

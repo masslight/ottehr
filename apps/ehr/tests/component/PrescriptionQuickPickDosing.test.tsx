@@ -649,6 +649,44 @@ describe('Suggestion rows: review fixes', () => {
   });
 });
 
+// Review R6b: drops are a liquid, but counted in drops: a row works out no dose in mL for them, as for puffs.
+describe('A quick pick with dosing on drops', () => {
+  it('works out no dose: drops are never read as mL', () => {
+    const drops = {
+      name: 'Ketotifen',
+      strengths: [
+        {
+          strength: '0.025% Ophth Soln',
+          ndcs: ['00000000001'],
+          doseForm: 'Ophthalmic Solution',
+          ingredients: [{ name: 'ketotifen', amount: 0.25, unit: 'MG', per: 1, perUnit: 'ML' }],
+        },
+      ],
+    };
+    const quickPick: PrescriptionQuickPickData = {
+      ...BY_WEIGHT,
+      id: 'qp-drops',
+      name: 'Ketotifen by weight',
+      ndc: '00000000001',
+      medicationDescription: 'Ketotifen 0.025% Ophth Soln',
+      doseForm: 'Ophthalmic Solution',
+      ingredients: drops.strengths[0].ingredients,
+      quantityUnit: undefined,
+      patientInstructions: 'Put 1 drop in the eye twice daily for 10 days.',
+      dosing: { rate: 0.01, basis: 'mg/kg/dose', frequency: 'twice daily', durationDays: 10 },
+    };
+    render(
+      <Harness
+        initial={withProduct(emptyPrescriptionLine(), drops, drops.strengths[0])}
+        quickPicks={[quickPick]}
+        weight={WEIGHT}
+      />
+    );
+    // 28.12 kg × 0.01 mg/kg/dose = 0.28 mg, which read as mL would be 1 "drop".
+    expect(within(suggestionRow(0)).getByRole('button', { name: 'Dose: not picked' })).toBeInTheDocument();
+  });
+});
+
 describe('A quick pick saved before products had details', () => {
   it('works out no dose and says why: nothing is read from the product’s name', async () => {
     const user = userEvent.setup();

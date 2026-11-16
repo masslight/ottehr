@@ -488,10 +488,12 @@ const MEASURE_OF: Partial<Record<PrescriptionDoseForm, DoseMeasure>> = {
   capsule: 'capsule',
 };
 
-/** The measure the calculator doses a product in, when its dose form is one it measures. */
+/** The measure the calculator doses a product in, when its dose form is one it measures and a dose is counted in it:
+ * drops are a liquid, but counted in drops, so never read as mL (as puffs aren't). */
 export const measureOf = (product: PrescriptionProduct | null | undefined): DoseMeasure | undefined => {
   const form = prescriptionDoseForm(product);
-  return form && MEASURE_OF[form];
+  const measure = form && MEASURE_OF[form];
+  return measure && prescriptionDoseUnit(product) === measure ? measure : undefined;
 };
 
 /** What a quick pick's row says for a combination product with weight dosing: which ingredient is the provider's
@@ -554,7 +556,7 @@ const remeasured = (
   const amount = numberOrUndefined(dose);
   if (amount === undefined || amount <= 0) return { dose };
   const measure = measureOf(to.medication);
-  if (measure === undefined || prescriptionDoseUnit(to.medication) !== measure) return { dose };
+  if (measure === undefined) return { dose };
   const fromMg = mgPerMeasure(from);
   const toMg = mgPerMeasure(to.medication);
   if (fromMg === undefined || toMg === undefined) return { dose: '' };

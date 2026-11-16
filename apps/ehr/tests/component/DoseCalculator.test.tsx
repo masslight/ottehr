@@ -334,6 +334,25 @@ describe('DoseCalculator (plain, inline)', () => {
     expect(calculator).toHaveTextContent('Not for this dose form: liquids, tablets and capsules only');
   });
 
+  // Review R6b: drops are a liquid, but counted in drops: the calculator leaves them alone, as it does puffs.
+  it('is not for drops', async () => {
+    const user = userEvent.setup();
+    const drops = {
+      name: 'Ketotifen',
+      strengths: [
+        {
+          strength: '0.025% Ophth Soln',
+          ndcs: ['00000000001'],
+          doseForm: 'Ophthalmic Solution',
+          ingredients: [{ name: 'ketotifen', amount: 0.25, unit: 'MG', per: 1, perUnit: 'ML' }],
+        },
+      ],
+    };
+    render(<Harness initial={withProduct(emptyPrescriptionLine(), drops, drops.strengths[0])} />);
+    const calculator = await openCalculator(user);
+    expect(calculator).toHaveTextContent('Not for this dose form: liquids, tablets and capsules only');
+  });
+
   it('notes an earlier visit’s weight for the suggestions, and a typed weight wins', () => {
     const previous = { ...WEIGHT, thisVisit: false };
     expect(previousVisitWeightNote(undefined, previous)).toMatch(/^using weight 28.12 kg \(previous visit, /);
