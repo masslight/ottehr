@@ -14,6 +14,12 @@ import {
   SERVICE_REQUEST_NEEDS_TO_BE_SENT_TO_TELERADIOLOGY_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
 import { getPatchOperationToUpdateExtension } from 'utils/lib/fhir/resourcePatch';
+import {
+  type ConnectivityConfig,
+  loadConnectivityConfig,
+  registerConnectivityMetrics,
+  runConnectivityChecks,
+} from './connectivityChecks';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -117,6 +123,7 @@ interface ProjectConfig {
 }
 
 const pathToEnvFiles = path.resolve(__dirname, '../.env');
+const pathToConnectivityConfig = path.resolve(__dirname, '../.env/connectivity.json');
 
 const loadProjectConfigurations = async (): Promise<ProjectConfig[]> => {
   const projectConfigs: ProjectConfig[] = [];
@@ -291,8 +298,14 @@ const sendStudiesToTeleradiology = async (config: ProjectConfig): Promise<void> 
 const POLL_INTERVAL_MS = parseInt(process.env.POLL_INTERVAL_MS ?? '60000', 10);
 const METRICS_PORT = parseInt(process.env.METRICS_PORT ?? '9090', 10);
 
+// Loaded once at startup; edit .env/connectivity.json and restart the service to change targets.
+let connectivityConfig: ConnectivityConfig | undefined;
+
 const pollOnce = async (): Promise<void> => {
   console.log('Starting poll cycle at', new Date().toISOString());
+  if (connectivityConfig) {
+    await runConnectivityChecks(connectivityConfig);
+  }
   const projectConfigs = await loadProjectConfigurations();
   for (const config of projectConfigs) {
     console.log(`Processing projectId ${config.projectId} and tenant ${config.advapacsTenant}`);
@@ -312,6 +325,14 @@ const pollOnce = async (): Promise<void> => {
 };
 
 const main = async (): Promise<void> => {
+  registerConnectivityMetrics(register);
+  connectivityConfig = loadConnectivityConfig(pathToConnectivityConfig);
+  if (connectivityConfig) {
+    console.log(`Loaded ${connectivityConfig.targets.length} connectivity target(s) from ${pathToConnectivityConfig}`);
+  } else {
+    console.log(`No connectivity config at ${pathToConnectivityConfig}; skipping TCP and DICOM echo checks`);
+  }
+
   const server = http.createServer(async (req, res) => {
     if (req.url === '/metrics' && req.method === 'GET') {
       res.setHeader('Content-Type', register.contentType);

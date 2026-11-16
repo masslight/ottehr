@@ -6,6 +6,8 @@
     "start": "NODE_OPTIONS='--preserve-symlinks' tsx src/index.ts",
     "build": "tsc",
     "bundle": "NODE_OPTIONS='--preserve-symlinks' tsx bundle.ts",
+    "test": "vitest run",
+    "test:ci": "vitest run --passWithNoTests --reporter=dot --reporter=github-actions",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 --fix ."
   },
