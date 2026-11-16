@@ -355,6 +355,41 @@ describe('computeBillingStatementAmounts', () => {
     expect(totals.balanceDueCents).toBe(10_400);
   });
 
+  it('keeps the deductible on its procedure when a later denial leaves patient responsibility as it was', () => {
+    const applied = claimResponse({
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('PR', 104, '1')],
+        }),
+      ],
+    });
+    // nothing paid and no PR: says nothing about what the patient owes
+    const denial = claimResponse({
+      id: 'cr-2',
+      created: '2026-08-20',
+      item: [
+        eraItem({
+          sequence: 2,
+          procedureCode: '99203',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 339, 'B16')],
+        }),
+      ],
+    });
+
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [applied, denial],
+      patientPaid: 0,
+      writeOffsTotal: 0,
+    });
+
+    expect(totals.deductibleCents).toBe(10_400);
+    expect(totals.balanceDueCents).toBe(10_400);
+    expect(lines.map((line) => line.patientOwesCents)).toEqual([10_400, 0]);
+  });
+
   it('drops the deductible back to zero when the payer reverses the one it applied', () => {
     const applied = claimResponse({
       item: [

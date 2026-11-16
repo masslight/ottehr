@@ -298,6 +298,14 @@ export function claimBalanceSteps(claimResponses: ClaimResponse[], billed: numbe
   return steps;
 }
 
+// The remit patient responsibility comes from (see applyRemit): the latest one that isn't a denial,
+// undefined while every remit is. Its lines say which procedures the patient owes for.
+export function patientRespRemit(claimResponses: ClaimResponse[]): ClaimResponse | undefined {
+  return sortClaimResponsesByRecency(claimResponses).findLast(
+    (claimResponse) => !isDenial(readRemitAmounts(claimResponse))
+  );
+}
+
 // The claim's payment summary: the balances after its last remit, plus what the patient paid and
 // the write-offs recorded on the claim.
 //

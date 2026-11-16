@@ -9,6 +9,7 @@ import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import {
   fetchClaimResponsesByClaimIds,
   fetchPatientPaymentsByEncounterIds,
+  patientRespRemit,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
   sumPatientPayments,
@@ -91,7 +92,10 @@ export function computeBillingStatementAmounts(params: {
   const remitLines = sortClaimResponsesByRecency(claimResponses).map((remit) =>
     buildEraRemitServiceLines(remit, claim)
   );
-  const latestRemitLines = remitLines[remitLines.length - 1] ?? [];
+  // patient responsibility and the deductible are attributed from the remit that set patient
+  // responsibility, not from a later denial that left it as it was
+  const respRemit = patientRespRemit(claimResponses);
+  const respRemitLines = respRemit ? buildEraRemitServiceLines(respRemit, claim) : [];
 
   const payments = summarizeClaimPayments(claimResponses, claim.total?.value ?? 0, patientPaid, writeOffsTotal);
 
@@ -111,7 +115,7 @@ export function computeBillingStatementAmounts(params: {
   const writeOffsCents = toCents(payments.writeOffsTotal);
   const balanceCents =
     hasReachedPatientAr(claim) || payments.patientResp !== null ? toCents(payments.balance) : undeterminedRespCents;
-  const deductibleSumCents = latestRemitLines.reduce(
+  const deductibleSumCents = respRemitLines.reduce(
     (total, line) => total + toCents(patientRespBuckets(line.adjustments).deductible),
     0
   );
@@ -134,7 +138,7 @@ export function computeBillingStatementAmounts(params: {
   }
 
   const paidByLine = sumByClaimLine(remitLines.flat(), (line) => line.paid);
-  const respByLine = sumByClaimLine(latestRemitLines, patientRespOf);
+  const respByLine = sumByClaimLine(respRemitLines, patientRespOf);
 
   const grossCents = items.map((item) => toCents(item.net?.value));
   const insurancePaidByLine = fitToTotal(

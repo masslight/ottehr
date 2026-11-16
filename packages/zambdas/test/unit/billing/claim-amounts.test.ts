@@ -22,6 +22,7 @@ import {
   initialClaimBalances,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
+  patientRespRemit,
   readRemitAmounts,
   remitWriteOffsBeyondAllowed,
   sortClaimResponsesByRecency,
@@ -816,6 +817,22 @@ describe('applyRemit', () => {
       // a payment without PR: the payer assigned the patient nothing
       patientResp: 0,
     });
+  });
+});
+
+describe('patientRespRemit', () => {
+  it('picks the latest remit that is not a denial', () => {
+    const payment = { ...claimMdClaimResponse('2026-01-01'), id: 'payment' };
+    const denial = {
+      ...claimResponse('2026-02-01', {
+        totalPaid: 0,
+        itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 100, 'B16')]],
+      }),
+      id: 'denial',
+    };
+    expect(patientRespRemit([denial, payment])?.id).toBe('payment');
+    expect(patientRespRemit([denial])).toBeUndefined();
+    expect(patientRespRemit([])).toBeUndefined();
   });
 });
 
