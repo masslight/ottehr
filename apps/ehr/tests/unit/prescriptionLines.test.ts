@@ -886,8 +886,9 @@ describe('prescriptionLineToOrder', () => {
     });
   });
 
-  // "½" on screen; to the pharmacy a half in words (ISMP lists "1/2 tablet" as read as 1 or 2 tablets), other parts ASCII.
-  it('sends the directions the blanks wrote with a half in words and other fractions in ASCII; the line keeps ½', () => {
+  // A half in words on screen and to the pharmacy (ISMP lists "1/2 tablet" as read as 1 or 2 tablets, decision 78);
+  // other parts ASCII to the pharmacy.
+  it('writes a half in words on the line and in the directions sent, and other fractions in ASCII', () => {
     const line = withDirections(
       {
         ...complete(),
@@ -903,7 +904,10 @@ describe('prescriptionLineToOrder', () => {
       encounterId: 'encounter-1',
       pharmacy: PHARMACY,
     };
-    expect(line.patientInstructions).toBe('Take ½ tablet by mouth twice daily for 10 days.');
+    expect(line.patientInstructions).toBe('Take half tablet by mouth twice daily for 10 days.');
+    expect(withDirections(line, { dose: '1.5' }).patientInstructions).toBe(
+      'Take 1 and a half tablets by mouth twice daily for 10 days.'
+    );
     expect(prescriptionLineToOrder(line, context).patientInstructions).toBe(
       'Take half tablet by mouth twice daily for 10 days.'
     );
@@ -1951,7 +1955,7 @@ describe('the blanks kept on the prescription for a re-fill (metadata)', () => {
       { ...stored, medication: tablet, patientInstructions: 'Take 1/2 tablet by mouth twice daily for 10 days.' },
       { ...metadata, product: undefined, dose: '0.5', additionalInstructions: undefined }
     );
-    expect(halfRefilled.patientInstructions).toBe('Take ½ tablet by mouth twice daily for 10 days.');
+    expect(halfRefilled.patientInstructions).toBe('Take half tablet by mouth twice daily for 10 days.');
     // A changed blank rewrites the directions and the quantity, as after a suggestion.
     const changed = withDirections(refilled, { dose: '2' });
     expect(changed.patientInstructions).toBe('Take 2 capsules by mouth twice daily for 10 days. Take with food.');

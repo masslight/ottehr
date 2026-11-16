@@ -212,19 +212,20 @@ const TABLET_FRACTIONS: [number, string, string][] = [
  * tablets) and asks for words. */
 export const halfInWords = (whole: string): string => (whole ? `${whole} and a half` : 'half');
 
-/** "½ tablet", "1½ tablets", "¼ tablet" for a part tablet ("half tablet", "1 and a half tablets", "1/4 tablet" in
- * `ascii`, for the text sent); "2.5 mL", "2 tablets" otherwise. The dose itself stays a number; this is only how a
- * sentence or the calculator writes it. */
+/** "half tablet", "1 and a half tablets", "¼ tablet" for a part tablet ("1/4 tablet" in `ascii`, for the text sent);
+ * "2.5 mL", "2 tablets" otherwise. A half is in words on screen too, as ISMP asks (decision 78). The dose itself
+ * stays a number; this is only how a sentence or the calculator writes it. */
 export const doseAmountText = (amount: number, unit: string, ascii = false): string => {
   const whole = Math.floor(amount + 1e-9);
   const fraction =
     unit === 'tablet' ? TABLET_FRACTIONS.find(([part]) => Math.abs(amount - whole - part) < 1e-9) : undefined;
   if (!fraction) return `${amount} ${doseUnitLabel(unit, amount)}`;
-  const part = !ascii
-    ? `${whole || ''}${fraction[1]}`
-    : fraction[0] === 0.5
-    ? halfInWords(whole ? String(whole) : '')
-    : `${whole ? `${whole} ` : ''}${fraction[2]}`;
+  const part =
+    fraction[0] === 0.5
+      ? halfInWords(whole ? String(whole) : '')
+      : !ascii
+      ? `${whole || ''}${fraction[1]}`
+      : `${whole ? `${whole} ` : ''}${fraction[2]}`;
   return `${part} ${amount < 1 ? unit : doseUnitLabel(unit, amount)}`;
 };
 

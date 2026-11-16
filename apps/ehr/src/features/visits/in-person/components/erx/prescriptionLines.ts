@@ -787,7 +787,7 @@ export const withPrescriptionMetadata = (
       numberOfRefills: line.numberOfRefills,
       patientInstructions: written,
     }),
-    // Sent with a half in words (or "1/2" before that); the screen keeps "½" while the blanks still write them.
+    // Sent with a half in words (or "1/2" before that), as the blanks write it on screen too.
     patientInstructions: !sent || asciiFractions(written).trim() === sentSigInWords(sent) ? written : sent,
     additionalInstructions: metadata.additionalInstructions,
     dosing: metadata.dosing,
@@ -1030,7 +1030,7 @@ export const prescriptionLineToOrder = (line: PrescriptionLine, context: OrderCo
     ...(line.daysSupply ? { daysSupply: Number(line.daysSupply) } : {}),
     numberOfRefills: Number(line.numberOfRefills),
     // Directions go with a half in words ("half tablet", "½" or "1/2" alike) and other parts in ASCII ("1/4 tablet"):
-    // the blanks' written so, typed or quick-pick ones converted; the screen keeps "½". A compound's are typed.
+    // the blanks' written so, typed or quick-pick ones converted. A compound's are typed.
     patientInstructions: sentSigInWords(
       medication && fromBlanks
         ? withAdditionalInstructions(

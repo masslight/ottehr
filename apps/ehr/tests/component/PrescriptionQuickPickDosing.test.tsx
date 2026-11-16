@@ -253,7 +253,7 @@ describe('Save as quick pick: the suggested name', () => {
     expect(suggestedQuickPickName(line)).toBe('Amoxicillin 400 mg/5ml Susp | 6 mL | twice daily | 10 days');
     expect(
       suggestedQuickPickName(withDirections(tabletLine(), { dose: '0.5', frequency: 'once daily', durationDays: '1' }))
-    ).toBe('Amoxicillin 500 mg Tab | ½ tablet | once daily | 1 day');
+    ).toBe('Amoxicillin 500 mg Tab | half tablet | once daily | 1 day');
   });
 
   it('leaves out the parts not filled in', () => {
