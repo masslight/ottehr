@@ -9,7 +9,7 @@
  *      _has:Encounter), the foreign patient's resources in the store never surface, the note types keep
  *      the scope the progress note has always shown, and the request budget of the visit note is explicit.
  */
-import { Condition, Encounter, Patient } from 'fhir/r4b';
+import { Appointment, Condition, Encounter, FhirResource, Patient } from 'fhir/r4b';
 import {
   progressNoteNoteTypes,
   telemedProgressNoteNoteTypes,
@@ -114,6 +114,30 @@ describe('chart sections — golden fixture', () => {
       const note = await buildVisitNote(client(server), encounterId, { noteTypes: telemedProgressNoteNoteTypes });
       expect(note.notes.notes.map((n) => n.type).sort()).toEqual([...telemedProgressNoteNoteTypes].sort());
     });
+
+    describe('patientHasPreviousVisits', () => {
+      const otherVisit = (id: string, start: string): FhirResource => ({
+        ...fixture.appointment,
+        id,
+        start,
+        status: 'fulfilled',
+      });
+      const seenBefore = async (thisStatus: Appointment['status'], other?: FhirResource): Promise<boolean> => {
+        const store = [...fixture.resources, fixture.patient, { ...fixture.appointment, status: thisStatus }];
+        if (other) store.push(other);
+        return (await buildVisitNote(client(createGoldenFhirServer(store)), encounterId)).patientHasPreviousVisits;
+      };
+
+      it('true only for an earlier visit that took place', async () => {
+        expect(await seenBefore('fulfilled')).toBe(false);
+        expect(await seenBefore('fulfilled', otherVisit('earlier', '2025-06-01T10:00:00.000Z'))).toBe(true);
+        expect(await seenBefore('fulfilled', otherVisit('later', '2026-06-01T10:00:00.000Z'))).toBe(false);
+      });
+
+      it('a later visit that took place does not count for a visit that has not yet', async () => {
+        expect(await seenBefore('checked-in', otherVisit('later', '2026-06-01T10:00:00.000Z'))).toBe(false);
+      });
+    });
   });
 
   describe('boundary', () => {
@@ -124,6 +148,7 @@ describe('chart sections — golden fixture', () => {
       `encounter=${encounterId}&`,
       `_has:Encounter:subject:_id=${encounterId}`,
       `_has:Encounter:participant:_id=${encounterId}`,
+      `_has:Encounter:appointment:_id=${encounterId}`,
     ];
 
     it('anchors every search to the encounter; the only follow-up reads are by id', async () => {
@@ -248,11 +273,11 @@ describe('chart sections — golden fixture', () => {
         fhirSearches: fresh.recorded.reduce((n, r) => n + r.urls.length, 0),
         batchSizes: batches.map((b) => b.urls.length),
       }).toEqual({
-        // The visit note is one call: the chart searches and the appointment count in six concurrent batches;
+        // The visit note is one call: the chart searches and the seen-before check in six concurrent batches;
         // the AI note's provider is one of the participants the same wave read, so there is no follow-up lookup.
         fhirHttpRequests: 6,
-        fhirSearches: 32,
-        batchSizes: [6, 6, 6, 6, 6, 2],
+        fhirSearches: 33,
+        batchSizes: [6, 6, 6, 6, 6, 3],
       });
       expect(Math.max(...batches.map((b) => b.urls.length))).toBeLessThanOrEqual(CHART_BATCH_TARGET_CONCURRENCY);
       expect(searches).toEqual([]);

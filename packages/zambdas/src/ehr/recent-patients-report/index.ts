@@ -5,6 +5,7 @@ import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getEmailForIndividual, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { SEEN_VISIT_APPOINTMENT_STATUS } from 'utils/lib/helpers/screening-questions/new-patient.helper';
 import {
   RecentPatientRecord,
   RecentPatientsReportZambdaOutputSchema,
@@ -13,6 +14,7 @@ import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { resolveNewPatients } from '../../shared/new-patient';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateOutputWithSchema } from '../../shared/validate-zod';
@@ -220,7 +222,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const allBatchRequests: BatchInputGetRequest[] = Array.from(patientAppointmentsMap.keys()).map((patientId) => {
     // Don't use URLSearchParams for FHIR date prefixes - it encodes the colons which breaks the search
-    const url = `/Appointment?patient=Patient/${patientId}&date=lt${dateRange.start}&_count=1`;
+    const url = `/Appointment?patient=Patient/${patientId}&date=lt${dateRange.start}&status=${SEEN_VISIT_APPOINTMENT_STATUS}&_count=1`;
 
     return {
       method: 'GET',
@@ -298,6 +300,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     } patients with history, ${Array.from(patientHistoryMap.values()).filter((v) => !v).length} without history`
   );
 
+  const newPatients = await resolveNewPatients(
+    oystehr,
+    new Map(
+      Array.from(patientAppointmentsMap.entries()).map(([patientId, patientAppointments]) => [
+        patientId,
+        {
+          hasPriorVisit: patientHistoryMap.get(patientId) ?? false,
+          visits: patientAppointments.map((appointment) => ({
+            appointment,
+            encounterId: encounterMap.get(`Appointment/${appointment.id}`)?.id,
+          })),
+        },
+      ])
+    )
+  );
+
   const patientRecords: RecentPatientRecord[] = [];
 
   for (const [patientId, patientAppointments] of patientAppointmentsMap.entries()) {
@@ -331,8 +349,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       serviceCategory = serviceCategoryCoding.display || serviceCategoryCoding.code || 'Unknown';
     }
 
-    const hasHistoricalAppointments = patientHistoryMap.get(patientId) || false;
-    const patientStatus: 'new' | 'existing' = hasHistoricalAppointments ? 'existing' : 'new';
+    const patientStatus: 'new' | 'existing' = newPatients.get(patientId) ? 'new' : 'existing';
 
     // Get "How did you hear about us?" value
     const pointOfDiscovery = patient.extension?.find((e) => e.url === PATIENT_POINT_OF_DISCOVERY_URL)?.valueString;

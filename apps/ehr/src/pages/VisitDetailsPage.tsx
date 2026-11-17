@@ -92,16 +92,13 @@ import { getFormattedPatientFullName, getFullestAvailableName } from 'utils/lib/
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
 import { FormPlacement } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { hasReturningPatientTag } from 'utils/lib/helpers/screening-questions/new-patient.helper';
 import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
 import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
 import { GetVisitFaxHistoryOutput } from 'utils/lib/types/api/visit-details/visit-details.types';
 import { FhirAppointmentType, ServiceMode } from 'utils/lib/types/common';
-import {
-  PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
-  PATIENT_INFO_META_DATA_SYSTEM,
-} from 'utils/lib/types/constants';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
 import { EHRVisitDetails } from 'utils/lib/types/data/visit-details.types';
@@ -1001,9 +998,7 @@ export default function VisitDetailsPage(): ReactElement {
 
   const patientInfoAdditionalItem: any = {};
 
-  const patientBeenToClinicPreviously = appointment?.meta?.tag?.some(
-    (tag) => tag.system === PATIENT_INFO_META_DATA_SYSTEM && tag.code === PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE
-  );
+  const patientBeenToClinicPreviously = hasReturningPatientTag(appointment);
 
   if (patientBeenToClinicPreviously) {
     patientInfoAdditionalItem['Patient has been to clinic previously'] = 'true';
