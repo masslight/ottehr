@@ -92,7 +92,7 @@ import { usePayerSearch } from '../components/PayerSelect';
 import { SendInvoiceDialog } from '../components/SendInvoiceDialog';
 import { TagSelect } from '../components/TagSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
-import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
+import { claimStatusValueColor, formatPatientResp, provisionalBalanceHint } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingServices } from '../hooks/useBillingServices';
 import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
@@ -362,16 +362,22 @@ const allColumns: GridColDef[] = [
   currencyCol('billed', 'Billed', 100),
   currencyCol('allowed', 'Allowed', 100),
   currencyCol('insurancePaid', 'Insurance Paid', 120),
-  currencyCol('patientResp', 'Patient Resp', 110),
+  {
+    ...currencyCol('patientResp', 'Patient Resp', 110),
+    valueFormatter: (params: { value: number | null }) => formatPatientResp(params.value),
+  },
   currencyCol('patientPaid', 'Patient Paid', 110),
   {
     ...currencyCol('claimBalance', 'Claim Balance', 120),
-    renderCell: ({ value, row }) => (
-      <Stack direction="row" alignItems="center" justifyContent="flex-end" gap={0.5} sx={{ width: '100%' }}>
-        {!(row as BillingClaimItem).adjudicated && <WarningIconWithTooltip tooltipText={PROVISIONAL_BALANCE_HINT} />}
-        <span>{formatCurrency(value as number)}</span>
-      </Stack>
-    ),
+    renderCell: ({ value, row }) => {
+      const hint = provisionalBalanceHint(row as BillingClaimItem);
+      return (
+        <Stack direction="row" alignItems="center" justifyContent="flex-end" gap={0.5} sx={{ width: '100%' }}>
+          {hint && <WarningIconWithTooltip tooltipText={hint} />}
+          <span>{formatCurrency(value as number)}</span>
+        </Stack>
+      );
+    },
   },
   { field: 'facility', headerName: 'Facility', width: 140 },
   { field: 'renderingProvider', headerName: 'Provider', width: 140 },

@@ -264,7 +264,7 @@ export interface EraClaimListItem {
   allowed: number;
   paid: number;
   posted: number;
-  patientResp: number;
+  patientResp: number | null;
   // CLP01 patient control number: the patient account number echoed back from the submitted claim
   patientAccountNumber: string;
   // the focal coverage's subscriber id (the same field the claim detail screen shows); '' when the
@@ -355,7 +355,7 @@ export interface BillingClaimItem {
   billed: number;
   allowed: number;
   insurancePaid: number;
-  patientResp: number;
+  patientResp: number | null;
   patientPaid: number;
   writeOffsTotal: number;
   claimBalance: number;
@@ -633,7 +633,7 @@ export interface ClaimDetailResponse {
   billed: number;
   allowed: number;
   insurancePaid: number;
-  patientResp: number;
+  patientResp: number | null;
   patientPaid: number;
   writeOffsTotal: number;
   balance: number;
@@ -728,7 +728,7 @@ export interface PatientArClaimItem {
   billed: number;
   allowed: number;
   insurancePaid: number;
-  patientResp: number;
+  patientResp: number | null;
   patientPaid: number;
   balance: number;
   adjudicated: boolean;

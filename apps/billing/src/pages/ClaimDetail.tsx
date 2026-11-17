@@ -140,7 +140,7 @@ import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { WriteOffsSection } from '../components/WriteOffsSection';
 import { AccidentInfoData } from '../constants/accidentInfo';
-import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
+import { claimStatusValueColor, provisionalBalanceHint } from '../constants/claimStatus';
 import {
   CoverageForm,
   coverageToCreateInput,
@@ -625,11 +625,7 @@ export default function ClaimDetail(): ReactElement {
             <Amount label="Payments" sublabel="Insurance Paid" value={claim.insurancePaid} />
             <Amount label="Patient Paid" value={claim.patientPaid} />
             {claim.writeOffsTotal > 0 ? <Amount label="Write-offs" value={claim.writeOffsTotal} /> : <></>}
-            <Amount
-              label="Balance"
-              value={claim.balance}
-              hint={claim.adjudicated ? undefined : PROVISIONAL_BALANCE_HINT}
-            />
+            <Amount label="Balance" value={claim.balance} hint={provisionalBalanceHint(claim)} />
             <Box>
               <Typography variant="caption" color="text.secondary">
                 Responsible Party
