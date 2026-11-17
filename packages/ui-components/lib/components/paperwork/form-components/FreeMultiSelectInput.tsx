@@ -204,7 +204,7 @@ export const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       }}
       freeSolo={freeSolo}
       fullWidth
-      ListboxComponent={virtualization ? VirtualizedListbox : undefined}
+      slotProps={virtualization ? { listbox: { component: VirtualizedListbox } } : undefined}
       multiple={multiple}
       onChange={selectionHandler}
       onBlur={() => freeSolo && inputValue && selectionHandler({ selectedOption: inputValue })}
