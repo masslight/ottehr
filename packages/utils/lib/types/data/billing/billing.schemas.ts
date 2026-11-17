@@ -715,6 +715,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         nonInsurancePayer: z.object({ id: nonEmptyString.uuid() }).nullable().optional(),
         diagnoses: z.array(claimDiagnosisSchema).optional(),
         serviceLines: z.array(claimServiceLineSchema).optional(),
+        medicareSecondaryReasonCode: nonEmptyString.optional().or(z.literal('')),
         billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),
         patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
         admissionType: nonEmptyString.max(1).optional().or(z.literal('')),

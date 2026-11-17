@@ -62,6 +62,7 @@ import {
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
   EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchById,
@@ -396,6 +397,17 @@ async function attachClaimResources(
     const display = payerOrg ? payerDisplay(payerOrg) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
     if (payerReference && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerReference, display };
+  }
+
+  if (fields.medicareSecondaryReasonCode != null) {
+    if (fields.medicareSecondaryReasonCode) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE,
+        valueString: fields.medicareSecondaryReasonCode,
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE);
+    }
   }
 
   if (fields.nonInsurancePayer !== undefined) {
