@@ -7,8 +7,10 @@ import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
+import PersonRemoveOutlinedIcon from '@mui/icons-material/PersonRemoveOutlined';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
+import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -93,7 +95,7 @@ import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
 import { FormPlacement } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
-import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import { VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
 import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
 import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
 import { GetVisitFaxHistoryOutput } from 'utils/lib/types/api/visit-details/visit-details.types';
@@ -131,6 +133,7 @@ import {
   getAppointmentAndPatientHistory,
   NoteHistory,
 } from '../helpers/activityLogsUtils';
+import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
 import { getLegacyDataUrl } from '../helpers/legacyData';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
@@ -802,6 +805,25 @@ export default function VisitDetailsPage(): ReactElement {
     }
   }, [appointment, encounter, isInPerson]);
 
+  const visitStatusMutation = useMutation({
+    mutationFn: async (updatedStatus: VisitStatusWithoutUnknown) => {
+      if (!encounter?.id) {
+        throw new Error('Missing required data');
+      }
+      await handleChangeInPersonVisitStatus({ encounterId: encounter.id, updatedStatus }, oystehrZambda);
+    },
+    onSuccess: async () => {
+      await refetchVisitDetails();
+      getAndSetHistoricResources({ logs: true }).catch((error) =>
+        console.error('error getting activity logs after visit status update', error)
+      );
+    },
+    onError: (error) => {
+      console.error('Error changing visit status:', error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    },
+  });
+
   // page HTML
   const handleCancelDialogOpen = (): void => {
     setCancelDialogOpen(true);
@@ -1342,6 +1364,38 @@ export default function VisitDetailsPage(): ReactElement {
                         <EventBusyOutlinedIcon fontSize="small" />
                       </ListItemIcon>
                       Cancel Visit
+                    </MenuItem>
+                  )}
+                  {status === 'pending' && (
+                    <MenuItem
+                      data-testid={dataTestIds.visitDetailsPage.noShowMenuItem}
+                      disabled={visitStatusMutation.isPending}
+                      onClick={() => {
+                        setActionsMenuAnchor(null);
+                        visitStatusMutation.mutate('no show');
+                      }}
+                      sx={DESTRUCTIVE_MENU_ITEM_SX}
+                    >
+                      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                        <PersonRemoveOutlinedIcon fontSize="small" />
+                      </ListItemIcon>
+                      No Show
+                    </MenuItem>
+                  )}
+                  {status === 'no show' && (
+                    <MenuItem
+                      data-testid={dataTestIds.visitDetailsPage.returnToArrivedMenuItem}
+                      disabled={visitStatusMutation.isPending}
+                      onClick={() => {
+                        setActionsMenuAnchor(null);
+                        visitStatusMutation.mutate('arrived');
+                      }}
+                      sx={MENU_ITEM_SX}
+                    >
+                      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                        <UndoOutlinedIcon fontSize="small" />
+                      </ListItemIcon>
+                      Return to “Arrived”
                     </MenuItem>
                   )}
                 </Menu>

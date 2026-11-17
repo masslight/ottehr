@@ -603,6 +603,8 @@ export const dataTestIds = {
     convertToFollowUpMenuItem: 'convert-to-follow-up-menu-item',
     sendFormMenuItem: 'send-form-menu-item',
     reportIssueMenuItem: 'report-issue-menu-item',
+    noShowMenuItem: 'no-show-menu-item',
+    returnToArrivedMenuItem: 'return-to-arrived-menu-item',
     docsAndDataMenuButton: 'visit-details-docs-and-data-menu-button',
     visitDetailsPdfMenuItem: 'visit-details-pdf-menu-item',
     patientPaperworkPdfMenuItem: 'patient-paperwork-pdf-menu-item',
