@@ -1,11 +1,10 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Box,
   Button,
   FormControl,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   MenuItem,
   Paper,
@@ -800,7 +799,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
                 )}
               </Grid>
               <Grid item xs={6} display="flex" justifyContent="flex-end">
-                <LoadingButton
+                <Button
                   data-testid={dataTestIds.externalLabs.createPg.createExternalLabOrderBtn}
                   disabled={isOrderingDisabled}
                   loading={submitting}
@@ -809,7 +808,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ({
                   sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                 >
                   Order
-                </LoadingButton>
+                </Button>
               </Grid>
               {Array.isArray(error) &&
                 error.length > 0 &&

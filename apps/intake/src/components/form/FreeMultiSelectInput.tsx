@@ -87,7 +87,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
               freeSolo={freeSolo}
               fullWidth
               {...field}
-              ListboxComponent={virtualization ? VirtualizedListboxComponent : undefined}
+              slotProps={virtualization ? { listbox: { component: VirtualizedListboxComponent } } : undefined}
               defaultValue={defaultOrBlank}
               // Bringing this in breaks the component for some reason
               // {...otherProps}

@@ -1,6 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { CssBaseline, ThemeProvider } from '@mui/material';
-import { LicenseInfo } from '@mui/x-data-grid-pro';
+import { LicenseInfo } from '@mui/x-license';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';

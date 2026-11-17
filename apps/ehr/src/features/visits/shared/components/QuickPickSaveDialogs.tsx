@@ -66,7 +66,8 @@ export const QuickPickSaveDialogs = <T extends { id?: string; name: string }>({
               }
             }}
             onInputChange={(_e, newInputValue, reason) => {
-              if (reason === 'reset') return;
+              // only what the user types or clears; picking an option and blurring report other reasons
+              if (reason !== 'input' && reason !== 'clear') return;
               setSelected(null);
               onNameChange(newInputValue);
             }}

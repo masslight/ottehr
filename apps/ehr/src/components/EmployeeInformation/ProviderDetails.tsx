@@ -1,5 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
-import { Chip, FormControl, Grid, Stack, TextField, Typography, useTheme } from '@mui/material';
+import { Chip, FormControl, GridLegacy as Grid, Stack, TextField, Typography, useTheme } from '@mui/material';
 import { Controller } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { isNPIValidWithChecksum } from 'utils/lib/helpers/helpers';

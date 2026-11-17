@@ -1,8 +1,8 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
+  Button,
   Paper,
   Skeleton,
   Table,
@@ -70,7 +70,7 @@ export const MedicationHistoryList: React.FC = () => {
       collapsed={isCollapsed}
       onSwitch={handleToggle}
       headerItem={
-        <LoadingButton
+        <Button
           loading={printLoading}
           variant="outlined"
           type="button"
@@ -79,7 +79,7 @@ export const MedicationHistoryList: React.FC = () => {
           disabled={!medicationHistory.length}
         >
           Print Medications
-        </LoadingButton>
+        </Button>
       }
     >
       <Box sx={{ px: 3, py: 1 }}>

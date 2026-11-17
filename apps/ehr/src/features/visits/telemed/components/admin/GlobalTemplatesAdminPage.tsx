@@ -1,7 +1,6 @@
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -221,7 +220,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
           onChange={(e) => setSearchFilter(e.target.value)}
           sx={{ width: 300 }}
         />
-        <LoadingButton
+        <Button
           data-testid={dataTestIds.globalTemplates.admin.scanForStaleBtn}
           variant="outlined"
           size="small"
@@ -231,7 +230,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
           disabled={!data?.templates?.length}
         >
           Scan for Stale Templates
-        </LoadingButton>
+        </Button>
       </Box>
 
       {isLoading ? (
@@ -326,14 +325,14 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
           <Button onClick={handleCloseRenameDialog} disabled={isRenaming}>
             Cancel
           </Button>
-          <LoadingButton
+          <Button
             variant="contained"
             onClick={handleRename}
             loading={isRenaming}
             disabled={!newName.trim() || newName.trim() === selectedTemplate?.title}
           >
             Rename
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -350,9 +349,9 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
           <Button onClick={handleCloseDeleteDialog} disabled={isDeleting}>
             Cancel
           </Button>
-          <LoadingButton variant="contained" color="error" onClick={handleDelete} loading={isDeleting}>
+          <Button variant="contained" color="error" onClick={handleDelete} loading={isDeleting}>
             Delete
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

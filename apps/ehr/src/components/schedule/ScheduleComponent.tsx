@@ -1,7 +1,8 @@
 import { otherColors } from '@ehrTheme/colors';
-import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
+import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Box,
+  Button,
   capitalize,
   Checkbox,
   FormControl,
@@ -229,7 +230,7 @@ function InfoForDay({ day, setDay, updateItem, loading, ownerType }: InfoForDayP
           )}
           {/* save changes and cancel buttons */}
           <Box marginTop={3} display="flex" flexDirection="row">
-            <LoadingButton
+            <Button
               variant="contained"
               sx={{
                 borderRadius: '50px',
@@ -241,7 +242,7 @@ function InfoForDay({ day, setDay, updateItem, loading, ownerType }: InfoForDayP
               loading={loading}
             >
               Save Changes
-            </LoadingButton>
+            </Button>
           </Box>
         </form>
       </>

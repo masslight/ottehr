@@ -4,7 +4,7 @@ import {
   Box,
   CircularProgress,
   debounce,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   Link,
   Paper,

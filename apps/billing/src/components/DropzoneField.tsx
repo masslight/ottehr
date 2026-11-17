@@ -4,7 +4,7 @@ import {
   Card,
   CardContent,
   FormHelperText,
-  Grid,
+  GridLegacy as Grid,
   ListItem,
   ListItemIcon,
   ListItemText,

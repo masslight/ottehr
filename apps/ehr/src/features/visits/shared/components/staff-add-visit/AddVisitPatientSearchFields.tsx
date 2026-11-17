@@ -1,4 +1,4 @@
-import { Grid, InputProps, StandardTextFieldProps, TextField } from '@mui/material';
+import { GridLegacy as Grid, InputProps, StandardTextFieldProps, TextField } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ChangeEvent, FC } from 'react';
 import { OnValueChange, PatternFormat } from 'react-number-format';

@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { Alert, Autocomplete, debounce, Grid, Paper, TextField, Typography } from '@mui/material';
+import { Alert, Autocomplete, Button, debounce, GridLegacy as Grid, Paper, TextField, Typography } from '@mui/material';
 import { Medication } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -264,7 +263,7 @@ export default function UpdateMedicationPage(): ReactElement {
                 <></>
               )}
               <Grid item xs={12}>
-                <LoadingButton
+                <Button
                   type="submit"
                   variant="contained"
                   loading={loading}
@@ -272,7 +271,7 @@ export default function UpdateMedicationPage(): ReactElement {
                   sx={{ textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
                 >
                   Update Medication
-                </LoadingButton>
+                </Button>
               </Grid>
             </Grid>
           </form>
@@ -285,7 +284,7 @@ export default function UpdateMedicationPage(): ReactElement {
               ? 'Removing this medication will make it so it can no longer be ordered for a visit. It will not affect any medications that have already been ordered.'
               : 'Activating this medication will add it to the list of in-house medications that can be ordered for a visit.'}
           </Typography>
-          <LoadingButton
+          <Button
             variant="contained"
             color={status === 'active' ? 'error' : 'success'}
             sx={{ marginTop: 2, textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
@@ -293,7 +292,7 @@ export default function UpdateMedicationPage(): ReactElement {
             loading={loading}
           >
             {status === 'active' ? 'Remove' : 'Activate'} Medication
-          </LoadingButton>
+          </Button>
         </Paper>
       </>
     </PageContainer>

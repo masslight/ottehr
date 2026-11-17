@@ -2,7 +2,16 @@ import { otherColors } from '@ehrTheme/colors';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineOutlined from '@mui/icons-material/ErrorOutlineOutlined';
-import { Box, CircularProgress, Grid, InputAdornment, Paper, TextField, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  CircularProgress,
+  GridLegacy as Grid,
+  InputAdornment,
+  Paper,
+  TextField,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import Alert from '@mui/material/Alert';
 import { Stack } from '@mui/system';
 import { DateTime } from 'luxon';

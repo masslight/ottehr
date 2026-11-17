@@ -63,6 +63,7 @@ const columns = (
       headerName: 'Patient',
       flex: 1,
       minWidth: 180,
+      display: 'flex',
       renderCell: ({ row }) =>
         row.patientId ? (
           <Link
@@ -81,7 +82,7 @@ const columns = (
       field: 'serviceDate',
       headerName: 'Date of Service',
       width: 130,
-      valueFormatter: (params: { value?: string }) => formatDate(params.value ?? ''),
+      valueFormatter: (value?: string) => formatDate(value ?? ''),
     },
     {
       field: 'amount',
@@ -89,30 +90,32 @@ const columns = (
       width: 120,
       align: 'right',
       headerAlign: 'right',
-      valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+      valueFormatter: (value: number) => formatCurrency(value),
     },
     {
       field: 'issueDate',
       headerName: 'Issued',
       width: 120,
-      valueFormatter: (params: { value: string }) => formatDate(params.value),
+      valueFormatter: (value: string) => formatDate(value),
     },
     {
       field: 'dueDate',
       headerName: 'Due',
       width: 120,
-      valueFormatter: (params: { value: string }) => formatDate(params.value),
+      valueFormatter: (value: string) => formatDate(value),
     },
     {
       field: 'status',
       headerName: 'Status',
       width: 110,
+      display: 'flex',
       renderCell: ({ row }) => <InvoiceStatusChip status={row.status} />,
     },
     {
       field: 'hostedInvoiceUrl',
       headerName: 'Invoice',
       width: 100,
+      display: 'flex',
       renderCell: ({ row }) =>
         row.hostedInvoiceUrl ? (
           <Link
@@ -175,6 +178,7 @@ export default function InvoicesList(): ReactElement {
         headerName: '',
         width: 120,
         sortable: false,
+        display: 'flex',
         renderCell: ({ row }) => (
           <Button
             size="small"

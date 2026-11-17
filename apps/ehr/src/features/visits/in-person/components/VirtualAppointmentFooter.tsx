@@ -1,6 +1,5 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { LoadingButton } from '@mui/lab';
-import { AppBar, Box, darken, Divider, Link, Stack, styled, Typography, useTheme } from '@mui/material';
+import { AppBar, Box, Button, darken, Divider, Link, Stack, styled, Typography, useTheme } from '@mui/material';
 import { DateTime, Duration } from 'luxon';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -24,17 +23,17 @@ import InviteParticipant from '../../telemed/components/appointment/InvitePartic
 import { PreCallSettingsDialog } from '../../telemed/components/appointment/PreCallSettingsDialog';
 import { useVideoCallStore } from '../../telemed/state/video-call/video-call.store';
 
-const FooterButton = styled(LoadingButton)(({ theme }) => ({
+const FooterButton = styled(Button)(({ theme }) => ({
   textTransform: 'none',
   fontSize: '15px',
   fontWeight: 500,
   borderRadius: 20,
   backgroundColor: theme.palette.primary.light,
   '&:hover': { backgroundColor: darken(theme.palette.primary.light, 0.125) },
-  '&.MuiLoadingButton-loading': {
+  '&.MuiButton-loading': {
     backgroundColor: darken(theme.palette.primary.light, 0.25),
   },
-  '& .MuiLoadingButton-loadingIndicator': {
+  '& .MuiButton-loadingIndicator': {
     color: darken(theme.palette.primary.contrastText, 0.25),
   },
 }));

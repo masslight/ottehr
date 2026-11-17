@@ -4,7 +4,7 @@
 // the code is the JSX BODY of the function the runtime-scope catalog describes (the same contract
 // the generation prompt shows the model), exactly as generated. The runtime transpiles it here.
 import { createTheme, CssBaseline, ThemeProvider } from '@mui/material';
-import { LicenseInfo } from '@mui/x-data-grid-pro';
+import { LicenseInfo } from '@mui/x-license';
 import React, { useEffect } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import type { AdHocRow, LlmDatasetSchema } from 'utils/lib/types/adhoc/datasets/llm-schema';

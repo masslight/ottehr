@@ -1,5 +1,4 @@
 import CheckIcon from '@mui/icons-material/Check';
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Checkbox,
@@ -257,7 +256,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     disabledReason?: string
   ): JSX.Element => {
     const btn = (
-      <LoadingButton
+      <Button
         loading={loading}
         variant="contained"
         color="primary"
@@ -266,7 +265,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
         disabled={isReadOnly || disabled || !!disabledReason}
       >
         {label}
-      </LoadingButton>
+      </Button>
     );
 
     const tooltip = isReadOnly ? `Please unlock the progress note to use "${label}"` : disabledReason;
@@ -556,7 +555,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
 
               {order.task && (
                 <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                  <LoadingButton
+                  <Button
                     data-testid={dataTestIds.radiologyPage.markAsReviewedButton}
                     loading={isMarkingAsReviewed}
                     variant="contained"
@@ -565,7 +564,7 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                     onClick={() => void handleMarkAsReviewed()}
                   >
                     Mark as Reviewed
-                  </LoadingButton>
+                  </Button>
                 </Box>
               )}
             </Box>

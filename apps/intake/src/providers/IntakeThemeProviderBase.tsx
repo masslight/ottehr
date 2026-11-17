@@ -7,7 +7,7 @@ import {
   PaletteOptions,
   ThemeProvider,
 } from '@mui/material';
-import { TypographyOptions } from '@mui/material/styles/createTypography';
+import { TypographyVariantsOptions } from '@mui/material/styles';
 import { i18n } from 'i18next';
 import { FC } from 'react';
 import { IntakeThemeContext } from 'src/contexts/IntakeThemeContext';
@@ -58,7 +58,7 @@ type IntakeThemeProviderProps = PropsWithChildren & {
   i18n: i18n;
   textFonts?: string[];
   headerFonts?: string[];
-  customTypographyOverrides?: TypographyOptions;
+  customTypographyOverrides?: TypographyVariantsOptions;
   customComponentsOverrides?: Components;
 };
 
@@ -141,10 +141,10 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
         },
       },
     },
-    MuiGrid: {
+    MuiGridLegacy: {
       styleOverrides: {
         root: {
-          '&.MuiGrid-item': {
+          '&.MuiGridLegacy-item': {
             marginTop: 6,
           },
         },
@@ -199,7 +199,7 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
     },
   };
 
-  const defaultTypographyOverrides: TypographyOptions = {
+  const defaultTypographyOverrides: TypographyVariantsOptions = {
     fontFamily: textFonts.join(','),
     fontWeightMedium: 600,
     h1: {

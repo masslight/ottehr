@@ -1,5 +1,4 @@
 import CloseIcon from '@mui/icons-material/Close';
-import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Alert,
   Box,
@@ -265,7 +264,7 @@ function PaymentActionDialog({
           Cancel
         </Button>
         <Box sx={{ flexGrow: 1 }} />
-        <LoadingButton
+        <Button
           variant="contained"
           color="error"
           sx={buttonSx}
@@ -274,7 +273,7 @@ function PaymentActionDialog({
           onClick={() => mutation.mutate()}
         >
           {action === 'external-refund' ? 'Record Refund' : action === 'refund' ? 'Issue Refund' : 'Void Payment'}
-        </LoadingButton>
+        </Button>
       </DialogActions>
     </Dialog>
   );

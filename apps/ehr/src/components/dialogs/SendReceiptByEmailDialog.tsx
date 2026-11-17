@@ -1,5 +1,13 @@
-import LoadingButton from '@mui/lab/LoadingButton';
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from '@mui/material';
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  GridLegacy as Grid,
+  TextField,
+} from '@mui/material';
 import { ReactElement, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -108,7 +116,7 @@ export default function SendReceiptByEmailDialog({
           <Button variant="text" onClick={handleClose} size="medium">
             Cancel
           </Button>
-          <LoadingButton
+          <Button
             disabled={isSubmitting}
             loading={isSubmitting}
             form="send-receipt-form"
@@ -117,7 +125,7 @@ export default function SendReceiptByEmailDialog({
             color="primary"
           >
             {submitButtonName}
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </Grid>
     </Dialog>
