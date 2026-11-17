@@ -18,6 +18,7 @@ export const useMedicationInventory = (
     queryKey: [INVENTORY_QUERY_KEY, view],
     queryFn: () => listMedicationInventory(oystehrZambda!, view!),
     enabled: !!oystehrZambda && !!view,
+    refetchOnWindowFocus: true,
   });
 };
 
