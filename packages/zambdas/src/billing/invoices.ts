@@ -1,10 +1,11 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { Claim, DocumentReference, Invoice, Location } from 'fhir/r4b';
+import { Claim, DocumentReference, Invoice, Location, PaymentNotice } from 'fhir/r4b';
 import {
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
   getHostedInvoiceUrl,
   INVOICE_CLAIM_TAG_SYSTEM,
+  INVOICE_PAYMENT_TAG_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
@@ -118,6 +119,22 @@ export const getInvoiceStatusDatesAndAmount = (invoice: Invoice): BillingInvoice
   amount: invoice.totalGross?.value ?? 0,
   hostedInvoiceUrl: getHostedInvoiceUrl(invoice),
 });
+
+export async function fetchInvoicePaymentNotices(oystehr: Oystehr, invoiceIds: string[]): Promise<PaymentNotice[]> {
+  if (invoiceIds.length === 0) return [];
+  return getAllFhirSearchPages<PaymentNotice>(
+    {
+      resourceType: 'PaymentNotice',
+      params: [
+        {
+          name: '_tag',
+          value: invoiceIds.map((invoiceId) => `${INVOICE_PAYMENT_TAG_SYSTEM}|${invoiceId}`).join(','),
+        },
+      ],
+    },
+    oystehr
+  );
+}
 
 // Returns the clinical visit behind a claim that can be invoiced.
 export function getInvoiceableEncounterId(claim: Claim): string {
