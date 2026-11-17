@@ -149,6 +149,74 @@ describe('update-billing-coverage', () => {
     });
   });
 
+  it('skips deleting a subscriber that is already gone when switching to Self', async () => {
+    const withMissingSubscriber: Coverage = {
+      ...structuredClone(coverage),
+      subscriber: { reference: 'RelatedPerson/rp-gone' },
+    };
+    const { oystehr, transaction } = makeOystehr();
+
+    await performEffect(
+      oystehr,
+      { coverageId: 'cov-1', relationship: 'Self', secrets: {} },
+      { patientId: 'pat-1', coverage: withMissingSubscriber }
+    );
+
+    const requests = transaction.mock.calls[0][0].requests;
+    expect(requests.map((r: { method: string; url: string }) => `${r.method} ${r.url}`)).toEqual([
+      'PUT Coverage/cov-1',
+    ]);
+    expect((requests[0].resource as Coverage).subscriber).toEqual({ reference: 'Patient/pat-1' });
+  });
+
+  it('deletes the existing subscriber after the coverage PUT when switching to Self', async () => {
+    const withSubscriber: Coverage = {
+      ...structuredClone(coverage),
+      subscriber: { reference: 'RelatedPerson/rp-1' },
+    };
+    const { oystehr, transaction } = makeOystehr({
+      'rp-1': { resourceType: 'RelatedPerson', id: 'rp-1', patient: { reference: 'Patient/pat-1' } },
+    });
+
+    await performEffect(
+      oystehr,
+      { coverageId: 'cov-1', relationship: 'Self', secrets: {} },
+      { patientId: 'pat-1', coverage: withSubscriber }
+    );
+
+    const requests = transaction.mock.calls[0][0].requests;
+    expect(requests.map((r: { method: string; url: string }) => `${r.method} ${r.url}`)).toEqual([
+      'PUT Coverage/cov-1',
+      'DELETE RelatedPerson/rp-1',
+    ]);
+  });
+
+  it('creates a new subscriber when the referenced one is already gone', async () => {
+    const withMissingSubscriber: Coverage = {
+      ...structuredClone(coverage),
+      subscriber: { reference: 'RelatedPerson/rp-gone' },
+    };
+    const { oystehr, transaction } = makeOystehr();
+
+    await performEffect(
+      oystehr,
+      {
+        coverageId: 'cov-1',
+        relationship: 'Spouse',
+        policyHolder: { firstName: 'Pat', lastName: 'Holder', dob: '1980-01-01', gender: 'female' },
+        secrets: {},
+      },
+      { patientId: 'pat-1', coverage: withMissingSubscriber }
+    );
+
+    const requests = transaction.mock.calls[0][0].requests;
+    expect(requests.map((r: { method: string; url: string }) => `${r.method} ${r.url}`)).toEqual([
+      'POST /RelatedPerson',
+      'PUT Coverage/cov-1',
+    ]);
+    expect((requests[1].resource as Coverage).subscriber?.reference).toBe(requests[0].fullUrl);
+  });
+
   it('rejects clearing the group number without a payer instead of silently keeping the old one', async () => {
     const { oystehr, transaction } = makeOystehr();
     const withGroup: Coverage = {
