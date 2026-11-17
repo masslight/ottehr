@@ -10,6 +10,7 @@ describe('plainDose', () => {
       amountText: '3 capsules',
       working: '28.12 kg × 25 mg/kg/dose = 703 mg',
       roundingNote: '3 capsules = 750 mg, 47 mg (7%) over 703 mg',
+      roundingWarning: '3 capsules = 750 mg, 47 mg (7%) over 703 mg',
     });
   });
 
@@ -92,17 +93,37 @@ describe('plainDose', () => {
     });
   });
 
-  // Decision 133: a measured dose more than a quarter over the dose worked out is said under the result too.
-  it('says under the result when the measured dose is more than a quarter over the one worked out', () => {
-    const newborn = { weightKg: 3, mgPerMeasure: 100, measure: 'mL' as const, basis: 'mg/kg/dose' as const, rate: 1 };
-    expect(plainDose(newborn)?.overNote).toBe('0.5 mL = 50 mg, 47 mg (1567%) over 3 mg');
-    expect(plainDose({ ...newborn, step: 0.1 })?.overNote).toBe('0.1 mL = 10 mg, 7 mg (233%) over 3 mg');
-    const capsules = { mgPerMeasure: 250, measure: 'capsule' as const, basis: 'mg/kg/dose' as const, rate: 25 };
-    expect(plainDose({ ...capsules, weightKg: 7 })?.overNote).toBe('1 capsule = 250 mg, 75 mg (43%) over 175 mg');
-    // A quarter or less over, or under: only the ⓘ.
-    expect(plainDose({ ...capsules, weightKg: 8 })?.roundingNote).toBe('1 capsule = 250 mg, 50 mg (25%) over 200 mg');
-    expect(plainDose({ ...capsules, weightKg: 8 })).not.toHaveProperty('overNote');
-    expect(plainDose({ ...capsules, weightKg: 28.12 })).not.toHaveProperty('overNote');
+  // Decisions 133 and 301: a measured dose more than 5% over or under the dose worked out is said under the result
+  // too (the Pediatric Pharmacy Association rounds within 5% to 10% of the calculated weight-based dose).
+  it('says under the result when the measured dose is more than 5% over or under the one worked out', () => {
+    const capsule = { mgPerMeasure: 250, measure: 'capsule' as const, basis: 'fixed' as const };
+    // 4% over: only the ⓘ.
+    expect(plainDose({ ...capsule, rate: 240 })?.roundingNote).toBe('1 capsule = 250 mg, 10 mg (4%) over 240 mg');
+    expect(plainDose({ ...capsule, rate: 240 })).not.toHaveProperty('roundingWarning');
+    // 6% over and 6% under: under the result too.
+    expect(plainDose({ ...capsule, rate: 236 })?.roundingWarning).toBe('1 capsule = 250 mg, 14 mg (6%) over 236 mg');
+    expect(plainDose({ ...capsule, rate: 266 })?.roundingWarning).toBe('1 capsule = 250 mg, 16 mg (6%) under 266 mg');
+    // Famotidine 40 mg/5 mL (8 mg/mL), 0.5 mg/kg for a 3 kg infant: 1.5 mg = 0.19 mL.
+    const famotidine = {
+      weightKg: 3,
+      mgPerMeasure: 8,
+      measure: 'mL' as const,
+      basis: 'mg/kg/dose' as const,
+      rate: 0.5,
+    };
+    expect(plainDose(famotidine)?.roundingWarning).toBe('0.5 mL = 4 mg, 2.5 mg (167%) over 1.5 mg');
+    expect(plainDose({ ...famotidine, step: 0.1 })?.roundingWarning).toBe('0.2 mL = 1.6 mg, 0.1 mg (7%) over 1.5 mg');
+    // A capped dose shows only its cap line: 703 mg capped at 400 mg, measured down to 1 capsule = 250 mg.
+    const capped = plainDose({
+      weightKg: 28.12,
+      mgPerMeasure: 250,
+      measure: 'capsule',
+      basis: 'mg/kg/dose',
+      rate: 25,
+      maxPerDoseMg: 400,
+    });
+    expect(capped?.capNote).toBe('Capped at the 400 mg maximum (703 mg by weight)');
+    expect(capped).not.toHaveProperty('roundingWarning');
   });
 
   it('waits for the weight, strength, rate and doses a day it needs', () => {

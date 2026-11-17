@@ -153,8 +153,8 @@ describe('DoseCalculator (plain, inline)', () => {
     );
   });
 
-  // Decision 133: far over the dose worked out shows under the result, not only behind the ⓘ.
-  it('says under the result when the measured dose is more than a quarter over the one worked out', async () => {
+  // Decisions 133 and 301: more than 5% over or under the dose worked out shows under the result, not only behind the ⓘ.
+  it('says under the result when the measured dose is more than 5% over or under the one worked out', async () => {
     const user = userEvent.setup();
     const initial = withProduct(emptyPrescriptionLine(), CAPSULES, CAPSULES.strengths[0]);
     render(<Harness initial={initial} weight={{ ...WEIGHT, kg: 3 }} />);
@@ -162,16 +162,20 @@ describe('DoseCalculator (plain, inline)', () => {
     // 3 kg × 90 mg/kg/day ÷ 2 = 135 mg, measured up to 1 capsule = 250 mg.
     await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '90');
     await pickFrequency(user, calculator, 'twice daily');
-    expect(within(calculator).getByTestId('dose-over')).toHaveTextContent(
+    expect(within(calculator).getByTestId('dose-rounding')).toHaveTextContent(
       '1 capsule = 250 mg, 115 mg (85%) over 135 mg'
     );
-    expect(screen.getByTestId('dose-result')).not.toContainElement(within(calculator).getByTestId('dose-over'));
-    // 28.12 kg gives 3 capsules = 750 mg for 703 mg: 7% over, behind the ⓘ only.
-    await user.clear(within(calculator).getByRole('spinbutton', { name: 'rate' }));
-    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '50');
+    expect(screen.getByTestId('dose-result')).not.toContainElement(within(calculator).getByTestId('dose-rounding'));
+    // 28.12 kg gives 5 capsules = 1250 mg for 1265.4 mg: 1% under, behind the ⓘ only.
     await user.clear(within(calculator).getByRole('spinbutton', { name: 'weight' }));
     await user.type(within(calculator).getByRole('spinbutton', { name: 'weight' }), '28.12');
-    expect(within(calculator).queryByTestId('dose-over')).not.toBeInTheDocument();
+    expect(within(calculator).queryByTestId('dose-rounding')).not.toBeInTheDocument();
+    // 95 mg/kg/day gives 5 capsules = 1250 mg for 1335.7 mg: 6% under, under the result.
+    await user.clear(within(calculator).getByRole('spinbutton', { name: 'rate' }));
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '95');
+    expect(within(calculator).getByTestId('dose-rounding')).toHaveTextContent(
+      '5 capsules = 1250 mg, 85.7 mg (6%) under 1335.7 mg'
+    );
   });
 
   it('keeps its size while values change: waiting, a result, a capped result, the weight row gone', async () => {

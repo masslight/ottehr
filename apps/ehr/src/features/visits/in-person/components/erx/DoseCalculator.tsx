@@ -322,7 +322,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
           working: dose?.working,
           roundingNote: dose?.roundingNote,
           capNote: dose?.capNote,
-          overNote: dose?.overNote,
+          roundingWarning: dose?.roundingWarning,
         },
       }
     : {

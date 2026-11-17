@@ -37,8 +37,8 @@ export interface DoseResult {
   roundingNote?: string;
   /** Under the result, in an orange box as the line's maximum warnings: "Capped at the 500 mg maximum (703 mg by weight)". */
   capNote?: string;
-  /** Under the result too, in the same orange box: a measured dose more than a quarter over the one worked out. */
-  overNote?: string;
+  /** Under the result too, in the same orange box: a measured dose more than 5% over or under the one worked out. */
+  roundingWarning?: string;
 }
 
 export type DoseCalculatorDisplay =
@@ -226,7 +226,9 @@ const ResultDisplay: FC<{ result: DoseResult }> = ({ result }) => {
         {notes.length > 0 && <DoseInfoHover label="How this dose was worked out" lines={notes} testId="dose-working" />}
       </Box>
       {result.capNote && <DoseWarningBoxes warnings={[result.capNote]} info={[]} testId="dose-cap" />}
-      {result.overNote && <DoseWarningBoxes warnings={[result.overNote]} info={[]} testId="dose-over" />}
+      {result.roundingWarning && (
+        <DoseWarningBoxes warnings={[result.roundingWarning]} info={[]} testId="dose-rounding" />
+      )}
     </>
   );
 };
