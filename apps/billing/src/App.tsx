@@ -145,7 +145,7 @@ export default function App(): ReactElement {
               <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
               <Route path="/rules/:engine" element={<Rules />} />
               <Route path="/rules/:engine/:id" element={<RuleDetail />} />
-              <Route path="*" element={<Navigate to="/" />} />
+              <Route path="*" element={invoicingInBillingApp === undefined ? <LoadingScreen /> : <Navigate to="/" />} />
             </Route>
           )}
         </Routes>
