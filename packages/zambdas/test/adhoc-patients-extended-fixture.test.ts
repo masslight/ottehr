@@ -130,6 +130,14 @@ const priorSeenVisit: Appointment = {
   participant: [{ actor: { reference: 'Patient/pat-1' }, status: 'accepted' }],
 };
 
+const longAgoSeenVisit: Appointment = {
+  resourceType: 'Appointment',
+  id: 'appt-long-ago',
+  status: 'fulfilled',
+  start: '2023-06-30T10:00:00.000Z',
+  participant: [{ actor: { reference: 'Patient/pat-2' }, status: 'accepted' }],
+};
+
 // pat-1's chart lists, tagged the way chart-data writes them. The untagged Condition is a visit diagnosis,
 // not a problem-list entry, and must stay out.
 const tag = (code: string): { meta: { tag: { code: string }[] } } => ({ meta: { tag: [{ code }] } });
@@ -498,7 +506,7 @@ const resourcesByJob: Record<string, FhirResource[]> = {
       chartResources.filter((r) => r.resourceType === type && r.meta?.tag?.length),
     ])
   ),
-  'Appointment:prior': [priorAppointment, priorSeenVisit],
+  'Appointment:prior': [priorAppointment, priorSeenVisit, longAgoSeenVisit],
 };
 
 const jobIdFor = (resourceType: string, params: { name: string; value: string }[]): string => {
@@ -813,7 +821,7 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
     expect(returning.patientStatus).toBe('existing');
     expect(returning.lastAppointmentBeforeRange).toBe('2025-03-10T10:00:00.000Z');
     expect(fresh.patientStatus).toBe('new');
-    expect(fresh.lastAppointmentBeforeRange).toBeNull();
+    expect(fresh.lastAppointmentBeforeRange).toBe('2023-06-30T10:00:00.000Z');
   });
 
   it('visit history: without an earlier visit, the intake staff "seen in the last 3 years" answer decides', async () => {

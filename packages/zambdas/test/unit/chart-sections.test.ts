@@ -134,6 +134,12 @@ describe('chart sections — golden fixture', () => {
         expect(await seenBefore('fulfilled', otherVisit('later', '2026-06-01T10:00:00.000Z'))).toBe(false);
       });
 
+      it('a visit more than 3 years before this one does not count', async () => {
+        // This visit is on 2026-01-15.
+        expect(await seenBefore('fulfilled', otherVisit('long-ago', '2023-01-10T10:00:00.000Z'))).toBe(false);
+        expect(await seenBefore('fulfilled', otherVisit('within', '2023-01-20T10:00:00.000Z'))).toBe(true);
+      });
+
       it('a later visit that took place does not count for a visit that has not yet', async () => {
         expect(await seenBefore('checked-in', otherVisit('later', '2026-06-01T10:00:00.000Z'))).toBe(false);
       });

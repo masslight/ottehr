@@ -32,7 +32,10 @@ import {
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { SEEN_VISIT_APPOINTMENT_STATUS } from 'utils/lib/helpers/screening-questions/new-patient.helper';
+import {
+  isWithinNewPatientLookback,
+  SEEN_VISIT_APPOINTMENT_STATUS,
+} from 'utils/lib/helpers/screening-questions/new-patient.helper';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { AdHocPatientRow, AdHocPatientsInput } from 'utils/lib/types/adhoc/datasets/patients';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
@@ -322,7 +325,17 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       const patientRef = prior.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference;
 
       if (!patientRef) continue;
-      if (prior.status === SEEN_VISIT_APPOINTMENT_STATUS) seenBeforeRange.add(patientRef);
+
+      const firstVisitInRange = [...(aggByPatient.get(patientRef)?.visitDates ?? [])].sort(
+        (a, b) => DateTime.fromISO(a).toMillis() - DateTime.fromISO(b).toMillis()
+      )[0];
+
+      if (
+        prior.status === SEEN_VISIT_APPOINTMENT_STATUS &&
+        isWithinNewPatientLookback(prior.start, firstVisitInRange)
+      ) {
+        seenBeforeRange.add(patientRef);
+      }
 
       const latest = lastAppointmentBeforeRange.get(patientRef);
       const start = prior.start ?? '';

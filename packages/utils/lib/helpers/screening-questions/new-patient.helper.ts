@@ -1,4 +1,5 @@
 import { Appointment } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE, PATIENT_INFO_META_DATA_SYSTEM } from '../../types/constants';
 import {
   PATIENT_SEEN_IN_LAST_THREE_YEARS_FIELD,
@@ -7,6 +8,17 @@ import {
 } from '../../types/data/screening-questions/constants';
 
 export const SEEN_VISIT_APPOINTMENT_STATUS: NonNullable<Appointment['status']> = 'fulfilled';
+
+const NEW_PATIENT_LOOKBACK_YEARS = 3;
+
+export const newPatientLookbackStart = (visitAt: string): string =>
+  DateTime.fromISO(visitAt).minus({ years: NEW_PATIENT_LOOKBACK_YEARS }).toUTC().toISO() ?? visitAt;
+
+export const isWithinNewPatientLookback = (priorVisitAt: string | undefined, visitAt: string | undefined): boolean => {
+  if (!priorVisitAt || !visitAt) return false;
+  const [prior, visit] = [DateTime.fromISO(priorVisitAt), DateTime.fromISO(visitAt)];
+  return prior < visit && prior >= visit.minus({ years: NEW_PATIENT_LOOKBACK_YEARS });
+};
 
 export const hasReturningPatientTag = (appointment: Appointment | undefined): boolean =>
   appointment?.meta?.tag?.some(

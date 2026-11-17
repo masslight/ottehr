@@ -1,6 +1,9 @@
 import { Appointment, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { SEEN_VISIT_APPOINTMENT_STATUS } from 'utils/lib/helpers/screening-questions/new-patient.helper';
+import {
+  isWithinNewPatientLookback,
+  SEEN_VISIT_APPOINTMENT_STATUS,
+} from 'utils/lib/helpers/screening-questions/new-patient.helper';
 import {
   progressNoteNoteTypes,
   vitalsObservationsRequest,
@@ -20,7 +23,7 @@ import { mapChartResources } from './map';
 import { CHART_SECTION_DEFINITIONS } from './registry';
 import { ChartClient, ChartSectionDefinition } from './types';
 
-type ExtraOwner = 'vitals' | 'labs' | 'radiology' | 'practitioners' | 'thisAppointment' | 'firstSeenVisit';
+type ExtraOwner = 'vitals' | 'labs' | 'radiology' | 'practitioners' | 'thisAppointment' | 'seenVisits';
 type VisitNoteOwner = ChartSection | ExtraOwner;
 
 const EXTRA_OWNERS: readonly ExtraOwner[] = [
@@ -29,7 +32,7 @@ const EXTRA_OWNERS: readonly ExtraOwner[] = [
   'radiology',
   'practitioners',
   'thisAppointment',
-  'firstSeenVisit',
+  'seenVisits',
 ];
 
 export interface BuildVisitNoteOptions {
@@ -80,12 +83,12 @@ export async function buildVisitNote(
       request: { method: 'GET', url: `/Appointment?_has:Encounter:appointment:_id=${encounterId}` },
     },
     {
-      owner: 'firstSeenVisit',
+      owner: 'seenVisits',
       request: {
         method: 'GET',
         url:
           `/Appointment?patient:Patient._has:Encounter:subject:_id=${encounterId}` +
-          `&status=${SEEN_VISIT_APPOINTMENT_STATUS}&_sort=date&_count=1`,
+          `&status=${SEEN_VISIT_APPOINTMENT_STATUS}&_sort=-date&_count=100&_elements=id,start`,
       },
     },
   ];
@@ -136,14 +139,15 @@ export async function buildVisitNote(
     practitioners,
     patientHasPreviousVisits: wasSeenBefore(
       byOwner.thisAppointment[0] as Appointment | undefined,
-      byOwner.firstSeenVisit[0] as Appointment | undefined
+      byOwner.seenVisits as Appointment[]
     ),
   };
 }
 
-function wasSeenBefore(thisAppointment: Appointment | undefined, firstSeenVisit: Appointment | undefined): boolean {
-  if (!firstSeenVisit?.id || firstSeenVisit.id === thisAppointment?.id) return false;
-  if (!thisAppointment?.start || !firstSeenVisit.start) return true;
+function wasSeenBefore(thisAppointment: Appointment | undefined, seenVisits: Appointment[]): boolean {
+  const visitAt = thisAppointment?.start ?? DateTime.now().toISO();
 
-  return DateTime.fromISO(firstSeenVisit.start) < DateTime.fromISO(thisAppointment.start);
+  return seenVisits.some(
+    (visit) => visit.id !== thisAppointment?.id && isWithinNewPatientLookback(visit.start, visitAt)
+  );
 }

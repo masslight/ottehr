@@ -161,6 +161,8 @@ export function createGoldenFhirServer(store: FhirResource[]): GoldenFhirServer 
         case '_sort':
           sort = value;
           break;
+        case '_elements':
+          break;
         case '_count':
           count = Number(value);
           break;
