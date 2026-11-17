@@ -15,6 +15,7 @@ import {
 } from 'fhir/r4b';
 import {
   getResourcesFromBatchInlineRequests,
+  isVersionConflictError,
   makeOptimisticLockIfMatchHeader,
   resourceHasTag,
 } from 'utils/lib/fhir/helpers';
@@ -91,6 +92,8 @@ import { ClaimSubmissionRejectedError } from './submit-claim';
 
 let m2mToken: string;
 
+const MAX_RUN_ATTEMPTS = 3;
+
 export const index = wrapTaskHandler(
   'sub-rules-engine',
   async (input, _oystehr) => {
@@ -141,17 +144,27 @@ export const index = wrapTaskHandler(
     const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
 
     try {
-      const validated = await complexValidation(
-        oystehr,
-        engine,
-        claimId,
-        env,
-        skipRules,
-        submissionType,
-        submissionInsurance,
-        payerClaimControlNumber
-      );
-      return await performEffect(oystehr, validated, agent);
+      // Something else may write the claim while the engine runs (seen in production ~1s after
+      // creation). Only a ClaimChangedDuringRunError is retried: it is thrown by the atomic write-back
+      // that precedes any submission, so re-running from a fresh load can never submit twice.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          const validated = await complexValidation(
+            oystehr,
+            engine,
+            claimId,
+            env,
+            skipRules,
+            submissionType,
+            submissionInsurance,
+            payerClaimControlNumber
+          );
+          return await performEffect(oystehr, validated, agent);
+        } catch (error) {
+          if (!(error instanceof ClaimChangedDuringRunError) || attempt >= MAX_RUN_ATTEMPTS) throw error;
+          console.warn(`[rules-engine] ${error.message}; re-running (attempt ${attempt + 1}/${MAX_RUN_ATTEMPTS})`);
+        }
+      }
     } catch (error) {
       try {
         // wrapTaskHandler marks the Task failed and reports to Sentry; log here so the failure carries
@@ -713,6 +726,33 @@ export async function persistModel(
     );
     written += 1;
   }
-  if (requests.length) await oystehr.fhir.transaction({ requests });
+  if (requests.length) {
+    try {
+      await oystehr.fhir.transaction({ requests });
+    } catch (error) {
+      if (isPersistConflict(error)) throw new ClaimChangedDuringRunError(model.claim.id, error);
+      throw error;
+    }
+  }
   return written;
+}
+
+// The claim (or a working copy) changed between the engine loading it and writing its changes back,
+// so the If-Match-guarded transaction was rejected. The transaction is atomic and runs before any
+// submission, so nothing was written and the whole run can safely start over from a fresh load.
+export class ClaimChangedDuringRunError extends Error {
+  constructor(claimId: string | undefined, cause: unknown) {
+    const detail = cause instanceof Error ? cause.message : JSON.stringify(cause);
+    super(`Claim/${claimId} changed while the rules engine was running: ${detail}`, { cause });
+    this.name = 'ClaimChangedDuringRunError';
+  }
+}
+
+// Oystehr reports a failed If-Match inside a transaction as "Pre condition Failed! - PUT <Type>/<id>".
+// The SDK takes `code` from the response body when it has one, which need not be 412, so the message
+// is checked as well.
+function isPersistConflict(error: unknown): boolean {
+  if (isVersionConflictError(error)) return true;
+  const message = (error as { message?: unknown } | null)?.message;
+  return typeof message === 'string' && /pre\s*-?\s*condition\s+failed/i.test(message);
 }
