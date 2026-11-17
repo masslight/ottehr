@@ -1,6 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -205,7 +204,7 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
           >
             Cancel
           </Button>
-          <LoadingButton
+          <Button
             type="submit"
             variant="contained"
             loading={isSending}
@@ -214,7 +213,7 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
             data-testid={dataTestIds.faxDialog.sendButton}
           >
             Send Fax
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </form>
     </FormProvider>

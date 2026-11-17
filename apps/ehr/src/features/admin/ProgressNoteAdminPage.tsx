@@ -1,8 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
+  Button,
   CircularProgress,
   Divider,
   FormControl,
@@ -319,17 +319,12 @@ export default function ProgressNoteAdminPage(): ReactElement {
           <Divider />
 
           <Stack direction="row" spacing={1}>
-            <LoadingButton type="submit" variant="contained" loading={anySubmitting} disabled={!anyDirty}>
+            <Button type="submit" variant="contained" loading={anySubmitting} disabled={!anyDirty}>
               Save
-            </LoadingButton>
-            <LoadingButton
-              type="button"
-              variant="outlined"
-              disabled={anySubmitting || !anyDirty}
-              onClick={handleDiscard}
-            >
+            </Button>
+            <Button type="button" variant="outlined" disabled={anySubmitting || !anyDirty} onClick={handleDiscard}>
               Discard changes
-            </LoadingButton>
+            </Button>
           </Stack>
         </Stack>
       </Paper>

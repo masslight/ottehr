@@ -1,5 +1,5 @@
 import { Add, Close, ErrorOutline } from '@mui/icons-material';
-import { Autocomplete, Box, Button, Grid, IconButton, Paper, TextField, Theme } from '@mui/material';
+import { Autocomplete, Box, Button, GridLegacy as Grid, IconButton, Paper, TextField, Theme } from '@mui/material';
 import { ProcedureModifier } from 'candidhealth/api';
 import { Coding } from 'fhir/r4b';
 import { ReactElement, useEffect, useMemo, useState } from 'react';

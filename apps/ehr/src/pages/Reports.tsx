@@ -21,7 +21,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   TextField,
   Tooltip,

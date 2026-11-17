@@ -8,7 +8,7 @@ import {
   Button,
   capitalize,
   Chip,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   Table,
   TableBody,

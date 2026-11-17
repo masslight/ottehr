@@ -13,7 +13,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   MenuItem,
   OutlinedInput,
@@ -411,7 +411,9 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
                 expandIcon={<ExpandMoreIcon fontSize="small" />}
                 sx={{ px: 0, minHeight: 'unset', '.MuiAccordionSummary-content': { my: '0px' } }}
               >
-                <Typography variant="subtitle2">Address (optional)</Typography>
+                <Typography variant="subtitle2" component="span">
+                  Address (optional)
+                </Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 0 }}>
                 <Grid container spacing={0.5}>
@@ -466,7 +468,9 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
                 expandIcon={<ExpandMoreIcon fontSize="small" />}
                 sx={{ px: 0, minHeight: 'unset', '.MuiAccordionSummary-content': { my: '2px' } }}
               >
-                <Typography variant="subtitle2">Contact Details (optional)</Typography>
+                <Typography variant="subtitle2" component="span">
+                  Contact Details (optional)
+                </Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 0 }}>
                 <Grid container spacing={0.5}>

@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { Box, Button, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { Box, Button, GridLegacy as Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
@@ -341,7 +340,7 @@ export default function EmployeeInformationForm({
         )}
 
         <Grid sx={{ marginTop: 4, marginBottom: 2 }}>
-          <LoadingButton
+          <Button
             variant="contained"
             color="primary"
             data-testid={dataTestIds.employeesPage.submitButton}
@@ -356,7 +355,7 @@ export default function EmployeeInformationForm({
             disabled={!isActive}
           >
             {submitLabel}
-          </LoadingButton>
+          </Button>
 
           {/* Back to wherever the user came from. The previous target, `/employees`, has never been a
               route — it silently bounced to `/` — and there's no single correct destination now that

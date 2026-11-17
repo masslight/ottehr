@@ -1,7 +1,6 @@
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Box,
@@ -879,7 +878,7 @@ function GroupPageContent(): ReactElement {
               )}
             </Box>
             <Box>
-              <LoadingButton
+              <Button
                 loading={loading}
                 type="submit"
                 variant="contained"
@@ -888,7 +887,7 @@ function GroupPageContent(): ReactElement {
                 disabled={slugError}
               >
                 Save
-              </LoadingButton>
+              </Button>
             </Box>
           </Box>
         </form>

@@ -9,7 +9,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   Paper,
   Stack,
   Switch,

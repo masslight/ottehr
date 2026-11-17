@@ -1,11 +1,10 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
+  GridLegacy as Grid,
   List,
   ListItem,
   ListItemButton,
@@ -251,7 +250,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
                       <OrderStatusChip status={order.status} />
                       {order.status !== 'cancelled' && !isReadOnly && (
                         <>
-                          <LoadingButton
+                          <Button
                             variant="outlined"
                             color="error"
                             size="large"
@@ -263,7 +262,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
                             }}
                           >
                             Delete Order
-                          </LoadingButton>
+                          </Button>
                           <CustomDialog
                             open={isDeleteDialogOpen}
                             handleClose={() => setIsDeleteDialogOpen(false)}
@@ -367,13 +366,13 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setQuickPickDialogOpen(false)}>Cancel</Button>
-          <LoadingButton
+          <Button
             loading={quickPickSaving}
             variant="contained"
             onClick={() => void onSaveAsQuickPick(overwriteTarget?.id)}
           >
             {overwriteTarget ? 'Overwrite' : 'Save'}
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </Dialog>
     </FormProvider>

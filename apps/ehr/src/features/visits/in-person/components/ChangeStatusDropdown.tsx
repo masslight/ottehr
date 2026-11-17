@@ -1,4 +1,12 @@
-import { CircularProgress, FormControl, Grid, MenuItem, Select, SelectChangeEvent, Skeleton } from '@mui/material';
+import {
+  CircularProgress,
+  FormControl,
+  GridLegacy as Grid,
+  MenuItem,
+  Select,
+  SelectChangeEvent,
+  Skeleton,
+} from '@mui/material';
 import { styled } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';

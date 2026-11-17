@@ -4,7 +4,7 @@ import {
   Button,
   FormControl,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   MenuItem,
   Paper,
   Radio,

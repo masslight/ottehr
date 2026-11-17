@@ -1,4 +1,4 @@
-import { Box, Grid } from '@mui/material';
+import { Box, GridLegacy as Grid } from '@mui/material';
 import React from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';

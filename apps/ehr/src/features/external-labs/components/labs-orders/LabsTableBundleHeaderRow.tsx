@@ -1,6 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { LoadingButton } from '@mui/lab';
 import { Box, Button, TableCell, TableRow, TextField, Typography } from '@mui/material';
 import type Oystehr from '@oystehr/sdk';
 import { ReactElement, useState } from 'react';
@@ -119,7 +118,7 @@ export const LabsTableBundleHeaderRow = ({
                   {existingNote ? 'View' : 'Add'} order level note
                 </Button>
 
-                <LoadingButton
+                <Button
                   data-testid={dataTestIds.externalLabs.labsTable.bundleRowSubmitBtn}
                   loading={submitLoading}
                   variant="contained"
@@ -130,7 +129,7 @@ export const LabsTableBundleHeaderRow = ({
                   disabled={disableSubmit}
                 >
                   Submit & Print Order(s)
-                </LoadingButton>
+                </Button>
               </Box>
             )}
             {(abnPdfUrl || orderPdfUrl) && (

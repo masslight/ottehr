@@ -1,4 +1,4 @@
-import { Divider, Grid } from '@mui/material';
+import { Divider, GridLegacy as Grid } from '@mui/material';
 import React, { FC, ReactNode } from 'react';
 
 type DoubleColumnContainerProps = {

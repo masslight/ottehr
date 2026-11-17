@@ -1,4 +1,4 @@
-import { Grid } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import { TypographyVariantsOptions } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import { styled } from '@mui/system';

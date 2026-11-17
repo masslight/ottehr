@@ -429,7 +429,7 @@ function AddProcedureCodeDialog({
                 inputValue={code}
                 value={null}
                 onInputChange={(_, val, reason) => {
-                  if (reason === 'reset') return; // option selection is handled in onChange
+                  if (reason !== 'input' && reason !== 'clear') return; // option selection is handled in onChange
                   typeCode(val);
                   if (reason === 'input') void searchProcCodes(val || undefined);
                 }}

@@ -1,4 +1,4 @@
-import { GridSize } from '@mui/system';
+import { GridLegacySize } from '@mui/material/GridLegacy';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { useMemo } from 'react';
 import { getAnswerOptionLabel } from 'utils/lib/helpers/paperwork/paperwork';
@@ -22,7 +22,7 @@ export interface StyledQuestionnaireItem extends IntakeQuestionnaireItem {
   isRequired: boolean;
   placeholder?: string;
   mask?: string;
-  width?: GridSize;
+  width?: GridLegacySize;
   isFullWidth?: boolean;
   multiline?: boolean;
   minRows?: number;

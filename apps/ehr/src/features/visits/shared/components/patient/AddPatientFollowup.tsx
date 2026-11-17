@@ -1,4 +1,13 @@
-import { CircularProgress, FormControlLabel, Grid, Paper, Radio, RadioGroup, Tooltip, Typography } from '@mui/material';
+import {
+  CircularProgress,
+  FormControlLabel,
+  GridLegacy as Grid,
+  Paper,
+  Radio,
+  RadioGroup,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import { useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';

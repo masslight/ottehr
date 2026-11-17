@@ -11,12 +11,11 @@ import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
   Checkbox,
-  Grid,
+  GridLegacy as Grid,
   ListItemIcon,
   Menu,
   MenuItem,
@@ -1099,7 +1098,7 @@ export default function VisitDetailsPage(): ReactElement {
   );
 
   const consentAttestationSaveButton = (
-    <LoadingButton
+    <Button
       data-testid={dataTestIds.visitDetailsPage.consentAttestationSaveButton}
       onClick={async () => {
         await bookingDetailsMutation
@@ -1124,7 +1123,7 @@ export default function VisitDetailsPage(): ReactElement {
       disabled={!hasConsentChanged}
     >
       Save
-    </LoadingButton>
+    </Button>
   );
 
   const consentAttestationFooter = consentAttested !== null && (
@@ -1931,14 +1930,14 @@ export default function VisitDetailsPage(): ReactElement {
               >
                 Cancel
               </Button>
-              <LoadingButton
+              <Button
                 variant="contained"
                 onClick={handleConfirmPendingSave}
                 loading={pendingSaveIsRunning}
                 data-testid={dataTestIds.dialog.proceedButton}
               >
                 Save
-              </LoadingButton>
+              </Button>
             </Box>
           }
         />

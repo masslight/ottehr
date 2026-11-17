@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import { Box, Button, Stack, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
@@ -194,7 +193,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             </Button>
             {orderStatus === 'pending' && (
               <Stack>
-                <LoadingButton
+                <Button
                   data-testid={dataTestIds.externalLabs.detailsPg.markReadyBtn}
                   loading={submitLoading}
                   variant="contained"
@@ -202,7 +201,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                   type="submit"
                 >
                   Mark as Ready{!labOrder.isPSC ? ' & Print Label' : ''}
-                </LoadingButton>
+                </Button>
               </Stack>
             )}
           </Stack>

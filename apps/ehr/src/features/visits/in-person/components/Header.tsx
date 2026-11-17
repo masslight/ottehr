@@ -11,7 +11,7 @@ import {
   Box,
   Chip,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   Link,
   ListItemIcon,

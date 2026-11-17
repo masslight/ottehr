@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Dialog,
@@ -140,16 +139,9 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
           )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
-          <LoadingButton
-            loading={isCancelling}
-            type="submit"
-            variant="contained"
-            color="primary"
-            size="medium"
-            sx={buttonSx}
-          >
+          <Button loading={isCancelling} type="submit" variant="contained" color="primary" size="medium" sx={buttonSx}>
             Cancel visit
-          </LoadingButton>
+          </Button>
           <Button onClick={onClose} variant="text" color="primary" size="medium" sx={buttonSx}>
             Keep
           </Button>

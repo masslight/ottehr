@@ -164,10 +164,10 @@ const paperworkComponentOverrides: Components = {
       },
     },
   },
-  MuiGrid: {
+  MuiGridLegacy: {
     styleOverrides: {
       root: {
-        '&.MuiGrid-item': {
+        '&.MuiGridLegacy-item': {
           marginTop: 6,
         },
       },

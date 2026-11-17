@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Dialog,
@@ -883,13 +882,13 @@ export const EditableMedicationCard: React.FC<{
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setQuickPickDialogOpen(false)}>Cancel</Button>
-          <LoadingButton
+          <Button
             loading={quickPickSaving}
             variant="contained"
             onClick={() => void onSaveAsQuickPick(overwriteTarget?.id)}
           >
             {overwriteTarget ? 'Overwrite' : 'Save'}
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </Dialog>
     </>

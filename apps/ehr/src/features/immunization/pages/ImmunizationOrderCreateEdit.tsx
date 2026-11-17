@@ -1,11 +1,10 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
+  GridLegacy as Grid,
   List,
   ListItem,
   ListItemButton,
@@ -348,7 +347,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                     )}
                     {orderId && (
                       <>
-                        <LoadingButton
+                        <Button
                           variant="outlined"
                           color="error"
                           size="large"
@@ -360,7 +359,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                           }}
                         >
                           Delete Order
-                        </LoadingButton>
+                        </Button>
                         <CustomDialog
                           open={isDeleteDialogOpen}
                           handleClose={() => setIsDeleteDialogOpen(false)}
@@ -375,7 +374,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                       </>
                     )}
                   </Stack>
-                  <LoadingButton
+                  <Button
                     type="submit"
                     disabled={isOrderLoading || isOrderSaved}
                     loading={isOrderSaving}
@@ -389,7 +388,7 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
                     data-testid={dataTestIds.orderVaccinePage.orderVaccineButton}
                   >
                     {orderId ? 'Save changes' : 'Order Immunization'}
-                  </LoadingButton>
+                  </Button>
                 </Stack>
               </Grid>
             </Grid>
@@ -442,13 +441,13 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setQuickPickDialogOpen(false)}>Cancel</Button>
-          <LoadingButton
+          <Button
             loading={quickPickSaving}
             variant="contained"
             onClick={() => void onSaveAsQuickPick(overwriteTarget?.id)}
           >
             {overwriteTarget ? 'Overwrite' : 'Save'}
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </Dialog>
     </FormProvider>

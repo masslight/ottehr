@@ -141,10 +141,10 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
         },
       },
     },
-    MuiGrid: {
+    MuiGridLegacy: {
       styleOverrides: {
         root: {
-          '&.MuiGrid-item': {
+          '&.MuiGridLegacy-item': {
             marginTop: 6,
           },
         },

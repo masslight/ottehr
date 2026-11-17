@@ -1,6 +1,14 @@
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
-import { FormControlLabel, Grid, Radio, RadioGroup, RadioGroupProps, Typography, useTheme } from '@mui/material';
+import {
+  FormControlLabel,
+  GridLegacy as Grid,
+  Radio,
+  RadioGroup,
+  RadioGroupProps,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -135,7 +143,7 @@ export const RadioInput: FC<RadioInputProps> = ({
                     paddingBottom: '0.5rem',
                     [theme.breakpoints.down('md')]: {
                       paddingTop: '0.1rem',
-                      '&.MuiGrid-item': { marginTop: '0px' },
+                      '&.MuiGridLegacy-item': { marginTop: '0px' },
                     },
                   }}
                 >

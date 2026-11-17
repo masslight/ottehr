@@ -1,4 +1,4 @@
-import { Box, Card, Grid, IconButton, Typography, useTheme } from '@mui/material';
+import { Box, Card, GridLegacy as Grid, IconButton, Typography, useTheme } from '@mui/material';
 import { deleteIcon } from '@theme/icons';
 import { FC, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';

@@ -1,5 +1,5 @@
 // cSpell:ignore AOEYes
-import { Grid } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import { FormControl } from '@mui/material';
 import { QuestionnaireItem } from 'fhir/r4b';
 import { Controller, useFormContext } from 'react-hook-form';

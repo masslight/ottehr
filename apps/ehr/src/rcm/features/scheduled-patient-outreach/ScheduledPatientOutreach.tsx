@@ -1429,7 +1429,8 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
                           defaultExpanded={false}
                           sx={{ mb: 1, opacity: action.enabled !== false ? 1 : 0.5 }}
                         >
-                          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                          {/* a div, not the default button: the summary holds a switch and a delete button */}
+                          <AccordionSummary component="div" expandIcon={<ExpandMoreIcon />}>
                             <Stack
                               direction="row"
                               alignItems="center"

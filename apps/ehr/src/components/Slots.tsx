@@ -1,4 +1,4 @@
-import { Box, Button, CircularProgress, Grid, Typography, useTheme } from '@mui/material';
+import { Box, Button, CircularProgress, GridLegacy as Grid, Typography, useTheme } from '@mui/material';
 import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from '../constants/data-test-ids';

@@ -4,7 +4,7 @@ import {
   Checkbox,
   FormControlLabel,
   FormGroup,
-  Grid,
+  GridLegacy as Grid,
   Paper,
   Stack,
   TextField,

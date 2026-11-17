@@ -1,4 +1,4 @@
-import { Grid, Typography, useTheme } from '@mui/material';
+import { GridLegacy as Grid, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { AutocompleteInput } from 'src/components/input/AutocompleteInput';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';

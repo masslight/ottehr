@@ -8,7 +8,7 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   InputLabel,
   MenuItem,

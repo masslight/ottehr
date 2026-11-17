@@ -1,11 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
+  Button,
   FormControl,
   FormHelperText,
   FormLabel,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   MenuItem,
   Select,
@@ -196,9 +196,9 @@ export default function AdminLabSetForm(props: AdminLabSetFormProps): ReactEleme
         )}
 
         <SubSection label={''} theme={theme}>
-          <LoadingButton type="submit" variant="contained" loading={isSubmitting}>
+          <Button type="submit" variant="contained" loading={isSubmitting}>
             {submitButtonText}
-          </LoadingButton>
+          </Button>
           {submitError && (
             <FormHelperText sx={{ color: theme.palette.error.main }}>{submitError.message}</FormHelperText>
           )}
