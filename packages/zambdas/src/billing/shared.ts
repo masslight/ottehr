@@ -2182,17 +2182,55 @@ export async function getGroupNumber(
   return groupNumber;
 }
 
-export function getPayerClaimControlNumber(claim: Claim, insurance: RulesEngineInsurance): string | undefined {
-  const payerClaimControlNumbers = (claim.identifier ?? []).filter(
-    (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
+export function isPayerClaimControlNumberFor(identifier: Identifier, insurance: RulesEngineInsurance): boolean {
+  if (identifier.system !== CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM) return false;
+  // a type-less identifier is the legacy one for the primary insurance
+  if (!identifier.type) return insurance === 'primary';
+  return (
+    identifier.type.coding?.some(
+      (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === insurance
+    ) ?? false
   );
-  return payerClaimControlNumbers.find(
-    (i) =>
-      // is matching type
-      i.type?.coding?.some(
-        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === insurance
-      ) ||
-      // legacy type-less identifier for primary insurance
-      (insurance === 'primary' && !i.type)
-  )?.value;
+}
+
+export function getPayerClaimControlNumber(claim: Claim, insurance: RulesEngineInsurance): string | undefined {
+  return (claim.identifier ?? []).find((i) => isPayerClaimControlNumberFor(i, insurance))?.value;
+}
+
+export function payerClaimControlNumberIdentifier(
+  value: string,
+  insurance: RulesEngineInsurance | undefined
+): Identifier {
+  return {
+    system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+    value,
+    ...(insurance
+      ? { type: { coding: [{ system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM, code: insurance }] } }
+      : {}),
+  };
+}
+
+// Which of the claim's insurances the payer is, by the Coverage it pays on.
+export async function getInsuranceOrdinal(
+  oystehr: Oystehr,
+  claim: Claim,
+  insurer: Reference | undefined
+): Promise<RulesEngineInsurance | undefined> {
+  const coverageIds = (claim.insurance ?? []).flatMap((ins) => {
+    const id = ins.coverage.reference?.replace('Coverage/', '');
+    return id ? [id] : [];
+  });
+  if (!insurer?.reference || coverageIds.length === 0) return undefined;
+  const coverages = (
+    await oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: '_id', value: coverageIds.join(',') }],
+    })
+  ).unbundle();
+  const targetCoverage = coverages.find((cov) => cov.payor?.[0]?.reference === insurer.reference);
+  if (!targetCoverage) return undefined;
+  const sequence = claim.insurance.find((ins) => ins.coverage.reference?.replace('Coverage/', '') === targetCoverage.id)
+    ?.sequence;
+  if (!sequence) return undefined;
+  return sequence === 1 ? 'primary' : sequence === 2 ? 'secondary' : sequence === 3 ? 'tertiary' : 'quaternary';
 }

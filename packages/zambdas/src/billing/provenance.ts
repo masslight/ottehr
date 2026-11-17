@@ -70,6 +70,7 @@ import {
   formatClaimStatusValue,
   getClaimStatusValues,
 } from 'utils/lib/types/data/billing/claim-status';
+import { RULES_ENGINE_INSURANCES } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { formatCurrency, formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import {
@@ -85,7 +86,6 @@ import { patientNameText } from './manual-era';
 import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,
-  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
   ERA_ITEM_REMARK_CODE_EXTENSION,
@@ -102,6 +102,7 @@ import {
   getClaimSupportingInfo,
   getClaimType,
   getEraExtensionString,
+  getPayerClaimControlNumber,
   getProviderLicense,
   getTaxonomy,
   isInstitutionalClaim,
@@ -234,13 +235,14 @@ function projectClaim(claim: Claim): FieldProjection[] {
         .filter(Boolean)
         .join(', '),
     },
-    {
-      field: 'payerClaimControlNumber',
-      label: 'Payer Claim Control Number',
-      value:
-        claim.identifier?.find((identifier) => identifier.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)
-          ?.value ?? '',
-    },
+    ...RULES_ENGINE_INSURANCES.map((insurance) => ({
+      field: insurance === 'primary' ? 'payerClaimControlNumber' : `${insurance}PayerClaimControlNumber`,
+      label:
+        insurance === 'primary'
+          ? 'Payer Claim Control Number'
+          : `${insurance[0].toUpperCase()}${insurance.slice(1)} Payer Claim Control Number`,
+      value: getPayerClaimControlNumber(claim, insurance) ?? '',
+    })),
     {
       field: 'service',
       label: 'Service',

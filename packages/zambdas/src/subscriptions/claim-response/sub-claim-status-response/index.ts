@@ -6,6 +6,8 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import {
   isVersionConflictError,
   makeOptimisticLockIfMatchHeader,
+  reducePatchOperations,
+  versionLockedPatches,
   withVersionConflictRetries,
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
@@ -17,6 +19,7 @@ import {
   ClaimFieldChange,
 } from 'utils/lib/types/data/billing/claim-history';
 import { AR_STAGE, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
+import { RulesEngineInsurance } from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   FHIR_RESOURCE_NOT_FOUND_CUSTOM,
   INVALID_INPUT_ERROR,
@@ -27,12 +30,14 @@ import { z } from 'zod';
 import {
   acknowledgmentEventFromMessage,
   claimStatusAccount,
+  claimStatusEntity,
   ClaimStatusMessage,
   claimStatusMessageIdentity,
   parseClaimStatusResponse,
   ParsedClaimStatusResponse,
 } from '../../../billing/claim-status-responses';
 import {
+  claimEventProvenanceRequest,
   claimMetaTagsWithProvenanceRequests,
   claimProvenanceRequest,
   recordedNow,
@@ -44,7 +49,10 @@ import {
   createEraReadClient,
   fetchById,
   findById,
+  getInsuranceOrdinal,
+  getPayerClaimControlNumber,
   hasTag,
+  payerClaimControlNumberIdentifier,
 } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { sendErrors } from '../../../shared/errors';
@@ -106,6 +114,13 @@ export interface ComplexValidationOutput {
   classification: ClassifiedClaimStatusResponse;
   recordedFields: ReadonlySet<string>;
   completion: BatchInputPatchRequest<FhirResource>;
+  // the payer's ICN, to record as its PCCN when the claim has none for that payer yet
+  payerClaimControlNumber?: StatusPayerClaimControlNumber;
+}
+
+export interface StatusPayerClaimControlNumber {
+  value: string;
+  insurance: RulesEngineInsurance;
 }
 
 export async function complexValidation(
@@ -126,7 +141,44 @@ export async function complexValidation(
     classification.rejection || classification.acknowledgments.length
       ? await loadClaimStatusHistory(projectClient, claim.id!)
       : new Set<string>();
-  return { claimResponse, claim, classification, recordedFields, completion };
+  const payerClaimControlNumber = await resolveStatusPayerClaimControlNumber(
+    projectClient,
+    claim,
+    claimResponse,
+    classification
+  );
+  return {
+    claimResponse,
+    claim,
+    classification,
+    recordedFields,
+    completion,
+    ...(payerClaimControlNumber ? { payerClaimControlNumber } : {}),
+  };
+}
+
+// A payer's ICN on a status response is its claim control number, which a correction or void cites.
+// A rejected claim never entered the payer's adjudication, so its ICN is nothing to cite, and one the
+// clearinghouse sends is its own id rather than the payer's.
+export async function resolveStatusPayerClaimControlNumber(
+  oystehr: Oystehr,
+  claim: Claim,
+  claimResponse: ClaimResponse,
+  classification: ClassifiedClaimStatusResponse
+): Promise<StatusPayerClaimControlNumber | undefined> {
+  const { raw } = classification;
+  const icn = raw.sender_icn?.trim();
+  if (!icn || classification.rejection) return undefined;
+  if (claimStatusEntity(raw).entityKind !== 'payer') return undefined;
+  const insurance = await getInsuranceOrdinal(oystehr, claim, claimResponse.insurer);
+  if (!insurance) {
+    console.log(
+      `ClaimResponse/${claimResponse.id} insurer is not among Claim/${claim.id} insurances; leaving its ICN unrecorded`
+    );
+    return undefined;
+  }
+  if (getPayerClaimControlNumber(claim, insurance)) return undefined;
+  return { value: icn, insurance };
 }
 
 export async function performEffect(
@@ -144,14 +196,59 @@ export async function performEffect(
     }
     requests.unshift(...claimMetaTagsWithProvenanceRequests(claim, claim.meta?.tag ?? [], 'statusChange', agent));
   }
-  await oystehr.fhir.transaction({ requests: [...requests, completion] });
+  // one patch per Claim, locked to the version validated
+  const claimRequests = versionLockedPatches({ requests: reducePatchOperations(requests), resource: claim });
+  await oystehr.fhir.transaction({ requests: [...claimRequests, completion] });
 }
 
 export function claimStatusRequests(
-  validated: Pick<ComplexValidationOutput, 'claim' | 'claimResponse' | 'classification' | 'recordedFields'>,
+  validated: Pick<
+    ComplexValidationOutput,
+    'claim' | 'claimResponse' | 'classification' | 'recordedFields' | 'payerClaimControlNumber'
+  >,
   agent: ProvenanceAgent
 ): BatchInputRequest<FhirResource>[] {
-  return [...claimAcknowledgmentRequests(validated, agent), ...claimRejectionRequests(validated, agent)];
+  return [
+    ...claimAcknowledgmentRequests(validated, agent),
+    ...claimRejectionRequests(validated, agent),
+    ...claimPayerClaimControlNumberRequests(validated, agent),
+  ];
+}
+
+export function claimPayerClaimControlNumberRequests(
+  {
+    claim,
+    claimResponse,
+    payerClaimControlNumber,
+  }: Pick<ComplexValidationOutput, 'claim' | 'claimResponse' | 'payerClaimControlNumber'>,
+  agent: ProvenanceAgent
+): BatchInputRequest<FhirResource>[] {
+  if (!payerClaimControlNumber || !hasTag(claim, BILLING_RESOURCE_TAG.system, BILLING_RESOURCE_TAG.code)) return [];
+  if (!claim.id || !claimResponse.id) {
+    throw INVALID_INPUT_ERROR('Claim and ClaimResponse IDs are required for payer claim control number processing');
+  }
+  const identifier = [
+    ...(claim.identifier ?? []),
+    payerClaimControlNumberIdentifier(payerClaimControlNumber.value, payerClaimControlNumber.insurance),
+  ];
+  const after: Claim = { ...claim, identifier };
+  const history = claimEventProvenanceRequest({
+    targetReference: `Claim/${claim.id}`,
+    claimId: claim.id,
+    sourceReference: `ClaimResponse/${claimResponse.id}`,
+    before: claim,
+    after,
+    agent,
+    activity: 'update',
+  });
+  return [
+    {
+      method: 'PATCH',
+      url: `/Claim/${claim.id}`,
+      operations: [{ op: 'add', path: '/identifier', value: identifier }],
+    },
+    ...(history ? [history] : []),
+  ];
 }
 
 export function claimAcknowledgmentRequests(
