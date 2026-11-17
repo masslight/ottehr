@@ -15,7 +15,7 @@ import {
 import { useEditor } from '@tiptap/react';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { BasicDatePicker } from 'src/components/form/DatePicker';
 import { TemplateEditorField, textToTiptapContent } from 'src/components/template-editor-field/TemplateEditorField';
@@ -59,7 +59,6 @@ export default function SendInvoiceToPatientDialog({
   submitButtonName,
   report,
 }: SendInvoiceToPatientDialogProps): ReactElement {
-  const [disableAllFields, setDisableAllFields] = useState(true);
   const { data: configData } = useGetInvoiceConfigQuery();
 
   const {
@@ -106,7 +105,11 @@ export default function SendInvoiceToPatientDialog({
 
   // Pre-fill form when task data + config arrive
   useEffect(() => {
-    if (!task) return;
+    if (!task) {
+      // Dialog closed: drop the previous invoice's values so a reopened editor doesn't start from them.
+      reset();
+      return;
+    }
     try {
       const invoiceTaskInput = parseInvoiceTaskInput(task);
       if (!invoiceTaskInput) return;
@@ -129,17 +132,15 @@ export default function SendInvoiceToPatientDialog({
       // Sync Tiptap editors
       smsEditorRef.current?.commands.setContent(textToTiptapContent(smsTemplate));
       memoEditorRef.current?.commands.setContent(textToTiptapContent(memoTemplate));
-
-      setDisableAllFields(false);
     } catch {
       /* empty */
     }
   }, [task, reset, configData]);
 
-  const handleSubmitWrapped = (data: SendInvoiceFormData): void => {
+  // Awaiting onSubmit keeps isSubmitting true for the whole send, and clears it when a failed send leaves the dialog open.
+  const handleSubmitWrapped = async (data: SendInvoiceFormData): Promise<void> => {
     if (task && task?.id) {
-      setDisableAllFields(true);
-      void onSubmit(task.id, {
+      await onSubmit(task.id, {
         dueDate: data.dueDate,
         memo: data.memo,
         smsTextMessage: data.smsTextMessage,
@@ -225,7 +226,7 @@ export default function SendInvoiceToPatientDialog({
                     error={!!errors.amount}
                     helperText={errors.amount?.message}
                     required
-                    disabled={disableAllFields}
+                    disabled={isSubmitting}
                   />
                 )}
               />
@@ -248,7 +249,7 @@ export default function SendInvoiceToPatientDialog({
                   },
                 }}
                 component="Picker"
-                disabled={disableAllFields}
+                disabled={isSubmitting}
                 minDate={DateTime.now().plus({ days: 1 }).toISODate() ?? undefined}
               />
             </Grid>
@@ -261,7 +262,6 @@ export default function SendInvoiceToPatientDialog({
                   required: REQUIRED_FIELD_ERROR_MESSAGE,
                   validate: (value) => !!value?.trim() || REQUIRED_FIELD_ERROR_MESSAGE,
                 }}
-                disabled={disableAllFields}
                 render={({ field, fieldState }) => (
                   <TemplateEditorField
                     label="SMS message"
@@ -269,7 +269,7 @@ export default function SendInvoiceToPatientDialog({
                     onChange={field.onChange}
                     editorRef={smsEditorRef}
                     previewValues={previewValues}
-                    disabled={disableAllFields}
+                    disabled={isSubmitting}
                     required
                     error={!!fieldState.error}
                     helperText={fieldState.error?.message}
@@ -286,7 +286,6 @@ export default function SendInvoiceToPatientDialog({
                   required: REQUIRED_FIELD_ERROR_MESSAGE,
                   validate: (value) => !!value?.trim() || REQUIRED_FIELD_ERROR_MESSAGE,
                 }}
-                disabled={disableAllFields}
                 render={({ field, fieldState }) => (
                   <TemplateEditorField
                     label="Invoice memo"
@@ -294,7 +293,7 @@ export default function SendInvoiceToPatientDialog({
                     onChange={field.onChange}
                     editorRef={memoEditorRef}
                     previewValues={previewValues}
-                    disabled={disableAllFields}
+                    disabled={isSubmitting}
                     required
                     error={!!fieldState.error}
                     helperText={fieldState.error?.message}
@@ -326,7 +325,7 @@ export default function SendInvoiceToPatientDialog({
               Cancel
             </RoundedButton>
             <RoundedButton
-              disabled={disableAllFields || !responsibleParty?.email}
+              disabled={isSubmitting || !responsibleParty?.email}
               loading={isSubmitting}
               form="send-invoice-form"
               type="submit"
