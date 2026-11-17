@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
-import { DOSE_STEP, DoseBasis, ML_MEASURE_STEPS, plainDose } from 'utils/lib/helpers/medications/plain-dose';
+import { DoseBasis, ML_MEASURE_STEPS, plainDose, startingMeasureStep } from 'utils/lib/helpers/medications/plain-dose';
 import {
   isCombinationProduct,
   PRESCRIPTION_FREQUENCIES,
@@ -170,8 +170,8 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   // What was typed here is dropped on closing without "Use this dose": each opening starts from the settings it is
   // given (the line's rule or the quick pick's), or empty without any.
   const [picks, setPicks] = useState<Picks>({});
-  // What a liquid's dose is measured to: never saved, and each opening starts at half a mL.
-  const [measureTo, setMeasureTo] = useState(DOSE_STEP.mL);
+  // What a liquid's dose is measured to, once the provider picks it: never saved, and each opening starts from the dose.
+  const [measureTo, setMeasureTo] = useState<number>();
   const ndc = line.medication?.ndc;
   const own = picks.ndc === ndc ? picks : {};
   const pick = (patch: Partial<Picks>): void => setPicks({ ...own, ...patch, ndc });
@@ -205,17 +205,18 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
   const maxPerDoseMg = numberOrUndefined(own.maxPerDose ?? '');
   const maxPerDayMg = numberOrUndefined(own.maxPerDay ?? '');
 
-  const dose = plainDose({
+  const doseInput = {
     weightKg,
     mgPerMeasure: numberOrUndefined(concentrationText),
     measure,
-    ...(measure === 'mL' ? { step: measureTo } : {}),
     basis,
     rate: numberOrUndefined(rateText),
     dosesPerDay,
     maxPerDoseMg,
     maxPerDayMg,
-  });
+  };
+  const measureStep = measureTo ?? startingMeasureStep(doseInput);
+  const dose = plainDose({ ...doseInput, ...(measure === 'mL' ? { step: measureStep } : {}) });
 
   // A typed weight only works out the dose: the pharmacy gets the charted one (decision 7), so a different one warns.
   const typedKg = weightText === undefined ? undefined : numberOrUndefined(weightText);
@@ -285,7 +286,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
           {
             id: 'measureTo',
             label: 'Measure to',
-            choice: { title: 'Measure to', options: MEASURE_TO_OPTIONS, value: String(measureTo) },
+            choice: { title: 'Measure to', options: MEASURE_TO_OPTIONS, value: String(measureStep) },
           },
         ]
       : []),
@@ -340,7 +341,7 @@ export const DoseCalculator: FC<DoseCalculatorProps> = ({
       label={label}
       onOpen={() => {
         setPicks(picksOf(initial, line));
-        setMeasureTo(DOSE_STEP.mL);
+        setMeasureTo(undefined);
       }}
     >
       {(close) => (

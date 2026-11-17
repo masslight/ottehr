@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { plainDose } from './plain-dose';
+import { plainDose, startingMeasureStep } from './plain-dose';
 
 describe('plainDose', () => {
   it('works out a per-dose rate, rounds to whole capsules and notes how far over it is', () => {
@@ -8,6 +8,7 @@ describe('plainDose', () => {
     ).toEqual({
       amount: 3,
       amountText: '3 capsules',
+      aimedAmount: 2.812,
       working: '28.12 kg × 25 mg/kg/dose = 703 mg',
       roundingNote: '3 capsules = 750 mg, 47 mg (7%) over 703 mg',
       roundingWarning: '3 capsules = 750 mg, 47 mg (7%) over 703 mg',
@@ -62,6 +63,35 @@ describe('plainDose', () => {
     expect(plainDose({ ...input, step: 0.5 })).toEqual(plainDose(input));
   });
 
+  // Decision 305: a liquid dose under 1 mL starts at a tenth of a mL; at half a mL an infant's 0.19 mL would be 0.5 mL.
+  it('starts a liquid at a tenth of a mL for a dose under 1 mL, after any cap, and at half a mL otherwise', () => {
+    // Famotidine 8 mg/mL, 0.5 mg/kg for 3 kg: 1.5 mg = 0.19 mL, measured to 0.2 mL.
+    const famotidine = {
+      weightKg: 3,
+      mgPerMeasure: 8,
+      measure: 'mL' as const,
+      basis: 'mg/kg/dose' as const,
+      rate: 0.5,
+    };
+    expect(startingMeasureStep(famotidine)).toBe(0.1);
+    expect(plainDose({ ...famotidine, step: startingMeasureStep(famotidine) })?.amountText).toBe('0.2 mL');
+    // Amoxicillin 80 mg/mL, 25 mg/kg for 28.12 kg: 8.79 mL.
+    const amoxicillin = {
+      weightKg: 28.12,
+      mgPerMeasure: 80,
+      measure: 'mL' as const,
+      basis: 'mg/kg/dose' as const,
+      rate: 25,
+    };
+    expect(startingMeasureStep(amoxicillin)).toBe(0.5);
+    // 8.79 mL capped at 40 mg = 0.5 mL: under 1 mL once capped.
+    expect(startingMeasureStep({ ...amoxicillin, maxPerDoseMg: 40 })).toBe(0.1);
+    // Exactly 1 mL, waiting for inputs, or a tablet: as before.
+    expect(startingMeasureStep({ ...famotidine, rate: 8 / 3 })).toBe(0.5);
+    expect(startingMeasureStep({ ...famotidine, rate: undefined })).toBe(0.5);
+    expect(startingMeasureStep({ ...famotidine, measure: 'tablet' })).toBe(1);
+  });
+
   it('caps and measures down at a tenth of a mL', () => {
     expect(
       plainDose({
@@ -76,6 +106,7 @@ describe('plainDose', () => {
     ).toEqual({
       amount: 6.2,
       amountText: '6.2 mL',
+      aimedAmount: 6.25,
       working: '28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose',
       roundingNote:
         '6.2 mL = 496 mg, 4 mg (1%) under 500 mg (rounded down to stay at or under the max 500 mg per dose)',
@@ -148,6 +179,7 @@ describe('plainDose', () => {
     expect(dose).toEqual({
       amount: 6,
       amountText: '6 mL',
+      aimedAmount: 6.25,
       working: '28.12 kg × 25 mg/kg/dose = 703 mg → capped at 500 mg per dose',
       roundingNote: '6 mL = 480 mg, 20 mg (4%) under 500 mg (rounded down to stay at or under the max 500 mg per dose)',
       capNote: 'Capped at the 500 mg maximum (703 mg by weight)',

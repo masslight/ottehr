@@ -62,6 +62,8 @@ export interface PlainDose {
   amount: number;
   /** "3 capsules", "4.5 mL". */
   amountText: string;
+  /** Measures per dose before rounding: the dose worked out, or the maximum when one caps it. */
+  aimedAmount: number;
   /** "28.12 kg × 25 mg/kg/dose = 703 mg", and "→ 2 capsules = 500 mg" after it only when there is no rounding note:
    * the note then says what it is measured to. */
   working: string;
@@ -187,6 +189,7 @@ export const plainDose = ({
   return {
     amount,
     amountText,
+    aimedAmount: aimed / mgPerMeasure,
     working: `${formula}${capped ? ` → capped at ${capText}` : ''}${
       note ? '' : ` → ${amountText} = ${num(delivered)} mg`
     }`,
@@ -198,3 +201,8 @@ export const plainDose = ({
     ...(!capNote && note && Math.abs(delivered - aimed) > aimed * 0.05 ? { roundingWarning: note } : {}),
   };
 };
+
+/** Where a liquid's "Measure to" starts: a tenth of a mL for a dose under 1 mL (infant labels give doses such as 0.2 mL),
+ * otherwise the measure's `DOSE_STEP`. */
+export const startingMeasureStep = (input: PlainDoseInput): number =>
+  input.measure === 'mL' && (plainDose(input)?.aimedAmount ?? 1) < 1 ? ML_MEASURE_STEPS[0] : DOSE_STEP[input.measure];

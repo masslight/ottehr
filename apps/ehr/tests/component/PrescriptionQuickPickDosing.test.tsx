@@ -1309,7 +1309,7 @@ describe('The calculator’s "Measure to"', () => {
     return screen.getByRole('dialog', { name: 'Dose calculator' });
   };
 
-  it('measures a liquid to 0.5 mL by default, to the step picked, and starts at 0.5 mL each opening', async () => {
+  it('measures a liquid dose of 1 mL or more to 0.5 mL by default, to the step picked, and starts again each opening', async () => {
     const user = userEvent.setup();
     render(<Harness initial={withDirections(liquidLine(), { frequency: 'twice daily' })} weight={WEIGHT} />);
     let calculator = await openCalculator(user);
@@ -1327,6 +1327,39 @@ describe('The calculator’s "Measure to"', () => {
     calculator = await openCalculator(user);
     expect(within(calculator).getByRole('button', { name: 'measure to: 0.5 mL' })).toBeInTheDocument();
     expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 9 mL by mouth twice daily');
+  });
+
+  // Decision 305: an infant's 0.19 mL measured to half a mL would be 0.5 mL, 167% over.
+  it('starts at 0.1 mL for a dose under 1 mL, follows the dose until the provider picks, then keeps the pick', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness initial={withDirections(liquidLine(), { frequency: 'twice daily' })} weight={{ ...WEIGHT, kg: 3 }} />
+    );
+    const calculator = await openCalculator(user);
+    await user.click(within(calculator).getByRole('button', { name: 'per day or per dose: day' }));
+    await user.click(screen.getByRole('option', { name: 'dose' }));
+    // Famotidine 8 mg/mL, 0.5 mg/kg for 3 kg: 1.5 mg = 0.19 mL.
+    await user.clear(within(calculator).getByRole('spinbutton', { name: 'concentration' }));
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'concentration' }), '8');
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '0.5');
+    expect(within(calculator).getByRole('button', { name: 'measure to: 0.1 mL' })).toBeInTheDocument();
+    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 0.2 mL by mouth twice daily');
+    expect(within(calculator).getByTestId('dose-rounding')).toHaveTextContent(
+      '0.2 mL = 1.6 mg, 0.1 mg (7%) over 1.5 mg'
+    );
+    // 5 mg/kg: 15 mg = 1.88 mL, so half a mL until the provider picks.
+    await user.clear(within(calculator).getByRole('spinbutton', { name: 'rate' }));
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '5');
+    expect(within(calculator).getByRole('button', { name: 'measure to: 0.5 mL' })).toBeInTheDocument();
+    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 2 mL by mouth twice daily');
+    await user.click(within(calculator).getByRole('button', { name: 'measure to: 0.5 mL' }));
+    await user.click(screen.getByRole('option', { name: '0.1 mL' }));
+    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 1.9 mL by mouth twice daily');
+    // 10 mg/kg: 30 mg = 3.75 mL, still to the 0.1 mL picked.
+    await user.clear(within(calculator).getByRole('spinbutton', { name: 'rate' }));
+    await user.type(within(calculator).getByRole('spinbutton', { name: 'rate' }), '10');
+    expect(within(calculator).getByRole('button', { name: 'measure to: 0.1 mL' })).toBeInTheDocument();
+    expect(within(calculator).getByTestId('dose-sentence')).toHaveTextContent('Take 3.8 mL by mouth twice daily');
   });
 
   it('is not offered for tablets or capsules, which stay whole', async () => {
