@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { Medication } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import { makeMedicationInventoryExtension } from 'utils/lib/fhir/medication-inventory';
 import {
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
@@ -22,8 +23,16 @@ vi.mock('src/api/api', () => ({
   updateInHouseMedication: vi.fn(),
 }));
 
+vi.mock('src/features/notifications/notifications.queries', () => ({
+  useGetAllLocations: vi.fn(),
+}));
+
 vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: vi.fn(),
+}));
+
+vi.mock('src/hooks/useEvolveUser', () => ({
+  default: () => ({ hasRole: () => true }),
 }));
 
 const { FORBIDDEN_MESSAGE } = vi.hoisted(() => ({
@@ -38,6 +47,7 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.queries', () 
 
 import { useParams } from 'react-router-dom';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
+import { useGetAllLocations } from 'src/features/notifications/notifications.queries';
 import {
   useGetMedicationDetails,
   useGetMedicationsSearch,
@@ -68,6 +78,31 @@ const activeMedication: Medication = {
 
 const inactiveMedication: Medication = { ...activeMedication, id: 'med-xyz', status: 'inactive' };
 
+const mainStreet = { id: 'loc-main', name: 'Main Street' };
+
+const locationsQuery = (status: 'pending' | 'error' | 'success', data?: (typeof mainStreet)[]): any => ({
+  status,
+  data,
+  isPending: status === 'pending',
+  isError: status === 'error',
+  isSuccess: status === 'success',
+});
+
+const trackedMedication: Medication = {
+  ...activeMedication,
+  extension: [
+    makeMedicationInventoryExtension({
+      countedAs: 'vial',
+      eachContains: { amount: 4, unit: 'mg' },
+      use: 'single-use',
+      reorderLevels: [
+        { locationId: 'loc-closed', level: 5 },
+        { locationId: mainStreet.id, level: 10 },
+      ],
+    }),
+  ],
+};
+
 describe('UpdateMedicationPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -80,6 +115,7 @@ describe('UpdateMedicationPage', () => {
     } as any);
     vi.mocked(getInHouseMedications).mockResolvedValue([activeMedication]);
     vi.mocked(updateInHouseMedication).mockResolvedValue(activeMedication);
+    vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery('success', []));
   });
 
   it('shows loading indicator before medication is fetched', () => {
@@ -167,5 +203,57 @@ describe('UpdateMedicationPage', () => {
     expect(callArg.name).toBe('Ibuprofen 200mg');
     expect(callArg.name).not.toContain('Totally made up name');
     expect(callArg.medicationID).toBe('med-abc');
+  });
+
+  describe('Update Medication button', () => {
+    it.each([
+      ['is loading', 'pending'],
+      ['has failed', 'error'],
+    ] as const)('is disabled while the locations request %s', async (_state, status) => {
+      vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery(status));
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      expect(await screen.findByRole('button', { name: /^update medication$/i }, { timeout: 10_000 })).toBeDisabled();
+    });
+
+    it('is enabled once locations have loaded, even when there are none', async () => {
+      vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery('success', []));
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      expect(await screen.findByRole('button', { name: /^update medication$/i }, { timeout: 10_000 })).toBeEnabled();
+    });
+  });
+
+  describe('reorder levels', () => {
+    const submittedReorderLevels = async (): Promise<unknown> => {
+      await userEvent.click(screen.getByRole('button', { name: /^update medication$/i }));
+      await waitFor(() => expect(updateInHouseMedication).toHaveBeenCalledTimes(1));
+      return vi.mocked(updateInHouseMedication).mock.calls[0][1].inventory?.reorderLevels;
+    };
+
+    beforeEach(() => {
+      vi.mocked(getInHouseMedications).mockResolvedValue([trackedMedication]);
+      vi.mocked(updateInHouseMedication).mockResolvedValue(trackedMedication);
+    });
+
+    it('keeps the level of a clinic missing from the locations list', async () => {
+      vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery('success', [mainStreet]));
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+      await waitFor(() => expect(screen.getByLabelText('Main Street')).toHaveValue(10), { timeout: 10_000 });
+
+      expect(await submittedReorderLevels()).toEqual([
+        { locationId: 'loc-closed', level: 5 },
+        { locationId: mainStreet.id, level: 10 },
+      ]);
+    });
+
+    it('removes only the level of the clinic whose field was cleared', async () => {
+      vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery('success', [mainStreet]));
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+      await waitFor(() => expect(screen.getByLabelText('Main Street')).toHaveValue(10), { timeout: 10_000 });
+      await userEvent.clear(screen.getByLabelText('Main Street'));
+
+      expect(await submittedReorderLevels()).toEqual([{ locationId: 'loc-closed', level: 5 }]);
+    });
   });
 });

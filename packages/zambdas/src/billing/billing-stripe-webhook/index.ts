@@ -12,7 +12,13 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
-import { STRIPE_INVOICE_ID_SYSTEM, withHostedInvoiceUrl } from 'utils/lib/fhir/billing-invoice';
+import {
+  invoiceStatusFromStripe,
+  isInvoiceUncollectible,
+  STRIPE_INVOICE_ID_SYSTEM,
+  withHostedInvoiceUrl,
+  withInvoiceUncollectible,
+} from 'utils/lib/fhir/billing-invoice';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
@@ -34,6 +40,7 @@ import {
 } from '../../shared/stripeIntegration';
 import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
+import { cancelPendingInvoiceOutreach } from '../invoice-outreach';
 import { unionIdentifiers } from '../patient-payments';
 import {
   billingProviderRefForStripeAccount,
@@ -111,7 +118,7 @@ export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParam
     case 'invoice.paid': {
       const invoice = event.data.object as Stripe.Invoice;
       console.log(`Invoice paid event for ${invoice.id}, charge: ${invoice.charge ?? 'none'}`);
-      await updateBillingInvoiceStatus(oystehr, invoice, 'balanced');
+      await updateBillingInvoiceStatus(oystehr, invoice, 'paid');
       if (!recordsAr) {
         console.log(`BILLING_INTEGRATION does not include ottehr; not recording invoice ${invoice.id}`);
         break;
@@ -122,7 +129,13 @@ export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParam
     case 'invoice.voided': {
       const invoice = event.data.object as Stripe.Invoice;
       console.log(`Invoice voided event for ${invoice.id}`);
-      await updateBillingInvoiceStatus(oystehr, invoice, 'cancelled');
+      await updateBillingInvoiceStatus(oystehr, invoice, 'void');
+      break;
+    }
+    case 'invoice.marked_uncollectible': {
+      const invoice = event.data.object as Stripe.Invoice;
+      console.log(`Invoice marked uncollectible event for ${invoice.id}`);
+      await updateBillingInvoiceStatus(oystehr, invoice, 'uncollectible');
       break;
     }
     default:
@@ -666,11 +679,17 @@ const upsertPaymentNoticeForChargelessInvoice = async (
   await persistPaymentNoticeUpsert(oystehr, desiredNotice, invoice.id, claim, encounterId, true);
 };
 
+const OUTREACH_CANCEL_REASON_BY_STRIPE_STATUS = {
+  paid: 'Invoice was paid',
+  void: 'Invoice was voided',
+  uncollectible: 'Invoice was marked uncollectible',
+};
+
 // EHR invoices have no matching billing Invoice and are skipped.
 const updateBillingInvoiceStatus = async (
   oystehr: Oystehr,
   stripeInvoice: Stripe.Invoice,
-  status: 'balanced' | 'cancelled'
+  stripeStatus: keyof typeof OUTREACH_CANCEL_REASON_BY_STRIPE_STATUS
 ): Promise<void> => {
   const [invoice] = (
     await oystehr.fhir.search<Invoice>({
@@ -678,14 +697,24 @@ const updateBillingInvoiceStatus = async (
       params: [{ name: 'identifier', value: `${STRIPE_INVOICE_ID_SYSTEM}|${stripeInvoice.id}` }],
     })
   ).unbundle();
-  // Ignore duplicate events and preserve paid or cancelled status.
-  if (!invoice || (invoice.status !== 'draft' && invoice.status !== 'issued')) return;
+  if (!invoice) return;
 
-  // Fills in the link when the send request stopped before saving it.
-  const hostedUrl = stripeInvoice.hosted_invoice_url;
-  await oystehr.fhir.update<Invoice>(
-    { ...(hostedUrl ? withHostedInvoiceUrl(invoice, hostedUrl) : invoice), status },
-    { optimisticLockingVersionId: invoice.meta?.versionId }
-  );
-  console.log(`Invoice/${invoice.id} is now ${status}`);
+  const status = invoiceStatusFromStripe(stripeStatus);
+  const marksUncollectible = stripeStatus === 'uncollectible';
+  // Ignore duplicate events and preserve paid or cancelled status. An uncollectible invoice stays
+  // issued, so a repeat of that event is recognised by the marker.
+  const isOpen = invoice.status === 'draft' || invoice.status === 'issued';
+  if (isOpen && !(marksUncollectible && isInvoiceUncollectible(invoice))) {
+    // Fills in the link when the send request stopped before saving it.
+    const hostedUrl = stripeInvoice.hosted_invoice_url;
+    const linked = hostedUrl ? withHostedInvoiceUrl(invoice, hostedUrl) : invoice;
+    await oystehr.fhir.update<Invoice>(
+      { ...(marksUncollectible ? withInvoiceUncollectible(linked) : linked), status },
+      { optimisticLockingVersionId: invoice.meta?.versionId }
+    );
+    console.log(`Invoice/${invoice.id} is now ${status}${marksUncollectible ? ' and uncollectible' : ''}`);
+  }
+
+  // Not limited to the first event, so a redelivery finishes a cancellation that failed part way.
+  await cancelPendingInvoiceOutreach(oystehr, invoice.id!, OUTREACH_CANCEL_REASON_BY_STRIPE_STATUS[stripeStatus]);
 };

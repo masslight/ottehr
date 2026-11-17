@@ -88,6 +88,7 @@ export interface MedicationData {
 
   // scanning part
   lotNumber?: string;
+  inventoryLotId?: string;
   ndc?: string;
   expDate?: string;
 
@@ -109,6 +110,7 @@ export interface ExtendedMedicationDataForResponse extends MedicationData {
   id: string;
   status: MedicationOrderStatusesType;
   medicationName: string;
+  catalogMedicationId?: string;
   providerCreatedTheOrder: string;
   providerCreatedTheOrderId: string;
   dateTimeCreated: string;

@@ -13,6 +13,9 @@ export const BILLING_CLAIM_TASK_CODING = {
   code: 'billing-claim',
 };
 
+// Separate from the EHR outreach system, so the EHR executor Subscriptions do not match billing Tasks.
+export const BILLING_OUTREACH_TASK_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/outreach-action-type';
+
 export const BILLING_TASK_STATUSES = [
   'draft',
   'requested',
@@ -246,4 +249,5 @@ export const BILLING_INVOICE_PAYMENT_METHODS = ['check', 'ach', 'wire', 'cash', 
 export const BILLING_INVOICE_LIMITS = {
   voidReasonLength: 300,
   paymentReferenceLength: 300,
+  nioInvoiceClaimCount: 100,
 } as const;

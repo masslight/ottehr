@@ -4,6 +4,7 @@ import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { PatientPaymentDTO } from '../../api/patient-payment-types';
 import type { PatientPaymentVisit } from '../../api/patient-payment-visits.types';
+import type { ListOutreachTasksResponse, OutreachTaskSummary } from '../../api/scheduled-outreach.types';
 import type {
   BillingInvoiceListStatus,
   EraClaimStatusCode,
@@ -1227,6 +1228,29 @@ export interface CreateBillingInvoiceResponse {
   smsSent?: boolean;
 }
 
+export type CheckBillingNioInvoiceResponse =
+  | {
+      invoiceable: true;
+    }
+  | {
+      invoiceable: false;
+      reason: string;
+    };
+
+export interface PreviewBillingNioInvoiceResponse {
+  pdfBase64: string;
+  recipient: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface CreateBillingNioInvoiceResponse {
+  invoiceId: string;
+  invoiceNumber: string;
+  pdfUrl: string;
+}
+
 export interface BillingInvoiceSummary {
   id: string;
   status: BillingInvoiceListStatus;
@@ -1254,6 +1278,14 @@ export interface BillingInvoiceListItem extends BillingInvoiceSummary {
 
 export interface SearchBillingInvoicesResponse extends Paginated {
   invoices: BillingInvoiceListItem[];
+}
+
+export interface BillingOutreachTask extends OutreachTaskSummary {
+  invoice?: BillingInvoiceSummary & { claimId?: string };
+}
+
+export interface ListBillingOutreachTasksResponse extends Omit<ListOutreachTasksResponse, 'tasks'> {
+  tasks: BillingOutreachTask[];
 }
 
 export interface GetBillingInvoiceStatementResponse {

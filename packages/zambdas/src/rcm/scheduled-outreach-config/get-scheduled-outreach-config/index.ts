@@ -4,7 +4,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { getOrCreateOutreachConfig, parseNotificationsTimeRestriction, parsePlanDefinitionToActions } from '../helpers';
+import { getOutreachConfigResponse } from '../helpers';
 
 let m2mToken: string;
 export const index = wrapHandler(
@@ -15,13 +15,7 @@ export const index = wrapHandler(
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, input.secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, input.secrets);
 
-    const planDefinition = await getOrCreateOutreachConfig(oystehr);
-    const actions = parsePlanDefinitionToActions(planDefinition);
-    const notificationsTimeRestriction = parseNotificationsTimeRestriction(planDefinition);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ planDefinition, actions, notificationsTimeRestriction }),
-    };
+    const response = await getOutreachConfigResponse(oystehr);
+    return { statusCode: 200, body: JSON.stringify(response) };
   }
 );

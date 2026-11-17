@@ -22,7 +22,7 @@ export interface DocumentLinkEmailInput {
   oystehr: Oystehr;
   secrets: Secrets | null;
   patientId: string;
-  /** Absent when the packet does not belong to a single visit (a medical record, or one document). */
+  /** Absent when the packet does not belong to a single visit (a medical record, or a document on no visit). */
   appointmentId?: string;
   email: string;
   recipientName?: string;

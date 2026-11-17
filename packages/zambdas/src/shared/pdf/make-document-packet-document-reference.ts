@@ -8,7 +8,7 @@ import { PdfInfo } from './pdf-utils';
 
 /**
  * Persists a sent document packet as a DocumentReference: on the visit when the packet is about one visit,
- * otherwise on the patient alone (a whole medical record, several visits, or a single document). The
+ * otherwise on the patient alone (a whole medical record, several visits, or a document on no visit). The
  * uniqueness search is scoped to match, so a patient-level packet is only ever compared with the
  * patient's other packets rather than with one visit's.
  *

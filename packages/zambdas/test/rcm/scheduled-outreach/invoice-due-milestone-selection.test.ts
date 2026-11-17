@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
+import type { ActionType, OutreachAction } from 'utils/lib/types/api/scheduled-outreach.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { selectApplicableInvoiceDueActionIds } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-invoice-due-outreach';
-import type { ActionType, OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
 
 function makeAction(id: string, daysAfter: number, actionType: ActionType = 'send-notification'): OutreachAction {
   return {
