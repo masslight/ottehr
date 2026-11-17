@@ -145,7 +145,12 @@ export default function InvoiceDetail(): ReactElement {
     setDownloading(true);
     setDownloadError(null);
     try {
-      await downloadUrl(`${invoice.data.number ?? invoice.data.id}.pdf`, invoice.data.pdfUrl);
+      // The PDF link is presigned and expires, so get a fresh one just in case.
+      const { data } = await invoice.refetch({
+        throwOnError: true,
+      });
+      if (!data?.pdfUrl) throw new Error('This invoice has no PDF');
+      await downloadUrl(`${data.number ?? data.id}.pdf`, data.pdfUrl);
     } catch (error) {
       setDownloadError(
         getApiError({

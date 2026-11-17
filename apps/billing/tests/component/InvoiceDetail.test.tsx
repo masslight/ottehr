@@ -165,15 +165,43 @@ describe('InvoiceDetail', () => {
     expect(collectCardPayment).toBeDisabled();
   });
 
-  it('downloads the invoice PDF', async () => {
+  it('downloads the invoice PDF from a freshly presigned link', async () => {
     const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    mocks.getInvoice.mockResolvedValue({
+      ...invoice,
+      pdfUrl: 'https://z3.example/INV-00042.pdf?fresh',
+    });
+
+    const download = screen.getByRole('button', { name: 'Download invoice' });
+    await user.click(download);
+
+    expect(mocks.downloadUrl).toHaveBeenCalledWith('INV-00042.pdf', 'https://z3.example/INV-00042.pdf?fresh');
+  });
+
+  it('shows an error when the PDF fails to download', async () => {
+    const user = userEvent.setup();
+    mocks.downloadUrl.mockRejectedValue(new Error('Failed to download INV-00042.pdf: 403'));
     renderPage();
     await screen.findByRole('heading', { name: 'INV-00042' });
 
     const download = screen.getByRole('button', { name: 'Download invoice' });
     await user.click(download);
 
-    expect(mocks.downloadUrl).toHaveBeenCalledWith('INV-00042.pdf', 'https://z3.example/INV-00042.pdf');
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Failed to download INV-00042.pdf: 403');
+  });
+
+  it('shows a dash for Billed to when the invoice has no payer', async () => {
+    mocks.getInvoice.mockResolvedValue({
+      ...invoice,
+      recipient: undefined,
+    });
+    renderPage();
+
+    const billedToLabel = await screen.findByText('Billed to');
+    expect(billedToLabel.parentElement).toHaveTextContent('Billed to-');
   });
 
   it('shows the error when the invoice fails to load', async () => {
