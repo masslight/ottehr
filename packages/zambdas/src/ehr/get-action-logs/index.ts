@@ -7,6 +7,7 @@ import { getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
 import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
+  getOutboundDeliveryLinkOpens,
   getOutboundDeliveryPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
   getOutboundDeliverySenderOrganizationId,
@@ -250,6 +251,7 @@ function composeEntry(
       // A failed link email is usually a bad address; it is sent again from the Send dialog, not retried.
       !isDocumentLinkAttempt(task),
     canRevoke: isDocumentLinkAttempt(task) && status === 'sent',
+    opens: isDocumentLinkAttempt(task) ? getOutboundDeliveryLinkOpens(task) : undefined,
   };
 }
 
