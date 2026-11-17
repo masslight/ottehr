@@ -48,6 +48,7 @@ const columns: GridColDef[] = [
     headerName: 'User',
     flex: 1,
     minWidth: 200,
+    display: 'flex',
     renderCell: (params) => {
       const row = params.row as ProductivityReportRow;
       return (
@@ -68,7 +69,8 @@ const columns: GridColDef[] = [
       align: 'right',
       headerAlign: 'right',
       sortable: true,
-      valueGetter: (params) => (params.row as ProductivityReportRow).actionsByActivity[activity.code] ?? 0,
+      valueGetter: (_value, row: ProductivityReportRow) => row.actionsByActivity[activity.code] ?? 0,
+      display: 'flex',
       renderCell: (params) => {
         const count = (params.row as ProductivityReportRow).actionsByActivity[activity.code] ?? 0;
         return count > 0 ? count.toLocaleString('en-US') : '—';
@@ -81,6 +83,7 @@ const columns: GridColDef[] = [
     width: 130,
     align: 'right',
     headerAlign: 'right',
+    display: 'flex',
     renderCell: (params) => (
       <Typography variant="body2" fontWeight={600}>
         {(params.row as ProductivityReportRow).totalActions.toLocaleString('en-US')}
@@ -93,13 +96,14 @@ const columns: GridColDef[] = [
     width: 140,
     align: 'right',
     headerAlign: 'right',
-    valueGetter: (params) => (params.row as ProductivityReportRow).claimsTouched,
+    valueGetter: (_value, row: ProductivityReportRow) => row.claimsTouched,
   },
   {
     field: 'lastActionAt',
     headerName: 'Last Action',
     width: 170,
-    valueGetter: (params) => (params.row as ProductivityReportRow).lastActionAt,
+    valueGetter: (_value, row: ProductivityReportRow) => row.lastActionAt,
+    display: 'flex',
     renderCell: (params) => {
       const value = (params.row as ProductivityReportRow).lastActionAt;
       return value ? DateTime.fromISO(value).toLocaleString(DateTime.DATETIME_MED) : '—';

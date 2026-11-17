@@ -96,6 +96,7 @@ const getColumns = (onRetried: () => void, onCanceled: () => void): GridColDef<B
         field: 'status',
         headerName: 'Status',
         width: 150,
+        display: 'flex',
         renderCell: ({ row }) => (
           <Chip
             size="small"
@@ -108,6 +109,7 @@ const getColumns = (onRetried: () => void, onCanceled: () => void): GridColDef<B
         field: 'encounterDate',
         headerName: 'Encounter',
         width: 220,
+        display: 'flex',
         renderCell: ({ row }) => (
           <Tooltip title={row.encounterId ? `Encounter ID: ${row.encounterId}` : ''}>
             <Stack direction="row" spacing={1} alignItems="center">
@@ -128,6 +130,7 @@ const getColumns = (onRetried: () => void, onCanceled: () => void): GridColDef<B
         headerName: 'Patient',
         minWidth: 180,
         flex: 1,
+        display: 'flex',
         renderCell: ({ row }) =>
           EHR_URL && row.patientId ? (
             <Link href={`${EHR_URL}/patient/${row.patientId}`} target="_blank" rel="noopener noreferrer">
@@ -142,15 +145,16 @@ const getColumns = (onRetried: () => void, onCanceled: () => void): GridColDef<B
         headerName: 'Payers',
         minWidth: 180,
         flex: 1,
-        valueGetter: ({ row }) => row.payerNames.join(', ') || '—',
+        valueGetter: (_value, row) => row.payerNames.join(', ') || '—',
       },
-      { field: 'createdAt', headerName: 'Created', width: 170, valueFormatter: ({ value }) => formatDate(value) },
-      { field: 'updatedAt', headerName: 'Updated', width: 170, valueFormatter: ({ value }) => formatDate(value) },
+      { field: 'createdAt', headerName: 'Created', width: 170, valueFormatter: (value) => formatDate(value) },
+      { field: 'updatedAt', headerName: 'Updated', width: 170, valueFormatter: (value) => formatDate(value) },
       {
         field: 'error',
         headerName: 'Error',
         minWidth: 260,
         flex: 1,
+        display: 'flex',
         renderCell: ({ row }) => (
           <Typography variant="body2" sx={{ whiteSpace: 'normal', py: 1 }}>
             {row.error || '—'}
@@ -161,6 +165,7 @@ const getColumns = (onRetried: () => void, onCanceled: () => void): GridColDef<B
         field: 'actions',
         headerName: '',
         width: 95,
+        display: 'flex',
         renderCell: ({ row }) =>
           row.status === 'failed' ? (
             <Stack spacing={1} alignItems="center" useFlexGap>
@@ -187,7 +192,13 @@ export default function ClaimCreationQueue(): ReactElement {
   const [refreshCount, setRefreshCount] = useState(0);
   const generation = useRef(0);
   const refresh = useCallback(() => setRefreshCount((count) => count + 1), []);
-  const columns = useMemo(() => getColumns(refresh, refresh), [refresh]);
+  // Rows size to their content (`getRowHeight` below), and the grid only centres cells of such
+  // rows vertically when the column is flex.
+  const columns = useMemo(
+    () =>
+      getColumns(refresh, refresh).map((column): GridColDef<BillingClaimTaskItem> => ({ display: 'flex', ...column })),
+    [refresh]
+  );
 
   const fetchTasks = useCallback(async (): Promise<void> => {
     if (!oystehrZambda) return;

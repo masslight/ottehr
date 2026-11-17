@@ -58,6 +58,7 @@ const claimColumns: GridColDef[] = [
     field: 'status',
     headerName: 'Status',
     width: 130,
+    display: 'flex',
     renderCell: ({ value }) => {
       const color = CLAIM_STATUS_COLORS[value as string] ?? 'default';
       return (
@@ -78,7 +79,7 @@ const claimColumns: GridColDef[] = [
     width: 110,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+    valueFormatter: (value: number) => formatCurrency(value),
   },
   {
     field: 'insurancePaid',
@@ -86,7 +87,7 @@ const claimColumns: GridColDef[] = [
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+    valueFormatter: (value: number) => formatCurrency(value),
   },
   {
     field: 'patientResp',
@@ -94,7 +95,7 @@ const claimColumns: GridColDef[] = [
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+    valueFormatter: (value: number) => formatCurrency(value),
   },
   {
     field: 'patientPaid',
@@ -102,7 +103,7 @@ const claimColumns: GridColDef[] = [
     width: 110,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+    valueFormatter: (value: number) => formatCurrency(value),
   },
   {
     field: 'writeOffsTotal',
@@ -110,7 +111,7 @@ const claimColumns: GridColDef[] = [
     width: 110,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+    valueFormatter: (value: number) => formatCurrency(value),
   },
   {
     field: 'claimBalance',
@@ -118,7 +119,7 @@ const claimColumns: GridColDef[] = [
     width: 110,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+    valueFormatter: (value: number) => formatCurrency(value),
   },
 ];
 

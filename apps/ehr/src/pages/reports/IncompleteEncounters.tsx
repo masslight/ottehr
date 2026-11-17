@@ -313,6 +313,7 @@ export default function IncompleteEncounters(): React.ReactElement {
         headerName: 'Appointment ID',
         width: 320,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const appointmentId = params.value;
 
@@ -339,6 +340,7 @@ export default function IncompleteEncounters(): React.ReactElement {
         headerName: 'Status',
         width: 160,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => (
           <Chip
             label={params.value}
@@ -353,6 +355,7 @@ export default function IncompleteEncounters(): React.ReactElement {
         headerName: 'Appointment Time',
         width: 180,
         sortable: true,
+        display: 'flex',
         renderCell: (params: GridRenderCellParams) => {
           const visitType = params.row.visitType;
           const locationId = params.row.locationId;
