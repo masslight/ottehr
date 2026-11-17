@@ -11,6 +11,7 @@ import {
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
 import {
+  AdjustMedicationInventoryInputSchema,
   InHouseMedicationInventory,
   InventoryLot,
   InventoryStockEntry,
@@ -469,6 +470,15 @@ describe('adjust-medication-inventory - stockEntryForAction', () => {
     expect(
       stockEntryForAction({ action: 'count', lotId: 'lot-1', counted: 0 }, { ...parsedLot, onHand: -2 }, 'P/me', when)
     ).toMatchObject({ quantity: 2, reason: 'count-adjustment' });
+  });
+});
+
+describe('adjust-medication-inventory - input', () => {
+  it('requires a reason to remove stock but not to add it', () => {
+    expect(AdjustMedicationInventoryInputSchema.safeParse({ ...adjustBody, reason: undefined }).success).toBe(false);
+    expect(
+      AdjustMedicationInventoryInputSchema.safeParse({ ...adjustBody, direction: 'add', reason: undefined }).success
+    ).toBe(true);
   });
 });
 
