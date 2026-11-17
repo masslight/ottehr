@@ -44,6 +44,7 @@ import { useLastReceivedLot } from './inventory.queries';
 interface ReceiveShipmentDialogProps {
   open: boolean;
   onClose: () => void;
+  onReceived?: () => void;
   medication: Medication & { id: string };
   inventory: InHouseMedicationInventory;
   locations: { id: string; name: string }[];
@@ -72,6 +73,7 @@ const LOOKUP_MESSAGES: Partial<Record<LookupState['status'], (ndc: string) => st
 export default function ReceiveShipmentDialog({
   open,
   onClose,
+  onReceived,
   medication,
   inventory,
   locations,
@@ -159,6 +161,7 @@ export default function ReceiveShipmentDialog({
         return;
       }
       setConflict(undefined);
+      onReceived?.();
       enqueueSnackbar(`Received ${quantity} ${units.plural} of ${name} at ${locationName}`, { variant: 'success' });
       onClose();
     } catch (error) {
