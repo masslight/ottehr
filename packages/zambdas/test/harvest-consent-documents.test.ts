@@ -52,6 +52,48 @@ vi.mock('../src/shared/pdf', async (importOriginal) => {
   return { ...original, createPdfBytes: vi.fn() };
 });
 
+// Stable 2-form fixture so tests are independent of per-instance consent-form overlay.
+// HIPAA: single loinc code (groups separately), createsConsentResource=false.
+// CTT: loinc + PAPERWORK_CONSENT_CODE_UNIQUE coding (groups by patient-registration code),
+//      createsConsentResource=true, with a different IL-specific assetPath.
+vi.mock('utils/lib/ottehr-config/consent-forms', () => {
+  const hipaa = {
+    id: 'hipaa-privacy-notice',
+    formTitle: 'HIPAA Privacy Notice',
+    resourceTitle: 'HIPAA Privacy Notice',
+    assetPath: './assets/HIPAA_Privacy_Notice.pdf',
+    publicUrl: '/HIPAA_Privacy_Notice.pdf',
+    type: {
+      coding: [{ system: 'http://loinc.org', code: '64292-6', display: 'Privacy Notice' }],
+      text: 'HIPAA Notice',
+    },
+    createsConsentResource: false,
+  };
+  const ctt = {
+    id: 'consent-to-treat',
+    formTitle: 'Consent for Treatment',
+    resourceTitle: 'Consent forms',
+    assetPath: './assets/CTT_Default.pdf',
+    publicUrl: '/CTT_Default.pdf',
+    type: {
+      coding: [
+        { system: 'http://loinc.org', code: '59284-0', display: 'Consent Documents' },
+        {
+          system: 'https://fhir.ottehr.com/CodeSystem/consent-source',
+          code: 'patient-registration',
+          display: 'Patient Registration Consent',
+        },
+      ],
+      text: 'Consent forms',
+    },
+    createsConsentResource: true,
+  };
+  const ilCtt = { ...ctt, assetPath: './assets/CTT_Illinois.pdf' };
+  return {
+    getConsentFormsForLocation: (locationState?: string) => (locationState === 'IL' ? [hipaa, ilCtt] : [hipaa, ctt]),
+  };
+});
+
 const mockCreateFilesDocumentReferences = vi.mocked(createFilesDocumentReferences);
 const mockCreateConsentResource = vi.mocked(createConsentResource);
 const mockGetConsentAndDocRefs = vi.mocked(getConsentAndRelatedDocRefsForAppointment);
