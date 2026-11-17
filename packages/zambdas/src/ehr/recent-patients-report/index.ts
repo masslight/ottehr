@@ -1,11 +1,15 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Bundle, Encounter, FhirResource, Location, Patient, Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getEmailForIndividual, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { SEEN_VISIT_APPOINTMENT_STATUS } from 'utils/lib/helpers/screening-questions/new-patient.helper';
+import {
+  newPatientLookbackStart,
+  SEEN_VISIT_APPOINTMENT_STATUS,
+} from 'utils/lib/helpers/screening-questions/new-patient.helper';
 import {
   RecentPatientRecord,
   RecentPatientsReportZambdaOutputSchema,
@@ -220,15 +224,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Checking patient history to determine new vs existing status...');
 
-  const allBatchRequests: BatchInputGetRequest[] = Array.from(patientAppointmentsMap.keys()).map((patientId) => {
-    // Don't use URLSearchParams for FHIR date prefixes - it encodes the colons which breaks the search
-    const url = `/Appointment?patient=Patient/${patientId}&date=lt${dateRange.start}&status=${SEEN_VISIT_APPOINTMENT_STATUS}&_count=1`;
+  const allBatchRequests: BatchInputGetRequest[] = Array.from(patientAppointmentsMap.entries()).map(
+    ([patientId, patientAppointments]) => {
+      const firstVisitInRange = patientAppointments
+        .map((appointment) => appointment.start)
+        .filter((start): start is string => Boolean(start))
+        .sort((a, b) => DateTime.fromISO(a).toMillis() - DateTime.fromISO(b).toMillis())[0];
 
-    return {
-      method: 'GET',
-      url,
-    };
-  });
+      // Don't use URLSearchParams for FHIR date prefixes - it encodes the colons which breaks the search
+      const url =
+        `/Appointment?patient=Patient/${patientId}&date=ge${newPatientLookbackStart(
+          firstVisitInRange ?? dateRange.start
+        )}` + `&date=lt${dateRange.start}&status=${SEEN_VISIT_APPOINTMENT_STATUS}&_count=1`;
+
+      return {
+        method: 'GET',
+        url,
+      };
+    }
+  );
 
   if (allBatchRequests.length > 0) {
     console.log(`Sample history check URL: ${allBatchRequests[0].url}`);

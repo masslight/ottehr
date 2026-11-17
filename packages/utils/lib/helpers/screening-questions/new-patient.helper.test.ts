@@ -6,7 +6,7 @@ import {
   RecentVisitKeys,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from '../../types/data/screening-questions/constants';
-import { isNewPatient } from './new-patient.helper';
+import { isNewPatient, isWithinNewPatientLookback, newPatientLookbackStart } from './new-patient.helper';
 
 const staffSaid = (value: string): { field: string; value: string } => ({
   field: SEEN_IN_LAST_THREE_YEARS_FIELD,
@@ -64,5 +64,30 @@ describe('isNewPatient', () => {
   it('no evidence at all means new', () => {
     expect(isNewPatient(false, [])).toBe(true);
     expect(isNewPatient(false, [{}])).toBe(true);
+  });
+});
+
+describe('newPatientLookbackStart', () => {
+  it('is 3 years before the visit, in UTC', () => {
+    expect(newPatientLookbackStart('2026-07-01T00:00:00.000Z')).toBe('2023-07-01T00:00:00.000Z');
+    expect(newPatientLookbackStart('2026-07-01T09:00:00.000-04:00')).toBe('2023-07-01T13:00:00.000Z');
+  });
+});
+
+describe('isWithinNewPatientLookback', () => {
+  const visitAt = '2026-07-01T09:00:00.000-04:00';
+
+  it('counts a visit up to exactly 3 years before, compared as instants', () => {
+    expect(isWithinNewPatientLookback('2023-07-01T13:00:00.000Z', visitAt)).toBe(true);
+    expect(isWithinNewPatientLookback('2023-07-01T12:59:59.000Z', visitAt)).toBe(false);
+    expect(isWithinNewPatientLookback('2026-06-30T10:00:00.000Z', visitAt)).toBe(true);
+  });
+
+  it('does not count the visit itself, a later visit, or a missing or invalid date', () => {
+    expect(isWithinNewPatientLookback(visitAt, visitAt)).toBe(false);
+    expect(isWithinNewPatientLookback('2026-07-02T10:00:00.000Z', visitAt)).toBe(false);
+    expect(isWithinNewPatientLookback(undefined, visitAt)).toBe(false);
+    expect(isWithinNewPatientLookback('2025-01-01T10:00:00.000Z', undefined)).toBe(false);
+    expect(isWithinNewPatientLookback('not-a-date', visitAt)).toBe(false);
   });
 });
