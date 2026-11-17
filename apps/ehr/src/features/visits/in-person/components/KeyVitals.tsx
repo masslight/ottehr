@@ -40,6 +40,8 @@ const KEY_VITAL_FIELDS: KeyVitalField[] = [
 
 const NO_WRAP_SX = { whiteSpace: 'nowrap' };
 
+const TOOLTIP_POPPER_PROPS = { modifiers: [{ name: 'offset', options: { offset: [-56, -4] } }] };
+
 const ALERT_TEXT_COLOR: Record<VitalAlertCriticality, string> = {
   [VitalAlertCriticality.Critical]: 'error.main',
   [VitalAlertCriticality.Abnormal]: 'warning.main',
@@ -134,7 +136,12 @@ export const KeyVitals: FC<KeyVitalsProps> = ({ vitals, unitSystem }) => {
   const alertedVitals = keyVitals.filter((vital) => vital.alertCriticality);
 
   return (
-    <GenericToolTip title={<KeyVitalsTooltip keyVitals={keyVitals} />} placement="bottom-start" customWidth={600}>
+    <GenericToolTip
+      title={<KeyVitalsTooltip keyVitals={keyVitals} />}
+      placement="bottom-start"
+      customWidth={600}
+      PopperProps={TOOLTIP_POPPER_PROPS}
+    >
       <Typography
         variant="body2"
         color="text.secondary"

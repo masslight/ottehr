@@ -40,7 +40,11 @@ export class VitalsPage {
       .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
       .getByTestId(dataTestIds.dialog.proceedButton);
     await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
-    await expect(this.#page.getByText(new RegExp(`${temperature}.*C`))).not.toBeVisible();
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.vitalsPage.temperatureItem)
+        .filter({ hasText: new RegExp(`${temperature}.*C`) })
+    ).toHaveCount(0);
   }
 
   async addHeartbeatObservation(heartbeat: string): Promise<void> {
@@ -165,7 +169,11 @@ export class VitalsPage {
       .getByTestId(dataTestIds.vitalsPage.deleteVitalModal)
       .getByTestId(dataTestIds.dialog.proceedButton);
     await clickAndWaitForChartDataDeletion(this.#page, proceedButton);
-    await expect(this.#page.getByText(new RegExp(`${oxygenSaturation}.*%`))).not.toBeVisible();
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.vitalsPage.oxygenSaturationItem)
+        .filter({ hasText: new RegExp(`${oxygenSaturation}.*%`) })
+    ).toHaveCount(0);
   }
 
   async addWeightObservation(weight: string): Promise<void> {
