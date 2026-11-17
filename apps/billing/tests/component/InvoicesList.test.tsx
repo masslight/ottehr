@@ -176,6 +176,23 @@ describe('InvoicesList', () => {
     expect(screen.queryByText('claim page')).not.toBeInTheDocument();
   });
 
+  it('exports a past-due NIO invoice as past due, under its payer', async () => {
+    renderList();
+    await screen.findByTestId('row-inv-1');
+    searchBillingInvoicesMock.mockReset().mockResolvedValueOnce({
+      invoices: [nioInvoice],
+      total: 1,
+    });
+
+    const exportButton = screen.getByRole('button', { name: 'Export' });
+    fireEvent.click(exportButton);
+
+    await waitFor(() => expect(downloadTextFileMock).toHaveBeenCalledOnce());
+    const [, csv] = downloadTextFileMock.mock.calls[0];
+    expect(csv).toContain('Acme Health Services,,');
+    expect(csv).toContain(',Past due,');
+  });
+
   it('asks for the first page of the chosen status', async () => {
     renderList();
     await screen.findByTestId('row-inv-1');

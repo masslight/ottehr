@@ -22,6 +22,11 @@ const PAST_DUE_CHIP = {
   color: 'error',
 } as const;
 
+export const getInvoiceStatusChip = (
+  status: BillingInvoiceListStatus,
+  pastDue?: boolean
+): { label: string; color: ChipProps['color'] } => (pastDue ? PAST_DUE_CHIP : INVOICE_STATUS_CHIPS[status]);
+
 export function InvoiceStatusChip({
   status,
   pastDue,
@@ -29,7 +34,7 @@ export function InvoiceStatusChip({
   status: BillingInvoiceListStatus;
   pastDue?: boolean;
 }): ReactElement {
-  const chip = pastDue ? PAST_DUE_CHIP : INVOICE_STATUS_CHIPS[status];
+  const chip = getInvoiceStatusChip(status, pastDue);
   return (
     <Chip
       label={chip.label}

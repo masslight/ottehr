@@ -30,7 +30,7 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DateRangeInput } from '../components/DateInput';
 import { FacilitySelect } from '../components/FacilitySelect';
 import { InvoiceStatementDialog } from '../components/InvoiceStatementDialog';
-import { INVOICE_STATUS_CHIPS, InvoiceStatusChip } from '../components/InvoiceStatusChip';
+import { getInvoiceStatusChip, INVOICE_STATUS_CHIPS, InvoiceStatusChip } from '../components/InvoiceStatusChip';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 import { downloadTextFile } from '../utils/downloadFile';
@@ -267,7 +267,7 @@ export default function InvoicesList(): ReactElement {
             row.amount.toFixed(2),
             formatDate(row.issueDate),
             formatDate(row.dueDate),
-            INVOICE_STATUS_CHIPS[row.status].label,
+            getInvoiceStatusChip(row.status, row.pastDue).label,
             row.hostedInvoiceUrl ?? '',
             row.claimId ?? '',
           ])
