@@ -1,11 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Invoice, Patient } from 'fhir/r4b';
+import { Claim, Invoice, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   getBillingInvoiceClaims,
+  getBillingInvoiceKind,
   INVOICE_CLAIM_TAG_SYSTEM,
   INVOICE_FACILITY_TAG_SYSTEM,
+  isInvoicePastDue,
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_INVOICE_LIST_STATUSES } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInvoiceListItem, SearchBillingInvoicesResponse } from 'utils/lib/types/data/billing/billing.types';
@@ -41,12 +43,8 @@ export async function performEffect(
   const offset = params.offset ?? 0;
   const searchParams = [
     { name: 'status', value: params.status ?? BILLING_INVOICE_LIST_STATUSES.join(',') },
-    // TODO patient invoices only for now
-    {
-      name: 'subject:missing',
-      value: 'false',
-    },
     { name: '_include', value: 'Invoice:patient' },
+    { name: '_include', value: 'Invoice:recipient' },
     { name: '_sort', value: '-date' },
     { name: '_total', value: 'accurate' },
     { name: '_count', value: String(pageSize) },
@@ -70,8 +68,24 @@ export async function performEffect(
   }
   if (params.issuedFrom) searchParams.push({ name: 'date', value: `ge${params.issuedFrom}` });
   if (params.issuedTo) searchParams.push({ name: 'date', value: `le${params.issuedTo}` });
+  // NIO invoices bill an Organization and have no patient subject.
+  if (params.kind) {
+    searchParams.push({
+      name: 'subject:missing',
+      value: String(params.kind === 'nio'),
+    });
+  }
+  if (params.recipientId) {
+    searchParams.push({
+      name: 'recipient',
+      value: `${params.kind === 'patient' ? 'Patient' : 'Organization'}/${params.recipientId}`,
+    });
+  }
 
-  const bundle = await oystehr.fhir.search<Invoice | Patient>({ resourceType: 'Invoice', params: searchParams });
+  const bundle = await oystehr.fhir.search<Invoice | Patient | Organization>({
+    resourceType: 'Invoice',
+    params: searchParams,
+  });
   const resources = bundle.unbundle();
   const invoices = resources.filter((resource): resource is Invoice => resource.resourceType === 'Invoice');
   const patientsByRef = new Map(
@@ -79,10 +93,25 @@ export async function performEffect(
       .filter((resource): resource is Patient => resource.resourceType === 'Patient')
       .map((patient) => [`Patient/${patient.id}`, patient])
   );
-  const claimsById = await fetchClaims(oystehr, invoices);
+  const organizationsByRef = new Map(
+    resources
+      .filter((resource): resource is Organization => resource.resourceType === 'Organization')
+      .map((organization) => [`Organization/${organization.id}`, organization])
+  );
+  const patientInvoices = invoices.filter((invoice) => getBillingInvoiceKind(invoice) === 'patient');
+  const claimsById = await fetchClaims(oystehr, patientInvoices);
+  const today = DateTime.now().toISODate()!;
 
   return {
-    invoices: invoices.map((invoice) => buildInvoiceListRow(invoice, patientsByRef, claimsById)),
+    invoices: invoices.map((invoice) =>
+      buildInvoiceListRow({
+        invoice,
+        patientsByRef,
+        organizationsByRef,
+        claimsById,
+        today,
+      })
+    ),
     total: bundle.total ?? 0,
     offset,
     pageSize,
@@ -108,12 +137,34 @@ async function fetchClaims(oystehr: Oystehr, invoices: Invoice[]): Promise<Map<s
   return new Map(claims.map((claim) => [claim.id!, claim]));
 }
 
-function buildInvoiceListRow(
+function findNioRecipient(
   invoice: Invoice,
-  patientsByRef: Map<string, Patient>,
-  claimsById: Map<string, Claim>
-): BillingInvoiceListItem {
-  const [line] = getBillingInvoiceClaims(invoice);
+  organizationsByRef: Map<string, Organization>
+): BillingInvoiceListItem['recipient'] {
+  const organization = organizationsByRef.get(invoice.recipient?.reference ?? '');
+  if (!organization) return undefined;
+  return {
+    id: organization.id!,
+    name: organization.name ?? invoice.recipient?.display ?? '',
+  };
+}
+
+function buildInvoiceListRow({
+  invoice,
+  patientsByRef,
+  organizationsByRef,
+  claimsById,
+  today,
+}: {
+  invoice: Invoice;
+  patientsByRef: Map<string, Patient>;
+  organizationsByRef: Map<string, Organization>;
+  claimsById: Map<string, Claim>;
+  today: string;
+}): BillingInvoiceListItem {
+  const kind = getBillingInvoiceKind(invoice);
+  // An NIO invoice covers many claims, so its row names none of them.
+  const [line] = kind === 'patient' ? getBillingInvoiceClaims(invoice) : [];
   const claim = line && claimsById.get(line.claimId);
   const serviceDate = claim && getClaimServiceDate(claim);
   const patient = patientsByRef.get(invoice.subject?.reference ?? '');
@@ -123,5 +174,8 @@ function buildInvoiceListRow(
     patientName: fhirName(patient),
     claimId: line?.claimId,
     serviceDate: serviceDate ? DateTime.fromISO(serviceDate, { setZone: true }).toISODate() ?? '' : '',
+    kind,
+    recipient: findNioRecipient(invoice, organizationsByRef),
+    pastDue: kind === 'nio' && isInvoicePastDue(invoice, today),
   };
 }
