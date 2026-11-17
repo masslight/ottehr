@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Invoice, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/billing';
-import { getBillingInvoiceClaims } from 'utils/lib/fhir/billing-invoice';
+import { getBillingInvoiceClaims, getBillingInvoiceKind, isInvoicePastDue } from 'utils/lib/fhir/billing-invoice';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
 import {
   getCoding,
@@ -378,10 +378,15 @@ export async function performEffect(
     patientPayments,
     writeOffs,
     // An NIO invoice covers several claims, so each claim shows only its own amount.
-    invoices: invoices.map((invoice) => ({
-      ...getInvoiceStatusDatesAndAmount(invoice),
-      amount: (getBillingInvoiceClaims(invoice).find((line) => line.claimId === claimId)?.amountCents ?? 0) / 100,
-    })),
+    invoices: invoices.map((invoice) => {
+      const kind = getBillingInvoiceKind(invoice);
+      return {
+        ...getInvoiceStatusDatesAndAmount(invoice),
+        amount: (getBillingInvoiceClaims(invoice).find((line) => line.claimId === claimId)?.amountCents ?? 0) / 100,
+        kind,
+        pastDue: kind === 'nio' && isInvoicePastDue(invoice, DateTime.now().toISODate()!),
+      };
+    }),
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

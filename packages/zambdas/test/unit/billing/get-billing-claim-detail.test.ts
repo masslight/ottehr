@@ -244,12 +244,12 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
     expect(oystehr.fhir.search).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Invoice' }));
   });
 
-  it("shows the claim's own amount on an invoice that covers several claims", async () => {
+  it("shows the claim's own amount on an overdue NIO invoice that covers several claims", async () => {
     const nioInvoice = {
       ...buildBillingInvoice({
         status: 'issued',
-        date: '2026-11-10T15:00:00.000Z',
-        dueDate: '2026-11-17',
+        date: '2026-01-10T15:00:00.000Z',
+        dueDate: '2026-01-17',
         recipient: {
           reference: 'Organization/nio-1',
         },
@@ -290,10 +290,12 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
       {
         id: 'invoice-1',
         status: 'issued',
-        issueDate: '2026-11-10T15:00:00.000Z',
-        dueDate: '2026-11-17',
+        issueDate: '2026-01-10T15:00:00.000Z',
+        dueDate: '2026-01-17',
         amount: 150,
         hostedInvoiceUrl: undefined,
+        kind: 'nio',
+        pastDue: true,
       },
     ]);
   });
