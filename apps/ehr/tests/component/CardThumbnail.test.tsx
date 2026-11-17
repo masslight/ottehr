@@ -1,6 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CardPreviewFace } from '../../src/components/FloatingCardPreview';
 import type { SavedCardItem } from '../../src/hooks/useVisitCards';
 
 // ============================================================================
@@ -34,6 +36,7 @@ interface RenderOverrides {
   item?: SavedCardItem;
   handleDeleteClick?: (id: string | null) => Promise<void>;
   deletingFileId?: string | null;
+  previewHeaderActions?: (face: CardPreviewFace) => ReactNode;
 }
 
 const renderThumbnail = (overrides: RenderOverrides = {}): void => {
@@ -50,6 +53,7 @@ const renderThumbnail = (overrides: RenderOverrides = {}): void => {
       backFileType="insurance-card-back"
       handleDeleteClick={overrides.handleDeleteClick}
       deletingFileId={overrides.deletingFileId}
+      previewHeaderActions={overrides.previewHeaderActions}
     />
   );
 };
@@ -92,6 +96,40 @@ describe('CardThumbnail', () => {
     expect(screen.queryByRole('button', { name: `Remove ${TITLE} front` })).not.toBeInTheDocument();
     // No delete wired -> only one face present -> toggle stays hidden (unchanged legacy behavior).
     expect(screen.queryByRole('button', { name: `Show back of ${TITLE} preview` })).not.toBeInTheDocument();
+  });
+
+  it('renders previewHeaderActions (e.g. rotate) for the shown face between the Front/Back toggle and delete', async () => {
+    const user = userEvent.setup();
+    renderThumbnail({
+      item: makeItem({
+        front: { presignedUrl: FRONT_URL } as any,
+        frontId: 'doc-front',
+        back: { presignedUrl: BACK_URL } as any,
+        backId: 'doc-back',
+      }),
+      handleDeleteClick: vi.fn().mockResolvedValue(undefined),
+      previewHeaderActions: (face) => <button aria-label={`Rotate ${face}`} />,
+    });
+
+    await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE}` }));
+
+    const preview = screen.getByRole('dialog', { name: `${TITLE} preview` });
+    expect(
+      within(preview)
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'))
+    ).toEqual([
+      `Show front of ${TITLE} preview`,
+      `Show back of ${TITLE} preview`,
+      'Rotate front',
+      `Remove ${TITLE} front`,
+      `Close ${TITLE} preview`,
+    ]);
+
+    // the action follows the shown face
+    await user.click(within(preview).getByRole('button', { name: `Show back of ${TITLE} preview` }));
+    expect(within(preview).getByRole('button', { name: 'Rotate back' })).toBeInTheDocument();
+    expect(within(preview).queryByRole('button', { name: 'Rotate front' })).not.toBeInTheDocument();
   });
 
   it("removing a face: confirms, calls handleDeleteClick with that face's DocRef id", async () => {

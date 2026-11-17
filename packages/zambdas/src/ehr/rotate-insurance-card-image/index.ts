@@ -47,7 +47,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw FHIR_RESOURCE_NOT_FOUND('DocumentReference');
   }
 
-  // throws structured INVALID_INPUT_ERRORs for anything that is not a current card image
+  // throws structured INVALID_INPUT_ERRORs for anything that is not a current insurance-card or
+  // photo-ID image
   const attachment = assertRotatableCardImage(documentReference);
   const attachmentUrl = attachment.url;
   assertZ3UrlInProject(attachmentUrl, secrets);
@@ -106,8 +107,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Keep the DocumentReference honest about the new stored object: attachment contentType/size,
   // plus the insurance-card extraction extension when one exists — the staff member just fixed the
   // orientation by hand, so the model's stale `readable` judgment is reset to null (clearing the
-  // "looks rotated" hint). A DocRef without the extraction extension (extraction pending or
-  // feature off) skips that part gracefully.
+  // "looks rotated" hint). A DocRef without the extraction extension (extraction pending, feature
+  // off, or a photo-ID image, which never carries it) skips that part gracefully.
   const operations: Operation[] = buildAttachmentMetadataOperations(
     documentReference,
     rotated.contentType,
