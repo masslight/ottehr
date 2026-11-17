@@ -92,7 +92,7 @@ export const MedicationHistoryEntity: React.FC<MedicationHistoryEntityProps> = (
           sx={{ color: 'text.secondary' }}
           data-testid={dataTestIds.inHouseMedicationsPage.medicationHistoryTableLastFilled}
         >
-          {lastFilledDate || 'No date available'}
+          {lastFilledDate || (item.type === 'prescribed-medication' ? 'Not filled yet' : 'No date available')}
         </Typography>
       </TableCell>
       <TableCell>

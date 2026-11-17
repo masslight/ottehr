@@ -796,6 +796,17 @@
     "todayLabel": "Today",
     "tomorrowLabel": "Tomorrow"
   },
+  "supportChat": {
+    "title": "Support Chat",
+    "button": "Support Chat",
+    "message": "Message",
+    "send": "Send",
+    "newRequest": "New Request",
+    "newMessages": "New messages",
+    "you": "You",
+    "close": "Close",
+    "sendError": "The message was not sent. Please try again."
+  },
   "textComms": {
     "at": "at",
     "canceled1": "Your visit for",

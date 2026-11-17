@@ -5,6 +5,7 @@ import { Communication, Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { RCM_TASK_SYSTEM } from 'utils/lib/fhir/constants';
 import { sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { generateStatement } from 'utils/lib/statements/generate-statement';
@@ -83,7 +84,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     });
 
     const html = generateStatement(templatePayload.template, statementDetails);
-    const patientId = encounter.subject?.reference?.split('/')[1];
+    const patientId = getIdFromReference(encounter.subject?.reference);
     if (!patientId) {
       throw new Error(`Patient id not found in "Encounter/${encounterId}"`);
     }
@@ -268,7 +269,7 @@ function validateInput(input: ZambdaInput): ParsedTaskInput {
     );
   }
 
-  const encounterId = task.encounter?.reference?.split('/')[1];
+  const encounterId = getIdFromReference(task.encounter?.reference);
   if (!encounterId) {
     throw new Error('encounterId is required in task.encounter.reference');
   }

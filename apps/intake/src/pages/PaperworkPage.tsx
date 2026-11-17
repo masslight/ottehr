@@ -24,10 +24,12 @@ import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHel
 import { useGetPaymentMethods, useSetupPaymentMethod } from 'src/telemed/features/paperwork/paperwork.queries';
 import { PaperworkContext } from 'ui-components/lib/components/paperwork/context';
 import { usePaperworkContext } from 'ui-components/lib/components/paperwork/context';
-import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
+import PagedQuestionnaire, {
+  PagedQuestionnaireSubmitExtras,
+} from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
 import { getIntakeFormPageSubtitle } from 'utils/lib/config-helpers/intake-paperwork';
 import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
-import { evalComplexValidationTrigger, evalEnableWhen } from 'utils/lib/helpers/paperwork/validation';
+import { evalComplexValidationTrigger, evalEnableWhen, isPageHidden } from 'utils/lib/helpers/paperwork/validation';
 import { getSelectors } from 'utils/lib/store';
 import {
   ComplexValidationResult,
@@ -215,8 +217,10 @@ export const PaperworkHome: FC = () => {
   }, [questionnaireResponse?.item]);
 
   const pages = useMemo(() => {
+    // hidden pages (readOnly + disabled-display hidden) are never navigated to or listed for review. their items
+    // still count towards calculated values, which read from allItems and the questionnaire response
     return (allItems ?? []).filter((item) => {
-      return item.linkId;
+      return item.linkId && !isPageHidden(item);
     });
   }, [allItems]);
 
@@ -425,7 +429,7 @@ export const PaperworkPage: FC = () => {
   }, [completedPaperwork, currentPage, paperworkInProgress]);
 
   const finishPaperworkPage = useCallback(
-    async (data: QuestionnaireFormFields): Promise<void> => {
+    async (data: QuestionnaireFormFields, { calculatedAnswers }: PagedQuestionnaireSubmitExtras): Promise<void> => {
       if (data && appointmentID && zambdaClient && currentPage && questionnaireResponseId && paperworkPatient) {
         const pageLinkIds = extractPageLinkIds(currentPage.item ?? []);
         const raw = (Object.values(data) ?? []) as QuestionnaireResponseItem[];
@@ -454,6 +458,8 @@ export const PaperworkPage: FC = () => {
             setLoading(true);
             const updatedPaperwork = await api.patchPaperwork(zambdaClient, {
               answers: { linkId: currentPage.linkId, item },
+              // hidden pages are never saved themselves, so their calculated values ride along with this page's save
+              calculatedAnswers: calculatedAnswers.length > 0 ? calculatedAnswers : undefined,
               questionnaireResponseId,
               appointmentId: appointmentID,
             });

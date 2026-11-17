@@ -93,8 +93,6 @@ vi.mock('../../src/features/immunization/hooks/useImmunizationQuickPickManagemen
     setQuickPickName: vi.fn(),
     existingQuickPicks: [],
     quickPickSaving: false,
-    overwriteTarget: null,
-    setOverwriteTarget: vi.fn(),
     onQuickPickSelect: vi.fn(),
     openQuickPickDialog: vi.fn(),
     onSaveAsQuickPick: vi.fn(),
@@ -122,6 +120,17 @@ vi.mock('../../src/features/immunization/components/OrderDetailsSection', async 
       const { watch } = useFormContext();
       const dose = watch('details.dose');
       return <div data-testid="order-details" data-dose={dose != null ? String(dose) : ''} />;
+    },
+  };
+});
+
+vi.mock('../../src/features/immunization/components/AdministeringImmunizationFields', async () => {
+  const { useFormContext } = await import('react-hook-form');
+  return {
+    AdministeringImmunizationFields: () => {
+      const { watch } = useFormContext();
+      const lot = watch('administrationDetails.lot');
+      return <div data-testid="vaccine-product-fields" data-lot={lot ?? ''} />;
     },
   };
 });
@@ -221,6 +230,39 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
       await user.click(screen.getByRole('button', { name: /clear form/i }));
 
       expect(screen.getByTestId('order-details')).toHaveAttribute('data-dose', '');
+    });
+
+    it('populates administration fields from the draft on mount', () => {
+      useImmunizationOrderStore
+        .getState()
+        .setDraft(ENCOUNTER_ID, { dose: '1.5', administrationDetails: { lot: 'L1' } });
+
+      render(<ImmunizationOrderCreateEdit />);
+
+      expect(screen.getByTestId('vaccine-product-fields')).toHaveAttribute('data-lot', 'L1');
+    });
+
+    it('does not apply the creation draft when editing an existing order', () => {
+      useImmunizationOrderStore
+        .getState()
+        .setDraft(ENCOUNTER_ID, { dose: '1.5', administrationDetails: { lot: 'L1' } });
+
+      render(<ImmunizationOrderCreateEdit orderId="order-1" />);
+
+      expect(screen.getByTestId('order-details')).toHaveAttribute('data-dose', '');
+      expect(screen.getByTestId('vaccine-product-fields')).toHaveAttribute('data-lot', '');
+    });
+
+    it('clicking Clear Form resets administration fields to empty', async () => {
+      useImmunizationOrderStore
+        .getState()
+        .setDraft(ENCOUNTER_ID, { dose: '1.5', administrationDetails: { lot: 'L1' } });
+      const user = userEvent.setup();
+
+      render(<ImmunizationOrderCreateEdit />);
+      await user.click(screen.getByRole('button', { name: /clear form/i }));
+
+      expect(screen.getByTestId('vaccine-product-fields')).toHaveAttribute('data-lot', '');
     });
   });
 });

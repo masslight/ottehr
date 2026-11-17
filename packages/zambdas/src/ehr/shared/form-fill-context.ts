@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { Account, Appointment, Coverage, Organization } from 'fhir/r4b';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getInsuranceRelatedRefsFromAppointmentExtension } from '../../shared/appointment/helpers';
 import { ProgressNoteInput } from '../../shared/pdf/types';
 import { searchInsuranceInformation } from './harvest';
@@ -92,8 +92,8 @@ export const loadFormFillInsurance = async (
   const { account, packageCoverage } = sources ?? {};
 
   const refs = getInsuranceRelatedRefsFromAppointmentExtension(appointment);
-  let primaryId = refs.primaryCoverage ? removePrefix('Coverage/', refs.primaryCoverage) : undefined;
-  let secondaryId = refs.secondaryCoverage ? removePrefix('Coverage/', refs.secondaryCoverage) : undefined;
+  let primaryId = refs.primaryCoverage ? getIdFromReference(refs.primaryCoverage, 'Coverage') : undefined;
+  let secondaryId = refs.secondaryCoverage ? getIdFromReference(refs.secondaryCoverage, 'Coverage') : undefined;
   if (primaryId || secondaryId) {
     console.log(`${LOG_TAG} Appointment/${appointment.id}: coverage ordering from the appointment extension.`);
   }
@@ -103,8 +103,8 @@ export const loadFormFillInsurance = async (
     const referenceForPriority = (priority: number): string | undefined =>
       entries.find((entry) => entry.priority === priority)?.coverage?.reference;
 
-    primaryId = removePrefix('Coverage/', referenceForPriority(1) ?? '');
-    secondaryId = removePrefix('Coverage/', referenceForPriority(2) ?? '');
+    primaryId = getIdFromReference(referenceForPriority(1), 'Coverage');
+    secondaryId = getIdFromReference(referenceForPriority(2), 'Coverage');
 
     // An account listing exactly one coverage has no ordering question to answer, so an absent priority
     // costs nothing: ambiguity needs at least two candidates. This is not the same as picking from the
@@ -114,7 +114,7 @@ export const loadFormFillInsurance = async (
     // workers-comp account — which by construction holds a single coverage, primary and secondary sharing
     // a different account entirely — would otherwise contribute nothing to a form.
     if (!primaryId && !secondaryId && entries.length === 1) {
-      primaryId = removePrefix('Coverage/', entries[0].coverage?.reference ?? '');
+      primaryId = getIdFromReference(entries[0].coverage?.reference, 'Coverage');
     }
 
     console.log(

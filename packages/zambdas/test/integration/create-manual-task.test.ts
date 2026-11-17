@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Location } from 'fhir/r4b';
+import { Location, Task } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { addProcessIdMetaTagToResource, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
@@ -51,8 +51,9 @@ describe('create-manual-task integration — happy path', () => {
       taskTitle: 'Integration test manual task',
       location: { id: locationId, name: locationName },
     });
-    const output = response.output as { id?: string };
+    const output = response.output as Task;
     expect(output).toBeDefined();
     taskId = output.id;
+    expect(output.requester).toBeUndefined();
   });
 });

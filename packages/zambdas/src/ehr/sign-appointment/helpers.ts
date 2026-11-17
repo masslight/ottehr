@@ -1,6 +1,16 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Encounter } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import { Appointment, Encounter } from 'fhir/r4b';
+import { APPOINTMENT_LOCKED_META_TAG } from 'utils/lib/fhir/constants';
+import { getEncounterStatusHistoryUpdateOp } from 'utils/lib/fhir/encounter';
+import { getAppointmentStatusUpdateTags, getEncounterLockMetaTagOperations } from 'utils/lib/fhir/helpers';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getPatchOperationsForNewMetaTags } from 'utils/lib/fhir/resourcePatch';
+import { addOrReplaceOperation } from 'utils/lib/helpers/operations';
+import {
+  visitStatusToFhirAppointmentStatusMap,
+  visitStatusToFhirEncounterStatusMap,
+} from 'utils/lib/types/api/appointment.types';
 import { canBeAssignedAsProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
 import {
   canSignVisitNote,
@@ -71,4 +81,28 @@ export const assertCallerCanSign = (user: User): void => {
       statusCode: 403,
     };
   }
+};
+
+export const getSignedAppointmentPatchOps = (appointment: Appointment, user: User): Operation[] => [
+  { op: 'replace', path: '/status', value: visitStatusToFhirAppointmentStatusMap['completed'] },
+  // One op for all tags: each meta-tag op rewrites the whole /meta/tag array, so a second one would drop these.
+  ...getPatchOperationsForNewMetaTags(appointment, [
+    ...getAppointmentStatusUpdateTags('completed', { user }),
+    APPOINTMENT_LOCKED_META_TAG,
+  ]),
+];
+
+export const getCompletedFollowupEncounterPatchOps = (encounter: Encounter): Operation[] => {
+  const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
+  const now = new Date().toISOString();
+  const start = encounter.period?.start;
+  const end = start && Date.parse(start) > Date.parse(now) ? start : now;
+  return [
+    { op: 'replace', path: '/status', value: encounterStatus },
+    getEncounterStatusHistoryUpdateOp(encounter, encounterStatus, 'completed'),
+    ...getEncounterLockMetaTagOperations(encounter, true),
+    encounter.period
+      ? addOrReplaceOperation(encounter.period.end, '/period/end', end)
+      : { op: 'add', path: '/period', value: { end } },
+  ];
 };

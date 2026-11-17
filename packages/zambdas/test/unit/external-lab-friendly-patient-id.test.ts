@@ -135,6 +135,7 @@ const makeResources = (patient: Patient, psc = false): ResourcesForRequestFormat
   requisitionNumber: 'REQ-001',
   dx: [{ code: 'J06.9', display: 'Acute URI', isPrimary: true } as DiagnosisDTO],
   psc,
+  isStat: false,
   attendingPractitionerId: 'prac-attending-1',
   currentUserPractitioner: {
     resourceType: 'Practitioner',

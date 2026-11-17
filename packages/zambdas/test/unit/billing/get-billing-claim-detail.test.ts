@@ -20,6 +20,7 @@ import { performEffect } from '../../../src/billing/get-billing-claim-detail';
 import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   ERA_CHECK_SYSTEM,
+  ERA_ICN_EXTENSION,
   fetchClaimGraph,
   resolvePayersByRef,
 } from '../../../src/billing/shared';
@@ -229,6 +230,19 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
     expect(response.patientPayments).toEqual([]);
   });
 
+  it('skips the invoice lookup while invoicing is not in the billing app', async () => {
+    const oystehr = makeBillingClient([]);
+
+    const response = await performEffect(
+      oystehr,
+      {} as unknown as Oystehr,
+      { claimId: 'claim-1', secrets: {} } as never
+    );
+
+    expect(response.invoices).toEqual([]);
+    expect(oystehr.fhir.search).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Invoice' }));
+  });
+
   it('lists a cancelled refund for the audit trail but keeps it out of patientPaid and the balance', async () => {
     const notices = [
       paymentNotice({
@@ -329,6 +343,12 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
       {
         productOrService: { coding: [{ code: 'unknown' }] },
         adjudication: [casAdjustment('OA', 5, '23')],
+      },
+    ],
+    extension: [
+      {
+        url: ERA_ICN_EXTENSION,
+        valueString: 'PCCN-12345',
       },
     ],
   });
@@ -500,6 +520,17 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
 
     expect(response.firstSubmittedDate).toBe('2026-07-02T12:00:00Z');
     expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(expect.anything(), 'claim-1');
+  });
+
+  it('reads the ERA remits through the billing client and only the untagged submissions without it', async () => {
+    const billingClient = makeBillingClient([]);
+    const untaggedClient = {} as unknown as Oystehr;
+
+    await performEffect(billingClient, untaggedClient, { claimId: 'claim-1', secrets: {} } as never);
+
+    expect(fetchClaimResponsesByClaimIds).toHaveBeenCalledWith(billingClient, ['claim-1']);
+    expect(fetchClaimEraLinks).toHaveBeenCalledWith(billingClient, expect.anything());
+    expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(untaggedClient, 'claim-1');
   });
 
   it('has a payer claim control number', async () => {

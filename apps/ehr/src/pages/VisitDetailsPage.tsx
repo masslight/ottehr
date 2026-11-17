@@ -1,15 +1,16 @@
 import { otherColors } from '@ehrTheme/colors';
 import { ArrowDropDown } from '@mui/icons-material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import CollectionsOutlinedIcon from '@mui/icons-material/CollectionsOutlined';
 import ContactPageOutlinedIcon from '@mui/icons-material/ContactPageOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
+import PersonRemoveOutlinedIcon from '@mui/icons-material/PersonRemoveOutlined';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
+import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -35,7 +36,7 @@ import { Appointment, Encounter, Flag, Organization } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   deleteVisitForm,
   generatePaperworkPdf,
@@ -43,6 +44,7 @@ import {
   getPatientVisitDetails,
   getVisitFaxHistory,
   listServiceCategories,
+  sendPatientForm,
   updatePatientVisitDetails,
 } from 'src/api/api';
 import CardThumbnail from 'src/components/CardThumbnail';
@@ -61,13 +63,15 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
+import { getConvertToFollowUpDisabledReason } from 'src/features/visits/shared/components/patient/convertToFollowUp';
 import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
-import { IdentifiersRow } from 'src/features/visits/shared/components/patient/info/IdentifiersRow';
+import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useGetPatientAccount, useGetPatientCoverages } from 'src/hooks/useGetPatient';
 import { useGetPatientBalances } from 'src/hooks/useGetPatientBalances';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { useGetPatientVisitHistory } from 'src/hooks/useGetPatientVisitHistory';
 import { DEFAULT_TAB_TITLE, formatPatientTabTitle } from 'src/shared/utils/patientTabTitle';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import {
@@ -89,8 +93,9 @@ import { isInPersonAppointment, isTelemedAppointment } from 'utils/lib/fhir/modu
 import { getFormattedPatientFullName, getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
+import { FormPlacement } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { BOOKING_CONFIG, ServiceCategoryCode } from 'utils/lib/ottehr-config/booking';
-import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import { VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
 import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
 import { UpdateVisitDetailsInput } from 'utils/lib/types/api/update-visit-details.types';
 import { GetVisitFaxHistoryOutput } from 'utils/lib/types/api/visit-details/visit-details.types';
@@ -116,8 +121,8 @@ import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
-import { PatientNotesButton } from '../features/patient-notes/components/PatientNotesButton';
 import { ConfirmSave } from '../features/visits/shared/components/patient/SaveConfirmationContext';
+import { formPagePath, OpenFormResponseState } from '../features/visits/shared/components/patient-forms/formNavigation';
 import { PencilIconButton } from '../features/visits/telemed/components/patient-visit-details/PencilIconButton';
 import { formatLastModifiedTag } from '../helpers';
 import {
@@ -128,6 +133,7 @@ import {
   getAppointmentAndPatientHistory,
   NoteHistory,
 } from '../helpers/activityLogsUtils';
+import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
 import { getLegacyDataUrl } from '../helpers/legacyData';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
@@ -314,13 +320,24 @@ export default function VisitDetailsPage(): ReactElement {
   const serverConsentAttested = visitDetailsData?.consentIsAttested ?? false;
   const standAloneForms = visitDetailsData?.standAloneForms;
   const intakePaperworkFlowForms = visitDetailsData?.intakePaperworkFlowForms;
+  // A form started from another page's dialog arrives here to be filled out.
+  const location = useLocation();
+  const openFormResponseId = (location.state as OpenFormResponseState | null)?.openFormResponseId;
+  useEffect(() => {
+    const toOpen = standAloneForms?.find((form) => form.questionnaireResponse.id === openFormResponseId);
+    if (!toOpen) return;
+    setFormToEdit(toOpen);
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+  }, [standAloneForms, openFormResponseId, location.pathname, location.search, navigate]);
+
   // Custom forms bundled in the visit's paperwork flow render alongside manually-sent standalone forms,
   // but only a manually-sent form owns its QuestionnaireResponse outright, so only it can be deleted.
   const allCustomForms = useMemo(
-    () => [
-      ...(standAloneForms ?? []).map((form) => ({ form, deletable: true })),
-      ...(intakePaperworkFlowForms ?? []).map((form) => ({ form, deletable: false })),
-    ],
+    () =>
+      [
+        ...(standAloneForms ?? []).map((form) => ({ form, deletable: true })),
+        ...(intakePaperworkFlowForms ?? []).map((form) => ({ form, deletable: false })),
+      ].filter(({ form }) => (form.placement ?? 'visit-details') === 'visit-details'),
     [standAloneForms, intakePaperworkFlowForms]
   );
 
@@ -507,6 +524,12 @@ export default function VisitDetailsPage(): ReactElement {
   const hasOwnFollowUps = (ownFollowUpCount ?? 0) > 0;
   const isOwnFollowUpsUnresolved = ownFollowUpsQueryEnabled && isOwnFollowUpCountPending;
 
+  // Top-level visits are the ones the follow-up parent picker offers.
+  const { data: visitHistory, isError: isOtherInitialVisitsError } = useGetPatientVisitHistory(patientId);
+  const hasOtherInitialVisits = visitHistory?.visits.some(
+    (visit) => !!visit.encounterId && visit.encounterId !== encounter?.id
+  );
+
   const parentEncounterId = encounter?.partOf?.reference?.replace('Encounter/', '');
   const parentAppointmentQueryEnabled = Boolean(oystehr) && Boolean(parentEncounterId);
   const { data: parentAppointmentId, isPending: isParentAppointmentPending } = useQuery({
@@ -602,6 +625,7 @@ export default function VisitDetailsPage(): ReactElement {
     });
     if (editDialogConfig.type === 'dob') {
       await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
+      await queryClient.invalidateQueries({ queryKey: ['useGetPatientPatientResources', patientId] });
     }
   };
 
@@ -781,6 +805,25 @@ export default function VisitDetailsPage(): ReactElement {
     }
   }, [appointment, encounter, isInPerson]);
 
+  const visitStatusMutation = useMutation({
+    mutationFn: async (updatedStatus: VisitStatusWithoutUnknown) => {
+      if (!encounter?.id) {
+        throw new Error('Missing required data');
+      }
+      await handleChangeInPersonVisitStatus({ encounterId: encounter.id, updatedStatus }, oystehrZambda);
+    },
+    onSuccess: async () => {
+      await refetchVisitDetails();
+      getAndSetHistoricResources({ logs: true }).catch((error) =>
+        console.error('error getting activity logs after visit status update', error)
+      );
+    },
+    onError: (error) => {
+      console.error('Error changing visit status:', error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    },
+  });
+
   // page HTML
   const handleCancelDialogOpen = (): void => {
     setCancelDialogOpen(true);
@@ -867,12 +910,13 @@ export default function VisitDetailsPage(): ReactElement {
         )
       : undefined;
 
-  const convertToFollowUpDisabledReason = ((): string | undefined => {
-    if (!appointment || !encounter || !patientId || isOwnFollowUpsUnresolved) return 'Loading the visit…';
-    if (isFollowupEncounter(encounter)) return 'This visit is already a follow-up';
-    if (hasOwnFollowUps) return 'This visit already has its own follow-ups';
-    return undefined;
-  })();
+  const convertToFollowUpDisabledReason = getConvertToFollowUpDisabledReason({
+    encounter,
+    isLoading: !appointment || !patientId || isOwnFollowUpsUnresolved,
+    hasOwnFollowUps,
+    // A failed lookup shouldn't block converting; the parent picker shows what is there.
+    hasOtherInitialVisits: isOtherInitialVisitsError || hasOtherInitialVisits,
+  });
   const isOtherFollowUpReason =
     isScheduledFollowUp && !!maybeReasonForVisit && !SCHEDULED_FOLLOWUP_REASONS.includes(maybeReasonForVisit as never);
   const reasonForVisit = useMemo(() => {
@@ -902,6 +946,28 @@ export default function VisitDetailsPage(): ReactElement {
       enqueueSnackbar('Failed to generate PDF.', { variant: 'error' });
     } finally {
       setPaperworkPdfLoading(false);
+    }
+  };
+
+  // Starts (or reuses) this visit's response without texting the patient, then opens it for staff to fill out.
+  const fillOutVisitForm = async (questionnaireId: string, placement: FormPlacement): Promise<void> => {
+    if (!oystehrZambda || !appointmentID) return;
+    try {
+      const { questionnaireResponseId } = await sendPatientForm(oystehrZambda, {
+        appointmentId: appointmentID,
+        questionnaireId,
+        notifyPatient: false,
+      });
+      if (placement !== 'visit-details') {
+        const state: OpenFormResponseState = { openFormResponseId: questionnaireResponseId };
+        navigate(formPagePath(placement, appointmentID), { state });
+        return;
+      }
+      const { data } = await refetchVisitDetails();
+      setFormToEdit(data?.standAloneForms?.find((form) => form.questionnaireResponse.id === questionnaireResponseId));
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('Could not start the form. Please try again.', { variant: 'error' });
     }
   };
 
@@ -1108,7 +1174,23 @@ export default function VisitDetailsPage(): ReactElement {
   );
 
   return (
-    <PageContainer>
+    <PageContainer
+      header={
+        <Header
+          key={patientId}
+          handleDiscard={() =>
+            // Opened in a new tab (e.g. from Outstanding Balance) there is no in-app page to go back to.
+            (window.history.state as { idx?: number } | null)?.idx
+              ? navigate(-1)
+              : navigate(patientId ? `/patient/${patientId}` : '/visits')
+          }
+          id={patientId}
+          encounterId={encounter?.id}
+          fallbackPatient={patient}
+          linkNameToPatientRecord
+        />
+      }
+    >
       <>
         {/* /* page */}
         <Grid container direction="row">
@@ -1118,7 +1200,8 @@ export default function VisitDetailsPage(): ReactElement {
               <Grid item xs={6}>
                 <CustomBreadcrumbs
                   chain={[
-                    { link: `/patient/${patientId}`, children: 'Visit Details' },
+                    { link: '/patients', children: 'Patients' },
+                    { link: `/patient/${patientId}`, children: fullName || <Skeleton width={150} /> },
                     { link: '#', children: appointment?.id || <Skeleton width={150} /> },
                   ]}
                 />
@@ -1251,7 +1334,7 @@ export default function VisitDetailsPage(): ReactElement {
                     <ListItemIcon sx={MENU_ITEM_ICON_SX}>
                       <AssignmentOutlinedIcon fontSize="small" />
                     </ListItemIcon>
-                    Send Form
+                    Add Form
                   </MenuItem>
                   {convertToFollowUpMenuItem}
                   <MenuItem
@@ -1283,6 +1366,38 @@ export default function VisitDetailsPage(): ReactElement {
                       Cancel Visit
                     </MenuItem>
                   )}
+                  {status === 'pending' && (
+                    <MenuItem
+                      data-testid={dataTestIds.visitDetailsPage.noShowMenuItem}
+                      disabled={visitStatusMutation.isPending}
+                      onClick={() => {
+                        setActionsMenuAnchor(null);
+                        visitStatusMutation.mutate('no show');
+                      }}
+                      sx={DESTRUCTIVE_MENU_ITEM_SX}
+                    >
+                      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                        <PersonRemoveOutlinedIcon fontSize="small" />
+                      </ListItemIcon>
+                      No Show
+                    </MenuItem>
+                  )}
+                  {status === 'no show' && (
+                    <MenuItem
+                      data-testid={dataTestIds.visitDetailsPage.returnToArrivedMenuItem}
+                      disabled={visitStatusMutation.isPending}
+                      onClick={() => {
+                        setActionsMenuAnchor(null);
+                        visitStatusMutation.mutate('arrived');
+                      }}
+                      sx={MENU_ITEM_SX}
+                    >
+                      <ListItemIcon sx={MENU_ITEM_ICON_SX}>
+                        <UndoOutlinedIcon fontSize="small" />
+                      </ListItemIcon>
+                      Return to “Arrived”
+                    </MenuItem>
+                  )}
                 </Menu>
                 <RoundedButton
                   variant="contained"
@@ -1297,71 +1412,11 @@ export default function VisitDetailsPage(): ReactElement {
             </Grid>
             {/* page title row */}
             <Grid container direction="row" marginTop={1}>
-              {loading || activityLogsLoading || !patient ? (
-                <Skeleton aria-busy="true" width={200} height="" />
-              ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box
-                    onClick={() => navigate(`/patient/${patientId}/info`)}
-                    sx={{ cursor: 'pointer', display: 'flex', gap: 1 }}
-                  >
-                    <AssignmentIndOutlinedIcon
-                      sx={{ width: '27px', height: '27px', color: 'primary.light', alignSelf: 'center' }}
-                    ></AssignmentIndOutlinedIcon>
-                    <Typography
-                      variant="h2"
-                      color="primary.dark"
-                      data-testid={dataTestIds.appointmentPage.patientFullName}
-                    >
-                      {fullName}
-                    </Typography>
-                  </Box>
-                  <PatientNotesButton patientId={patientId} />
-                </Box>
-              )}
+              {/* The patient is in the header above, so the page is titled by what it shows. */}
+              <Typography variant="h3" color="primary.dark">
+                Visit Details
+              </Typography>
 
-              {/* appointment start time as AM/PM and then date */}
-              {loading || !appointment ? (
-                <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
-              ) : (
-                <>
-                  <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 4 }}>
-                    {isInPerson ? 'In-Person' : 'Virtual'}
-                    {' | '}
-                    {resolveServiceCategoryAbbreviation(serviceCategory, fhirBackedCats)}
-                  </Typography>
-                  <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 1 }}>
-                    {getAppointmentType(appointmentType)}
-                  </Typography>
-                  <Typography sx={{ alignSelf: 'center', marginLeft: 1 }} fontWeight="bold">
-                    {appointmentTime}
-                  </Typography>
-                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>{appointmentDate}</Typography>
-                </>
-              )}
-
-              {loading || !status ? (
-                <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
-              ) : (
-                <>
-                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
-                    {visitDetailsData?.visitLocationName ?? ''}
-                  </Typography>
-                  <span
-                    style={{
-                      marginLeft: 20,
-                      alignSelf: 'center',
-                    }}
-                  >
-                    <InPersonAppointmentStatusChip status={status as VisitStatusLabel} />
-                  </span>
-                  {appointment && appointment.status === 'cancelled' && (
-                    <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
-                      {getCancellationReasonDisplay(appointment)}
-                    </Typography>
-                  )}
-                </>
-              )}
               {appointment && encounter && appointment?.status !== 'cancelled' ? (
                 <CancellationReasonDialog
                   handleClose={handleCancelDialogClose}
@@ -1408,14 +1463,56 @@ export default function VisitDetailsPage(): ReactElement {
               ) : null}
             </Grid>
 
-            {(patient || nameLastModifiedOld || nameLastModified) && (
-              <Grid container direction="row" alignItems="center" gap={2} sx={{ marginLeft: 4 }}>
-                {patient && <IdentifiersRow patient={patient} />}
-                {(nameLastModifiedOld || nameLastModified) && (
-                  <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
-                    Name Last Modified {nameLastModifiedOld || nameLastModified}
+            <Grid container direction="row">
+              {/* appointment start time as AM/PM and then date */}
+              {loading || !appointment ? (
+                <Skeleton aria-busy="true" width={200} />
+              ) : (
+                <>
+                  <Typography variant="body1" sx={{ alignSelf: 'center' }}>
+                    {isInPerson ? 'In-Person' : 'Virtual'}
+                    {' | '}
+                    {resolveServiceCategoryAbbreviation(serviceCategory, fhirBackedCats)}
                   </Typography>
-                )}
+                  <Typography variant="body1" sx={{ alignSelf: 'center', marginLeft: 1 }}>
+                    {getAppointmentType(appointmentType)}
+                  </Typography>
+                  <Typography sx={{ alignSelf: 'center', marginLeft: 1 }} fontWeight="bold">
+                    {appointmentTime}
+                  </Typography>
+                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>{appointmentDate}</Typography>
+                </>
+              )}
+
+              {loading || !status ? (
+                <Skeleton sx={{ marginLeft: 2 }} aria-busy="true" width={200} />
+              ) : (
+                <>
+                  <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
+                    {visitDetailsData?.visitLocationName ?? ''}
+                  </Typography>
+                  <span
+                    style={{
+                      marginLeft: 20,
+                      alignSelf: 'center',
+                    }}
+                  >
+                    <InPersonAppointmentStatusChip status={status as VisitStatusLabel} />
+                  </span>
+                  {appointment && appointment.status === 'cancelled' && (
+                    <Typography sx={{ alignSelf: 'center', marginLeft: 2 }}>
+                      {getCancellationReasonDisplay(appointment)}
+                    </Typography>
+                  )}
+                </>
+              )}
+            </Grid>
+
+            {(nameLastModifiedOld || nameLastModified) && (
+              <Grid container direction="row" alignItems="center" gap={2} sx={{ marginLeft: 4 }}>
+                <Typography sx={{ alignSelf: 'center', fontSize: '14px' }}>
+                  Name Last Modified {nameLastModifiedOld || nameLastModified}
+                </Typography>
               </Grid>
             )}
 
@@ -1438,10 +1535,7 @@ export default function VisitDetailsPage(): ReactElement {
             )}
 
             <Grid container item direction="column">
-              <Grid item container sx={{ padding: '10px' }} marginBottom={2}>
-                <Typography variant="h3" color="primary.dark">
-                  About this visit
-                </Typography>
+              <Grid item container sx={{ paddingY: '10px' }} marginBottom={2}>
                 <Grid container item direction="row" spacing={3}>
                   <Grid container item direction="column" xs={12} sm={6}>
                     <Grid item>
@@ -1622,7 +1716,7 @@ export default function VisitDetailsPage(): ReactElement {
                 </Grid>
               </Grid>
             </Grid>
-            <Grid item paddingY="10px" sx={{ padding: '10px' }} marginBottom={2}>
+            <Grid item sx={{ paddingY: '10px' }} marginBottom={2}>
               <Typography variant="h3" color="primary.dark" marginBottom={2}>
                 About this patient
               </Typography>
@@ -1643,16 +1737,10 @@ export default function VisitDetailsPage(): ReactElement {
           <Grid container direction="row">
             <Grid item xs={12} sx={{ marginLeft: { xs: 0, sm: 8 }, marginRight: { xs: 0, sm: 8 }, marginTop: 2 }}>
               <Typography variant="h3" color="primary.dark" marginBottom={2}>
-                Visit Documents
+                All Documents
               </Typography>
               <Paper sx={{ padding: 3 }}>
-                <PatientDocumentsExplorer
-                  patientId={patientId}
-                  patient={patient}
-                  // Both linkages: EHR uploads link by encounter, while consent forms, condition
-                  // photos and school/work notes from intake link by appointment.
-                  visit={{ encounterId: encounter.id, appointmentId: appointmentID }}
-                />
+                <PatientDocumentsExplorer patientId={patientId} patient={patient} uploadEncounterId={encounter.id} />
               </Paper>
             </Grid>
           </Grid>
@@ -1917,6 +2005,9 @@ export default function VisitDetailsPage(): ReactElement {
             open={sendFormDialogOpen}
             onClose={() => setSendFormDialogOpen(false)}
             appointmentId={appointmentID}
+            placement="visit-details"
+            onSent={() => void refetchVisitDetails()}
+            onFillOut={(questionnaireId, placement) => void fillOutVisitForm(questionnaireId, placement)}
           />
         )}
         {formToEdit && (

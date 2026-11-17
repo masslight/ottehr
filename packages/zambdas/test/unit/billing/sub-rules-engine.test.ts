@@ -180,13 +180,14 @@ describe('sub-rules-engine performEffect', () => {
         rules: [],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
     );
 
-    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1', action: 'new', insurance: 'primary' });
     expect(result.taskStatus).toBe('completed');
     expect(result.statusReason).toContain('submitted');
     // Status change (insuranceArStatus -> submitted) commits with its Provenance.
@@ -207,13 +208,14 @@ describe('sub-rules-engine performEffect', () => {
         rules: [],
         model,
         skipRules: true,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
     );
 
-    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1', action: 'new', insurance: 'primary' });
     expect(result.taskStatus).toBe('completed');
     expect(result.statusReason).toContain('submitted');
     // Status change (insuranceArStatus -> submitted) commits with its Provenance.
@@ -235,6 +237,7 @@ describe('sub-rules-engine performEffect', () => {
         model,
         skipRules: true,
         submissionType: 'correction',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: 'PCCN-12345',
       },
       [AGENT]
@@ -243,6 +246,7 @@ describe('sub-rules-engine performEffect', () => {
     expect(submitClaimRcm).toHaveBeenCalledWith({
       claimId: 'claim-1',
       action: 'correction',
+      insurance: 'primary',
       payerClaimControlNumber: 'PCCN-12345',
     });
     expect(result.taskStatus).toBe('completed');
@@ -266,6 +270,7 @@ describe('sub-rules-engine performEffect', () => {
         model,
         skipRules: true,
         submissionType: 'void',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: 'PCCN-12345',
       },
       [AGENT]
@@ -274,6 +279,7 @@ describe('sub-rules-engine performEffect', () => {
     expect(submitClaimRcm).toHaveBeenCalledWith({
       claimId: 'claim-1',
       action: 'void',
+      insurance: 'primary',
       payerClaimControlNumber: 'PCCN-12345',
     });
     expect(result.taskStatus).toBe('completed');
@@ -310,7 +316,8 @@ describe('sub-rules-engine performEffect', () => {
         rules: [],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -346,7 +353,8 @@ describe('sub-rules-engine performEffect', () => {
         rules: [],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -371,13 +379,14 @@ describe('sub-rules-engine performEffect', () => {
         rules: [],
         model,
         skipRules: true,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
     );
 
-    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1', action: 'new', insurance: 'primary' });
     expect(result.taskStatus).toBe('completed');
     expect(result.statusReason).toContain('submitted');
     // Status change (insuranceArStatus -> submitted) commits with its Provenance.
@@ -399,7 +408,8 @@ describe('sub-rules-engine performEffect', () => {
           rules: [],
           model,
           skipRules: false,
-          submissionType: null,
+          submissionType: 'new',
+          submissionInsurance: 'primary',
           payerClaimControlNumber: null,
         },
         [AGENT]
@@ -429,7 +439,8 @@ describe('sub-rules-engine performEffect', () => {
             rules: [],
             model,
             skipRules: false,
-            submissionType: null,
+            submissionType: 'new',
+            submissionInsurance: 'primary',
             payerClaimControlNumber: null,
           },
           [AGENT]
@@ -461,7 +472,8 @@ describe('sub-rules-engine performEffect', () => {
           rules: [],
           model,
           skipRules: false,
-          submissionType: null,
+          submissionType: 'new',
+          submissionInsurance: 'primary',
           payerClaimControlNumber: null,
         },
         [AGENT]
@@ -494,7 +506,8 @@ describe('sub-rules-engine performEffect', () => {
         rules,
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -528,7 +541,8 @@ describe('sub-rules-engine performEffect', () => {
         rules: [],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -555,7 +569,8 @@ describe('sub-rules-engine performEffect', () => {
         rules: [],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -579,7 +594,8 @@ describe('sub-rules-engine performEffect', () => {
         rules: [rule],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -625,7 +641,8 @@ describe('sub-rules-engine performEffect', () => {
         rules,
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -662,7 +679,8 @@ describe('sub-rules-engine performEffect', () => {
             rules: [rule],
             model,
             skipRules: false,
-            submissionType: null,
+            submissionType: 'new',
+            submissionInsurance: 'primary',
             payerClaimControlNumber: null,
           },
           [AGENT]
@@ -697,7 +715,8 @@ describe('sub-rules-engine performEffect', () => {
           rules: [rule],
           model,
           skipRules: false,
-          submissionType: null,
+          submissionType: 'new',
+          submissionInsurance: 'primary',
           payerClaimControlNumber: null,
         },
         [AGENT]
@@ -728,7 +747,8 @@ describe('sub-rules-engine performEffect', () => {
           rules,
           model,
           skipRules: false,
-          submissionType: null,
+          submissionType: 'new',
+          submissionInsurance: 'primary',
           payerClaimControlNumber: null,
         },
         [AGENT]
@@ -767,7 +787,7 @@ describe('sub-rules-engine performEffect', () => {
       ]);
 
       expect(result.taskStatus).toBe('completed');
-      expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+      expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1', action: 'new', insurance: 'primary' });
     });
 
     it('holds the claim when a rule clears the date of a flagged accident', async () => {
@@ -812,7 +832,8 @@ describe('sub-rules-engine performEffect', () => {
           rules: [],
           model,
           skipRules: true,
-          submissionType: null,
+          submissionType: 'new',
+          submissionInsurance: 'primary',
           payerClaimControlNumber: null,
         },
         [AGENT]
@@ -844,7 +865,8 @@ describe('sub-rules-engine performEffect', () => {
         rules,
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -877,7 +899,8 @@ describe('pre-invoice engines performEffect', () => {
         rules: [],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -905,7 +928,8 @@ describe('pre-invoice engines performEffect', () => {
         rules: [],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -931,7 +955,8 @@ describe('pre-invoice engines performEffect', () => {
         rules: [],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -956,7 +981,8 @@ describe('pre-invoice engines performEffect', () => {
         rules: [],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -984,7 +1010,8 @@ describe('pre-invoice engines performEffect', () => {
         rules: [],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -1009,7 +1036,8 @@ describe('pre-invoice engines performEffect', () => {
         rules: [],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -1034,7 +1062,8 @@ describe('pre-invoice engines performEffect', () => {
         rules: [rule],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
@@ -1104,7 +1133,16 @@ describe('sub-rules-engine charge master pricing', () => {
     const { oystehr, search } = makeOystehrMock();
     dispatchSearch(search, { rules: [priceRule], claim: makeModel().claim, chargeMasters: [selfPayChargeMaster] });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null, null, null);
+    const validated = await complexValidation(
+      oystehr,
+      'claim-submission',
+      'claim-1',
+      'test',
+      null,
+      'new',
+      'primary',
+      null
+    );
 
     expect(validated.model.chargeMasters).toEqual([selfPayChargeMaster]);
     const calls = chargeMasterSearchCalls(search);
@@ -1132,7 +1170,16 @@ describe('sub-rules-engine charge master pricing', () => {
       chargeMasters: [selfPayChargeMaster],
     });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', null, null, null);
+    const validated = await complexValidation(
+      oystehr,
+      'claim-submission',
+      'claim-1',
+      'test',
+      null,
+      'new',
+      'primary',
+      null
+    );
 
     expect(validated.model.chargeMasters).toBeUndefined();
     expect(chargeMasterSearchCalls(search)).toHaveLength(0);
@@ -1161,14 +1208,15 @@ describe('sub-rules-engine charge master pricing', () => {
         rules: [priceRule],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
-    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1', action: 'new', insurance: 'primary' });
     const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
     const claimPut = requests.find(
       (r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1'
@@ -1201,14 +1249,15 @@ describe('sub-rules-engine charge master pricing', () => {
         rules: [priceRule],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
-    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1', action: 'new', insurance: 'primary' });
     // The pricing action changed nothing, so no claim write was persisted and the line kept its charges.
     const requests = transaction.mock.calls.flatMap((call) => call[0].requests);
     expect(requests.some((r: { method: string; url: string }) => r.method === 'PUT' && r.url === 'Claim/claim-1')).toBe(
@@ -1332,7 +1381,16 @@ describe('sub-rules-engine patient coverage context', () => {
     const { oystehr, search } = makeOystehrMock();
     dispatchContextSearch(search, { rules: [coverageRule], claim: makeModel().claim, patient: workingPatient(true) });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false, null, null);
+    const validated = await complexValidation(
+      oystehr,
+      'claim-submission',
+      'claim-1',
+      'test',
+      false,
+      'new',
+      'primary',
+      null
+    );
 
     const context = validated.model.patientCoverageContext!;
     expect(context.byType.primary?.coverage.id).toBe('cov-src-primary');
@@ -1374,7 +1432,16 @@ describe('sub-rules-engine patient coverage context', () => {
     };
     dispatchContextSearch(search, { rules: [conditionRule], claim: makeModel().claim, patient: workingPatient(true) });
 
-    const validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false, null, null);
+    const validated = await complexValidation(
+      oystehr,
+      'claim-submission',
+      'claim-1',
+      'test',
+      false,
+      'new',
+      'primary',
+      null
+    );
 
     expect(validated.model.patientCoverageContext).toBeDefined();
     expect(searchedTypes(search)).toContain('Coverage');
@@ -1390,7 +1457,16 @@ describe('sub-rules-engine patient coverage context', () => {
       patient: workingPatient(true),
     });
 
-    let validated = await complexValidation(oystehr, 'claim-submission', 'claim-1', 'test', false, null, null);
+    let validated = await complexValidation(
+      oystehr,
+      'claim-submission',
+      'claim-1',
+      'test',
+      false,
+      'new',
+      'primary',
+      null
+    );
     expect(validated.model.patientCoverageContext).toBeUndefined();
     expect(searchedTypes(search)).not.toContain('Coverage');
     expect(searchedTypes(search)).not.toContain('Account');
@@ -1403,7 +1479,16 @@ describe('sub-rules-engine patient coverage context', () => {
       claim: makeModel().claim,
       patient: workingPatient(false),
     });
-    validated = await complexValidation(second.oystehr, 'claim-submission', 'claim-1', 'test', false, null, null);
+    validated = await complexValidation(
+      second.oystehr,
+      'claim-submission',
+      'claim-1',
+      'test',
+      false,
+      'new',
+      'primary',
+      null
+    );
     expect(validated.model.patientCoverageContext).toBeUndefined();
     expect(searchedTypes(second.search)).not.toContain('Coverage');
   });
@@ -1425,14 +1510,15 @@ describe('sub-rules-engine patient coverage context', () => {
         rules: [coverageRule],
         model,
         skipRules: false,
-        submissionType: null,
+        submissionType: 'new',
+        submissionInsurance: 'primary',
         payerClaimControlNumber: null,
       },
       [AGENT]
     );
 
     expect(result.taskStatus).toBe('completed');
-    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1' });
+    expect(submitClaimRcm).toHaveBeenCalledWith({ claimId: 'claim-1', action: 'new', insurance: 'primary' });
 
     const covUrn = `urn:uuid:${model.coverages[0].id}`;
     const rpUrn = `urn:uuid:${model.subscribers[0].id}`;
@@ -1517,7 +1603,8 @@ describe('sub-rules-engine patient coverage context', () => {
             rules: [coverageRule],
             model,
             skipRules: false,
-            submissionType: null,
+            submissionType: 'new',
+            submissionInsurance: 'primary',
             payerClaimControlNumber: null,
           },
           [AGENT]

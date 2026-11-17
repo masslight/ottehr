@@ -6,20 +6,14 @@ import { getEncounterStatusHistoryUpdateOp, isAnnotationFollowupEncounter } from
 import {
   extractExtensionValue,
   findExtensionIndex,
-  getAppointmentLockMetaTagOperations,
-  getAppointmentMetaTagOpForStatusUpdate,
-  getEncounterLockMetaTagOperations,
   getSkipEmailTaskInput,
   getTaskResource,
 } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
-import {
-  visitStatusToFhirAppointmentStatusMap,
-  visitStatusToFhirEncounterStatusMap,
-} from 'utils/lib/types/api/appointment.types';
+import { visitStatusToFhirEncounterStatusMap } from 'utils/lib/types/api/appointment.types';
 import {
   SignAppointmentInput,
   SignAppointmentResponse,
@@ -36,7 +30,12 @@ import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-detail
 import { FullAppointmentResourcePackage } from '../../shared/pdf/visit-details-pdf/types';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { assertAssignedProviderCanSign, assertCallerCanSign } from './helpers';
+import {
+  assertAssignedProviderCanSign,
+  assertCallerCanSign,
+  getCompletedFollowupEncounterPatchOps,
+  getSignedAppointmentPatchOps,
+} from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -108,7 +107,7 @@ export const performEffect = async (
   if (isFollowup) {
     // For follow-up encounters: only update encounter status and create PDF (no appointment updates, no email)
     if (currentStatus) {
-      const userId = removePrefix('Practitioner/', user.profile);
+      const userId = getIdFromReference(user.profile, 'Practitioner');
       if (!userId) throw new Error("Can't receive practitioner resource id attached to current user");
       await changeFollowupEncounterStatusToCompleted(oystehr, userId, visitResources, supervisorApprovalEnabled);
     }
@@ -230,23 +229,7 @@ const changeFollowupEncounterStatusToCompleted = async (
     throw new Error('Encounter is not defined');
   }
 
-  const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
-
-  const encounterPatchOps: Operation[] = [
-    {
-      op: 'replace',
-      path: '/status',
-      value: encounterStatus,
-    },
-  ];
-
-  const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(
-    resourcesToUpdate.encounter,
-    encounterStatus,
-    'completed'
-  );
-  encounterPatchOps.push(encounterStatusHistoryUpdate);
-  encounterPatchOps.push(...getEncounterLockMetaTagOperations(resourcesToUpdate.encounter, true));
+  const encounterPatchOps = getCompletedFollowupEncounterPatchOps(resourcesToUpdate.encounter);
 
   let provenanceCreate: BatchInputRequest<Provenance> | undefined;
 
@@ -306,21 +289,9 @@ const changeStatusToCompleted = async (
     throw new Error('Encounter is not defined');
   }
 
-  const appointmentStatus = visitStatusToFhirAppointmentStatusMap['completed'];
   const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
 
-  const patchOps: Operation[] = [
-    {
-      op: 'replace',
-      path: '/status',
-      value: appointmentStatus,
-    },
-  ];
-
-  patchOps.push(...getAppointmentMetaTagOpForStatusUpdate(resourcesToUpdate.appointment, 'completed', { user }));
-
-  // Add locked meta tag when appointment is signed/completed
-  patchOps.push(...getAppointmentLockMetaTagOperations(resourcesToUpdate.appointment, true));
+  const patchOps = getSignedAppointmentPatchOps(resourcesToUpdate.appointment, user);
 
   const encounterPatchOps: Operation[] = [
     {

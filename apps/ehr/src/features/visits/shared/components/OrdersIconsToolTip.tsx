@@ -1,7 +1,10 @@
+import AccessibleOutlinedIcon from '@mui/icons-material/AccessibleOutlined';
 import { Badge, Box } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { MappedStatusChip } from 'src/components/MappedStatusChip';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { OrdersToolTip } from 'src/features/common/OrdersToolTip';
+import { DmeStatusChip } from 'src/features/dme/components/DmeStatusChip';
 import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
 import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
@@ -9,6 +12,8 @@ import { NursingOrdersStatusChip } from 'src/features/nursing-orders/components/
 import { RadiologyTableStatusChip } from 'src/features/radiology/components/RadiologyTableStatusChip';
 import { MedicationStatusChip } from 'src/features/visits/in-person/components/medication-administration/statuses/MedicationStatusChip';
 import {
+  getDmeOrderDetailsUrl,
+  getDmeOrdersUrl,
   getErxUrl,
   getExternalLabOrderEditUrl,
   getExternalLabOrdersUrl,
@@ -28,6 +33,7 @@ import {
 } from 'src/features/visits/in-person/routing/helpers';
 import { sidebarMenuIcons } from 'src/features/visits/shared/components/sidebarMenuIcons';
 import { hasAtLeastOneOrder } from 'src/helpers';
+import { DmeOrderStatus } from 'utils/lib/types/api/dme.types';
 import { MedicationOrderStatuses } from 'utils/lib/types/api/medication-administration.types';
 import { RadiologyOrderStatus } from 'utils/lib/types/api/radiology';
 import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
@@ -48,6 +54,7 @@ const IN_HOUSE_LAB_ORDERS_PENDING_BADGE_STATUSES: TestStatus[] = ['ORDERED', 'CO
 const NURSING_ORDERS_PENDING_BADGE_STATUSES = [NursingOrdersStatus.pending];
 const FILTERED_IN_HOUSE_MEDICATIONS_PENDING_BADGE_STATUSES = [MedicationOrderStatuses.pending];
 const RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES = [RadiologyOrderStatus.pending];
+const DME_ORDERS_PENDING_BADGE_STATUSES = [DmeOrderStatus.pending];
 
 export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointment, orders }) => {
   const ordersExistForAppointment = hasAtLeastOneOrder(orders);
@@ -64,6 +71,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     erxOrders,
     procedures,
     immunizationOrders,
+    dmeOrders,
   } = orders;
 
   const filteredInHouseMedications = inHouseMedications?.filter((med) => med?.status !== 'cancelled');
@@ -242,6 +250,22 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     };
     config.unreadBadge = config.orders.find((order) => order.unreadBadge) != null;
     if (config.orders.length > 0) orderConfigs.push(config);
+  }
+
+  if (FEATURE_FLAGS.DME_ORDERS_ENABLED && dmeOrders?.length) {
+    orderConfigs.push({
+      icon: <AccessibleOutlinedIcon fontSize="small" />,
+      title: 'DME',
+      tableUrl: withEncounter(getDmeOrdersUrl(navAppointmentId)),
+      unreadBadge: dmeOrders.some((order) => DME_ORDERS_PENDING_BADGE_STATUSES.includes(order.status)),
+      orders: dmeOrders.map((order) => ({
+        fhirResourceId: order.id,
+        itemDescription: order.itemName,
+        detailPageUrl: withEncounter(getDmeOrderDetailsUrl(navAppointmentId, order.id)),
+        statusChip: <DmeStatusChip status={order.status} />,
+        unreadBadge: DME_ORDERS_PENDING_BADGE_STATUSES.includes(order.status),
+      })),
+    });
   }
 
   return (

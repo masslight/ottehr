@@ -75,6 +75,13 @@
       "src": "src/ehr/ai-assisted-encounters-report/index",
       "zip": ".dist/zips/ai-assisted-encounters-report.zip"
     },
+    "GET-PATIENT-FORM-RESPONSES": {
+      "name": "get-patient-form-responses",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-patient-form-responses/index",
+      "zip": ".dist/zips/get-patient-form-responses.zip"
+    },
     "SEND-PATIENT-FORM": {
       "name": "send-patient-form",
       "type": "http_auth",
@@ -193,6 +200,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-notes/get/index",
       "zip": ".dist/zips/get-patient-notes.zip"
+    },
+    "MARK-TASK-NOTES-READ": {
+      "name": "mark-task-notes-read",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-notes/mark-read/index",
+      "zip": ".dist/zips/mark-task-notes-read.zip"
     },
     "GET-PATIENT-NOTES-COUNT": {
       "name": "get-patient-notes-count",
@@ -326,6 +340,20 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/save-followup-encounter/index",
       "zip": ".dist/zips/save-followup-encounter.zip"
+    },
+    "SAVE-FREE-FORM-ENCOUNTER": {
+      "name": "save-free-form-encounter",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/save-free-form-encounter/index",
+      "zip": ".dist/zips/save-free-form-encounter.zip"
+    },
+    "DELETE-FREE-FORM-ENCOUNTER": {
+      "name": "delete-free-form-encounter",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/delete-free-form-encounter/index",
+      "zip": ".dist/zips/delete-free-form-encounter.zip"
     },
     "GET-EMPLOYEE-CHATS": {
       "name": "get-employee-chats",
@@ -782,6 +810,27 @@
       "runtime": "nodejs22.x",
       "src": "src/patient/appointment/get-past-visits/index",
       "zip": ".dist/zips/get-past-visits.zip"
+    },
+    "GET-SUPPORT-CHAT": {
+      "name": "get-support-chat",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/support-chat/get-support-chat/index",
+      "zip": ".dist/zips/get-support-chat.zip"
+    },
+    "MARK-SUPPORT-CHAT-READ": {
+      "name": "mark-support-chat-read",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/support-chat/mark-support-chat-read/index",
+      "zip": ".dist/zips/mark-support-chat-read.zip"
+    },
+    "SEND-SUPPORT-CHAT-MESSAGE": {
+      "name": "send-support-chat-message",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/support-chat/send-support-chat-message/index",
+      "zip": ".dist/zips/send-support-chat-message.zip"
     },
     "TELEMED-UPDATE-APPOINTMENT": {
       "name": "telemed-update-appointment",
@@ -1445,35 +1494,42 @@
       "src": "src/ehr/send-fax/index",
       "zip": ".dist/zips/send-fax.zip"
     },
-    "SEND-FAX-PACKET": {
-      "name": "send-fax-packet",
+    "SEND-DOCUMENT-PACKET": {
+      "name": "send-document-packet",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/send-fax-packet/index",
-      "zip": ".dist/zips/send-fax-packet.zip"
+      "src": "src/ehr/send-document-packet/index",
+      "zip": ".dist/zips/send-document-packet.zip"
     },
-    "GET-FAX-PACKET-STATUS": {
-      "name": "get-fax-packet-status",
+    "GET-DOCUMENT-PACKET-STATUS": {
+      "name": "get-document-packet-status",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/get-fax-packet-status/index",
-      "zip": ".dist/zips/get-fax-packet-status.zip"
+      "src": "src/ehr/get-document-packet-status/index",
+      "zip": ".dist/zips/get-document-packet-status.zip"
     },
-    "SUB-SEND-FAX-PACKET": {
-      "name": "sub-send-fax-packet",
+    "SUB-SEND-DOCUMENT-PACKET": {
+      "name": "sub-send-document-packet",
       "type": "subscription",
       "timeout": "300",
       "memorySize": "3008",
       "runtime": "nodejs22.x",
-      "src": "src/subscriptions/task/sub-send-fax-packet/index",
-      "zip": ".dist/zips/sub-send-fax-packet.zip"
+      "src": "src/subscriptions/task/sub-send-document-packet/index",
+      "zip": ".dist/zips/sub-send-document-packet.zip"
     },
-    "GET-FAX-PACKET-PREVIEW": {
-      "name": "get-fax-packet-preview",
+    "GET-DOCUMENT-PACKET-PREVIEW": {
+      "name": "get-document-packet-preview",
       "type": "http_auth",
       "runtime": "nodejs22.x",
-      "src": "src/ehr/get-fax-packet-preview/index",
-      "zip": ".dist/zips/get-fax-packet-preview.zip"
+      "src": "src/ehr/get-document-packet-preview/index",
+      "zip": ".dist/zips/get-document-packet-preview.zip"
+    },
+    "OPEN-DOCUMENT-LINK": {
+      "name": "open-document-link",
+      "type": "http_open",
+      "runtime": "nodejs22.x",
+      "src": "src/patient/open-document-link/index",
+      "zip": ".dist/zips/open-document-link.zip"
     },
     "CREATE-SLOT": {
       "name": "create-slot",
@@ -1559,26 +1615,47 @@
       "src": "src/ehr/update-nursing-order/index",
       "zip": ".dist/zips/update-nursing-order.zip"
     },
+    "CREATE-DME-ORDER": {
+      "name": "create-dme-order",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/dme/create-dme-order/index",
+      "zip": ".dist/zips/create-dme-order.zip"
+    },
+    "GET-DME-ORDERS": {
+      "name": "get-dme-orders",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/dme/get-dme-orders/index",
+      "zip": ".dist/zips/get-dme-orders.zip"
+    },
+    "UPDATE-DME-ORDER": {
+      "name": "update-dme-order",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/dme/update-dme-order/index",
+      "zip": ".dist/zips/update-dme-order.zip"
+    },
+    "GET-DME-ORDER-PDF": {
+      "name": "get-dme-order-pdf",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/dme/get-dme-order-pdf/index",
+      "zip": ".dist/zips/get-dme-order-pdf.zip"
+    },
+    "SEND-DME-ORDER-FAX": {
+      "name": "send-dme-order-fax",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/dme/send-dme-order-fax/index",
+      "zip": ".dist/zips/send-dme-order-fax.zip"
+    },
     "CLINICAL-STRIPE-WEBHOOK": {
       "name": "clinical-stripe-webhook",
       "type": "http_open",
       "runtime": "nodejs22.x",
       "src": "src/ehr/clinical-stripe-webhook/index",
       "zip": ".dist/zips/clinical-stripe-webhook.zip"
-    },
-    "PATIENT-PAYMENTS-LIST": {
-      "name": "patient-payments-list",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/patient-payments/list/index",
-      "zip": ".dist/zips/patient-payments-list.zip"
-    },
-    "PATIENT-PAYMENTS-POST": {
-      "name": "patient-payments-post",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/patient-payments/post/index",
-      "zip": ".dist/zips/patient-payments-post.zip"
     },
     "PATIENT-PAYMENTS-GET-CONFIG": {
       "name": "patient-payments-terminal-get-config",
@@ -1601,6 +1678,20 @@
       "src": "src/ehr/patient-payments/terminal/cancel-reader-action/index",
       "zip": ".dist/zips/patient-payments-terminal-cancel-reader-action.zip"
     },
+    "GET-ENCOUNTER-PAYMENT-NOTICE": {
+      "name": "get-encounter-payment-notice",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/patient-payments/get-encounter-payment-notice/index",
+      "zip": ".dist/zips/get-encounter-payment-notice.zip"
+    },
+    "GET-PRACTITIONER-NAMES": {
+      "name": "get-practitioner-names",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-practitioner-names/index",
+      "zip": ".dist/zips/get-practitioner-names.zip"
+    },
     "PATIENT-PAYMENTS-INITIATE-PAYMENT": {
       "name": "patient-payments-terminal-initiate-payment",
       "type": "http_auth",
@@ -1614,20 +1705,6 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/patient-payments/terminal/finalize-payment/index",
       "zip": ".dist/zips/patient-payments-terminal-finalize-payment.zip"
-    },
-    "PATIENT-PAYMENTS-REFUND": {
-      "name": "patient-payments-refund",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/patient-payments/refund/index",
-      "zip": ".dist/zips/patient-payments-refund.zip"
-    },
-    "PATIENT-PAYMENTS-VOID": {
-      "name": "patient-payments-void",
-      "type": "http_auth",
-      "runtime": "nodejs22.x",
-      "src": "src/ehr/patient-payments/void/index",
-      "zip": ".dist/zips/patient-payments-void.zip"
     },
     "FAILING-ENDPOINT": {
       "name": "failing-endpoint",
@@ -1819,6 +1896,13 @@
       "src": "src/ehr/tasks/create-manual-task/index",
       "zip": ".dist/zips/create-manual-task.zip"
     },
+    "REPLY-SUPPORT-CHAT": {
+      "name": "reply-support-chat",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/support-chat/reply-support-chat/index",
+      "zip": ".dist/zips/reply-support-chat.zip"
+    },
     "SUB-SEND-INVOICE-TO-PATIENT": {
       "name": "sub-send-invoice-to-patient",
       "type": "subscription",
@@ -1885,6 +1969,27 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/create-invoice-tasks-for-billing-claims/index",
       "zip": ".dist/zips/create-invoice-tasks-for-billing-claims.zip"
+    },
+    "PREPARE-BILLING-INVOICE": {
+      "name": "prepare-billing-invoice",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/prepare-billing-invoice/index",
+      "zip": ".dist/zips/prepare-billing-invoice.zip"
+    },
+    "GET-BILLING-INVOICE-VISIT": {
+      "name": "get-billing-invoice-visit",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-billing-invoice-visit/index",
+      "zip": ".dist/zips/get-billing-invoice-visit.zip"
+    },
+    "SEND-BILLING-INVOICE-SMS": {
+      "name": "send-billing-invoice-sms",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/send-billing-invoice-sms/index",
+      "zip": ".dist/zips/send-billing-invoice-sms.zip"
     },
     "EXPORT-INVOICES": {
       "name": "export-invoices",
@@ -1961,6 +2066,13 @@
       "src": "src/ehr/get-patient-balances/index",
       "zip": ".dist/zips/get-patient-balances.zip"
     },
+    "GET_PATIENT_PAYMENT_VISITS": {
+      "name": "get-patient-payment-visits",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/get-patient-payment-visits/index",
+      "zip": ".dist/zips/get-patient-payment-visits.zip"
+    },
     "GET_LOGIN_PHONE_NUMBERS": {
       "name": "get-login-phone-numbers",
       "type": "http_auth",
@@ -2016,6 +2128,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/retry-action-log/index",
       "zip": ".dist/zips/retry-action-log.zip"
+    },
+    "REVOKE_ACTION_LOG": {
+      "name": "revoke-action-log",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/revoke-action-log/index",
+      "zip": ".dist/zips/revoke-action-log.zip"
     },
     "SEARCH-PATIENTS": {
       "name": "search-patients",
@@ -2333,7 +2452,7 @@
       "src": "src/rcm/scheduled-outreach/producers/cron-outreach-invoice-due/index",
       "zip": ".dist/zips/cron-outreach-invoice-due.zip",
       "schedule": {
-        "expression": "cron(0 6 * * ? *)"
+        "expression": "cron(0 15 * * ? *)"
       }
     },
     "CRON-OUTREACH-BIRTHDAY": {
@@ -2689,6 +2808,13 @@
       "runtime": "nodejs22.x",
       "src": "src/ehr/practice-managed-questionnaire/create/index",
       "zip": ".dist/zips/practice-managed-questionnaire-create.zip"
+    },
+    "MANAGED_QUESTIONNAIRE_IMPORT_JSON": {
+      "name": "practice-managed-questionnaire-import-json",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/practice-managed-questionnaire/import-json/index",
+      "zip": ".dist/zips/practice-managed-questionnaire-import-json.zip"
     },
     "PAPERWORK_FLOW_LIST": {
       "name": "paperwork-flow-list",
@@ -3091,15 +3217,15 @@
         ]
       }
     },
-    "SUB_SEND_FAX_PACKET_SUBSCRIPTION": {
+    "SUB_SEND_DOCUMENT_PACKET_SUBSCRIPTION": {
       "resource": {
         "resourceType": "Subscription",
         "status": "active",
-        "reason": "background outbound fax packet send",
-        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|send-fax-packet&status=requested",
+        "reason": "background outbound document packet send",
+        "criteria": "Task?code=https://fhir.ottehr.com/CodeSystem/ottehr-system-task|send-document-packet&status=requested",
         "channel": {
           "type": "rest-hook",
-          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-FAX-PACKET/id}"
+          "endpoint": "zapehr-lambda:#{ref/zambdas/SUB-SEND-DOCUMENT-PACKET/id}"
         },
         "extension": [
           {

@@ -30,11 +30,14 @@ import {
 } from '../../fhir/questionnaires';
 import { PaperworkPDFResourcePackage, Question } from '../../types/data/paperwork.types';
 import {
+  CalculatedExpression,
   ConditionKeyObject,
+  flattenIntakeQuestionnaireItems,
   FormDisplayElementList,
   FormElement,
   FormSelectionElementList,
   InputWidthOption,
+  InsurancePriorityChanges,
   IntakeQuestionnaireItem,
   QuestionnaireItemConditionDefinition,
   QuestionnaireItemExtension,
@@ -177,6 +180,13 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
     disabledDisplay = undefined;
   }
 
+  const calculatedValueExpression = extension.find(
+    (ext) => ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.calculatedExpression
+  )?.valueExpression;
+  const calculatedExpression: CalculatedExpression | undefined = calculatedValueExpression
+    ? { language: calculatedValueExpression.language, expression: calculatedValueExpression.expression }
+    : undefined;
+
   const requireWhen = getConditionalExtensions(extension, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.requireWhen)[0]
     ?.baseConditionDef;
 
@@ -217,6 +227,10 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
 
   const secondaryInfoText = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.secondaryInfoText;
+  })?.valueString;
+
+  const placeholder = extension.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.placeholder;
   })?.valueString;
 
   const dataType = validateQuestionnaireDataType(
@@ -402,6 +416,7 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
   return {
     acceptsMultipleAnswers,
     alwaysFilter,
+    calculatedExpression,
     disabledDisplay,
     hideControlLabel,
     requireWhen,
@@ -410,6 +425,7 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
     autofillFromWhenDisabled,
     infoText,
     secondaryInfoText,
+    placeholder,
     dataType,
     filterWhen,
     validateAgeOver,
@@ -522,6 +538,10 @@ export function getOptionsArray(item: QuestionnaireItem, valueSets?: ValueSet[])
       }, []);
   } else {
     options = item.answerOption?.map((option) => {
+      const coding = option.valueCoding;
+      if (coding) {
+        return { label: coding.display || coding.code || 'Unknown', value: coding.code || coding.display || 'Unknown' };
+      }
       const formatOption = { label: option.valueString || 'Unknown', value: option.valueString || 'Unknown' };
       return formatOption;
     });
@@ -614,6 +634,14 @@ export const getComponentKeysFromDateGroup = (item: QuestionnaireItem): DateKeys
   return keys;
 };
 
+// the first answer's value, whichever value[x] it is stored in (valueString, valueCoding, valueReference, ...)
+export const pickAnyValueFromAnswerItem = (item: QuestionnaireResponseItem | undefined): unknown => {
+  const answer = item?.answer?.[0];
+  if (!answer) return undefined;
+  const key = (Object.keys(answer) as (keyof QuestionnaireResponseItemAnswer)[]).find((k) => k.startsWith('value'));
+  return key ? answer[key] : undefined;
+};
+
 export const pickFirstValueFromAnswerItem = (
   item: QuestionnaireResponseItem | undefined,
   type: 'string' | 'boolean' | 'attachment' | 'reference' | 'decimal' = 'string'
@@ -630,6 +658,18 @@ export const pickValueAsStringListFromAnswerItem = (
     return ent[valString];
   });
 };
+
+// choice answers recorded from valueCoding options carry the selected option's code
+export const pickCodingCodeFromAnswerItem = (item: QuestionnaireResponseItem | undefined): string | undefined =>
+  item?.answer?.[0]?.valueCoding?.code;
+
+// the option an answer refers to, whether the item's options are valueCoding or valueString
+export const getAnswerOptionValue = (option: QuestionnaireItemAnswerOption): string | undefined =>
+  option.valueCoding ? option.valueCoding.code ?? option.valueCoding.display : option.valueString;
+
+export const getAnswerOptionLabel = (option: QuestionnaireItemAnswerOption): string | undefined =>
+  option.valueCoding ? option.valueCoding.display ?? option.valueCoding.code : option.valueString;
+
 function capitalizeFirstLetter(string: string): string {
   return string.charAt(0).toUpperCase() + string.slice(1);
 }
@@ -899,4 +939,24 @@ export const getPaperworkResources = async (
     schedule,
     location,
   };
+};
+
+export const getRequestedInsurancePriorityChanges = (items: QuestionnaireResponseItem[]): InsurancePriorityChanges => {
+  const flattenedItems = flattenIntakeQuestionnaireItems(
+    items as IntakeQuestionnaireItem[]
+  ) as QuestionnaireResponseItem[];
+
+  const getPriority = (linkId: string): string | undefined =>
+    flattenedItems.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
+
+  return {
+    primaryBecameSecondary: getPriority('insurance-priority') === 'Secondary',
+    secondaryBecamePrimary: getPriority('insurance-priority-2') === 'Primary',
+  };
+};
+
+export const hasInsurancePriorityChange = (items: QuestionnaireResponseItem[]): boolean => {
+  const { primaryBecameSecondary, secondaryBecamePrimary } = getRequestedInsurancePriorityChanges(items);
+
+  return primaryBecameSecondary || secondaryBecamePrimary;
 };

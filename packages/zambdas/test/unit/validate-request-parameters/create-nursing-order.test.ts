@@ -24,6 +24,16 @@ describe('create-nursing-order - validateRequestParameters', () => {
     expect(result.notes).toBeUndefined();
   });
 
+  test.each(['', '   ', '\n\t'])('treats a blank note (%j) as no note', (notes) => {
+    const input = createMockZambdaInput({ encounterId: validEncounterId, notes });
+    expect(validateRequestParameters(input).notes).toBeUndefined();
+  });
+
+  test('accepts a note with surrounding whitespace and trims it', () => {
+    const input = createMockZambdaInput({ encounterId: validEncounterId, notes: '  Check vitals \n' });
+    expect(validateRequestParameters(input).notes).toBe('Check vitals');
+  });
+
   test('should throw when body is missing', () => {
     const input = createMockZambdaInput(null, { body: '' });
     expect(() => validateRequestParameters(input)).toThrow();

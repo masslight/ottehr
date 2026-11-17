@@ -361,9 +361,20 @@ export interface ComponentCodeNotice<TCode extends string = string> {
   message: string;
 }
 
+export type StandardProcedureField =
+  | 'site'
+  | 'anesthesia'
+  | 'technique'
+  | 'supplies'
+  | 'specimen'
+  | 'complications'
+  | 'patientResponse'
+  | 'timeSpent';
+
 export interface ProcedureFamilyModel<TCode extends string = string> {
   capturesSite?: boolean;
   capturesSide?: boolean;
+  omitsStandardFields?: readonly StandardProcedureField[];
   codePairEdits?: readonly CptPairEdit[];
   componentCodeNotices?: readonly ComponentCodeNotice<TCode>[];
   procedureNames: readonly string[];
@@ -374,6 +385,8 @@ export interface ProcedureFamilyModel<TCode extends string = string> {
   structuredFieldsFor?(input: ProcedureStructuredFieldInput): readonly ProcedureStructuredField[];
   dailyLimits?: DailyUnitLimits<TCode>;
   documentationChecklist?: (facts: StructuredFacts) => readonly string[];
+  quickPickExcludes?: readonly string[];
+  noteLines?: (facts: StructuredFacts) => { lines: string[]; covers: readonly string[] };
   /** Existing structured form fields only; never infer facts from the procedure name or narrative. */
   readLegacyFacts?(input: LegacyProcedureFields): StructuredFacts;
   /** Clinical decisions for this family. Shared validation and billing checks wrap this function. */

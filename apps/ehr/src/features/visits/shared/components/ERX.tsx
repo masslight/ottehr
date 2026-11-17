@@ -46,7 +46,7 @@ export const ERX: FC<{
   const [pendingErxEnrollmentDialogOpen, setPendingErxEnrollmentDialogOpen] = useState<boolean>(false);
 
   // Step 1: Get patient vitals
-  const { hasVitals, isVitalsLoading, isVitalsFetched } = useErxPatientVitals();
+  const { hasVitals, isVitalsLoading, isVitalsFetched, missingVitalsMessage } = useErxPatientVitals();
 
   // Step 2: Check practitioner enrollment
   const {
@@ -171,13 +171,10 @@ export const ERX: FC<{
   // Handle vitals validation
   useEffect(() => {
     if (isVitalsFetched && !hasVitals) {
-      enqueueSnackbar(
-        "Patient doesn't have height or weight vital specified. Please specify it first on the `Vitals` tab",
-        { variant: 'error' }
-      );
+      enqueueSnackbar(missingVitalsMessage, { variant: 'error' });
       onStatusChanged(ERXStatus.ERROR);
     }
-  }, [isVitalsFetched, hasVitals, onStatusChanged]);
+  }, [isVitalsFetched, hasVitals, missingVitalsMessage, onStatusChanged]);
 
   // Handle practitioner enrollment
   useEffect(() => {

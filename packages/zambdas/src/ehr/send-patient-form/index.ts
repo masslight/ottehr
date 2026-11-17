@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Patient, Practitioner, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { QR_DISTRIBUTION_TAG, QR_SENT_BY_SYSTEM } from 'utils/lib/fhir/constants';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -18,7 +19,8 @@ let m2mToken: string;
 const ZAMBDA_NAME = 'send-patient-form';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const { appointmentId, questionnaireId, secrets, userToken } = validateRequestParameters(input);
+  const { appointmentId, questionnaireId, notifyPatient, encounterId, secrets, userToken } =
+    validateRequestParameters(input);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
@@ -51,10 +53,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   ).unbundle();
 
   const patient = resources.find((r) => r.resourceType === 'Patient');
-  const encounter = resources.find((r) => r.resourceType === 'Encounter');
+  // The encounter on screen when given; otherwise the visit's own encounter, never an attached follow-up note.
+  const encounter = resources.find(
+    (r): r is Encounter =>
+      r.resourceType === 'Encounter' && (encounterId ? r.id === encounterId : !isAnnotationFollowupEncounter(r))
+  );
   const questionnaireResponses = resources
     .filter((r) => r.resourceType === 'QuestionnaireResponse')
-    .filter((r) => qrSentManually(r) && r.questionnaire === canonicalUrl && r.status === 'in-progress');
+    .filter(
+      (r) =>
+        qrSentManually(r) &&
+        r.questionnaire === canonicalUrl &&
+        r.status === 'in-progress' &&
+        r.encounter?.reference === `Encounter/${encounter?.id}`
+    );
 
   if (!patient) {
     throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Could not find the patient resource for Appointment/${appointmentId}`);
@@ -95,6 +107,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const created = await oystehr.fhir.create<QuestionnaireResponse>(newQr);
     questionnaireResponseId = created.id;
+  }
+
+  if (notifyPatient === false) {
+    return { statusCode: 200, body: JSON.stringify({ questionnaireResponseId } satisfies SendPatientFormOutput) };
   }
 
   // Build the form URL. Patient-level links omit the appointment segment.

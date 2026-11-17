@@ -487,7 +487,7 @@ export const useGetCPTHCPCSSearch = ({
   const { oystehr } = useApiClients();
 
   const queryResult = useQuery({
-    queryKey: ['hcpcs-search', search, radiologyOnly],
+    queryKey: ['hcpcs-search', type, search, radiologyOnly],
 
     queryFn: async () => {
       switch (type) {

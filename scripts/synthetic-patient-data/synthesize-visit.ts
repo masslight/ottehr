@@ -120,12 +120,14 @@ import type {
   Procedure,
   RelatedPerson,
   Schedule,
+  Slot,
 } from 'fhir/r4b';
 import * as fs from 'fs';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import * as path from 'path';
 import { resolve } from 'path';
+import { SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { createQuestionnaireItemsMap } from 'utils/lib/types/data/paperwork/createQuestionnaireItemsMap';
 import { finalizeInHouseLabs, finalizeRadiology, LAB_NAME_ALIASES, normalizeLabName } from './finalize-visit-orders';
 import { type History as ScenarioHistory, type VisitScenario, VisitScenarioSchema } from './schema';
@@ -697,6 +699,24 @@ async function phase0_5_createSlot(ctx: SynthesisContext): Promise<void> {
     }
     ctx.slotId = slotId;
     logNote(`slotId=${ctx.slotId}`);
+
+    // create-slot stamps the slot with any practice-managed paperwork flow assigned
+    // to the service category (admin-authored, env-specific). Phase 1.5 only knows
+    // how to fill the standard intake form, so drop that pin and let
+    // create-appointment fall back to the service mode's default intake questionnaire.
+    const slot = await withRetry('Slot get (paperwork flow pin)', 3, () =>
+      ctx.oystehr!.fhir.get<Slot>({ resourceType: 'Slot', id: slotId })
+    );
+    const flowPin = slot.extension?.find((ext) => ext.url === SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL);
+    if (flowPin) {
+      await withRetry('Slot update (drop paperwork flow pin)', 3, () =>
+        ctx.oystehr!.fhir.update<Slot>({
+          ...slot,
+          extension: slot.extension!.filter((ext) => ext.url !== SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL),
+        })
+      );
+      logNote(`dropped paperwork flow pin ${flowPin.valueString} — using the default intake questionnaire`);
+    }
   } else {
     logNote('returns: { id }');
   }

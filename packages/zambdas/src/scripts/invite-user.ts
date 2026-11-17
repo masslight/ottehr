@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
 import { SCHEDULE_EXTENSION_URL, SLUG_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { makeQualificationForPractitioner } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { AllStatesValues } from 'utils/lib/helpers/states';
 import { PractitionerLicense } from 'utils/lib/types/api/practitioner.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
@@ -97,7 +98,7 @@ export async function inviteUser(
         roles: defaultRoleIds,
       });
       console.log('User invited:', invitedUser);
-      return { invitationUrl: invitedUser.invitationUrl, userProfileId: invitedUser.profile.split('/')[1] };
+      return { invitationUrl: invitedUser.invitationUrl, userProfileId: getIdFromReference(invitedUser.profile) };
     } catch (err) {
       console.error(err);
       throw new Error('Failed to create user');

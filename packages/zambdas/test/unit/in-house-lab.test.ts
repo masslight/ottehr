@@ -73,6 +73,30 @@ describe('In-house admin tests', () => {
       });
     });
   });
+
+  it('writes no empty quantitativeDetails for a Quantity component without unit and precision', () => {
+    const alcoholTest = adminTestItemConfigs['alcohol-test'];
+    const adminTestItem: AdminInHouseLabItemDefinition = {
+      ...alcoholTest,
+      components: alcoholTest.components.map((component) =>
+        component.dataType === 'Quantity'
+          ? {
+              ...component,
+              normalRange: { low: component.normalRange.low, high: component.normalRange.high, unit: '' },
+            }
+          : component
+      ),
+    };
+
+    const activityDef: ActivityDefinition = JSON.parse(
+      JSON.stringify(convertAdminInHouseLabItemDefinitionToActivityDefinition(adminTestItem))
+    );
+    const obsDefs = activityDef.contained?.filter((resource) => resource.resourceType === 'ObservationDefinition');
+
+    expect(obsDefs).not.toHaveLength(0);
+    obsDefs?.forEach((obsDef) => expect(obsDef).not.toHaveProperty('quantitativeDetails'));
+    expect(parseActivityDefinitionToAdminInHouseLabItemDef(activityDef)).toEqual(adminTestItem);
+  });
 });
 
 describe('sanitizeForId', () => {

@@ -3,7 +3,8 @@ import { formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODES } from 'utils/lib/helpers/rcm/constants';
 import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 
-export function formatDate(iso: string): string {
+export function formatDate(iso: string | undefined): string {
+  if (!iso) return '-';
   const date = DateTime.fromISO(iso, { zone: 'utc' });
   return date.isValid ? date.toFormat('MM/dd/yyyy') : iso;
 }

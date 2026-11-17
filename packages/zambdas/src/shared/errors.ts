@@ -86,7 +86,12 @@ export const fhirValidationErrorToApiError = (error: unknown): APIError | undefi
   }
   const issueMessages = (error.cause?.issue ?? [])
     .filter((issue) => issue.severity === 'error' || issue.severity === 'fatal')
-    .map((issue) => issue.details?.text ?? issue.diagnostics)
+    .map((issue) => {
+      const text = issue.details?.text ?? issue.diagnostics;
+      const element = issue.expression?.join(', ');
+      if (!text) return element;
+      return element ? `${text} (${element})` : text;
+    })
     .filter((message): message is string => Boolean(message));
   const details = issueMessages.length > 0 ? issueMessages.join('; ') : error.message;
   return FHIR_RESOURCE_VALIDATION_ERROR(`FHIR validation failed: ${details}`);

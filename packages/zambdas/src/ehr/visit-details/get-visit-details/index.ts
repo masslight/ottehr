@@ -8,7 +8,6 @@ import {
   Flag,
   Location,
   Patient,
-  Questionnaire,
   QuestionnaireResponse,
   RelatedPerson,
   Schedule,
@@ -18,19 +17,9 @@ import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appoin
 import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getAttestedConsentFromEncounter } from 'utils/lib/fhir/helpers';
 import { getEmailForIndividual, getFullestAvailableName } from 'utils/lib/fhir/patient';
-import {
-  deconstructCanonicalUrl,
-  getCanonicalQuestionnaire,
-  getQuestionnaireForQR,
-  selectIntakeQuestionnaireResponse,
-} from 'utils/lib/fhir/questionnaires';
+import { selectIntakeQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
 import { getNameFromScheduleResource } from 'utils/lib/helpers/helpers';
-import {
-  isPracticeManagedQ,
-  makeStandaloneFormDTO,
-  qrSentManually,
-} from 'utils/lib/helpers/practice-managed-questionnaires';
-import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { Secrets } from 'utils/lib/secrets';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 import { PersistedFhirResource, Timezone } from 'utils/lib/types/common';
 import { TIMEZONES } from 'utils/lib/types/constants';
@@ -47,8 +36,12 @@ import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
-import { sendErrors } from '../../../shared/errors';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import {
+  getIntakePaperworkFlowForms,
+  getStandaloneForms,
+  makeQuestionnaireLoader,
+} from '../../../shared/practice-forms';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
@@ -225,6 +218,7 @@ const complexValidation = async (input: Input, oystehr: Oystehr, secrets: Secret
     }
   }
 
+  const loadQuestionnaire = makeQuestionnaireLoader(oystehr);
   const [docRefsAndConsents, accountResources, standAloneForms, intakePaperworkFlowForms] = await Promise.all([
     getConsentAndRelatedDocRefsForAppointment(
       {
@@ -234,8 +228,11 @@ const complexValidation = async (input: Input, oystehr: Oystehr, secrets: Secret
       oystehr
     ),
     getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
-    getStandaloneFormsForAppointment(appointment, oystehr),
-    getIntakePaperworkFlowForms(qr, oystehr, secrets),
+    getStandaloneForms(
+      searchResults.filter((r): r is QuestionnaireResponse => r.resourceType === 'QuestionnaireResponse'),
+      loadQuestionnaire
+    ),
+    getIntakePaperworkFlowForms(qr, loadQuestionnaire, secrets),
   ]);
   const { guarantorResource } = accountResources;
   return {
@@ -322,83 +319,4 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
     userToken,
     appointmentId,
   };
-};
-
-const getStandaloneFormsForAppointment = async (
-  appointment: Appointment,
-  oystehr: Oystehr
-): Promise<StandaloneFormDTO[] | undefined> => {
-  const appointmentId = appointment.id!;
-
-  const resources = (
-    await oystehr.fhir.search<Encounter | QuestionnaireResponse>({
-      resourceType: 'Encounter',
-      params: [
-        { name: 'appointment', value: `Appointment/${appointmentId}` },
-        { name: '_revinclude', value: 'QuestionnaireResponse:encounter' },
-      ],
-    })
-  ).unbundle();
-
-  const questionnaireResponses = resources
-    .filter((r) => r.resourceType === 'QuestionnaireResponse')
-    .filter((qr) => qrSentManually(qr) && qr.status !== 'entered-in-error');
-
-  if (!questionnaireResponses || questionnaireResponses.length === 0) return;
-
-  const results = await Promise.allSettled(
-    questionnaireResponses.map(async (qr) => {
-      const questionnaire = await getQuestionnaireForQR(qr, oystehr);
-      return makeStandaloneFormDTO(questionnaire, qr);
-    })
-  );
-
-  results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').forEach((r) => console.error(r.reason));
-
-  return results
-    .filter((r): r is PromiseFulfilledResult<StandaloneFormDTO> => r.status === 'fulfilled')
-    .map((r) => r.value);
-};
-
-/**
- * Builds one StandaloneFormDTO per form bundled in the visit's paperwork so those responses render in the Custom Paperwork area alongside standalone forms.
- */
-const getIntakePaperworkFlowForms = async (
-  qr: QuestionnaireResponse,
-  oystehr: Oystehr,
-  secrets: Secrets | null
-): Promise<StandaloneFormDTO[] | undefined> => {
-  let questionnaire: Questionnaire | undefined;
-
-  // this really shouldn't happen, but if it does it should not kill get-visit-details
-  try {
-    questionnaire = await getQuestionnaireForQR(qr, oystehr);
-  } catch (e) {
-    console.log(`Error getting Questionnaire for QuestionnaireResponse/${qr.id}`, e);
-    const errorMessage = `Error getting Questionnaire for QuestionnaireResponse/${qr.id}`;
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-    // no need to error and fail the call but this would be odd so alerting
-    await sendErrors(errorMessage, ENVIRONMENT);
-  }
-
-  if (!questionnaire || !questionnaire.derivedFrom) return;
-  const flowQuestionnaire = questionnaire;
-
-  const results = await Promise.allSettled(
-    (flowQuestionnaire.derivedFrom ?? []).map(async (canonical) => {
-      const { url, version } = deconstructCanonicalUrl(canonical, flowQuestionnaire);
-
-      return getCanonicalQuestionnaire({ url, version }, oystehr);
-    })
-  );
-
-  results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').forEach((r) => console.error(r.reason));
-
-  const forms = results
-    .filter((r): r is PromiseFulfilledResult<Questionnaire> => r.status === 'fulfilled')
-    .map((r) => r.value)
-    .filter((form) => isPracticeManagedQ(form))
-    .map((form) => makeStandaloneFormDTO(form, qr));
-
-  return forms.length > 0 ? forms : undefined;
 };

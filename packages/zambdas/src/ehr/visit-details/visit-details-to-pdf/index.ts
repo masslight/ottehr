@@ -8,6 +8,8 @@ import { Secrets } from 'utils/lib/secrets';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { VisitDetailsResponse } from 'utils/lib/types/api/visit-details/visit-details.types';
 import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
+import { getPaymentsForEncounter } from '../../../billing/patient-payment-dtos';
+import { createBillingClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import {
@@ -20,7 +22,6 @@ import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-det
 import { wrapHandler } from '../../../shared/sentry';
 import { getStripeClient } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
-import { getPaymentsForEncounter } from '../../patient-payments/helpers';
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../shared/harvest';
 import { searchDocumentReferencesForVisit } from '../get-visit-files';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -100,11 +101,11 @@ export const performEffect = async (
     try {
       const stripeClient = getStripeClient(secrets);
       payments = await getPaymentsForEncounter({
-        oystehrClient: oystehr,
+        clinicalOystehr: oystehr,
+        billingOystehr: createBillingClient(token, secrets),
         stripeClient,
         account,
         encounterId: encounter.id,
-        patientId: patient.id,
       });
     } catch (error) {
       console.error('Failed to fetch payments for PDF generation:', error);

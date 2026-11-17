@@ -43,10 +43,18 @@ async function fetchAdHocBilling({
   );
 }
 
+const LABEL = 'Visit payments & charges (EHR)';
+
+const DESCRIPTION =
+  'One row per encounter — the EHR-side view of visit finance: patient payments collected at the visit, insurance ' +
+  'coverage and eligibility, and the charted codes priced by the fee schedule. Claim status, AR, ERA remits, ' +
+  'write-offs and payments recorded later in the billing app (manual payments, card charges, refunds) are NOT ' +
+  'here — they are in "Claims (billing app)".';
+
 export const billingDataset: AdHocDataset = {
   id: 'billing',
-  label: 'Billing',
-  description: 'One row per encounter, focused on billing & revenue.',
+  label: LABEL,
+  description: DESCRIPTION,
   options: ADHOC_BILLING_OPTIONS,
   layers: BILLING_LAYERS,
   baseSchema: BillingBaseRowSchema,
@@ -56,8 +64,8 @@ export const billingDataset: AdHocDataset = {
     const opts = options ?? {};
     return buildLlmDatasetSchema({
       datasetId: 'billing',
-      label: 'Billing',
-      description: 'One row per encounter — visit/patient identity plus any enabled billing layers.',
+      label: LABEL,
+      description: DESCRIPTION,
       rows,
       base: BillingBaseRowSchema,
       layers: BILLING_LAYERS,

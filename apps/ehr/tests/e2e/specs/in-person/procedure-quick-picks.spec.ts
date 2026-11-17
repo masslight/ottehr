@@ -1,5 +1,6 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { DateTime } from 'luxon';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { DocumentProcedurePage, openDocumentProcedurePage } from 'tests/e2e/page/DocumentProcedurePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
@@ -23,16 +24,18 @@ const PROCEDURE_TYPE_CODINGS = Object.entries(procedureType.fhirResources).find(
   key.startsWith('value-set-procedure-type')
 )?.[1].resource.expansion.contains;
 
-// This spec fills the generic procedure form, Site/location and Side of body included. A procedure
-// type whose coding family asks for the site inside its own questions hides those two dropdowns,
-// and a type with no coding family at all reaches out to AI for suggestions — so pick the first
-// type that keeps the generic form and stays on the local rules engine.
 const FIRST_PROCEDURE_TYPE = PROCEDURE_TYPE_CODINGS!
   .map((coding) => ({
     display: coding.display,
     codingFamily: detectProcedureFamily({ procedureType: coding.display }),
   }))
-  .filter(({ codingFamily }) => codingFamily && !codingFamily.capturesSite && !codingFamily.capturesSide)[0].display;
+  .filter(
+    ({ codingFamily }) =>
+      codingFamily &&
+      !codingFamily.capturesSite &&
+      !codingFamily.capturesSide &&
+      !codingFamily.omitsStandardFields?.length
+  )[0].display;
 
 const BODY_SITES = Object.entries(procedureBodySites.fhirResources).find(([key]) =>
   key.startsWith('value-set-procedure-body-sites')
@@ -111,8 +114,8 @@ test.afterAll(async () => {
     await expect(page.getByRole('tab', { name: 'Procedures' })).toBeVisible({ timeout: 10000 });
     const row = page.locator('tr', { hasText: QUICK_PICK_NAME });
     if (await row.isVisible({ timeout: 3000 }).catch(() => false)) {
-      page.on('dialog', (dialog) => dialog.accept());
       await row.getByRole('button', { name: /remove/i }).click();
+      await page.getByTestId(dataTestIds.dialog.proceedButton).click();
       await page
         .locator('div[id=notistack-snackbar]')
         .waitFor({ state: 'visible', timeout: 5000 })
@@ -182,11 +185,12 @@ test.describe('Procedure Quick Picks E2E', () => {
       const row = page.locator('tr', { hasText: QUICK_PICK_NAME });
       await expect(row).toBeVisible(DEFAULT_TIMEOUT);
 
-      // Accept the window.confirm dialog that appears when clicking Remove
-      page.on('dialog', (dialog) => dialog.accept());
-
       const removeButton = row.getByRole('button', { name: /remove/i });
       await removeButton.click();
+
+      const confirmDialog = page.getByRole('dialog');
+      await expect(confirmDialog).toContainText(`Remove quick pick "${QUICK_PICK_NAME}"?`, DEFAULT_TIMEOUT);
+      await confirmDialog.getByTestId(dataTestIds.dialog.proceedButton).click();
 
       // Wait for success snackbar
       const snackbar = page.locator('div[id=notistack-snackbar]');

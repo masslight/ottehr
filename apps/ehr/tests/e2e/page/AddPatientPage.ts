@@ -118,15 +118,11 @@ export class AddPatientPage {
     ).toBeVisible();
   }
 
-  async selectFirstAvailableSlot(): Promise<{ time: string; date: string }> {
+  async selectFirstAvailableSlot(): Promise<{ time: string }> {
     const buttonLocator = this.#page.getByTestId(dataTestIds.slots.slot).first();
-    // Read the slot's local date BEFORE clicking — the data attribute is on the
-    // slot button and the component should not unmount it on click, but reading
-    // first avoids any race with state updates.
-    const date = (await buttonLocator.getAttribute('data-slot-date')) ?? '';
     await buttonLocator.click();
     const time = (await buttonLocator.textContent()) ?? '';
-    return { time, date };
+    return { time };
   }
 
   async clickCloseSelectDateWarningDialog(): Promise<void> {

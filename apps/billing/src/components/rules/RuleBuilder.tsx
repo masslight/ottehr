@@ -4,11 +4,15 @@ import {
   Box,
   Button,
   FormControl,
+  FormControlLabel,
   FormHelperText,
+  FormLabel,
   IconButton,
   InputLabel,
   ListSubheader,
   MenuItem,
+  Radio,
+  RadioGroup,
   Select,
   TextField,
   Typography,
@@ -16,6 +20,11 @@ import {
 import { ReactElement, ReactNode, Ref } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { otherColors } from 'utils/lib/theme/billing-palette';
+import {
+  RulesEngineInsurance,
+  RulesEngineSubmissionType,
+  RulesEngineType,
+} from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
@@ -40,6 +49,7 @@ import {
   serviceLineSetValueProblem,
   ServiceLineValueType,
   setFieldValueProblem,
+  settableOptions,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   DateValue,
@@ -72,6 +82,7 @@ import { NioSelect } from '../NioSelect';
 import { PayerSelect } from '../PayerSelect';
 import { ProcedureCodeAutocomplete } from '../ProcedureCodeAutocomplete';
 import { ProviderSelect } from '../ProviderSelect';
+import { ServiceSelect } from '../ServiceSelect';
 import { TagSelect } from '../TagSelect';
 
 // ---------------------------------------------------------------------------
@@ -322,7 +333,7 @@ function TypedValueInput({
 }
 
 // Field-aware value input, dispatched on the catalog's valueType/format so new typed fields
-// (dropdowns with options, date pickers, numbers, tag/CPT/payer pickers) only need a catalog entry —
+// (dropdowns with options, date pickers, numbers, tag/CPT/payer/service pickers) only need a catalog entry —
 // and, for a genuinely new type, a branch here or in TypedValueInput.
 function FieldValueInput({
   fieldId,
@@ -336,11 +347,14 @@ function FieldValueInput({
   helperText,
   inputRef,
   allowEmptyOption,
+  forSetField,
 }: {
   fieldId: string;
   multiple: boolean;
   // The regex operators take a pattern: a plain text input replaces the field's usual picker.
   isRegex?: boolean;
+  // A setField value: offer only the field's settable options.
+  forSetField?: boolean;
   value: string | string[] | null | undefined;
   onChange: (value: string | string[]) => void;
   label?: string;
@@ -417,6 +431,20 @@ function FieldValueInput({
       />
     );
   }
+  if (def?.format === 'service') {
+    return (
+      <ServiceSelect
+        multiple={multiple}
+        value={value}
+        onChange={onChange}
+        label={label}
+        required={required}
+        error={error}
+        helperText={helperText}
+        inputRef={inputRef}
+      />
+    );
+  }
   if (def?.format === 'tag' && !multiple) {
     return (
       <TagSelect
@@ -447,7 +475,7 @@ function FieldValueInput({
   return (
     <TypedValueInput
       valueType={def?.valueType}
-      options={def?.options}
+      options={forSetField && def?.options ? settableOptions(def.options) : def?.options}
       multiple={multiple}
       value={value}
       onChange={onChange}
@@ -916,7 +944,7 @@ function ServiceLineMatchEditor({ name }: { name: string }): ReactElement | null
 // same shared checks save-time validation runs), so submitting an invalid line highlights the exact
 // input; blank optional fields fall back to the claim editor's defaults, shown as helper text.
 function AddServiceLineEditor({ name }: { name: string }): ReactElement {
-  const { control } = useFormContext();
+  const { control, setValue } = useFormContext();
   // diagnosisPointers only means anything when diagnosisMode is 'specific' — hide it otherwise
   // rather than showing an input that has no effect. A rule saved before diagnosisMode existed has
   // pointers but no mode, so fall back the same way the engine does (effectiveDiagnosisMode) instead
@@ -974,7 +1002,15 @@ function AddServiceLineEditor({ name }: { name: string }): ReactElement {
                   size="small"
                   options={options}
                   value={options.find((option) => option.value === fieldValue) ?? null}
-                  onChange={(_, option) => onChange(option?.value ?? '')}
+                  onChange={(_, option) => {
+                    onChange(option?.value ?? '');
+                    // Pointers only apply to 'Specific diagnoses'. Drop them on any other choice:
+                    // hidden leftovers would still be validated on save, and would keep a cleared
+                    // Diagnoses on specific diagnoses through effectiveDiagnosisMode's legacy fallback.
+                    if (lineField.id === 'diagnosisMode' && option?.value !== 'specific' && diagnosisPointers) {
+                      setValue(`${name}.line.diagnosisPointers`, '', { shouldDirty: true });
+                    }
+                  }}
                   getOptionLabel={(option) => option.label}
                   isOptionEqualToValue={(option, v) => option.value === v.value}
                   renderInput={(params) => (
@@ -1129,15 +1165,89 @@ function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
   );
 }
 
+function SubmitClaimEditor({ name }: { name: string }): ReactElement | null {
+  const { control } = useFormContext();
+  const { value } = useNode<{
+    submissionType: RulesEngineSubmissionType;
+    submissionInsurance: RulesEngineInsurance;
+    payerClaimControlNumber?: string;
+  }>(name);
+  if (!value) return null;
+  return (
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        <Controller
+          name={`${name}.submissionInsurance`}
+          control={control}
+          render={({ field }) => (
+            <FormControl>
+              <FormLabel id="submission-type-label">Select Insurance</FormLabel>
+              <RadioGroup
+                aria-labelledby="submission-type-label"
+                name="submission-type-group"
+                value={field.value}
+                onChange={(event) => {
+                  field.onChange(event.target.value as RulesEngineInsurance);
+                }}
+              >
+                <FormControlLabel value="primary" control={<Radio />} label="Primary" />
+                <FormControlLabel value="secondary" control={<Radio />} label="Secondary" />
+                <FormControlLabel value="tertiary" control={<Radio />} label="Tertiary" />
+                <FormControlLabel value="quaternary" control={<Radio />} label="Quaternary" />
+              </RadioGroup>
+            </FormControl>
+          )}
+        />
+        <Controller
+          name={`${name}.submissionType`}
+          control={control}
+          render={({ field }) => (
+            <FormControl>
+              <FormLabel id="submission-type-label">Select Submission Type</FormLabel>
+              <RadioGroup
+                aria-labelledby="submission-type-label"
+                name="submission-type-group"
+                value={field.value}
+                onChange={(event) => {
+                  field.onChange(event.target.value as RulesEngineSubmissionType);
+                }}
+              >
+                <FormControlLabel value="new" control={<Radio />} label="New Submission" />
+                <FormControlLabel value="correction" control={<Radio />} label="Correction" />
+                <FormControlLabel value="void" control={<Radio />} label="Void Claim" />
+              </RadioGroup>
+            </FormControl>
+          )}
+        />
+        {value.submissionType !== 'new' ? (
+          <Typography variant="body1">
+            For corrections and voids, the payer claim control number will be taken from the claim.
+          </Typography>
+        ) : (
+          <></>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
 // --- Action ---
 
-function ActionEditor({ name }: { name: string }): ReactElement | null {
+function ActionEditor({ name, engine }: { name: string; engine: RulesEngineType }): ReactElement | null {
   const { control, clearErrors } = useFormContext();
   const { value, replace } = useNode<RuleAction>(name);
   if (!value) return null;
   const setFieldDef = value.type === RULE_ACTION_TYPE.setField ? getRuleFieldDef(value.field) : undefined;
   return (
-    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        gap: 1,
+        flexWrap: 'wrap',
+        flexDirection: value.type === RULE_ACTION_TYPE.submitClaim ? 'column' : 'initial',
+        alignItems: 'flex-start',
+      }}
+    >
       <FormControl size="small" sx={{ minWidth: 150 }}>
         <InputLabel>Action</InputLabel>
         <Select
@@ -1145,25 +1255,46 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           value={value.type}
           onChange={(e) => {
             const next = e.target.value as RuleAction['type'];
-            if (next === RULE_ACTION_TYPE.setField) replace(newAction());
-            else if (next === RULE_ACTION_TYPE.applyTag) replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
-            else if (next === RULE_ACTION_TYPE.addServiceLine)
-              replace({
-                type: RULE_ACTION_TYPE.addServiceLine,
-                line: { cptCode: '', charges: '', diagnosisMode: 'primary' },
-              });
-            else if (next === RULE_ACTION_TYPE.updateServiceLines)
-              replace({
-                type: RULE_ACTION_TYPE.updateServiceLines,
-                match: newServiceLineMatch(),
-                set: { property: SETTABLE_LINE_PROPERTIES[0].id, value: '' },
-              });
-            else if (next === RULE_ACTION_TYPE.removeServiceLines)
-              replace({ type: RULE_ACTION_TYPE.removeServiceLines, match: newServiceLineMatch() });
-            else if (next === RULE_ACTION_TYPE.applyChargeMasterPrices)
-              // Default to all lines: re-pricing the whole claim is the common case.
-              replace({ type: RULE_ACTION_TYPE.applyChargeMasterPrices, match: { type: SERVICE_LINE_MATCH_TYPE.all } });
-            else replace({ type: RULE_ACTION_TYPE.noop });
+            switch (next) {
+              case RULE_ACTION_TYPE.setField:
+                replace(newAction());
+                break;
+              case RULE_ACTION_TYPE.applyTag:
+                replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
+                break;
+              case RULE_ACTION_TYPE.addServiceLine:
+                replace({
+                  type: RULE_ACTION_TYPE.addServiceLine,
+                  line: { cptCode: '', charges: '', diagnosisMode: 'primary' },
+                });
+                break;
+              case RULE_ACTION_TYPE.updateServiceLines:
+                replace({
+                  type: RULE_ACTION_TYPE.updateServiceLines,
+                  match: newServiceLineMatch(),
+                  set: { property: SETTABLE_LINE_PROPERTIES[0].id, value: '' },
+                });
+                break;
+              case RULE_ACTION_TYPE.removeServiceLines:
+                replace({ type: RULE_ACTION_TYPE.removeServiceLines, match: newServiceLineMatch() });
+                break;
+              case RULE_ACTION_TYPE.applyChargeMasterPrices:
+                // Default to all lines: re-pricing the whole claim is the common case.
+                replace({
+                  type: RULE_ACTION_TYPE.applyChargeMasterPrices,
+                  match: { type: SERVICE_LINE_MATCH_TYPE.all },
+                });
+                break;
+              case RULE_ACTION_TYPE.submitClaim:
+                replace({ type: RULE_ACTION_TYPE.submitClaim, submissionType: 'new', submissionInsurance: 'primary' });
+                break;
+              case RULE_ACTION_TYPE.noop:
+                replace({ type: RULE_ACTION_TYPE.noop });
+                break;
+              default:
+                // Exhaustive switch check
+                throw next satisfies never;
+            }
             clearErrors(name);
           }}
         >
@@ -1173,6 +1304,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           <MenuItem value={RULE_ACTION_TYPE.updateServiceLines}>Update service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.removeServiceLines}>Remove service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.applyChargeMasterPrices}>Apply charge master prices</MenuItem>
+          {engine === 'post-adjudication' && <MenuItem value={RULE_ACTION_TYPE.submitClaim}>Submit claim</MenuItem>}
           <MenuItem value={RULE_ACTION_TYPE.noop}>Do nothing</MenuItem>
         </Select>
       </FormControl>
@@ -1220,6 +1352,7 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
                 }
                 inputRef={ref}
                 allowEmptyOption={!!setFieldDef && !setFieldDef.requiredOnSet}
+                forSetField
               />
             )}
           />
@@ -1261,13 +1394,14 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           )}
         />
       )}
+      {value.type === RULE_ACTION_TYPE.submitClaim && <SubmitClaimEditor name={name} />}
     </Box>
   );
 }
 
 // --- Outcome ---
 
-function OutcomeEditor({ name }: { name: string }): ReactElement | null {
+function OutcomeEditor({ name, engine }: { name: string; engine: RulesEngineType }): ReactElement | null {
   const { clearErrors } = useFormContext();
   const { value, replace } = useNode<RuleOutcome>(name);
   if (!value) return null;
@@ -1298,7 +1432,7 @@ function OutcomeEditor({ name }: { name: string }): ReactElement | null {
           {actions.map((_, index) => (
             <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
               <Box sx={{ flex: 1 }}>
-                <ActionEditor name={`${name}.actions.${index}`} />
+                <ActionEditor name={`${name}.actions.${index}`} engine={engine} />
               </Box>
               <IconButton
                 size="small"
@@ -1324,7 +1458,7 @@ function OutcomeEditor({ name }: { name: string }): ReactElement | null {
       )}
       {value.type === RULE_OUTCOME_TYPE.conditional && (
         <Box sx={{ mt: 1, ...indentSx }}>
-          <ConditionalEditor name={`${name}.conditional`} />
+          <ConditionalEditor name={`${name}.conditional`} engine={engine} />
         </Box>
       )}
     </Box>
@@ -1333,7 +1467,7 @@ function OutcomeEditor({ name }: { name: string }): ReactElement | null {
 
 // --- Conditional (top-level entry point) ---
 
-export function ConditionalEditor({ name }: { name: string }): ReactElement | null {
+export function ConditionalEditor({ name, engine }: { name: string; engine: RulesEngineType }): ReactElement | null {
   const { clearErrors } = useFormContext();
   const { value, replace } = useNode<RuleConditional>(name);
   if (!value) return null;
@@ -1371,7 +1505,7 @@ export function ConditionalEditor({ name }: { name: string }): ReactElement | nu
           <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1.5, mb: 0.5 }}>
             THEN
           </Typography>
-          <OutcomeEditor name={`${name}.branches.${index}.outcome`} />
+          <OutcomeEditor name={`${name}.branches.${index}.outcome`} engine={engine} />
         </Box>
       ))}
 
@@ -1412,7 +1546,7 @@ export function ConditionalEditor({ name }: { name: string }): ReactElement | nu
                 <DeleteIcon fontSize="small" />
               </IconButton>
             </Box>
-            <OutcomeEditor name={`${name}.otherwise`} />
+            <OutcomeEditor name={`${name}.otherwise`} engine={engine} />
           </Box>
         )}
       </Box>

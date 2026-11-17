@@ -28,6 +28,8 @@ export interface ResolveTemplatePlaceholdersParams {
   patient: Patient;
   /** FHIR Encounter reference, e.g. "Encounter/123". Used to look up visit date, location, and Stripe invoice. */
   encounterRef?: string;
+  /** Connected Stripe account the encounter's invoice lives on; platform account when undefined. */
+  stripeAccount?: string;
   oystehr: Oystehr;
   secrets: Secrets | null;
   /**
@@ -48,7 +50,7 @@ export interface ResolveTemplatePlaceholdersParams {
 export async function resolveTemplatePlaceholders(
   params: ResolveTemplatePlaceholdersParams
 ): Promise<OutreachPlaceholderInput> {
-  const { patient, encounterRef, oystehr, secrets, overrides } = params;
+  const { patient, encounterRef, stripeAccount, oystehr, secrets, overrides } = params;
 
   const input: OutreachPlaceholderInput = {
     patientFullName: overrides?.patientFullName ?? getFullName(patient),
@@ -96,7 +98,7 @@ export async function resolveTemplatePlaceholders(
   if (encounterId && (!input.amountCents || !input.dueDate || !input.invoiceLink)) {
     try {
       const stripe = getStripeClient(secrets);
-      const stripeInvoice = await findStripeInvoiceByEncounterId(stripe, encounterId);
+      const stripeInvoice = await findStripeInvoiceByEncounterId(stripe, encounterId, stripeAccount);
       if (stripeInvoice) {
         if (!input.amountCents) {
           input.amountCents = stripeInvoice.amount_due;
@@ -149,12 +151,16 @@ export async function resolveAndFillTemplate(
  */
 export async function findStripeInvoiceByEncounterId(
   stripe: Stripe,
-  encounterId: string
+  encounterId: string,
+  stripeAccount?: string
 ): Promise<Stripe.Invoice | undefined> {
   try {
-    const invoices = await stripe.invoices.search({
-      query: `metadata['${STRIPE_METADATA_KEYS.encounterId}']:"${encounterId}"`,
-    });
+    const invoices = await stripe.invoices.search(
+      {
+        query: `metadata['${STRIPE_METADATA_KEYS.encounterId}']:"${encounterId}"`,
+      },
+      { stripeAccount }
+    );
     return invoices.data.find((invoice) => invoice.metadata?.[STRIPE_METADATA_KEYS.encounterId] === encounterId);
   } catch (error) {
     console.error('Error fetching payment intents or payment methods for encounter:', error);

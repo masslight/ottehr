@@ -75,7 +75,6 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
   const [missingPreliminaryReportDx, setMissingPreliminaryReportDx] = useState(false);
   const [performedById, setPerformedById] = useState('');
   const [missingPerformedBy, setMissingPerformedBy] = useState(false);
-  const [finalReportByUser, setFinalReportByUser] = useState(false);
   const [finalReport, setFinalReport] = useState<string | undefined>();
   const [missingFinalReport, setMissingFinalReport] = useState(false);
 
@@ -236,6 +235,8 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
   useEffect(() => {
     setPerformedById('');
     setMissingPerformedBy(false);
+    setFinalReport(undefined);
+    setMissingFinalReport(false);
   }, [serviceRequestId]);
 
   // Gated on `order`: `currentUser` is served from an already-populated store while the orders are still
@@ -248,7 +249,13 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     }
   }, [currentUser?.profileResource?.id, order, performedById]);
 
-  const saveReportButton = (label: string, loading?: boolean, btnOnClick?: () => void): JSX.Element => {
+  const saveReportButton = (
+    label: string,
+    loading?: boolean,
+    btnOnClick?: () => void,
+    disabled?: boolean,
+    disabledReason?: string
+  ): JSX.Element => {
     const btn = (
       <LoadingButton
         loading={loading}
@@ -256,15 +263,16 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
         color="primary"
         sx={{ borderRadius: 28, padding: '8px 22px', textTransform: 'none' }}
         onClick={btnOnClick}
-        disabled={isReadOnly}
+        disabled={isReadOnly || disabled || !!disabledReason}
       >
         {label}
       </LoadingButton>
     );
 
-    if (isReadOnly) {
+    const tooltip = isReadOnly ? `Please unlock the progress note to use "${label}"` : disabledReason;
+    if (tooltip) {
       return (
-        <Tooltip placement="top" title={`Please unlock the progress note to ${label}`}>
+        <Tooltip placement="top" title={tooltip}>
           <span>{btn}</span>
         </Tooltip>
       );
@@ -278,6 +286,8 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
   if (!order) {
     return <RadiologyOrderLoading />;
   }
+
+  const trimmedFinalReport = finalReport?.trim();
 
   const content = (
     <>
@@ -497,41 +507,50 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
 
               {order.status === 'preliminary' && (
                 <>
-                  <Box sx={{ mt: 1 }}>
-                    <Box style={{ display: 'flex', alignItems: 'center' }}>
-                      <Checkbox
-                        sx={{ paddingLeft: 0 }}
-                        checked={finalReportByUser}
-                        onChange={() => {
-                          if (finalReportByUser) setFinalReport(undefined);
-                          setFinalReportByUser(!finalReportByUser);
-                        }}
-                      />
-                      <Typography>Don't send to teleradiology, I will write the final report myself.</Typography>
-                    </Box>
+                  <Box sx={{ mt: 2 }}>
+                    <TextField
+                      id="final-report-field"
+                      label="Internal final read report"
+                      placeholder="Enter final report for the radiology order"
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      maxRows={10}
+                      size="small"
+                      value={finalReport ?? ''}
+                      onChange={(e) => {
+                        setMissingFinalReport(false);
+                        setFinalReport(e.target.value);
+                      }}
+                      error={missingFinalReport}
+                      helperText={missingFinalReport ? 'Final report is required' : ''}
+                      disabled={isReadOnly}
+                    />
                   </Box>
-                  {finalReportByUser && (
-                    <Box sx={{ mt: 1 }}>
-                      <TextField
-                        id="final-report-field"
-                        label="Final Read"
-                        placeholder="Enter final report for the radiology order"
-                        fullWidth
-                        multiline
-                        minRows={2}
-                        maxRows={10}
-                        size="small"
-                        value={finalReport}
-                        onChange={(e) => {
-                          setMissingFinalReport(false);
-                          setFinalReport(e.target.value);
-                        }}
-                        error={missingFinalReport}
-                        helperText={missingFinalReport ? 'Final report is required' : ''}
-                        disabled={isReadOnly}
-                      />
-                    </Box>
-                  )}
+                  <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                    {saveReportButton(
+                      'Internal Final Read',
+                      isSavingReport,
+                      () => {
+                        if (!trimmedFinalReport) {
+                          setMissingFinalReport(true);
+                          return;
+                        }
+                        void handleSaveReport(serviceRequestId, trimmedFinalReport, 'final');
+                      },
+                      isSendingForFinalRead
+                    )}
+                    {saveReportButton(
+                      'Teleradiology Final Read',
+                      isSendingForFinalRead,
+                      () => {
+                        setMissingFinalReport(false);
+                        void handleSendForFinalRead(serviceRequestId);
+                      },
+                      isSavingReport,
+                      trimmedFinalReport ? 'Clear the internal final read report to send to teleradiology.' : undefined
+                    )}
+                  </Box>
                 </>
               )}
 
@@ -582,19 +601,6 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                 }
                 void handleSavePreliminaryReport(selectedPerformedBy.id);
               })}
-
-            {order.status === 'preliminary' &&
-              (finalReportByUser
-                ? saveReportButton('Save as Final', isSavingReport, () => {
-                    if (!finalReport || !(finalReport.length > 0)) {
-                      setMissingFinalReport(true);
-                      return;
-                    }
-                    void handleSaveReport(serviceRequestId, finalReport || '', 'final');
-                  })
-                : saveReportButton('Send for Final Read', isSendingForFinalRead, () =>
-                    handleSendForFinalRead(serviceRequestId)
-                  ))}
           </Box>
         </Stack>
       </div>

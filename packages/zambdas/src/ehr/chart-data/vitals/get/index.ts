@@ -7,7 +7,7 @@ import {
   extractBloodPressureObservationMethod,
   extractDotVisionScreening,
   extractHeartbeatObservationMethod,
-  extractOxySaturationObservationMethod,
+  extractOxygenSatObservationFields,
   extractTemperatureObservationMethod,
   extractVisionValues,
   LOINC_SYSTEM,
@@ -159,7 +159,7 @@ const fetchVitalsPriorToEncounter = async (
 
 const fieldNameSchema = z.nativeEnum(VitalFieldNames);
 
-const parseResourcesToDTOs = (
+export const parseResourcesToDTOs = (
   observations: Observation[],
   practitioners: Practitioner[],
   alertContext: VitalAlertContext
@@ -375,7 +375,7 @@ const parseNumericValueObservation = (
   if (field === VitalFieldNames.VitalOxygenSaturation) {
     return {
       ...baseFields,
-      observationMethod: extractOxySaturationObservationMethod(observation),
+      ...extractOxygenSatObservationFields(observation),
     } as VitalsOxygenSatObservationDTO;
   }
   if (field === VitalFieldNames.VitalHeartbeat) {

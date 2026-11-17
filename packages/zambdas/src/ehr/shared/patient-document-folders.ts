@@ -29,7 +29,7 @@ const logIt = (msg: string): void => {
  * FHIR string search on `title` is prefix-match, so an exact title (and folder-kind) check is
  * required before reusing a List — searching for "Labs" also returns "Labs Archive".
  */
-const findExistingFolderList = async (args: {
+export const findExistingFolderList = async (args: {
   patientId: string;
   internalName: string;
   isCustom: boolean;

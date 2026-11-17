@@ -27,7 +27,9 @@ export const PrepopulationEntrySchema: z.ZodType<PrepopulationEntry, z.ZodTypeDe
 
 const StructuredValueSchema = z.union([z.string(), z.number(), z.boolean()]);
 const StructuredRowSchema = z.record(StructuredValueSchema);
-const StructuredFactsSchema = z.record(z.union([StructuredValueSchema, z.array(StructuredRowSchema)]));
+const StructuredFactsSchema = z.record(
+  z.union([StructuredValueSchema, z.array(z.string()), z.array(StructuredRowSchema)])
+);
 
 const QuickPickEntry = z.object({
   name: z.string(),

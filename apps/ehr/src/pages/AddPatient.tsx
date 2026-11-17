@@ -2,7 +2,9 @@ import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
+  Checkbox,
   FormControl,
+  FormControlLabel,
   FormHelperText,
   Grid,
   InputLabel,
@@ -30,6 +32,7 @@ import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking
 import { SERVICE_CATEGORY_SYSTEM, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { SCHEDULED_FOLLOWUP_OTHER_REASON, SCHEDULED_FOLLOWUP_REASONS } from 'utils/lib/fhir/encounter';
 import { getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPhoneNumberDigits } from 'utils/lib/helpers/helpers';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import {
@@ -186,6 +189,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
     followUpState?.prefill?.serviceCategoryCode ?? defaultServiceCategory
   );
   const [slot, setSlot] = useState<Slot | undefined>();
+  const [showPastSlots, setShowPastSlots] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<AddVisitErrorState>({
     submit: false,
@@ -339,6 +343,20 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       }))
       .sort((a, b) => a.display.localeCompare(b.display));
   }, [mergedSourcedCategories, visitType]);
+
+  const slotListKey = visitType === VisitType.InPersonPostTelemed ? 'telemedAvailable' : 'available';
+
+  const isSlotPickerShown =
+    visitType === VisitType.InPersonPreBook ||
+    visitType === VisitType.InPersonPostTelemed ||
+    visitType === VisitType.VirtualScheduled;
+
+  const handleShowPastSlotsChange = (checked: boolean): void => {
+    setShowPastSlots(checked);
+    if (!checked && slot && DateTime.fromISO(slot.start) < DateTime.now()) {
+      setSlot(undefined);
+    }
+  };
 
   // Symmetric filter on the visit-type dropdown: when a service category is
   // picked first, only offer visit types the category actually supports. This
@@ -510,8 +528,8 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
 
     const validations: Array<{ invalid: boolean; field: keyof AddVisitErrorState }> = [
       // first name, last name, and phone are empty strings when untouched
-      { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.length === 0 },
-      { field: 'lastName', invalid: patientInfo.lastName != null && patientInfo.lastName.length === 0 },
+      { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.trim().length === 0 },
+      { field: 'lastName', invalid: patientInfo.lastName != null && patientInfo.lastName.trim().length === 0 },
       {
         field: 'phone',
         invalid: patientInfo.phoneNumber != null && getPhoneNumberDigits(patientInfo.phoneNumber) == null,
@@ -567,12 +585,10 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       return;
     }
 
-    if (
-      (visitType === VisitType.InPersonPreBook ||
-        visitType === VisitType.InPersonPostTelemed ||
-        visitType === VisitType.VirtualScheduled) &&
-      slot === undefined
-    ) {
+    const isSelectedSlotInPast = !!slot && DateTime.fromISO(slot.start) < DateTime.now();
+    const isSelectedSlotHidden = isSelectedSlotInPast && !showPastSlots;
+
+    if (isSlotPickerShown && (!slot || isSelectedSlotHidden)) {
       setSelectSlotDialogOpen(true);
       return;
     }
@@ -605,7 +621,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
           timezone = getTimezone(selectedBookable.walkinSchedule ?? selectedBookable.rawLocation);
         } else {
           const candidate = locationWithSlotData?.available?.[0] ?? locationWithSlotData?.telemedAvailable?.[0];
-          walkinScheduleId = candidate?.slot.schedule?.reference?.split('/')[1];
+          walkinScheduleId = getIdFromReference(candidate?.slot.schedule?.reference);
           timezone = locationWithSlotData?.location?.timezone ?? 'UTC';
         }
         if (!walkinScheduleId) {
@@ -781,6 +797,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                         disabled={isPickerLocked}
                         onChange={(event) => {
                           setServiceCategory(event.target.value);
+                          setSlot(undefined);
                         }}
                       >
                         {filteredServiceCategories.map((sc) => (
@@ -941,15 +958,12 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                         )}
                       </FormControl>
                     </Box>
-                    {(visitType === VisitType.InPersonPreBook ||
-                      visitType === VisitType.InPersonPostTelemed ||
-                      visitType === VisitType.VirtualScheduled) && (
+                    {isSlotPickerShown && (
                       <SlotPicker
-                        slotData={
-                          visitType === VisitType.InPersonPostTelemed
-                            ? locationWithSlotData?.telemedAvailable?.map((si) => si.slot)
-                            : locationWithSlotData?.available?.map((si) => si.slot)
-                        }
+                        key={`${selectedBookable?.slug}|${selectedBookable?.atLocationSlug ?? ''}|${
+                          serviceCategory ?? ''
+                        }|${slotListKey}`}
+                        slotData={locationWithSlotData?.[slotListKey]?.map((si) => si.slot)}
                         slotsLoading={loadingSlotState.status === 'loading'}
                         bookableSlug={selectedBookable?.slug}
                         bookableScheduleType={
@@ -959,7 +973,10 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                             ? ScheduleType.provider
                             : ScheduleType.location
                         }
+                        atLocationSlug={selectedBookable?.atLocationSlug}
                         serviceCategoryCode={serviceCategory as any}
+                        slotListKey={slotListKey}
+                        showPastSlots={showPastSlots}
                         timezone={locationWithSlotData?.location?.timezone || 'Undefined'}
                         selectedSlot={slot}
                         setSelectedSlot={setSlot}
@@ -980,33 +997,58 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                       Please search for patients before adding
                     </Typography>
                   )}
-                  <LoadingButton
-                    data-testid={dataTestIds.addPatientPage.addButton}
-                    variant="contained"
-                    type="submit"
-                    loading={loading}
+                  <Box
                     sx={{
-                      borderRadius: 100,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      marginRight: 1,
+                      display: 'flex',
+                      flexWrap: 'wrap-reverse',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 2,
                     }}
                   >
-                    {patientOnly ? patientInfo?.id ? 'Open patient record' : 'Add patient' : <>Add {visitType}</>}
-                  </LoadingButton>
-                  <Button
-                    data-testid={dataTestIds.addPatientPage.cancelButton}
-                    sx={{
-                      borderRadius: 100,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                    }}
-                    onClick={() => {
-                      navigate(patientOnly ? '/patients' : '/visits');
-                    }}
-                  >
-                    Cancel
-                  </Button>
+                    <Box>
+                      <LoadingButton
+                        data-testid={dataTestIds.addPatientPage.addButton}
+                        variant="contained"
+                        type="submit"
+                        loading={loading}
+                        sx={{
+                          borderRadius: 100,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          marginRight: 1,
+                        }}
+                      >
+                        {patientOnly ? patientInfo?.id ? 'Open patient record' : 'Add patient' : <>Add {visitType}</>}
+                      </LoadingButton>
+                      <Button
+                        data-testid={dataTestIds.addPatientPage.cancelButton}
+                        sx={{
+                          borderRadius: 100,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                        }}
+                        onClick={() => {
+                          navigate(patientOnly ? '/patients' : '/visits');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </Box>
+                    {isSlotPickerShown && (
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={showPastSlots}
+                            onChange={(_, checked) => handleShowPastSlotsChange(checked)}
+                          />
+                        }
+                        label="Show past slots"
+                        sx={{ mr: 0 }}
+                      />
+                    )}
+                  </Box>
                 </Box>
               </Stack>
             </form>

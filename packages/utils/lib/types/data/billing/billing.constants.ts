@@ -1,4 +1,4 @@
-import { ClaimResponse, Patient, PaymentReconciliation, Task } from 'fhir/r4b';
+import { ClaimResponse, Invoice, Patient, PaymentReconciliation, Task } from 'fhir/r4b';
 
 // An applied claim tag is `{ system: CLAIM_TAG_SYSTEM, code: <tag name> }`; the tag's definition
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
@@ -191,6 +191,15 @@ export const ERA_STATUSES = ['active', 'voided'] as const;
 
 export type EraStatus = (typeof ERA_STATUSES)[number];
 
+// Exclude drafts because they may be incomplete or failed send attempts.
+export const BILLING_INVOICE_LIST_STATUSES = [
+  'issued',
+  'balanced',
+  'cancelled',
+] as const satisfies readonly Invoice['status'][];
+
+export type BillingInvoiceListStatus = (typeof BILLING_INVOICE_LIST_STATUSES)[number];
+
 // X12 835 BPR04 payment method codes a manual remit can record, with the labels billers see.
 export const ERA_PAYMENT_METHODS = [
   { code: 'ACH', label: 'EFT' },
@@ -233,3 +242,11 @@ export const BILLING_RECORDABLE_PAYMENT_METHODS = [
   'card-reader',
   'external-card-reader',
 ] as const;
+
+// what record-billing-nio-invoice-payment callers may send; card payments go through Stripe
+export const BILLING_INVOICE_PAYMENT_METHODS = ['check', 'ach', 'wire', 'cash', 'other'] as const;
+
+export const BILLING_INVOICE_LIMITS = {
+  voidReasonLength: 300,
+  paymentReferenceLength: 300,
+} as const;

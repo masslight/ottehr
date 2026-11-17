@@ -81,6 +81,22 @@ export const getNursingOrderDetailsUrl = (appointmentId: string, serviceRequestI
   return `/in-person/${appointmentId}/nursing-orders/${serviceRequestId}/order-details`;
 };
 
+export const getDmeOrdersUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/dme`;
+};
+
+export const getDmeOrderCreateUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/dme/create`;
+};
+
+export const getDmeOrderDetailsUrl = (appointmentId: string, deviceRequestId: string): string => {
+  return `/in-person/${appointmentId}/dme/${deviceRequestId}/order-details`;
+};
+
+export const getDmeOrderEditUrl = (appointmentId: string, deviceRequestId: string): string => {
+  return `/in-person/${appointmentId}/dme/${deviceRequestId}/edit`;
+};
+
 export const getImmunizationMARUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/immunization/mar`;
 };
@@ -95,6 +111,10 @@ export const getImmunizationOrderEditUrl = (appointmentId: string, orderId: stri
 
 export const getImmunizationNewOrderUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/immunization/order`;
+};
+
+export const getVisitDocumentsUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/documents`;
 };
 
 export const getInPersonVisitDetailsUrl = (appointmentId: string): string => {

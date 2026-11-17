@@ -234,7 +234,7 @@ describe('get-action-logs', () => {
         patientId: 'patient-1',
         recipientAddress: '+12125551234',
         documentReferenceId: 'packet-1',
-        faxPacketParts: ['Insurance card', 'Lab result'],
+        packetParts: ['Insurance card', 'Lab result'],
       }),
       id: 'attempt-patient-packet',
       status: 'failed',
@@ -245,7 +245,7 @@ describe('get-action-logs', () => {
 
     expect(result.logs[0]).toMatchObject({
       appointmentId: undefined,
-      documentTitle: 'Fax packet (2 documents)',
+      documentTitle: 'Document packet (2 documents)',
       canRetry: true,
     });
   });

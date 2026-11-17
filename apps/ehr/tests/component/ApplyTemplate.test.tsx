@@ -162,6 +162,7 @@ const mockTemplateDetail = {
         diagnoses: [{ code: 'J02.9', display: 'Acute pharyngitis, unspecified' }],
         note: 'fasting required',
         psc: true,
+        isStat: true,
         missing: false,
         cptCodes: [{ code: '85025', display: 'CBC With Differential', modifiers: [] }],
       },
@@ -174,6 +175,7 @@ const mockTemplateDetail = {
         diagnoses: [],
         note: null,
         psc: false,
+        isStat: false,
         missing: true,
         cptCodes: [],
       },
@@ -817,6 +819,7 @@ describe('ApplyTemplate', () => {
     expect(within(labCard).getAllByText(/Discontinued Panel/)).toHaveLength(2);
     expect(within(labCard).getByText(/unavailable in this environment/)).toBeInTheDocument();
     expect(within(labCard).getByText('PSC Hold')).toBeInTheDocument();
+    expect(within(labCard).getByText('STAT')).toBeInTheDocument();
     expect(within(labCard).getByText(/fasting required/)).toBeInTheDocument();
 
     // CPT chips are hidden when the payment method is not Client Bill.

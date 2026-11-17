@@ -38,6 +38,7 @@ import {
   PROVIDER_TYPE_EXTENSION_URL,
   ROOM_EXTENSION_URL,
   SERVICE_CATEGORY_SYSTEM,
+  WORKERS_COMP_ACCOUNT_TYPE,
 } from 'utils/lib/fhir/constants';
 import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
@@ -52,6 +53,7 @@ import {
   VitalFieldNames,
   VitalHeartbeatObservationMethod,
   VitalsOxygenSatObservationMethod,
+  VitalsSupplementalO2DeliveryType,
   VitalTemperatureObservationMethod,
 } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
@@ -223,6 +225,40 @@ const accountEmployer: FhirResource = {
   type: [
     { coding: [{ system: FHIR_EXTENSION.Organization.organizationType.url, code: 'occupational-medicine-employer' }] },
   ],
+};
+
+const workersCompAccount: FhirResource = {
+  resourceType: 'Account',
+  id: 'acct-wc',
+  status: 'active',
+  type: WORKERS_COMP_ACCOUNT_TYPE,
+  subject: [{ reference: 'Patient/pat-1' }],
+  owner: { reference: 'Organization/emp-wc' },
+  coverage: [{ coverage: { reference: 'Coverage/cov-wc' } }],
+};
+
+const workersCompCoverage: FhirResource = {
+  resourceType: 'Coverage',
+  id: 'cov-wc',
+  status: 'active',
+  beneficiary: { reference: 'Patient/pat-1' },
+  payor: [{ reference: 'Organization/wc-carrier' }],
+  class: [{ type: { coding: [{ code: 'plan' }] }, value: 'WC001' }],
+};
+
+const workersCompCarrier: FhirResource = {
+  resourceType: 'Organization',
+  id: 'wc-carrier',
+  name: 'Liberty Mutual',
+  type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/organization-type', code: 'pay' }] }],
+  identifier: [{ system: 'https://identifiers.fhir.oystehr.com/rcm-payer-id', value: 'WC001' }],
+};
+
+const workersCompEmployer: FhirResource = {
+  resourceType: 'Organization',
+  id: 'emp-wc',
+  name: 'Globex Industries',
+  type: [{ coding: [{ system: FHIR_EXTENSION.Organization.organizationType.url, code: 'workers-comp-employer' }] }],
 };
 
 const preOpEmployer: FhirResource = { resourceType: 'Organization', id: 'emp-preop', name: 'City Hospital' };
@@ -618,6 +654,20 @@ const vitals: Observation[] = [
     { field: VitalFieldNames.VitalWeight, extraWeightOptions: ['patient_refused'] },
     '2026-07-01T13:01:00.000Z'
   ),
+  vital(
+    'enc-2',
+    {
+      field: VitalFieldNames.VitalOxygenSaturation,
+      value: 93,
+      observationMethod: VitalsOxygenSatObservationMethod.OnSupplementalO2,
+      supplementalO2: {
+        flowRate: 2.5,
+        deliveryType: VitalsSupplementalO2DeliveryType.Other,
+        deliveryTypeOther: 'Face tent',
+      },
+    },
+    '2026-07-01T13:02:00.000Z'
+  ),
 ];
 
 // A booked follow-up visit (convert-visit-to-follow-up): its own Appointment, status history and lock. It was
@@ -841,7 +891,15 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   ServiceRequest: [procedureRequest, externalLabRequest, nursingRequest, completedNursingRequest, dispositionFollowUp],
   HealthcareService: [group],
   Observation: [...vitals, booleanScreeningAnswer, ...examObservations],
-  Patient: [patient, occMedAccount, accountEmployer],
+  Patient: [
+    patient,
+    occMedAccount,
+    accountEmployer,
+    workersCompAccount,
+    workersCompEmployer,
+    workersCompCoverage,
+    workersCompCarrier,
+  ],
   Organization: [preOpEmployer],
   MedicationAdministration: [
     vaccineOrder('ma-tdap', 'Tdap', 'in-progress'),
@@ -1066,6 +1124,15 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     expect(rows.find((r) => r.appointmentId === 'appt-2')?.occupationalMedicineEmployer).toBe('City Hospital');
   });
 
+  it("employer: the patient's workers' comp employer, as the face sheet prints it", async () => {
+    const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeEmployer: true });
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
+      workersCompEmployer: 'Globex Industries',
+      workersCompCarrier: 'Liberty Mutual',
+    });
+  });
+
   it('vitals: every unit the chart shows, how each reading was taken, vision and LMP', async () => {
     const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeVitals: true });
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
@@ -1085,6 +1152,9 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       heartRateMethod: 'Sitting',
       bloodPressureMethod: 'Standing',
       oxygenSaturationMethod: 'On room air',
+      oxygenSaturationFlowRate: null,
+      oxygenSaturationDeliveryType: null,
+      oxygenSaturationDeliveryTypeOther: '',
       weightRefused: false,
       visionLeftEye: '20/20',
       visionRightEye: '20/40',
@@ -1110,6 +1180,10 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       weightKg: null,
       weightLbs: null,
       weightRefused: true,
+      oxygenSaturationMethod: 'On supplemental O2',
+      oxygenSaturationFlowRate: 2.5,
+      oxygenSaturationDeliveryType: 'Other',
+      oxygenSaturationDeliveryTypeOther: 'Face tent',
       temperatureC: null,
       temperatureMethod: null,
       heightFeetInches: '',

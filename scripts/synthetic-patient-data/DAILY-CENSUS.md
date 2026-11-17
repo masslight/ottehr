@@ -4,7 +4,8 @@ Keeps a lower environment's tracking board alive: every morning it **signs off
 yesterday's** unfinished synthetic visits and **creates 40 new ones** dated today
 in a spread of in-progress statuses, so the EHR always looks like a live clinic.
 
-Default target: **demo**. Runs from your Mac at **07:15** via `launchd`.
+Default target: **demo**; it can be dispatched manually against any lower env, or run
+from your Mac via `launchd` (below).
 
 > **This is the default way fresh environments get synthetic data** — the census keeps the board live
 > from today forward. For a one-time seed of ~12 months of *backdated history* (for reports/trends),

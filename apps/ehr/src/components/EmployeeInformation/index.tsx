@@ -256,6 +256,7 @@ export default function EmployeeInformationForm({
     }));
 
     const formValues = getValues();
+    const newLicenseNumber = formValues.newLicenseNumber?.trim();
 
     if (
       newLicenses.find(
@@ -268,14 +269,14 @@ export default function EmployeeInformationForm({
     if (
       !formValues.newLicenseCode ||
       !formValues.newLicenseState ||
-      !formValues.newLicenseNumber ||
+      !newLicenseNumber ||
       !formValues.newLicenseExpirationDate
     ) {
       setErrors((prev) => ({
         ...prev,
         qualification: !formValues.newLicenseCode,
         state: !formValues.newLicenseState,
-        number: !formValues.newLicenseNumber,
+        number: !newLicenseNumber,
         date: !formValues.newLicenseExpirationDate,
       }));
       return;
@@ -285,7 +286,7 @@ export default function EmployeeInformationForm({
     updatedLicenses.push({
       state: formValues.newLicenseState,
       code: formValues.newLicenseCode as PractitionerQualificationCode,
-      number: formValues.newLicenseNumber,
+      number: newLicenseNumber,
       date: formValues.newLicenseExpirationDate.toISODate() || undefined,
       active: true,
     });

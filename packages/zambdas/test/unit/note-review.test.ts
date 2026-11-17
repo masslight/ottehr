@@ -255,6 +255,31 @@ describe('progressNoteDataToText', () => {
     expect(text).toContain('- Procedure: Splint application | Body site: Wrist (Left)');
     expect(text).toContain('LAB ORDERS:\n- CBC');
   });
+
+  // The note PDF prints the visit's Screening and Clinical Forms answers, so the review must see them too.
+  test("carries the answers to the visit's Screening and Clinical Forms", () => {
+    const text = progressNoteDataToText({
+      ...emptyNote,
+      screening: {
+        additionalQuestions: {},
+        forms: [{ title: 'Staff screening', lines: [{ question: 'Fall risk', answer: 'No' }] }],
+      },
+      questionnaires: {
+        forms: [
+          {
+            title: 'SDOH',
+            lines: [
+              { question: 'Cigarettes', answer: 'Yes' },
+              { question: 'How many per day', answer: '' },
+            ],
+          },
+        ],
+      },
+    } as unknown as ProgressNoteData);
+
+    expect(text).toContain('SCREENING FORMS:\n- Staff screening | Fall risk: No');
+    expect(text).toContain('CLINICAL FORMS:\n- SDOH | Cigarettes: Yes | How many per day: ');
+  });
 });
 
 describe('describeJsonShape', () => {

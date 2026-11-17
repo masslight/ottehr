@@ -12,6 +12,7 @@ import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validatio
 import {
   createBillingClient,
   fetchPatientCoverages,
+  getGroupNumber,
   resolvedPayerId,
   resolvePayersByRef,
   toAddressParts,
@@ -57,24 +58,29 @@ async function performEffect(
     records.map(({ coverage }) => coverage.payor?.[0]?.reference)
   );
 
-  const result = records.map(({ coverage, insuranceType, subscriber }): BillingCoverageOption => {
-    const payorRef = coverage.payor?.[0]?.reference;
-    const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
+  const result = await Promise.all(
+    records.map(async ({ coverage, insuranceType, subscriber }): Promise<BillingCoverageOption> => {
+      const payorRef = coverage.payor?.[0]?.reference;
+      const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
 
-    return {
-      id: coverage.id,
-      status: coverage.status,
-      subscriberId: coverage.subscriberId ?? '',
-      payorName: payorOrg?.name ?? '',
-      payorId: resolvedPayerId(payorOrg) ?? '',
-      payorFhirId: payorOrg?.id ?? '',
-      insuranceType,
-      planType: getCoveragePlanType(coverage),
-      relationship: coverage.relationship?.coding?.[0]?.display as BillingCoverageOption['relationship'],
-      memberId: coverage.subscriberId ?? getMemberIdFromCoverage(coverage) ?? '',
-      policyHolder: extractPolicyHolder(subscriber),
-    };
-  });
+      const groupNumber = await getGroupNumber(oystehr, coverage, payersByRef);
+
+      return {
+        id: coverage.id,
+        status: coverage.status,
+        subscriberId: coverage.subscriberId ?? '',
+        payorName: payorOrg?.name ?? '',
+        payorId: resolvedPayerId(payorOrg) ?? '',
+        payorFhirId: payorOrg?.id ?? '',
+        insuranceType,
+        planType: getCoveragePlanType(coverage),
+        relationship: coverage.relationship?.coding?.[0]?.display as BillingCoverageOption['relationship'],
+        memberId: coverage.subscriberId ?? getMemberIdFromCoverage(coverage) ?? '',
+        groupNumber,
+        policyHolder: extractPolicyHolder(subscriber),
+      };
+    })
+  );
 
   return { coverages: result };
 }

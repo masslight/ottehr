@@ -32,7 +32,6 @@ import {
   Location,
   Organization,
   Patient,
-  PaymentNotice,
   PaymentReconciliation,
   Period,
   Person,
@@ -76,8 +75,9 @@ import {
   getTaxID,
   setNpi,
 } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
-import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractNioIdFromReferenceUrl, getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
@@ -90,6 +90,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
+import { zambdaApiUrlOverride } from 'utils/lib/helpers/zambda-api-url-override';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { STATE_CODES } from 'utils/lib/types/common';
 import { CLAIM_TAG_SYSTEM, ERA_SOURCE, EraSource, ndcToDigits } from 'utils/lib/types/data/billing/billing.constants';
@@ -121,7 +122,7 @@ import {
   withArStageInitialization,
 } from 'utils/lib/types/data/billing/claim-status';
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
-import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { RulesEngineInsurance, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
@@ -299,7 +300,7 @@ export const CHARGE_ITEM_DEFINITION_DEFAULT_SYSTEM = 'https://fhir.ottehr.com/bi
 const CLINICAL_ID_SCAN_PAGE_SIZE = 200;
 
 // A working copy can itself be copied, so a copy is not always one hop from its main Patient
-const MAX_COPY_CHAIN_HOPS = 10;
+export const MAX_COPY_CHAIN_HOPS = 10;
 
 export const SOURCE_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/source-resource';
 export const SOURCE_FRIENDLY_PATIENT_ID_EXTENSION =
@@ -348,6 +349,9 @@ export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/Revenue
 
 export const CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem(
   'claim-payer-claim-control-number'
+);
+export const CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM = ottehrCodeSystemUrl(
+  'claim-payer-claim-control-number-insurance-ordinal'
 );
 
 export interface ClaimLineDrug {
@@ -601,7 +605,7 @@ export async function searchPatientsByClinicalIds({
     }
   }
 
-  return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
+  return { total: 0, results: [] };
 }
 
 export interface ClinicalPatientIds {
@@ -895,31 +899,54 @@ export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
 ];
 
+declare const billingScope: unique symbol;
+
+// The client createBillingClient makes, whose FHIR reads and writes see only billing-tagged resources.
+// ottehr/billing-fhir-client-only tells it from other clients by this type, so billing code can't get
+// another client unnoticed. The brand is keyed by a symbol nothing else can name, so only this factory
+// makes one.
+export interface BillingOystehr extends Oystehr {
+  readonly [billingScope]: true;
+}
+
 export function createBillingClient(
   token: string,
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
-): Oystehr {
+): BillingOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the billing client factory, which sets the workspace tag
   return new Oystehr({
     accessToken: token,
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+      zambdaApiUrl: zambdaApiUrlOverride(),
     },
     ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
-  });
+  }) as BillingOystehr;
+}
+
+declare const unscopedScope: unique symbol;
+
+// The client createEraReadClient makes, which sees untagged and billing-tagged resources alike: for code
+// that must see resources before they are tagged, or that nothing tags. Billing code that needs one gets
+// it with a justified exception to ottehr/billing-fhir-client-only, then uses it like any other client.
+export interface UnscopedOystehr extends Oystehr {
+  readonly [unscopedScope]: true;
 }
 
 // ERA resources are untagged by Oystehr
-export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+export function createEraReadClient(token: string, secrets: Secrets | null): UnscopedOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the unscoped client factory
   return new Oystehr({
     accessToken: token,
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+      zambdaApiUrl: zambdaApiUrlOverride(),
     },
-  });
+  }) as UnscopedOystehr;
 }
 
 export async function findById<T extends FhirResource>(
@@ -973,15 +1000,22 @@ export async function listToRulesReportingMalformed(list: List, env: string): Pr
  * The rules engine responsible for a claim, decided by its AR Stage:
  * - Insurance Payer AR -> Claim Submission Rules
  * - Non-insurance Payer AR -> Non-Insurance Payer Pre-Invoice Rules
+ * - Insurance Payer AR + Adjudicated AR Status -> Post-Adjudication Rules
  * - Patient AR -> Patient AR Pre-Invoice Rules
- * Undefined when no engine applies (no AR Stage).
+ * Undefined when no engine applies. If an override is provided, that will be used instead.
  *
  * An engine runs automatically only when a claim is created in its stage. Changing an existing
  * claim's AR Stage never runs an engine — set-billing-claim-status holds the claim instead, and the
  * biller runs the rules explicitly (Submit claim / Prepare for invoice).
  */
-export function determineRulesEngineForClaim(claim: Claim): RulesEngineType | undefined {
+export function determineRulesEngineForClaim(
+  claim: Claim,
+  engineOverride?: RulesEngineType
+): RulesEngineType | undefined {
+  if (engineOverride) return engineOverride;
   const arStage = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage);
+  const insuranceARStatus = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.insuranceArStatus);
+  if (arStage === AR_STAGE.insurancePayer && insuranceARStatus === 'adjudicated') return 'post-adjudication';
   if (arStage === AR_STAGE.insurancePayer) return 'claim-submission';
   if (arStage === AR_STAGE.nonInsurancePayer) return 'non-insurance-payer-pre-invoice';
   if (arStage === AR_STAGE.patient) return 'patient-ar-pre-invoice';
@@ -1074,9 +1108,9 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
       )
       .map(
         (supportingInfo) =>
-          `/${supportingInfo.valueReference.reference?.split(
-            '/'
-          )[0]}?_id=${supportingInfo.valueReference.reference?.split('/')[1]}`
+          `/${supportingInfo.valueReference.reference?.split('/')[0]}?_id=${getIdFromReference(
+            supportingInfo.valueReference.reference
+          )}`
       )
   );
 
@@ -1085,7 +1119,7 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
   const coverages = coverageRefs
     .map((ref) => followUp.find((r) => r.resourceType === 'Coverage' && r.id === ref.replace('Coverage/', '')))
     .filter((c): c is Coverage => !!c);
-  const renderingId = renderingRef?.split('/')[1];
+  const renderingId = getIdFromReference(renderingRef);
   const renderingProvider = renderingId
     ? (followUp.find(
         (r) => r.id === renderingId && (r.resourceType === 'Practitioner' || r.resourceType === 'Organization')
@@ -1265,6 +1299,9 @@ export function setClia(resource: Location, clia: string | null): void {
     resource.identifier = identifier.filter((id) => id.system !== FHIR_IDENTIFIER_CLIA);
   }
 }
+
+export const getStripeAccountId = (resource: Practitioner | Organization): string | undefined =>
+  resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value;
 
 export function setStripeAccountId(resource: Practitioner | Organization, stripeAccountId: string): void {
   const identifier = resource.identifier ?? [];
@@ -1487,9 +1524,20 @@ export function getClaimType(claim: Claim): keyof typeof CODE_SYSTEM_CLAIM_TYPE_
   }
 }
 
+export function isInstitutionalClaim(claim: Claim): boolean {
+  return getClaimType(claim) === CODE_SYSTEM_CLAIM_TYPE_CODES.institutional;
+}
+
 export function getClaimTypeCoding(type?: keyof typeof CODE_SYSTEM_CLAIM_TYPE_CODES): Coding {
   // Currently all claims start as professional claims
   return { system: CODE_SYSTEM_CLAIM_TYPE, code: type ?? CODE_SYSTEM_CLAIM_TYPE_CODES.professional };
+}
+
+// The 4-digit bill type, rebuilt from the facility type and frequency extensions.
+export function getClaimBillType(claim: Claim): string {
+  const facilityTypeCode = getExtensionValue(claim, EXTENSION_CLAIM_FACILITY_TYPE_CODE, 'valueString');
+  const frequencyCode = getExtensionValue(claim, EXTENSION_CLAIM_FREQUENCY_CODE, 'valueString') || '1';
+  return facilityTypeCode ? `0${facilityTypeCode}${frequencyCode}` : '';
 }
 
 export function getClaimService(claim: Claim): string | undefined {
@@ -1498,6 +1546,21 @@ export function getClaimService(claim: Claim): string | undefined {
     return undefined;
   }
   return code;
+}
+
+// The codes of the services on claims created from visits: one Basic per service, created with the
+// first such claim (create-billing-claim-from-encounter). Read in full by the services list
+// (search-billing-services) and by rule saving, which checks the service a rule sets is one of them.
+export async function searchBillingServiceCodes(oystehr: Oystehr): Promise<string[]> {
+  const basics = await getAllFhirSearchPages<Basic>(
+    { resourceType: 'Basic', params: [{ name: 'code', value: `${CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM}|` }] },
+    oystehr
+  );
+  return basics
+    .map(
+      (basic) => basic.code?.coding?.find((coding) => coding.system === CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM)?.code
+    )
+    .filter((serviceCode): serviceCode is string => !!serviceCode);
 }
 
 // --- Coverage / insurance helpers ---
@@ -1532,7 +1595,12 @@ export function buildSubscriberRelatedPerson(
 }
 
 // Set payor reference + coverage class + member-id identifier from a payer Organization.
-export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, memberId: string): void {
+export function setCoveragePayer(
+  coverage: Coverage,
+  payerOrg: Organization,
+  memberId: string,
+  groupNumber?: string
+): void {
   // A UUID-backed org (RCM payer with a real FHIR resource, or a custom insurance organization)
   // references itself directly and doesn't need an RCM payer id; only a pure RCM payer (no backing
   // resource) requires one, since buildPayorReference falls back to an RCM payer URL for it.
@@ -1543,7 +1611,7 @@ export function setCoveragePayer(coverage: Coverage, payerOrg: Organization, mem
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: payerId ?? '',
+      value: groupNumber?.trim() || payerId!,
       name: payerOrg.name ?? '',
     },
   ];
@@ -1554,6 +1622,7 @@ export function buildBillingCoverage(params: {
   patientId: string;
   payerOrg: Organization;
   memberId: string;
+  groupNumber?: string;
   status: Coverage['status'];
   planType?: string;
   relationship: BillingSubscriberRelationship;
@@ -1568,7 +1637,7 @@ export function buildBillingCoverage(params: {
     subscriberId: params.memberId,
     payor: [],
   };
-  setCoveragePayer(coverage, params.payerOrg, params.memberId);
+  setCoveragePayer(coverage, params.payerOrg, params.memberId, params.groupNumber);
   setCoverageRelationship(coverage, params.relationship);
   if (params.planType) {
     coverage = setCoveragePlanType(coverage, params.planType);
@@ -1926,38 +1995,6 @@ export async function tagEraResources({
   return untagged.size;
 }
 
-// Links notices the stripe webhook stored before the claim existed.
-export async function reconcilePaymentNoticesForClaim(oystehr: Oystehr, claim: Claim): Promise<void> {
-  const encounterIdSystem = ottehrIdentifierSystem('claim-encounter-id');
-  const encounterId = claim.identifier?.find((i) => i.system === encounterIdSystem)?.value;
-  if (!claim.id || !encounterId) return;
-
-  const notices = (
-    await oystehr.fhir.search<PaymentNotice>({
-      resourceType: 'PaymentNotice',
-      params: [{ name: 'request:identifier', value: `${encounterIdSystem}|${encounterId}` }],
-    })
-  ).unbundle();
-
-  const unlinked = notices.filter((n) => n.id && !n.request?.reference);
-  if (unlinked.length === 0) return;
-
-  const result = await oystehr.fhir.batch({
-    requests: unlinked.map((n) =>
-      getPatchBinary({
-        resourceType: 'PaymentNotice',
-        resourceId: n.id!,
-        patchOperations: [{ op: 'add', path: '/request/reference', value: `Claim/${claim.id}` }],
-      })
-    ),
-  });
-  const failed = (result.entry ?? []).filter((e) => e.response?.outcome?.id !== 'ok');
-  if (failed.length > 0) {
-    console.warn(`reconcilePaymentNoticesForClaim: ${failed.length} of ${unlinked.length} patches failed`);
-  }
-  console.log(`Linked ${unlinked.length - failed.length} PaymentNotice(s) to Claim/${claim.id}`);
-}
-
 export async function resolveLinkedPatientIds({
   oystehr,
   patientId,
@@ -2027,7 +2064,7 @@ export function mapProvider(resource: Practitioner | Organization): BillingProvi
     ...common,
     kind: 'organization',
     name: resource.name ?? '',
-    stripeAccountId: resource.identifier?.find((id) => id.system === STRIPE_ACCOUNT_IDENTIFIER_SYSTEM)?.value ?? '',
+    stripeAccountId: getStripeAccountId(resource) ?? '',
   };
 }
 export const CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM =
@@ -2115,4 +2152,42 @@ export function removeClaimSupportingInfo(
       }),
     ];
   }
+}
+
+export async function getGroupNumber(
+  oystehr: Oystehr,
+  coverage: Coverage,
+  payersByRefParam: Awaited<ReturnType<typeof resolvePayersByRef>>
+): Promise<string | undefined> {
+  if (!coverage) return undefined;
+  const payersByRef =
+    payersByRefParam ??
+    (await resolvePayersByRef(
+      oystehr,
+      [coverage].map((coverage) => coverage.payor?.[0]?.reference)
+    ));
+
+  const payorRef = coverage.payor?.[0]?.reference;
+  const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
+
+  // EHR stores payer ID in the same place and we recently stopped copying it in billing app
+  let groupNumber = coverage.class?.[0]?.value;
+  if (groupNumber === payorOrg?.id) groupNumber = undefined;
+
+  return groupNumber;
+}
+
+export function getPayerClaimControlNumber(claim: Claim, insurance: RulesEngineInsurance): string | undefined {
+  const payerClaimControlNumbers = (claim.identifier ?? []).filter(
+    (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
+  );
+  return payerClaimControlNumbers.find(
+    (i) =>
+      // is matching type
+      i.type?.coding?.some(
+        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === insurance
+      ) ||
+      // legacy type-less identifier for primary insurance
+      (insurance === 'primary' && !i.type)
+  )?.value;
 }

@@ -57,7 +57,7 @@ runs:
       if: ${{ inputs.pull-generated-config-from-terraform-state == 'true' }}
       uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
       with:
-        terraform_version: "1.12.2"
+        terraform_version: "1.16.4"
     - name: Configure AWS Credentials
       if: ${{ inputs.pull-generated-config-from-terraform-state == 'true' }}
       id: configure-aws-credentials

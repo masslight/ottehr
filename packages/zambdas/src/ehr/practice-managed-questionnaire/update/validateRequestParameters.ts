@@ -66,7 +66,7 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
   throw INVALID_INPUT_ERROR(`updateType was an unexpected value: ${updateType}`);
 }
 
-export const validateQuestionnaire = async (input: ValidatedRequest, oystehr: Oystehr): Promise<void> => {
+export const validateQuestionnaire = async (input: ValidatedRequest, oystehr: Oystehr): Promise<Questionnaire> => {
   const { updateType, data } = input;
 
   let questionnaireId: string | undefined;
@@ -85,4 +85,6 @@ export const validateQuestionnaire = async (input: ValidatedRequest, oystehr: Oy
   if (!questionnaire) throw INVALID_INPUT_ERROR(`Could not get Questionnaire/${questionnaireId}`);
 
   validateQisPracticeManaged(questionnaire, questionnaireId ?? '');
+
+  return questionnaire;
 };

@@ -1,6 +1,7 @@
 import { IN_HOUSE_LAB_TASK } from '../data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from '../data/labs/labs.constants';
-import { ERX_TASK, FAX_TASK, MANUAL_TASK, RADIOLOGY_TASK } from '../data/tasks/types';
+import { ERX_TASK, FAX_TASK, MANUAL_TASK, PATIENT_REQUEST_TASK, RADIOLOGY_TASK } from '../data/tasks/types';
+import { DME_TASK } from './dme.types';
 import { ProviderNotificationMethod } from './practitioner.types';
 
 /**
@@ -29,7 +30,9 @@ export const UI_TASK_CATEGORY_IDS = [
   'erx',
   'inHouseMedications',
   'nursingOrders',
+  'dme',
   'patientFollowUp',
+  'patientRequest',
   'procedures',
   'charting',
   'coding',
@@ -46,7 +49,9 @@ export const UI_TASK_CATEGORY_LABELS: Record<UiTaskCategoryId, string> = {
   erx: 'eRX',
   inHouseMedications: 'In-house Medications',
   nursingOrders: 'Nursing Orders',
+  dme: 'DME',
   patientFollowUp: 'Patient Follow-up',
+  patientRequest: 'Patient Request',
   procedures: 'Procedures',
   charting: 'Charting',
   coding: 'Coding',
@@ -78,7 +83,10 @@ export const TASK_CODE_TO_UI_CATEGORY: Record<string, UiTaskCategoryId> = {
   [MANUAL_TASK.category.erx]: 'erx',
   [MANUAL_TASK.category.inHouseMedications]: 'inHouseMedications',
   [MANUAL_TASK.category.nursingOrders]: 'nursingOrders',
+  [DME_TASK.category]: 'dme',
+  [MANUAL_TASK.category.dme]: 'dme',
   [MANUAL_TASK.category.patientFollowUp]: 'patientFollowUp',
+  [PATIENT_REQUEST_TASK.category]: 'patientRequest',
   [MANUAL_TASK.category.procedures]: 'procedures',
   [MANUAL_TASK.category.charting]: 'charting',
   [MANUAL_TASK.category.coding]: 'coding',

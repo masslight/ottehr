@@ -7,6 +7,21 @@ export const INSURANCE_CARD_FRONT_ID = 'insurance-card-front';
 export const INSURANCE_CARD_BACK_ID = 'insurance-card-back';
 export const INSURANCE_CARD_FRONT_2_ID = 'insurance-card-front-2';
 export const INSURANCE_CARD_BACK_2_ID = 'insurance-card-back-2';
+
+export type InsuranceCardId =
+  | typeof INSURANCE_CARD_FRONT_ID
+  | typeof INSURANCE_CARD_BACK_ID
+  | typeof INSURANCE_CARD_FRONT_2_ID
+  | typeof INSURANCE_CARD_BACK_2_ID;
+
+export type SwapPrimarySecondaryInsuranceCardId = {
+  (id: typeof INSURANCE_CARD_FRONT_ID): typeof INSURANCE_CARD_FRONT_2_ID;
+  (id: typeof INSURANCE_CARD_BACK_ID): typeof INSURANCE_CARD_BACK_2_ID;
+  (id: typeof INSURANCE_CARD_FRONT_2_ID): typeof INSURANCE_CARD_FRONT_ID;
+  (id: typeof INSURANCE_CARD_BACK_2_ID): typeof INSURANCE_CARD_BACK_ID;
+  (id: InsuranceCardId): InsuranceCardId;
+};
+
 export const PATIENT_PHOTO_ID_PREFIX = 'patient-photo';
 export const PATIENT_PHOTOS_MAX_COUNT_TELEMED = 4;
 export const PHOTO_ID_FRONT_ID = 'photo-id-front';

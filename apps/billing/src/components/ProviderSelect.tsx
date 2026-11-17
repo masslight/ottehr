@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { BillingProviderOption } from 'utils/lib/types/data/billing/billing.types';
 import { formatTaxId } from 'utils/lib/utils/convert';
 import { searchBillingProviders } from '../api/api';
@@ -100,7 +101,7 @@ function useProviderSearch(
     for (const ref of stored) {
       if (known[ref] || attempted.current.has(ref)) continue;
       attempted.current.add(ref);
-      const id = ref.split('/')[1];
+      const id = getIdFromReference(ref);
       if (!id) continue;
       searchBillingProviders(oystehrZambda, { providerType: providerRole, providerId: id })
         .then((res) => {

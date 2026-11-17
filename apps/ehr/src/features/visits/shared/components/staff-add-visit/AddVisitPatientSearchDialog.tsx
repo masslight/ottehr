@@ -1,4 +1,13 @@
-import { Box, Button, Dialog, FormControlLabel, Radio, RadioGroup, Typography } from '@mui/material';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
+} from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -33,60 +42,57 @@ export const AddVisitPatientSearchDialog: FC<AddVisitPatientSearchDialogProps> =
         setSelectedPatient(undefined);
         setOpenSearchResults(false);
       }}
+      fullWidth
+      maxWidth="sm"
+      PaperProps={{ sx: { maxHeight: 'min(650px, calc(100% - 64px))' } }}
     >
-      <Box sx={{ minWidth: '600px', borderRadius: '4px', p: '35px', maxHeight: '450px', overflow: 'scroll' }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: '600 !important', color: 'primary.main', marginBottom: '4px' }}>
-            Select Patient
-          </Typography>
-        </Box>
-        <Box>
-          <RadioGroup
-            onChange={(e) => {
-              const id = e.target.value;
-              const patient = patients.find((p) => p.id === id);
-              setSelectedPatient(patient);
-            }}
-          >
-            {patients.map((patient) => {
-              const label = `${getFullNameFromPatientInfo(patient)} (DOB: ${DateTime.fromISO(
-                patient?.dateOfBirth || ''
-              ).toFormat('MMMM dd, yyyy')})`;
-              return <FormControlLabel key={patient.id} value={patient.id} control={<Radio />} label={label} />;
-            })}
-          </RadioGroup>
-        </Box>
+      <DialogTitle variant="h4" sx={{ fontWeight: '600 !important', color: 'primary.main' }}>
+        Select Patient
+      </DialogTitle>
+      <DialogContent dividers>
+        <RadioGroup
+          onChange={(e) => {
+            const id = e.target.value;
+            const patient = patients.find((p) => p.id === id);
+            setSelectedPatient(patient);
+          }}
+        >
+          {patients.map((patient) => {
+            const label = `${getFullNameFromPatientInfo(patient)} (DOB: ${DateTime.fromISO(
+              patient?.dateOfBirth || ''
+            ).toFormat('MMMM dd, yyyy')})`;
+            return <FormControlLabel key={patient.id} value={patient.id} control={<Radio />} label={label} />;
+          })}
+        </RadioGroup>
+      </DialogContent>
+      <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2 }}>
+        <Button
+          data-testid={dataTestIds.addPatientPage.patientNotFoundButton}
+          variant="contained"
+          sx={{
+            borderRadius: 100,
+            textTransform: 'none',
+            fontWeight: 600,
+          }}
+          onClick={handleManuallyEnterPatientDetails}
+        >
+          Patient Not Found - Add Manually
+        </Button>
         {selectedPatient && (
-          <Box sx={{ marginTop: 2 }}>
-            <Button
-              data-testid={dataTestIds.addPatientPage.prefillForButton}
-              variant="outlined"
-              sx={{
-                borderRadius: 100,
-                textTransform: 'none',
-                fontWeight: 600,
-              }}
-              onClick={handleSelectExistingPatient}
-            >
-              Prefill for {getFullNameFromPatientInfo(selectedPatient)}
-            </Button>
-          </Box>
-        )}
-        <Box sx={{ marginTop: 2 }}>
           <Button
-            data-testid={dataTestIds.addPatientPage.patientNotFoundButton}
-            variant="contained"
+            data-testid={dataTestIds.addPatientPage.prefillForButton}
+            variant="outlined"
             sx={{
               borderRadius: 100,
               textTransform: 'none',
               fontWeight: 600,
             }}
-            onClick={handleManuallyEnterPatientDetails}
+            onClick={handleSelectExistingPatient}
           >
-            Patient Not Found - Add Manually
+            Prefill for {getFullNameFromPatientInfo(selectedPatient)}
           </Button>
-        </Box>
-      </Box>
+        )}
+      </DialogActions>
     </Dialog>
   );
 };

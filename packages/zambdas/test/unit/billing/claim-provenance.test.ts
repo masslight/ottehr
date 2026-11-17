@@ -1,6 +1,33 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Claim, Coverage, Patient, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import {
+  Claim,
+  ClaimItem,
+  ClaimResponse,
+  Coverage,
+  DocumentReference,
+  Patient,
+  PaymentNotice,
+  Provenance,
+  ProvenanceAgent,
+} from 'fhir/r4b';
+import { FHIR_IDENTIFIER_NPI, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  buildPaymentRefundsExtension,
+  buildPaymentVoidExtension,
+  PENDING_RESERVATION_PREFIX,
+} from 'utils/lib/fhir/paymentRefunds';
+import {
+  CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+  CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+  CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+  CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+  CODE_SYSTEM_CLAIM_TYPE_CODES,
+  CODE_SYSTEM_NDC,
+  CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+} from 'utils/lib/helpers/rcm/constants';
+import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
 import {
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_CHANGE_REF_URL,
@@ -18,12 +45,27 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import {
   addErrorProvenanceForClaimSubmission,
+  claimEventProvenanceRequest,
+  claimHistoryHasEntryFor,
+  claimHistoryLinkRequests,
   claimProvenanceRequest,
   claimResourceChangeRequests,
   commitClaimMetaTagsWithProvenance,
   commitClaimResourceChange,
   diffResources,
 } from '../../../src/billing/provenance';
+import {
+  ERA_ICN_EXTENSION,
+  ERA_STATUS_CODE_EXTENSION,
+  EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+  EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
+  EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
+  EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
+  getClaimTypeCoding,
+} from '../../../src/billing/shared';
+import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtures';
 
 const agent: ProvenanceAgent = { who: { reference: 'Practitioner/u1' } };
 const CLAIM_REF = 'Claim/c1';
@@ -86,6 +128,924 @@ describe('diffResources', () => {
         newRef: 'https://rcm.example/payer/2',
       },
     ]);
+  });
+});
+
+const claimWith = (overrides: Partial<Claim> = {}): Claim =>
+  ({
+    resourceType: 'Claim',
+    id: 'c1',
+    type: {
+      coding: [],
+    },
+    ...overrides,
+  }) as Claim;
+
+const withService = (service: string): Claim =>
+  claimWith({
+    meta: {
+      tag: [
+        {
+          system: CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
+          code: service,
+        },
+      ],
+    },
+  });
+
+describe('diffResources claims', () => {
+  it('records a service change by its displayed name', () => {
+    expect(diffResources(withService('urgent-care'), withService('occupational-medicine'))).toEqual([
+      {
+        field: 'service',
+        label: 'Service',
+        previousValue: 'Urgent Care',
+        newValue: 'Occupational Medicine',
+      },
+    ]);
+  });
+
+  it('writes a history entry for a service-only change', () => {
+    const request = claimProvenanceRequest({
+      targetReference: CLAIM_REF,
+      claimReference: CLAIM_REF,
+      before: withService('urgent-care'),
+      after: withService('workers-comp'),
+      agent,
+      activity: 'update',
+      recorded: 't',
+    });
+
+    expect(parseChanges(request!.resource)).toEqual([
+      {
+        field: 'service',
+        label: 'Service',
+        previousValue: 'Urgent Care',
+        newValue: 'Workers Comp',
+      },
+    ]);
+  });
+});
+
+describe('diffResources institutional claim fields', () => {
+  const institutionalClaimWith = (overrides: Partial<Claim>): Claim =>
+    claimWith({
+      type: {
+        coding: [getClaimTypeCoding(CODE_SYSTEM_CLAIM_TYPE_CODES.institutional)],
+      },
+      ...overrides,
+    });
+
+  const extension = (url: string, valueString: string): Partial<Claim> => ({
+    extension: [
+      {
+        url,
+        valueString,
+      },
+    ],
+  });
+
+  it.each<[string, Partial<Claim>, Partial<Claim>, ClaimFieldChange]>([
+    [
+      'bill type',
+      {
+        extension: [
+          {
+            url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+            valueString: '13',
+          },
+        ],
+      },
+      {
+        extension: [
+          {
+            url: EXTENSION_CLAIM_FACILITY_TYPE_CODE,
+            valueString: '13',
+          },
+          {
+            url: EXTENSION_CLAIM_FREQUENCY_CODE,
+            valueString: '7',
+          },
+        ],
+      },
+      {
+        field: 'billType',
+        label: 'Bill Type',
+        previousValue: '0131',
+        newValue: '0137',
+      },
+    ],
+    [
+      'discharge status',
+      extension(EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS, '01'),
+      extension(EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS, '02'),
+      {
+        field: 'dischargeStatus',
+        label: 'Patient Discharge Status',
+        previousValue: '01',
+        newValue: '02',
+      },
+    ],
+    [
+      'admission type',
+      {},
+      extension(EXTENSION_CLAIM_ADMISSION_TYPE_CODE, '1'),
+      {
+        field: 'admissionType',
+        label: 'Admission Type',
+        previousValue: null,
+        newValue: '1',
+      },
+    ],
+    [
+      'admission source',
+      extension(EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE, '1'),
+      {},
+      {
+        field: 'admissionSource',
+        label: 'Admission Source',
+        previousValue: '1',
+        newValue: null,
+      },
+    ],
+    [
+      'admission date',
+      {
+        billablePeriod: {
+          start: '2026-10-01',
+        },
+      },
+      {
+        billablePeriod: {
+          start: '2026-10-02',
+        },
+      },
+      {
+        field: 'admissionDate',
+        label: 'Admission Date',
+        previousValue: '2026-10-01',
+        newValue: '2026-10-02',
+      },
+    ],
+    [
+      'discharge date',
+      {},
+      {
+        billablePeriod: {
+          end: '2026-10-05',
+        },
+      },
+      {
+        field: 'dischargeDate',
+        label: 'Discharge Date',
+        previousValue: null,
+        newValue: '2026-10-05',
+      },
+    ],
+  ])('records a %s change', (_name, before, after, change) => {
+    expect(diffResources(institutionalClaimWith(before), institutionalClaimWith(after))).toEqual([change]);
+  });
+
+  it('records no admission or discharge dates for a professional claim', () => {
+    const changes = diffResources(
+      undefined,
+      claimWith({
+        billablePeriod: {
+          start: '2026-10-01',
+          end: '2026-10-02',
+        },
+      })
+    );
+
+    expect(changes.map((change) => change.field)).not.toContain('admissionDate');
+    expect(changes.map((change) => change.field)).not.toContain('dischargeDate');
+  });
+});
+
+describe('diffResources accident claim fields', () => {
+  it.each<[string, Partial<Claim>, Partial<Claim>, ClaimFieldChange]>([
+    [
+      'type',
+      {
+        extension: [
+          {
+            url: CLAIM_ACCIDENT_TYPE_EXTENSION_URLS.auto,
+            valueBoolean: true,
+          },
+        ],
+      },
+      {
+        extension: [
+          {
+            url: CLAIM_ACCIDENT_TYPE_EXTENSION_URLS.other,
+            valueBoolean: true,
+          },
+          {
+            url: CLAIM_ACCIDENT_TYPE_EXTENSION_URLS.employment,
+            valueBoolean: true,
+          },
+        ],
+      },
+      {
+        field: 'accidentType',
+        label: 'Accident Type',
+        previousValue: 'Auto Accident',
+        newValue: 'Employment Accident, Other Accident',
+      },
+    ],
+    [
+      'state',
+      {},
+      {
+        extension: [
+          {
+            url: CLAIM_ACCIDENT_STATE_EXTENSION_URL,
+            valueString: 'NY',
+          },
+        ],
+      },
+      {
+        field: 'accidentState',
+        label: 'Accident State',
+        previousValue: null,
+        newValue: 'NY',
+      },
+    ],
+    [
+      'date',
+      {},
+      {
+        supportingInfo: [
+          {
+            sequence: 1,
+            category: {
+              coding: [
+                {
+                  system: CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
+                  code: 'info',
+                },
+              ],
+            },
+            code: {
+              coding: [
+                {
+                  system: CODE_SYSTEM_CLAIM_ACCIDENT_DATE,
+                  code: CODE_SYSTEM_CLAIM_ACCIDENT_DATE_CODE,
+                },
+              ],
+            },
+            timingDate: '2026-09-30',
+          },
+        ],
+      },
+      {
+        field: 'accidentDate',
+        label: 'Accident Date',
+        previousValue: null,
+        newValue: '2026-09-30',
+      },
+    ],
+  ])('records an accident %s change', (_name, before, after, change) => {
+    expect(diffResources(claimWith(before), claimWith(after))).toEqual([change]);
+  });
+});
+
+describe('diffResources claim ordering providers', () => {
+  const lineOrderedBy = (reference: string, display: string): ClaimItem => ({
+    sequence: 1,
+    productOrService: {
+      coding: [],
+    },
+    extension: [
+      {
+        url: EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
+        valueReference: {
+          reference,
+          display,
+        },
+      },
+    ],
+  });
+
+  const handEnteredProvider = (npi: string): Claim['contained'] => [
+    {
+      resourceType: 'Practitioner',
+      id: 'ordering-provider-1',
+      name: [
+        {
+          given: ['Jane'],
+          family: 'Doe',
+        },
+      ],
+      identifier: [
+        {
+          system: FHIR_IDENTIFIER_NPI,
+          value: npi,
+        },
+      ],
+    },
+  ];
+
+  it('records a change of ordering provider per line', () => {
+    const before = claimWith({
+      item: [lineOrderedBy('Practitioner/p1', 'John Smith'), lineOrderedBy('Practitioner/p1', 'John Smith')],
+    });
+    const after = claimWith({
+      item: [lineOrderedBy('Practitioner/p1', 'John Smith'), lineOrderedBy('Practitioner/p2', 'Ann Lee')],
+    });
+
+    expect(diffResources(before, after)).toEqual([
+      {
+        field: 'orderingProviders',
+        label: 'Ordering Providers',
+        previousValue: 'John Smith; John Smith',
+        newValue: 'John Smith; Ann Lee',
+      },
+    ]);
+  });
+
+  it("records a hand-entered provider's NPI change", () => {
+    const orderedBy = (npi: string): Claim =>
+      claimWith({
+        contained: handEnteredProvider(npi),
+        item: [lineOrderedBy('#ordering-provider-1', 'Jane Doe')],
+      });
+
+    expect(diffResources(orderedBy('1234567893'), orderedBy('1245319599'))).toEqual([
+      {
+        field: 'orderingProviders',
+        label: 'Ordering Providers',
+        previousValue: 'Jane Doe NPI 1234567893',
+        newValue: 'Jane Doe NPI 1245319599',
+      },
+    ]);
+  });
+});
+
+describe('diffResources claim service lines', () => {
+  const line = (overrides: Partial<ClaimItem> = {}): ClaimItem => ({
+    sequence: 1,
+    productOrService: {
+      coding: [
+        {
+          code: '99213',
+        },
+      ],
+    },
+    servicedPeriod: {
+      start: '2026-10-01',
+    },
+    locationCodeableConcept: {
+      coding: [
+        {
+          code: '11',
+        },
+      ],
+    },
+    modifier: [
+      {
+        coding: [
+          {
+            code: '25',
+          },
+        ],
+      },
+    ],
+    diagnosisSequence: [1, 2],
+    revenue: {
+      coding: [
+        {
+          code: '0450',
+        },
+      ],
+    },
+    quantity: {
+      value: 1,
+    },
+    net: {
+      value: 100,
+    },
+    detail: [
+      {
+        sequence: 1,
+        productOrService: {
+          coding: [
+            {
+              system: CODE_SYSTEM_NDC,
+              code: '00002143380',
+            },
+          ],
+        },
+        quantity: {
+          value: 2,
+          unit: 'ML',
+        },
+      },
+    ],
+    ...overrides,
+  });
+
+  const serviceLinesChange = (before: ClaimItem, after: ClaimItem): ClaimFieldChange[] =>
+    diffResources(
+      claimWith({
+        item: [before],
+      }),
+      claimWith({
+        item: [after],
+      })
+    );
+
+  it.each<[string, Partial<ClaimItem>, string]>([
+    [
+      'service date',
+      {
+        servicedPeriod: {
+          start: '2026-10-02',
+        },
+      },
+      '99213 2026-10-02 POS 11 mod 25 dx 1,2 rev 0450 x1 $100 NDC 00002143380 2 ML',
+    ],
+    [
+      'place of service',
+      {
+        locationCodeableConcept: {
+          coding: [
+            {
+              code: '02',
+            },
+          ],
+        },
+      },
+      '99213 2026-10-01 POS 02 mod 25 dx 1,2 rev 0450 x1 $100 NDC 00002143380 2 ML',
+    ],
+    [
+      'modifiers',
+      {
+        modifier: [
+          {
+            coding: [
+              {
+                code: '59',
+              },
+            ],
+          },
+        ],
+      },
+      '99213 2026-10-01 POS 11 mod 59 dx 1,2 rev 0450 x1 $100 NDC 00002143380 2 ML',
+    ],
+    [
+      'diagnosis pointers',
+      {
+        diagnosisSequence: [2],
+      },
+      '99213 2026-10-01 POS 11 mod 25 dx 2 rev 0450 x1 $100 NDC 00002143380 2 ML',
+    ],
+    [
+      'revenue code',
+      {
+        revenue: {
+          coding: [
+            {
+              code: '0510',
+            },
+          ],
+        },
+      },
+      '99213 2026-10-01 POS 11 mod 25 dx 1,2 rev 0510 x1 $100 NDC 00002143380 2 ML',
+    ],
+    [
+      'drug',
+      {
+        detail: [],
+      },
+      '99213 2026-10-01 POS 11 mod 25 dx 1,2 rev 0450 x1 $100',
+    ],
+  ])('records a %s change as a service lines change', (_name, overrides, newValue) => {
+    const changes = serviceLinesChange(line(), line(overrides));
+
+    expect(changes).toEqual([
+      {
+        field: 'serviceLines',
+        label: 'Service Lines',
+        previousValue: '99213 2026-10-01 POS 11 mod 25 dx 1,2 rev 0450 x1 $100 NDC 00002143380 2 ML',
+        newValue,
+      },
+    ]);
+  });
+});
+
+describe('diffResources payment notices', () => {
+  const notice = (overrides: Partial<PaymentNotice> = {}): PaymentNotice => ({
+    resourceType: 'PaymentNotice',
+    id: 'pn1',
+    status: 'active',
+    created: '2026-10-01T12:00:00Z',
+    paymentDate: '2026-10-01',
+    amount: {
+      value: 50,
+      currency: 'USD',
+    },
+    payment: {
+      reference: '#contained-reconciliation',
+    },
+    recipient: {
+      reference: 'Organization/o1',
+    },
+    extension: [
+      {
+        url: PAYMENT_METHOD_EXTENSION_URL,
+        valueString: 'cash',
+      },
+    ],
+    ...overrides,
+  });
+
+  const withExtension = (extension: NonNullable<PaymentNotice['extension']>[number]): PaymentNotice =>
+    notice({
+      extension: [...(notice().extension ?? []), extension],
+    });
+
+  const refund = (stripeRefundId: string, status: string): PaymentRefundDTO => ({
+    stripeRefundId,
+    amountInCents: 2000,
+    dateISO: '2026-10-02T12:00:00Z',
+    status,
+  });
+
+  it('records the amount, method, date and status of a new payment', () => {
+    expect(diffResources(undefined, notice())).toEqual([
+      {
+        field: 'amount',
+        label: 'Amount',
+        previousValue: null,
+        newValue: '$50.00',
+      },
+      {
+        field: 'method',
+        label: 'Payment Method',
+        previousValue: null,
+        newValue: 'cash',
+      },
+      {
+        field: 'paymentDate',
+        label: 'Payment Date',
+        previousValue: null,
+        newValue: '2026-10-01',
+      },
+      {
+        field: 'status',
+        label: 'Status',
+        previousValue: null,
+        newValue: 'active',
+      },
+    ]);
+  });
+
+  it('records a settled refund', () => {
+    const refunded = withExtension(buildPaymentRefundsExtension([refund('re_1', 'succeeded')]));
+    expect(diffResources(notice(), refunded)).toEqual([
+      {
+        field: 'refunded',
+        label: 'Refunded',
+        previousValue: null,
+        newValue: '$20.00',
+      },
+    ]);
+  });
+
+  it('records nothing for a pending refund reservation', () => {
+    const reserved = withExtension(
+      buildPaymentRefundsExtension([refund(`${PENDING_RESERVATION_PREFIX}op1`, 'pending')])
+    );
+    expect(diffResources(notice(), reserved)).toEqual([]);
+  });
+
+  it('records a void as a status change with its reason', () => {
+    const voided = {
+      ...withExtension(
+        buildPaymentVoidExtension({
+          reason: 'Entered in error',
+          voidedAtISO: '2026-10-02T12:00:00Z',
+        })
+      ),
+      status: 'cancelled' as const,
+    };
+    expect(diffResources(notice(), voided)).toEqual([
+      {
+        field: 'status',
+        label: 'Status',
+        previousValue: 'active',
+        newValue: 'cancelled',
+      },
+      {
+        field: 'voidReason',
+        label: 'Void Reason',
+        previousValue: null,
+        newValue: 'Entered in error',
+      },
+    ]);
+  });
+});
+
+const documentReference = (title: string, overrides: Partial<DocumentReference> = {}): DocumentReference => ({
+  resourceType: 'DocumentReference',
+  id: 'd1',
+  status: 'current',
+  content: [
+    {
+      attachment: {
+        title,
+        contentType: 'application/pdf',
+      },
+    },
+  ],
+  ...overrides,
+});
+
+describe('diffResources attachments', () => {
+  it('records a rename as a name change', () => {
+    expect(diffResources(documentReference('a.pdf'), documentReference('b.pdf'))).toEqual([
+      {
+        field: 'name',
+        label: 'Name',
+        previousValue: 'a.pdf',
+        newValue: 'b.pdf',
+      },
+    ]);
+  });
+
+  it('records a delete with the name as the previous value', () => {
+    expect(diffResources(documentReference('a.pdf'), undefined)).toEqual([
+      {
+        field: 'name',
+        label: 'Name',
+        previousValue: 'a.pdf',
+        newValue: null,
+      },
+    ]);
+  });
+});
+
+describe('diffResources payer responses', () => {
+  const statusCode = {
+    url: ERA_STATUS_CODE_EXTENSION,
+    valueString: '1',
+  };
+
+  const remit = (overrides: Partial<ClaimResponse> = {}, reasonCode = '45'): ClaimResponse =>
+    claimResponse({
+      extension: [statusCode],
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '99213',
+          adjudication: [adjudication('charge', 100), adjudication('paid', 80), casAdjustment('CO', 20, reasonCode)],
+        }),
+      ],
+      ...overrides,
+    });
+
+  it('records an unmatch as a matched claim change only', () => {
+    const unmatched = remit({
+      request: {
+        reference: '#request',
+      },
+    });
+    expect(diffResources(remit(), unmatched)).toEqual([
+      {
+        field: 'matchedClaim',
+        label: 'Matched Claim',
+        previousValue: 'c1',
+        newValue: null,
+      },
+    ]);
+  });
+
+  it('records a move to another claim', () => {
+    const moved = remit({
+      request: {
+        reference: 'Claim/c2',
+      },
+    });
+    expect(diffResources(remit(), moved)).toEqual([
+      {
+        field: 'matchedClaim',
+        label: 'Matched Claim',
+        previousValue: 'c1',
+        newValue: 'c2',
+      },
+    ]);
+  });
+
+  it('records a payer claim control number change', () => {
+    const withIcn = remit({
+      extension: [
+        statusCode,
+        {
+          url: ERA_ICN_EXTENSION,
+          valueString: 'ICN1',
+        },
+      ],
+    });
+    expect(diffResources(remit(), withIcn)).toEqual([
+      {
+        field: 'payerClaimControlNumber',
+        label: 'Payer Claim Control Number',
+        previousValue: null,
+        newValue: 'ICN1',
+      },
+    ]);
+  });
+
+  it('records a service line adjustment edit that leaves the totals unchanged', () => {
+    expect(diffResources(remit(), remit({}, '253'))).toEqual([
+      {
+        field: 'serviceLines',
+        label: 'Service Lines',
+        previousValue: '99213 billed $100.00 paid $80.00 CO-45 $20.00',
+        newValue: '99213 billed $100.00 paid $80.00 CO-253 $20.00',
+      },
+    ]);
+  });
+
+  it('records an allowed amount moved between lines that leaves the total unchanged', () => {
+    const lines = (firstAllowed: number, secondAllowed: number): ClaimResponse =>
+      remit({
+        item: [
+          eraItem({
+            sequence: 1,
+            procedureCode: '99213',
+            adjudication: [
+              adjudication('charge', 100),
+              adjudication('allowed', firstAllowed),
+              adjudication('paid', 50),
+            ],
+          }),
+          eraItem({
+            sequence: 2,
+            procedureCode: '99214',
+            adjudication: [
+              adjudication('charge', 100),
+              adjudication('allowed', secondAllowed),
+              adjudication('paid', 50),
+            ],
+          }),
+        ],
+      });
+    expect(diffResources(lines(60, 40), lines(50, 50))).toEqual([
+      {
+        field: 'serviceLines',
+        label: 'Service Lines',
+        previousValue:
+          '99213 billed $100.00 allowed $60.00 paid $50.00; 99214 billed $100.00 allowed $40.00 paid $50.00',
+        newValue: '99213 billed $100.00 allowed $50.00 paid $50.00; 99214 billed $100.00 allowed $50.00 paid $50.00',
+      },
+    ]);
+  });
+});
+
+describe('claimEventProvenanceRequest', () => {
+  it('targets the changed resource and the claim, and stamps the prior version', () => {
+    const before = documentReference('a.pdf', {
+      meta: {
+        versionId: '2',
+      },
+    });
+    const request = claimEventProvenanceRequest({
+      targetReference: 'DocumentReference/d1',
+      claimId: 'c1',
+      before,
+      after: documentReference('b.pdf'),
+      agent,
+      activity: 'update',
+    });
+    const provenance = request!.resource;
+    expect(provenance.target).toEqual([
+      {
+        reference: 'DocumentReference/d1',
+      },
+      {
+        reference: CLAIM_REF,
+      },
+    ]);
+    expect(provenance.entity?.[0]?.what?.reference).toBe('DocumentReference/d1/_history/2');
+    expect(provenance.recorded).toBeTruthy();
+  });
+
+  it('records a create under a urn:uuid target', () => {
+    const request = claimEventProvenanceRequest({
+      targetReference: 'urn:uuid:doc-ref',
+      claimId: 'c1',
+      after: documentReference('a.pdf'),
+      agent,
+      activity: 'create',
+    });
+    expect(request!.resource.target?.[0]).toEqual({
+      reference: 'urn:uuid:doc-ref',
+    });
+    expect(parseChanges(request!.resource)).toEqual([
+      {
+        field: 'name',
+        label: 'Name',
+        previousValue: null,
+        newValue: 'a.pdf',
+      },
+    ]);
+  });
+
+  it('returns null for a no-op update', () => {
+    const request = claimEventProvenanceRequest({
+      targetReference: 'DocumentReference/d1',
+      claimId: 'c1',
+      before: documentReference('a.pdf'),
+      after: documentReference('a.pdf'),
+      agent,
+      activity: 'update',
+    });
+    expect(request).toBeNull();
+  });
+});
+
+describe('claim history lookups', () => {
+  const historyEntry = (id: string, targets: string[]): Provenance => ({
+    resourceType: 'Provenance',
+    id,
+    recorded: '2026-10-01T00:00:00Z',
+    agent: [agent],
+    target: targets.map((reference) => ({
+      reference,
+    })),
+    extension: [
+      {
+        url: CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
+        valueString: '[]',
+      },
+    ],
+  });
+
+  // a server that returns one entry per page, whatever _count asks for
+  const onePerPage = (provenances: Provenance[]): Oystehr =>
+    ({
+      fhir: {
+        search: vi.fn(async ({ params }: { params: { name: string; value: string }[] }) => {
+          const offset = Number(params.find((param) => param.name === '_offset')?.value ?? 0);
+          const page = provenances.slice(offset, offset + 1);
+          return {
+            total: provenances.length,
+            entry: page.map((resource) => ({
+              resource,
+              search: {
+                mode: 'match',
+              },
+            })),
+            unbundle: () => page,
+          };
+        }),
+      },
+    }) as unknown as Oystehr;
+
+  it('links a history entry from a later page of results', async () => {
+    const oystehr = onePerPage([
+      historyEntry('prov-a', ['PaymentNotice/pn-a']),
+      historyEntry('prov-b', ['PaymentNotice/pn-b']),
+    ]);
+
+    const linkRequests = await claimHistoryLinkRequests({
+      oystehr,
+      claimId: 'c1',
+      targetReferences: ['PaymentNotice/pn-a', 'PaymentNotice/pn-b'],
+    });
+
+    expect(linkRequests.get('PaymentNotice/pn-b')).toEqual([
+      {
+        method: 'PATCH',
+        url: '/Provenance/prov-b',
+        operations: [
+          {
+            op: 'add',
+            path: '/target/-',
+            value: {
+              reference: CLAIM_REF,
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('finds a claim history entry from a later page of results', async () => {
+    const oystehr = onePerPage([
+      historyEntry('prov-other-claim', ['ClaimResponse/cr1', 'Claim/c2']),
+      historyEntry('prov-this-claim', ['ClaimResponse/cr1', CLAIM_REF]),
+    ]);
+
+    await expect(
+      claimHistoryHasEntryFor({
+        oystehr,
+        claimId: 'c1',
+        targetReference: 'ClaimResponse/cr1',
+      })
+    ).resolves.toBe(true);
   });
 });
 

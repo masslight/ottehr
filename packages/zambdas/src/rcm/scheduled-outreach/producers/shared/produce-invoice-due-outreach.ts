@@ -10,7 +10,14 @@ import {
   parseConfiguredAt,
   parsePlanDefinitionToActions,
 } from '../../../scheduled-outreach-config/helpers';
-import { calculateDueDateTime, OUTREACH_TASK_TAG_SYSTEM, produceOutreachTasks } from './produce-outreach-tasks';
+import { listOutreachStripeAccounts } from './list-outreach-stripe-accounts';
+import {
+  calculateDueDateTime,
+  OUTREACH_PLATFORM_STRIPE_ACCOUNT,
+  OUTREACH_STRIPE_ACCOUNT_INPUT,
+  OUTREACH_TASK_TAG_SYSTEM,
+  produceOutreachTasks,
+} from './produce-outreach-tasks';
 
 export interface ProduceInvoiceDueOutreachResult {
   invoicesEvaluated: number;
@@ -46,9 +53,22 @@ export async function produceInvoiceDueOutreach(
     );
   }
 
-  const pastDueInvoices = await findPastDueStripeInvoices(stripe, todayUnix, earliestDueDateUnix);
+  const stripeAccounts = await listOutreachStripeAccounts(oystehr, stripe);
 
-  console.log(`produceInvoiceDueOutreach: Found ${pastDueInvoices.length} past-due Stripe invoices to evaluate`);
+  const pastDueInvoices = (
+    await Promise.all(
+      stripeAccounts.map(async (stripeAccount) =>
+        (await findPastDueStripeInvoices(stripe, todayUnix, earliestDueDateUnix, stripeAccount)).map((invoice) => ({
+          invoice,
+          stripeAccount,
+        }))
+      )
+    )
+  ).flat();
+
+  console.log(
+    `produceInvoiceDueOutreach: Found ${pastDueInvoices.length} past-due Stripe invoices to evaluate across ${stripeAccounts.length} Stripe account(s)`
+  );
 
   // Load the configured invoice-due actions once. send-notification actions are edge-triggered
   // (fire only on the exact milestone day); other types (e.g. charge-card) keep the single
@@ -65,7 +85,7 @@ export async function produceInvoiceDueOutreach(
   let tasksSkipped = 0;
   let errors = 0;
 
-  for (const invoice of pastDueInvoices) {
+  for (const { invoice, stripeAccount } of pastDueInvoices) {
     const patientId = invoice.metadata?.[STRIPE_METADATA_KEYS.patientId];
     const encounterId = invoice.metadata?.[STRIPE_METADATA_KEYS.encounterId];
 
@@ -106,6 +126,7 @@ export async function produceInvoiceDueOutreach(
         appointment: appointmentRef ? { reference: appointmentRef } : undefined,
         eventTimestamp: dueDate,
         oystehr,
+        stripeAccount: stripeAccount ?? OUTREACH_PLATFORM_STRIPE_ACCOUNT,
         actionFilter: (action) => applicableActionIds.has(action.id),
       });
 
@@ -122,7 +143,7 @@ export async function produceInvoiceDueOutreach(
   );
 
   // Cancel any pending invoice-due tasks for encounters whose invoices have been paid
-  const tasksCancelled = await cancelTasksForPaidInvoices(oystehr, openEncounterIds);
+  const tasksCancelled = await cancelTasksForPaidInvoices(oystehr, openEncounterIds, stripeAccounts);
 
   console.log(`produceInvoiceDueOutreach: Cancelled ${tasksCancelled} stale tasks for paid invoices`);
 
@@ -220,14 +241,16 @@ async function calculateEarliestEligibleDueDate(oystehr: Oystehr): Promise<numbe
 }
 
 /**
- * Find Stripe invoices that are open and past their due date.
+ * Find Stripe invoices that are open and past their due date on one Stripe account
+ * (the platform account when `stripeAccount` is undefined).
  * Paginates through all results using auto-pagination.
  * @param dueDateGteUnix - Optional minimum due date to filter out old invoices
  */
 async function findPastDueStripeInvoices(
   stripe: Stripe,
   dueDateLteUnix: number,
-  dueDateGteUnix?: number
+  dueDateGteUnix: number | undefined,
+  stripeAccount: string | undefined
 ): Promise<Stripe.Invoice[]> {
   const invoices: Stripe.Invoice[] = [];
   let hasMore = true;
@@ -239,12 +262,15 @@ async function findPastDueStripeInvoices(
   }
 
   while (hasMore) {
-    const response = await stripe.invoices.list({
-      status: 'open',
-      due_date: dueDateFilter,
-      limit: 100,
-      starting_after: startingAfter,
-    });
+    const response = await stripe.invoices.list(
+      {
+        status: 'open',
+        due_date: dueDateFilter,
+        limit: 100,
+        starting_after: startingAfter,
+      },
+      { stripeAccount }
+    );
 
     invoices.push(...response.data);
     hasMore = response.has_more;
@@ -261,7 +287,11 @@ async function findPastDueStripeInvoices(
  * encounter is no longer associated with an open Stripe invoice (i.e. the
  * invoice has been paid since the task was created).
  */
-async function cancelTasksForPaidInvoices(oystehr: Oystehr, openEncounterIds: Set<string>): Promise<number> {
+async function cancelTasksForPaidInvoices(
+  oystehr: Oystehr,
+  openEncounterIds: Set<string>,
+  scannedStripeAccounts: (string | undefined)[]
+): Promise<number> {
   const pendingTasks = await oystehr.fhir.search<Task>({
     resourceType: 'Task',
     params: [
@@ -277,6 +307,15 @@ async function cancelTasksForPaidInvoices(oystehr: Oystehr, openEncounterIds: Se
   for (const task of tasks) {
     const encounterId = task.focus?.reference?.replace('Encounter/', '');
     if (!encounterId) continue;
+
+    const stampedAccount = task.input?.find((i) => i.type?.text === OUTREACH_STRIPE_ACCOUNT_INPUT)?.valueString;
+    if (
+      stampedAccount &&
+      stampedAccount !== OUTREACH_PLATFORM_STRIPE_ACCOUNT &&
+      !scannedStripeAccounts.includes(stampedAccount)
+    ) {
+      continue;
+    }
 
     if (!openEncounterIds.has(encounterId)) {
       console.log(

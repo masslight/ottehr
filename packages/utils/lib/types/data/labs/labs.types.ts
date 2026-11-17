@@ -147,6 +147,7 @@ export type LabOrderListPageDTO = {
   diagnoses: string; // SR.reasonCode joins
   orderStatus: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
   isPSC: boolean; // Derived from SR.orderDetail
+  isStat: boolean; // SR.priority === 'stat'
   appointmentId: string;
   visitDate: string; // based on appointment
   lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
@@ -350,6 +351,7 @@ export type CreateLabOrderParameters = {
   orderingLocation: ModifiedOrderingLocation;
   selectedPaymentMethod: CreateLabPaymentMethod;
   clinicalInfoNoteByUser?: string;
+  isStat: boolean;
 };
 
 export type CreateLabOrderZambdaOutput = Record<string, never>;

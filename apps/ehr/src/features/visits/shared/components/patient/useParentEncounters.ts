@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import type { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { FOLLOWUP_SYSTEMS, isFollowupEncounter } from 'utils/lib/fhir/encounter';
 
 export interface EncounterRow {
   id: string | undefined;
@@ -39,6 +39,7 @@ export function useParentEncounters(
             resourceType: 'Encounter',
             params: [
               { name: 'patient', value: patientId },
+              { name: 'type:not', value: `${FOLLOWUP_SYSTEMS.type.url}|${FOLLOWUP_SYSTEMS.type.code}` },
               { name: '_include', value: 'Encounter:appointment' },
               { name: '_include', value: 'Encounter:location' },
               { name: '_revinclude:iterate', value: 'Schedule:actor:Location' },

@@ -5,6 +5,8 @@ export const FeatureFlagsConfigSchema = z.object({
   inHouseLabsEnabled: z.boolean(),
   radiologyEnabled: z.boolean(),
   nursingOrdersEnabled: z.boolean(),
+  // on unless a customer config turns it off explicitly
+  dmeOrdersEnabled: z.boolean().default(true),
   supervisorApprovalEnabled: z.boolean(),
   demoVisitsEnabled: z.boolean(),
   easyChartEnabled: z.boolean().optional(),
@@ -26,6 +28,7 @@ export const FeatureFlagsConfigSchema = z.object({
   // not the patient-facing `get-service-categories`).
   dynamicServiceCategoriesEnabled: z.boolean().optional(),
   employeeChatEnabled: z.boolean().optional(),
+  supportChatEnabled: z.boolean().optional(),
   // When true, this deployment runs in custom-organizations mode: the billing app manages
   // non-insurance organizations (employers) and custom insurance organizations, and clinical
   // pickers source from them — employer pickers exclusively, insurance-carrier pickers (EHR and
@@ -37,4 +40,4 @@ export const FeatureFlagsConfigSchema = z.object({
   customOrganizationsEnabled: z.boolean().optional(),
 });
 
-export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;
+export type FeatureFlagsConfig = z.input<typeof FeatureFlagsConfigSchema>;

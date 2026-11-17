@@ -26,6 +26,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     orderingLocation: modifiedOrderingLocation,
     selectedPaymentMethod,
     clinicalInfoNoteByUser,
+    isStat,
   } = validatedParameters;
   console.groupEnd();
   console.debug('validateRequestParameters success');
@@ -71,6 +72,7 @@ export const index = wrapHandler('create-lab-order', async (input: ZambdaInput):
     currentUserPractitioner,
     attendingPractitionerId,
     clientOrgId,
+    isStat,
   });
 
   console.log('making transaction request', JSON.stringify(requests));

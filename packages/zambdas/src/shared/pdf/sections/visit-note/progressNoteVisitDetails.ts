@@ -1,11 +1,9 @@
-import { Encounter } from 'fhir/r4b';
+import { Encounter, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { formatFhirEncounterToPatientFollowupDetails, isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
-import { getCoding, getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
+import { getProviderNameWithProfession } from 'utils/lib/fhir/helpers';
 import { isInPersonAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
-import { resolveServiceCategoryAbbreviation } from 'utils/lib/helpers/helpers';
 import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import { Timezone } from 'utils/lib/types/common';
 import { formatDateTimeToZone } from 'utils/lib/utils/date';
@@ -13,8 +11,7 @@ import { getPatientLastFirstName } from '../../../patients';
 import { drawFieldLine } from '../../helpers/render/drawFieldLine';
 import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
-import { PdfSection, ProgressNoteVisitDataInput, VisitDetailsForProgressNote } from '../../types';
-import { getBookingTypeForPdf, getVisitTypeForPdf } from '../visitInfo';
+import { PdfClient, PdfSection, PdfStyles, ProgressNoteVisitDataInput, VisitDetailsForProgressNote } from '../../types';
 
 function getStatusRelatedDates(
   encounter: Encounter,
@@ -33,7 +30,6 @@ function getStatusRelatedDates(
 export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitDataInput, VisitDetailsForProgressNote> = ({
   allChartData,
   appointmentPackage,
-  serviceCategories,
 }) => {
   const { additionalChartData } = allChartData;
   const { patient, encounter, mainEncounter, appointment, location, questionnaireResponse, practitioners, timezone } =
@@ -43,6 +39,7 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
   const isFollowup = encounter ? isAnnotationFollowupEncounter(encounter) : false;
   if (!patient) throw new Error('No patient found for this encounter');
   const patientName = getPatientLastFirstName(patient);
+  const personAccompanying = getPersonAccompanying(questionnaireResponse);
   if (isFollowup && encounter) {
     const followupDetails = formatFhirEncounterToPatientFollowupDetails(encounter, patientName ?? '', location);
 
@@ -62,16 +59,10 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
       message: followupDetails.message,
       location: followupDetails.location ?? location,
       provider,
+      personAccompanying,
     };
   } else {
     const { dateOfService, signedOnDate } = getStatusRelatedDates(mainEncounter ?? encounter, timezone);
-    const type = getVisitTypeForPdf(appointment);
-    const serviceCategoryCoding = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM);
-    const serviceCategory = resolveServiceCategoryAbbreviation(
-      serviceCategoryCoding?.code ?? serviceCategoryCoding?.display,
-      serviceCategories
-    );
-    const bookingType = getBookingTypeForPdf(appointment);
     const reasonForVisit = appointment?.description ?? '';
     let providerName: string;
     let intakePersonName: string | undefined = undefined;
@@ -101,9 +92,6 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
 
     return {
       visitType: 'initial',
-      type,
-      serviceCategory,
-      bookingType,
       dateOfService: dateOfService ?? '',
       reasonForVisit,
       provider: providerName,
@@ -114,8 +102,79 @@ export const composeProgressNoteVisitDetails: DataComposer<ProgressNoteVisitData
       insuranceCompany,
       insuranceSubscriberId: subscriberID,
       address,
+      personAccompanying,
     };
   }
+};
+
+type VisitDetailsField = { label: string; value?: string };
+
+const FIELD_LABEL_GAP = 4;
+
+const drawVisitDetailsField = (client: PdfClient, styles: PdfStyles, { label, value }: VisitDetailsField): void => {
+  drawFieldLine(client, styles, { label: `${label}:`, value, gap: FIELD_LABEL_GAP });
+};
+
+const fitsInWidth = (
+  client: PdfClient,
+  styles: PdfStyles,
+  { label, value }: VisitDetailsField,
+  width: number
+): boolean => {
+  const labelWidth = client.getTextDimensions(`${label}:`, styles.textStyles.fieldHeader).width + FIELD_LABEL_GAP;
+  const longestWord = Math.max(
+    0,
+    ...(value ?? '').split(/\s+/).map((word) => client.getTextDimensions(word, styles.textStyles.fieldText).width)
+  );
+  return labelWidth + longestWord <= width;
+};
+
+// Fields that can't wrap into a column (no spaces) get full-width rows after the columns.
+const drawVisitDetailsColumns = (
+  client: PdfClient,
+  styles: PdfStyles,
+  leftFields: VisitDetailsField[],
+  rightFields: VisitDetailsField[]
+): void => {
+  const leftBound = client.getLeftBound();
+  const rightBound = client.getRightBound();
+  const middle = leftBound + (rightBound - leftBound) / 2;
+  const fullWidthFields: VisitDetailsField[] = [];
+  const columns = [
+    { fields: leftFields, left: leftBound, right: middle - 10 },
+    { fields: rightFields, left: middle + 10, right: rightBound },
+  ].map((column) => ({
+    ...column,
+    fields: column.fields.filter((field) => {
+      const fits = fitsInWidth(client, styles, field, column.right - column.left);
+      if (!fits) fullWidthFields.push(field);
+      return fits;
+    }),
+  }));
+
+  for (let row = 0; row < Math.max(...columns.map(({ fields }) => fields.length)); row++) {
+    const rowStartPage = client.getCurrentPageIndex();
+    const rowStartY = client.getY();
+    let rowEndY = rowStartY;
+
+    columns.forEach(({ fields, left, right }) => {
+      const field = fields[row];
+      if (!field) return;
+      const pageBeforeCell = client.getCurrentPageIndex();
+      client.setY(pageBeforeCell === rowStartPage ? rowStartY : client.getPageTopY());
+      client.setLeftBound(left);
+      client.setRightBound(right);
+      drawVisitDetailsField(client, styles, field);
+      rowEndY = client.getCurrentPageIndex() === pageBeforeCell ? Math.min(rowEndY, client.getY()) : client.getY();
+    });
+
+    client.setY(rowEndY);
+  }
+
+  client.setLeftBound(leftBound);
+  client.setRightBound(rightBound);
+  client.setX(leftBound);
+  fullWidthFields.forEach((field) => drawVisitDetailsField(client, styles, field));
 };
 
 export const createProgressNoteVisitDetailsSection = <
@@ -126,44 +185,34 @@ export const createProgressNoteVisitDetailsSection = <
     dataSelector: (data) => data.visit,
     render: (client, data, styles) => {
       if (data.visitType === 'followup') {
-        if (data.reason) {
-          drawFieldLine(client, styles, { label: 'Reason', value: data.reason });
-        }
-        if (data.otherReason) {
-          drawFieldLine(client, styles, { label: 'Other reason', value: data.otherReason });
-        }
-        if (data.provider?.name) {
-          drawFieldLine(client, styles, { label: 'Follow-up provider', value: data.provider.name });
-        }
-        if (data.location?.name) {
-          drawFieldLine(client, styles, { label: 'Location', value: data.location.name });
-        }
-        if (data.message) {
-          drawFieldLine(client, styles, { label: 'Comment', value: data.message });
-        }
+        const fields: VisitDetailsField[] = [
+          { label: 'Reason', value: data.reason },
+          { label: 'Other reason', value: data.otherReason },
+          { label: 'Follow-up provider', value: data.provider?.name },
+          { label: 'Location', value: data.location?.name },
+          { label: 'Comment', value: data.message },
+          { label: 'Person accompanying the minor patient', value: data.personAccompanying },
+        ];
+        fields.filter((field) => field.value).forEach((field) => drawVisitDetailsField(client, styles, field));
       } else {
-        if (data.type || data.serviceCategory || data.bookingType) {
-          const typeAndServiceCategory = [data.type, data.serviceCategory, data.bookingType]
-            .filter(Boolean)
-            .join(' | ');
-          drawFieldLine(client, styles, { label: 'Type & Service Category', value: typeAndServiceCategory });
-        }
-        drawFieldLine(client, styles, { label: 'Date of Service', value: data.dateOfService });
-        drawFieldLine(client, styles, { label: "Reason for today's visit", value: data.reasonForVisit });
-        drawFieldLine(client, styles, { label: 'Provider', value: data.provider });
-        if (data.intakePerson) {
-          drawFieldLine(client, styles, { label: 'Intake completed by', value: data.intakePerson });
-        }
-        drawFieldLine(client, styles, { label: 'Signed On', value: data.signedOn });
-        drawFieldLine(client, styles, { label: 'Visit ID', value: data.visitID });
-        drawFieldLine(client, styles, { label: 'Visit State', value: data.visitState });
-        if (data.insuranceCompany) {
-          drawFieldLine(client, styles, { label: 'Insurance Company', value: data.insuranceCompany });
-        }
-        if (data.insuranceSubscriberId) {
-          drawFieldLine(client, styles, { label: 'Subscriber ID', value: data.insuranceSubscriberId });
-        }
-        drawFieldLine(client, styles, { label: 'Address', value: data.address });
+        const leftFields: VisitDetailsField[] = [
+          { label: 'Reason for visit', value: data.reasonForVisit },
+          { label: 'Provider', value: data.provider },
+          ...(data.intakePerson ? [{ label: 'Intake completed by', value: data.intakePerson }] : []),
+          { label: 'Date of Service', value: data.dateOfService },
+          { label: 'Signed on', value: data.signedOn },
+          ...(data.personAccompanying
+            ? [{ label: 'Person accompanying the minor patient', value: data.personAccompanying }]
+            : []),
+        ];
+        const rightFields: VisitDetailsField[] = [
+          ...(data.insuranceCompany ? [{ label: 'Insurance Company', value: data.insuranceCompany }] : []),
+          ...(data.insuranceSubscriberId ? [{ label: 'Subscriber ID', value: data.insuranceSubscriberId }] : []),
+          { label: 'Visit State', value: data.visitState },
+          { label: 'Address', value: data.address },
+          { label: 'Visit ID', value: data.visitID },
+        ];
+        drawVisitDetailsColumns(client, styles, leftFields, rightFields);
       }
 
       drawRegularText(
@@ -175,3 +224,16 @@ export const createProgressNoteVisitDetailsSection = <
     },
   }));
 };
+
+function getPersonAccompanying(questionnaireResponse?: QuestionnaireResponse): string | undefined {
+  if (!questionnaireResponse) return;
+
+  const firstName = getQuestionnaireResponseByLinkId('person-accompanying-minor-first-name', questionnaireResponse)
+    ?.answer?.[0]?.valueString;
+  const lastName = getQuestionnaireResponseByLinkId('person-accompanying-minor-last-name', questionnaireResponse)
+    ?.answer?.[0]?.valueString;
+
+  if (!firstName && !lastName) return;
+
+  return [lastName, firstName].filter(Boolean).join(', ');
+}

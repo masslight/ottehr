@@ -32,6 +32,7 @@ import {
   removeQuickPick,
   updateInsuranceQuickPick,
 } from 'src/api/api';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
@@ -253,18 +254,23 @@ export default function InsuranceQuickPickPage(): ReactElement {
                     <IconButton size="small" onClick={() => openEditDialog(item)} title="Edit">
                       <EditIcon fontSize="small" />
                     </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        if (window.confirm(`Remove quick pick "${item.name}"?`)) {
-                          void handleDelete(item);
-                        }
-                      }}
-                      title="Remove"
-                      sx={{ color: theme.palette.error.main }}
+                    <ConfirmationDialog
+                      title="Remove Quick Pick"
+                      description={`Remove quick pick "${item.name}"?`}
+                      response={() => void handleDelete(item)}
+                      actionButtons={{ proceed: { text: 'Remove', color: 'error' }, back: { text: 'Cancel' } }}
                     >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
+                      {(showDialog) => (
+                        <IconButton
+                          size="small"
+                          onClick={showDialog}
+                          title="Remove"
+                          sx={{ color: theme.palette.error.main }}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </ConfirmationDialog>
                   </TableCell>
                 </TableRow>
               ))}

@@ -18,6 +18,7 @@ import {
   PUBLIC_EXTENSION_BASE_URL,
   SERVICE_CATEGORY_SYSTEM,
 } from 'utils/lib/fhir/constants';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getFormatDuration } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -549,7 +550,7 @@ export async function createResourcesFromAiInterview(
   }
 
   const encounterId = assertDefined(encounter.id, 'encounter.id');
-  const patientId = assertDefined(encounter.subject?.reference?.split('/')[1], 'patientId');
+  const patientId = assertDefined(getIdFromReference(encounter.subject?.reference), 'patientId');
   const requests: BatchInputRequest<DocumentReference | Observation | Condition>[] = [];
   const documentReferenceCreateUrl = existingDocumentReference?.id
     ? `DocumentReference/${existingDocumentReference.id}`

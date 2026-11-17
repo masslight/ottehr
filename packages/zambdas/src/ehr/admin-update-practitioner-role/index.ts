@@ -5,6 +5,7 @@ import {
   SCHEDULE_DISPLAY_NAME_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { isServiceCategoryHealthcareService } from 'utils/lib/fhir/healthcareService';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import {
   INVALID_INPUT_ERROR,
@@ -111,7 +112,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const targetCategoryIds = hasCategories
     ? parsed.categoryHealthcareServiceIds ?? []
     : (currentRole.healthcareService ?? [])
-        .map((ref) => ref.reference?.split('/')[1])
+        .map((ref) => getIdFromReference(ref.reference))
         .filter((id): id is string => !!id);
   // Compute the post-update allCategories value: caller-provided wins; if not
   // provided, fall back to the role's existing value. Needed so the conflict
@@ -162,7 +163,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // would silently drop the PR from any group it belongs to.
     const incomingIds = new Set(parsed.categoryHealthcareServiceIds ?? []);
     const refIds = (currentRole.healthcareService ?? [])
-      .map((ref) => ref.reference?.split('/')[1])
+      .map((ref) => getIdFromReference(ref.reference))
       .filter((id): id is string => !!id);
     const categoryTaggedIds = new Set<string>();
     if (refIds.length > 0) {
@@ -178,7 +179,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       }
     }
     const preservedNonCategoryRefs = (currentRole.healthcareService ?? []).filter((ref) => {
-      const id = ref.reference?.split('/')[1];
+      const id = getIdFromReference(ref.reference);
       return id && !categoryTaggedIds.has(id);
     });
     const newCategoryRefs = Array.from(incomingIds).map((id) => ({ reference: `HealthcareService/${id}` }));

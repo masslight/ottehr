@@ -1,4 +1,4 @@
-import { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Task } from 'fhir/r4b';
@@ -6,7 +6,7 @@ import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { replaceOperation } from 'utils/lib/helpers/operations';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { FAX_TASK, getTaskInputValue } from 'utils/lib/types/data/tasks/types';
+import { FAX_TASK, getTaskInputValue, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR, PRECONDITION_FAILED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { topLevelCatch } from '../../shared/lambda';
@@ -52,10 +52,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       throw INVALID_INPUT_ERROR(`Task/${taskId} is not associated with Communication/${communicationId}`);
     }
 
-    // Reject already-finalized tasks: prevents delete-after-file (and double-delete) races.
+    // Reject already-finalized tasks: prevents delete-after-file (and double-delete) races. A filed
+    // fax's Task stays open until staff complete it, but its PDF now backs a chart DocumentReference,
+    // so deleting it here would break the filed document.
+    if (isInboundFaxFiled(task)) {
+      throw PRECONDITION_FAILED(`Task/${taskId} has already been filed`);
+    }
     if (task.status === 'completed' || task.status === 'cancelled') {
       throw PRECONDITION_FAILED(
-        `Task/${taskId} has already been ${task.status === 'completed' ? 'filed' : 'deleted'} (status: ${task.status})`
+        `Task/${taskId} has already been ${task.status === 'completed' ? 'completed' : 'deleted'} (status: ${
+          task.status
+        })`
       );
     }
 
@@ -64,8 +71,35 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // arbitrary Z3 object (e.g. another patient's document).
     const pdfUrl = getTaskInputValue(task, FAX_TASK.input.pdfUrl);
 
-    // Delete the Z3 PDF object first. If this fails (other than the object already being
-    // gone), fail the whole operation BEFORE touching the FHIR resources — otherwise the
+    // Reserve the deletion before the PDF goes: a filing that already committed fails this lock, and a
+    // later one sees the marker and refuses. The marker keeps the Task open, so a failed delete is retryable.
+    try {
+      await oystehr.fhir.patch<Task>(
+        {
+          resourceType: 'Task',
+          id: taskId,
+          operations: [
+            {
+              op: 'add',
+              path: '/businessStatus',
+              value: {
+                coding: [{ system: FAX_TASK.system, code: FAX_TASK.businessStatus.deleting }],
+                text: 'Deleting',
+              },
+            },
+          ],
+        },
+        { optimisticLockingVersionId: task.meta?.versionId }
+      );
+    } catch (error) {
+      if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
+        throw PRECONDITION_FAILED(`Task/${taskId} changed while deleting`);
+      }
+      throw error;
+    }
+
+    // Delete the Z3 PDF object next. If this fails (other than the object already being
+    // gone), fail the whole operation BEFORE touching the Communication — otherwise the
     // Communication/Task would be gone while the PHI PDF lives on in Z3 with no way to
     // find it again. The operation is retryable as nothing has been deleted yet.
     if (pdfUrl) {

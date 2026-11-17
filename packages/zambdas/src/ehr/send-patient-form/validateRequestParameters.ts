@@ -28,11 +28,13 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedRequest 
 
   const validated = safeValidate(sendPatientFormInputSchema, parsed);
 
-  const { appointmentId, questionnaireId } = validated;
+  const { appointmentId, questionnaireId, notifyPatient, encounterId } = validated;
 
   return {
     appointmentId,
     questionnaireId,
+    notifyPatient,
+    encounterId,
     secrets,
     userToken,
   };

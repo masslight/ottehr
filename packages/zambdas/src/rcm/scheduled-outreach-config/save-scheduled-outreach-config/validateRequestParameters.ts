@@ -45,7 +45,16 @@ const VALID_DIRECTIONS: TriggerDirection[] = ['after', 'before'];
 /** Events that only allow send-notification or log. */
 const NOTIFICATION_ONLY_EVENTS: TriggerEvent[] = ['discharge-time', 'patient-birthday'];
 
-function validateNotificationSubConfig(config: unknown, path: string): void {
+function requireTemplatesForSelectedMediums(config: Record<string, unknown>, mediums: unknown[], path: string): void {
+  for (const medium of ['sms', 'email'] as const) {
+    const template = config[`${medium}Template`];
+    if (mediums.includes(medium) && !(typeof template === 'string' && template.trim())) {
+      throw INVALID_INPUT_ERROR(`${path}.${medium}Template is required when ${medium} is selected`);
+    }
+  }
+}
+
+function validateNotificationSubConfig(config: unknown, path: string, actionEnabled: boolean): void {
   if (!config || typeof config !== 'object') {
     throw MISSING_REQUIRED_PARAMETERS([path]);
   }
@@ -66,6 +75,9 @@ function validateNotificationSubConfig(config: unknown, path: string): void {
   }
   if (typeof c.emailTemplate !== 'string') {
     throw INVALID_INPUT_ERROR(`${path}.emailTemplate must be a string`);
+  }
+  if (actionEnabled && c.enabled) {
+    requireTemplatesForSelectedMediums(c, c.mediums, path);
   }
 }
 
@@ -130,8 +142,8 @@ function validateAction(action: unknown, index: number): OutreachAction {
         `actions[${index}].chargeCardConfig.retryIntervalDays must be a positive number when retryAttempts is set`
       );
     }
-    validateNotificationSubConfig(cfg.onSuccess, `actions[${index}].chargeCardConfig.onSuccess`);
-    validateNotificationSubConfig(cfg.onFailure, `actions[${index}].chargeCardConfig.onFailure`);
+    validateNotificationSubConfig(cfg.onSuccess, `actions[${index}].chargeCardConfig.onSuccess`, a.enabled !== false);
+    validateNotificationSubConfig(cfg.onFailure, `actions[${index}].chargeCardConfig.onFailure`, a.enabled !== false);
   }
 
   if (actionType === 'send-notification') {
@@ -146,6 +158,9 @@ function validateAction(action: unknown, index: number): OutreachAction {
       if (!VALID_MEDIUMS.includes(m as NotificationMedium)) {
         throw INVALID_INPUT_ERROR(`actions[${index}].sendNotificationConfig.mediums contains invalid value: ${m}`);
       }
+    }
+    if (a.enabled !== false) {
+      requireTemplatesForSelectedMediums(cfg, cfg.mediums, `actions[${index}].sendNotificationConfig`);
     }
     if (cfg.mediums.includes('paper-mail') && cfg.statementType != null) {
       if (!VALID_STATEMENT_TYPES.includes(cfg.statementType as OutreachStatementType)) {

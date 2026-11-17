@@ -30,7 +30,7 @@ export const EditNoteModal: React.FC<{
   };
 
   const handleSave = async (): Promise<void> => {
-    if (!editedText) return;
+    if (!editedText.trim()) return;
     setIsSaving(true);
     try {
       await onEdit(entity, editedText);
@@ -77,7 +77,7 @@ export const EditNoteModal: React.FC<{
         </RoundedButton>
         <RoundedButton
           data-testid={dataTestIds.editNoteDialog.proceedButton}
-          disabled={!editedText || isSaving}
+          disabled={!editedText.trim() || isSaving}
           onClick={handleSave}
           variant="contained"
           startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : null}

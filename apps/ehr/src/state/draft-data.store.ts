@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import type { DmeOrderFormValues } from 'src/features/dme/components/dmeQuickPick';
 import { LateralityValue } from 'utils/lib/fhir/radiology';
 import {
   CPTCodeDTO,
@@ -16,7 +17,10 @@ import {
 import { MedicationData } from 'utils/lib/types/api/medication-administration.types';
 import { ProcedurePageState } from 'utils/lib/types/api/procedures.types';
 import { CreateRadiologyZambdaOrderInput } from 'utils/lib/types/api/radiology';
-import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
+import {
+  InputImmunizationOrderAdministrationDetails,
+  InputImmunizationOrderDetails,
+} from 'utils/lib/types/data/immunization/types';
 import { CreateInHouseLabOrderParameters } from 'utils/lib/types/data/in-house/in-house.types';
 import { CreateLabOrderParameters } from 'utils/lib/types/data/labs/labs.types';
 import { CreateNursingOrderInput } from 'utils/lib/types/data/orders/types';
@@ -32,7 +36,8 @@ type StoreKey =
   | 'nursing-order'
   | 'immunization'
   | 'in-house-med'
-  | 'vitals';
+  | 'vitals'
+  | 'dme';
 
 const DRAFT_STORE_NAME_BY_KEY: Record<StoreKey, string> = {
   'external-lab': 'create-external-lab-order-draft',
@@ -43,6 +48,7 @@ const DRAFT_STORE_NAME_BY_KEY: Record<StoreKey, string> = {
   immunization: 'immunization-order-draft',
   'in-house-med': 'in-house-med-order-draft',
   vitals: 'vitals-draft',
+  dme: 'create-dme-order-draft',
 };
 
 type GenericStateDraft = {
@@ -69,8 +75,12 @@ type CreateRadiologyOrderDraft = Partial<
 >;
 type CreateProcedureDraft = Partial<ProcedurePageState & GenericStateDraft>;
 type CreateNursingOrderDraft = Partial<CreateNursingOrderInput & GenericStateDraft>;
-type CreateImmunizationOrderDraft = Partial<InputImmunizationOrderDetails & GenericStateDraft>;
+type CreateImmunizationOrderDraft = Partial<
+  InputImmunizationOrderDetails &
+    GenericStateDraft & { administrationDetails: InputImmunizationOrderAdministrationDetails }
+>;
 type CreateInHouseMedicationOrderDraft = Partial<MedicationData & GenericStateDraft>;
+export type CreateDmeOrderDraft = Partial<DmeOrderFormValues & GenericStateDraft>;
 type VitalsDraft = Partial<
   {
     // Partial<> on these four allows omitting numeric fields when the value is NaN
@@ -137,6 +147,7 @@ export const useNursingOrderStore = createGenericStore<CreateNursingOrderDraft>(
 export const useImmunizationOrderStore = createGenericStore<CreateImmunizationOrderDraft>('immunization');
 export const useInHouseMedicationOrderStore = createGenericStore<CreateInHouseMedicationOrderDraft>('in-house-med');
 export const useVitalsDraftStore = createGenericStore<VitalsDraft>('vitals');
+export const useDmeOrderStore = createGenericStore<CreateDmeOrderDraft>('dme');
 
 /**
  * Adds listeners to track if a user navigates away from the page and marks the draft as navigated away.

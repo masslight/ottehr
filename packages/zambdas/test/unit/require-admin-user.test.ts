@@ -4,7 +4,8 @@ import { Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getUser, requireAdminTierUser, requireAdminUser, requireUserWithRole } from '../../src/shared/auth';
+import { getCaller, getUser, requireAdminTierUser, requireAdminUser, requireUserWithRole } from '../../src/shared/auth';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 
 vi.mock('utils/lib/auth/user-me.helper', async (importOriginal) => {
   const actual = await importOriginal<typeof import('utils/lib/auth/user-me.helper')>();
@@ -14,10 +15,17 @@ vi.mock('utils/lib/auth/user-me.helper', async (importOriginal) => {
   };
 });
 
+const m2mMe = vi.fn();
+vi.mock('../../src/shared/helpers', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/shared/helpers')>()),
+  createClinicalOystehrClient: vi.fn(() => ({ m2m: { me: m2mMe } })),
+}));
+
 const secrets: Secrets = {
   [SecretsKeys.FHIR_API]: 'http://fhir',
   [SecretsKeys.PROJECT_API]: 'http://project',
   [SecretsKeys.ENVIRONMENT]: 'local',
+  [SecretsKeys.PROJECT_ID]: 'project-1',
 };
 
 const buildUser = (roles: Role[]): User => ({
@@ -140,16 +148,84 @@ describe('getUser', () => {
     expect(userMe).toHaveBeenCalledWith('user-token', secrets);
   });
 
-  it.each([401, 403])('throws NOT_AUTHORIZED when userMe throws an OystehrSdkError %i', async (code) => {
-    vi.mocked(userMe).mockRejectedValue(new Oystehr.OystehrSdkError({ message: 'explicit deny', code }));
+  it.each([401, 403, '4031', '4011'])(
+    'throws NOT_AUTHORIZED when userMe throws an OystehrSdkError %s',
+    async (code) => {
+      vi.mocked(userMe).mockRejectedValue(
+        new Oystehr.OystehrSdkError({ message: 'explicit deny', code: code as unknown as number })
+      );
 
-    await expect(getUser('user-token', secrets)).rejects.toEqual(NOT_AUTHORIZED);
-  });
+      await expect(getUser('user-token', secrets)).rejects.toEqual(NOT_AUTHORIZED);
+    }
+  );
 
-  it('rethrows non-auth errors untouched', async () => {
-    const error = new Oystehr.OystehrSdkError({ message: 'boom', code: 500 });
+  it.each([500, 404, '4040', '4000'])('rethrows non-auth errors untouched (%s)', async (code) => {
+    const error = new Oystehr.OystehrSdkError({ message: 'boom', code: code as unknown as number });
     vi.mocked(userMe).mockRejectedValue(error);
 
     await expect(getUser('user-token', secrets)).rejects.toBe(error);
+  });
+});
+
+describe('getCaller', () => {
+  const jwt = (sub: string): string =>
+    `${Buffer.from('{"alg":"none"}').toString('base64url')}.${Buffer.from(JSON.stringify({ sub })).toString(
+      'base64url'
+    )}.sig`;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns an anonymous caller when there is no token', async () => {
+    await expect(getCaller(undefined, secrets)).resolves.toEqual({});
+    expect(userMe).not.toHaveBeenCalled();
+  });
+
+  it('resolves an M2M token without calling userMe', async () => {
+    await expect(getCaller(jwt('client-123@clients'), secrets)).resolves.toMatchObject({
+      m2m: { id: 'client-123', isValid: expect.any(Function) },
+    });
+    expect(userMe).not.toHaveBeenCalled();
+  });
+
+  it('resolves a user token through userMe', async () => {
+    const user = buildUser([staffRole]);
+    vi.mocked(userMe).mockResolvedValue(user);
+    const token = jwt('auth0|user-1');
+
+    await expect(getCaller(token, secrets)).resolves.toEqual({ user });
+    expect(userMe).toHaveBeenCalledWith(token, secrets);
+  });
+
+  describe('m2m.isValid', () => {
+    const m2mToken = jwt('client-123@clients');
+    const isValid = async (): Promise<boolean> => (await getCaller(m2mToken, secrets)).m2m!.isValid();
+
+    it('is true when Oystehr resolves the same client for the token, scoped to the project', async () => {
+      m2mMe.mockResolvedValue({ id: 'm2m-1', clientId: 'client-123' });
+
+      await expect(isValid()).resolves.toBe(true);
+      expect(createClinicalOystehrClient).toHaveBeenCalledWith(m2mToken, secrets, { projectId: 'project-1' });
+    });
+
+    it('is false when Oystehr resolves a different client', async () => {
+      m2mMe.mockResolvedValue({ id: 'm2m-2', clientId: 'other-client' });
+
+      await expect(isValid()).resolves.toBe(false);
+    });
+
+    it.each([401, '4011', '4031'])('is false when Oystehr rejects the token with %s', async (code) => {
+      m2mMe.mockRejectedValue(new Oystehr.OystehrSdkError({ message: 'deny', code: code as unknown as number }));
+
+      await expect(isValid()).resolves.toBe(false);
+    });
+
+    it('rethrows non-auth errors', async () => {
+      const error = new Oystehr.OystehrSdkError({ message: 'boom', code: 500 });
+      m2mMe.mockRejectedValue(error);
+
+      await expect(isValid()).rejects.toBe(error);
+    });
   });
 });

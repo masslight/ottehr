@@ -3,13 +3,14 @@ import { WarningAmber } from '@mui/icons-material';
 import { Avatar, Box, CircularProgress, Link, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { FC, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { LoadingScreen } from 'src/components/LoadingScreen';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   getAssessmentUrl,
   getChiefComplaintUrl,
+  getDmeOrderCreateUrl,
   getExternalLabOrderCreateUrl,
   getHPIUrl,
   getImmunizationNewOrderUrl,
@@ -19,6 +20,7 @@ import {
   getNursingOrderCreateUrl,
   getRadiologyOrderCreateUrl,
   getVitalsUrl,
+  withEncounterIdParam,
 } from 'src/features/visits/in-person/routing/helpers';
 import { hashInput } from 'src/helpers/hash';
 import { useProgressNoteConfig } from 'src/hooks/useProgressNoteConfig';
@@ -26,6 +28,7 @@ import {
   useCreateExternalLabStore,
   useCreateInHouseLabStore,
   useCreateRadiologyOrderStore,
+  useDmeOrderStore,
   useImmunizationOrderStore,
   useInHouseMedicationOrderStore,
   useNursingOrderStore,
@@ -76,6 +79,7 @@ export const MissingCard: FC = () => {
   const { hasDraft: hasImmunizationDraft } = useImmunizationOrderStore();
   const { hasDraft: hasMedDraft } = useInHouseMedicationOrderStore();
   const { hasDraft: hasVitalsDraft } = useVitalsDraftStore();
+  const { hasDraft: hasDmeDraft } = useDmeOrderStore();
 
   const { data: note, isLoading: isChartDataLoading, isFetching, isFetched: isChartFieldsFetched } = useVisitNote();
 
@@ -84,6 +88,7 @@ export const MissingCard: FC = () => {
   const mdmRequired = progressNoteConfig?.mdmRequired ?? true;
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const primaryDiagnosis = (note?.assessment.diagnosis || []).find((item) => item.isPrimary);
   const medicalDecision = note?.encounterNotes.medicalDecision?.text;
   const emCode = note?.assessment.emCode;
@@ -185,6 +190,20 @@ export const MissingCard: FC = () => {
   // Defensive: these strings come from a model, and a bad shape must not take down Review & Sign.
   const noteReviewSuggestions = Array.isArray(noteReview?.suggestions) ? noteReview.suggestions : [];
   const showNoteReviewStatus = !!signReviewPrompt && (isNoteReviewLoading || isNoteReviewError);
+  const draftEncounterId = encounter?.id;
+  const hasAnyDraft =
+    !!draftEncounterId &&
+    [
+      hasExternalLabDraft,
+      hasInHouseLabDraft,
+      hasRadiologyDraft,
+      hasProcedureDraft,
+      hasNursingOrderDraft,
+      hasImmunizationDraft,
+      hasMedDraft,
+      hasVitalsDraft,
+      hasDmeDraft,
+    ].some((hasDraft) => hasDraft(draftEncounterId));
 
   if (
     primaryDiagnosis &&
@@ -196,6 +215,7 @@ export const MissingCard: FC = () => {
     !accidentMissingDate &&
     !accidentMissingState &&
     noteReviewSuggestions.length === 0 &&
+    !hasAnyDraft &&
     // Otherwise a complete note whose review failed renders nothing at all, and the provider signs
     // believing the review passed.
     !showNoteReviewStatus
@@ -215,7 +235,8 @@ export const MissingCard: FC = () => {
     | 'nursing-order'
     | 'immunization'
     | 'in-house-med'
-    | 'vitals';
+    | 'vitals'
+    | 'dme';
   const navigateTo = (target: NavigationKey): void => {
     const inPersonRoutes: Record<NavigationKey, string> = {
       'patient-info': getChiefComplaintUrl(appointmentIdFromUrl || ''),
@@ -230,6 +251,7 @@ export const MissingCard: FC = () => {
       immunization: getImmunizationNewOrderUrl(appointmentIdFromUrl ?? ''),
       'in-house-med': getNewMedicationOrderUrl(appointmentIdFromUrl ?? ''),
       vitals: getVitalsUrl(appointmentIdFromUrl ?? ''),
+      dme: withEncounterIdParam(getDmeOrderCreateUrl(appointmentIdFromUrl ?? ''), searchParams.get('encounterId')),
     };
 
     requestAnimationFrame(() => {
@@ -436,6 +458,11 @@ export const MissingCard: FC = () => {
               {hasVitalsDraft(encounter.id) && (
                 <Link component="button" sx={{ cursor: 'pointer' }} color="error" onClick={() => navigateTo('vitals')}>
                   Draft Vitals
+                </Link>
+              )}
+              {hasDmeDraft(encounter.id) && (
+                <Link component="button" sx={{ cursor: 'pointer' }} color="error" onClick={() => navigateTo('dme')}>
+                  Draft DME Order
                 </Link>
               )}
             </>

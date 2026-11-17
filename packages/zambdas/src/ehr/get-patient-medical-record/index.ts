@@ -1,7 +1,7 @@
 import { captureMessage } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   GetPatientMedicalRecordOutput,
   NO_MEDICAL_RECORDS_IN_RANGE_MESSAGE,
@@ -48,7 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if ('taskId' in params) {
     const task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: params.taskId });
 
-    if (!isMedicalRecordExportTask(task) || removePrefix('Patient/', task.for?.reference ?? '') !== params.patientId) {
+    if (!isMedicalRecordExportTask(task) || getIdFromReference(task.for?.reference, 'Patient') !== params.patientId) {
       throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(
         `Task/${params.taskId} is not a medical record export for Patient/${params.patientId}`
       );

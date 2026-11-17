@@ -34,6 +34,7 @@ import { NOTE_MODE_MENU_CLASS, NoteModeChip } from './NoteModeChip';
 import { hasProvenance, ProvenanceContent } from './Provenance';
 import {
   RecommendationItemState,
+  registerOpenEditorCommit,
   startEditingUnlessAnotherIsOpen,
   useScribeRecommendationsStore,
 } from './scribeRecommendations.store';
@@ -497,6 +498,7 @@ export const RecommendationEditor: FC<RecommendationEditorProps> = ({
   useEffect(() => {
     commitRef.current = commit;
   });
+  useEffect(() => registerOpenEditorCommit(() => commitRef.current()), []);
   // Armed a tick after mount so StrictMode's simulated unmount doesn't commit and close the editor the
   // moment it opens.
   const isArmed = useRef(false);

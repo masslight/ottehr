@@ -3,6 +3,7 @@ import { Encounter, FhirResource, List, Location, Practitioner, Procedure, Servi
 import { chartDataTagSystem, CPT_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isPSCOrder, locationIsEnabledForLabs } from 'utils/lib/helpers/labs/helpers';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -56,6 +57,7 @@ export interface ParsedExternalLabPlan {
   dx: DiagnosisDTO[];
   note: string | undefined;
   psc: boolean;
+  isStat: boolean;
 }
 
 export const labelForExternalLabPlan = (plan: ServiceRequest): string => {
@@ -84,6 +86,7 @@ export const parseExternalLabPlan = (plan: ServiceRequest): ParsedExternalLabPla
     dx: diagnosesFromReasonCode(plan),
     note: noteFromPlan(plan),
     psc: isPSCOrder(plan),
+    isStat: plan.priority === 'stat',
   };
 };
 
@@ -117,7 +120,7 @@ export const getOrderingLocationFromEncounter = (
 ): Location | undefined => {
   const locations = encounterResources.filter((r): r is Location => r.resourceType === 'Location');
   const encounterLocationIds = (encounter.location ?? [])
-    .map((l) => l.location?.reference?.split('/')[1])
+    .map((l) => getIdFromReference(l.location?.reference))
     .filter((id): id is string => Boolean(id));
   return locations.find((loc) => loc.id && encounterLocationIds.includes(loc.id)) ?? locations[0];
 };
@@ -272,6 +275,7 @@ export async function applyExternalLabPlans(input: ApplyExternalLabPlansInput): 
           encounter,
           orderableItems: [orderableItem],
           psc: parsed.psc,
+          isStat: parsed.isStat,
           orderingLocation: modifiedOrderingLocation,
           selectedPaymentMethod,
           clinicalInfoNoteByUser: parsed.note,

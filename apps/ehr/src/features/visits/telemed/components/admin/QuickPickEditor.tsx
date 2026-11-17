@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 
 export interface QuickPickEditorColumn<T> {
@@ -157,6 +158,11 @@ export default function QuickPickEditor<T extends { id?: string }>({
     }
   };
 
+  const getRemoveMessage = (item: T): string => {
+    const displayName = columns[0]?.getValue(item) ?? '';
+    return displayName ? `Remove ${itemLabel} "${displayName}"?` : `Remove this ${itemLabel.toLowerCase()}?`;
+  };
+
   const handleDelete = async (item: T): Promise<void> => {
     if (!item.id) return;
     try {
@@ -222,22 +228,23 @@ export default function QuickPickEditor<T extends { id?: string }>({
                         <EditIcon fontSize="small" />
                       </IconButton>
                     )}
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        const displayName = columns[0]?.getValue(item) ?? '';
-                        const message = displayName
-                          ? `Remove ${itemLabel} "${displayName}"?`
-                          : `Remove this ${itemLabel.toLowerCase()}?`;
-                        if (window.confirm(message)) {
-                          void handleDelete(item);
-                        }
-                      }}
-                      title="Remove"
-                      sx={{ color: theme.palette.error.main }}
+                    <ConfirmationDialog
+                      title={`Remove ${itemLabel}`}
+                      description={getRemoveMessage(item)}
+                      response={() => void handleDelete(item)}
+                      actionButtons={{ proceed: { text: 'Remove', color: 'error' }, back: { text: 'Cancel' } }}
                     >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
+                      {(showDialog) => (
+                        <IconButton
+                          size="small"
+                          onClick={showDialog}
+                          title="Remove"
+                          sx={{ color: theme.palette.error.main }}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </ConfirmationDialog>
                   </TableCell>
                 </TableRow>
               ))}

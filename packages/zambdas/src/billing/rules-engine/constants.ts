@@ -44,6 +44,11 @@ export const RULES_ENGINE_FHIR: Record<RulesEngineType, RulesEngineFhirIds> = {
     listTitle: 'Non-insurance payer pre-invoice rules engine',
     taskCode: 'run-non-insurance-payer-pre-invoice-rules',
   },
+  'post-adjudication': {
+    listCode: 'post-adjudication-rules-list',
+    listTitle: 'Post-adjudication rules engine',
+    taskCode: 'run-post-adjudication-rules',
+  },
   'patient-ar-pre-invoice': {
     listCode: 'patient-ar-pre-invoice-rules-list',
     listTitle: 'Patient AR pre-invoice rules engine',

@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPatchRequest, SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Coding, Extension, HealthcareService, Questionnaire } from 'fhir/r4b';
+import { Coding, Extension, HealthcareService, Questionnaire, QuestionnaireItem } from 'fhir/r4b';
 import { isEqual } from 'lodash-es';
 import { isBookingConfigServiceCategoryCode } from 'utils/lib/config-helpers/booking';
 import {
@@ -15,6 +15,7 @@ import {
 } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { isPracticeManagedQ } from 'utils/lib/helpers/practice-managed-questionnaires';
 import { IN_PERSON_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork';
 import { VIRTUAL_INTAKE_PAPERWORK_CANONICAL } from 'utils/lib/ottehr-config/intake-paperwork-virtual';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -184,10 +185,83 @@ export function makeOttehrManagedServiceTags(services: FlowService[]): Coding[] 
   });
 }
 
+export interface FlowFormQuestionnaire {
+  label: string;
+  questionnaire: Questionnaire;
+}
+
+const collectLinkIds = (items: QuestionnaireItem[] | undefined, accum = new Set<string>()): Set<string> => {
+  for (const item of items ?? []) {
+    accum.add(item.linkId);
+    collectLinkIds(item.item, accum);
+  }
+  return accum;
+};
+
+const MAX_LISTED_CONFLICTS = 5;
+
+const quoteList = (labels: string[]): string => {
+  const quoted = labels.map((label) => `"${label}"`);
+  if (quoted.length === 2) return `${quoted[0]} and ${quoted[1]} both`;
+  return `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]} all`;
+};
+
+/**
+ * A flow stores all of its forms in one QuestionnaireResponse, so a custom (practice-managed) form must not share a
+ * page or question linkId with any other form in the flow: the flow keeps only the last of a repeated page, and the
+ * answers that calculated items read are keyed by linkId across the whole response. Two ottehr-managed forms may
+ * share ids (the consent page, on purpose). Returns a message saying what is wrong and how to fix it, or undefined.
+ */
+export function findFlowLinkIdConflicts(forms: FlowFormQuestionnaire[]): string | undefined {
+  const problems: string[] = [];
+
+  // the same custom form added more than once repeats every one of its ids; say so once instead of per id
+  const uniqueForms: FlowFormQuestionnaire[] = [];
+  const seenForms = new Set<string>();
+  const reportedTwice = new Set<string>();
+  for (const form of forms) {
+    const key = form.questionnaire.url ?? form.questionnaire.id ?? form.label;
+    if (!seenForms.has(key)) {
+      seenForms.add(key);
+      uniqueForms.push(form);
+    } else if (isPracticeManagedQ(form.questionnaire) && !reportedTwice.has(key)) {
+      reportedTwice.add(key);
+      problems.push(`"${form.label}" is in this flow more than once.`);
+    }
+  }
+
+  const linkIdsByForm = uniqueForms.map((form) => collectLinkIds(form.questionnaire.item));
+  const pageIdsByForm = uniqueForms.map((form) => new Set((form.questionnaire.item ?? []).map((page) => page.linkId)));
+  const customForms = uniqueForms.map((form) => isPracticeManagedQ(form.questionnaire));
+
+  const usersByLinkId = new Map<string, number[]>();
+  linkIdsByForm.forEach((linkIds, formIndex) => {
+    linkIds.forEach((linkId) => usersByLinkId.set(linkId, [...(usersByLinkId.get(linkId) ?? []), formIndex]));
+  });
+
+  const sharedProblems: string[] = [];
+  usersByLinkId.forEach((users, linkId) => {
+    if (users.length < 2 || !users.some((formIndex) => customForms[formIndex])) return;
+    const kind = users.some((formIndex) => pageIdsByForm[formIndex]?.has(linkId)) ? 'page' : 'question';
+    const labels = users.map((formIndex) => uniqueForms[formIndex]?.label ?? '');
+    sharedProblems.push(`${quoteList(labels)} use the ${kind} id "${linkId}".`);
+  });
+  problems.push(...sharedProblems.slice(0, MAX_LISTED_CONFLICTS));
+  if (sharedProblems.length > MAX_LISTED_CONFLICTS) {
+    problems.push(`And ${sharedProblems.length - MAX_LISTED_CONFLICTS} more.`);
+  }
+
+  if (problems.length === 0) return undefined;
+  return `${problems.join(
+    ' '
+  )} Forms in a flow share one response, so every page and question id in a custom form must be unique across the forms in the flow. Rename the clashing ids in one of the forms (for example prefix them with the form's name, like "cage-items") and re-import it, then try again.`;
+}
+
 /** returns canonical urls (url|version) for flow forms passed */
 export function getFormCanonicals(formQuestionnaires: Questionnaire[], flowForms: FlowForm[]): string[] {
   const formUrlMap = new Map<string, Questionnaire>();
   const formCanonicalUrls: string[] = [];
+  const resolvedForms: FlowFormQuestionnaire[] = [];
 
   formQuestionnaires.forEach((form) => form.url && formUrlMap.set(form.url, form));
 
@@ -207,7 +281,11 @@ export function getFormCanonicals(formQuestionnaires: Questionnaire[], flowForms
     if (!canonical) throw new Error(`Could not parse canonical url from Questionnaire/${q.id}`);
 
     formCanonicalUrls.push(canonical);
+    resolvedForms.push({ label: form.label, questionnaire: q });
   });
+
+  const conflict = findFlowLinkIdConflicts(resolvedForms);
+  if (conflict) throw PAPERWORK_FLOW_ERROR(conflict);
 
   return formCanonicalUrls;
 }

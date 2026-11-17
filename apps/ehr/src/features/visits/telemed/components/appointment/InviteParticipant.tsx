@@ -35,6 +35,8 @@ const buttonSx = {
   ml: 1,
 };
 
+const isNotBlank = (value: string): boolean => value.trim().length > 0;
+
 const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): ReactElement => {
   const { register, handleSubmit, formState } = useForm<FormInputs>({
     mode: 'onChange',
@@ -81,7 +83,7 @@ const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): Reac
         <DialogContent>
           <FormControl fullWidth required sx={{ mt: 2 }}>
             <TextField
-              {...register('firstName', { required: true })}
+              {...register('firstName', { required: true, validate: isNotBlank })}
               id="first-name"
               label="First Name"
               variant="outlined"
@@ -92,7 +94,7 @@ const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): Reac
           </FormControl>
           <FormControl fullWidth required sx={{ mt: 2 }}>
             <TextField
-              {...register('lastName', { required: true })}
+              {...register('lastName', { required: true, validate: isNotBlank })}
               id="last-name"
               label="Last Name"
               variant="outlined"
@@ -103,7 +105,7 @@ const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): Reac
           </FormControl>
           <FormControl fullWidth required sx={{ mt: 2 }}>
             <TextField
-              {...register('phone', { required: true })}
+              {...register('phone', { required: true, validate: isNotBlank })}
               id="phone"
               label="Phone"
               variant="outlined"
@@ -114,7 +116,7 @@ const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): Reac
           </FormControl>
           <FormControl fullWidth required sx={{ mt: 2 }}>
             <TextField
-              {...register('email', { required: true })}
+              {...register('email', { required: true, validate: isNotBlank })}
               id="email"
               label="Email"
               variant="outlined"

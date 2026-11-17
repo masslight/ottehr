@@ -1,3 +1,4 @@
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { is18YearsOrYounger } from 'utils/lib/validation/helper';
@@ -20,6 +21,9 @@ const hasValidWeight = (observations?: VitalsObservationDTO[]): boolean =>
     return 'extraWeightOptions' in obs && obs.extraWeightOptions?.includes('patient_refused');
   }) ?? false;
 
+const MISSING_VITALS_MESSAGE =
+  "Patient doesn't have height or weight vital specified. Please specify it first on the `Vitals` tab";
+
 /**
  * Shared eRx patient-vitals readiness used by both the full prescriber flow (<ERX>) and the
  * lightweight interaction-only flow (<ERXInteractionsReadiness>).
@@ -32,15 +36,24 @@ export const useErxPatientVitals = (): {
   hasVitals: boolean;
   isVitalsLoading: boolean;
   isVitalsFetched: boolean;
+  missingVitalsMessage: string;
 } => {
-  const { patient, encounter } = useAppointmentData();
+  const { patient, encounter, followUpOriginEncounter } = useAppointmentData();
 
-  const { data: currentVitals, isLoading: isCurrentLoading, isFetched: isCurrentFetched } = useGetVitals(encounter?.id);
+  // Annotation follow-ups have no Vitals tab; their height/weight is the one recorded on the visit they annotate.
+  const isAnnotationFollowup = Boolean(encounter && isAnnotationFollowupEncounter(encounter));
+  const vitalsEncounterId = isAnnotationFollowup ? followUpOriginEncounter?.id : encounter?.id;
+
+  const {
+    data: currentVitals,
+    isLoading: isCurrentLoading,
+    isFetched: isCurrentFetched,
+  } = useGetVitals(vitalsEncounterId);
   const {
     data: historicalVitals,
     isLoading: isHistoricalLoading,
     isFetched: isHistoricalFetched,
-  } = useGetHistoricalVitals(encounter?.id);
+  } = useGetHistoricalVitals(vitalsEncounterId);
 
   const heights: VitalsObservationDTO[] = [
     ...(currentVitals?.[VitalFieldNames.VitalHeight] ?? []),
@@ -58,5 +71,8 @@ export const useErxPatientVitals = (): {
     hasVitals,
     isVitalsLoading: isCurrentLoading || isHistoricalLoading,
     isVitalsFetched: isCurrentFetched && isHistoricalFetched,
+    missingVitalsMessage: isAnnotationFollowup
+      ? `${MISSING_VITALS_MESSAGE} of the original visit`
+      : MISSING_VITALS_MESSAGE,
   };
 };

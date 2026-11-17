@@ -1,40 +1,47 @@
-export interface PatientNoteDTO {
+export interface NoteDTO {
   resourceId?: string;
   patientId: string;
+  taskId?: string;
   text: string;
   authorId: string;
   authorName: string;
+  sent?: string;
   lastUpdated?: string;
   edited?: boolean;
+  editorNames?: string[];
+  isUnread?: boolean;
 }
 
-export interface CreatePatientNoteRequest {
-  patientId: string;
+export interface CreateNoteRequest {
+  patientId?: string;
+  taskId?: string;
   text: string;
 }
 
-export interface CreatePatientNoteInput {
-  note: CreatePatientNoteRequest;
+export interface CreateNoteInput {
+  note: CreateNoteRequest;
 }
 
-export interface UpdatePatientNoteRequest {
+export interface UpdateNoteRequest {
   resourceId: string;
-  patientId: string;
+  patientId?: string;
+  taskId?: string;
   text: string;
 }
 
-export interface UpdatePatientNoteInput {
-  note: UpdatePatientNoteRequest;
+export interface UpdateNoteInput {
+  note: UpdateNoteRequest;
 }
 
-export interface GetPatientNotesInput {
-  patientId: string;
+export interface GetNotesInput {
+  patientId?: string;
+  taskIds?: string[];
   offset?: number;
   pageSize?: number;
 }
 
-export interface GetPatientNotesOutput {
-  notes: PatientNoteDTO[];
+export interface GetNotesOutput {
+  notes: NoteDTO[];
   hasMore: boolean;
 }
 
@@ -46,10 +53,15 @@ export interface GetPatientNotesCountOutput {
   count: number;
 }
 
-export interface SavePatientNoteOutput {
-  note: PatientNoteDTO;
+export interface SaveNoteOutput {
+  note: NoteDTO;
 }
 
-export interface DeletePatientNoteInput {
+export interface DeleteNoteInput {
   resourceId: string;
+}
+
+export interface MarkTaskNotesReadInput {
+  taskId: string;
+  noteIds: string[];
 }

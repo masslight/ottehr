@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { AR_STAGE } from 'utils/lib/types/data/billing/claim-status';
 import { Cms1500FormData } from 'utils/lib/types/data/billing/cms1500.types';
 import { afterEach, beforeEach, describe, expect, it, MockInstance, vi } from 'vitest';
 import { Cms1500Dialog } from '../../src/components/claim/Cms1500Dialog';
+import { makeClaim } from './ClaimDetail.test';
 
 const { getBillingClaimCms1500Mock, renderCms1500PdfMock, fillCms1500TemplateMock, oystehrZambdaStub } = vi.hoisted(
   () => ({
@@ -30,7 +32,7 @@ vi.mock('utils/lib/helpers/rcm/cms1500/template', () => ({
   fillCms1500Template: fillCms1500TemplateMock,
 }));
 
-const CLAIM_ID = '9f0c0a7e-4c1a-4f7e-9d7a-1b2c3d4e5f60';
+const CLAIM_ID = 'claim-1';
 const form: Cms1500FormData = {
   insuredId: 'W123456789',
   patientName: { last: 'Doe', first: 'Jane' },
@@ -39,7 +41,8 @@ const form: Cms1500FormData = {
 const blankForm = new ArrayBuffer(8);
 
 const renderDialog = (): void => {
-  render(<Cms1500Dialog open onClose={() => {}} claimId={CLAIM_ID} />);
+  render(<Cms1500Dialog open onClose={() => {}} claim={makeClaim(AR_STAGE.insurancePayer)} />);
+  fireEvent.click(screen.getByRole('button', { name: /generate form/i }));
 };
 
 describe('Cms1500Dialog', () => {
@@ -66,7 +69,11 @@ describe('Cms1500Dialog', () => {
 
     const preview = await screen.findByTitle('CMS-1500 preview');
     expect(preview).toHaveAttribute('src', 'blob:cms1500-1');
-    expect(getBillingClaimCms1500Mock).toHaveBeenCalledWith(oystehrZambdaStub, { claimId: CLAIM_ID });
+    expect(getBillingClaimCms1500Mock).toHaveBeenCalledWith(oystehrZambdaStub, {
+      claimId: CLAIM_ID,
+      submissionType: 'new',
+      submissionInsurance: 'primary',
+    });
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('cms1500-template.pdf'));
     expect(fillCms1500TemplateMock).toHaveBeenCalledWith(blankForm, [form]);
     expect(renderCms1500PdfMock).not.toHaveBeenCalled();
@@ -100,11 +107,13 @@ describe('Cms1500Dialog', () => {
   });
 
   it('releases the preview when the dialog closes, though it stays mounted', async () => {
-    const { rerender } = render(<Cms1500Dialog open onClose={() => {}} claimId={CLAIM_ID} />);
+    const { rerender } = render(<Cms1500Dialog open onClose={() => {}} claim={makeClaim(AR_STAGE.insurancePayer)} />);
+    fireEvent.click(screen.getByRole('button', { name: /generate form/i }));
     await screen.findByTitle('CMS-1500 preview');
     expect(URL.revokeObjectURL).not.toHaveBeenCalled();
 
-    rerender(<Cms1500Dialog open={false} onClose={() => {}} claimId={CLAIM_ID} />);
+    rerender(<Cms1500Dialog open={false} onClose={() => {}} claim={makeClaim(AR_STAGE.insurancePayer)} />);
+    fireEvent.click(screen.getByRole('button', { name: /generate form/i }));
     await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:cms1500-1'));
   });
 

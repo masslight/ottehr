@@ -6,8 +6,11 @@ import { useParams } from 'react-router-dom';
 import { PageContainer } from 'src/components/CustomContainer';
 import { usePaperworkComponentHelpers } from 'src/hooks/usePaperworkComponentHelpers';
 import { PaperworkContext, PaperworkProvider } from 'ui-components/lib/components/paperwork/context';
-import PagedQuestionnaire from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
+import PagedQuestionnaire, {
+  PagedQuestionnaireSubmitExtras,
+} from 'ui-components/lib/components/paperwork/PagedQuestionnaire';
 import { convertQRItemToLinkIdMap, convertQuestionnaireItemToQRLinkIdMap } from 'utils/lib/helpers/paperwork/paperwork';
+import { isPageHidden } from 'utils/lib/helpers/paperwork/validation';
 import { getSelectors } from 'utils/lib/store';
 import {
   findQuestionnaireResponseItemLinkId,
@@ -119,8 +122,9 @@ export const StandaloneFormPage: FC = () => {
   }, [questionnaireResponse?.item]);
 
   const pages = useMemo(() => {
+    // hidden pages (readOnly + disabled-display hidden) are never shown, but still feed calculated values
     return (allItems ?? []).filter((item) => {
-      return item.linkId;
+      return item.linkId && !isPageHidden(item);
     });
   }, [allItems]);
 
@@ -230,7 +234,7 @@ export const StandaloneFormPage: FC = () => {
   }, [loadError, authedFetchState]);
 
   const finishPage = useCallback(
-    async (data: QuestionnaireFormFields): Promise<void> => {
+    async (data: QuestionnaireFormFields, { calculatedAnswers }: PagedQuestionnaireSubmitExtras): Promise<void> => {
       if (!zambdaClient || !currentPage || !questionnaireResponseId) return;
 
       setSaving(true);
@@ -251,6 +255,8 @@ export const StandaloneFormPage: FC = () => {
 
         const updatedPaperwork = await api.patchPaperwork(zambdaClient, {
           answers: { linkId: currentPage.linkId, item },
+          // hidden pages are never saved themselves, so their calculated values ride along with this page's save
+          calculatedAnswers: calculatedAnswers.length > 0 ? calculatedAnswers : undefined,
           questionnaireResponseId,
           appointmentId: appointment?.id,
         });

@@ -21,7 +21,9 @@ import {
 import {
   AddServiceLineInputSchema,
   BillingRule,
+  effectiveDiagnosisMode,
   RuleActionSchema,
+  RunBillingRulesEngineInputSchema,
   SaveBillingRulesInputSchema,
 } from './rules-engine.schemas';
 import { HOLD_TAG_NAME } from './system-tags';
@@ -159,6 +161,21 @@ describe('addServiceLine action schema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('parses a blank diagnosisMode (a cleared Diagnoses picker) as the default, rejecting an unknown mode', () => {
+    const blank = { type: 'addServiceLine', line: { cptCode: '99050', charges: '30', diagnosisMode: '' } };
+    expect(RuleActionSchema.parse(blank)).toEqual(blank);
+    expect(effectiveDiagnosisMode({ diagnosisMode: '' })).toBe('primary');
+    // Blank is the same as omitted, so legacy pointers still select specific diagnoses.
+    expect(effectiveDiagnosisMode({ diagnosisMode: '', diagnosisPointers: '2' })).toBe('specific');
+
+    expect(
+      RuleActionSchema.safeParse({
+        type: 'addServiceLine',
+        line: { cptCode: '99050', charges: '30', diagnosisMode: 'bogus' },
+      }).success
+    ).toBe(false);
+  });
 });
 
 describe('SaveBillingRulesInputSchema', () => {
@@ -201,6 +218,39 @@ describe('SaveBillingRulesInputSchema', () => {
   });
 });
 
+describe('RunBillingRulesEngineInputSchema payerClaimControlNumber', () => {
+  const correction = (payerClaimControlNumber?: string): unknown => ({
+    claimIds: ['claim-1'],
+    submissionType: 'correction',
+    submissionInsurance: 'primary',
+    payerClaimControlNumber,
+  });
+
+  it('rejects a whitespace-only payer claim control number on a correction', () => {
+    expect(RunBillingRulesEngineInputSchema.safeParse(correction('   ')).success).toBe(false);
+  });
+
+  it('rejects a whitespace-only payer claim control number on a void', () => {
+    expect(
+      RunBillingRulesEngineInputSchema.safeParse({ ...(correction('  ') as object), submissionType: 'void' }).success
+    ).toBe(false);
+  });
+
+  it('trims surrounding whitespace from the payer claim control number', () => {
+    expect(RunBillingRulesEngineInputSchema.parse(correction(' PCCN-1 ')).payerClaimControlNumber).toBe('PCCN-1');
+  });
+
+  it('still accepts a new submission without a payer claim control number', () => {
+    expect(
+      RunBillingRulesEngineInputSchema.safeParse({
+        claimIds: ['claim-1'],
+        submissionType: 'new',
+        submissionInsurance: 'primary',
+      }).success
+    ).toBe(true);
+  });
+});
+
 describe('rule value validation', () => {
   const field = (id: string): RuleFieldDef => {
     const def = getRuleFieldDef(id);
@@ -240,6 +290,14 @@ describe('rule value validation', () => {
     expect(setFieldValueProblem(field('patient.state'), 'XX')).toContain('one of the listed options');
     expect(setFieldValueProblem(field('payerId'), '')).toBe('Value is required'); // requiredOnSet
     expect(setFieldValueProblem(field('payerId'), null)).toBe('Value is required');
+    // Options marked settable: false can be compared against but not written.
+    for (const prefix of ['insurance', 'secondaryInsurance', 'tertiaryInsurance', 'quaternaryInsurance']) {
+      const relationship = field(`${prefix}.relationship`);
+      expect(setFieldValueProblem(relationship, 'Self')).toBeUndefined();
+      expect(setFieldValueProblem(relationship, 'Child')).toContain('one of the listed options');
+      expect(setFieldValueProblem(relationship, '')).toBe('Value is required');
+      expect(ruleConditionValueProblem(relationship, 'eq', 'Child')).toBeUndefined();
+    }
     expect(setFieldValueProblem(field('billingProvider.taxId'), '12-3456789')).toContain('9 digits');
     expect(setFieldValueProblem(field('billingProvider.taxId'), '123456789')).toBeUndefined();
     expect(setFieldValueProblem(field('serviceFacility.clia'), '05D1234567')).toBeUndefined();
@@ -652,6 +710,30 @@ describe('validateRuleFieldReferences', () => {
     expect(problems[0]).toContain('unsupported operator "contains"');
     expect(problems[1]).toContain('sets "serviceFacility.ref" to an invalid value');
     expect(problems[1]).toContain('facility reference');
+  });
+
+  it('takes only whole service values: contains, starts with and patterns are rejected', () => {
+    const problems = validateRuleFieldReferences(
+      ruleWith({
+        branches: [
+          {
+            condition: {
+              type: 'group',
+              logic: 'or',
+              conditions: [
+                { type: 'field', field: 'service', operator: 'in', value: ['Workers Comp', 'urgent-care'] },
+                { type: 'field', field: 'service', operator: 'startsWith', value: 'pre-' },
+                { type: 'field', field: 'service', operator: 'matches', value: '^Workers' },
+              ],
+            },
+            outcome: { type: 'noop' },
+          },
+        ],
+      })
+    );
+    expect(problems).toHaveLength(2);
+    expect(problems[0]).toContain('condition on "service" with unsupported operator "startsWith"');
+    expect(problems[1]).toContain('condition on "service" with unsupported operator "matches"');
   });
 
   it('accepts a compilable regex condition and rejects an uncompilable one, in conditions and line matches', () => {

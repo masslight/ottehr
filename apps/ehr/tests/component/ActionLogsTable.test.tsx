@@ -8,11 +8,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetActionLogs = vi.fn<(...args: any[]) => Promise<any>>();
 const mockRetryActionLog = vi.fn<(...args: any[]) => Promise<any>>();
+const mockRevokeActionLog = vi.fn<(...args: any[]) => Promise<any>>();
 
 vi.mock('src/api/api', async (importOriginal) => ({
   ...((await importOriginal()) as any),
   getActionLogs: (...args: any[]) => mockGetActionLogs(...args),
   retryActionLog: (...args: any[]) => mockRetryActionLog(...args),
+  revokeActionLog: (...args: any[]) => mockRevokeActionLog(...args),
 }));
 vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: () => ({ oystehr: {} as any, oystehrZambda: {} as any }),
@@ -43,8 +45,9 @@ const sentLog: ActionLogEntry = {
   recipientName: 'Dr. Green',
   appointmentId: 'e2e6b8f0-0000-0000-0000-000000000001',
   visitDate: '2024-07-29T14:30:00.000Z',
-  documentTitle: 'Fax packet (2 documents)',
+  documentTitle: 'Document packet (2 documents)',
   canRetry: false,
+  canRevoke: false,
 };
 const failedLog: ActionLogEntry = {
   ...sentLog,
@@ -79,8 +82,30 @@ describe('ActionLogsTable', () => {
     expect(screen.getAllByText('(999) 888-7777')).toHaveLength(2);
     expect(screen.getByText('sent')).toBeVisible();
     expect(screen.getByText('failed')).toBeVisible();
-    expect(screen.getAllByText('Fax packet (2 documents)')).toHaveLength(2);
+    expect(screen.getAllByText('Document packet (2 documents)')).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Try again' })).toHaveLength(1);
+  });
+
+  it('offers Revoke for a sent document link and calls the backend once confirmed', async () => {
+    const emailLog: ActionLogEntry = {
+      ...sentLog,
+      channel: 'email',
+      recipientAddress: 'olivia@example.com',
+      documentTitle: 'Document packet (2 documents)',
+      canRevoke: true,
+    };
+    mockGetActionLogs.mockResolvedValue({ logs: [emailLog], totalCount: 1 });
+    mockRevokeActionLog.mockResolvedValue({ attemptId: emailLog.attemptId, revokedCount: 1 });
+    const user = userEvent.setup();
+    render(<ActionLogsTable channel="email" />, { wrapper: createWrapper() });
+
+    await user.click(await screen.findByRole('button', { name: 'Revoke' }));
+    expect(await screen.findByText(/The link emailed to olivia@example.com will stop opening/)).toBeVisible();
+    await user.click(screen.getAllByRole('button', { name: 'Revoke' }).at(-1)!);
+
+    await waitFor(() =>
+      expect(mockRevokeActionLog).toHaveBeenCalledWith(expect.anything(), { attemptId: emailLog.attemptId })
+    );
   });
 
   it('does not offer retry when the backend marks a failed attempt ineligible', async () => {

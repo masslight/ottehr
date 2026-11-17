@@ -188,6 +188,37 @@ describe('get-billing-claim-history performEffect', () => {
     expect(entries[1].activity).toBe('Create Claim');
   });
 
+  it.each([
+    ['PaymentNotice/pn1', CLAIM_PROVENANCE_ACTIVITY.create, 'Create Payment'],
+    ['DocumentReference/d1', CLAIM_PROVENANCE_ACTIVITY.delete, 'Delete Attachment'],
+  ])('labels a change to %s', async (targetReference, activity, expected) => {
+    const provenance: Provenance = {
+      ...provenanceBase('prov1', '2026-06-01T10:00:00Z'),
+      activity: {
+        coding: [activity],
+      },
+      target: [
+        {
+          reference: targetReference,
+        },
+        {
+          reference: 'Claim/c1',
+        },
+      ],
+      extension: [diffExtension([])],
+    };
+    const oystehr = makeOystehr({
+      Provenance: () => pagedBundle([provenance], [practitionerU1]),
+    });
+
+    const { entries } = await performEffect(oystehr, {
+      claimId: 'c1',
+      secrets: {},
+    });
+
+    expect(entries[0].activity).toBe(expected);
+  });
+
   it('links provider references to their master screens and keeps write-time display values', async () => {
     const providerWorkingCopy: Practitioner = {
       resourceType: 'Practitioner',

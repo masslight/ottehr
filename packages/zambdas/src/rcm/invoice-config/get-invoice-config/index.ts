@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { isOttehrBillingInvoicingInBillingApp } from '../../../shared/invoice-tasks';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getOrCreateInvoicingConfig } from '../helpers';
@@ -16,6 +17,10 @@ export const index = wrapHandler('get-invoice-config', async (input: ZambdaInput
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ questionnaire, questionnaireResponse }),
+    body: JSON.stringify({
+      questionnaire,
+      questionnaireResponse,
+      invoicingInBillingApp: isOttehrBillingInvoicingInBillingApp(input.secrets),
+    }),
   };
 });

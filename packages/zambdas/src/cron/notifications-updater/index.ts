@@ -28,6 +28,7 @@ import {
   getProviderNotificationSettingsForPractitioner,
   hasExplicitProviderNotificationPreferencesV2,
 } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary, getPatchOperationForNewMetaTag, normalizePhoneNumber } from 'utils/lib/fhir/resourcePatch';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
@@ -42,6 +43,8 @@ import {
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
+  TASK_NOTE_NOTIFIED_TAG_CODE,
+  TASK_NOTE_NOTIFIED_TAG_SYSTEM,
   VIRTUAL_VISIT_SCHEDULED_TAG_CODE,
   VIRTUAL_VISIT_SCHEDULED_TAG_SYSTEM,
   WAITING_ROOM_NOTIFIED_TAG_CODE,
@@ -62,6 +65,7 @@ import { ERX_TASK, FAX_TASK, getTaskInputValue } from 'utils/lib/types/data/task
 import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
+import { getNoteTaskId, isTaskNote, isTaskNoteUnreadBy, TASK_NOTE_TAG } from '../../shared/notes';
 import { wrapHandler } from '../../shared/sentry';
 import { getTaskLocation } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types/common';
@@ -501,6 +505,58 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     }
   });
 
+  try {
+    const { newNotes, notesByTaskId, tasksById } = await getRecentTaskNotes(oystehr, notificationWindowStart);
+    const notifiedThisRun = new Set<string>();
+    for (const note of newNotes) {
+      const task = tasksById.get(getNoteTaskId(note) ?? '');
+      if (task) {
+        const uiCategory = getUiTaskCategoryForCode(task.groupIdentifier?.value);
+        for (const recipientId of resolveTaskNoteRecipientIds(task, notesByTaskId.get(task.id!) ?? [], note)) {
+          const recipient = activeStaffMap[recipientId];
+          const key = categoryNotifiedKey(task.id!, recipientId);
+          if (!recipient || notifiedThisRun.has(key)) continue;
+          const delivery = resolveTaskNoteDelivery({
+            hasExplicitPrefs: hasExplicitProviderNotificationPreferencesV2(recipient),
+            prefs: getPrefsCached(recipient),
+            legacySettings: getProviderNotificationSettingsForPractitioner(recipient),
+            taskLocationId: getTaskLocation(task)?.id,
+            uiCategory,
+          });
+          if (!delivery.notify) continue;
+          notifiedThisRun.add(key);
+          const status = communicationStatusForMethod(delivery.method);
+          const type = {
+            system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
+            code: AppointmentProviderNotificationTypes.task_note_added,
+          };
+          const resource: Communication = {
+            resourceType: 'Communication',
+            category: [{ coding: [type, ...(uiCategory ? [taskCategoryCoding(uiCategory)] : [])] }],
+            sent: DateTime.utc().toISO()!,
+            status,
+            basedOn: [{ reference: `Task/${task.id}` }],
+            about: buildTaskNotificationAbout(task),
+            recipient: [{ reference: `Practitioner/${recipient.id}` }],
+            payload: [{ contentString: 'New note on task: ' + (task.description ?? `task ID ${task.id}`) }],
+          };
+          enqueueNotification(recipient, { method: 'POST', url: '/Communication', resource }, status, delivery.method);
+        }
+      }
+      const notifiedTag = { system: TASK_NOTE_NOTIFIED_TAG_SYSTEM, code: TASK_NOTE_NOTIFIED_TAG_CODE };
+      updateCommunicationRequests.push(
+        getPatchBinary({
+          resourceId: note.id!,
+          resourceType: 'Communication',
+          patchOperations: [getPatchOperationForNewMetaTag(note, notifiedTag)],
+        })
+      );
+    }
+  } catch (error) {
+    console.error('Error trying to process task note notifications', error);
+    captureException(error);
+  }
+
   // Flush accumulated tags as one patch per task, computing per-tag APPEND ops against a working copy.
   // Not getPatchOperationsForNewMetaTags: its wholesale /meta/tag replace would clobber tags a concurrent
   // writer added after our read.
@@ -682,7 +738,7 @@ async function getResourcePackagesAppointmentsMap(
     const appointment = resourcePackagesMap[appointmentId].appointment;
     const locationReference = encounter?.location?.find((loc) => loc.location.reference)?.location.reference;
     if (locationReference) {
-      const locationId = removePrefix('Location/', locationReference);
+      const locationId = getIdFromReference(locationReference, 'Location');
       if (locationId) {
         const pack = getOrCreateAppointmentResourcePackage(appointmentId);
         pack.location = locationIdMap[locationId];
@@ -693,7 +749,7 @@ async function getResourcePackagesAppointmentsMap(
       (participant) => participant.actor?.reference?.startsWith('Patient')
     )?.actor?.reference;
     if (patientReference) {
-      const patientId = removePrefix('Patient/', patientReference);
+      const patientId = getIdFromReference(patientReference, 'Patient');
       if (patientId) {
         const pack = getOrCreateAppointmentResourcePackage(appointmentId);
         pack.patient = patientIdMap[patientId];
@@ -721,7 +777,7 @@ const getActiveStaffAndProviders = async (
     throw new Error('Error searching for Inactive or Provider role.');
   }
 
-  const practitionerIds = employees.map((employee) => employee.profile.split('/')[1]);
+  const practitionerIds = employees.map((employee) => getIdFromReference(employee.profile));
 
   const [inactiveRoleMembers, providerRoleMembers, practitionerResources] = await Promise.all([
     getRoleMembers(inactiveRoleId, oystehr),
@@ -744,7 +800,7 @@ const getActiveStaffAndProviders = async (
   const activeProvidersMap: ProvidersMap = {};
   employees.forEach((employee) => {
     if (inactiveUsersMap.has(employee.id)) return;
-    const practitionerId = removePrefix('Practitioner/', employee.profile || '');
+    const practitionerId = getIdFromReference(employee.profile, 'Practitioner');
     const practitioner = practitionerId ? practitionerById.get(practitionerId) : undefined;
     if (!practitioner) return;
     activeStaffMap[practitioner.id!] = practitioner;
@@ -772,6 +828,67 @@ export async function getRecentTaskResources(oystehr: Oystehr, fromDate: DateTim
     },
     oystehr
   );
+}
+
+export async function getRecentTaskNotes(
+  oystehr: Oystehr,
+  fromDate: DateTime
+): Promise<{ newNotes: Communication[]; notesByTaskId: Map<string, Communication[]>; tasksById: Map<string, Task> }> {
+  const resources = await getAllFhirSearchPages<Communication | Task>(
+    {
+      resourceType: 'Communication',
+      params: [
+        { name: '_tag', value: TASK_NOTE_TAG },
+        { name: '_tag:not', value: `${TASK_NOTE_NOTIFIED_TAG_SYSTEM}|${TASK_NOTE_NOTIFIED_TAG_CODE}` },
+        { name: 'status', value: 'completed' },
+        { name: 'sent', value: `ge${fromDate.toISO()}` },
+        { name: '_include', value: 'Communication:based-on' },
+        { name: '_revinclude:iterate', value: 'Communication:based-on' },
+      ],
+    },
+    oystehr
+  );
+  const tasksById = new Map<string, Task>();
+  const notesById = new Map<string, Communication>();
+  for (const resource of resources) {
+    if (resource.resourceType === 'Task') tasksById.set(resource.id!, resource);
+    else if (isTaskNote(resource) && resource.status === 'completed') notesById.set(resource.id!, resource);
+  }
+  const notesByTaskId = new Map<string, Communication[]>();
+  for (const note of notesById.values()) {
+    const taskId = getNoteTaskId(note) ?? '';
+    const notesOnTask = notesByTaskId.get(taskId);
+    if (notesOnTask) notesOnTask.push(note);
+    else notesByTaskId.set(taskId, [note]);
+  }
+  const newNotes = [...notesById.values()].filter(
+    (note) =>
+      DateTime.fromISO(note.sent ?? '') >= fromDate &&
+      !note.meta?.tag?.some((tag) => tag.system === TASK_NOTE_NOTIFIED_TAG_SYSTEM)
+  );
+  return { newNotes, notesByTaskId, tasksById };
+}
+
+export function resolveTaskNoteRecipientIds(task: Task, notesOnTask: Communication[], note: Communication): string[] {
+  const involved = [task.owner, task.requester, ...notesOnTask.map((other) => other.sender)].map((reference) =>
+    getIdFromReference(reference?.reference, 'Practitioner')
+  );
+  return [...new Set(involved)].filter((id): id is string => !!id && isTaskNoteUnreadBy(note, id));
+}
+
+export function resolveTaskNoteDelivery(
+  input: Pick<AssignmentDeliveryInput, 'hasExplicitPrefs' | 'prefs' | 'legacySettings' | 'taskLocationId'> & {
+    uiCategory: UiTaskCategoryId | undefined;
+  }
+): { notify: false } | { notify: true; method: ProviderNotificationMethod | undefined } {
+  const { hasExplicitPrefs, prefs, legacySettings, taskLocationId, uiCategory } = input;
+  if (hasExplicitPrefs && uiCategory) {
+    const row = prefs?.taskCategories[uiCategory];
+    return row && rowMatchesFilters(row, taskLocationId, true)
+      ? { notify: true, method: row.method }
+      : { notify: false };
+  }
+  return legacySettings?.taskNotificationsEnabled ? { notify: true, method: legacySettings.method } : { notify: false };
 }
 
 /** Whether the task was actually CREATED within the window, as opposed to merely edited inside it. */
@@ -822,7 +939,7 @@ export function buildRecentlyAssignedTasksMap(
         : null;
 
       if (assignedDateTime && assignedDateTime >= fromDate) {
-        const practitionerId = removePrefix('Practitioner/', task.owner.reference);
+        const practitionerId = getIdFromReference(task.owner.reference, 'Practitioner');
         if (practitionerId && practitionerIdMap[practitionerId]) {
           resultMap[task.id!] = {
             task,
@@ -1042,7 +1159,7 @@ const getTelemedEncounterAppointmentId = (encounterResource: Resource): string |
   if (!(encounterResource.resourceType === 'Encounter' && getVideoRoomResourceExtension(encounterResource)))
     return undefined;
   const appointmentReference = (encounterResource as Encounter)?.appointment?.[0].reference || '';
-  const appointmentId = removePrefix('Appointment/', appointmentReference);
+  const appointmentId = getIdFromReference(appointmentReference, 'Appointment');
 
   return appointmentId;
 };

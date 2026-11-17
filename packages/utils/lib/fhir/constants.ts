@@ -519,6 +519,16 @@ export const PRACTICE_MANAGED_QUESTIONNAIRE_TAG = {
   code: 'practice-managed',
 };
 
+/** meta.tag system naming where a practice-managed form's answers appear; no tag means Visit Details. */
+export const FORM_PLACEMENT_TAG_SYSTEM = ottehrCodeSystemUrl('form-placement');
+
+// applied (alongside the practice-managed tag) to questionnaires uploaded as raw FHIR JSON.
+// these are read only in the admin portal: they can only be updated by uploading a new version
+export const JSON_IMPORT_QUESTIONNAIRE_TAG = {
+  system: ottehrCodeSystemUrl('questionnaire-type'),
+  code: 'json-import',
+};
+
 /** meta.tag identifying a paperwork flow Questionnaire. */
 export const PAPERWORK_FLOW_TAG = {
   system: `${PRIVATE_EXTENSION_BASE_URL}/flow-type`,
@@ -988,6 +998,8 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   alwaysFilter: `${PRIVATE_EXTENSION_BASE_URL}/always-filter`,
   attachmentText: `${PRIVATE_EXTENSION_BASE_URL}/attachment-text`,
   autofillFromWhenDisabled: `${PRIVATE_EXTENSION_BASE_URL}/fill-from-when-disabled`,
+  // standard SDC extension (not a private one): the item's value is derived from other answers
+  calculatedExpression: 'http://hl7.org/fhir/uv/sdc/StructureDefinition/sdc-questionnaire-calculatedExpression',
   categoryTag: `${PRIVATE_EXTENSION_BASE_URL}/category-tag`,
   dataType: `${PRIVATE_EXTENSION_BASE_URL}/data-type`,
   disabledDisplay: `${PRIVATE_EXTENSION_BASE_URL}/disabled-display`,
@@ -996,6 +1008,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   infoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text`,
   inputWidth: `${PRIVATE_EXTENSION_BASE_URL}/input-width`,
   minRows: `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`,
+  placeholder: `${PRIVATE_EXTENSION_BASE_URL}/placeholder`,
   preferredElement: `${PRIVATE_EXTENSION_BASE_URL}/preferred-element`,
   secondaryInfoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text-secondary`,
   validateAgeOver: `${PRIVATE_EXTENSION_BASE_URL}/validate-age-over`,
@@ -1213,6 +1226,9 @@ export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/paymen
 export const PAYMENT_REFUNDS_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-refunds';
 // stamped on a PaymentNotice when a non-processor payment (cash/check/external reader) is voided
 export const PAYMENT_VOID_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-void';
+// stamped on a billing PaymentNotice for a Stripe payment: the account the money was taken on, so
+// refunds and lookups go to that account rather than one derived from the payee or schedule
+export const PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-stripe-account';
 
 export const PREFERRED_PHARMACY_EXTENSION_URL = ottehrExtensionUrl('preferred-pharmacy');
 export const PREFERRED_PHARMACY_MANUAL_ENTRY_URL = ottehrExtensionUrl('pharmacy-manual-entry'); // added when the pharmacy was added manually via text fields
@@ -1346,13 +1362,15 @@ export const OUTBOUND_DELIVERY_INPUT_CODES = {
   senderId: 'sender-id',
   senderDisplay: 'sender-display',
   senderOrganization: 'sender-organization',
-  faxPacketPageCount: 'fax-packet-page-count',
-  faxPacketParts: 'fax-packet-parts',
+  packetPageCount: 'fax-packet-page-count',
+  packetParts: 'fax-packet-parts',
 } as const;
 export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-output');
 export const OUTBOUND_DELIVERY_OUTPUT_CODES = {
   communication: 'communication',
   error: 'error',
+  /** An emailed document link was opened; valueDateTime is when. */
+  linkOpened: 'link-opened',
 } as const;
 export const OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-source');
 export const OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-retry');

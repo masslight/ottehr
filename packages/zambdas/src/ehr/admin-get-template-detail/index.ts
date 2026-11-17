@@ -29,6 +29,7 @@ import {
   getDosageUnitsAndRouteOfMedication,
   searchRouteByCode,
 } from 'utils/lib/fhir/medication-administration';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
 import { getRosFindingStateFromKey } from 'utils/lib/ottehr-config/review-of-systems';
@@ -434,7 +435,7 @@ const performEffect = async (
 
   // Parse external lab plans. Each plan is a ServiceRequest with intent 'plan'
   // and the external-lab-template-plan meta tag carrying the lab + test combo,
-  // Dx, note, and PSC flag. We verify each lab + test combo still resolves in
+  // Dx, note, and PSC and stat flags. We verify each lab + test combo still resolves in
   // the lab's current compendium so the admin UI can flag tests that would be
   // skipped at apply time.
   const externalLabPlans = findExternalLabPlans(templateList);
@@ -459,6 +460,7 @@ const performEffect = async (
         diagnoses: [],
         note: null,
         psc: false,
+        isStat: false,
         missing: true,
         cptCodes: [],
       };
@@ -482,6 +484,7 @@ const performEffect = async (
       diagnoses: parsed.dx.map((d) => ({ code: d.code, display: d.display })),
       note: parsed.note ?? null,
       psc: parsed.psc,
+      isStat: parsed.isStat,
       missing,
       cptCodes,
     };
@@ -513,7 +516,7 @@ const performEffect = async (
 
   const procedures: TemplateProcedurePlan[] = procedurePlans.map((plan) => {
     const procedureDiagnoses: TemplateCodeInfo[] = (plan.reasonReference ?? []).flatMap((ref) => {
-      const id = ref.reference?.split('/')[1];
+      const id = getIdFromReference(ref.reference);
       if (!id) return [];
       const cond = conditionById.get(id);
       if (!cond) return [];
@@ -528,7 +531,7 @@ const performEffect = async (
       return [{ code: icd?.code ?? '', display: icd?.display ?? '' }];
     });
     const procedureCptCodes: TemplateCptCodeInfo[] = (plan.supportingInfo ?? []).flatMap((ref) => {
-      const id = ref.reference?.split('/')[1];
+      const id = getIdFromReference(ref.reference);
       if (!id) return [];
       const proc = cptProcedureById.get(id);
       if (!proc) return [];

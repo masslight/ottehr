@@ -17,6 +17,7 @@ import { formatDateTimeToZone } from '../../utils/date';
 import { vitalsConfig } from '../vitals/config-schema';
 import { formatBMIWithUnit } from '../vitals/vitals-bmi.helper';
 import { formatHeightObservationValue } from '../vitals/vitals-height.helper';
+import { formatOxygenSatObservationMethod } from '../vitals/vitals-oxygen-saturation.helper';
 import { celsiusToFahrenheit } from '../vitals/vitals-temperature.helper';
 import { getDotVisionScreeningLines, getVisionExtraOptionsFormattedString } from '../vitals/vitals-vision.helper';
 import { VitalsVisitNoteData } from '../vitals/vitals-visit-note-data.types';
@@ -54,10 +55,12 @@ export const mapVitalsToDisplay = (
           parsed.observationMethod ? ` (${parsed.observationMethod})` : ''
         }`;
         break;
-      case VitalFieldNames.VitalOxygenSaturation:
+      case VitalFieldNames.VitalOxygenSaturation: {
         parsed = observation as VitalsOxygenSatObservationDTO;
-        text = `${parsed.value}%${parsed.observationMethod ? ` (${parsed.observationMethod})` : ''}`;
+        const observationMethod = formatOxygenSatObservationMethod(parsed);
+        text = `${parsed.value}%${observationMethod ? ` (${observationMethod})` : ''}`;
         break;
+      }
       case VitalFieldNames.VitalWeight: {
         parsed = observation as VitalsWeightObservationDTO;
         if (parsed.extraWeightOptions?.includes('patient_refused')) {

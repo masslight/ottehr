@@ -1,10 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { GetPatientNotesCountOutput } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { PATIENT_NOTE_TAG } from '../../../shared/notes';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
@@ -15,8 +15,6 @@ export const GetPatientNotesCountSchema = z.object({
 
 const ZAMBDA_NAME = 'get-patient-notes-count';
 let m2mToken: string;
-
-const PATIENT_NOTE_TAG = `${PRIVATE_EXTENSION_BASE_URL}/patient|patient-note`;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { patientId, secrets } = validateWithSchema(GetPatientNotesCountSchema, input);

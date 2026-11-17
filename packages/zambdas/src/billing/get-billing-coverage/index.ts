@@ -9,7 +9,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { createBillingClient, resolvedPayerId, resolvePayersByRef, toAddressParts } from '../shared';
+import { createBillingClient, getGroupNumber, resolvedPayerId, resolvePayersByRef, toAddressParts } from '../shared';
 
 type GetBillingCoverageParams = ValidatedZambdaInput<typeof GetBillingCoverageInputSchema>;
 
@@ -61,6 +61,8 @@ async function performEffect(oystehr: Oystehr, params: GetBillingCoverageParams)
   const payorRef = coverage.payor?.[0]?.reference;
   const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
 
+  const groupNumber = await getGroupNumber(oystehr, coverage, payersByRef);
+
   return {
     id: coverage.id,
     status: coverage.status,
@@ -71,6 +73,7 @@ async function performEffect(oystehr: Oystehr, params: GetBillingCoverageParams)
     planType: getCoveragePlanType(coverage),
     relationship: coverage.relationship?.coding?.[0]?.display as BillingCoverageOption['relationship'],
     memberId: coverage.subscriberId ?? getMemberIdFromCoverage(coverage) ?? '',
+    groupNumber,
     policyHolder: extractPolicyHolder(
       subscribers.find((sub) => sub.id === coverage.subscriber?.reference?.replace('RelatedPerson/', ''))
     ),

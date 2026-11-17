@@ -41,16 +41,14 @@ vi.mock('../../src/hooks/useDownloadDocumentsZip', () => ({
     isDownloading: downloadState.isDownloading,
   }),
 }));
-vi.mock('src/features/fax/hooks/useSendFax', () => ({
-  useSendFax: () => ({ isOpen: false, open: vi.fn(), close: vi.fn(), isSending: false, failures: [] }),
+vi.mock('src/features/send-documents/hooks/useSendDocuments', () => ({
+  useSendDocuments: () => ({ isOpen: false, open: vi.fn(), close: vi.fn(), isSending: false, failures: [] }),
 }));
-vi.mock('src/features/fax/ui/SendFaxDialog', () => ({ SendFaxDialog: () => <div /> }));
+vi.mock('src/features/send-documents/ui/SendDocumentsDialog', () => ({ SendDocumentsDialog: () => <div /> }));
 vi.mock('../../src/hooks/useGetPatient', () => ({
   useGetPatient: () => ({ loading: false, patient: PATIENT }),
 }));
 vi.mock('../../src/hooks/useGetPatientDocs', () => ({
-  hasVisitRef: (visit?: { encounterId?: string; appointmentId?: string }) =>
-    !!visit && (!!visit.encounterId || !!visit.appointmentId),
   useGetPatientDocs: () => ({
     documents: DOCUMENTS,
     isLoadingDocuments: false,

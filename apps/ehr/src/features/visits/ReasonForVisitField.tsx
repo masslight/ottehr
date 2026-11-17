@@ -33,7 +33,7 @@ export const ReasonForVisitField: FC = () => {
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
   // Scheduled follow-ups pick from a fixed list; "Other" is stored as this free text.
   const [otherReason, setOtherReason] = useState<string>('');
-  const { data: chartFields, isFetched: isChartFieldsFetched } = useChartSection('encounterNotes');
+  const { data: chartFields, isFetched: isChartFieldsFetched, setSectionData } = useChartSection('encounterNotes');
 
   // Service-category options resolve via the shared hook (covers admin-managed FHIR categories);
   // scheduled follow-ups use the fixed reason list instead.
@@ -47,15 +47,16 @@ export const ReasonForVisitField: FC = () => {
     [isScheduledFollowUp, serviceCategoryRfvOptions]
   );
 
+  // Keyed on the stored text, so saves of other fields in the section don't reset an unsaved selection.
+  const storedReasonText = chartFields?.reasonForVisit?.text ?? '';
   useEffect(() => {
     if (!isChartFieldsFetched) return;
-    const storedText = chartFields?.reasonForVisit?.text ?? '';
     // A stored reason outside the fixed follow-up list is a free-text "Other".
     const isOtherStored =
-      isScheduledFollowUp && !!storedText && !SCHEDULED_FOLLOWUP_REASONS.includes(storedText as never);
-    setReasonForVisit(isOtherStored ? SCHEDULED_FOLLOWUP_OTHER_REASON : storedText);
-    setOtherReason(isOtherStored ? storedText : '');
-  }, [chartFields, isChartFieldsFetched, isScheduledFollowUp]);
+      isScheduledFollowUp && !!storedReasonText && !SCHEDULED_FOLLOWUP_REASONS.includes(storedReasonText as never);
+    setReasonForVisit(isOtherStored ? SCHEDULED_FOLLOWUP_OTHER_REASON : storedReasonText);
+    setOtherReason(isOtherStored ? storedReasonText : '');
+  }, [storedReasonText, isChartFieldsFetched, isScheduledFollowUp]);
 
   const isOtherReason = isScheduledFollowUp && reasonForVisit === SCHEDULED_FOLLOWUP_OTHER_REASON;
   // Free-text "Other" reason: debounced save (with cache sync / dedup) like other chart note fields.
@@ -81,6 +82,7 @@ export const ReasonForVisitField: FC = () => {
           labelId="reason-for-visit-label"
           id="reason-for-visit-select"
           value={safeValue}
+          disabled={chartFields === undefined || saveChartData.isPending}
           label="Reason for today's visit"
           onChange={(event) => {
             const value = event.target.value as string;
@@ -90,7 +92,14 @@ export const ReasonForVisitField: FC = () => {
               return;
             }
             setOtherReason('');
-            saveChartData.mutate({ reasonForVisit: { text: value } });
+            // Keep the cached section current so another field's save to it doesn't restore the old value here.
+            // The save response doesn't echo reasonForVisit (it lives on the Encounter), so the cache keeps this.
+            const previousReason = chartFields?.reasonForVisit;
+            setSectionData({ reasonForVisit: { ...previousReason, text: value } });
+            saveChartData.mutate(
+              { reasonForVisit: { text: value } },
+              { onError: () => setSectionData({ reasonForVisit: previousReason }) }
+            );
           }}
         >
           {rfvOptions.map((reason) => (

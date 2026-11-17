@@ -1,6 +1,3 @@
-// Billing dataset (one row per encounter, billing-focused). Zod is the single source of truth: TS
-// types, response validation, prompt schema, UI checkboxes, and endpoint input flags all derive
-// from the objects below.
 import { z } from 'zod';
 import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
 import { ELIGIBILITY_STATUS_DESCRIPTION, ELIGIBILITY_STATUS_VALUES } from './eligibility';
@@ -24,7 +21,18 @@ export const BillingBaseRowSchema = z.object({
         "follow-up row carries its visit's option. Null when not chosen."
     ),
   // --- Patient ---
-  patientId: z.string().describe('Patient id; rows are per-encounter, so count UNIQUE patientId for a patient count.'),
+  patientId: z
+    .string()
+    .describe(
+      'Patient id (internal UUID); rows are per-encounter, so count UNIQUE patientId for a patient count. Display ' +
+        'friendlyPatientId instead unless asked for the UUID.'
+    ),
+  friendlyPatientId: z
+    .string()
+    .describe(
+      'Human-readable patient id (PID) shown in the EHR patient header — the "friendly" / short patient id. Use ' +
+        'it whenever the user asks to display a patient id / PID. "" when the patient has none.'
+    ),
   patientName: z.string().describe('Patient full name.'),
   dateOfBirth: z.string().nullable().describe('Patient date of birth (yyyy-MM-dd).'),
   sex: z.string().describe('Patient sex/gender label.'),
@@ -37,12 +45,8 @@ export const BillingBaseRowSchema = z.object({
   attendingProvider: z.string().describe('Attending provider full name.'),
 });
 
-// Typed as keys of the row so a field that isn't in the schema is a compile error.
 export const BILLING_INTERNAL_FIELDS: readonly (keyof AdHocBillingRow)[] = ['encounterId'];
 
-// Per-field opt-in value domain (see ENCOUNTER_DOMAIN_FIELDS for the policy): safe low-cardinality
-// categoricals + clinical code fields. Excludes identifiers/contact, free text, numeric amounts.
-// payerType is a z.enum already.
 export const BILLING_DOMAIN_FIELDS: readonly (keyof AdHocBillingRow)[] = [
   // base categoricals
   'serviceCategory',
@@ -67,7 +71,6 @@ export const BILLING_DOMAIN_FIELDS: readonly (keyof AdHocBillingRow)[] = [
   'icdCodes',
 ];
 
-// Opt-in layers, declared ONCE (metadata + Zod field schema); everything else derives from this map.
 export const BILLING_LAYERS = {
   payments: {
     label: 'Patient payments',
@@ -256,8 +259,9 @@ export const BILLING_LAYERS = {
 export type BillingLayerId = keyof typeof BILLING_LAYERS;
 
 export type AdHocBillingRow = z.infer<typeof BillingBaseRowSchema> & LayerRowFields<typeof BILLING_LAYERS>;
+
 export const AdHocBillingRowSchema = datasetRowSchema(BillingBaseRowSchema, BILLING_LAYERS).describe(
-  'One row per encounter (billing-focused).'
+  'One row per encounter (EHR-side visit payments & charges).'
 ) as unknown as z.ZodType<AdHocBillingRow>;
 
 export const AdHocBillingInputSchema = datasetInputSchema(BILLING_LAYERS);
@@ -266,4 +270,5 @@ export type AdHocBillingInput = DatasetInput<typeof BILLING_LAYERS>;
 export const AdHocBillingOutputSchema = z.object({
   rows: z.array(AdHocBillingRowSchema),
 });
+
 export type AdHocBillingOutput = { rows: AdHocBillingRow[] };

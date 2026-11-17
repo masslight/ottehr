@@ -8,10 +8,12 @@ import {
   RULE_FIELD_GROUPS,
   RULE_VALUE_FORMATS,
   RuleFieldDef,
+  RuleFieldOption,
   RuleFieldValueType,
   SERVICE_LINE_PROPERTY_CATALOG,
   ServiceLinePropertyDef,
   ServiceLineValueType,
+  settableOptions,
 } from './rules-engine.field-catalog';
 import {
   MULTI_VALUE_OPERATORS,
@@ -54,14 +56,17 @@ const operatorLabel = (
   return valueType === 'date' && metadata.dateLabel ? metadata.dateLabel : metadata.label;
 };
 
+const formatOptions = (options: RuleFieldOption[]): string =>
+  options
+    .map((option) => (option.label === option.value ? `\`${option.value}\`` : `\`${option.value}\` (${option.label})`))
+    .join(', ');
+
 // Allowed-values phrase for a def with options: the docs note when present (states and POS codes
 // would be unreadable enumerated in a table cell), otherwise the enumerated option list.
 const allowedValues = (field: Pick<RuleFieldDef, 'options' | 'optionsDocNote'>): string => {
   if (field.optionsDocNote) return field.optionsDocNote;
   if (!field.options) return '';
-  return field.options
-    .map((option) => (option.label === option.value ? `\`${option.value}\`` : `\`${option.value}\` (${option.label})`))
-    .join(', ');
+  return formatOptions(field.options);
 };
 
 // The validation/constraint suffix of a def's description: allowed values, format hint, and the
@@ -72,6 +77,10 @@ const constraintNotes = (
   const notes: string[] = [];
   const values = allowedValues(def);
   if (values) notes.push(` Allowed values: ${values}.`);
+  const settable = def.options && settableOptions(def.options);
+  if (settable && settable.length < (def.options?.length ?? 0)) {
+    notes.push(` Settable values: ${formatOptions(settable)}.`);
+  }
   if (def.format && RULE_VALUE_FORMATS[def.format].validate) {
     notes.push(` Format: ${RULE_VALUE_FORMATS[def.format].hint}.`);
   }

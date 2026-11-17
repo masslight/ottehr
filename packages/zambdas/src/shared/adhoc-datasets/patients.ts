@@ -25,6 +25,7 @@ import {
   getMiddleName,
   getNameSuffix,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getPhoneNumberForIndividual,
   getPronounsFromExtension,
@@ -68,7 +69,6 @@ const PRONOUNS_NOT_LISTED = ['My pronounces are not listed', 'My pronouns are no
 
 const uniq = (values: string[]): string[] => Array.from(new Set(values.filter(Boolean)));
 
-// The patient page's notes tag (get-patient-notes).
 const PATIENT_NOTE_TAG = `${PRIVATE_EXTENSION_BASE_URL}/patient|patient-note`;
 
 // An address as the face sheet composers split it, on one line.
@@ -391,6 +391,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
 
     const row: AdHocPatientRow = {
       patientId: patient.id || '',
+      friendlyPatientId: getPatientFriendlyId(patient),
       firstName: getPatientFirstName(patient) || '',
       lastName: getPatientLastName(patient) || '',
       patientName: [getPatientFirstName(patient), getPatientLastName(patient)].filter(Boolean).join(' '),

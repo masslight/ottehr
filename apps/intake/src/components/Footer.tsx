@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { generatePath, useLocation, useParams } from 'react-router-dom';
+import { SupportChatEntry } from 'src/features/support-chat/components/SupportChatEntry';
 import { bookingBasePath } from '../App';
 import { ContactSupportDialog } from './ContactSupportDialog';
 import QuestionMarkButton from './QuestionMarkButton';
@@ -27,6 +28,8 @@ const Footer: FC = () => {
       <Box
         sx={{
           display: 'flex',
+          alignItems: 'center',
+          gap: 2,
           justifyContent: 'flex-end',
           padding: '16px',
           pointerEvents: 'all',
@@ -34,6 +37,7 @@ const Footer: FC = () => {
           width: 'fit-content',
         }}
       >
+        <SupportChatEntry />
         <QuestionMarkButton onClick={() => setSupportDialogOpen(true)} />
       </Box>
       {showFooter && (

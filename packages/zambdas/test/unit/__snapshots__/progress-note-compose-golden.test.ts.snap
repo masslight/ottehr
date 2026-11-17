@@ -27,6 +27,9 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
       "12001 Simple repair of superficial wounds",
     ],
   },
+  "dmeOrders": {
+    "dmeOrders": [],
+  },
   "emCode": {
     "emCode": "Office visit, established patient, moderate",
   },
@@ -206,11 +209,11 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
     ],
   },
   "patient": {
-    "patientDOB": "06/01/2015",
-    "patientId": "",
-    "patientName": "Patient, Golden",
-    "patientPhone": "",
-    "personAccompanying": "",
+    "dob": "06/01/2015 (10 y)",
+    "fullName": "Patient, Golden",
+    "id": "",
+    "phone": undefined,
+    "sex": "Female",
   },
   "patientInstructions": {
     "addendumNote": "Legacy single-string addendum",
@@ -319,6 +322,9 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
       },
     ],
   },
+  "questionnaires": {
+    "forms": [],
+  },
   "radiology": {
     "pendingRadiologyOrders": [],
     "radiology": [
@@ -351,6 +357,7 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
       },
     },
     "currentASQ": "",
+    "forms": [],
     "notes": [
       "screening note text",
     ],
@@ -372,19 +379,26 @@ exports[`composeProgressNoteData — golden chart data > matches the golden snap
   },
   "visit": {
     "address": "",
-    "bookingType": undefined,
     "dateOfService": "",
     "insuranceCompany": undefined,
     "insuranceSubscriberId": undefined,
     "intakePerson": undefined,
+    "personAccompanying": undefined,
     "provider": "Provider, Golden | MD",
     "reasonForVisit": "",
-    "serviceCategory": undefined,
     "signedOn": "1/15/2026, 6:00 AM (CST)",
-    "type": "In Person",
     "visitID": "44444444-4444-4444-8444-444444444444",
     "visitState": "",
     "visitType": "initial",
+  },
+  "visitHeader": {
+    "bookingType": undefined,
+    "date": "01/15/2026",
+    "location": "",
+    "reasonForVisit": "",
+    "serviceCategory": undefined,
+    "time": "04:30 AM",
+    "type": "In Person",
   },
   "vitals": {
     "vitals": {

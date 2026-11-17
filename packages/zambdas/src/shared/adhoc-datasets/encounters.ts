@@ -64,6 +64,7 @@ import {
 import {
   getEmailForIndividual,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getPhoneNumberForIndividual,
   mapGenderToLabel,
@@ -71,6 +72,7 @@ import {
 import { getAdmitterPractitionerId } from 'utils/lib/fhir/practitioners';
 import { isIntakePaperworkQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
 import { ORDER_TYPE_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import { getProviderType } from 'utils/lib/helpers/helpers';
 import { isInHouseLabServiceRequest } from 'utils/lib/helpers/in-house-labs';
@@ -149,6 +151,7 @@ import { mapChartResources } from '../chart-sections/map';
 import { getOccupationalMedicineEmployerName, getVisitEmployerOrganizationId } from '../occupational-medicine-employer';
 import { getPaperworkCompleteness } from '../paperwork-completeness';
 import { resolveEncounterSignatures } from '../pdf/get-encounter-signatures';
+import { composeEmployerData } from '../pdf/sections/employerInfo';
 import { parseExamFieldsFromExamObservations } from '../pdf/sections/visit-note/examination';
 import {
   erxDrugRecord,
@@ -168,7 +171,7 @@ async function getStaffNameByEmail(oystehr: Oystehr): Promise<Map<string, string
 
     for (const u of users) {
       const email = (u.email || '').toLowerCase().trim();
-      const pid = u.profile?.startsWith('Practitioner/') ? u.profile.split('/')[1] : undefined;
+      const pid = getIdFromReference(u.profile, 'Practitioner');
 
       if (email && pid) {
         pidByEmail.set(email, pid);
@@ -844,7 +847,10 @@ export async function fetchAdHocEncounterRows(
       .filter((loc) => loc.id)
       .map((loc) => `Location/${loc.id}`)
   )) {
-    const locationId = schedule.actor?.find((a) => a.reference?.startsWith('Location/'))?.reference?.split('/')[1];
+    const locationId = getIdFromReference(
+      schedule.actor?.find((a) => a.reference?.startsWith('Location/'))?.reference,
+      'Location'
+    );
 
     if (locationId && !scheduleByLocationId.has(locationId) && getScheduleExtension(schedule)) {
       scheduleByLocationId.set(locationId, schedule);
@@ -1010,6 +1016,7 @@ export async function fetchAdHocEncounterRows(
       visitStatusSince: currentStatusSince,
       scheduledSlotMinutes: minutesBetween(appointment.start, appointment.end),
       patientId: patient?.id || '',
+      friendlyPatientId: patient ? getPatientFriendlyId(patient) : '',
       firstName: patient ? getPatientFirstName(patient) || '' : '',
       lastName: patient ? getPatientLastName(patient) || '' : '',
       patientName: patient ? [getPatientFirstName(patient), getPatientLastName(patient)].filter(Boolean).join(' ') : '',
@@ -1307,10 +1314,18 @@ export async function fetchAdHocEncounterRows(
         methodOf(latestDto(VitalFieldNames.VitalBloodPressure))
       );
 
+      const oxygenSatDto = latestDto(VitalFieldNames.VitalOxygenSaturation);
+
       row.oxygenSaturationMethod = knownValueOrNull(
         Object.values(VitalsOxygenSatObservationMethod),
-        methodOf(latestDto(VitalFieldNames.VitalOxygenSaturation))
+        methodOf(oxygenSatDto)
       );
+
+      const supplementalO2 =
+        oxygenSatDto?.field === VitalFieldNames.VitalOxygenSaturation ? oxygenSatDto.supplementalO2 : undefined;
+      row.oxygenSaturationFlowRate = supplementalO2?.flowRate ?? null;
+      row.oxygenSaturationDeliveryType = supplementalO2?.deliveryType ?? null;
+      row.oxygenSaturationDeliveryTypeOther = supplementalO2?.deliveryTypeOther ?? '';
 
       const weightDto = latestDto(VitalFieldNames.VitalWeight);
 
@@ -1745,6 +1760,15 @@ export async function fetchAdHocEncounterRows(
           occupationalMedicineAccount: account?.occupationalMedicineAccount,
           visitEmployerOrganization: visitEmployerOrgId ? visitEmployerOrgById.get(visitEmployerOrgId) : undefined,
         }) ?? '';
+
+      const workersComp = composeEmployerData({
+        employer: account?.employerOrganization,
+        workersCompCoverage: account?.coverages.workersComp,
+        insuranceOrgs: account?.insuranceOrgs,
+      });
+
+      row.workersCompEmployer = workersComp.employerName;
+      row.workersCompCarrier = workersComp.workersCompInsuranceCarrier;
     }
 
     if (includeFollowUp) {

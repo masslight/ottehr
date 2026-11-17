@@ -9,6 +9,7 @@ import {
   SLOT_QUESTIONNAIRE_CANONICAL_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { isLocationVirtual, locationSupportsServiceMode } from 'utils/lib/fhir/location';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { resolveServiceCategory } from 'utils/lib/fhir/serviceCategoryResolution';
 import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
@@ -30,6 +31,7 @@ import {
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   SLOT_UNAVAILABLE_ERROR,
 } from 'utils/lib/types/errors';
+import { isFhirDateString, removeTimeFromDate } from 'utils/lib/utils/date';
 import {
   checkSlotAvailable,
   getServiceModeFromScheduleOwner,
@@ -39,7 +41,7 @@ import {
 } from 'utils/lib/utils/scheduleUtils';
 import { REASON_MAXIMUM_CHAR_LIMIT } from 'utils/lib/validation/constants';
 import { z } from 'zod';
-import { checkIsEHRUser, isTestUser, userHasAccessToPatient } from '../../../shared/auth';
+import { Caller, checkIsEHRUser, isTestUser, M2MCaller, userHasAccessToPatient } from '../../../shared/auth';
 import { resolveBookingLocationId } from '../../../shared/resolveBookingLocationId';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
@@ -49,7 +51,7 @@ import { tryGroupMemberFallback } from './groupMemberFallback';
 export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   secrets: Secrets | null;
   user: User | undefined;
-  isM2M: boolean;
+  m2m: M2MCaller | undefined;
   isEHRUser: boolean | undefined;
   locationState?: string;
   appointmentMetadata?: Appointment['meta'];
@@ -66,8 +68,7 @@ const CreateAppointmentBodySchema = z.object({
 
 export function validateCreateAppointmentParams(
   input: ZambdaInput,
-  user: User | undefined,
-  isM2M: boolean
+  { user, m2m }: Caller
 ): CreateAppointmentBasicInput {
   if (!input.body) {
     throw new Error('No request body provided');
@@ -81,6 +82,12 @@ export function validateCreateAppointmentParams(
   console.log('patient:', patient, 'slotId:', slotId);
 
   console.log('patient input:', JSON.stringify(patient));
+  for (const field of ['firstName', 'middleName', 'lastName', 'chosenName', 'authorizedNonLegalGuardians']) {
+    const value = patient[field];
+    if (typeof value === 'string') {
+      patient[field] = value.trim() || undefined;
+    }
+  }
   // Patient details
   const missingRequiredPatientFields: string[] = [];
   if (Boolean(patient.firstName) === false) {
@@ -98,15 +105,15 @@ export function validateCreateAppointmentParams(
   if (Boolean(patient.sex) === false) {
     missingRequiredPatientFields.push('sex');
   }
-  if (!isM2M && !isEHRUser && !patient.email && !patient.noEmail) {
+  if (!m2m && !isEHRUser && !patient.email && !patient.noEmail) {
     missingRequiredPatientFields.push('email');
   }
   if (missingRequiredPatientFields.length > 0) {
     throw MISSING_REQUIRED_PARAMETERS(missingRequiredPatientFields.map((field) => `patient.${field}`));
   }
-  const isInvalidPatientDate = !DateTime.fromISO(patient.dateOfBirth as string).isValid;
-  if (isInvalidPatientDate) {
-    throw INVALID_INPUT_ERROR('"patient.dateOfBirth" was not read as a valid date');
+  const rawDateOfBirth = typeof patient.dateOfBirth === 'string' ? patient.dateOfBirth : '';
+  if (!DateTime.fromISO(rawDateOfBirth).isValid || !isFhirDateString(removeTimeFromDate(rawDateOfBirth))) {
+    throw INVALID_INPUT_ERROR('"patient.dateOfBirth" was not read as a valid date; expected YYYY-MM-DD');
   }
 
   if (patient.sex && !Object.values(PersonSex).includes(patient.sex as PersonSex)) {
@@ -160,7 +167,7 @@ export function validateCreateAppointmentParams(
   return {
     slotId,
     user,
-    isM2M,
+    m2m,
     isEHRUser,
     patient: patient as unknown as PatientInfo,
     secrets: input.secrets,
@@ -266,7 +273,7 @@ export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isM2M, isEHRUser, user, patient, appointmentMetadata } = input;
+  const { slotId, m2m, isEHRUser, user, patient, appointmentMetadata } = input;
 
   console.log('createAppointmentComplexValidation metadata:', appointmentMetadata);
 
@@ -275,7 +282,7 @@ export const createAppointmentComplexValidation = async (
   // patient input complex validation
   // M2Ms and EHR users can access any patient,
   // Patient users can access patients they have access to.
-  if (patient.id && !isM2M) {
+  if (patient.id && !m2m) {
     if (!user) {
       throw NO_READ_ACCESS_TO_PATIENT_ERROR;
     }
@@ -545,7 +552,7 @@ export const createAppointmentComplexValidation = async (
 
   if (scheduleOwner.resourceType === 'PractitionerRole') {
     const role = scheduleOwner as PractitionerRole;
-    const practitionerId = role.practitioner?.reference?.split('/')[1];
+    const practitionerId = getIdFromReference(role.practitioner?.reference);
     if (practitionerId) {
       const resolved = await oystehrClient.fhir
         .search<Practitioner>({

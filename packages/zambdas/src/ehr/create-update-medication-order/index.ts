@@ -28,6 +28,7 @@ import {
 } from 'utils/lib/fhir/medication-administration';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { createCancellationTagOperations } from 'utils/lib/helpers/cancellation-meta.helper';
 import { replaceOperation } from 'utils/lib/helpers/operations';
@@ -67,6 +68,7 @@ import {
   getMedicationById,
   shouldCreateVitalsRecheckNursingOrder,
   updateMedicationAdministrationData,
+  validateAdministrationLocation,
   validateProviderAccess,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -220,8 +222,11 @@ async function updateOrder(
       administeredProviderId: newStatus !== undefined ? practitionerIdCalledZambda : undefined,
       orderedByProviderId: orderData.providerId,
       medicationResource: newMedicationCopy,
+      newStatus,
     });
   }
+
+  validateAdministrationLocation(newStatus, updatedMedicationAdministration ?? orderResources.medicationAdministration);
 
   if (currentStatus && newStatus) {
     if (updatedMedicationAdministration) {
@@ -474,7 +479,7 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
     (res) => res.resourceType === 'MedicationStatement'
   ) as MedicationStatement;
 
-  const medicationRequestId = medicationAdministration.request?.reference?.split('/')[1];
+  const medicationRequestId = getIdFromReference(medicationAdministration.request?.reference);
   const medicationRequest = resources.find(
     (resource) => resource.resourceType === 'MedicationRequest' && resource.id === medicationRequestId
   ) as MedicationRequest;

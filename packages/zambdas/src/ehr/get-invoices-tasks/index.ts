@@ -242,6 +242,9 @@ async function getFhirResourcesGrouped(
       name: 'status',
       value: status,
     });
+  } else {
+    // Cancelled tasks belong to visits the billing app invoices.
+    params.push({ name: 'status:not', value: 'cancelled' });
   }
   if (patientId) {
     console.log('adding patientId to search params: ', patientId);

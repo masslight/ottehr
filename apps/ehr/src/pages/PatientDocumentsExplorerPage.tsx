@@ -16,6 +16,7 @@ const PatientDocumentsExplorerPage: FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialFolderName = searchParams.get('folder') || undefined;
+  const initialFolderId = searchParams.get('folderId') || undefined;
 
   const { patient, loading: isLoadingPatientData } = useGetPatient(patientId);
   useEffect(() => {
@@ -54,7 +55,12 @@ const PatientDocumentsExplorerPage: FC = () => {
           </Typography>
 
           <Paper sx={{ padding: 3 }}>
-            <PatientDocumentsExplorer patientId={patientId!} patient={patient} initialFolderName={initialFolderName} />
+            <PatientDocumentsExplorer
+              patientId={patientId!}
+              patient={patient}
+              initialFolderName={initialFolderName}
+              initialFolderId={initialFolderId}
+            />
           </Paper>
         </Box>
       </Box>

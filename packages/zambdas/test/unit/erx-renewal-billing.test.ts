@@ -61,6 +61,33 @@ describe('eRx renewal mapping', () => {
   });
 });
 
+describe('eRx refills mapping', () => {
+  const toDTO = (medicationRequest: MedicationRequest): MedicationDTO =>
+    makeMedicationDTO(
+      makeMedicationStatementFromErxMedicationRequest(medicationRequest, 'encounter-1', 'patient-1', 'practitioner-1')
+    );
+
+  it('copies the prescribed refills onto the derived MedicationStatement DTO', () => {
+    const medicationRequest = makeMedicationRequest({
+      dispenseRequest: { quantity: { value: 20, unit: 'capsule' }, numberOfRepeatsAllowed: 3 },
+    });
+
+    expect(toDTO(medicationRequest).intakeInfo.refills).toBe(3);
+  });
+
+  it('keeps zero refills', () => {
+    const medicationRequest = makeMedicationRequest({
+      dispenseRequest: { quantity: { value: 20, unit: 'capsule' }, numberOfRepeatsAllowed: 0 },
+    });
+
+    expect(toDTO(medicationRequest).intakeInfo.refills).toBe(0);
+  });
+
+  it('leaves refills unset when the prescription has none', () => {
+    expect(toDTO(makeMedicationRequest()).intakeInfo.refills).toBeUndefined();
+  });
+});
+
 describe('billing prescription context formatting', () => {
   it('distinguishes new prescriptions from refills and skips cancelled orders', () => {
     const prompt = formatPrescribedMedicationsForBillingPrompt([

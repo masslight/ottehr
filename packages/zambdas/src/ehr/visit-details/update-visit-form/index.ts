@@ -6,7 +6,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { buildFormAnswerPatchOperations } from './helpers';
+import { buildFormAnswerPatchOperations, mergeCalculatedAnswersIntoPages } from './helpers';
 import { complexValidation, EffectInput, validateRequestParameters, validateSecrets } from './validation';
 
 const ZAMBDA_NAME = 'update-visit-form';
@@ -31,13 +31,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<void> => {
-  const { questionnaireResponse } = input;
-  const { pages } = input.body;
+  const { questionnaireResponse, editablePages } = input;
+  const { pages, calculatedAnswers = [] } = input.body;
 
   await patchWithOptimisticLock(oystehr, { ...questionnaireResponse, id: questionnaireResponse.id! }, (current) => {
     if (current.status === 'entered-in-error') {
       throw INVALID_INPUT_ERROR('A form that has been deleted cannot be edited.');
     }
-    return buildFormAnswerPatchOperations(current, pages);
+    return buildFormAnswerPatchOperations(
+      current,
+      mergeCalculatedAnswersIntoPages(current, pages, calculatedAnswers, editablePages)
+    );
   });
 };

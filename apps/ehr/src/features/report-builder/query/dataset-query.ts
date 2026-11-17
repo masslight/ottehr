@@ -43,10 +43,10 @@ export async function pollAdHocTask<S extends { status: string; error?: string }
   throw new Error(timeoutMessage);
 }
 
-export async function runAdHocReport<T>(oystehr: Oystehr, input: StartAdHocReportInput): Promise<T> {
-  const { taskId } = await startAdHocReport(oystehr, input);
+export async function runAdHocReport<T>(oystehr: Oystehr, input: StartAdHocReportInput, zambdaId?: string): Promise<T> {
+  const { taskId } = await startAdHocReport(oystehr, input, zambdaId);
 
-  const status = await pollAdHocTask(() => getAdHocReportStatus(oystehr, taskId), {
+  const status = await pollAdHocTask(() => getAdHocReportStatus(oystehr, taskId, zambdaId), {
     failedMessage: 'Report generation failed',
     timeoutMessage: 'Report timed out while waiting for data',
   });

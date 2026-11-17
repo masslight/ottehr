@@ -55,6 +55,7 @@ import {
 } from 'utils/lib/fhir/medication-administration';
 import { getNPIIdentifier, getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   extractCustomInsuranceOrgIdFromReferenceUrl,
@@ -103,6 +104,7 @@ import { sendErrors } from '../../shared/errors';
 import { assertDefined, createClinicalOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { reconcilePaymentNoticesForClaim } from '../payments';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
 import {
   billingCopyMatches,
@@ -129,7 +131,6 @@ import {
   PROVIDER_ROLE_BILLING,
   PROVIDER_ROLE_RENDERING,
   PROVIDER_ROLE_TAG,
-  reconcilePaymentNoticesForClaim,
   resourceDisplayName,
   searchPatientsByClinicalIds,
   selectClaimCoverages,
@@ -216,12 +217,15 @@ export async function handler(input: ZambdaInput): Promise<APIGatewayProxyResult
 export async function createClaimFromEncounter(params: CreateClaimFromEncounterParams): Promise<{ claimId: string }> {
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const billingOystehr = createBillingClient(m2mToken, params.secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the claim is built from the clinical encounter and its resources
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
   const cvo = await complexValidation(clinicalOystehr, billingOystehr, params);
   const agent = await resolveClaimActor('system', billingOystehr, undefined, params.secrets);
 
+  const writeStart = Date.now();
   const { claimId, claim } = await performEffect(billingOystehr, cvo, agent);
+  console.log(`create claim from encounter: write took ${Date.now() - writeStart}ms`);
   const engine = determineRulesEngineForClaim(claim);
   if (engine) await kickOffRulesEngine(billingOystehr, engine, claimId, agent.who, params.secrets);
   return { claimId };
@@ -668,6 +672,7 @@ export function copyCoverageAndSubscriber(
   let copy = workingCopy
     ? prepareWorkingCopy<Coverage>(coverage, coverage.id!)
     : prepareCopy<Coverage>(coverage, coverage.id!);
+  // Replace beneficiary reference
   copy.beneficiary = uuidOrUrnReference('Patient', patientUuidOrUrn);
   // Subscriber is patient by default, check for contained RelatedPerson
   let subscriberId = patientUuidOrUrn;
@@ -1209,7 +1214,7 @@ function buildClaim(resources: ClaimResources): Claim {
 
   // AR Stage tag + the stage's auto-initialized progress status (e.g. Insurance AR Status -> "Created").
   const claimStatusTags = claimStatusValuesToTags(withArStageInitialization({ arStage: determineArStage(resources) }));
-  const nonInsurancePayerId = resources.nonInsurancePayer?.reference?.split('/')[1];
+  const nonInsurancePayerId = getIdFromReference(resources.nonInsurancePayer?.reference);
 
   const claim: Claim = {
     resourceType: 'Claim',
@@ -1487,7 +1492,9 @@ export async function complexValidation(
   if (existingClaims.length > 0) {
     throw INVALID_INPUT_ERROR('Claim has already been created for this encounter');
   }
+  const clinicalReadsStart = Date.now();
   const clinicalResources = await getClinicalResources(clinicalOystehr, billingOystehr, params);
+  console.log(`create claim from encounter: clinical reads took ${Date.now() - clinicalReadsStart}ms`);
   if (!clinicalResources.location.name) {
     throw INVALID_INPUT_ERROR('The encounter location has no name. Add its name in the clinical app, then retry.');
   }
@@ -1505,7 +1512,9 @@ export async function complexValidation(
   if (!attendingProviderNpi) {
     throw INVALID_INPUT_ERROR('The clinical attending provider has no NPI. Add its NPI, then retry.');
   }
+  const billingReadsStart = Date.now();
   const billingResources = await findExistingBillingResources(billingOystehr, clinicalResources, params.secrets);
+  console.log(`create claim from encounter: billing reads took ${Date.now() - billingReadsStart}ms`);
   if (!billingResources.serviceFacility) {
     throw INVALID_INPUT_ERROR(
       `No active billing service facility named "${clinicalResources.location.name}". Add it in billing or fix the visit location, then retry.`

@@ -18,6 +18,7 @@ import {
   updatePatientInstructionQuickPick,
   updateQuickTextQuickPick,
 } from 'src/api/api';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import {
   ExtractObjectType,
   useGetAllergiesSearch,
@@ -32,6 +33,7 @@ import {
   PatientInstructionQuickPickData,
   QuickTextQuickPickData,
 } from 'utils/lib/types/api/quick-picks.types';
+import DmeQuickPicksPage from './DmeQuickPicksPage';
 import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
 import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
 import InsuranceQuickPickPage from './InsuranceQuickPickPage';
@@ -409,6 +411,7 @@ export default function QuickPicksAdminPage(): ReactElement {
             <Tab label="Medical Conditions" value="medical-conditions" sx={{ textTransform: 'none' }} />
             <Tab label="Medications" value="medications" sx={{ textTransform: 'none' }} />
             <Tab label="Radiology" value="radiology" sx={{ textTransform: 'none' }} />
+            {FEATURE_FLAGS.DME_ORDERS_ENABLED && <Tab label="DME" value="dme" sx={{ textTransform: 'none' }} />}
             <Tab label="Immunizations" value="immunizations" sx={{ textTransform: 'none' }} />
             <Tab label="In-House Medications" value="in-house-medications" sx={{ textTransform: 'none' }} />
             <Tab label="Insurance" value="insurance" sx={{ textTransform: 'none' }} />
@@ -508,6 +511,11 @@ export default function QuickPicksAdminPage(): ReactElement {
         <TabPanel value="radiology" sx={{ px: 0 }}>
           <RadiologyQuickPicksPage />
         </TabPanel>
+        {FEATURE_FLAGS.DME_ORDERS_ENABLED && (
+          <TabPanel value="dme" sx={{ px: 0 }}>
+            <DmeQuickPicksPage />
+          </TabPanel>
+        )}
         <TabPanel value="immunizations" sx={{ px: 0 }}>
           <ImmunizationQuickPicksPage />
         </TabPanel>

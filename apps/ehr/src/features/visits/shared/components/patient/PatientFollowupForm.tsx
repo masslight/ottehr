@@ -16,7 +16,7 @@ import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
-import { FOLLOWUP_REASONS, FollowupReason, isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { FOLLOWUP_REASONS, FOLLOWUP_SYSTEMS, FollowupReason, isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { PatientFollowupDetails, ProviderDetails } from 'utils/lib/types/api/encounter.types';
 import { isProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
 
@@ -150,6 +150,10 @@ export default function PatientFollowupForm({
               {
                 name: 'patient',
                 value: patientId,
+              },
+              {
+                name: 'type:not',
+                value: `${FOLLOWUP_SYSTEMS.type.url}|${FOLLOWUP_SYSTEMS.type.code}`,
               },
               {
                 name: '_include',

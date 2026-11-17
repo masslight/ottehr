@@ -17,14 +17,14 @@ export interface SendFaxAttemptInput {
   documentReferenceId: string;
   userPractitioner: Practitioner;
   recipientName?: string;
-  /** Practice or facility the recipient belongs to. Fax packet sends only. */
+  /** Practice or facility the recipient belongs to. Document packet sends only. */
   recipientOrganization?: string;
   /** Follow-up voice number for the recipient. Recorded on the attempt; never dialled. */
   recipientPhone?: string;
   /** Page count of the packet that is being transmitted, cover sheet included. */
-  faxPacketPageCount?: number;
+  packetPageCount?: number;
   /** Titles of the documents merged into the packet, in merge order. */
-  faxPacketParts?: string[];
+  packetParts?: string[];
   parentAttemptId?: string;
   senderId: string;
 }
@@ -41,8 +41,8 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     recipientName,
     recipientOrganization,
     recipientPhone,
-    faxPacketPageCount,
-    faxPacketParts,
+    packetPageCount,
+    packetParts,
     parentAttemptId,
     senderId,
   } = input;
@@ -55,8 +55,8 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     recipientName,
     recipientOrganization,
     recipientPhone,
-    faxPacketPageCount,
-    faxPacketParts,
+    packetPageCount,
+    packetParts,
     documentReferenceId,
     requesterReference: userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined,
     senderOrganizationReference: `Organization/${organizationId}`,

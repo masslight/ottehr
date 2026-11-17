@@ -41,7 +41,8 @@ export const index = wrapHandler('ai-suggestion-notes', async (input: ZambdaInpu
       oystehr,
       m2mToken,
       validatedParameters.appointmentId!,
-      validatedParameters.encounterId!
+      validatedParameters.encounterId!,
+      secrets
     );
     prompt = buildNoteReviewPrompt(reviewPrompt, noteText);
   }

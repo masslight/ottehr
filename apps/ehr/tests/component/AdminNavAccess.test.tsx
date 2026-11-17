@@ -11,17 +11,17 @@ describe('resolveAccessibleAdminNavGroups', () => {
   it.each([RoleType.Administrator, RoleType.Manager, RoleType.CustomerSupport])(
     'gives %s the full admin nav',
     (role) => {
-      expect(resolveAccessibleAdminNavGroups(hasRoleFor([role]))).toEqual(adminNavGroups);
+      expect(resolveAccessibleAdminNavGroups(hasRoleFor([role]), true)).toEqual(adminNavGroups);
     }
   );
 
   it('limits Staff to Action Logs', () => {
     const role = RoleType.Staff;
-    const groups = resolveAccessibleAdminNavGroups(hasRoleFor([role]));
+    const groups = resolveAccessibleAdminNavGroups(hasRoleFor([role]), true);
     expect(groups.flatMap((group) => group.items.map((item) => item.path))).toEqual(['/admin/action-logs']);
   });
 
   it.each([RoleType.Provider, RoleType.Clinician])('returns nothing for %s', (role) => {
-    expect(resolveAccessibleAdminNavGroups(hasRoleFor([role]))).toEqual([]);
+    expect(resolveAccessibleAdminNavGroups(hasRoleFor([role]), true)).toEqual([]);
   });
 });

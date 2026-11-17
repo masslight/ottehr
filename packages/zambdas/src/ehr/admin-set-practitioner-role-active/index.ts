@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, PractitionerRole, Schedule } from 'fhir/r4b';
 import { getPractitionerRoleAllCategories } from 'utils/lib/fhir/healthcareService';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import {
   FHIR_RESOURCE_NOT_FOUND,
@@ -96,7 +97,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     const practitionerRef = role.practitioner?.reference;
     const locationRef = role.location?.[0]?.reference;
     const categoryHsIds = (role.healthcareService ?? [])
-      .map((ref) => ref.reference?.split('/')[1])
+      .map((ref) => getIdFromReference(ref.reference))
       .filter((id): id is string => !!id);
     const allCategories = getPractitionerRoleAllCategories(role);
 

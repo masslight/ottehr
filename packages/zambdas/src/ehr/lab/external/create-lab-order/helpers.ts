@@ -80,6 +80,7 @@ export type ResourcesForRequestFormatting = Omit<GetCreateOrderResourcesReturn, 
   attendingPractitionerId: string;
   currentUserPractitioner: Practitioner;
   clinicalInfoNoteByUser: string | undefined;
+  isStat: boolean;
 };
 
 export const groupTestsByKey = (orderableItems: OrderableItemSearchResult[]): TestsByGroupingKey => {
@@ -141,8 +142,17 @@ export const formatServiceRequestConfig = (
   specimenFullUrlArr: string[],
   provenanceFullUrl: string
 ): ServiceRequest => {
-  const { labOrganization, patient, orderingLocation, requisitionNumber, encounter, psc, dx, attendingPractitionerId } =
-    resources;
+  const {
+    labOrganization,
+    patient,
+    orderingLocation,
+    requisitionNumber,
+    encounter,
+    psc,
+    dx,
+    attendingPractitionerId,
+    isStat,
+  } = resources;
 
   const serviceRequestCode = formatSrCode(orderableItem);
   const serviceRequestReasonCode: ServiceRequest['reasonCode'] = dx.map((diagnosis) => {
@@ -181,7 +191,7 @@ export const formatServiceRequestConfig = (
       },
     ],
     authoredOn: DateTime.now().toISO() || undefined,
-    priority: 'stat',
+    priority: isStat ? 'stat' : 'routine',
     code: serviceRequestCode,
     reasonCode: serviceRequestReasonCode,
     instantiatesCanonical: [`#${containedActivityDefinitionId}`],

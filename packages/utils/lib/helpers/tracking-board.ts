@@ -61,4 +61,5 @@ export const emptyOrdersForTrackingBoardTable = (): OrdersForTrackingBoardTable 
   erxOrdersByEncounterId: {},
   proceduresByEncounterId: {},
   immunizationOrdersByEncounterId: {},
+  dmeOrdersByEncounterId: {},
 });

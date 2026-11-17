@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Coverage, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
 import React, { type InputHTMLAttributes, type ReactNode, useState } from 'react';
@@ -92,6 +92,7 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
 import {
   buildInsuranceSectionCounts,
   useCoverageFormRehydration,
+  usePatientFormDefaultsSync,
 } from '../../src/features/visits/shared/components/patient/insuranceFormHelpers';
 import { InsuranceSection } from '../../src/features/visits/shared/components/patient/InsuranceSection';
 import { createDynamicValidationResolver } from '../../src/features/visits/shared/components/patient/patientRecordValidation';
@@ -209,6 +210,8 @@ const fillRequiredSecondaryFields = (methods: UseFormReturn): void => {
 interface HarnessControl {
   setCoverages: (next: OrderedCoveragesWithSubscribers) => void;
   setCoveragesFormValues: (next: Record<string, unknown> | undefined) => void;
+  setFormDefaults: (next: Record<string, unknown> | undefined) => void;
+  setCoveragesRefetching: (next: boolean) => void;
   methods: UseFormReturn;
 }
 
@@ -222,6 +225,8 @@ interface HarnessProps {
 const Harness: React.FC<HarnessProps> = ({ initialCoverages, defaultValues, coverageChecks, controlRef }) => {
   const [coverages, setCoveragesState] = useState<OrderedCoveragesWithSubscribers>(initialCoverages ?? {});
   const [coveragesFormValues, setCoveragesFormValuesState] = useState<Record<string, unknown> | undefined>(undefined);
+  const [formDefaults, setFormDefaultsState] = useState<Record<string, unknown> | undefined>(undefined);
+  const [coveragesRefetching, setCoveragesRefetchingState] = useState(false);
 
   const orderedCoverages: CoverageWithPriority[] = [];
   if (coverages.primary) orderedCoverages.push({ resource: coverages.primary, startingPriority: 1 });
@@ -252,10 +257,14 @@ const Harness: React.FC<HarnessProps> = ({ initialCoverages, defaultValues, cove
     methods,
   });
 
+  usePatientFormDefaultsSync({ defaultFormVals: formDefaults, coveragesRefetching, patientId: PATIENT_ID, methods });
+
   // Expose imperative handles for tests once the form is mounted.
   controlRef.current = {
     setCoverages: setCoveragesState,
     setCoveragesFormValues: setCoveragesFormValuesState,
+    setFormDefaults: setFormDefaultsState,
+    setCoveragesRefetching: setCoveragesRefetchingState,
     methods,
   };
 
@@ -497,5 +506,80 @@ describe('InsuranceSection — eligibility-derived insurance type', () => {
 
     await screen.findByText(/Primary insurance/i);
     expect(control.methods.getValues(PRIMARY.insurancePlanType.key)).toBe('');
+  });
+
+  // OTR-3632: a reset from fresh account + stale coverages emptied the field, and the eligibility
+  // autofill re-dirtied it, hiding the saved value until a page refresh.
+  it('keeps the newly saved plan type when the account refetch lands before the coverages refetch', async () => {
+    const user = userEvent.setup();
+    const savedDefaults = seedPrimaryFromCoverage(makeEmptyFormDefaults());
+    const control = renderHarness({
+      initialCoverages: makeFullPrimaryCoverages(),
+      defaultValues: savedDefaults,
+      coverageChecks: [makeCoverageCheck('PR')],
+    });
+    act(() => control.setFormDefaults(savedDefaults));
+    await waitFor(() => expect(control.methods.getValues(PRIMARY.insurancePlanType.key)).toBe('12'));
+
+    act(() => control.methods.setValue(PRIMARY.insurancePlanType.key, '13', { shouldDirty: true }));
+    await user.click(await screen.findByRole('button', { name: /^save$/i }));
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalledTimes(1));
+    expect(answeredLinkIds(mutateAsyncMock.mock.calls[0][0], 'insurance-section')).toContain(
+      PRIMARY.insurancePlanType.key
+    );
+
+    act(() => {
+      control.setCoveragesRefetching(true);
+      control.setFormDefaults({ ...savedDefaults });
+    });
+    act(() => {
+      control.setFormDefaults({ ...savedDefaults, [PRIMARY.insurancePlanType.key]: '13' });
+      control.setCoveragesRefetching(false);
+    });
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^save$/i })).toBeNull());
+    expect(control.methods.getValues(PRIMARY.insurancePlanType.key)).toBe('13');
+    expect(control.methods.getFieldState(PRIMARY.insurancePlanType.key).isDirty).toBe(false);
+  });
+});
+
+describe('usePatientFormDefaultsSync', () => {
+  type SyncProps = { defaults: Record<string, unknown>; refetching: boolean; patientId: string };
+
+  const renderSync = (initial: SyncProps): ReturnType<typeof renderHook<UseFormReturn, SyncProps>> =>
+    renderHook(
+      ({ defaults, refetching, patientId }: SyncProps) => {
+        const methods = useForm({ defaultValues: defaults });
+        usePatientFormDefaultsSync({ defaultFormVals: defaults, coveragesRefetching: refetching, patientId, methods });
+        return methods;
+      },
+      { initialProps: initial }
+    );
+
+  it('defers a same-patient reset while coverages refetch, then applies the fresh defaults', () => {
+    const { result, rerender } = renderSync({ defaults: { plan: '12' }, refetching: false, patientId: 'a' });
+
+    rerender({ defaults: { plan: '' }, refetching: true, patientId: 'a' });
+    expect(result.current.getValues('plan')).toBe('12');
+
+    rerender({ defaults: { plan: '13' }, refetching: false, patientId: 'a' });
+    expect(result.current.getValues('plan')).toBe('13');
+  });
+
+  it('keeps in-progress edits on a same-patient reset', () => {
+    const { result, rerender } = renderSync({ defaults: { plan: '12', name: 'A' }, refetching: false, patientId: 'a' });
+    act(() => result.current.setValue('name', 'edited', { shouldDirty: true }));
+
+    rerender({ defaults: { plan: '13', name: 'A' }, refetching: false, patientId: 'a' });
+    expect(result.current.getValues()).toEqual({ plan: '13', name: 'edited' });
+  });
+
+  it("resets to the new patient's values right away, even while coverages refetch", () => {
+    const { result, rerender } = renderSync({ defaults: { name: 'A' }, refetching: false, patientId: 'a' });
+    act(() => result.current.setValue('name', 'edited for A', { shouldDirty: true }));
+
+    rerender({ defaults: { name: 'B' }, refetching: true, patientId: 'b' });
+    expect(result.current.getValues('name')).toBe('B');
+    expect(result.current.formState.dirtyFields).toEqual({});
   });
 });

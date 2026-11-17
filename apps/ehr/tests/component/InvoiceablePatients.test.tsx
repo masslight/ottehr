@@ -126,25 +126,32 @@ describe('InvoiceablePatients source', () => {
     expect(candidChip).toBeDefined();
   });
 
-  it('omits the hide-$0 filter and does not hide $0 balances on the ottehr-billing screen', async () => {
-    renderWithSource('ottehr-billing');
+  it.each<InvoiceTaskSource>(['candid', 'ottehr-billing'])(
+    'shows the hide-$0 filter defaulting on for the %s screen',
+    async (source) => {
+      renderWithSource(source);
 
-    await waitFor(() => expect(lastGetInvoicesCall()).toBeDefined());
-    expect(lastGetInvoicesCall()?.hideZeroBalance).toBe(false);
+      await waitFor(() => expect(lastGetInvoicesCall()).toBeDefined());
+      expect(lastGetInvoicesCall()?.hideZeroBalance).toBe(true);
 
-    const checkbox = screen.queryByRole('checkbox', { name: /hide \$0 balances/i });
-    expect(checkbox).toBeNull();
-  });
+      const checkbox = screen.getByRole('checkbox', { name: /hide \$0 balances/i });
+      expect(checkbox).toBeChecked();
+    }
+  );
 
-  it('keeps the hide-$0 filter defaulting on for the candid screen', async () => {
-    renderWithSource('candid');
+  it.each<InvoiceTaskSource>(['candid', 'ottehr-billing'])(
+    'requests $0 balances after unchecking the hide-$0 filter on the %s screen',
+    async (source) => {
+      const user = userEvent.setup();
+      renderWithSource(source);
 
-    await waitFor(() => expect(lastGetInvoicesCall()).toBeDefined());
-    expect(lastGetInvoicesCall()?.hideZeroBalance).toBe(true);
+      const checkbox = await screen.findByRole('checkbox', { name: /hide \$0 balances/i });
+      await user.click(checkbox);
 
-    const checkbox = screen.getByRole('checkbox', { name: /hide \$0 balances/i });
-    expect(checkbox).toBeDefined();
-  });
+      await waitFor(() => expect(lastGetInvoicesCall()?.hideZeroBalance).toBe(false));
+      expect(checkbox).not.toBeChecked();
+    }
+  );
 
   it('restores persisted filters from the per-source storage key only', async () => {
     localStorage.setItem('invoices-tasks.filters.candid', JSON.stringify({ patient: 'pat-persisted' }));
