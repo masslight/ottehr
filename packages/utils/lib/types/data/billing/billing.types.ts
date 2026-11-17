@@ -589,6 +589,7 @@ export interface ClaimDetailResponse {
   quaternaryMemberId: string;
   quaternaryGroupNumber?: string;
   quaternaryPayerClaimControlNumber?: string;
+  medicareSecondaryReasonCode?: string;
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
   renderingProviderId: string;
