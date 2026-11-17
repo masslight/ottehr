@@ -96,7 +96,7 @@ const LinkOpenCells: FC<{ opens?: ActionLogLinkOpen[] }> = ({ opens }) => {
               </Box>
             }
           >
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" tabIndex={0}>
               +{earlier.length} earlier
             </Typography>
           </Tooltip>
@@ -106,7 +106,7 @@ const LinkOpenCells: FC<{ opens?: ActionLogLinkOpen[] }> = ({ opens }) => {
       <TableCell>
         {latest.userAgent ? (
           <Tooltip title={latest.userAgent}>
-            <span>{formatBrowser(latest)}</span>
+            <span tabIndex={0}>{formatBrowser(latest)}</span>
           </Tooltip>
         ) : (
           '-'
