@@ -18,6 +18,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
+  getPayerClaimControlNumber,
 } from '../../../src/billing/shared';
 import {
   claimAcknowledgmentRequests,
@@ -661,5 +662,26 @@ describe('claim status payer claim control number', () => {
         agent
       )
     ).toEqual([]);
+  });
+
+  it('replaces an empty PCCN identifier for that payer with the ICN', async () => {
+    const emptyPrimary: Identifier = { ...pccn('primary', 'primary'), value: undefined };
+    const emptyLegacy: Identifier = { system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM };
+    const billingClaim: Claim = {
+      ...twoInsuranceClaim,
+      identifier: [emptyLegacy, pccn('SECONDARY', 'secondary'), emptyPrimary],
+    };
+    const claimResponse = statusResponse({});
+    const payerClaimControlNumber = await resolve(claimResponse, billingClaim);
+    expect(payerClaimControlNumber).toEqual({ value: '762839104822', insurance: 'primary' });
+
+    const [patch] = claimPayerClaimControlNumberRequests(
+      { claim: billingClaim, claimResponse, payerClaimControlNumber },
+      agent
+    );
+    if (!('operations' in patch)) throw new Error('Expected a JSON patch');
+    const patched: Claim = applyPatch(billingClaim, patch.operations, true, false).newDocument;
+    expect(patched.identifier).toEqual([pccn('SECONDARY', 'secondary'), pccn('762839104822', 'primary')]);
+    expect(getPayerClaimControlNumber(patched, 'primary')).toBe('762839104822');
   });
 });

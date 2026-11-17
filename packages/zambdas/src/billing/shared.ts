@@ -2194,7 +2194,8 @@ export function isPayerClaimControlNumberFor(identifier: Identifier, insurance: 
 }
 
 export function getPayerClaimControlNumber(claim: Claim, insurance: RulesEngineInsurance): string | undefined {
-  return (claim.identifier ?? []).find((i) => isPayerClaimControlNumberFor(i, insurance))?.value;
+  // an identifier without a value carries no number to read
+  return (claim.identifier ?? []).find((i) => i.value && isPayerClaimControlNumberFor(i, insurance))?.value;
 }
 
 export function payerClaimControlNumberIdentifier(

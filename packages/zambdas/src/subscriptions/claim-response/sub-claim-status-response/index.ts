@@ -52,6 +52,7 @@ import {
   getInsuranceOrdinal,
   getPayerClaimControlNumber,
   hasTag,
+  isPayerClaimControlNumberFor,
   payerClaimControlNumberIdentifier,
 } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
@@ -226,9 +227,11 @@ export function claimPayerClaimControlNumberRequests(
   if (!claim.id || !claimResponse.id) {
     throw INVALID_INPUT_ERROR('Claim and ClaimResponse IDs are required for payer claim control number processing');
   }
+  const { insurance } = payerClaimControlNumber;
   const identifier = [
-    ...(claim.identifier ?? []),
-    payerClaimControlNumberIdentifier(payerClaimControlNumber.value, payerClaimControlNumber.insurance),
+    // the resolver found no number for this payer, so any PCCN identifier it has is empty and gets replaced
+    ...(claim.identifier ?? []).filter((existing) => !isPayerClaimControlNumberFor(existing, insurance)),
+    payerClaimControlNumberIdentifier(payerClaimControlNumber.value, insurance),
   ];
   const after: Claim = { ...claim, identifier };
   const history = claimEventProvenanceRequest({
