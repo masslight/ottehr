@@ -1,5 +1,5 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { Claim, DocumentReference, Invoice, Location, PaymentNotice } from 'fhir/r4b';
+import { Claim, DocumentReference, Invoice, Location, Organization, PaymentNotice } from 'fhir/r4b';
 import {
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
@@ -16,7 +16,7 @@ import {
   BILLING_INVOICE_LIST_STATUSES,
   BillingInvoiceListStatus,
 } from 'utils/lib/types/data/billing/billing.constants';
-import { BillingInvoiceSummary } from 'utils/lib/types/data/billing/billing.types';
+import { BillingInvoiceListItem, BillingInvoiceSummary } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues, isInvoiceableClaimStatus } from 'utils/lib/types/data/billing/claim-status';
 import { INVALID_INPUT_ERROR, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
 import { invoiceAttachmentOwner, ownedAttachmentLocation, presignAttachment } from './attachments';
@@ -119,6 +119,19 @@ export const getInvoiceStatusDatesAndAmount = (invoice: Invoice): BillingInvoice
   amount: invoice.totalGross?.value ?? 0,
   hostedInvoiceUrl: getHostedInvoiceUrl(invoice),
 });
+
+// Falls back to the payer name saved on the invoice.
+export function getNioInvoiceRecipient(
+  invoice: Invoice,
+  organization: Organization | undefined
+): BillingInvoiceListItem['recipient'] {
+  const id = organization?.id ?? getIdFromReference(invoice.recipient?.reference, 'Organization');
+  if (!id) return undefined;
+  return {
+    id,
+    name: organization?.name ?? invoice.recipient?.display ?? '',
+  };
+}
 
 export async function fetchInvoicePaymentNotices(oystehr: Oystehr, invoiceIds: string[]): Promise<PaymentNotice[]> {
   if (invoiceIds.length === 0) return [];

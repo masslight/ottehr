@@ -17,7 +17,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { getClaimServiceDate } from '../claim-search';
-import { getInvoiceStatusDatesAndAmount } from '../invoices';
+import { getInvoiceStatusDatesAndAmount, getNioInvoiceRecipient } from '../invoices';
 import { createBillingClient, fhirName, findById, patientSearchParam, resolveLinkedPatientIds } from '../shared';
 import { SearchBillingInvoicesParams, validateRequestParameters } from './validateRequestParameters';
 
@@ -146,18 +146,6 @@ async function fetchClaims(oystehr: Oystehr, invoices: Invoice[]): Promise<Map<s
   return new Map(claims.map((claim) => [claim.id!, claim]));
 }
 
-function findNioRecipient(
-  invoice: Invoice,
-  organizationsByRef: Map<string, Organization>
-): BillingInvoiceListItem['recipient'] {
-  const organization = organizationsByRef.get(invoice.recipient?.reference ?? '');
-  if (!organization) return undefined;
-  return {
-    id: organization.id!,
-    name: organization.name ?? invoice.recipient?.display ?? '',
-  };
-}
-
 function buildInvoiceListRow({
   invoice,
   patientsByRef,
@@ -184,7 +172,7 @@ function buildInvoiceListRow({
     claimId: line?.claimId,
     serviceDate: serviceDate ? DateTime.fromISO(serviceDate, { setZone: true }).toISODate() ?? '' : '',
     kind,
-    recipient: findNioRecipient(invoice, organizationsByRef),
+    recipient: getNioInvoiceRecipient(invoice, organizationsByRef.get(invoice.recipient?.reference ?? '')),
     pastDue: kind === 'nio' && isInvoicePastDue(invoice, today),
   };
 }

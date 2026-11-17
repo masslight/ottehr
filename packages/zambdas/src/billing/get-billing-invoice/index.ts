@@ -31,8 +31,9 @@ import {
   findInvoicePdf,
   getInvoicePdfDownloadUrl,
   getInvoiceStatusDatesAndAmount,
+  getNioInvoiceRecipient,
 } from '../invoices';
-import { createBillingClient, fhirName, findRef, resourceDisplayName } from '../shared';
+import { createBillingClient, fhirName, findRef } from '../shared';
 
 let m2mToken: string;
 const ZAMBDA_NAME = 'get-billing-invoice';
@@ -102,8 +103,10 @@ export async function performEffect({
       secrets,
     }),
   ]);
-  const recipientReference = invoice.recipient?.reference;
-  const recipient = findRef<Resource>(resources, recipientReference);
+  const organization = resources.find(
+    (resource): resource is Organization =>
+      resource.resourceType === 'Organization' && `Organization/${resource.id}` === invoice.recipient?.reference
+  );
   const payments = notices
     .filter((notice) => notice.status === 'active')
     .map((notice): BillingInvoicePayment => {
@@ -123,10 +126,7 @@ export async function performEffect({
     ...getInvoiceStatusDatesAndAmount(invoice),
     kind: 'nio',
     number: getInvoiceNumber(invoice),
-    recipient: recipient && {
-      id: recipient.id!,
-      name: resourceDisplayName(recipient) ?? invoice.recipient?.display ?? '',
-    },
+    recipient: getNioInvoiceRecipient(invoice, organization),
     balance: getInvoiceBalanceInCents(invoice, notices) / 100,
     pastDue: isInvoicePastDue(invoice, today),
     claims,

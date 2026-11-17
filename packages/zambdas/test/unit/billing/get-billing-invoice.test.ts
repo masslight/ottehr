@@ -162,17 +162,19 @@ const invoicePdf: DocumentReference = {
 
 const setup = ({
   invoices = [nioInvoice()],
+  organizations = [nio],
   claims = [claim],
   notices = [],
   pdfs = [invoicePdf],
 }: {
   invoices?: Invoice[];
+  organizations?: Organization[];
   claims?: Claim[];
   notices?: PaymentNotice[];
   pdfs?: DocumentReference[];
 } = {}): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
   const resultsByType: Record<string, unknown[]> = {
-    Invoice: [...invoices, nio],
+    Invoice: [...invoices, ...organizations],
     Claim: [...claims, patient],
     PaymentNotice: notices,
     DocumentReference: pdfs,
@@ -348,6 +350,33 @@ describe('get-billing-invoice', () => {
         amount: 180,
       },
     ]);
+  });
+
+  it("names the payer from the invoice when the payer's Organization isn't returned", async () => {
+    const { oystehr } = setup({
+      invoices: [
+        {
+          ...nioInvoice(),
+          recipient: {
+            reference: 'Organization/nio-1',
+            display: 'Acme Health Services',
+          },
+        },
+      ],
+      organizations: [],
+    });
+
+    const result = await performEffect({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      secrets,
+      today: TODAY,
+    });
+
+    expect(result.recipient).toEqual({
+      id: 'nio-1',
+      name: 'Acme Health Services',
+    });
   });
 
   it('throws when the invoice does not exist', async () => {
