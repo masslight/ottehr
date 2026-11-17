@@ -73,13 +73,33 @@ const invoice: BillingInvoiceListItem = {
   hostedInvoiceUrl: 'https://pay.test/in_1',
 };
 
+const nioInvoice: BillingInvoiceListItem = {
+  id: 'inv-nio',
+  status: 'issued',
+  issueDate: '2026-10-03T15:00:00.000Z',
+  dueDate: '2026-10-10',
+  amount: 320,
+  patientName: '',
+  serviceDate: '',
+  kind: 'nio',
+  number: 'INV-00042',
+  recipient: {
+    id: 'nio-1',
+    name: 'Acme Health Services',
+  },
+  balance: 320,
+  pastDue: true,
+};
+
 function renderList(): void {
   render(
     <MemoryRouter initialEntries={['/invoices']}>
       <Routes>
         <Route path="/invoices" element={<InvoicesList />} />
+        <Route path="/invoices/:id" element={<div>invoice page</div>} />
         <Route path="/claims/:id" element={<div>claim page</div>} />
         <Route path="/patients/:id" element={<div>patient page</div>} />
+        <Route path="/non-insurance-organizations/:id" element={<div>nio page</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -96,7 +116,7 @@ describe('InvoicesList', () => {
 
     const row = within(await screen.findByTestId('row-inv-1'));
     expect(screen.getByTestId('grid-headers')).toHaveTextContent(
-      'Patient|Date of Service|Amount|Issued|Due|Status|Invoice'
+      'Billed to|Date of Service|Amount|Issued|Due|Status|Invoice'
     );
     expect(row.getByText('Patientlastname, Sam')).toBeInTheDocument();
     expect(row.getByText('$3.50')).toBeInTheDocument();
@@ -119,6 +139,40 @@ describe('InvoicesList', () => {
     fireEvent.click(link);
 
     expect(await screen.findByText('patient page')).toBeInTheDocument();
+    expect(screen.queryByText('claim page')).not.toBeInTheDocument();
+  });
+
+  it('shows an NIO invoice under its payer, past due and without a statement', async () => {
+    searchBillingInvoicesMock.mockResolvedValue({
+      invoices: [invoice, nioInvoice],
+      total: 2,
+      offset: 0,
+      pageSize: 25,
+    });
+    renderList();
+
+    const nioRow = within(await screen.findByTestId('row-inv-nio'));
+    const payer = nioRow.getByRole('link', { name: 'Acme Health Services' });
+    expect(payer).toHaveAttribute('href', '/non-insurance-organizations/nio-1');
+    expect(nioRow.getByText('Past due')).toBeInTheDocument();
+    expect(nioRow.queryByRole('button', { name: 'Statement' })).not.toBeInTheDocument();
+    const patientRow = within(screen.getByTestId('row-inv-1'));
+    expect(patientRow.getByRole('button', { name: 'Statement' })).toBeInTheDocument();
+  });
+
+  it('opens the details of an NIO invoice instead of a claim', async () => {
+    searchBillingInvoicesMock.mockResolvedValue({
+      invoices: [nioInvoice],
+      total: 1,
+      offset: 0,
+      pageSize: 25,
+    });
+    renderList();
+
+    const nioRow = await screen.findByTestId('row-inv-nio');
+    fireEvent.click(nioRow);
+
+    expect(await screen.findByText('invoice page')).toBeInTheDocument();
     expect(screen.queryByText('claim page')).not.toBeInTheDocument();
   });
 

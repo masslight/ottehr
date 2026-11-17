@@ -41,11 +41,20 @@ const columns = (
   [
     {
       field: 'patientName',
-      headerName: 'Patient',
+      headerName: 'Billed to',
       flex: 1,
       minWidth: 180,
       renderCell: ({ row }) =>
-        row.patientId ? (
+        row.recipient ? (
+          <Link
+            component={RouterLink}
+            to={`/non-insurance-organizations/${row.recipient.id}`}
+            underline="hover"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {row.recipient.name || '-'}
+          </Link>
+        ) : row.patientId ? (
           <Link
             component={RouterLink}
             to={`/patients/${row.patientId}`}
@@ -88,7 +97,7 @@ const columns = (
       field: 'status',
       headerName: 'Status',
       width: 110,
-      renderCell: ({ row }) => <InvoiceStatusChip status={row.status} />,
+      renderCell: ({ row }) => <InvoiceStatusChip status={row.status} pastDue={row.pastDue} />,
     },
     {
       field: 'hostedInvoiceUrl',
@@ -156,18 +165,19 @@ export default function InvoicesList(): ReactElement {
         headerName: '',
         width: 120,
         sortable: false,
-        renderCell: ({ row }) => (
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={(event) => {
-              event.stopPropagation();
-              setStatementInvoice(row);
-            }}
-          >
-            Statement
-          </Button>
-        ),
+        renderCell: ({ row }) =>
+          row.kind !== 'nio' && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={(event) => {
+                event.stopPropagation();
+                setStatementInvoice(row);
+              }}
+            >
+              Statement
+            </Button>
+          ),
       },
     ],
     []
@@ -239,9 +249,19 @@ export default function InvoicesList(): ReactElement {
       downloadTextFile(
         'invoices.csv',
         toCsv(
-          ['Patient', 'Patient ID', 'Date of Service', 'Amount', 'Issued', 'Due', 'Status', 'Invoice URL', 'Claim ID'],
+          [
+            'Billed to',
+            'Patient ID',
+            'Date of Service',
+            'Amount',
+            'Issued',
+            'Due',
+            'Status',
+            'Invoice URL',
+            'Claim ID',
+          ],
           rows.map((row) => [
-            row.patientName ?? '',
+            row.recipient?.name ?? row.patientName ?? '',
             row.patientId ?? '',
             formatDate(row.serviceDate ?? ''),
             row.amount.toFixed(2),
@@ -335,7 +355,10 @@ export default function InvoicesList(): ReactElement {
           setPaginationModel(model);
           void fetchInvoices(filters, model);
         }}
-        onRowClick={({ row }) => row.claimId && navigate(`/claims/${row.claimId}`)}
+        onRowClick={({ row }) => {
+          if (row.kind === 'nio') navigate(`/invoices/${row.id}`);
+          else if (row.claimId) navigate(`/claims/${row.claimId}`);
+        }}
         disableRowSelectionOnClick
         disableColumnMenu
         pageSizeOptions={[25, 50, 100]}
