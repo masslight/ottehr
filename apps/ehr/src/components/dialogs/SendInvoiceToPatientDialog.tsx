@@ -76,7 +76,6 @@ export default function SendInvoiceToPatientDialog({
   const smsEditorRef = useRef<ReturnType<typeof useEditor> | null>(null);
   const memoEditorRef = useRef<ReturnType<typeof useEditor> | null>(null);
 
-  // Build preview values from real report data + current form values
   const previewValues = useMemo<Record<string, string>>(() => {
     const amount = watch('amount');
     const dueDate = watch('dueDate');
@@ -103,10 +102,8 @@ export default function SendInvoiceToPatientDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patient?.fullName, location, visitDate, watch('amount'), watch('dueDate')]);
 
-  // Pre-fill form when task data + config arrive
   useEffect(() => {
     if (!task) {
-      // Dialog closed: drop the previous invoice's values so a reopened editor doesn't start from them.
       reset();
       return;
     }
@@ -137,7 +134,6 @@ export default function SendInvoiceToPatientDialog({
     }
   }, [task, reset, configData]);
 
-  // Awaiting onSubmit keeps isSubmitting true for the whole send, and clears it when a failed send leaves the dialog open.
   const handleSubmitWrapped = async (data: SendInvoiceFormData): Promise<void> => {
     if (task && task?.id) {
       await onSubmit(task.id, {
