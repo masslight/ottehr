@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Invoice, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BillingInvoiceKind,
   getBillingInvoiceClaims,
   getBillingInvoiceKind,
   INVOICE_CLAIM_TAG_SYSTEM,
@@ -22,6 +23,11 @@ import { SearchBillingInvoicesParams, validateRequestParameters } from './valida
 
 const ZAMBDA_NAME = 'search-billing-invoices';
 const DEFAULT_PAGE_SIZE = 25;
+// Matches getBillingInvoiceKind.
+const RECIPIENT_TYPES_BY_KIND: Record<BillingInvoiceKind, string[]> = {
+  nio: ['Organization'],
+  patient: ['Patient', 'RelatedPerson'],
+};
 
 let m2mToken: string;
 
@@ -76,9 +82,12 @@ export async function performEffect(
     });
   }
   if (params.recipientId) {
+    const recipientTypes = params.kind
+      ? RECIPIENT_TYPES_BY_KIND[params.kind]
+      : Object.values(RECIPIENT_TYPES_BY_KIND).flat();
     searchParams.push({
       name: 'recipient',
-      value: `${params.kind === 'patient' ? 'Patient' : 'Organization'}/${params.recipientId}`,
+      value: recipientTypes.map((type) => `${type}/${params.recipientId}`).join(','),
     });
   }
 

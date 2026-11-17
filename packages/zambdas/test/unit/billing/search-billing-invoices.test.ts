@@ -213,19 +213,23 @@ describe('search-billing-invoices', () => {
     });
   });
 
-  it('filters NIO invoices by their non-insurance payer', async () => {
+  it.each([
+    ['nio', 'Organization/rec-1'],
+    ['patient', 'Patient/rec-1,RelatedPerson/rec-1'],
+    [undefined, 'Organization/rec-1,Patient/rec-1,RelatedPerson/rec-1'],
+  ] as const)('filters %s invoices by recipient as %s', async (kind, recipient) => {
     const { oystehr, search } = makeOystehr([]);
 
     await performEffect(oystehr, {
-      kind: 'nio',
-      recipientId: 'nio-1',
+      kind,
+      recipientId: 'rec-1',
       secrets: {},
     });
 
     const [{ params }] = search.mock.calls.find(([input]) => input.resourceType === 'Invoice')!;
     expect(params).toContainEqual({
       name: 'recipient',
-      value: 'Organization/nio-1',
+      value: recipient,
     });
   });
 
