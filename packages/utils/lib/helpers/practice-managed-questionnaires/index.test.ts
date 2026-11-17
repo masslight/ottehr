@@ -6,6 +6,7 @@ import {
   PRACTICE_MANAGED_QUESTIONNAIRE_TAG,
   QR_DISTRIBUTION_TAG,
 } from '../../fhir/constants';
+import { PracticeManagedQuestionnaireSchema } from '../../types/data/practice-managed-questionnaires/practice-managed-questionnaire.schema';
 import {
   PracticeManagedQuestionnaire,
   PracticeManagedQuestionnaireItem,
@@ -127,6 +128,108 @@ describe('practiceManagedQuestionnaireToFhir', () => {
     expect(fhir.item?.[0]).toBeUndefined();
   });
 
+  it('omits whitespace-only item text, including on nested items', () => {
+    const questionnaire = baseManagedQuestionnaire({
+      item: [managedItem({ type: 'group', text: '  ', item: [managedItem({ linkId: 'child-1', text: '\n' })] })],
+    });
+
+    const fhir = practiceManagedQuestionnaireToFhir(questionnaire);
+
+    expect(fhir.item?.[0]).not.toHaveProperty('text');
+    expect(fhir.item?.[0].item?.[0]).not.toHaveProperty('text');
+  });
+
+  it('keeps non-blank item text and answer options as typed', () => {
+    const questionnaire = baseManagedQuestionnaire({
+      item: [managedItem({ text: ' Age ', answerOption: [{ valueString: ' Yes ' }] })],
+    });
+
+    const fhir = practiceManagedQuestionnaireToFhir(questionnaire);
+
+    expect(fhir.item?.[0].text).toBe(' Age ');
+    expect(fhir.item?.[0].answerOption).toEqual([{ valueString: ' Yes ' }]);
+  });
+
+  it('filters out whitespace-only string answer options', () => {
+    const questionnaire = baseManagedQuestionnaire({
+      item: [managedItem({ answerOption: [{ valueString: ' ' }, { valueString: 'keep' }] })],
+    });
+
+    const fhir = practiceManagedQuestionnaireToFhir(questionnaire);
+
+    expect(fhir.item?.[0].answerOption).toEqual([{ valueString: 'keep' }]);
+  });
+
+  it('drops a blank coded option label but keeps the coded answer', () => {
+    const questionnaire = baseManagedQuestionnaire({
+      item: [
+        managedItem({
+          answerOption: [
+            { valueCoding: { system: 'https://example.com/cs', code: '0', display: '' } },
+            { valueCoding: { system: 'https://example.com/cs', code: '1', display: 'Yes' } },
+          ],
+        }),
+      ],
+    });
+
+    const fhir = practiceManagedQuestionnaireToFhir(questionnaire);
+
+    expect(fhir.item?.[0].answerOption).toEqual([
+      { valueCoding: { system: 'https://example.com/cs', code: '0' } },
+      { valueCoding: { system: 'https://example.com/cs', code: '1', display: 'Yes' } },
+    ]);
+  });
+
+  it('drops a coded option with neither a code nor a label', () => {
+    const questionnaire = baseManagedQuestionnaire({
+      item: [
+        managedItem({
+          answerOption: [{ valueCoding: { system: 'https://example.com/cs', display: '  ' } }, { valueString: 'keep' }],
+        }),
+      ],
+    });
+
+    const fhir = practiceManagedQuestionnaireToFhir(questionnaire);
+
+    expect(fhir.item?.[0].answerOption).toEqual([{ valueString: 'keep' }]);
+  });
+
+  it('drops a blank code from a labelled coded option instead of sending an empty code', () => {
+    const questionnaire = baseManagedQuestionnaire({
+      item: [
+        managedItem({
+          answerOption: [{ valueCoding: { system: 'https://example.com/cs', code: ' ', display: 'Yes' } }],
+        }),
+      ],
+    });
+
+    const fhir = practiceManagedQuestionnaireToFhir(questionnaire);
+
+    expect(fhir.item?.[0].answerOption).toEqual([
+      { valueCoding: { system: 'https://example.com/cs', display: 'Yes' } },
+    ]);
+  });
+
+  it('strips surrounding whitespace from a coded option code, which FHIR rejects as an invalid code', () => {
+    const questionnaire = baseManagedQuestionnaire({
+      item: [managedItem({ answerOption: [{ valueCoding: { system: 'https://example.com/cs', code: ' yes ' } }] })],
+    });
+
+    const fhir = practiceManagedQuestionnaireToFhir(questionnaire);
+
+    expect(fhir.item?.[0].answerOption).toEqual([{ valueCoding: { system: 'https://example.com/cs', code: 'yes' } }]);
+  });
+
+  it('keeps non-string answer options such as integers and dates', () => {
+    const questionnaire = baseManagedQuestionnaire({
+      item: [managedItem({ answerOption: [{ valueInteger: 0 }, { valueDate: '2030-01-01' }] })],
+    });
+
+    const fhir = practiceManagedQuestionnaireToFhir(questionnaire);
+
+    expect(fhir.item?.[0].answerOption).toEqual([{ valueInteger: 0 }, { valueDate: '2030-01-01' }]);
+  });
+
   it('recursively converts nested items', () => {
     const questionnaire = baseManagedQuestionnaire({
       item: [
@@ -229,6 +332,40 @@ describe('fhirQuestionnaireToPracticeManaged', () => {
     const questionnaire = baseFhirQuestionnaire({ status: undefined });
 
     expect(() => fhirQuestionnaireToPracticeManaged(questionnaire)).toThrow();
+  });
+});
+
+describe('PracticeManagedQuestionnaireSchema', () => {
+  const valid = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
+    resourceType: 'Questionnaire',
+    status: 'active',
+    name: 'intake',
+    title: 'Intake',
+    url: 'https://ottehr.com/FHIR/Questionnaire/intake',
+    version: '1.0.0',
+    item: [],
+    ...overrides,
+  });
+
+  it.each([
+    ['title', '   '],
+    ['title', ''],
+    ['name', ''],
+    ['name', ' '],
+  ])('rejects a blank %s (%j)', (field, value) => {
+    expect(PracticeManagedQuestionnaireSchema.safeParse(valid({ [field]: value })).success).toBe(false);
+  });
+
+  it('turns a blank description into no description', () => {
+    const parsed = PracticeManagedQuestionnaireSchema.parse(valid({ description: '  ' }));
+
+    expect(parsed.description).toBeUndefined();
+  });
+
+  it('keeps a non-blank description', () => {
+    expect(PracticeManagedQuestionnaireSchema.parse(valid({ description: 'For new patients' })).description).toBe(
+      'For new patients'
+    );
   });
 });
 

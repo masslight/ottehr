@@ -37,6 +37,7 @@ import {
 import { parseStoredAcknowledgment, parseStoredTransmit } from '../claim-acknowledgments';
 import { ClaimEraLinks, fetchClaimEraLinks } from '../claim-amounts';
 import { ClaimLookups } from '../claim-search';
+import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
@@ -50,6 +51,7 @@ import {
   getClaimSupportingInfo,
   getEraCheckNumber,
   getEraSource,
+  getTaxonomy,
   isInstitutionalClaim,
   readClaimItemDrug,
   sortClaimInsurance,
@@ -191,8 +193,11 @@ export function claimDetailsLayer(
   AdHocBillingClaimsRow,
   | 'billingProvider'
   | 'billingProviderNpi'
+  | 'billingProviderTaxonomy'
   | 'renderingProviderNpi'
+  | 'renderingProviderTaxonomy'
   | 'facilityNpi'
+  | 'facilityClia'
   | 'placeOfService'
   | 'patientControlNumber'
   | 'payerClaimControlNumber'
@@ -230,8 +235,11 @@ export function claimDetailsLayer(
         : billingProvider.name ?? ''
       : '',
     billingProviderNpi: (billingProvider && getNPI(billingProvider)) ?? '',
+    billingProviderTaxonomy: billingProvider ? getTaxonomy(billingProvider) : '',
     renderingProviderNpi: (renderingProvider && getNPI(renderingProvider)) ?? '',
+    renderingProviderTaxonomy: renderingProvider ? getTaxonomy(renderingProvider) : '',
     facilityNpi: (facility && getNPI(facility)) ?? '',
+    facilityClia: (facility && getCLIA(facility)) ?? '',
     placeOfService: claim.item?.[0]?.locationCodeableConcept?.coding?.[0]?.code ?? '',
     patientControlNumber: getClaimPcn(claim) ?? '',
     payerClaimControlNumber:

@@ -2,7 +2,7 @@
  * A record, carried inside a document, of which patient it was produced for.
  *
  * Documents this system generates leave it: they are downloaded, completed by hand, and uploaded back.
- * Everything else in this codebase binds a document to a patient structurally — a fax packet finds its
+ * Everything else in this codebase binds a document to a patient structurally — a document packet finds its
  * contents by searching `encounter` + `type`, so it physically cannot pick up another patient's record.
  * The upload step is the one place where that binding is a human intention rather than a query: someone
  * choosing a file from a dialog full of near-identically named PDFs, each holding a different patient's

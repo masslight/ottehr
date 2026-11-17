@@ -49,6 +49,8 @@ interface CommandPaletteState {
   groupActions: Record<string, CommandPaletteGroupAction>;
   pendingQuickPick: PendingQuickPick | null;
   createTaskDialogOpen: boolean;
+  uploadDocumentMode: 'upload' | 'scan' | null;
+  uploadDialogOpen: boolean;
   phraseDialog: PhraseDialogState | null;
   open: () => void;
   openWithInsertContext: (insertContext: InsertContext | null) => void;
@@ -60,6 +62,8 @@ interface CommandPaletteState {
   unregisterGroupAction: (category: string) => void;
   setPendingQuickPick: (pending: PendingQuickPick | null) => void;
   setCreateTaskDialogOpen: (open: boolean) => void;
+  setUploadDocumentMode: (mode: 'upload' | 'scan' | null) => void;
+  setUploadDialogOpen: (open: boolean) => void;
   setPhraseDialog: (phraseDialog: PhraseDialogState | null) => void;
 }
 
@@ -70,6 +74,8 @@ export const useCommandPaletteStore = create<CommandPaletteState>()((set) => ({
   groupActions: {},
   pendingQuickPick: null,
   createTaskDialogOpen: false,
+  uploadDocumentMode: null,
+  uploadDialogOpen: false,
   phraseDialog: null,
   open: () => set({ isOpen: true, insertContext: null }),
   openWithInsertContext: (insertContext) => set({ isOpen: true, insertContext }),
@@ -111,5 +117,7 @@ export const useCommandPaletteStore = create<CommandPaletteState>()((set) => ({
     }),
   setPendingQuickPick: (pendingQuickPick) => set({ pendingQuickPick }),
   setCreateTaskDialogOpen: (createTaskDialogOpen) => set({ createTaskDialogOpen }),
+  setUploadDocumentMode: (uploadDocumentMode) => set({ uploadDocumentMode }),
+  setUploadDialogOpen: (uploadDialogOpen) => set({ uploadDialogOpen }),
   setPhraseDialog: (phraseDialog) => set({ phraseDialog }),
 }));

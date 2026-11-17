@@ -1,5 +1,7 @@
 import { Secrets } from 'utils/lib/secrets';
 import { HandleInHouseLabResultsParameters } from 'utils/lib/types/data/in-house/in-house.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { isBlankText } from 'utils/lib/types/text-schemas';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { safeJsonParse } from '../../../../shared/validation';
 
@@ -22,6 +24,11 @@ export function validateRequestParameters(
   if (missingResources.length) {
     // throw MISSING_REQUIRED_PARAMETERS(missingResources);
     throw new Error(`missing resources: ${missingResources.join(',')}`);
+  }
+
+  const blankEntryIds = Object.keys(data).filter((id) => isBlankText(data[id]));
+  if (blankEntryIds.length) {
+    throw INVALID_INPUT_ERROR(`A result value is required for: ${blankEntryIds.join(', ')}`);
   }
 
   return { userToken, secrets, serviceRequestId, data };

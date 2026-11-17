@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Coverage } from 'fhir/r4b';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { DeleteBillingCoverageInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
@@ -32,7 +33,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 // standalone RelatedPerson subscriber — all in one transaction so they succeed or fail together.
 async function performEffect(oystehr: Oystehr, params: DeleteBillingCoverageParams): Promise<void> {
   const coverage = await fetchById<Coverage>(oystehr, 'Coverage', params.coverageId);
-  const patientId = coverage.beneficiary?.reference?.split('/')[1];
+  const patientId = getIdFromReference(coverage.beneficiary?.reference);
   const coverageRef = `Coverage/${params.coverageId}`;
 
   const accounts = patientId ? await getPatientAccounts(oystehr, patientId) : [];

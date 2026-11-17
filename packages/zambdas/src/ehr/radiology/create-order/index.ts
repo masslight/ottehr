@@ -38,6 +38,7 @@ import {
   SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
   SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
@@ -466,7 +467,7 @@ const writeAdvaPacsTransaction = async (
 
     const ourPatient = await getOurSubject(ourServiceRequest.subject?.reference || '', oystehr);
     const ourPatientId = ourPatient.id;
-    const ourRequestingPractitionerId = ourServiceRequest.requester?.reference?.split('/')[1];
+    const ourRequestingPractitionerId = getIdFromReference(ourServiceRequest.requester?.reference);
 
     // Advapacs supports only a single name: send first official if there is one otherwise grab the first
     const bestNameToSendForActor = (resource: Patient | Practitioner): HumanName[] | undefined => {

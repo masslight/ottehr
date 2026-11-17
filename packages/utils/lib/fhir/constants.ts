@@ -1008,6 +1008,7 @@ export const OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS = {
   infoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text`,
   inputWidth: `${PRIVATE_EXTENSION_BASE_URL}/input-width`,
   minRows: `${PRIVATE_EXTENSION_BASE_URL}/text-min-rows`,
+  placeholder: `${PRIVATE_EXTENSION_BASE_URL}/placeholder`,
   preferredElement: `${PRIVATE_EXTENSION_BASE_URL}/preferred-element`,
   secondaryInfoText: `${PRIVATE_EXTENSION_BASE_URL}/information-text-secondary`,
   validateAgeOver: `${PRIVATE_EXTENSION_BASE_URL}/validate-age-over`,
@@ -1361,13 +1362,15 @@ export const OUTBOUND_DELIVERY_INPUT_CODES = {
   senderId: 'sender-id',
   senderDisplay: 'sender-display',
   senderOrganization: 'sender-organization',
-  faxPacketPageCount: 'fax-packet-page-count',
-  faxPacketParts: 'fax-packet-parts',
+  packetPageCount: 'fax-packet-page-count',
+  packetParts: 'fax-packet-parts',
 } as const;
 export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-output');
 export const OUTBOUND_DELIVERY_OUTPUT_CODES = {
   communication: 'communication',
   error: 'error',
+  /** An emailed document link was opened; valueDateTime is when. */
+  linkOpened: 'link-opened',
 } as const;
 export const OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-source');
 export const OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-retry');

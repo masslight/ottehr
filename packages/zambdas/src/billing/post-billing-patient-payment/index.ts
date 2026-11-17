@@ -3,7 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
   Claim,
-  Encounter,
   FhirResource,
   Identifier,
   Money,
@@ -35,7 +34,6 @@ import {
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
-import { practitionerRefForUser } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
 import {
   getStripeClient,
@@ -45,10 +43,12 @@ import {
 } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
+import { practitionerRefForBillingUser } from '../clinical-practitioners';
 import { ensurePaymentTaskForNotice, unionIdentifiers } from '../patient-payments';
 import {
   billingProviderRefForStripeAccount,
   claimRequestFor,
+  collectedFromPatientDisposition,
   createPaymentNotice,
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
   EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM,
@@ -62,7 +62,7 @@ import {
   stripeAccountExtension,
 } from '../payments';
 import { humanClaimActor } from '../provenance';
-import { createBillingClient, fetchById } from '../shared';
+import { createBillingClient } from '../shared';
 
 type PostBillingPatientPaymentParams = ValidatedZambdaInput<typeof PostBillingPatientPaymentInputSchema>;
 
@@ -82,12 +82,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the patient's Account and the schedule's Stripe account, and schedules the payment Task
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 
-  // the billing client cannot see Encounters, so check the id before recording money against it
-  await fetchById<Encounter>(clinicalOystehr, 'Encounter', encounterId);
-  const submitterRef = await practitionerRefForUser(user, clinicalOystehr);
+  const submitterRef = await practitionerRefForBillingUser(user, billingOystehr);
 
   const notice = await performEffect({ ...params, submitterRef }, clinicalOystehr, billingOystehr);
 
@@ -570,7 +569,7 @@ const makePaymentNotice = (input: {
     disposition:
       paymentMethod === 'card'
         ? 'card payment intent created and confirmed with Stripe'
-        : `${paymentMethod} collected from patient`,
+        : collectedFromPatientDisposition(paymentMethod),
     outcome: 'complete',
     paymentDate,
     paymentAmount,

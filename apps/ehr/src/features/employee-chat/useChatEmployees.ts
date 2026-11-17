@@ -19,7 +19,7 @@ export const useChatEmployees = (options: {
     queryKey: ['employee-chat-employees', options.myProfile],
     queryFn: async (): Promise<ChatEmployeeOption[] | null> => {
       if (!oystehrZambda) return null;
-      const response = await getEmployees(oystehrZambda, { lite: true });
+      const response = await getEmployees(oystehrZambda);
       return response.employees
         .filter(
           (employee) =>

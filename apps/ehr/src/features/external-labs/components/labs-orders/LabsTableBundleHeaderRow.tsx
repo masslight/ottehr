@@ -53,7 +53,7 @@ export const LabsTableBundleHeaderRow = ({
   const handleAddOrEditOrderNote = async (): Promise<void> => {
     if (!oystehr) throw Error('no oystehr configured');
     if (!requisitionNumber) throw Error('no requisitionNumber');
-    if (!orderNote && noteState === 'add') {
+    if (!orderNote.trim() && noteState === 'add') {
       setNoteError('Please enter a note.');
       return;
     }

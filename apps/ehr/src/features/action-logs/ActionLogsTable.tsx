@@ -36,6 +36,7 @@ import { MappedStatusChip, Mapper } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
 import { ACTION_LOG_CHANNEL_COPY, actionLogsQueryKey } from './actionLogs.constants';
 import { RetryActionButton } from './RetryActionButton';
+import { RevokeActionButton } from './RevokeActionButton';
 
 const ACTION_STATUS_COLORS_MAP: Mapper<ActionLogStatus> = {
   sent: {
@@ -49,6 +50,10 @@ const ACTION_STATUS_COLORS_MAP: Mapper<ActionLogStatus> = {
   pending: {
     background: { primary: otherColors.outreachInfoBg },
     color: { primary: palette.info.dark },
+  },
+  revoked: {
+    background: { primary: otherColors.outreachInfoBg },
+    color: { primary: palette.secondary.dark },
   },
 };
 
@@ -267,6 +272,7 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <MappedStatusChip status={log.status} mapper={ACTION_STATUS_COLORS_MAP} />
                     {log.canRetry && <RetryActionButton log={log} onResent={() => void refetch()} />}
+                    {log.canRevoke && <RevokeActionButton log={log} onRevoked={() => void refetch()} />}
                   </Box>
                 </TableCell>
               </TableRow>

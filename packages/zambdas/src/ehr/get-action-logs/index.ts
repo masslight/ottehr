@@ -7,12 +7,13 @@ import { getOrganizationFaxNumber } from 'utils/lib/fhir/helpers';
 import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
-  getOutboundDeliveryFaxPacketSnapshot,
+  getOutboundDeliveryPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
   getOutboundDeliverySenderOrganizationId,
+  isDocumentLinkAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
 import { getFormattedPatientFullName } from 'utils/lib/fhir/patient';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   ACTION_LOGS_DISPLAY_WINDOW_DAYS,
   ACTION_LOGS_PAGE_SIZE,
@@ -203,7 +204,7 @@ async function getRetriedAttemptIds(tasks: Task[], oystehr: Oystehr): Promise<Se
   return new Set(
     children.flatMap((child) =>
       (child.partOf ?? []).flatMap((parent) => {
-        const id = removePrefix('Task/', parent.reference ?? '');
+        const id = getIdFromReference(parent.reference, 'Task');
         return id ? [id] : [];
       })
     )
@@ -219,12 +220,12 @@ function composeEntry(
   senderFaxNumbersByAttempt: Map<string, string>
 ): ActionLogEntry {
   const channel = getOutboundDeliveryChannel(task)!;
-  const patientId = removePrefix('Patient/', task.for?.reference ?? '');
-  const appointmentId = removePrefix('Appointment/', task.focus?.reference ?? '');
+  const patientId = getIdFromReference(task.for?.reference, 'Patient');
+  const appointmentId = getIdFromReference(task.focus?.reference, 'Appointment');
   const patient = patients.get(patientId);
   const appointment = appointments.get(appointmentId);
   const recipient = getOutboundDeliveryRecipientSnapshot(task);
-  const faxPacket = getOutboundDeliveryFaxPacketSnapshot(task);
+  const packetSnapshot = getOutboundDeliveryPacketSnapshot(task);
   const status = getOutboundDeliveryAttemptStatus(
     task,
     recipient.communicationId ? communications.get(recipient.communicationId) : undefined
@@ -240,17 +241,20 @@ function composeEntry(
     appointmentId,
     visitDate: appointment?.start,
     documentReferenceId: recipient.documentReferenceId,
-    documentTitle: getDocumentTitle(recipient.documentReferenceId, faxPacket.parts),
+    documentTitle: getDocumentTitle(recipient.documentReferenceId, packetSnapshot.parts),
     canRetry:
       status === 'failed' &&
       Boolean(channel === 'fax' ? recipient.documentReferenceId || appointmentId : appointmentId) &&
       Boolean(recipient.address?.trim()) &&
-      !retriedAttemptIds.has(task.id!),
+      !retriedAttemptIds.has(task.id!) &&
+      // A failed link email is usually a bad address; it is sent again from the Send dialog, not retried.
+      !isDocumentLinkAttempt(task),
+    canRevoke: isDocumentLinkAttempt(task) && status === 'sent',
   };
 }
 
-const getDocumentTitle = (documentReferenceId: string | undefined, faxPacketParts: string[]): string | undefined => {
-  if (faxPacketParts.length === 1) return faxPacketParts[0];
-  if (faxPacketParts.length > 1) return `Fax packet (${faxPacketParts.length} documents)`;
+const getDocumentTitle = (documentReferenceId: string | undefined, packetParts: string[]): string | undefined => {
+  if (packetParts.length === 1) return packetParts[0];
+  if (packetParts.length > 1) return `Document packet (${packetParts.length} documents)`;
   return documentReferenceId ? 'Visit Note' : undefined;
 };

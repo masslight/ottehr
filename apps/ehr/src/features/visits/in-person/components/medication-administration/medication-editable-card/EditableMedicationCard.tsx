@@ -1,16 +1,3 @@
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  TextField as MuiTextField,
-  Typography,
-} from '@mui/material';
 import { Medication } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -25,6 +12,7 @@ import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { ERXStatus } from 'src/features/visits/shared/components/ERX';
 import { ERXInteractionsReadiness } from 'src/features/visits/shared/components/ERXInteractionsReadiness';
+import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { enqueueOrderDeleteWarnings } from 'src/features/visits/shared/utils/orderDeleteWarnings';
@@ -61,7 +49,7 @@ import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { InPersonModal } from '../../InPersonModal';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { interactionsSummary } from '../util';
-import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
+import { fieldsConfig, getFieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { InteractionsMessage, MedicationCardView } from './MedicationCardView';
 import {
   ConfirmSaveModalConfig,
@@ -124,7 +112,6 @@ export const EditableMedicationCard: React.FC<{
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicksForDialog, setExistingQuickPicksForDialog] = useState<InHouseMedicationQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
-  const [overwriteTarget, setOverwriteTarget] = useState<InHouseMedicationQuickPickData | null>(null);
 
   // There are dynamic form config which depend on what button was clicked:
   // - If "administered" was clicked, then "dispense" form config should be used
@@ -324,7 +311,6 @@ export const EditableMedicationCard: React.FC<{
     if (localValues.expDate) parts.push(`exp: ${localValues.expDate.slice(0, 10)}`);
     if (localValues.lotNumber) parts.push(`lot: ${localValues.lotNumber}`);
     setQuickPickName(parts.join(' | '));
-    setOverwriteTarget(null);
     setQuickPickDialogOpen(true);
   };
 
@@ -731,7 +717,7 @@ export const EditableMedicationCard: React.FC<{
         type={typeRef.current}
         onSave={updateOrCreateOrder}
         medication={medication}
-        fieldsConfig={fieldsConfig[typeRef.current]}
+        fieldsConfig={getFieldsConfig(typeRef.current, getFieldValue('route'))}
         localValues={localValues}
         selectedStatus={currentStatus}
         isUpdating={isOrderUpdating}
@@ -846,51 +832,16 @@ export const EditableMedicationCard: React.FC<{
         />
       )}
 
-      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Save as Quick Pick</DialogTitle>
-        <DialogContent>
-          <MuiTextField
-            autoFocus
-            label="Quick pick name"
-            fullWidth
-            value={quickPickName}
-            onChange={(e) => setQuickPickName(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-          {existingQuickPicksForDialog.length > 0 && (
-            <>
-              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-                Or overwrite an existing quick pick:
-              </Typography>
-              <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                {existingQuickPicksForDialog.map((qp) => (
-                  <ListItem key={qp.id} disablePadding>
-                    <ListItemButton
-                      selected={overwriteTarget?.id === qp.id}
-                      onClick={() => {
-                        setOverwriteTarget(qp);
-                        setQuickPickName(qp.name);
-                      }}
-                    >
-                      <ListItemText primary={qp.name} />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQuickPickDialogOpen(false)}>Cancel</Button>
-          <Button
-            loading={quickPickSaving}
-            variant="contained"
-            onClick={() => void onSaveAsQuickPick(overwriteTarget?.id)}
-          >
-            {overwriteTarget ? 'Overwrite' : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <QuickPickSaveDialogs
+        open={quickPickDialogOpen}
+        name={quickPickName}
+        onNameChange={setQuickPickName}
+        existingQuickPicks={existingQuickPicksForDialog}
+        saving={quickPickSaving}
+        onClose={() => setQuickPickDialogOpen(false)}
+        onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        entityLabel="medication"
+      />
     </>
   );
 };

@@ -37,6 +37,8 @@ interface InvoiceTemplateFieldProps {
   error: boolean;
   disabled: boolean;
   isSms?: boolean;
+  // Real values for the preview. Sample values are used when this is not set.
+  previewValues?: Record<string, string>;
 }
 
 function findPlaceholder(
@@ -60,6 +62,7 @@ export function InvoiceTemplateField({
   error,
   disabled,
   isSms = false,
+  previewValues,
 }: InvoiceTemplateFieldProps): ReactElement {
   const [tab, setTab] = useState('write');
   const [cursor, setCursor] = useState<number | null>(null);
@@ -224,14 +227,16 @@ export function InvoiceTemplateField({
                 />
               ))}
             </Stack>
-            {isSms && <InvoiceSmsCounter value={value} sampleValues={PREVIEW_VALUES} />}
+            {isSms && <InvoiceSmsCounter value={value} sampleValues={previewValues ?? PREVIEW_VALUES} />}
           </TabPanel>
           <TabPanel value="preview" sx={{ p: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              Preview uses sample values.
-            </Typography>
+            {!previewValues && (
+              <Typography variant="caption" color="text.secondary">
+                Preview uses sample values.
+              </Typography>
+            )}
             <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-              {replaceTemplateVariablesHandlebars(value, PREVIEW_VALUES)}
+              {replaceTemplateVariablesHandlebars(value, previewValues ?? PREVIEW_VALUES)}
             </Typography>
           </TabPanel>
         </TabContext>

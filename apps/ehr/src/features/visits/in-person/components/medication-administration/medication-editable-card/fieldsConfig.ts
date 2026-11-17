@@ -1,3 +1,5 @@
+import { isRouteRequiringAdministrationLocation } from 'utils/lib/types/api/medication-administration.types';
+
 export type MedicationOrderType =
   | 'order-new'
   | 'order-edit'
@@ -105,6 +107,29 @@ export const fieldsConfig: Record<
   'dispense-not-administered': fieldsConfigForNotAdministered,
   'completed-edit': fieldsConfigForCompletedEdit,
 } as const;
+
+// Forms that save an order as administered (or partly administered). 'completed-edit' is switched to 'dispense'
+// once one of those buttons is clicked, but it is listed so the Location field is marked required up front.
+const ADMINISTERING_FORM_TYPES: readonly MedicationOrderType[] = ['dispense', 'completed-edit'];
+
+/**
+ * The form config for the given route: an injectable route makes Location required on the forms that
+ * administer the order, since where the medication went in has to be recorded.
+ */
+export const getFieldsConfig = (
+  type: MedicationOrderType,
+  route: string | undefined
+): (typeof fieldsConfig)[MedicationOrderType] => {
+  const config = fieldsConfig[type];
+  if (
+    'location' in config &&
+    ADMINISTERING_FORM_TYPES.includes(type) &&
+    isRouteRequiringAdministrationLocation(route)
+  ) {
+    return { ...config, location: { ...config.location, isRequired: true } };
+  }
+  return config;
+};
 
 export const getFieldLabel = (
   field: MedicationFieldType,

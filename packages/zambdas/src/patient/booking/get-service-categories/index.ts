@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { HealthcareService, PractitionerRole } from 'fhir/r4b';
 import { SERVICE_CATEGORY_TAG, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { getPractitionerRoleAllCategories } from 'utils/lib/fhir/healthcareService';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { SERVICE_CATEGORIES_AVAILABLE } from 'utils/lib/ottehr-config/booking';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { Secrets } from 'utils/lib/secrets';
@@ -153,7 +154,9 @@ export const index = wrapHandler(
       // HealthcareServices that aren't category-tagged) drop out naturally
       // because they aren't in fhirResources.
       const referencedIds = new Set(
-        (pr.healthcareService ?? []).map((r) => r.reference?.split('/')[1]).filter((id): id is string => Boolean(id))
+        (pr.healthcareService ?? [])
+          .map((r) => getIdFromReference(r.reference))
+          .filter((id): id is string => Boolean(id))
       );
       const providerCatalog = stripBookingCollisions(
         buildFhirCatalog(fhirResources).filter((sc) => sc.id !== undefined && referencedIds.has(sc.id))

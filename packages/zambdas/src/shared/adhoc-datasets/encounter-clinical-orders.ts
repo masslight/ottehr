@@ -15,14 +15,12 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
-import { convert } from 'html-to-text';
 import {
   getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
   getMedicationFromMA,
 } from 'utils/lib/fhir/medication-administration';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { decodeRadiologyReportHtml } from 'utils/lib/fhir/radiology';
 import { AdHocEncounterRow } from 'utils/lib/types/adhoc/datasets/encounters';
 import { MEDICATION_DISPENSABLE_DRUG_ID } from 'utils/lib/types/api/medication-administration.constants';
 import { MedicationOrderStatusesType } from 'utils/lib/types/api/medication-administration.types';
@@ -33,6 +31,7 @@ import { buildHistory, parseResultsToOrder } from '../../ehr/radiology/order-lis
 import { makePrescribedMedicationDTO } from '../chart-data';
 import {
   makeRadiologyDTO,
+  radiologyReportText,
   resolveOrderingProvider,
   takeMostRecentPreliminaryReport,
   takeTheBestFinalDiagnosticReport,
@@ -88,10 +87,6 @@ const historyRow = (
 
 const historyAt = (history: RadiologyOrderHistoryRow[], status: RadiologyOrderStatus): string | null =>
   historyRow(history, status)?.date || null;
-
-// Same conversion as the visit note PDF (discharge-summary/radiology.ts).
-const radiologyReportText = (stored: string | undefined): string =>
-  stored ? convert(decodeRadiologyReportHtml(stored), { wordwrap: false }) : '';
 
 const radiologyRecord = (
   name: string,

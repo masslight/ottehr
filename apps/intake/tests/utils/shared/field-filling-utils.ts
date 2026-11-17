@@ -1,4 +1,4 @@
-import { Locator, Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 
 /**
  * Shared utilities for filling form fields in tests.
@@ -70,10 +70,33 @@ export async function fillDateField(page: Page, value: string): Promise<void> {
   await dateInput.fill(formattedDate);
 }
 
+const CHOICE_DROPDOWN_ATTEMPTS = 3;
+
 /**
  * Fill a choice field (MUI Autocomplete dropdown)
+ *
+ * The Autocomplete clears typed text that was never selected when it loses focus, so a missed option
+ * click leaves the field empty without any error until Continue is blocked. The field only counts as
+ * filled once it still shows the option after blur.
  */
 export async function fillChoiceDropdown(page: Page, locator: Locator, value: string): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    await selectChoiceDropdownOption(page, locator, value);
+    await locator.blur();
+    try {
+      await expect(locator).toHaveValue(value, { timeout: 2000 });
+      return;
+    } catch {
+      const shown = await locator.inputValue();
+      if (attempt === CHOICE_DROPDOWN_ATTEMPTS) {
+        throw new Error(`Dropdown did not keep "${value}" after ${attempt} attempts; it shows "${shown}"`);
+      }
+      console.warn(`Dropdown selection "${value}" did not stick (shows "${shown}"), retrying`);
+    }
+  }
+}
+
+async function selectChoiceDropdownOption(page: Page, locator: Locator, value: string): Promise<void> {
   // Click to open dropdown
   await locator.click();
 

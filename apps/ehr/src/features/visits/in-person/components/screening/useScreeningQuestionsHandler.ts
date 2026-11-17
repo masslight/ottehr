@@ -105,7 +105,7 @@ export const useScreeningQuestionsHandler = (
       const currentObs = getUiData(noteField.fhirField);
       console.log('🔍 Current observation:', currentObs);
 
-      if (!value && parentField.canDelete) {
+      if (!value.trim() && parentField.canDelete) {
         if (currentObs) {
           await deleteObservation(currentObs, noteField.id);
         }
@@ -123,7 +123,7 @@ export const useScreeningQuestionsHandler = (
         ...currentObs,
         field: noteField.fhirField,
         value: correctFhirValue,
-        note: value,
+        note: value.trim() ? value : undefined,
       } as ObservationPayload;
 
       await saveObservation(observation as ObservationDTO, noteField.id);

@@ -378,7 +378,7 @@ export async function createFilesDocumentReferences(
           status: 'current',
           docStatus,
           type: type,
-          date: dateCreated,
+          date: dateCreated?.trim() || undefined,
           content: [
             {
               attachment: {
@@ -1224,7 +1224,7 @@ export interface CoverageSubscriberInput {
 }
 
 // CodeableConcept for Coverage.relationship.
-export const getSubscriberRelationshipCodeableConcept = (relationship: string): CodeableConcept => ({
+export const getSubscriberRelationshipCodeableConcept = (relationship: string, text?: string): CodeableConcept => ({
   coding: [
     {
       system: SUBSCRIBER_RELATIONSHIP_SYSTEM,
@@ -1232,6 +1232,7 @@ export const getSubscriberRelationshipCodeableConcept = (relationship: string): 
       display: relationship,
     },
   ],
+  ...(text ? { text } : {}),
 });
 
 // Build the RelatedPerson that represents a coverage's subscriber / policy holder. The clinical EHR
@@ -1479,8 +1480,9 @@ export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
   return outcomeEntry;
 };
 
+// Organizations that pay invoices store their Stripe customers the same way as an Account.
 export const getStripeCustomerIdFromAccount = (
-  account: Account,
+  account: Pick<Account, 'identifier'>,
   stripeAccount: string | undefined
 ): string | undefined => {
   if (!stripeAccount) {
@@ -1647,6 +1649,12 @@ export function getResponsiblePartyFromAccount(
   return takeContainedOrFind<RelatedPerson | Patient>(responsiblePartyRef, resources, account);
 }
 
+// The schedule owner among an appointment's actors: its Location, else its HealthcareService, else its Practitioner.
+export const scheduleOwnerAmong = (resources: Resource[]): Location | HealthcareService | Practitioner | undefined =>
+  (resources.find((resource) => resource.resourceType === 'Location') as Location | undefined) ??
+  (resources.find((resource) => resource.resourceType === 'HealthcareService') as HealthcareService | undefined) ??
+  (resources.find((resource) => resource.resourceType === 'Practitioner') as Practitioner | undefined);
+
 export const getScheduleOwnerFromAppointmentOrEncounter = async (
   input: { appointmentId?: string; encounterId?: string },
   oystehr: Oystehr
@@ -1694,18 +1702,7 @@ export const getScheduleOwnerFromAppointmentOrEncounter = async (
   ).unbundle();
   console.log(`successfully retrieved ${allResources.length} appointment resources`);
   const fhirAppointment = allResources.find((resource) => resource.resourceType === 'Appointment') as Appointment;
-  const fhirLocation = allResources.find((resource) => resource.resourceType === 'Location');
-  const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
-  const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
-
-  let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
-  if (fhirLocation) {
-    scheduleOwner = fhirLocation as Location;
-  } else if (fhirHS) {
-    scheduleOwner = fhirHS as HealthcareService;
-  } else if (fhirPractitioner) {
-    scheduleOwner = fhirPractitioner as Practitioner;
-  }
+  const scheduleOwner = scheduleOwnerAmong(allResources);
 
   if (!fhirAppointment) {
     throw APPOINTMENT_NOT_FOUND_ERROR;

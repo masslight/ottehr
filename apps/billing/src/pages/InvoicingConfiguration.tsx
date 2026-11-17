@@ -1,4 +1,4 @@
-import { Alert, Box, Button, CircularProgress, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -6,9 +6,15 @@ import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { parseInvoiceConfigFromQR } from 'utils/lib/helpers/rcm/invoice-config';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 import { SaveInvoiceConfigBodySchema, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
+import { INVOICE_ISSUER_SOURCES, InvoiceIssuerSource } from 'utils/lib/types/constants';
 import { getInvoiceConfig, saveInvoiceConfig } from '../api/api';
 import { InvoiceTemplateField } from '../components/InvoiceTemplateField';
 import { useApiClients } from '../hooks/useAppClients';
+
+const INVOICE_ISSUER_SOURCE_LABELS: Record<InvoiceIssuerSource, string> = {
+  'service-facility': 'Service facility',
+  'billing-provider': 'Billing provider',
+};
 
 export default function InvoicingConfiguration(): ReactElement {
   const { oystehrZambda } = useApiClients();
@@ -65,7 +71,7 @@ export default function InvoicingConfiguration(): ReactElement {
           Invoicing Configuration
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Due date and default message templates for patient invoices.
+          Due date, issuer and default message templates for invoices.
         </Typography>
       </Box>
       {loadError ? (
@@ -105,6 +111,27 @@ export default function InvoicingConfiguration(): ReactElement {
               }
               sx={{ width: 280, maxWidth: '100%' }}
               InputLabelProps={{ shrink: true }}
+            />
+            <Controller
+              name="invoiceIssuerSource"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  label="Invoice Issuer"
+                  size="small"
+                  helperText="Whose name and address invoices are sent from"
+                  sx={{ width: 280, maxWidth: '100%' }}
+                  InputLabelProps={{ shrink: true }}
+                >
+                  {INVOICE_ISSUER_SOURCES.map((source) => (
+                    <MenuItem key={source} value={source}>
+                      {INVOICE_ISSUER_SOURCE_LABELS[source]}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
             />
             {(
               [

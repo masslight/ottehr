@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPatchRequest, FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse, Coverage, Provenance, ProvenanceAgent, Reference } from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, Provenance, ProvenanceAgent, Reference, Task } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import {
   getExtensionValue,
@@ -27,6 +27,7 @@ import {
   claimMetaTagsWithProvenanceRequests,
   resolveClaimActor,
 } from '../../../billing/provenance';
+import { buildRulesEngineKickoffTask } from '../../../billing/rules-engine/serialization';
 import {
   buildUpdatedClaimStatusTags,
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
@@ -260,7 +261,7 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
       agent,
       activity: 'update',
     });
-    const merged = reducePatchOperations<Claim | Provenance>([
+    const merged = reducePatchOperations<Claim | Provenance | Task>([
       ...(updatedTags.length ? claimMetaTagsWithProvenanceRequests(current, updatedTags, 'statusChange', agent) : []),
       ...(claimResponseIcn
         ? [
@@ -279,6 +280,11 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
         : []),
       ...(icnHistory ? [icnHistory] : []),
       ...(matchHistory ? [matchHistory] : []),
+      {
+        method: 'POST',
+        url: '/Task',
+        resource: buildRulesEngineKickoffTask('post-adjudication', current.id, false, agent.who),
+      },
     ]);
     // locked to the claim this attempt read
     const requests = versionLockedPatches({
@@ -289,7 +295,7 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
       // Nothing to do
       return;
     }
-    await oystehr.fhir.transaction({ requests });
+    await oystehr.fhir.transaction<Claim | Provenance | Task>({ requests });
   });
 }
 

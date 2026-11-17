@@ -30,6 +30,8 @@ export const WorkQueueSchema = z.object({
 // Zambda inputs name the queue `queueId`: the SDK's zambda call takes `id` for the zambda itself.
 export const GetBillingWorkQueueInputSchema = z.object({ queueId: nonEmptyString });
 
+export const DeleteBillingWorkQueueInputSchema = z.object({ queueId: nonEmptyString });
+
 // Creates a queue when `queueId` is missing, otherwise replaces the queue with that id.
 export const SaveBillingWorkQueueInputSchema = WorkQueueSchema.omit({ id: true }).extend({
   queueId: nonEmptyString.optional(),
@@ -43,6 +45,7 @@ export type WorkQueueOwner = z.output<typeof WorkQueueOwnerSchema>;
 export type WorkQueue = z.output<typeof WorkQueueSchema>;
 export type GetBillingWorkQueueInput = z.output<typeof GetBillingWorkQueueInputSchema>;
 export type SaveBillingWorkQueueInput = z.output<typeof SaveBillingWorkQueueInputSchema>;
+export type DeleteBillingWorkQueueInput = z.output<typeof DeleteBillingWorkQueueInputSchema>;
 
 export interface WorkQueueSummary extends WorkQueue {
   // How many claims the queue's filters currently match, and their total billed amount. Null when

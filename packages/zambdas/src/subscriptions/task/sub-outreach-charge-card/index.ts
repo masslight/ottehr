@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { phone } from 'phone';
 import { getStripeCustomerIdFromAccount, getTaskResource } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName, getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { convertOutreachTextToHtml, isEmailValid, maskEmail, maskPhoneNumber } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { TaskIndicator } from 'utils/lib/types/common';
@@ -481,6 +482,9 @@ async function sendNotificationForMedium(
     }
 
     const resolvedMessage = fillOutreachTemplate(smsTemplate, placeholderInput);
+    if (!resolvedMessage.trim()) {
+      throw new Error('Outreach SMS template is empty');
+    }
 
     const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
     if (unresolved) {
@@ -502,6 +506,9 @@ async function sendNotificationForMedium(
     }
 
     const resolvedMessage = fillOutreachTemplate(emailTemplate, placeholderInput);
+    if (!resolvedMessage.trim()) {
+      throw new Error('Outreach email template is empty');
+    }
 
     const unresolved = resolvedMessage.match(/\{\{[\w-]+\}\}/g);
     if (unresolved) {
@@ -550,7 +557,7 @@ async function sendPaperMailForCharge(task: Task, statementType: string, oystehr
   });
 
   const appointmentRef = encounter.appointment?.[0]?.reference;
-  const appointmentId = appointmentRef?.split('/')[1];
+  const appointmentId = getIdFromReference(appointmentRef);
   if (!appointmentId) throw new Error(`No appointment reference in Encounter/${encounterId}`);
 
   const [patient, appointment] = await Promise.all([

@@ -1,12 +1,14 @@
 import { otherColors } from '@ehrTheme/colors';
 import { logo } from '@ehrTheme/icons';
 import { TabList } from '@mui/lab';
-import { AppBar, Container, Tab, Toolbar, useMediaQuery, useTheme } from '@mui/material';
-import { ReactElement, SyntheticEvent, useEffect, useMemo } from 'react';
+import { AppBar, Box, Container, Stack, Tab, Toolbar, useMediaQuery, useTheme } from '@mui/material';
+import { ReactElement, SyntheticEvent, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
+import { adjustTopForBannerHeight, NAVBAR_HEIGHT_CSS_VAR } from 'src/helpers/misc.helper';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { FEATURE_FLAGS } from '../../constants/feature-flags';
+import { useHasUnreadSupportChatsQuery } from '../../features/support-chat/support-chat.queries';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import MobileMenu from './MobileMenu';
@@ -91,6 +93,10 @@ export default function Navbar(): ReactElement | null {
     return navItems;
   }, [user]);
 
+  const hasUnreadSupportChats = useHasUnreadSupportChatsQuery(
+    FEATURE_FLAGS.SUPPORT_CHAT_ENABLED && Boolean(navbarItems.Tasks)
+  );
+
   // on page load set the tab to the opened page
   const currentUrl = '/' + location.pathname.substring(1).split('/')[0];
 
@@ -108,12 +114,35 @@ export default function Navbar(): ReactElement | null {
     });
   }, [currentTab, currentUrl, location.pathname, navbarItems]);
 
-  if (hideNavbarPathPatterns.some((pattern) => pattern.test(location.pathname))) {
+  const isHidden = hideNavbarPathPatterns.some((pattern) => pattern.test(location.pathname));
+  const appBarRef = useRef<HTMLElement>(null);
+
+  // Lets sticky page headers (e.g. the patient header) sit right below the navbar.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const appBar = appBarRef.current;
+    const setHeight = (height: number): void => root.style.setProperty(NAVBAR_HEIGHT_CSS_VAR, `${height}px`);
+    if (isHidden || !appBar) {
+      setHeight(0);
+      return;
+    }
+    setHeight(appBar.offsetHeight);
+    const observer =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(() => setHeight(appBar.offsetHeight));
+    observer?.observe(appBar);
+    return () => {
+      observer?.disconnect();
+      setHeight(0);
+    };
+  }, [isHidden]);
+
+  if (isHidden) {
     return null;
   }
 
   return (
     <AppBar
+      ref={appBarRef}
       position="sticky"
       color="transparent"
       sx={{
@@ -153,7 +182,16 @@ export default function Navbar(): ReactElement | null {
                 (Object.keys(navbarItems) as AppTab[]).map((navbarItem, index) => (
                   <Tab
                     key={navbarItem}
-                    label={navbarItem}
+                    label={
+                      navbarItem === 'Tasks' && hasUnreadSupportChats ? (
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <span>{navbarItem}</span>
+                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'warning.main' }} />
+                        </Stack>
+                      ) : (
+                        navbarItem
+                      )
+                    }
                     value={navbarItem}
                     id={`navbar-tab-${index}`}
                     aria-controls={`hello-${index}`} // `tabpanel-${index}`

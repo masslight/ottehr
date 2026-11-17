@@ -108,3 +108,8 @@ export const DEFAULT_INVOICE_MEMO_TEMPLATE =
   "Thank you, {{patient-full-name}}, for visiting {{clinic}} at {{location}} on {{visit-date}}! You have a balance due of {{amount}}.\n\n\ud83d\udcb3 If we have your card on file, it will be billed on {{due-date}}, and no action is needed. If you'd like to use a different payment method, please pay the invoice with your preferred method before the due date. For more details about the visit, please, visit your patient portal, {{patient-portal-link}}";
 
 export const DEFAULT_INVOICE_DUE_DAYS = 7;
+
+// Whose name and address an invoice is sent from, and which Organization is its issuer.
+export const INVOICE_ISSUER_SOURCES = ['service-facility', 'billing-provider'] as const;
+export type InvoiceIssuerSource = (typeof INVOICE_ISSUER_SOURCES)[number];
+export const DEFAULT_INVOICE_ISSUER_SOURCE: InvoiceIssuerSource = 'service-facility';

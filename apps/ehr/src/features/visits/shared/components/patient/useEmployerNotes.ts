@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Organization, Reference } from 'fhir/r4b';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getEmployerNotes } from 'utils/lib/fhir/organization';
-import { isNioReferenceUrl, removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { isNioReferenceUrl } from 'utils/lib/helpers/helpers';
 
 const STALE_TIME_MS = 5 * 60 * 1000;
 
@@ -17,7 +18,7 @@ export const useEmployerNotes = (employer: Reference | null | undefined): string
   // legacy employer Organization is resolvable (and readable) here.
   const employerId =
     employer?.reference && !isNioReferenceUrl(employer.reference)
-      ? removePrefix('Organization/', employer.reference)
+      ? getIdFromReference(employer.reference, 'Organization')
       : undefined;
 
   const { data } = useQuery({

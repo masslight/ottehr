@@ -118,13 +118,17 @@ import { enqueueSnackbar } from 'notistack';
 import { DmeOrderDTO, DmeOrderStatus } from 'utils/lib/types/api/dme.types';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import { DmeOrderForm } from '../../src/features/dme/components/DmeOrderForm';
+import { useDmeOrderStore } from '../../src/state/draft-data.store';
 
 const ids = dataTestIds.dmeOrders.form;
 
-const renderForm = (order?: DmeOrderDTO): { onFinished: ReturnType<typeof vi.fn> } => {
+const renderForm = (
+  order?: DmeOrderDTO
+): { onFinished: ReturnType<typeof vi.fn>; onCancel: ReturnType<typeof vi.fn>; unmount: () => void } => {
   const onFinished = vi.fn();
-  render(<DmeOrderForm order={order} onFinished={onFinished} onCancel={vi.fn()} />);
-  return { onFinished };
+  const onCancel = vi.fn();
+  const { unmount } = render(<DmeOrderForm order={order} onFinished={onFinished} onCancel={onCancel} />);
+  return { onFinished, onCancel, unmount };
 };
 
 const itemNameInput = (): HTMLElement => screen.getByTestId(ids.item);
@@ -168,6 +172,7 @@ const fulfilledExternally = (): boolean =>
 describe('DmeOrderForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useDmeOrderStore.setState({ draftsByEncounterId: {} });
     visitAccess.readOnly = false;
     visitAccess.visitType = 'main';
     chart.diagnosis = KNEE_DIAGNOSES;
@@ -490,5 +495,110 @@ describe('DmeOrderForm', () => {
     renderForm();
 
     expect(screen.queryByRole('textbox', { name: 'Quick Picks' })).not.toBeInTheDocument();
+  });
+
+  describe('draft', () => {
+    const storedDraft = (): ReturnType<ReturnType<typeof useDmeOrderStore.getState>['getDraft']> =>
+      useDmeOrderStore.getState().getDraft(ENCOUNTER_ID);
+
+    it('restores the entered data with a Clear Form button after navigating away and back', async () => {
+      const { unmount } = renderForm();
+      await typeItemName('Crutches');
+      unmount();
+
+      renderForm();
+
+      expect(itemNameInput()).toHaveValue('Crutches');
+      expect(screen.getByRole('alert')).toHaveTextContent('previously entered data has been restored');
+      expect(screen.getByTestId(ids.clearFormButton)).toBeInTheDocument();
+    });
+
+    it('shows the in-progress banner once the user starts entering data', async () => {
+      renderForm();
+
+      await typeItemName('Crutches');
+
+      expect(screen.getByRole('alert')).toHaveTextContent('DME order in progress');
+    });
+
+    it('does not start a draft from the prefilled diagnoses and ordering provider alone', () => {
+      renderForm();
+
+      expect(useDmeOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByTestId(ids.clearFormButton)).not.toBeInTheDocument();
+    });
+
+    it('does not refill the diagnoses and ordering provider the user cleared before navigating away', async () => {
+      useDmeOrderStore.getState().setDraft(ENCOUNTER_ID, { itemName: 'Crutches', diagnoses: [], orderedBy: null });
+      renderForm();
+
+      await userEvent.click(screen.getByTestId(ids.submitButton));
+
+      expect(await screen.findByText('This field is required')).toBeInTheDocument();
+      expect(within(screen.getByTestId(ids.diagnoses)).queryByText(/S83\.511A/)).not.toBeInTheDocument();
+      expect(createOrder).not.toHaveBeenCalled();
+    });
+
+    it('saves a selected quick pick to the draft', async () => {
+      renderForm();
+
+      await openQuickPicks();
+      await userEvent.click(await screen.findByRole('menuitem', { name: KNEE_BRACE_QUICK_PICK.name }));
+
+      await waitFor(() => expect(storedDraft().itemName).toBe('Knee brace'));
+      expect(storedDraft().external).toBe(true);
+    });
+
+    it('clears the draft and resets the form on Clear Form', async () => {
+      renderForm();
+      await typeItemName('Crutches');
+
+      await userEvent.click(screen.getByTestId(ids.clearFormButton));
+
+      expect(itemNameInput()).toHaveValue('');
+      expect(useDmeOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('discards the draft on Cancel', async () => {
+      const { onCancel } = renderForm();
+      await typeItemName('Crutches');
+
+      await userEvent.click(screen.getByTestId(ids.cancelButton));
+
+      expect(onCancel).toHaveBeenCalledTimes(1);
+      expect(useDmeOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
+    });
+
+    it('discards the draft once the order is created', async () => {
+      const { onFinished } = renderForm();
+      await typeItemName('Crutches');
+
+      await userEvent.click(screen.getByTestId(ids.submitButton));
+
+      await waitFor(() => expect(onFinished).toHaveBeenCalledWith('dr-1'));
+      expect(useDmeOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
+    });
+
+    it('ignores a draft on a read-only visit', () => {
+      visitAccess.readOnly = true;
+      useDmeOrderStore.getState().setDraft(ENCOUNTER_ID, { itemName: 'Crutches' });
+      renderForm();
+
+      expect(screen.queryByText('Crutches')).not.toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByTestId(ids.clearFormButton)).not.toBeInTheDocument();
+    });
+
+    it('neither restores nor saves a draft while editing an existing order', async () => {
+      useDmeOrderStore.getState().setDraft(ENCOUNTER_ID, { itemName: 'Crutches' });
+      renderForm(EXISTING_ORDER);
+
+      expect(itemNameInput()).toHaveValue('Cervical collar');
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      await typeItemName(' soft');
+      expect(storedDraft().itemName).toBe('Crutches');
+    });
   });
 });

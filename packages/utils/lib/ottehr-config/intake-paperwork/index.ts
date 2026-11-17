@@ -8,6 +8,7 @@ import { Questionnaire } from 'fhir/r4b';
 import { mergeAndFreezeConfigObjects } from '../../config-helpers/helpers';
 import { buildConsentFormCheckboxItems } from '../../config-helpers/intake-paperwork';
 import { createQuestionnaireFromConfig } from '../../config-helpers/shared-questionnaire';
+import { RELATIONSHIP_OPTIONS } from '../../fhir/patientMasterRecord';
 import { INSURANCE_CARD_CODE } from '../../types/data/paperwork/paperwork.constants';
 import { BRANDING_CONFIG } from '../branding';
 import { getConsentFormsForLocation } from '../consent-forms';
@@ -27,7 +28,7 @@ import {
 // bare-specifier subpaths, so the only reliably-importable surface is utils's
 // main barrel — which already loads this module.
 export const IN_PERSON_INTAKE_PAPERWORK_URL = 'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson';
-export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.9';
+export const IN_PERSON_INTAKE_PAPERWORK_VERSION = '1.2.10';
 export const IN_PERSON_INTAKE_PAPERWORK_CANONICAL = {
   url: IN_PERSON_INTAKE_PAPERWORK_URL,
   version: IN_PERSON_INTAKE_PAPERWORK_VERSION,
@@ -972,6 +973,34 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
             },
           ],
         },
+        patientRelationshipToInsuredOther: {
+          key: 'patient-relationship-to-insured-other',
+          label: 'Other relationship',
+          type: 'string',
+          placeholder: 'Please specify...',
+          disabledDisplay: 'hidden',
+          triggers: [
+            {
+              targetQuestionLinkId: 'payment-option',
+              effect: ['enable'],
+              operator: '=',
+              answerString: INSURANCE_PAY_OPTION,
+            },
+            {
+              targetQuestionLinkId: 'patient-relationship-to-insured',
+              effect: ['enable'],
+              operator: '=',
+              answerString: RELATIONSHIP_OPTIONS.Other,
+            },
+            {
+              targetQuestionLinkId: 'payment-option',
+              effect: ['filter'],
+              operator: '!=',
+              answerString: INSURANCE_PAY_OPTION,
+            },
+          ],
+          enableBehavior: 'all',
+        },
         displaySecondaryInsurance: {
           key: 'display-secondary-insurance',
           label: 'Add secondary insurance',
@@ -1170,6 +1199,21 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
               type: 'choice',
               options: valueSets.relationshipToInsuredOptions,
             },
+            patientRelationshipToInsuredOther: {
+              key: 'patient-relationship-to-insured-other-2',
+              label: 'Other relationship',
+              type: 'string',
+              placeholder: 'Please specify...',
+              disabledDisplay: 'hidden',
+              triggers: [
+                {
+                  targetQuestionLinkId: 'secondary-insurance.patient-relationship-to-insured-2',
+                  effect: ['enable'],
+                  operator: '=',
+                  answerString: RELATIONSHIP_OPTIONS.Other,
+                },
+              ],
+            },
           },
           triggers: [
             {
@@ -1343,6 +1387,21 @@ function buildFormFields(valueSets: ValueSetsConfig): PaperworkFormFields {
           label: 'Relationship to the patient',
           type: 'choice',
           options: valueSets.relationshipOptions,
+        },
+        otherRelationship: {
+          key: 'responsible-party-relationship-other',
+          label: 'Other relationship',
+          type: 'string',
+          placeholder: 'Please specify...',
+          disabledDisplay: 'hidden',
+          triggers: [
+            {
+              targetQuestionLinkId: 'responsible-party-relationship',
+              effect: ['enable'],
+              operator: '=',
+              answerString: RELATIONSHIP_OPTIONS.Other,
+            },
+          ],
         },
         firstName: {
           key: 'responsible-party-first-name',

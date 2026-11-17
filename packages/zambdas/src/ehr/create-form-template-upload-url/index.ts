@@ -57,8 +57,11 @@ const inputSchema: z.ZodType<CreateFormTemplateUploadUrlInput> = z.union([
   }),
   z.object({
     fileName: z.string().min(1, 'fileName is required'),
-    title: z.string().min(1, 'title is required'),
-    description: z.string().optional(),
+    title: z.string().trim().min(1, 'title is required'),
+    description: z
+      .string()
+      .optional()
+      .transform((value) => value?.trim() || undefined),
     documentReferenceId: z.undefined(),
   }),
 ]);

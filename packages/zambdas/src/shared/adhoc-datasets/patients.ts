@@ -25,6 +25,7 @@ import {
   getMiddleName,
   getNameSuffix,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getPhoneNumberForIndividual,
   getPronounsFromExtension,
@@ -390,6 +391,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
 
     const row: AdHocPatientRow = {
       patientId: patient.id || '',
+      friendlyPatientId: getPatientFriendlyId(patient),
       firstName: getPatientFirstName(patient) || '',
       lastName: getPatientLastName(patient) || '',
       patientName: [getPatientFirstName(patient), getPatientLastName(patient)].filter(Boolean).join(' '),

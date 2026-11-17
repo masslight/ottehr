@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 import { searchBillingServiceFacilities } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
@@ -79,7 +80,7 @@ function useFacilitySearch(value: string | string[] | null | undefined): {
     for (const ref of stored) {
       if (known[ref] || attempted.current.has(ref)) continue;
       attempted.current.add(ref);
-      const id = ref.split('/')[1];
+      const id = getIdFromReference(ref);
       if (!id) continue;
       searchBillingServiceFacilities(oystehrZambda, { facilityId: id })
         .then((res) => {

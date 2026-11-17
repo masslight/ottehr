@@ -130,19 +130,18 @@ export const patchAppointmentComment = async (
     return;
   }
 
-  let patchOp: 'replace' | 'add' | 'remove';
-  const patchOperations = [];
-  if (comment !== '') {
-    patchOp = appointment.comment ? 'replace' : 'add';
-    patchOperations.push({ op: patchOp, path: '/comment', value: comment });
-  } else {
-    patchOp = 'remove';
-    patchOperations.push({ op: patchOp, path: '/comment' });
-  }
   const fhirAppointment = await oystehr.fhir.get<Appointment>({
     resourceType: 'Appointment',
     id: appointment.id,
   });
+  const patchOperations: Operation[] = [];
+  if (comment.trim()) {
+    patchOperations.push({ op: fhirAppointment.comment ? 'replace' : 'add', path: '/comment', value: comment });
+  } else if (fhirAppointment.comment) {
+    patchOperations.push({ op: 'remove', path: '/comment' });
+  } else {
+    return fhirAppointment;
+  }
   const updateTag = getCriticalUpdateTagOp(
     fhirAppointment,
     user?.name || `${BRANDING_CONFIG.projectName} Team Member (${user?.id})`

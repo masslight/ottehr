@@ -44,6 +44,29 @@ const observationSchema = z
   })
   .passthrough();
 
+const noteSchema = z
+  .object({
+    text: z.string(),
+    deleted: z.boolean().optional(),
+  })
+  .passthrough()
+  .refine((note) => note.deleted === true || note.text.trim() !== '', {
+    message: 'must not be blank',
+    path: ['text'],
+  });
+
+const instructionSchema = z
+  .object({
+    text: z.string().nullish(),
+    title: z.string().nullish(),
+    educationDocRefId: z.string().nullish(),
+  })
+  .passthrough()
+  .refine(
+    (instruction) => Boolean(instruction.text?.trim() || instruction.title?.trim() || instruction.educationDocRefId),
+    { message: 'must have a non-blank text or title' }
+  );
+
 const SaveChartDataBodySchema = z
   .object({
     encounterId: z.string().uuid(),
@@ -51,6 +74,8 @@ const SaveChartDataBodySchema = z
     cleanupProcedureDiagnoses: z.boolean().optional(),
     observations: z.array(observationSchema).optional(),
     vitalsObservations: z.array(observationSchema).optional(),
+    notes: z.array(noteSchema).optional(),
+    instructions: z.array(instructionSchema).optional(),
   })
   .passthrough();
 

@@ -9,6 +9,7 @@ import { validateRequestParameters as validateCreate } from '../src/ehr/patient-
 import { GetNotesSchema } from '../src/ehr/patient-notes/get/index';
 import { MarkTaskNotesReadSchema } from '../src/ehr/patient-notes/mark-read/index';
 import {
+  getPractitionerName,
   NOTE_EDITOR_EXTENSION_URL,
   PATIENT_NOTE_TAG,
   TASK_NOTE_READ_BY_TAG_SYSTEM,
@@ -127,6 +128,26 @@ describe('task note validation', () => {
   );
 });
 
+describe('getPractitionerName', () => {
+  const practitioner = (name: NonNullable<Practitioner['name']>[number]): Practitioner => ({
+    resourceType: 'Practitioner',
+    name: [name],
+  });
+
+  it('signs with every given name, the family name and the credentials', () => {
+    expect(getPractitionerName(practitioner({ given: ['Mary', 'Ann'], family: 'Lee', suffix: ['NP'] }))).toBe(
+      'Mary Ann Lee, NP'
+    );
+  });
+
+  it('leaves out blank credentials and signs without any when there are none', () => {
+    expect(getPractitionerName(practitioner({ given: ['Jane'], family: 'Smith', suffix: ['MD', ' '] }))).toBe(
+      'Jane Smith, MD'
+    );
+    expect(getPractitionerName(practitioner({ given: ['Jane'], family: 'Smith' }))).toBe('Jane Smith');
+  });
+});
+
 describe('toNoteDto', () => {
   it('lists editors other than the author and keeps the author', () => {
     const dto = toNoteDto(
@@ -203,6 +224,32 @@ describe('task notes handlers', () => {
     });
     expect(created.subject).toBeUndefined();
     expect(JSON.parse(result.body).note).toMatchObject({ taskId: TASK_ID, authorId: ME, isUnread: false });
+  });
+
+  it.each([
+    ['task', { taskId: TASK_ID }],
+    ['patient', { patientId: PATIENT_ID }],
+  ])("create: signs a %s note with the author's credentials", async (_kind, target) => {
+    mockFhirClient.fhir.get.mockResolvedValue({ ...me, name: [{ ...me.name![0], suffix: ['MD'] }] });
+    mockFhirClient.fhir.create.mockImplementation((resource: Communication) => ({ ...resource, id: NOTE_ID }));
+
+    const result = await createHandler(makeInput({ note: { ...target, text: 'Called the pharmacy' } }));
+
+    expect(mockFhirClient.fhir.create.mock.calls[0][0].sender.display).toBe('Jane Smith, MD');
+    expect(JSON.parse(result.body).note.authorName).toBe('Jane Smith, MD');
+  });
+
+  it('update: records the editor with their credentials', async () => {
+    mockFhirClient.fhir.get.mockImplementation(({ resourceType }) =>
+      resourceType === 'Communication' ? taskNote() : { ...me, name: [{ ...me.name![0], suffix: ['MD', 'PhD'] }] }
+    );
+    mockFhirClient.fhir.patch.mockImplementation(() => taskNote());
+
+    await updateHandler(makeInput({ note: { resourceId: NOTE_ID, taskId: TASK_ID, text: 'Edited' } }));
+
+    const { operations } = mockFhirClient.fhir.patch.mock.calls[0][0];
+    const editorOperation = operations.find((operation: Operation) => operation.path.startsWith('/extension'));
+    expect(JSON.stringify(editorOperation)).toContain('"display":"Jane Smith, MD, PhD"');
   });
 
   it('update: patches only the text and editor list, so the author and tags stay', async () => {

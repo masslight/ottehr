@@ -405,6 +405,159 @@ describe('ProgressNoteAdminPage', () => {
     expect(payload.medicalDecisionDefaultText).toBe('Padded MDM text.');
   });
 
+  describe('specialty transfer options', () => {
+    const specialtyConfig = { ...requiredProgressNoteConfig, specialtyTransferOptions: ['Urology', 'Cardiologist'] };
+    const getSpecialtyInput = (position: number): HTMLInputElement =>
+      screen.getByLabelText(`Specialty ${position}`) as HTMLInputElement;
+
+    it('renders a row per configured specialty', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(specialtyConfig);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(getSpecialtyInput(1)).toBeInTheDocument());
+      expect(getSpecialtyInput(1).value).toBe('Urology');
+      expect(getSpecialtyInput(2).value).toBe('Cardiologist');
+      expect(screen.queryByLabelText('Specialty 3')).not.toBeInTheDocument();
+    });
+
+    it('saves an added specialty', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(specialtyConfig);
+      vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(getSpecialtyInput(1)).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'Add specialty' }));
+      fireEvent.change(getSpecialtyInput(3), { target: { value: 'Neurology' } });
+      fireEvent.click(getSaveButton());
+
+      await waitFor(() => {
+        expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
+          ...requiredConfigWithoutPrompt,
+          specialtyTransferOptions: ['Urology', 'Cardiologist', 'Neurology'],
+        });
+      });
+    });
+
+    it('saves the list without a removed specialty', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(specialtyConfig);
+      vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(getSpecialtyInput(1)).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'Remove specialty 1' }));
+      fireEvent.click(getSaveButton());
+
+      await waitFor(() => {
+        expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
+          ...requiredConfigWithoutPrompt,
+          specialtyTransferOptions: ['Cardiologist'],
+        });
+      });
+    });
+
+    it('shows an error and does not submit when an added specialty is left blank', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(specialtyConfig);
+      vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(getSpecialtyInput(1)).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'Add specialty' }));
+      fireEvent.click(getSaveButton());
+
+      await waitFor(() => expect(screen.getByText('Specialty is required')).toBeInTheDocument());
+      expect(adminUpdateProgressNoteConfig).not.toHaveBeenCalled();
+    });
+
+    it('submits specialties with runs of inner whitespace collapsed', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(specialtyConfig);
+      vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(getSpecialtyInput(1)).toBeInTheDocument());
+      fireEvent.change(getSpecialtyInput(1), { target: { value: '  Sports  Medicine ' } });
+      fireEvent.click(getSaveButton());
+
+      await waitFor(() => {
+        expect(adminUpdateProgressNoteConfig).toHaveBeenCalledWith(mockOystehrZambda, {
+          ...requiredConfigWithoutPrompt,
+          specialtyTransferOptions: ['Sports Medicine', 'Cardiologist'],
+        });
+      });
+    });
+
+    it('drops the error of a removed row instead of moving it onto the next one', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue({
+        ...requiredProgressNoteConfig,
+        specialtyTransferOptions: ['Cardiologist', 'Urology'],
+      });
+      vi.mocked(adminUpdateProgressNoteConfig).mockResolvedValue(undefined);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(getSpecialtyInput(1)).toBeInTheDocument());
+      fireEvent.change(getSpecialtyInput(1), { target: { value: '' } });
+      fireEvent.click(getSaveButton());
+      await waitFor(() => expect(getSpecialtyInput(1)).toHaveAttribute('aria-invalid', 'true'));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove specialty 1' }));
+
+      await waitFor(() => expect(screen.queryByText('Specialty is required')).not.toBeInTheDocument());
+      expect(getSpecialtyInput(1).value).toBe('Urology');
+      expect(getSpecialtyInput(1)).toHaveAttribute('aria-invalid', 'false');
+      expect(adminUpdateProgressNoteConfig).not.toHaveBeenCalled();
+    });
+
+    it('keeps the error on a blank row that moves up when an earlier row is removed', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(specialtyConfig);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(getSpecialtyInput(1)).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'Add specialty' }));
+      fireEvent.click(getSaveButton());
+      await waitFor(() => expect(getSpecialtyInput(3)).toHaveAttribute('aria-invalid', 'true'));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove specialty 2' }));
+
+      await waitFor(() => expect(getSpecialtyInput(2)).toHaveAttribute('aria-invalid', 'true'));
+      expect(getSpecialtyInput(1)).toHaveAttribute('aria-invalid', 'false');
+      expect(screen.getAllByText('Specialty is required')).toHaveLength(1);
+    });
+
+    it('clears a specialty error once the row is filled in', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue(specialtyConfig);
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(getSpecialtyInput(1)).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'Add specialty' }));
+      fireEvent.click(getSaveButton());
+      await waitFor(() => expect(screen.getByText('Specialty is required')).toBeInTheDocument());
+
+      fireEvent.change(getSpecialtyInput(3), { target: { value: 'Neurology' } });
+
+      await waitFor(() => expect(screen.queryByText('Specialty is required')).not.toBeInTheDocument());
+      expect(getSpecialtyInput(3)).toHaveAttribute('aria-invalid', 'false');
+    });
+
+    it('does not allow removing the last specialty', async () => {
+      vi.mocked(getProgressNoteConfig).mockResolvedValue({
+        ...requiredProgressNoteConfig,
+        specialtyTransferOptions: ['Urology'],
+      });
+
+      render(<ProgressNoteAdminPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(getSpecialtyInput(1)).toBeInTheDocument());
+      expect(screen.getByRole('button', { name: 'Remove specialty 1' })).toBeDisabled();
+    });
+  });
+
   describe('shared Save / Discard across both config sections', () => {
     const getVitalThresholdInput = async (): Promise<HTMLInputElement> => {
       const accordion = screen.getByTestId(dataTestIds.vitalsAlertConfig.vitalAccordion('vital-heartbeat'));

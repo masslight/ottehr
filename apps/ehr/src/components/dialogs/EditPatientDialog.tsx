@@ -51,7 +51,17 @@ interface FormInputs {
   zipCode?: string;
 }
 
-const createPatientResourcePatchData = (patient: Patient, data: FormInputs): Patient => {
+const createPatientResourcePatchData = (patient: Patient, formData: FormInputs): Patient => {
+  const data: FormInputs = {
+    ...formData,
+    firstName: formData.firstName?.trim(),
+    middleName: formData.middleName?.trim(),
+    lastName: formData.lastName?.trim(),
+    preferredName: formData.preferredName?.trim(),
+    addressLineOne: formData.addressLineOne?.trim(),
+    addressLineTwo: formData.addressLineTwo?.trim(),
+    city: formData.city?.trim(),
+  };
   const patientData: Patient = {
     ...patient,
     resourceType: 'Patient',
@@ -309,7 +319,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
         <DialogContent sx={{ overflow: 'auto' }}>
           <FormControl fullWidth required sx={{ mt: 1 }}>
             <TextField
-              {...register('firstName', { required: true })}
+              {...register('firstName', { validate: (value) => !!value?.trim() })}
               id="first-name"
               label="First Name"
               variant="outlined"
@@ -330,7 +340,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
           </FormControl>
           <FormControl fullWidth required sx={{ mt: 2 }}>
             <TextField
-              {...register('lastName', { required: true })}
+              {...register('lastName', { validate: (value) => !!value?.trim() })}
               id="last-name"
               label="Last Name"
               variant="outlined"

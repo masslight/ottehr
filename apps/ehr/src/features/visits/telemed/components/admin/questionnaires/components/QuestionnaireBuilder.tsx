@@ -19,6 +19,7 @@ import {
   FORM_PLACEMENT_LABELS,
   FORM_PLACEMENTS,
   FormPlacement,
+  generatePracticeManagedQuestionnaireItemKey,
   getFormPlacement,
   makePracticeManagedUrl,
   PRACTICE_MANAGED_QUESTIONNAIRE_BASE_VERSION,
@@ -56,7 +57,7 @@ const makeCanonicalFields = (
     return { name: initial.name, url: initial.url };
   } else {
     const { title } = input;
-    const slug = toSlug(title);
+    const slug = toSlug(title) || `form-${generatePracticeManagedQuestionnaireItemKey()}`;
     const url = makePracticeManagedUrl(slug);
     return { name: slug, url };
   }
@@ -132,7 +133,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
       ...canonicalFields,
       version,
       title,
-      ...(description && { description }),
+      ...(description.trim() && { description }),
       item: ensureUniqueLinkIds(items),
       ...(metaTags.length > 0 && { meta: { tag: metaTags } }),
     };
@@ -145,7 +146,7 @@ export const QuestionnaireBuilder: FC<QuestionnaireBuilderProps> = ({ initial, o
 
   const handleSave = async (): Promise<void> => {
     let error = false;
-    if (!title) {
+    if (!title.trim()) {
       setTitleError(true);
       error = true;
     }

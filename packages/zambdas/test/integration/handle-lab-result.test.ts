@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { DiagnosticReport, DocumentReference, Organization, ServiceRequest, Task } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   DR_UNSOLICITED_PATIENT_REF,
   LAB_DR_TYPE_TAG,
@@ -126,7 +127,7 @@ describe('fetchRelatedResources integration', () => {
     });
 
     it('returns the encounter location', () => {
-      const expectedLocationId = base.encounter.location?.[0].location?.reference?.split('/')[1];
+      const expectedLocationId = getIdFromReference(base.encounter.location?.[0].location?.reference);
       expect(result.location?.id).toBe(expectedLocationId);
     });
 

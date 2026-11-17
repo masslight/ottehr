@@ -59,7 +59,12 @@ export const BillingClaimsBaseRowSchema = z.object({
   payerId: z.string().describe('Payer id (the clearinghouse payer id, or "OTR-…" for a custom insurer). "" when none.'),
   nonInsurancePayerName: z
     .string()
-    .describe('Non-insurance payer (e.g. an employer for occupational medicine) billed on the claim. "" when none.'),
+    .describe(
+      'Non-insurance organization (NIO) billed on the claim — the employer of an occupational-medicine or ' +
+        "employer-paid visit, as set when the claim was created. A workers' comp claim billed to its carrier " +
+        "has the carrier in payerName and no employer here — the workers' comp employer is in the Encounters " +
+        'dataset (employer layer). "" when none.'
+    ),
   memberId: z.string().describe('Subscriber / member id on the primary coverage. "" when none.'),
   // --- Status (each a claim status indicator set in the billing app) ---
   arStage: statusField('arStage', 'whose receivable the claim currently is.'),
@@ -157,13 +162,21 @@ export const BILLING_CLAIMS_LAYERS = {
   claimDetails: {
     label: 'Claim details (providers, facility, identifiers)',
     description:
-      'Billing and rendering provider NPIs, service facility and place of service, claim control numbers, ' +
+      'Billing and rendering provider NPIs and taxonomy codes, service facility NPI and CLIA number, place of ' +
+      'service, claim control numbers, ' +
       'institutional and accident details, attachments, and patient sex / state / ZIP.',
     schema: z.object({
       billingProvider: z.string().describe('Billing provider name. "" when none.'),
       billingProviderNpi: z.string().describe('Billing provider NPI. "" when none.'),
+      billingProviderTaxonomy: z
+        .string()
+        .describe('Billing provider taxonomy code (e.g. "261QU0200X"), as sent on the claim. "" when none.'),
       renderingProviderNpi: z.string().describe('Rendering provider NPI. "" when none.'),
+      renderingProviderTaxonomy: z
+        .string()
+        .describe('Rendering provider taxonomy code (e.g. "207Q00000X"), as sent on the claim. "" when none.'),
       facilityNpi: z.string().describe('Service facility NPI. "" when none.'),
+      facilityClia: z.string().describe('Service facility CLIA number (lab certification). "" when none.'),
       placeOfService: z.string().describe('CMS place-of-service code of the first service line. "" when none.'),
       patientControlNumber: z.string().describe('Patient control number sent to the payer (PCN). "" when none.'),
       payerClaimControlNumber: z.string().describe('Payer\'s claim control number (ICN) from the remit. "" when none.'),

@@ -152,7 +152,9 @@ export async function extractInsuranceCardFieldsFromImage(
     [{ text: EXTRACTION_PROMPT }, { inlineData: { mimeType, data: bytes.toString('base64') } }],
     secrets,
     'extract-insurance-card',
-    insuranceCardResponseSchema
+    insuranceCardResponseSchema,
+    undefined,
+    { retryMode: 'sequential' }
   );
   const parsed = parseModelResponse(rawModelResponse);
   return { ...parsed, unsupportedContentType: false };

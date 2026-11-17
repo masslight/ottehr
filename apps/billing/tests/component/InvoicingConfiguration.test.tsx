@@ -13,6 +13,7 @@ const saved: SaveInvoiceConfigInput = {
   dueDaysFromGeneration: 14,
   defaultSmsTemplate: 'Hello {{patient-full-name}}.\nPlease pay {{amount}}.',
   defaultInvoiceMemo: 'Visit on {{visit-date}} at {{clinic}}.',
+  invoiceIssuerSource: 'service-facility',
 };
 
 function config(values = saved): InvoiceConfigResponse {
@@ -28,6 +29,7 @@ function config(values = saved): InvoiceConfigResponse {
             { linkId: 'invoicing.dueDaysFromGeneration', answer: [{ valueInteger: values.dueDaysFromGeneration }] },
             { linkId: 'invoicing.defaultSmsTemplate', answer: [{ valueString: values.defaultSmsTemplate }] },
             { linkId: 'invoicing.defaultInvoiceMemo', answer: [{ valueString: values.defaultInvoiceMemo }] },
+            { linkId: 'invoicing.invoiceIssuerSource', answer: [{ valueString: values.invoiceIssuerSource }] },
           ],
         },
       ],
@@ -70,6 +72,25 @@ describe('Invoicing Configuration', () => {
     expect(sms()).toHaveValue(saved.defaultSmsTemplate);
     expect(memo()).toHaveValue(saved.defaultInvoiceMemo);
     expect(saveButton()).toBeDisabled();
+  });
+
+  it('shows the saved invoice issuer and saves a new one', async () => {
+    const user = userEvent.setup();
+    mocks.get.mockResolvedValueOnce(
+      config({
+        ...saved,
+        invoiceIssuerSource: 'billing-provider',
+      })
+    );
+    render(<InvoicingConfiguration />);
+    await screen.findByRole('button', { name: 'Save changes' });
+    const issuer = screen.getByRole('combobox', { name: 'Invoice Issuer' });
+    expect(issuer).toHaveTextContent('Billing provider');
+    await user.click(issuer);
+    const serviceFacility = screen.getByRole('option', { name: 'Service facility' });
+    await user.click(serviceFacility);
+    await user.click(saveButton());
+    expect(mocks.save).toHaveBeenCalledWith(mocks.client, saved);
   });
 
   it('resets all unsaved fields to the loaded settings', async () => {
@@ -124,6 +145,7 @@ describe('Invoicing Configuration', () => {
     await user.type(memo(), ' Thank you.');
     await user.click(saveButton());
     const updated = {
+      ...saved,
       dueDaysFromGeneration: 21,
       defaultSmsTemplate: saved.defaultSmsTemplate + ' Thank you.',
       defaultInvoiceMemo: saved.defaultInvoiceMemo + ' Thank you.',

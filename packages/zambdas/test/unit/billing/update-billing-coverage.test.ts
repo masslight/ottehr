@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Coverage, Provenance, ProvenanceAgent, RelatedPerson } from 'fhir/r4b';
 import { CLAIM_PROVENANCE_DIFF_EXTENSION_URL, ClaimFieldChange } from 'utils/lib/types/data/billing/claim-history';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/update-billing-coverage';
 
@@ -146,6 +147,23 @@ describe('update-billing-coverage', () => {
       previousValue: '1975-05-05',
       newValue: '1980-01-01',
     });
+  });
+
+  it('rejects clearing the group number without a payer instead of silently keeping the old one', async () => {
+    const { oystehr, transaction } = makeOystehr();
+    const withGroup: Coverage = {
+      ...structuredClone(coverage),
+      class: [{ type: { coding: [{ code: 'plan' }] }, value: 'GRP-1' }],
+    };
+
+    await expect(
+      performEffect(
+        oystehr,
+        { coverageId: 'cov-1', groupNumber: '', secrets: {} },
+        { patientId: 'pat-1', coverage: withGroup }
+      )
+    ).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   it('keeps the plain transaction (no Provenance) when no claimId is given', async () => {

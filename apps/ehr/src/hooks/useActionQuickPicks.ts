@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getInitialEncounterIdForFollowUp } from 'utils/lib/fhir/encounter';
 import { useAppointmentData } from '../features/visits/shared/stores/appointment/appointment.store';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
+import { useCommandPaletteDocumentTarget } from './useCommandPaletteDocumentTarget';
 import { useCommandPaletteRouteContext } from './useCommandPaletteRouteContext';
 import { useCommandPaletteSource } from './useCommandPaletteSource';
 import useEvolveUser from './useEvolveUser';
@@ -13,13 +14,15 @@ interface FollowUpTarget {
   state?: { initialEncounterId: string | undefined };
 }
 
-/** Registers global action items ("Create Task", "Add Follow-up Visit") in the command palette. */
+/** Registers global action items ("Create Task", "Add Follow-up Visit", "Upload", "Scan") in the command palette. */
 export function useActionQuickPicks(): void {
   const currentUser = useEvolveUser();
   const navigate = useNavigate();
   const setCreateTaskDialogOpen = useCommandPaletteStore((state) => state.setCreateTaskDialogOpen);
+  const setUploadDocumentMode = useCommandPaletteStore((state) => state.setUploadDocumentMode);
   const { visitId, patientId } = useCommandPaletteRouteContext();
   const { patient, encounter } = useAppointmentData(visitId);
+  const documentTarget = useCommandPaletteDocumentTarget();
 
   const followUpTarget = useMemo<FollowUpTarget | undefined>(() => {
     if (visitId) {
@@ -62,8 +65,35 @@ export function useActionQuickPicks(): void {
       });
     }
 
+    if (documentTarget.patientId && !documentTarget.isVisitLocked) {
+      actions.push(
+        {
+          id: 'action-upload-document',
+          label: 'Upload',
+          category: 'Actions',
+          keywords: ['upload', 'document', 'file', 'attach', 'docs'],
+          onSelect: () => setUploadDocumentMode('upload'),
+        },
+        {
+          id: 'action-scan-document',
+          label: 'Scan',
+          category: 'Actions',
+          keywords: ['scan', 'scanner', 'document', 'docs'],
+          onSelect: () => setUploadDocumentMode('scan'),
+        }
+      );
+    }
+
     return actions;
-  }, [currentUser, followUpTarget, navigate, setCreateTaskDialogOpen]);
+  }, [
+    currentUser,
+    followUpTarget,
+    navigate,
+    setCreateTaskDialogOpen,
+    setUploadDocumentMode,
+    documentTarget.patientId,
+    documentTarget.isVisitLocked,
+  ]);
 
   useCommandPaletteSource('actions', items);
 }

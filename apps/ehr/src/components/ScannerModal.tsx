@@ -38,11 +38,18 @@ interface ScannerModalProps {
   onClose: () => void;
   outputFormat?: ScannerOutputFormat; // 'pdf' for single PDF, 'png' for multiple PNGs
   onScanComplete?: (fileBlob: Blob | Blob[], fileName: string) => void;
+  validateFileName?: (fileName: string) => string | undefined;
 }
 
 const SCANNER_CONTAINER_ID = 'dynamsoft-scanner-container';
 
-export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputFormat = 'pdf', onScanComplete }) => {
+export const ScannerModal: FC<ScannerModalProps> = ({
+  open,
+  onClose,
+  outputFormat = 'pdf',
+  onScanComplete,
+  validateFileName,
+}) => {
   const {
     isInitialized,
     isScanning,
@@ -81,6 +88,8 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
     const timestamp = new Date().getTime();
     return `scanned-document-${timestamp}`;
   });
+
+  const fileNameError = !fileName.trim() ? 'File name is required' : validateFileName?.(fileName.trim());
 
   // Loading state for save operation
   const [isSaving, setIsSaving] = useState(false);
@@ -126,8 +135,8 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
     }
 
     // Validate fileName
-    if (!fileName.trim()) {
-      console.error('File name is required');
+    if (fileNameError) {
+      console.error(fileNameError);
       return;
     }
 
@@ -339,8 +348,8 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFileName(e.target.value)}
                   placeholder="Enter file name"
                   required
-                  error={!fileName.trim()}
-                  helperText={!fileName.trim() ? 'File name is required' : 'Do not include .pdf extension'}
+                  error={Boolean(fileNameError)}
+                  helperText={fileNameError ?? 'Do not include .pdf extension'}
                   disabled={isScanning}
                 />
               </Box>
@@ -501,7 +510,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
               onClick={handleSaveAndClose}
               variant="contained"
               loading={isSaving}
-              disabled={imageCount === 0 || isScanning || !fileName.trim()}
+              disabled={imageCount === 0 || isScanning || Boolean(fileNameError)}
               sx={{ borderRadius: '50px', textTransform: 'none' }}
             >
               Save {imageCount > 0 && `(${imageCount})`}

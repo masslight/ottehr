@@ -56,6 +56,9 @@ const fetchMainEncounter = async (appointmentID: string, oystehr: Oystehr): Prom
   return followupEncounters[0];
 };
 
+export const isVideoEncounter = (encounter: Encounter): boolean =>
+  Boolean(getVirtualServiceResourceExtension(encounter, TELEMED_VIDEO_ROOM_CODE));
+
 export const getVideoEncounterForAppointment = async (
   appointmentID: string,
   oystehr: Oystehr
@@ -74,9 +77,7 @@ export const getVideoEncounterForAppointment = async (
     })
   ).unbundle();
 
-  encounter = (encounters ?? []).find((encounterTemp) =>
-    Boolean(getVirtualServiceResourceExtension(encounterTemp, TELEMED_VIDEO_ROOM_CODE))
-  );
+  encounter = (encounters ?? []).find(isVideoEncounter);
   return encounter;
 };
 

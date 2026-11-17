@@ -10,6 +10,7 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ADDED_VIA_LAB_ORDER_SYSTEM, OYSTEHR_ABN_DOC_CATEGORY_CODING } from 'utils/lib/types/data/labs/labs.constants';
 import { ExternalLabCommunications } from 'utils/lib/types/data/labs/labs.types';
 import { makeSoftDeleteStatusPatchRequest } from '../../shared/helpers';
@@ -159,7 +160,7 @@ export const getLabOrderRelatedResources = async (
     }
 
     const encounter = encounters.find(
-      (encounter) => encounter.id === serviceRequest.encounter?.reference?.split('/')[1]
+      (encounter) => encounter.id === getIdFromReference(serviceRequest.encounter?.reference)
     );
 
     // this Conditions were added from external lab order page and should be deleted if the lab order is deleted

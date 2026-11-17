@@ -1,6 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DeviceRequest, Practitioner } from 'fhir/r4b';
-import { isPhoneNumberValid, removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { SendDmeOrderFaxInputSchema, SendDmeOrderFaxResponse } from 'utils/lib/types/api/dme.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
@@ -28,7 +29,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const user = await getUser(userToken, secrets);
-  const practitionerId = removePrefix('Practitioner/', user.profile);
+  const practitionerId = getIdFromReference(user.profile, 'Practitioner');
   if (!practitionerId) throw new Error('User practitioner reference is invalid');
 
   const [deviceRequest, userPractitioner] = await Promise.all([
@@ -38,8 +39,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (isDmeOrderDeleted(deviceRequest)) throw INVALID_INPUT_ERROR('This DME order has been deleted');
   if (!isDmeOrderExternal(deviceRequest)) throw INVALID_INPUT_ERROR('Only external DME orders can be faxed');
 
-  const patientId = removePrefix('Patient/', deviceRequest.subject.reference ?? '');
-  const encounterId = removePrefix('Encounter/', deviceRequest.encounter?.reference ?? '');
+  const patientId = getIdFromReference(deviceRequest.subject.reference, 'Patient');
+  const encounterId = getIdFromReference(deviceRequest.encounter?.reference, 'Encounter');
   const [form, encounterContext] = await Promise.all([
     // the form on file is faxed, so the recipient gets the document that was printed and reviewed here
     getOrCreateDmeOrderForm(deviceRequestId, secrets, m2mToken, oystehr),

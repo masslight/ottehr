@@ -71,7 +71,7 @@ const addStyleInfo = (item: IntakeQuestionnaireItem): StyledQuestionnaireItem =>
     ].includes(item.linkId);
   const minRows = item.minRows;
 
-  let placeholder: string | undefined;
+  let placeholder = item.placeholder;
   let mask: string | undefined;
 
   // these field checks are for backwards compatibility and can be removed after 1.14

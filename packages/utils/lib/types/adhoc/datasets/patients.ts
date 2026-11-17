@@ -23,7 +23,15 @@ const MEDICATION_STATUS_VALUES = Object.keys(MEDICATION_STATUSES) as [
 
 export const PatientBaseRowSchema = z.object({
   // --- Patient ---
-  patientId: z.string().describe('Patient id.'),
+  patientId: z
+    .string()
+    .describe('Patient id (internal UUID). Display friendlyPatientId instead unless asked for the UUID.'),
+  friendlyPatientId: z
+    .string()
+    .describe(
+      'Human-readable patient id (PID) shown in the EHR patient header — the "friendly" / short patient id. Use ' +
+        'it whenever the user asks to display a patient id / PID. "" when the patient has none.'
+    ),
   firstName: z.string().describe('Patient first name.'),
   lastName: z.string().describe('Patient last name.'),
   patientName: z.string().describe('Patient full name.'),
