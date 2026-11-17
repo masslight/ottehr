@@ -9,7 +9,6 @@ import {
   Autocomplete,
   Box,
   Button,
-  Chip,
   CircularProgress,
   InputAdornment,
   Menu,
@@ -60,7 +59,6 @@ import {
   ClaimStatusOption,
   ClaimStatusValues,
   formatAntCaseString,
-  formatClaimStatusValue,
   isInvoiceableClaimStatus,
 } from 'utils/lib/types/data/billing/claim-status';
 import {
@@ -85,6 +83,7 @@ import {
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
+import { ClaimStatusValueChip } from '../components/ClaimStatusValueChip';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateRangeInput } from '../components/DateInput';
 import { NioInvoiceDialog } from '../components/NioInvoiceDialog';
@@ -92,7 +91,7 @@ import { usePayerSearch } from '../components/PayerSelect';
 import { SendInvoiceDialog } from '../components/SendInvoiceDialog';
 import { TagSelect } from '../components/TagSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
-import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
+import { PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingServices } from '../hooks/useBillingServices';
 import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
@@ -325,19 +324,7 @@ const statusColumns: GridColDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
   width: field.key === 'arStage' ? 170 : 160,
   sortable: false,
   valueGetter: (params) => (params.row as BillingClaimItem).statuses?.[field.key] ?? '',
-  renderCell: ({ value }) => {
-    const code = value as string;
-    if (!code) return null;
-    return (
-      <Chip
-        label={formatClaimStatusValue(field, code)}
-        color={claimStatusValueColor(code)}
-        variant="outlined"
-        size="small"
-        sx={{ borderRadius: '4px', fontSize: 12 }}
-      />
-    );
-  },
+  renderCell: ({ value }) => <ClaimStatusValueChip field={field} code={value as string} />,
 }));
 
 const allColumns: GridColDef[] = [

@@ -3,8 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
-  ChipProps,
   FormControl,
   InputAdornment,
   InputLabel,
@@ -32,28 +30,11 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { DateRangeInput } from '../components/DateInput';
 import { FacilitySelect } from '../components/FacilitySelect';
 import { InvoiceStatementDialog } from '../components/InvoiceStatementDialog';
+import { INVOICE_STATUS_CHIPS, InvoiceStatusChip } from '../components/InvoiceStatusChip';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
 import { downloadTextFile } from '../utils/downloadFile';
 import { formatDate } from '../utils/format';
-
-const STATUS_CHIPS: Record<BillingInvoiceListStatus, { label: string; color: ChipProps['color'] }> = {
-  issued: { label: 'Open', color: 'info' },
-  balanced: { label: 'Paid', color: 'success' },
-  cancelled: { label: 'Void', color: 'default' },
-};
-
-export function InvoiceStatusChip({ status }: { status: BillingInvoiceListStatus }): ReactElement {
-  return (
-    <Chip
-      label={STATUS_CHIPS[status].label}
-      color={STATUS_CHIPS[status].color}
-      variant="outlined"
-      size="small"
-      sx={{ borderRadius: '4px', fontSize: 12 }}
-    />
-  );
-}
 
 // Disable local sorting because only one page is loaded.
 const columns = (
@@ -266,7 +247,7 @@ export default function InvoicesList(): ReactElement {
             row.amount.toFixed(2),
             formatDate(row.issueDate),
             formatDate(row.dueDate),
-            STATUS_CHIPS[row.status].label,
+            INVOICE_STATUS_CHIPS[row.status].label,
             row.hostedInvoiceUrl ?? '',
             row.claimId ?? '',
           ])
@@ -314,7 +295,7 @@ export default function InvoicesList(): ReactElement {
             <MenuItem value="">All</MenuItem>
             {BILLING_INVOICE_LIST_STATUSES.map((status) => (
               <MenuItem key={status} value={status}>
-                {STATUS_CHIPS[status].label}
+                {INVOICE_STATUS_CHIPS[status].label}
               </MenuItem>
             ))}
           </Select>

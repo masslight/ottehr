@@ -5,8 +5,8 @@ import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types'
 import { isInvoiceableClaimStatus } from 'utils/lib/types/data/billing/claim-status';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
-import { InvoiceStatusChip } from '../pages/InvoicesList';
 import { formatDate } from '../utils/format';
+import { InvoiceStatusChip } from './InvoiceStatusChip';
 import { ReadOnlySection, thSx } from './ReadOnlySection';
 import { SendInvoiceDialog } from './SendInvoiceDialog';
 
