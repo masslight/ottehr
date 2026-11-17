@@ -2210,7 +2210,6 @@ export function payerClaimControlNumberIdentifier(
   };
 }
 
-// Which of the claim's insurances the payer is, by the Coverage it pays on.
 export async function getInsuranceOrdinal(
   oystehr: Oystehr,
   claim: Claim,

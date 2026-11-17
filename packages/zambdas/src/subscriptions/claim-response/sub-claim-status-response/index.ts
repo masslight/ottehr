@@ -114,7 +114,6 @@ export interface ComplexValidationOutput {
   classification: ClassifiedClaimStatusResponse;
   recordedFields: ReadonlySet<string>;
   completion: BatchInputPatchRequest<FhirResource>;
-  // the payer's ICN, to record as its PCCN when the claim has none for that payer yet
   payerClaimControlNumber?: StatusPayerClaimControlNumber;
 }
 

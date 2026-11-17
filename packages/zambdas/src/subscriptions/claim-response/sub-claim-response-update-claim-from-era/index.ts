@@ -232,7 +232,6 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
       ? {
           ...current,
           identifier: [
-            // replaces only this payer's PCCN; one with no known ordinal is written type-less, which reads as primary
             ...(current.identifier ?? []).filter(
               (identifier) => !isPayerClaimControlNumberFor(identifier, insuranceOrdinal ?? 'primary')
             ),
