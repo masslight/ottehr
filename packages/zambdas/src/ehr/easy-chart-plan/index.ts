@@ -26,6 +26,7 @@ import {
   describeChart,
   readChart,
   readEmCodes,
+  readPatientStatus,
   readTemplates,
   readVisitContext,
 } from '../easy-chart-shared/visit-context';
@@ -63,7 +64,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     templates: practiceTemplates,
     patientLine: visit?.patientLine,
     // The chart wins; the caller's status only fills in when there is no encounter to read.
-    patientStatus: visit?.patientStatus ?? patientStatus,
+    patientStatus: visit && chart ? readPatientStatus(chart, visit.appointment) : patientStatus,
     chartStateSummary,
     noteContext,
   });

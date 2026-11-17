@@ -1,4 +1,6 @@
-import { Practitioner } from 'fhir/r4b';
+import { Appointment, Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { SEEN_VISIT_APPOINTMENT_STATUS } from 'utils/lib/helpers/screening-questions/new-patient.helper';
 import {
   progressNoteNoteTypes,
   vitalsObservationsRequest,
@@ -18,9 +20,17 @@ import { mapChartResources } from './map';
 import { CHART_SECTION_DEFINITIONS } from './registry';
 import { ChartClient, ChartSectionDefinition } from './types';
 
-type ExtraOwner = 'vitals' | 'labs' | 'radiology' | 'practitioners' | 'appointments';
+type ExtraOwner = 'vitals' | 'labs' | 'radiology' | 'practitioners' | 'thisAppointment' | 'firstSeenVisit';
 type VisitNoteOwner = ChartSection | ExtraOwner;
-const EXTRA_OWNERS: readonly ExtraOwner[] = ['vitals', 'labs', 'radiology', 'practitioners', 'appointments'];
+
+const EXTRA_OWNERS: readonly ExtraOwner[] = [
+  'vitals',
+  'labs',
+  'radiology',
+  'practitioners',
+  'thisAppointment',
+  'firstSeenVisit',
+];
 
 export interface BuildVisitNoteOptions {
   /** Which note types the note shows; defaults to the in-person visit note's. */
@@ -32,7 +42,7 @@ const sectionParams = <S extends ChartSection>(section: S, noteTypes: NOTE_TYPE[
 
 /**
  * Everything the visit note shows, read in one wave of concurrent batches: every chart section plus the
- * vitals, lab results, radiology orders, encounter practitioners and the patient's appointment count. This is
+ * vitals, lab results, radiology orders, encounter practitioners and whether the patient was seen before. This is
  * the one read behind Review & Sign, the follow-up note, the visit note PDF and the discharge summary.
  */
 export async function buildVisitNote(
@@ -66,11 +76,16 @@ export async function buildVisitNote(
       request: { method: 'GET', url: `/Practitioner?_has:Encounter:participant:_id=${encounterId}` },
     },
     {
-      // How many appointments the patient has; more than one means they have been seen before.
-      owner: 'appointments',
+      owner: 'thisAppointment',
+      request: { method: 'GET', url: `/Appointment?_has:Encounter:appointment:_id=${encounterId}` },
+    },
+    {
+      owner: 'firstSeenVisit',
       request: {
         method: 'GET',
-        url: `/Appointment?patient:Patient._has:Encounter:subject:_id=${encounterId}&_summary=count`,
+        url:
+          `/Appointment?patient:Patient._has:Encounter:subject:_id=${encounterId}` +
+          `&status=${SEEN_VISIT_APPOINTMENT_STATUS}&_sort=date&_count=1`,
       },
     },
   ];
@@ -79,7 +94,7 @@ export async function buildVisitNote(
     ...CHART_SECTIONS,
     ...EXTRA_OWNERS,
   ]);
-  const { encounter, patientId, byOwner, totals } = fetched;
+  const { encounter, patientId, byOwner } = fetched;
   const practitioners = byOwner.practitioners.filter((r): r is Practitioner => r.resourceType === 'Practitioner');
   const context = { ...client, encounterId, patientId, encounter, knownPractitioners: practitioners };
 
@@ -119,7 +134,16 @@ export async function buildVisitNote(
     radiologyOrders:
       mapChartResources(encounter, byOwner.radiology, encounterId, { radiologyOrders: [] }).radiologyOrders ?? [],
     practitioners,
-    // More than one appointment means the patient has previous visits (the current appointment is one of them)
-    patientHasPreviousVisits: totals.appointments > 1,
+    patientHasPreviousVisits: wasSeenBefore(
+      byOwner.thisAppointment[0] as Appointment | undefined,
+      byOwner.firstSeenVisit[0] as Appointment | undefined
+    ),
   };
+}
+
+function wasSeenBefore(thisAppointment: Appointment | undefined, firstSeenVisit: Appointment | undefined): boolean {
+  if (!firstSeenVisit?.id || firstSeenVisit.id === thisAppointment?.id) return false;
+  if (!thisAppointment?.start || !firstSeenVisit.start) return true;
+
+  return DateTime.fromISO(firstSeenVisit.start) < DateTime.fromISO(thisAppointment.start);
 }
