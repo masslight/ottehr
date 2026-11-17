@@ -1,6 +1,4 @@
 import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
-import ErrorIcon from '@mui/icons-material/Error';
-import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { JSX, useState } from 'react';
@@ -18,6 +16,7 @@ import { VitalsObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.
 import { formatDateTimeToLocalTimezone } from 'utils/lib/utils/date';
 import { DeleteVitalModal } from '../DeleteVitalModal';
 import DotVisionDocumentChip from '../vision/DotVisionDocumentChip';
+import { VitalAlertIcon } from './VitalAlertIcon';
 
 type VitalHistoryElementProps<T extends VitalsObservationDTO = VitalsObservationDTO> = {
   historyEntry: T;
@@ -70,15 +69,7 @@ export const VitalHistoryElement: React.FC<VitalHistoryElementProps> = ({
               return { ...value, key: index };
             }
           })}
-          {historyEntry.alertCriticality === 'critical' && (
-            <ErrorIcon fontSize="small" sx={{ ml: '4px', verticalAlign: 'middle', color: lineColor }} />
-          )}
-          {historyEntry.alertCriticality === 'abnormal' && (
-            <WarningAmberOutlinedIcon
-              fontSize="small"
-              sx={{ ml: '4px', verticalAlign: 'middle', color: theme.palette.warning.light }}
-            />
-          )}
+          <VitalAlertIcon criticality={historyEntry.alertCriticality} />
           {observationMethod && ` (${observationMethod})`}
         </Typography>
 
