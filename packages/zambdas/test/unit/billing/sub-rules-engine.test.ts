@@ -1656,12 +1656,14 @@ describe('sub-rules-engine persistModel', () => {
     expect((thrown as Error).cause).toBe(error);
   });
 
-  it('rethrows other write-back failures unchanged', async () => {
+  it.each([
+    ['a plain server error', { message: 'Internal error', code: 500 }],
+    ['a resource id containing "412"', { message: 'Failed PUT Claim/ab412123-1234-4abc-8abc-123456789abc', code: 500 }],
+  ])('rethrows other write-back failures unchanged (%s)', async (_label, error) => {
     const { oystehr, transaction } = makeOystehrMock();
     const model = makeModel();
     const snapshot = snapshotModel(model);
     model.patient!.name = [{ given: ['Janet'], family: 'Doe' }];
-    const error = { message: 'Internal error', code: 500 };
     transaction.mockRejectedValue(error);
 
     await expect(persistModel(oystehr, model, snapshot, [AGENT])).rejects.toBe(error);

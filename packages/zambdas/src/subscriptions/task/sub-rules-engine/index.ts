@@ -15,7 +15,6 @@ import {
 } from 'fhir/r4b';
 import {
   getResourcesFromBatchInlineRequests,
-  isVersionConflictError,
   makeOptimisticLockIfMatchHeader,
   resourceHasTag,
 } from 'utils/lib/fhir/helpers';
@@ -750,9 +749,10 @@ export class ClaimChangedDuringRunError extends Error {
 
 // Oystehr reports a failed If-Match inside a transaction as "Pre condition Failed! - PUT <Type>/<id>".
 // The SDK takes `code` from the response body when it has one, which need not be 412, so the message
-// is checked as well.
+// is checked as well — for the precondition phrase only, never a bare "412", which also appears in
+// resource ids (e.g. "PUT Claim/ab412123-…") on unrelated failures.
 function isPersistConflict(error: unknown): boolean {
-  if (isVersionConflictError(error)) return true;
-  const message = (error as { message?: unknown } | null)?.message;
-  return typeof message === 'string' && /pre\s*-?\s*condition\s+failed/i.test(message);
+  const err = error as { code?: unknown; statusCode?: unknown; message?: unknown } | null | undefined;
+  if (err?.code === 412 || err?.statusCode === 412) return true;
+  return typeof err?.message === 'string' && /pre\s*-?\s*condition\s+failed/i.test(err.message);
 }
