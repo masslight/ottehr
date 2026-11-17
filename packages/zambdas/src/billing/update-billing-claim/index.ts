@@ -38,6 +38,7 @@ import {
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { fhirValidationErrorToApiError } from '../../shared/errors';
 import { removeExtension, updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -90,7 +91,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, params, agent);
+  let response: Awaited<ReturnType<typeof performEffect>>;
+  try {
+    response = await performEffect(oystehr, params, agent);
+  } catch (error) {
+    throw fhirValidationErrorToApiError(error) ?? error;
+  }
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 

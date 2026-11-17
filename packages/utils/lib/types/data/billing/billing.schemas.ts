@@ -766,6 +766,15 @@ export const UpdateBillingResourceInputSchema = updateBillingResourceUnion.super
         message: 'Discharge date is required',
       });
     }
+    const admission = Date.parse(data.fields.admissionDate ?? '');
+    const discharge = Date.parse(data.fields.dischargeDate ?? '');
+    if (!Number.isNaN(admission) && !Number.isNaN(discharge) && discharge < admission) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fields', 'dischargeDate'],
+        message: 'Discharge date must be on or after admission date',
+      });
+    }
   }
 });
 
