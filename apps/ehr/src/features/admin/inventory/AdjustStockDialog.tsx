@@ -120,9 +120,7 @@ export default function AdjustStockDialog({
               row
               aria-labelledby="adjust-direction-label"
               value={direction}
-              onChange={(e) => {
-                setDirection(e.target.value as 'remove' | 'add');
-              }}
+              onChange={(e) => setDirection(e.target.value as 'remove' | 'add')}
             >
               <FormControlLabel value="remove" control={<Radio size="small" />} label="Remove" />
               <FormControlLabel value="add" control={<Radio size="small" />} label="Add" />
