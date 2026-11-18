@@ -201,8 +201,8 @@ export interface PrescriptionQuickPickSource {
 export const PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX = 500;
 
 /** A whole prescription: the medication with its dispense details and directions, and optionally its diagnosis. The
- * pharmacy is encounter-specific and never saved. The product's RxCUI, dose form and ingredients are kept from the
- * picked strength; one saved before them has none. */
+ * pharmacy is encounter-specific and never saved. The product's RxCUI, dose form, ingredients and schedule are kept
+ * from the picked strength; one saved before them has none. */
 export interface PrescriptionQuickPickData extends MedicationProductDetails {
   id?: string;
   name: string;

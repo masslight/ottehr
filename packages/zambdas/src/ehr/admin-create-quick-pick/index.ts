@@ -148,6 +148,7 @@ const compoundIngredientSchema = z
       .regex(/^\d{11}$/, 'must be an 11-digit NDC')
       .optional(),
     rxcui: z.string().regex(/^\d+$/, 'must be digits').optional(),
+    schedule: z.number().int().min(0).max(5).optional(),
     typedNotControlled: z.literal(true).optional(),
     amount: z.object({ value: z.number().positive(), unit: z.enum(QUANTITY_UNITS) }).optional(),
     strength: z.object({ value: z.number().positive(), unit: z.enum(COMPOUND_STRENGTH_UNITS) }).optional(),
@@ -179,6 +180,8 @@ const prescriptionQuickPickSchema = z
     rxcui: z.string().regex(/^\d+$/, 'must be digits').optional(),
     doseForm: z.string().trim().min(1).max(100).optional(),
     ingredients: z.array(prescriptionIngredientSchema).min(1).max(20).optional(),
+    // The DEA schedule (0 to 5), kept so a controlled drug's quick pick is still blocked from sending.
+    schedule: z.number().int().min(0).max(5).optional(),
     quantityValue: z.number().positive().optional(),
     quantityUnit: z.enum(QUANTITY_UNITS).optional(),
     daysSupply: z.number().int().min(1).max(999).optional(),

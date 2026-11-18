@@ -1,6 +1,7 @@
 import { PrescriptionOrderMetadataSchema } from 'utils/lib/types/api/erx.types';
 import { MedicationIngredient, MedicationStrength } from 'utils/lib/types/api/erx-search.types';
 import { CompoundIngredientInput, CompoundInput, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
+import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { describe, expect, it } from 'vitest';
 import {
   applyPrescriptionQuickPick,
@@ -10,6 +11,7 @@ import {
   compoundOrderIngredients,
   compoundToOrder,
   CONTROLLED_DRUG_ERROR,
+  controlledDrugErrors,
   emptyPrescriptionLine,
   ingredientText,
   lineMissingDoseUnit,
@@ -25,6 +27,7 @@ import {
   prescriptionLineToOrder,
   prescriptionLineToQuickPick,
   PRODUCT_NDC_MESSAGE,
+  productDetailsOf,
   productOf,
   quickPickDosingText,
   scheduleLabel,
@@ -39,6 +42,11 @@ import {
   withProduct,
   withSuggestion,
 } from '../../src/features/visits/in-person/components/erx/prescriptionLines';
+import { withPrescriptionSet } from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
+import {
+  emptyPrescriptionQuickPickForm,
+  prescriptionQuickPickFromForm,
+} from '../../src/features/visits/telemed/components/admin/prescriptionQuickPickForm';
 import { detailed, ERX_PRODUCT_DETAILS } from '../component/helpers/erxProducts';
 
 const complete = (): PrescriptionLine => ({
@@ -403,15 +411,15 @@ describe('a controlled drug', () => {
   });
 
   it('names a schedule from 1 to 5 as C-I to C-V, and none for 0 or no schedule', () => {
-    expect([1, 2, 3, 4, 5].map((schedule) => scheduleLabel({ strength: '', ndcs: [], schedule }))).toEqual([
+    expect([1, 2, 3, 4, 5].map((schedule) => scheduleLabel({ schedule }))).toEqual([
       'C-I',
       'C-II',
       'C-III',
       'C-IV',
       'C-V',
     ]);
-    expect(scheduleLabel({ strength: '', ndcs: [], schedule: 0 })).toBeUndefined();
-    expect(scheduleLabel({ strength: '', ndcs: [] })).toBeUndefined();
+    expect(scheduleLabel({ schedule: 0 })).toBeUndefined();
+    expect(scheduleLabel({})).toBeUndefined();
     expect(scheduleLabel(undefined)).toBeUndefined();
   });
 
@@ -442,6 +450,69 @@ describe('a controlled drug', () => {
     });
     expect(prescriptionLineErrors(at(0))[0]).toBe(CONTROLLED_DRUG_ERROR);
     expect(prescriptionLineErrors(at(1))).not.toContain(CONTROLLED_DRUG_ERROR);
+  });
+
+  // A quick pick keeps its strength's schedule, so one saved from a controlled line is still blocked when used.
+  const METHYLPHENIDATE = {
+    name: 'Methylphenidate',
+    strengths: [
+      { strength: '10 mg Tab', ndcs: ['00406112101'], rxcui: '1091170', doseForm: 'Oral Tablet', schedule: 2 },
+    ],
+  };
+  const saved = (quickPick: Omit<PrescriptionQuickPickData, 'id'>): PrescriptionQuickPickData =>
+    JSON.parse(JSON.stringify({ ...quickPick, id: 'qp-1' }));
+
+  it('stays controlled through a quick pick saved from the line, alone or in a set', () => {
+    const line = withProduct(complete(), METHYLPHENIDATE, METHYLPHENIDATE.strengths[0]);
+    expect(controlledDrugErrors(line)).toEqual([CONTROLLED_DRUG_ERROR]);
+    const quickPick = saved(prescriptionLineToQuickPick(line, 'Methylphenidate 10 mg'));
+    expect(controlledDrugErrors(applyPrescriptionQuickPick(emptyPrescriptionLine(), quickPick))).toEqual([
+      CONTROLLED_DRUG_ERROR,
+    ]);
+    const set = { id: 'set-1', name: 'ADHD', memberIds: ['qp-1'], status: 'Active' as const };
+    const { lines } = withPrescriptionSet(emptyPrescriptionLine(), set, [quickPick], undefined);
+    expect(lines.map(controlledDrugErrors)).toEqual([[CONTROLLED_DRUG_ERROR]]);
+  });
+
+  it('stays controlled through a quick pick made in Admin › Quick Picks from a controlled strength', () => {
+    const product = productOf(METHYLPHENIDATE, METHYLPHENIDATE.strengths[0]);
+    const result = prescriptionQuickPickFromForm({
+      ...emptyPrescriptionQuickPickForm(),
+      name: 'Methylphenidate 10 mg',
+      ndc: product.ndc,
+      medicationDescription: product.description,
+      productDetails: productDetailsOf(product),
+      patientInstructions: 'Take 1 tablet by mouth every morning.',
+      quantityValue: '30',
+      quantityUnit: 'Tablet',
+      daysSupply: '30',
+    });
+    if (result.errors) throw new Error(JSON.stringify(result.errors));
+    const quickPick = saved(result.quickPick);
+    expect(controlledDrugErrors(applyPrescriptionQuickPick(emptyPrescriptionLine(), quickPick))).toEqual([
+      CONTROLLED_DRUG_ERROR,
+    ]);
+  });
+
+  it('stays controlled through a compound quick pick with a controlled ingredient', () => {
+    const line = withCompound(emptyPrescriptionLine(), { drug: METHYLPHENIDATE });
+    const [first] = line.compound!.ingredients;
+    const compound: PrescriptionLine = {
+      ...line,
+      compound: {
+        ...line.compound!,
+        name: 'Methylphenidate 1 mg/mL suspension',
+        dosageForm: 'Suspension',
+        ingredients: [
+          { ...first, product: productOf(METHYLPHENIDATE, METHYLPHENIDATE.strengths[0]), value: '1', unit: 'mg/mL' },
+        ],
+      },
+    };
+    expect(controlledDrugErrors(compound)).toEqual([CONTROLLED_DRUG_ERROR]);
+    const quickPick = saved(prescriptionLineToQuickPick(compound, 'Methylphenidate suspension'));
+    expect(controlledDrugErrors(applyPrescriptionQuickPick(emptyPrescriptionLine(), quickPick))).toEqual([
+      CONTROLLED_DRUG_ERROR,
+    ]);
   });
 });
 

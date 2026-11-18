@@ -213,6 +213,7 @@ export const compoundLineOf = ({ description, dosageForm, ingredients }: Compoun
             ndc: ingredient.ndc,
             description: ingredient.description,
             ...(ingredient.rxcui ? { rxcui: ingredient.rxcui } : {}),
+            ...(ingredient.schedule !== undefined ? { schedule: ingredient.schedule } : {}),
           },
         }
       : { typed: ingredient.description, notControlled: ingredient.typedNotControlled === true }),
@@ -426,8 +427,8 @@ export const pickedStrength = (line: Pick<PrescriptionLine, 'drug' | 'medication
 const SCHEDULE_NUMERALS = ['I', 'II', 'III', 'IV', 'V'];
 
 /** "C-II" for a strength the search says is a controlled drug (Schedules I to V); none for 0 or no schedule. */
-export const scheduleLabel = (strength: MedicationStrength | undefined): string | undefined => {
-  const numeral = strength?.schedule ? SCHEDULE_NUMERALS[strength.schedule - 1] : undefined;
+export const scheduleLabel = (product: MedicationProductDetails | null | undefined): string | undefined => {
+  const numeral = product?.schedule ? SCHEDULE_NUMERALS[product.schedule - 1] : undefined;
   return numeral && `C-${numeral}`;
 };
 
@@ -435,15 +436,13 @@ export const CONTROLLED_DRUG_ERROR =
   'Controlled drug: prescribe it on the eRX page until this page supports controlled drugs';
 
 /** Federal rules (21 CFR 1311) let a controlled drug be e-prescribed only with EPCS, which this page doesn't have
- * yet: the line's strength, or a compound ingredient's, picked from the search at a schedule from 1 to 5. A product
- * with no search hit (a quick pick, a reorder) has no schedule, and counts as not controlled. */
+ * yet: the line's product, or a compound ingredient's, at a schedule from 1 to 5 from the search. A quick pick keeps
+ * its product's schedule (one saved before it has none); a reorder's product has none, and counts as not controlled. */
 export const controlledDrugErrors = (line: PrescriptionLine): string[] => {
-  const strengths = line.compound
-    ? line.compound.ingredients.map((ingredient) =>
-        pickedStrength({ drug: ingredient.drug, medication: ingredient.product })
-      )
-    : [pickedStrength(line)];
-  return strengths.some((strength) => scheduleLabel(strength)) ? [CONTROLLED_DRUG_ERROR] : [];
+  const products = line.compound
+    ? line.compound.ingredients.map((ingredient) => ingredient.product)
+    : [line.medication];
+  return products.some((product) => scheduleLabel(product)) ? [CONTROLLED_DRUG_ERROR] : [];
 };
 
 /** A value the provider left alone: empty, or exactly what the blanks last wrote. */
@@ -685,10 +684,12 @@ export const productDetailsOf = ({
   rxcui,
   doseForm,
   ingredients,
+  schedule,
 }: MedicationProductDetails): MedicationProductDetails => ({
   ...(rxcui !== undefined ? { rxcui } : {}),
   ...(doseForm !== undefined ? { doseForm } : {}),
   ...(ingredients !== undefined ? { ingredients } : {}),
+  ...(schedule !== undefined ? { schedule } : {}),
 });
 
 /** The line on one strength of a drug: the unit and route follow the product when its dose form makes them obvious.
@@ -770,7 +771,8 @@ const dosingQuickPickOf = (line: PrescriptionLine): string | undefined => {
  * (`withPrescriptionMetadata` is the way back). The caller sends them while `hasDirectionsBlanks`. */
 export const prescriptionLineMetadata = (line: PrescriptionLine): PrescriptionOrderMetadata => ({
   version: 1,
-  ...(line.medication ? { product: productDetailsOf(line.medication) } : {}),
+  // The schedule only blocks the line here; the prescription doesn't keep it.
+  ...(line.medication ? { product: productDetailsOf({ ...line.medication, schedule: undefined }) } : {}),
   route: line.route,
   dose: line.dose,
   frequency: line.frequency,
@@ -1233,6 +1235,7 @@ const compoundIngredientToOrder = (ingredient: CompoundIngredientLine): Compound
           description: product.description.trim(),
           ndc: product.ndc,
           ...(product.rxcui ? { rxcui: product.rxcui } : {}),
+          ...(product.schedule !== undefined ? { schedule: product.schedule } : {}),
         }
       : { description: ingredient.typed?.trim() ?? '', typedNotControlled: true as const }),
     ...(unit === 'base'

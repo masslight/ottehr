@@ -380,3 +380,34 @@ describe.each([
     });
   });
 });
+
+// A controlled drug's quick pick keeps the search's DEA schedule, so the order form still blocks it.
+describe.each([
+  ['admin-create-quick-pick', validateCreate],
+  ['admin-update-quick-pick', validateUpdate],
+])('%s - prescription schedule', (_endpoint, validate) => {
+  const [ketoprofen, ...others] = COMPOUND_PICK.compound!.ingredients;
+  const withIngredientSchedule = (schedule: unknown): Record<string, unknown> => ({
+    ...COMPOUND_PICK,
+    compound: { ...COMPOUND_PICK.compound!, ingredients: [{ ...ketoprofen, schedule }, ...others] },
+  });
+
+  test('accepts a schedule from 0 to 5 on a product or a compound ingredient, and stores it', async () => {
+    for (const schedule of [0, 2, 5]) {
+      await expect(validate({ ...AMOX_STREP, schedule })).resolves.toBeUndefined();
+      await expect(validate(withIngredientSchedule(schedule))).resolves.toBeUndefined();
+    }
+    const ad = quickPickToActivityDefinition({ ...AMOX_STREP, schedule: 2 }, PRESCRIPTION_QUICK_PICK_CATEGORY);
+    expect(activityDefinitionToQuickPick({ ...ad, id: 'qp-1' }, PRESCRIPTION_QUICK_PICK_CATEGORY)).toMatchObject({
+      schedule: 2,
+    });
+  });
+
+  test.each([[6], [-1], [1.5], ['2']])('rejects a schedule of %j', async (schedule) => {
+    for (const quickPick of [{ ...AMOX_STREP, schedule }, withIngredientSchedule(schedule)]) {
+      const error = await rejection(validate(quickPick));
+      expect(error, 'expected the request to be rejected').toBeDefined();
+      expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+    }
+  });
+});

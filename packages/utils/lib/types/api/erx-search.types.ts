@@ -17,14 +17,14 @@ export interface MedicationProductDetails {
   /** The RxNorm dose form name, exactly as RxNorm spells it. */
   doseForm?: string;
   ingredients?: MedicationIngredient[];
+  /** RxNorm's federal (DEA) schedule: 0 when not controlled, 1 to 5 for Schedules I to V; absent when RxNorm has none */
+  schedule?: number;
 }
 
 /** One strength of a drug in the terminology search; a strength is ordered by its first NDC. */
 export interface MedicationStrength extends MedicationProductDetails {
   strength: string;
   ndcs: string[];
-  /** RxNorm's federal (DEA) schedule: 0 when not controlled, 1 to 5 for Schedules I to V; absent when RxNorm has none */
-  schedule?: number;
 }
 
 /** One drug in the terminology search, with every strength it comes in. */

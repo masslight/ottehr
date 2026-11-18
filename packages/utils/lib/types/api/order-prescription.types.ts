@@ -109,6 +109,8 @@ export interface CompoundIngredientInput {
   description: string;
   ndc?: string;
   rxcui?: string;
+  /** The picked product's DEA schedule (`MedicationProductDetails`), so a quick pick's controlled ingredient stays so. */
+  schedule?: number;
   /** Set on a typed-in ingredient (no NDC): the prescriber confirmed it is not a controlled substance. */
   typedNotControlled?: true;
   /** How much of it goes in: 6 Gram. */
