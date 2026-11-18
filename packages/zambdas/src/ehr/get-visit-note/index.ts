@@ -15,7 +15,6 @@ const ZAMBDA_NAME = 'get-visit-note';
 
 /** Everything the visit note (Review & Sign, follow-up note) shows, in one read. */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   const { secrets, encounterId } = validateWithSchema(GetVisitNoteSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
