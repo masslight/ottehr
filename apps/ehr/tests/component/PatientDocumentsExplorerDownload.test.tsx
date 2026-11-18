@@ -22,7 +22,7 @@ const PATIENT: Patient = {
 const makeDocument = (id: string, docName: string): PatientDocumentInfo => ({
   id,
   docName,
-  attachments: [{ title: docName, z3Url: `https://project-api.test/z3/bucket/${docName}` }],
+  attachments: [{ title: docName, z3Url: `https://project-api.zapehr.com/v1/z3/bucket/${docName}` }],
 });
 
 const DOCUMENTS = [

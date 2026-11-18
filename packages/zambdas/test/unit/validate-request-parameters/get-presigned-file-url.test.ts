@@ -43,6 +43,17 @@ describe('get-presigned-file-url - validateRequestParameters', () => {
     expect(result.fileType).toBe('patient-photo-123');
   });
 
+  test.each([
+    'patient-photo/../../../../zambda/x/execute-public?',
+    'patient-photo\\..\\..\\x',
+    'patient-photo%2F..%2Fx',
+    'patient-photos-1.jpg?x=',
+    'patient-photo#x',
+  ])('should reject patient-photo file type %s', (fileType) => {
+    const input = createMockZambdaInput({ ...validBody, fileType });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
   test('should accept all valid file formats', () => {
     const formats = ['jpg', 'jpeg', 'png', 'pdf'];
     for (const fileFormat of formats) {
