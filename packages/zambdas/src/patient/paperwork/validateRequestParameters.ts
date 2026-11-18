@@ -12,9 +12,11 @@ import {
   recursiveGroupTransform,
 } from 'utils/lib/helpers/paperwork/validation';
 import { qrSentManually } from 'utils/lib/helpers/practice-managed-questionnaires';
+import { assertZ3Url } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getOptionalSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { PatchPaperworkParameters } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
+  INVALID_INPUT_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
 } from 'utils/lib/types/errors';
@@ -81,6 +83,33 @@ const CalculatedAnswerItemSchema: z.ZodType<QuestionnaireResponseItem> = z.lazy(
     .passthrough()
 );
 
+const collectAttachmentUrls = (value: unknown, urls: string[] = []): string[] => {
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectAttachmentUrls(entry, urls));
+  } else if (value && typeof value === 'object') {
+    Object.entries(value).forEach(([key, entry]) => {
+      if (key === 'valueAttachment' && entry && typeof entry === 'object') {
+        const url = (entry as { url?: unknown }).url;
+        if (url !== undefined && url !== null && url !== '') {
+          urls.push(String(url));
+        }
+      }
+      collectAttachmentUrls(entry, urls);
+    });
+  }
+  return urls;
+};
+
+const assertAttachmentsAreZ3Urls = (answers: unknown): void => {
+  for (const url of collectAttachmentUrls(answers)) {
+    try {
+      assertZ3Url(url);
+    } catch {
+      throw INVALID_INPUT_ERROR('Invalid attachment URL');
+    }
+  }
+};
+
 const basicValidation = (input: ZambdaInput): BasicInput => {
   if (!input.body) {
     throw new Error('No request body provided');
@@ -94,6 +123,8 @@ const basicValidation = (input: ZambdaInput): BasicInput => {
   if (!answers) {
     throw new Error(`"answers" is a required param`);
   }
+
+  assertAttachmentsAreZ3Urls(answers);
 
   const parsedCalculatedAnswers = z.array(CalculatedAnswerItemSchema).safeParse(calculatedAnswers);
   const calculatedAnswersProblem =
