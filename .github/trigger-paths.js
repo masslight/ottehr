@@ -19,8 +19,7 @@ const PATHS = {
   rootPrettierIgnore: '.prettierignore',
 
   githubDir: '.github/',
-  githubIntakeE2EWorkflow: '.github/workflows/e2e-intake.yml',
-  githubEhrE2EWorkflow: '.github/workflows/e2e-ehr.yml',
+  githubPipelineWorkflow: '.github/workflows/terraform-apply-and-test-pipeline.yml',
 
   packageUtilsDir: 'packages/utils/',
   packageUiComponentsDir: 'packages/ui-components/',
@@ -62,13 +61,13 @@ const e2eCommonTriggers = [
 const e2eIntakeTriggers = [
   ...intakeTriggers,
   ...e2eCommonTriggers,
-  PATHS.githubIntakeE2EWorkflow,
+  PATHS.githubPipelineWorkflow,
 ]
 
 const e2eEhrTriggers = [
   ...ehrTriggers,
   ...e2eCommonTriggers,
-  PATHS.githubEhrE2EWorkflow,
+  PATHS.githubPipelineWorkflow,
 ]
 
 Object.values(PATHS).forEach((path) => {

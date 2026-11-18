@@ -441,12 +441,14 @@ await expect(async () => {
 Config-aware testing allows tests to adapt automatically to configuration changes without hardcoded expectations. Tests read the actual configuration to determine what options should be available, which fields should be visible, and which flows are enabled.
 
 The intake app's e2e tests use this pattern extensively. For detailed documentation, see:
+
 - `apps/intake/tests/e2e/README.md` - Quick start and test execution
 - `apps/intake/tests/CONFIG_AWARE_TESTING_ARCHITECTURE.md` - Architecture deep dive
 
 ### How It Works
 
 **1. Test injects config overrides before navigation:**
+
 ```typescript
 import { CONFIG_INJECTION_KEYS } from 'utils/lib/config-helpers/helpers';
 import { injectTestConfig } from '../config/injectTestConfig';
@@ -457,6 +459,7 @@ await page.goto('/home');
 ```
 
 **2. `injectTestConfig()` uses Playwright's `addInitScript()`:**
+
 ```typescript
 export async function injectTestConfig(page: Page, key: CONFIG_INJECTION_KEYS, config: unknown): Promise<void> {
   await page.addInitScript(
@@ -469,12 +472,14 @@ export async function injectTestConfig(page: Page, key: CONFIG_INJECTION_KEYS, c
 ```
 
 **3. Application config uses a Proxy that checks for test overrides:**
+
 ```typescript
 // BOOKING_CONFIG is a Proxy that checks window.__TEST_BOOKING_CONFIG__ at access time
 export const BOOKING_CONFIG = createProxyConfigObject<BookingConfig>(getBookingConfig, CONFIG_INJECTION_KEYS.BOOKING);
 ```
 
 **4. Application components read from the proxy:**
+
 ```typescript
 // Gets test config if injected, otherwise uses default + instance overrides
 const { homepageOptions } = BOOKING_CONFIG;
@@ -565,12 +570,12 @@ npm run ehr:e2e:local:ui  # Automatically creates and populates directories
 
 The environment configuration system maps secrets from the secrets repository to specific locations in the Ottehr project:
 
-| secrets repository Path    | EHR Project Path                   | Purpose                                                                 | Used In                      |
-| :------------------------- | :--------------------------------- | :---------------------------------------------------------------------- | :--------------------------- |
-| `ehr/app/.env.local`       | `apps/ehr/env/.env.local`          | Local application build configuration                                   | Local development, CI builds |
-| `zambdas/local.json`       | `config/.env/local.json`           | Backend API configuration and credentials                               | Local development, CI builds |
-| `ehr/app/tests.local.json` | `apps/ehr/env/tests.local.json`    | Test configuration (frontend URL, FHIR API, authentication credentials) | Local test execution, CI     |
-| `ehr/app/tests.demo.json`  | `apps/ehr/env/tests.demo.json`     | Demo environment test configuration                                     | Demo environment testing     |
+| secrets repository Path    | EHR Project Path                | Purpose                                                                 | Used In                      |
+| :------------------------- | :------------------------------ | :---------------------------------------------------------------------- | :--------------------------- |
+| `ehr/app/.env.local`       | `apps/ehr/env/.env.local`       | Local application build configuration                                   | Local development, CI builds |
+| `zambdas/local.json`       | `config/.env/local.json`        | Backend API configuration and credentials                               | Local development, CI builds |
+| `ehr/app/tests.local.json` | `apps/ehr/env/tests.local.json` | Test configuration (frontend URL, FHIR API, authentication credentials) | Local test execution, CI     |
+| `ehr/app/tests.demo.json`  | `apps/ehr/env/tests.demo.json`  | Demo environment test configuration                                     | Demo environment testing     |
 
 The same approach is used for the Intake app.
 
@@ -676,19 +681,21 @@ You can use special commands in pull request descriptions to control CI pipeline
 | Command                 | Description                                              | Workflow                                |
 | :---------------------- | :------------------------------------------------------- | :-------------------------------------- |
 | `/skip-build-and-lint`  | Skips build and linting steps                            | `lint-and-build.yml`                    |
-| `/skip-automated-tests` | Skips all automated tests (unit, component, integration) | `automated-tests.yml`                   |
-| `/skip-intake-e2e`      | Skips Intake E2E tests                                   | `e2e-intake.yml`                        |
-| `/skip-ehr-e2e`         | Skips EHR E2E tests                                      | `e2e-ehr.yml`                           |
+| `/skip-automated-tests` | Skips all automated tests (unit, component, integration) | `terraform-apply-and-test-pipeline.yml` |
+| `/skip-intake-e2e`      | Skips Intake E2E tests                                   | `terraform-apply-and-test-pipeline.yml` |
+| `/skip-ehr-e2e`         | Skips EHR E2E tests                                      | `terraform-apply-and-test-pipeline.yml` |
 | `/skip-terraform-apply` | Skips terraform apply (runs by default)                  | `terraform-apply-and-test-pipeline.yml` |
 
-**Note**: Terraform apply now runs by default on all PRs. Use `/skip-terraform-apply` only when you're certain the infrastructure hasn't changed.
+**Note**: These workflows only dispatch the build and the deploy-and-test pipeline to the private downstream CI repository and wait for it; logs and test reports live in that repository's run, linked from the job output.
+
+Terraform apply now runs by default on all PRs. Use `/skip-terraform-apply` only when you're certain the infrastructure hasn't changed.
 
 ### Force Run Commands
 
-| Command           | Description                                                         | Workflow         |
-| :---------------- | :------------------------------------------------------------------ | :--------------- |
-| `/run-intake-e2e` | Forces Intake E2E tests to run even if no relevant changes detected | `e2e-intake.yml` |
-| `/run-ehr-e2e`    | Forces EHR E2E tests to run even if no relevant changes detected    | `e2e-ehr.yml`    |
+| Command           | Description                                                         | Workflow                                |
+| :---------------- | :------------------------------------------------------------------ | :-------------------------------------- |
+| `/run-intake-e2e` | Forces Intake E2E tests to run even if no relevant changes detected | `terraform-apply-and-test-pipeline.yml` |
+| `/run-ehr-e2e`    | Forces EHR E2E tests to run even if no relevant changes detected    | `terraform-apply-and-test-pipeline.yml` |
 
 **Important**: Skip commands are not allowed for merging to ensure code quality. They are only for debugging and development purposes.
 
@@ -717,19 +724,19 @@ The script is called `clean-up-e2e`.
 
 **Key Files and Their Purpose:**
 
-| File                                      | Purpose                                                                                               |
-| :---------------------------------------- | :---------------------------------------------------------------------------------------------------- |
-| `apps/ehr/tests/e2e/specs/*.spec.ts`      | Test scenarios and user workflow validation                                                           |
-| `apps/ehr/tests/e2e/e2e-utils/*.ts`       | Helper utilities including ResourceHandler for FHIR resource management                               |
-| `apps/ehr/tests/e2e-utils/seed-data/`     | Auto-generated seed data templates (resources/ dir is git-ignored)                                    |
-| `apps/ehr/src/constants/data-test-ids.ts` | Centralized repository of data-test ID selectors                                                      |
-| `.github/workflows/e2e-ehr.yml`           | CI/CD pipeline for EHR tests with artifact collection                                                 |
-| `config/.env/*`                           | Backend API configuration and credentials                                                             |
-| `apps/ehr/env/*`                          | UI application and test environment variables                                                         |
-| `apps/ehr/playwright.config.ts`           | Playwright configuration with browser settings and reporters                                          |
-| `scripts/run-e2e.ts`                      | Main orchestration script with login → seed → specs flow. Supports `--generate-seed-data` flag for CI |
-| `scripts/e2e-test-setup.ts`               | Dynamic environment setup and resource discovery                                                      |
-| `scripts/generate-seed-data.ts`           | Automatic seed data generation from real appointment workflow                                         |
+| File                                                      | Purpose                                                                                               |
+| :-------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
+| `apps/ehr/tests/e2e/specs/*.spec.ts`                      | Test scenarios and user workflow validation                                                           |
+| `apps/ehr/tests/e2e/e2e-utils/*.ts`                       | Helper utilities including ResourceHandler for FHIR resource management                               |
+| `apps/ehr/tests/e2e-utils/seed-data/`                     | Auto-generated seed data templates (resources/ dir is git-ignored)                                    |
+| `apps/ehr/src/constants/data-test-ids.ts`                 | Centralized repository of data-test ID selectors                                                      |
+| `.github/workflows/terraform-apply-and-test-pipeline.yml` | Dispatches deploy and E2E tests to the downstream CI repository and waits for the results             |
+| `config/.env/*`                                           | Backend API configuration and credentials                                                             |
+| `apps/ehr/env/*`                                          | UI application and test environment variables                                                         |
+| `apps/ehr/playwright.config.ts`                           | Playwright configuration with browser settings and reporters                                          |
+| `scripts/run-e2e.ts`                                      | Main orchestration script with login → seed → specs flow. Supports `--generate-seed-data` flag for CI |
+| `scripts/e2e-test-setup.ts`                               | Dynamic environment setup and resource discovery                                                      |
+| `scripts/generate-seed-data.ts`                           | Automatic seed data generation from real appointment workflow                                         |
 
 The Intake app has the same structure.
 
