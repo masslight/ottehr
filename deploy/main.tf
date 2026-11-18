@@ -39,7 +39,8 @@ locals {
   not_local_env_resource_count = local.is_local ? 0 : 1
   # not_local_env_resource_count = 1
 
-  sendgrid_config         = jsondecode(file("../config/sendgrid/sendgrid.json"))
+  sendgrid_config_path    = "../config/sendgrid/sendgrid.json"
+  sendgrid_config         = jsondecode(fileexists(local.sendgrid_config_path) ? file(local.sendgrid_config_path) : "{}")
   sendgrid_enabled        = try(local.sendgrid_config.featureFlag, false)
   sendgrid_resource_count = local.sendgrid_enabled ? 1 : 0
 }
