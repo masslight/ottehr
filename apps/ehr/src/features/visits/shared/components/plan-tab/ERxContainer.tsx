@@ -111,6 +111,15 @@ export const medicationStatusMapper = {
       primary: '#616161',
     },
   },
+  // A line of the eRx form saved for a provider to send: not a prescription yet.
+  saved: {
+    background: {
+      primary: '#F1F2F6',
+    },
+    color: {
+      primary: '#616161',
+    },
+  },
 };
 
 interface ERxContainerProps {

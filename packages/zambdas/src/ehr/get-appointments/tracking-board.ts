@@ -3,6 +3,7 @@ import { captureException } from '@sentry/node-core/light';
 import {
   ActivityDefinition,
   Appointment,
+  Basic,
   DeviceRequest,
   DiagnosticReport,
   Encounter,
@@ -30,6 +31,7 @@ import { convertVitalsListToMap, getAbnormalVitals } from 'utils/lib/helpers/vit
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { GetVitalsForListOfEncountersResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { DmeOrderStatus } from 'utils/lib/types/api/dme.types';
+import { erxSavedLineHasContent, erxSavedLineName } from 'utils/lib/types/api/erx.types';
 import { GetAppointmentsZambdaOutput } from 'utils/lib/types/api/get-appointments.types';
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
@@ -50,6 +52,7 @@ import {
   vitalsObservationSearchParams,
 } from '../../shared/vitals/parse-vitals-observations';
 import { VitalAlertContext } from '../../shared/vitals-alert-config';
+import { erxSavedFormEncounterId, erxSavedFormSearchParams, parseErxSavedFormBasic } from '../erx-saved-form/helpers';
 import { buildOrderPackage, mapMedicalAdministrationToDTO } from '../get-medication-orders';
 import { mapResourcesNursingOrderDTOs } from '../get-nursing-orders/helpers';
 import { mapMedicationAdministrationToImmunizationOrder } from '../immunization/get-orders';
@@ -186,6 +189,13 @@ const deviceRequestSearchUrl = (encounterIds: string[]): string =>
     { name: '_include', value: 'DeviceRequest:requester' },
   ]);
 
+// The visit's eRx order form saved for a provider to send (requirement 53g): not a prescription, so not a MedicationRequest.
+const erxSavedFormSearchUrl = (encounterIds: string[]): string =>
+  buildSearchUrl('Basic', [
+    ...erxSavedFormSearchParams(encounterIds),
+    { name: '_count', value: ORDER_SEARCH_PAGE_SIZE },
+  ]);
+
 const vitalsSearchUrl = (encounterIds: string[]): string =>
   buildSearchUrl('Observation', vitalsObservationSearchParams(encounterIds));
 
@@ -210,6 +220,9 @@ export const buildTrackingBoardSearches = (
     ...(includeDmeOrders ? [encounterSearch(deviceRequestSearchUrl, chunk)] : []),
   ]),
   ...chunkThings(encounterIds, VITALS_ENCOUNTER_CHUNK_SIZE).map((chunk) => encounterSearch(vitalsSearchUrl, chunk)),
+  ...chunkThings(encounterIds, ORDER_ENCOUNTER_CHUNK_SIZE).map((chunk) =>
+    encounterSearch(erxSavedFormSearchUrl, chunk)
+  ),
 ];
 
 export interface TrackingBoardResources {
@@ -310,6 +323,7 @@ export interface TrackingBoardResourcePools {
   medicationRequests: MedicationRequest[];
   deviceRequests: DeviceRequest[];
   observations: Observation[];
+  basics: Basic[];
   /** Every deduplicated resource, for mappers that look related resources up by id. */
   all: FhirResource[];
 }
@@ -341,6 +355,7 @@ export const poolTrackingBoardResources = (resources: FhirResource[]): TrackingB
     medicationRequests: ofType<MedicationRequest>('MedicationRequest'),
     deviceRequests: ofType<DeviceRequest>('DeviceRequest'),
     observations: ofType<Observation>('Observation'),
+    basics: ofType<Basic>('Basic'),
     all,
   };
 };
@@ -565,6 +580,15 @@ export const buildOrdersForTrackingBoard = ({
     pools.medicationRequests.map((medicationRequest) => makePrescribedMedicationDTO(medicationRequest)),
     (order) => order.encounterId
   );
+  pools.basics.forEach((basic) => {
+    const encounterId = erxSavedFormEncounterId(basic);
+    const saved = parseErxSavedFormBasic(basic);
+    if (encounterId && saved) {
+      table.erxSavedFormByEncounterId[encounterId] = {
+        lines: saved.form.lines.filter(erxSavedLineHasContent).map(erxSavedLineName),
+      };
+    }
+  });
 
   // Third-party (ordered) orders are fulfilled off-site, so there is nothing for staff to track here.
   const liveDmeOrders = pools.deviceRequests.filter(

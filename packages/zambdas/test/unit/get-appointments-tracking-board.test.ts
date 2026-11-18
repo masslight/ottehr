@@ -21,11 +21,17 @@ import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { VitalAlertCriticality, VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { PATIENT_VITALS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { DmeOrderFieldsSchema, DmeOrderStatus } from 'utils/lib/types/api/dme.types';
+import { ErxSavedForm } from 'utils/lib/types/api/erx.types';
 import { VitalsAlertConfig } from 'utils/lib/types/api/vitals-alert-config/vitals-alert-config.types';
 import { IN_HOUSE_TEST_CODE_SYSTEM } from 'utils/lib/types/data/in-house/in-house.constants';
 import { OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 import { DEFAULT_VITALS_ALERT_CONFIG, vitalsAlertConfigToVitalsDef } from 'utils/lib/utils/vitals-alert-config';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import {
+  ERX_SAVED_FORM_CODE,
+  ERX_SAVED_FORM_SYSTEM,
+  makeErxSavedFormBasic,
+} from '../../src/ehr/erx-saved-form/helpers';
 import {
   buildSearchUrl,
   executeBatchSearches,
@@ -205,7 +211,8 @@ describe('tracking board search plan', () => {
     expect(byType('MedicationRequest')).toHaveLength(3);
     expect(byType('DeviceRequest')).toHaveLength(3);
     expect(byType('Observation')).toHaveLength(5);
-    expect(urls).toHaveLength(17);
+    expect(byType('Basic')).toHaveLength(3);
+    expect(urls).toHaveLength(20);
 
     const serviceRequestUrl = byType('ServiceRequest')[0];
     expect(serviceRequestUrl).toContain('_revinclude=Task:based-on');
@@ -222,6 +229,9 @@ describe('tracking board search plan', () => {
       '_tag=in-house-medication-administration-order,immunization'
     );
     expect(byType('MedicationRequest')[0]).toContain(`_tag=${ERX_MEDICATION_META_TAG_CODE}`);
+    // The eRx form saved for a provider (requirement 53g): by its code only, never the eRx MedicationRequest tag.
+    expect(byType('Basic')[0]).toContain(`code=${ERX_SAVED_FORM_SYSTEM}|${ERX_SAVED_FORM_CODE}`);
+    expect(byType('Basic')[0]).toContain('subject=Encounter/enc-0,');
 
     const dmeUrl = byType('DeviceRequest')[0];
     expect(dmeUrl).toContain(`_tag=${DME_ORDER_SEARCH_TAG}`);
@@ -238,8 +248,8 @@ describe('tracking board search plan', () => {
 
   test('no encounters means no entries', () => {
     expect(buildTrackingBoardSearches([])).toHaveLength(0);
-    expect(buildTrackingBoardSearches(encounterIds(10), false)).toHaveLength(4);
-    expect(buildTrackingBoardSearches(encounterIds(10), true)).toHaveLength(5);
+    expect(buildTrackingBoardSearches(encounterIds(10), false)).toHaveLength(5);
+    expect(buildTrackingBoardSearches(encounterIds(10), true)).toHaveLength(6);
   });
 
   test('selectTrackingBoardEncounterIds takes every in-office and discharged row, once', () => {
@@ -269,7 +279,7 @@ describe('tracking board search plan', () => {
 
   test('emptyTrackingBoardExtras carries both maps, empty', () => {
     const extras = emptyTrackingBoardExtras();
-    expect(Object.keys(extras.orders)).toHaveLength(9);
+    expect(Object.keys(extras.orders)).toHaveLength(10);
     expect(Object.values(extras.orders).every((group) => Object.keys(group).length === 0)).toBe(true);
     expect(extras.vitals).toEqual({});
   });
@@ -371,6 +381,62 @@ describe('buildOrdersForTrackingBoard', () => {
     expect(table.radiologyOrdersByAppointmentId).toEqual({});
     expect(table.inHouseMedicationsByEncounterId).toEqual({});
     expect(table.dmeOrdersByEncounterId).toEqual({});
+  });
+
+  test("lists a saved eRx form's lines by name, apart from the prescriptions (requirement 53g)", () => {
+    const savedLine = (fields: Record<string, unknown>): Record<string, unknown> => ({
+      key: 0,
+      drug: null,
+      medication: null,
+      route: '',
+      dose: '',
+      frequency: '',
+      durationDays: '',
+      steps: [],
+      instructions: '',
+      urgent: false,
+      quantityValue: '',
+      quantityUnit: '',
+      daysSupply: '',
+      numberOfRefills: '0',
+      substitutionAllowed: true,
+      patientInstructions: '',
+      noteToPharmacy: '',
+      diagnosis: null,
+      ...fields,
+    });
+    const form = {
+      pharmacy: null,
+      lines: [
+        savedLine({ medication: { ndc: '1', description: 'Amoxicillin 400 mg/5ml Susp' } }),
+        savedLine({ drug: { name: 'Ibuprofen', strengths: [] } }),
+        savedLine({}),
+      ],
+    } as unknown as ErxSavedForm;
+    const saved = { ...makeErxSavedFormBasic('enc-1', form, {}), id: 'basic-1' };
+    const pharmacyOnly = {
+      ...makeErxSavedFormBasic(
+        'enc-2',
+        { ...form, pharmacy: { ncpdpId: '1', npi: '', name: 'CVS', phone: '', address: '' }, lines: [] },
+        {}
+      ),
+      id: 'basic-2',
+    };
+
+    const table = buildOrdersForTrackingBoard({
+      encounterIds: ['enc-1', 'enc-2'],
+      pools: poolTrackingBoardResources([erx, saved, pharmacyOnly]),
+      encounters: [enc1],
+      appointments: [appt1],
+      practitioners: [],
+      environment: 'local',
+    });
+
+    expect(table.erxSavedFormByEncounterId).toEqual({
+      'enc-1': { lines: ['Amoxicillin 400 mg/5ml Susp', 'Ibuprofen'] },
+      'enc-2': { lines: [] },
+    });
+    expect(table.erxOrdersByEncounterId['enc-1']).toHaveLength(1);
   });
 
   test('shows pending and dispensed DME orders, not third-party or deleted ones', () => {
@@ -631,17 +697,22 @@ describe('fetchTrackingBoardResources', () => {
         )
       )
     );
+  // These resources in the ServiceRequest search's entry, and every other entry empty.
+  const serviceRequestEntry = ({ requests }: BatchRequest, resources: FhirResource[]): Bundle<FhirResource> =>
+    batchResponse(requests.map(({ url }) => searchsetOf(url.startsWith('ServiceRequest?') ? resources : [])));
   const serviceRequestIds = (resources: FhirResource[]): string[] =>
     resources.filter((resource) => resource.resourceType === 'ServiceRequest').map((resource) => resource.id ?? '');
   const hasUrl = (prefix: string) => (request: BatchRequest) =>
     request.requests.some(({ url }) => url.startsWith(prefix));
-  // Without DME orders, 100 encounters make 10 searches, sent as two batches of five: the order families of both
-  // 50-encounter chunks except the last MedicationRequest, then that MedicationRequest and the four vitals searches.
+  // Without DME orders, 100 encounters make 12 searches, sent as batches of five, five and two: the order families of
+  // both 50-encounter chunks except the last MedicationRequest, then that MedicationRequest and the four vitals
+  // searches, then the two saved eRx form searches.
   const fetchHundred = (oystehr: Oystehr, deadline?: number): ReturnType<typeof fetchTrackingBoardResources> =>
     fetchTrackingBoardResources({ oystehr, encounterIds: encounterIds(100), includeDmeOrders: false, deadline });
   const hundredSearchUrls = (): string[] =>
     buildTrackingBoardSearches(encounterIds(100), false).map((search) => search.url);
-  const vitalsBatchUrls = (): string[] => hundredSearchUrls().slice(TRACKING_BOARD_ENTRIES_PER_BATCH);
+  const vitalsBatchUrls = (): string[] =>
+    hundredSearchUrls().slice(TRACKING_BOARD_ENTRIES_PER_BATCH, 2 * TRACKING_BOARD_ENTRIES_PER_BATCH);
 
   test('an oversized batch is retried one search per batch, and the batches that fit are not sent again', async () => {
     // Stand-in for the byte cap: a ServiceRequest search over more than 20 encounters is "too large".
@@ -698,7 +769,7 @@ describe('fetchTrackingBoardResources', () => {
 
     const result = await fetchHundred(oystehr);
 
-    expect(batch).toHaveBeenCalledTimes(2);
+    expect(batch).toHaveBeenCalledTimes(3);
     expect(result.failedUrls).toEqual(vitalsBatchUrls());
     expect(serviceRequestIds(result.resources)).toHaveLength(100);
     // The failure no longer reaches index.ts's catch, so Sentry would never hear of it otherwise.
@@ -758,8 +829,10 @@ describe('fetchTrackingBoardResources', () => {
     });
     await sleep(50);
 
-    expect(result.failedUrls).toEqual(buildTrackingBoardSearches(encounterIds(3)).map((search) => search.url));
-    expect(batch).toHaveBeenCalledTimes(1);
+    const searches = buildTrackingBoardSearches(encounterIds(3));
+    expect(result.failedUrls).toEqual(searches.map((search) => search.url));
+    // Only the batches first sent: none split into new requests.
+    expect(batch).toHaveBeenCalledTimes(Math.ceil(searches.length / TRACKING_BOARD_ENTRIES_PER_BATCH));
   });
 
   test('fetches result-review Tasks directly only for external lab reports that came back without them', async () => {
@@ -786,7 +859,7 @@ describe('fetchTrackingBoardResources', () => {
     const search = vi.fn(async () => ({ unbundle: () => [] }));
     const clientReturning = (resources: FhirResource[]): Oystehr =>
       ({
-        fhir: { batch: vi.fn(async () => batchResponse([searchsetOf(resources)])), search },
+        fhir: { batch: vi.fn(async (request: BatchRequest) => serviceRequestEntry(request, resources)), search },
       }) as unknown as Oystehr;
     const fetchWith = (resources: FhirResource[]): ReturnType<typeof fetchTrackingBoardResources> =>
       fetchTrackingBoardResources({ oystehr: clientReturning(resources), encounterIds: encounterIds(1) });
@@ -828,9 +901,10 @@ describe('fetchTrackingBoardResources', () => {
     vi.useFakeTimers();
     try {
       const deadline = Date.now() + 1_000;
-      const batch = vi.fn(async (): Promise<Bundle<FhirResource>> => {
-        vi.setSystemTime(deadline);
-        return batchResponse([searchsetOf(externalLabResourcesWithoutTasks())]);
+      // The last batch to land (the saved eRx form search's) lands at the deadline.
+      const batch = vi.fn(async (request: BatchRequest): Promise<Bundle<FhirResource>> => {
+        if (hasUrl('Basic?')(request)) vi.setSystemTime(deadline);
+        return serviceRequestEntry(request, externalLabResourcesWithoutTasks());
       });
       const search = vi.fn(async () => ({ unbundle: () => [] }));
       const oystehr = { fhir: { batch, search } } as unknown as Oystehr;
@@ -849,7 +923,8 @@ describe('fetchTrackingBoardResources', () => {
     // result, which is what the batch itself avoids by recording failures in failedUrls.
     const failure = new Error('Task search failed');
     const batch = vi.fn(
-      async (): Promise<Bundle<FhirResource>> => batchResponse([searchsetOf(externalLabResourcesWithoutTasks())])
+      async (request: BatchRequest): Promise<Bundle<FhirResource>> =>
+        serviceRequestEntry(request, externalLabResourcesWithoutTasks())
     );
     const search = vi.fn(async () => {
       throw failure;
