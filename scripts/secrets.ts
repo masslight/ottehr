@@ -154,6 +154,63 @@ function validate(environment: string): void {
   }
 }
 
+const SECRET_KEY_PATTERN = /SECRET|PASSWORD|TOKEN|KEY|DSN|PRIVATE/i;
+const MIN_MASKED_LENGTH = 8;
+
+function readEntries(filePath: string): [string, unknown][] {
+  const content = fs.readFileSync(filePath, 'utf8');
+  if (filePath.endsWith('.json')) {
+    const parsed = JSON.parse(content);
+    return parsed && typeof parsed === 'object' ? Object.entries(parsed) : [];
+  }
+  return content.split(/\r?\n/).flatMap((line): [string, string][] => {
+    const separator = line.indexOf('=');
+    if (separator <= 0) return [];
+    const value = line
+      .slice(separator + 1)
+      .trim()
+      .replace(/^["']|["']$/g, '');
+    return [[line.slice(0, separator).trim(), value]];
+  });
+}
+
+function filesIn(dir: string, matches: (name: string) => boolean): string[] {
+  if (!checkDirectory(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter(matches)
+    .map((name) => path.join(dir, name));
+}
+
+function secretFilePaths(): string[] {
+  const repoRoot = process.cwd();
+  const isJson = (name: string): boolean => name.endsWith('.json');
+  return [
+    ...filesIn(path.join(repoRoot, 'config', '.env'), isJson),
+    ...filesIn(path.join(repoRoot, 'packages', 'zambdas', '.env'), isJson),
+    ...filesIn(path.join(repoRoot, 'packages', 'zambdas'), (name) => name === '.env.sentry-build-plugin'),
+    ...['ehr', 'intake'].flatMap((app) =>
+      filesIn(
+        path.join(repoRoot, 'apps', app, 'env'),
+        (name) => (name.startsWith('tests.') && isJson(name)) || name.startsWith('.env.')
+      )
+    ),
+  ];
+}
+
+function mask(): void {
+  const files = secretFilePaths();
+  const values = new Set(
+    files
+      .flatMap(readEntries)
+      .filter(([key, value]) => SECRET_KEY_PATTERN.test(key) && typeof value === 'string')
+      .flatMap(([, value]) => (value as string).split(/\r?\n/))
+      .filter((value) => value.trim().length >= MIN_MASKED_LENGTH)
+  );
+  values.forEach((value) => console.log(`::add-mask::${value}`));
+  console.log(`Masked ${values.size} secret values from ${files.length} files`);
+}
+
 function main(): void {
   const command = process.argv[2];
   const environment = process.argv[3];
@@ -172,8 +229,11 @@ function main(): void {
     case 'validate':
       validate(environment);
       break;
+    case 'mask':
+      mask();
+      break;
     default:
-      console.error('Invalid command. Valid commands are: populate, validate');
+      console.error('Invalid command. Valid commands are: populate, validate, mask');
       process.exit(1);
   }
 }

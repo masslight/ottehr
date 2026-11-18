@@ -1,3 +1,4 @@
+import { inspect } from 'node:util';
 import {
   captureMessage,
   continueTrace,
@@ -63,6 +64,17 @@ function logInputBody(body: string | null): void {
   console.log(`Input body: ${body ? truncateForLog(body) : '<empty>'}`);
 }
 
+function hideCredentialsWhenSerialized(input: ZambdaInput): void {
+  const withoutCredentials = (): Omit<ZambdaInput, 'headers' | 'secrets'> => {
+    const { headers: _headers, secrets: _secrets, ...rest } = input;
+    return rest;
+  };
+  Object.defineProperties(input, {
+    toJSON: { value: withoutCredentials, configurable: true },
+    [inspect.custom]: { value: withoutCredentials, configurable: true },
+  });
+}
+
 /** The Lambda runtime's context, as opposed to the empty object the local server passes. */
 function isLambdaContext(context: Context | undefined): context is Context {
   return typeof context?.getRemainingTimeInMillis === 'function';
@@ -113,6 +125,7 @@ export function wrapHandler(
     if (context) context.callbackWaitsForEmptyEventLoop = false;
     configSentry(zambdaName, input.secrets);
     logInputBody(input.body);
+    hideCredentialsWhenSerialized(input);
 
     return withIsolationScope(async () => {
       let timeoutWarning: ReturnType<typeof setTimeout> | undefined;
