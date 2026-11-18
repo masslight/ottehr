@@ -1,9 +1,8 @@
 import { PlanDefinition } from 'fhir/r4b';
+import { NotificationsTimeRestriction, OutreachAction } from 'utils/lib/types/api/scheduled-outreach.types';
 import { describe, expect, it } from 'vitest';
 import {
   buildPlanDefinitionFromActions,
-  NotificationsTimeRestriction,
-  OutreachAction,
   parseNotificationsTimeRestriction,
   parsePlanDefinitionToActions,
 } from '../../../src/rcm/scheduled-outreach-config/helpers';

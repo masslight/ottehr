@@ -15,6 +15,8 @@ export interface EHRVisitDetails {
   consentDetails: ConsentDetails | null;
   visitLocationName?: string;
   visitLocationId?: string;
+  /** Calendar day of the visit in its Location's timezone: the date of service claims and eligibility checks use. */
+  dateOfService?: string;
   standAloneForms?: StandaloneFormDTO[];
   /** Custom (practice-managed) forms bundled into the visit's paperwork flow, shaped like standAloneForms. */
   intakePaperworkFlowForms?: StandaloneFormDTO[];
