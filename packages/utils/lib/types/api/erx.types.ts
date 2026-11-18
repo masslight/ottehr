@@ -242,3 +242,74 @@ export interface GetErxRequestResponse {
 export const CompleteErxTaskInputSchema = z.object({ taskId: z.string().uuid(), requestId: z.string().uuid() });
 
 export type CompleteErxTaskInput = z.infer<typeof CompleteErxTaskInputSchema>;
+
+// The order form saved for a provider to send (requirement 53a): one per visit. Only the fields the server and the
+// Tracking Board read, and what the form's blanks hold, are checked; the rest of a line rides along as the form
+// keeps it. Sizes are bounded well past the form's sending limits, since an unfinished form saves as it is.
+export const ERX_SAVED_FORM_MAX_LINES = 20;
+const SAVED_NAME_MAX = 500;
+const SAVED_TEXT_MAX = 5000;
+const SAVED_BLANK_MAX = 100;
+const savedName = z.string().max(SAVED_NAME_MAX);
+const savedBlank = z.string().max(SAVED_BLANK_MAX);
+const SavedPrescriptionStepSchema = z.object({ dose: savedBlank, frequency: savedBlank, durationDays: savedBlank });
+
+const SavedPrescriptionLineSchema = SavedPrescriptionStepSchema.extend({
+  key: z.number(),
+  drug: z
+    .object({ name: savedName, strengths: z.array(z.object({}).passthrough()).max(500) })
+    .passthrough()
+    .nullable(),
+  medication: z.object({ ndc: savedBlank, description: savedName }).passthrough().nullable(),
+  compound: z
+    .object({ name: savedName, dosageForm: savedBlank, ingredients: z.array(z.object({}).passthrough()).max(20) })
+    .passthrough()
+    .optional(),
+  route: savedBlank,
+  steps: z.array(SavedPrescriptionStepSchema).max(ERX_SAVED_FORM_MAX_LINES),
+  instructions: z.string().max(SAVED_TEXT_MAX),
+  urgent: z.boolean(),
+  quantityValue: savedBlank,
+  quantityUnit: savedBlank,
+  daysSupply: savedBlank,
+  numberOfRefills: savedBlank,
+  substitutionAllowed: z.boolean(),
+  patientInstructions: z.string().max(SAVED_TEXT_MAX),
+  noteToPharmacy: z.string().max(SAVED_TEXT_MAX),
+  diagnosis: z.object({ code: savedBlank, display: savedName }).nullable(),
+}).passthrough();
+
+export const ErxSavedFormSchema = z.object({
+  pharmacy: z
+    .object({ ncpdpId: savedBlank, npi: savedBlank, name: savedName, phone: savedBlank, address: savedName })
+    .nullable(),
+  lines: z.array(SavedPrescriptionLineSchema).max(ERX_SAVED_FORM_MAX_LINES),
+});
+
+export type ErxSavedForm = z.infer<typeof ErxSavedFormSchema>;
+type ErxSavedLine = ErxSavedForm['lines'][number];
+
+export const ErxSavedFormInputSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('get'), encounterId: z.string().uuid() }),
+  // An empty form removes the saved one.
+  z.object({ action: z.literal('save'), encounterId: z.string().uuid(), form: ErxSavedFormSchema }),
+]);
+
+export type ErxSavedFormInput = z.infer<typeof ErxSavedFormInputSchema>;
+
+export interface ErxSavedFormResponse {
+  /** None when the visit has no saved form. */
+  saved: { form: ErxSavedForm; savedBy?: string; savedAt?: string } | null;
+}
+
+/** A line with a medication, strength or compound picked; the others are as "Add another prescription" leaves them. */
+export const erxSavedLineHasContent = (line: { drug: unknown; medication: unknown; compound?: unknown }): boolean =>
+  !!(line.drug || line.medication || line.compound);
+
+/** Nothing to keep: no pharmacy picked and no line with a medication. */
+export const erxSavedFormIsEmpty = (form: ErxSavedForm): boolean =>
+  !form.pharmacy && !form.lines.some(erxSavedLineHasContent);
+
+/** A saved line as the Tracking Board lists it: the product the pharmacy would read, else the drug or compound. */
+export const erxSavedLineName = (line: Pick<ErxSavedLine, 'drug' | 'medication' | 'compound'>): string =>
+  line.compound ? line.compound.name.trim() || 'Compound' : line.medication?.description || line.drug?.name || '';

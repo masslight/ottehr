@@ -1963,6 +1963,13 @@
       "src": "src/ehr/get-erx-request/index",
       "zip": ".dist/zips/get-erx-request.zip"
     },
+    "ERX-SAVED-FORM": {
+      "name": "erx-saved-form",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/erx-saved-form/index",
+      "zip": ".dist/zips/erx-saved-form.zip"
+    },
     "GET-INVOICES-TASKS": {
       "name": "get-invoices-tasks",
       "type": "http_auth",
