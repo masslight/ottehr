@@ -19,7 +19,7 @@ const PATHS = {
   rootPrettierIgnore: '.prettierignore',
 
   githubDir: '.github/',
-  githubPipelineWorkflow: '.github/workflows/terraform-apply-and-test-pipeline.yml',
+  githubPipelineWorkflow: '.github/workflows/ci-test-pipeline.yml',
 
   packageUtilsDir: 'packages/utils/',
   packageUiComponentsDir: 'packages/ui-components/',
