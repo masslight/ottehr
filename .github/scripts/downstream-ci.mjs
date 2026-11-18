@@ -43,7 +43,7 @@ async function token() {
   const installation = await request('GET', `/repos/${downstreamRepo}/installation`, { auth: jwt });
   const created = await request('POST', `/app/installations/${installation.id}/access_tokens`, {
     auth: jwt,
-    body: { repositories: [downstreamRepo.split('/')[1]] },
+    body: { repositories: [downstreamRepo.split('/')[1]], permissions: { actions: 'write' } },
   });
   console.log(`::add-mask::${created.token}`);
   installationToken = created.token;
@@ -122,7 +122,8 @@ async function printFailedJobs(runId) {
 }
 
 async function wait() {
-  const runId = required('RUN_ID');
+  const runId = env.RUN_ID;
+  if (!runId) throw new Error('No downstream run to wait for: the dispatch job failed');
   const jobName = env.JOB_NAME;
   const runUrl = `https://github.com/${downstreamRepo}/actions/runs/${runId}`;
   console.log(`Waiting for ${jobName ? `job "${jobName}" in ` : ''}${runUrl}`);
