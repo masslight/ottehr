@@ -1,9 +1,11 @@
+import { assertZ3Url } from 'utils/lib/helpers/presigned-file-url/helpers';
+
 export async function createPresignedUrl(
   token: string,
   baseUploadURL: string,
   action: 'upload' | 'download'
 ): Promise<string> {
-  const presignedURLRequest = await fetch(baseUploadURL, {
+  const presignedURLRequest = await fetch(assertZ3Url(baseUploadURL), {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,
@@ -30,7 +32,7 @@ export class Z3Error extends Error {
 }
 
 export async function deleteZ3Object(baseFileUrl: string, token: string): Promise<void> {
-  const deleteRequest = await fetch(baseFileUrl, {
+  const deleteRequest = await fetch(assertZ3Url(baseFileUrl), {
     method: 'DELETE',
     headers: {
       'Content-Type': 'application/json',
