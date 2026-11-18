@@ -176,6 +176,20 @@ describe('InvoicesList', () => {
     expect(screen.queryByText('claim page')).not.toBeInTheDocument();
   });
 
+  it('gives an NIO invoice a focusable link to its details page', async () => {
+    searchBillingInvoicesMock.mockResolvedValue({
+      invoices: [nioInvoice],
+      total: 1,
+      offset: 0,
+      pageSize: 25,
+    });
+    renderList();
+
+    const nioRow = within(await screen.findByTestId('row-inv-nio'));
+    const view = nioRow.getByRole('link', { name: 'View' });
+    expect(view).toHaveAttribute('href', '/invoices/inv-nio');
+  });
+
   it('exports a past-due NIO invoice as past due, under its payer', async () => {
     renderList();
     await screen.findByTestId('row-inv-1');

@@ -104,7 +104,16 @@ const columns = (
       headerName: 'Invoice',
       width: 100,
       renderCell: ({ row }) =>
-        row.hostedInvoiceUrl ? (
+        row.kind === 'nio' ? (
+          <Link
+            component={RouterLink}
+            to={`/invoices/${row.id}`}
+            underline="hover"
+            onClick={(event) => event.stopPropagation()}
+          >
+            View
+          </Link>
+        ) : row.hostedInvoiceUrl ? (
           <Link
             href={row.hostedInvoiceUrl}
             target="_blank"
