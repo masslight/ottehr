@@ -25,6 +25,7 @@ import { getInPersonVisitStatus, getSupervisorApprovalStatus } from 'utils/lib/u
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { useSignAppointmentMutation } from '../stores/tracking-board/tracking-board.queries';
 import { useAssignedProvider } from './useAssignedProvider';
+import { useErxSavedForm } from './useErxSavedForm';
 import { useGetAppointmentAccessibility } from './useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from './useOystehrAPIClient';
 import { usePractitionerActions } from './usePractitioner';
@@ -66,6 +67,8 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
   const hasMedDraft = useInHouseMedicationOrderStore((state) => state.hasDraft(draftEncounterId));
   const hasVitalsDraft = useVitalsDraftStore((state) => state.hasDraft(draftEncounterId));
   const hasDmeDraft = useDmeOrderStore((state) => state.hasDraft(draftEncounterId));
+  // The eRx form saved for a provider to send, from the same query as the eRx page (requirement 53h).
+  const hasErxSavedForm = !!useErxSavedForm(encounter.id).data?.saved;
 
   const apiClient = useOystehrAPIClient();
   const { isAssignedProviderEligible } = useAssignedProvider();
@@ -209,6 +212,9 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
       if (hasDmeDraft) {
         messages.push(makeDraftWarningMessage('DME order'));
       }
+      if (hasErxSavedForm) {
+        messages.push(makeDraftWarningMessage('eRx prescription'));
+      }
     }
 
     return messages;
@@ -235,6 +241,7 @@ export const useProgressNoteSigning = (): ProgressNoteSigning => {
     hasMedDraft,
     hasVitalsDraft,
     hasDmeDraft,
+    hasErxSavedForm,
     encounter.id,
   ]);
 

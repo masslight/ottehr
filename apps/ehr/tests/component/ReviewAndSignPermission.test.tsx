@@ -59,6 +59,10 @@ vi.mock('../../src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
   useOystehrAPIClient: () => ({}),
 }));
 
+vi.mock('../../src/features/visits/shared/hooks/useErxSavedForm', () => ({
+  useErxSavedForm: () => ({ data: { saved: null } }),
+}));
+
 vi.mock('../../src/features/visits/shared/hooks/useAssignedProvider', () => ({
   useAssignedProvider: () => ({ isAssignedProviderEligible: true }),
 }));
