@@ -189,6 +189,7 @@ function secretFilePaths(): string[] {
     ...filesIn(path.join(repoRoot, 'config', '.env'), isJson),
     ...filesIn(path.join(repoRoot, 'packages', 'zambdas', '.env'), isJson),
     ...filesIn(path.join(repoRoot, 'packages', 'zambdas'), (name) => name === '.env.sentry-build-plugin'),
+    ...filesIn(path.join(repoRoot, 'deploy'), (name) => name.endsWith('.tfvars')),
     ...['ehr', 'intake'].flatMap((app) =>
       filesIn(
         path.join(repoRoot, 'apps', app, 'env'),
@@ -198,6 +199,7 @@ function secretFilePaths(): string[] {
   ];
 }
 
+// Registers the values with the GitHub Actions runner, which then replaces them with *** in the job log.
 function mask(): void {
   const files = secretFilePaths();
   const values = new Set(
@@ -205,9 +207,10 @@ function mask(): void {
       .flatMap(readEntries)
       .filter(([key, value]) => SECRET_KEY_PATTERN.test(key) && typeof value === 'string')
       .flatMap(([, value]) => (value as string).split(/\r?\n/))
-      .filter((value) => value.trim().length >= MIN_MASKED_LENGTH)
+      .map((value) => value.trim())
+      .filter((value) => value.length >= MIN_MASKED_LENGTH)
   );
-  values.forEach((value) => console.log(`::add-mask::${value}`));
+  values.forEach((value) => console.log(`::add-mask::${value.replace(/%/g, '%25')}`));
   console.log(`Masked ${values.size} secret values from ${files.length} files`);
 }
 
