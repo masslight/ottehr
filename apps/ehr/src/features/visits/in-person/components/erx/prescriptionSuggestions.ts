@@ -1,5 +1,5 @@
 import { SentencePicks } from 'src/components/SuggestedSentences';
-import { plainDose } from 'utils/lib/helpers/medications/plain-dose';
+import { plainDose, startingMeasureStep } from 'utils/lib/helpers/medications/plain-dose';
 import {
   doseUnitLabel,
   isCombinationProduct,
@@ -135,8 +135,11 @@ const dosedRow = (
   // An older quick pick's doses a day are left out: the frequency gives them.
   const { frequency: _frequency, durationDays, dosesPerDay: _dosesPerDay, ...calculator } = dosing;
   const savedDosesPerDay = prescriptionFrequency(frequency)?.dosesPerDay;
-  const doseOf = (settings: CalculatorDosing, dosesPerDay: number | undefined): ReturnType<typeof plainDose> =>
-    measure && plainDose({ ...settings, weightKg, mgPerMeasure: mgPerMeasure(medication), measure, dosesPerDay });
+  // Measured as the calculator starts (`startingMeasureStep`): no step was picked for this patient.
+  const doseOf = (settings: CalculatorDosing, dosesPerDay: number | undefined): ReturnType<typeof plainDose> => {
+    const input = measure && { ...settings, weightKg, mgPerMeasure: mgPerMeasure(medication), measure, dosesPerDay };
+    return input && plainDose({ ...input, step: startingMeasureStep(input) });
+  };
   const savedDose = doseOf(calculator, savedDosesPerDay);
   /** The settings and the dose for the frequency picked on the row, as `withCalculatorDosing` has them on the line. */
   const dosingFor = (

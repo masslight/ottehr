@@ -1378,6 +1378,44 @@ describe('The calculator’s "Measure to"', () => {
   });
 });
 
+describe('A quick pick by weight measures as the calculator starts', () => {
+  // Famotidine 40 mg/5 mL (8 mg/mL), 0.5 mg/kg for 3 kg: 1.5 mg = 0.19 mL.
+  const FAMOTIDINE = {
+    ndc: '00000000040',
+    description: 'Famotidine 40 mg/5ml Susp',
+    doseForm: 'Oral Suspension',
+    ingredients: [{ name: 'famotidine', amount: 8, unit: 'MG', per: 1, perUnit: 'ML' }],
+  };
+  const REFLUX: PrescriptionQuickPickData = {
+    id: 'qp-reflux',
+    name: 'Famotidine reflux',
+    ndc: FAMOTIDINE.ndc,
+    medicationDescription: FAMOTIDINE.description,
+    doseForm: FAMOTIDINE.doseForm,
+    ingredients: FAMOTIDINE.ingredients,
+    quantityUnit: 'Milliliter',
+    dosing: { rate: 0.5, basis: 'mg/kg/dose', frequency: 'twice daily', durationDays: 14 },
+  };
+  const LISTED = { ...BY_WEIGHT, medicationDescription: PRODUCT.description };
+
+  it('to 0.1 mL under 1 mL, from the medication menu and from a suggestion row', () => {
+    expect(withListedQuickPick(emptyPrescriptionLine(), REFLUX, 3).dose).toBe('0.2');
+    const [row] = prescriptionSuggestionsFor({ medication: FAMOTIDINE, weightKg: 3, quickPicks: [REFLUX] });
+    expect(row.fill([]).dose).toBe('0.2');
+    expect(row.doseInfoFor?.([])).toEqual([
+      '3 kg × 0.5 mg/kg/dose = 1.5 mg',
+      '0.2 mL = 1.6 mg, 0.1 mg (7%) over 1.5 mg',
+    ]);
+  });
+
+  it('to 0.5 mL from 1 mL: amoxicillin stays as it was', () => {
+    // 12.4 kg × 25 = 310 mg = 3.875 mL: the nearest half mL is 4 mL.
+    expect(withListedQuickPick(emptyPrescriptionLine(), LISTED, 12.4).dose).toBe('4');
+    const [row] = prescriptionSuggestionsFor({ medication: PRODUCT, weightKg: 12.4, quickPicks: [BY_WEIGHT] });
+    expect(row.fill([]).dose).toBe('4');
+  });
+});
+
 describe('Suggestion rows: one day', () => {
   it('reads "for 1 day", not "for 1 days"', () => {
     const ONE_DAY: PrescriptionQuickPickData = {

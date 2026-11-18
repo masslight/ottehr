@@ -8,6 +8,7 @@ import {
   nearestMeasurable,
   PlainDose,
   plainDose,
+  startingMeasureStep,
 } from 'utils/lib/helpers/medications/plain-dose';
 import {
   doseAmountText,
@@ -492,7 +493,9 @@ export const withCalculatorDosing = (
   }
   const measure = measureOf(line.medication);
   const mg = mgPerMeasure(line.medication, doseByIngredient(line.medication, line.doseBy));
-  const dose = measure && plainDose({ ...dosing, weightKg, mgPerMeasure: mg, measure, dosesPerDay });
+  // Measured as the calculator starts: the line keeps no step.
+  const input = measure && { ...dosing, weightKg, mgPerMeasure: mg, measure, dosesPerDay };
+  const dose = input && plainDose({ ...input, step: startingMeasureStep(input) });
   if (!dose) return { ...line, dose: '' };
   const amount = String(dose.amount);
   // Reordered, the line has no note, only the quick pick's name (decision 236).

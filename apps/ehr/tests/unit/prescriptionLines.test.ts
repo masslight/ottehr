@@ -1393,6 +1393,23 @@ describe('withCalculatorDosing', () => {
     expect(noWeight).toMatchObject({ dose: '', dosing: { rate: 80, basis: 'mg/kg/day' } });
   });
 
+  it('mg/kg/day: measures to 0.1 mL under 1 mL, as the calculator starts', () => {
+    // Famotidine 40 mg/5 mL (8 mg/mL), 1 mg/kg/day for 3 kg ÷ 2 = 1.5 mg = 0.19 mL.
+    const famotidine: PrescriptionLine = {
+      ...perDay,
+      medication: {
+        ndc: '00000000040',
+        description: 'Famotidine 40 mg/5ml Susp',
+        doseForm: 'Oral Suspension',
+        ingredients: [{ name: 'famotidine', amount: 8, unit: 'MG', per: 1, perUnit: 'ML' }],
+      },
+      dose: '0.4',
+      frequency: 'once daily',
+      dosing: { rate: 1, basis: 'mg/kg/day' },
+    };
+    expect(changed(famotidine, { frequency: 'twice daily' }, 3).dose).toBe('0.2');
+  });
+
   it('drops them on a new product and saves none for a course', () => {
     expect(withDrug(dosed, { name: 'Cefdinir', strengths: [] }).dosing).toBeUndefined();
     const course = { ...dosed, steps: [{ dose: '1', frequency: 'once daily', durationDays: '2' }] };
