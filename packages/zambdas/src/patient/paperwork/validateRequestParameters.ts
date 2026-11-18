@@ -100,8 +100,8 @@ const collectAttachmentUrls = (value: unknown, urls: string[] = []): string[] =>
   return urls;
 };
 
-const assertAttachmentsAreZ3Urls = (answers: unknown, calculatedAnswers: unknown): void => {
-  for (const url of collectAttachmentUrls([answers, calculatedAnswers])) {
+const assertAttachmentsAreZ3Urls = (answers: unknown): void => {
+  for (const url of collectAttachmentUrls(answers)) {
     try {
       assertZ3Url(url);
     } catch {
@@ -124,7 +124,7 @@ const basicValidation = (input: ZambdaInput): BasicInput => {
     throw new Error(`"answers" is a required param`);
   }
 
-  assertAttachmentsAreZ3Urls(answers, calculatedAnswers);
+  assertAttachmentsAreZ3Urls(answers);
 
   const parsedCalculatedAnswers = z.array(CalculatedAnswerItemSchema).safeParse(calculatedAnswers);
   const calculatedAnswersProblem =
