@@ -4,6 +4,7 @@ import Stripe from 'stripe';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { PatientPaymentVisit } from 'utils/lib/types/api/patient-payment-visits.types';
+import { ServiceMode } from 'utils/lib/types/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
@@ -20,7 +21,7 @@ vi.mock('../../../src/billing/ehr-payment-data', async (importOriginal) => ({
 
 import { fetchPatientPaymentsByEncounterIds } from '../../../src/billing/claim-amounts';
 import { getPatientPaymentVisits } from '../../../src/billing/ehr-payment-data';
-import { listAccountPayments } from '../../../src/billing/list-billing-patient-account-payments';
+import { accountVisits, listAccountPayments } from '../../../src/billing/list-billing-patient-account-payments';
 import { listEncounterPayments } from '../../../src/billing/patient-payment-dtos';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 
@@ -69,8 +70,12 @@ const searchClient = (byType: Record<string, unknown[]>): Oystehr =>
     },
   }) as unknown as Oystehr;
 
-const list = (billingOystehr: Oystehr): ReturnType<typeof listAccountPayments> =>
-  listAccountPayments({ billingOystehr, clinicalPatientId: 'patient-1', stripeClient: {} as Stripe });
+const list = async (billingOystehr: Oystehr): ReturnType<typeof listAccountPayments> =>
+  listAccountPayments({
+    billingOystehr,
+    ehrData: await getPatientPaymentVisits(billingOystehr, 'patient-1'),
+    stripeClient: {} as Stripe,
+  });
 
 const givenVisits = (visits: PatientPaymentVisit[]): void => {
   vi.mocked(getPatientPaymentVisits).mockResolvedValue({ visits, stripeCustomers: [] });
@@ -123,8 +128,6 @@ describe('listAccountPayments', () => {
 
     const payments = await list(billingOystehr);
 
-    // the visits come from the EHR for the clinical patient
-    expect(getPatientPaymentVisits).toHaveBeenCalledWith(billingOystehr, 'patient-1');
     // only visits with payments are resolved against Stripe, with billing and EHR notices merged
     const calls = vi.mocked(listEncounterPayments).mock.calls.map(([input]) => input);
     expect(calls.map((input) => input.encounterId).sort()).toEqual(['enc-1', 'enc-2']);
@@ -210,5 +213,37 @@ describe('listAccountPayments', () => {
     expect(payments).toEqual([]);
     expect(fetchPatientPaymentsByEncounterIds).not.toHaveBeenCalled();
     expect(listEncounterPayments).not.toHaveBeenCalled();
+  });
+});
+
+describe('accountVisits', () => {
+  it('lists every visit newest first, undated last, without their EHR notices', () => {
+    const visits = accountVisits([
+      visit('enc-old', { visitDateISO: '2026-01-01T10:00:00.000Z', legacyPaymentNotices: [notice('pn-1')] }),
+      visit('enc-undated'),
+      visit('enc-new', {
+        appointmentId: 'appt-new',
+        visitDateISO: '2026-10-01T10:00:00.000Z',
+        serviceMode: ServiceMode.virtual,
+        followUp: false,
+        locationName: 'Main Clinic',
+        visitReason: 'Fever',
+        scheduleOwner: { stripeAccount: 'acct_clinic' },
+      }),
+    ]);
+
+    expect(visits).toEqual([
+      {
+        encounterId: 'enc-new',
+        appointmentId: 'appt-new',
+        visitDateISO: '2026-10-01T10:00:00.000Z',
+        serviceMode: ServiceMode.virtual,
+        followUp: false,
+        locationName: 'Main Clinic',
+        visitReason: 'Fever',
+      },
+      { encounterId: 'enc-old', appointmentId: undefined, visitDateISO: '2026-01-01T10:00:00.000Z' },
+      { encounterId: 'enc-undated', appointmentId: undefined, visitDateISO: undefined },
+    ]);
   });
 });

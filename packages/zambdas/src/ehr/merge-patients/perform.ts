@@ -643,159 +643,17 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
       })
       .then((r) => r.unbundle()),
   ]);
-  const coverageIdsToCancel = getCoverageIdsToCancel(
-    oldPatientCoverages,
-    mainPatientActiveCoverages,
-    getCoverageSlots([...oldPatientAccountsRaw, ...mainPatientAccountsRaw])
-  );
-
-  const isActive = (a: Account): boolean => a.status === 'active';
-  const mainActiveAccounts = mainPatientAccountsRaw.filter(isActive);
-
-  const accountIdRedirects = new Map<string, string>();
-  const mainAccountUpdates = new Map<string, Account>();
-
-  const dedupedRefs = <T extends { reference?: string } | undefined>(items: T[] | undefined): Set<string> =>
-    new Set((items ?? []).map((i) => (i as any)?.reference).filter((s): s is string => !!s));
-
-  const consolidateCoverages = (
-    main: Account['coverage'] = [],
-    other: Account['coverage'] = []
-  ): Account['coverage'] => {
-    const seen = dedupedRefs((main ?? []).map((c) => c.coverage));
-    const merged = [...(main ?? [])];
-    for (const c of other ?? []) {
-      const coverageId = c.coverage?.reference?.replace('Coverage/', '');
-      if (coverageId && coverageIdsToCancel.has(coverageId)) continue;
-      if (c.coverage?.reference && !seen.has(c.coverage.reference)) {
-        merged.push(c);
-        seen.add(c.coverage.reference);
-      }
-    }
-    return merged;
-  };
-
-  const consolidateGuarantors = (
-    mainAccount: Account,
-    other: Account
-  ): { guarantor: Account['guarantor']; contained: Account['contained'] } => {
-    const mainGuarantor = mainAccount.guarantor ?? [];
-    const mainContained = mainAccount.contained ?? [];
-
-    if (mainGuarantor.length > 0) {
-      return { guarantor: mainGuarantor, contained: mainContained };
-    }
-
-    const containedIds = new Set((mainContained ?? []).map((c) => c.id).filter((id): id is string => !!id));
-    const newGuarantor: NonNullable<Account['guarantor']> = [];
-    const newContained = [...(mainContained ?? [])];
-
-    for (const g of other.guarantor ?? []) {
-      const ref = g.party?.reference;
-      if (!ref) continue;
-      if (ref.startsWith('#')) {
-        const sourceId = ref.substring(1);
-        const source = (other.contained ?? []).find((c) => c.id === sourceId);
-        if (!source) continue;
-        let uniqueId = sourceId;
-        let suffix = 1;
-        while (containedIds.has(uniqueId)) {
-          uniqueId = `${sourceId}-${suffix++}`;
-        }
-        containedIds.add(uniqueId);
-        newContained.push({ ...source, id: uniqueId });
-        newGuarantor.push({ ...g, party: { ...g.party!, reference: `#${uniqueId}` } });
-      } else {
-        const repointed = ref === oldPatientRef ? { ...g, party: { ...g.party!, reference: newPatientRef } } : g;
-        newGuarantor.push(repointed);
-      }
-    }
-    return { guarantor: newGuarantor, contained: newContained };
-  };
-
-  for (const oldAccount of oldPatientAccountsRaw) {
-    if (!oldAccount.id || processedIds.has(`Account/${oldAccount.id}`)) continue;
-    processedIds.add(`Account/${oldAccount.id}`);
-
-    const mainMatch = isActive(oldAccount)
-      ? mainActiveAccounts.find(
-          (m) => m.id !== oldAccount.id && oldAccount.type && accountMatchesType(m, oldAccount.type)
-        )
-      : undefined;
-
-    if (mainMatch?.id) {
-      const working = mainAccountUpdates.get(mainMatch.id) ?? { ...mainMatch };
-      working.coverage = consolidateCoverages(working.coverage, oldAccount.coverage);
-      const { guarantor, contained } = consolidateGuarantors(working, oldAccount);
-      working.guarantor = guarantor;
-      working.contained = contained;
-      mainAccountUpdates.set(mainMatch.id, working);
-
-      if (oldAccount.subject) {
-        for (const subj of oldAccount.subject) {
-          if (subj.reference === oldPatientRef) subj.reference = newPatientRef;
-        }
-      }
-      if (oldAccount.guarantor) {
-        for (const g of oldAccount.guarantor) {
-          if (g.party?.reference === oldPatientRef) g.party.reference = newPatientRef;
-        }
-      }
-      oldAccount.status = 'inactive';
-      accountIdRedirects.set(oldAccount.id, mainMatch.id);
-      requests.push({ method: 'PUT', url: `/Account/${oldAccount.id}`, resource: oldAccount as FhirResource });
-      console.log(`  Consolidated Account/${oldAccount.id} into Account/${mainMatch.id}`);
-    } else {
-      let changed = false;
-      if (oldAccount.subject) {
-        for (const subj of oldAccount.subject) {
-          if (subj.reference === oldPatientRef) {
-            subj.reference = newPatientRef;
-            changed = true;
-          }
-        }
-      }
-      if (oldAccount.guarantor) {
-        for (const g of oldAccount.guarantor) {
-          if (g.party?.reference === oldPatientRef) {
-            g.party.reference = newPatientRef;
-            changed = true;
-          }
-        }
-      }
-      if (changed) {
-        requests.push({ method: 'PUT', url: `/Account/${oldAccount.id}`, resource: oldAccount as FhirResource });
-      }
-    }
-  }
-
-  for (const [id, acct] of mainAccountUpdates) {
-    requests.push({ method: 'PUT', url: `/Account/${id}`, resource: acct as FhirResource });
-  }
-
-  for (const coverage of oldPatientCoverages) {
-    if (!coverage.id || processedIds.has(`Coverage/${coverage.id}`)) continue;
-    processedIds.add(`Coverage/${coverage.id}`);
-    let changed = false;
-    if (coverage.beneficiary?.reference === oldPatientRef) {
-      coverage.beneficiary.reference = newPatientRef;
-      changed = true;
-    }
-    if (coverage.subscriber?.reference === oldPatientRef) {
-      coverage.subscriber!.reference = newPatientRef;
-      changed = true;
-    }
-
-    if (coverageIdsToCancel.has(coverage.id) && coverage.status !== 'cancelled') {
-      // still move the coverage under the main patient, but mark it cancelled
-      coverage.status = 'cancelled';
-      changed = true;
-    }
-
-    if (!changed) continue;
-
-    requests.push({ method: 'PUT', url: `/Coverage/${coverage.id}`, resource: coverage as FhirResource });
-  }
+  const billingPlan = planBillingConsolidation({
+    oldPatientRef,
+    newPatientRef,
+    oldAccounts: oldPatientAccountsRaw,
+    mainAccounts: mainPatientAccountsRaw,
+    oldCoverages: oldPatientCoverages,
+    mainActiveCoverages: mainPatientActiveCoverages,
+    processedIds,
+  });
+  requests.push(...billingPlan.requests);
+  const accountIdRedirects = billingPlan.accountIdRedirects;
 
   const chargeItems = (
     await oystehr.fhir.search<ChargeItem>({
@@ -984,6 +842,188 @@ export async function performMerge(input: PerformMergeInput, oystehr: Oystehr, m
   }
 }
 
+export interface BillingConsolidationInput {
+  oldPatientRef: string;
+  newPatientRef: string;
+  oldAccounts: Account[];
+  mainAccounts: Account[];
+  oldCoverages: Coverage[];
+  mainActiveCoverages: Coverage[];
+  processedIds: Set<string>;
+}
+
+// Pure planning of the Account/Coverage part of a merge: moves the merged-away patient's billing resources to the
+// main patient, folds matching Accounts together and cancels coverages that must not stay active on main.
+export const planBillingConsolidation = ({
+  oldPatientRef,
+  newPatientRef,
+  oldAccounts,
+  mainAccounts,
+  oldCoverages,
+  mainActiveCoverages,
+  processedIds,
+}: BillingConsolidationInput): {
+  requests: BatchInputPutRequest<FhirResource>[];
+  accountIdRedirects: Map<string, string>;
+} => {
+  const requests: BatchInputPutRequest<FhirResource>[] = [];
+  const coverageIdsToCancel = getCoverageIdsToCancel(
+    oldCoverages,
+    mainActiveCoverages,
+    getCoverageSlots([...oldAccounts, ...mainAccounts])
+  );
+
+  const isActive = (a: Account): boolean => a.status === 'active';
+  const mainActiveAccounts = mainAccounts.filter(isActive);
+
+  const accountIdRedirects = new Map<string, string>();
+  const mainAccountUpdates = new Map<string, Account>();
+
+  const dedupedRefs = <T extends { reference?: string } | undefined>(items: T[] | undefined): Set<string> =>
+    new Set((items ?? []).map((i) => (i as any)?.reference).filter((s): s is string => !!s));
+
+  const consolidateCoverages = (
+    main: Account['coverage'] = [],
+    other: Account['coverage'] = []
+  ): Account['coverage'] => {
+    const seen = dedupedRefs((main ?? []).map((c) => c.coverage));
+    const merged = [...(main ?? [])];
+    for (const c of other ?? []) {
+      const coverageId = c.coverage?.reference?.replace('Coverage/', '');
+      if (coverageId && coverageIdsToCancel.has(coverageId)) continue;
+      if (c.coverage?.reference && !seen.has(c.coverage.reference)) {
+        merged.push(c);
+        seen.add(c.coverage.reference);
+      }
+    }
+    return merged;
+  };
+
+  const consolidateGuarantors = (
+    mainAccount: Account,
+    other: Account
+  ): { guarantor: Account['guarantor']; contained: Account['contained'] } => {
+    const mainGuarantor = mainAccount.guarantor ?? [];
+    const mainContained = mainAccount.contained ?? [];
+
+    if (mainGuarantor.length > 0) {
+      return { guarantor: mainGuarantor, contained: mainContained };
+    }
+
+    const containedIds = new Set((mainContained ?? []).map((c) => c.id).filter((id): id is string => !!id));
+    const newGuarantor: NonNullable<Account['guarantor']> = [];
+    const newContained = [...(mainContained ?? [])];
+
+    for (const g of other.guarantor ?? []) {
+      const ref = g.party?.reference;
+      if (!ref) continue;
+      if (ref.startsWith('#')) {
+        const sourceId = ref.substring(1);
+        const source = (other.contained ?? []).find((c) => c.id === sourceId);
+        if (!source) continue;
+        let uniqueId = sourceId;
+        let suffix = 1;
+        while (containedIds.has(uniqueId)) {
+          uniqueId = `${sourceId}-${suffix++}`;
+        }
+        containedIds.add(uniqueId);
+        newContained.push({ ...source, id: uniqueId });
+        newGuarantor.push({ ...g, party: { ...g.party!, reference: `#${uniqueId}` } });
+      } else {
+        const repointed = ref === oldPatientRef ? { ...g, party: { ...g.party!, reference: newPatientRef } } : g;
+        newGuarantor.push(repointed);
+      }
+    }
+    return { guarantor: newGuarantor, contained: newContained };
+  };
+
+  for (const oldAccount of oldAccounts) {
+    if (!oldAccount.id || processedIds.has(`Account/${oldAccount.id}`)) continue;
+    processedIds.add(`Account/${oldAccount.id}`);
+
+    const mainMatch = isActive(oldAccount)
+      ? mainActiveAccounts.find(
+          (m) => m.id !== oldAccount.id && oldAccount.type && accountMatchesType(m, oldAccount.type)
+        )
+      : undefined;
+
+    if (mainMatch?.id) {
+      const working = mainAccountUpdates.get(mainMatch.id) ?? { ...mainMatch };
+      working.coverage = consolidateCoverages(working.coverage, oldAccount.coverage);
+      const { guarantor, contained } = consolidateGuarantors(working, oldAccount);
+      working.guarantor = guarantor;
+      working.contained = contained;
+      mainAccountUpdates.set(mainMatch.id, working);
+
+      if (oldAccount.subject) {
+        for (const subj of oldAccount.subject) {
+          if (subj.reference === oldPatientRef) subj.reference = newPatientRef;
+        }
+      }
+      if (oldAccount.guarantor) {
+        for (const g of oldAccount.guarantor) {
+          if (g.party?.reference === oldPatientRef) g.party.reference = newPatientRef;
+        }
+      }
+      oldAccount.status = 'inactive';
+      accountIdRedirects.set(oldAccount.id, mainMatch.id);
+      requests.push({ method: 'PUT', url: `/Account/${oldAccount.id}`, resource: oldAccount as FhirResource });
+      console.log(`  Consolidated Account/${oldAccount.id} into Account/${mainMatch.id}`);
+    } else {
+      let changed = false;
+      if (oldAccount.subject) {
+        for (const subj of oldAccount.subject) {
+          if (subj.reference === oldPatientRef) {
+            subj.reference = newPatientRef;
+            changed = true;
+          }
+        }
+      }
+      if (oldAccount.guarantor) {
+        for (const g of oldAccount.guarantor) {
+          if (g.party?.reference === oldPatientRef) {
+            g.party.reference = newPatientRef;
+            changed = true;
+          }
+        }
+      }
+      if (changed) {
+        requests.push({ method: 'PUT', url: `/Account/${oldAccount.id}`, resource: oldAccount as FhirResource });
+      }
+    }
+  }
+
+  for (const [id, acct] of mainAccountUpdates) {
+    requests.push({ method: 'PUT', url: `/Account/${id}`, resource: acct as FhirResource });
+  }
+
+  for (const coverage of oldCoverages) {
+    if (!coverage.id || processedIds.has(`Coverage/${coverage.id}`)) continue;
+    processedIds.add(`Coverage/${coverage.id}`);
+    let changed = false;
+    if (coverage.beneficiary?.reference === oldPatientRef) {
+      coverage.beneficiary.reference = newPatientRef;
+      changed = true;
+    }
+    if (coverage.subscriber?.reference === oldPatientRef) {
+      coverage.subscriber!.reference = newPatientRef;
+      changed = true;
+    }
+
+    if (coverageIdsToCancel.has(coverage.id) && coverage.status !== 'cancelled') {
+      // still move the coverage under the main patient, but mark it cancelled
+      coverage.status = 'cancelled';
+      changed = true;
+    }
+
+    if (!changed) continue;
+
+    requests.push({ method: 'PUT', url: `/Coverage/${coverage.id}`, resource: coverage as FhirResource });
+  }
+
+  return { requests, accountIdRedirects };
+};
+
 // Coverage.order is not populated; the primary/secondary slot lives in Account.coverage[].priority.
 // Priorities are only comparable within one Account type (billing and workers' comp both use priority 1), so
 // a slot is "<account type code>:<priority>". Inactive accounts are ignored: their retained coverage
@@ -1006,16 +1046,16 @@ export const getCoverageIdsToCancel = (
   mainActiveCoverages: Coverage[],
   slots: Map<string, string> = new Map()
 ): Set<string> => {
-  const slotOf = (c: Coverage): string | undefined =>
-    (c.id ? slots.get(c.id) : undefined) ?? (c.order !== undefined ? `:${c.order}` : undefined);
-  const mainSlots = new Set(mainActiveCoverages.map(slotOf).filter((slot): slot is string => slot !== undefined));
+  const typeOf = (c: Coverage): string => {
+    const slot = c.id ? slots.get(c.id) : undefined;
+    return slot !== undefined ? slot.slice(0, slot.lastIndexOf(':')) : '';
+  };
+  const mainTypes = new Set(mainActiveCoverages.map(typeOf));
   const ids = new Set<string>();
   for (const coverage of oldCoverages) {
     if (!coverage.id || coverage.status !== 'active') continue;
     const isDuplicate = mainActiveCoverages.some((main) => coveragesAreSame(main, coverage));
-    const slot = slotOf(coverage);
-    const slotTaken = slot !== undefined && mainSlots.has(slot);
-    if (isDuplicate || slotTaken) ids.add(coverage.id);
+    if (isDuplicate || mainTypes.has(typeOf(coverage))) ids.add(coverage.id);
   }
   return ids;
 };

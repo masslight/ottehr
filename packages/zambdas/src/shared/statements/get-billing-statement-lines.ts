@@ -9,6 +9,7 @@ import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import {
   fetchClaimResponsesByClaimIds,
   fetchPatientPaymentsByEncounterIds,
+  patientRespRemit,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
   sumPatientPayments,
@@ -91,19 +92,30 @@ export function computeBillingStatementAmounts(params: {
   const remitLines = sortClaimResponsesByRecency(claimResponses).map((remit) =>
     buildEraRemitServiceLines(remit, claim)
   );
-  const latestRemitLines = remitLines[remitLines.length - 1] ?? [];
+  // patient responsibility and the deductible are attributed from the remit that set patient
+  // responsibility, not from a later denial that left it as it was
+  const respRemit = patientRespRemit(claimResponses);
+  const respRemitLines = respRemit ? buildEraRemitServiceLines(respRemit, claim) : [];
 
   const payments = summarizeClaimPayments(claimResponses, claim.total?.value ?? 0, patientPaid, writeOffsTotal);
 
   const insurancePaidCents = Math.max(toCents(payments.insurancePaid), 0);
-  const unadjudicatedRespCents = hasReachedPatientAr(claim) ? toCents(claim.total?.value) : 0;
-  const patientRespCents = Math.max(payments.adjudicated ? toCents(payments.patientResp) : unadjudicatedRespCents, 0);
+  // until a remit reports PR, the patient owes what's still open only once the claim is moved to
+  // patient AR. Signed insurance paid, as the claim balance uses: a reversal that leaves it net
+  // negative reopens that much, and clamping it here would make the lines disagree with the total
+  const undeterminedRespCents = hasReachedPatientAr(claim)
+    ? Math.max(toCents(claim.total?.value) - toCents(payments.insurancePaid), 0)
+    : 0;
+  const patientRespCents = Math.max(
+    payments.patientResp !== null ? toCents(payments.patientResp) : undeterminedRespCents,
+    0
+  );
   const chargedCents = insurancePaidCents + patientRespCents;
   const patientPaidCents = toCents(payments.patientPaid);
   const writeOffsCents = toCents(payments.writeOffsTotal);
   const balanceCents =
-    hasReachedPatientAr(claim) || payments.adjudicated ? toCents(payments.balance) : unadjudicatedRespCents;
-  const deductibleSumCents = latestRemitLines.reduce(
+    hasReachedPatientAr(claim) || payments.patientResp !== null ? toCents(payments.balance) : undeterminedRespCents;
+  const deductibleSumCents = respRemitLines.reduce(
     (total, line) => total + toCents(patientRespBuckets(line.adjustments).deductible),
     0
   );
@@ -126,7 +138,7 @@ export function computeBillingStatementAmounts(params: {
   }
 
   const paidByLine = sumByClaimLine(remitLines.flat(), (line) => line.paid);
-  const respByLine = sumByClaimLine(latestRemitLines, patientRespOf);
+  const respByLine = sumByClaimLine(respRemitLines, patientRespOf);
 
   const grossCents = items.map((item) => toCents(item.net?.value));
   const insurancePaidByLine = fitToTotal(

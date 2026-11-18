@@ -345,6 +345,8 @@ export const EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS =
   'https://extensions.fhir.oystehr.com/rcm-claim-patient-discharge-status';
 export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-facility-type-code';
 export const EXTENSION_CLAIM_FREQUENCY_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-frequency-code';
+export const EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE =
+  'https://extensions.fhir.oystehr.com/rcm-claim-medicare-secondary-code';
 export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/RevenueCodes';
 
 export const CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem(
@@ -1669,16 +1671,19 @@ export function buildClaimCoverageCopies(params: {
   return { coverage, subscriber };
 }
 
-// Point the claim's coverage slot at `coverageReference` and its insurer at the
-// coverage's payer, keeping any other insurance entries (re-sequenced after the new primary).
-// ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached.
+// Point the claim's coverage slot at `coverageReference`, keeping any other insurance entries
+// (re-sequenced after the new primary). ensureClaimInsurance drops the no-coverage stub and
+// re-sequences, so a non-primary coverage attached to a self-pay claim becomes the focal entry.
+// Claim.insurer names the focal payer, so it is re-pointed only when the attached coverage is focal
+// after normalization — attaching a secondary behind an existing primary leaves it alone.
+// Returns whether the attached coverage ended up focal.
 export function attachCoverageToClaim(params: {
   claim: Claim;
   coverageReference: string;
   type: ClaimCoverageType;
   display?: string;
   payerReference?: string;
-}): void {
+}): boolean {
   const { claim, coverageReference, display, payerReference } = params;
   const sequence = params.type === 'primary' ? 1 : params.type === 'secondary' ? 2 : params.type === 'tertiary' ? 3 : 4;
   const focal = params.type === 'primary';
@@ -1686,7 +1691,9 @@ export function attachCoverageToClaim(params: {
     { sequence, focal, coverage: { reference: coverageReference, display } },
     ...(claim.insurance ?? []).filter((i) => i.sequence !== sequence),
   ]);
-  if (payerReference) claim.insurer = { reference: payerReference, display };
+  const attachedIsFocal = claim.insurance.find((i) => i.coverage.reference === coverageReference)?.focal ?? false;
+  if (attachedIsFocal && payerReference) claim.insurer = { reference: payerReference, display };
+  return attachedIsFocal;
 }
 
 // Account type + priority an insurance type maps to. primary/secondary share the patient billing
@@ -2177,17 +2184,55 @@ export async function getGroupNumber(
   return groupNumber;
 }
 
-export function getPayerClaimControlNumber(claim: Claim, insurance: RulesEngineInsurance): string | undefined {
-  const payerClaimControlNumbers = (claim.identifier ?? []).filter(
-    (i) => i.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
+export function isPayerClaimControlNumberFor(identifier: Identifier, insurance: RulesEngineInsurance): boolean {
+  if (identifier.system !== CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM) return false;
+  // a type-less identifier is the legacy one for the primary insurance
+  if (!identifier.type) return insurance === 'primary';
+  return (
+    identifier.type.coding?.some(
+      (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === insurance
+    ) ?? false
   );
-  return payerClaimControlNumbers.find(
-    (i) =>
-      // is matching type
-      i.type?.coding?.some(
-        (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === insurance
-      ) ||
-      // legacy type-less identifier for primary insurance
-      (insurance === 'primary' && !i.type)
-  )?.value;
+}
+
+export function getPayerClaimControlNumber(claim: Claim, insurance: RulesEngineInsurance): string | undefined {
+  // an identifier without a value carries no number to read
+  return (claim.identifier ?? []).find((i) => i.value && isPayerClaimControlNumberFor(i, insurance))?.value;
+}
+
+export function payerClaimControlNumberIdentifier(
+  value: string,
+  insurance: RulesEngineInsurance | undefined
+): Identifier {
+  return {
+    system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+    value,
+    ...(insurance
+      ? { type: { coding: [{ system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM, code: insurance }] } }
+      : {}),
+  };
+}
+
+export async function getInsuranceOrdinal(
+  oystehr: Oystehr,
+  claim: Claim,
+  insurer: Reference | undefined
+): Promise<RulesEngineInsurance | undefined> {
+  const coverageIds = (claim.insurance ?? []).flatMap((ins) => {
+    const id = ins.coverage.reference?.replace('Coverage/', '');
+    return id ? [id] : [];
+  });
+  if (!insurer?.reference || coverageIds.length === 0) return undefined;
+  const coverages = (
+    await oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: '_id', value: coverageIds.join(',') }],
+    })
+  ).unbundle();
+  const targetCoverage = coverages.find((cov) => cov.payor?.[0]?.reference === insurer.reference);
+  if (!targetCoverage) return undefined;
+  const sequence = claim.insurance.find((ins) => ins.coverage.reference?.replace('Coverage/', '') === targetCoverage.id)
+    ?.sequence;
+  if (!sequence) return undefined;
+  return sequence === 1 ? 'primary' : sequence === 2 ? 'secondary' : sequence === 3 ? 'tertiary' : 'quaternary';
 }
