@@ -10,7 +10,7 @@ import { cleanupIntegrationTestDocumentReferences, cleanupStaleIntegrationTestLo
  * taken from a stored resource, and it removes records nothing else will. Both halves are easy to get
  * subtly wrong in ways nothing would report.
  */
-const Z3_BASE = 'https://project-api.example.com/v1/z3/proj-1-';
+const Z3_BASE = 'https://project-api.zapehr.com/v1/z3/proj-1-';
 
 const docRef = (id: string, ...urls: string[]): DocumentReference =>
   ({
