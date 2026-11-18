@@ -98,6 +98,8 @@ import {
 import {
   ChangeResponseInput,
   CompleteErxTaskInput,
+  ErxSavedFormInput,
+  ErxSavedFormResponse,
   GetErxRequestInput,
   GetErxRequestResponse,
   RenewalResponseInput,
@@ -805,6 +807,12 @@ export const respondToChange = (token: string, parameters: ChangeResponseInput):
 /** Completes an eRx task (a refill request answered in its dialog). */
 export const completeErxTask = async (oystehr: Oystehr, parameters: CompleteErxTaskInput): Promise<void> => {
   await oystehr.zambda.execute({ id: 'complete-erx-task', ...parameters });
+};
+
+/** Loads or saves the visit's eRx order form saved for a provider to send; saving an empty form removes it. */
+export const erxSavedForm = async (oystehr: Oystehr, parameters: ErxSavedFormInput): Promise<ErxSavedFormResponse> => {
+  const response = await oystehr.zambda.execute({ id: 'erx-saved-form', ...parameters });
+  return chooseJson(response);
 };
 
 /** The request a refill request task is about: the pharmacy's or the patient's, with its prescription and patient. */

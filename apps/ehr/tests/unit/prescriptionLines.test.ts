@@ -37,6 +37,7 @@ import {
   withCompoundDose,
   withDirections,
   withDrug,
+  withNewKeys,
   withoutCompound,
   withPrescriptionMetadata,
   withProduct,
@@ -2184,5 +2185,29 @@ describe('the blanks kept on the prescription for a re-fill (metadata)', () => {
       /\(from the quick pick\)$/
     );
     expect(prescriptionLineMetadata(refrequenced).dosingQuickPick).toBe('Amox AOM');
+  });
+});
+
+// A saved form's lines come back with the keys of the page that saved them (requirement 53b).
+describe('withNewKeys', () => {
+  it("gives a saved line and its compound's ingredients keys no line added after them will share", () => {
+    const compound = compoundLineOf({
+      description: 'Magic mouthwash',
+      dosageForm: 'Suspension',
+      ingredients: [
+        { description: 'Lidocaine', amount: 10, unit: 'Milliliter' },
+        { description: 'Diphenhydramine', amount: 10, unit: 'Milliliter' },
+      ],
+    } as unknown as CompoundInput);
+    const saved = { ...emptyPrescriptionLine(), key: 1_000_000, compound };
+    const loaded = withNewKeys(saved);
+    const added = emptyPrescriptionLine();
+    const keys = [loaded.key, ...loaded.compound!.ingredients.map((ingredient) => ingredient.key), added.key];
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(loaded.key).not.toBe(saved.key);
+    expect(loaded.compound!.ingredients.map((ingredient) => ingredient.typed)).toEqual([
+      'Lidocaine',
+      'Diphenhydramine',
+    ]);
   });
 });

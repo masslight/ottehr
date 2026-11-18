@@ -420,6 +420,16 @@ export const emptyPrescriptionLine = (): PrescriptionLine => ({
   quickPicked: null,
 });
 
+/** A line from a saved form, with keys of this page's, so it never shares one with a line added after it. */
+export const withNewKeys = (line: PrescriptionLine): PrescriptionLine => ({
+  ...line,
+  key: nextKey++,
+  compound: line.compound && {
+    ...line.compound,
+    ingredients: line.compound.ingredients.map((ingredient) => ({ ...ingredient, key: nextKey++ })),
+  },
+});
+
 /** The strength the line's medication is, among its drug's. */
 export const pickedStrength = (line: Pick<PrescriptionLine, 'drug' | 'medication'>): MedicationStrength | undefined =>
   line.drug?.strengths.find((strength) => strength.ndcs[0] === line.medication?.ndc);

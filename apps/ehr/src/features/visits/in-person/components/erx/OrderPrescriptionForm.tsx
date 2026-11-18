@@ -1,6 +1,7 @@
 import { Add } from '@mui/icons-material';
 import { Box, Button, Divider, FormHelperText, Stack, Tooltip, Typography, useTheme } from '@mui/material';
 import { Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useRef, useState } from 'react';
 import { createPrescriptionQuickPick } from 'src/api/api';
@@ -13,10 +14,17 @@ import { getFirstName } from 'utils/lib/fhir/patient';
 import { directoryPharmacyToResult } from 'utils/lib/helpers/erx-pharmacy-match';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
+import {
+  ErxSavedForm,
+  erxSavedFormIsEmpty,
+  ErxSavedFormResponse,
+  erxSavedLineHasContent,
+} from 'utils/lib/types/api/erx.types';
 import { PharmacySearchResult } from 'utils/lib/types/api/erx-search.types';
 import { OrderPrescriptionInput } from 'utils/lib/types/api/order-prescription.types';
 import { PrescriptionSetQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
+import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
 import { QuickPickSaveDialogs } from '../../../shared/components/QuickPickSaveDialogs';
 import { AllergiesContainer } from '../../../shared/components/review-tab/components/AllergiesContainer';
@@ -43,6 +51,7 @@ import {
   quickPickNameInUse,
   quickPickProductMissing,
   suggestedQuickPickName,
+  withNewKeys,
 } from './prescriptionLines';
 import { PrescriptionSentences } from './PrescriptionSentences';
 import { missingSetMembersText, withListedQuickPick, withPrescriptionSet } from './prescriptionSuggestions';
@@ -83,10 +92,28 @@ interface OrderPrescriptionFormProps {
   quietSent?: boolean;
   /** The patient's address and phone are shown by the caller. */
   hidePatientInfo?: boolean;
+  /** Whoever is signed in isn't enrolled with Surescripts: they can save the form for a provider, not send it. */
+  notEnrolled?: boolean;
+  /** The visit's form saved for a provider to send (requirement 53b), which the form starts with. */
+  saved?: ErxSavedFormResponse['saved'];
+  /** Saves the form in place of the saved one ("Save"); an empty form removes it. */
+  onSaveForm?: (form: ErxSavedForm) => Promise<ErxSavedFormResponse>;
 }
 
 /** Why the form's buttons are off on a signed visit; the Reorder action says the same. */
 const SIGNED = 'The visit is signed';
+
+/** The form as the server saves it: its lines as they are, unfinished ones too (requirement 53c). */
+const toSavedForm = (lines: PrescriptionLine[], pharmacy: PharmacySearchResult | null): ErxSavedForm => ({
+  pharmacy,
+  lines: lines as unknown as ErxSavedForm['lines'],
+});
+
+/** "Saved by Jamie Rivera, 11/18/2026 12:31 PM", in the browser's time zone. */
+const savedByText = ({ savedBy, savedAt }: { savedBy?: string; savedAt?: string }): string => {
+  const at = formatDateToMDYWithTime(savedAt, DateTime.local().zoneName);
+  return `${savedBy ? `Saved by ${savedBy}` : 'Saved'}${at ? `, ${at.date} ${at.time}` : ''}`;
+};
 export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   visit,
   initialLine,
@@ -97,6 +124,9 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   onSent,
   quietSent,
   hidePatientInfo,
+  notEnrolled,
+  saved,
+  onSaveForm,
 }) => {
   const theme = useTheme();
   const appointmentData = useAppointmentData();
@@ -127,16 +157,23 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
   const { quickPicks, refetch: refetchQuickPicks } = useMergedPrescriptionQuickPicks();
   const { quickPicks: sets, refetch: refetchSets } = useMergedPrescriptionSetQuickPicks();
 
-  const [lines, setLines] = useState<PrescriptionLine[]>(() => [initialLine ?? emptyPrescriptionLine()]);
+  // The saved form's lines, when there are any, in place of an empty one (requirement 53b).
+  const [savedLines] = useState(() => ((saved?.form.lines ?? []) as unknown as PrescriptionLine[]).map(withNewKeys));
+  const [lines, setLines] = useState<PrescriptionLine[]>(() =>
+    savedLines.length ? savedLines : [initialLine ?? emptyPrescriptionLine()]
+  );
   const [sendAttempted, setSendAttempted] = useState(false);
   const [sending, setSending] = useState(false);
+  const [savingForm, setSavingForm] = useState(false);
+  // The saved form's lines as saved, keyed as on the form: each leaves it once sent, edited on the form or not.
+  const [linesSaved, setLinesSaved] = useState(savedLines);
 
   // Until a pharmacy is picked (or after Clear Form), the line reads the saved one, when it matches the directory.
   const savedPharmacy = plan?.preferredPharmacies?.find((item) => item.primary) ?? plan?.preferredPharmacies?.[0];
   const { data: preferred } = usePreferredPharmacy(patient?.id, savedPharmacy);
   const several = preferred && 'several' in preferred ? preferred : undefined;
   const preferredPharmacy = preferred && 'several' in preferred ? null : preferred;
-  const [pickedPharmacy, setPickedPharmacy] = useState<PharmacySearchResult | null>(null);
+  const [pickedPharmacy, setPickedPharmacy] = useState<PharmacySearchResult | null>(saved?.form.pharmacy ?? null);
   const pharmacy = fixedPharmacy ?? pickedPharmacy ?? preferredPharmacy ?? null;
   // The pharmacies this visit's prescriptions went to, once each, named as any of them names it.
   const sentBefore = (plan?.prescribedMedications ?? []).flatMap((item, i, all) =>
@@ -229,6 +266,46 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
     }
   };
 
+  // Replaces the visit's saved form; an empty one removes it. Nothing is checked, as the provider finishes it (53c).
+  const onSave = async (): Promise<void> => {
+    if (!onSaveForm) return;
+    const form = toSavedForm(lines, pickedPharmacy);
+    if (erxSavedFormIsEmpty(form) && !saved) {
+      enqueueSnackbar('Nothing to save', { variant: 'info' });
+      return;
+    }
+    setSavingForm(true);
+    try {
+      const response = await onSaveForm(form);
+      setLinesSaved(response.saved ? lines : []);
+      enqueueSnackbar(response.saved ? 'Saved' : 'Saved form removed', { variant: 'success' });
+    } catch (error) {
+      console.error('Failed to save the eRx form:', error);
+      enqueueSnackbar(getApiError({ error, defaultError: 'The form could not be saved. Please try again.' }), {
+        variant: 'error',
+      });
+    } finally {
+      setSavingForm(false);
+    }
+  };
+
+  // A sent line leaves the saved form as it leaves the form, and one that failed stays; once no saved line is left
+  // to send, the saved form is removed (requirement 53d).
+  const removeSentFromSaved = async (sent: PrescriptionLine[]): Promise<void> => {
+    if (!onSaveForm) return;
+    const unsent = linesSaved.filter((line) => !sent.some((item) => item.key === line.key));
+    const left = unsent.some(erxSavedLineHasContent);
+    try {
+      const response = await onSaveForm(toSavedForm(left ? unsent : [], left ? saved?.form.pharmacy ?? null : null));
+      setLinesSaved(response.saved ? unsent : []);
+    } catch (error) {
+      console.error('Failed to update the saved eRx form:', error);
+      enqueueSnackbar("The saved form couldn't be updated. Reload the page to see what is still saved.", {
+        variant: 'warning',
+      });
+    }
+  };
+
   const lineErrors = (line: PrescriptionLine): string[] => [
     ...prescriptionLineErrors(line),
     ...(sendLineErrors?.(line) ?? []),
@@ -284,6 +361,7 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
     } finally {
       setSending(false);
       await addDiagnosesToVisit(sent.flatMap((line) => (line.diagnosis ? [line.diagnosis] : [])));
+      if (sent.length && saved) await removeSentFromSaved(sent);
       if (sent.length) await refetchPrescriptions();
     }
   };
@@ -465,7 +543,15 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
                   {sendDataFailed}
                 </Typography>
               )}
-              <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Box
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                }}
+              >
                 <Tooltip title={readOnly ? SIGNED : sending ? 'Sending…' : ''}>
                   <span>
                     <RoundedButton color="primary" onClick={clearForm} disabled={readOnly || sending}>
@@ -473,19 +559,58 @@ export const OrderPrescriptionForm: FC<OrderPrescriptionFormProps> = ({
                     </RoundedButton>
                   </span>
                 </Tooltip>
-                <Tooltip title={readOnly ? SIGNED : sendDataLoading ? 'Loading allergies and vitals' : ''}>
-                  <span>
-                    <RoundedButton
-                      color="primary"
-                      variant="contained"
-                      disabled={readOnly || sendDataLoading}
-                      loading={sending}
-                      onClick={() => void send()}
-                    >
-                      {sendLabel ?? (lines.length === 1 ? 'Send Prescription' : `Send ${lines.length} Prescriptions`)}
-                    </RoundedButton>
-                  </span>
-                </Tooltip>
+                <Box
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                    justifyContent: 'flex-end',
+                  }}
+                >
+                  {saved && (
+                    <Typography variant="body2" color="text.secondary">
+                      {savedByText(saved)}
+                    </Typography>
+                  )}
+                  {onSaveForm && (
+                    <Tooltip title={readOnly ? SIGNED : sending ? 'Sending…' : ''}>
+                      <span>
+                        <RoundedButton
+                          color="primary"
+                          onClick={() => void onSave()}
+                          disabled={readOnly || sending}
+                          loading={savingForm}
+                        >
+                          Save
+                        </RoundedButton>
+                      </span>
+                    </Tooltip>
+                  )}
+                  <Tooltip
+                    title={
+                      readOnly
+                        ? SIGNED
+                        : notEnrolled
+                        ? 'Only an enrolled prescriber can send'
+                        : sendDataLoading
+                        ? 'Loading allergies and vitals'
+                        : ''
+                    }
+                  >
+                    <span>
+                      <RoundedButton
+                        color="primary"
+                        variant="contained"
+                        disabled={readOnly || notEnrolled || sendDataLoading}
+                        loading={sending}
+                        onClick={() => void send()}
+                      >
+                        {sendLabel ?? (lines.length === 1 ? 'Send Prescription' : `Send ${lines.length} Prescriptions`)}
+                      </RoundedButton>
+                    </span>
+                  </Tooltip>
+                </Box>
               </Box>
             </Stack>
           </AccordionCard>

@@ -4,11 +4,19 @@ import { RoleType } from 'utils/lib/types/api/user.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ERXSurescriptsBody } from '../../src/features/visits/in-person/components/erx/ERXSurescriptsBody';
 
-const mocks = vi.hoisted(() => ({ roles: [] as string[], checkPractitionerEnrollment: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  roles: [] as string[],
+  checkPractitionerEnrollment: vi.fn(),
+  erxSavedForm: vi.fn(),
+}));
 
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 vi.mock('src/api/api', () => ({
   checkPractitionerEnrollment: (...args: unknown[]) => mocks.checkPractitionerEnrollment(...args),
+  erxSavedForm: (...args: unknown[]) => mocks.erxSavedForm(...args),
+}));
+vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
+  useAppointmentData: () => ({ encounter: { resourceType: 'Encounter', id: 'encounter-1' } }),
 }));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 vi.mock('src/hooks/useAuthToken', () => ({ useAuthToken: () => 'user-token' }));
@@ -20,10 +28,15 @@ vi.mock('src/hooks/useEvolveUser', () => ({
 }));
 vi.mock('../../src/features/visits/shared/components/PageTitle', () => ({ PageTitle: () => null }));
 vi.mock('../../src/features/visits/in-person/components/erx/OrderPrescriptionForm', () => ({
-  OrderPrescriptionForm: () => null,
+  OrderPrescriptionForm: ({ notEnrolled, saved }: { notEnrolled?: boolean; saved?: { savedBy?: string } | null }) => (
+    <div data-testid="order-form">
+      {notEnrolled ? 'form: not enrolled' : 'form: enrolled'}
+      {saved && `, saved by ${saved.savedBy}`}
+    </div>
+  ),
 }));
 vi.mock('../../src/features/visits/in-person/components/erx/PrescriptionTable', () => ({
-  PrescriptionTable: () => null,
+  PrescriptionTable: () => <div>Ordered prescriptions</div>,
 }));
 
 const renderBody = (): void => {
@@ -40,6 +53,7 @@ describe('eRx (Surescripts) page: Enroll', () => {
     vi.clearAllMocks();
     vi.unstubAllGlobals();
     mocks.checkPractitionerEnrollment.mockResolvedValue({ registered: false });
+    mocks.erxSavedForm.mockResolvedValue({ saved: null });
   });
 
   it('offers Enroll to a provider who isn’t registered', async () => {
@@ -68,5 +82,39 @@ describe('eRx (Surescripts) page: Enroll', () => {
     renderBody();
     expect(await screen.findByText('You are not enrolled in Surescripts e-prescribing.')).toBeInTheDocument();
     expect(screen.queryByText(/Unable to check your Surescripts registration/)).not.toBeInTheDocument();
+  });
+});
+
+// Requirement 53a: someone not enrolled fills in the form for a provider to send, still without the table.
+describe('eRx (Surescripts) page: saving for the provider', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.roles = [RoleType.Staff];
+    mocks.erxSavedForm.mockResolvedValue({ saved: null });
+  });
+
+  it('shows the order form to someone not enrolled, to save, without the table', async () => {
+    mocks.checkPractitionerEnrollment.mockResolvedValue({ registered: false });
+    renderBody();
+    expect(await screen.findByText('form: not enrolled')).toBeInTheDocument();
+    expect(screen.getByText('You are not enrolled in Surescripts e-prescribing.')).toBeInTheDocument();
+    expect(screen.queryByText('Ordered prescriptions')).not.toBeInTheDocument();
+  });
+
+  it('shows an enrolled prescriber the form and the table', async () => {
+    mocks.checkPractitionerEnrollment.mockResolvedValue({ registered: true });
+    renderBody();
+    expect(await screen.findByText('form: enrolled')).toBeInTheDocument();
+    expect(screen.getByText('Ordered prescriptions')).toBeInTheDocument();
+  });
+
+  it("opens the form with the visit's saved form, loaded by the visit only", async () => {
+    mocks.checkPractitionerEnrollment.mockResolvedValue({ registered: true });
+    mocks.erxSavedForm.mockResolvedValue({
+      saved: { form: { pharmacy: null, lines: [] }, savedBy: 'Jamie Rivera', savedAt: '2026-11-18T17:31:00Z' },
+    });
+    renderBody();
+    expect(await screen.findByText('form: enrolled, saved by Jamie Rivera')).toBeInTheDocument();
+    expect(mocks.erxSavedForm).toHaveBeenCalledWith(expect.anything(), { action: 'get', encounterId: 'encounter-1' });
   });
 });
