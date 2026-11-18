@@ -1,5 +1,14 @@
-import { expect, test } from '@playwright/test';
+import { expect, Page, test } from '@playwright/test';
 import { checkIfEnvAllowed } from '../../e2e-utils/check-env';
+
+// Playwright puts the filled value into the error's call log, so a failed fill must not surface it.
+async function fillCredential(page: Page, selector: string, value: string): Promise<void> {
+  try {
+    await page.fill(selector, value);
+  } catch {
+    throw new Error(`Could not fill ${selector}`);
+  }
+}
 
 test('Should log in', async ({ page, context, browser }) => {
   checkIfEnvAllowed();
@@ -12,10 +21,10 @@ test('Should log in', async ({ page, context, browser }) => {
   await context.clearPermissions();
 
   await page.goto('/');
-  await page.fill('#username', process.env.TEXT_USERNAME!);
+  await fillCredential(page, '#username', process.env.TEXT_USERNAME!);
   await page.click('button[type="submit"]');
   await page.waitForTimeout(100);
-  await page.fill('#password', process.env.TEXT_PASSWORD!);
+  await fillCredential(page, '#password', process.env.TEXT_PASSWORD!);
   await page.click('button[type="submit"]');
 
   // Check if authorization page appears and accept if it does. Actual for first login.
