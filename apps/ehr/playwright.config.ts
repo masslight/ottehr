@@ -22,9 +22,9 @@ export default defineConfig({
   ],
   use: {
     baseURL: process.env.WEBSITE_URL,
-    trace: process.env.CI ? 'on-first-retry' : 'on',
+    trace: process.env.CI ? 'off' : 'on',
     screenshot: process.env.CI ? 'only-on-failure' : 'off',
-    video: process.env.CI ? 'retain-on-failure' : 'off',
+    video: 'off',
     actionTimeout: 35_000,
     navigationTimeout: 35_000,
   },

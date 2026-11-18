@@ -76,7 +76,7 @@ export const index = wrapHandler('get-schedule', async (input: ZambdaInput): Pro
     console.log('getting token');
     oystehrToken = await getAuth0Token(secrets);
   } else {
-    console.log('already have token', oystehrToken);
+    console.log('already have a token, no need to update');
   }
 
   const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
