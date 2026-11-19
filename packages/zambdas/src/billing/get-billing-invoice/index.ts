@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Invoice, Organization, Patient, Resource } from 'fhir/r4b';
+import { Claim, Invoice, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   getBillingInvoiceClaims,
@@ -87,7 +87,7 @@ export async function performEffect({
         },
       ],
     })
-  ).unbundle() as Resource[];
+  ).unbundle();
   const invoice = resources.find((resource): resource is Invoice => resource.resourceType === 'Invoice');
   if (!invoice) throw FHIR_RESOURCE_NOT_FOUND('Invoice');
   if (getBillingInvoiceKind(invoice) !== 'nio') {
@@ -156,7 +156,7 @@ async function fetchInvoiceClaimLines(oystehr: Oystehr, invoice: Invoice): Promi
         },
       ],
     })
-  ).unbundle() as Resource[];
+  ).unbundle();
 
   return lines.map(({ claimId, amountCents }) => {
     const amount = amountCents / 100;
