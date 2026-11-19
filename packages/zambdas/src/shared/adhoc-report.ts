@@ -610,6 +610,92 @@ export async function fetchReportAppointments(
   return runEntries<Appointment | Encounter>(oystehr, entries, 'Appointment by date');
 }
 
+/**
+ * The visits of the range — the module-tagged appointments and their encounters, follow-ups included — as two (or
+ * three) light searches side by side instead of one Appointment search that revincludes the encounters:
+ *   - Appointment by date (status and module tag filters);
+ *   - Encounter by `appointment.date` (a visit's encounter, and the follow-ups that carry its appointment);
+ *   - Encounter by `part-of.appointment.date` (follow-ups without an appointment of their own).
+ * The encounters are then kept as the revinclude kept them: those of a kept appointment, and their part-of chain.
+ * If the server refuses the chained part-of search, the follow-ups are searched by their parents' ids instead.
+ */
+export async function fetchReportVisits(
+  oystehr: Oystehr,
+  opts: { dateRange: { start: string; end: string }; statuses?: string }
+): Promise<(Appointment | Encounter)[]> {
+  const byDate = <T extends FhirResource>(
+    resourceType: FhirResource['resourceType'],
+    dateParam: string,
+    params: SearchParam[],
+    label: string
+  ): Promise<T[]> =>
+    runEntries<T>(
+      oystehr,
+      reportWindows(opts.dateRange).map((window) => windowEntry(resourceType, dateParam, window, params)),
+      label
+    );
+
+  const [appointments, encounters, chainedFollowUps] = await Promise.all([
+    byDate<Appointment>(
+      'Appointment',
+      'date',
+      [
+        { name: 'status', value: opts.statuses ?? REPORT_APPOINTMENT_STATUSES },
+        { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
+      ],
+      'Appointment by date'
+    ),
+    byDate<Encounter>('Encounter', 'appointment.date', [], 'Encounter by appointment date'),
+    byDate<Encounter>('Encounter', 'part-of.appointment.date', [], 'Encounter by parent appointment date').catch(
+      (error) => {
+        console.warn(
+          `[adhoc] Encounter by parent appointment date refused, follow-ups by parent id instead: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        return undefined;
+      }
+    ),
+  ]);
+
+  // Each search keeps only its own type (a search can carry included resources).
+  const visits = appointments.filter((a) => a.resourceType === 'Appointment');
+  const appointmentRefs = new Set(visits.map((a) => `Appointment/${a.id}`));
+  const kept = new Map<string, Encounter>();
+  for (const e of encounters) {
+    if (
+      e.resourceType === 'Encounter' &&
+      e.id &&
+      e.appointment?.some((a) => a.reference && appointmentRefs.has(a.reference))
+    )
+      kept.set(e.id, e);
+  }
+
+  // Follow-ups: an encounter whose part-of points at a kept encounter is kept too, down the chain.
+  let followUps = chainedFollowUps ?? [];
+  if (!chainedFollowUps) {
+    followUps = await fetchScopedResources<Encounter>(
+      oystehr,
+      'Encounter',
+      'part-of',
+      Array.from(kept.keys()).map((id) => `Encounter/${id}`)
+    );
+  }
+  const candidates = [...encounters, ...followUps].filter((e) => e.resourceType === 'Encounter');
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const e of candidates) {
+      const parent = e.partOf?.reference?.replace('Encounter/', '');
+      if (e.id && !kept.has(e.id) && parent && kept.has(parent)) {
+        kept.set(e.id, e);
+        grew = true;
+      }
+    }
+  }
+
+  return [...visits, ...kept.values()];
+}
+
 /** The patients, locations and attending / intake practitioners of the appointments and encounters, by id. */
 export async function fetchReportRootLookups(
   oystehr: Oystehr,

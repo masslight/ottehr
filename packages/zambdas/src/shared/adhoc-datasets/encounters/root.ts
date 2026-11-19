@@ -29,8 +29,8 @@ import { getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
   buildEncounterRowContext,
-  fetchReportAppointments,
   fetchReportRootLookups,
+  fetchReportVisits,
   fetchScopedResources,
   knownValueOrNull,
 } from '../../adhoc-report';
@@ -46,10 +46,7 @@ export async function fetchEncounterRoot(
   oystehr: Oystehr,
   dateRange: { start: string; end: string }
 ): Promise<EncounterRoot> {
-  const resources = await fetchReportAppointments(oystehr, {
-    dateRange,
-    extraParams: [{ name: '_revinclude:iterate', value: 'Encounter:part-of' }],
-  });
+  const resources = await fetchReportVisits(oystehr, { dateRange });
 
   const root: EncounterRoot = {
     resources,

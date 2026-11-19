@@ -513,6 +513,9 @@ const resourcesByJob: Record<string, FhirResource[]> = {
   ),
   'Appointment:prior': [priorAppointment, priorSeenVisit, longAgoSeenVisit],
 };
+// The encounters dataset searches the encounters on their own (by appointment date); the other datasets still get
+// them revincluded with the appointments.
+resourcesByJob.Encounter ??= (resourcesByJob.Appointment ?? []).filter((r) => r.resourceType === 'Encounter');
 
 const jobIdFor = (resourceType: string, params: { name: string; value: string }[]): string => {
   if (resourceType === 'Appointment' && params.some((p) => p.name === 'patient')) return 'Appointment:prior';

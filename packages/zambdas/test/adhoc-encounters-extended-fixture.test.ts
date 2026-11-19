@@ -929,6 +929,9 @@ const resourcesByJob: Record<string, FhirResource[]> = {
     attending,
   ],
 };
+// The encounters dataset searches the encounters on their own (by appointment date); the other datasets still get
+// them revincluded with the appointments.
+resourcesByJob.Encounter ??= (resourcesByJob.Appointment ?? []).filter((r) => r.resourceType === 'Encounter');
 
 // Searches sharing a resource type are told apart by what they ask for.
 const jobIdFor = (resourceType: string, params: { name: string; value: string }[]): string => {

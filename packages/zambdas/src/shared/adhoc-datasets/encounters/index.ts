@@ -31,6 +31,14 @@ import { signingLayer } from './layers/signing';
 import { timingLayer } from './layers/timing';
 import { vitalsLayer } from './layers/vitals';
 import {
+  vitalsBloodPressureLayer,
+  vitalsBodyLayer,
+  vitalsHeartRateLayer,
+  vitalsOxygenLayer,
+  vitalsRespirationLayer,
+  vitalsTemperatureLayer,
+} from './layers/vitals-split';
+import {
   buildEncounterBaseRow,
   fetchEncounterBaseLookups,
   fetchEncounterRoot,
@@ -45,6 +53,12 @@ export const ENCOUNTER_LAYER_MODULES: Record<EncounterLayerId, AnyEncounterLayer
   ai: aiLayer,
   medications: medicationsLayer,
   vitals: vitalsLayer,
+  vitalsTemperature: vitalsTemperatureLayer,
+  vitalsBloodPressure: vitalsBloodPressureLayer,
+  vitalsHeartRate: vitalsHeartRateLayer,
+  vitalsRespiration: vitalsRespirationLayer,
+  vitalsOxygen: vitalsOxygenLayer,
+  vitalsBody: vitalsBodyLayer,
   labs: labsLayer,
   imaging: imagingLayer,
   immunizations: immunizationsLayer,

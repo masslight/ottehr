@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, FhirResource, Location, Patient } from 'fhir/r4b';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_WINDOW_DAYS, fetchAppointmentReportResources } from '../src/shared/adhoc-report';
+import { DEFAULT_WINDOW_DAYS, fetchAppointmentReportResources, fetchReportVisits } from '../src/shared/adhoc-report';
 
 // These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
 process.env.ADHOC_SYNC_PAGES = '0';
@@ -115,5 +115,72 @@ describe('report root (fetchAppointmentReportResources)', () => {
 
     // The same ids from every window are reported once.
     expect(resources.filter((r) => r.resourceType === 'Appointment')).toHaveLength(1002);
+  });
+});
+
+describe('report visits (fetchReportVisits): appointments and encounters searched side by side', () => {
+  const visit = (id: string, status = 'fulfilled'): Appointment => ({
+    ...appt(id),
+    status: status as Appointment['status'],
+  });
+  const enc = (id: string, apptId?: string, partOf?: string): Encounter => ({
+    resourceType: 'Encounter',
+    id,
+    status: 'finished',
+    class: { code: 'AMB' },
+    ...(apptId ? { appointment: [{ reference: `Appointment/${apptId}` }] } : {}),
+    ...(partOf ? { partOf: { reference: `Encounter/${partOf}` } } : {}),
+  });
+
+  const client = (byKind: Record<string, FhirResource[] | 'refuse'>): Oystehr =>
+    ({
+      fhir: {
+        search: async ({ resourceType, params }: { resourceType: string; params: Param[] }) => {
+          const kind = params.some((p) => p.name.startsWith('part-of.'))
+            ? 'chained'
+            : params.some((p) => p.name === 'part-of')
+            ? 'byParent'
+            : resourceType;
+          const answer = byKind[kind] ?? [];
+          if (answer === 'refuse') throw Object.assign(new Error('unknown search parameter'), { code: 400 });
+          return { unbundle: () => answer, link: [] };
+        },
+      },
+    }) as unknown as Oystehr;
+
+  beforeEach(() => {
+    process.env.ADHOC_SYNC_PAGES = '3';
+  });
+  afterAll(() => {
+    process.env.ADHOC_SYNC_PAGES = '0';
+  });
+
+  const dateRange = { start: '2026-07-01T00:00:00.000Z', end: '2026-07-02T00:00:00.000Z' };
+  const ids = (rs: FhirResource[]): string[] => rs.map((r) => `${r.resourceType}/${r.id}`).sort();
+
+  it('keeps the encounters of the kept appointments and their follow-ups, nothing else', async () => {
+    const out = await fetchReportVisits(
+      client({
+        Appointment: [visit('a1')],
+        // e2 belongs to an appointment the filters dropped (another module, another status).
+        Encounter: [enc('e1', 'a1'), enc('e2', 'other')],
+        chained: [enc('f1', undefined, 'e1'), enc('f2', undefined, 'e2'), enc('f3', undefined, 'f1')],
+      }),
+      { dateRange }
+    );
+    expect(ids(out)).toEqual(['Appointment/a1', 'Encounter/e1', 'Encounter/f1', 'Encounter/f3']);
+  });
+
+  it('when the chained follow-up search is refused, finds the follow-ups by their parents', async () => {
+    const out = await fetchReportVisits(
+      client({
+        Appointment: [visit('a1')],
+        Encounter: [enc('e1', 'a1')],
+        chained: 'refuse',
+        byParent: [enc('f1', undefined, 'e1')],
+      }),
+      { dateRange }
+    );
+    expect(ids(out)).toEqual(['Appointment/a1', 'Encounter/e1', 'Encounter/f1']);
   });
 });
