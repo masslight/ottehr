@@ -22,7 +22,7 @@ vi.mock('utils/lib/helpers/presigned-file-url/helpers', async (importOriginal) =
 import { getReviewedRadiologyResults } from '../../src/patient/appointment/get-visit-details/helpers';
 
 const oystehr = {} as Oystehr;
-const secrets = { PROJECT_ID: 'project-1', PROJECT_API: 'https://project.api' };
+const secrets = { PROJECT_ID: 'project-1', PROJECT_API: 'https://project-api.zapehr.com/v1' };
 const ENCOUNTER_ID = 'encounter-1';
 const TOKEN = 'token';
 const STUDY_TYPE = '73600 — Ankle, left, 2 views';
@@ -68,7 +68,7 @@ describe('getReviewedRadiologyResults', () => {
   });
 
   it('returns presigned result files for reviewed external orders', async () => {
-    const z3Url = 'https://project.api/z3/project-1-radiology/patient-1/result.pdf';
+    const z3Url = 'https://project-api.zapehr.com/v1/z3/project-1-radiology/patient-1/result.pdf';
     const docRef: DocumentReference = {
       resourceType: 'DocumentReference',
       status: 'current',
