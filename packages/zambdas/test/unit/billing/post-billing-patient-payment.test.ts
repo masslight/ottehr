@@ -1,7 +1,7 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, PaymentNotice, Provenance } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { getPaymentNoticeSubmitterRef, getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
+import { getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -36,20 +36,14 @@ vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   getStripeClient: vi.fn(() => ({ paymentIntents: { create: paymentIntentsCreate } })),
 }));
-vi.mock('../../../src/ehr/shared/harvest', () => ({
-  getAccountAndCoverageResourcesForPatient: vi.fn().mockResolvedValue({ account: { id: 'account-1' } }),
-}));
-vi.mock('utils/lib/fhir/helpers', async (importOriginal) => ({
+vi.mock('../../../src/billing/ehr-payment-data', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getStripeCustomerIdFromAccount: vi.fn().mockReturnValue('cus_1'),
-}));
-vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue(undefined),
+  getPatientPaymentVisits: vi.fn(),
 }));
 
 // ── Imports ────────────────────────────────────────────────────────────────────
 
+import { getPatientPaymentVisits } from '../../../src/billing/ehr-payment-data';
 import {
   EHR_PATIENT_PAYMENT_ID_SYSTEM,
   EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM,
@@ -132,7 +126,10 @@ beforeEach(() => {
     fhir: { create: clinicalCreate },
   } as unknown as ClinicalOystehr);
   paymentIntentsCreate.mockResolvedValue({ id: 'pi_1', status: 'succeeded', latest_charge: 'ch_1' });
-  vi.mocked(getStripeAccountForAppointmentOrEncounter).mockResolvedValue('acct_1');
+  vi.mocked(getPatientPaymentVisits).mockResolvedValue({
+    visits: [{ encounterId: ENCOUNTER_ID, scheduleOwner: { stripeAccount: 'acct_1' }, legacyPaymentNotices: [] }],
+    stripeCustomers: [{ stripeAccount: 'acct_1', customerId: 'cus_1' }],
+  });
 });
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
