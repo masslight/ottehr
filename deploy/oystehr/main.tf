@@ -15,7 +15,7 @@ resource "oystehr_secret" "sendgrid_template_ids" {
 }
 
 resource "oystehr_secret" "sendgrid_send_email_api_key" {
-  count = var.sendgrid_send_email_api_key != null ? 1 : 0
+  count = var.sendgrid_enabled ? 1 : 0
 
   name  = "SENDGRID_SEND_EMAIL_API_KEY"
   value = var.sendgrid_send_email_api_key
