@@ -71,7 +71,11 @@ function fieldBlank(
       <SelectBlank
         label={label.toLowerCase()}
         title={label}
-        options={options.ordered ? field.options : [...field.options].sort((a, b) => a.localeCompare(b))}
+        options={
+          options.ordered
+            ? field.options
+            : [...field.options].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+        }
         value={typeof current === 'string' ? current : undefined}
         onChange={change}
         readOnly={readOnly}

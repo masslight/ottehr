@@ -165,7 +165,11 @@ export default function ProceduresNew({
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicks, setExistingQuickPicks] = useState<ProcedureQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
-  const { quickPicks: mergedQuickPicks, loading: mergedQuickPicksLoading } = useMergedProcedureQuickPicks();
+  const {
+    quickPicks: mergedQuickPicks,
+    loading: mergedQuickPicksLoading,
+    refetch: refetchQuickPicks,
+  } = useMergedProcedureQuickPicks();
 
   const sortedMergedQuickPicks = useMemo(
     () => [...mergedQuickPicks].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
@@ -568,6 +572,7 @@ export default function ProceduresNew({
       }
 
       setQuickPickDialogOpen(false);
+      void refetchQuickPicks();
     } catch (error) {
       console.error('Failed to save quick pick:', error);
       enqueueSnackbar('Failed to save quick pick', { variant: 'error' });
