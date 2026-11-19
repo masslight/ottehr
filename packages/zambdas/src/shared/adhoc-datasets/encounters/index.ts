@@ -111,6 +111,8 @@ export async function fetchAdHocEncounterRows(
       fetchForeignPatientColumns(oystehr, {
         dateRange,
         patients: Array.from(root.patientMap.values()),
+        appointments: Array.from(root.appointmentMap.values()),
+        encounters: Array.from(root.encounterById.values()),
         foreign: ENCOUNTER_FOREIGN_LAYERS,
         requested: requestedForeignPatientLayers(ENCOUNTER_FOREIGN_LAYERS, params),
       })

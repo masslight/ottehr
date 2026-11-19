@@ -174,7 +174,7 @@ function RuleDetailForEngine({ engine }: { engine: RulesEngineType }): ReactElem
                 <Typography variant="h6" color="primary.dark" fontWeight={600} sx={{ mt: 1 }}>
                   Logic
                 </Typography>
-                <ConditionalEditor name="conditional" />
+                <ConditionalEditor name="conditional" engine={engine} />
 
                 <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
                   <Button variant="contained" onClick={() => void onSave()} disabled={saving}>

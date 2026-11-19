@@ -37,9 +37,12 @@ const FileAttachmentHiddenInput = styled('input')({
   width: 1,
 });
 
-const VALID_FILE_NAME_PATTERN = /^[a-zA-Z0-9+!\-_'()\\.@$ ]+$/;
+const VALID_FILE_NAME_PATTERN = /^[a-zA-Z0-9+!\-_'().@$ ]+$/;
 const INVALID_FILE_NAME_MESSAGE =
   "Invalid file name. Only letters, numbers, spaces, and these characters are allowed: + ! - _ ' ( ) . @ $";
+
+const validateFileName = (fileName: string): string | undefined =>
+  VALID_FILE_NAME_PATTERN.test(fileName) ? undefined : INVALID_FILE_NAME_MESSAGE;
 
 export type UploadDocumentMode = 'upload' | 'scan';
 
@@ -104,7 +107,7 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
   const folder =
     folders.find((f) => f.id === folderId) ??
     (syntheticInternalName ? folders.find((f) => f.internalName === syntheticInternalName) : undefined);
-  const fileNameIsValid = !file || VALID_FILE_NAME_PATTERN.test(file.name);
+  const fileNameError = file ? validateFileName(file.name) : undefined;
 
   const upload = async (docFile: File): Promise<void> => {
     if (!folder) return;
@@ -177,9 +180,9 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
                   <FileAttachmentHiddenInput type="file" capture="environment" onChange={handleFileChange} />
                 </Button>
                 {file && <Typography variant="body2">{file.name}</Typography>}
-                {!fileNameIsValid && (
+                {fileNameError && (
                   <Typography variant="body2" color="error">
-                    {INVALID_FILE_NAME_MESSAGE}
+                    {fileNameError}
                   </Typography>
                 )}
               </Stack>
@@ -194,7 +197,7 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
             <LoadingButton
               variant="contained"
               loading={isUploading}
-              disabled={!folder || !file || !fileNameIsValid}
+              disabled={!folder || !file || Boolean(fileNameError)}
               onClick={() => file && void upload(file)}
             >
               Upload
@@ -214,6 +217,7 @@ export const UploadDocumentDialog: FC<UploadDocumentDialogProps> = ({
       <ScannerModal
         open={isScannerOpen}
         onClose={() => setIsScannerOpen(false)}
+        validateFileName={validateFileName}
         onScanComplete={(fileBlob, fileName) => {
           setIsScannerOpen(false);
           handleScanComplete(fileBlob, fileName);

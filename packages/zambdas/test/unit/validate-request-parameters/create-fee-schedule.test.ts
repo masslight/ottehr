@@ -56,4 +56,17 @@ describe('create-fee-schedule - validateRequestParameters', () => {
     const input = createMockZambdaInput({ name: 'Medicare Fee Schedule', effectiveDate: '' }, { secrets });
     expect(() => validateRequestParameters(input)).toThrow();
   });
+
+  test('should throw when name is whitespace-only', () => {
+    const input = createMockZambdaInput({ name: '   ', effectiveDate: '2025-01-01' }, { secrets });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('turns a whitespace-only description into an empty string', () => {
+    const input = createMockZambdaInput(
+      { name: 'Medicare Fee Schedule', effectiveDate: '2025-01-01', description: ' \n ' },
+      { secrets }
+    );
+    expect(validateRequestParameters(input).description).toBe('');
+  });
 });

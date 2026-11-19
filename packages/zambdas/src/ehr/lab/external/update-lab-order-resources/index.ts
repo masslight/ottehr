@@ -509,7 +509,6 @@ const handleSaveCollectionData = async (
   practitionerIdFromCurrentUser: string,
   input: SaveOrderCollectionData
 ): Promise<{ presignedLabelURL: string | undefined }> => {
-  console.log('double check input', JSON.stringify(input));
   const { serviceRequestId, data, specimenCollectionDates, userTimezone } = input;
   const now = DateTime.now();
 

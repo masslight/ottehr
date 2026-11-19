@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent, Task } from 'fhir/r4b';
 import { InternalError } from 'utils/lib/helpers/oystehrApi';
 import {
-  RulesEngineSubmissionInsurance,
+  RulesEngineInsurance,
   RulesEngineSubmissionType,
   RulesEngineType,
 } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -46,7 +46,7 @@ export interface RulesEngineKickoff {
   engine: RulesEngineType;
   skipRules: boolean;
   submissionType?: RulesEngineSubmissionType;
-  submissionInsurance?: RulesEngineSubmissionInsurance;
+  submissionInsurance?: RulesEngineInsurance;
   payerClaimControlNumber?: string;
 }
 

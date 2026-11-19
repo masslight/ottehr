@@ -1,5 +1,6 @@
 import { QuestionnaireBaseSchema } from 'config-types/config/questionnaire';
 import z from 'zod';
+import { optionalTextSchema, requiredTextSchema } from '../../text-schemas';
 import {
   OTTEHR_DATA_TYPES,
   OTTEHR_INPUT_WIDTHS,
@@ -23,6 +24,9 @@ export const PracticeManagedQuestionnaireItemSchema = z
   .passthrough();
 
 export const PracticeManagedQuestionnaireSchema = QuestionnaireBaseSchema.extend({
+  name: requiredTextSchema,
+  title: requiredTextSchema,
+  description: optionalTextSchema,
   item: PracticeManagedQuestionnaireItemSchema.array(),
 }).passthrough();
 

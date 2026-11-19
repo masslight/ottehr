@@ -528,8 +528,8 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
 
     const validations: Array<{ invalid: boolean; field: keyof AddVisitErrorState }> = [
       // first name, last name, and phone are empty strings when untouched
-      { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.length === 0 },
-      { field: 'lastName', invalid: patientInfo.lastName != null && patientInfo.lastName.length === 0 },
+      { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.trim().length === 0 },
+      { field: 'lastName', invalid: patientInfo.lastName != null && patientInfo.lastName.trim().length === 0 },
       {
         field: 'phone',
         invalid: patientInfo.phoneNumber != null && getPhoneNumberDigits(patientInfo.phoneNumber) == null,

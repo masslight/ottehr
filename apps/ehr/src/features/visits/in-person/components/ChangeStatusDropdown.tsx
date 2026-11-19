@@ -181,9 +181,8 @@ export const ChangeStatusDropdown = ({
             {visitStatusArray
               .filter((statusTemp) => {
                 let allHiddenStatuses: Partial<VisitStatusLabel>[] = [
-                  'no show',
                   'unknown',
-                  ...(['cancelled', 'intake', 'provider', 'ready for provider', 'discharged'].filter(
+                  ...(['cancelled', 'no show', 'intake', 'provider', 'ready for provider', 'discharged'].filter(
                     (s) => s !== status
                   ) as Partial<VisitStatusLabel>[]),
                 ];

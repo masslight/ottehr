@@ -30,3 +30,7 @@ export const useIntakeCommonStore = create<IntakeCommonState>()(
     }
   )
 );
+
+export const openSupportDialog = (): void => useIntakeCommonStore.setState({ supportDialogOpen: true });
+
+export const closeSupportDialog = (): void => useIntakeCommonStore.setState({ supportDialogOpen: false });

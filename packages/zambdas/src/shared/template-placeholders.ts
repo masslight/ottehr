@@ -37,6 +37,8 @@ export interface ResolveTemplatePlaceholdersParams {
    * Any field provided here will skip the corresponding remote lookup.
    */
   overrides?: Partial<OutreachPlaceholderInput>;
+  /** Skip the Stripe lookup. A search by visit could return another invoice of the same visit. */
+  skipStripeLookup?: boolean;
 }
 
 /**
@@ -50,7 +52,7 @@ export interface ResolveTemplatePlaceholdersParams {
 export async function resolveTemplatePlaceholders(
   params: ResolveTemplatePlaceholdersParams
 ): Promise<OutreachPlaceholderInput> {
-  const { patient, encounterRef, stripeAccount, oystehr, secrets, overrides } = params;
+  const { patient, encounterRef, stripeAccount, oystehr, secrets, overrides, skipStripeLookup } = params;
 
   const input: OutreachPlaceholderInput = {
     patientFullName: overrides?.patientFullName ?? getFullName(patient),
@@ -95,7 +97,7 @@ export async function resolveTemplatePlaceholders(
   }
 
   // Resolve Stripe invoice for amount, due date, invoice link (skip if all already provided)
-  if (encounterId && (!input.amountCents || !input.dueDate || !input.invoiceLink)) {
+  if (!skipStripeLookup && encounterId && (!input.amountCents || !input.dueDate || !input.invoiceLink)) {
     try {
       const stripe = getStripeClient(secrets);
       const stripeInvoice = await findStripeInvoiceByEncounterId(stripe, encounterId, stripeAccount);

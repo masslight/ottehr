@@ -93,7 +93,8 @@ import {
   LabType,
 } from 'utils/lib/types/data/labs/labs.types';
 import { LabelPdf } from 'utils/lib/types/data/printing';
-import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
+import { EXTERNAL_LAB_ERROR, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { isBlankText } from 'utils/lib/types/text-schemas';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { parseLabOrderStatusWithSpecificTask } from '../external/get-lab-orders/helpers';
 import { getInHouseLabTestUrlAndVersionForADFromServiceRequest } from './in-house-labs';
@@ -1270,7 +1271,14 @@ export const populateQuestionnaireResponseItems = async (
 
   const questionsAndAnswersForFormDisplay: AOEDisplayForOrderForm[] = [];
 
-  const questionnaireResponseItems: QuestionnaireResponseItem[] = Object.keys(data).map((questionResponse) => {
+  const blankRequiredLinkIds = Object.keys(data).filter(
+    (linkId) => isBlankText(data[linkId]) && questionnaire.item?.find((item) => item.linkId === linkId)?.required
+  );
+  if (blankRequiredLinkIds.length) {
+    throw INVALID_INPUT_ERROR(`An answer is required for: ${blankRequiredLinkIds.join(', ')}`);
+  }
+  const answeredLinkIds = Object.keys(data).filter((linkId) => !isBlankText(data[linkId]));
+  const questionnaireResponseItems: QuestionnaireResponseItem[] = answeredLinkIds.map((questionResponse) => {
     const question = questionnaire.item?.find((item) => item.linkId === questionResponse);
     if (!question) {
       throw new Error('question is not found');

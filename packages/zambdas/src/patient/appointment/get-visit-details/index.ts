@@ -11,7 +11,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
-import { getMedications, getPatientPortalPresignedURLs } from './helpers';
+import { getMedications, getPatientPortalPresignedURLs, getReviewedRadiologyResults } from './helpers';
 
 export const GetVisitDetailsBodySchema = z.object({
   appointmentId: z.string().uuid(),
@@ -97,6 +97,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     console.log('getMedications', error);
   }
 
+  let reviewedRadiologyResults: GetVisitDetailsResponse['reviewedRadiologyResults'] = [];
+
+  try {
+    if (encounter?.id) {
+      reviewedRadiologyResults = await getReviewedRadiologyResults(oystehr, oystehrToken, secrets, encounter.id);
+    }
+  } catch (error) {
+    captureException(error);
+    console.log('getReviewedRadiologyResults', error);
+  }
+
   let followUps: GetVisitDetailsResponse['followUps'] = [];
 
   try {
@@ -149,6 +160,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     appointmentTime,
     followUps,
     reviewedLabResults,
+    reviewedRadiologyResults,
   };
 
   return {

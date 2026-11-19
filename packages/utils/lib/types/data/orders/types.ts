@@ -5,6 +5,7 @@ import { ProcedureDTO } from '../../api/chart-data/chart-data.types';
 import { DmeOrderDTO } from '../../api/dme.types';
 import { ExtendedMedicationDataForResponse } from '../../api/medication-administration.types';
 import { GetRadiologyOrderListZambdaOrder } from '../../api/radiology';
+import { optionalTextSchema } from '../../text-schemas';
 import { ImmunizationOrder } from '../immunization/types';
 import { InHouseOrderListPageItemDTO } from '../in-house/in-house.types';
 import { LabOrderListPageDTO } from '../labs/labs.types';
@@ -12,7 +13,7 @@ import { NursingOrdersStatus } from './constants';
 
 export const CreateNursingOrderInputSchema = z.object({
   encounterId: z.string().uuid(),
-  notes: z.string().optional(),
+  notes: optionalTextSchema,
 });
 
 export type CreateNursingOrderInput = z.infer<typeof CreateNursingOrderInputSchema>;

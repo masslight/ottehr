@@ -1,8 +1,21 @@
 // cSpell:ignore rawAGQR1, rawPPHQR1, rawSPHQR1
 import { BatchInputPostRequest } from '@oystehr/sdk';
-import { Account, Coverage, Organization, Patient, QuestionnaireResponse, RelatedPerson } from 'fhir/r4b';
+import {
+  Account,
+  Coverage,
+  Organization,
+  Patient,
+  QuestionnaireResponse,
+  QuestionnaireResponseItem,
+  RelatedPerson,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ACCOUNT_TYPE_CODE_SYSTEM, COVERAGE_MEMBER_IDENTIFIER_BASE } from 'utils/lib/fhir/constants';
+import {
+  ACCOUNT_TYPE_CODE_SYSTEM,
+  COVERAGE_MEMBER_IDENTIFIER_BASE,
+  SUBSCRIBER_RELATIONSHIP_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { getSubscriberRelationshipCodeableConcept } from 'utils/lib/fhir/helpers';
 import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { IN_PERSON_INTAKE_PAPERWORK_QUESTIONNAIRE } from 'utils/lib/ottehr-config/intake-paperwork';
 import { INSURANCE_PAY_OPTION } from 'utils/lib/ottehr-config/value-sets';
@@ -1822,11 +1835,12 @@ describe('Harvest Module', () => {
         });
         expect(result).toBeDefined();
         assert(result);
-        const { contained, guarantors } = result;
+        const { contained, guarantors, guarantorPatch } = result;
         expect(contained).toBeUndefined();
         expect(guarantors).toBeDefined();
         expect(guarantors?.length).toBe(1);
         expect(guarantors).toEqual([existingGuarantorReference]);
+        expect(guarantorPatch).toBeUndefined();
       });
       it('should create a new contained RelatedPerson when existing account guarantor is a persisted RelatedPerson that does not match the questionnaire responsible party', () => {
         const existingGuarantorId = uuidV4();
@@ -2040,6 +2054,72 @@ describe('Harvest Module', () => {
         expect(guarantors?.length).toBe(4);
         expect(guarantors).toEqual(expectedGuarantorArray);
         expect(contained).toEqual([expectedAccountGuarantorFromQR1]);
+      });
+    });
+
+    describe('should persist an edited "Other" relationship text for standalone subscribers and guarantors', () => {
+      const oldOtherRelationship = getSubscriberRelationshipCodeableConcept('Other', 'Stepchild');
+      const newOtherRelationship = getSubscriberRelationshipCodeableConcept('Other', 'Grandchild');
+      const relationshipPatch = [{ op: 'replace', path: '/relationship', value: newOtherRelationship }];
+
+      it('patches Coverage.relationship when the existing primary coverage has a matching standalone subscriber', () => {
+        const existingPrimary = { ...primary, relationship: oldOtherRelationship };
+        const result = resolveCoverageUpdates({
+          patient: newPatient1,
+          existingCoverages: { primary: existingPrimary, primarySubscriber },
+          newCoverages: { ...coverages, primary: { ...coverages.primary!, relationship: newOtherRelationship } },
+        });
+        expect(result.coverageUpdates).toEqual({ [existingPrimary.id!]: relationshipPatch });
+        expect(Object.values(result.relatedPersonUpdates).flat()).toHaveLength(0);
+      });
+
+      it('patches Coverage.relationship when the existing secondary coverage has a matching standalone subscriber', () => {
+        const existingSecondary = { ...secondary, relationship: oldOtherRelationship };
+        const result = resolveCoverageUpdates({
+          patient: newPatient1,
+          existingCoverages: { secondary: existingSecondary, secondarySubscriber },
+          newCoverages: { ...coverages, secondary: { ...coverages.secondary!, relationship: newOtherRelationship } },
+        });
+        expect(result.coverageUpdates).toEqual({ [existingSecondary.id!]: relationshipPatch });
+        expect(Object.values(result.relatedPersonUpdates).flat()).toHaveLength(0);
+      });
+
+      it('patches Coverage.relationship when a coverage with a matching standalone subscriber moves to the other slot', () => {
+        const existingPrimary = { ...primary, relationship: oldOtherRelationship };
+        const result = resolveCoverageUpdates({
+          patient: newPatient1,
+          existingCoverages: { primary: existingPrimary, primarySubscriber },
+          newCoverages: { secondary: { ...coverages.primary!, relationship: newOtherRelationship } },
+        });
+        expect(result.suggestedNewCoverageObject).toEqual([
+          { coverage: { reference: `Coverage/${existingPrimary.id}` }, priority: 2 },
+        ]);
+        expect(result.coverageUpdates).toEqual({ [existingPrimary.id!]: relationshipPatch });
+      });
+
+      it('patches the relationship of an existing standalone guarantor that matches the responsible party', () => {
+        const existingGuarantorId = uuidV4();
+        const existingGuarantorReference = { party: { reference: `RelatedPerson/${existingGuarantorId}` } };
+        const guarantorFromQuestionnaire = {
+          ...accountGuarantor,
+          relationship: 'Other' as const,
+          otherRelationship: 'Grandparent',
+        };
+        const result = resolveGuarantor({
+          patientId: newPatient1.id!,
+          guarantorFromQuestionnaire,
+          existingGuarantorResource: { ...expectedAccountGuarantorFromQR1, id: existingGuarantorId },
+          existingGuarantorReferences: [existingGuarantorReference],
+        });
+        const expectedRelationship = createContainedGuarantor(guarantorFromQuestionnaire, newPatient1.id!)
+          .relationship?.[0];
+        expect(expectedRelationship?.text).toBe('Grandparent');
+        expect(result.guarantors).toEqual([existingGuarantorReference]);
+        expect(result.contained).toBeUndefined();
+        expect(result.guarantorPatch).toEqual({
+          relatedPersonId: existingGuarantorId,
+          operations: [{ op: 'replace', path: '/relationship/0', value: expectedRelationship }],
+        });
       });
     });
   });
@@ -2986,6 +3066,93 @@ describe('Harvest Module', () => {
       items.push({ linkId: 'emergency-contact-middle-name', answer: [{ valueString: ' Mid ' }] });
       const contact = extractEmergencyContact(items);
       expect(contact).toMatchObject({ firstName: 'Em', middleName: 'Mid', lastName: 'Contact' });
+    });
+  });
+
+  describe('other relationship free text', () => {
+    const buildPolicyHolderItems = (relationship: string, suffix = ''): QuestionnaireResponseItem[] => [
+      { linkId: `policy-holder-first-name${suffix}`, answer: [{ valueString: 'Pat' }] },
+      { linkId: `policy-holder-last-name${suffix}`, answer: [{ valueString: 'Holder' }] },
+      { linkId: `policy-holder-date-of-birth${suffix}`, answer: [{ valueString: '1980-01-01' }] },
+      { linkId: `policy-holder-birth-sex${suffix}`, answer: [{ valueString: 'Female' }] },
+      { linkId: `insurance-member-id${suffix}`, answer: [{ valueString: 'MEM123' }] },
+      { linkId: `patient-relationship-to-insured${suffix}`, answer: [{ valueString: relationship }] },
+      { linkId: `patient-relationship-to-insured-other${suffix}`, answer: [{ valueString: ' Grandchild ' }] },
+    ];
+
+    const buildResponsiblePartyItems = (relationship: string): QuestionnaireResponseItem[] => [
+      { linkId: 'responsible-party-first-name', answer: [{ valueString: 'Jane' }] },
+      { linkId: 'responsible-party-last-name', answer: [{ valueString: 'Doe' }] },
+      { linkId: 'responsible-party-date-of-birth', answer: [{ valueString: '1980-01-01' }] },
+      { linkId: 'responsible-party-birth-sex', answer: [{ valueString: 'Female' }] },
+      { linkId: 'responsible-party-relationship', answer: [{ valueString: relationship }] },
+      { linkId: 'responsible-party-relationship-other', answer: [{ valueString: 'Grandparent' }] },
+    ];
+
+    const relationshipToInsuredLinkIds = ['patient-relationship-to-insured', 'patient-relationship-to-insured-2'];
+    const withOtherRelationshipToInsured = (items: QuestionnaireResponseItem[]): QuestionnaireResponseItem[] =>
+      items.flatMap((item) => {
+        if (item.item) return [{ ...item, item: withOtherRelationshipToInsured(item.item) }];
+        if (!relationshipToInsuredLinkIds.includes(item.linkId)) return [item];
+        const suffix = item.linkId.replace('patient-relationship-to-insured', '');
+        return [
+          { ...item, answer: [{ valueString: 'Other' }] },
+          {
+            linkId: `patient-relationship-to-insured-other${suffix}`,
+            answer: [{ valueString: `Grandchild${suffix}` }],
+          },
+        ];
+      });
+
+    it('extracts the other relationship for primary and secondary policy holders when relationship is Other', () => {
+      expect(getPrimaryPolicyHolderFromAnswers(buildPolicyHolderItems('Other'), newPatient1)?.otherRelationship).toBe(
+        'Grandchild'
+      );
+      expect(
+        getSecondaryPolicyHolderFromAnswers(buildPolicyHolderItems('Other', '-2'), newPatient1)?.otherRelationship
+      ).toBe('Grandchild');
+    });
+
+    it('ignores a leftover other relationship when the policy holder relationship is not Other', () => {
+      expect(
+        getPrimaryPolicyHolderFromAnswers(buildPolicyHolderItems('Child'), newPatient1)?.otherRelationship
+      ).toBeUndefined();
+    });
+
+    it('writes the other relationship to Coverage.relationship.text', () => {
+      const { orderedCoverages } = getCoverageResources({
+        questionnaireResponse: {
+          ...questionnaireResponse1,
+          item: withOtherRelationshipToInsured(questionnaireResponse1.item ?? []),
+        },
+        patient: newPatient1,
+        organizationResources: organizations1,
+      });
+
+      expect(orderedCoverages.primary?.relationship).toEqual({
+        coding: [{ system: SUBSCRIBER_RELATIONSHIP_SYSTEM, code: 'other', display: 'Other' }],
+        text: 'Grandchild',
+      });
+      expect(orderedCoverages.secondary?.relationship?.text).toBe('Grandchild-2');
+    });
+
+    it('omits Coverage.relationship.text when relationship is not Other', () => {
+      expect(primary.relationship).not.toHaveProperty('text');
+      expect(secondary.relationship).not.toHaveProperty('text');
+    });
+
+    it('writes the responsible party other relationship to the guarantor relationship text', () => {
+      const guarantor = extractAccountGuarantor(buildResponsiblePartyItems('Other'), newPatient1);
+      assert(guarantor);
+      expect(guarantor.otherRelationship).toBe('Grandparent');
+      expect(createContainedGuarantor(guarantor, newPatient1.id!).relationship?.[0]?.text).toBe('Grandparent');
+    });
+
+    it('omits the guarantor relationship text when the responsible party relationship is not Other', () => {
+      const guarantor = extractAccountGuarantor(buildResponsiblePartyItems('Parent'), newPatient1);
+      assert(guarantor);
+      expect(guarantor.otherRelationship).toBeUndefined();
+      expect(createContainedGuarantor(guarantor, newPatient1.id!).relationship?.[0]).not.toHaveProperty('text');
     });
   });
 });

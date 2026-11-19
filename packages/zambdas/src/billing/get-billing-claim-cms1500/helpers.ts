@@ -43,10 +43,7 @@ import {
   Cms1500ServiceLine,
   Cms1500Sex,
 } from 'utils/lib/types/data/billing/cms1500.types';
-import {
-  RulesEngineSubmissionInsurance,
-  RulesEngineSubmissionType,
-} from 'utils/lib/types/data/billing/rules-engine.constants';
+import { RulesEngineInsurance, RulesEngineSubmissionType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { getCLIA } from '../service-facility.helpers';
 import { ClaimGraph, getClaimPcn, getClaimSupportingInfo, getTaxonomy } from '../shared';
 
@@ -57,7 +54,7 @@ export interface Cms1500Resources extends ClaimGraph {
   // What the patient has paid toward the claim's encounter
   patientPaid: number;
   submissionType?: RulesEngineSubmissionType;
-  submissionInsurance?: RulesEngineSubmissionInsurance;
+  submissionInsurance?: RulesEngineInsurance;
   payerClaimControlNumber?: string;
 }
 

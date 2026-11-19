@@ -1,6 +1,17 @@
 import { otherColors } from '@ehrTheme/colors';
 import { AddCircleOutline, CheckCircle } from '@mui/icons-material';
-import { alpha, Box, IconButton, ListSubheader, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
+import {
+  alpha,
+  Box,
+  IconButton,
+  ListSubheader,
+  Menu,
+  MenuItem,
+  SxProps,
+  Theme,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import React, { ReactElement, ReactNode, useState } from 'react';
 import {
   findUnpickedBlank,
@@ -31,6 +42,7 @@ interface SuggestedSentencesProps<T extends SuggestedSentence> {
   findConflict?: (row: T, picks: SentencePicks, segment: number, option: string) => string | undefined;
   dataTestId?: string;
   children?: ReactNode;
+  sx?: SxProps<Theme>;
 }
 
 interface BlankRef {
@@ -57,6 +69,7 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   findConflict,
   dataTestId,
   children,
+  sx,
 }: SuggestedSentencesProps<T>): ReactElement => {
   const [picked, setPicked] = useState<{ rows: T[]; values: Record<string, string> }>({ rows, values: {} });
   const [opened, setOpened] = useState<{ rows: T[]; blank: BlankRef; anchor: HTMLElement } | null>(null);
@@ -77,7 +90,10 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   };
 
   return (
-    <Box sx={{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }} data-testid={dataTestId}>
+    <Box
+      sx={[{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }, ...(Array.isArray(sx) ? sx : [sx])]}
+      data-testid={dataTestId}
+    >
       <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
         {title}
         {caption && (

@@ -88,7 +88,7 @@ export const UpdateProgressNoteConfigInputSchema = z.object({
   specialtyTransferOptions: SpecialtyTransferOptionsSchema.optional(),
   // Bounded because the value is stored on a FHIR extension and prepended to every note-review
   // call; absent means "leave the stored prompt alone", an empty string is a deliberate clear.
-  signReviewPrompt: z.string().max(SIGN_REVIEW_PROMPT_MAX_LENGTH).optional(),
+  signReviewPrompt: z.string().trim().max(SIGN_REVIEW_PROMPT_MAX_LENGTH).optional(),
 });
 export type UpdateProgressNoteConfigInput = z.infer<typeof UpdateProgressNoteConfigInputSchema>;
 

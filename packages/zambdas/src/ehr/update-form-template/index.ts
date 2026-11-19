@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference } from 'fhir/r4b';
 import { FORM_TEMPLATE_ANALYSIS_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { addOperation, replaceOperation } from 'utils/lib/helpers/operations';
+import { addOperation, removeOperation, replaceOperation } from 'utils/lib/helpers/operations';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   FormTemplateAnalysisStatus,
@@ -46,8 +46,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 const inputSchema: z.ZodType<UpdateFormTemplateInput> = z.object({
   documentReferenceId: z.string().min(1, 'documentReferenceId is required'),
-  title: z.string().min(1, 'title cannot be empty').optional(),
-  description: z.string().optional(),
+  title: z.string().trim().min(1, 'title cannot be empty').optional(),
+  description: z.string().trim().optional(),
   published: z.boolean().optional(),
 });
 
@@ -83,9 +83,13 @@ const performEffect = async (
 
   if (description !== undefined) {
     const path = '/description';
-    operations.push(
-      existing.description === undefined ? addOperation(path, description) : replaceOperation(path, description)
-    );
+    if (description) {
+      operations.push(
+        existing.description === undefined ? addOperation(path, description) : replaceOperation(path, description)
+      );
+    } else if (existing.description !== undefined) {
+      operations.push(removeOperation(path));
+    }
   }
 
   if (published) {

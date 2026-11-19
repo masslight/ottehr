@@ -45,7 +45,7 @@ const modifierKey = (code: { modifier?: { code: string }[] }): string =>
     .join(',');
 
 /** Two billing lines are the same line only when code and modifiers both match. */
-export function sameCptLine(
+function sameCptLine(
   a: { code: string; modifier?: { code: string }[] },
   b: { code: string; modifier?: { code: string }[] }
 ): boolean {

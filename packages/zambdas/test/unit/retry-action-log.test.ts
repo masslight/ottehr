@@ -5,8 +5,8 @@ import {
   OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import {
-  getOutboundDeliveryFaxPacketSnapshot,
   getOutboundDeliveryInput,
+  getOutboundDeliveryPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
   makeOutboundDeliveryAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
@@ -94,6 +94,17 @@ describe('retry-action-log eligibility', () => {
   it('allows failed attempts and rejects pending email attempts', async () => {
     expect(await isRetryable({ ...emailTask, status: 'failed' }, 'email', {} as any)).toBe(true);
     expect(await isRetryable({ ...emailTask, status: 'in-progress' }, 'email', {} as any)).toBe(false);
+  });
+
+  it('never retries an emailed document link', async () => {
+    const linkTask = makeOutboundDeliveryAttempt({
+      channel: 'email',
+      patientId: 'patient-1',
+      recipientAddress: 'recipient@example.com',
+      documentReferenceId: 'packet-1',
+      senderOrganizationReference: 'Organization/org-1',
+    });
+    expect(await isRetryable({ ...linkTask, status: 'failed' }, 'email', {} as any)).toBe(false);
   });
 
   it('uses the linked fax delivery outcome', async () => {
@@ -249,8 +260,8 @@ describe('retry-action-log eligibility', () => {
         recipientOrganization: 'Family Practice',
         recipientPhone: '+12125550000',
         documentReferenceId: 'doc-1',
-        faxPacketPageCount: 12,
-        faxPacketParts: ['Insurance card', 'Lab result'],
+        packetPageCount: 12,
+        packetParts: ['Insurance card', 'Lab result'],
       }),
       id: 'attempt-1',
       status: 'failed',
@@ -272,7 +283,7 @@ describe('retry-action-log eligibility', () => {
       organization: 'Family Practice',
       phone: '+12125550000',
     });
-    expect(getOutboundDeliveryFaxPacketSnapshot(retryTask)).toEqual({
+    expect(getOutboundDeliveryPacketSnapshot(retryTask)).toEqual({
       pageCount: 12,
       parts: ['Insurance card', 'Lab result'],
     });

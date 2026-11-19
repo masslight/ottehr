@@ -17,6 +17,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { getCandidEncounterIdFromEncounter } from '../../../shared/candid';
 import { sendSmsForPatient } from '../../../shared/communication';
 import { createClinicalOystehrClient, resolveTimezone } from '../../../shared/helpers';
+import { isInvoicedFromBillingApp } from '../../../shared/invoice-tasks';
 import { getInvoiceVisitResources, resolveInvoiceStripeCustomerId } from '../../../shared/invoice-visit';
 import { wrapHandler } from '../../../shared/sentry';
 import { getStripeClient, stripeEncounterMetadata } from '../../../shared/stripeIntegration';
@@ -34,12 +35,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
 
   try {
-    const validatedParams = validateRequestParameters(task);
-    const { encounterId, invoiceTaskInput } = validatedParams;
-    const { amountCents, dueDate, memo, smsTextMessage } = invoiceTaskInput;
     console.log('Input task id: ', task.id);
+    const encounterId = getIdFromReference(task.encounter?.reference);
+    if (!encounterId) throw new Error('Encounter id is not found');
 
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+    // Checked before the invoice fields, so a stale task is cancelled here instead of failing validation.
+    if (await isInvoicedFromBillingApp(oystehr, encounterId)) {
+      const message = 'This visit is invoiced from the billing app.';
+      await updateTaskStatusAndOutput({
+        oystehr,
+        task,
+        // Cancelled rather than failed, so prepare-billing-invoice keeps ignoring the task.
+        status: 'cancelled',
+        outputToAppend: [addErrorToInvoicingTaskOutput(message)],
+      });
+      return { statusCode: 200, body: JSON.stringify({ message }) };
+    }
+
+    const { amountCents, dueDate, memo, smsTextMessage } = validateRequestParameters(task);
     const stripe = getStripeClient(secrets);
 
     console.log('Fetching fhir resources');

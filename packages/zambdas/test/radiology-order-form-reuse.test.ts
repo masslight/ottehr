@@ -4,6 +4,7 @@ import {
   getStoredOrderFormSourceVersion,
   isPrintableObservation,
   makeRadiologyOrderFormSourceVersion,
+  makeRadiologyOrderFormVersion,
   OrderFormSource,
 } from '../src/ehr/radiology/shared/order-form-resources';
 import { RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM } from '../src/shared/pdf/radiology-order-form-pdf';
@@ -17,6 +18,32 @@ const resource = (resourceType: string, id: string | undefined, versionId: strin
 const serviceRequest = (versionId: string): OrderFormSource => resource('ServiceRequest', 'sr-1', versionId);
 const patient = (versionId: string): OrderFormSource => resource('Patient', 'pat-1', versionId);
 const weight = (versionId: string): OrderFormSource => resource('Observation', 'obs-1', versionId);
+const coverage = (versionId: string): OrderFormSource => resource('Coverage', 'cov-1', versionId);
+
+describe('makeRadiologyOrderFormVersion', () => {
+  it('does not match a form stamped before the template was versioned, for the same sources', () => {
+    const sources = [serviceRequest('1'), patient('4')];
+    expect(makeRadiologyOrderFormVersion(sources)).not.toBe(makeRadiologyOrderFormSourceVersion(sources));
+  });
+
+  it('is stable for unchanged sources', () => {
+    expect(makeRadiologyOrderFormVersion([serviceRequest('1'), coverage('2')])).toBe(
+      makeRadiologyOrderFormVersion([coverage('2'), serviceRequest('1')])
+    );
+  });
+
+  it('changes when the patient insurance changes', () => {
+    expect(makeRadiologyOrderFormVersion([serviceRequest('1'), coverage('2')])).not.toBe(
+      makeRadiologyOrderFormVersion([serviceRequest('1'), coverage('3')])
+    );
+  });
+
+  it('is undefined when a source carries no version', () => {
+    expect(makeRadiologyOrderFormVersion([serviceRequest('1'), resource('Coverage', 'cov-1', undefined)])).toBe(
+      undefined
+    );
+  });
+});
 
 describe('makeRadiologyOrderFormSourceVersion', () => {
   it('is stable regardless of the order the sources were gathered in', () => {

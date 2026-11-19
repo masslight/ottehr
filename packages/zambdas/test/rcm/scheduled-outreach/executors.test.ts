@@ -2,7 +2,8 @@ import Oystehr from '@oystehr/sdk';
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { sendSmsForPatient } from '../../../src/shared/communication';
+import { getEmailClient, sendSmsForPatient } from '../../../src/shared/communication';
+import { fillOutreachTemplate } from '../../../src/shared/template-placeholders';
 import type { ZambdaInput } from '../../../src/shared/types/common';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
@@ -262,6 +263,17 @@ describe('sub-outreach-send-notification — SMS', () => {
     expect(body.results).toEqual([{ medium: 'sms', success: false, error: 'messaging is down' }]);
   });
 
+  it('fails without sending an SMS whose template resolves to blank text', async () => {
+    vi.mocked(fillOutreachTemplate).mockReturnValueOnce('\n ');
+
+    const result = await handler(makeZambdaInput(makeTaskInput()));
+
+    const body = JSON.parse(result.body);
+    expect(body.status).toBe('failed');
+    expect(body.results).toEqual([{ medium: 'sms', success: false, error: 'Outreach SMS template is empty' }]);
+    expect(sendSmsForPatient).not.toHaveBeenCalled();
+  });
+
   it('cancels when the patient has nobody to text', async () => {
     vi.mocked(sendSmsForPatient).mockResolvedValue({ total: 0, sent: 0, failures: [] });
 
@@ -273,5 +285,45 @@ describe('sub-outreach-send-notification — SMS', () => {
         { op: 'add', path: '/statusReason', value: { text: 'No valid contact methods: sms: No SMS recipient' } },
       ])
     );
+  });
+});
+
+describe('sub-outreach-send-notification — email', () => {
+  let handler: ZambdaHandler;
+  const sendGenericOutreachEmail = vi.fn();
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.mocked(getEmailClient).mockReturnValue({ sendGenericOutreachEmail } as any);
+    mockGet.mockResolvedValue({
+      resourceType: 'Patient',
+      id: 'pat-1',
+      telecom: [{ system: 'email', value: 'patient@example.test' }],
+    });
+    const mod = await import('../../../src/subscriptions/task/sub-outreach-send-notification/index');
+    handler = mod.index as ZambdaHandler;
+  });
+
+  const emailTask = (): Task =>
+    makeTaskInput({
+      input: [
+        { type: { text: 'action-id' }, valueString: 'action-1' },
+        { type: { text: 'trigger-event' }, valueString: 'invoice-due' },
+        { type: { text: 'action-type' }, valueString: 'send-notification' },
+        { type: { text: 'mediums' }, valueString: 'email' },
+        { type: { text: 'email-template' }, valueString: '{{patient-first-name}}' },
+      ],
+    });
+
+  it('fails without sending or recording an email whose template resolves to blank text', async () => {
+    vi.mocked(fillOutreachTemplate).mockReturnValueOnce(' \n ');
+
+    const result = await handler(makeZambdaInput(emailTask()));
+
+    const body = JSON.parse(result.body);
+    expect(body.status).toBe('failed');
+    expect(body.results).toEqual([{ medium: 'email', success: false, error: 'Outreach email template is empty' }]);
+    expect(sendGenericOutreachEmail).not.toHaveBeenCalled();
+    expect(mockCreate).not.toHaveBeenCalled();
   });
 });

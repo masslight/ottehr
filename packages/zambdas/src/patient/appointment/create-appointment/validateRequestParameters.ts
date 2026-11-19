@@ -82,6 +82,12 @@ export function validateCreateAppointmentParams(
   console.log('patient:', patient, 'slotId:', slotId);
 
   console.log('patient input:', JSON.stringify(patient));
+  for (const field of ['firstName', 'middleName', 'lastName', 'chosenName', 'authorizedNonLegalGuardians']) {
+    const value = patient[field];
+    if (typeof value === 'string') {
+      patient[field] = value.trim() || undefined;
+    }
+  }
   // Patient details
   const missingRequiredPatientFields: string[] = [];
   if (Boolean(patient.firstName) === false) {

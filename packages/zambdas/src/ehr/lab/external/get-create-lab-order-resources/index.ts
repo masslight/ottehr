@@ -4,6 +4,7 @@ import { Account, Appointment, Coverage, Encounter, List, Location, Organization
 import { isAppointmentWorkersComp } from 'utils/lib/fhir/appointments';
 import { flattenBundleResources } from 'utils/lib/fhir/helpers';
 import { isLocationInPerson } from 'utils/lib/fhir/location';
+import { LabSearchCandidate, parseLabSearch } from 'utils/lib/helpers/labs/lab-search';
 import { CODE_SYSTEM_COVERAGE_CLASS } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { CPTCodeOption } from 'utils/lib/types/common';
@@ -52,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const { accounts, coverages, labGuids, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
+  const { accounts, coverages, labGuids, searchableLabs, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
     await getResources(oystehr, patientId, encounterId, testItemSearch, labOrgIdsString);
 
   console.log('labGuids and labOrgIdString', labGuids, labOrgIdsString);
@@ -64,7 +65,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   let labs: OrderableItemSearchResult[] = [];
   if (testItemSearch) {
-    labs = await getOrderableItems(labGuids, { textSearch: testItemSearch }, m2mToken);
+    labs = await searchOrderableItems(testItemSearch, labGuids, searchableLabs, m2mToken);
   }
 
   if (selectedLabSet) {
@@ -127,6 +128,36 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
+/**
+ * Searches orderable items by lab test name. When the search contains a word that starts a lab name,
+ * it's read both ways, since that word may really be the start of a test name ("auto" is Autolab but
+ * also "Automated differential"): the test words at the named labs ("TSH quest" -> "TSH" at Quest),
+ * plus the whole search across every lab. Named-lab results come first.
+ */
+const searchOrderableItems = async (
+  search: string,
+  labGuids: string[],
+  searchableLabs: LabSearchCandidate[],
+  m2mToken: string
+): Promise<OrderableItemSearchResult[]> => {
+  const { testSearch, matchedLabs } = parseLabSearch(search, searchableLabs);
+  if (!matchedLabs.length) return getOrderableItems(labGuids, { textSearch: search }, m2mToken);
+
+  const matchedLabGuids = [...new Set(matchedLabs.map((lab) => lab.labGuid))];
+  console.log(
+    `searching "${testSearch}" at labs named in the search and "${search}" across all labs`,
+    matchedLabs.map((lab) => lab.labName)
+  );
+  const [namedLabItems, allLabItems] = await Promise.all([
+    getOrderableItems(matchedLabGuids, { textSearch: testSearch }, m2mToken),
+    getOrderableItems(labGuids, { textSearch: search }, m2mToken),
+  ]);
+
+  const itemKey = (result: OrderableItemSearchResult): string => `${result.lab.labGuid}|${result.item.itemCode}`;
+  const namedLabItemKeys = new Set(namedLabItems.map(itemKey));
+  return [...namedLabItems, ...allLabItems.filter((result) => !namedLabItemKeys.has(itemKey(result)))];
+};
+
 const getResources = async (
   oystehr: Oystehr,
   patientId?: string,
@@ -137,6 +168,7 @@ const getResources = async (
   accounts: Account[];
   coverages: Coverage[];
   labGuids: string[];
+  searchableLabs: LabSearchCandidate[];
   orderingLocationDetails: ExternalLabOrderingLocations;
   appointmentIsWorkersComp: boolean;
   labLists: List[];
@@ -196,6 +228,7 @@ const getResources = async (
   const accounts: Account[] = [];
   const organizations: Organization[] = [];
   const labGuids: string[] = [];
+  const searchableLabs: LabSearchCandidate[] = [];
   const labOrgRefToLabGuidAndNameMap = new Map<string, { labGuid: string; labName: string }>();
   const orderingLocations: ModifiedOrderingLocation[] = [];
   const orderingLocationIds: string[] = [];
@@ -212,6 +245,7 @@ const getResources = async (
       const labGuid = org.identifier?.find((id) => id.system === OYSTEHR_LAB_GUID_SYSTEM)?.value;
       if (labGuid) {
         labGuids.push(labGuid);
+        if (org.name) searchableLabs.push({ labGuid, labName: org.name });
         labOrgRefToLabGuidAndNameMap.set(`Organization/${org.id}`, { labGuid, labName: org.name || '' });
       }
     });
@@ -273,6 +307,7 @@ const getResources = async (
     coverages,
     accounts,
     labGuids,
+    searchableLabs,
     orderingLocationDetails: { orderingLocationIds, orderingLocations },
     appointmentIsWorkersComp,
     labLists,

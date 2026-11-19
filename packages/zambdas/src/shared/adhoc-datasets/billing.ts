@@ -17,7 +17,12 @@ import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
 import { RCM_TAG_SYSTEM } from 'utils/lib/fhir/constants';
 import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/encounter';
 import { getLocationIdFromAppointment } from 'utils/lib/fhir/helpers';
-import { getPatientFirstName, getPatientLastName, mapGenderToLabel } from 'utils/lib/fhir/patient';
+import {
+  getPatientFirstName,
+  getPatientFriendlyId,
+  getPatientLastName,
+  mapGenderToLabel,
+} from 'utils/lib/fhir/patient';
 import {
   parsePaymentRefundsFromNotice,
   parsePaymentVoidFromNotice,
@@ -396,6 +401,8 @@ export async function fetchAdHocBillingRows(
     foreignColumns = await fetchForeignPatientColumns(oystehr, {
       dateRange,
       patients: Array.from(patientMap.values()),
+      appointments: Array.from(appointmentMap.values()),
+      encounters: Array.from(encounterById.values()),
       foreign: BILLING_FOREIGN_LAYERS,
       requested: requestedForeignPatientLayers(BILLING_FOREIGN_LAYERS, params),
     });
@@ -464,6 +471,7 @@ export async function fetchAdHocBillingRows(
       encounterType,
       paymentVariant: knownValueOrNull(Object.values(PaymentVariant), getPaymentVariantFromEncounter(visitEncounter)),
       patientId: patient?.id || '',
+      friendlyPatientId: patient ? getPatientFriendlyId(patient) : '',
       patientName: patient ? `${getPatientFirstName(patient) || ''} ${getPatientLastName(patient) || ''}`.trim() : '',
       dateOfBirth: patient?.birthDate || null,
       sex: patient?.gender ? mapGenderToLabel[patient.gender] ?? '' : '',

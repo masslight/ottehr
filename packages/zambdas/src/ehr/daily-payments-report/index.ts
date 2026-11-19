@@ -108,7 +108,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     { name: '_count', value: '1000' },
   ];
   const fetchWindowNotices = async (
-    client: typeof oystehr,
+    client: typeof oystehr | typeof billingOystehr,
     extraParams: { name: string; value: string }[] = []
   ): Promise<PaymentNotice[]> => {
     const notices: PaymentNotice[] = [];

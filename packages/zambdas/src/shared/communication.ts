@@ -44,6 +44,11 @@ async function fetchLocationSupportPhonesMap(oystehr: Oystehr): Promise<Record<s
   return buildLocationSupportPhonesMap(locations);
 }
 
+export interface EmailSendOptions {
+  /** Keep the link as written: SendGrid click tracking would rewrite it through a logged redirect. */
+  disableClickTracking?: boolean;
+}
+
 class EmailClient {
   private config: SendgridConfig;
   private secrets: Secrets | null;
@@ -73,7 +78,8 @@ class EmailClient {
     to: string | string[],
     template: T,
     templateData: DynamicTemplateDataRecord<T>,
-    attachments?: EmailAttachment[]
+    attachments?: EmailAttachment[],
+    options?: EmailSendOptions
   ): Promise<void> {
     const { templateIdSecretName } = template;
     let SENDGRID_EMAIL_BCC: string[] = [];
@@ -134,6 +140,9 @@ class EmailClient {
       bcc: SENDGRID_EMAIL_BCC.filter((item): item is string => !to.includes(item)),
       replyTo,
       templateId,
+      ...(options?.disableClickTracking && {
+        trackingSettings: { clickTracking: { enable: false, enableText: false } },
+      }),
       dynamic_template_data: {
         ...templateData,
         env: environmentSubjectPrepend,
@@ -254,8 +263,12 @@ class EmailClient {
     await this.sendEmail(to, this.config.templates.orderResultAlert, templateData);
   }
 
-  async sendGenericOutreachEmail(to: string | string[], templateData: GenericOutreachTemplateData): Promise<void> {
-    await this.sendEmail(to, this.config.templates.genericOutreach, templateData);
+  async sendGenericOutreachEmail(
+    to: string | string[],
+    templateData: GenericOutreachTemplateData,
+    options?: EmailSendOptions
+  ): Promise<void> {
+    await this.sendEmail(to, this.config.templates.genericOutreach, templateData, undefined, options);
   }
 }
 

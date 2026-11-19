@@ -296,7 +296,7 @@ export const progressNoteRenderConfig: PdfRenderConfig<ProgressNoteData> = {
  * Single render path for the visit/progress note: resolves the service category catalog, composes the
  * note data and renders it. Both the uploading (`createProgressNotePdf`) and the bytes-only
  * (`createProgressNotePdfBytes`) entry points go through here so the note can never drift between the
- * document stored on the visit and the copy merged into an outbound fax packet.
+ * document stored on the visit and the copy merged into an outbound document packet.
  */
 const renderProgressNote = async (
   input: ProgressNoteInput,
@@ -311,7 +311,7 @@ const renderProgressNote = async (
 /**
  * Renders the visit/progress note and returns the raw PDF bytes without uploading anything or
  * touching any DocumentReference. Used when the note has to be regenerated on the fly (e.g. for an
- * outbound fax packet of an unsigned visit) and must not become the canonical visit note.
+ * outbound document packet of an unsigned visit) and must not become the canonical visit note.
  */
 export const createProgressNotePdfBytes = async (
   input: ProgressNoteInput,

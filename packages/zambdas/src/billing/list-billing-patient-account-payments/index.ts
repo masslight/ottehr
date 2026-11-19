@@ -4,11 +4,14 @@ import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
+import { GetPatientPaymentVisitsResponse, PatientPaymentVisit } from 'utils/lib/types/api/patient-payment-visits.types';
 import { ListBillingPatientAccountPaymentsInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingPatientAccountPayment,
+  BillingPatientVisit,
   ListBillingPatientAccountPaymentsResponse,
 } from 'utils/lib/types/data/billing/billing.types';
+import { compareDates } from 'utils/lib/utils/dateUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient } from '../../shared/stripeIntegration';
@@ -41,26 +44,44 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { clinicalId } = await resolveClinicalPatientIds({ oystehr: billingOystehr, patient });
 
   // payments are taken against clinical visits, so a patient created in billing alone has none
+  if (!clinicalId) {
+    const empty: ListBillingPatientAccountPaymentsResponse = { payments: [], visits: [] };
+    return { statusCode: 200, body: JSON.stringify(empty) };
+  }
+
+  const ehrData = await getPatientPaymentVisits(billingOystehr, clinicalId);
   const response: ListBillingPatientAccountPaymentsResponse = {
-    payments: clinicalId
-      ? await listAccountPayments({
-          billingOystehr,
-          clinicalPatientId: clinicalId,
-          stripeClient: getStripeClient(secrets, { timeoutMs: STRIPE_REQUEST_TIMEOUT_MS }),
-        })
-      : [],
+    payments: await listAccountPayments({
+      billingOystehr,
+      ehrData,
+      stripeClient: getStripeClient(secrets, { timeoutMs: STRIPE_REQUEST_TIMEOUT_MS }),
+    }),
+    visits: accountVisits(ehrData.visits),
   };
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
+// the visits a payment can be recorded against, newest first; undated visits last
+export const accountVisits = (visits: PatientPaymentVisit[]): BillingPatientVisit[] =>
+  visits
+    .map(({ encounterId, appointmentId, visitDateISO, serviceMode, followUp, locationName, visitReason }) => ({
+      encounterId,
+      appointmentId,
+      visitDateISO,
+      serviceMode,
+      followUp,
+      locationName,
+      visitReason,
+    }))
+    .sort((a, b) => compareDates(a.visitDateISO, b.visitDateISO));
+
 export const listAccountPayments = async (params: {
   billingOystehr: Oystehr;
-  clinicalPatientId: string;
+  ehrData: GetPatientPaymentVisitsResponse;
   stripeClient: Stripe;
 }): Promise<BillingPatientAccountPayment[]> => {
-  const { billingOystehr, clinicalPatientId, stripeClient } = params;
+  const { billingOystehr, ehrData, stripeClient } = params;
 
-  const ehrData = await getPatientPaymentVisits(billingOystehr, clinicalPatientId);
   const { visits } = ehrData;
   if (visits.length === 0) return [];
 

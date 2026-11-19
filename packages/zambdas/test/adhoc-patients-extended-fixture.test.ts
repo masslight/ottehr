@@ -124,6 +124,22 @@ const priorAppointment: Appointment = {
   participant: [{ actor: { reference: 'Patient/pat-1' }, status: 'accepted' }],
 };
 
+const priorSeenVisit: Appointment = {
+  resourceType: 'Appointment',
+  id: 'appt-older',
+  status: 'fulfilled',
+  start: '2024-05-02T10:00:00.000Z',
+  participant: [{ actor: { reference: 'Patient/pat-1' }, status: 'accepted' }],
+};
+
+const longAgoSeenVisit: Appointment = {
+  resourceType: 'Appointment',
+  id: 'appt-long-ago',
+  status: 'fulfilled',
+  start: '2023-06-30T10:00:00.000Z',
+  participant: [{ actor: { reference: 'Patient/pat-2' }, status: 'accepted' }],
+};
+
 // pat-1's chart lists, tagged the way chart-data writes them. The untagged Condition is a visit diagnosis,
 // not a problem-list entry, and must stay out.
 const tag = (code: string): { meta: { tag: { code: string }[] } } => ({ meta: { tag: [{ code }] } });
@@ -492,7 +508,7 @@ const resourcesByJob: Record<string, FhirResource[]> = {
       chartResources.filter((r) => r.resourceType === type && r.meta?.tag?.length),
     ])
   ),
-  'Appointment:prior': [priorAppointment],
+  'Appointment:prior': [priorAppointment, priorSeenVisit, longAgoSeenVisit],
 };
 
 const jobIdFor = (resourceType: string, params: { name: string; value: string }[]): string => {
@@ -833,14 +849,41 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
     expect(rows.find((r) => r.patientId === 'pat-2')).toMatchObject({ active: false, mergedIntoPatientId: 'pat-1' });
   });
 
-  it('visit history: new vs existing by any appointment before the range', async () => {
+  it('visit history: existing by a visit that took place; last appointment of any status', async () => {
     const rows = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeVisitHistory: true });
     const returning = rows.find((r) => r.patientId === 'pat-1')!;
     const fresh = rows.find((r) => r.patientId === 'pat-2')!;
     expect(returning.patientStatus).toBe('existing');
     expect(returning.lastAppointmentBeforeRange).toBe('2025-03-10T10:00:00.000Z');
     expect(fresh.patientStatus).toBe('new');
-    expect(fresh.lastAppointmentBeforeRange).toBeNull();
+    expect(fresh.lastAppointmentBeforeRange).toBe('2023-06-30T10:00:00.000Z');
+  });
+
+  it('visit history: without an earlier visit, the intake staff "seen in the last 3 years" answer decides', async () => {
+    const staffAnswer = {
+      resourceType: 'Observation',
+      id: 'obs-seen',
+      status: 'final',
+      code: { text: 'seen-in-last-three-years' },
+      encounter: { reference: 'Encounter/enc-2' },
+      valueString: 'yes',
+      meta: {
+        tag: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/additional-questions-field`, code: 'seen-in-last-three-years' }],
+      },
+    };
+    const withAnswers = {
+      ...fakeOystehr,
+      fhir: {
+        ...fakeOystehr.fhir,
+        search: async (args: { resourceType: string }, options?: { mode?: string }) =>
+          args.resourceType === 'Observation' && options?.mode !== 'async-bulk'
+            ? { unbundle: () => [staffAnswer], link: [] }
+            : (fakeOystehr.fhir.search as any)(args, options),
+      },
+    } as unknown as Oystehr;
+
+    const rows = await fetchAdHocPatientRows(withAnswers, { dateRange, includeVisitHistory: true });
+    expect(rows.find((r) => r.patientId === 'pat-2')?.patientStatus).toBe('existing');
   });
 
   it('demographics: face-sheet details, PCP and pharmacy', async () => {

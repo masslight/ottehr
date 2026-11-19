@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import React, { useLayoutEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { replaceUrlKeepingRouterState } from 'src/helpers/misc.helper';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { EditableMedicationCard } from '../medication-editable-card/EditableMedicationCard';
 import { MedicationWarnings } from './MedicationWarnings';
@@ -27,7 +28,7 @@ export const MedicationList: React.FC<MedicationListProps> = ({ onNavigateToMar 
 
         const url = new URL(window.location.href);
         url.searchParams.delete('scrollTo');
-        window.history.replaceState({}, '', url.toString());
+        replaceUrlKeepingRouterState(url.toString());
       });
     }
   }, [scrollTo, pendingMedications]);

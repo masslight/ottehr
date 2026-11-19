@@ -1,12 +1,39 @@
 // Foreign layers: another dataset's layers on this dataset's rows, matched by a base field. Today: the patients
 // dataset's layers (`patients.<layer>`) on the encounters and billing rows, by patientId.
 import Oystehr from '@oystehr/sdk';
-import { Patient } from 'fhir/r4b';
+import { Appointment, Encounter, Patient } from 'fhir/r4b';
+import { isAnnotationFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { AdHocLayerMap, layerFields } from 'utils/lib/types/adhoc/datasets/dataset';
 import { PatientLayerId } from 'utils/lib/types/adhoc/datasets/patients';
-import { fetchPatientLayerColumns, PATIENT_LAYER_MODULES } from './patients/layers';
+import { REPORT_ATTENDED_APPOINTMENT_STATUSES } from '../adhoc-report';
+import { fetchPatientLayerColumns, PATIENT_LAYER_MODULES, PatientVisit } from './patients/layers';
 
 const PATIENT_PREFIX = 'patients.';
+
+/**
+ * Each patient's visits, as the patients dataset counts them: attended appointments (no cancelled / no-show), each
+ * with its main encounter (an annotation follow-up is not the visit). Keyed `Patient/{id}`.
+ */
+function patientVisits(appointments: Appointment[], encounters: Encounter[]): Map<string, PatientVisit[]> {
+  const attended = new Set(REPORT_ATTENDED_APPOINTMENT_STATUSES.split(','));
+  const encounterIdByAppointment = new Map<string, string>();
+  for (const e of encounters) {
+    const appointmentRef = e.appointment?.[0]?.reference;
+    if (appointmentRef && e.id && !isAnnotationFollowupEncounter(e)) encounterIdByAppointment.set(appointmentRef, e.id);
+  }
+  const out = new Map<string, PatientVisit[]>();
+  for (const appointment of appointments) {
+    if (!appointment.status || !attended.has(appointment.status) || !appointment.start) continue;
+    const patientRef = appointment.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor
+      ?.reference;
+    if (!patientRef) continue;
+    out.set(patientRef, [
+      ...(out.get(patientRef) ?? []),
+      { appointment, encounterId: encounterIdByAppointment.get(`Appointment/${appointment.id}`) },
+    ]);
+  }
+  return out;
+}
 
 const includeFlag = (id: string): string => `include${id.charAt(0).toUpperCase()}${id.slice(1)}`;
 
@@ -25,6 +52,9 @@ export async function fetchForeignPatientColumns(
   params: {
     dateRange: { start: string; end: string };
     patients: Patient[];
+    /** The dataset's appointments and encounters of the range, for the patients' visits (visitHistory). */
+    appointments: Appointment[];
+    encounters: Encounter[];
     foreign: AdHocLayerMap;
     requested: string[];
   }
@@ -40,6 +70,7 @@ export async function fetchForeignPatientColumns(
   const columns = await fetchPatientLayerColumns(oystehr, {
     dateRange: params.dateRange,
     patients: params.patients,
+    visitsByPatient: patientVisits(params.appointments, params.encounters),
     layerIds,
   });
 

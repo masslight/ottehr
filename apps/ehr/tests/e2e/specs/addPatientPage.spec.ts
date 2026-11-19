@@ -1,5 +1,5 @@
 import { Page, test } from '@playwright/test';
-import { Appointment } from 'fhir/r4b';
+import { Appointment, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addProcessIdMetaTagToAppointment } from 'test-utils/lib/e2e/clean-appointment';
 import { waitForResponseWithData } from 'test-utils/lib/e2e/response-utils';
@@ -92,7 +92,7 @@ test.describe('For new patient', () => {
       !offeredVisitTypeLabels.has(VISIT_TYPES.PRE_BOOK),
       'Pre-booked in-person visits are not offered by this instance'
     );
-    const { appointmentId, slotDate } = await createAppointment(
+    const { appointmentId, appointmentStart } = await createAppointment(
       page,
       VISIT_TYPES.PRE_BOOK,
       false,
@@ -101,10 +101,9 @@ test.describe('For new patient', () => {
 
     const visitsPage = await expectVisitsPage(page);
     await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-    // The first available slot may roll to tomorrow when the day's schedule is past
-    // closing time. The tracking-board date filter defaults to today in the location's
-    // timezone, so without this it'd show zero rows even though the appointment exists.
-    if (slotDate) await visitsPage.selectDate(slotDate);
+    // The first available slot is often on another day than the board's default: after closing it
+    // rolls to tomorrow, and from 8 PM New York time it is already tomorrow for a UTC browser.
+    await visitsPage.selectDateOf(appointmentStart);
     await visitsPage.clickPrebookedTab();
     await visitsPage.verifyVisitPresent(appointmentId);
   });
@@ -173,7 +172,7 @@ async function createAppointment(
   visitType: (typeof VISIT_TYPES)[keyof typeof VISIT_TYPES],
   existingPatient = false,
   lastName?: string
-): Promise<{ appointmentId: string; slotTime: string | undefined; slotDate: string | undefined }> {
+): Promise<{ appointmentId: string; slotTime: string | undefined; appointmentStart: string }> {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.selectVisitType(visitType);
   await addPatientPage.selectServiceCategory(BOOKING_CONFIG.serviceCategories[0].category.display);
@@ -204,20 +203,20 @@ async function createAppointment(
   }
 
   let slotTime: string | undefined;
-  let slotDate: string | undefined;
   if (visitType !== VISIT_TYPES.WALK_IN) {
     const slot = await addPatientPage.selectFirstAvailableSlot();
     slotTime = slot.time;
-    slotDate = slot.date || undefined;
   }
 
+  const slotCreationResponse = waitForResponseWithData(page, /\/create-slot\//);
   const appointmentCreationResponse = waitForResponseWithData(page, /\/create-appointment\//);
   await addPatientPage.clickAddButton();
+  const slot = await unpackFhirResponse<Slot>(await slotCreationResponse);
   const response = await unpackFhirResponse<CreateAppointmentResponse>(await appointmentCreationResponse);
 
   if (!response.appointmentId) {
     throw new Error('Appointment ID should be present in the response');
   }
 
-  return { appointmentId: response.appointmentId, slotTime, slotDate };
+  return { appointmentId: response.appointmentId, slotTime, appointmentStart: slot.start };
 }

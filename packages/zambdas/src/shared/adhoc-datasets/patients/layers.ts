@@ -17,6 +17,10 @@ import {
 import { DateTime } from 'luxon';
 import { FHIR_EXTENSION, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getMiddleName, getNameSuffix, getPronounsFromExtension } from 'utils/lib/fhir/patient';
+import {
+  isWithinNewPatientLookback,
+  SEEN_VISIT_APPOINTMENT_STATUS,
+} from 'utils/lib/helpers/screening-questions/new-patient.helper';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { AdHocPatientRow, PatientLayerId } from 'utils/lib/types/adhoc/datasets/patients';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
@@ -30,6 +34,7 @@ import { InsuranceCheckStatusWithDate } from 'utils/lib/types/data/telemed/eligi
 import { PATIENT_CONTAINED_PHARMACY_ID } from '../../../ehr/shared/harvest';
 import { fetchScopedResources, presentFullName } from '../../adhoc-report';
 import { mapResourceToChartDataResponse } from '../../chart-data';
+import { resolveNewPatients } from '../../new-patient';
 import { getOccupationalMedicineEmployerName } from '../../occupational-medicine-employer';
 import { composeAttorneyData } from '../../pdf/sections/attorneyInfo';
 import { composeEmergencyContactData } from '../../pdf/sections/emergencyContactInfo';
@@ -71,6 +76,12 @@ export const oneLineAddress = (parts: {
     .filter(Boolean)
     .join(', ');
 
+/** A visit of the range: its appointment and its main encounter. */
+export interface PatientVisit {
+  appointment: Appointment;
+  encounterId?: string;
+}
+
 export interface PatientLayerContext {
   oystehr: Oystehr;
   dateRange: { start: string; end: string };
@@ -78,6 +89,8 @@ export interface PatientLayerContext {
   patients: Patient[];
   /** `Patient/{id}` of each. */
   refs: string[];
+  /** Each patient's visits in the range (keyed `Patient/{id}`), for the new-vs-established check. */
+  visitsByPatient: Map<string, PatientVisit[]>;
   shared: {
     /** The patient-account page's account / coverage picture, for the contacts, insurance, eligibility and employer layers. */
     accounts(): Promise<Map<string, PatientAccountAndCoverageResources>>;
@@ -197,21 +210,44 @@ const hospitalizationsLayer = chartListLayer('hospitalizations', 'EpisodeOfCare'
   return { hospitalizations, hospitalizationCount: hospitalizations.length };
 });
 
-// The Recent Patients report's new-vs-existing check: any Appointment of the patient before the range start,
-// whatever its status or type, makes the patient existing.
-const visitHistoryLayer = definePatientLayer<Map<string, string>>({
+// New vs established, the same rule as the Recent Patients report and the E&M suggestions (resolveNewPatients):
+// established when the patient had a seen visit within the lookback before their first visit in range, or when a
+// visit's screening answers / returning tag say so. lastAppointmentBeforeRange stays any appointment before the range.
+const visitHistoryLayer = definePatientLayer<{
+  lastAppointmentBeforeRange: Map<string, string>;
+  newPatients: Map<string, boolean>;
+}>({
   id: 'visitHistory',
   fetch: async (ctx) => {
     const lastAppointmentBeforeRange = new Map<string, string>();
+    const seenBeforeRange = new Set<string>();
     const priorAppointments = await fetchScopedResources<Appointment>(ctx.oystehr, 'Appointment', 'patient', ctx.refs, [
       { name: 'date', value: `lt${ctx.dateRange.start}` },
-      { name: '_elements', value: 'id,start,participant' },
+      { name: '_elements', value: 'id,start,status,participant' },
     ]);
+
+    const firstVisitInRange = new Map<string, string | undefined>();
+    for (const [patientRef, visits] of ctx.visitsByPatient) {
+      firstVisitInRange.set(
+        patientRef,
+        visits
+          .map((v) => v.appointment.start ?? '')
+          .filter(Boolean)
+          .sort((a, b) => DateTime.fromISO(a).toMillis() - DateTime.fromISO(b).toMillis())[0]
+      );
+    }
 
     for (const prior of priorAppointments) {
       const patientRef = prior.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference;
 
       if (!patientRef) continue;
+
+      if (
+        prior.status === SEEN_VISIT_APPOINTMENT_STATUS &&
+        isWithinNewPatientLookback(prior.start, firstVisitInRange.get(patientRef))
+      ) {
+        seenBeforeRange.add(patientRef);
+      }
 
       const latest = lastAppointmentBeforeRange.get(patientRef);
       const start = prior.start ?? '';
@@ -221,15 +257,23 @@ const visitHistoryLayer = definePatientLayer<Map<string, string>>({
         lastAppointmentBeforeRange.set(patientRef, start);
       }
     }
-    return lastAppointmentBeforeRange;
+
+    const newPatients = await resolveNewPatients(
+      ctx.oystehr,
+      new Map(
+        ctx.refs.map((patientRef) => [
+          patientRef,
+          { hasPriorVisit: seenBeforeRange.has(patientRef), visits: ctx.visitsByPatient.get(patientRef) ?? [] },
+        ])
+      )
+    );
+
+    return { lastAppointmentBeforeRange, newPatients };
   },
-  map: (patientRef, _patient, lastAppointmentBeforeRange) => {
-    const lastBefore = lastAppointmentBeforeRange.get(patientRef);
-    return {
-      patientStatus: lastBefore === undefined ? 'new' : 'existing',
-      lastAppointmentBeforeRange: lastBefore || null,
-    };
-  },
+  map: (patientRef, _patient, { lastAppointmentBeforeRange, newPatients }) => ({
+    patientStatus: newPatients.get(patientRef) ? 'new' : 'existing',
+    lastAppointmentBeforeRange: lastAppointmentBeforeRange.get(patientRef) || null,
+  }),
 });
 
 // The visit details face sheet's composers, fed the way visit-details-to-pdf feeds them: the PCP is the active
@@ -494,7 +538,12 @@ export const PATIENT_LAYER_MODULES: Record<PatientLayerId, AnyPatientLayerModule
  */
 export async function fetchPatientLayerColumns(
   oystehr: Oystehr,
-  params: { dateRange: { start: string; end: string }; patients: Patient[]; layerIds: PatientLayerId[] }
+  params: {
+    dateRange: { start: string; end: string };
+    patients: Patient[];
+    visitsByPatient: Map<string, PatientVisit[]>;
+    layerIds: PatientLayerId[];
+  }
 ): Promise<Map<string, Partial<AdHocPatientRow>>> {
   const patients = params.patients.filter((p) => p.id);
   const ctx: PatientLayerContext = {
@@ -502,6 +551,7 @@ export async function fetchPatientLayerColumns(
     dateRange: params.dateRange,
     patients,
     refs: patients.map((p) => `Patient/${p.id}`),
+    visitsByPatient: params.visitsByPatient,
     shared: { accounts: once(() => fetchPatientAccounts(oystehr, patients)) },
   };
 

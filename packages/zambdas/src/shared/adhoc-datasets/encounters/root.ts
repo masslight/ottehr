@@ -13,6 +13,7 @@ import { getPaymentVariantFromEncounter, PaymentVariant } from 'utils/lib/fhir/e
 import {
   getEmailForIndividual,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getPhoneNumberForIndividual,
   mapGenderToLabel,
@@ -265,6 +266,7 @@ export function buildEncounterBaseRow(
     visitStatusSince: currentStatusSince,
     scheduledSlotMinutes: minutesBetween(appointment.start, appointment.end),
     patientId: patient?.id || '',
+    friendlyPatientId: patient ? getPatientFriendlyId(patient) : '',
     firstName: patient ? getPatientFirstName(patient) || '' : '',
     lastName: patient ? getPatientLastName(patient) || '' : '',
     patientName: patient ? [getPatientFirstName(patient), getPatientLastName(patient)].filter(Boolean).join(' ') : '',

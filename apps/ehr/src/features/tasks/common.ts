@@ -4,12 +4,20 @@ import { getFullName } from 'utils/lib/fhir/patient';
 import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
-import { ERX_TASK, FAX_TASK, MANUAL_TASK, RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
+import {
+  ERX_TASK,
+  FAX_TASK,
+  MANUAL_TASK,
+  PATIENT_REQUEST_TASK,
+  RADIOLOGY_TASK,
+} from 'utils/lib/types/data/tasks/types';
 import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
+import { useDmeOrders } from '../dme/dme.queries';
 import { usePatientLabOrders } from '../external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
 import { useGetNursingOrders } from '../nursing-orders/components/orders/useNursingOrders';
 import { usePatientRadiologyOrders } from '../radiology/components/usePatientRadiologyOrders';
+import { useGetImmunizationOrders } from '../visits/in-person/hooks/useImmunization';
 import { useChartData } from '../visits/shared/hooks/useChartData';
 import { useGetMedicationOrders } from '../visits/shared/stores/appointment/appointment.queries';
 
@@ -19,7 +27,9 @@ export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [RADIOLOGY_TASK.category]: 'Radiology',
   [ERX_TASK.category]: 'eRX',
   [DME_TASK.category]: 'DME',
+  [MANUAL_TASK.category.dme]: 'DME',
   [MANUAL_TASK.category.externalLab]: 'External Lab',
+  [MANUAL_TASK.category.immunization]: 'Immunization',
   [MANUAL_TASK.category.inHouseLab]: 'In-house Lab',
   [MANUAL_TASK.category.inHouseMedications]: 'In-House Medications',
   [MANUAL_TASK.category.nursingOrders]: 'Nursing Orders',
@@ -31,6 +41,7 @@ export const TASK_CATEGORY_LABEL: Record<string, string> = {
   [MANUAL_TASK.category.coding]: 'Coding',
   [MANUAL_TASK.category.billing]: 'Billing',
   [FAX_TASK.category]: 'Fax',
+  [PATIENT_REQUEST_TASK.category]: 'Patient Request',
   [MANUAL_TASK.category.other]: 'Other',
 };
 
@@ -168,6 +179,40 @@ export function useInHouseMedicationsOptions(encounterId: string): {
       return {
         id: order.id ?? '',
         label: order.medicationName,
+      };
+    }),
+  };
+}
+
+export function useImmunizationOrdersOptions(encounterId: string): {
+  immunizationOrdersLoading: boolean;
+  immunizationOrdersOptions: Order[];
+} {
+  const { data, isLoading } = useGetImmunizationOrders({ encounterIds: encounterId ? [encounterId] : undefined });
+  return {
+    immunizationOrdersLoading: isLoading,
+    immunizationOrdersOptions: (data?.orders ?? [])
+      .filter((order) => order.status !== 'cancelled')
+      .map((order) => {
+        return {
+          id: order.id,
+          label: order.details.medication.name,
+        };
+      }),
+  };
+}
+
+export function useDmeOrdersOptions(encounterId: string): {
+  dmeOrdersLoading: boolean;
+  dmeOrdersOptions: Order[];
+} {
+  const { data, isLoading } = useDmeOrders(encounterId);
+  return {
+    dmeOrdersLoading: isLoading,
+    dmeOrdersOptions: (data ?? []).map((order) => {
+      return {
+        id: order.id,
+        label: order.itemName,
       };
     }),
   };

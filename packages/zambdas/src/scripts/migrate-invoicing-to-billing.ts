@@ -6,6 +6,7 @@ import Stripe from 'stripe';
 import {
   buildBillingInvoice,
   getStripeInvoiceLink,
+  INVOICE_ISSUED_FROM_EHR_TAG,
   STRIPE_INVOICE_ID_SYSTEM,
   withHostedInvoiceUrl,
   withStripeInvoiceLink,
@@ -20,15 +21,23 @@ import {
   parseInvoiceTaskInput,
 } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { Secrets } from 'utils/lib/secrets';
+import { INVOICE_OUTREACH_TRIGGER_EVENTS } from 'utils/lib/types/api/scheduled-outreach.types';
+import { BILLING_OUTREACH_TASK_CODE_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { getServiceFacilityId } from '../billing/invoices';
 import { applyClaimStatusField, resolveClaimActor } from '../billing/provenance';
 import { listStripeAccounts } from '../billing/reports/shared';
 import { createBillingClient, findById } from '../billing/shared';
 import { getOrCreateInvoicingConfig } from '../rcm/invoice-config/helpers';
+import {
+  findOutreachConfig,
+  parseNotificationsTimeRestriction,
+  parsePlanDefinitionToActions,
+} from '../rcm/scheduled-outreach-config/helpers';
+import { saveOutreachConfig } from '../rcm/scheduled-outreach-config/save-outreach-config';
 import { getAuth0Token } from '../shared/getAuth0Token';
 import { createClinicalOystehrClient, RCM_TAG_SYSTEM } from '../shared/helpers';
-import { isOttehrBillingInvoicingInBillingApp } from '../shared/invoice-tasks';
+import { isOttehrBillingInvoicingInBillingApp, isOutreachInBillingApp } from '../shared/invoice-tasks';
 import { getStripeClient } from '../shared/stripeIntegration';
 import { performEffectWithEnvFile } from './helpers';
 
@@ -50,6 +59,10 @@ import { performEffectWithEnvFile } from './helpers';
  * Sent invoices that are still open in Stripe get a copy in the billing app, so they show on the Invoices
  * screen and the billing Stripe webhook marks them paid or void. Paid and void ones need nothing more, so
  * they stay only in Stripe and the EHR.
+ *
+ * Once invoice outreach also moves (automated outreach on), the EHR invoice outreach actions are copied into
+ * the billing outreach config if it has no actions yet. Outreach follows whoever sent the invoice: the EHR
+ * keeps running it for the invoices it sent, and the billing app runs it for the invoices it sends.
  *
  * Preview by default. Pass `--apply` to make the changes:
  *   npm run migrate-invoicing-to-billing -- <env>            # preview only
@@ -168,8 +181,42 @@ async function buildInvoiceCopy(
     }),
     { stripeInvoiceId: stripeInvoice.id, stripeAccount }
   );
+  invoice.meta = { ...invoice.meta, tag: [...(invoice.meta?.tag ?? []), INVOICE_ISSUED_FROM_EHR_TAG] };
   const hostedUrl = stripeInvoice.hosted_invoice_url;
   return hostedUrl ? withHostedInvoiceUrl(invoice, hostedUrl) : invoice;
+}
+
+// The EHR config is not changed, because the EHR keeps running outreach for the invoices it sent.
+async function copyInvoiceOutreachConfig(
+  clinicalOystehr: Oystehr,
+  billingOystehr: Oystehr,
+  apply: boolean
+): Promise<void> {
+  const ehrPlan = await findOutreachConfig(clinicalOystehr);
+  const actions = (ehrPlan ? parsePlanDefinitionToActions(ehrPlan) : []).filter((action) =>
+    INVOICE_OUTREACH_TRIGGER_EVENTS.includes(action.trigger.event)
+  );
+  if (!ehrPlan || !actions.length) {
+    console.log('\nThe EHR has no invoice outreach actions, so the billing outreach config is left alone.');
+    return;
+  }
+  const billingPlan = await findOutreachConfig(billingOystehr);
+  if (billingPlan && parsePlanDefinitionToActions(billingPlan).length) {
+    console.log('\nThe billing outreach config already has actions, so it is left alone.');
+    return;
+  }
+  if (apply) {
+    await saveOutreachConfig(
+      billingOystehr,
+      actions,
+      parseNotificationsTimeRestriction(ehrPlan),
+      BILLING_OUTREACH_TASK_CODE_SYSTEM
+    );
+  }
+  console.log(
+    `\n${actions.length} EHR invoice outreach actions and the notification hours ` +
+      `${apply ? 'copied' : 'to copy'} into the billing outreach config.`
+  );
 }
 
 async function migrate(config: Secrets & { env: string }): Promise<void> {
@@ -212,6 +259,12 @@ async function migrate(config: Secrets & { env: string }): Promise<void> {
   } else {
     console.log('\nInvoicing is still in the EHR, so its invoice tasks are left alone.');
   }
+  const outreachInBillingApp = isOutreachInBillingApp(config);
+  if (outreachInBillingApp) {
+    await copyInvoiceOutreachConfig(clinicalOystehr, billingOystehr, false);
+  } else {
+    console.log('\nInvoice outreach is still in the EHR, so its outreach config is not copied.');
+  }
 
   if (!APPLY) {
     console.log('\nPreview only. Re-run with `--apply` to make these changes.');
@@ -253,6 +306,7 @@ async function migrate(config: Secrets & { env: string }): Promise<void> {
       console.log(`Invoice/${created.id} copies open Stripe invoice ${getStripeInvoiceLink(copy)?.stripeInvoiceId}.`);
     }
   }
+  if (outreachInBillingApp) await copyInvoiceOutreachConfig(clinicalOystehr, billingOystehr, true);
   console.log('Done.');
 }
 

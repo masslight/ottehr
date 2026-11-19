@@ -169,7 +169,9 @@ const makeDocument = (file: string, overrides: Partial<PatientDocumentInfo> = {}
   id: `doc-${file}`,
   docName: file,
   whenAddedDate: '2026-05-05T10:00:00.000Z',
-  attachments: [{ title: file, z3Url: `https://project-api.test/z3/bucket/${file}`, contentType: 'application/pdf' }],
+  attachments: [
+    { title: file, z3Url: `https://project-api.zapehr.com/v1/z3/bucket/${file}`, contentType: 'application/pdf' },
+  ],
   ...overrides,
 });
 
@@ -310,7 +312,7 @@ describe('useDownloadDocumentsZip', () => {
     const { pending } = startDownload([
       makeDocument('scan.pdf', {
         attachments: [
-          { title: 'scan-page-1.pdf', z3Url: 'https://project-api.test/z3/bucket/scan-page-1.pdf' },
+          { title: 'scan-page-1.pdf', z3Url: 'https://project-api.zapehr.com/v1/z3/bucket/scan-page-1.pdf' },
           { title: 'scan-page-2.pdf' },
         ],
       }),
@@ -339,7 +341,7 @@ describe('useDownloadDocumentsZip', () => {
       makeDocument('scan.pdf', {
         attachments: ['scan-page-1.pdf', 'scan-page-2.pdf'].map((file) => ({
           title: file,
-          z3Url: `https://project-api.test/z3/bucket/${file}`,
+          z3Url: `https://project-api.zapehr.com/v1/z3/bucket/${file}`,
           contentType: 'application/pdf',
         })),
       }),
@@ -371,7 +373,7 @@ describe('useDownloadDocumentsZip', () => {
       makeDocument('scan.pdf', {
         attachments: ['scan-page-1.pdf', 'scan-page-2.pdf', 'scan-page-3.pdf'].map((file) => ({
           title: file,
-          z3Url: `https://project-api.test/z3/bucket/${file}`,
+          z3Url: `https://project-api.zapehr.com/v1/z3/bucket/${file}`,
           contentType: 'application/pdf',
         })),
       }),

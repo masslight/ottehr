@@ -511,7 +511,7 @@ export function makeObservationResource(
             valueString: JSON.stringify(item),
           }))
         : undefined;
-    if ('note' in textData && textData.note) {
+    if ('note' in textData && textData.note?.trim()) {
       return {
         ...base,
         valueString: textData.value,
@@ -746,13 +746,13 @@ export function makeCommunicationResource(
     status: 'completed',
     subject: { reference: `Patient/${patientId}` },
     encounter: { reference: `Encounter/${encounterId}` },
-    ...(title && {
+    ...(title?.trim() && {
       topic: {
         text: title,
       },
     }),
 
-    ...(text && {
+    ...(text?.trim() && {
       payload: [
         {
           contentString: text,

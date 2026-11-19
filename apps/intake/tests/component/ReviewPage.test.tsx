@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { DateTime } from 'luxon';
 import { MemoryRouter } from 'react-router-dom';
@@ -27,6 +28,15 @@ const mockData = {
   startISO: '2025-11-06T10:00:00-05:00',
 };
 
+const renderReviewPage = (): ReturnType<typeof render> =>
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter>
+        <ReviewPage />
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+
 describe('Review and Submit Screen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -47,32 +57,20 @@ describe('Review and Submit Screen', () => {
   });
 
   test('should render Review page', () => {
-    const wrapper = render(
-      <MemoryRouter>
-        <ReviewPage />
-      </MemoryRouter>
-    );
+    const wrapper = renderReviewPage();
 
     expect(wrapper).toBeTruthy();
   });
 
   test('Check title block displays correctly', () => {
-    render(
-      <MemoryRouter>
-        <ReviewPage />
-      </MemoryRouter>
-    );
+    renderReviewPage();
 
     expect(screen.getByRole('heading', { name: 'Review and submit' })).toBeDefined();
     expect(screen.getByText('Review and confirm all details below.')).toBeDefined();
   });
 
   test('Check visit details block displays correctly', () => {
-    render(
-      <MemoryRouter>
-        <ReviewPage />
-      </MemoryRouter>
-    );
+    renderReviewPage();
 
     expect(screen.getByRole('heading', { name: 'Visit details' })).toBeDefined();
 
@@ -97,11 +95,7 @@ describe('Review and Submit Screen', () => {
   });
 
   test('Check links display correctly', () => {
-    render(
-      <MemoryRouter>
-        <ReviewPage />
-      </MemoryRouter>
-    );
+    renderReviewPage();
 
     const privacyLinkDef = getPrivacyPolicyLinkDefForLocation('REVIEW_PAGE');
     const privacyPolicyLink = screen.queryByRole('link', { name: 'Privacy Policy' });
@@ -146,11 +140,7 @@ describe('Review and Submit Screen', () => {
         visitType,
       });
 
-      const { unmount } = render(
-        <MemoryRouter>
-          <ReviewPage />
-        </MemoryRouter>
-      );
+      const { unmount } = renderReviewPage();
 
       expect(screen.getByText(expectedLabel)).toBeDefined();
       expect(screen.getByRole('button', { name: buttonName })).toBeDefined();
@@ -170,11 +160,7 @@ describe('Review and Submit Screen', () => {
       patientInfo: undefined,
     });
 
-    render(
-      <MemoryRouter>
-        <ReviewPage />
-      </MemoryRouter>
-    );
+    renderReviewPage();
 
     expect(screen.getByTestId('patient-name-review-screen').textContent).toBe('Unknown');
   });
@@ -201,11 +187,7 @@ describe('Review and Submit Screen', () => {
         timezone,
       });
 
-      const { unmount } = render(
-        <MemoryRouter>
-          <ReviewPage />
-        </MemoryRouter>
-      );
+      const { unmount } = renderReviewPage();
 
       expect(screen.getByText('Check-in time')).toBeDefined();
       const slotTime = screen.getByTestId('prebook-slot-review-screen');

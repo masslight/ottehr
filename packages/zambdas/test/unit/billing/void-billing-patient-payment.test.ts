@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
@@ -46,7 +45,7 @@ import {
   reconcilePaymentNoticesForClaim,
   stripeAccountExtension,
 } from '../../../src/billing/payments';
-import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
+import { BillingOystehr, createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { index } from '../../../src/billing/void-billing-patient-payment';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM, voidPaymentNotice } from '../../../src/shared/stripeIntegration';
@@ -123,7 +122,7 @@ beforeEach(() => {
       patch: billingPatch,
       transaction: billingTransaction,
     },
-  } as unknown as Oystehr);
+  } as unknown as BillingOystehr);
   billingTransaction.mockImplementation(async ({ requests }: { requests: { resource?: PaymentNotice }[] }) => ({
     unbundle: () => requests.map((request) => request.resource).filter(Boolean),
   }));

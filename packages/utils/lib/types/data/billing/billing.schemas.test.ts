@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { BILLING_INVOICE_LIMITS, MANUAL_ERA_LIMITS, TAG_NAME_FORBIDDEN_CHARACTERS_ERROR } from './billing.constants';
 import {
   AddEraAttachmentInputSchema,
+  CreateBillingCoverageInputSchema,
   RecordBillingManualPaymentInputSchema,
   RenameEraAttachmentInputSchema,
   SaveBillingTagInputSchema,
   SearchBillingInvoicesInputSchema,
+  UpdateBillingCoverageInputSchema,
   VoidBillingInvoiceInputSchema,
 } from './billing.schemas';
 import { SYSTEM_MANAGED_TAGS } from './system-tags';
@@ -165,5 +167,31 @@ describe('ERA attachment names', () => {
   ])('can be as long when %s, and no longer', (_when, parse) => {
     expect(parse(longest).success).toBe(true);
     expect(parse(`${longest}n`).success).toBe(false);
+  });
+});
+
+describe('billing coverage groupNumber', () => {
+  const create = (groupNumber?: string): unknown => ({
+    patientId: 'patient-1',
+    payerId: 'payer-1',
+    memberId: 'M1',
+    groupNumber,
+    relationship: 'Self',
+  });
+
+  it('turns a whitespace-only group number on create into an empty string', () => {
+    expect(CreateBillingCoverageInputSchema.parse(create('   ')).groupNumber).toBe('');
+  });
+
+  it('trims a group number on create', () => {
+    expect(CreateBillingCoverageInputSchema.parse(create(' GRP-1 ')).groupNumber).toBe('GRP-1');
+  });
+
+  it('turns a whitespace-only group number on update into an empty string so it still clears', () => {
+    expect(UpdateBillingCoverageInputSchema.parse({ coverageId: 'cov-1', groupNumber: '  ' }).groupNumber).toBe('');
+  });
+
+  it('leaves an omitted group number on update undefined', () => {
+    expect(UpdateBillingCoverageInputSchema.parse({ coverageId: 'cov-1' }).groupNumber).toBeUndefined();
   });
 });

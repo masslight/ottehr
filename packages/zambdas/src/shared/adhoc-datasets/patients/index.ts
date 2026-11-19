@@ -11,6 +11,7 @@ import {
   getEmailForIndividual,
   getMergedIntoPatientReference,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getPhoneNumberForIndividual,
   mapGenderToLabel,
@@ -26,6 +27,7 @@ import { fetchPatientLayerColumns, PATIENT_LAYER_MODULES } from './layers';
 interface PatientAgg {
   patient: Patient;
   visitDates: string[]; // ISO start of each visit in range
+  visits: { appointment: Appointment; encounterId?: string }[]; // each visit in range
   lastVisitStart: string;
   lastVisitStatus: string;
   visitTypes: Set<'In-Person' | 'Telemed'>;
@@ -160,6 +162,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       agg = {
         patient,
         visitDates: [],
+        visits: [],
         lastVisitStart: start,
         lastVisitStatus: status,
         visitTypes: new Set(),
@@ -171,6 +174,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     }
 
     agg.visitDates.push(start);
+    agg.visits.push({ appointment, encounterId: encounter?.id });
 
     if (DateTime.fromISO(start) >= DateTime.fromISO(agg.lastVisitStart)) {
       agg.lastVisitStart = start;
@@ -187,6 +191,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
   const columns = await fetchPatientLayerColumns(oystehr, {
     dateRange,
     patients: Array.from(aggByPatient.values()).map((agg) => agg.patient),
+    visitsByPatient: new Map(Array.from(aggByPatient, ([patientRef, agg]) => [patientRef, agg.visits])),
     layerIds: requestedPatientLayers(params),
   });
 
@@ -204,6 +209,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
 
     rows.push({
       patientId: patient.id || '',
+      friendlyPatientId: getPatientFriendlyId(patient),
       firstName: getPatientFirstName(patient) || '',
       lastName: getPatientLastName(patient) || '',
       patientName: [getPatientFirstName(patient), getPatientLastName(patient)].filter(Boolean).join(' '),

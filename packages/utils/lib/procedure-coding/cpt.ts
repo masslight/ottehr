@@ -121,7 +121,7 @@ export function lateralityModifiers(side: unknown): string[] {
   return [];
 }
 
-function lineKey(code: string, modifiers: readonly string[]): string {
+export function lineKey(code: string, modifiers: readonly string[]): string {
   return `${code}|${[...new Set(modifiers)].sort().join(',')}`;
 }
 

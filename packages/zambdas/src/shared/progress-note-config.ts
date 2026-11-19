@@ -178,7 +178,7 @@ export async function saveProgressNoteConfig(
         valueString: option,
       })),
       // FHIR forbids empty strings, so omit the extension entirely when the prompt is blank
-      ...(config.signReviewPrompt
+      ...(config.signReviewPrompt?.trim()
         ? [{ url: PROGRESS_NOTE_CONFIG_SIGN_REVIEW_PROMPT_EXTENSION_URL, valueString: config.signReviewPrompt }]
         : []),
     ],

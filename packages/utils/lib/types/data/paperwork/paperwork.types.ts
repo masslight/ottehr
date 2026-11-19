@@ -110,6 +110,7 @@ export interface QuestionnaireItemExtension {
   infoText?: string;
   inputWidth?: InputWidthOption;
   minRows?: number;
+  placeholder?: string;
   preferredElement?: FormElement;
   requireWhen?: QuestionnaireItemConditionDefinition;
   secondaryInfoText?: string;

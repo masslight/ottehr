@@ -302,8 +302,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     }
 
     if (hideNoShow) {
-      // not sure why all virtual visits are kept but keeping this pre-existing logic
-      visits = visits.filter((item) => item.serviceMode === ServiceMode.virtual || item.status !== 'no show');
+      visits = visits.filter((item) => item.status !== 'no show');
     }
 
     if (serviceCategory !== 'all') {

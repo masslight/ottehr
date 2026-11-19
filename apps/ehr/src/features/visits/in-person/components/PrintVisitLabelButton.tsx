@@ -1,9 +1,7 @@
 import { ButtonBase, CircularProgress } from '@mui/material';
-import { FC, useCallback, useState } from 'react';
-import { getOrCreateVisitLabel } from 'src/api/api';
+import { FC, useCallback } from 'react';
 import { GenericToolTip } from 'src/components/GenericToolTip';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { usePrintVisitLabel } from '../../shared/hooks/usePrintVisitLabel';
+import { usePrintEncounterLabel } from '../../shared/hooks/usePrintEncounterLabel';
 
 const PrintDisabledOutlined: FC = () => {
   return (
@@ -34,39 +32,16 @@ type Props = {
 };
 
 export const PrintVisitLabelButton: FC<Props> = ({ encounterId }) => {
-  const { oystehrZambda } = useApiClients();
-  const { printVisitLabel } = usePrintVisitLabel();
-
-  const [loading, setLoading] = useState(false);
-  const [isError, setIsError] = useState(false);
+  const { printEncounterLabel, isPrinting: loading, isError } = usePrintEncounterLabel();
 
   const handleClick = useCallback(async (): Promise<void> => {
+    if (loading) return;
     if (!encounterId) {
       console.warn('cannot print label because encounterId is undefined');
       return;
     }
-
-    setLoading(true);
-
-    if (oystehrZambda === undefined) {
-      console.error('oystehr client undefined. cannot fetch label');
-      setIsError(true);
-      return;
-    }
-
-    const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId });
-    if (labelPdfs.length !== 1) {
-      console.error('Expected 1 label pdf, received unexpected number', JSON.stringify(labelPdfs));
-      setIsError(true);
-      return;
-    }
-
-    const labelPdf = labelPdfs[0];
-
-    await printVisitLabel({ pdfPresignedUrl: labelPdf?.presignedURL ?? '', encounterId });
-
-    setLoading(false);
-  }, [encounterId, oystehrZambda, printVisitLabel]);
+    await printEncounterLabel(encounterId);
+  }, [encounterId, loading, printEncounterLabel]);
 
   const tooltipText = isError ? 'An error occurred' : 'Print label';
   const icon = loading ? <CircularProgress size="15px" /> : isError ? <PrintDisabledOutlined /> : <PrintOutlined />;
@@ -93,7 +68,6 @@ export const PrintVisitLabelButton: FC<Props> = ({ encounterId }) => {
     >
       <ButtonBase
         onClick={handleClick}
-        disabled={isError}
         sx={{
           display: 'flex',
           justifyContent: 'center',
