@@ -89,6 +89,9 @@ import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters
 import { makeNoteResource } from '../src/shared/chart-data';
 import { makeExamObservationResource, makeObservationResource } from '../src/shared/chart-data';
 
+// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
+process.env.ADHOC_SYNC_PAGES = '0';
+
 // Fixture tests for the Encounters layers that reuse the app's own mappers (tracking-board orders, chart
 // sections, visit-note signatures, tracking-board paperwork). The stubbed Oystehr serves each async-bulk
 // job by resource type (plus a suffix for the searches that share a type), and the mapped rows must parse

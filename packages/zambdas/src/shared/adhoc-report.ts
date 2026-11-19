@@ -242,6 +242,17 @@ export const DEFAULT_WINDOW_DAYS = 15;
  * (SC on production, sync searches: 8 → 11.0 s, 16 → 9.0 s).
  */
 export const JOBS_IN_PARALLEL = tuning('ADHOC_JOBS_IN_PARALLEL', 16);
+/**
+ * A search first runs as a plain (sync) paged search, up to this many pages; only a larger one runs as an async job.
+ * An async job costs ~2.5 s however little it returns, a page 0.1–1 s, so most id chunks and short windows finish in
+ * one page. ADHOC_SYNC_PAGES (0 = every search as an async job, as before); read per call so tests can set it.
+ */
+const syncPages = (): number => {
+  const value = Number(process.env.ADHOC_SYNC_PAGES);
+  return Number.isInteger(value) && value >= 0 ? value : 3;
+};
+/** Matches per sync page; ADHOC_SYNC_PAGE_SIZE. A page of visits with their encounters stays well under 6 MiB. */
+const syncPageSize = (): number => tuning('ADHOC_SYNC_PAGE_SIZE', 500);
 /** Halvings of one search before the report fails. */
 const MAX_SPLIT_DEPTH = 3;
 /** The most resources one async-bulk result page holds; without _count a job returns 1 000 (OTR-3686). */
@@ -380,7 +391,54 @@ function entryFromNextUrl(entry: SearchEntry, nextUrl: string): SearchEntry {
   return { resourceType: entry.resourceType, params };
 }
 
+/**
+ * The search as plain paged requests, up to syncPages() pages. Undefined when it has more pages than that, or when a
+ * page fails in a way an async job may not (timeout, 5xx, response too large): the caller then runs it as an async
+ * job, with the split rules. A bad request (4xx) throws.
+ */
+async function runSync(oystehr: Oystehr, entry: SearchEntry, label: string): Promise<FhirResource[] | undefined> {
+  const pages = syncPages();
+  if (pages === 0) return undefined;
+  const size = syncPageSize();
+  const params = entry.params.filter((p) => p.name !== '_count' && p.name !== '_offset');
+  const startedAt = Date.now();
+  const out: FhirResource[] = [];
+  for (let page = 0; page < pages; page++) {
+    let bundle: { unbundle: () => FhirResource[]; link?: { relation?: string }[] };
+    try {
+      bundle = await jobSlot(() =>
+        oystehr.fhir.search({
+          resourceType: entry.resourceType,
+          params: [...params, { name: '_count', value: `${size}` }, { name: '_offset', value: `${page * size}` }],
+        })
+      );
+    } catch (error) {
+      const code = (error as { code?: unknown })?.code;
+      if (isSplittableStatus(code) || code === 413) {
+        console.warn(
+          `[adhoc] ${label}: sync page ${page + 1} failed (code=${code ?? 'none'}), running it as an async job: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+        return undefined;
+      }
+      throw error;
+    }
+    out.push(...bundle.unbundle().filter((r) => r.resourceType !== 'OperationOutcome'));
+    if (!bundle.link?.some((link) => link.relation === 'next')) {
+      console.log(`[adhoc] ${label}: job=sync pages=${page + 1} ms=${Date.now() - startedAt} resources=${out.length}`);
+      return out;
+    }
+  }
+  console.log(`[adhoc] ${label}: job=sync more than ${pages} pages, running it as an async job`);
+  return undefined;
+}
+
 async function runEntry(oystehr: Oystehr, entry: SearchEntry, label: string, depth: number): Promise<FhirResource[]> {
+  if (depth === 0 && !entry.params.some((p) => p.name === '_offset')) {
+    const sync = await runSync(oystehr, entry, label);
+    if (sync) return sync;
+  }
   let result: JobResult;
   try {
     result = await jobSlot(() => runJob(oystehr, entry, label));

@@ -68,6 +68,9 @@ import {
 import { WRITE_OFF_PARTY_EXT_URL, WRITE_OFF_REASON_EXT_URL, WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
 
+// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
+process.env.ADHOC_SYNC_PAGES = '0';
+
 const ENCOUNTER_ID_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 const PAYER_A = 'https://rcm-api.zapehr.com/v1/payer/payer-a';
 const PAYER_B = 'https://rcm-api.zapehr.com/v1/payer/payer-b';

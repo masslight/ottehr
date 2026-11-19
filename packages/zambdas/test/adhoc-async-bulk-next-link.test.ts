@@ -3,6 +3,9 @@ import { FhirResource, Practitioner } from 'fhir/r4b';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchScopedResources, IDS_PER_ENTRY } from '../src/shared/adhoc-report';
 
+// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
+process.env.ADHOC_SYNC_PAGES = '0';
+
 type Param = { name: string; value: string };
 
 const practitioner = (id: string): Practitioner => ({ resourceType: 'Practitioner', id });
@@ -189,5 +192,82 @@ describe('fetch helpers: one async-bulk job per search', () => {
       /bad parameter/
     );
     expect(search).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('fetch helpers: a sync first page before an async job', () => {
+  type SyncAnswer = { resources: FhirResource[]; next: boolean } | { error: { code: number; message: string } };
+
+  function syncClient(sync: (params: Param[]) => SyncAnswer): {
+    oystehr: Oystehr;
+    syncCalls: Param[][];
+    jobs: Param[][];
+  } {
+    const syncCalls: Param[][] = [];
+    const jobs: Param[][] = [];
+    const oystehr = {
+      fhir: {
+        search: async ({ params }: { params: Param[] }, options?: { mode?: string }) => {
+          if (options?.mode === 'async-bulk') {
+            jobs.push(params);
+            return { jobId: `job-${jobs.length}`, contentLocation: '', mode: 'bulk' };
+          }
+          syncCalls.push(params);
+          const answer = sync(params);
+          if ('error' in answer) throw Object.assign(new Error(answer.error.message), { code: answer.error.code });
+          return { unbundle: () => answer.resources, link: answer.next ? [{ relation: 'next', url: 'x' }] : [] };
+        },
+        waitForAsyncJob: async (jobId: string) => {
+          const url = `https://example.test/${jobId}.ndjson`;
+          bodyByUrl.set(url, ndjson(idsOf(jobs[Number(jobId.replace('job-', '')) - 1]).map(practitioner)));
+          return {
+            status: 200,
+            mode: 'bulk',
+            manifest: { requiresAccessToken: true, output: [{ type: 'Practitioner', url }], error: [] },
+          };
+        },
+      },
+    } as unknown as Oystehr;
+    return { oystehr, syncCalls, jobs };
+  }
+
+  beforeEach(() => {
+    bodyByUrl.clear();
+    process.env.ADHOC_SYNC_PAGES = '3';
+  });
+  afterAll(() => {
+    process.env.ADHOC_SYNC_PAGES = '0';
+  });
+
+  it('a search that fits in one page needs no async job', async () => {
+    const { oystehr, syncCalls, jobs } = syncClient((params) => ({
+      resources: idsOf(params).map(practitioner),
+      next: false,
+    }));
+    const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(3));
+    expect(resources).toHaveLength(3);
+    expect(syncCalls).toHaveLength(1);
+    expect(values(syncCalls[0], '_offset')).toEqual(['0']);
+    expect(jobs).toHaveLength(0);
+  });
+
+  it('a search with more pages than allowed runs as an async job, complete', async () => {
+    const { oystehr, syncCalls, jobs } = syncClient(() => ({ resources: [practitioner('partial')], next: true }));
+    const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(3));
+    expect(resources.map((r) => r.id).sort()).toEqual(ids(3).sort());
+    expect(syncCalls).toHaveLength(3);
+    expect(jobs).toHaveLength(1);
+  });
+
+  it('a sync timeout or a too-large page falls back to an async job; a bad request fails', async () => {
+    for (const code of [504, 413]) {
+      const { oystehr, jobs } = syncClient(() => ({ error: { code, message: 'too heavy' } }));
+      expect(await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(2))).toHaveLength(2);
+      expect(jobs).toHaveLength(1);
+    }
+    const { oystehr } = syncClient(() => ({ error: { code: 400, message: 'bad parameter' } }));
+    await expect(fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(2))).rejects.toThrow(
+      /bad parameter/
+    );
   });
 });

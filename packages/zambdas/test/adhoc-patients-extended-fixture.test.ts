@@ -42,6 +42,9 @@ import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 import { makeProcedureResource } from '../src/shared/chart-data';
 
+// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
+process.env.ADHOC_SYNC_PAGES = '0';
+
 // Fixture tests for the Patients layers that reuse app logic: the Recent Patients report's new-vs-existing
 // rule and the visit details face sheet's demographics / PCP / pharmacy composers.
 

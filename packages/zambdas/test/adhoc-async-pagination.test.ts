@@ -3,6 +3,9 @@ import { Appointment, Encounter, FhirResource, Location, Patient } from 'fhir/r4
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_WINDOW_DAYS, fetchAppointmentReportResources } from '../src/shared/adhoc-report';
 
+// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
+process.env.ADHOC_SYNC_PAGES = '0';
+
 type Param = { name: string; value: string };
 
 const appt = (id: string): Appointment => ({
