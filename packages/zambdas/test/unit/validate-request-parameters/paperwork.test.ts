@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { validatePatchInputs, validateSubmitInputs } from '../../../src/patient/paperwork/validateRequestParameters';
-import { createMockZambdaInput } from './helpers';
+import { createMockSecrets, createMockZambdaInput } from './helpers';
 
 const validQRId = '550e8400-e29b-41d4-a716-446655440000';
 const validAppointmentId = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
@@ -125,5 +125,45 @@ describe('paperwork/validateRequestParameters - basicValidation (via validateSub
       appointmentId: validAppointmentId,
     });
     await expect(validateSubmitInputs(input, makeMockOystehr())).rejects.toThrow();
+  });
+});
+
+describe('paperwork/validateRequestParameters - attachment URLs', () => {
+  const secrets = createMockSecrets({ PROJECT_API: 'https://project-api.zapehr.com/v1', PROJECT_ID: 'project-1' });
+  const withAttachment = (url: string): ReturnType<typeof createMockZambdaInput> =>
+    createMockZambdaInput(
+      {
+        questionnaireResponseId: validQRId,
+        answers: {
+          linkId: 'photo-id-page',
+          item: [
+            {
+              linkId: 'photo-id-front',
+              answer: [{ valueAttachment: { url, title: 'photo-id-front', contentType: 'image/png' } }],
+            },
+          ],
+        },
+      },
+      { secrets }
+    );
+
+  test.each([
+    'https://other.example/x.png',
+    'https://project-api.zapehr.com/v1/zambda/some-id/execute-public',
+    'https://project-api.zapehr.com/v1/z3/project-1-photo-id-cards/../../zambda/some-id/execute-public',
+  ])('should reject attachment url %s', async (url) => {
+    await expect(validatePatchInputs(withAttachment(url), makeMockOystehr())).rejects.toMatchObject({
+      message: 'Invalid attachment URL',
+    });
+  });
+
+  test.each([
+    'https://project-api.zapehr.com/v1/z3/project-1-photo-id-cards/patient/x.png',
+    'https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/patient/x.png',
+    '',
+  ])('should accept attachment url "%s"', async (url) => {
+    await expect(validatePatchInputs(withAttachment(url), makeMockOystehr())).rejects.not.toMatchObject({
+      message: 'Invalid attachment URL',
+    });
   });
 });

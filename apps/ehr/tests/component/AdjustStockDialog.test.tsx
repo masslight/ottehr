@@ -6,7 +6,7 @@ import {
   InventoryDrugRow,
   InventoryLotRow,
 } from 'utils/lib/types/api/config/in-house-medications';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AdjustStockDialog from '../../src/features/admin/inventory/AdjustStockDialog';
 
 vi.mock('src/api/api', () => ({ adjustMedicationInventory: vi.fn() }));
@@ -26,6 +26,10 @@ const lot: InventoryLotRow = {
 };
 
 describe('Adjust Stock dialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('sends one adjustment when Enter is pressed again while the save is pending', async () => {
     let finishSave: (response: AdjustMedicationInventoryResponse) => void = () => undefined;
     vi.mocked(adjustMedicationInventory).mockReturnValue(
@@ -69,6 +73,85 @@ describe('Adjust Stock dialog', () => {
     expect(adjustMedicationInventory).toHaveBeenCalledWith(
       {},
       { action: 'adjust', lotId: 'lot-1', direction: 'remove', quantity: 2, reason: 'expired', note: undefined }
+    );
+  });
+
+  it('adds stock without the reason or note picked under Remove', async () => {
+    vi.mocked(adjustMedicationInventory).mockResolvedValue({
+      lot: { ...lot, onHand: 28 },
+      entry: {
+        id: 'entry-2',
+        lotId: 'lot-1',
+        locationId: 'loc-a',
+        type: 'adjustment',
+        quantity: 3,
+        unit: 'vial',
+        effectiveDateTime: '2026-11-13T10:00:00Z',
+      },
+    });
+    const onClose = vi.fn();
+    render(
+      <AdjustStockDialog
+        open
+        drug={{ medicationId: 'med-1', name: 'Ondansetron' } as InventoryDrugRow}
+        lot={lot}
+        locationName="Main Street"
+        onClose={onClose}
+        onSaved={vi.fn()}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('combobox', { name: /reason/i }));
+    await userEvent.click(screen.getByRole('option', { name: 'Other' }));
+    await userEvent.type(screen.getByLabelText(/what happened/i), 'found a box');
+    await userEvent.click(screen.getByRole('radio', { name: 'Add' }));
+
+    expect(screen.queryByRole('combobox', { name: /reason/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/what happened/i)).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(/quantity/i), '3{Enter}');
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+
+    expect(adjustMedicationInventory).toHaveBeenCalledWith(
+      {},
+      { action: 'adjust', lotId: 'lot-1', direction: 'add', quantity: 3 }
+    );
+  });
+
+  it('adds stock after Other was picked under Remove with no note', async () => {
+    vi.mocked(adjustMedicationInventory).mockResolvedValue({
+      lot: { ...lot, onHand: 28 },
+      entry: {
+        id: 'entry-2',
+        lotId: 'lot-1',
+        locationId: 'loc-a',
+        type: 'adjustment',
+        quantity: 3,
+        unit: 'vial',
+        effectiveDateTime: '2026-11-13T10:00:00Z',
+      },
+    });
+    const onClose = vi.fn();
+    render(
+      <AdjustStockDialog
+        open
+        drug={{ medicationId: 'med-1', name: 'Ondansetron' } as InventoryDrugRow}
+        lot={lot}
+        locationName="Main Street"
+        onClose={onClose}
+        onSaved={vi.fn()}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('combobox', { name: /reason/i }));
+    await userEvent.click(screen.getByRole('option', { name: 'Other' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Add' }));
+    await userEvent.type(screen.getByLabelText(/quantity/i), '3{Enter}');
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+
+    expect(adjustMedicationInventory).toHaveBeenCalledWith(
+      {},
+      { action: 'adjust', lotId: 'lot-1', direction: 'add', quantity: 3 }
     );
   });
 });

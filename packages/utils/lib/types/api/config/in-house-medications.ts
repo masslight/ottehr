@@ -291,7 +291,7 @@ export const AdjustMedicationInventoryInputSchema = z
       lotId: z.string().uuid(),
       direction: z.enum(['remove', 'add']),
       quantity: z.number().int().positive(),
-      reason: z.enum(INVENTORY_ADJUSTMENT_REASONS),
+      reason: z.enum(INVENTORY_ADJUSTMENT_REASONS).optional(),
       note: z.string().trim().min(1).optional(),
     }),
     z.object({
@@ -301,6 +301,9 @@ export const AdjustMedicationInventoryInputSchema = z
     }),
   ])
   .superRefine((input, ctx) => {
+    if (input.action === 'adjust' && input.direction === 'remove' && !input.reason) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['reason'], message: 'Say why the stock is removed' });
+    }
     if (input.action === 'adjust' && input.reason === 'other' && !input.note) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['note'], message: 'Say what the adjustment is for' });
     }

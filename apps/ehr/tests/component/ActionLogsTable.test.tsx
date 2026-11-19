@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DateTime } from 'luxon';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { ActionLogEntry } from 'utils/lib/types/api/action-logs.types';
@@ -190,9 +191,65 @@ describe('ActionLogsTable', () => {
     // the address belongs to its own column only — the recipient cell shows '-' when no name was captured
     expect(await screen.findAllByText('patient@example.com')).toHaveLength(1);
     expect(screen.getByText('Email Address')).toBeVisible();
-    expect(screen.getAllByText('-')).toHaveLength(2);
+    // document and recipient, plus the three open columns of an email that sends no tracked link
+    expect(screen.getAllByText('-')).toHaveLength(5);
     // email has no sender address of its own to report, so the column stays out of the table
     expect(screen.queryByText('Sender Fax')).toBeNull();
+  });
+
+  it('shows the latest open of an emailed link, with the earlier ones counted', async () => {
+    mockGetActionLogs.mockResolvedValue({
+      logs: [
+        {
+          ...sentLog,
+          channel: 'email',
+          recipientAddress: 'olivia@example.com',
+          opens: [
+            {
+              openedAt: '2026-11-12T15:30:00.000Z',
+              ipAddress: '203.0.113.9',
+              userAgent:
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            },
+            { openedAt: '2026-11-10T09:00:00.000Z', ipAddress: '198.51.100.4' },
+          ],
+        },
+      ],
+      totalCount: 1,
+    });
+    render(<ActionLogsTable channel="email" />, { wrapper: createWrapper() });
+
+    expect(await screen.findByText('203.0.113.9')).toBeVisible();
+    expect(screen.getByText('Opened')).toBeVisible();
+    expect(screen.getByText('IP Address')).toBeVisible();
+    expect(screen.getByText('Browser')).toBeVisible();
+    expect(screen.getByText(DateTime.fromISO('2026-11-12T15:30:00.000Z').toFormat('MM/dd/yyyy hh:mm a'))).toBeVisible();
+    expect(screen.getByText('Chrome 131 on Windows')).toBeVisible();
+    expect(screen.getByText('+1 earlier')).toBeVisible();
+  });
+
+  it('tells an unopened link apart from an email that sends no link', async () => {
+    mockGetActionLogs.mockResolvedValue({
+      logs: [
+        { ...sentLog, channel: 'email', recipientAddress: 'olivia@example.com', opens: [] },
+        { ...sentLog, attemptId: 'note', channel: 'email', recipientAddress: 'ada@example.com', opens: undefined },
+      ],
+      totalCount: 2,
+    });
+    render(<ActionLogsTable channel="email" />, { wrapper: createWrapper() });
+
+    await screen.findByText('olivia@example.com');
+    const [unopenedRow, noteRow] = screen.getAllByRole('row').slice(1);
+    expect(within(unopenedRow).getByText('Not opened')).toBeVisible();
+    expect(within(noteRow).queryByText('Not opened')).toBeNull();
+  });
+
+  it('keeps the open columns out of the fax log', async () => {
+    render(<ActionLogsTable channel="fax" />, { wrapper: createWrapper() });
+    await screen.findAllByText('Dr. Green');
+
+    expect(screen.queryByText('Opened')).toBeNull();
+    expect(screen.queryByText('Browser')).toBeNull();
   });
 
   it('renders empty and error states', async () => {

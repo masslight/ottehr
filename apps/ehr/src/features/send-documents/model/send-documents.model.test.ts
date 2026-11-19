@@ -1,4 +1,8 @@
-import { DOCUMENT_PACKET_MAX_RECIPIENTS, PacketDocumentAvailability } from 'utils/lib/types/api/document-packet.types';
+import {
+  DOCUMENT_PACKET_MAX_RECIPIENTS,
+  PACKET_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
+  PacketDocumentAvailability,
+} from 'utils/lib/types/api/document-packet.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { actionLogsQueryKey } from '../../action-logs/actionLogs.constants';
 import { availableDocumentLabels, documentLabelGroups, hasNothingToSend } from './documents';
@@ -67,6 +71,23 @@ describe('documents', () => {
     expect(documentLabelGroups(availability({ 'discharge-summary': false, 'radiology-results': false }))).toEqual({
       included: ['Visit/Progress Note', 'Lab Results', 'Patient Education'],
       excluded: ['Discharge Summary', 'Radiology Results'],
+    });
+  });
+
+  it('keeps patient education merged into the discharge summary in the included group', () => {
+    const rows = availability().map((row) =>
+      row.kind === 'patient-education'
+        ? {
+            ...row,
+            available: false,
+            count: 1,
+            unavailableReason: PACKET_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
+          }
+        : row
+    );
+    expect(documentLabelGroups(rows)).toEqual({
+      included: ['Visit/Progress Note', 'Discharge Summary', 'Lab Results', 'Radiology Results', 'Patient Education'],
+      excluded: [],
     });
   });
 

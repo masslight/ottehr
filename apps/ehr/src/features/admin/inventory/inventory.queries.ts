@@ -1,4 +1,4 @@
-import { useQuery, UseQueryResult } from '@tanstack/react-query';
+import { QueryKey, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { getMedicationInventory, listMedicationInventory } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
@@ -18,6 +18,7 @@ export const useMedicationInventory = (
     queryKey: [INVENTORY_QUERY_KEY, view],
     queryFn: () => listMedicationInventory(oystehrZambda!, view!),
     enabled: !!oystehrZambda && !!view,
+    refetchOnWindowFocus: true,
   });
 };
 
@@ -44,6 +45,25 @@ export const useInventoryLotsOnHand = ({
       return lots ?? [];
     },
     enabled: Boolean(oystehrZambda && catalogMedicationId && locationId && enabled),
+  });
+};
+
+export const recordedInventoryQueryKey = (medicationId: string | undefined): QueryKey => [
+  'medication-inventory-recorded',
+  medicationId,
+];
+
+export const useHasRecordedInventory = (
+  medicationId: string | undefined,
+  enabled: boolean
+): UseQueryResult<boolean> => {
+  const { oystehrZambda } = useApiClients();
+  return useQuery({
+    queryKey: recordedInventoryQueryKey(medicationId),
+    queryFn: async ({ client, queryKey }) =>
+      Boolean((await getMedicationInventory(oystehrZambda!, { medicationId: medicationId! })).lastReceivedLot) ||
+      client.getQueryData<boolean>(queryKey) === true,
+    enabled: Boolean(oystehrZambda && medicationId && enabled),
   });
 };
 

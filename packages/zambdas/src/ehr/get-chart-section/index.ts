@@ -48,7 +48,6 @@ const ZAMBDA_NAME = 'get-chart-section';
  * on the server (shared/chart-sections); the caller supplies the encounter and the section name only.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
   const { secrets, encounterId, section, params } = validateWithSchema(GetChartSectionSchema, input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);

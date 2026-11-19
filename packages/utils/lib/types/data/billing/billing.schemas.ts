@@ -715,6 +715,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         nonInsurancePayer: z.object({ id: nonEmptyString.uuid() }).nullable().optional(),
         diagnoses: z.array(claimDiagnosisSchema).optional(),
         serviceLines: z.array(claimServiceLineSchema).optional(),
+        medicareSecondaryReasonCode: nonEmptyString.optional().or(z.literal('')),
         billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),
         patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
         admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
@@ -764,6 +765,15 @@ export const UpdateBillingResourceInputSchema = updateBillingResourceUnion.super
         code: z.ZodIssueCode.custom,
         path: ['fields', 'dischargeDate'],
         message: 'Discharge date is required',
+      });
+    }
+    const admission = Date.parse(data.fields.admissionDate ?? '');
+    const discharge = Date.parse(data.fields.dischargeDate ?? '');
+    if (!Number.isNaN(admission) && !Number.isNaN(discharge) && discharge < admission) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fields', 'dischargeDate'],
+        message: 'Discharge date must be on or after admission date',
       });
     }
   }

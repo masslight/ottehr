@@ -39,7 +39,6 @@ import { ClaimEraLinks, fetchClaimEraLinks } from '../claim-amounts';
 import { ClaimLookups } from '../claim-search';
 import { getCLIA } from '../service-facility.helpers';
 import {
-  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
@@ -51,6 +50,7 @@ import {
   getClaimSupportingInfo,
   getEraCheckNumber,
   getEraSource,
+  getPayerClaimControlNumber,
   getTaxonomy,
   isInstitutionalClaim,
   readClaimItemDrug,
@@ -242,9 +242,7 @@ export function claimDetailsLayer(
     facilityClia: (facility && getCLIA(facility)) ?? '',
     placeOfService: claim.item?.[0]?.locationCodeableConcept?.coding?.[0]?.code ?? '',
     patientControlNumber: getClaimPcn(claim) ?? '',
-    payerClaimControlNumber:
-      claim.identifier?.find((identifier) => identifier.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)
-        ?.value ?? '',
+    payerClaimControlNumber: getPayerClaimControlNumber(claim, 'primary') ?? '',
     billType: getClaimBillType(claim),
     // A professional claim's billablePeriod is the visit, not an admission.
     admissionDate: institutional ? claim.billablePeriod?.start || null : null,

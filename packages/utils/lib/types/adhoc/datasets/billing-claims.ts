@@ -81,7 +81,11 @@ export const BillingClaimsBaseRowSchema = z.object({
   insurancePaid: z.number().describe('Total paid by insurance across all remits, USD.'),
   patientResp: z
     .number()
-    .describe('Patient responsibility per the latest remit, USD. 0 before the claim is adjudicated.'),
+    .nullable()
+    .describe(
+      'Patient responsibility per the latest remit (its PR adjustments), USD. Null while no remit has reported ' +
+        'patient responsibility: unknown, not 0.'
+    ),
   patientPaid: z.number().describe('Total the patient paid toward this claim (net of refunds), USD.'),
   writeOffsTotal: z.number().describe('Total of active (not voided) write-offs on the claim, USD.'),
   claimBalance: z

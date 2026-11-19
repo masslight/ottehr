@@ -11,7 +11,7 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { AR_STAGE, emptyClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PROVISIONAL_BALANCE_HINT } from '../../src/constants/claimStatus';
+import { PROVISIONAL_BALANCE_HINT, UNDETERMINED_PATIENT_RESP_HINT } from '../../src/constants/claimStatus';
 import ClaimDetail, { InsuranceSection } from '../../src/pages/ClaimDetail';
 
 const {
@@ -148,7 +148,7 @@ export const makeClaim = (arStage: string): ClaimDetailResponse => ({
   billed: 0,
   allowed: 0,
   insurancePaid: 0,
-  patientResp: 0,
+  patientResp: null,
   patientPaid: 0,
   writeOffsTotal: 0,
   balance: 0,
@@ -914,6 +914,15 @@ describe('ClaimDetail — service line remit details', () => {
     expect(within(totals).getByText('-$20.00')).toBeInTheDocument();
   });
 
+  it('shows patient responsibility as unknown while no remit has reported it', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits({ patientResp: null }));
+    renderDetail();
+    await openRemitsTab();
+
+    const totals = await screen.findByRole('group', { name: 'Remit totals' });
+    expect(within(totals).getByText('Unknown')).toBeInTheDocument();
+  });
+
   it('shows the service lines as before when no ERA is matched', async () => {
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits({ remits: [], insurancePayments: [] }));
     renderDetail();
@@ -1210,15 +1219,29 @@ describe('ClaimDetail — provisional balance indicator', () => {
     expect(await screen.findByRole('img', { name: PROVISIONAL_BALANCE_HINT })).toBeInTheDocument();
   });
 
-  it('does not flag the balance once the claim is adjudicated', async () => {
+  it('flags the balance as provisional when remits came back but none reported patient responsibility', async () => {
+    // e.g. a CO-B16 denial: the open balance may still be the payer's
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.patient),
       adjudicated: true,
+      patientResp: null,
+    });
+    renderDetail();
+
+    expect(await screen.findByRole('img', { name: UNDETERMINED_PATIENT_RESP_HINT })).toBeInTheDocument();
+  });
+
+  it('does not flag the balance once a remit reports patient responsibility', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      adjudicated: true,
+      patientResp: 0,
     });
     renderDetail();
 
     await screen.findAllByText('Jane Doe');
     expect(screen.queryByRole('img', { name: PROVISIONAL_BALANCE_HINT })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: UNDETERMINED_PATIENT_RESP_HINT })).not.toBeInTheDocument();
   });
 });
 
