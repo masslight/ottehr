@@ -45,7 +45,8 @@ interface UsePatientRadiologyOrdersResult {
     report: string,
     reportType: RadiologyReportType,
     diagnosisCodes?: string[],
-    performedById?: string
+    performedById?: string,
+    markAsFinal?: boolean
   ) => Promise<void>;
   /** Corrects a read that was already saved. Resolves `true` only when the edit was persisted. */
   handleUpdateReport: (serviceRequestId: string, report: string, reportType: RadiologyReportType) => Promise<boolean>;
@@ -234,7 +235,8 @@ export const usePatientRadiologyOrders = (options: {
 
   /**
    * The shape every order mutation shares: call the zambda, then refetch so the page reflects the write.
-   * On failure it surfaces the API's own message (falling back to `defaultError`) and leaves the list alone.
+   * On failure it surfaces the API's own message (falling back to `defaultError`) and leaves the list alone
+   * unless `refetchOnError` asks for it.
    * Resolves true only when the write landed, so callers can keep an edit field open on failure.
    */
   const runOrderAction = useCallback(
@@ -242,10 +244,12 @@ export const usePatientRadiologyOrders = (options: {
       call,
       setBusy,
       defaultError,
+      refetchOnError,
     }: {
       call: (client: Oystehr) => Promise<unknown>;
       setBusy?: (busy: boolean) => void;
       defaultError: string;
+      refetchOnError?: boolean;
     }): Promise<boolean> => {
       if (!oystehrZambda) {
         console.error(`${defaultError}: API client is not available`);
@@ -263,8 +267,11 @@ export const usePatientRadiologyOrders = (options: {
       } catch (err) {
         console.error(defaultError, err);
         const errorMsg = getApiError({ error: err, defaultError });
-        setError(err instanceof Error ? err : new Error(errorMsg));
         enqueueSnackbar(errorMsg, { variant: 'error' });
+        if (refetchOnError) {
+          await fetchOrders(getCurrentSearchParamsForPage(page));
+        }
+        setError(err instanceof Error ? err : new Error(errorMsg));
         return false;
       } finally {
         setBusy?.(false);
@@ -279,7 +286,8 @@ export const usePatientRadiologyOrders = (options: {
       report: string,
       reportType: RadiologyReportType,
       diagnosisCodes?: string[],
-      performedById?: string
+      performedById?: string,
+      markAsFinal?: boolean
     ): Promise<void> => {
       if (!report) {
         enqueueSnackbar(`Please enter a ${reportType} report before saving.`, { variant: 'error' });
@@ -290,10 +298,12 @@ export const usePatientRadiologyOrders = (options: {
         call: (client) =>
           reportType === 'preliminary'
             ? // Diagnosis is captured with the preliminary read (it is optional at order time).
-              savePreliminaryReport(client, { serviceRequestId, report, diagnosisCodes, performedById })
+              savePreliminaryReport(client, { serviceRequestId, report, diagnosisCodes, performedById, markAsFinal })
             : saveFinalReport(client, { serviceRequestId, report }),
         setBusy: setIsSavingReport,
-        defaultError: `Failed to save ${reportType} report`,
+        defaultError: `Failed to save ${markAsFinal ? 'final' : reportType} report`,
+        // The preliminary read is saved before it is marked final, so a failure can leave it saved.
+        refetchOnError: markAsFinal,
       });
     },
     [runOrderAction]
