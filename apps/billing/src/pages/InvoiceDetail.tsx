@@ -145,7 +145,7 @@ export default function InvoiceDetail(): ReactElement {
     setDownloading(true);
     setDownloadError(null);
     try {
-      // The PDF link is presigned and expires, so get a fresh one just in case.
+      // presigned link might have expired
       const { data } = await invoice.refetch({
         throwOnError: true,
       });
