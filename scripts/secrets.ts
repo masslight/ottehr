@@ -2,6 +2,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { readSecretValues } from './secret-values';
 
 function checkDirectory(dirPath: string): boolean {
   try {
@@ -154,6 +155,13 @@ function validate(environment: string): void {
   }
 }
 
+// Registers the values with the GitHub Actions runner, which then replaces them with *** in the job log.
+function mask(): void {
+  const { values, fileCount } = readSecretValues();
+  values.forEach((value) => console.log(`::add-mask::${value.replace(/%/g, '%25')}`));
+  console.log(`Masked ${values.length} secret values from ${fileCount} files`);
+}
+
 function main(): void {
   const command = process.argv[2];
   const environment = process.argv[3];
@@ -172,8 +180,11 @@ function main(): void {
     case 'validate':
       validate(environment);
       break;
+    case 'mask':
+      mask();
+      break;
     default:
-      console.error('Invalid command. Valid commands are: populate, validate');
+      console.error('Invalid command. Valid commands are: populate, validate, mask');
       process.exit(1);
   }
 }

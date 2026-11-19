@@ -60,7 +60,7 @@ export async function login(page: Page, phone?: string, text_username?: string, 
     throw new Error('No code received from SMS service');
   }
 
-  console.log(`Trying code: ${latestCode}`);
+  console.log('Trying received code');
 
   const codeInput = page.locator('#code');
   await codeInput.clear();
@@ -88,7 +88,7 @@ export async function login(page: Page, phone?: string, text_username?: string, 
     timeout: 10_000,
   });
 
-  console.log(`[SUCCESS] Code ${latestCode} is valid!`);
+  console.log('[SUCCESS] Code is valid!');
 
   // Wait for the token to be saved in localStorage
   await expect(async () => {
@@ -151,7 +151,7 @@ async function getLatestCode(
           const matches = codeRegex.exec(sms.body);
           if (matches?.at(1)) {
             const code = matches[1];
-            console.log(`[CODE_FOUND] Latest code found: "${code}"`);
+            console.log('[CODE_FOUND] Latest code found');
             return code;
           }
         }

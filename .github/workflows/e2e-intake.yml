@@ -327,8 +327,13 @@ jobs:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ needs.check-changes.outputs.user-json-cache-key }}
 
+      - name: Remove credentials from login test results
+        id: sanitize-login-results
+        if: steps.login.outcome == 'success' || steps.login.outcome == 'failure'
+        run: npm exec -- tsx scripts/sanitize-playwright-artifacts.ts apps/intake/playwright-report-login apps/intake/test-results-login
+
       - name: Upload login test results
-        if: steps.login.outcome == 'success' || steps.login.outcome == 'failure' # log on success needed for investigate false success caces, we can remove it if login will work stable
+        if: (steps.login.outcome == 'success' || steps.login.outcome == 'failure') && steps.sanitize-login-results.outcome == 'success' # log on success needed for investigate false success caces, we can remove it if login will work stable
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report-intake-login-${{ needs.check-changes.outputs.environment }}
@@ -468,8 +473,13 @@ jobs:
         env:
           CI: true
 
-      - name: Upload test results
+      - name: Remove credentials from test results
+        id: sanitize-results
         if: always()
+        run: npm exec -- tsx scripts/sanitize-playwright-artifacts.ts apps/intake/playwright-report apps/intake/test-results
+
+      - name: Upload test results
+        if: always() && steps.sanitize-results.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report-intake-${{ needs.check-changes.outputs.environment }}

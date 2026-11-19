@@ -86,3 +86,7 @@ runs:
       working-directory: ${{ inputs.source-dir }}
       run: |
         npm exec -- tsx scripts/generate-local-env.ts ${{ inputs.environment }}
+    - name: Mask secret values in logs
+      shell: bash
+      working-directory: ${{ inputs.source-dir }}
+      run: npm exec -- tsx scripts/secrets.ts mask ${{ inputs.environment }}
