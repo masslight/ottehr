@@ -1,4 +1,4 @@
-import { useQuery, UseQueryResult } from '@tanstack/react-query';
+import { QueryKey, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { getMedicationInventory, listMedicationInventory } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
@@ -10,7 +10,6 @@ import {
 
 export const INVENTORY_QUERY_KEY = 'medication-inventory';
 
-/** The inventory screen for one location or all of them; `undefined` waits until the view is known. */
 export const useMedicationInventory = (
   view: ListMedicationInventoryInput | undefined
 ): UseQueryResult<ListMedicationInventoryResponse, Error> => {
@@ -19,10 +18,10 @@ export const useMedicationInventory = (
     queryKey: [INVENTORY_QUERY_KEY, view],
     queryFn: () => listMedicationInventory(oystehrZambda!, view!),
     enabled: !!oystehrZambda && !!view,
+    refetchOnWindowFocus: true,
   });
 };
 
-/** One lot's stock history. */
 export const useLotHistory = (lotId: string): UseQueryResult<ListMedicationInventoryResponse, Error> =>
   useMedicationInventory({ view: 'lot-history', lotId });
 
@@ -30,7 +29,6 @@ export const useLotHistory = (lotId: string): UseQueryResult<ListMedicationInven
 export const useVfcBorrowings = (): UseQueryResult<ListMedicationInventoryResponse, Error> =>
   useMedicationInventory({ view: 'vfc-borrowing' });
 
-/** Lots of a catalog drug with stock on hand at the visit's location, for the Lot field's suggestions. */
 export const useInventoryLotsOnHand = ({
   catalogMedicationId,
   locationId,
@@ -54,7 +52,25 @@ export const useInventoryLotsOnHand = ({
   });
 };
 
-/** The lot of a drug last received at any location, for prefilling the next receipt; `null` before the first. */
+export const recordedInventoryQueryKey = (medicationId: string | undefined): QueryKey => [
+  'medication-inventory-recorded',
+  medicationId,
+];
+
+export const useHasRecordedInventory = (
+  medicationId: string | undefined,
+  enabled: boolean
+): UseQueryResult<boolean> => {
+  const { oystehrZambda } = useApiClients();
+  return useQuery({
+    queryKey: recordedInventoryQueryKey(medicationId),
+    queryFn: async ({ client, queryKey }) =>
+      Boolean((await getMedicationInventory(oystehrZambda!, { medicationId: medicationId! })).lastReceivedLot) ||
+      client.getQueryData<boolean>(queryKey) === true,
+    enabled: Boolean(oystehrZambda && medicationId && enabled),
+  });
+};
+
 export const useLastReceivedLot = (
   medicationId: string
 ): UseQueryResult<GetMedicationInventoryResponse['lastReceivedLot'] | null> => {
@@ -63,5 +79,6 @@ export const useLastReceivedLot = (
     queryKey: ['medication-inventory-last-received-lot', medicationId],
     queryFn: async () => (await getMedicationInventory(oystehrZambda!, { medicationId })).lastReceivedLot ?? null,
     enabled: !!oystehrZambda,
+    gcTime: 0,
   });
 };

@@ -36,7 +36,6 @@ interface AdjustStockDialogProps {
   locationName: string;
 }
 
-/** Adjust a lot up or down with a reason (requirement 6). */
 export default function AdjustStockDialog({
   open,
   onClose,
@@ -54,15 +53,16 @@ export default function AdjustStockDialog({
   const [showNoteError, setShowNoteError] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const isRemove = direction === 'remove';
   const count = Number(quantity);
   const units = capitalize(unitLabel(lot.unit, count > 0 ? count : 2));
-  const actionLabel = direction === 'remove' ? 'Remove' : 'Add';
+  const actionLabel = isRemove ? 'Remove' : 'Add';
   const submitLabel = count > 0 ? `${actionLabel} ${count} ${units}` : `${actionLabel} ${units}`;
 
-  const noteMissing = reason === 'other' && !note.trim();
+  const noteMissing = isRemove && reason === 'other' && !note.trim();
 
   const save = async (): Promise<void> => {
-    if (!oystehrZambda || !reason) return;
+    if (!oystehrZambda || (isRemove && !reason) || saving) return;
     if (noteMissing) {
       setShowNoteError(true);
       return;
@@ -74,15 +74,16 @@ export default function AdjustStockDialog({
         lotId: lot.id,
         direction,
         quantity: count,
-        reason,
-        note: note.trim() || undefined,
+        ...(isRemove && reason
+          ? {
+              reason,
+              note: note.trim() || undefined,
+            }
+          : {}),
       });
-      enqueueSnackbar(
-        `${actionLabel === 'Remove' ? 'Removed' : 'Added'} ${formatQuantity(count, lot.unit)} of ${drug.name}`,
-        {
-          variant: 'success',
-        }
-      );
+      enqueueSnackbar(`${isRemove ? 'Removed' : 'Added'} ${formatQuantity(count, lot.unit)} of ${drug.name}`, {
+        variant: 'success',
+      });
       onSaved();
       onClose();
     } catch (error) {
@@ -134,22 +135,24 @@ export default function AdjustStockDialog({
             onChange={(e) => setQuantity(e.target.value)}
             sx={{ width: 160 }}
           />
-          <FormControl fullWidth required>
-            <InputLabel id="adjust-reason-label">Reason</InputLabel>
-            <Select
-              labelId="adjust-reason-label"
-              label="Reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value as InventoryAdjustmentReason)}
-            >
-              {INVENTORY_ADJUSTMENT_REASONS.map((option) => (
-                <MenuItem key={option} value={option}>
-                  {INVENTORY_ENTRY_REASON_LABELS[option]}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {reason === 'other' ? (
+          {isRemove && (
+            <FormControl fullWidth required>
+              <InputLabel id="adjust-reason-label">Reason</InputLabel>
+              <Select
+                labelId="adjust-reason-label"
+                label="Reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value as InventoryAdjustmentReason)}
+              >
+                {INVENTORY_ADJUSTMENT_REASONS.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {INVENTORY_ENTRY_REASON_LABELS[option]}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
+          {isRemove && reason === 'other' ? (
             <TextField
               required
               fullWidth

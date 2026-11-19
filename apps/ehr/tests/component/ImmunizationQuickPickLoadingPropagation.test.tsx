@@ -63,6 +63,11 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () =>
   useAppointmentData: () => appointmentData,
 }));
 
+vi.mock('src/features/visits/shared/hooks/useOystehrAPIClient', () => ({ useOystehrAPIClient: () => ({}) }));
+vi.mock('src/hooks/useGetPatient', () => ({
+  useGetPatientAccount: () => ({ data: undefined, isError: false }),
+}));
+
 vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
   useGetVaccines: () => ({ data: [], isLoading: false }),
   useGetImmunizationForecast: () => ({ data: undefined, isLoading: false, isError: false }),

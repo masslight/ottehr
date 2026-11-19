@@ -114,6 +114,23 @@ describe('coding field sentences', () => {
     expect(screen.getByRole('button', { name: 'side (empty)' })).toHaveAttribute('data-needed', 'true');
   });
 
+  it('offers staples as a repair type in alphabetical order and keeps the staple count', async () => {
+    const user = userEvent.setup();
+    render(<Form family={lacerationFamily} />);
+    await user.click(screen.getByRole('button', { name: 'repair type (empty)' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'adhesive only',
+      'layered',
+      'open',
+      'single layer',
+      'staples',
+      'strips only',
+    ]);
+    await user.click(screen.getByRole('option', { name: 'staples' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'suture/staple count' }), '6');
+    expect(readRows(latest.facts ?? {}, 'wounds')[0]).toMatchObject({ closure: 'staples', sutureCount: 6 });
+  });
+
   it.each(['adhesive only', 'open', 'strips only'])(
     'clears the suture count for %s closures and keeps the material',
     async (closure) => {
@@ -144,6 +161,7 @@ describe('coding field sentences', () => {
 
   it.each([
     ['layered', true],
+    ['staples', true],
     ['open', false],
     ['strips only', false],
   ])('marks the length as needed for a %s closure: %s', async (closure, needed) => {

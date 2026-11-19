@@ -33,7 +33,6 @@ export function validateRequestParameters(
     }
   }
 
-  // undefined leaves the inventory setup alone and null clears it; anything else must be a full setup
   const validatedInventory =
     inventory === undefined || inventory === null
       ? inventory

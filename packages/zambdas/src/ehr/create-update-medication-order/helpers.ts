@@ -15,6 +15,7 @@ import {
   INVENTORY_MEDICATION_TYPE_CODE,
   INVENTORY_VACCINE_TYPE_CODE,
   MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
+  MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
 import {
   inHouseMedicationsMedicationApplianceRoutes,
@@ -36,7 +37,7 @@ export function getPerformerId(medicationAdministration: MedicationAdministratio
 
 export function createMedicationCopy(
   inventoryMedication: Medication,
-  orderData: { lotNumber?: string; ndc?: string; expDate?: string; manufacturer?: string },
+  orderData: { lotNumber?: string; inventoryLotId?: string; ndc?: string; expDate?: string; manufacturer?: string },
   newStatus?: string
 ): Medication {
   const resourceCopy = { ...inventoryMedication };
@@ -62,6 +63,16 @@ export function createMedicationCopy(
       lotNumber: orderData.lotNumber || undefined,
       expirationDate: orderData.expDate || undefined,
     };
+    const identifiers = [
+      ...(resourceCopy.identifier ?? []).filter(
+        (idn) => idn.system !== MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM
+      ),
+      ...(orderData.inventoryLotId
+        ? [{ system: MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM, value: orderData.inventoryLotId }]
+        : []),
+    ];
+    if (identifiers.length > 0) resourceCopy.identifier = identifiers;
+    else delete resourceCopy.identifier;
   }
   if (orderData.manufacturer) resourceCopy.manufacturer = { display: orderData.manufacturer };
   else if (orderData.manufacturer === '') delete resourceCopy.manufacturer;
@@ -197,9 +208,8 @@ export async function getCptHcpcsCodesToAddToChartData(
 }
 
 /**
- * Keeps the stock ledger in step with the order after it was written (requirements 4 and 5). Best-effort by
- * design: administration is never blocked by inventory, so a failure here is logged and reported, never
- * thrown, mirroring manageAdditionalCptCodesForOrder.
+ * Best-effort by design: administration is never blocked by inventory, so a failure here is logged and
+ * reported, never thrown.
  */
 export async function syncInventoryForOrder(
   oystehr: Oystehr,

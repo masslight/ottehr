@@ -19,6 +19,7 @@ import { shouldUseCandid, shouldUseOttehrBilling } from './candid';
 
 interface InvoicingFlags {
   ottehrBillingInvoicingEnabled?: boolean;
+  automatedPatientOutreachEnabled?: boolean;
 }
 
 export function isCandidInvoicingEnabled(secrets: Secrets): boolean {
@@ -43,6 +44,11 @@ export function isOttehrBillingInvoicingInBillingApp(
   flags: InvoicingFlags = FEATURE_FLAGS_CONFIG
 ): boolean {
   return isOttehrBillingInvoicingEnabled(secrets, flags) && isInvoicingInBillingAppSecretOn(secrets);
+}
+
+// Invoice outreach follows invoicing, so the one secret moves both.
+export function isOutreachInBillingApp(secrets: Secrets, flags: InvoicingFlags = FEATURE_FLAGS_CONFIG): boolean {
+  return isOttehrBillingInvoicingInBillingApp(secrets, flags) && (flags.automatedPatientOutreachEnabled ?? false);
 }
 
 export interface BuildInvoiceTaskParams {

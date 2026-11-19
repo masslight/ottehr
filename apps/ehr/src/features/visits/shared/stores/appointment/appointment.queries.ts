@@ -977,7 +977,6 @@ type MedicationListData = {
   idToName: Record<string, string>;
   idToMedispanCode: Record<string, string>;
   idToNdc: Record<string, string>;
-  /** Drugs set up for inventory: their lot, expiration, NDC and manufacturer come from stock, not quick picks. */
   inventoryTrackedIds: string[];
 };
 

@@ -148,7 +148,6 @@ export const EditableMedicationCard: React.FC<{
   const [isDeleting, setIsDeleting] = useState(false);
   const isSavedRef = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
-  // Marking administered with an expired lot (picked or typed) asks first; holds the save to continue with.
   const [expiredLotPrompt, setExpiredLotPrompt] = useState<{ lotNumber: string; expDate: string } | null>(null);
   const pendingSaveRef = useRef<UpdateMedicationOrderInput | null>(null);
 
@@ -211,7 +210,15 @@ export const EditableMedicationCard: React.FC<{
     value: MedicationData[Field]
   ): void => {
     isSavedRef.current = false;
-    const newValues = { ...localValues, [field]: field === 'dose' ? Number(value) : value };
+    const newValues: Partial<MedicationData> = { ...localValues, [field]: field === 'dose' ? Number(value) : value };
+    if (field === 'lotNumber') {
+      const lot = { ...medication, ...newValues };
+      const isSavedLot =
+        Boolean(medication?.lotNumber) &&
+        lot.lotNumber?.trim() === medication?.lotNumber &&
+        lot.expDate?.slice(0, 10) === medication?.expDate?.slice(0, 10);
+      newValues.inventoryLotId = isSavedLot ? medication?.inventoryLotId : undefined;
+    }
     setLocalValues(newValues);
     if (isCreating && encounterId) setDraft(encounterId, newValues);
     if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {
@@ -265,8 +272,7 @@ export const EditableMedicationCard: React.FC<{
         ndc: quickPick.ndc,
         expDate: quickPick.expDate,
         cptCodes: quickPick.cptCodes ?? [],
-        // A drug set up for inventory takes these from the stocked lot picked at administration; a quick pick's
-        // saved lot would be stale and would stop the soonest-expiring lot being preselected.
+        // Tracked drugs take lot details from the stocked lot; a quick pick's stale lot would block preselection.
         ...(resolvedMedicationId &&
           selectsOptions.medicationId.inventoryTrackedIds?.has(resolvedMedicationId) && {
             lotNumber: undefined,
@@ -417,7 +423,10 @@ export const EditableMedicationCard: React.FC<{
     const { newStatus, orderData } = updatedRequestInput;
     if (
       (newStatus === 'administered' || newStatus === 'administered-partly') &&
-      isExpirationDatePast(orderData?.expDate, DateTime.now().toISODate())
+      isExpirationDatePast(
+        orderData?.expDate,
+        DateTime.fromISO(orderData?.effectiveDateTime ?? '').toISODate() ?? DateTime.now().toISODate()
+      )
     ) {
       pendingSaveRef.current = updatedRequestInput;
       setExpiredLotPrompt({ lotNumber: orderData?.lotNumber ?? '', expDate: orderData!.expDate! });
@@ -605,9 +614,7 @@ export const EditableMedicationCard: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Lot suggestions (requirement 3): the order's catalog drug at the visit's location. An existing order's
-  // medicationId is the contained-copy sentinel, so the catalog drug is the one the copy records, or found by name
-  // for orders saved before the copy recorded it, as quick picks do.
+  // Orders saved before the copy recorded its catalog drug fall back to a name match.
   const medicationIdValue = getFieldValue('medicationId');
   const catalogMedicationId =
     medicationIdValue && medicationIdValue !== IN_HOUSE_CONTAINED_MEDICATION_ID
@@ -626,6 +633,7 @@ export const EditableMedicationCard: React.FC<{
       setLocalValues((prev) => ({
         ...prev,
         lotNumber: lot.lotNumber,
+        inventoryLotId: lot.id,
         expDate: lot.expirationDate ? DateTime.fromISO(lot.expirationDate).toISO() ?? undefined : undefined,
         ndc: lot.ndc,
         manufacturer: lot.manufacturer ?? '',
@@ -634,7 +642,6 @@ export const EditableMedicationCard: React.FC<{
     [setLocalValues]
   );
 
-  // Administer mode starts on the soonest-expiring unexpired lot when no lot is filled in yet.
   const lotPreselectedRef = useRef(false);
   const hasLotValue = Boolean(getFieldValue('lotNumber'));
   useEffect(() => {

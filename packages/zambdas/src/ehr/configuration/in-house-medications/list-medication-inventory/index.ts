@@ -43,7 +43,6 @@ import { performEffect as listActiveLocations } from '../../../locations/list-ac
 
 let m2mToken: string;
 
-/** The inventory screen (requirement 7): every tracked drug for one location or all locations, or one lot's history. */
 export const index = wrapHandler(
   'admin-list-medication-inventory',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -87,7 +86,6 @@ export const performEffect = async (
   return { drugs: buildAllLocationsRows(drugs, lots, locations, today), entries: [] };
 };
 
-/** Every catalog drug (medication or vaccine) with an inventory setup. */
 const getTrackedDrugs = async (oystehr: Oystehr): Promise<TrackedDrug[]> => {
   const catalog = await getAllFhirSearchPages<Medication>(
     {
@@ -105,10 +103,6 @@ const getTrackedDrugs = async (oystehr: Oystehr): Promise<TrackedDrug[]> => {
   });
 };
 
-/**
- * Lots at one location (empty ones too, so they can still be counted and adjusted), or with stock on hand
- * everywhere (status is derived from the cached on hand).
- */
 const getLots = async (
   oystehr: Oystehr,
   params: Extract<ListMedicationInventoryInput, { view: 'location' | 'all-locations' }>
@@ -131,7 +125,6 @@ const getLots = async (
   });
 };
 
-/** Who made each entry and, for administrations, which visit it came from, out of the resources the ledger search included. */
 const resolveHistoryNames = (resources: FhirResource[]): HistoryNames => {
   const byRef = new Map<string, FhirResource>();
   for (const resource of resources) if (resource.id) byRef.set(`${resource.resourceType}/${resource.id}`, resource);

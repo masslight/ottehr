@@ -23,7 +23,6 @@ import { toBorrowingRow } from '../../../../shared/vfc';
 
 let m2mToken: string;
 
-/** Adjusts a lot up or down with a reason, records a shelf count (requirement 6), or marks a VFC borrowing paid back. */
 export const index = wrapHandler(
   'admin-adjust-medication-inventory',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -45,11 +44,6 @@ export const index = wrapHandler(
   }
 );
 
-/**
- * The ledger entry for an adjustment or a count. A count records the difference from the lot's on hand
- * (signed, "Count adjustment"), or 0 with "no difference" when the shelf matches, and keeps the counted
- * number as a component.
- */
 export const stockEntryForAction = (
   params: Exclude<AdjustMedicationInventoryInput, { action: 'borrowing-replaced' }>,
   lot: InventoryLot,

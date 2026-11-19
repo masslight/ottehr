@@ -15,6 +15,7 @@ import {
   AdministrationStockTarget,
   getMedicationInventoryConfig,
   getOrderCatalogMedicationId,
+  getOrderInventoryLotId,
   INVENTORY_ENTRY_TYPE_SYSTEM,
   INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM,
   INVENTORY_LOT_LOCATION_TAG_SYSTEM,
@@ -34,11 +35,9 @@ import {
 import { InHouseMedicationInventory, InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
 
-// Writes to the stock ledger. The FHIR shapes (and why they are Medication + Observation) live in
-// utils/lib/fhir/medication-inventory.ts; this module owns the searches and the one-transaction write rule:
-// every entry is created together with the lot's recomputed on-hand cache, under an If-Match on the lot.
-
 const INVENTORY_CATEGORY_PARAM = `${INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM}|${INVENTORY_STOCK_ENTRY_CODE}`;
+
+const escapeTokenSearchValue = (value: string): string => value.replace(/[,$|]/g, (char) => `\\${char}`); // Oystehr fails to match literal backslashes when they are escaped in token searches.
 
 interface InventoryLotKey {
   catalogMedicationId: string;
@@ -46,7 +45,6 @@ interface InventoryLotKey {
   lotNumber: string;
 }
 
-/** Every lot of `catalogMedicationId` at `locationId` with this lot number (one per expiration date). */
 export async function findInventoryLotsByNumber(
   oystehr: Oystehr,
   { catalogMedicationId, locationId, lotNumber }: InventoryLotKey
@@ -57,21 +55,19 @@ export async function findInventoryLotsByNumber(
       params: [
         { name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|${catalogMedicationId}` },
         { name: '_tag', value: `${INVENTORY_LOT_LOCATION_TAG_SYSTEM}|${locationId}` },
-        { name: 'lot-number', value: lotNumber },
+        { name: 'lot-number', value: `|${escapeTokenSearchValue(lotNumber)}` },
       ],
     })
   ).unbundle();
-  // lot-number is a string search (prefix, case-insensitive); keep only the exact number
   return lots.filter((lot) => isInventoryLot(lot) && lot.batch?.lotNumber === lotNumber);
 }
 
-/** Lots of `catalogMedicationId` with stock on hand at `locationId`, soonest expiration first (the MAR Lot field). */
 export async function getInventoryLotsOnHand(
   oystehr: Oystehr,
   { catalogMedicationId, locationId }: { catalogMedicationId: string; locationId: string }
 ): Promise<InventoryLot[]> {
-  const lots = (
-    await oystehr.fhir.search<Medication>({
+  const lots = await getAllFhirSearchPages<Medication>(
+    {
       resourceType: 'Medication',
       params: [
         { name: 'identifier', value: `${INVENTORY_LOT_DRUG_IDENTIFIER_SYSTEM}|${catalogMedicationId}` },
@@ -79,8 +75,9 @@ export async function getInventoryLotsOnHand(
         { name: 'status', value: 'active' },
         { name: '_sort', value: 'expiration-date' },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
   return lots
     .filter(isInventoryLot)
     .flatMap((lot) => {
@@ -96,7 +93,6 @@ const lotEntrySearchParams = (lotId: string): { name: string; value: string }[] 
   { name: '_sort', value: 'date' },
 ];
 
-/** Every ledger entry of a lot, oldest first. */
 export async function getInventoryLotEntries(oystehr: Oystehr, lotId: string): Promise<Observation[]> {
   return getAllFhirSearchPages<Observation>(
     { resourceType: 'Observation', params: lotEntrySearchParams(lotId) },
@@ -104,10 +100,6 @@ export async function getInventoryLotEntries(oystehr: Oystehr, lotId: string): P
   );
 }
 
-/**
- * A lot's ledger plus, in the same search, who made each entry and, for administrations, the order with its
- * visit and patient (the ad hoc inventory dataset reads the ledger the same way).
- */
 export async function getInventoryLotHistoryResources(oystehr: Oystehr, lotId: string): Promise<FhirResource[]> {
   return getAllFhirSearchPages<FhirResource>(
     {
@@ -127,14 +119,8 @@ export async function getInventoryLotHistoryResources(oystehr: Oystehr, lotId: s
 export type StockEntryWrite = Omit<InventoryStockEntryInput, 'lotReference'>;
 
 /**
- * Appends entries to a lot's ledger and refreshes the lot's on-hand cache in a single transaction.
- *
- * `lot` is either an existing lot (has an id; its current version guards the write with If-Match and the
- * write retries from a fresh read on a 412, at most 3 attempts) or a lot built with `makeInventoryLot` that
- * does not exist yet (created in the same bundle; the entry references it by transaction-local urn).
- * On hand is recomputed from every entry of the lot plus these, never incremented. `reviseLot` changes
- * other lot fields (e.g. `batch.expirationDate`) in the same write; it is applied to whichever version of
- * the lot is written, so a retry from a fresh read keeps the change.
+ * Recomputes on-hand stock from ledger entries and writes changes atomically.
+ * Existing lots use optimistic locking with retries.
  */
 export async function writeInventoryStockEntry(
   oystehr: Oystehr,
@@ -213,7 +199,6 @@ export async function writeInventoryStockEntry(
   );
 }
 
-/** What the ledger already took off for an administration, oldest first. */
 async function getAdministrationStockEntries(
   oystehr: Oystehr,
   medicationAdministrationId: string
@@ -231,23 +216,18 @@ async function getAdministrationStockEntries(
   );
 }
 
-/**
- * The catalog drug an order's contained Medication copy was made from, for orders saved before the copy
- * carried the catalog id: the copy keeps the catalog's name identifier, and an existing order's `medicationId`
- * is the contained sentinel.
- */
+// Older medication orders lack the catalog ID, so fall back to name lookup.
 async function findCatalogMedicationByName(oystehr: Oystehr, name: string): Promise<Medication | undefined> {
   const medications = (
     await oystehr.fhir.search<Medication>({
       resourceType: 'Medication',
-      params: [{ name: 'identifier', value: `${MEDICATION_IDENTIFIER_NAME_SYSTEM}|${name}` }],
+      params: [{ name: 'identifier', value: `${MEDICATION_IDENTIFIER_NAME_SYSTEM}|${escapeTokenSearchValue(name)}` }],
     })
   ).unbundle();
   return medications.find(isCatalogMedication);
 }
 
-/** The catalog drug of an order's contained Medication copy: by the catalog id it carries, else by name. */
-async function findOrderCatalogMedication(
+export async function findOrderCatalogMedication(
   oystehr: Oystehr,
   contained: Medication,
   name: string
@@ -258,15 +238,26 @@ async function findOrderCatalogMedication(
   return isCatalogMedication(medication) ? medication : undefined;
 }
 
+export interface AdministrationLotMatch {
+  /** The lots the dose already holds stock on; they win when two lots share its number. */
+  heldLotIds?: string[];
+  /** The lots held by an order that never had a lot picked from the suggestions (legacy orders). */
+  heldWithoutPickLotIds?: string[];
+  /**
+   * Vaccines: the order's lot number names its lot, so a typed lot that is one of the vaccine's lots at the
+   * location is from that stock. Medications take stock only from a lot picked from the inventory suggestions.
+   */
+  byNumber?: boolean;
+}
+
 /**
- * The inventory lot an order's lot number names: of its drug, at the visit's location, with the order's expiration
- * date when the same number is on hand twice. Undefined when the drug isn't tracked or the lot was typed (not in
- * inventory).
+ * The inventory lot an order names: of its drug, at the visit's location. Undefined when the drug isn't tracked or
+ * the lot was typed (not in inventory, or for a medication not picked from the suggestions).
  */
 export async function findAdministrationInventoryLot(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,
-  heldLotIds: string[] = []
+  { heldLotIds = [], heldWithoutPickLotIds = [], byNumber = false }: AdministrationLotMatch = {}
 ): Promise<{ lot: Medication & { id: string }; inventory: InHouseMedicationInventory } | undefined> {
   const contained = getMedicationFromMA(medicationAdministration);
   const lotNumber = contained?.batch?.lotNumber?.trim();
@@ -282,38 +273,50 @@ export async function findAdministrationInventoryLot(
   const inventory = catalog ? getMedicationInventoryConfig(catalog) : undefined;
   if (!catalog?.id || !inventory) return undefined;
 
-  // The same number can be on hand with two expiration dates; the order's date (a date or date-time) picks one.
   const sameNumber = await findInventoryLotsByNumber(oystehr, {
     catalogMedicationId: catalog.id,
     locationId,
     lotNumber,
   });
   const expirationDate = contained?.batch?.expirationDate?.slice(0, 10);
-  const lot =
-    sameNumber.length === 1
-      ? sameNumber[0]
-      : sameNumber.find((candidate) => candidate.id && heldLotIds.includes(candidate.id)) ??
-        sameNumber.find((candidate) => candidate.batch?.expirationDate === expirationDate);
+  const held = sameNumber.find((candidate) => candidate.id && heldLotIds.includes(candidate.id));
+  let lot: Medication | undefined;
+  if (byNumber) {
+    lot =
+      sameNumber.length === 1
+        ? sameNumber[0]
+        : held ?? sameNumber.find((candidate) => candidate.batch?.expirationDate === expirationDate);
+  } else {
+    // Preserve an existing stock deduction for legacy orders without a picked lot ID.
+    // Newly typed lots must not trigger a deduction.
+    const selectedLotId = getOrderInventoryLotId(contained);
+    const heldWithoutPick = sameNumber.find(
+      (candidate) =>
+        candidate.id &&
+        heldWithoutPickLotIds.includes(candidate.id) &&
+        (sameNumber.length === 1 || candidate.batch?.expirationDate === expirationDate)
+    );
+    lot = (selectedLotId && sameNumber.find((candidate) => candidate.id === selectedLotId)) || held || heldWithoutPick;
+  }
   return lot?.id ? { lot: { ...lot, id: lot.id }, inventory } : undefined;
 }
 
 /**
- * What an administration should have off the shelf right now: the lot of its drug at the visit's location
- * with the lot number on the order, and what the dose takes from it. Undefined when nothing should be off:
- * the order isn't administered, the drug isn't tracked, the lot was typed (not in inventory), or the drug
- * is multi-use. `heldLotIds`: the lots the dose already holds, which win when two lots share its number.
+ * What an administration should have off the shelf right now: the lot `findAdministrationInventoryLot` finds and
+ * what the dose takes from it. Undefined when nothing should be off: the order isn't administered, no inventory lot
+ * is found, or the drug is multi-use.
  */
 async function resolveAdministrationStockTarget(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,
-  heldLotIds: string[]
+  match: AdministrationLotMatch
 ): Promise<(AdministrationStockTarget & { lot: Medication }) | undefined> {
   const status = mapFhirToOrderStatus(medicationAdministration);
   if (status !== 'administered' && status !== 'administered-partly') return undefined;
   const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
   if (dose === undefined || !units) return undefined;
 
-  const found = await findAdministrationInventoryLot(oystehr, medicationAdministration, heldLotIds);
+  const found = await findAdministrationInventoryLot(oystehr, medicationAdministration, match);
   const taken = found ? stockTakenForDose(found.inventory, dose, units) : undefined;
   if (!found || !taken) return undefined;
   return { lotId: found.lot.id, lot: found.lot, ...taken };
@@ -324,6 +327,7 @@ const administrationLotKey = (medicationAdministration: MedicationAdministration
   return JSON.stringify([
     getOrderCatalogMedicationId(contained),
     getMedicationName(contained),
+    getOrderInventoryLotId(contained),
     contained?.batch?.lotNumber?.trim(),
     contained?.batch?.expirationDate?.slice(0, 10),
   ]);
@@ -341,16 +345,12 @@ export const administrationStockChanged = (
   after: MedicationAdministration
 ): boolean => administrationStockBasis(before) !== administrationStockBasis(after);
 
-/**
- * Brings the stock ledger in line with an administration (requirements 4 and 5): writes the difference
- * between what the order should have taken off and what its entries already took off, per lot. Call after
- * every save and delete of an order; a no-op for untracked drugs, typed lots and orders not administered.
- */
 export async function reconcileAdministrationStock(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,
   performerReference: string,
-  previous?: MedicationAdministration
+  previous?: MedicationAdministration,
+  { lotByNumber = false }: { lotByNumber?: boolean } = {}
 ): Promise<void> {
   const medicationAdministrationId = medicationAdministration.id;
   if (!medicationAdministrationId) return;
@@ -359,12 +359,18 @@ export async function reconcileAdministrationStock(
   );
   const sameLotAsBefore =
     previous !== undefined && administrationLotKey(previous) === administrationLotKey(medicationAdministration);
-  const heldLotIds = sameLotAsBefore
-    ? [...new Set(existing.map((entry) => entry.lotId))].filter(
-        (lotId) => existing.reduce((sum, entry) => sum + (entry.lotId === lotId ? entry.quantity : 0), 0) < 0
-      )
-    : [];
-  const target = await resolveAdministrationStockTarget(oystehr, medicationAdministration, heldLotIds);
+  const neverPicked =
+    previous !== undefined &&
+    !getOrderInventoryLotId(getMedicationFromMA(previous)) &&
+    !getOrderInventoryLotId(getMedicationFromMA(medicationAdministration));
+  const heldLotIds = [...new Set(existing.map((entry) => entry.lotId))].filter(
+    (lotId) => existing.reduce((sum, entry) => sum + (entry.lotId === lotId ? entry.quantity : 0), 0) < 0
+  );
+  const target = await resolveAdministrationStockTarget(oystehr, medicationAdministration, {
+    heldLotIds: sameLotAsBefore ? heldLotIds : [],
+    heldWithoutPickLotIds: neverPicked ? heldLotIds : [],
+    byNumber: lotByNumber,
+  });
   const changes = planAdministrationStockChanges(target, existing);
   for (const change of changes) {
     const lot =
@@ -400,7 +406,6 @@ export async function reconcileAdministrationStock(
   }
 }
 
-/** The lot of a drug (any location) whose "received" entry is newest, for prefilling the next receipt. */
 export async function getLastReceivedLot(
   oystehr: Oystehr,
   catalogMedicationId: string

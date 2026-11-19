@@ -79,18 +79,6 @@ export class VaccineDetailsTab {
     await locator.pressSequentially(visGivenDate);
   }
 
-  async selectRelationship(relationship: string): Promise<void> {
-    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.relationship).click();
-    await this.#page.getByRole('option', { name: relationship, exact: true }).click();
-  }
-
-  async enterFullName(fullName: string): Promise<void> {
-    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.fullName).fill(fullName);
-  }
-  async enterMobile(mobile: string): Promise<void> {
-    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.mobile).fill(mobile);
-  }
-
   async clickAdministeredButton(): Promise<AdministeredDialogue> {
     await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.administeredButton).click();
     return expectAdministrationConfirmationDialogue(this.#page);

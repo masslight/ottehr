@@ -332,8 +332,6 @@ function App(): ReactElement {
                 <Route path="/patients" element={<PatientsPage />} />
                 <Route path="/patients/add" element={<AddPatient key="patient-only" patientOnly />} />
 
-                {/* Non-admin roles get the admin pages their role is allowed (Action Logs, Inventory) and the
-                    drug page for receiving shipments; AdminPage sends any other tab to the first allowed one. */}
                 {resolveAccessibleAdminNavGroups(currentUser.hasRole, ottehrBillingInvoicingInEhr).length > 0 && (
                   <Route element={<AdminLayout />}>
                     <Route path="/admin" element={<AdminPage />} />

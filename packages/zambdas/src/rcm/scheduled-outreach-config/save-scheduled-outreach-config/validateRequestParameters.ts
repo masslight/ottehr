@@ -1,13 +1,4 @@
 import {
-  INVALID_INPUT_ERROR,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUEST_SECRETS,
-  MISSING_REQUIRED_PARAMETERS,
-} from 'utils/lib/types/errors';
-import { z } from 'zod';
-import { ZambdaInput } from '../../../shared/types/common';
-import { safeJsonParse, safeValidate } from '../../../shared/validation';
-import {
   ActionType,
   NotificationMedium,
   NotificationsTimeRestriction,
@@ -16,7 +7,16 @@ import {
   TimeUnit,
   TriggerDirection,
   TriggerEvent,
-} from '../helpers';
+} from 'utils/lib/types/api/scheduled-outreach.types';
+import {
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUEST_SECRETS,
+  MISSING_REQUIRED_PARAMETERS,
+} from 'utils/lib/types/errors';
+import { z } from 'zod';
+import { ZambdaInput } from '../../../shared/types/common';
+import { safeJsonParse, safeValidate } from '../../../shared/validation';
 
 export interface SaveOutreachConfigInput {
   actions: OutreachAction[];

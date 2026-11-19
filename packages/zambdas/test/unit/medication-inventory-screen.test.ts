@@ -11,6 +11,7 @@ import {
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
 import {
+  AdjustMedicationInventoryInputSchema,
   InHouseMedicationInventory,
   InventoryLot,
   InventoryStockEntry,
@@ -71,8 +72,6 @@ const locations = [
   { id: 'north', name: 'Northside Urgent Care' },
 ];
 
-// ─── markers ──────────────────────────────────────────────────────────────────
-
 describe('expirationMarkers', () => {
   it.each([
     ['yesterday', '2026-10-29', ['expired']],
@@ -85,8 +84,6 @@ describe('expirationMarkers', () => {
     expect(expirationMarkers(date, today)).toEqual(expected);
   });
 });
-
-// ─── all locations ────────────────────────────────────────────────────────────
 
 describe('buildAllLocationsRows', () => {
   const drugs = [
@@ -104,9 +101,8 @@ describe('buildAllLocationsRows', () => {
   const lots = [
     lot({ id: 'o-main-1', locationId: 'main', onHand: 4, expirationDate: '2026-11-15' }),
     lot({ id: 'o-main-2', locationId: 'main', onHand: 18, expirationDate: '2027-06-30' }),
-    lot({ id: 'o-main-3', locationId: 'main', onHand: 0, expirationDate: '2026-01-01' }), // no stock: ignored for expiry
+    lot({ id: 'o-main-3', locationId: 'main', onHand: 0, expirationDate: '2026-01-01' }),
     lot({ id: 'o-north', locationId: 'north', onHand: 4, expirationDate: '2027-04-30' }),
-    // at a location that is no longer active: not listed, so not counted in the total or the earliest expiration
     lot({ id: 'o-closed', locationId: 'closed', onHand: 7, expirationDate: '2026-10-31' }),
     lot({
       id: 'k-main',
@@ -162,8 +158,6 @@ describe('buildAllLocationsRows', () => {
   });
 });
 
-// ─── one location ─────────────────────────────────────────────────────────────
-
 describe('buildLocationRows', () => {
   const drugs = [drug('ondansetron', 'Ondansetron', [{ locationId: 'main', level: 10 }])];
   const lots = [
@@ -175,7 +169,6 @@ describe('buildLocationRows', () => {
 
   it('lists the location lots soonest expiration first with expired lots last', () => {
     const [row] = buildLocationRows(drugs, lots, 'main', today);
-    // an expired lot that still has stock is the earliest expiration (it needs attention)
     expect(row).toMatchObject({ onHand: 24, reorderLevel: 10, earliestExpiration: '2026-09-30', markers: ['expired'] });
     expect(row.lots.map((l) => l.lotNumber)).toEqual(['C24117', 'HK3302', 'B88120']);
   });
@@ -192,8 +185,6 @@ describe('buildLocationRows', () => {
     expect(negative.lots[0].markers).toEqual(['below-zero']);
   });
 });
-
-// ─── history ──────────────────────────────────────────────────────────────────
 
 const stockEntry = (overrides: Partial<InventoryStockEntry>): InventoryStockEntry => ({
   id: 'e',
@@ -244,8 +235,6 @@ describe('buildHistory', () => {
     expect(buildHistory([], { performers: new Map(), visits: new Map() })).toEqual([]);
   });
 });
-
-// ─── list-medication-inventory zambda ─────────────────────────────────────────
 
 const inventory: InHouseMedicationInventory = {
   countedAs: 'vial',
@@ -326,7 +315,6 @@ describe('list-medication-inventory', () => {
           call.params.some((p: any) => String(p.value).startsWith(INVENTORY_LOT_IDENTIFIER_SYSTEM))
       );
     expect(lotSearches).toHaveLength(1);
-    // the location view includes empty lots (they can still be counted and adjusted)
     expect(lotSearches[0].params).toEqual([
       { name: 'identifier', value: `${INVENTORY_LOT_IDENTIFIER_SYSTEM}|${INVENTORY_LOT_IDENTIFIER_VALUE}` },
       { name: '_tag', value: `${INVENTORY_LOT_LOCATION_TAG_SYSTEM}|main` },
@@ -375,7 +363,6 @@ describe('list-medication-inventory', () => {
       },
     ];
     const oystehr = makeMockOystehr({
-      // the ledger plus what _include brings back with it
       Observation: [
         ...ledger,
         { resourceType: 'Practitioner', id: 'kb', name: [{ given: ['Kim'], family: 'Brooks' }] },
@@ -417,8 +404,6 @@ describe('list-medication-inventory', () => {
     expect(ledgerSearch.params).toContainEqual({ name: '_include:iterate', value: 'MedicationAdministration:subject' });
   });
 });
-
-// ─── adjust-medication-inventory zambda ───────────────────────────────────────
 
 const adjustBody = { action: 'adjust', lotId: LOT_UUID, direction: 'remove', quantity: 2, reason: 'expired' };
 
@@ -486,6 +471,15 @@ describe('adjust-medication-inventory - stockEntryForAction', () => {
     expect(
       stockEntryForAction({ action: 'count', lotId: 'lot-1', counted: 0 }, { ...parsedLot, onHand: -2 }, 'P/me', when)
     ).toMatchObject({ quantity: 2, reason: 'count-adjustment' });
+  });
+});
+
+describe('adjust-medication-inventory - input', () => {
+  it('requires a reason to remove stock but not to add it', () => {
+    expect(AdjustMedicationInventoryInputSchema.safeParse({ ...adjustBody, reason: undefined }).success).toBe(false);
+    expect(
+      AdjustMedicationInventoryInputSchema.safeParse({ ...adjustBody, direction: 'add', reason: undefined }).success
+    ).toBe(true);
   });
 });
 

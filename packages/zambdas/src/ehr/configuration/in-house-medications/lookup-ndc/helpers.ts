@@ -3,14 +3,13 @@ import { getMedicationName } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import { LookupNdcResponse } from 'utils/lib/types/api/config/in-house-medications';
 
-// The public openFDA NDC directory: no key, no PHI, one box NDC per request.
+// Public directory: no API key, and requests carry no PHI.
 const OPENFDA_NDC_URL = 'https://api.fda.gov/drug/ndc.json';
 const OPENFDA_TIMEOUT_MS = 5_000;
 const CODE_SYSTEM_RXNORM = 'http://www.nlm.nih.gov/research/umls/rxnorm';
 
 export type NdcProduct = NonNullable<LookupNdcResponse['product']>;
 
-/** The subset of an openFDA NDC directory result this zambda reads. */
 export interface OpenFdaNdcResult {
   product_ndc?: string;
   generic_name?: string;
@@ -23,10 +22,7 @@ export interface OpenFdaNdcResult {
 }
 
 /**
- * The hyphenated 10-digit package NDCs a typed NDC could mean, as the directory spells them.
- * Hyphenated 10-digit input (4-4-2, 5-3-2, 5-4-1) is itself; unhyphenated 10 digits could be any of the
- * three splits; an 11-digit billing NDC (5-4-2, hyphenated or not) has a padding zero in one segment that
- * can be dropped three ways. Empty when the input cannot be a package NDC.
+ * Package NDCs are 4-4-2, 5-3-2 or 5-4-1; an 11-digit billing NDC (5-4-2) pads one segment with a leading zero.
  */
 export const ndcPackageCandidates = (input: string): string[] => {
   const trimmed = input.trim();
@@ -78,10 +74,6 @@ const toProduct = (result: OpenFdaNdcResult, candidates: string[]): NdcProduct =
   };
 };
 
-/**
- * Looks a package NDC up in the openFDA NDC directory. `undefined` means the directory has no such package.
- * Throws on timeout or any failure; the caller turns that into "lookup unavailable" so receiving is never blocked.
- */
 export async function fetchNdcProduct(candidates: string[]): Promise<NdcProduct | undefined> {
   if (candidates.length === 0) return undefined;
   const search = `packaging.package_ndc:(${candidates.map((ndc) => `"${ndc}"`).join(' OR ')})`;
@@ -94,22 +86,14 @@ export async function fetchNdcProduct(candidates: string[]): Promise<NdcProduct 
   return result ? toProduct(result, candidates) : undefined;
 }
 
-// TODO(OTR-3339): catalog drugs have no RxNorm code yet, so compareNdcProduct falls back to matching names and
-// product NDCs. Once in-house medications are added through the terminology drug search (the eRx order form's
-// `searchMedications`, which returns each strength's RxCUI and NDC list), store the RxCUI on the catalog drug,
-// then remove ingredientWords, the name/product-NDC fallback below, `comparedBy: 'name'`, and the three
-// "compareNdcProduct" tests that cover it in test/unit/lookup-ndc.test.ts.
+// TODO(OTR-3339): catalog drugs have no RxCUI yet, so matching falls back to names and product NDCs. Once
+// they store their RxCUI, remove that fallback, `ingredientWords`, `comparedBy: 'name'` and their tests.
 const ingredientWords = (product: NdcProduct): string[] =>
   (product.genericName ?? '')
     .split(/,| and /i)
     .map((ingredient) => ingredient.trim().split(/\s+/)[0]?.toLowerCase())
     .filter((word): word is string => Boolean(word));
 
-/**
- * Whether the box is the catalog drug. By RxCUI when the catalog Medication carries an RxNorm coding and the
- * directory returned RxCUIs; otherwise by name: every active ingredient of the box (first word of each part
- * of the generic name) must appear in the catalog name, or the box's product NDC must equal the catalog's.
- */
 export const compareNdcProduct = (
   product: NdcProduct,
   catalog: Medication

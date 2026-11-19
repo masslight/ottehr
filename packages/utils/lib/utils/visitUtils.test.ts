@@ -1,7 +1,11 @@
 import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
-import { VisitStatusHistoryEntry } from '../types/api/appointment.types';
-import { getDurationOfStatus, getVisitTotalTime } from './visitUtils';
+import {
+  VisitStatusHistoryEntry,
+  visitStatusToFhirAppointmentStatusMap,
+  visitStatusToFhirEncounterStatusMap,
+} from '../types/api/appointment.types';
+import { getDurationOfStatus, getInPersonVisitStatus, getVisitTotalTime } from './visitUtils';
 
 const now = DateTime.fromISO('2026-04-15T12:00:00.000Z');
 
@@ -42,5 +46,16 @@ describe('visit duration utils', () => {
 
       expect(total).toBe(1);
     });
+  });
+});
+
+describe('getInPersonVisitStatus', () => {
+  it.each(['pending', 'arrived', 'cancelled', 'no show'] as const)('reads back a visit set to %s', (visitStatus) => {
+    expect(
+      getInPersonVisitStatus(
+        { resourceType: 'Appointment', status: visitStatusToFhirAppointmentStatusMap[visitStatus], participant: [] },
+        { resourceType: 'Encounter', status: visitStatusToFhirEncounterStatusMap[visitStatus], class: {} }
+      )
+    ).toBe(visitStatus);
   });
 });

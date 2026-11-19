@@ -41,7 +41,6 @@ export const addCptCode = (
   return [...cptCodes, newEntry];
 };
 
-/** The list without `codeToRemove`; with designation, the first remaining code takes over as the medication. */
 export const removeCptCode = (
   cptCodes: CptCodeEntry[],
   codeToRemove: string,
@@ -54,7 +53,6 @@ export const removeCptCode = (
   return remaining;
 };
 
-/** `code` as the medication; the others lose their designation and billing data. */
 export const designateMedicationCptCode = (cptCodes: CptCodeEntry[], code: string): CptCodeEntry[] =>
   cptCodes.map((c) => (c.code === code ? { ...c, isMedication: true } : { code: c.code, display: c.display }));
 
@@ -64,7 +62,6 @@ interface CptCodeSearchProps {
   autoFocus?: boolean;
 }
 
-/** The CPT / HCPCS search field on its own; picking a code hands it over and clears the field. */
 export const CptCodeSearch: FC<CptCodeSearchProps> = ({ onPick, dataTestId, autoFocus }) => {
   const [inputValue, setInputValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');

@@ -59,7 +59,6 @@ export interface GetLocationResponse {
 }
 
 export interface ListActiveLocationsInput {
-  /** `true` keeps only Locations that appear in in-person contexts (clinics); virtual-only ones drop out. */
   inPersonOnly?: boolean;
 }
 

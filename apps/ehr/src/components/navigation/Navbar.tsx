@@ -49,7 +49,6 @@ const staffNavbarItems: NavbarItems = {
 const providerNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
-  // Providers and clinicians reach the admin area for Inventory only (the sidebar hides the rest).
   Admin: { urls: ['/admin'] },
   Tasks: { urls: ['/tasks', '/inbound-fax'] },
   Reports: { urls: ['/reports'] },
@@ -62,7 +61,11 @@ const customerSupportNavbarItems: NavbarItems = {
   Reports: { urls: ['/reports'] },
 };
 
-const hideNavbarPathPatterns = [/^\/telemed\/appointments\/(?!.*\/visit-details$)/, /^\/patient\/[^/]+\/info$/];
+const hideNavbarPathPatterns = [
+  /^\/telemed\/appointments\/(?!.*\/visit-details$)/,
+  /^\/visit\/[^/]+$/,
+  /^\/patient\/[^/]+\/(info|docs|action-logs)$/,
+];
 
 export default function Navbar(): ReactElement | null {
   const location = useLocation();

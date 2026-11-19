@@ -1,27 +1,22 @@
 import { otherColors } from '@ehrTheme/colors';
 import { Chip } from '@mui/material';
 import { DateTime } from 'luxon';
-import { ReactElement } from 'react';
+import { ReactElement, useState } from 'react';
 import {
   INVENTORY_ENTRY_REASON_LABELS,
   INVENTORY_MARKER_LABELS,
   InventoryEntryType,
   InventoryHistoryEntry,
-  InventoryLot,
   InventoryMarker,
   MEDICATION_COUNTED_AS_LABELS,
   MedicationCountedAs,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { DISPLAY_DATE_FORMAT, formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 
-// Display helpers for the inventory screen and its dialogs. Quantities are shown in the lot's unit: counted-as
-// items ("vial"/"vials"), or the unit as stored when it is not one.
-
 const MINUS = '−';
 
 export const inventoryButtonSx = { textTransform: 'none', borderRadius: 50, fontWeight: 'bold' };
 
-// The location the Tracking Board's location picker last saved, when it is one of the in-person locations.
 export function storedLocationId(locations: { id: string }[]): string | undefined {
   try {
     const stored = localStorage.getItem('selectedLocation');
@@ -38,13 +33,11 @@ export const unitLabel = (unit: string, count: number): string => {
   return Math.abs(count) === 1 ? labels.singular.toLowerCase() : labels.plural;
 };
 
-/** "22 vials", "−2 vials"; `signed` shows a change: "+25 vials", "−1 vial", "0 vials". */
 export const formatQuantity = (count: number, unit: string, { signed = false } = {}): string =>
   `${count < 0 ? MINUS : signed && count > 0 ? '+' : ''}${Math.abs(count)} ${unitLabel(unit, count)}`;
 
 export const formatExpiration = (date: string | undefined): string => (date ? formatDateForDisplay(date) : 'none');
 
-/** Local time, as the browser sees it. */
 export const formatWhen = (dateTime: string): string =>
   DateTime.fromISO(dateTime).toLocal().toFormat(`${DISPLAY_DATE_FORMAT} hh:mm a`);
 
@@ -56,7 +49,6 @@ const ENTRY_TYPE_LABELS: Record<InventoryEntryType, string> = {
   count: 'Count',
 };
 
-/** The Change column: the signed quantity plus any waste the entry recorded. */
 export const describeChange = (entry: InventoryHistoryEntry): string => {
   const waste = entry.components?.find((component) => component.code === 'waste-amount');
   return [
@@ -67,16 +59,11 @@ export const describeChange = (entry: InventoryHistoryEntry): string => {
     .join(' · ');
 };
 
-/**
- * The Reason column. Receipts show that shipment's vendor (the lot's latest for entries written before it was
- * recorded per entry); counts show what was counted and expected; a reversal says whether the order was
- * deleted or changed.
- */
-export const describeReason = (entry: InventoryHistoryEntry, lot: InventoryLot): string => {
+export const describeReason = (entry: InventoryHistoryEntry): string => {
   const counted = entry.components?.find((component) => component.code === 'counted')?.value;
   switch (entry.type) {
     case 'received': {
-      return [ENTRY_TYPE_LABELS.received, entry.vendor ?? lot.vendor].filter(Boolean).join(' · ');
+      return [ENTRY_TYPE_LABELS.received, entry.vendor].filter(Boolean).join(' · ');
     }
     case 'count':
       if (counted === undefined) return entry.reason ? INVENTORY_ENTRY_REASON_LABELS[entry.reason] : 'Count';
@@ -119,3 +106,15 @@ export function MarkerChips({ markers, only }: { markers: InventoryMarker[]; onl
     </>
   );
 }
+
+export const useToggleSet = (): [Set<string>, (id: string) => void] => {
+  const [set, setSet] = useState<Set<string>>(new Set());
+  const toggle = (id: string): void =>
+    setSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  return [set, toggle];
+};

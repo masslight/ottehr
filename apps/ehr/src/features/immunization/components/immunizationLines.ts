@@ -1,12 +1,10 @@
 import { DateTime } from 'luxon';
 import { cleanupProperties } from 'src/helpers/misc.helper';
-import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   CreateUpdateImmunizationOrderRequest,
   ImmunizationCptCode,
-  ImmunizationEmergencyContact,
   ImmunizationExternalSource,
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
@@ -196,20 +194,6 @@ export const administrationErrors = (line: ImmunizationFormValues, administering
   if (!details.mvx?.trim()) errors.push('Enter the MVX code');
   if (!details.visGiven) errors.push('Confirm the VIS was given to the patient');
   if (!details.visGivenDate) errors.push('Enter the VIS date');
-  return errors;
-};
-
-/** The emergency contact is all or nothing, and its mobile a valid phone number. */
-export const emergencyContactErrors = (contact: Partial<ImmunizationEmergencyContact>): string[] => {
-  const filled = (value: string | undefined): boolean => !!value?.trim();
-  const values = [contact.relationship, contact.fullName, contact.mobile];
-  const errors: string[] = [];
-  if (values.some(filled) && !values.every(filled)) {
-    errors.push('Complete all emergency contact fields or leave them all empty');
-  }
-  if (filled(contact.mobile) && !isPhoneNumberValid(contact.mobile)) {
-    errors.push('Phone number must be 10 digits in the format (xxx) xxx-xxxx and a valid number');
-  }
   return errors;
 };
 

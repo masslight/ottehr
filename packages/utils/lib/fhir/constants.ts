@@ -1381,6 +1381,7 @@ export const OUTBOUND_DELIVERY_OUTPUT_CODES = {
   /** An emailed document link was opened; valueDateTime is when. */
   linkOpened: 'link-opened',
 } as const;
+export const OUTBOUND_DELIVERY_LINK_OPENED_CLIENT_EXTENSION_URL = ottehrExtensionUrl('link-opened-client');
 export const OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-source');
 export const OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-retry');
 export const OUTBOUND_DELIVERY_CLAIM_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('outbound-delivery-claim');

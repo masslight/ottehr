@@ -50,6 +50,7 @@ import { NdcLookupState, useNdcLookup } from './useNdcLookup';
 interface ReceiveShipmentDialogProps {
   open: boolean;
   onClose: () => void;
+  onReceived?: () => void;
   medication: Medication & { id: string };
   inventory: InHouseMedicationInventory;
   locations: { id: string; name: string }[];
@@ -68,7 +69,6 @@ interface ReceiveFormState {
 
 type LookupState = NdcLookupState;
 
-/** What the lookup panel says while there is no product to show. */
 const LOOKUP_MESSAGES: Partial<Record<LookupState['status'], (ndc: string) => string>> = {
   loading: (ndc) => `Looking up NDC ${ndc} in the FDA NDC directory…`,
   unavailable: () => 'FDA NDC directory lookup unavailable. Check the box before saving.',
@@ -78,6 +78,7 @@ const LOOKUP_MESSAGES: Partial<Record<LookupState['status'], (ndc: string) => st
 export default function ReceiveShipmentDialog({
   open,
   onClose,
+  onReceived,
   medication,
   inventory,
   locations,
@@ -96,7 +97,6 @@ export default function ReceiveShipmentDialog({
   }));
   const isVaccine = isVaccineCatalogMedication(medication);
   const [saving, setSaving] = useState(false);
-  // Set when the location already has this lot number with another expiration date; staff pick what to do.
   const [conflict, setConflict] = useState<ReceiveExpirationConflict | undefined>(undefined);
   const setField = <K extends keyof ReceiveFormState>(field: K, value: ReceiveFormState[K]): void =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -105,7 +105,6 @@ export default function ReceiveShipmentDialog({
   const units = MEDICATION_COUNTED_AS_LABELS[inventory.countedAs];
   const quantity = Number(form.quantity);
 
-  // Later shipments start from the last lot received (any location).
   const lastReceivedLot = useLastReceivedLot(medication.id);
   const prefilledFromLastLot = Boolean(lastReceivedLot.data);
   useEffect(() => {
@@ -120,7 +119,6 @@ export default function ReceiveShipmentDialog({
     }));
   }, [lastReceivedLot.data]);
 
-  // Look the box up once typing pauses; the directory's labeler fills the manufacturer.
   const lookup = useNdcLookup(form.ndc, medication.id);
   useEffect(() => {
     if ('product' in lookup && lookup.product?.manufacturer) setField('manufacturer', lookup.product.manufacturer);
@@ -150,6 +148,7 @@ export default function ReceiveShipmentDialog({
         return;
       }
       setConflict(undefined);
+      onReceived?.();
       enqueueSnackbar(`Received ${quantity} ${units.plural} of ${name} at ${locationName}`, { variant: 'success' });
       onClose();
     } catch (error) {
@@ -417,7 +416,6 @@ export default function ReceiveShipmentDialog({
           lotNumber={form.lotNumber.trim()}
           locationName={locationName}
           enteredDate={form.expirationDate.toISODate() ?? ''}
-          quantity={quantity}
           saving={saving}
           onChoose={(choice) => void receive(choice)}
           onBack={() => setConflict(undefined)}
@@ -427,13 +425,11 @@ export default function ReceiveShipmentDialog({
   );
 }
 
-/** The warning when a lot number is already on hand with a different expiration date (OTR-3339). */
 function ExpirationConflictDialog({
   conflict,
   lotNumber,
   locationName,
   enteredDate,
-  quantity,
   saving,
   onChoose,
   onBack,
@@ -442,7 +438,6 @@ function ExpirationConflictDialog({
   lotNumber: string;
   locationName: string;
   enteredDate: string;
-  quantity: number;
   saving: boolean;
   onChoose: (choice: NonNullable<ReceiveMedicationShipmentInput['expirationConflict']>) => void;
   onBack: () => void;
@@ -450,7 +445,6 @@ function ExpirationConflictDialog({
   const existing = formatExpiration(conflict.expirationDate);
   const entered = formatExpiration(enteredDate);
   const onHand = `${conflict.onHand} ${unitLabel(conflict.unit, conflict.onHand)}`;
-  const adding = `${quantity} ${unitLabel(conflict.unit, quantity)}`;
   const choices: {
     choice: NonNullable<ReceiveMedicationShipmentInput['expirationConflict']>;
     label: string;
@@ -459,18 +453,18 @@ function ExpirationConflictDialog({
     {
       choice: 'separate-lot',
       label: 'Add as a Separate Lot',
-      help: `Keeps the ${onHand} expiring ${existing} and adds ${adding} expiring ${entered}. Both appear in the lot list on the medication card.`,
+      help: 'Creates a new lot with the new expiration date. The existing lot and its stock history remain unchanged.',
     },
     {
       choice: 'correct-existing',
       label: `Correct the Existing Lot to ${entered}`,
-      help: `Changes the expiration of the ${onHand} already on hand and adds the ${adding} to that lot. The change is recorded in the lot's history.`,
+      help: "Updates the existing lot's expiration date and adds the received quantity to it. The correction is recorded in stock history.",
     },
   ];
   return (
     <Dialog open onClose={onBack} maxWidth="xs" fullWidth>
       <DialogTitle component={Typography} variant="h5" color="primary.dark" sx={{ pb: 1 }}>
-        Lot {lotNumber} is already on hand at {locationName} with expiration {existing}.
+        Lot {lotNumber} already exists at {locationName} with expiration {existing}. Current balance: {onHand}.
       </DialogTitle>
       <DialogContent sx={{ pb: 2 }}>
         <Typography>You entered {entered}.</Typography>

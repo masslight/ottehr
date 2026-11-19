@@ -176,7 +176,8 @@ export const adminNavGroups: AdminNavGroup[] = [
         render: () => <VaccineScheduleAdminPage />,
       },
       {
-        label: 'Inventory',
+        label: 'Medications Inventory',
+        title: 'In-house Medications Inventory',
         path: '/admin/inventory',
         icon: <Inventory2OutlinedIcon />,
         allowedRoles: INVENTORY_STAFF_ROLES,

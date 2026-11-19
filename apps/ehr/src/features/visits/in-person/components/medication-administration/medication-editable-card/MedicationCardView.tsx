@@ -267,7 +267,6 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
     return parts.join(', ');
   };
 
-  // The order form's medication menu lists the same quick picks the Quick Picks field offered, FHIR ones first.
   const menuQuickPicks: QuickPickMenuItem[] = showFhirQuickPicks
     ? (fhirQuickPicks ?? []).map((quickPick) => ({
         key: quickPick.id ?? quickPick.name,
@@ -496,7 +495,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
     const instructionsValue = getFieldValue('instructions');
     return (
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        {/* 12px apart, as the sentence forms are; SectionLabel's spacing assumes this gap. */}
+        {/* SectionLabel's spacing assumes this 12px gap. */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {(type !== 'order-new' || isUpdating) && (
             <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>

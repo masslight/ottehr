@@ -38,7 +38,7 @@ export async function fillFundingFromInventoryLot(
   administrationDetails: InputImmunizationOrderAdministrationDetails
 ): Promise<void> {
   try {
-    const found = await findAdministrationInventoryLot(oystehr, medicationAdministration);
+    const found = await findAdministrationInventoryLot(oystehr, medicationAdministration, { byNumber: true });
     if (!found) return;
     administrationDetails.fundingSource = parseInventoryLot(found.lot)?.fundingSource ?? 'private';
   } catch (error) {
@@ -91,7 +91,9 @@ export async function syncVaccineStockAndBorrowing(
   performerReference: string
 ): Promise<void> {
   try {
-    await reconcileAdministrationStock(oystehr, medicationAdministration, performerReference);
+    await reconcileAdministrationStock(oystehr, medicationAdministration, performerReference, undefined, {
+      lotByNumber: true,
+    });
     await recordVfcBorrowing(oystehr, medicationAdministration, performerReference);
   } catch (error) {
     console.error('Error syncing vaccine stock for the administration:', error);

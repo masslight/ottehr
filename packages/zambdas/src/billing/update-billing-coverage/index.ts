@@ -18,6 +18,7 @@ import {
   coverageInsuranceTypeLabel,
   createBillingClient,
   fetchById,
+  findById,
   findCoverageOfType,
   getPatientAccounts,
   reconcileAccountsForCoverage,
@@ -115,27 +116,29 @@ export async function performEffect(
   const postCoverageRequests: BatchInputRequest<BillingFhirResource>[] = [];
 
   let newSubscriber: RelatedPerson | undefined;
-  let currentSubscriberId: string | undefined;
+  let currentSubscriber: RelatedPerson | undefined;
   if (params.relationship) {
     setCoverageRelationship(coverage, params.relationship);
-    const currentRef = coverage.subscriber?.reference;
-    currentSubscriberId = getIdFromReference(currentRef, 'RelatedPerson');
+    const currentSubscriberId = getIdFromReference(coverage.subscriber?.reference, 'RelatedPerson');
+    currentSubscriber = currentSubscriberId
+      ? await findById<RelatedPerson>(oystehr, 'RelatedPerson', currentSubscriberId)
+      : undefined;
 
     if (params.relationship === 'Self' || !params.policyHolder) {
       coverage.subscriber = { reference: `Patient/${patientId}` };
-      if (currentSubscriberId) {
-        postCoverageRequests.push({ method: 'DELETE', url: `RelatedPerson/${currentSubscriberId}` });
+      if (currentSubscriber?.id) {
+        postCoverageRequests.push({ method: 'DELETE', url: `RelatedPerson/${currentSubscriber.id}` });
       }
     } else {
       newSubscriber = buildSubscriberRelatedPerson(patientId, params.relationship, params.policyHolder);
-      if (currentSubscriberId) {
-        newSubscriber.id = currentSubscriberId;
+      if (currentSubscriber?.id) {
+        newSubscriber.id = currentSubscriber.id;
         preCoverageRequests.push({
           method: 'PUT',
-          url: `RelatedPerson/${currentSubscriberId}`,
+          url: `RelatedPerson/${currentSubscriber.id}`,
           resource: newSubscriber,
         });
-        coverage.subscriber = { reference: `RelatedPerson/${currentSubscriberId}` };
+        coverage.subscriber = { reference: `RelatedPerson/${currentSubscriber.id}` };
       } else {
         const subscriberUrn = `urn:uuid:${randomUUID()}`;
         preCoverageRequests.push({
@@ -163,10 +166,6 @@ export async function performEffect(
     // Claim-scoped edit: write the coverage update and its claim-history Provenance in the same
     // transaction. Policy-holder edits ride on the subscriber RelatedPerson, which the coverage
     // projection can't see — fold them in as `policyHolder.*` changes, mirroring update-billing-claim.
-    const currentSubscriber =
-      params.relationship && currentSubscriberId
-        ? await fetchById<RelatedPerson>(oystehr, 'RelatedPerson', currentSubscriberId)
-        : undefined;
     const policyHolderChanges = diffResources(currentSubscriber, newSubscriber).map((change) => ({
       ...change,
       field: `policyHolder.${change.field}`,

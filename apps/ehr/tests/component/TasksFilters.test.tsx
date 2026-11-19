@@ -2,7 +2,7 @@ import { SearchParam } from '@oystehr/sdk';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Location } from 'fhir/r4b';
+import { Location, Task as FhirTask } from 'fhir/r4b';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { Tasks } from 'src/features/tasks/pages/Tasks';
 import { TASK_CATEGORY_IDENTIFIER, TASK_LOCATION_SYSTEM } from 'utils/lib/fhir/constants';
@@ -26,7 +26,24 @@ const LOCATIONS: Location[] = [
 ];
 
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => clients }));
-vi.mock('utils/lib/fhir/getAllFhirSearchPages', () => ({ getAllFhirSearchPages: async () => LOCATIONS }));
+const myTask = (id: string, location: Location): FhirTask => ({
+  resourceType: 'Task',
+  id,
+  status: 'in-progress',
+  intent: 'order',
+  owner: { reference: 'Practitioner/me' },
+  meta: { tag: [{ code: 'task' }, { system: TASK_LOCATION_SYSTEM, code: location.id, display: location.name }] },
+});
+const MY_ACTIVE_TASKS: FhirTask[] = [
+  myTask('t-1', LOCATIONS[1]),
+  myTask('t-2', LOCATIONS[1]),
+  myTask('t-3', LOCATIONS[2]),
+];
+
+vi.mock('utils/lib/fhir/getAllFhirSearchPages', () => ({
+  getAllFhirSearchPages: async ({ resourceType }: { resourceType: string }) =>
+    ({ Location: LOCATIONS, Task: MY_ACTIVE_TASKS })[resourceType] ?? [],
+}));
 vi.mock('src/api/api', () => ({ getNotes: vi.fn(async () => ({ notes: [], hasMore: false })) }));
 vi.mock('src/hooks/useEvolveUser', () => ({ default: () => ({ profile: 'Practitioner/me' }) }));
 vi.mock('src/layout/PageContainer', () => ({ default: ({ children }: { children: JSX.Element }) => children }));
@@ -149,5 +166,37 @@ describe('Tasks board: category and location filters', () => {
     await waitFor(() =>
       expect(JSON.parse(localStorage.getItem('tasks.filters') ?? '{}').location).toEqual(['loc-a', 'loc-b'])
     );
+  });
+});
+
+describe('Tasks board: my tasks in other locations', () => {
+  beforeEach(() => {
+    search.mockClear();
+    localStorage.clear();
+  });
+
+  it('lists the other locations that have tasks assigned to me', async () => {
+    renderBoard('/tasks?location=loc-b');
+
+    expect(await screen.findByText(/You have tasks in locations:/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Charlie Clinic - 1' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Bravo Clinic - 2' })).not.toBeInTheDocument();
+  });
+
+  it('opens my active tasks in the location I pick', async () => {
+    renderBoard('/tasks?location=loc-b&category=' + FAX_TASK.category);
+
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Charlie Clinic - 1' }));
+
+    await waitFor(() => expect(currentSearch.get('location')).toBe('loc-c'));
+    expect(currentSearch.get('assignedTo')).toBe('me');
+    expect(currentSearch.get('status')).toBe('ready,in-progress');
+    expect(currentSearch.get('category')).toBeNull();
+    expect(JSON.parse(localStorage.getItem('tasks.filters') ?? '{}')).toEqual({
+      location: ['loc-c'],
+      assignedTo: 'me',
+      status: ['ready', 'in-progress'],
+    });
+    expect(await screen.findByRole('button', { name: 'Charlie Clinic' })).toBeInTheDocument();
   });
 });

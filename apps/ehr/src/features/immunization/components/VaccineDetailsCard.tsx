@@ -1,5 +1,5 @@
 import { LoadingButton } from '@mui/lab';
-import { Divider, Stack } from '@mui/material';
+import { Divider, Skeleton, Stack } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
@@ -8,11 +8,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import {
-  SelectBlank,
-  Sentence,
-  TextBlank,
-} from 'src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
+import { Sentence } from 'src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import {
   useAdministerImmunizationOrder,
@@ -21,25 +17,32 @@ import {
 import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/helpers';
 import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { BASE_ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-administration.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
-import { ImmunizationEmergencyContact, ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
+import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
 import { effectiveVfcEligibility } from 'utils/lib/types/data/immunization/vfc';
 import { enqueueOrderDeleteWarnings } from '../../visits/shared/utils/orderDeleteWarnings';
-import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
+import {
+  ADMINISTERED,
+  AdministrationType,
+  formatPatientEmergencyContact,
+  formatRecordedEmergencyContact,
+  NOT_ADMINISTERED,
+  PARTLY_ADMINISTERED,
+} from '../common';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 import { useVfcEligibility } from '../hooks/useVaccineInventory';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
 import {
   administrationErrors,
   applyImmunizationQuickPick,
-  emergencyContactErrors,
   ImmunizationLine,
   immunizationLineErrors,
   immunizationLineFrom,
@@ -52,11 +55,6 @@ interface Props {
   order: ImmunizationOrder;
   onFinished?: () => void;
 }
-
-const RELATIONSHIP_OPTIONS = EMERGENCY_CONTACT_RELATIONSHIPS.map((relationship) => ({
-  value: relationship.code,
-  label: relationship.display,
-}));
 
 /** The reason the confirmation dialog asks for when the order isn't marked administered. */
 interface ReasonValues {
@@ -71,20 +69,18 @@ const lineFromOrder = (order: ImmunizationOrder): ImmunizationLine =>
     details: order.details,
     administrationDetails: {
       ...order.administrationDetails,
+      // The server records the patient's emergency contact on administration.
+      emergencyContact: undefined,
       administeredDateTime: getInitialAdministeredDateTime(order),
       visGiven: order.administrationDetails?.visGiven ?? false,
     },
   });
 
 export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
-  // The order as one line, as the order page holds it, plus its emergency contact.
+  // The order as one line, as the order page holds it.
   const [line, setLine] = useState(() => lineFromOrder(order));
-  const [contact, setContact] = useState<Partial<ImmunizationEmergencyContact>>(
-    () => order.administrationDetails?.emergencyContact ?? {}
-  );
   useEffect(() => {
     setLine(lineFromOrder(order));
-    setContact(order.administrationDetails?.emergencyContact ?? {});
   }, [order]);
   const reasonForm = useForm<ReasonValues>({ defaultValues: { otherReason: '', confirmVfc: true } });
 
@@ -100,6 +96,19 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   const { data: vfc } = useVfcEligibility(order.encounterId || undefined);
   // The lots and borrowing go by the eligibility line's category; an adult is never eligible.
   const vfcEligibility = effectiveVfcEligibility(shownVfcEligibility(vfc), resources?.patient?.birthDate);
+  const apiClient = useOystehrAPIClient();
+  const showsPatientEmergencyContact = order.status === 'pending' || order.status === 'administered-not';
+  const { data: patientAccount, isError: isPatientAccountError } = useGetPatientAccount({
+    apiClient,
+    patientId: showsPatientEmergencyContact ? resources?.patient?.id ?? null : null,
+  });
+  const isEmergencyContactLoading = showsPatientEmergencyContact && !patientAccount && !isPatientAccountError;
+  const emergencyContact = showsPatientEmergencyContact
+    ? formatPatientEmergencyContact(patientAccount?.emergencyContactResource)
+    : formatRecordedEmergencyContact(order.administrationDetails?.emergencyContact);
+  const emergencyContactText = isPatientAccountError
+    ? 'Could not load emergency contact'
+    : emergencyContact ?? 'Not provided';
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(order.encounterId);
@@ -123,7 +132,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   const errorsFor = (type: AdministrationType): string[] => [
     ...immunizationLineErrors(line),
     ...administrationErrors(line, type !== NOT_ADMINISTERED),
-    ...emergencyContactErrors(contact),
   ];
 
   const handleDeleteOrder = async (): Promise<void> => {
@@ -148,7 +156,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     const data = {
       ...order,
       details: line.details,
-      administrationDetails: { ...line.administrationDetails, emergencyContact: contact },
+      administrationDetails: line.administrationDetails,
       reason: otherReason?.trim() ? otherReason : reason,
       otherReason,
     };
@@ -179,9 +187,6 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     setShowAdministrationConfirmationDialog(true);
   };
 
-  const updateContact = (patch: Partial<ImmunizationEmergencyContact>): void =>
-    setContact((current) => ({ ...current, ...patch }));
-
   return (
     <>
       <AccordionCard>
@@ -203,32 +208,11 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
           >
             <Sentence>
               Emergency contact:{' '}
-              <SelectBlank
-                label="relationship"
-                title="Relationship"
-                options={RELATIONSHIP_OPTIONS}
-                value={contact.relationship || undefined}
-                onChange={(relationship) => updateContact({ relationship: relationship ?? '' })}
-                readOnly={isReadOnly}
-                clearable
-                dataTestId={dataTestIds.vaccineDetailsPage.relationship}
-              />{' '}
-              <TextBlank
-                label="full name"
-                value={contact.fullName}
-                onChange={(fullName) => updateContact({ fullName })}
-                readOnly={isReadOnly}
-                dataTestId={dataTestIds.vaccineDetailsPage.fullName}
-              />
-              , mobile{' '}
-              <TextBlank
-                label="mobile"
-                value={contact.mobile}
-                onChange={(mobile) => updateContact({ mobile })}
-                readOnly={isReadOnly}
-                dataTestId={dataTestIds.vaccineDetailsPage.mobile}
-              />
-              .
+              {isEmergencyContactLoading ? (
+                <Skeleton variant="text" width={300} sx={{ display: 'inline-block' }} />
+              ) : (
+                <span data-testid={dataTestIds.vaccineDetailsPage.emergencyContact}>{emergencyContactText}</span>
+              )}
             </Sentence>
           </ImmunizationSentences>
 

@@ -55,4 +55,13 @@ describe('get-medication-orders - the catalog drug of a saved order', () => {
     };
     expect(readOrder(legacyCopy).catalogMedicationId).toBeUndefined();
   });
+
+  it('returns the inventory lot selected for the order, and none for a typed lot', () => {
+    const lot = { lotNumber: 'A123', expDate: '2027-03-31' };
+    expect(readOrder(createMedicationCopy(catalogDrug('med-1'), { ...lot, inventoryLotId: 'lot-1' }))).toMatchObject({
+      lotNumber: 'A123',
+      inventoryLotId: 'lot-1',
+    });
+    expect(readOrder(createMedicationCopy(catalogDrug('med-1'), lot)).inventoryLotId).toBeUndefined();
+  });
 });

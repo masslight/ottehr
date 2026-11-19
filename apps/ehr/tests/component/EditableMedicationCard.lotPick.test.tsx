@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DateTime } from 'luxon';
+import { DateTime, Settings } from 'luxon';
 import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { IN_HOUSE_CONTAINED_MEDICATION_ID } from 'utils/lib/types/api/medication-administration.constants';
 import {
@@ -46,9 +46,10 @@ const savedOrder: ExtendedMedicationDataForResponse = {
   dateTimeCreated: DateTime.now().toISO()!,
 };
 
-const { updateMedication, lotsRequestedFor } = vi.hoisted(() => ({
+const { updateMedication, lotsRequestedFor, lotsRequestedAt } = vi.hoisted(() => ({
   updateMedication: vi.fn(),
   lotsRequestedFor: vi.fn(),
+  lotsRequestedAt: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async () => ({
@@ -68,11 +69,24 @@ vi.mock(
 vi.mock(
   '../../src/features/visits/in-person/components/medication-administration/medication-editable-card/MedicationCardField',
   () => ({
-    MedicationCardField: ({ field, inventoryLots, onInventoryLotPick }: any) =>
+    MedicationCardField: ({ field, value, inventoryLots, onInventoryLotPick, onChange }: any) =>
       field === 'lotNumber' && inventoryLots ? (
-        <button onClick={() => onInventoryLotPick(inventoryLots.lots[0])}>
-          Pick {inventoryLots.lots[0].lotNumber}
-        </button>
+        <>
+          <button onClick={() => onInventoryLotPick(inventoryLots.lots[0])}>
+            Pick {inventoryLots.lots[0].lotNumber}
+          </button>
+          <input
+            aria-label="Type a lot"
+            value={value ?? ''}
+            onChange={(event) => onChange('lotNumber', event.target.value)}
+          />
+        </>
+      ) : field === 'effectiveDateTime' ? (
+        <input
+          aria-label="Date/Time Given"
+          value={value ?? ''}
+          onChange={(event) => onChange('effectiveDateTime', event.target.value)}
+        />
       ) : (
         <div />
       ),
@@ -86,14 +100,19 @@ vi.mock('src/components/input/CptCodesInput', () => ({
   designateMedicationCptCode: (codes: unknown[]) => codes,
 }));
 vi.mock('../../src/features/admin/inventory/inventory.queries', () => ({
-  useInventoryLotsOnHand: (params: { catalogMedicationId?: string }) => {
+  useInventoryLotsOnHand: (params: { catalogMedicationId?: string; locationId?: string }) => {
     lotsRequestedFor(params.catalogMedicationId);
+    lotsRequestedAt(params.locationId);
     return { data: [lotWithoutManufacturer] };
   },
 }));
 vi.mock('../../src/features/visits/in-person/components/InPersonModal', () => ({
-  InPersonModal: ({ open, handleConfirm, entity }: any) =>
-    open && entity ? <button onClick={() => handleConfirm(entity)}>Confirm</button> : null,
+  InPersonModal: ({ open, title, handleConfirm, entity }: any) =>
+    open ? (
+      <div role="dialog" aria-label={title}>
+        {entity && <button onClick={() => handleConfirm(entity)}>Confirm</button>}
+      </div>
+    ) : null,
 }));
 vi.mock('../../src/features/visits/in-person/hooks/useMedicationHistory', () => ({
   useMedicationHistory: () => ({ isLoading: false, medicationHistory: [], refetchHistory: vi.fn() }),
@@ -143,6 +162,73 @@ vi.mock('../../src/features/visits/in-person/hooks/useMedicationManagement', () 
   }),
 }));
 
+const saveAsAdministered = async (user: ReturnType<typeof userEvent.setup>): Promise<Record<string, unknown>> => {
+  await user.click(screen.getByTestId(dataTestIds.inHouseMedicationsPage.administeredButton));
+  await user.click(await screen.findByRole('button', { name: 'Confirm' }));
+  await waitFor(() => expect(updateMedication).toHaveBeenCalledTimes(1));
+  return JSON.parse(JSON.stringify(updateMedication.mock.calls[0][0])).orderData;
+};
+
+const dialogShownOnAdministering = async (user: ReturnType<typeof userEvent.setup>): Promise<string | null> => {
+  await user.click(screen.getByTestId(dataTestIds.inHouseMedicationsPage.administeredButton));
+  return (await screen.findByRole('dialog')).getAttribute('aria-label');
+};
+
+describe('EditableMedicationCard - the inventory lot sent with a saved order', () => {
+  it('sends the id of the lot picked from the suggestions', async () => {
+    updateMedication.mockReset().mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<EditableMedicationCard type="completed-edit" medication={savedOrder} />);
+
+    await user.click(screen.getByRole('button', { name: 'Pick B456' }));
+
+    expect(await saveAsAdministered(user)).toMatchObject({ lotNumber: 'B456', inventoryLotId: 'lot-b' });
+  });
+
+  it('sends no lot id once a typed lot number replaces the picked lot', async () => {
+    updateMedication.mockReset().mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, inventoryLotId: 'lot-a' }} />);
+
+    const lotInput = screen.getByLabelText('Type a lot');
+    await user.clear(lotInput);
+    await user.type(lotInput, 'SAMPLE-1');
+
+    const sent = await saveAsAdministered(user);
+    expect(sent).toMatchObject({ lotNumber: 'SAMPLE-1' });
+    expect(sent).not.toHaveProperty('inventoryLotId');
+  });
+
+  it('keeps the lot id of a saved order whose lot was not touched', async () => {
+    updateMedication.mockReset().mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, inventoryLotId: 'lot-a' }} />);
+
+    expect(await saveAsAdministered(user)).toMatchObject({ lotNumber: 'A123', inventoryLotId: 'lot-a' });
+  });
+
+  it('keeps the lot id of a saved order whose lot is no longer suggested when its number is changed and typed back', async () => {
+    updateMedication.mockReset().mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, inventoryLotId: 'lot-a' }} />);
+
+    const lotInput = screen.getByRole('textbox', { name: 'Type a lot' });
+
+    expect(lotInput).toHaveValue('A123');
+
+    await user.type(lotInput, '4');
+    expect(lotInput).toHaveValue('A1234');
+
+    await user.type(lotInput, '{Backspace}');
+    expect(lotInput).toHaveValue('A123');
+
+    expect(await saveAsAdministered(user)).toMatchObject({
+      lotNumber: 'A123',
+      inventoryLotId: 'lot-a',
+    });
+  });
+});
+
 describe('EditableMedicationCard - picking an inventory lot on a saved order', () => {
   it('sends an empty manufacturer when the picked lot has none', async () => {
     updateMedication.mockReset().mockResolvedValue({});
@@ -173,5 +259,99 @@ describe('EditableMedicationCard - picking an inventory lot on a saved order', (
       <EditableMedicationCard type="completed-edit" medication={{ ...savedOrder, medicationName: 'Medication Two' }} />
     );
     expect(lotsRequestedFor).toHaveBeenLastCalledWith('med-2');
+  });
+});
+
+describe('EditableMedicationCard - administering an order applied from a template', () => {
+  it("preselects a lot on hand at the visit's location and sends its id when the order carries no lot", async () => {
+    updateMedication.mockReset().mockResolvedValue({});
+    lotsRequestedFor.mockClear();
+    lotsRequestedAt.mockClear();
+    const user = userEvent.setup();
+    const templateAppliedOrder: ExtendedMedicationDataForResponse = {
+      ...savedOrder,
+      status: 'pending',
+      catalogMedicationId: 'med-1',
+      lotNumber: undefined,
+      expDate: undefined,
+      manufacturer: undefined,
+      inventoryLotId: undefined,
+    };
+    render(<EditableMedicationCard type="dispense" medication={templateAppliedOrder} />);
+
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Type a lot' })).toHaveValue('B456'));
+    expect(lotsRequestedFor).toHaveBeenLastCalledWith('med-1');
+    expect(lotsRequestedAt).toHaveBeenLastCalledWith('loc-a');
+
+    expect(await saveAsAdministered(user)).toMatchObject({
+      lotNumber: 'B456',
+      inventoryLotId: 'lot-b',
+      ndc: 'ndc-B456',
+    });
+  });
+});
+
+describe('EditableMedicationCard - expired lot warning', () => {
+  const daysAgo = (days: number): DateTime => DateTime.now().minus({ days });
+  const pendingOrder: ExtendedMedicationDataForResponse = {
+    ...savedOrder,
+    status: 'pending',
+    effectiveDateTime: undefined,
+  };
+
+  it('does not warn when editing an administration whose lot expired after it was given', async () => {
+    render(
+      <EditableMedicationCard
+        type="completed-edit"
+        medication={{ ...savedOrder, effectiveDateTime: daysAgo(10).toISO()!, expDate: daysAgo(5).toISODate()! }}
+      />
+    );
+    expect(await dialogShownOnAdministering(userEvent.setup())).toBe('Medication Administered');
+  });
+
+  it('warns when editing an administration whose lot had already expired when it was given', async () => {
+    render(
+      <EditableMedicationCard
+        type="completed-edit"
+        medication={{ ...savedOrder, effectiveDateTime: daysAgo(3).toISO()!, expDate: daysAgo(5).toISODate()! }}
+      />
+    );
+    expect(await dialogShownOnAdministering(userEvent.setup())).toBe('Expired Lot');
+  });
+
+  it('does not warn when the administration is backdated to before the lot expired', async () => {
+    const user = userEvent.setup();
+    render(
+      <EditableMedicationCard type="dispense" medication={{ ...pendingOrder, expDate: daysAgo(1).toISODate()! }} />
+    );
+
+    const givenAt = screen.getByRole('textbox', { name: 'Date/Time Given' });
+    await user.clear(givenAt);
+    await user.type(givenAt, daysAgo(2).toISO()!);
+
+    expect(await dialogShownOnAdministering(user)).toBe('Medication Administered');
+  });
+
+  it('warns when administering now with a lot that expired yesterday', async () => {
+    render(
+      <EditableMedicationCard type="dispense" medication={{ ...pendingOrder, expDate: daysAgo(1).toISODate()! }} />
+    );
+    expect(await dialogShownOnAdministering(userEvent.setup())).toBe('Expired Lot');
+  });
+
+  it("compares the expiration with the administration's day in the user's time zone", async () => {
+    const zone = Settings.defaultZone;
+    Settings.defaultZone = 'America/New_York';
+    try {
+      render(
+        <EditableMedicationCard
+          type="completed-edit"
+          medication={{ ...savedOrder, effectiveDateTime: '2026-11-10T02:00:00.000Z', expDate: '2026-11-09' }}
+        />
+      );
+      expect(await dialogShownOnAdministering(userEvent.setup())).toBe('Medication Administered');
+    } finally {
+      Settings.defaultZone = zone;
+    }
   });
 });

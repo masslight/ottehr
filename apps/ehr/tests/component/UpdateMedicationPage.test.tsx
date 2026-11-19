@@ -1,13 +1,21 @@
+import Oystehr from '@oystehr/sdk';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Medication } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
+import { makeMedicationInventoryExtension } from 'utils/lib/fhir/medication-inventory';
+import {
+  GetMedicationInventoryResponse,
+  MEDICATION_COUNTED_AS_LABELS,
+  MEDICATION_COUNTED_AS_OPTIONS,
+} from 'utils/lib/types/api/config/in-house-medications';
 import {
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-router-dom', async () => {
@@ -19,14 +27,20 @@ vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
 
 vi.mock('src/api/api', () => ({
   getInHouseMedications: vi.fn(),
+  getMedicationInventory: vi.fn(),
+  lookupNdc: vi.fn(),
+  receiveMedicationShipment: vi.fn(),
   updateInHouseMedication: vi.fn(),
+}));
+
+vi.mock('src/features/notifications/notifications.queries', () => ({
+  useGetAllLocations: vi.fn(),
 }));
 
 vi.mock('src/hooks/useAppClients', () => ({
   useApiClients: vi.fn(),
 }));
 
-// Editing a catalog medication is limited to admin-tier roles.
 vi.mock('src/hooks/useEvolveUser', () => ({
   default: () => ({ hasRole: () => true }),
 }));
@@ -41,8 +55,18 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.queries', () 
   MEDICATION_DATABASE_FORBIDDEN_MESSAGE: FORBIDDEN_MESSAGE,
 }));
 
+import { enqueueSnackbar } from 'notistack';
 import { useParams } from 'react-router-dom';
-import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
+import {
+  getInHouseMedications,
+  getMedicationInventory,
+  lookupNdc,
+  receiveMedicationShipment,
+  updateInHouseMedication,
+} from 'src/api/api';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { recordedInventoryQueryKey, useHasRecordedInventory } from 'src/features/admin/inventory/inventory.queries';
+import { useGetAllLocations } from 'src/features/notifications/notifications.queries';
 import {
   useGetMedicationDetails,
   useGetMedicationsSearch,
@@ -52,8 +76,9 @@ import UpdateMedicationPage from '../../src/pages/configuration/UpdateMedication
 
 const mockOystehrZambda = {} as any;
 
-const createWrapper = () => {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+const createWrapper = (
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+) => {
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>{children}</BrowserRouter>
@@ -73,6 +98,31 @@ const activeMedication: Medication = {
 
 const inactiveMedication: Medication = { ...activeMedication, id: 'med-xyz', status: 'inactive' };
 
+const mainStreet = { id: 'loc-main', name: 'Main Street' };
+
+const locationsQuery = (status: 'pending' | 'error' | 'success', data?: (typeof mainStreet)[]): any => ({
+  status,
+  data,
+  isPending: status === 'pending',
+  isError: status === 'error',
+  isSuccess: status === 'success',
+});
+
+const trackedMedication: Medication = {
+  ...activeMedication,
+  extension: [
+    makeMedicationInventoryExtension({
+      countedAs: 'vial',
+      eachContains: { amount: 4, unit: 'mg' },
+      use: 'single-use',
+      reorderLevels: [
+        { locationId: 'loc-closed', level: 5 },
+        { locationId: mainStreet.id, level: 10 },
+      ],
+    }),
+  ],
+};
+
 describe('UpdateMedicationPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -85,6 +135,8 @@ describe('UpdateMedicationPage', () => {
     } as any);
     vi.mocked(getInHouseMedications).mockResolvedValue([activeMedication]);
     vi.mocked(updateInHouseMedication).mockResolvedValue(activeMedication);
+    vi.mocked(getMedicationInventory).mockResolvedValue({});
+    vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery('success', []));
   });
 
   it('shows loading indicator before medication is fetched', () => {
@@ -172,5 +224,284 @@ describe('UpdateMedicationPage', () => {
     expect(callArg.name).toBe('Ibuprofen 200mg');
     expect(callArg.name).not.toContain('Totally made up name');
     expect(callArg.medicationID).toBe('med-abc');
+  });
+
+  describe('Update Medication button', () => {
+    it.each([
+      ['is loading', 'pending'],
+      ['has failed', 'error'],
+    ] as const)('is disabled while the locations request %s', async (_state, status) => {
+      vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery(status));
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      expect(await screen.findByRole('button', { name: /^update medication$/i }, { timeout: 10_000 })).toBeDisabled();
+    });
+
+    it('is enabled once locations have loaded, even when there are none', async () => {
+      vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery('success', []));
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      expect(await screen.findByRole('button', { name: /^update medication$/i }, { timeout: 10_000 })).toBeEnabled();
+    });
+  });
+
+  describe('reorder levels', () => {
+    const submittedReorderLevels = async (): Promise<unknown> => {
+      await userEvent.click(screen.getByRole('button', { name: /^update medication$/i }));
+      await waitFor(() => expect(updateInHouseMedication).toHaveBeenCalledTimes(1));
+      return vi.mocked(updateInHouseMedication).mock.calls[0][1].inventory?.reorderLevels;
+    };
+
+    beforeEach(() => {
+      vi.mocked(getInHouseMedications).mockResolvedValue([trackedMedication]);
+      vi.mocked(updateInHouseMedication).mockResolvedValue(trackedMedication);
+    });
+
+    it('keeps the level of a clinic missing from the locations list', async () => {
+      vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery('success', [mainStreet]));
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+      await waitFor(() => expect(screen.getByLabelText('Main Street')).toHaveValue(10), { timeout: 10_000 });
+
+      expect(await submittedReorderLevels()).toEqual([
+        { locationId: 'loc-closed', level: 5 },
+        { locationId: mainStreet.id, level: 10 },
+      ]);
+    });
+
+    it('removes only the level of the clinic whose field was cleared', async () => {
+      vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery('success', [mainStreet]));
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+      await waitFor(() => expect(screen.getByLabelText('Main Street')).toHaveValue(10), { timeout: 10_000 });
+      await userEvent.clear(screen.getByLabelText('Main Street'));
+
+      expect(await submittedReorderLevels()).toEqual([{ locationId: 'loc-closed', level: 5 }]);
+    });
+  });
+
+  describe('Counting Unit', () => {
+    const LOCKED_HELP = "Can't be changed after inventory has been recorded";
+    const CHECKING_HELP = 'Checking whether inventory has been recorded…';
+    const CHECK_FAILED_HELP = "Couldn't check whether inventory has been recorded. Reload to change the unit.";
+    const ALL_UNITS = MEDICATION_COUNTED_AS_OPTIONS.map((option) => MEDICATION_COUNTED_AS_LABELS[option].singular);
+
+    const findCountingUnit = (): Promise<HTMLElement> =>
+      screen.findByRole('combobox', { name: /^Counting Unit/ }, { timeout: 10_000 });
+
+    const selectableOptions = (): string[] =>
+      screen
+        .getAllByRole('option')
+        .filter((option) => option.getAttribute('aria-disabled') !== 'true')
+        .map((option) => option.textContent ?? '');
+
+    const expectCountingUnitHelp = (help: string): Promise<void> =>
+      waitFor(
+        () => {
+          expect(screen.getByRole('combobox', { name: /^Counting Unit/ })).toHaveAccessibleDescription(help);
+        },
+        { timeout: 10_000 }
+      );
+
+    const RECORDED_LOT: GetMedicationInventoryResponse = {
+      lastReceivedLot: { id: 'lot-1', locationId: mainStreet.id, lotNumber: 'A1' },
+    };
+
+    const reconnect = (): void =>
+      act(() => {
+        window.dispatchEvent(new Event('offline'));
+        window.dispatchEvent(new Event('online'));
+      });
+
+    beforeEach(() => {
+      vi.mocked(getInHouseMedications).mockResolvedValue([trackedMedication]);
+    });
+
+    it('allows only the saved unit or Not tracked once inventory has been recorded', async () => {
+      vi.mocked(getMedicationInventory).mockResolvedValue(RECORDED_LOT);
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      await expectCountingUnitHelp(LOCKED_HELP);
+      await userEvent.click(await findCountingUnit());
+      expect(selectableOptions()).toEqual(['Not tracked', 'Vial']);
+    });
+
+    it('allows every unit once the server confirms no inventory has been recorded, until a later check fails', async () => {
+      const user = userEvent.setup();
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      await user.click(await findCountingUnit());
+      await waitFor(() => expect(selectableOptions()).toEqual(['Not tracked', ...ALL_UNITS]));
+      expect(screen.queryByText(LOCKED_HELP)).not.toBeInTheDocument();
+      expect(screen.queryByText(CHECKING_HELP)).not.toBeInTheDocument();
+      await user.click(screen.getByRole('option', { name: 'Bottle' }));
+
+      vi.mocked(getMedicationInventory).mockRejectedValue(new Error('Network error'));
+      reconnect();
+
+      await expectCountingUnitHelp(CHECK_FAILED_HELP);
+      expect(await findCountingUnit()).toHaveTextContent('Bottle');
+      await user.click(await findCountingUnit());
+      expect(selectableOptions()).toEqual(['Not tracked', 'Vial']);
+
+      await user.keyboard('{Escape}');
+      await user.click(screen.getByRole('button', { name: /^update medication$/i }));
+      await waitFor(() =>
+        expect(enqueueSnackbar).toHaveBeenCalledWith(
+          "The Counting Unit can't be changed until it's confirmed that no inventory has been recorded. Reload to try again.",
+          { variant: 'error' }
+        )
+      );
+      expect(updateInHouseMedication).not.toHaveBeenCalled();
+
+      await user.click(await findCountingUnit());
+      await user.click(screen.getByRole('option', { name: 'Not tracked' }));
+      await user.click(screen.getByRole('button', { name: /^update medication$/i }));
+      await waitFor(() => expect(updateInHouseMedication).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(updateInHouseMedication).mock.calls[0][1].inventory).toBeNull();
+    });
+
+    it('puts the saved unit back when a later check finds inventory', async () => {
+      const user = userEvent.setup();
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+      await user.click(await findCountingUnit());
+      await waitFor(() => expect(selectableOptions()).toEqual(['Not tracked', ...ALL_UNITS]));
+      await user.click(screen.getByRole('option', { name: 'Bottle' }));
+
+      vi.mocked(getMedicationInventory).mockResolvedValue(RECORDED_LOT);
+      reconnect();
+
+      await expectCountingUnitHelp(LOCKED_HELP);
+      expect(await findCountingUnit()).toHaveTextContent('Vial');
+    });
+
+    it('keeps other units unavailable on a return visit until the check has been repeated', async () => {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      queryClient.setQueryData(recordedInventoryQueryKey('med-abc'), false);
+      vi.mocked(getMedicationInventory).mockReturnValue(new Promise(() => {}));
+      render(<UpdateMedicationPage />, { wrapper: createWrapper(queryClient) });
+
+      await expectCountingUnitHelp(CHECKING_HELP);
+      await userEvent.click(await findCountingUnit());
+      expect(selectableOptions()).toEqual(['Not tracked', 'Vial']);
+    });
+
+    it('treats recorded inventory as permanent when a stale check reports none', async () => {
+      let answerCheck: (response: GetMedicationInventoryResponse) => void = () => {};
+      vi.mocked(getMedicationInventory).mockReturnValue(new Promise((resolve) => (answerCheck = resolve)));
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const { result } = renderHook(() => useHasRecordedInventory('med-abc', true), {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        ),
+      });
+      await waitFor(() => expect(result.current.isFetching).toBe(true));
+
+      act(() => {
+        queryClient.setQueryData(recordedInventoryQueryKey('med-abc'), true);
+      });
+      answerCheck({});
+      await waitFor(() => expect(result.current.isFetching).toBe(false));
+      expect(result.current.data).toBe(true);
+
+      vi.mocked(getMedicationInventory).mockResolvedValue({});
+      await act(async () => {
+        await result.current.refetch();
+      });
+      expect(result.current.data).toBe(true);
+    });
+
+    it.each([
+      ['in progress', () => new Promise<never>(() => {}), CHECKING_HELP],
+      ['failed', () => Promise.reject(new Error('Network error')), CHECK_FAILED_HELP],
+    ])('keeps other units unavailable while the inventory check is %s', async (_state, response, help) => {
+      vi.mocked(getMedicationInventory).mockImplementation(response);
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      await expectCountingUnitHelp(help);
+      await userEvent.click(await findCountingUnit());
+      expect(selectableOptions()).toEqual(['Not tracked', 'Vial']);
+    });
+
+    it('locks other units and restores the saved setup as soon as the first shipment is received on the page', async () => {
+      vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery('success', [mainStreet]));
+      vi.mocked(lookupNdc).mockResolvedValue({ status: 'unavailable' });
+      vi.mocked(receiveMedicationShipment).mockResolvedValue({} as never);
+      vi.mocked(useGetMedicationDetails).mockReturnValue({
+        isFetching: false,
+        data: { id: 12345, name: 'Ibuprofen', isObsolete: true },
+      } as any);
+      vi.mocked(useGetMedicationsSearch).mockReturnValue({
+        isFetching: false,
+        data: [{ id: 67890, name: 'Ibuprofen 200mg tablet', isObsolete: false }],
+      } as any);
+      const user = userEvent.setup();
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+      await findCountingUnit();
+      await waitFor(() => expect(screen.queryByText(CHECKING_HELP)).not.toBeInTheDocument());
+      expect(screen.queryByText(LOCKED_HELP)).not.toBeInTheDocument();
+      await user.click(await findCountingUnit());
+      await user.click(screen.getByRole('option', { name: 'Bottle' }));
+      await user.clear(screen.getByLabelText(/^Each Contains/));
+      await user.type(screen.getByLabelText(/^Each Contains/), '100');
+      await user.clear(screen.getByLabelText('Main Street'));
+      await user.type(screen.getByLabelText('Main Street'), '3');
+      await user.click(screen.getByRole('combobox', { name: /^Medication Name for Interactions/ }));
+      await user.click(screen.getByRole('option', { name: 'Ibuprofen 200mg tablet' }));
+
+      await user.click(screen.getByTestId(dataTestIds.updateMedicationPage.receiveShipmentButton));
+      await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.ndcField), '72572-0160-25');
+      await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.lotNumberField), 'A123');
+      await user.click(screen.getByLabelText(/Expiration Date/));
+      await user.keyboard('01012028');
+      await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.quantityField), '10');
+      await screen.findByText(/lookup unavailable/);
+      await user.click(screen.getByTestId(dataTestIds.receiveShipmentDialog.receiveButton));
+
+      expect(await screen.findByText(LOCKED_HELP)).toBeInTheDocument();
+      expect(await findCountingUnit()).toHaveTextContent('Vial');
+      await user.click(await findCountingUnit());
+      expect(selectableOptions()).toEqual(['Not tracked', 'Vial']);
+
+      await user.keyboard('{Escape}');
+      await user.click(screen.getByRole('button', { name: /^update medication$/i }));
+      await waitFor(() => expect(updateInHouseMedication).toHaveBeenCalledTimes(1));
+      const submitted = vi.mocked(updateInHouseMedication).mock.calls[0][1];
+      expect(submitted.inventory).toEqual({
+        countedAs: 'vial',
+        eachContains: { amount: 4, unit: 'mg' },
+        use: 'single-use',
+        reorderLevels: [
+          { locationId: 'loc-closed', level: 5 },
+          { locationId: mainStreet.id, level: 10 },
+        ],
+      });
+      expect(submitted.medispanIDForInteractions).toBe('67890');
+    });
+  });
+
+  describe('update failure toast', () => {
+    const REASON = "The Counting Unit can't be changed after inventory has been recorded for this medication.";
+
+    it.each([
+      [
+        "the server's reason for a rejected update",
+        new Oystehr.OystehrSdkError({ message: REASON, code: APIErrorCode.INVALID_INPUT }),
+        REASON,
+      ],
+      [
+        'the generic message when the server sends no message',
+        new Oystehr.OystehrSdkError({
+          message: { status: 500, output: { error: 'Internal error' } } as unknown as string,
+          code: 500,
+        }),
+        'Failed to update medication',
+      ],
+    ])('shows %s', async (_case, error, toast) => {
+      vi.mocked(updateInHouseMedication).mockRejectedValue(error);
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      await userEvent.click(await screen.findByRole('button', { name: /^update medication$/i }, { timeout: 10_000 }));
+
+      await waitFor(() => expect(enqueueSnackbar).toHaveBeenCalledWith(toast, { variant: 'error' }));
+    });
   });
 });

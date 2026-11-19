@@ -40,9 +40,6 @@ interface AdministrationDetails {
   administeredDate: string;
   administeredTime: string;
   visGivenDate: string;
-  relationship: string;
-  fullName: string;
-  mobile: string;
 }
 
 // Catalog vaccines the instance has added (the config-vaccine upgrade adds these; see
@@ -95,9 +92,6 @@ const ADMINISTRATION_DETAILS: AdministrationDetails = {
   administeredDate: '02/10/2025',
   administeredTime: '10:50 AM',
   visGivenDate: '03/10/2025',
-  relationship: 'Parent',
-  fullName: 'John Doe',
-  mobile: '(202) 713-9680',
 };
 
 const PENDING = 'PENDING';
@@ -189,9 +183,6 @@ async function enterAdministrationDetails(
   await vaccineDetailsPage.enterAdministeredTime(administrationDetails.administeredTime);
   await vaccineDetailsPage.setVisCheckboxChecked(true);
   await vaccineDetailsPage.enterVisGivenDate(administrationDetails.visGivenDate);
-  await vaccineDetailsPage.selectRelationship(administrationDetails.relationship);
-  await vaccineDetailsPage.enterFullName(administrationDetails.fullName);
-  await vaccineDetailsPage.enterMobile(administrationDetails.mobile);
 }
 
 async function getCurrentPractitionerName(resourceHandler: ResourceHandler): Promise<string> {

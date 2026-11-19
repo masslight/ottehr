@@ -21,6 +21,7 @@ import {
   extractClaimResponseAmounts,
   fetchClaimResponsesByPaymentReconciliations,
   isMatchedToClaim,
+  remitWriteOffsBeyondAllowed,
   sortClaimResponsesByRecency,
 } from '../../claim-amounts';
 import { eraPatientAccountNumber } from '../../era-remits';
@@ -312,9 +313,13 @@ async function computeInsuranceSide(
         knownAllowed = amounts.allowed;
       }
       const basis = outstanding;
-      // no CAS data falls back to basis-but-unpaid, floored — coalescing to 0 would count the
-      // whole basis as insurance-collectible
-      const stepPatientResp = Math.max(amounts.patientResp ?? basis - amounts.paid, 0);
+      // no PR falls back to basis-but-unpaid less what the payer wrote off beyond its allowed
+      // (e.g. sequestration), floored — coalescing to 0 would count the whole basis as
+      // insurance-collectible
+      const stepPatientResp = Math.max(
+        amounts.patientResp ?? basis - amounts.paid - remitWriteOffsBeyondAllowed(claimResponse),
+        0
+      );
       outstanding = stepPatientResp;
 
       const eraId = eraIdByCr.get(claimResponse);

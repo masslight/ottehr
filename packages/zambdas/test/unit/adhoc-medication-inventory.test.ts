@@ -13,6 +13,7 @@ import {
   makeInventoryLot,
   makeInventoryStockEntry,
   makeMedicationInventoryExtension,
+  withLotDetails,
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
@@ -33,10 +34,6 @@ import {
   fetchAdHocMedicationInventoryRows,
   medicationInventorySearchParams,
 } from '../../src/shared/adhoc-datasets/medication-inventory';
-
-// The fetch+map pipeline runs against a stubbed Oystehr client returning one lot's ledger with its
-// included lot, location, performer and visit; the mapped rows must parse with the endpoint's own Output
-// schema — the same schema the runtime validation uses.
 
 const inventory: InHouseMedicationInventory = {
   countedAs: 'vial',
@@ -105,7 +102,13 @@ const base = {
 
 const entries: Observation[] = [
   {
-    ...makeInventoryStockEntry({ ...base, type: 'received', quantity: 25, effectiveDateTime: '2026-10-01T14:02:00Z' }),
+    ...makeInventoryStockEntry({
+      ...base,
+      type: 'received',
+      quantity: 25,
+      vendor: 'McKesson',
+      effectiveDateTime: '2026-10-01T14:02:00Z',
+    }),
     id: 'entry-received',
   },
   {
@@ -227,7 +230,6 @@ describe('medication inventory dataset', () => {
       patientName: '',
     });
 
-    // administered at a visit, with the unused part of the vial recorded as waste
     expect(rows[1]).toMatchObject({
       entryType: 'administered',
       reason: 'partial-dose-waste',
@@ -239,15 +241,32 @@ describe('medication inventory dataset', () => {
       patientName: 'Maya Patel',
     });
 
-    // adjustment with a reason
     expect(rows[2]).toMatchObject({
       entryType: 'adjustment',
       reason: 'broken-container',
       quantity: -1,
     });
 
-    // a count that matched the shelf
     expect(rows[3]).toMatchObject({ entryType: 'count', reason: 'no-difference', quantity: 0 });
+  });
+
+  it('leaves an earlier receipt without a vendor unknown after a later shipment gives the lot one', () => {
+    const receipt = { ...base, type: 'received' as const, quantity: 10 };
+    const rows = buildMedicationInventoryRows([
+      { ...makeInventoryStockEntry({ ...receipt, effectiveDateTime: '2026-10-01T14:02:00Z' }), id: 'entry-earlier' },
+      {
+        ...makeInventoryStockEntry({ ...receipt, vendor: 'Henry Schein', effectiveDateTime: '2026-10-05T09:00:00Z' }),
+        id: 'entry-later',
+      },
+      withLotDetails(lot, { vendor: 'Henry Schein' }),
+      location,
+      nurse,
+    ]);
+
+    expect(rows.map((row) => [row.entryId, row.vendor])).toEqual([
+      ['entry-earlier', ''],
+      ['entry-later', 'Henry Schein'],
+    ]);
   });
 
   it('shows an administration and its reversal in the periods they were recorded, netting to zero across both', () => {

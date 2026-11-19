@@ -1,12 +1,13 @@
 import { DateTime } from 'luxon';
 import { SAFE_FOLDER_PATH_SEGMENT_REGEX } from 'utils/lib/fhir/list';
+import { assertZ3Url } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 
 export const assertZ3UrlInProject = (url: string, secrets: Secrets | null): void => {
   const base = `${getSecret(SecretsKeys.PROJECT_API, secrets)}/z3/${getSecret(SecretsKeys.PROJECT_ID, secrets)}-`;
   let normalized: string;
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(assertZ3Url(url));
     normalized = `${parsed.origin}${parsed.pathname}`;
   } catch {
     throw new Error('Refusing to presign malformed URL');

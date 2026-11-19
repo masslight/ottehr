@@ -1,0 +1,184 @@
+name: "CI: Terraform apply and Test Pipeline"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy and test (empty selects one by branch affinity)"
+        required: false
+        type: choice
+        options:
+          - ""
+          - e2e
+          - e2e2
+          - e2e3
+          - e2e4
+          - e2e5
+        default: ""
+      run_automated_tests:
+        description: "Run automated tests"
+        required: false
+        type: boolean
+        default: true
+      run_ehr_e2e:
+        description: "Run EHR E2E tests"
+        required: false
+        type: boolean
+        default: true
+      run_intake_e2e:
+        description: "Run Intake E2E tests"
+        required: false
+        type: boolean
+        default: true
+      skip_terraform_apply:
+        description: "Skip Terraform Apply"
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches: [main, develop, "release/**"]
+    paths:
+      - "apps/ehr/**"
+      - "apps/intake/**"
+      - "apps/billing/**"
+      - "packages/zambdas/**"
+      - "packages/utils/**"
+      - "packages/ui-components/**"
+      - packages/spec/**
+      - "scripts/**"
+      - ".github/**"
+      - ".prettierignore"
+      - "package.json"
+      - "config/**"
+  pull_request:
+    branches: [main, develop, "release/**"]
+    paths:
+      - "apps/ehr/**"
+      - "apps/intake/**"
+      - "apps/billing/**"
+      - "packages/zambdas/**"
+      - "packages/utils/**"
+      - "packages/ui-components/**"
+      - packages/spec/**
+      - "scripts/**"
+      - ".github/**"
+      - ".prettierignore"
+      - "package.json"
+      - "config/**"
+      - "deploy/**"
+
+permissions:
+  contents: read
+
+env:
+  APP_ID: ${{ secrets.OTTEHR_GITHUB_APP_ID }}
+  APP_PRIVATE_KEY: ${{ secrets.OTTEHR_GITHUB_APP_PRIVATE_KEY }}
+  DOWNSTREAM_REPO: ${{ github.repository_owner }}/${{ vars.DOWNSTREAM_BUILD_REPO }}
+  DOWNSTREAM_WORKFLOW: ${{ vars.DOWNSTREAM_PIPELINE_WORKFLOW }}
+  DOWNSTREAM_REF: ${{ vars.DOWNSTREAM_BUILD_REF || 'develop' }}
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      run_id: ${{ steps.dispatch.outputs.run_id }}
+    steps:
+      - name: Reject pull requests from forks
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "::error::CI runs only for branches of this repository. Push the branch here and reopen the PR."
+          exit 1
+
+      - name: Fetch CI script
+        run: |
+          git init -q ci-script
+          git -C ci-script remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C ci-script fetch -q --depth 1 --filter=blob:none origin "$GITHUB_SHA"
+          git -C ci-script checkout -q FETCH_HEAD -- .github/scripts/downstream-ci.mjs
+          node --version
+
+      - name: Translate manual inputs into pipeline flags
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          RUN_AUTOMATED_TESTS: ${{ inputs.run_automated_tests }}
+          RUN_EHR_E2E: ${{ inputs.run_ehr_e2e }}
+          RUN_INTAKE_E2E: ${{ inputs.run_intake_e2e }}
+          SKIP_TERRAFORM_APPLY: ${{ inputs.skip_terraform_apply }}
+        run: |
+          FLAGS=""
+          [ "$RUN_AUTOMATED_TESTS" = "false" ] && FLAGS="$FLAGS /skip-automated-tests"
+          [ "$RUN_EHR_E2E" = "false" ] && FLAGS="$FLAGS /skip-ehr-e2e"
+          [ "$RUN_INTAKE_E2E" = "false" ] && FLAGS="$FLAGS /skip-intake-e2e"
+          [ "$SKIP_TERRAFORM_APPLY" = "true" ] && FLAGS="$FLAGS /skip-terraform-apply"
+          echo "EXTRA_FLAGS=$FLAGS" >> "$GITHUB_ENV"
+
+      - name: Dispatch downstream pipeline
+        id: dispatch
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: node ci-script/.github/scripts/downstream-ci.mjs dispatch
+
+  run-pipeline:
+    name: run-pipeline
+    needs: dispatch
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Fetch CI script
+        run: |
+          git init -q ci-script
+          git -C ci-script remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C ci-script fetch -q --depth 1 --filter=blob:none origin "$GITHUB_SHA"
+          git -C ci-script checkout -q FETCH_HEAD -- .github/scripts/downstream-ci.mjs
+          node --version
+
+      - name: Wait for downstream pipeline
+        env:
+          RUN_ID: ${{ needs.dispatch.outputs.run_id }}
+          CANCEL_ON_ABORT: "true"
+        run: node ci-script/.github/scripts/downstream-ci.mjs wait
+
+  automated-tests:
+    name: run-pipeline / automated-tests / automated-tests (22)
+    needs: dispatch
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Fetch CI script
+        run: |
+          git init -q ci-script
+          git -C ci-script remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C ci-script fetch -q --depth 1 --filter=blob:none origin "$GITHUB_SHA"
+          git -C ci-script checkout -q FETCH_HEAD -- .github/scripts/downstream-ci.mjs
+          node --version
+
+      - name: Wait for downstream automated tests
+        env:
+          RUN_ID: ${{ needs.dispatch.outputs.run_id }}
+          JOB_NAME: run-pipeline / automated-tests
+        run: node ci-script/.github/scripts/downstream-ci.mjs wait
+
+  ehr-e2e-tests:
+    name: run-pipeline / ehr-e2e-tests / ehr-e2e-tests
+    needs: dispatch
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Fetch CI script
+        run: |
+          git init -q ci-script
+          git -C ci-script remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C ci-script fetch -q --depth 1 --filter=blob:none origin "$GITHUB_SHA"
+          git -C ci-script checkout -q FETCH_HEAD -- .github/scripts/downstream-ci.mjs
+          node --version
+
+      - name: Wait for downstream EHR E2E tests
+        env:
+          RUN_ID: ${{ needs.dispatch.outputs.run_id }}
+          JOB_NAME: run-pipeline / ehr-e2e-tests
+        run: node ci-script/.github/scripts/downstream-ci.mjs wait

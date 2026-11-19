@@ -6,6 +6,7 @@ import {
   Box,
   debounce,
   FormControl,
+  FormHelperText,
   Grid,
   InputAdornment,
   InputLabel,
@@ -17,6 +18,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { Medication } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -25,6 +27,7 @@ import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import Loading from 'src/components/Loading';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { recordedInventoryQueryKey, useHasRecordedInventory } from 'src/features/admin/inventory/inventory.queries';
 import ReceiveShipmentDialog from 'src/features/admin/inventory/ReceiveShipmentDialog';
 import { useGetAllLocations } from 'src/features/notifications/notifications.queries';
 import {
@@ -61,6 +64,7 @@ import {
   MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { ADMIN_TIER_ROLES } from 'utils/lib/types/api/user.types';
+import { APIError, isApiError } from 'utils/lib/types/errors';
 
 function getMedispanId(medication: Medication | null): string | undefined {
   return medication?.code?.coding?.find((c) => c.system === MEDICATION_DISPENSABLE_DRUG_ID)?.code;
@@ -79,7 +83,7 @@ interface MedicationOption {
   isObsolete: boolean;
 }
 
-// Inventory fields as typed; numbers stay strings so a cleared input is "blank", not 0.
+// Numbers stay strings so a cleared input is blank, not 0.
 interface InventoryFormState {
   countedAs: MedicationCountedAs | '';
   eachContainsAmount: string;
@@ -116,10 +120,8 @@ function toInventoryFormState(medication: Medication): InventoryFormState {
   };
 }
 
-// Blank counted-as means "not tracked" (null clears any saved setup). Otherwise the form's required fields
-// cover what the zambda's schema needs, but `type="number"` inputs can't require a positive value, so the
-// caller checks that first.
-function toInventoryInput(form: InventoryFormState, locationIds: string[]): InHouseMedicationInventory | null {
+// `type="number"` inputs can't require a positive value, so `update` checks the amounts before this.
+function toInventoryInput(form: InventoryFormState): InHouseMedicationInventory | null {
   if (!form.countedAs || !form.eachContainsUnit) return null;
   return {
     countedAs: form.countedAs,
@@ -129,13 +131,12 @@ function toInventoryInput(form: InventoryFormState, locationIds: string[]): InHo
       ...(form.inUnit ? { in: { amount: Number(form.inAmount), unit: form.inUnit } } : {}),
     },
     use: form.use,
-    reorderLevels: locationIds
-      .filter((locationId) => form.reorderLevels[locationId]?.trim())
-      .map((locationId) => ({ locationId, level: Number(form.reorderLevels[locationId]) })),
+    reorderLevels: Object.entries(form.reorderLevels)
+      .filter(([, level]) => level.trim())
+      .map(([locationId, level]) => ({ locationId, level: Number(level) })),
   };
 }
 
-// The Inventory heading's tooltip: what each setup field does.
 const INVENTORY_SETUP_HELP: { field: string; help: string }[] = [
   {
     field: 'Counting Unit',
@@ -161,7 +162,6 @@ const INVENTORY_SETUP_HELP: { field: string; help: string }[] = [
 
 export default function UpdateMedicationPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
-  // Staff reach this page to receive shipments; the catalog entry and inventory setup stay admin-tier.
   const canEditSetup = useEvolveUser()?.hasRole(ADMIN_TIER_ROLES) ?? false;
   const medicationId = useParams()['medication-id'];
   const [loading, setLoading] = useState<boolean>(false);
@@ -171,7 +171,11 @@ export default function UpdateMedicationPage(): ReactElement {
   const [debouncedSearchTermForPrecheck, setDebouncedSearchTermForPrecheck] = useState('');
   const [inventoryForm, setInventoryForm] = useState<InventoryFormState>(EMPTY_INVENTORY_FORM);
   const [receiveOpen, setReceiveOpen] = useState(false);
-  const { data: locations = [] } = useGetAllLocations({ inPersonOnly: true });
+  const { data: locations = [], isSuccess: locationsLoaded } = useGetAllLocations({ inPersonOnly: true });
+  const queryClient = useQueryClient();
+  // Receiving needs the saved setup (counted-as unit), not what is typed in the form above.
+  const savedInventory = medication ? getMedicationInventoryConfig(medication) : undefined;
+  const recordedInventory = useHasRecordedInventory(medicationId, canEditSetup && Boolean(savedInventory));
   const setInventoryField = <K extends keyof InventoryFormState>(field: K, value: InventoryFormState[K]): void =>
     setInventoryForm((prev) => ({ ...prev, [field]: value }));
 
@@ -232,9 +236,25 @@ export default function UpdateMedicationPage(): ReactElement {
     fetchMedication().catch((error) => console.log('Error fetching medications', error));
   }, [medicationId, oystehrZambda]);
 
+  const inventoryRecorded = recordedInventory.data === true;
+  useEffect(() => {
+    if (!inventoryRecorded || !medication) return;
+    const saved = toInventoryFormState(medication);
+    setInventoryForm((prev) =>
+      prev.countedAs && saved.countedAs && prev.countedAs !== saved.countedAs ? saved : prev
+    );
+  }, [inventoryRecorded, medication]);
+
   async function update(event: any): Promise<void> {
     event.preventDefault();
     if (!oystehrZambda || !medicationId) {
+      return;
+    }
+    if (countingUnitLocked && inventoryForm.countedAs && inventoryForm.countedAs !== savedInventory?.countedAs) {
+      enqueueSnackbar(
+        "The Counting Unit can't be changed until it's confirmed that no inventory has been recorded. Reload to try again.",
+        { variant: 'error' }
+      );
       return;
     }
     if (
@@ -259,16 +279,15 @@ export default function UpdateMedicationPage(): ReactElement {
         ndc,
         medispanID,
         medispanIDForInteractions,
-        inventory: toInventoryInput(
-          inventoryForm,
-          locations.map((location) => location.id)
-        ),
+        inventory: toInventoryInput(inventoryForm),
       });
       setMedication(updated);
       enqueueSnackbar('Medication updated successfully', { variant: 'success' });
     } catch (error) {
       console.log('Error updating medication', error);
-      enqueueSnackbar('Failed to update medication', { variant: 'error' });
+      enqueueSnackbar(isApiError(error) ? (error as APIError).message : 'Failed to update medication', {
+        variant: 'error',
+      });
     }
     setLoading(false);
   }
@@ -319,8 +338,17 @@ export default function UpdateMedicationPage(): ReactElement {
     : !medicationDetails
     ? 'Drug details for this medication could not be loaded, so it cannot be updated. Check that it has a Medispan ID.'
     : null;
-  // Receiving needs the saved setup (counted-as unit), not what is typed in the form above.
-  const savedInventory = getMedicationInventoryConfig(medication);
+  const noInventoryRecorded =
+    recordedInventory.isFetchedAfterMount && recordedInventory.isSuccess && recordedInventory.data === false;
+  const countingUnitLocked = Boolean(savedInventory) && !noInventoryRecorded;
+  const countingUnitHelp =
+    !savedInventory || !canEditSetup || noInventoryRecorded
+      ? null
+      : recordedInventory.data
+      ? "Can't be changed after inventory has been recorded"
+      : recordedInventory.isError
+      ? "Couldn't check whether inventory has been recorded. Reload to change the unit."
+      : 'Checking whether inventory has been recorded…';
 
   return (
     <PageContainer>
@@ -458,6 +486,7 @@ export default function UpdateMedicationPage(): ReactElement {
                     labelId="inventory-counted-as-label"
                     label="Counting Unit"
                     disabled={!canEditSetup}
+                    aria-describedby={countingUnitHelp ? 'inventory-counted-as-help' : undefined}
                     value={inventoryForm.countedAs}
                     onChange={(e) => setInventoryField('countedAs', e.target.value as MedicationCountedAs | '')}
                   >
@@ -465,11 +494,18 @@ export default function UpdateMedicationPage(): ReactElement {
                       <em>Not tracked</em>
                     </MenuItem>
                     {MEDICATION_COUNTED_AS_OPTIONS.map((option) => (
-                      <MenuItem key={option} value={option}>
+                      <MenuItem
+                        key={option}
+                        value={option}
+                        disabled={countingUnitLocked && option !== savedInventory?.countedAs}
+                      >
                         {MEDICATION_COUNTED_AS_LABELS[option].singular}
                       </MenuItem>
                     ))}
                   </Select>
+                  {countingUnitHelp ? (
+                    <FormHelperText id="inventory-counted-as-help">{countingUnitHelp}</FormHelperText>
+                  ) : null}
                 </FormControl>
               </Grid>
               <Grid item xs={3} sx={{ display: 'flex', gap: 1 }}>
@@ -589,7 +625,7 @@ export default function UpdateMedicationPage(): ReactElement {
                     type="submit"
                     variant="contained"
                     loading={loading}
-                    disabled={Boolean(blockingNotice)}
+                    disabled={Boolean(blockingNotice) || !locationsLoaded}
                     sx={{ textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
                   >
                     {isVaccine ? 'Update Vaccine' : 'Update Medication'}
@@ -620,6 +656,7 @@ export default function UpdateMedicationPage(): ReactElement {
               <ReceiveShipmentDialog
                 open={receiveOpen}
                 onClose={() => setReceiveOpen(false)}
+                onReceived={() => queryClient.setQueryData(recordedInventoryQueryKey(medicationId), true)}
                 medication={medication as Medication & { id: string }}
                 inventory={savedInventory}
                 locations={locations}
