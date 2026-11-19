@@ -28,25 +28,22 @@ jobs:
           echo "::error::CI runs only for branches of this repository. Push the branch here and reopen the PR."
           exit 1
 
-      - name: Checkout CI scripts
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          sparse-checkout: .github/scripts
-          persist-credentials: false
-
-      - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: "22"
+      - name: Fetch CI script
+        run: |
+          git init -q ci-script
+          git -C ci-script remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -C ci-script fetch -q --depth 1 --filter=blob:none origin "$GITHUB_SHA"
+          git -C ci-script checkout -q FETCH_HEAD -- .github/scripts/downstream-ci.mjs
+          node --version
 
       - name: Dispatch downstream lint and build
         id: dispatch
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
-        run: node .github/scripts/downstream-ci.mjs dispatch
+        run: node ci-script/.github/scripts/downstream-ci.mjs dispatch
 
       - name: Wait for downstream lint and build
         env:
           RUN_ID: ${{ steps.dispatch.outputs.run_id }}
           CANCEL_ON_ABORT: "true"
-        run: node .github/scripts/downstream-ci.mjs wait
+        run: node ci-script/.github/scripts/downstream-ci.mjs wait
