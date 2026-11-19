@@ -196,7 +196,9 @@ describe('fetch helpers: one async-bulk job per search', () => {
 });
 
 describe('fetch helpers: a sync first page before an async job', () => {
-  type SyncAnswer = { resources: FhirResource[]; next: boolean } | { error: { code: number; message: string } };
+  type SyncAnswer =
+    | { resources: FhirResource[]; next: boolean; total?: number }
+    | { error: { code: number; message: string } };
 
   function syncClient(sync: (params: Param[]) => SyncAnswer): {
     oystehr: Oystehr;
@@ -215,7 +217,11 @@ describe('fetch helpers: a sync first page before an async job', () => {
           syncCalls.push(params);
           const answer = sync(params);
           if ('error' in answer) throw Object.assign(new Error(answer.error.message), { code: answer.error.code });
-          return { unbundle: () => answer.resources, link: answer.next ? [{ relation: 'next', url: 'x' }] : [] };
+          return {
+            unbundle: () => answer.resources,
+            link: answer.next ? [{ relation: 'next', url: 'x' }] : [],
+            total: answer.total,
+          };
         },
         waitForAsyncJob: async (jobId: string) => {
           const url = `https://example.test/${jobId}.ndjson`;
@@ -256,6 +262,26 @@ describe('fetch helpers: a sync first page before an async job', () => {
     const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(3));
     expect(resources.map((r) => r.id).sort()).toEqual(ids(3).sort());
     expect(syncCalls).toHaveLength(3);
+    expect(jobs).toHaveLength(1);
+  });
+
+  it('with the total on the first page, reads exactly the pages that exist, side by side', async () => {
+    // 1 200 matches at 500 a page: 3 pages; page 3 is the last.
+    const { oystehr, syncCalls, jobs } = syncClient((params) => {
+      const offset = Number(values(params, '_offset')[0]);
+      return { resources: [practitioner(`p-${offset}`)], next: offset < 1000, total: 1200 };
+    });
+    const resources = await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(2));
+    expect(resources.map((r) => r.id)).toEqual(['p-0', 'p-500', 'p-1000']);
+    expect(syncCalls.map((p) => values(p, '_offset')[0])).toEqual(['0', '500', '1000']);
+    expect(values(syncCalls[0], '_total')).toEqual(['accurate']);
+    expect(jobs).toHaveLength(0);
+  });
+
+  it('a total of more pages than allowed goes straight to an async job', async () => {
+    const { oystehr, syncCalls, jobs } = syncClient(() => ({ resources: [], next: true, total: 100000 }));
+    expect(await fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', ids(2))).toHaveLength(2);
+    expect(syncCalls).toHaveLength(1);
     expect(jobs).toHaveLength(1);
   });
 

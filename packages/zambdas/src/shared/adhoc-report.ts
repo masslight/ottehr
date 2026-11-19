@@ -404,17 +404,25 @@ async function runSync(oystehr: Oystehr, entry: SearchEntry, label: string): Pro
   const params = entry.params.filter((p) => p.name !== '_count' && p.name !== '_offset');
   const startedAt = Date.now();
 
-  type Page = { resources: FhirResource[]; hasNext: boolean };
+  type Page = { resources: FhirResource[]; hasNext: boolean; total?: number };
   const fetchPage = async (page: number): Promise<Page> => {
-    const bundle: { unbundle: () => FhirResource[]; link?: { relation?: string }[] } = await jobSlot(() =>
-      oystehr.fhir.search({
-        resourceType: entry.resourceType,
-        params: [...params, { name: '_count', value: `${size}` }, { name: '_offset', value: `${page * size}` }],
-      })
+    const bundle: { unbundle: () => FhirResource[]; link?: { relation?: string }[]; total?: number } = await jobSlot(
+      () =>
+        oystehr.fhir.search({
+          resourceType: entry.resourceType,
+          params: [
+            ...params,
+            { name: '_count', value: `${size}` },
+            { name: '_offset', value: `${page * size}` },
+            // The first page asks for the number of matches, so exactly the pages needed are read next.
+            ...(page === 0 ? [{ name: '_total', value: 'accurate' }] : []),
+          ],
+        })
     );
     return {
       resources: bundle.unbundle().filter((r) => r.resourceType !== 'OperationOutcome'),
       hasNext: !!bundle.link?.some((link) => link.relation === 'next'),
+      total: bundle.total,
     };
   };
 
@@ -425,7 +433,13 @@ async function runSync(oystehr: Oystehr, entry: SearchEntry, label: string): Pro
     const first = await fetchPage(0);
     result = [first];
     if (first.hasNext) {
-      result.push(...(await Promise.all(Array.from({ length: pages - 1 }, (_, i) => fetchPage(i + 1)))));
+      // With the total, only the pages that exist (more than allowed → an async job); without it, every allowed page.
+      const needed = typeof first.total === 'number' && first.total > 0 ? Math.ceil(first.total / size) : pages;
+      if (needed > pages) {
+        console.log(`[adhoc] ${label}: job=sync ${first.total} matches, more than ${pages} pages: an async job`);
+        return undefined;
+      }
+      result.push(...(await Promise.all(Array.from({ length: needed - 1 }, (_, i) => fetchPage(i + 1)))));
     }
   } catch (error) {
     const code = (error as { code?: unknown })?.code;
