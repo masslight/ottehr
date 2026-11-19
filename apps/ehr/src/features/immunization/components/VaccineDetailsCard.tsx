@@ -64,17 +64,18 @@ interface ReasonValues {
   confirmVfc: boolean;
 }
 
-const lineFromOrder = (order: ImmunizationOrder): ImmunizationLine =>
-  immunizationLineFrom({
+const lineFromOrder = (order: ImmunizationOrder): ImmunizationLine => {
+  // The server records the patient's emergency contact on administration, so the line never sends one.
+  const { emergencyContact: _recordedContact, ...administrationDetails } = order.administrationDetails ?? {};
+  return immunizationLineFrom({
     details: order.details,
     administrationDetails: {
-      ...order.administrationDetails,
-      // The server records the patient's emergency contact on administration.
-      emergencyContact: undefined,
+      ...administrationDetails,
       administeredDateTime: getInitialAdministeredDateTime(order),
       visGiven: order.administrationDetails?.visGiven ?? false,
     },
   });
+};
 
 export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
   // The order as one line, as the order page holds it.

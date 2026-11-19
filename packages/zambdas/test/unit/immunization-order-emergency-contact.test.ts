@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { MedicationAdministration, Practitioner, RelatedPerson } from 'fhir/r4b';
+import { IMMUNIZATION_ORDER_TAG_CODE, IMMUNIZATION_ORDER_TAG_SYSTEM } from 'utils/lib/fhir/medication-administration';
 import { describe, expect, it, vi } from 'vitest';
 import {
   administerImmunizationOrder,
@@ -25,6 +26,7 @@ const order = (
 ): MedicationAdministration => ({
   resourceType: 'MedicationAdministration',
   id: 'order-1',
+  meta: { tag: [{ system: IMMUNIZATION_ORDER_TAG_SYSTEM, code: IMMUNIZATION_ORDER_TAG_CODE }] },
   status,
   subject: { reference: 'Patient/p1' },
   context: { reference: 'Encounter/e1' },
@@ -77,9 +79,12 @@ const administer = async ({
   searchError?: Error;
 }): Promise<{ administration: MedicationAdministration; search: ReturnType<typeof vi.fn> }> => {
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
-  const search = searchError
-    ? vi.fn().mockRejectedValue(searchError)
-    : vi.fn().mockResolvedValue({ unbundle: () => relatedPersons });
+  // Only the emergency contact search reads RelatedPersons; the stock, VFC and Immunization record reads find nothing.
+  const search = vi.fn(async ({ resourceType }: { resourceType: string }) => {
+    if (resourceType !== 'RelatedPerson') return { unbundle: () => [], entry: [] };
+    if (searchError) throw searchError;
+    return { unbundle: () => relatedPersons };
+  });
   const get = vi.fn(async ({ resourceType, id }: { resourceType: string; id: string }) => {
     if (resourceType === 'MedicationAdministration') return medicationAdministration;
     if (resourceType === 'Medication') return { resourceType: 'Medication', id };
@@ -112,6 +117,9 @@ const administer = async ({
   await administerImmunizationOrder(oystehr, validated, practitioner);
   return { administration: transaction.mock.calls[0][0].requests[0].resource, search };
 };
+
+const relatedPersonSearches = (search: ReturnType<typeof vi.fn>): unknown[][] =>
+  search.mock.calls.filter(([params]) => (params as { resourceType: string }).resourceType === 'RelatedPerson');
 
 const recordedContacts = (administration: MedicationAdministration): RelatedPerson[] =>
   (administration.contained ?? []).filter(
@@ -157,7 +165,7 @@ describe('administerImmunizationOrder - emergency contact', () => {
       relatedPersons: [patientContact('Parent')],
     });
 
-    expect(search).not.toHaveBeenCalled();
+    expect(relatedPersonSearches(search)).toEqual([]);
     expect(recordedContacts(administration)).toEqual([]);
   });
 
@@ -189,7 +197,7 @@ describe('administerImmunizationOrder - emergency contact', () => {
       relatedPersons: [patientContact('Spouse')],
     });
 
-    expect(search).not.toHaveBeenCalled();
+    expect(relatedPersonSearches(search)).toEqual([]);
     expect(recordedContacts(administration)).toEqual([recorded]);
   });
 
@@ -242,7 +250,7 @@ describe('administerImmunizationOrder - emergency contact', () => {
       emergencyContact: { relationship: 'legal-guardian', fullName: 'John Doe', mobile: '2027139680' },
     });
 
-    expect(search).not.toHaveBeenCalled();
+    expect(relatedPersonSearches(search)).toEqual([]);
     expect(recordedContacts(administration)).toHaveLength(1);
     expect(
       mapMedicationAdministrationToImmunizationOrder(administration).administrationDetails?.emergencyContact

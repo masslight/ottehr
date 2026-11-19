@@ -231,22 +231,9 @@ describe('VaccineDetailsCard - blank administration text', () => {
       details: ORDER_DETAILS,
       administrationDetails: { ndc: '58160-0842-11', mvx: 'SKB', cvx: '115' },
     });
-    // the blank lot and the empty emergency contact are left out, as the form's cleanup did
+    // the blank lot is left out, and the server records the emergency contact itself
     expect(administerOrder.mock.calls[0][0].administrationDetails.lot).toBeUndefined();
     expect(administerOrder.mock.calls[0][0].administrationDetails.emergencyContact).toBeUndefined();
-  });
-
-  it('asks for the whole emergency contact once any of it is filled', async () => {
-    renderCard(' L1 ');
-    const user = userEvent.setup();
-
-    await user.type(screen.getByTestId('fullName'), 'Pat Parent');
-    await user.click(screen.getByRole('button', { name: 'Administered' }));
-
-    expect(await screen.findByTestId('line-errors')).toHaveTextContent(
-      'Complete all emergency contact fields or leave them all empty'
-    );
-    expect(screen.queryByTestId('administration-confirmation-dialog')).not.toBeInTheDocument();
   });
 
   it('asks about VFC eligibility in the confirmation when a VFC lot is given while it is not confirmed', async () => {

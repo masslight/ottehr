@@ -40,6 +40,7 @@ const lot = (overrides: Partial<InventoryLotRow>): InventoryLotRow => ({
 const drug = (overrides: Partial<InventoryDrugRow>): InventoryDrugRow => ({
   medicationId: 'med-a',
   name: 'Albuterol Sulfate (1mg)',
+  type: 'medication',
   countedAs: 'tablet',
   use: 'single-use',
   onHand: 0,
@@ -192,13 +193,11 @@ describe('Inventory admin page', () => {
 
     await screen.findByTestId(inventoryPage.medicationRow('med-a'));
     expect(screen.getByTestId(inventoryPage.locationSelect)).toHaveTextContent('All clinics');
-    expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
-      '',
-      'Medication',
-      'On Hand',
-      'Clinics at or Below Reorder Level',
-      'Earliest Expiration',
-    ]);
+    expect(
+      within(screen.getByRole('table', { name: 'inventoryTable' }))
+        .getAllByRole('columnheader')
+        .map((header) => header.textContent)
+    ).toEqual(['', 'Medication', 'On Hand', 'Clinics at or Below Reorder Level', 'Earliest Expiration']);
     expect(screen.getByTestId(inventoryPage.ndcSearchField)).toBeDisabled();
     expect(screen.getByTestId(inventoryPage.lotSearchField)).toBeDisabled();
 
