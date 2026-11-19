@@ -4,6 +4,7 @@ import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fh
 import { getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { CLAIM_PROVENANCE_ACTIVITY } from 'utils/lib/types/data/billing/claim-history';
+import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks (hoisted before imports) ─────────────────────────────────────────────
@@ -736,5 +737,22 @@ describe('post-billing-patient-payment', () => {
       message: expect.stringContaining('paymentMethodId'),
     });
     expect(paymentIntentsCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a card payment for an encounter that is not the patient's before reserving or charging anything", async () => {
+    // the EHR returns no visit when the encounter belongs to another patient
+    vi.mocked(getPatientPaymentVisits).mockResolvedValue({
+      visits: [],
+      stripeCustomers: [{ stripeAccount: 'acct_1', customerId: 'cus_1' }],
+    });
+
+    await expect(
+      invoke({ paymentMethod: 'card', amountInCents: 4000, paymentMethodId: 'pm_1', idempotencyKey: IDEMPOTENCY_KEY })
+    ).rejects.toMatchObject(FHIR_RESOURCE_NOT_FOUND('Encounter'));
+
+    expect(getPatientPaymentVisits).toHaveBeenCalledWith(expect.anything(), PATIENT_ID, ENCOUNTER_ID);
+    expect(billingTransaction).not.toHaveBeenCalled();
+    expect(paymentIntentsCreate).not.toHaveBeenCalled();
+    expect(clinicalCreate).not.toHaveBeenCalled();
   });
 });
