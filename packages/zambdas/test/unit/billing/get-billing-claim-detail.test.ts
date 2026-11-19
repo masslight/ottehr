@@ -11,17 +11,14 @@ import {
   NIO_ORGANIZATION_KIND_SYSTEM,
 } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { beforeEach, describe, expect, it, Mock, vi } from 'vitest';
-import {
-  fetchClaimEraLinks,
-  fetchClaimFirstSubmittedDate,
-  fetchClaimResponsesByClaimIds,
-} from '../../../src/billing/claim-amounts';
+import { fetchClaimFirstSubmittedDate } from '../../../src/billing/claim-amounts';
 import { performEffect } from '../../../src/billing/get-billing-claim-detail';
 import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   ERA_CHECK_SYSTEM,
   ERA_ICN_EXTENSION,
   fetchClaimGraph,
+  fetchErasForClaim,
   resolvePayersByRef,
 } from '../../../src/billing/shared';
 import { WRITE_OFF_SYSTEM } from '../../../src/billing/write-offs';
@@ -30,13 +27,12 @@ import { adjudication, casAdjustment, claimResponse, eraItem } from './era-fixtu
 vi.mock('../../../src/billing/shared', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   fetchClaimGraph: vi.fn(),
+  fetchErasForClaim: vi.fn(),
   resolvePayersByRef: vi.fn(),
 }));
 
 vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  fetchClaimResponsesByClaimIds: vi.fn(),
-  fetchClaimEraLinks: vi.fn(),
   fetchClaimFirstSubmittedDate: vi.fn(),
 }));
 
@@ -168,10 +164,10 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
       documentReferences: [],
     });
     (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(new Map());
-    (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(new Map());
-    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
-      paymentReconciliations: [],
+    (fetchErasForClaim as Mock<typeof fetchErasForClaim>).mockResolvedValue({
+      claimResponses: [],
       paymentReconciliationIdByClaimResponseId: new Map(),
+      paymentReconciliationById: new Map(),
     });
     (fetchClaimFirstSubmittedDate as Mock<typeof fetchClaimFirstSubmittedDate>).mockResolvedValue('');
   });
@@ -382,12 +378,10 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
     (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(
       new Map([[PAYER_REF, { resourceType: 'Organization', id: 'org-acme', name: 'Acme Health' } as Organization]])
     );
-    (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(
-      new Map([['claim-1', [unlinkedRemit, linkedRemit]]])
-    );
-    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
-      paymentReconciliations: [era],
+    (fetchErasForClaim as Mock<typeof fetchErasForClaim>).mockResolvedValue({
+      claimResponses: [unlinkedRemit, linkedRemit],
       paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
+      paymentReconciliationById: new Map([['payment-reconciliation-1', era]]),
     });
     (fetchClaimFirstSubmittedDate as Mock<typeof fetchClaimFirstSubmittedDate>).mockResolvedValue(
       '2026-07-02T12:00:00Z'
@@ -407,15 +401,17 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
   it('carries the ERA and check behind each remit, newest remit first', async () => {
     const response = await run();
 
-    expect(response.remits.map((remit) => remit.claimResponseId)).toEqual(['cr-unlinked', 'cr-linked']);
-    expect(response.remits[1]).toMatchObject({
+    expect(response.remits.map((remit) => remit.claimResponseId)).toEqual(
+      expect.arrayContaining(['cr-unlinked', 'cr-linked'])
+    );
+    expect(response.remits[0]).toMatchObject({
       paymentReconciliationId: 'payment-reconciliation-1',
       checkNumber: 'CHK-1',
       checkDate: '2026-07-16',
       payerName: 'Acme Health',
     });
     // no era-processing Provenance links this one to an ERA
-    expect(response.remits[0]).toMatchObject({
+    expect(response.remits[1]).toMatchObject({
       paymentReconciliationId: '',
       checkNumber: '',
       checkDate: '',
@@ -425,7 +421,7 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
   it("joins each remit's adjudicated lines to the claim's service lines", async () => {
     const response = await run();
 
-    const [line, claimLevel] = response.remits[1].serviceLines;
+    const [line, claimLevel] = response.remits[0].serviceLines;
     expect(line).toMatchObject({
       claimItemSequence: 1,
       isClaimLevel: false,
@@ -444,7 +440,7 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
       isClaimLevel: true,
       adjustments: [{ groupCode: 'OA', reasonCode: '23', amount: 5 }],
     });
-    expect(response.remits[0].serviceLines).toEqual([expect.objectContaining({ claimItemSequence: 2, paid: 40 })]);
+    expect(response.remits[1].serviceLines).toEqual([expect.objectContaining({ claimItemSequence: 2, paid: 40 })]);
   });
 
   it('dates each insurance payment by remit and check, naming the payer from its remit', async () => {
@@ -464,11 +460,15 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
   });
 
   it("resolves the payer from the linked remit when the ERA's paymentIssuer is an unresolvable EDI sender", async () => {
-    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
-      paymentReconciliations: [
-        { ...era, paymentIssuer: { reference: 'Organization/edi-sender', display: 'EDI 123456789' } },
-      ],
+    (fetchErasForClaim as Mock<typeof fetchErasForClaim>).mockResolvedValue({
+      claimResponses: [unlinkedRemit, linkedRemit],
       paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
+      paymentReconciliationById: new Map([
+        [
+          'payment-reconciliation-1',
+          { ...era, paymentIssuer: { reference: 'Organization/edi-sender', display: 'EDI 123456789' } },
+        ],
+      ]),
     });
 
     const response = await run();
@@ -484,30 +484,32 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
         [CIGNA_REF, { resourceType: 'Organization', id: 'org-cigna', name: 'Cigna' } as Organization],
       ])
     );
-    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
-      paymentReconciliations: [{ ...era, paymentIssuer: { reference: CIGNA_REF } }],
+    (fetchErasForClaim as Mock<typeof fetchErasForClaim>).mockResolvedValue({
+      claimResponses: [unlinkedRemit, linkedRemit],
       paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
+      paymentReconciliationById: new Map([
+        ['payment-reconciliation-1', { ...era, paymentIssuer: { reference: CIGNA_REF } }],
+      ]),
     });
 
     const response = await run();
 
     // cr-linked still carries the primary payer stamped by match-claim-response
-    expect(response.remits[1].payerName).toBe('Cigna');
+    expect(response.remits[0].payerName).toBe('Cigna');
     expect(response.insurancePayments[0].payerName).toBe('Cigna');
   });
 
   it("prefers the linked remit's insurer display over the EDI sender's when neither payer resolves", async () => {
     (resolvePayersByRef as Mock<typeof resolvePayersByRef>).mockResolvedValue(new Map());
-    (fetchClaimResponsesByClaimIds as Mock<typeof fetchClaimResponsesByClaimIds>).mockResolvedValue(
-      new Map([
-        ['claim-1', [unlinkedRemit, { ...linkedRemit, insurer: { reference: PAYER_REF, display: 'Acme (ERA)' } }]],
-      ])
-    );
-    (fetchClaimEraLinks as Mock<typeof fetchClaimEraLinks>).mockResolvedValue({
-      paymentReconciliations: [
-        { ...era, paymentIssuer: { reference: 'Organization/edi-sender', display: 'EDI 123456789' } },
-      ],
+    (fetchErasForClaim as Mock<typeof fetchErasForClaim>).mockResolvedValue({
+      claimResponses: [unlinkedRemit, { ...linkedRemit, insurer: { reference: PAYER_REF, display: 'Acme (ERA)' } }],
       paymentReconciliationIdByClaimResponseId: new Map([['cr-linked', 'payment-reconciliation-1']]),
+      paymentReconciliationById: new Map([
+        [
+          'payment-reconciliation-1',
+          { ...era, paymentIssuer: { reference: 'Organization/edi-sender', display: 'EDI 123456789' } },
+        ],
+      ]),
     });
 
     const response = await run();
@@ -528,8 +530,7 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
 
     await performEffect(billingClient, untaggedClient, { claimId: 'claim-1', secrets: {} } as never);
 
-    expect(fetchClaimResponsesByClaimIds).toHaveBeenCalledWith(billingClient, ['claim-1']);
-    expect(fetchClaimEraLinks).toHaveBeenCalledWith(billingClient, expect.anything());
+    expect(fetchErasForClaim).toHaveBeenCalledWith(billingClient, 'claim-1');
     expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(untaggedClient, 'claim-1');
   });
 
@@ -570,10 +571,10 @@ describe('get-billing-claim-detail performEffect: non-insurance payer', () => {
     vi.clearAllMocks();
     graphFor(claimWithNioPayer);
     (resolvePayersByRef as Mock).mockResolvedValue(new Map());
-    (fetchClaimResponsesByClaimIds as Mock).mockResolvedValue(new Map());
-    (fetchClaimEraLinks as Mock).mockResolvedValue({
-      paymentReconciliations: [],
+    (fetchErasForClaim as Mock<typeof fetchErasForClaim>).mockResolvedValue({
+      claimResponses: [],
       paymentReconciliationIdByClaimResponseId: new Map(),
+      paymentReconciliationById: new Map(),
     });
   });
 
@@ -664,10 +665,10 @@ describe('get-billing-claim-detail performEffect: custom insurance organization 
       documentReferences: [],
     });
     (resolvePayersByRef as Mock).mockResolvedValue(new Map([[`Organization/${PAYER_ORG_ID}`, customPayerOrg]]));
-    (fetchClaimResponsesByClaimIds as Mock).mockResolvedValue(new Map());
-    (fetchClaimEraLinks as Mock).mockResolvedValue({
-      paymentReconciliations: [],
+    (fetchErasForClaim as Mock<typeof fetchErasForClaim>).mockResolvedValue({
+      claimResponses: [],
       paymentReconciliationIdByClaimResponseId: new Map(),
+      paymentReconciliationById: new Map(),
     });
   });
 

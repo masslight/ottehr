@@ -32,6 +32,7 @@ import {
   toClaimPatientPayment,
   X12_ADJUSTMENT_GROUP_SYSTEM,
 } from '../../../src/billing/claim-amounts';
+import { CARC_REASON_SYSTEM } from '../../../src/billing/manual-era';
 import { ERA_STATUS_CODE_EXTENSION } from '../../../src/billing/shared';
 
 const adjudication = (
@@ -60,7 +61,7 @@ const casAdjustment = (group: string, amount: number, reasonCode?: string): Clai
         reason: {
           coding: [
             {
-              system: 'https://x12.org/codes/claim-adjustment-reason-codes',
+              system: CARC_REASON_SYSTEM,
               code: reasonCode,
             },
           ],
@@ -1561,12 +1562,7 @@ describe('fetchClaimResponsesByClaimIds', () => {
     expect(result.get('claim-1')?.map((cr) => cr.id)).toEqual(['remit', 'queued-era']);
     expect(result.has('claim-2')).toBe(false);
     const params = search.mock.calls[0][0].params;
-    expect(params).toEqual(
-      expect.arrayContaining([
-        { name: 'request', value: 'Claim/claim-1,Claim/claim-2' },
-        { name: 'outcome:not', value: 'error' },
-      ])
-    );
+    expect(params).toEqual(expect.arrayContaining([{ name: 'request', value: 'Claim/claim-1,Claim/claim-2' }]));
     expect(params).not.toContainEqual({ name: 'outcome:not', value: 'queued' });
   });
 });

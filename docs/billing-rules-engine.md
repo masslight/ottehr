@@ -32,7 +32,7 @@ is performed.
 
 This reference lists every supported condition property, operator, and action. It is generated from
 the same catalog that drives the rule builder and the rule runs, so it always matches what the rules
-actually support (128 properties, 115 of them settable).
+actually support (138 properties, 115 of them settable).
 
 ## Conditions
 
@@ -65,6 +65,7 @@ Which operators a property supports depends on its type (see the property tables
 | `notMatches` | does not match pattern | single value | The negation of "matches pattern": a text property does not match the regular expression; a list property matches when no entry does. |
 | `exists` | is present | none | The property has a (non-empty) value on the claim. |
 | `notExists` | is empty | none | The property is missing or empty on the claim. |
+| `itemMatches` | matches conditions | none | An item of the given type in the claim matches the conditions. |
 
 ## Claim properties
 
@@ -89,6 +90,7 @@ Which operators a property supports depends on its type (see the property tables
 | Patient Discharge Status Code | `patientDischargeStatusCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Patient Discharge Status Code on the claim |
 | Admission Type | `admissionType` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Admission Type code on the claim |
 | Point of Origin / Admission Source | `admissionSource` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Point of Origin / Admission Source code on the claim |
+| Service Line ... | `serviceLine` | array of subitems | matches conditions | no | Service Line Properties |
 
 ### Accident
 
@@ -276,15 +278,29 @@ Which operators a property supports depends on its type (see the property tables
 | --- | --- | --- | --- | --- | --- |
 | Claim tags | `tags` | list of codes | contains, does not contain, matches pattern, does not match pattern, is present, is empty | no | The list of tags on the claim. Use contains / does-not-contain to test for a tag; add tags with the "Apply a tag" action. |
 
-## Service line properties
+### ERAs
 
-Service lines are an array, so their per-line properties are not claim properties: they are matched
-and changed by the **Update service lines** / **Remove service lines** actions below, each of which
-carries its own line predicate — either *all service lines* or *lines matching a property*
-comparison (one property, operator, and value per predicate). A rule's condition can detect that a
-matching line exists (e.g. `cptCodes` *contains* X, `duplicateCptCodes` *is present*,
-`serviceLineCount` *is greater than* N); the action's own match is what binds *which* lines it
-touches.
+| Property | ID | Type | Operators | Settable | Description |
+| --- | --- | --- | --- | --- | --- |
+| Total ERA Count | `eraCount` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The total number of ERAs returned for this claim. |
+| Payer ERA Count | `eraCountForLatestPayer` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The number of ERAs returned by the payer of the latest ERA. |
+
+### Latest ERA
+
+| Property | ID | Type | Operators | Settable | Description |
+| --- | --- | --- | --- | --- | --- |
+| Paid | `era.paid` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The amount paid by the payer on the latest ERA. |
+| Allowed | `era.allowed` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The amount allowed by the payer on the latest ERA. |
+| Payer ID | `era.payerId` | payer ID | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | no | The payer of the latest ERA. |
+| Insurance Position | `era.insurance` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | no | The insurance position of the latest ERA's payer on the claim (e.g. 'secondary'). |
+| Remark Codes | `era.rarcs` | list of codes | contains, does not contain, matches pattern, does not match pattern, is present, is empty | no | The payer's remark codes on the latest ERA. |
+| CARC ... | `eraCarc` | array of subitems | matches conditions | no | ERA CARC Properties |
+| Service Line ... | `eraServiceLine` | array of subitems | matches conditions | no | ERA Service Line Properties |
+
+## Service Line properties
+
+Service lines are an array, so their per-line properties are not claim properties. Claims can be matched
+by validating that a service line matching a given condition or set of conditions is found on the claim.
 
 | Property | ID | Type | Match operators | Updatable | Description |
 | --- | --- | --- | --- | --- | --- |
@@ -295,6 +311,39 @@ touches.
 | Place of service code | `placeOfService` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | yes | The line's CMS place-of-service code. Setting an empty value clears it. Allowed values: any CMS place-of-service code. |
 | Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | yes | The line's date of service (YYYY-MM-DD). When updating, the new value can be a literal date or derived from the claim (see Service date sources) — matching still compares against a literal date only. |
 | Rev Code | `revenueCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | yes | Revenue code of the procedure. |
+
+## Latest ERA CARC properties
+
+ERA CARCs are an array, so their per-line properties are not claim properties. Claims can be matched
+by validating that a CARC matching a given condition or set of conditions is found on the latest ERA.
+
+| Property | ID | Type | Match operators | Updatable | Description |
+| --- | --- | --- | --- | --- | --- |
+| Group Code | `groupCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | no | The adjustment's group code. |
+| Reason Code | `reasonCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | no | The adjustment's reason code. |
+| Amount | `amount` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The amount of the adjustment. |
+
+## Latest ERA Service Line properties
+
+ERA service lines are an array, so their per-line properties are not claim properties. Claims can be matched
+by validating that a service line matching a given condition or set of conditions is found on the latest ERA.
+
+| Property | ID | Type | Match operators | Updatable | Description |
+| --- | --- | --- | --- | --- | --- |
+| CPT code | `cptCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | no | The line's CPT/HCPCS procedure code. Setting it replaces the line's procedure coding. |
+| Modifiers | `modifiers` | list of codes | contains, does not contain, matches pattern, does not match pattern, is present, is empty | no | The line's procedure modifiers. When updating, the operation chooses how the value applies: "set" replaces the whole list (comma-separated; empty clears it), "add" appends one modifier, "remove" drops one. |
+| Units | `units` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The line's unit count. Setting it requires a positive number. |
+| Charges | `charges` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The line's charge amount in dollars. Setting it requires a non-negative number; the claim's billed total is recomputed. |
+| Place of service code | `placeOfService` | one of the listed values | equals, does not equal, is one of, is not one of, matches pattern, does not match pattern, is present, is empty | no | The line's CMS place-of-service code. Setting an empty value clears it. Allowed values: any CMS place-of-service code. |
+| Service date | `serviceDate` | date | equals, does not equal, is one of, is not one of, is after, is on or after, is before, is on or before, is present, is empty | no | The line's date of service (YYYY-MM-DD). When updating, the new value can be a literal date or derived from the claim (see Service date sources) — matching still compares against a literal date only. |
+| Rev Code | `revenueCode` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | no | Revenue code of the procedure. |
+| Paid | `paid` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The line's paid amount in dollars. |
+| Allowed | `allowed` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The line's allowed amount in dollars. |
+| Patient Responsibility | `patientResponsibility` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The line's patient responsibility amount in dollars. |
+| Co-Insurance | `coinsurance` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The line's co-insurance amount in dollars. |
+| Co-Pay | `copay` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The line's co-pay amount in dollars. |
+| Deductible | `deductible` | number | equals, does not equal, is greater than, is at least, is less than, is at most, is present, is empty | no | The line's deductible amount in dollars. |
+| Remark Code | `rarc` | text | equals, does not equal, is one of, is not one of, contains, does not contain, starts with, does not start with, matches pattern, does not match pattern, is present, is empty | no | The line's payer remark code. |
 
 ## Actions
 
