@@ -244,12 +244,13 @@ export const DEFAULT_WINDOW_DAYS = 15;
 export const JOBS_IN_PARALLEL = tuning('ADHOC_JOBS_IN_PARALLEL', 16);
 /**
  * A search first runs as a plain (sync) paged search, up to this many pages; only a larger one runs as an async job.
+ * On synth, a 15-day window of encounters is ~2 000 (4–5 pages): 6 pages keeps it sync.
  * An async job costs ~2.5 s however little it returns, a page 0.1–1 s, so most id chunks and short windows finish in
  * one page. ADHOC_SYNC_PAGES (0 = every search as an async job, as before); read per call so tests can set it.
  */
 const syncPages = (): number => {
   const value = Number(process.env.ADHOC_SYNC_PAGES);
-  return Number.isInteger(value) && value >= 0 ? value : 3;
+  return Number.isInteger(value) && value >= 0 ? value : 6;
 };
 /** Matches per sync page; ADHOC_SYNC_PAGE_SIZE. A page of visits with their encounters stays well under 6 MiB. */
 const syncPageSize = (): number => tuning('ADHOC_SYNC_PAGE_SIZE', 500);
@@ -402,36 +403,51 @@ async function runSync(oystehr: Oystehr, entry: SearchEntry, label: string): Pro
   const size = syncPageSize();
   const params = entry.params.filter((p) => p.name !== '_count' && p.name !== '_offset');
   const startedAt = Date.now();
-  const out: FhirResource[] = [];
-  for (let page = 0; page < pages; page++) {
-    let bundle: { unbundle: () => FhirResource[]; link?: { relation?: string }[] };
-    try {
-      bundle = await jobSlot(() =>
-        oystehr.fhir.search({
-          resourceType: entry.resourceType,
-          params: [...params, { name: '_count', value: `${size}` }, { name: '_offset', value: `${page * size}` }],
-        })
+
+  type Page = { resources: FhirResource[]; hasNext: boolean };
+  const fetchPage = async (page: number): Promise<Page> => {
+    const bundle: { unbundle: () => FhirResource[]; link?: { relation?: string }[] } = await jobSlot(() =>
+      oystehr.fhir.search({
+        resourceType: entry.resourceType,
+        params: [...params, { name: '_count', value: `${size}` }, { name: '_offset', value: `${page * size}` }],
+      })
+    );
+    return {
+      resources: bundle.unbundle().filter((r) => r.resourceType !== 'OperationOutcome'),
+      hasNext: !!bundle.link?.some((link) => link.relation === 'next'),
+    };
+  };
+
+  let result: Page[];
+  try {
+    // The first page tells whether there are more; the rest are read side by side, not one after another (a page
+    // takes ~1 s whatever its offset, so a 5-page search costs ~2 pages of time). Pages past the end come back empty.
+    const first = await fetchPage(0);
+    result = [first];
+    if (first.hasNext) {
+      result.push(...(await Promise.all(Array.from({ length: pages - 1 }, (_, i) => fetchPage(i + 1)))));
+    }
+  } catch (error) {
+    const code = (error as { code?: unknown })?.code;
+    if (isSplittableStatus(code) || code === 413) {
+      console.warn(
+        `[adhoc] ${label}: a sync page failed (code=${code ?? 'none'}), running it as an async job: ${
+          error instanceof Error ? error.message : String(error)
+        }`
       );
-    } catch (error) {
-      const code = (error as { code?: unknown })?.code;
-      if (isSplittableStatus(code) || code === 413) {
-        console.warn(
-          `[adhoc] ${label}: sync page ${page + 1} failed (code=${code ?? 'none'}), running it as an async job: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-        return undefined;
-      }
-      throw error;
+      return undefined;
     }
-    out.push(...bundle.unbundle().filter((r) => r.resourceType !== 'OperationOutcome'));
-    if (!bundle.link?.some((link) => link.relation === 'next')) {
-      console.log(`[adhoc] ${label}: job=sync pages=${page + 1} ms=${Date.now() - startedAt} resources=${out.length}`);
-      return out;
-    }
+    throw error;
   }
-  console.log(`[adhoc] ${label}: job=sync more than ${pages} pages, running it as an async job`);
-  return undefined;
+
+  const last = result.findIndex((page) => !page.hasNext);
+  if (last === -1) {
+    console.log(`[adhoc] ${label}: job=sync more than ${pages} pages, running it as an async job`);
+    return undefined;
+  }
+  const out = result.slice(0, last + 1).flatMap((page) => page.resources);
+  console.log(`[adhoc] ${label}: job=sync pages=${last + 1} ms=${Date.now() - startedAt} resources=${out.length}`);
+  return out;
 }
 
 async function runEntry(oystehr: Oystehr, entry: SearchEntry, label: string, depth: number): Promise<FhirResource[]> {
