@@ -3,6 +3,11 @@ import {
   Box,
   Button,
   Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   FormControl,
   FormControlLabel,
   FormHelperText,
@@ -55,6 +60,7 @@ import { MAXIMUM_CHARACTER_LIMIT } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
+import { findDuplicatePatients } from './findDuplicatePatients';
 
 type SlotLoadingState =
   | { status: 'initial'; input: undefined }
@@ -210,6 +216,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
   const [validDate, setValidDate] = useState<boolean>(true);
   const [selectSlotDialogOpen, setSelectSlotDialogOpen] = useState<boolean>(false);
   const [validReasonForVisit, setValidReasonForVisit] = useState<boolean>(true);
+  const [duplicatePatients, setDuplicatePatients] = useState<Patient[]>([]);
   const [showFields, setShowFields] = useState<AddVisitFormState>(
     isScheduledFollowUp || !!patientIdFromUrl ? 'existingPatientSelected' : 'initialPatientSearch'
   );
@@ -514,8 +521,57 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
   }, [selectedBookable, serviceCategory, loadingSlotState, oystehrZambda]);
 
   // handle functions
+
+  // Before a brand-new patient is saved, look for an existing patient with the same name and date of
+  // birth. Returns true when it is fine to go ahead; false when the duplicate warning was opened.
+  // A failed lookup never blocks adding the patient.
+  const confirmNoDuplicate = async (): Promise<boolean> => {
+    if (!patientInfo?.newPatient || !oystehr) return true;
+    setLoading(true);
+    try {
+      const matches = await findDuplicatePatients(oystehr, {
+        firstName: patientInfo.firstName,
+        lastName: patientInfo.lastName,
+        dateOfBirth: patientInfo.dateOfBirth || birthDate?.toISODate() || undefined,
+      });
+      if (matches.length > 0) {
+        setDuplicatePatients(matches);
+        return false;
+      }
+    } catch (error) {
+      console.error('Failed to check for duplicate patients', error);
+    } finally {
+      setLoading(false);
+    }
+    return true;
+  };
+
+  const handleUseExistingDuplicate = (existing: Patient): void => {
+    setDuplicatePatients([]);
+    if (patientOnly) {
+      navigate(`/patient/${existing.id}`);
+      return;
+    }
+    setPatientInfo({
+      id: existing.id,
+      newPatient: false,
+      firstName: getFirstName(existing),
+      middleName: getMiddleName(existing),
+      lastName: getLastName(existing),
+      dateOfBirth: existing.birthDate,
+      sex: existing.gender,
+      phoneNumber: getPhoneNumberDigits(existing.telecom?.find((t) => t.system === 'phone')?.value),
+    });
+    setBirthDate(existing.birthDate ? DateTime.fromISO(existing.birthDate) : null);
+    setShowFields('existingPatientSelected');
+  };
+
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
+    await submitForm(false);
+  };
+
+  const submitForm = async (skipDuplicateCheck: boolean): Promise<void> => {
     if (!patientInfo) {
       setErrors({ search: true });
       return;
@@ -558,6 +614,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       }
       if (!validDate) return;
       if (!oystehrZambda) throw new Error('Zambda client not found');
+      if (!skipDuplicateCheck && !(await confirmNoDuplicate())) return;
       setLoading(true);
       try {
         const { patientId } = await createPatient(oystehrZambda, {
@@ -600,6 +657,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
     }
 
     if (validDate && validReasonForVisit) {
+      if (!skipDuplicateCheck && !(await confirmNoDuplicate())) return;
       setLoading(true);
 
       if (!oystehrZambda) throw new Error('Zambda client not found');
@@ -1052,6 +1110,57 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                 </Box>
               </Stack>
             </form>
+            <Dialog
+              open={duplicatePatients.length > 0}
+              onClose={() => setDuplicatePatients([])}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle>Patient may already exist</DialogTitle>
+              <DialogContent>
+                <DialogContentText>
+                  {duplicatePatients.length === 1
+                    ? 'A patient with the same name and date of birth already exists:'
+                    : 'Patients with the same name and date of birth already exist:'}
+                </DialogContentText>
+                <Stack spacing={1} marginTop={1}>
+                  {duplicatePatients.map((existing) => (
+                    <Typography key={existing.id} variant="body1" fontWeight={600}>
+                      {getFirstName(existing)} {getLastName(existing)} (DOB:{' '}
+                      {existing.birthDate ? DateTime.fromISO(existing.birthDate).toFormat('MM/dd/yyyy') : 'unknown'})
+                    </Typography>
+                  ))}
+                </Stack>
+                <DialogContentText marginTop={2}>
+                  Use the existing patient, or confirm this is a different person to continue.
+                </DialogContentText>
+              </DialogContent>
+              <DialogActions sx={{ px: 3, pb: 2, flexWrap: 'wrap', gap: 1 }}>
+                <Button
+                  onClick={() => setDuplicatePatients([])}
+                  sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 100 }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setDuplicatePatients([]);
+                    void submitForm(true);
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 100 }}
+                >
+                  This is a different person
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => handleUseExistingDuplicate(duplicatePatients[0])}
+                  sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 100 }}
+                >
+                  Use existing patient
+                </Button>
+              </DialogActions>
+            </Dialog>
             <CustomDialog
               open={selectSlotDialogOpen}
               title="Please select a date and time"
