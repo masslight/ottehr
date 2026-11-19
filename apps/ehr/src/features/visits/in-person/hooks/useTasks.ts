@@ -121,6 +121,11 @@ export interface UnassignTaskRequest {
   taskId: string;
 }
 
+export interface ReopenTaskRequest {
+  taskId: string;
+  status: 'ready' | 'in-progress';
+}
+
 export interface CompleteTaskRequest {
   taskId: string;
   /**
@@ -465,6 +470,33 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
         resourceType: 'Task',
         id: input.taskId,
         operations,
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: [GET_TASKS_KEY],
+        exact: false,
+      });
+    },
+  });
+};
+
+export const useReopenTask = (): UseMutationResult<void, Error, ReopenTaskRequest> => {
+  const { oystehr } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ReopenTaskRequest) => {
+      if (!oystehr) throw new Error('oystehr not defined');
+      await oystehr.fhir.patch<FhirTask>({
+        resourceType: 'Task',
+        id: input.taskId,
+        operations: [
+          {
+            op: 'replace',
+            path: '/status',
+            value: input.status,
+          },
+        ],
       });
     },
     onSuccess: async () => {
