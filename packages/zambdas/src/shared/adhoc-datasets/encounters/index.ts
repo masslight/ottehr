@@ -119,17 +119,19 @@ export async function fetchAdHocEncounterRows(
   };
   const [, lookups, outs, foreignColumns] = await Promise.all([
     timed('rootLookups', () => ctx.rootLookups()),
-    fetchEncounterBaseLookups(oystehr, root, ctx.rootLookups),
+    timed('baseLookups', () => fetchEncounterBaseLookups(oystehr, root, ctx.rootLookups)),
     Promise.all(modules.map((module) => timed(module.id, () => module.fetch(ctx)))),
-    ctx.rootLookups().then(() =>
-      fetchForeignPatientColumns(oystehr, {
-        dateRange,
-        patients: Array.from(root.patientMap.values()),
-        appointments: Array.from(root.appointmentMap.values()),
-        encounters: Array.from(root.encounterById.values()),
-        foreign: ENCOUNTER_FOREIGN_LAYERS,
-        requested: requestedForeignPatientLayers(ENCOUNTER_FOREIGN_LAYERS, params),
-      })
+    timed('patients.*', () =>
+      ctx.rootLookups().then(() =>
+        fetchForeignPatientColumns(oystehr, {
+          dateRange,
+          patients: Array.from(root.patientMap.values()),
+          appointments: Array.from(root.appointmentMap.values()),
+          encounters: Array.from(root.encounterById.values()),
+          foreign: ENCOUNTER_FOREIGN_LAYERS,
+          requested: requestedForeignPatientLayers(ENCOUNTER_FOREIGN_LAYERS, params),
+        })
+      )
     ),
   ]);
 
@@ -168,7 +170,8 @@ export async function fetchAdHocEncounterRows(
   console.log(
     `[adhoc] encounters timing: rows=${rows.length} root ms=${rootMs} layers ms=${fetchedAt - startedAt - rootMs} ` +
       `map ms=${Date.now() - fetchedAt} | ` +
-      [`rootLookups: fetch ${fetchMs.get('rootLookups') ?? 0} map 0`]
+      ['rootLookups', 'baseLookups', 'patients.*']
+        .map((id) => `${id}: fetch ${fetchMs.get(id) ?? 0} map 0`)
         .concat(modules.map((m, i) => `${m.id}: fetch ${fetchMs.get(m.id) ?? 0} map ${mapMs[i]}`))
         .join(', ')
   );

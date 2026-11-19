@@ -663,12 +663,17 @@ export async function fetchReportVisits(
     dateParam: string,
     params: SearchParam[],
     label: string
-  ): Promise<T[]> =>
-    runEntries<T>(
+  ): Promise<T[]> => {
+    const startedAt = Date.now();
+    return runEntries<T>(
       oystehr,
       reportWindows(opts.dateRange).map((window) => windowEntry(resourceType, dateParam, window, params)),
       label
-    );
+    ).then((found) => {
+      console.log(`[adhoc] visits ${label}: ms=${Date.now() - startedAt} resources=${found.length}`);
+      return found;
+    });
+  };
 
   const [appointments, encounters, chainedFollowUps] = await Promise.all([
     byDate<Appointment>(

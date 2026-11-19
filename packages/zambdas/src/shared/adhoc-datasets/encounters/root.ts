@@ -144,23 +144,35 @@ export async function fetchEncounterBaseLookups(
     )
   );
 
+  const startedAt = Date.now();
+  const took = <T>(name: string, run: Promise<T>): Promise<T> =>
+    run.then((out) => {
+      console.log(`[adhoc] base lookup ${name}: ms=${Date.now() - startedAt}`);
+      return out;
+    });
   const [staffNames, schedules, groups] = await Promise.all([
-    getStaffNameByEmail(oystehr),
+    took('staff names', getStaffNameByEmail(oystehr)),
     // Each location's Schedule, for the operating hours on the visit day.
-    rootLookups().then(() =>
-      fetchScopedResources<Schedule>(
-        oystehr,
-        'Schedule',
-        'actor',
-        Array.from(root.locationMap.values())
-          .filter((loc) => loc.id)
-          .map((loc) => `Location/${loc.id}`)
+    took(
+      'schedules',
+      rootLookups().then(() =>
+        fetchScopedResources<Schedule>(
+          oystehr,
+          'Schedule',
+          'actor',
+          Array.from(root.locationMap.values())
+            .filter((loc) => loc.id)
+            .map((loc) => `Location/${loc.id}`)
+        )
       )
     ),
     // Visits booked through a provider group carry the group (HealthcareService) as a participant.
-    fetchScopedResources<HealthcareService>(oystehr, 'HealthcareService', '_id', groupIds, [
-      { name: '_elements', value: 'id,name' },
-    ]),
+    took(
+      'groups',
+      fetchScopedResources<HealthcareService>(oystehr, 'HealthcareService', '_id', groupIds, [
+        { name: '_elements', value: 'id,name' },
+      ])
+    ),
   ]);
 
   const scheduleByLocationId = new Map<string, Schedule>();
