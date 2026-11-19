@@ -29,7 +29,8 @@ import { getScheduleExtension, getTimezone } from 'utils/lib/utils/scheduleUtils
 import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 import {
   buildEncounterRowContext,
-  fetchReportRootLookups,
+  fetchAppointmentParticipants,
+  fetchAttendingPractitioners,
   fetchReportVisits,
   fetchScopedResources,
   knownValueOrNull,
@@ -46,10 +47,20 @@ export async function fetchEncounterRoot(
   oystehr: Oystehr,
   dateRange: { start: string; end: string }
 ): Promise<EncounterRoot> {
-  const resources = await fetchReportVisits(oystehr, { dateRange });
+  // Patients and locations need only the appointments, which come in before the encounters: they start then.
+  let participants: EncounterRoot['participants'];
+  const resources = await fetchReportVisits(oystehr, {
+    dateRange,
+    onAppointments: (appointments) => {
+      participants = fetchAppointmentParticipants(oystehr, appointments);
+      // Awaited later (loadEncounterRootLookups); a failure must not surface before that as an unhandled rejection.
+      participants.catch(() => undefined);
+    },
+  });
 
   const root: EncounterRoot = {
     resources,
+    participants,
     appointmentMap: new Map(),
     patientMap: new Map(),
     locationMap: new Map(),
@@ -66,7 +77,11 @@ export async function fetchEncounterRoot(
 
 /** Fills the root's patients and locations and returns its attending / intake practitioners. */
 export async function loadEncounterRootLookups(oystehr: Oystehr, root: EncounterRoot): Promise<Practitioner[]> {
-  const { patients, locations, practitioners } = await fetchReportRootLookups(oystehr, root.resources);
+  const appointments = root.resources.filter((r): r is Appointment => r.resourceType === 'Appointment');
+  const [{ patients, locations }, practitioners] = await Promise.all([
+    root.participants ?? fetchAppointmentParticipants(oystehr, appointments),
+    fetchAttendingPractitioners<Practitioner>(oystehr, root.resources),
+  ]);
   for (const p of patients) if (p.id) root.patientMap.set(`Patient/${p.id}`, p);
   for (const l of locations) if (l.id) root.locationMap.set(`Location/${l.id}`, l);
   return practitioners;

@@ -29,6 +29,8 @@ import { indexByEncounter, stripEnc } from './helpers';
 export interface EncounterRoot {
   /** The appointments and encounters as fetched. */
   resources: (Appointment | Encounter)[];
+  /** The appointments' patients and locations, already loading when the root is returned. */
+  participants?: Promise<{ patients: Patient[]; locations: Location[] }>;
   /** Keyed `Appointment/{id}`. */
   appointmentMap: Map<string, Appointment>;
   /** Keyed `Patient/{id}`. Filled by `rootLookups()`. */

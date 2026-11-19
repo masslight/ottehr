@@ -651,7 +651,12 @@ export async function fetchReportAppointments(
  */
 export async function fetchReportVisits(
   oystehr: Oystehr,
-  opts: { dateRange: { start: string; end: string }; statuses?: string }
+  opts: {
+    dateRange: { start: string; end: string };
+    statuses?: string;
+    /** Called as soon as the appointments are in, before the encounters: what needs only them can start. */
+    onAppointments?: (appointments: Appointment[]) => void;
+  }
 ): Promise<(Appointment | Encounter)[]> {
   const byDate = <T extends FhirResource>(
     resourceType: FhirResource['resourceType'],
@@ -674,7 +679,10 @@ export async function fetchReportVisits(
         { name: '_tag', value: `${OTTEHR_MODULE.TM},${OTTEHR_MODULE.IP}` },
       ],
       'Appointment by date'
-    ),
+    ).then((found) => {
+      opts.onAppointments?.(found.filter((a) => a.resourceType === 'Appointment'));
+      return found;
+    }),
     byDate<Encounter>('Encounter', 'appointment.date', [], 'Encounter by appointment date'),
     byDate<Encounter>('Encounter', 'part-of.appointment.date', [], 'Encounter by parent appointment date').catch(
       (error) => {
@@ -724,6 +732,18 @@ export async function fetchReportVisits(
   }
 
   return [...visits, ...kept.values()];
+}
+
+/** The patients and locations of the appointments, by id. */
+export async function fetchAppointmentParticipants(
+  oystehr: Oystehr,
+  appointments: Appointment[]
+): Promise<{ patients: Patient[]; locations: Location[] }> {
+  const [patients, locations] = await Promise.all([
+    fetchScopedResources<Patient>(oystehr, 'Patient', '_id', participantIds(appointments, 'Patient')),
+    fetchScopedResources<Location>(oystehr, 'Location', '_id', participantIds(appointments, 'Location')),
+  ]);
+  return { patients, locations };
 }
 
 /** The patients, locations and attending / intake practitioners of the appointments and encounters, by id. */
@@ -787,7 +807,7 @@ export async function fetchOrdersByAuthoredDate<T extends FhirResource>(
 // intake (admitter) participants are ever read — their name and the provider-type extension — so they
 // are fetched separately: by id, in batches, three fields each — the same shape as every other heavy
 // part of a report.
-async function fetchAttendingPractitioners<T extends FhirResource>(
+export async function fetchAttendingPractitioners<T extends FhirResource>(
   oystehr: Oystehr,
   resources: FhirResource[]
 ): Promise<T[]> {
