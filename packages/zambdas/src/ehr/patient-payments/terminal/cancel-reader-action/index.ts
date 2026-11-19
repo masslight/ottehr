@@ -4,7 +4,13 @@ import {
   CancelTerminalReaderActionInput,
   CancelTerminalReaderActionResponse,
 } from 'utils/lib/types/api/patient-payment-types';
-import { INVALID_INPUT_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import {
+  INVALID_INPUT_ERROR,
+  isStripeTerminalReaderBusyError,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+  TERMINAL_READER_BUSY_ERROR,
+} from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { getAuth0Token } from '../../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
@@ -33,9 +39,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const stripeClient = getStripeClient(input.secrets);
 
-  await stripeClient.terminal.readers.cancelAction(validatedParameters.readerId, {
-    stripeAccount,
-  });
+  try {
+    await stripeClient.terminal.readers.cancelAction(validatedParameters.readerId, {
+      stripeAccount,
+    });
+  } catch (error) {
+    if (isStripeTerminalReaderBusyError(error)) {
+      throw TERMINAL_READER_BUSY_ERROR;
+    }
+    throw error;
+  }
 
   const response: CancelTerminalReaderActionResponse = {
     success: true,
