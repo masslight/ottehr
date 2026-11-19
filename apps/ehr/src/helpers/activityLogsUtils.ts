@@ -4,6 +4,7 @@ import { diff, IChange } from 'json-diff-ts';
 import { DateTime } from 'luxon';
 import {
   CRITICAL_CHANGE_SYSTEM,
+  CriticalUpdateBy,
   FOLLOWUP_CONVERSION_TAG_SYSTEM,
   STATUS_UPDATE_TAG_SYSTEM,
 } from 'utils/lib/fhir/helpers';
@@ -33,6 +34,8 @@ export interface ActivityLogData {
   activityName: ActivityName;
   activityNameSupplement?: string;
   activityBy: string;
+  /** Stable user id of the staff member who made the change, when the tag recorded one. */
+  activityByCode?: string;
   activityLink?: string;
   moreDetails?: {
     valueBefore: string;
@@ -119,7 +122,7 @@ export const formatActivityLogs = ({
   for (let i = 0; i < patientHistory.length - 1; i++) {
     const curPatientHistory = patientHistory[i];
     const previousPatientHistory = patientHistory[i + 1];
-    let activityBy: string | undefined;
+    let activityBy: CriticalUpdateBy | undefined;
 
     // console.log(`checking ${curPatientHistory?.meta?.versionId} against ${previousPatientHistory?.meta?.versionId}`);
     const diffs = diff(previousPatientHistory, curPatientHistory, { embeddedObjKeys: { 'meta.tag': 'system' } });
@@ -138,7 +141,7 @@ export const formatActivityLogs = ({
           activityName: ActivityName.nameChange,
           activityDateTimeISO: curPatientHistory.meta?.lastUpdated,
           activityDateTime: formatActivityDateTime(curPatientHistory.meta?.lastUpdated || '', timezone),
-          activityBy: activityBy ? activityBy : 'n/a',
+          ...formatActivityBy(activityBy),
           moreDetails: {
             valueBefore: getFullName(previousPatientHistory),
             valueAfter: getFullName(curPatientHistory),
@@ -151,7 +154,7 @@ export const formatActivityLogs = ({
           activityName: ActivityName.dobChange,
           activityDateTimeISO: curPatientHistory.meta?.lastUpdated,
           activityDateTime: formatActivityDateTime(curPatientHistory.meta?.lastUpdated || '', timezone),
-          activityBy: activityBy ? activityBy : 'n/a',
+          ...formatActivityBy(activityBy),
           moreDetails: {
             valueBefore: formatDateForDisplay(previousPatientHistory.birthDate),
             valueAfter: formatDateForDisplay(curPatientHistory.birthDate),
@@ -166,7 +169,7 @@ export const formatActivityLogs = ({
   for (let i = 0; i < appointmentHistory.length - 1; i++) {
     const curApptHistory = appointmentHistory[i];
     const previousApptHistory = appointmentHistory[i + 1];
-    let activityBy: string | undefined;
+    let activityBy: CriticalUpdateBy | undefined;
 
     const diffs = diff(previousApptHistory, curApptHistory, { embeddedObjKeys: { 'meta.tag': 'system' } });
 
@@ -186,7 +189,7 @@ export const formatActivityLogs = ({
               activityName: ActivityName.movedToNext,
               activityDateTimeISO: curApptHistory.meta?.lastUpdated,
               activityDateTime: formatActivityDateTime(curApptHistory.meta?.lastUpdated || '', timezone),
-              activityBy: activityBy ? activityBy : 'n/a',
+              ...formatActivityBy(activityBy),
             };
             logs.push(movedToNextLog);
           }
@@ -196,7 +199,7 @@ export const formatActivityLogs = ({
               activityName: ActivityName.convertedToFollowUp,
               activityDateTimeISO: curApptHistory.meta?.lastUpdated,
               activityDateTime: formatActivityDateTime(curApptHistory.meta?.lastUpdated || '', timezone),
-              activityBy: activityBy ? activityBy : 'n/a',
+              ...formatActivityBy(activityBy),
             });
           }
           const statusUpdate = tagChanges.find((change) => change.key === STATUS_UPDATE_TAG_SYSTEM); // todo update to const
@@ -206,7 +209,7 @@ export const formatActivityLogs = ({
               activityNameSupplement: getStatusToDisplay(statusUpdate),
               activityDateTimeISO: curApptHistory.meta?.lastUpdated,
               activityDateTime: formatActivityDateTime(curApptHistory.meta?.lastUpdated || '', timezone),
-              activityBy: activityBy ? activityBy : 'n/a',
+              ...formatActivityBy(activityBy),
             };
             logs.push(statusUpdateLog);
           }
@@ -238,7 +241,7 @@ export const formatActivityLogs = ({
       : '',
     activityDateTimeISO: appointment?.created,
     activityDateTime: formatActivityDateTime(appointment?.created || '', timezone),
-    activityBy: appointment.meta?.tag?.find((tag) => tag.system === CREATED_BY_SYSTEM)?.display || 'n/a',
+    ...formatActivityBy(appointment.meta?.tag?.find((tag) => tag.system === CREATED_BY_SYSTEM)),
   });
 
   return sortLogs(logs);
@@ -258,6 +261,46 @@ export const formatPaperworkStartedLog = (paperworkStartedFlag: Flag, timezone: 
   return paperworkStartedActivityLog;
 };
 
+const STAFF_EMAIL_PATTERN = /^Staff\s+(\S+@\S+)$/;
+
+interface StaffDirectoryEntry {
+  id?: string;
+  email?: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+}
+
+/**
+ * Shows each staff member's current first and last name in the "Made by" column.
+ *
+ * Tags record the editor's user id as `code`, which survives email/name changes, so it is
+ * matched against the employee's `id`. Tags written before `code` existed only carry `Staff <email>`;
+ * those are matched by email as a best effort. Anything unresolved keeps its stored text.
+ */
+export const resolveStaffNames = (
+  logs: ActivityLogData[],
+  employees: StaffDirectoryEntry[] | undefined
+): ActivityLogData[] => {
+  if (!employees?.length) return logs;
+  const namesById = new Map<string, string>();
+  const namesByEmail = new Map<string, string>();
+  employees.forEach((employee) => {
+    const fullName = `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() || employee.name?.trim();
+    if (!fullName) return;
+    if (employee.id) namesById.set(employee.id, fullName);
+    const email = employee.email?.trim().toLowerCase();
+    if (email) namesByEmail.set(email, fullName);
+  });
+  return logs.map((log) => {
+    const email = log.activityBy.match(STAFF_EMAIL_PATTERN)?.[1]?.toLowerCase();
+    const fullName =
+      (log.activityByCode ? namesById.get(log.activityByCode) : undefined) ??
+      (email ? namesByEmail.get(email) : undefined);
+    return fullName ? { ...log, activityBy: fullName } : log;
+  });
+};
+
 export const sortLogs = (logs: ActivityLogData[]): ActivityLogData[] => {
   return logs.sort((a, b) => {
     const dateA = DateTime.fromISO(a.activityDateTimeISO || '');
@@ -266,29 +309,34 @@ export const sortLogs = (logs: ActivityLogData[]): ActivityLogData[] => {
   });
 };
 
-const getCriticalUpdateMadeBy = (diff: IChange, resource: Resource): string | undefined => {
-  let activityBy: string | undefined;
+const formatActivityBy = (
+  by: Pick<Coding, 'display' | 'code'> | undefined
+): Pick<ActivityLogData, 'activityBy' | 'activityByCode'> => ({
+  activityBy: by?.display || 'n/a',
+  activityByCode: by?.code || undefined,
+});
+
+const getCriticalUpdateMadeBy = (diff: IChange, resource: Resource): CriticalUpdateBy | undefined => {
+  let activityBy: Coding | undefined;
   const tagChange = diff.changes?.find((d) => d.key === 'tag');
   if (tagChange?.type === 'UPDATE') {
     const criticalUpdateBy = tagChange.changes?.find((change) => change.key === CRITICAL_CHANGE_SYSTEM);
     if (criticalUpdateBy?.type === 'UPDATE') {
       const criticalUpdateByVersion = criticalUpdateBy.changes?.find((change) => change.key === 'version')?.value;
       if (criticalUpdateByVersion)
-        activityBy = resource.meta?.tag?.find((tag) => tag.system === CRITICAL_CHANGE_SYSTEM)?.display;
+        activityBy = resource.meta?.tag?.find((tag) => tag.system === CRITICAL_CHANGE_SYSTEM);
     }
     if (criticalUpdateBy?.type === 'ADD') {
-      const criticalUpdateByCoding = criticalUpdateBy.value as Coding;
-      activityBy = criticalUpdateByCoding?.display;
+      activityBy = criticalUpdateBy.value as Coding;
     }
   }
   if (tagChange?.type === 'ADD') {
     const criticalUpdateBy = tagChange.value?.find((value: Coding) => value.system === CRITICAL_CHANGE_SYSTEM);
     if (criticalUpdateBy) {
-      const criticalUpdateByCoding = criticalUpdateBy as Coding;
-      activityBy = criticalUpdateByCoding?.display;
+      activityBy = criticalUpdateBy as Coding;
     }
   }
-  return activityBy;
+  return activityBy?.display ? { display: activityBy.display, code: activityBy.code } : undefined;
 };
 const getStatusToDisplay = (diff: IChange): string => {
   let display = '';
@@ -314,7 +362,7 @@ export const formatNotesHistory = (timezone: string, appointmentHistory: Appoint
   for (let i = 0; i < appointmentHistory.length - 1; i++) {
     const curApptHistory = appointmentHistory[i];
     const previousApptHistory = appointmentHistory[i + 1];
-    let activityBy: string | undefined;
+    let activityBy: CriticalUpdateBy | undefined;
 
     const diffs = diff(previousApptHistory, curApptHistory, { embeddedObjKeys: { 'meta.tag': 'system' } });
     // check diffs for critical updates (ie updates that need to be surfaced in change logs)
@@ -334,7 +382,7 @@ export const formatNotesHistory = (timezone: string, appointmentHistory: Appoint
         const dtAdded = formatActivityDateTime(curApptHistory.meta?.lastUpdated || '', timezone);
         const note: NoteHistory = {
           note: noteVal,
-          noteAddedByAndWhen: `${dtAdded} By ${activityBy}`,
+          noteAddedByAndWhen: `${dtAdded} By ${activityBy?.display}`,
         };
         notes.push(note);
       }

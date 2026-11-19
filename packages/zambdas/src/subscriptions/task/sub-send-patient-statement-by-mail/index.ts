@@ -16,6 +16,7 @@ import { MAIL_VENDOR_EXTENSION_URL, sendPostGridLetter } from '../../../shared/p
 import { wrapHandler } from '../../../shared/sentry';
 import {
   getStatementDetails,
+  isBillingAppInvoiceStatement,
   resolveStatementAmountsSource,
   StatementType,
 } from '../../../shared/statements/get-statement-details';
@@ -66,6 +67,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       secrets,
       oystehr,
       m2mToken,
+      billingAppInvoice: isBillingAppInvoiceStatement(task),
     });
 
     await patchTaskStatus(oystehr, task.id!, 'in-progress');

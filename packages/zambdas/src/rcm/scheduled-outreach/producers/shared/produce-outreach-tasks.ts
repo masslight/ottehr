@@ -1,26 +1,22 @@
 import Oystehr from '@oystehr/sdk';
 import { BatchInputRequest } from '@oystehr/sdk';
-import { Patient, PlanDefinition, Reference, Task } from 'fhir/r4b';
+import { Coding, Patient, PlanDefinition, Reference, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { phone } from 'phone';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { getPatientContactEmail, getPhoneNumberForIndividual } from 'utils/lib/fhir/patient';
 import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { isEmailValid } from 'utils/lib/helpers/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
+import { ActionType, OutreachAction, TriggerEvent } from 'utils/lib/types/api/scheduled-outreach.types';
 import { getPatchBinary } from '../../../../shared/helpers';
-import {
-  ActionType,
-  getOrCreateOutreachConfig,
-  OutreachAction,
-  parsePlanDefinitionToActions,
-  TriggerEvent,
-} from '../../../scheduled-outreach-config/helpers';
+import { getOrCreateOutreachConfig, parsePlanDefinitionToActions } from '../../../scheduled-outreach-config/helpers';
 
 const RCM_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/rcm`;
 export const OUTREACH_TASK_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/outreach-task`;
 export const OUTREACH_ACTION_ID_TAG_SYSTEM = `${OUTREACH_TASK_TAG_SYSTEM}/action-id`;
-const OUTREACH_ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';
+export const OUTREACH_ACTION_TYPE_SYSTEM = 'https://ottehr.com/CodeSystem/outreach-action-type';
 export const OUTREACH_STRIPE_ACCOUNT_INPUT = 'stripe-account';
 export const OUTREACH_PLATFORM_STRIPE_ACCOUNT = 'platform';
 // Year scoping for patient-birthday tasks so the idempotency check distinguishes
@@ -30,6 +26,11 @@ export const OUTREACH_BIRTHDAY_YEAR_TAG_SYSTEM = `${OUTREACH_TASK_TAG_SYSTEM}/bi
 // Statuses that count as an existing outreach task for idempotency/dedup purposes.
 // 'cancelled' is intentionally excluded so a cancelled task does not block re-creation.
 const OUTREACH_TASK_DEDUP_STATUSES = 'draft,requested,in-progress,completed,failed';
+// On a Task that staff cancelled. Its action is not scheduled again.
+export const OUTREACH_CANCELLED_BY_STAFF_TAG: Coding = {
+  system: `${OUTREACH_TASK_TAG_SYSTEM}/cancelled-by`,
+  code: 'staff',
+};
 
 export interface ProduceOutreachTasksParams {
   triggerEvent: TriggerEvent;
@@ -42,6 +43,10 @@ export interface ProduceOutreachTasksParams {
   stripeAccount?: string;
   /** Optional filter to only produce tasks for specific actions. If omitted, all matching actions are produced. */
   actionFilter?: (action: OutreachAction) => boolean;
+  /** Task.code system the executor Subscriptions match on. */
+  taskCodeSystem?: string;
+  /** Skips the producer-time contact check and leaves validation to delivery. */
+  skipContactValidation?: boolean;
 }
 
 export interface OutreachTaskResult {
@@ -55,7 +60,18 @@ export interface OutreachTaskResult {
  * matching action with executionPeriod.start calculated from event time + offset.
  */
 export async function produceOutreachTasks(params: ProduceOutreachTasksParams): Promise<OutreachTaskResult> {
-  const { triggerEvent, patient, focus, appointment, eventTimestamp, oystehr, stripeAccount, actionFilter } = params;
+  const {
+    triggerEvent,
+    patient,
+    focus,
+    appointment,
+    eventTimestamp,
+    oystehr,
+    stripeAccount,
+    actionFilter,
+    taskCodeSystem,
+    skipContactValidation,
+  } = params;
 
   if (!FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled) {
     console.log('produceOutreachTasks: automatedPatientOutreachEnabled is disabled, skipping');
@@ -93,7 +109,7 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
   let hasValidPhone = false;
   let hasValidEmail = false;
 
-  if (hasNotificationActions) {
+  if (hasNotificationActions && !skipContactValidation) {
     const patientId = patient.reference?.replace('Patient/', '');
     if (patientId) {
       try {
@@ -170,7 +186,8 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
             dueDateTime,
             appointment,
             birthdayYear,
-            stripeAccount
+            stripeAccount,
+            taskCodeSystem
           );
           const cancelledTask = {
             ...taskDraft,
@@ -193,7 +210,8 @@ export async function produceOutreachTasks(params: ProduceOutreachTasksParams): 
       dueDateTime,
       appointment,
       birthdayYear,
-      stripeAccount
+      stripeAccount,
+      taskCodeSystem
     );
     // Atomic backstop for the duplicate-creation race (two trigger paths producing the
     // same task concurrently): a FHIR conditional create (POST + If-None-Exist). If a
@@ -251,7 +269,7 @@ async function findExistingOutreachTasks(
   const params = [
     { name: 'focus', value: focus.reference! },
     { name: '_tag', value: `${OUTREACH_TASK_TAG_SYSTEM}|${triggerEvent}` },
-    { name: 'status', value: OUTREACH_TASK_DEDUP_STATUSES },
+    { name: 'status', value: `${OUTREACH_TASK_DEDUP_STATUSES},cancelled` },
   ];
   if (birthdayYear !== undefined) {
     params.push({ name: '_tag', value: `${OUTREACH_BIRTHDAY_YEAR_TAG_SYSTEM}|${birthdayYear}` });
@@ -260,7 +278,9 @@ async function findExistingOutreachTasks(
     resourceType: 'Task',
     params,
   });
-  return bundle.unbundle();
+  return bundle
+    .unbundle()
+    .filter((task) => task.status !== 'cancelled' || resourceHasTag(task, OUTREACH_CANCELLED_BY_STAFF_TAG));
 }
 
 /**
@@ -347,105 +367,41 @@ export async function resolveOutreachTaskStripeAccount(task: Task, oystehr: Oyst
   }
 }
 
-interface RawFhirConnection {
-  baseUrl: string;
-  accessToken: string;
-  projectId?: string;
-}
-
-/**
- * Extract the access token and FHIR base URL from the Oystehr client so we can issue a raw
- * conditional-create request. The @oystehr/sdk transaction helper strips `entry.request.ifNoneExist`,
- * so a true FHIR conditional create has to be sent directly. Returns undefined when the connection
- * details are not available (e.g. a mocked client in unit tests), in which case callers fall back
- * to a plain create.
- */
-function getRawFhirConnection(oystehr: Oystehr): RawFhirConnection | undefined {
-  const cfg = (
-    oystehr as unknown as {
-      config?: { accessToken?: string; projectId?: string; fhirApiUrl?: string; services?: { fhirApiUrl?: string } };
-    }
-  ).config;
-  const accessToken = cfg?.accessToken;
-  const baseUrl = cfg?.services?.fhirApiUrl ?? cfg?.fhirApiUrl;
-  if (!accessToken || !baseUrl) {
-    return undefined;
-  }
-  return { baseUrl: baseUrl.replace(/\/+$/, ''), accessToken, projectId: cfg?.projectId };
-}
-
 type IdempotentCreateOutcome = { status: 'created'; resource: Task } | { status: 'duplicate' };
 
 /**
- * Create an outreach Task using a FHIR conditional create (POST + If-None-Exist) so that two
+ * Create an outreach Task with a FHIR conditional create (POST + If-None-Exist) so that two
  * concurrent producer invocations cannot create duplicate tasks for the same logical action.
- * Falls back to a plain create when a raw FHIR connection is unavailable (e.g. unit tests).
  */
 export async function createOutreachTaskIdempotent(
   oystehr: Oystehr,
   task: Task,
   ifNoneExist: string
 ): Promise<IdempotentCreateOutcome> {
-  const conn = getRawFhirConnection(oystehr);
-  if (!conn) {
-    // No raw FHIR connection available — fall back to a plain create. The producer's prior
-    // existence check plus the cron promoter's dedup still guard against duplicates here.
-    const created = await oystehr.fhir.create<Task>(task);
-    return { status: 'created', resource: created };
-  }
-
-  const bundle = {
-    resourceType: 'Bundle',
-    type: 'transaction',
-    entry: [
-      {
-        resource: task,
-        request: { method: 'POST', url: 'Task', ifNoneExist },
-      },
-    ],
-  };
-
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${conn.accessToken}`,
-    'content-type': 'application/fhir+json',
-    accept: 'application/fhir+json',
-  };
-  if (conn.projectId) {
-    headers['x-zapehr-project-id'] = conn.projectId;
-    headers['x-oystehr-project-id'] = conn.projectId;
-  }
-
-  const res = await fetch(`${conn.baseUrl}/`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(bundle),
-  });
-
-  if (!res.ok) {
+  try {
+    const bundle = await oystehr.fhir.transaction<Task>({
+      requests: [{ method: 'POST', url: '/Task', resource: task, ifNoneExist }],
+    });
+    const entry = bundle.entry?.[0];
+    const resource = entry?.resource;
+    if (!resource) {
+      throw new Error('Conditional create for outreach Task returned no resource in the transaction response');
+    }
+    // 201 = newly created; 200 = matched an existing task (duplicate prevented).
+    if (entry?.response?.status?.startsWith('201')) {
+      return { status: 'created', resource };
+    }
+    return { status: 'duplicate' };
+  } catch (err) {
     // 412 = multiple existing matches; treat as an already-satisfied duplicate rather than failing.
-    if (res.status === 412) {
+    if (err instanceof Oystehr.OystehrSdkError && err.code === 412) {
       console.log(
         `createOutreachTaskIdempotent: conditional create matched multiple tasks for "${ifNoneExist}", skipping`
       );
       return { status: 'duplicate' };
     }
-    const text = await res.text().catch(() => '');
-    throw new Error(`Conditional create for outreach Task failed: HTTP ${res.status} ${text.slice(0, 300)}`);
+    throw err;
   }
-
-  const respBundle = (await res.json()) as {
-    entry?: { resource?: Task; response?: { status?: string } }[];
-  };
-  const entry = respBundle.entry?.[0];
-  const resource = entry?.resource;
-  if (!resource) {
-    throw new Error('Conditional create for outreach Task returned no resource in the transaction response');
-  }
-  // 201 = newly created; 200 = matched an existing task (duplicate prevented).
-  if (entry?.response?.status?.startsWith('201')) {
-    return { status: 'created', resource };
-  }
-  return { status: 'duplicate' };
 }
 
 /**
@@ -466,7 +422,8 @@ function buildOutreachTask(
   dueDateTime: string,
   appointment?: Reference,
   birthdayYear?: number,
-  stripeAccount?: string
+  stripeAccount?: string,
+  taskCodeSystem: string = OUTREACH_ACTION_TYPE_SYSTEM
 ): Omit<Task, 'id'> {
   const basedOn: Reference[] = [{ reference: `PlanDefinition/${planDefinition.id}` }];
   if (appointment?.reference) {
@@ -489,7 +446,7 @@ function buildOutreachTask(
     code: {
       coding: [
         {
-          system: OUTREACH_ACTION_TYPE_SYSTEM,
+          system: taskCodeSystem,
           code: action.actionType,
           display: actionTypeDisplay(action.actionType),
         },
@@ -621,7 +578,8 @@ function triggerOffsetMinutes(action: OutreachAction): number {
 export async function reconcileDraftTasksWithConfig(
   oystehr: Oystehr,
   oldActions: OutreachAction[],
-  newActions: OutreachAction[]
+  newActions: OutreachAction[],
+  taskCodeSystem: string = OUTREACH_ACTION_TYPE_SYSTEM
 ): Promise<{ requests: BatchInputRequest<Task>[]; cancelled: number; updated: number }> {
   const newActionMap = new Map(newActions.map((a) => [a.id, a]));
   const oldActionMap = new Map(oldActions.map((a) => [a.id, a]));
@@ -693,7 +651,7 @@ export async function reconcileDraftTasksWithConfig(
           value: {
             coding: [
               {
-                system: OUTREACH_ACTION_TYPE_SYSTEM,
+                system: taskCodeSystem,
                 code: newAction.actionType,
                 display: actionTypeDisplay(newAction.actionType),
               },

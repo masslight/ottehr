@@ -422,8 +422,8 @@ export class Schema20250925 implements Schema<Spec20250925> {
       }
     }
     if (Object.keys(this.resources.secrets).length) {
-      const staticSecretRefs = Object.keys(this.resources.secrets)
-        .map((name) => `"${name}": oystehr_secret.${name}.value`)
+      const staticSecretRefs = Object.entries(this.resources.secrets)
+        .map(([key, secret]) => `"${this.getValue(secret.name, this.resources)}": oystehr_secret.${key}.value`)
         .join(', ');
       const zambdaSecretsExpr = `\${merge({for k, v in ${
         outputsOutFile.includes('oystehr/') ? 'oystehr_secret.sendgrid_template_ids' : '{}'

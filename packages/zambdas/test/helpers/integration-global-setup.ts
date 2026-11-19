@@ -1,12 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Patient, Practitioner } from 'fhir/r4b';
+import { Basic, Patient, Practitioner } from 'fhir/r4b';
 import { Server } from 'http';
 import type { AddressInfo } from 'net';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import type { TestProject } from 'vitest/node';
+import billingZambdasSpec from '../../../../config/billing-app-core/zambdas.json';
+import { INVOICE_NUMBER_COUNTER_KEY, setInvoiceNumberCounterKey } from '../../src/billing/invoice-number';
 import app, { localServerZambdaApiUrl, routeZambdaCallsToLocalServer } from '../../src/local-server/index';
+import { FHIR_COUNTER_CODE_SYSTEM } from '../../src/shared/fhir-counter';
 import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
 import { assertNoLeakedResourcesForRun } from './integration-leak-gate';
@@ -131,6 +134,30 @@ async function provisionSharedClient(
   return { m2mId, profile, profileResourceType, profileId, token };
 }
 
+// for testing
+async function provisionRunInvoiceNumberCounter(oystehrAdmin: Oystehr, runId: string): Promise<string> {
+  const key = `${INVOICE_NUMBER_COUNTER_KEY}-${runId}`;
+  const seed = billingZambdasSpec.fhirResources.INVOICE_NUMBER_COUNTER.resource as Basic;
+  const counter = await oystehrAdmin.fhir.create<Basic>(
+    addRunTagToResource(
+      {
+        ...seed,
+        code: {
+          coding: [
+            {
+              system: FHIR_COUNTER_CODE_SYSTEM,
+              code: key,
+            },
+          ],
+        },
+      },
+      runId
+    ) as Basic
+  );
+  setInvoiceNumberCounterKey(key);
+  return counter.id!;
+}
+
 /**
  * Intercepts outbound calls to AdvaPACS (the radiology PACS vendor) and returns
  * a successful empty transaction-response Bundle, so integration tests never hit
@@ -242,6 +269,8 @@ export default async function setup(project: TestProject): Promise<() => Promise
     provisionSharedClient(oystehrAdmin, M2MClientMockType.patient, runId),
   ]);
 
+  const invoiceNumberCounterId = await provisionRunInvoiceNumberCounter(oystehrAdmin, runId);
+
   project.provide('ADMIN_TOKEN', adminToken);
   project.provide('INTEGRATION_TEST_RUN_ID', runId);
   project.provide('M2M_PROVIDER_TOKEN', provider.token);
@@ -267,6 +296,15 @@ export default async function setup(project: TestProject): Promise<() => Promise
       }
     }
     console.log('Deleted shared integration-test M2M clients');
+
+    try {
+      await oystehrAdmin.fhir.delete({
+        resourceType: 'Basic',
+        id: invoiceNumberCounterId,
+      });
+    } catch {
+      // best-effort; the leak gate reports it
+    }
 
     restoreFetch();
 

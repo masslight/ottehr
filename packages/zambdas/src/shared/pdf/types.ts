@@ -180,6 +180,8 @@ interface LabsData {
 export type OrderFormInsuranceInfo = {
   insuranceRank: number;
   insuredName?: string;
+  insuredDOB?: string;
+  relationToInsured?: string;
   insuredAddress?: string;
   insuranceName?: string;
   insuranceAddress?: string;

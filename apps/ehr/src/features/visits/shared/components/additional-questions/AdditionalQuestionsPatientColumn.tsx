@@ -1,29 +1,22 @@
 import { Box, Typography } from '@mui/material';
 import { Appointment } from 'fhir/r4b';
 import { FC } from 'react';
+import { hasReturningPatientTag } from 'utils/lib/helpers/screening-questions/new-patient.helper';
 import {
   formatScreeningQuestionValue,
   getPaperworkScreeningAnswer,
 } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import {
-  PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE,
-  PATIENT_INFO_META_DATA_SYSTEM,
-} from 'utils/lib/types/constants';
+  PATIENT_SEEN_IN_LAST_THREE_YEARS_FIELD,
+  SEEN_IN_LAST_THREE_YEARS_FIELD,
+} from 'utils/lib/types/data/screening-questions/constants';
 import { useChartData } from '../../hooks/useChartData';
 import { ChartDataResponse, useAppointmentData } from '../../stores/appointment/appointment.store';
 import { AdditionalQuestionView } from '../medical-history-tab/components/AdditionalQuestionRow';
 
-export function getReturningPatient(
-  chartData: ChartDataResponse | undefined,
-  appointment: Appointment | undefined
-): boolean {
-  const returningPatientFromAppointmentCreation = appointment?.meta?.tag?.some(
-    (tag) => tag.system === PATIENT_INFO_META_DATA_SYSTEM && tag.code === PATIENT_INFO_META_DATA_RETURNING_PATIENT_CODE
-  );
-  const patientHasPreviousVisits = chartData?.patientHasPreviousVisits;
-  const answer = returningPatientFromAppointmentCreation || patientHasPreviousVisits || false;
-  return answer;
+function getReturningPatient(chartData: ChartDataResponse | undefined, appointment: Appointment | undefined): boolean {
+  return hasReturningPatientTag(appointment) || chartData?.patientHasPreviousVisits || false;
 }
 
 export const AdditionalQuestionsPatientColumn: FC = () => {
@@ -35,7 +28,7 @@ export const AdditionalQuestionsPatientColumn: FC = () => {
   const questionnaireFields = patientScreeningQuestionsConfig.fields.filter((field) => field.existsInQuestionnaire);
 
   const isSeenInLastThreeYearsField = (fhirField: string): boolean =>
-    fhirField === 'seen-in-last-three-years' || fhirField === 'seen-in-last-3-years';
+    fhirField === SEEN_IN_LAST_THREE_YEARS_FIELD || fhirField === PATIENT_SEEN_IN_LAST_THREE_YEARS_FIELD;
 
   const getQuestionnaireAnswer = (fhirField: string): string | null => {
     const paperworkAnswer = getPaperworkScreeningAnswer(fhirField, questionnaireResponse);

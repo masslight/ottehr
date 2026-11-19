@@ -30,14 +30,12 @@ export interface VisitNoteResponse {
   exam: ExamSectionData;
   assessment: AssessmentSectionData;
   plan: PlanSectionData;
-  /** The note types the visit note shows, scoped per type like the notes section. */
   notes: NotesSectionData;
   aiChat: AiChatSectionData;
   vitalsObservations: VitalsObservationDTO[];
   externalLabResults: EncounterExternalLabResult;
   inHouseLabResults: EncounterInHouseLabResult;
   radiologyOrders: RadiologyDTO[];
-  /** The encounter's participating practitioners. */
   practitioners: Practitioner[];
   patientHasPreviousVisits: boolean;
 }

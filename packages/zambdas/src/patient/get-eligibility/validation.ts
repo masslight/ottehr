@@ -1,7 +1,9 @@
 // cSpell:ignore olicy
 import Oystehr from '@oystehr/sdk';
-import { Appointment, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Appointment, Location, QuestionnaireResponseItem } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { BillingProviderDataObject, getBillingProviderData, GetBillingProviderInput } from 'utils/lib/fhir/billing';
+import { getLocationIdFromAppointment } from 'utils/lib/fhir/helpers';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { flattenItems } from 'utils/lib/helpers/paperwork/validation';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -19,6 +21,8 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
 } from 'utils/lib/types/errors';
+import { isFullFhirDateString } from 'utils/lib/utils/date';
+import { getLocalDateOfService } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { ZambdaInput } from '../../shared/types/common';
@@ -29,6 +33,7 @@ interface GetEligibilityStandardInput {
   coverageToCheck: 'primary' | 'secondary';
   appointmentId?: string;
   billingProvider?: string;
+  servicedDate?: string;
   secrets: Secrets | null;
 }
 
@@ -46,9 +51,8 @@ export function validateRequestParameters(input: ZambdaInput): GetEligibilityInp
     throw MISSING_REQUEST_BODY;
   }
 
-  const { appointmentId, patientId, coveragePrevalidationInput, billingProvider, coverageToCheck } = JSON.parse(
-    input.body
-  );
+  const { appointmentId, patientId, coveragePrevalidationInput, billingProvider, coverageToCheck, servicedDate } =
+    JSON.parse(input.body);
 
   if (appointmentId && !isValidUUID(appointmentId)) {
     throw INVALID_INPUT_ERROR('Parameter "appointmentId" must be a valid UUID.');
@@ -56,6 +60,9 @@ export function validateRequestParameters(input: ZambdaInput): GetEligibilityInp
   if (!patientId || !isValidUUID(patientId)) {
     console.error('Invalid patientId', patientId);
     throw INVALID_INPUT_ERROR('Parameter "patientId" must be included in input body and be a valid UUID.');
+  }
+  if (servicedDate !== undefined && (typeof servicedDate !== 'string' || !isFullFhirDateString(servicedDate))) {
+    throw INVALID_INPUT_ERROR('Parameter "servicedDate" must be a date in the format yyyy-MM-dd.');
   }
   if (billingProvider && typeof billingProvider !== 'string') {
     throw INVALID_INPUT_ERROR('Parameter "billingProvider" must be a string.');
@@ -104,6 +111,7 @@ export function validateRequestParameters(input: ZambdaInput): GetEligibilityInp
     coverageToCheck: coverageToCheck as 'primary' | 'secondary',
     patientId,
     billingProvider,
+    servicedDate,
     secrets: input.secrets,
   };
 }
@@ -127,6 +135,8 @@ export interface EligibilityCheckStandardStructuredInput {
   coverageToCheck: 'primary' | 'secondary';
   appointmentId?: string;
   appointment?: Appointment;
+  /** The date of service to check benefits for: the requested one, else the appointment's, else today. */
+  servicedDate: string;
 }
 
 type EligibilityCheckStructuredInput =
@@ -185,6 +195,7 @@ export const complexInsuranceValidation = async (
 
     const billingProvider = await resolveBillingProviderReference(maybeBillingProvider, oystehr, input.secrets);
     const coverageResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+    const servicedDate = input.servicedDate ?? (await getAppointmentDateOfService(appointment, oystehr));
     return {
       type: 'standard',
       appointmentId,
@@ -193,8 +204,29 @@ export const complexInsuranceValidation = async (
       coverageResources,
       appointment,
       coverageToCheck,
+      servicedDate,
     };
   }
+};
+
+// The calendar day of the visit in its location's timezone, the same rule claims use for their date of service.
+export const getAppointmentDateOfService = async (
+  appointment: Appointment | undefined,
+  oystehr: Oystehr
+): Promise<string> => {
+  if (!appointment?.start) return DateTime.now().toISODate();
+
+  const locationId = getLocationIdFromAppointment(appointment);
+  const location = locationId
+    ? await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId })
+    : undefined;
+  const visitDate = getLocalDateOfService(appointment.start, location);
+  // Both are calendar days in the location's timezone; comparing against the server's day would clamp a visit
+  // that has already started in a timezone ahead of the server to the day before.
+  const today = getLocalDateOfService(DateTime.now().toISO(), location);
+
+  // Payers can't be asked about a visit that hasn't happened yet.
+  return visitDate < today ? visitDate : today;
 };
 
 export const validateInsuranceRequirements = ({

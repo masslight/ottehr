@@ -10,6 +10,8 @@ export interface PatientEncounterSearchOptions {
   // also bring back what getScheduleOwnerFromAppointmentOrEncounter picks the schedule owner from:
   // each appointment's actors, and its slot's schedule with that schedule's actor
   includeScheduleOwnerCandidates?: boolean;
+  // also bring back each encounter's locations (a follow-up's only clue to where it took place)
+  includeEncounterLocations?: boolean;
   // only this encounter, and only when it is the patient's (subject still constrains the search)
   encounterId?: string;
 }
@@ -17,8 +19,8 @@ export interface PatientEncounterSearchOptions {
 export interface PatientEncountersAndAppointments {
   encounters: Encounter[];
   appointments: Appointment[];
-  // every other included resource (actors, slots, schedules), keyed by "ResourceType/id";
-  // only filled with includeScheduleOwnerCandidates
+  // every other included resource (actors, slots, schedules, locations), keyed by "ResourceType/id";
+  // only filled with includeScheduleOwnerCandidates or includeEncounterLocations
   relatedResourcesByReference: Map<string, FhirResource>;
 }
 
@@ -30,6 +32,7 @@ export function encounterAndAppointmentSearchParams(
     { name: 'subject', value: `Patient/${patientId}` },
     ...(options.encounterId ? [{ name: '_id', value: options.encounterId }] : []),
     { name: '_include', value: 'Encounter:appointment' },
+    ...(options.includeEncounterLocations ? [{ name: '_include', value: 'Encounter:location' }] : []),
     ...(options.includeScheduleOwnerCandidates
       ? [
           { name: '_include:iterate', value: 'Appointment:actor' },

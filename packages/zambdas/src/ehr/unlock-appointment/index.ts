@@ -6,8 +6,10 @@ import { userMe } from 'utils/lib/auth/user-me.helper';
 import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import {
   createCriticalUpdateTag,
+  CriticalUpdateBy,
   getAppointmentLockMetaTagOperations,
   getEncounterLockMetaTagOperations,
+  getStaffCriticalUpdateBy,
 } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import {
@@ -48,7 +50,7 @@ export const performEffect = async (
 
   // Get the current user for tracking who unlocked the chart
   const user = await userMe(userToken, secrets);
-  const unlockedByText = `Staff ${user?.email || `(${user?.id})`}`;
+  const unlockedByText = getStaffCriticalUpdateBy(user);
 
   // Annotation follow-ups have no own Appointment, so their lock lives on the Encounter.
   if (encounterId) {
@@ -132,7 +134,7 @@ export const performEffect = async (
 
 // Mutates the unlock operation in place to add/update a critical-update tag recording who unlocked the chart.
 // Depending on the resource's existing shape, the unlock op may replace /meta/tag, add /meta/tag, or add /meta.
-const applyCriticalUpdateTag = (unlockOp: Operation, updatedByText: string): void => {
+const applyCriticalUpdateTag = (unlockOp: Operation, updatedByText: CriticalUpdateBy): void => {
   if (!('value' in unlockOp)) {
     throw new Error('Unexpected unlock operation structure');
   }

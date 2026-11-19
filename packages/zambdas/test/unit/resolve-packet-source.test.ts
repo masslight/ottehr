@@ -338,6 +338,86 @@ describe('resolveDocumentPacketPlan', () => {
     expect(plan.sourceType).toBe('document');
     expect(plan.sections[0].subject.visitTypeLabel).toBeUndefined();
     expect(mockBuildDocumentPacketSection.mock.calls[0][0].parts).toHaveLength(1);
+    // Filed on no visit: no Visit column, and the email's notice falls back to "contact the sender".
+    expect(plan.appointmentId).toBeUndefined();
+    expect(plan.encounterId).toBeUndefined();
+    expect(plan.location).toBeUndefined();
+    expect(mockGetAppointmentAndRelatedResources).not.toHaveBeenCalled();
+  });
+
+  it("files an intake document with the Appointment it names, and takes that visit's office", async () => {
+    documentsById = {
+      'doc-1': docRef('doc-1', 'https://z3.example/consent.pdf', {
+        context: { related: [{ reference: 'Patient/patient-1' }, { reference: 'Appointment/appointment-1' }] },
+      }),
+    };
+
+    const plan = await resolve({ type: 'document', patientId: PATIENT_ID, documentReferenceId: 'doc-1' });
+
+    expect(mockGetAppointmentAndRelatedResources).toHaveBeenCalledWith(oystehr, 'appointment-1', true);
+    // The packet lands on the visit (Docs and Action Logs "Visit" columns), and the visit's office is the
+    // location whose support or main phone the email tells a wrong recipient to call.
+    expect(plan.appointmentId).toBe('appointment-1');
+    expect(plan.encounterId).toBe('encounter-appointment-1');
+    expect(plan.location).toEqual({ resourceType: 'Location', id: 'location-1' });
+    expect(plan.timezone).toBe('America/New_York');
+  });
+
+  it("files an EHR upload with its encounter's visit, keeping the document's own encounter", async () => {
+    documentsById = {
+      'doc-1': docRef('doc-1', 'https://z3.example/upload.pdf', {
+        context: { encounter: [{ reference: 'Encounter/encounter-follow-up' }] },
+      }),
+    };
+    encounterSearchResults = [
+      {
+        resourceType: 'Encounter',
+        id: 'encounter-follow-up',
+        status: 'finished',
+        class: { code: 'VR' },
+        type: buildFollowupEncounterType('annotation'),
+        appointment: [{ reference: 'Appointment/appointment-1' }],
+      },
+    ];
+
+    const plan = await resolve({ type: 'document', patientId: PATIENT_ID, documentReferenceId: 'doc-1' });
+
+    // Uploads name only the encounter, so its Appointment is what leads to the visit's office.
+    expect(mockGetAppointmentAndRelatedResources).toHaveBeenCalledWith(oystehr, 'appointment-1', true);
+    expect(plan.appointmentId).toBe('appointment-1');
+    // A follow-up's document stays on the follow-up rather than moving to the main encounter.
+    expect(plan.encounterId).toBe('encounter-follow-up');
+    expect(plan.location).toEqual({ resourceType: 'Location', id: 'location-1' });
+  });
+
+  it("keeps a document on the patient when its visit is someone else's", async () => {
+    documentsById = {
+      'doc-1': docRef('doc-1', 'https://z3.example/doc-1.pdf', {
+        context: { related: [{ reference: 'Appointment/appointment-1' }] },
+      }),
+    };
+    mockGetAppointmentAndRelatedResources.mockResolvedValue(
+      visitResources('appointment-1', { patient: { ...patient, id: 'someone-else' } })
+    );
+
+    const plan = await resolve({ type: 'document', patientId: PATIENT_ID, documentReferenceId: 'doc-1' });
+
+    expect(plan.appointmentId).toBeUndefined();
+    expect(plan.location).toBeUndefined();
+  });
+
+  it('keeps a document on the patient when its encounter names no visit', async () => {
+    documentsById = {
+      'doc-1': docRef('doc-1', 'https://z3.example/doc-1.pdf', {
+        context: { encounter: [{ reference: 'Encounter/encounter-gone' }] },
+      }),
+    };
+
+    const plan = await resolve({ type: 'document', patientId: PATIENT_ID, documentReferenceId: 'doc-1' });
+
+    expect(mockGetAppointmentAndRelatedResources).not.toHaveBeenCalled();
+    expect(plan.appointmentId).toBeUndefined();
+    expect(plan.encounterId).toBeUndefined();
   });
 
   it('refuses a document that belongs to another patient', async () => {

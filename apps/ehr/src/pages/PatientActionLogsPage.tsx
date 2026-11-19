@@ -1,24 +1,25 @@
 import { Box, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { ActionLogsTabs } from 'src/features/action-logs/ActionLogsTabs';
 import { Header } from 'src/features/visits/shared/components/patient/Header';
 import { getFullName } from 'utils/lib/fhir/patient';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useGetPatient } from '../hooks/useGetPatient';
+import { useNavigateBack } from '../hooks/useNavigateBack';
 
 const PatientActionLogsPage: FC = () => {
   const theme = useTheme();
   const { id: patientId } = useParams();
-  const navigate = useNavigate();
+  const navigateBack = useNavigateBack(`/patient/${patientId}`);
 
   const { patient, loading: isLoadingPatientData } = useGetPatient(patientId);
   if (isLoadingPatientData) return <LoadingScreen />;
 
   return (
     <Box>
-      <Header handleDiscard={() => navigate(-1)} id={patientId} />
+      <Header handleDiscard={navigateBack} id={patientId} />
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, padding: theme.spacing(3) }}>
         <CustomBreadcrumbs
           chain={[

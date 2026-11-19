@@ -11,6 +11,7 @@ import {
   StandardFonts,
   translate,
 } from 'pdf-lib';
+import { assertZ3Url } from '../helpers/presigned-file-url/helpers';
 import { MIME_TYPES } from './file';
 import { getImageOrientation, getOrientationCorrection } from './image-orientation';
 
@@ -197,7 +198,8 @@ export async function uploadPDF(
   }
 
   console.log('getting presigned url for z3 upload');
-  const presignedURLRequest = await fetch(fileURL, {
+
+  const presignedURLRequest = await fetch(assertZ3Url(fileURL), {
     method: 'POST',
     headers: {
       authorization: `Bearer ${token}`,

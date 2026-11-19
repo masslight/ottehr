@@ -40,6 +40,7 @@ import { formatNdcForDisplay, X12_ADJUSTMENT_GROUP_CODE } from 'utils/lib/types/
 import { ClaimDetailResponse, ClaimRemit, ClaimRemitAdjustment } from 'utils/lib/types/data/billing/billing.types';
 import { carcDescription, PATIENT_RESP_CARC, X12_ADJUSTMENT_GROUP_LABELS } from 'utils/lib/types/data/billing/carc';
 import { formatCurrency } from 'utils/lib/utils/convert';
+import { formatPatientResp } from '../../constants/claimStatus';
 import { adjustmentCode, isAdverseRemitStatus } from '../../constants/era';
 import {
   adjustmentColumn,
@@ -800,7 +801,7 @@ export function RemitTotals({ claim }: { claim: ClaimDetailResponse }): ReactEle
           </Stack>
         }
       />
-      <Total label="Patient Resp" value={formatCurrency(claim.patientResp)} />
+      <Total label="Patient Resp" value={formatPatientResp(claim.patientResp)} />
       <Total label="Patient Paid" value={formatCurrency(claim.patientPaid)} />
       <Total label="Balance" value={formatCurrency(claim.balance)} />
     </Box>

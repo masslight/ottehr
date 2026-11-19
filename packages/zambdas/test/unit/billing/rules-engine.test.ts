@@ -2023,6 +2023,34 @@ describe('primary coverage from patient swap', () => {
     expect(readField(m, 'billingType')).toBe('Insurance Pay');
   });
 
+  it('keeps the primary insurer when a secondary coverage is attached behind an existing primary', () => {
+    const m = makeModel();
+    m.patientCoverageContext = makeCoverageContext();
+    m.claim.insurer = { reference: getPayerUrl('555666'), display: 'Primary Payer (555666)' };
+
+    expect(writeField(m, 'secondaryInsurance.coverageFromPatient', 'workersComp')).toBe(true);
+
+    const secondary = m.claim.insurance?.find((entry) => entry.sequence === 2);
+    expect(secondary?.focal).toBe(false);
+    expect(secondary?.coverage?.display).toBe('WorkSafe (999001)');
+    expect(m.claim.insurance?.find((entry) => entry.focal)?.coverage?.reference).toBe('Coverage/cov-primary');
+    expect(m.claim.insurer).toEqual({ reference: getPayerUrl('555666'), display: 'Primary Payer (555666)' });
+  });
+
+  it('points the insurer at a secondary coverage that becomes focal on a self-pay claim', () => {
+    const m = makeModel();
+    m.claim.insurance = [buildNoCoverageStub()];
+    m.coverages = [];
+    m.subscribers = [];
+    m.patientCoverageContext = makeCoverageContext();
+
+    expect(writeField(m, 'secondaryInsurance.coverageFromPatient', 'workersComp')).toBe(true);
+
+    expect(m.claim.insurance).toHaveLength(1);
+    expect(m.claim.insurance?.[0]?.focal).toBe(true);
+    expect(m.claim.insurer).toEqual({ reference: getPayerUrl('999001'), display: 'WorkSafe (999001)' });
+  });
+
   it('supersedes pending coverage and policy-holder copies when swapped twice in one run', () => {
     const m = makeModel();
     m.patientCoverageContext = makeCoverageContext();

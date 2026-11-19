@@ -16,6 +16,7 @@ import {
 } from 'utils/lib/types/data/labs/labs.constants';
 import { CoverageOrgRank, LabPaymentMethod, PaymentResources } from 'utils/lib/types/data/labs/labs.types';
 import { APIError, EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { resourcesForOrderForm } from '../../ehr/lab/external/submit-lab-order/helpers';
 import { formatDateTimeForLabs, LABS_DATE_STRING_FORMAT } from '../../ehr/lab/shared/helpers';
 import { makeZ3Url } from '../presigned-file-urls/helpers';
@@ -62,7 +63,7 @@ export async function createExternalLabsOrderFormPDF(
   return { title: fileName, uploadURL: baseFileUrl };
 }
 
-async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormData): Promise<Uint8Array> {
+export async function createExternalLabsOrderFormPdfBytes(data: ExternalLabOrderFormData): Promise<Uint8Array> {
   console.log('drawing pdf for ', data.orderNumber);
 
   let pdfClient: PdfClient;
@@ -435,7 +436,7 @@ export function getOrderFormDataConfig(
   return dataConfig;
 }
 
-function getInsuranceDetails(
+export function getInsuranceDetails(
   insuranceCoveragesAndOrgs: CoverageOrgRank[] | undefined,
   patient: Patient,
   oystehr: Oystehr
@@ -445,7 +446,7 @@ function getInsuranceDetails(
   const insuranceInfo: OrderFormInsuranceInfo[] = [];
   insuranceCoveragesAndOrgs.forEach((covAndOrg) => {
     const { coverage, payorOrg: insuranceOrganization, coverageRank } = covAndOrg;
-    const { insuredName, insuredAddress } = getInsuredInfoFromCoverageSubscriber(coverage, patient);
+    const { insuredName, insuredBirthDate, insuredAddress } = getInsuredInfoFromCoverageSubscriber(coverage, patient);
     insuranceInfo.push({
       insuranceName: insuranceOrganization?.name,
       insuranceAddress: insuranceOrganization?.address
@@ -453,6 +454,8 @@ function getInsuranceDetails(
         : undefined,
       insuranceSubNum: coverage?.subscriberId,
       insuredName: insuredName && insuredName.length ? oystehr.fhir.formatHumanName(insuredName[0]) : undefined,
+      insuredDOB: formatDateForDisplay(insuredBirthDate) || undefined,
+      relationToInsured: coverage.relationship?.coding?.[0]?.display,
       insuredAddress:
         insuredAddress && insuredAddress.length ? oystehr.fhir.formatAddress(insuredAddress[0]) : undefined,
       insuranceRank: coverageRank,
@@ -467,6 +470,7 @@ function getInsuredInfoFromCoverageSubscriber(
   patient: Patient
 ): {
   insuredName: HumanName[] | undefined;
+  insuredBirthDate: string | undefined;
   insuredAddress: Address[] | undefined;
 } {
   const subscriberRef = coverage.subscriber?.reference;
@@ -476,6 +480,7 @@ function getInsuredInfoFromCoverageSubscriber(
     console.log(`Coverage reference matched Patient/${patient.id}. Setting insuredName and address to patient info`);
     return {
       insuredName: patient.name,
+      insuredBirthDate: patient.birthDate,
       insuredAddress: patient.address,
     };
   }
@@ -484,7 +489,7 @@ function getInsuredInfoFromCoverageSubscriber(
     `Coverage reference did not match Patient/${patient.id}. Checking for contained RelatedPerson subscriber`
   );
 
-  const emptyResponse = { insuredName: undefined, insuredAddress: undefined };
+  const emptyResponse = { insuredName: undefined, insuredBirthDate: undefined, insuredAddress: undefined };
   // for the moment always assume we're going to get the subscriber as a contained resource
   if (!subscriberRef || !subscriberRef.startsWith('#')) return emptyResponse;
 
@@ -499,6 +504,7 @@ function getInsuredInfoFromCoverageSubscriber(
 
   return {
     insuredName: subscriber.name,
+    insuredBirthDate: subscriber.birthDate,
     insuredAddress: subscriber.address,
   };
 }
@@ -508,8 +514,16 @@ function drawInsuranceDetail(
   textStyles: LabsPDFTextStyleConfig,
   insuranceDetail: OrderFormInsuranceInfo
 ): PdfClient {
-  const { insuranceRank, insuredName, insuredAddress, insuranceName, insuranceAddress, insuranceSubNum } =
-    insuranceDetail;
+  const {
+    insuranceRank,
+    insuredName,
+    insuredDOB,
+    relationToInsured,
+    insuredAddress,
+    insuranceName,
+    insuranceAddress,
+    insuranceSubNum,
+  } = insuranceDetail;
 
   const rankToLabel = (rank: number | undefined): string => {
     switch (rank) {
@@ -524,40 +538,22 @@ function drawInsuranceDetail(
     }
   };
 
-  if (insuranceName) {
-    pdfClient = drawFieldLineBoldHeader(
-      pdfClient,
-      textStyles,
-      `${rankToLabel(insuranceRank)} Insurance Name:`,
-      insuranceName
-    );
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-  if (insuranceAddress) {
-    pdfClient = drawFieldLineBoldHeader(
-      pdfClient,
-      textStyles,
-      'Insurance Address:',
-      formatZipcodeForDisplay(insuranceAddress.toUpperCase())
-    );
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-  if (insuranceSubNum) {
-    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Subscriber Number:', insuranceSubNum);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-  if (insuredName) {
-    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Insured Name:', insuredName);
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
-  if (insuredAddress) {
-    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, 'Address:', formatZipcodeForDisplay(insuredAddress));
-    pdfClient.newLine(STANDARD_NEW_LINE);
-  }
+  const fields: [string, string | undefined][] = [
+    [`${rankToLabel(insuranceRank)} Insurance Name:`, insuranceName],
+    ['Insurance Address:', insuranceAddress && formatZipcodeForDisplay(insuranceAddress.toUpperCase())],
+    ['Subscriber Number:', insuranceSubNum],
+    ['Subscriber Name:', insuredName],
+    ['Subscriber DOB:', insuredDOB],
+    ['Relation to Subscriber:', relationToInsured],
+    ['Address:', insuredAddress && formatZipcodeForDisplay(insuredAddress)],
+  ];
+  const drawnFields = fields.filter((field): field is [string, string] => !!field[1]);
 
-  if (insuredName || insuredAddress || insuranceName || insuranceAddress || insuranceSubNum) {
+  drawnFields.forEach(([label, value]) => {
+    pdfClient = drawFieldLineBoldHeader(pdfClient, textStyles, label, value);
     pdfClient.newLine(STANDARD_NEW_LINE);
-  }
+  });
+  if (drawnFields.length) pdfClient.newLine(STANDARD_NEW_LINE);
 
   return pdfClient;
 }

@@ -90,6 +90,20 @@ describe('search-billing-invoices', () => {
     });
   });
 
+  it('lists only patient invoices, leaving out NIO invoices', async () => {
+    const { oystehr, search } = makeOystehr([]);
+
+    await performEffect(oystehr, {
+      secrets: {},
+    });
+
+    const [{ params }] = search.mock.calls.find(([input]) => input.resourceType === 'Invoice')!;
+    expect(params).toContainEqual({
+      name: 'subject:missing',
+      value: 'false',
+    });
+  });
+
   it('filters by status, patient name, facility and issue date and asks for the requested page', async () => {
     const { oystehr, search } = makeOystehr([]);
 

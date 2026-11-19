@@ -1,5 +1,6 @@
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, IconButton, Link as MuiLink, useTheme } from '@mui/material';
+import { Box, IconButton, Link as MuiLink, Typography, useTheme } from '@mui/material';
 import { Patient } from 'fhir/r4b';
 import { FC } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
@@ -25,6 +26,7 @@ type HeaderProps = {
   fallbackPatient?: Patient;
   /** Off by default: a plain link would skip the unsaved-changes check of pages that guard handleDiscard. */
   linkNameToPatientRecord?: boolean;
+  nameLastModified?: string;
 };
 
 export const Header: FC<HeaderProps> = ({
@@ -33,6 +35,7 @@ export const Header: FC<HeaderProps> = ({
   encounterId,
   fallbackPatient,
   linkNameToPatientRecord,
+  nameLastModified,
 }) => {
   const theme = useTheme();
 
@@ -64,34 +67,55 @@ export const Header: FC<HeaderProps> = ({
         boxShadow: '0px 2px 4px -1px rgba(0, 0, 0, 0.2)',
       }}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <IdentifiersRow patient={patient} loading={loading} />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{ flex: '64px 0 0' }}>
-            <PatientAvatar id={id} sx={{ width: 64, height: 64 }} />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <IconButton
+          onClick={handleDiscard}
+          aria-label="Back"
+          data-testid={dataTestIds.patientHeader.backButton}
+          sx={{ ml: -1.5 }}
+        >
+          <ArrowBackIcon />
+        </IconButton>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', columnGap: 2, flexWrap: 'wrap' }}>
+            <IdentifiersRow patient={patient} loading={loading} />
+            {nameLastModified && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                data-testid={dataTestIds.patientHeader.nameLastModified}
+              >
+                Name Last Modified {nameLastModified}
+              </Typography>
+            )}
           </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Box
-              data-testid={dataTestIds.patientHeader.nameRow}
-              sx={{ display: 'flex', alignItems: 'center', rowGap: 0.5, columnGap: 2, flexWrap: 'wrap' }}
-            >
-              {linkNameToPatientRecord && id && patient ? (
-                <MuiLink
-                  component={RouterLink}
-                  to={`/patient/${id}`}
-                  underline="hover"
-                  sx={{ color: 'primary.dark', textDecorationColor: 'inherit' }}
-                >
-                  {fullName}
-                </MuiLink>
-              ) : (
-                fullName
-              )}
-              <PatientNotesButton patientId={id} />
-              <PrintVisitLabelButton encounterId={encounterId ?? latestAppointmentEncounterId} />
-              <Summary patient={patient} loading={loading} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ flex: '64px 0 0' }}>
+              <PatientAvatar id={id} sx={{ width: 64, height: 64 }} />
             </Box>
-            <Contacts patient={patient} loading={loading} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Box
+                data-testid={dataTestIds.patientHeader.nameRow}
+                sx={{ display: 'flex', alignItems: 'center', rowGap: 0.5, columnGap: 2, flexWrap: 'wrap' }}
+              >
+                {linkNameToPatientRecord && id && patient ? (
+                  <MuiLink
+                    component={RouterLink}
+                    to={`/patient/${id}`}
+                    underline="hover"
+                    sx={{ color: 'primary.dark', textDecorationColor: 'inherit' }}
+                  >
+                    {fullName}
+                  </MuiLink>
+                ) : (
+                  fullName
+                )}
+                <PatientNotesButton patientId={id} />
+                <PrintVisitLabelButton encounterId={encounterId ?? latestAppointmentEncounterId} />
+                <Summary patient={patient} loading={loading} />
+              </Box>
+              <Contacts patient={patient} loading={loading} />
+            </Box>
           </Box>
         </Box>
       </Box>
