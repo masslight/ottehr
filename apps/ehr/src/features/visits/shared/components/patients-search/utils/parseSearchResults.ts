@@ -1,4 +1,5 @@
 import { Appointment, Bundle, BundleEntry, Location } from 'fhir/r4b';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { SearchResultPaginationInfo, SearchResultParsedPatient } from '../types';
 import { SearchResult } from '../types';
 
@@ -43,7 +44,7 @@ export const parseSearchResults = (fhirResponse: Bundle): SearchResult => {
       const locationRef = lastAppointment.participant?.find((p) => p.actor?.reference?.startsWith('Location/'))?.actor
         ?.reference;
 
-      const locationId = locationRef?.split('/')[1];
+      const locationId = getIdFromReference(locationRef, 'Location');
 
       lastVisit = {
         date: lastAppointment.start as string,

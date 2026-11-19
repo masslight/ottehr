@@ -141,12 +141,10 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Pati
   }
 
   const [allResources, freeFormEncounterResources] = await Promise.all([
-    oystehr.fhir
-      .search<Appointment | Encounter | Practitioner | Location | Slot | Task>({
-        resourceType: 'Appointment',
-        params,
-      })
-      .then((bundle) => bundle.unbundle()),
+    getAllFhirSearchPages<Appointment | Encounter | Practitioner | Location | Slot | Task>(
+      { resourceType: 'Appointment', params },
+      oystehr
+    ),
     getAllFhirSearchPages<Encounter>(
       { resourceType: 'Encounter', params: getFreeFormEncounterSearchParams({ patientId, from, to }) },
       oystehr

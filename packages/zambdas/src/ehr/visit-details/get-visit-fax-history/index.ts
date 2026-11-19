@@ -10,7 +10,7 @@ import {
 } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getOutboundDeliveryInput, getOutboundDeliveryRecipientSnapshot } from 'utils/lib/fhir/outbound-delivery';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   GetVisitFaxHistoryInput,
   GetVisitFaxHistoryInputSchema,
@@ -101,7 +101,7 @@ const performEffect = async (input: GetVisitFaxHistoryInput, oystehr: Oystehr): 
   const legacyFaxes = faxProvenances
     .filter((provenance) => {
       const communicationId = provenance.target
-        .map((target) => removePrefix('Communication/', target.reference ?? ''))
+        .map((target) => getIdFromReference(target.reference, 'Communication'))
         .find(Boolean);
       return !communicationId || !communicationIdsInTasks.has(communicationId);
     })

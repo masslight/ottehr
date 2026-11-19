@@ -17,8 +17,7 @@ export const BillingRulesBaseRowSchema = z.object({
   engine: z
     .enum(RULES_ENGINE_TYPES)
     .describe(
-      'Rules engine the rule belongs to: "claim-submission" (runs before a claim is submitted to the payer), ' +
-        '"non-insurance-payer-pre-invoice", "patient-ar-pre-invoice" (run before invoicing).'
+      'Rules engine the rule belongs to: "claim-submission" (runs before a claim is submitted to a payer), "non-insurance-payer-pre-invoice" (run before a claim is submitted to a non-insurance payer), "post-adjudication" (run while claim is in Adjudicated status), "patient-ar-pre-invoice" (run before invoicing).'
     ),
   position: z.number().describe('Order of the rule within its engine, 1 = runs first.'),
   name: z.string().describe('Rule name.'),

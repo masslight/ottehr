@@ -67,9 +67,9 @@ describe('MedicalRecordDateRangeDialog', () => {
   });
 
   it('labels the confirm button after the action that opened it', () => {
-    renderDialog({ confirmText: 'Send as Fax' });
+    renderDialog({ confirmText: 'Send by Fax or Email' });
 
-    expect(screen.getByTestId(ids.confirmButton)).toHaveTextContent('Send as Fax');
+    expect(screen.getByTestId(ids.confirmButton)).toHaveTextContent('Send by Fax or Email');
   });
 
   it('requests the predefined range, from the start of the earliest record day to the end of today', async () => {

@@ -98,7 +98,7 @@ export const PrintVisitLabelButton: FC<Props> = ({ encounterId }) => {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          color: '#0F347C',
+          color: 'primary.main',
         }}
       >
         {icon}

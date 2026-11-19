@@ -28,6 +28,7 @@ export const FeatureFlagsConfigSchema = z.object({
   // not the patient-facing `get-service-categories`).
   dynamicServiceCategoriesEnabled: z.boolean().optional(),
   employeeChatEnabled: z.boolean().optional(),
+  supportChatEnabled: z.boolean().optional(),
   // When true, this deployment runs in custom-organizations mode: the billing app manages
   // non-insurance organizations (employers) and custom insurance organizations, and clinical
   // pickers source from them — employer pickers exclusively, insurance-carrier pickers (EHR and

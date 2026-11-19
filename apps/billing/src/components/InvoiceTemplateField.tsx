@@ -37,6 +37,10 @@ interface InvoiceTemplateFieldProps {
   error: boolean;
   disabled: boolean;
   isSms?: boolean;
+  // Real values for the preview. Sample values are used when this is not set.
+  previewValues?: Record<string, string>;
+  // Placeholders this template supports beyond the invoice ones, with their sample values.
+  extraSampleValues?: Record<string, string>;
 }
 
 function findPlaceholder(
@@ -60,7 +64,10 @@ export function InvoiceTemplateField({
   error,
   disabled,
   isSms = false,
+  previewValues,
+  extraSampleValues,
 }: InvoiceTemplateFieldProps): ReactElement {
+  const sampleValues = extraSampleValues ? { ...PREVIEW_VALUES, ...extraSampleValues } : PREVIEW_VALUES;
   const [tab, setTab] = useState('write');
   const [cursor, setCursor] = useState<number | null>(null);
   const [suggestion, setSuggestion] = useState<ReturnType<typeof findPlaceholder>>(null);
@@ -71,7 +78,7 @@ export function InvoiceTemplateField({
   const lastSelection = useRef<{ text: string; start: number; end: number } | null>(null);
   const activeSuggestion = !disabled && suggestion?.text === value ? suggestion : null;
   const matches = activeSuggestion
-    ? Object.keys(PREVIEW_VALUES).filter((id) => id.includes(activeSuggestion.query.toLowerCase()))
+    ? Object.keys(sampleValues).filter((id) => id.includes(activeSuggestion.query.toLowerCase()))
     : [];
   useEffect(() => {
     if (error) setTab('write');
@@ -210,7 +217,7 @@ export function InvoiceTemplateField({
               Type {'{{'} to insert a placeholder, or click one below
             </Typography>
             <Stack direction="row" flexWrap="wrap" gap={0.5}>
-              {Object.keys(PREVIEW_VALUES).map((id) => (
+              {Object.keys(sampleValues).map((id) => (
                 <Chip
                   key={id}
                   component="button"
@@ -224,14 +231,16 @@ export function InvoiceTemplateField({
                 />
               ))}
             </Stack>
-            {isSms && <InvoiceSmsCounter value={value} sampleValues={PREVIEW_VALUES} />}
+            {isSms && <InvoiceSmsCounter value={value} sampleValues={previewValues ?? sampleValues} />}
           </TabPanel>
           <TabPanel value="preview" sx={{ p: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              Preview uses sample values.
-            </Typography>
+            {!previewValues && (
+              <Typography variant="caption" color="text.secondary">
+                Preview uses sample values.
+              </Typography>
+            )}
             <Typography sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-              {replaceTemplateVariablesHandlebars(value, PREVIEW_VALUES)}
+              {replaceTemplateVariablesHandlebars(value, previewValues ?? sampleValues)}
             </Typography>
           </TabPanel>
         </TabContext>

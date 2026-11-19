@@ -150,7 +150,7 @@ export const NursingOrderCreatePage: React.FC<NursingOrderCreatePageProps> = ({ 
                       <ButtonRounded
                         variant="contained"
                         type="submit"
-                        disabled={orderNote.length === 0 || loading}
+                        disabled={!orderNote.trim() || loading}
                         sx={{ borderRadius: '50px', px: 4, py: 1 }}
                         data-testid={dataTestIds.nursingOrderCreatePage.orderButton}
                       >

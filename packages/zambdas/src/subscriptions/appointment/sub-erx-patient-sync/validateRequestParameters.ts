@@ -1,3 +1,4 @@
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/errors';
 import { z } from 'zod';
@@ -50,7 +51,7 @@ export function validateRequestParameters(input: ZambdaInput): ErxPatientSyncSub
   const body = safeValidate(ErxSyncBodySchema, safeJsonParse(input.body));
   const triggerType: 'encounter' | 'observation' = body.resourceType.toLocaleLowerCase() as 'encounter' | 'observation';
 
-  const patientId = body.subject.reference.split('/')[1];
+  const patientId = getIdFromReference(body.subject.reference);
   if (!patientId) {
     throw new Error(`Patient reference not found on ${triggerType} ${body.id}`);
   }

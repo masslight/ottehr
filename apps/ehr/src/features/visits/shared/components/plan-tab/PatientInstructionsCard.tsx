@@ -14,6 +14,8 @@ import { useSavePatientInstruction } from '../../stores/appointment/appointment.
 import { useDeleteChartData, useSaveChartData } from '../../stores/appointment/appointment.store';
 import { PatientInstructionsTemplatesDialog } from './components/PatientInstructionsTemplatesDialog';
 
+const nonBlankOrUndefined = (value: string): string | undefined => (value.trim() ? value : undefined);
+
 export const PatientInstructionsCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [myQuickPicksOpen, setMyQuickPicksOpen] = useState(false);
@@ -31,7 +33,7 @@ export const PatientInstructionsCard: FC = () => {
 
   const onAddAndSave = (): void => {
     savePatientInstruction(
-      { text: instruction, title: instructionTitle },
+      { text: nonBlankOrUndefined(instruction), title: nonBlankOrUndefined(instructionTitle) },
       {
         onError: () => {
           enqueueSnackbar('An error has occurred while saving patient instruction template. Please try again.', {
@@ -47,8 +49,8 @@ export const PatientInstructionsCard: FC = () => {
     const localInstructions = [
       ...allInstructions,
       {
-        text: instruction || undefined,
-        title: instructionTitle || undefined,
+        text: nonBlankOrUndefined(instruction),
+        title: nonBlankOrUndefined(instructionTitle),
       },
     ];
 
@@ -60,8 +62,8 @@ export const PatientInstructionsCard: FC = () => {
       {
         instructions: [
           {
-            text: instruction || undefined,
-            title: instructionTitle || undefined,
+            text: nonBlankOrUndefined(instruction),
+            title: nonBlankOrUndefined(instructionTitle),
           },
         ],
       },

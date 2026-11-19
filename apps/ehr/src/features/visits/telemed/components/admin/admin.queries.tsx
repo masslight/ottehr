@@ -146,21 +146,23 @@ export const useInsuranceMutation = (
       note?: string;
       showInPaperwork?: boolean;
     }) => {
+      const name = data.name?.trim();
+      const note = data.note?.trim();
       if (data.showInPaperwork) {
-        if (!data.existingName && data.name) {
+        if (!data.existingName && name) {
           await oystehrZambda?.zambda.execute({
             id: 'add-payer-to-insurance-override-list',
             listName: 'patient',
             payerId,
-            payerNameOverride: data.name,
+            payerNameOverride: name,
           });
         }
-        if (data.existingName && data.existingName !== data.name) {
+        if (data.existingName && name && data.existingName !== name) {
           await oystehrZambda?.zambda.execute({
             id: 'edit-payer-in-insurance-override-list',
             listName: 'patient',
             payerId,
-            payerNameOverride: data.name,
+            payerNameOverride: name,
           });
         }
       }
@@ -171,23 +173,23 @@ export const useInsuranceMutation = (
           payerId,
         });
       }
-      if (!data.existingNote && data.note) {
+      if (!data.existingNote && note) {
         await oystehrZambda?.zambda.execute({
           id: 'add-payer-to-insurance-override-list',
           listName: 'ehr',
           payerId,
-          payerNote: data.note,
+          payerNote: note,
         });
       }
-      if (data.existingNote && data.note && data.existingNote !== data.note) {
+      if (data.existingNote && note && data.existingNote !== note) {
         await oystehrZambda?.zambda.execute({
           id: 'edit-payer-in-insurance-override-list',
           listName: 'ehr',
           payerId,
-          payerNote: data.note,
+          payerNote: note,
         });
       }
-      if (data.existingNote && !data.note) {
+      if (data.existingNote && !note) {
         await oystehrZambda?.zambda.execute({
           id: 'remove-payer-from-insurance-override-list',
           listName: 'ehr',

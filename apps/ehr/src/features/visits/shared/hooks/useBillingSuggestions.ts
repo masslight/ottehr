@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { usePatientRadiologyOrders } from 'src/features/radiology/components/usePatientRadiologyOrders';
 import { hashInput } from 'src/helpers/hash';
+import { isNewPatient } from 'utils/lib/helpers/screening-questions/new-patient.helper';
 import { getRosFindingStateFromKey, rosField } from 'utils/lib/ottehr-config/review-of-systems';
 import { InPersonRosConfig, RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import {
@@ -10,7 +11,6 @@ import {
   CPTCodeDTO,
   DiagnosisDTO,
 } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { getReturningPatient } from '../components/additional-questions/AdditionalQuestionsPatientColumn';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 import { useRosObservationsStore } from '../stores/appointment/ros-observations.store';
 import { useChartData } from './useChartData';
@@ -108,18 +108,9 @@ export function buildBillingSuggestionInput(params: {
     });
   }
 
-  // Patient status (new vs established)
-  let newPatient = undefined;
-  const newPatientFromChart = chartData?.observations?.find(
-    (observation) => observation.field === 'seen-in-last-three-years' || observation.field === 'seen-in-last-3-years'
-  );
-  const newPatientFromAppointmentCreation = !getReturningPatient(chartData, appointment);
-
-  if (newPatientFromChart) {
-    newPatient = newPatientFromChart?.value === 'no' || newPatientFromChart?.value === false;
-  } else {
-    newPatient = newPatientFromAppointmentCreation;
-  }
+  const newPatient = isNewPatient(chartData?.patientHasPreviousVisits ?? false, [
+    { observations: chartData?.observations, appointment },
+  ]);
 
   // Patient demographics
   let patientAge: string | undefined;

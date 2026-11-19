@@ -174,6 +174,31 @@ describe('update-billing-claim validateRequestParameters', () => {
     ).toThrow(/admission date is required/i);
   });
 
+  it('rejects a discharge date before the admission date', () => {
+    expect(() =>
+      validateWithSchema(UpdateBillingResourceInputSchema, {
+        headers: null,
+        body: body({
+          admissionDate: '2026-01-31T10:00:00.000-05:00',
+          dischargeDate: '2026-01-31T09:00:00.000-05:00',
+        }),
+        secrets: {},
+      })
+    ).toThrow(/discharge date must be on or after admission date/i);
+  });
+
+  it('accepts a discharge date equal to the admission date', () => {
+    const result = validateWithSchema(UpdateBillingResourceInputSchema, {
+      headers: null,
+      body: body({
+        admissionDate: '2026-01-31T10:00:00.000-05:00',
+        dischargeDate: '2026-01-31T10:00:00.000-05:00',
+      }),
+      secrets: {},
+    });
+    expect(result).toMatchObject({ fields: { dischargeDate: '2026-01-31T10:00:00.000-05:00' } });
+  });
+
   it('rejects an unknown accident type', () => {
     expect(() =>
       validateWithSchema(UpdateBillingResourceInputSchema, {

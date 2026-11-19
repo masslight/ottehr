@@ -21,7 +21,6 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { TRACKING_BOARD_QUERY_KEY } from 'src/hooks/useGetTrackingBoard';
 import { sortQuickPicks, useMergedProcedureQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
-import { useDebounce } from 'src/shared/hooks/useDebounce';
 import { useMarkDraftNavigatedAway, useProcedureStore } from 'src/state/draft-data.store';
 import { PROCEDURES_CONFIG } from 'utils/lib/ottehr-config/procedures';
 import { detectProcedureFamily } from 'utils/lib/procedure-coding/evaluate';
@@ -33,10 +32,10 @@ import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { isPediatricOnDate } from 'utils/lib/utils/dateUtils';
 import { PageTitle } from '../../shared/components/PageTitle';
+import { QuickPickSaveDialogs } from '../../shared/components/QuickPickSaveDialogs';
 import { QuickPicksButton } from '../../shared/components/QuickPicksButton';
 import { useChartData } from '../../shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
-import { useGetCPTHCPCSSearch } from '../../shared/stores/appointment/appointment.queries';
 import {
   useAppointmentData,
   useDeleteChartData,
@@ -63,7 +62,6 @@ import {
 } from '../components/procedures/narrative/procedurePerformerOptions';
 import { ProcedureCodingColumn } from '../components/procedures/ProcedureCodingColumn';
 import { ProcedureCptCodesField } from '../components/procedures/ProcedureCptCodesField';
-import { ProcedureQuickPickDialogs } from '../components/procedures/ProcedureQuickPickDialogs';
 import { useProcedureSelectOptions } from '../components/procedures/useProcedureSelectOptions';
 import { ProcedureCodingEvaluationStateKind, useProcedureCoding } from '../hooks/useProcedureCoding';
 import { ROUTER_PATH } from '../routing/routesInPerson';
@@ -82,12 +80,7 @@ import {
   procedureFactsFromPageState,
   procedurePageStateToDraft,
 } from './procedurePageState';
-import {
-  applyProcedureQuickPick,
-  buildProcedureQuickPick,
-  mergeProcedureCptCodes,
-  sameCptLine,
-} from './procedureQuickPick';
+import { applyProcedureQuickPick, buildProcedureQuickPick, mergeProcedureCptCodes } from './procedureQuickPick';
 
 const SPECIMEN_SENT = ['sent', 'not sent'];
 /** The coding column keeps its full width while the page has room, then gives up to 60px before the
@@ -581,17 +574,6 @@ export default function ProceduresNew({
     } finally {
       setQuickPickSaving(false);
     }
-  };
-
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearching, data } = useGetCPTHCPCSSearch({ search: debouncedSearchTerm, type: 'both' });
-  const cptSearchOptions = (data as { codes?: CPTCodeDTO[] })?.codes || [];
-  const { debounce } = useDebounce(800);
-
-  const debouncedHandleInputChange = (data: string): void => {
-    debounce(() => {
-      setDebouncedSearchTerm(data);
-    });
   };
 
   const addRecommendedCptCodes = (entries: CPTCodeDTO[]): void =>
@@ -1115,6 +1097,13 @@ export default function ProceduresNew({
                   data-testid={dataTestIds.documentProcedurePage.procedureDetails}
                 />
 
+                <SectionLabel>Billing</SectionLabel>
+                <ProcedureCptCodesField
+                  codes={state.cptCodes ?? []}
+                  onChange={(codes) => updateState((state) => (state.cptCodes = codes))}
+                  readOnly={isReadOnly}
+                />
+
                 <Divider orientation="horizontal" />
 
                 <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1167,24 +1156,6 @@ export default function ProceduresNew({
 
                   <DocumentationCheck evaluation={codingEvaluations?.defense} suggestionVisible={suggestionVisible} />
 
-                  <ProcedureCptCodesField
-                    codes={state.cptCodes ?? []}
-                    searchOptions={cptSearchOptions}
-                    isSearching={isSearching}
-                    searchTerm={debouncedSearchTerm}
-                    onSearchTermChange={debouncedHandleInputChange}
-                    onAdd={(code) => updateState((state) => (state.cptCodes = [...(state.cptCodes ?? []), code]))}
-                    onDelete={(code) =>
-                      updateState((state) => {
-                        // The same code can appear twice with different modifiers (a repeat recording, a payer
-                        // alternative). Delete the line the user clicked, not every line sharing its code.
-                        const index = state.cptCodes?.findIndex((cptCode) => sameCptLine(cptCode, code)) ?? -1;
-                        if (index >= 0) state.cptCodes = state.cptCodes?.filter((_, i) => i !== index);
-                      })
-                    }
-                    disabled={isReadOnly}
-                  />
-
                   {codingGuidance.length > 0 && !codingAssistIsEvaluating && (
                     <Box sx={{ background: theme.palette.action.hover, borderRadius: '8px', padding: '8px' }}>
                       <CodingFindingList
@@ -1204,7 +1175,7 @@ export default function ProceduresNew({
         <CircularProgress color="inherit" />
       </Backdrop>
 
-      <ProcedureQuickPickDialogs
+      <QuickPickSaveDialogs
         open={quickPickDialogOpen}
         name={quickPickName}
         onNameChange={setQuickPickName}
@@ -1212,6 +1183,7 @@ export default function ProceduresNew({
         saving={quickPickSaving}
         onClose={() => setQuickPickDialogOpen(false)}
         onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        entityLabel="procedure"
       />
     </FormProvider>
   );

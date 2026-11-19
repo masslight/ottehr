@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication, MedicationAdministration, Organization, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { codeableConcept, getCoding } from 'utils/lib/fhir/helpers';
+import { codeableConcept, getCoding, sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
 import { searchMedicationLocation, searchRouteByCode } from 'utils/lib/fhir/medication-administration';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
@@ -72,12 +72,13 @@ export async function updateOrderDetails(
   }
 
   const containedMed = getContainedMedication(medicationAdministration);
+  const manufacturerName = manufacturer?.trim();
   if (containedMed) {
-    if (manufacturer) {
+    if (manufacturerName) {
       const manufacturerOrg: Organization = {
         resourceType: 'Organization',
         id: CONTAINED_MANUFACTURER_ORG_ID,
-        name: manufacturer,
+        name: manufacturerName,
       };
       medicationAdministration.contained = [
         ...(medicationAdministration.contained ?? []).filter((r) => r.id !== CONTAINED_MANUFACTURER_ORG_ID),
@@ -130,7 +131,7 @@ export async function updateOrderDetails(
           ],
         }
       : undefined,
-    text: instructions,
+    text: instructions?.trim() || undefined,
   };
 
   const orderedProviderResource = await oystehr.fhir.get<Practitioner>({
@@ -166,7 +167,7 @@ export function updateVaccineMedicationDetails(
   administrationDetails: InputImmunizationOrderAdministrationDetails
 ): void {
   const { lot, expDate, mvx, cvx, ndc, cptCodes, visGivenDate } = administrationDetails;
-  medication.batch = lot || expDate ? { lotNumber: lot, expirationDate: expDate } : undefined;
+  medication.batch = lot || expDate ? { lotNumber: lot || undefined, expirationDate: expDate || undefined } : undefined;
   medication.extension = (medication.extension ?? []).filter(
     (ext) =>
       ext.url !== VACCINE_ADMINISTRATION_CODES_EXTENSION_URL &&
@@ -220,7 +221,7 @@ export function applyOrderAdministrationDetails(
   ];
 }
 
-// Validates dates and trims codes in place
+// Validates dates and normalises lot and codes in place
 export function validateAdministrationDetailsValues(
   administrationDetails: InputImmunizationOrderAdministrationDetails | undefined
 ): void {
@@ -239,8 +240,9 @@ export function validateAdministrationDetailsValues(
   }
   for (const field of ['mvx', 'cvx', 'ndc'] as const) {
     const value = administrationDetails[field];
-    if (value) administrationDetails[field] = value.trim();
+    if (value) administrationDetails[field] = sanitizeStringForFhirCode(value) || undefined;
   }
+  if (administrationDetails.lot) administrationDetails.lot = administrationDetails.lot.trim() || undefined;
 }
 
 export function validateOrderDetails(orderDetails: any): string[] {

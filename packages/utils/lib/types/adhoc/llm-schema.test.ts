@@ -132,6 +132,7 @@ describe('llm-schema serialization (Zod → prompt)', () => {
       group: '',
       scheduledSlotMinutes: null,
       patientId: 'p1',
+      friendlyPatientId: '',
       firstName: 'A',
       lastName: 'B',
       patientName: 'A B',

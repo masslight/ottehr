@@ -10,11 +10,13 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   InputAdornment,
   Menu,
   MenuItem,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
@@ -59,6 +61,7 @@ import {
   ClaimStatusValues,
   formatAntCaseString,
   formatClaimStatusValue,
+  isInvoiceableClaimStatus,
 } from 'utils/lib/types/data/billing/claim-status';
 import {
   ClaimsListFilters,
@@ -84,12 +87,16 @@ import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateRangeInput } from '../components/DateInput';
+import { NioInvoiceDialog } from '../components/NioInvoiceDialog';
 import { usePayerSearch } from '../components/PayerSelect';
+import { SendInvoiceDialog } from '../components/SendInvoiceDialog';
 import { TagSelect } from '../components/TagSelect';
 import { WarningIconWithTooltip } from '../components/WarningIconWithTooltip';
-import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
+import { claimStatusValueColor, formatPatientResp, provisionalBalanceHint } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { useBillingServices } from '../hooks/useBillingServices';
+import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
+import { NIO_INVOICE_CHECKING, useNioInvoiceDisabledReason } from '../hooks/useNioInvoiceDisabledReason';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
 import { downloadTextFile } from '../utils/downloadFile';
 import { formatFacilityAddress, valueToText } from '../utils/format';
@@ -355,16 +362,22 @@ const allColumns: GridColDef[] = [
   currencyCol('billed', 'Billed', 100),
   currencyCol('allowed', 'Allowed', 100),
   currencyCol('insurancePaid', 'Insurance Paid', 120),
-  currencyCol('patientResp', 'Patient Resp', 110),
+  {
+    ...currencyCol('patientResp', 'Patient Resp', 110),
+    valueFormatter: (params: { value: number | null }) => formatPatientResp(params.value),
+  },
   currencyCol('patientPaid', 'Patient Paid', 110),
   {
     ...currencyCol('claimBalance', 'Claim Balance', 120),
-    renderCell: ({ value, row }) => (
-      <Stack direction="row" alignItems="center" justifyContent="flex-end" gap={0.5} sx={{ width: '100%' }}>
-        {!(row as BillingClaimItem).adjudicated && <WarningIconWithTooltip tooltipText={PROVISIONAL_BALANCE_HINT} />}
-        <span>{formatCurrency(value as number)}</span>
-      </Stack>
-    ),
+    renderCell: ({ value, row }) => {
+      const hint = provisionalBalanceHint(row as BillingClaimItem);
+      return (
+        <Stack direction="row" alignItems="center" justifyContent="flex-end" gap={0.5} sx={{ width: '100%' }}>
+          {hint && <WarningIconWithTooltip tooltipText={hint} />}
+          <span>{formatCurrency(value as number)}</span>
+        </Stack>
+      );
+    },
   },
   { field: 'facility', headerName: 'Facility', width: 140 },
   { field: 'renderingProvider', headerName: 'Provider', width: 140 },
@@ -453,6 +466,7 @@ export function ClaimsListView({
 }: ClaimsListViewProps): ReactElement {
   const navigate = useNavigate();
   const { oystehrZambda } = useApiClients();
+  const invoicingInBillingApp = useInvoicingInBillingApp();
   const apiRef = useGridApiRef();
 
   const [claims, setClaims] = useState<BillingClaimItem[]>([]);
@@ -481,6 +495,8 @@ export function ClaimsListView({
   const [bulkSetRPModalOpen, setBulkSetRPModalOpen] = useState(false);
   const [bulkSetBPModalOpen, setBulkSetBPModalOpen] = useState(false);
   const [bulkSetSFModalOpen, setBulkSetSFModalOpen] = useState(false);
+  const [invoiceClaim, setInvoiceClaim] = useState<BillingClaimItem | null>(null);
+  const [nioInvoiceClaimIds, setNioInvoiceClaimIds] = useState<string[] | null>(null);
 
   const { options: payerOptions, search: searchPayers } = usePayerSearch();
   const { services: serviceOptions, load: loadServices } = useBillingServices();
@@ -745,6 +761,14 @@ export function ClaimsListView({
     typeFilter.length ||
     selectedServices.length;
 
+  const selectedInvoiceableClaim =
+    selected.length === 1
+      ? claims.find((claim) => claim.id === String(selected[0]) && isInvoiceableClaimStatus(claim.statuses))
+      : undefined;
+
+  const selectedClaimIds = useMemo(() => selected.map(String), [selected]);
+  const nioInvoiceDisabledReason = useNioInvoiceDisabledReason(selectedClaimIds, claimActionMenuOpen);
+
   // Selection is limited to rows a rules engine applies to (any AR stage), and the backend picks
   // each claim's engine from its AR stage: one engine run is kicked off per claim, and each run
   // applies the configured rules, then performs its engine's success effect — submit to the payer
@@ -898,6 +922,42 @@ export function ClaimsListView({
                 >
                   Set Service Facility
                 </MenuItem>
+                {invoicingInBillingApp && (
+                  <MenuItem
+                    disabled={!selectedInvoiceableClaim}
+                    onClick={() => {
+                      setInvoiceClaim(selectedInvoiceableClaim ?? null);
+                      setClaimActionMenuOpen(false);
+                    }}
+                    disableRipple
+                  >
+                    Send Patient Invoice
+                  </MenuItem>
+                )}
+                {nioInvoiceDisabledReason ? (
+                  // MenuList only moves focus between its direct children, which a disabled item
+                  // skips anyway, so the item needs the span only while disabled.
+                  <Tooltip title={nioInvoiceDisabledReason} placement="left">
+                    <span>
+                      <MenuItem disabled disableRipple>
+                        Create NIO Invoice
+                        {nioInvoiceDisabledReason === NIO_INVOICE_CHECKING && (
+                          <CircularProgress size={14} sx={{ ml: 1 }} aria-hidden />
+                        )}
+                      </MenuItem>
+                    </span>
+                  </Tooltip>
+                ) : (
+                  <MenuItem
+                    onClick={() => {
+                      setNioInvoiceClaimIds(selectedClaimIds);
+                      setClaimActionMenuOpen(false);
+                    }}
+                    disableRipple
+                  >
+                    Create NIO Invoice
+                  </MenuItem>
+                )}
               </Menu>
               <Button
                 variant="outlined"
@@ -1203,6 +1263,26 @@ export function ClaimsListView({
         selected={selected}
         refetch={fetchClaimsWithCurrentFilters}
       />
+      {invoiceClaim && (
+        <SendInvoiceDialog
+          claim={invoiceClaim}
+          onClose={() => setInvoiceClaim(null)}
+          onSent={() => {
+            setInvoiceClaim(null);
+            void fetchClaimsWithCurrentFilters();
+          }}
+        />
+      )}
+      {nioInvoiceClaimIds && (
+        <NioInvoiceDialog
+          claimIds={nioInvoiceClaimIds}
+          onClose={() => setNioInvoiceClaimIds(null)}
+          onCreated={() => {
+            setNioInvoiceClaimIds(null);
+            void fetchClaimsWithCurrentFilters();
+          }}
+        />
+      )}
     </Box>
   );
 }

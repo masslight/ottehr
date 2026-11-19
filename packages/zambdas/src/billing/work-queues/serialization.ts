@@ -105,6 +105,15 @@ export function withWorkQueue(list: List | undefined, queue: WorkQueue): List {
   };
 }
 
+// The List without the queue `queueId`: its Basic and its entry are dropped, everything else is kept.
+export function withoutWorkQueue(list: List, queueId: string): List {
+  return {
+    ...list,
+    contained: list.contained?.filter((r) => !(r.resourceType === 'Basic' && r.id === queueId)),
+    entry: list.entry?.filter((e) => e.item?.reference !== `#${queueId}`),
+  };
+}
+
 export async function findWorkQueuesLists(oystehr: Oystehr): Promise<List[]> {
   const result = await oystehr.fhir.search<List>({
     resourceType: 'List',

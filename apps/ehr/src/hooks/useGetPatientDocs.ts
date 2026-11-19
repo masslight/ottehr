@@ -1,6 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import { QueryClient, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { DocumentReference, FhirResource, List, QuestionnaireResponse, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useMemo, useState } from 'react';
@@ -12,9 +12,9 @@ import {
   parseCustomFoldersCatalogIncludingDeleted,
   PATIENT_FOLDERS_CODE,
 } from 'utils/lib/fhir/list';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { safelyCaptureMessage } from 'utils/lib/frontend/sentry';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import {
@@ -22,11 +22,29 @@ import {
   isSyntheticFolderId,
   makeSyntheticFolderId,
 } from 'utils/lib/types/data/custom-folder.types';
+import { STATEMENT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { getFileNameFromUrl, getMimeType } from 'utils/lib/utils/file';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
 
 const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = 'create-upload-document-url';
+
+// A blob URL opens in the EHR's origin, so types that can carry script are never rendered.
+const RENDERABLE_BLOB_TYPES = new Set([
+  'application/pdf',
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+]);
+export const safeBlobType = (type: string | undefined): string => {
+  const mimeType = type?.split(';')[0].trim().toLowerCase() ?? '';
+  if (mimeType === 'text/plain' || mimeType === 'text/csv') return `${mimeType};charset=utf-8`;
+  if (RENDERABLE_BLOB_TYPES.has(mimeType) || mimeType.startsWith('audio/') || mimeType.startsWith('video/'))
+    return mimeType;
+  return mimeType.startsWith('text/') ? 'text/plain;charset=utf-8' : 'application/octet-stream';
+};
 
 export type DownloadDocumentOptions = {
   skipRelated?: boolean;
@@ -60,6 +78,7 @@ export type PatientDocumentAttachment = {
   presignedUrl?: string;
   /** The stored MIME type. Carried so the UI decides what is faxable on the same input the server uses. */
   contentType?: string;
+  data?: string;
 };
 
 // http://localhost:4002/patient/104e4c8c-1866-4c96-a436-88080c691614/docs
@@ -149,7 +168,7 @@ export type UseGetPatientDocsReturn = {
 export const QUERY_KEYS = {
   GET_PATIENT_DOCS_FOLDERS: 'get-patient-docs-folders',
   GET_SEARCH_PATIENT_DOCUMENTS: 'get-search-patient-documents',
-  GET_VISIT_DOCUMENT_IDS: 'get-visit-document-ids',
+  GET_LISTABLE_DOCUMENT_IDS: 'get-listable-document-ids',
 };
 
 const DOCUMENT_SEARCH_PAGE_SIZE = 200;
@@ -172,6 +191,14 @@ const isHiddenDraft = (docRef: DocumentReference): boolean =>
   (docRef.meta?.tag ?? []).some(
     (tag) => tag.system === HIDE_WHILE_PRELIMINARY_TAG.system && tag.code === HIDE_WHILE_PRELIMINARY_TAG.code
   );
+
+const isStatement = (docRef: DocumentReference): boolean =>
+  (docRef.type?.coding ?? []).some((coding) => coding.code === STATEMENT_CODE);
+
+// `superseded` usually marks a stale copy (or a soft delete), but each regenerated statement is one the patient may
+// have been sent, so every statement stays listed.
+const isListableDocumentReference = (docRef: DocumentReference): boolean =>
+  (docRef.status !== 'superseded' || isStatement(docRef)) && !isHiddenDraft(docRef);
 
 /**
  * Every page of a DocumentReference search, concatenated.
@@ -268,40 +295,39 @@ const searchDocumentReferencesForVisit = async <T extends FhirResource>(
 };
 
 /**
- * Ids of every document filed against one visit, regardless of folder.
+ * Ids of every document the table can list (the patient's, or one visit's), regardless of folder.
  *
- * The folder counters come from `List.entry` lengths, which are patient-wide. When a visit filter
- * is active the sidebar has to show per-visit counts instead, and the main document search can't
- * supply them (it is itself narrowed to the selected folder). So fetch the visit's document ids
- * once and intersect them with each folder's entries.
+ * The folder `List.entry` lengths are patient-wide and also hold superseded copies, hidden drafts and
+ * deleted documents the table never shows, and the main document search can't supply counts (it is
+ * itself narrowed to the selected folder). So fetch the listable document ids once and intersect them
+ * with each folder's entries.
  *
  * Pages exhaustively — these ids drive the counters, so a truncated result silently undercounts and
- * can show 0 for a folder that holds documents. Only ids are requested (`_elements`), which keeps
- * each page cheap.
+ * can show 0 for a folder that holds documents. Only the elements the visibility check needs are
+ * requested (`_elements`), which keeps each page cheap.
  */
-const useVisitDocumentIds = (patientId: string, visit: DocumentVisitRef | undefined): Set<string> | undefined => {
+const useListableDocumentIds = (patientId: string, visit: DocumentVisitRef | undefined): Set<string> | undefined => {
   const { oystehr } = useApiClients();
-  const isVisitScoped = hasVisitRef(visit);
+  const visitRef = hasVisitRef(visit) ? visit : undefined;
 
   const { data } = useQuery({
     queryKey: [
-      QUERY_KEYS.GET_VISIT_DOCUMENT_IDS,
-      { patientId, encounterId: visit?.encounterId, appointmentId: visit?.appointmentId },
+      QUERY_KEYS.GET_LISTABLE_DOCUMENT_IDS,
+      { patientId, encounterId: visitRef?.encounterId, appointmentId: visitRef?.appointmentId },
     ],
-    enabled: !!oystehr && !!patientId && isVisitScoped,
+    enabled: !!oystehr && !!patientId,
     queryFn: async (): Promise<string[]> => {
-      if (!oystehr) throw new Error('useVisitDocumentIds() oystehr not defined');
+      if (!oystehr) throw new Error('useListableDocumentIds() oystehr not defined');
 
       const docRefs = await searchDocumentReferencesForVisit<DocumentReference>(
         oystehr,
         [
           { name: 'subject', value: `Patient/${patientId}` },
-          // Only ids are needed to intersect with folder entries, which keeps each page cheap.
-          { name: '_elements', value: 'id' },
+          { name: '_elements', value: 'id,status,docStatus,meta,type' },
         ],
-        visit,
+        visitRef,
         {
-          site: 'useVisitDocumentIds',
+          site: 'useListableDocumentIds',
           tags: {
             patientId,
             encounterId: visit?.encounterId ?? '',
@@ -310,27 +336,30 @@ const useVisitDocumentIds = (patientId: string, visit: DocumentVisitRef | undefi
         }
       );
 
-      return docRefs.map((docRef) => docRef.id).filter((id): id is string => !!id);
+      return docRefs
+        .filter(isListableDocumentReference)
+        .map((docRef) => docRef.id)
+        .filter((id): id is string => !!id);
     },
   });
 
-  return useMemo(() => (isVisitScoped && data ? new Set(data) : undefined), [isVisitScoped, data]);
+  return useMemo(() => (data ? new Set(data) : undefined), [data]);
 };
 
 /**
- * Rewrites folder counters to only count documents belonging to the given visit. Folders are kept
- * even at zero so a user can still open one and upload into it (matching the patient-level view).
+ * Rewrites folder counters to only count documents the table can list. Folders are kept even at
+ * zero so a user can still open one and upload into it.
  */
-const applyVisitCountsToFolders = (
+const applyListableCountsToFolders = (
   folders: PatientDocumentsFolder[],
-  visitDocumentIds: Set<string> | undefined
+  listableDocumentIds: Set<string> | undefined
 ): PatientDocumentsFolder[] => {
-  if (!visitDocumentIds) return folders;
+  if (!listableDocumentIds) return folders;
 
   return folders.map((folder) => {
     const documentsRefs = (folder.documentsRefs ?? []).filter((docRef) => {
-      const id = removePrefix('DocumentReference/', docRef.reference?.reference ?? '');
-      return !!id && visitDocumentIds.has(id);
+      const id = getIdFromReference(docRef.reference?.reference, 'DocumentReference');
+      return !!id && listableDocumentIds.has(id);
     });
     return { ...folder, documentsCount: documentsRefs.length, documentsRefs };
   });
@@ -373,10 +402,10 @@ export const useGetPatientDocs = (
     }
   );
 
-  const visitDocumentIds = useVisitDocumentIds(patientId, currentFilters?.visit);
+  const listableDocumentIds = useListableDocumentIds(patientId, currentFilters?.visit);
   const visibleFolders = useMemo(
-    () => applyVisitCountsToFolders(documentsFolders, visitDocumentIds),
-    [documentsFolders, visitDocumentIds]
+    () => applyListableCountsToFolders(documentsFolders, listableDocumentIds),
+    [documentsFolders, listableDocumentIds]
   );
 
   const documentActions = usePatientDocsActions({ patientId, encounterId: options?.uploadEncounterId });
@@ -438,6 +467,12 @@ export const useGetPatientDocs = (
         }
 
         const openAttachments = async (attachments: PatientDocumentAttachment[]): Promise<void> => {
+          for (const { z3Url, data, contentType } of attachments) {
+            if (z3Url || !data) continue;
+            const bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
+            openFile(window.URL.createObjectURL(new Blob([bytes], { type: safeBlobType(contentType) })));
+          }
+
           const urlSigningRequests = attachments.map(async (attachment) => {
             let presignedUrl = undefined;
             if (attachment.z3Url) {
@@ -474,7 +509,7 @@ export const useGetPatientDocs = (
                 if (!mimeType) {
                   throw new Error(`Failed to open file: unknown MIME type for file ${fileInfo.fileName}`);
                 }
-                const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
+                const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: safeBlobType(mimeType) }));
                 openFile(fileBlob);
               })
               .catch((error) => {
@@ -671,6 +706,38 @@ export const parsePatientDocsFolders = (
   return Array.from(byInternalName.values());
 };
 
+const fetchPatientDocsFolders = async (oystehr: Oystehr, patientId: string): Promise<PatientDocsFoldersQueryData> => {
+  const [listsBundle, catalogBundle] = await Promise.all([
+    oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [
+        { name: 'subject', value: `Patient/${patientId}` },
+        { name: 'code', value: PATIENT_FOLDERS_CODE },
+      ],
+    }),
+    oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
+    }),
+  ]);
+
+  return {
+    // Include soft-deleted catalog entries: per-patient Lists that reference them
+    // are still shown to users and must resolve display names from the catalog.
+    // Synthetic folders for soft-deleted entries are filtered out below.
+    lists: listsBundle.unbundle() as List[],
+    catalogDefs: parseCustomFoldersCatalogIncludingDeleted(catalogBundle.unbundle()[0]),
+  };
+};
+
+export const prefetchPatientDocsFolders = (queryClient: QueryClient, oystehr: Oystehr, patientId: string): void => {
+  void queryClient.prefetchQuery({
+    queryKey: [QUERY_KEYS.GET_PATIENT_DOCS_FOLDERS, { patientId }],
+    queryFn: () => fetchPatientDocsFolders(oystehr, patientId),
+    staleTime: 60_000,
+  });
+};
+
 // Exported so screens that file documents for an ad-hoc patient (e.g. inbound-fax matching)
 // can reuse the folder loading + synthetic-folder logic instead of re-implementing it.
 export const useGetPatientDocsFolders = (
@@ -697,28 +764,7 @@ export const useGetPatientDocsFolders = (
       }
 
       console.log(`useGetPatientDocsFolders() query triggered`);
-
-      const [listsBundle, catalogBundle] = await Promise.all([
-        oystehr.fhir.search<List>({
-          resourceType: 'List',
-          params: [
-            { name: 'subject', value: `Patient/${patientId}` },
-            { name: 'code', value: PATIENT_FOLDERS_CODE },
-          ],
-        }),
-        oystehr.fhir.search<List>({
-          resourceType: 'List',
-          params: [{ name: 'identifier', value: CUSTOM_FOLDERS_CATALOG_IDENTIFIER }],
-        }),
-      ]);
-
-      return {
-        // Include soft-deleted catalog entries: per-patient Lists that reference them
-        // are still shown to users and must resolve display names from the catalog.
-        // Synthetic folders for soft-deleted entries are filtered out below.
-        lists: listsBundle.unbundle() as List[],
-        catalogDefs: parseCustomFoldersCatalogIncludingDeleted(catalogBundle.unbundle()[0]),
-      };
+      return fetchPatientDocsFolders(oystehr, patientId);
     },
   });
 
@@ -809,11 +855,7 @@ const useSearchPatientDocuments = (
       const docRefsResources =
         searchResultsResources?.filter(
           (resource: FhirResource): resource is DocumentReference =>
-            resource.resourceType === 'DocumentReference' &&
-            // `superseded` says a newer copy of this same document exists, so listing it only offers a
-            // way to open the stale one.
-            resource.status !== 'superseded' &&
-            !isHiddenDraft(resource)
+            resource.resourceType === 'DocumentReference' && isListableDocumentReference(resource)
         ) ?? [];
 
       const documents = docRefsResources.map((docRef) => createDocumentInfo(docRef));
@@ -847,6 +889,7 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
         fileNameFromUrl: getFileNameFromUrl(docRefAttachment.url),
         z3Url: docRefAttachment.url,
         contentType: docRefAttachment.contentType,
+        data: docRefAttachment.data,
       } as PatientDocumentAttachment;
     });
 };
@@ -871,7 +914,7 @@ const debug__mimicTextNarrativeDocumentsFilter = (
   });
 };
 
-const usePatientDocsActions = ({
+export const usePatientDocsActions = ({
   patientId,
   encounterId,
 }: {
@@ -934,7 +977,7 @@ const usePatientDocsActions = ({
             queryKey: [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
           }),
           queryClient.refetchQueries({
-            queryKey: [QUERY_KEYS.GET_VISIT_DOCUMENT_IDS, { patientId }],
+            queryKey: [QUERY_KEYS.GET_LISTABLE_DOCUMENT_IDS, { patientId }],
           }),
         ]);
 
@@ -972,7 +1015,7 @@ const usePatientDocsActions = ({
           queryKey: [QUERY_KEYS.GET_SEARCH_PATIENT_DOCUMENTS, { patientId }],
         }),
         queryClient.refetchQueries({
-          queryKey: [QUERY_KEYS.GET_VISIT_DOCUMENT_IDS, { patientId }],
+          queryKey: [QUERY_KEYS.GET_LISTABLE_DOCUMENT_IDS, { patientId }],
         }),
       ]);
     },
@@ -1048,7 +1091,7 @@ export interface UploadPatientDocumentResponse {
  */
 const extractRelatedAppointmentId = (documentReference: DocumentReference): string | undefined => {
   for (const related of documentReference.context?.related ?? []) {
-    const appointmentId = removePrefix('Appointment/', related.reference ?? '');
+    const appointmentId = getIdFromReference(related.reference, 'Appointment');
     if (appointmentId) return appointmentId;
   }
   return undefined;
@@ -1064,7 +1107,7 @@ const createDocumentInfo = (documentReference: DocumentReference): PatientDocume
     // without a second lookup. Blank where the writer recorded no author — which is most of them today.
     whoAdded: documentReference.author?.find((author) => author.display)?.display,
     attachments: extractDocumentAttachments(documentReference),
-    encounterId: removePrefix('Encounter/', documentReference.context?.encounter?.[0]?.reference ?? ''),
+    encounterId: getIdFromReference(documentReference.context?.encounter?.[0]?.reference, 'Encounter'),
     appointmentId: extractRelatedAppointmentId(documentReference),
   };
 };

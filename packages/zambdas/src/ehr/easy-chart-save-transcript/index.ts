@@ -13,6 +13,7 @@ import { userMe } from 'utils/lib/auth/user-me.helper';
 import { SaveTranscriptRequestSchema, SaveTranscriptResponse } from 'utils/lib/easy-chart/api';
 import { isTranscriptDocument } from 'utils/lib/easy-chart/narrative';
 import { PUBLIC_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { createResourcesFromAiInterview } from '../../shared/ai';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -88,10 +89,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // `created` is "Type/id,Type/id,…"; the client needs the transcript document.
   const savedDocumentId =
     documentId ??
-    created
-      .split(',')
-      .find((ref) => ref.startsWith('DocumentReference/'))
-      ?.split('/')[1];
+    getIdFromReference(
+      created.split(',').find((ref) => ref.startsWith('DocumentReference/')),
+      'DocumentReference'
+    );
   if (!savedDocumentId) {
     throw new Error(`[${ZAMBDA_NAME}] the pipeline wrote no DocumentReference`);
   }

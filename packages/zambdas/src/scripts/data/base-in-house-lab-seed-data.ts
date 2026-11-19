@@ -10,7 +10,12 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual',
     device: 'Strip Test (reagent strip)',
-    cptCode: [{ code: '87880' }],
+    cptCode: [
+      {
+        code: '87880',
+        display: 'Detection test by immunoassay with direct visual observation for Streptococcus, group A (strep)',
+      },
+    ],
     loincCode: ['78012-2'],
     repeatTest: false,
     components: [
@@ -39,7 +44,9 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual or Analyzer',
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: [{ code: '87804' }],
+    cptCode: [
+      { code: '87804', display: 'Detection test by immunoassay with direct visual observation for influenza virus' },
+    ],
     loincCode: ['80382-5'],
     repeatTest: false,
     components: [
@@ -68,7 +75,9 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual or Analyzer',
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: [{ code: '87804' }],
+    cptCode: [
+      { code: '87804', display: 'Detection test by immunoassay with direct visual observation for influenza virus' },
+    ],
     loincCode: ['80381-7'],
     repeatTest: false,
     components: [
@@ -97,7 +106,12 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual or Analyzer',
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: [{ code: '87807' }],
+    cptCode: [
+      {
+        code: '87807',
+        display: 'Detection test by immunoassay with direct visual observation for respiratory syncytial virus',
+      },
+    ],
     loincCode: ['72885-7'],
     repeatTest: false,
     components: [
@@ -126,7 +140,12 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual or Analyzer',
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
-    cptCode: [{ code: '87426' }],
+    cptCode: [
+      {
+        code: '87426',
+        display: 'Detection test by immunoassay technique for severe acute respiratory syndrome coronavirus',
+      },
+    ],
     loincCode: ['94558-4'],
     repeatTest: false,
     components: [
@@ -154,7 +173,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual',
     device: '',
-    cptCode: [{ code: '82270' }],
+    cptCode: [{ code: '82270', display: 'Stool analysis for blood to screen for colon tumors' }],
     loincCode: ['50196-5'],
     repeatTest: true,
     components: [
@@ -182,7 +201,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual',
     device: 'Test well / tube',
-    cptCode: [{ code: '86308' }],
+    cptCode: [{ code: '86308', display: 'Screening test for mononucleosis (mono)' }],
     loincCode: ['31418-7'],
     repeatTest: false,
     components: [
@@ -210,7 +229,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual with stick & glucometer',
     device: 'Glucometer brand unknown',
-    cptCode: [{ code: '82962' }],
+    cptCode: [{ code: '82962', display: 'Blood glucose (sugar) test performed by hand-held instrument' }],
     loincCode: ['32016-8'],
     repeatTest: true,
     components: [
@@ -238,7 +257,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Clinitek/ Multitsix',
     device: 'Clinitek',
-    cptCode: [{ code: '81003' }],
+    cptCode: [{ code: '81003', display: 'Automated urinalysis test' }],
     loincCode: ['24356-8'],
     repeatTest: true,
     components: [
@@ -475,7 +494,7 @@ export const testItems: TestItem[] = [
     },
     method: 'Manual/Strip',
     device: 'Strip/stick',
-    cptCode: [{ code: '81025' }],
+    cptCode: [{ code: '81025', display: 'Urine pregnancy test' }],
     loincCode: ['2106-3'],
     repeatTest: false,
     components: [
@@ -503,7 +522,7 @@ export const testItems: TestItem[] = [
     },
     method: 'breathalyzer',
     device: 'breathalyzer',
-    cptCode: [{ code: '82075' }],
+    cptCode: [{ code: '82075', display: 'Measurement of alcohol level in breath specimen' }],
     loincCode: ['5641-6'],
     repeatTest: false,
     components: [

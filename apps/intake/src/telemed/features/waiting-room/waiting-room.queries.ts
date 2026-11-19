@@ -8,6 +8,14 @@ import {
   CancelInviteParticipantRequestParameters,
   InviteParticipantRequestParameters,
 } from 'utils/lib/types/data/telemed/video-chat-invites.types';
+import { APIError, APPOINTMENT_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+
+// Returned for a missing appointment and for one that is not a video visit (e.g. in-person)
+export const isAppointmentNotFoundError = (error: unknown): boolean =>
+  (error as APIError | null)?.code === APPOINTMENT_NOT_FOUND_ERROR.code;
+
+const retryUnlessAppointmentNotFound = (failureCount: number, error: Error): boolean =>
+  !isAppointmentNotFoundError(error) && failureCount < 3;
 
 export const useGetWaitStatus = (
   onSuccess: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getWaitStatus']>> | null) => void,
@@ -28,6 +36,7 @@ export const useGetWaitStatus = (
     },
 
     refetchInterval: refetchInterval ?? 10000,
+    retry: retryUnlessAppointmentNotFound,
     enabled: Boolean(apiClient && appointmentId) && (enabled != undefined ? enabled : true),
   });
 
@@ -55,6 +64,7 @@ export const useGetVideoChatInvites = (): UseQueryResult<
 
     enabled: Boolean(apiClient && appointmentID),
     staleTime: 60000,
+    retry: retryUnlessAppointmentNotFound,
   });
 };
 

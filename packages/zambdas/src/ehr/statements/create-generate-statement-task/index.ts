@@ -3,6 +3,7 @@ import { Appointment, Encounter, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getTaskResource } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { TaskIndicator } from 'utils/lib/types/common';
 import {
   INVALID_INPUT_ERROR,
@@ -13,12 +14,14 @@ import {
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { BILLING_APP_INVOICE_STATEMENT_INPUT } from '../../../shared/statements/get-statement-details';
 import { ZambdaInput } from '../../../shared/types/common';
 
 const ZAMBDA_NAME = 'create-generate-statement-task';
 
 interface CreateGenerateStatementTaskInput {
   encounterId: string;
+  billingAppInvoice: boolean;
 }
 
 let m2mToken: string;
@@ -35,6 +38,7 @@ function validateRequestParameters(input: ZambdaInput): CreateGenerateStatementT
 
   return {
     encounterId,
+    billingAppInvoice: body.billingAppInvoice === true,
   };
 }
 
@@ -54,13 +58,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw INVALID_INPUT_ERROR(`Patient reference not found in Encounter/${validatedInput.encounterId}`);
   }
 
-  const patientId = patientReference.split('/')[1];
+  const patientId = getIdFromReference(patientReference);
   if (!patientId) {
     throw INVALID_INPUT_ERROR(`Patient id not found in Encounter/${validatedInput.encounterId}`);
   }
 
   const appointmentReference = encounter.appointment?.[0]?.reference;
-  const appointmentId = appointmentReference?.split('/')[1];
+  const appointmentId = getIdFromReference(appointmentReference);
   if (!appointmentId) {
     throw INVALID_INPUT_ERROR(`Appointment reference not found in Encounter/${validatedInput.encounterId}`);
   }
@@ -89,6 +93,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     for: {
       reference: patientReference,
     },
+    input: validatedInput.billingAppInvoice ? [BILLING_APP_INVOICE_STATEMENT_INPUT] : undefined,
   };
 
   const createdTask = await oystehr.fhir.create<Task>(task);

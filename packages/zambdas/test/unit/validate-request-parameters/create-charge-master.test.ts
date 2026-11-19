@@ -65,4 +65,14 @@ describe('create-charge-master - validateRequestParameters', () => {
     const result = validateRequestParameters(input);
     expect(result.secrets).toEqual(secrets);
   });
+
+  test('should throw when name is whitespace-only', () => {
+    const input = createMockZambdaInput({ ...validBody, name: '   ' });
+    expect(() => validateRequestParameters(input)).toThrow();
+  });
+
+  test('turns a whitespace-only description into an empty string', () => {
+    const input = createMockZambdaInput({ ...validBody, description: '  ' });
+    expect(validateRequestParameters(input).description).toBe('');
+  });
 });

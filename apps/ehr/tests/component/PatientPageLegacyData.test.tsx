@@ -21,10 +21,10 @@ vi.mock('../../src/constants/feature-flags', async (importOriginal) => {
     },
   };
 });
-vi.mock('src/features/fax', () => ({
-  useSendFax: () => ({ isOpen: false, open: vi.fn(), close: vi.fn(), isSending: false, failures: [] }),
-  SendFaxDialog: () => <div />,
+vi.mock('src/features/send-documents/hooks/useSendDocuments', () => ({
+  useSendDocuments: () => ({ isOpen: false, open: vi.fn(), close: vi.fn(), isSending: false }),
 }));
+vi.mock('src/features/send-documents/ui/SendDocumentsDialog', () => ({ SendDocumentsDialog: () => <div /> }));
 vi.mock('src/hooks/useDownloadMedicalRecord', () => ({
   useDownloadMedicalRecord: () => ({ downloadMedicalRecord: vi.fn(), isDownloading: false }),
 }));

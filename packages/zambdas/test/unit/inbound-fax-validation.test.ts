@@ -88,6 +88,33 @@ describe('File Inbound Fax - validateRequestParameters', () => {
     const input = createMockZambdaInput(validBody);
     expect(() => validateFileParams(input)).not.toThrow();
   });
+
+  test('should pass through the optional visit and review task assignee', () => {
+    const assignee = { id: 'prac-1', name: 'Samwise Gamgee' };
+    const result = validateFileParams(
+      createMockZambdaInput({ ...validBody, encounterId: 'enc-1', reviewTaskAssignee: assignee })
+    );
+
+    expect(result.encounterId).toBe('enc-1');
+    expect(result.reviewTaskAssignee).toEqual(assignee);
+  });
+
+  test('should leave the visit and review task unset when omitted', () => {
+    const result = validateFileParams(createMockZambdaInput(validBody));
+
+    expect(result.encounterId).toBeUndefined();
+    expect(result.reviewTaskAssignee).toBeUndefined();
+  });
+
+  test.each([
+    ['a non-string encounterId', { encounterId: 42 }],
+    ['an empty encounterId', { encounterId: '' }],
+    ['a review task assignee without a name', { reviewTaskAssignee: { id: 'prac-1' } }],
+    ['a review task assignee that is not an object', { reviewTaskAssignee: 'prac-1' }],
+  ])('should reject %s', (_, extra) => {
+    const error = catchApiError(() => validateFileParams(createMockZambdaInput({ ...validBody, ...extra })));
+    expect(error.code).toBe(APIErrorCode.INVALID_INPUT);
+  });
 });
 
 // ============================================================================

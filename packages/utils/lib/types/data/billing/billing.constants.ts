@@ -1,4 +1,4 @@
-import { ClaimResponse, Patient, PaymentReconciliation, Task } from 'fhir/r4b';
+import { ClaimResponse, Invoice, Patient, PaymentReconciliation, Task } from 'fhir/r4b';
 
 // An applied claim tag is `{ system: CLAIM_TAG_SYSTEM, code: <tag name> }`; the tag's definition
 // (description, system flag) is a separate Basic resource (see save-billing-tag).
@@ -12,6 +12,9 @@ export const BILLING_CLAIM_TASK_CODING = {
   system: 'https://fhir.ottehr.com/billing/task',
   code: 'billing-claim',
 };
+
+// Separate from the EHR outreach system, so the EHR executor Subscriptions do not match billing Tasks.
+export const BILLING_OUTREACH_TASK_CODE_SYSTEM = 'https://fhir.ottehr.com/billing/outreach-action-type';
 
 export const BILLING_TASK_STATUSES = [
   'draft',
@@ -191,6 +194,15 @@ export const ERA_STATUSES = ['active', 'voided'] as const;
 
 export type EraStatus = (typeof ERA_STATUSES)[number];
 
+// Exclude drafts because they may be incomplete or failed send attempts.
+export const BILLING_INVOICE_LIST_STATUSES = [
+  'issued',
+  'balanced',
+  'cancelled',
+] as const satisfies readonly Invoice['status'][];
+
+export type BillingInvoiceListStatus = (typeof BILLING_INVOICE_LIST_STATUSES)[number];
+
 // X12 835 BPR04 payment method codes a manual remit can record, with the labels billers see.
 export const ERA_PAYMENT_METHODS = [
   { code: 'ACH', label: 'EFT' },
@@ -225,11 +237,17 @@ export const MANUAL_ERA_LIMITS = {
   remarkCodesPerLine: 10,
 } as const;
 
-// what record-billing-manual-payment callers may send
-export const BILLING_MANUAL_PAYMENT_METHODS = ['cash', 'check', 'other'] as const;
+// what record-billing-manual-payment callers may send; 'external-card-reader' is a payment taken on a
+// card reader that isn't linked to Stripe, so it is keyed in like cash
+export const BILLING_MANUAL_PAYMENT_METHODS = ['cash', 'check', 'external-card-reader', 'other'] as const;
 
-export const BILLING_RECORDABLE_PAYMENT_METHODS = [
-  ...BILLING_MANUAL_PAYMENT_METHODS,
-  'card-reader',
-  'external-card-reader',
-] as const;
+export const BILLING_RECORDABLE_PAYMENT_METHODS = [...BILLING_MANUAL_PAYMENT_METHODS, 'card-reader'] as const;
+
+// what record-billing-nio-invoice-payment callers may send; card payments go through Stripe
+export const BILLING_INVOICE_PAYMENT_METHODS = ['check', 'ach', 'wire', 'cash', 'other'] as const;
+
+export const BILLING_INVOICE_LIMITS = {
+  voidReasonLength: 300,
+  paymentReferenceLength: 300,
+  nioInvoiceClaimCount: 100,
+} as const;

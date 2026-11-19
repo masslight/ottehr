@@ -1,4 +1,4 @@
-import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, DeleteOutline as DeleteOutlineIcon, Save as SaveIcon } from '@mui/icons-material';
 import { Alert, Box, Button, Chip, CircularProgress, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
@@ -8,6 +8,7 @@ import { otherColors } from 'utils/lib/theme/billing-palette';
 import { ClaimsListViewConfig, isSameClaimsListView } from 'utils/lib/types/data/billing/claims-list-view.schemas';
 import { WorkQueue } from 'utils/lib/types/data/billing/work-queue.schemas';
 import { getBillingWorkQueue, saveBillingWorkQueue } from '../api/api';
+import { DeleteWorkQueueDialog } from '../components/work-queue/DeleteWorkQueueDialog';
 import {
   WorkQueueDetails,
   WorkQueueDetailsFields,
@@ -43,6 +44,7 @@ export default function WorkQueueDetail(): ReactElement {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const fetchQueue = useCallback(async (): Promise<void> => {
     if (!oystehrZambda || !id) return;
@@ -164,18 +166,34 @@ export default function WorkQueueDetail(): ReactElement {
           </Box>
         }
         actions={
-          <Button
-            variant="outlined"
-            startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
-            onClick={() => void handleSave()}
-            disabled={saving || !dirty}
-          >
-            Save
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteOutlineIcon />}
+              onClick={() => setDeleteOpen(true)}
+              disabled={saving}
+            >
+              Delete
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
+              onClick={() => void handleSave()}
+              disabled={saving || !dirty}
+            >
+              Save
+            </Button>
+          </Box>
         }
         initialFilters={saved.filters}
         initialLayout={saved.layout}
         onStateChange={handleViewChange}
+      />
+      <DeleteWorkQueueDialog
+        queue={deleteOpen ? saved : null}
+        onClose={() => setDeleteOpen(false)}
+        onDeleted={() => navigate('/work-queues')}
       />
     </Box>
   );

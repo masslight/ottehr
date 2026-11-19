@@ -3,6 +3,10 @@ import { Basic, Claim, List } from 'fhir/r4b';
 import { WorkQueue } from 'utils/lib/types/data/billing/work-queue.schemas';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  DeleteBillingWorkQueueParams,
+  performEffect as deleteWorkQueue,
+} from '../../../src/billing/delete-billing-work-queue';
 import { summarizeWorkQueue } from '../../../src/billing/get-billing-work-queues';
 import {
   complexValidation,
@@ -11,6 +15,7 @@ import {
 } from '../../../src/billing/save-billing-work-queue';
 import {
   listToWorkQueues,
+  withoutWorkQueue,
   withWorkQueue,
   WORK_QUEUE_TAG_SYSTEM,
   WORK_QUEUES_LIST_CODE,
@@ -203,6 +208,62 @@ describe('save-billing-work-queue', () => {
     await expect(
       complexValidation(projectClient, fhirClient, params({ owner: { practitionerId: 'prac-9', name: 'Someone' } }))
     ).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+  });
+});
+
+describe('delete-billing-work-queue', () => {
+  const search = vi.fn();
+  const update = vi.fn();
+  const oystehr = { fhir: { search, update } } as unknown as Oystehr;
+  const params = (queueId: string): DeleteBillingWorkQueueParams => ({ queueId }) as DeleteBillingWorkQueueParams;
+  const stored = (versionId: string, ...ids: string[]): List => {
+    const list = ids.reduce<List | undefined>((acc, id) => withWorkQueue(acc, queue(id)), undefined);
+    return { ...list, resourceType: 'List', status: 'current', mode: 'working', id: 'list-1', meta: { versionId } };
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    update.mockImplementation(async (list: List) => list);
+  });
+
+  it('removes only the queue, locking on the version it read', async () => {
+    search.mockResolvedValue(bundle([stored('4', 'q-1', 'q-2')]));
+
+    await expect(deleteWorkQueue(oystehr, params('q-1'))).resolves.toEqual({ deleted: true });
+
+    const [written, options] = update.mock.calls[0];
+    expect(options).toEqual({ optimisticLockingVersionId: '4' });
+    expect(written.contained.map((r: Basic) => r.id)).toEqual(['q-2']);
+    expect(listToWorkQueues(written).map((q) => q.id)).toEqual(['q-2']);
+  });
+
+  it('re-reads the List and tries again when another save got there first', async () => {
+    search
+      .mockResolvedValueOnce(bundle([stored('1', 'q-1')]))
+      .mockResolvedValueOnce(bundle([stored('2', 'q-1', 'q-2')]));
+    update.mockRejectedValueOnce(versionConflict());
+
+    await deleteWorkQueue(oystehr, params('q-1'));
+
+    expect(update).toHaveBeenCalledTimes(2);
+    const [written, options] = update.mock.calls[1];
+    expect(options).toEqual({ optimisticLockingVersionId: '2' });
+    expect(listToWorkQueues(written).map((q) => q.id)).toEqual(['q-2']);
+  });
+
+  it('refuses to delete a queue that does not exist', async () => {
+    search.mockResolvedValue(bundle([stored('1', 'q-1')]));
+
+    await expect(deleteWorkQueue(oystehr, params('missing'))).rejects.toMatchObject({
+      code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('removes the entry along with the contained Basic', () => {
+    const list = withoutWorkQueue(stored('1', 'q-1', 'q-2'), 'q-2');
+
+    expect(list.entry?.map((e) => e.item.reference)).toEqual(['#q-1']);
   });
 });
 

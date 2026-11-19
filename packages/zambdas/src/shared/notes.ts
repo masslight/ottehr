@@ -1,5 +1,6 @@
 import { Communication, Practitioner } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 
@@ -17,7 +18,10 @@ export const isPatientOrTaskNote = (resource: Communication): boolean =>
   hasTag(resource, PATIENT_NOTE_TAG) || isTaskNote(resource);
 
 export const getNoteTaskId = (resource: Communication): string | undefined =>
-  resource.basedOn?.find((reference) => reference.reference?.startsWith('Task/'))?.reference?.split('/')[1];
+  getIdFromReference(
+    resource.basedOn?.find((reference) => reference.reference?.startsWith('Task/'))?.reference,
+    'Task'
+  );
 
 export const isTaskNoteUnreadBy = (resource: Communication, practitionerId: string): boolean =>
   isTaskNote(resource) &&

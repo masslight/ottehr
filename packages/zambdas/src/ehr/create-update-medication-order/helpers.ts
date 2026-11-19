@@ -1,17 +1,24 @@
 import Oystehr, { TerminologySearchCptResponse, TerminologySearchHcpcsResponse } from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
 import {
   getAllCptCodesFromInHouseMedication,
   getAllHcpcsCodesFromInHouseMedication,
   getDosageUnitsAndRouteOfMedication,
+  getLocationFromMedicationAdministration,
   searchMedicationLocation,
   searchRouteByCode,
 } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
-import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  INVENTORY_MEDICATION_TYPE_CODE,
+  MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
+  MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import {
   inHouseMedicationsMedicationApplianceRoutes,
+  isRouteRequiringAdministrationLocation,
   IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK,
   MedicationData,
   MedicationOrderStatuses,
@@ -20,6 +27,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.types';
 import { CPTCodeOption } from 'utils/lib/types/common';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { administrationStockChanged, reconcileAdministrationStock } from '../../shared/medication-inventory';
 import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
@@ -28,7 +36,7 @@ export function getPerformerId(medicationAdministration: MedicationAdministratio
 
 export function createMedicationCopy(
   inventoryMedication: Medication,
-  orderData: { lotNumber?: string; ndc?: string; expDate?: string; manufacturer?: string },
+  orderData: { lotNumber?: string; inventoryLotId?: string; ndc?: string; expDate?: string; manufacturer?: string },
   newStatus?: string
 ): Medication {
   const resourceCopy = { ...inventoryMedication };
@@ -37,14 +45,34 @@ export function createMedicationCopy(
   // deleting identifier with code that indicates that this medication is inventory one
   const typeIdentifierArrId =
     resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;
-  if (typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
+  if (typeIdentifierArrId >= 0) {
+    resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
+    // the copy keeps the catalog drug's id so inventory can find the drug without matching by name
+    if (inventoryMedication.id) {
+      resourceCopy.identifier = [
+        ...(resourceCopy.identifier ?? []),
+        { system: MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM, value: inventoryMedication.id },
+      ];
+    }
+  }
   if (newStatus !== MedicationOrderStatuses['administered-not'] && (orderData.lotNumber || orderData.expDate)) {
     resourceCopy.batch = {
-      lotNumber: orderData.lotNumber,
-      expirationDate: orderData.expDate,
+      lotNumber: orderData.lotNumber || undefined,
+      expirationDate: orderData.expDate || undefined,
     };
+    const identifiers = [
+      ...(resourceCopy.identifier ?? []).filter(
+        (idn) => idn.system !== MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM
+      ),
+      ...(orderData.inventoryLotId
+        ? [{ system: MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM, value: orderData.inventoryLotId }]
+        : []),
+    ];
+    if (identifiers.length > 0) resourceCopy.identifier = identifiers;
+    else delete resourceCopy.identifier;
   }
   if (orderData.manufacturer) resourceCopy.manufacturer = { display: orderData.manufacturer };
+  else if (orderData.manufacturer === '') delete resourceCopy.manufacturer;
   // Store user-entered NDC on the medication code
   if (orderData.ndc) {
     if (!resourceCopy.code) resourceCopy.code = {};
@@ -93,8 +121,12 @@ export function updateMedicationAdministrationData(data: {
   administeredProviderId?: string;
   orderedByProviderId?: string;
   medicationResource: Medication;
+  newStatus?: MedicationOrderStatusesType;
 }): MedicationAdministration {
-  const { orderResources, orderData, administeredProviderId, orderedByProviderId, medicationResource } = data;
+  const { orderResources, administeredProviderId, orderedByProviderId, medicationResource, newStatus } = data;
+  // a not/partly-administered reason doesn't apply once the order is administered
+  const orderData: MedicationData =
+    newStatus === 'administered' ? { ...data.orderData, reason: undefined, otherReason: undefined } : data.orderData;
   const routeCode = orderData.route
     ? orderData.route
     : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;
@@ -172,6 +204,29 @@ export async function getCptHcpcsCodesToAddToChartData(
   return codesOptionsToAdd;
 }
 
+/**
+ * Best-effort by design: administration is never blocked by inventory, so a failure here is logged and
+ * reported, never thrown.
+ */
+export async function syncInventoryForOrder(
+  oystehr: Oystehr,
+  orderId: string,
+  practitionerId: string,
+  previous: MedicationAdministration
+): Promise<void> {
+  try {
+    const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
+      resourceType: 'MedicationAdministration',
+      id: orderId,
+    });
+    if (!administrationStockChanged(previous, medicationAdministration)) return;
+    await reconcileAdministrationStock(oystehr, medicationAdministration, `Practitioner/${practitionerId}`, previous);
+  } catch (e) {
+    console.log('Error in syncInventoryForOrder: ', e, JSON.stringify(e));
+    captureException(e);
+  }
+}
+
 export function getEncounterIdFromMA(medicationAdministration: MedicationAdministration): string | undefined {
   const maContext = medicationAdministration.context?.reference;
   if (maContext?.includes('Encounter/')) return maContext?.replace('Encounter/', '');
@@ -206,4 +261,27 @@ export function shouldCreateVitalsRecheckNursingOrder({
   // what an update that left dose/units (and therefore dosage.route) untouched leaves in place.
   const routeCode = orderData.route || getDosageUnitsAndRouteOfMedication(medicationAdministration).route;
   return Boolean(routeCode && IV_ROUTE_CODES_REQUIRING_VITALS_RECHECK.includes(routeCode));
+}
+
+// Partly administered counts too: part of the medication still went in, so where it went in still needs recording.
+const STATUSES_REQUIRING_ADMINISTRATION_LOCATION: MedicationOrderStatusesType[] = [
+  'administered',
+  'administered-partly',
+];
+
+/**
+ * Rejects saving an injectable order as administered without a Location (administration site). It checks the
+ * MedicationAdministration about to be written, so the route and site are the ones that will be stored, whether
+ * the update carried them or left the saved ones in place. Updates that don't administer the order (MAR edits of a
+ * pending order, not administered) are let through, which leaves existing orders without a location untouched.
+ */
+export function validateAdministrationLocation(
+  newStatus: MedicationOrderStatusesType | undefined,
+  medicationAdministration: MedicationAdministration
+): void {
+  if (!newStatus || !STATUSES_REQUIRING_ADMINISTRATION_LOCATION.includes(newStatus)) return;
+  const { route } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
+  if (!isRouteRequiringAdministrationLocation(route)) return;
+  if (getLocationFromMedicationAdministration(medicationAdministration)) return;
+  throw INVALID_INPUT_ERROR('Location is required when an injectable medication is administered');
 }

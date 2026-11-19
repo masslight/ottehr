@@ -1,6 +1,10 @@
 import { Appointment, Communication, FhirResource, Organization, Patient, Task } from 'fhir/r4b';
 import { OYSTEHR_OUTBOUND_FAX_STATUS_EXTENSION_URL } from 'utils/lib/fhir/constants';
-import { getOutboundDeliveryAttemptStatus, makeOutboundDeliveryAttempt } from 'utils/lib/fhir/outbound-delivery';
+import {
+  getOutboundDeliveryAttemptStatus,
+  makeLinkOpenedOutput,
+  makeOutboundDeliveryAttempt,
+} from 'utils/lib/fhir/outbound-delivery';
 import { ACTION_LOGS_PAGE_SIZE } from 'utils/lib/types/api/action-logs.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { describe, expect, it, Mock, vi } from 'vitest';
@@ -136,6 +140,47 @@ describe('get-action-logs', () => {
     expect(searchesFor(search, 'Organization')).toHaveLength(0);
   });
 
+  it('reports each open of an emailed document link, and none for an email that sends no link', async () => {
+    const linkEmail: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'email',
+        patientId: 'patient-1',
+        appointmentId: 'appointment-1',
+        recipientAddress: 'olivia@example.com',
+        documentReferenceId: 'packet-1',
+        senderOrganizationReference: 'Organization/org-1',
+      }),
+      id: 'attempt-link',
+      status: 'completed',
+      output: [
+        makeLinkOpenedOutput('2026-11-10T10:00:00.000Z', { ip: '203.0.113.9', userAgent: 'TestBrowser/1.0' }),
+        makeLinkOpenedOutput('2026-11-12T08:30:00.000Z', { ip: '198.51.100.4' }),
+      ],
+    };
+    const unopenedLinkEmail: Task = { ...linkEmail, id: 'attempt-unopened', output: undefined };
+    const visitNoteEmail: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'email',
+        patientId: 'patient-1',
+        appointmentId: 'appointment-1',
+        recipientAddress: 'ada@example.com',
+        documentReferenceId: 'doc-1',
+      }),
+      id: 'attempt-note',
+      status: 'completed',
+    };
+    const search = mockSearch({ page: [linkEmail, unopenedLinkEmail, visitNoteEmail, patient, appointment] });
+
+    const result = await performEffect({ channel: 'email', pageIndex: 0, secrets: null }, { fhir: { search } } as any);
+
+    expect(result.logs[0].opens).toEqual([
+      { openedAt: '2026-11-12T08:30:00.000Z', ipAddress: '198.51.100.4' },
+      { openedAt: '2026-11-10T10:00:00.000Z', ipAddress: '203.0.113.9', userAgent: 'TestBrowser/1.0' },
+    ]);
+    expect(result.logs[1].opens).toEqual([]);
+    expect(result.logs[2].opens).toBeUndefined();
+  });
+
   it('reports the sender fax number of the organization the attempt was sent from', async () => {
     const taskWithSender: Task = {
       ...makeOutboundDeliveryAttempt({
@@ -234,7 +279,7 @@ describe('get-action-logs', () => {
         patientId: 'patient-1',
         recipientAddress: '+12125551234',
         documentReferenceId: 'packet-1',
-        faxPacketParts: ['Insurance card', 'Lab result'],
+        packetParts: ['Insurance card', 'Lab result'],
       }),
       id: 'attempt-patient-packet',
       status: 'failed',
@@ -245,7 +290,7 @@ describe('get-action-logs', () => {
 
     expect(result.logs[0]).toMatchObject({
       appointmentId: undefined,
-      documentTitle: 'Fax packet (2 documents)',
+      documentTitle: 'Document packet (2 documents)',
       canRetry: true,
     });
   });

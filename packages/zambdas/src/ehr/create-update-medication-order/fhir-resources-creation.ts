@@ -149,6 +149,13 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
     };
   }
 
+  // reason notes are replaced on every save, so a newly selected reason isn't shadowed by a stale one
+  resource.note = resource.note?.filter(
+    (note) =>
+      note.authorString !== MEDICATION_ADMINISTRATION_REASON_CODE &&
+      note.authorString !== MEDICATION_ADMINISTRATION_OTHER_REASON_CODE
+  );
+  if (resource.note?.length === 0) delete resource.note;
   if (orderData.reason) {
     if (!resource.note) resource.note = [];
     resource.note.push({

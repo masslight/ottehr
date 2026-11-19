@@ -91,9 +91,12 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({
     );
   };
 
+  const showNullOption = nullOptionExistsInData && !!nullCode;
+  // the null option checkbox row continues this row, and the table's own padding sits below the last row
   const rowStyling: SxProps<Theme> = {
     ...ROW_STYLING,
-    ...(showTopDivider ? { borderTop: '1px solid', borderColor: 'divider', paddingBottom: 0 } : {}),
+    ...(showTopDivider ? { borderTop: '1px solid', borderColor: 'divider' } : {}),
+    ...(showNullOption || isLastRow ? { paddingBottom: 0 } : {}),
   };
 
   return (
@@ -112,12 +115,12 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({
             </TableCell>
             {renderTableCellsForDisplayType(field)}
           </TableRow>
-          {nullOptionExistsInData && nullCode && (
+          {showNullOption && (
             <TableRow>
               <TableCell
                 colSpan={4}
                 sx={{
-                  ...rowStyling,
+                  ...ROW_STYLING,
                   paddingTop: 0,
                   ...(isLastRow ? { paddingBottom: 0 } : {}),
                 }}

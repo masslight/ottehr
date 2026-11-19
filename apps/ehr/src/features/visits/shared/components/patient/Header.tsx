@@ -1,11 +1,14 @@
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, IconButton, useTheme } from '@mui/material';
+import { Box, IconButton, Link as MuiLink, Typography, useTheme } from '@mui/material';
+import { Patient } from 'fhir/r4b';
 import { FC } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { showEnvironmentBanner } from 'src/App';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PatientNotesButton } from 'src/features/patient-notes/components/PatientNotesButton';
 import { PrintVisitLabelButton } from 'src/features/visits/in-person/components/PrintVisitLabelButton';
-import { BANNER_HEIGHT } from 'src/helpers/misc.helper';
+import { BANNER_HEIGHT, NAVBAR_HEIGHT_CSS_VAR } from 'src/helpers/misc.helper';
 import { useGetPatient } from 'src/hooks/useGetPatient';
 import { useGetPatientVisitHistory } from '../../../../../hooks/useGetPatientVisitHistory';
 import { PatientAvatar } from './info/Avatar';
@@ -17,24 +20,43 @@ import { Summary } from './info/Summary';
 type HeaderProps = {
   handleDiscard: () => void;
   id?: string;
+  /** The visit the page is about; without one the label is printed for the latest visit. */
+  encounterId?: string;
+  /** Already-loaded patient shown while the header's own lookup is pending or has failed. */
+  fallbackPatient?: Patient;
+  /** Off by default: a plain link would skip the unsaved-changes check of pages that guard handleDiscard. */
+  linkNameToPatientRecord?: boolean;
+  nameLastModified?: string;
 };
 
-export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
+export const Header: FC<HeaderProps> = ({
+  handleDiscard,
+  id,
+  encounterId,
+  fallbackPatient,
+  linkNameToPatientRecord,
+  nameLastModified,
+}) => {
   const theme = useTheme();
 
-  const { loading, patient } = useGetPatient(id);
-  const { data: visitHistory } = useGetPatientVisitHistory(patient?.id);
+  const { loading: patientLoading, patient: fetchedPatient } = useGetPatient(id);
+  const patient = fetchedPatient ?? fallbackPatient;
+  const loading = patientLoading && !patient;
+  // Visit history is only needed to pick a label encounter when the page has none of its own.
+  const { data: visitHistory } = useGetPatientVisitHistory(encounterId ? undefined : patient?.id);
   const appointments = visitHistory?.visits ?? [];
 
   // todo: product has said that on screens with no specific encounter, use the latest encounter for the label
   // which seems ok for now but might change later
   const latestAppointmentEncounterId = appointments?.[0]?.encounterId;
 
+  const fullName = <FullNameDisplay patient={patient} loading={loading} variant="h5" />;
+
   return (
     <Box
       sx={{
         position: 'sticky',
-        top: showEnvironmentBanner ? BANNER_HEIGHT : 0,
+        top: `calc(${showEnvironmentBanner ? BANNER_HEIGHT : 0}px + var(${NAVBAR_HEIGHT_CSS_VAR}, 0px))`,
         zIndex: 1000,
         display: 'flex',
         justifyContent: 'space-between',
@@ -45,20 +67,55 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
         boxShadow: '0px 2px 4px -1px rgba(0, 0, 0, 0.2)',
       }}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <IdentifiersRow patient={patient} loading={loading} />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box sx={{ flex: '64px 0 0' }}>
-            <PatientAvatar id={id} sx={{ width: 64, height: 64 }} />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <IconButton
+          onClick={handleDiscard}
+          aria-label="Back"
+          data-testid={dataTestIds.patientHeader.backButton}
+          sx={{ ml: -1.5 }}
+        >
+          <ArrowBackIcon />
+        </IconButton>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', columnGap: 2, flexWrap: 'wrap' }}>
+            <IdentifiersRow patient={patient} loading={loading} />
+            {nameLastModified && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                data-testid={dataTestIds.patientHeader.nameLastModified}
+              >
+                Name Last Modified {nameLastModified}
+              </Typography>
+            )}
           </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Box sx={{ display: 'flex', rowGap: 0.5, columnGap: 2, flexWrap: 'wrap' }}>
-              <FullNameDisplay patient={patient} loading={loading} variant="h5" />
-              <PatientNotesButton patientId={id} />
-              <PrintVisitLabelButton encounterId={latestAppointmentEncounterId} />
-              <Summary patient={patient} loading={loading} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ flex: '64px 0 0' }}>
+              <PatientAvatar id={id} sx={{ width: 64, height: 64 }} />
             </Box>
-            <Contacts patient={patient} loading={loading} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Box
+                data-testid={dataTestIds.patientHeader.nameRow}
+                sx={{ display: 'flex', alignItems: 'center', rowGap: 0.5, columnGap: 2, flexWrap: 'wrap' }}
+              >
+                {linkNameToPatientRecord && id && patient ? (
+                  <MuiLink
+                    component={RouterLink}
+                    to={`/patient/${id}`}
+                    underline="hover"
+                    sx={{ color: 'primary.dark', textDecorationColor: 'inherit' }}
+                  >
+                    {fullName}
+                  </MuiLink>
+                ) : (
+                  fullName
+                )}
+                <PatientNotesButton patientId={id} />
+                <PrintVisitLabelButton encounterId={encounterId ?? latestAppointmentEncounterId} />
+                <Summary patient={patient} loading={loading} />
+              </Box>
+              <Contacts patient={patient} loading={loading} />
+            </Box>
           </Box>
         </Box>
       </Box>

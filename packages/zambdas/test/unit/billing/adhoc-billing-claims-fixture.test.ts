@@ -12,11 +12,17 @@ import {
   Practitioner,
   Provenance,
 } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import {
+  FHIR_IDENTIFIER_CLIA,
+  FHIR_IDENTIFIER_CODE_TAXONOMY,
+  FHIR_IDENTIFIER_NPI,
+  PAYMENT_METHOD_EXTENSION_URL,
+} from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   CLAIM_ACCIDENT_STATE_EXTENSION_URL,
   CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
+  CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
 } from 'utils/lib/helpers/rcm/constants';
 import {
@@ -88,14 +94,25 @@ const facility: Location = {
   resourceType: 'Location',
   id: 'loc-1',
   name: 'Midtown',
-  identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '2222222222' }],
+  identifier: [
+    { system: FHIR_IDENTIFIER_NPI, value: '2222222222' },
+    { system: FHIR_IDENTIFIER_CLIA, value: '05D2222222' },
+  ],
 };
 
 const provider: Practitioner = {
   resourceType: 'Practitioner',
   id: 'pr-1',
   name: [{ given: ['Bo'], family: 'Kim' }],
-  identifier: [{ system: FHIR_IDENTIFIER_NPI, value: '1111111111' }],
+  identifier: [
+    { system: FHIR_IDENTIFIER_NPI, value: '1111111111' },
+    {
+      type: {
+        coding: [{ system: CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE, code: FHIR_IDENTIFIER_CODE_TAXONOMY }],
+      },
+      value: '207Q00000X',
+    },
+  ],
 };
 
 const coverage: Coverage = {
@@ -453,8 +470,9 @@ type Param = { name: string; value: string };
 function stubBillingClient({
   shortScans = 0,
   countPhantom = 0,
+  noClaims = false,
   onScan,
-}: { shortScans?: number; countPhantom?: number; onScan?: () => void } = {}): {
+}: { shortScans?: number; countPhantom?: number; noClaims?: boolean; onScan?: () => void } = {}): {
   oystehr: Oystehr;
   search: ReturnType<typeof vi.fn>;
   getPayerByUrl: ReturnType<typeof vi.fn>;
@@ -469,7 +487,8 @@ function stubBillingClient({
       onScan?.();
     }
 
-    const phantom = isScan && scansStarted <= shortScans ? 1 : 0;
+    const isCountProbe = resourceType === 'Claim' && all('_elements')[0] === 'id' && all('_count')[0] === '1';
+    const phantom = (isScan && scansStarted <= shortScans ? 1 : 0) + (isCountProbe ? countPhantom : 0);
     const listOf = (name: string): string[] | undefined => all(name)[0]?.split(',');
 
     const tokenMatches = (tokens: string[], identifiers: { system?: string; value?: string }[] = []): boolean =>
@@ -478,10 +497,11 @@ function stubBillingClient({
         return identifiers.some((id) => id.system === system && (!value || id.value === value));
       });
 
-    let matches = store.filter((r) => r.resourceType === resourceType);
+    let matches = store.filter((r) => r.resourceType === resourceType && !(noClaims && r.resourceType === 'Claim'));
 
     if (all('_summary')[0] === 'count') {
-      return { resourceType: 'Bundle', type: 'searchset', total: matches.length + countPhantom, unbundle: () => [] };
+      // As Oystehr does: an empty match set still reports total 1.
+      return { resourceType: 'Bundle', type: 'searchset', total: Math.max(matches.length, 1), unbundle: () => [] };
     }
 
     const ids = listOf('_id');
@@ -766,6 +786,17 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     );
   });
 
+  it('returns no rows for a project with no claims, without asking for _summary=count', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const { oystehr, search } = stubBillingClient({ noClaims: true });
+
+    await expect(fetchAdHocClaimRows(oystehr, { dateRange: DATE_RANGE })).resolves.toEqual([]);
+    const summaryCalls = search.mock.calls.filter(([arg]) =>
+      (arg.params as Param[]).some((p) => p.name === '_summary')
+    );
+    expect(summaryCalls).toHaveLength(0);
+  });
+
   it('stops with a narrow-the-range message before the worker would be killed', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     let now = 1_000_000;
@@ -944,8 +975,11 @@ describe('fetchAdHocClaimRows (billing-claims dataset)', () => {
     expect(insured).toMatchObject({
       billingProvider: 'Kim, Bo',
       billingProviderNpi: '1111111111',
+      billingProviderTaxonomy: '207Q00000X',
       renderingProviderNpi: '1111111111',
+      renderingProviderTaxonomy: '207Q00000X',
       facilityNpi: '2222222222',
+      facilityClia: '05D2222222',
       placeOfService: '11',
       patientControlNumber: 'PCN-1',
       accidentTypes: ['auto'],

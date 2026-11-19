@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Claim, ClaimSupportingInfo, DocumentReference, FhirResource, ProvenanceAgent } from 'fhir/r4b';
 import { DEFAULT_CLAIM_ATTACHMENT_REPORT_TYPE_CODE } from 'utils/lib/fhir/billing';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import {
@@ -111,7 +111,7 @@ export async function attachClaimDocument({
 
 export function attachedClaimId(documentReference: DocumentReference): string {
   const claimId = (documentReference.context?.related ?? [])
-    .map((related) => removePrefix('Claim/', related.reference ?? ''))
+    .map((related) => getIdFromReference(related.reference, 'Claim'))
     .find(Boolean);
   if (!claimId) throw INVALID_INPUT_ERROR(`DocumentReference ${documentReference.id} is not attached to a claim`);
   return claimId;

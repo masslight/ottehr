@@ -68,7 +68,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function administerImmunizationOrder(
+export async function administerImmunizationOrder(
   oystehr: Oystehr,
   input: AdministerImmunizationOrderRequest,
   userPractitioner: Practitioner
@@ -88,7 +88,9 @@ async function administerImmunizationOrder(
   await updateOrderDetails(medicationAdministration, details, oystehr);
 
   medicationAdministration.status = mapOrderStatusToFhir(type);
-  medicationAdministration.effectiveDateTime = administrationDetails.administeredDateTime;
+  if (administrationDetails.administeredDateTime) {
+    medicationAdministration.effectiveDateTime = administrationDetails.administeredDateTime;
+  }
 
   if (reason) {
     medicationAdministration.note = [
@@ -219,7 +221,9 @@ async function administerImmunizationOrder(
 export function validateRequestParameters(
   input: ZambdaInput
 ): AdministerImmunizationOrderRequest & Pick<ZambdaInput, 'secrets'> {
-  const { orderId, type, reason, details, administrationDetails } = validateJsonBody(input);
+  const { orderId, type, reason: rawReason, details, administrationDetails } = validateJsonBody(input);
+  const reason: string | undefined = rawReason?.trim() || undefined;
+  validateAdministrationDetailsValues(administrationDetails);
 
   const missingFields: string[] = [];
   if (!orderId) missingFields.push('orderId');
@@ -242,7 +246,7 @@ export function validateRequestParameters(
     }
   }
 
-  if (missingFields.length > 0) throw new Error(`Missing required fields [${missingFields.join(', ')}]`);
+  if (missingFields.length > 0) throw INVALID_INPUT_ERROR(`Missing required fields [${missingFields.join(', ')}]`);
 
   // Emergency contact is optional as a whole, but if any field is provided - all three are required.
   // A partially-filled contact would violates FHIR constraint ele-1.
@@ -268,8 +272,6 @@ export function validateRequestParameters(
       );
     }
   }
-
-  validateAdministrationDetailsValues(administrationDetails);
 
   return {
     orderId,

@@ -66,6 +66,7 @@ const performEffect = async (
     edDispositionDefaultText,
     vitalsUnitInputOrder,
     vitalsHeaderUnitSystem,
+    specialtyTransferOptions,
     signReviewPrompt,
   } = validatedInput;
 
@@ -84,6 +85,7 @@ const performEffect = async (
       edDispositionDefaultText,
       vitalsUnitInputOrder,
       vitalsHeaderUnitSystem: vitalsHeaderUnitSystem ?? storedConfig.vitalsHeaderUnitSystem,
+      specialtyTransferOptions: specialtyTransferOptions ?? storedConfig.specialtyTransferOptions,
       signReviewPrompt: resolveSignReviewPrompt(user, signReviewPrompt, storedConfig.signReviewPrompt),
     },
     { existingBasic }

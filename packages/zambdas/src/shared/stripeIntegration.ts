@@ -92,6 +92,7 @@ export const STRIPE_METADATA_KEYS = {
   encounterId: 'oystehr_encounter_id',
   legacyEncounterId: 'encounterId',
   invoiceId: 'oystehr_invoice_id',
+  organizationId: 'oystehr_organization_id',
   // set on charges the EHR takes: the EHR payment id, and the PaymentNotice it reserved for the charge
   ehrPaymentId: 'oystehr_ehr_payment_id',
   ehrPaymentNoticeId: 'oystehr_ehr_payment_notice_id',

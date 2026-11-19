@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Address, FhirResource, HealthcareService, Location, PractitionerRole } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { UpdateScheduleParams } from 'utils/lib/types/api/schedules';
 import { ClosureType, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
@@ -61,7 +62,7 @@ export const getNameForOwner = (owner: FhirResource): string => {
  * Returns the role's id-fallback if the location reference can't be resolved.
  */
 export const getNameForPractitionerRole = async (role: PractitionerRole, oystehr: Oystehr): Promise<string> => {
-  const locationId = role.location?.[0]?.reference?.split('/')[1];
+  const locationId = getIdFromReference(role.location?.[0]?.reference);
   const location = locationId
     ? await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }).catch(() => undefined)
     : undefined;

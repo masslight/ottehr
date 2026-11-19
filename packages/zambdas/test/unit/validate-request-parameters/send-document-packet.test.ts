@@ -1,0 +1,278 @@
+import { DOCUMENT_PACKET_MAX_VISITS } from 'utils/lib/types/api/document-packet.types';
+import { describe, expect, test } from 'vitest';
+import { validateRequestParameters } from '../../../src/ehr/send-document-packet/validateRequestParameters';
+import { createMockSecrets, createMockZambdaInput } from './helpers';
+
+const APPOINTMENT_ID = '550e8400-e29b-41d4-a716-446655440000';
+const PATIENT_ID = '650e8400-e29b-41d4-a716-446655440000';
+const DOCUMENT_ID = '750e8400-e29b-41d4-a716-446655440000';
+const VISIT_SOURCE = { type: 'visit', appointmentId: APPOINTMENT_ID };
+
+describe('send-document-packet - validateRequestParameters', () => {
+  const secrets = createMockSecrets();
+
+  const body = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
+    source: VISIT_SOURCE,
+    recipients: [{ faxNumber: '2125551234' }],
+    ...overrides,
+  });
+
+  test('returns validated params for a valid request', () => {
+    const result = validateRequestParameters(createMockZambdaInput(body(), { secrets }));
+
+    expect(result).toEqual({
+      source: VISIT_SOURCE,
+      recipients: [{ faxNumber: '+12125551234', phoneNumber: undefined }],
+      secrets,
+    });
+  });
+
+  test('accepts every packet source', () => {
+    const sources = [
+      { type: 'visits', patientId: PATIENT_ID, appointmentIds: [APPOINTMENT_ID] },
+      {
+        type: 'medical-record',
+        patientId: PATIENT_ID,
+        dateRange: { from: '2026-01-01T00:00:00.000-05:00', to: '2026-10-12T23:59:59.999-04:00' },
+      },
+      { type: 'document', patientId: PATIENT_ID, documentReferenceId: DOCUMENT_ID },
+    ];
+
+    sources.forEach((source) => {
+      expect(validateRequestParameters(createMockZambdaInput(body({ source }), { secrets })).source).toEqual(source);
+    });
+  });
+
+  test('throws when a medical-record source has no date range', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(body({ source: { type: 'medical-record', patientId: PATIENT_ID } }), { secrets })
+      )
+    ).toThrow(/source\.dateRange/);
+  });
+
+  test('normalises the legacy appointmentId request shape to a visit source', () => {
+    const result = validateRequestParameters(
+      createMockZambdaInput({ appointmentId: APPOINTMENT_ID, recipients: [{ faxNumber: '2125551234' }] }, { secrets })
+    );
+
+    expect(result.source).toEqual(VISIT_SOURCE);
+  });
+
+  test('throws when a recipient has a credential but no name', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(body({ recipients: [{ faxNumber: '2125551234', credential: 'MD' }] }), { secrets })
+      )
+    ).toThrow();
+  });
+
+  test('throws when the source type is unknown', () => {
+    expect(() =>
+      validateRequestParameters(createMockZambdaInput(body({ source: { type: 'everything' } }), { secrets }))
+    ).toThrow();
+  });
+
+  test('throws when no visit is selected', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(body({ source: { type: 'visits', patientId: PATIENT_ID, appointmentIds: [] } }), {
+          secrets,
+        })
+      )
+    ).toThrow();
+  });
+
+  test('throws when more visits are selected than a packet can carry', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(
+          body({
+            source: {
+              type: 'visits',
+              patientId: PATIENT_ID,
+              appointmentIds: Array.from({ length: DOCUMENT_PACKET_MAX_VISITS + 1 }, () => APPOINTMENT_ID),
+            },
+          }),
+          { secrets }
+        )
+      )
+    ).toThrow();
+  });
+
+  test('throws when the same visit is selected more than once', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(
+          body({
+            source: {
+              type: 'visits',
+              patientId: PATIENT_ID,
+              appointmentIds: [APPOINTMENT_ID, APPOINTMENT_ID],
+            },
+          }),
+          { secrets }
+        )
+      )
+    ).toThrow(/Each visit can only be selected once/);
+  });
+
+  test('normalises every recipient fax number to +1 and the last ten digits', () => {
+    const result = validateRequestParameters(
+      createMockZambdaInput(body({ recipients: [{ faxNumber: '5551234567' }, { faxNumber: '+12125551234' }] }), {
+        secrets,
+      })
+    );
+
+    expect(result.recipients.map((recipient) => recipient.faxNumber)).toEqual(['+15551234567', '+12125551234']);
+  });
+
+  test('formats the follow-up phone number for display without rejecting it', () => {
+    const result = validateRequestParameters(
+      createMockZambdaInput(body({ recipients: [{ faxNumber: '2125551234', phoneNumber: '+12125559999' }] }), {
+        secrets,
+      })
+    );
+
+    expect(result.recipients[0].phoneNumber).toBe('(212) 555-9999');
+  });
+
+  test('passes an unparseable follow-up phone number through untouched', () => {
+    const result = validateRequestParameters(
+      createMockZambdaInput(body({ recipients: [{ faxNumber: '2125551234', phoneNumber: 'ext 42' }] }), { secrets })
+    );
+
+    expect(result.recipients[0].phoneNumber).toBe('ext 42');
+  });
+
+  test('preserves recipient name, organization and saveAsPcp', () => {
+    const result = validateRequestParameters(
+      createMockZambdaInput(
+        body({
+          recipients: [
+            { name: 'Olivia Green', organization: 'Green Family Practice', faxNumber: '2125551234', saveAsPcp: true },
+          ],
+        }),
+        { secrets }
+      )
+    );
+
+    expect(result.recipients[0]).toEqual({
+      name: 'Olivia Green',
+      organization: 'Green Family Practice',
+      faxNumber: '+12125551234',
+      phoneNumber: undefined,
+      saveAsPcp: true,
+    });
+  });
+
+  test('accepts an email recipient, trimmed and lowercased', () => {
+    const result = validateRequestParameters(
+      createMockZambdaInput(
+        body({ recipients: [{ name: 'Olivia Green', email: '  Olivia@Example.COM ', phoneNumber: '+12125559999' }] }),
+        { secrets }
+      )
+    );
+
+    expect(result.recipients[0]).toEqual({
+      name: 'Olivia Green',
+      email: 'olivia@example.com',
+      phoneNumber: '(212) 555-9999',
+    });
+  });
+
+  test('accepts fax and email recipients in the same request', () => {
+    const result = validateRequestParameters(
+      createMockZambdaInput(body({ recipients: [{ faxNumber: '2125551234' }, { email: 'a@example.com' }] }), {
+        secrets,
+      })
+    );
+
+    expect(result.recipients).toEqual([
+      { faxNumber: '+12125551234', phoneNumber: undefined },
+      { email: 'a@example.com', phoneNumber: undefined },
+    ]);
+  });
+
+  test('throws when a recipient email is not a valid address', () => {
+    expect(() =>
+      validateRequestParameters(createMockZambdaInput(body({ recipients: [{ email: 'not-an-email' }] }), { secrets }))
+    ).toThrow();
+  });
+
+  test('throws when a recipient carries both a fax number and an email', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(body({ recipients: [{ faxNumber: '2125551234', email: 'a@example.com' }] }), {
+          secrets,
+        })
+      )
+    ).toThrow();
+  });
+
+  test('throws when a recipient has neither a fax number nor an email', () => {
+    expect(() =>
+      validateRequestParameters(createMockZambdaInput(body({ recipients: [{ name: 'Nobody' }] }), { secrets }))
+    ).toThrow();
+  });
+
+  test('throws when a recipient fax number is not a valid phone number', () => {
+    expect(() =>
+      validateRequestParameters(createMockZambdaInput(body({ recipients: [{ faxNumber: '123' }] }), { secrets }))
+    ).toThrow();
+  });
+
+  test('throws when a later recipient has an invalid fax number', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(body({ recipients: [{ faxNumber: '2125551234' }, { faxNumber: 'nope' }] }), { secrets })
+      )
+    ).toThrow();
+  });
+
+  test('throws when more than one recipient is flagged as the PCP', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(
+          body({
+            recipients: [
+              { faxNumber: '2125551234', saveAsPcp: true },
+              { faxNumber: '2125551235', saveAsPcp: true },
+            ],
+          }),
+          { secrets }
+        )
+      )
+    ).toThrow(/Only one recipient can be saved as the patient PCP/);
+  });
+
+  test('throws when the appointment id is not a valid UUID', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(body({ source: { type: 'visit', appointmentId: 'appt-123' } }), { secrets })
+      )
+    ).toThrow();
+  });
+
+  test('throws when there are no recipients', () => {
+    expect(() => validateRequestParameters(createMockZambdaInput(body({ recipients: [] }), { secrets }))).toThrow();
+  });
+
+  test('throws when there are more than five recipients', () => {
+    expect(() =>
+      validateRequestParameters(
+        createMockZambdaInput(body({ recipients: Array.from({ length: 6 }, () => ({ faxNumber: '2125551234' })) }), {
+          secrets,
+        })
+      )
+    ).toThrow();
+  });
+
+  test('throws when the body is missing', () => {
+    expect(() => validateRequestParameters(createMockZambdaInput(null, { secrets }))).toThrow();
+  });
+
+  test('throws when the Authorization header is missing', () => {
+    expect(() => validateRequestParameters(createMockZambdaInput(body(), { secrets, headers: {} as any }))).toThrow();
+  });
+});

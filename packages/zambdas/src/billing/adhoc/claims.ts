@@ -259,9 +259,7 @@ async function scanAllClaims(
   oystehr: Oystehr,
   beforePage: () => void
 ): Promise<Awaited<ReturnType<typeof scanClaimIds>>['claims']> {
-  const existing =
-    (await oystehr.fhir.search<Claim>({ resourceType: 'Claim', params: [{ name: '_summary', value: 'count' }] }))
-      .total ?? 0;
+  const existing = await countClaims(oystehr);
 
   const { claims } = await scanClaimIds({
     oystehr,
@@ -276,6 +274,24 @@ async function scanAllClaims(
   }
 
   return claims;
+}
+
+// Not `_summary=count`: Oystehr answers it with total 1 when nothing matches (see ehr/patient-notes/count),
+// which failed every run on a project with no claims. A one-entry search carries an accurate total, and an
+// empty one means there are none, whatever its total says.
+async function countClaims(oystehr: Oystehr): Promise<number> {
+  const bundle = await oystehr.fhir.search<Claim>({
+    resourceType: 'Claim',
+    params: [
+      { name: '_elements', value: 'id' },
+      { name: '_count', value: '1' },
+      { name: '_total', value: 'accurate' },
+    ],
+  });
+
+  const found = bundle.unbundle().length;
+
+  return found > 0 ? Math.max(bundle.total ?? found, found) : 0;
 }
 
 function createPayerResolver(oystehr: Oystehr): {

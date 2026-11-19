@@ -133,7 +133,7 @@ describe('Schema20250925 generate()', () => {
   });
 
   describe('zambda_secrets output', () => {
-    it('emits zambda_secrets with static secret refs and sendgrid merge when secrets are present', async () => {
+    it('keys local zambda secrets by secret name and merges sendgrid secrets', async () => {
       const spec = {
         path: 'secrets.json',
         spec: {
@@ -154,8 +154,9 @@ describe('Schema20250925 generate()', () => {
       expect(outputs.locals.zambda_secrets_for_local_server).toBeDefined();
       const value: string = outputs.locals.zambda_secrets_for_local_server.value;
       // Static secret references
-      expect(value).toContain('"MY_API_KEY": oystehr_secret.MY_API_KEY.value');
-      expect(value).toContain('"ANOTHER_SECRET": oystehr_secret.ANOTHER_SECRET.value');
+      expect(value).toContain('"my-api-key": oystehr_secret.MY_API_KEY.value');
+      expect(value).toContain('"another-secret": oystehr_secret.ANOTHER_SECRET.value');
+      expect(value).not.toContain('"MY_API_KEY":');
       // SendGrid dynamic refs (always included; their presence at apply-time is guarded by length checks)
       expect(value).toContain('{for k, v in oystehr_secret.sendgrid_template_ids : k => v.value}');
       expect(value).toContain(

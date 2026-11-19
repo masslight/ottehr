@@ -229,6 +229,10 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.secondaryInfoText;
   })?.valueString;
 
+  const placeholder = extension.find((ext) => {
+    return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.placeholder;
+  })?.valueString;
+
   const dataType = validateQuestionnaireDataType(
     extension.find((ext) => {
       return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.dataType;
@@ -421,6 +425,7 @@ export const structureExtension = (item: QuestionnaireItem): QuestionnaireItemEx
     autofillFromWhenDisabled,
     infoText,
     secondaryInfoText,
+    placeholder,
     dataType,
     filterWhen,
     validateAgeOver,

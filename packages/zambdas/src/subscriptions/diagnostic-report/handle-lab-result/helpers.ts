@@ -10,6 +10,7 @@ import {
   ServiceRequest,
   Task,
 } from 'fhir/r4b';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
@@ -73,9 +74,10 @@ export async function fetchRelatedResources(
   // when determining location, we need to be a little clever if the result is reflex or unsolicited
   const [preSubmissionTask, unsolicitedResultLocation] = await Promise.all([
     (async (): Promise<Task | undefined> => {
-      const serviceRequestId = diagnosticReport?.basedOn
-        ?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))
-        ?.reference?.split('/')[1];
+      const serviceRequestId = getIdFromReference(
+        diagnosticReport?.basedOn?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))?.reference,
+        'ServiceRequest'
+      );
 
       const preSubmissionTask = serviceRequestId
         ? (

@@ -1,10 +1,15 @@
-import { QuestionnaireResponse } from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { Questionnaire, QuestionnaireItem, QuestionnaireResponse } from 'fhir/r4b';
 import { SaveInvoiceConfigBodySchema } from 'utils/lib/types/api/invoice-config.types';
+import { DEFAULT_INVOICE_DUE_DAYS, DEFAULT_INVOICE_ISSUER_SOURCE } from 'utils/lib/types/constants';
 import { describe, expect, test, vi } from 'vitest';
 import {
   getOrCreateInvoicingConfig,
   INVOICING_CONFIG_QUESTIONNAIRE_URL,
   parseInvoicingConfig,
+  readInvoicingConfig,
+  saveInvoicingConfig,
+  withInvoiceIssuerSourceItem,
 } from '../../src/rcm/invoice-config/helpers';
 import { ZambdaInput } from '../../src/shared/types/common';
 import { validateWithSchema } from '../../src/shared/validation';
@@ -17,8 +22,19 @@ function makeQuestionnaireResponse(overrides?: {
   dueDays?: number;
   smsTemplate?: string;
   memoTemplate?: string;
+  issuerSource?: string;
 }): QuestionnaireResponse {
   const items = [];
+  if (overrides?.issuerSource !== undefined) {
+    items.push({
+      linkId: 'invoicing.invoiceIssuerSource',
+      answer: [
+        {
+          valueString: overrides.issuerSource,
+        },
+      ],
+    });
+  }
   if (overrides?.dueDays !== undefined) {
     items.push({
       linkId: 'invoicing.dueDaysFromGeneration',
@@ -99,6 +115,146 @@ describe('parseInvoicingConfig', () => {
     expect(result.dueDaysFromGeneration).toBe(30);
     expect(result.defaultSmsTemplate).toContain('{{clinic}}');
     expect(result.defaultInvoiceMemo).toContain('{{patient-portal-link}}');
+  });
+
+  test.each([
+    [undefined, 'service-facility'],
+    ['billing-provider', 'billing-provider'],
+    ['rendering-provider', 'service-facility'],
+  ])('reads a stored invoice issuer of %s as %s', (issuerSource, expected) => {
+    const result = parseInvoicingConfig(
+      makeQuestionnaireResponse({
+        issuerSource,
+      })
+    );
+
+    expect(result.invoiceIssuerSource).toBe(expected);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// saveInvoicingConfig
+// ---------------------------------------------------------------------------
+
+describe('saveInvoicingConfig', () => {
+  const values = {
+    dueDaysFromGeneration: 14,
+    defaultSmsTemplate: 'Hello {{patient-full-name}}',
+    defaultInvoiceMemo: 'Memo for visit',
+  };
+
+  function createMockOystehr(issuerSource: string): any {
+    const questionnaire = {
+      resourceType: 'Questionnaire',
+      id: 'q-1',
+      url: INVOICING_CONFIG_QUESTIONNAIRE_URL,
+    };
+    const response = {
+      ...makeQuestionnaireResponse({
+        issuerSource,
+      }),
+      id: 'qr-1',
+      questionnaire: 'Questionnaire/q-1',
+    };
+    return {
+      fhir: {
+        search: vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
+          Promise.resolve({
+            unbundle: () => (resourceType === 'Questionnaire' ? [questionnaire] : [response]),
+          })
+        ),
+        update: vi.fn().mockImplementation((resource: QuestionnaireResponse) => Promise.resolve(resource)),
+      },
+    };
+  }
+
+  test('saves the given invoice issuer', async () => {
+    const oystehr = createMockOystehr('service-facility');
+
+    const result = await saveInvoicingConfig(oystehr, {
+      ...values,
+      invoiceIssuerSource: 'billing-provider',
+    });
+
+    expect(parseInvoicingConfig(result.questionnaireResponse)).toEqual({
+      ...values,
+      invoiceIssuerSource: 'billing-provider',
+    });
+  });
+
+  test('keeps the stored invoice issuer when a caller leaves it out', async () => {
+    const oystehr = createMockOystehr('billing-provider');
+
+    const result = await saveInvoicingConfig(oystehr, values);
+
+    expect(parseInvoicingConfig(result.questionnaireResponse)).toEqual({
+      ...values,
+      invoiceIssuerSource: 'billing-provider',
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// withInvoiceIssuerSourceItem
+// ---------------------------------------------------------------------------
+
+describe('withInvoiceIssuerSourceItem', () => {
+  const dueDaysItem: QuestionnaireItem = {
+    linkId: 'invoicing.dueDaysFromGeneration',
+    type: 'integer',
+  };
+  const legacy: Questionnaire = {
+    resourceType: 'Questionnaire',
+    id: 'q-1',
+    status: 'active',
+    item: [
+      {
+        linkId: 'invoicing',
+        type: 'group',
+        item: [dueDaysItem],
+      },
+    ],
+  };
+
+  test('adds the issuer item after the existing settings', () => {
+    const updated = withInvoiceIssuerSourceItem(legacy);
+
+    expect(updated?.item?.[0].item).toEqual([
+      dueDaysItem,
+      expect.objectContaining({
+        linkId: 'invoicing.invoiceIssuerSource',
+      }),
+    ]);
+  });
+
+  test('preselects the default issuer through its option', () => {
+    const item = withInvoiceIssuerSourceItem(legacy)?.item?.[0].item?.[1];
+
+    expect(item?.initial).toBeUndefined();
+    expect(item?.answerOption).toEqual([
+      {
+        valueString: 'service-facility',
+        initialSelected: true,
+      },
+      {
+        valueString: 'billing-provider',
+      },
+    ]);
+  });
+
+  test('leaves a questionnaire that already has it alone', () => {
+    const updated = withInvoiceIssuerSourceItem(legacy);
+
+    expect(updated && withInvoiceIssuerSourceItem(updated)).toBeUndefined();
+  });
+
+  test('rejects a questionnaire without the invoicing group', () => {
+    expect(() =>
+      withInvoiceIssuerSourceItem({
+        ...legacy,
+        item: [],
+      })
+    ).toThrow();
   });
 });
 
@@ -274,5 +430,59 @@ describe('getOrCreateInvoicingConfig', () => {
     expect(client.fhir.create).toHaveBeenCalledTimes(1);
     expect(result.questionnaire.id).toBe('q-existing');
     expect(result.questionnaireResponse.id).toBe('created-0');
+  });
+});
+
+describe('readInvoicingConfig', () => {
+  const clientWithResponses = (responses: QuestionnaireResponse[]): Oystehr =>
+    ({
+      fhir: {
+        search: vi.fn().mockResolvedValue({
+          unbundle: () => responses,
+        }),
+        create: vi.fn(),
+        patch: vi.fn(),
+      },
+    }) as unknown as Oystehr;
+
+  test('parses the saved config', async () => {
+    const client = clientWithResponses([
+      makeQuestionnaireResponse({
+        dueDays: 14,
+      }),
+    ]);
+
+    const result = await readInvoicingConfig(client);
+
+    expect(result.dueDaysFromGeneration).toBe(14);
+  });
+
+  test('warns and uses the first config when there are several', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const client = clientWithResponses([
+      makeQuestionnaireResponse({
+        dueDays: 14,
+      }),
+      makeQuestionnaireResponse({
+        dueDays: 30,
+      }),
+    ]);
+
+    const result = await readInvoicingConfig(client);
+
+    expect(result.dueDaysFromGeneration).toBe(14);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Found 2 invoicing config QuestionnaireResponses'));
+    warn.mockRestore();
+  });
+
+  test('returns the defaults without saving anything when no config exists', async () => {
+    const client = clientWithResponses([]);
+
+    const result = await readInvoicingConfig(client);
+
+    expect(result.dueDaysFromGeneration).toBe(DEFAULT_INVOICE_DUE_DAYS);
+    expect(result.invoiceIssuerSource).toBe(DEFAULT_INVOICE_ISSUER_SOURCE);
+    expect(client.fhir.create).not.toHaveBeenCalled();
+    expect(client.fhir.patch).not.toHaveBeenCalled();
   });
 });

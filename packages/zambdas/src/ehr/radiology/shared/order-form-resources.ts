@@ -11,6 +11,7 @@ import {
 } from 'fhir/r4b';
 import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import {
   createRadiologyOrderFormPDF,
@@ -18,9 +19,12 @@ import {
   RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM,
   RadiologyOrderFormInput,
 } from '../../../shared/pdf/radiology-order-form-pdf';
+import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 /** The identifying bits of a resource an order form was rendered from. */
 export type OrderFormSource = Pick<Resource, 'resourceType' | 'id' | 'meta'>;
+
+const RADIOLOGY_ORDER_FORM_TEMPLATE_VERSION = 2;
 
 export interface RadiologyOrderFormResources {
   input: RadiologyOrderFormInput;
@@ -41,25 +45,27 @@ export const gatherRadiologyOrderFormInput = async (
     id: serviceRequestId,
   });
 
-  const patientId = serviceRequest.subject?.reference?.split('/')[1];
-  const encounterId = serviceRequest.encounter?.reference?.split('/')[1];
+  const patientId = getIdFromReference(serviceRequest.subject?.reference);
+  const encounterId = getIdFromReference(serviceRequest.encounter?.reference);
   if (!patientId || !encounterId) {
     throw new Error('ServiceRequest is missing subject or encounter reference');
   }
 
   const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
-  const locationId = encounter.location?.[0]?.location?.reference?.split('/')[1];
+  const locationId = getIdFromReference(encounter.location?.[0]?.location?.reference);
   // The ordering provider on the form is the provider assigned to the visit — orders are often placed
   // by an MA on the provider's behalf, and the requester is whoever placed the order.
-  const practitionerId = getAttendingPractitionerId(encounter) ?? serviceRequest.requester?.reference?.split('/')[1];
+  const practitionerId =
+    getAttendingPractitionerId(encounter) ?? getIdFromReference(serviceRequest.requester?.reference);
 
-  const [patient, practitioner, location, weightObservation] = await Promise.all([
+  const [patient, practitioner, location, weightObservation, { account, coverages }] = await Promise.all([
     oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
     practitionerId
       ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId })
       : Promise.resolve(undefined),
     locationId ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }) : Promise.resolve(undefined),
     fetchLatestWeightObservation(encounterId, oystehr),
+    getAccountAndCoverageResourcesForPatient(patientId, oystehr),
   ]);
 
   const timezone =
@@ -69,11 +75,19 @@ export const gatherRadiologyOrderFormInput = async (
   const weight = quantity?.value != null ? { value: quantity.value, unit: quantity.unit ?? 'kg' } : undefined;
 
   return {
-    input: { serviceRequest, patient, practitioner, location, timezone, weight, oystehr },
+    input: { serviceRequest, patient, practitioner, location, timezone, weight, coverages, oystehr },
     refs: { patientId, encounterId, serviceRequestId },
-    sources: [serviceRequest, encounter, patient, practitioner, location, weightObservation].flatMap((resource) =>
-      resource ? [resource] : []
-    ),
+    sources: [
+      serviceRequest,
+      encounter,
+      patient,
+      practitioner,
+      location,
+      weightObservation,
+      account,
+      coverages.primary,
+      coverages.secondary,
+    ].flatMap((resource) => (resource ? [resource] : [])),
   };
 };
 
@@ -119,6 +133,14 @@ export const makeRadiologyOrderFormSourceVersion = (sources: OrderFormSource[]):
   return versions.sort().join('|');
 };
 
+export const makeOrderFormVersion = (templateVersion: number, sources: OrderFormSource[]): string | undefined => {
+  const sourceVersion = makeRadiologyOrderFormSourceVersion(sources);
+  return sourceVersion && `template@${templateVersion}|${sourceVersion}`;
+};
+
+export const makeRadiologyOrderFormVersion = (sources: OrderFormSource[]): string | undefined =>
+  makeOrderFormVersion(RADIOLOGY_ORDER_FORM_TEMPLATE_VERSION, sources);
+
 /** The source version stamped on a stored order form, if any. */
 export const getStoredOrderFormSourceVersion = (docRef: DocumentReference): string | undefined =>
   docRef.identifier?.find((identifier) => identifier.system === RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM)?.value;
@@ -144,7 +166,7 @@ export const getOrCreateRadiologyOrderForm = async (
     gatherRadiologyOrderFormInput(serviceRequestId, oystehr),
   ]);
 
-  const sourceVersion = makeRadiologyOrderFormSourceVersion(sources);
+  const sourceVersion = makeRadiologyOrderFormVersion(sources);
   const existingMediaUrl = existingDocRef?.content?.[0]?.attachment?.url;
 
   if (

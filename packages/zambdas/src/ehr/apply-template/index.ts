@@ -16,6 +16,7 @@ import {
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { chartDataTagSystem, GLOBAL_TEMPLATE_META_TAG_CODE_SYSTEM } from 'utils/lib/fhir/constants';
 import { resourceHasTagSystem } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
@@ -690,7 +691,7 @@ export const makeCreateRequests = (
       // we should only add to encounter diagnoses after a dedupe when appending, to ensure the template doesn't add Dx already on the chart
       if ((!isDuplicate && effectiveAction === 'append') || effectiveAction === 'overwrite') {
         const diagnosisToAdd = templateEncounterDiagnoses?.find((d) => {
-          return d.condition.reference?.split('/')[1] === containedResource.id;
+          return getIdFromReference(d.condition.reference) === containedResource.id;
         });
         encounterDiagnoses.push({
           ...diagnosisToAdd,

@@ -14,6 +14,7 @@ import {
 } from 'fhir/r4b';
 import { applyClaimNonInsurancePayerTag, claimNonInsurancePayerExtension } from 'utils/lib/fhir/billing';
 import { codeableConcept, setNpi } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   CLAIM_ACCIDENT_STATE_EXTENSION_URL,
   CLAIM_ACCIDENT_TYPE,
@@ -37,6 +38,7 @@ import {
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { fhirValidationErrorToApiError } from '../../shared/errors';
 import { removeExtension, updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -60,6 +62,7 @@ import {
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_FACILITY_TYPE_CODE,
   EXTENSION_CLAIM_FREQUENCY_CODE,
+  EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchById,
@@ -89,7 +92,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createBillingClient(m2mToken, params.secrets);
   const agent = await resolveClaimActor('caller', oystehr, input.headers?.Authorization, params.secrets);
 
-  const response = await performEffect(oystehr, params, agent);
+  let response: Awaited<ReturnType<typeof performEffect>>;
+  try {
+    response = await performEffect(oystehr, params, agent);
+  } catch (error) {
+    throw fhirValidationErrorToApiError(error) ?? error;
+  }
   return { statusCode: 200, body: JSON.stringify(response) };
 });
 
@@ -178,12 +186,12 @@ async function saveCoverageSubscriber(input: {
   claimReference: string;
 }): Promise<{ id: string | undefined }> {
   const { oystehr, coverage, relationship, policyHolder, before, agent, claimReference } = input;
-  const patientId = coverage.beneficiary?.reference?.split('/')[1];
+  const patientId = getIdFromReference(coverage.beneficiary?.reference);
   if (!patientId) throw FHIR_RESOURCE_NOT_FOUND('Patient');
 
   setCoverageRelationship(coverage, relationship);
   const currentRef = coverage.subscriber?.reference;
-  const currentSubscriberId = currentRef?.startsWith('RelatedPerson/') ? currentRef.split('/')[1] : undefined;
+  const currentSubscriberId = getIdFromReference(currentRef, 'RelatedPerson');
   const currentSubscriber = currentSubscriberId
     ? await fetchById<RelatedPerson>(oystehr, 'RelatedPerson', currentSubscriberId)
     : undefined;
@@ -389,6 +397,17 @@ async function attachClaimResources(
     const display = payerOrg ? payerDisplay(payerOrg) : undefined;
     // A payer is only meaningful with a real coverage; a stub-only claim stays uninsured.
     if (payerReference && claimHasRealCoverage(claim.insurance)) claim.insurer = { reference: payerReference, display };
+  }
+
+  if (fields.medicareSecondaryReasonCode != null) {
+    if (fields.medicareSecondaryReasonCode) {
+      updateExtension(claim, {
+        url: EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE,
+        valueString: fields.medicareSecondaryReasonCode,
+      });
+    } else {
+      removeExtension(claim, EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE);
+    }
   }
 
   if (fields.nonInsurancePayer !== undefined) {

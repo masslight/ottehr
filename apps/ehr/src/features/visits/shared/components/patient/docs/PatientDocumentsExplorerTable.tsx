@@ -2,11 +2,12 @@
 import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import {
   Box,
   IconButton,
+  Link,
   ListItemIcon,
   ListItemText,
   Menu,
@@ -25,29 +26,29 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { stripFileExtension } from 'src/helpers/files.helper';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
-import { PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
+import { DownloadDocumentOptions, PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
 import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { isFaxableAttachment } from 'utils/lib/utils/file';
 
 export enum DocumentTableActionType {
   ActionDownload = 'ActionDownload',
-  ActionFax = 'ActionFax',
+  ActionSend = 'ActionSend',
   ActionRename = 'ActionRename',
   ActionDelete = 'ActionDelete',
 }
 
 export type DocumentTableActions = {
   isActionAllowed: (documentId: string, actionType: DocumentTableActionType) => boolean;
-  onDocumentDownload: (documentId: string) => Promise<void>;
+  onDocumentDownload: (documentId: string, options?: DownloadDocumentOptions) => Promise<void>;
   /** Opens the fax dialog for this document; faxing is a single-document action by design. */
-  onDocumentFax: (documentId: string) => void;
+  onDocumentSend: (documentId: string) => void;
   onDocumentRename: (documentId: string, newName: string) => Promise<void>;
   onDocumentDelete: (documentId: string) => Promise<void>;
 };
 
 const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableActions }> = ({ docInfo, actions }) => {
-  const { isActionAllowed, onDocumentDownload, onDocumentFax, onDocumentRename, onDocumentDelete } = actions;
+  const { isActionAllowed, onDocumentDownload, onDocumentSend, onDocumentRename, onDocumentDelete } = actions;
   const theme = useTheme();
   const lineColor = theme.palette.primary.main;
 
@@ -140,14 +141,14 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
           </IconButton>
         )}
 
-        {isActionAllowed(docInfo.id, DocumentTableActionType.ActionFax) && isDocumentFaxable(docInfo) && (
-          <Tooltip title="Send Fax">
+        {isActionAllowed(docInfo.id, DocumentTableActionType.ActionSend) && isDocumentSendable(docInfo) && (
+          <Tooltip title="Send Document">
             <IconButton
-              aria-label="Send Fax"
-              onClick={() => onDocumentFax(docInfo.id)}
-              data-testid={dataTestIds.patientDocsPage.faxDocumentButton(docInfo.id)}
+              aria-label="Send Document"
+              onClick={() => onDocumentSend(docInfo.id)}
+              data-testid={dataTestIds.patientDocsPage.sendDocumentButton(docInfo.id)}
             >
-              <FaxOutlinedIcon fontSize="small" sx={{ verticalAlign: 'middle', color: lineColor }} />
+              <SendOutlinedIcon fontSize="small" sx={{ verticalAlign: 'middle', color: lineColor }} />
             </IconButton>
           </Tooltip>
         )}
@@ -255,7 +256,7 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
  * Only documents a fax can actually carry get the action — offering it for a medical-record archive
  * or another unsupported format would fail later with "nothing faxable".
  */
-const isDocumentFaxable = (docInfo: PatientDocumentInfo): boolean => {
+const isDocumentSendable = (docInfo: PatientDocumentInfo): boolean => {
   if (docInfo.typeCodes?.some((code) => code === FAX_PACKET_CODE || code === MEDICAL_RECORD_EXPORT_CODE)) return false;
   // Judged on the stored attachment, exactly as the server judges it when the fax is built — a
   // display title is not a MIME type, and offering an action the server will drop is worse than
@@ -302,6 +303,11 @@ const resolveDocumentVisit = (
   (doc.encounterId ? visitsByEncounterId.get(doc.encounterId) : undefined) ??
   (doc.appointmentId ? visitsByAppointmentId.get(doc.appointmentId) : undefined);
 
+// Opened inside the click: a tab opened after the download's awaits is blocked as a pop-up.
+const openInNewTab = (documentId: string, download: DocumentTableActions['onDocumentDownload']): void => {
+  void download(documentId, { targetTab: window.open('', '_blank'), skipRelated: true });
+};
+
 const configureTableColumns = (
   actions: DocumentTableActions,
   visitsByEncounterId: Map<string, PatientVisitOption>,
@@ -313,7 +319,14 @@ const configureTableColumns = (
       field: 'docName',
       headerName: 'Doc Name',
       width: 400,
-      renderCell: ({ row: { docName } }) => docName,
+      renderCell: ({ row: { id, docName } }) =>
+        actions.isActionAllowed(id, DocumentTableActionType.ActionDownload) ? (
+          <Link component="button" underline="hover" onClick={() => openInNewTab(id, actions.onDocumentDownload)}>
+            {docName}
+          </Link>
+        ) : (
+          docName
+        ),
     },
     {
       sortable: true,
