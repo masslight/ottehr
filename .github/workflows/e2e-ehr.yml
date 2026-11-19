@@ -219,8 +219,13 @@ jobs:
         env:
           CI: true
 
-      - name: Upload test results
+      - name: Remove credentials from test results
+        id: sanitize-results
         if: always()
+        run: npm exec -- tsx scripts/sanitize-playwright-artifacts.ts apps/ehr/playwright-report apps/ehr/test-results
+
+      - name: Upload test results
+        if: always() && steps.sanitize-results.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report-ehr-${{ needs.check-changes.outputs.environment }}

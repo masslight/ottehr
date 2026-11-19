@@ -34,9 +34,9 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     baseURL: process.env.WEBSITE_URL,
-    trace: process.env.CI ? 'off' : 'on',
+    trace: process.env.CI ? 'on-first-retry' : 'on',
     screenshot: process.env.CI ? 'only-on-failure' : 'off',
-    video: 'off',
+    video: process.env.CI ? 'retain-on-failure' : 'off',
     actionTimeout: 40_000,
     navigationTimeout: 40_000,
   },

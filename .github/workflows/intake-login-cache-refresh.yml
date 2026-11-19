@@ -176,8 +176,13 @@ jobs:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ steps.cache-key.outputs.user-json-cache-key }}
 
-      - name: Upload login test results
+      - name: Remove credentials from test results
+        id: sanitize-results
         if: always()
+        run: npm exec -- tsx scripts/sanitize-playwright-artifacts.ts apps/intake/playwright-report-login apps/intake/test-results-login
+
+      - name: Upload login test results
+        if: always() && steps.sanitize-results.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report-intake-login-e2e-scheduled
@@ -328,8 +333,13 @@ jobs:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ steps.cache-key.outputs.user-json-cache-key }}
 
-      - name: Upload login test results
+      - name: Remove credentials from test results
+        id: sanitize-results
         if: always()
+        run: npm exec -- tsx scripts/sanitize-playwright-artifacts.ts apps/intake/playwright-report-login apps/intake/test-results-login
+
+      - name: Upload login test results
+        if: always() && steps.sanitize-results.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report-intake-login-e2e2-scheduled
@@ -480,8 +490,13 @@ jobs:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ steps.cache-key.outputs.user-json-cache-key }}
 
-      - name: Upload login test results
+      - name: Remove credentials from test results
+        id: sanitize-results
         if: always()
+        run: npm exec -- tsx scripts/sanitize-playwright-artifacts.ts apps/intake/playwright-report-login apps/intake/test-results-login
+
+      - name: Upload login test results
+        if: always() && steps.sanitize-results.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report-intake-login-e2e3-scheduled
@@ -632,8 +647,13 @@ jobs:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ steps.cache-key.outputs.user-json-cache-key }}
 
-      - name: Upload login test results
+      - name: Remove credentials from test results
+        id: sanitize-results
         if: always()
+        run: npm exec -- tsx scripts/sanitize-playwright-artifacts.ts apps/intake/playwright-report-login apps/intake/test-results-login
+
+      - name: Upload login test results
+        if: always() && steps.sanitize-results.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report-intake-login-e2e4-scheduled
@@ -786,8 +806,13 @@ jobs:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ steps.cache-key.outputs.user-json-cache-key }}
 
-      - name: Upload login test results
+      - name: Remove credentials from test results
+        id: sanitize-results
         if: always()
+        run: npm exec -- tsx scripts/sanitize-playwright-artifacts.ts apps/intake/playwright-report-login apps/intake/test-results-login
+
+      - name: Upload login test results
+        if: always() && steps.sanitize-results.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-report-intake-login-e2e5-scheduled
