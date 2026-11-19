@@ -57,7 +57,7 @@ export const testEmployeeGivenNamePattern = 'employeeTestE2E';
 export const TEST_EMPLOYEE_1: TestEmployeeInviteParams = {
   givenName: `${testEmployeeGivenNamePattern}1`,
   middleName: 'middle',
-  telecomPhone: '0734324300',
+  telecomPhone: '2734324300',
   npi: '1111111111',
   providerType: 'other',
   providerTypeText: 'credentials',
@@ -83,7 +83,7 @@ export const TEST_EMPLOYEE_1: TestEmployeeInviteParams = {
 export const TEST_EMPLOYEE_1_UPDATED_INFO: TestEmployeeInviteParams = {
   givenName: `new ${testEmployeeGivenNamePattern}`,
   middleName: 'new middle',
-  telecomPhone: '0734324301',
+  telecomPhone: '2734324301',
   providerType: 'other',
   providerTypeText: 'new credentials',
   npi: '2222222222',
@@ -116,7 +116,7 @@ export const TEST_EMPLOYEE_1_UPDATED_INFO: TestEmployeeInviteParams = {
 export const TEST_EMPLOYEE_2: TestEmployeeInviteParams = {
   givenName: `${testEmployeeGivenNamePattern}2`,
   middleName: 'middle2',
-  telecomPhone: '0734324300',
+  telecomPhone: '2734324300',
   npi: '1111111111',
   providerType: 'other',
   providerTypeText: 'credentials',
