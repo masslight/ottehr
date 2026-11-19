@@ -41,6 +41,7 @@ import { getBillingEraDetail, lookupProcedureDescriptions } from '../api/api';
 import { useRarcDescription } from '../components/era/RemitCodeAutocomplete';
 import { AdjustmentChip, AmountChip, EraStatusChip } from '../components/EraChips';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
+import { UNKNOWN_PATIENT_RESP } from '../constants/claimStatus';
 import { adjustmentDescription, isAdverseRemitStatus } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatDate } from '../utils/format';
@@ -66,7 +67,7 @@ function InlinePair({ label, value }: { label: string; value: ReactNode }): Reac
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }): ReactElement {
+function StatCard({ label, value }: { label: string; value: number | null }): ReactElement {
   return (
     <Card variant="outlined" sx={{ flex: 1, minWidth: 180 }}>
       <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
@@ -74,7 +75,7 @@ function StatCard({ label, value }: { label: string; value: number }): ReactElem
           {label}:
         </Typography>
         <Typography variant="h6" fontWeight={700} color="primary.dark">
-          {formatCurrency(value)}
+          {value === null ? UNKNOWN_PATIENT_RESP : formatCurrency(value)}
         </Typography>
       </CardContent>
     </Card>

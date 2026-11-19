@@ -970,6 +970,12 @@ export const WOUND_REPAIR_VISITS: Visit[] = [
     suggests: ['12001'],
   },
   {
+    visit: 'A cut closed with skin staples — billed like stitches through the skin only',
+    procedure: LACERATION,
+    answers: { Wounds: [{ Site: 'trunk', 'Length (cm)': 2, Closure: 'staples' }] },
+    suggests: ['12001'],
+  },
+  {
     visit: 'Two cuts of the same kind — their lengths are added together before choosing the code',
     procedure: LACERATION,
     answers: {

@@ -1,20 +1,22 @@
 import Oystehr from '@oystehr/sdk';
-import { List, Location, Patient } from 'fhir/r4b';
+import { DocumentReference, Encounter, List, Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { DocumentPacketSource, PACKET_DOCUMENT_ORDER } from 'utils/lib/types/api/document-packet.types';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { mapWithConcurrency } from '../concurrency';
 import { PacketCoverSheetSubject } from '../pdf/types';
 import { getAppointmentAndRelatedResources } from '../pdf/visit-details-pdf/get-video-resources';
+import { FullAppointmentResourcePackage } from '../pdf/visit-details-pdf/types';
 import {
   buildDocumentPacketSection,
   createDocumentPacketByteBudget,
   DocumentPacketSection,
 } from './build-document-packet';
-import { collectDocumentParts, collectMedicalRecordParts } from './collect-patient-documents';
+import { collectDocumentParts, collectMedicalRecordParts, getPacketSourceDocument } from './collect-patient-documents';
 import { collectVisitPacketParts } from './collect-visit-documents';
 import { resolvePatientDisplayId, resolveVisitTypeLabel } from './deliver-document-packet';
 
@@ -79,12 +81,11 @@ export const resolveDocumentPacketPlan = async (args: {
         collect: () => collectMedicalRecordParts(oystehr, source.patientId, source.dateRange),
       });
     case 'document':
-      return resolvePatientDocuments({
+      return resolveDocument({
         oystehr,
         token,
-        sourceType: source.type,
         patientId: source.patientId,
-        collect: () => collectDocumentParts(oystehr, source.patientId, source.documentReferenceId),
+        documentReferenceId: source.documentReferenceId,
       });
   }
 };
@@ -186,6 +187,59 @@ const resolvePatientDocuments = async (args: {
       : [],
     listResources,
   };
+};
+
+/** A document filed on a visit is filed with that visit, and its office is who the recipient contacts. */
+const resolveDocument = async (args: {
+  oystehr: Oystehr;
+  token: string;
+  patientId: string;
+  documentReferenceId: string;
+}): Promise<DocumentPacketPlan> => {
+  const { oystehr, token, patientId, documentReferenceId } = args;
+
+  const document = await getPacketSourceDocument(oystehr, patientId, documentReferenceId);
+  const [plan, visit] = await Promise.all([
+    resolvePatientDocuments({
+      oystehr,
+      token,
+      sourceType: 'document',
+      patientId,
+      collect: async () => collectDocumentParts(document),
+    }),
+    getDocumentVisit(oystehr, document),
+  ]);
+  if (!visit || visit.patient?.id !== patientId) return plan;
+
+  return {
+    ...plan,
+    appointmentId: visit.appointment.id,
+    encounterId: getDocumentEncounterId(document) ?? visit.encounter.id,
+    location: visit.location,
+    timezone: visit.timezone,
+  };
+};
+
+const getDocumentEncounterId = (document: DocumentReference): string | undefined =>
+  getIdFromReference(document.context?.encounter?.[0]?.reference, 'Encounter');
+
+/** EHR uploads name only the encounter; intake documents name only the Appointment, in `context.related`. */
+const getDocumentVisit = async (
+  oystehr: Oystehr,
+  document: DocumentReference
+): Promise<FullAppointmentResourcePackage | undefined> => {
+  const encounterId = getDocumentEncounterId(document);
+  const appointmentId =
+    document.context?.related?.map((related) => getIdFromReference(related.reference, 'Appointment')).find(Boolean) ??
+    (encounterId ? await getEncounterAppointmentId(oystehr, encounterId) : undefined);
+  return appointmentId ? getAppointmentAndRelatedResources(oystehr, appointmentId, true) : undefined;
+};
+
+const getEncounterAppointmentId = async (oystehr: Oystehr, encounterId: string): Promise<string | undefined> => {
+  const [encounter] = (
+    await oystehr.fhir.search<Encounter>({ resourceType: 'Encounter', params: [{ name: '_id', value: encounterId }] })
+  ).unbundle();
+  return getIdFromReference(encounter?.appointment?.[0]?.reference, 'Appointment');
 };
 
 const buildVisitSubject = (visitResources: {

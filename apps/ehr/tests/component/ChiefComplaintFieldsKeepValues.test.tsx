@@ -4,6 +4,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { ChartSection } from 'utils/lib/types/api/chart-data/chart-sections.types';
 import { VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
@@ -131,7 +132,43 @@ describe('Chief Complaint fields', () => {
     );
 
     expect(screen.getByRole('checkbox')).toBeChecked();
-    expect(screen.getByRole('combobox')).toHaveTextContent('Cough');
+    expect(screen.getByRole('combobox')).toHaveValue('Cough');
+  });
+
+  it('filters the reasons for visit by the typed text and saves the picked one', async () => {
+    const user = userEvent.setup();
+    renderWithClient(<ReasonForVisitField />);
+
+    const reason = screen.getByRole('combobox');
+    await waitFor(() => expect(reason).toBeEnabled());
+    await user.type(reason, 'fev');
+
+    const listbox = await screen.findByRole('listbox');
+    expect(
+      within(listbox)
+        .getAllByRole('option')
+        .map((option) => option.textContent)
+    ).toEqual(['Fever']);
+    await user.click(within(listbox).getByText('Fever'));
+
+    await waitFor(() =>
+      expect(saveMutate).toHaveBeenCalledWith({ reasonForVisit: { text: 'Fever' } }, expect.anything())
+    );
+    expect(reason).toHaveValue('Fever');
+  });
+
+  it('saves the first matching reason when Enter is pressed after typing', async () => {
+    const user = userEvent.setup();
+    renderWithClient(<ReasonForVisitField />);
+
+    const reason = screen.getByRole('combobox');
+    await waitFor(() => expect(reason).toBeEnabled());
+    await user.type(reason, 'cou{Enter}');
+
+    await waitFor(() =>
+      expect(saveMutate).toHaveBeenCalledWith({ reasonForVisit: { text: 'Cough' } }, expect.anything())
+    );
+    expect(reason).toHaveValue('Cough');
   });
 
   it('keeps an unsaved "Other" reason on a scheduled follow-up when verification is toggled', async () => {
@@ -152,7 +189,7 @@ describe('Chief Complaint fields', () => {
     fireEvent.click(verified);
     await waitFor(() => expect(saveMutateAsync).toHaveBeenCalledTimes(1));
 
-    expect(screen.getByRole('combobox')).toHaveTextContent('Other');
+    expect(screen.getByRole('combobox')).toHaveValue('Other');
     expect(screen.getByLabelText('Other reason')).toHaveValue('Rash check');
   });
 });

@@ -1,4 +1,5 @@
 import Oystehr, { TerminologySearchCptResponse, TerminologySearchHcpcsResponse } from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
 import { getResourcesFromBatchInlineRequests } from 'utils/lib/fhir/helpers';
 import {
@@ -10,7 +11,11 @@ import {
   searchRouteByCode,
 } from 'utils/lib/fhir/medication-administration';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
-import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  INVENTORY_MEDICATION_TYPE_CODE,
+  MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
+  MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import {
   inHouseMedicationsMedicationApplianceRoutes,
   isRouteRequiringAdministrationLocation,
@@ -22,6 +27,7 @@ import {
 } from 'utils/lib/types/api/medication-administration.types';
 import { CPTCodeOption } from 'utils/lib/types/common';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { administrationStockChanged, reconcileAdministrationStock } from '../../shared/medication-inventory';
 import { createMedicationAdministrationResource } from './fhir-resources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
@@ -30,7 +36,7 @@ export function getPerformerId(medicationAdministration: MedicationAdministratio
 
 export function createMedicationCopy(
   inventoryMedication: Medication,
-  orderData: { lotNumber?: string; ndc?: string; expDate?: string; manufacturer?: string },
+  orderData: { lotNumber?: string; inventoryLotId?: string; ndc?: string; expDate?: string; manufacturer?: string },
   newStatus?: string
 ): Medication {
   const resourceCopy = { ...inventoryMedication };
@@ -39,14 +45,34 @@ export function createMedicationCopy(
   // deleting identifier with code that indicates that this medication is inventory one
   const typeIdentifierArrId =
     resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;
-  if (typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
+  if (typeIdentifierArrId >= 0) {
+    resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
+    // the copy keeps the catalog drug's id so inventory can find the drug without matching by name
+    if (inventoryMedication.id) {
+      resourceCopy.identifier = [
+        ...(resourceCopy.identifier ?? []),
+        { system: MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM, value: inventoryMedication.id },
+      ];
+    }
+  }
   if (newStatus !== MedicationOrderStatuses['administered-not'] && (orderData.lotNumber || orderData.expDate)) {
     resourceCopy.batch = {
       lotNumber: orderData.lotNumber || undefined,
       expirationDate: orderData.expDate || undefined,
     };
+    const identifiers = [
+      ...(resourceCopy.identifier ?? []).filter(
+        (idn) => idn.system !== MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM
+      ),
+      ...(orderData.inventoryLotId
+        ? [{ system: MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM, value: orderData.inventoryLotId }]
+        : []),
+    ];
+    if (identifiers.length > 0) resourceCopy.identifier = identifiers;
+    else delete resourceCopy.identifier;
   }
   if (orderData.manufacturer) resourceCopy.manufacturer = { display: orderData.manufacturer };
+  else if (orderData.manufacturer === '') delete resourceCopy.manufacturer;
   // Store user-entered NDC on the medication code
   if (orderData.ndc) {
     if (!resourceCopy.code) resourceCopy.code = {};
@@ -176,6 +202,29 @@ export async function getCptHcpcsCodesToAddToChartData(
   });
 
   return codesOptionsToAdd;
+}
+
+/**
+ * Best-effort by design: administration is never blocked by inventory, so a failure here is logged and
+ * reported, never thrown.
+ */
+export async function syncInventoryForOrder(
+  oystehr: Oystehr,
+  orderId: string,
+  practitionerId: string,
+  previous: MedicationAdministration
+): Promise<void> {
+  try {
+    const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
+      resourceType: 'MedicationAdministration',
+      id: orderId,
+    });
+    if (!administrationStockChanged(previous, medicationAdministration)) return;
+    await reconcileAdministrationStock(oystehr, medicationAdministration, `Practitioner/${practitionerId}`, previous);
+  } catch (e) {
+    console.log('Error in syncInventoryForOrder: ', e, JSON.stringify(e));
+    captureException(e);
+  }
 }
 
 export function getEncounterIdFromMA(medicationAdministration: MedicationAdministration): string | undefined {

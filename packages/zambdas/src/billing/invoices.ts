@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Claim, Invoice, Location } from 'fhir/r4b';
 import {
   getBillingInvoiceClaims,
@@ -6,6 +6,8 @@ import {
   getHostedInvoiceUrl,
   INVOICE_CLAIM_TAG_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
+import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
@@ -21,6 +23,40 @@ import { copySourceId, fetchById, findById } from './shared';
 export async function getServiceFacilityId(oystehr: Oystehr, claim: Claim): Promise<string | undefined> {
   const copyId = getIdFromReference(claim.facility?.reference, 'Location');
   return copyId ? copySourceId(await findById<Location>(oystehr, 'Location', copyId)) : undefined;
+}
+
+export const ACTIVE_INVOICE_STATUSES = 'draft,issued,balanced';
+
+const activeClaimInvoiceParams = (claimIds: string[]): SearchParam[] => [
+  {
+    name: '_tag',
+    value: claimIds.map((claimId) => `${INVOICE_CLAIM_TAG_SYSTEM}|${claimId}`).join(','),
+  },
+  {
+    name: '_tag',
+    value: `${BILLING_RESOURCE_TAG.system}|${BILLING_RESOURCE_TAG.code}`,
+  },
+  {
+    name: 'status',
+    value: ACTIVE_INVOICE_STATUSES,
+  },
+];
+
+export async function createInvoiceUnlessClaimsHaveOne(oystehr: Oystehr, invoice: Invoice): Promise<Invoice> {
+  const claimIds = getBillingInvoiceClaims(invoice).map(({ claimId }) => claimId);
+  return oystehr.fhir.create<Invoice>(invoice, {
+    ifNoneExist: activeClaimInvoiceParams(claimIds),
+  });
+}
+
+export async function fetchActiveClaimInvoices(oystehr: Oystehr, claimIds: string[]): Promise<Invoice[]> {
+  return getAllFhirSearchPages<Invoice>(
+    {
+      resourceType: 'Invoice',
+      params: activeClaimInvoiceParams(claimIds),
+    },
+    oystehr
+  );
 }
 
 export async function fetchClaimInvoices(oystehr: Oystehr, claimId: string): Promise<Invoice[]> {

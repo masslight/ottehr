@@ -185,4 +185,22 @@ describe("the patient's name on a visit details page", () => {
       expect(screen.getByTestId(dataTestIds.patientHeader.patientName)).toHaveTextContent('Patient, Test')
     );
   });
+
+  it('shows when the name was last modified on the PID line of the header', async () => {
+    const nameTag = {
+      system: 'staff-update-history-name',
+      code: JSON.stringify({ lastModifiedDate: '2026-08-19T15:00:00.000Z', lastModifiedBy: 'Staff a@example.com' }),
+    };
+    getPatientVisitDetailsMock.mockResolvedValue({
+      ...visitDetails,
+      patient: { ...visitDetails.patient, meta: { tag: [nameTag] } },
+    });
+
+    renderPage();
+
+    const lastModified = await screen.findByTestId(dataTestIds.patientHeader.nameLastModified);
+    expect(lastModified).toHaveTextContent(/^Name Last Modified 08\/19\/2026 .* By Staff a@example\.com$/);
+    expect(lastModified.parentElement).toContainElement(screen.getByTestId(dataTestIds.patientHeader.patientId));
+    expect(screen.getAllByText(/Name Last Modified/)).toHaveLength(1);
+  });
 });

@@ -12,9 +12,9 @@ import {
 import { DocumentPacketPart } from './collect-visit-documents';
 
 /**
- * Documents that are not scoped to a visit: the patient's whole record, or one row of their Docs
- * table. Formats a fax machine cannot render (zip archives, XML, …) are left out — the medical
- * record archive in particular is a zip of the very documents being faxed.
+ * Documents picked from the patient's record rather than a visit's package: the whole record, or
+ * one row of their Docs table. Formats a fax machine cannot render (zip archives, XML, …) are left
+ * out — the medical record archive in particular is a zip of the very documents being faxed.
  */
 const toParts = (documents: DocumentReference[]): DocumentPacketPart[] =>
   collectPatientRecordAttachments(documents)
@@ -40,11 +40,11 @@ export const collectMedicalRecordParts = async (
 };
 
 /** One document, after confirming it is the patient's. */
-export const collectDocumentParts = async (
+export const getPacketSourceDocument = async (
   oystehr: Oystehr,
   patientId: string,
   documentReferenceId: string
-): Promise<DocumentPacketPart[]> => {
+): Promise<DocumentReference> => {
   const document = await oystehr.fhir.get<DocumentReference>({
     resourceType: 'DocumentReference',
     id: documentReferenceId,
@@ -57,5 +57,7 @@ export const collectDocumentParts = async (
       'Generated medical record exports and sent packets cannot be used as packet source documents'
     );
   }
-  return toParts([document]);
+  return document;
 };
+
+export const collectDocumentParts = (document: DocumentReference): DocumentPacketPart[] => toParts([document]);

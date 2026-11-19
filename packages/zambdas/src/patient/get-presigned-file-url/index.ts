@@ -22,6 +22,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { makeZ3Url } from '../../shared/presigned-file-urls/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
+import { createPresignedUrl } from '../../shared/z3Utils';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let oystehrToken: string;
@@ -100,16 +101,7 @@ const makePresignedFileURL = async (
     fileType,
     fileFormat,
   });
-  const presignedURLRequest = await fetch(fileURL, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${oystehrToken}`,
-    },
-    body: JSON.stringify({ action: 'upload' }),
-  });
-  console.log('presigned URL request successfully made');
-  const presignedURLResponse = await presignedURLRequest.json();
-  console.log('presignedURLResponse', JSON.stringify(presignedURLResponse));
+  const presignedURL = await createPresignedUrl(oystehrToken, fileURL, 'upload');
 
-  return { presignedURL: presignedURLResponse.signedUrl, z3URL: fileURL };
+  return { presignedURL, z3URL: fileURL };
 };
