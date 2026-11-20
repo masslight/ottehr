@@ -2683,6 +2683,31 @@
         "reason": "Create Task for eRX notification"
       }
     },
+    "PATIENT-TEXT-MESSAGE": {
+      "name": "patient-text-message-subscription",
+      "type": "subscription",
+      "runtime": "nodejs22.x",
+      "src": "src/subscriptions/communication/patient-text-message/index",
+      "zip": ".dist/zips/patient-text-message.zip",
+      "subscription": {
+        "criteria": "Communication?medium=http://terminology.hl7.org/CodeSystem/v3-ParticipationMode|SMSWRIT",
+        "reason": "Create a Patient Request task for a text from a patient with no visit today"
+      }
+    },
+    "GET-PROVIDER-JOURNAL": {
+      "name": "get-provider-journal",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/provider-journal/get-provider-journal/index",
+      "zip": ".dist/zips/get-provider-journal.zip"
+    },
+    "COMPLETE-JOURNAL-TASK": {
+      "name": "complete-journal-task",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/ehr/provider-journal/complete-journal-task/index",
+      "zip": ".dist/zips/complete-journal-task.zip"
+    },
     "GET-LABEL-PRINTING-CONFIG": {
       "name": "get-label-printing-config",
       "type": "http_auth",
@@ -3520,6 +3545,24 @@
         "channel": {
           "type": "rest-hook",
           "endpoint": "zapehr-lambda:#{ref/zambdas/ERX_NOTIFICATION/id}"
+        },
+        "extension": [
+          {
+            "url": "http://zapehr.com/fhir/extension/SubscriptionTriggerEvent",
+            "valueString": "create"
+          }
+        ]
+      }
+    },
+    "SUB_PATIENT_TEXT_MESSAGE_SUBSCRIPTION": {
+      "resource": {
+        "resourceType": "Subscription",
+        "status": "active",
+        "reason": "Patient text message task",
+        "criteria": "Communication?medium=http://terminology.hl7.org/CodeSystem/v3-ParticipationMode|SMSWRIT",
+        "channel": {
+          "type": "rest-hook",
+          "endpoint": "zapehr-lambda:#{ref/zambdas/PATIENT-TEXT-MESSAGE/id}"
         },
         "extension": [
           {
