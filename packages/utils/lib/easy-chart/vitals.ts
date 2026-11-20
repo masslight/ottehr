@@ -322,7 +322,7 @@ export function unitNotSaid(
   const keyword = READING_KEYWORDS[field];
   const value = Number(new RegExp(NUMBER).exec(display)?.[0]);
   if (!rules || !keyword || !Number.isFinite(value)) return undefined;
-  const reading = new RegExp(String.raw`(?:${keyword})\D{0,24}?(${NUMBER})([^\d,;]*)`, 'gi');
+  const reading = new RegExp(String.raw`(?:${keyword})\D{0,24}?(${NUMBER})(?=([^\d,;]*))`, 'gi');
   const trailing = narratives.flatMap((text) =>
     text ? [...text.matchAll(reading)].filter((match) => Number(match[1]) === value).map((match) => match[2]) : []
   );

@@ -300,6 +300,13 @@ describe('unitNotSaid', () => {
     ).toBeUndefined();
   });
 
+  it('checks a unit-less recheck that follows a reading with a unit', () => {
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['HC 43 cm. HC 44 today'])).toMatchObject({
+      status: 'missing-unit',
+    });
+    expect(unitNotSaid('vital-head-circumference', '43 cm', ['HC 43 cm. HC 44 today'])).toBeUndefined();
+  });
+
   it('does not read a longer number as the reading', () => {
     expect(unitNotSaid('vital-head-circumference', '44 cm', ['HC 44.5 cm, 144 days old'])).toBeUndefined();
   });
