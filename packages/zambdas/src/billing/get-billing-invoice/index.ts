@@ -1,15 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Invoice, Organization, Patient } from 'fhir/r4b';
+import { Claim, DocumentReference, Invoice, Organization, Patient, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   getBillingInvoiceClaims,
   getBillingInvoiceKind,
   getInvoiceNumber,
+  getNioInvoicePaymentId,
   isInvoicePastDue,
-  PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
-import { getContainedReconciliation } from 'utils/lib/fhir/payments';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { GetBillingInvoiceInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
@@ -20,15 +19,23 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { getActiveStatusGroup, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { roundNumberToDecimalPlaces } from 'utils/lib/utils/convert';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
-import { getInvoiceBalanceInCents, toClaimPatientPayment } from '../claim-amounts';
+import {
+  getInvoiceBalanceInCents,
+  getInvoicePaymentReference,
+  sumPatientPayments,
+  toClaimPatientPayment,
+} from '../claim-amounts';
 import { getClaimServiceDay } from '../claim-search';
 import {
+  fetchInvoicePaymentAttachments,
   fetchInvoicePaymentNotices,
   findInvoicePdf,
+  getInvoicePaymentAttachmentDownloadUrl,
   getInvoicePdfDownloadUrl,
   getInvoiceStatusDatesAndAmount,
   getNioInvoiceRecipient,
@@ -107,20 +114,12 @@ export async function performEffect({
     (resource): resource is Organization =>
       resource.resourceType === 'Organization' && `Organization/${resource.id}` === invoice.recipient?.reference
   );
-  const payments = notices
-    .filter((notice) => notice.status === 'active')
-    .map((notice): BillingInvoicePayment => {
-      const payment = toClaimPatientPayment(notice);
-      return {
-        paymentNoticeId: payment.paymentNoticeId,
-        paymentDate: payment.paymentDate,
-        amount: payment.amount,
-        method: payment.method,
-        reference: getContainedReconciliation(notice)?.identifier?.find(
-          (identifier) => identifier.system === PAYMENT_REFERENCE_IDENTIFIER_SYSTEM
-        )?.value,
-      };
-    });
+  const payments = await buildInvoicePayments({
+    oystehr,
+    invoiceId,
+    notices,
+    secrets,
+  });
 
   return {
     ...getInvoiceStatusDatesAndAmount(invoice),
@@ -187,6 +186,81 @@ async function fetchInvoiceClaimLines(oystehr: Oystehr, invoice: Invoice): Promi
       amount,
     };
   });
+}
+
+async function buildInvoicePayments({
+  oystehr,
+  invoiceId,
+  notices,
+  secrets,
+}: {
+  oystehr: Oystehr;
+  invoiceId: string;
+  notices: PaymentNotice[];
+  secrets: Secrets;
+}): Promise<BillingInvoicePayment[]> {
+  const noticesByPaymentId = new Map<string, PaymentNotice[]>();
+  for (const notice of notices.filter((notice) => notice.status === 'active')) {
+    const paymentId = getNioInvoicePaymentId(notice) ?? notice.id ?? '';
+    noticesByPaymentId.set(paymentId, [...(noticesByPaymentId.get(paymentId) ?? []), notice]);
+  }
+  const attachments = await fetchInvoicePaymentAttachments(oystehr, [...noticesByPaymentId.keys()]);
+  return Promise.all(
+    [...noticesByPaymentId].map(async ([paymentId, paymentNotices]): Promise<BillingInvoicePayment> => {
+      const [first] = paymentNotices;
+      const { paymentDate, method } = toClaimPatientPayment(first);
+      const documentReference = attachments.find(
+        (documentReference) => getNioInvoicePaymentId(documentReference) === paymentId
+      );
+      const attachment = documentReference
+        ? await paymentAttachmentLink({
+            oystehr,
+            invoiceId,
+            documentReference,
+            paymentNotices,
+            secrets,
+          })
+        : undefined;
+      return {
+        paymentId,
+        paymentDate,
+        amount: roundNumberToDecimalPlaces(sumPatientPayments(paymentNotices), 2),
+        method,
+        reference: getInvoicePaymentReference(first),
+        ...(attachment ? { attachment } : {}),
+      };
+    })
+  );
+}
+
+async function paymentAttachmentLink({
+  oystehr,
+  invoiceId,
+  documentReference,
+  paymentNotices,
+  secrets,
+}: {
+  oystehr: Oystehr;
+  invoiceId: string;
+  documentReference: DocumentReference;
+  paymentNotices: PaymentNotice[];
+  secrets: Secrets;
+}): Promise<BillingInvoicePayment['attachment']> {
+  try {
+    return {
+      fileName: documentReference.content[0]?.attachment.title ?? '',
+      url: await getInvoicePaymentAttachmentDownloadUrl({
+        oystehr,
+        invoiceId,
+        documentReference,
+        paymentNoticeReferences: paymentNotices.map((notice) => `PaymentNotice/${notice.id}`),
+        secrets,
+      }),
+    };
+  } catch (error) {
+    console.warn(`Invoice ${invoiceId} leaves out payment attachment ${documentReference.id}:`, error);
+    return undefined;
+  }
 }
 
 async function findInvoicePdfDownloadUrl({

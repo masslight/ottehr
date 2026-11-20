@@ -1325,11 +1325,15 @@ export interface BillingInvoiceClaimLine {
 }
 
 export interface BillingInvoicePayment {
-  paymentNoticeId: string;
+  paymentId: string;
   paymentDate: string;
   amount: number;
   method: string;
   reference?: string;
+  attachment?: {
+    fileName: string;
+    url: string;
+  };
 }
 
 export interface RecordBillingNioInvoicePaymentResponse {

@@ -52,7 +52,7 @@ const invoice: BillingInvoiceDetail = {
   ],
   payments: [
     {
-      paymentNoticeId: 'notice-1',
+      paymentId: 'payment-1',
       paymentDate: '2026-09-19',
       amount: 180,
       method: 'check',
@@ -178,6 +178,30 @@ describe('InvoiceDetail', () => {
     await user.click(download);
 
     expect(mocks.downloadUrl).toHaveBeenCalledWith('INV-00042.pdf', 'https://z3.example/INV-00042.pdf?fresh');
+  });
+
+  it("downloads a payment's attachment from a freshly presigned link", async () => {
+    const user = userEvent.setup();
+    const withAttachment = (url: string): BillingInvoiceDetail => ({
+      ...invoice,
+      payments: [
+        {
+          ...invoice.payments[0],
+          attachment: {
+            fileName: 'check-88123.pdf',
+            url,
+          },
+        },
+      ],
+    });
+    mocks.getInvoice.mockResolvedValue(withAttachment('https://z3.example/check-88123.pdf'));
+    renderPage();
+    const attachment = await screen.findByRole('button', { name: 'check-88123.pdf' });
+    mocks.getInvoice.mockResolvedValue(withAttachment('https://z3.example/check-88123.pdf?fresh'));
+
+    await user.click(attachment);
+
+    expect(mocks.downloadUrl).toHaveBeenCalledWith('check-88123.pdf', 'https://z3.example/check-88123.pdf?fresh');
   });
 
   it('shows an error when the PDF fails to download', async () => {
