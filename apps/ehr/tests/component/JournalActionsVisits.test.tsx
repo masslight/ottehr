@@ -62,6 +62,27 @@ describe('journal row actions and the row visits', () => {
     expect(handlers.onAddendum).toHaveBeenCalledWith(row, completed);
   });
 
+  it("skips a to-do's upcoming booking and uses the row's started visit for the chart links", () => {
+    const booking = visit('next', { start: '2026-11-27T14:00:00Z', status: 'pending', hasProgressNote: false });
+    const today = visit('today', { status: 'discharged' });
+    handlers.onAddendum.mockClear();
+    const todayRow: JournalRow = { patient, visit: today, visits: [booking, today], items: [todo('enc-next')] };
+    byKey(actions('td', todayRow), 'addendum')?.onClick?.();
+    expect(handlers.onAddendum).toHaveBeenCalledWith(todayRow, today);
+
+    const last = visit('last', { start: '2026-11-06T14:00:00Z', status: 'completed' });
+    handlers.onAddendum.mockClear();
+    const recentRow: JournalRow = { patient, visits: [booking, last], items: [todo('enc-next')] };
+    const recent = actions('rc', recentRow);
+    expect(byKey(recent, 'progress')?.href).toBe('/in-person/appt-last/review-and-sign');
+    expect(byKey(recent, 'details')?.href).toBe('/visit/appt-last');
+    expect(byKey(recent, 'followup')?.href).toContain('encounter=enc-last');
+    const addendum = byKey(recent, 'addendum');
+    expect(addendum?.disabledReason).toBeUndefined();
+    addendum?.onClick?.();
+    expect(handlers.onAddendum).toHaveBeenCalledWith(recentRow, last);
+  });
+
   it("gives a clinician's virtual Ready row Start Intake, as the tracking board does; the provider keeps Join", () => {
     const ready = visit('tm', { status: 'ready', isTelemed: true, hasProgressNote: false });
     const clinician = actions('cu', { patient, visit: ready, visits: [ready], items: [] }, 'clinician');

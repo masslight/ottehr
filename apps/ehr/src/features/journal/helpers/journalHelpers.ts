@@ -99,18 +99,21 @@ export const isFlaggedReason = (reason: string | undefined): boolean =>
 export const itemVisit = (item: JournalItem, row: JournalRow): JournalVisit | undefined =>
   item.encounterId ? row.visits.find((v) => v.encounterId === item.encounterId) : undefined;
 
-/** The visit of the oldest open item that has one (the mockup's oldestVisit). */
+/** The started visit (intake or later) of the oldest open item that has one (the mockup's oldestVisit). */
 export const oldestItemVisit = (row: JournalRow): JournalVisit | undefined =>
   [...row.items]
-    .filter((item) => itemVisit(item, row))
+    .filter((item) => itemVisit(item, row)?.hasProgressNote)
     .sort((a, b) => a.since.localeCompare(b.since))
     .map((item) => itemVisit(item, row))[0];
 
-/** Coming Up / today-done / Past rows use the row's visit; otherwise the oldest open item's visit. */
+/**
+ * Coming Up / today-done / Past rows use the row's visit; otherwise the oldest open item's started visit, then the
+ * row's newest started visit (a to-do on an upcoming booking doesn't point the chart links at the booking).
+ */
 export const getRowVisit = (ref: JournalRowRef): JournalVisit | undefined => {
   const { section, row } = ref;
   if (section === 'cu' || section === 'tdd' || section === 'pa') return row.visit;
-  return oldestItemVisit(row) ?? row.visit ?? row.visits[0];
+  return oldestItemVisit(row) ?? row.visit ?? row.visits.find((v) => v.hasProgressNote) ?? row.visits[0];
 };
 
 /** Distinct visits among the row's open items, newest first. */
