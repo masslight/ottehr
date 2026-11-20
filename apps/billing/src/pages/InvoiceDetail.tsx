@@ -24,6 +24,7 @@ import { getBillingInvoice } from '../api/api';
 import { ClaimStatusValueChip } from '../components/ClaimStatusValueChip';
 import { InvoiceStatusChip } from '../components/InvoiceStatusChip';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
+import { RecordInvoicePaymentDialog } from '../components/RecordInvoicePaymentDialog';
 import { Row } from '../components/Row';
 import { invoicePaymentMethodLabel } from '../constants/invoice';
 import { useApiClients } from '../hooks/useAppClients';
@@ -162,6 +163,7 @@ export default function InvoiceDetail(): ReactElement {
   const { oystehrZambda } = useApiClients();
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [recordingPayment, setRecordingPayment] = useState(false);
 
   const invoice = useQuery({
     queryKey: ['billing-invoice', invoiceId],
@@ -174,6 +176,8 @@ export default function InvoiceDetail(): ReactElement {
         invoiceId: invoiceId!,
       }),
   });
+
+  const canRecordPayment = invoice.data?.status === 'issued' && (invoice.data.balance ?? 0) > 0;
 
   const download = async ({
     pick,
@@ -253,7 +257,7 @@ export default function InvoiceDetail(): ReactElement {
             flexGrow: 1,
           }}
         />
-        <Button variant="contained" disabled>
+        <Button variant="contained" disabled={!canRecordPayment} onClick={() => setRecordingPayment(true)}>
           Record payment
         </Button>
         <Button variant="outlined" disabled>
@@ -298,6 +302,14 @@ export default function InvoiceDetail(): ReactElement {
         <InvoiceSections
           invoice={invoice.data}
           onDownloadAttachment={(paymentId) => void downloadAttachment(paymentId)}
+        />
+      )}
+      {invoice.data && (
+        <RecordInvoicePaymentDialog
+          open={recordingPayment}
+          onClose={() => setRecordingPayment(false)}
+          onRecorded={() => invoice.refetch()}
+          invoice={invoice.data}
         />
       )}
     </Box>

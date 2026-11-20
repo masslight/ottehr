@@ -91,8 +91,8 @@ interface AddForm {
   file: File | null;
 }
 
-// the largest file an attachment, a claim's or a remit's, can be
-const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+// the largest file an attachment, a claim's, a remit's or a payment's, can be
+export const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
 // The attachments card shared by the claim detail and manual remit screens: a table of files with
 // download, rename and delete, and an add dialog with a drop zone. The screen supplies the storage

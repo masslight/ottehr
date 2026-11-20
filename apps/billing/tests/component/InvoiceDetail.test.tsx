@@ -20,6 +20,9 @@ vi.mock('../../src/hooks/useAppClients', () => ({
     oystehrZambda: mocks.client,
   }),
 }));
+vi.mock('../../src/components/DateInput', async () => ({
+  DateInput: (await import('./inputStub')).InputStub,
+}));
 vi.mock('../../src/utils/downloadFile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/utils/downloadFile')>()),
   downloadUrl: mocks.downloadUrl,
@@ -155,14 +158,39 @@ describe('InvoiceDetail', () => {
     expect(balanceLabel.parentElement).toHaveTextContent('Balance-');
   });
 
-  it('keeps the payment actions disabled', async () => {
+  it('offers to record a payment while the invoice has a balance, and keeps card payments disabled', async () => {
     renderPage();
 
     await screen.findByRole('heading', { name: 'INV-00042' });
     const recordPayment = screen.getByRole('button', { name: 'Record payment' });
     const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
-    expect(recordPayment).toBeDisabled();
+    expect(recordPayment).toBeEnabled();
     expect(collectCardPayment).toBeDisabled();
+  });
+
+  it('takes no payment on a paid invoice', async () => {
+    mocks.getInvoice.mockResolvedValue({
+      ...invoice,
+      status: 'balanced',
+      balance: 0,
+    });
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    expect(recordPayment).toBeDisabled();
+  });
+
+  it('opens the record payment dialog for the balance', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    await user.click(recordPayment);
+
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('140.00');
   });
 
   it('downloads the invoice PDF from a freshly presigned link', async () => {
