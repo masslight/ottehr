@@ -861,6 +861,36 @@ describe('taskToJournalItem wording', () => {
     );
   });
 
+  it('titles an unmatched unsolicited result as the Tasks page does', () => {
+    const input = (code: string, valueString: string): NonNullable<Task['input']>[number] => ({
+      type: { coding: [{ code }] },
+      valueString,
+    });
+    const match = (inputs: Task['input']): Task =>
+      boardTask({
+        id: 'match',
+        category: LAB_ORDER_TASK.category,
+        code: { coding: [{ system: LAB_ORDER_TASK.system, code: LAB_ORDER_TASK.code.matchUnsolicitedResult }] },
+        basedOn: [{ reference: 'DiagnosticReport/dr-1' }],
+        input: inputs,
+      });
+    expect(
+      taskToJournalItem(
+        match([
+          input(LAB_ORDER_TASK.input.testName, 'CBC'),
+          input(LAB_ORDER_TASK.input.receivedDate, '2026-11-05T10:00:00.000Z'),
+        ]),
+        {}
+      ).label
+    ).toBe('Match unsolicited test results for CBC');
+    expect(
+      taskToJournalItem(
+        match([input(LAB_ORDER_TASK.input.testName, 'CBC'), input(LAB_ORDER_TASK.input.labName, 'Quest')]),
+        {}
+      ).label
+    ).toBe('Match unsolicited test results for CBC / Quest');
+  });
+
   it('treats a completed-form review task (submit-paperwork) as a task, not a call', () => {
     const form = boardTask({
       id: 'form',

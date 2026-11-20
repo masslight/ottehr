@@ -230,15 +230,23 @@ export function taskToJournalItem(
 
   if (category === LAB_ORDER_TASK.category) {
     const testName = getTaskInputValue(task, LAB_ORDER_TASK.input.testName);
+    const code = getCoding(task.code, LAB_ORDER_TASK.system)?.code;
+    // The Tasks page's title for an unmatched unsolicited result (useTasks.ts fhirTaskToTask).
+    const labName = getTaskInputValue(task, LAB_ORDER_TASK.input.labName);
+    const fullTestName = (testName ?? '') + (labName ? ' / ' + labName : '');
+    const patientName = getTaskInputValue(task, LAB_ORDER_TASK.input.patientName);
+    const matchLabel = `Match unsolicited test results${fullTestName ? ` for ${fullTestName}` : ''}${
+      patientName ? ` for ${patientName}` : ''
+    }`;
     return {
       ...base,
       kind: 'external-lab',
-      label: `Review ${testName ?? 'lab results'}`,
+      label: code === LAB_ORDER_TASK.code.matchUnsolicitedResult ? matchLabel : `Review ${testName ?? 'lab results'}`,
       when: 'resulted',
       since: getTaskInputValue(task, LAB_ORDER_TASK.input.receivedDate) ?? task.authoredOn ?? '',
       orderId: basedOnId(task, 'ServiceRequest'),
       diagnosticReportId: basedOnId(task, 'DiagnosticReport'),
-      code: getCoding(task.code, LAB_ORDER_TASK.system)?.code,
+      code,
       isReflex: getTaskInputValue(task, LAB_ORDER_TASK.input.drTag) === LabType.reflex || undefined,
     };
   }
