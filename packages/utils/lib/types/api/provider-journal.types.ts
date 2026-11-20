@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TaskAlertCode } from '../data/tasks/types';
 import { VisitStatusLabel } from './appointment.types';
 
 export const GetProviderJournalInputSchema = z.object({
@@ -66,6 +67,8 @@ export interface JournalItem {
   folderId?: string;
   /** Manual "Patient Follow-up" tasks: the Free form note dialog offers to complete them. */
   isCallTask?: boolean;
+  /** The Tasks page's alert, e.g. an abnormal lab result. */
+  alert?: TaskAlertCode;
 }
 
 export interface JournalVisit {

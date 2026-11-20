@@ -31,6 +31,7 @@ import {
   MANUAL_TASK,
   PATIENT_REQUEST_TASK,
   RADIOLOGY_TASK,
+  TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
 import { getInPersonVisitStatus, getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 
@@ -131,6 +132,12 @@ const taskAssignedAt = (task: Task): string | undefined =>
 const basedOnId = (task: Task, resourceType: 'ServiceRequest' | 'DiagnosticReport'): string | undefined =>
   task.basedOn?.map((reference) => getIdFromReference(reference.reference, resourceType)).find(Boolean);
 
+/** The Tasks page's alert (useTasks getAlertCode): the "alert" input, when it is a known code. */
+const taskAlert = (task: Task): TaskAlertCode | undefined => {
+  const code = getTaskInputValue(task, LAB_ORDER_TASK.input.alert);
+  return Object.values(TaskAlertCode).includes(code as TaskAlertCode) ? (code as TaskAlertCode) : undefined;
+};
+
 const hasTag = (task: Task, tag: { system: string; code: string }): boolean =>
   Boolean(task.meta?.tag?.some((t) => t.system === tag.system && t.code === tag.code));
 
@@ -170,6 +177,9 @@ const toJournalPatient = (patient: Patient, relatedPersons: RelatedPerson[]): Jo
 });
 
 const bySinceDesc = (a: JournalItem, b: JournalItem): number => b.since.localeCompare(a.since);
+/** Flagged (abnormal) items first, as the provider should open them first; then newest first. */
+const byAlertThenSinceDesc = (a: JournalItem, b: JournalItem): number =>
+  Number(Boolean(b.alert)) - Number(Boolean(a.alert)) || bySinceDesc(a, b);
 const byStartDesc = (a: Visit, b: Visit): number => b.journal.start.localeCompare(a.journal.start);
 
 /**
@@ -189,6 +199,7 @@ export function taskToJournalItem(
     appointmentId: context.appointmentId,
     encounterId: context.encounterId,
     isFollowUpVisit: context.isFollowUpVisit || undefined,
+    alert: taskAlert(task),
   };
   const assignedOrCreated = (): { when: JournalItemWhen; since: string } => ({
     when: owned ? 'assigned' : 'created',
@@ -371,7 +382,7 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
       notTied.push({ patient: bucket?.patient, visits: [], items: [item] });
     }
   });
-  buckets.forEach((bucket) => bucket.items.sort(bySinceDesc));
+  buckets.forEach((bucket) => bucket.items.sort(byAlertThenSinceDesc));
 
   const isToday = (visit: Visit): boolean =>
     DateTime.fromISO(visit.journal.start).setZone(now.zone).hasSame(now, 'day');

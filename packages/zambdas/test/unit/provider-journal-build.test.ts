@@ -10,7 +10,7 @@ import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
-import { ERX_TASK, FAX_TASK, MANUAL_TASK, PATIENT_REQUEST_TASK } from 'utils/lib/types/data/tasks/types';
+import { ERX_TASK, FAX_TASK, MANUAL_TASK, PATIENT_REQUEST_TASK, TaskAlertCode } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it } from 'vitest';
 import {
   buildJournal,
@@ -538,6 +538,32 @@ describe('buildJournal: task ownership and placement', () => {
       })
     );
     expect(journal.recent[0].items.map((item) => item.id)).toEqual(['final']);
+  });
+
+  it('marks abnormal results like the Tasks page and lists them first on the row', () => {
+    const lab = (id: string, receivedDate: string, abnormal: boolean): Task =>
+      boardTask({
+        id,
+        category: LAB_ORDER_TASK.category,
+        title: 'Review results',
+        encounterId: 'enc-mine',
+        input: [
+          { type: { coding: [{ code: LAB_ORDER_TASK.input.receivedDate }] }, valueString: receivedDate },
+          ...(abnormal
+            ? [{ type: { coding: [{ code: LAB_ORDER_TASK.input.alert }] }, valueString: TaskAlertCode.abnormalLabResult }]
+            : []),
+        ],
+      });
+    const journal = buildJournal(
+      withVisits([myVisit()], {
+        patients: [patient('pat-robert', 'Robert', 'Hill')],
+        tasks: [lab('potassium', '2026-11-04T14:00:00.000Z', true), lab('cbc', '2026-11-06T14:00:00.000Z', false)],
+      })
+    );
+    expect(journal.recent[0].items.map((item) => [item.id, item.alert])).toEqual([
+      ['potassium', TaskAlertCode.abnormalLabResult],
+      ['cbc', undefined],
+    ]);
   });
 
   it('lists only account (user-relatedperson) SMS numbers as phones', () => {

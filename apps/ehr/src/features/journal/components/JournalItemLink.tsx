@@ -1,7 +1,10 @@
+import { WarningAmberOutlined } from '@mui/icons-material';
 import { Box, Link } from '@mui/material';
 import { DateTime } from 'luxon';
 import { MouseEvent, ReactElement } from 'react';
+import { GenericToolTip } from 'src/components/GenericToolTip';
 import { JournalItem } from 'utils/lib/types/api/provider-journal.types';
+import { TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
 import { formatAge, JOURNAL_COLORS, journalItemLink } from '../helpers/journalHelpers';
 
 interface Props {
@@ -46,6 +49,12 @@ export const JournalItemLink = ({ item, now, onOpenChat, inPanel }: Props): Reac
         <Link href={journalItemLink(item)} target="_blank" rel="noopener" sx={linkSx} onClick={stop}>
           {item.label}
         </Link>
+      )}
+      {item.alert && (
+        // Same icon and hover as the Tasks page's alert.
+        <GenericToolTip title={TaskAlertDisplay[item.alert] ?? item.alert} placement="top">
+          <WarningAmberOutlined fontSize="small" color="warning" sx={{ ml: '5px', verticalAlign: 'middle' }} />
+        </GenericToolTip>
       )}
       ,{' '}
       <Box
