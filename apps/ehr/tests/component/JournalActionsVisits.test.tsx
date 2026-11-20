@@ -36,4 +36,15 @@ describe('journal row actions and the row visits', () => {
     expect(byKey(list, 'progress')?.href).toBe('/in-person/appt-today/review-and-sign');
     expect(byKey(list, 'details')?.href).toBe('/visit/appt-today');
   });
+
+  it('disables Progress Note with the same hover as Addendum while the visit has no note yet', () => {
+    const ready = visit('ready', { status: 'ready', hasProgressNote: false });
+    const list = actions('cu', { patient, visit: ready, visits: [ready], items: [] }, 'clinician');
+    expect(byKey(list, 'progress')?.disabledReason).toBe('No Progress Note yet');
+    expect(byKey(list, 'addendum')?.disabledReason).toBe('No Progress Note yet');
+    const seen = visit('seen');
+    expect(byKey(actions('td', { patient, visit: seen, visits: [seen], items: [] }), 'progress')?.disabledReason).toBe(
+      undefined
+    );
+  });
 });

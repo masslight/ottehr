@@ -82,6 +82,7 @@ export const SIDE_BUTTON_ORDER: JournalActionKey[] = [
 ];
 
 export const RX_DISABLED_REASON = 'Available once the new eRx is released';
+export const NO_PROGRESS_NOTE_REASON = 'No Progress Note yet';
 
 export const buildJournalActions = (
   ref: JournalRowRef,
@@ -111,6 +112,7 @@ export const buildJournalActions = (
         tooltip: 'Progress Note',
         icon: <DescriptionIcon />,
         href: reviewAndSignUrl(chartVisit),
+        disabledReason: chartVisit.hasProgressNote ? undefined : NO_PROGRESS_NOTE_REASON,
       },
       {
         key: 'details',
@@ -173,7 +175,7 @@ export const buildJournalActions = (
       label: 'Addendum',
       tooltip: 'Add an addendum to the Progress Note',
       icon: <PostAddIcon />,
-      disabledReason: anyNote ? undefined : 'No Progress Note yet',
+      disabledReason: anyNote ? undefined : NO_PROGRESS_NOTE_REASON,
       onClick: target ? () => handlers.onAddendum(row, target) : () => handlers.onSelect(ref.key),
     });
   }
