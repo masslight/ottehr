@@ -7,6 +7,7 @@ const visit = vi.hoisted(() => ({
   birthDate: undefined as string | undefined,
   start: '2026-06-15T14:00:00.000Z',
   current: [] as unknown[],
+  unitInputOrder: undefined as string | undefined,
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -44,7 +45,10 @@ vi.mock('src/features/visits/shared/components/vitals/hooks/useDeleteVitals', ()
 }));
 
 vi.mock('src/hooks/useProgressNoteConfig', () => ({
-  useProgressNoteConfig: () => ({ data: undefined, isLoading: false }),
+  useProgressNoteConfig: () => ({
+    data: visit.unitInputOrder ? { vitalsUnitInputOrder: visit.unitInputOrder } : undefined,
+    isLoading: false,
+  }),
 }));
 
 vi.mock('src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
@@ -79,6 +83,22 @@ describe('VitalsHeadCircumferenceCard', () => {
     useVitalsDraftStore.setState({ draftsByEncounterId: {} });
     visit.birthDate = undefined;
     visit.current = [];
+    visit.unitInputOrder = undefined;
+  });
+
+  it('puts inches before cm when Admin sets the imperial-first input order, as Height does', () => {
+    visit.unitInputOrder = 'imperial-metric';
+    render(<Harness />);
+    const inches = screen.getByTestId(dataTestIds.vitalsPage.headCircumferenceInchesInput);
+
+    expect(inches.compareDocumentPosition(cmInput()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('puts cm first by default', () => {
+    render(<Harness />);
+    const inches = screen.getByTestId(dataTestIds.vitalsPage.headCircumferenceInchesInput);
+
+    expect(cmInput()!.compareDocumentPosition(inches) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('starts open for a patient under 24 months at the visit', () => {
