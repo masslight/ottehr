@@ -28,7 +28,7 @@ vi.mock('../../src/shared/sentry', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn };
 });
-const mockFhir = { get: vi.fn(), patch: vi.fn() };
+const mockFhir = { get: vi.fn(), patch: vi.fn(), search: vi.fn() };
 vi.mock('../../src/shared/helpers', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, createClinicalOystehrClient: vi.fn(() => ({ fhir: mockFhir })) };
@@ -55,6 +55,7 @@ describe('get-provider-journal access', () => {
     vi.clearAllMocks();
     mockRequireRole.mockResolvedValue(STAFF_USER);
     mockGetAllPages.mockResolvedValue([]);
+    mockFhir.search.mockResolvedValue({ unbundle: () => [] });
   });
 
   it('requires an EHR staff role before reading anything', async () => {
@@ -173,7 +174,7 @@ describe('get-provider-journal access', () => {
     );
   });
 
-  it('labels account phones with the consent signer of the newest visit the phone booked', async () => {
+  it('labels account phones with the consent signer of the newest visit the phone booked, and flags unread texts', async () => {
     mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
     const owned = {
       ...createTask({ category: MANUAL_TASK.category.other, title: 'Call' }),
@@ -216,10 +217,15 @@ describe('get-provider-journal access', () => {
         return [{ resourceType: 'Encounter', id: 'enc-1', appointment: [{ reference: 'Appointment/appt-1' }] }, intake];
       return [];
     });
+    // The tracking board's search: SMS Communications from the account phone numbers, with their senders.
+    const unreadText = { resourceType: 'Communication', id: 'sms-1', status: 'completed', sender: { reference: 'RelatedPerson/rp-1' } };
+    mockFhir.search.mockResolvedValue({ unbundle: () => [unreadText, accountPhone] });
     const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
     expect(journal.notTied[0].patient.phones).toEqual([
       { number: '+14105550123', recipientResourceUri: 'RelatedPerson/rp-1', signer: 'Mei Chen (Parent)' },
     ]);
+    expect(journal.notTied[0].patient.hasUnreadTexts).toBe(true);
+    expect(mockFhir.search.mock.calls[0][0]).toMatchObject({ resourceType: 'Communication' });
   });
 
   it('builds a clinician journal for a Clinician', async () => {

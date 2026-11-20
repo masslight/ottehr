@@ -104,6 +104,8 @@ export const JournalPage = (): ReactElement => {
   const [showPast, setShowPast] = useState(false);
   const [noteTarget, setNoteTarget] = useState<JournalNoteTarget>();
   const [chatRow, setChatRow] = useState<JournalRowData>();
+  /** Chats marked read since the journal loaded, like the tracking board row's local unread state. */
+  const [readChatPatientIds, setReadChatPatientIds] = useState<string[]>([]);
 
   const now = DateTime.now();
   const q = query.trim().toLowerCase();
@@ -186,10 +188,10 @@ export const JournalPage = (): ReactElement => {
       patient: { id: patient.patientId, firstName: patient.firstName, lastName: patient.lastName, dateOfBirth: '' },
       smsModel: {
         recipients: patient.phones.map((p) => ({ recipientResourceUri: p.recipientResourceUri, smsNumber: p.number })),
-        hasUnreadMessages: false,
+        hasUnreadMessages: Boolean(patient.hasUnreadTexts) && !readChatPatientIds.includes(patient.patientId),
       },
     };
-  }, [chatRow]);
+  }, [chatRow, readChatPatientIds]);
 
   let content: ReactNode;
   if (ownersLoading || (isLoading && ownerId)) {
@@ -449,7 +451,7 @@ export const JournalPage = (): ReactElement => {
           <ChatModal
             appointment={chatMessaging}
             onClose={() => setChatRow(undefined)}
-            onMarkAllRead={() => {}}
+            onMarkAllRead={() => setReadChatPatientIds((ids) => [...ids, chatRow.patient!.patientId])}
             quickTextsContext={{
               patientFirstName: chatRow.patient.firstName,
               patientLastName: chatRow.patient.lastName,

@@ -10,10 +10,11 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { chunkThings } from 'utils/lib/fhir/chat';
+import { chunkThings, createSmsModel } from 'utils/lib/fhir/chat';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { isIntakePaperworkQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
+import { relatedPersonAndCommunicationMaps } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   GetProviderJournalInputSchema,
@@ -178,20 +179,46 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     diagnosticReports,
   });
   await labelAccountPhones(oystehr, journal);
+  await markUnreadTexts(
+    oystehr,
+    journal,
+    everything.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson')
+  );
 
   return lambdaResponse(200, journal);
 });
 
-/** Labels the shown patients' account phones with the consent signer of the newest visit each phone booked. */
-async function labelAccountPhones(oystehr: Oystehr, journal: GetProviderJournalResponse): Promise<void> {
+/** The patients shown on the journal who have an account phone. */
+const patientsWithPhones = (journal: GetProviderJournalResponse): JournalPatient[] => {
   const rows = [journal.comingUp, journal.today, journal.todayDone, journal.recent, journal.notTied, journal.past];
-  const patients = [
+  return [
     ...new Map(
       rows.flat().flatMap((row): [string, JournalPatient][] =>
         row.patient?.phones.length ? [[row.patient.patientId, row.patient]] : []
       )
     ).values(),
   ];
+};
+
+/** The tracking board's unread-text state for each shown patient, so opening the chat marks texts read. */
+async function markUnreadTexts(
+  oystehr: Oystehr,
+  journal: GetProviderJournalResponse,
+  relatedPersons: RelatedPerson[]
+): Promise<void> {
+  const patients = patientsWithPhones(journal);
+  const phoneOwners = new Set(patients.flatMap((patient) => patient.phones.map((p) => p.recipientResourceUri)));
+  const accountPhones = relatedPersons.filter((rp) => phoneOwners.has(`RelatedPerson/${rp.id}`));
+  if (!accountPhones.length) return;
+  const maps = await relatedPersonAndCommunicationMaps(oystehr, accountPhones);
+  patients.forEach((patient) => {
+    if (createSmsModel(patient.patientId, maps)?.hasUnreadMessages) patient.hasUnreadTexts = true;
+  });
+}
+
+/** Labels the shown patients' account phones with the consent signer of the newest visit each phone booked. */
+async function labelAccountPhones(oystehr: Oystehr, journal: GetProviderJournalResponse): Promise<void> {
+  const patients = patientsWithPhones(journal);
   const searchInChunks = async <T extends Appointment | Encounter | QuestionnaireResponse>(
     resourceType: 'Appointment' | 'Encounter',
     name: string,

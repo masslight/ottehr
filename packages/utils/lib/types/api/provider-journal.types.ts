@@ -101,6 +101,8 @@ export interface JournalPatient {
   firstName?: string;
   lastName?: string;
   phones: JournalPhone[];
+  /** An unread text from an account phone (the tracking board's unread rule); opening the chat marks it read. */
+  hasUnreadTexts?: boolean;
 }
 
 export interface JournalRow {
