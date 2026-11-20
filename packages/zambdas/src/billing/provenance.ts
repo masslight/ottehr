@@ -316,6 +316,8 @@ function projectClaim(claim: Claim): FieldProjection[] {
 function projectCoverage(c: Coverage): FieldProjection[] {
   return [
     { field: 'memberId', label: 'Member ID', value: c.subscriberId ?? '' },
+    // Raw class value: for coverages without a group number this is the payer ID fallback.
+    { field: 'groupNumber', label: 'Group Number', value: c.class?.[0]?.value ?? '' },
     { field: 'payer', label: 'Payer', value: refValue(c.payor?.[0]), ref: c.payor?.[0]?.reference },
     {
       field: 'relationship',

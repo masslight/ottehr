@@ -21,6 +21,7 @@ import { ReactElement, ReactNode, Ref } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { otherColors } from 'utils/lib/theme/billing-palette';
 import {
+  RULES_ENGINE_INSURANCES,
   RulesEngineInsurance,
   RulesEngineSubmissionType,
   RulesEngineType,
@@ -1285,6 +1286,9 @@ function ActionEditor({ name, engine }: { name: string; engine: RulesEngineType 
                   match: { type: SERVICE_LINE_MATCH_TYPE.all },
                 });
                 break;
+              case RULE_ACTION_TYPE.copyMemberIdToGroupNumber:
+                replace({ type: RULE_ACTION_TYPE.copyMemberIdToGroupNumber, insurance: 'primary' });
+                break;
               case RULE_ACTION_TYPE.submitClaim:
                 replace({ type: RULE_ACTION_TYPE.submitClaim, submissionType: 'new', submissionInsurance: 'primary' });
                 break;
@@ -1304,6 +1308,7 @@ function ActionEditor({ name, engine }: { name: string; engine: RulesEngineType 
           <MenuItem value={RULE_ACTION_TYPE.updateServiceLines}>Update service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.removeServiceLines}>Remove service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.applyChargeMasterPrices}>Apply charge master prices</MenuItem>
+          <MenuItem value={RULE_ACTION_TYPE.copyMemberIdToGroupNumber}>Copy member ID to group number</MenuItem>
           {engine === 'post-adjudication' && <MenuItem value={RULE_ACTION_TYPE.submitClaim}>Submit claim</MenuItem>}
           <MenuItem value={RULE_ACTION_TYPE.noop}>Do nothing</MenuItem>
         </Select>
@@ -1373,6 +1378,34 @@ function ActionEditor({ name, engine }: { name: string; engine: RulesEngineType 
             Prices each matched line from the best charge master for the claim's billing type (the insurance or self-pay
             default, most recent effective date on or before the date of service). Lines the charge master cannot price
             keep their existing charges — this action never fails or holds the claim.
+          </FormHelperText>
+        </Box>
+      )}
+      {value.type === RULE_ACTION_TYPE.copyMemberIdToGroupNumber && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Controller
+            name={`${name}.insurance`}
+            control={control}
+            render={({ field }) => (
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <InputLabel>Insurance</InputLabel>
+                <Select
+                  label="Insurance"
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.target.value as RulesEngineInsurance)}
+                >
+                  {RULES_ENGINE_INSURANCES.map((insurance) => (
+                    <MenuItem key={insurance} value={insurance}>
+                      {insurance.charAt(0).toUpperCase() + insurance.slice(1)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          />
+          <FormHelperText>
+            Replaces the coverage's group number with its member ID (e.g. a worker's comp claim number recorded as the
+            member ID). Fails and holds the claim when the coverage or its member ID is missing.
           </FormHelperText>
         </Box>
       )}
