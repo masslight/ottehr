@@ -3,8 +3,14 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PersonAddIcon from '@mui/icons-material/PersonAddOutlined';
 import ShortcutIcon from '@mui/icons-material/Shortcut';
 import { IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Popover } from '@mui/material';
-import React, { useState } from 'react';
-import { useAssignTask, useReopenTask, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
+import { enqueueSnackbar } from 'notistack';
+import React, { useRef, useState } from 'react';
+import {
+  ReopenTaskRequest,
+  useAssignTask,
+  useReopenTask,
+  useUnassignTask,
+} from 'src/features/visits/in-person/hooks/useTasks';
 import { EvolveUser } from 'src/hooks/useEvolveUser';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Task } from 'utils/lib/types/data/tasks/types';
@@ -25,14 +31,29 @@ export const MoreTaskActions: React.FC<MoreTaskActionsProps> = ({ task, currentU
 
   const { mutateAsync: assignTask } = useAssignTask();
   const { mutateAsync: unassignTask } = useUnassignTask();
-  const { mutateAsync: reopenTask } = useReopenTask();
+  const { mutateAsync: reopenTask, isPending: isReopening } = useReopenTask();
+  const reopeningRef = useRef(false);
   const currentUserProviderId = getIdFromReference(currentUser?.profile);
 
   const closeMoreActionsPopover = (): void => {
     setMoreActionsPopoverData(null);
   };
 
-  if (task.status === 'completed' && !task.completable) {
+  const reopen = async (status: ReopenTaskRequest['status']): Promise<void> => {
+    if (reopeningRef.current) return;
+    reopeningRef.current = true;
+    try {
+      await reopenTask({ taskId: task.id, status });
+      closeMoreActionsPopover();
+      if (refetchData) refetchData();
+    } catch (error) {
+      enqueueSnackbar(error instanceof Error ? error.message : 'Failed to reopen the task.', { variant: 'error' });
+    } finally {
+      reopeningRef.current = false;
+    }
+  };
+
+  if (task.status === 'completed' && !task.reopenable) {
     return null;
   }
 
@@ -55,22 +76,7 @@ export const MoreTaskActions: React.FC<MoreTaskActionsProps> = ({ task, currentU
             {moreActionsPopoverData.task.status === 'completed' ? (
               <>
                 <ListItem disablePadding>
-                  <ListItemButton
-                    onClick={async () => {
-                      if (moreActionsPopoverData.task.assignee?.id) {
-                        await unassignTask({
-                          taskId: moreActionsPopoverData.task.id,
-                        });
-                      } else {
-                        await reopenTask({
-                          taskId: moreActionsPopoverData.task.id,
-                          status: 'ready',
-                        });
-                      }
-                      closeMoreActionsPopover();
-                      if (refetchData) refetchData();
-                    }}
-                  >
+                  <ListItemButton disabled={isReopening} onClick={() => reopen('ready')}>
                     <ListItemIcon>
                       <ShortcutIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
                     </ListItemIcon>
@@ -79,16 +85,7 @@ export const MoreTaskActions: React.FC<MoreTaskActionsProps> = ({ task, currentU
                 </ListItem>
                 {moreActionsPopoverData.task.assignee?.id ? (
                   <ListItem disablePadding>
-                    <ListItemButton
-                      onClick={async () => {
-                        await reopenTask({
-                          taskId: moreActionsPopoverData.task.id,
-                          status: 'in-progress',
-                        });
-                        closeMoreActionsPopover();
-                        if (refetchData) refetchData();
-                      }}
-                    >
+                    <ListItemButton disabled={isReopening} onClick={() => reopen('in-progress')}>
                       <ListItemIcon>
                         <ShortcutIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
                       </ListItemIcon>
