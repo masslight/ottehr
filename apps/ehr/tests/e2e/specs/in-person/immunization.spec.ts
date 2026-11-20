@@ -7,7 +7,7 @@ import {
 } from 'tests/e2e/page/in-person/Immunization/EditVaccineOrderPage';
 import { openImmunizationPage } from 'tests/e2e/page/in-person/Immunization/ImmunizationPage';
 import { expectMarTab } from 'tests/e2e/page/in-person/Immunization/MarTab';
-import { OrderDetailsSection } from 'tests/e2e/page/in-person/Immunization/OrderDetailsSection';
+import { OrderSentencesSection } from 'tests/e2e/page/in-person/Immunization/OrderSentencesSection';
 import { VaccineDetailsTab } from 'tests/e2e/page/in-person/Immunization/VaccineDetailsTab';
 import { openInPersonProgressNotePage } from 'tests/e2e/page/in-person/InPersonProgressNotePage';
 import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
@@ -19,6 +19,7 @@ import {
   medicationApplianceRoutes,
 } from 'utils/lib/types/api/medication-administration.types';
 import { CVX_VACCINES } from 'utils/lib/types/data/immunization/cvx-vaccines.generated';
+import { MVX_MANUFACTURERS } from 'utils/lib/types/data/immunization/mvx-manufacturers.generated';
 
 interface VaccineInfo {
   vaccine: string;
@@ -34,8 +35,6 @@ interface VaccineInfo {
 interface AdministrationDetails {
   lotNumber: string;
   expiredDate: string;
-  mvxCode: string;
-  cvxCode: string;
   ndcCode: string;
   cptCode: string;
   administeredDate: string;
@@ -54,6 +53,13 @@ const vaccineNameAt = (index: number): string => {
 
 const vaccine = vaccineNameAt(0);
 
+// Two manufacturers from the MVX list (Merck, Pfizer), picked by name: the MVX code is saved with the pick.
+const manufacturerNameFor = (mvx: string): string => {
+  const manufacturer = MVX_MANUFACTURERS.find((candidate) => candidate.mvx === mvx);
+  if (!manufacturer) throw new Error(`MVX ${mvx} is not in the manufacturer list`);
+  return manufacturer.name;
+};
+
 const DIAGNOSIS_CODE_ONE = 'J45.901';
 const DIAGNOSIS_CODE_TWO = 'J45.991';
 
@@ -64,7 +70,7 @@ const VACCINE: VaccineInfo = {
   route: medicationApplianceRoutes.BODY_CAVITY.display!,
   location: medicationApplianceLocations[0].name!,
   instructions: 'test vaccine instructions',
-  manufacturer: 'example',
+  manufacturer: manufacturerNameFor('MSD'),
   associatedDx: DIAGNOSIS_CODE_ONE,
 };
 
@@ -75,7 +81,7 @@ const EDITED_VACCINE: VaccineInfo = {
   route: medicationApplianceRoutes.CAUDAL.display!,
   location: medicationApplianceLocations[1].name!,
   instructions: 'test vaccine instructions edited',
-  manufacturer: 'example edited',
+  manufacturer: manufacturerNameFor('PFR'),
   associatedDx: DIAGNOSIS_CODE_TWO,
 };
 
@@ -88,8 +94,6 @@ const NOT_ADMINISTERED_VACCINE: VaccineInfo = { ...VACCINE, vaccine: vaccineName
 const ADMINISTRATION_DETAILS: AdministrationDetails = {
   lotNumber: '1234567',
   expiredDate: '01/01/2030',
-  mvxCode: '1111fff',
-  cvxCode: 'aaa222',
   cptCode: '11900',
   ndcCode: '555555ftf',
   administeredDate: '02/10/2025',
@@ -151,18 +155,18 @@ async function tearDownAppointment(
   await resourceHandler.cleanupResources();
 }
 
-async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
+async function enterVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderSentencesSection): Promise<void> {
   await orderDetailsSection.selectVaccine(vaccineInfo.vaccine);
   await orderDetailsSection.enterDose(vaccineInfo.dose);
   await orderDetailsSection.selectUnits(vaccineInfo.units);
   await orderDetailsSection.selectRoute(vaccineInfo.route);
   await orderDetailsSection.selectLocation(vaccineInfo.location);
   await orderDetailsSection.enterInstructions(vaccineInfo.instructions);
-  await orderDetailsSection.enterManufacturer(vaccineInfo.manufacturer);
+  await orderDetailsSection.selectManufacturer(vaccineInfo.manufacturer);
   await orderDetailsSection.selectAssociatedDx(vaccineInfo.associatedDx);
 }
 
-async function verifyVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderDetailsSection): Promise<void> {
+async function verifyVaccineInfo(vaccineInfo: VaccineInfo, orderDetailsSection: OrderSentencesSection): Promise<void> {
   await orderDetailsSection.verifyVaccine(vaccineInfo.vaccine);
   await orderDetailsSection.verifyDose(vaccineInfo.dose);
   await orderDetailsSection.verifyUnits(vaccineInfo.units);
@@ -179,13 +183,10 @@ async function enterAdministrationDetails(
 ): Promise<void> {
   await vaccineDetailsPage.enterLotNumber(administrationDetails.lotNumber);
   await vaccineDetailsPage.enterExpiredDate(administrationDetails.expiredDate);
-  await vaccineDetailsPage.enterMvxCode(administrationDetails.mvxCode);
-  await vaccineDetailsPage.enterCvxCode(administrationDetails.cvxCode);
   await vaccineDetailsPage.selectCptCode(administrationDetails.cptCode);
   await vaccineDetailsPage.enterNdcCode(administrationDetails.ndcCode);
   await vaccineDetailsPage.enterAdministeredDate(administrationDetails.administeredDate);
   await vaccineDetailsPage.enterAdministeredTime(administrationDetails.administeredTime);
-  await vaccineDetailsPage.setVisCheckboxChecked(true);
   await vaccineDetailsPage.enterVisGivenDate(administrationDetails.visGivenDate);
 }
 

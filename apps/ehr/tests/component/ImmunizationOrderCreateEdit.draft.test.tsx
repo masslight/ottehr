@@ -47,16 +47,8 @@ vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store',
   }),
 }));
 
-vi.mock('../../src/features/visits/shared/hooks/useChartData', () => ({
-  useChartData: () => ({ chartData: undefined }),
-}));
-
 vi.mock('../../src/features/visits/in-person/components/RoundedButton', () => ({
   ButtonRounded: ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>,
-}));
-
-vi.mock('../../src/features/visits/shared/components/QuickPicksButton', () => ({
-  QuickPicksButton: () => <div />,
 }));
 
 vi.mock('../../src/components/AccordionCard', () => ({
@@ -79,10 +71,6 @@ vi.mock('../../src/features/visits/in-person/components/WarningBlock', () => ({
   WarningBlock: () => <div />,
 }));
 
-vi.mock('../../src/helpers/misc.helper', () => ({
-  cleanupProperties: vi.fn(async (x: unknown) => x),
-}));
-
 vi.mock('../../src/features/immunization/hooks/useImmunizationQuickPickManagement', () => ({
   useImmunizationQuickPickManagement: () => ({
     mergedQuickPicks: [],
@@ -93,7 +81,6 @@ vi.mock('../../src/features/immunization/hooks/useImmunizationQuickPickManagemen
     setQuickPickName: vi.fn(),
     existingQuickPicks: [],
     quickPickSaving: false,
-    onQuickPickSelect: vi.fn(),
     openQuickPickDialog: vi.fn(),
     onSaveAsQuickPick: vi.fn(),
   }),
@@ -112,28 +99,26 @@ vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({
   OrderHistoryTable: () => <div />,
 }));
 
-// Mock OrderDetailsSection to expose the dose field from form context
-vi.mock('../../src/features/immunization/components/OrderDetailsSection', async () => {
-  const { useFormContext } = await import('react-hook-form');
-  return {
-    OrderDetailsSection: () => {
-      const { watch } = useFormContext();
-      const dose = watch('details.dose');
-      return <div data-testid="order-details" data-dose={dose != null ? String(dose) : ''} />;
-    },
-  };
-});
-
-vi.mock('../../src/features/immunization/components/AdministeringImmunizationFields', async () => {
-  const { useFormContext } = await import('react-hook-form');
-  return {
-    AdministeringImmunizationFields: () => {
-      const { watch } = useFormContext();
-      const lot = watch('administrationDetails.lot');
-      return <div data-testid="vaccine-product-fields" data-lot={lot ?? ''} />;
-    },
-  };
-});
+// The sentences expose the form's dose and lot, a change of the user's and a quick pick.
+vi.mock('../../src/features/immunization/components/ImmunizationSentences', () => ({
+  ImmunizationSectionLabel: ({ children }: any) => <h3>{children}</h3>,
+  ImmunizationSentences: ({ values, onChange, onQuickPick }: any) => (
+    <div
+      data-testid="immunization-sentences"
+      data-dose={values.details.dose ?? ''}
+      data-lot={values.administrationDetails.lot ?? ''}
+    >
+      <button onClick={() => onChange({ ...values, details: { ...values.details, dose: '2' } })}>Type dose 2</button>
+      <button
+        onClick={() =>
+          onQuickPick({ name: 'Tdap adult', vaccine: { id: '115', name: 'Tdap' }, dose: '0.5', lot: 'QP-LOT' })
+        }
+      >
+        Pick the quick pick
+      </button>
+    </div>
+  ),
+}));
 
 // ─── Component + real draft store (imports after all vi.mock calls) ──────────
 
@@ -207,7 +192,7 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
 
       render(<ImmunizationOrderCreateEdit />);
 
-      expect(screen.getByTestId('order-details')).toHaveAttribute('data-dose', '1.5');
+      expect(screen.getByTestId('immunization-sentences')).toHaveAttribute('data-dose', '1.5');
     });
 
     it('clicking Clear Form clears the draft store', async () => {
@@ -225,11 +210,11 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
       const user = userEvent.setup();
 
       render(<ImmunizationOrderCreateEdit />);
-      expect(screen.getByTestId('order-details')).toHaveAttribute('data-dose', '1.5');
+      expect(screen.getByTestId('immunization-sentences')).toHaveAttribute('data-dose', '1.5');
 
       await user.click(screen.getByRole('button', { name: /clear form/i }));
 
-      expect(screen.getByTestId('order-details')).toHaveAttribute('data-dose', '');
+      expect(screen.getByTestId('immunization-sentences')).toHaveAttribute('data-dose', '');
     });
 
     it('populates administration fields from the draft on mount', () => {
@@ -239,7 +224,7 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
 
       render(<ImmunizationOrderCreateEdit />);
 
-      expect(screen.getByTestId('vaccine-product-fields')).toHaveAttribute('data-lot', 'L1');
+      expect(screen.getByTestId('immunization-sentences')).toHaveAttribute('data-lot', 'L1');
     });
 
     it('does not apply the creation draft when editing an existing order', () => {
@@ -249,8 +234,8 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
 
       render(<ImmunizationOrderCreateEdit orderId="order-1" />);
 
-      expect(screen.getByTestId('order-details')).toHaveAttribute('data-dose', '');
-      expect(screen.getByTestId('vaccine-product-fields')).toHaveAttribute('data-lot', '');
+      expect(screen.getByTestId('immunization-sentences')).toHaveAttribute('data-dose', '');
+      expect(screen.getByTestId('immunization-sentences')).toHaveAttribute('data-lot', '');
     });
 
     it('clicking Clear Form resets administration fields to empty', async () => {
@@ -262,7 +247,59 @@ describe('ImmunizationOrderCreateEdit — draft store behaviour', () => {
       render(<ImmunizationOrderCreateEdit />);
       await user.click(screen.getByRole('button', { name: /clear form/i }));
 
-      expect(screen.getByTestId('vaccine-product-fields')).toHaveAttribute('data-lot', '');
+      expect(screen.getByTestId('immunization-sentences')).toHaveAttribute('data-lot', '');
+    });
+  });
+
+  // ── Saving the draft ─────────────────────────────────────────────────────
+
+  describe('saving the draft', () => {
+    it('saves a change of the form to the draft, in the stored shape', async () => {
+      const user = userEvent.setup();
+
+      render(<ImmunizationOrderCreateEdit />);
+      expect(useImmunizationOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
+      await user.click(screen.getByRole('button', { name: 'Type dose 2' }));
+
+      const draft = useImmunizationOrderStore.getState().getDraft(ENCOUNTER_ID);
+      expect(draft.dose).toBe('2');
+      expect(draft.administrationDetails).toMatchObject({ lot: '', cptCodes: [] });
+      expect(screen.getByRole('button', { name: /clear form/i })).toBeInTheDocument();
+    });
+
+    it('saves an applied quick pick to the draft', async () => {
+      const user = userEvent.setup();
+
+      render(<ImmunizationOrderCreateEdit />);
+      await user.click(screen.getByRole('button', { name: 'Pick the quick pick' }));
+
+      expect(screen.getByTestId('immunization-sentences')).toHaveAttribute('data-dose', '0.5');
+      const draft = useImmunizationOrderStore.getState().getDraft(ENCOUNTER_ID);
+      expect(draft.medication).toEqual({ id: '115', name: 'Tdap' });
+      expect(draft.administrationDetails?.lot).toBe('QP-LOT');
+    });
+
+    it('starts no draft after Clear Form until the form changes again', async () => {
+      useImmunizationOrderStore.getState().setDraft(ENCOUNTER_ID, { dose: '1.5' });
+      const user = userEvent.setup();
+
+      render(<ImmunizationOrderCreateEdit />);
+      await user.click(screen.getByRole('button', { name: 'Type dose 2' }));
+      await user.click(screen.getByRole('button', { name: /clear form/i }));
+      expect(useImmunizationOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
+
+      await user.click(screen.getByRole('button', { name: 'Type dose 2' }));
+      expect(useImmunizationOrderStore.getState().getDraft(ENCOUNTER_ID).dose).toBe('2');
+    });
+
+    it('keeps no draft of an order being edited', async () => {
+      const user = userEvent.setup();
+
+      render(<ImmunizationOrderCreateEdit orderId="order-1" />);
+      await user.click(screen.getByRole('button', { name: 'Type dose 2' }));
+
+      expect(screen.getByTestId('immunization-sentences')).toHaveAttribute('data-dose', '2');
+      expect(useImmunizationOrderStore.getState().hasDraft(ENCOUNTER_ID)).toBe(false);
     });
   });
 });

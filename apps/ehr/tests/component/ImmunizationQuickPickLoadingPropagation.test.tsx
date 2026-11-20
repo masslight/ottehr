@@ -13,7 +13,6 @@ const defaultQuickPickState = {
   setQuickPickName: vi.fn(),
   existingQuickPicks: [] as { id: string; name: string }[],
   quickPickSaving: false,
-  onQuickPickSelect: vi.fn(),
   openQuickPickDialog: vi.fn(),
   onSaveAsQuickPick: vi.fn(),
 };
@@ -43,18 +42,6 @@ vi.mock('react-router-dom', async () => {
     useParams: () => ({ id: 'appointment-1' }),
   };
 });
-
-vi.mock('../../src/features/visits/shared/components/QuickPicksButton', () => ({
-  QuickPicksButton: ({ loading }: { loading?: boolean }) => (
-    <div data-testid="quick-picks-button">{String(Boolean(loading))}</div>
-  ),
-}));
-
-vi.mock('src/features/visits/shared/components/QuickPicksButton', () => ({
-  QuickPicksButton: ({ loading }: { loading?: boolean }) => (
-    <div data-testid="quick-picks-button">{String(Boolean(loading))}</div>
-  ),
-}));
 
 vi.mock('../../src/features/immunization/hooks/useImmunizationQuickPickManagement', () => ({
   useImmunizationQuickPickManagement: () => quickPickState,
@@ -116,62 +103,6 @@ vi.mock('../../src/components/dialogs/CustomDialog', () => ({
   CustomDialog: () => <div />,
 }));
 
-vi.mock('../../src/components/input/CheckboxInput', () => ({
-  CheckboxInput: () => <div />,
-}));
-
-vi.mock('src/components/input/CheckboxInput', () => ({
-  CheckboxInput: () => <div />,
-}));
-
-vi.mock('../../src/components/input/CptCodesInput', () => ({
-  CptCodesInput: () => <div />,
-}));
-
-vi.mock('src/components/input/CptCodesInput', () => ({
-  CptCodesInput: () => <div />,
-}));
-
-vi.mock('../../src/components/input/DateInput', () => ({
-  DateInput: () => <div />,
-}));
-
-vi.mock('src/components/input/DateInput', () => ({
-  DateInput: () => <div />,
-}));
-
-vi.mock('../../src/components/input/PhoneInput', () => ({
-  PhoneInput: () => <div />,
-}));
-
-vi.mock('src/components/input/PhoneInput', () => ({
-  PhoneInput: () => <div />,
-}));
-
-vi.mock('../../src/components/input/SelectInput', () => ({
-  SelectInput: () => <div />,
-}));
-
-vi.mock('src/components/input/SelectInput', () => ({
-  SelectInput: () => <div />,
-}));
-
-vi.mock('../../src/components/input/TextInput', () => ({
-  TextInput: () => <div />,
-}));
-
-vi.mock('src/components/input/TextInput', () => ({
-  TextInput: () => <div />,
-}));
-
-vi.mock('../../src/components/input/TimeInput', () => ({
-  TimeInput: () => <div />,
-}));
-
-vi.mock('src/components/input/TimeInput', () => ({
-  TimeInput: () => <div />,
-}));
-
 vi.mock('../../src/features/visits/in-person/components/RoundedButton', () => ({
   ButtonRounded: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
 }));
@@ -184,12 +115,16 @@ vi.mock('../../src/features/immunization/components/AdministrationConfirmationDi
   AdministrationConfirmationDialog: () => <div />,
 }));
 
-vi.mock('../../src/features/immunization/components/OrderDetailsSection', () => ({
-  OrderDetailsSection: () => <div />,
-}));
-
 vi.mock('../../src/features/immunization/components/OrderStatusChip', () => ({
   OrderStatusChip: () => <div />,
+}));
+
+// The sentences show the loading state they are given for the immunization menu's quick picks.
+vi.mock('../../src/features/immunization/components/ImmunizationSentences', () => ({
+  ImmunizationSectionLabel: ({ children }: { children: React.ReactNode }) => <h3>{children}</h3>,
+  ImmunizationSentences: ({ quickPicksLoading }: { quickPicksLoading?: boolean }) => (
+    <div data-testid="immunization-sentences">{String(Boolean(quickPicksLoading))}</div>
+  ),
 }));
 
 vi.mock('../../src/components/AccordionCard', () => ({
@@ -224,26 +159,20 @@ vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({
   OrderHistoryTable: () => <div />,
 }));
 
+const renderCard = (): ReturnType<typeof render> =>
+  render(<VaccineDetailsCard order={{ id: 'order-1', details: {}, administrationDetails: {} } as any} />);
+
 describe('immunization quick pick loading propagation', () => {
   it('passes the loading state to VaccineDetailsCard quick picks', () => {
-    render(
-      <VaccineDetailsCard
-        order={
-          {
-            id: 'order-1',
-            administrationDetails: {},
-          } as any
-        }
-      />
-    );
+    renderCard();
 
-    expect(screen.getByTestId('quick-picks-button')).toHaveTextContent('true');
+    expect(screen.getByTestId('immunization-sentences')).toHaveTextContent('true');
   });
 
   it('passes the loading state to ImmunizationOrderCreateEdit quick picks', () => {
     render(<ImmunizationOrderCreateEdit />);
 
-    expect(screen.getByTestId('quick-picks-button')).toHaveTextContent('true');
+    expect(screen.getByTestId('immunization-sentences')).toHaveTextContent('true');
   });
 });
 
@@ -253,10 +182,7 @@ describe('immunization save quick pick dialog', () => {
   });
 
   it.each([
-    [
-      'VaccineDetailsCard',
-      () => render(<VaccineDetailsCard order={{ id: 'order-1', administrationDetails: {} } as any} />),
-    ],
+    ['VaccineDetailsCard', renderCard],
     ['ImmunizationOrderCreateEdit', () => render(<ImmunizationOrderCreateEdit />)],
   ])('%s uses the Add to Quick Picks dialog and confirms before replacing', async (_name, renderComponent) => {
     const onSaveAsQuickPick = vi.fn();

@@ -1,17 +1,15 @@
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
-import { UseFormReturn } from 'react-hook-form';
 import { createImmunizationQuickPick, getImmunizationQuickPicks, updateImmunizationQuickPick } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { sortQuickPicks, useMergedImmunizationQuickPicks } from 'src/hooks/useMergedQuickPicks';
 import { BASE_ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
-import { getCvxVaccine } from 'utils/lib/types/data/immunization/vaccine-lookup';
+import { ImmunizationFormValues, immunizationQuickPickFrom } from '../components/immunizationForm';
 
 interface UseImmunizationQuickPickManagementProps {
-  methods: UseFormReturn;
-  /** When true, quick pick apply sets both order details and administration details. When false, only administration details. */
-  applyOrderDetails: boolean;
+  /** The form's values as they stand when a quick pick is saved from them. */
+  getValues: () => ImmunizationFormValues;
 }
 
 interface UseImmunizationQuickPickManagementReturn {
@@ -23,14 +21,14 @@ interface UseImmunizationQuickPickManagementReturn {
   setQuickPickName: (name: string) => void;
   existingQuickPicks: ImmunizationQuickPickData[];
   quickPickSaving: boolean;
-  onQuickPickSelect: (quickPick: ImmunizationQuickPickData) => void;
   openQuickPickDialog: () => Promise<void>;
   onSaveAsQuickPick: (overwriteId?: string) => Promise<void>;
 }
 
+/** The practice's immunization quick picks and the admins' save dialog. The caller applies a pick to its form with
+ * `applyImmunizationQuickPick`. */
 export const useImmunizationQuickPickManagement = ({
-  methods,
-  applyOrderDetails,
+  getValues,
 }: UseImmunizationQuickPickManagementProps): UseImmunizationQuickPickManagementReturn => {
   const { oystehrZambda } = useApiClients();
   const {
@@ -43,35 +41,6 @@ export const useImmunizationQuickPickManagement = ({
   const [existingQuickPicks, setExistingQuickPicks] = useState<ImmunizationQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
 
-  const onQuickPickSelect = (quickPick: ImmunizationQuickPickData): void => {
-    const currentValues = methods.getValues();
-    methods.reset({
-      ...currentValues,
-      ...(applyOrderDetails && {
-        details: {
-          ...currentValues.details,
-          // A quick pick saved against a vaccine that is not in the list leaves the vaccine for the user to pick.
-          medication: getCvxVaccine(quickPick.vaccine?.id) ? quickPick.vaccine : null,
-          dose: quickPick.dose,
-          units: quickPick.units,
-          route: quickPick.route,
-          location: quickPick.location,
-          manufacturer: quickPick.manufacturer,
-          instructions: quickPick.instructions,
-        },
-      }),
-      administrationDetails: {
-        ...currentValues.administrationDetails,
-        lot: quickPick.lot,
-        expDate: quickPick.expDate,
-        mvx: quickPick.mvx,
-        cvx: quickPick.cvx,
-        cptCodes: quickPick.cptCodes ?? [],
-        ndc: quickPick.ndc,
-      },
-    });
-  };
-
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;
     try {
@@ -81,18 +50,19 @@ export const useImmunizationQuickPickManagement = ({
       console.error('Failed to load existing quick picks:', error);
       setExistingQuickPicks(mergedQuickPicks);
     }
-    const values = methods.getValues();
+    const { details, administrationDetails } = getValues();
     const parts: string[] = [];
-    if (values.details?.medication?.name) parts.push(values.details.medication.name);
-    if (values.details?.dose) parts.push(values.details.dose);
-    if (values.details?.units) parts.push(values.details.units);
-    if (values.details?.route) {
-      const routeName = BASE_ROUTE_OPTIONS.find((opt) => opt.code === values.details.route)?.name;
-      parts.push(routeName ?? values.details.route);
+    if (details.medication?.name) parts.push(details.medication.name);
+    if (details.dose) parts.push(details.dose);
+    if (details.units) parts.push(details.units);
+    if (details.route) {
+      const { route } = details;
+      const routeName = BASE_ROUTE_OPTIONS.find((opt) => opt.code === route)?.name;
+      parts.push(routeName ?? route);
     }
-    if (values.details?.location?.name) parts.push(values.details.location.name);
-    if (values.administrationDetails?.lot) parts.push(`lot: ${values.administrationDetails.lot}`);
-    if (values.administrationDetails?.expDate) parts.push(`exp: ${values.administrationDetails.expDate}`);
+    if (details.location?.name) parts.push(details.location.name);
+    if (administrationDetails.lot) parts.push(`lot: ${administrationDetails.lot}`);
+    if (administrationDetails.expDate) parts.push(`exp: ${administrationDetails.expDate}`);
     setQuickPickName(parts.join(' | '));
     setQuickPickDialogOpen(true);
   };
@@ -106,23 +76,7 @@ export const useImmunizationQuickPickManagement = ({
 
     setQuickPickSaving(true);
     try {
-      const values = methods.getValues();
-      const quickPickData: Omit<ImmunizationQuickPickData, 'id'> = {
-        name: quickPickName.trim(),
-        vaccine: values.details?.medication,
-        dose: values.details?.dose,
-        units: values.details?.units,
-        route: values.details?.route,
-        location: values.details?.location,
-        manufacturer: values.details?.manufacturer,
-        instructions: values.details?.instructions,
-        cvx: values.administrationDetails?.cvx,
-        mvx: values.administrationDetails?.mvx,
-        cptCodes: values.administrationDetails?.cptCodes,
-        ndc: values.administrationDetails?.ndc,
-        lot: values.administrationDetails?.lot,
-        expDate: values.administrationDetails?.expDate,
-      };
+      const quickPickData = immunizationQuickPickFrom(getValues(), quickPickName.trim());
 
       if (overwriteId) {
         await updateImmunizationQuickPick(oystehrZambda, overwriteId, quickPickData);
@@ -150,7 +104,6 @@ export const useImmunizationQuickPickManagement = ({
     setQuickPickName,
     existingQuickPicks,
     quickPickSaving,
-    onQuickPickSelect,
     openQuickPickDialog,
     onSaveAsQuickPick,
   };

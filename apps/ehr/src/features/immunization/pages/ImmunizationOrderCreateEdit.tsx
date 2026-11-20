@@ -1,8 +1,7 @@
 import { LoadingButton } from '@mui/lab';
-import { Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { Divider, Stack } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FieldValues, FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
@@ -14,11 +13,9 @@ import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedB
 import { WarningBlock } from 'src/features/visits/in-person/components/WarningBlock';
 import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/helpers';
 import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
-import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { enqueueOrderDeleteWarnings } from 'src/features/visits/shared/utils/orderDeleteWarnings';
-import { cleanupProperties } from 'src/helpers/misc.helper';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { usePendingQuickPick } from 'src/hooks/usePendingQuickPick';
@@ -27,30 +24,25 @@ import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
-import { InputImmunizationOrderDetails } from 'utils/lib/types/data/immunization/types';
 import { PageHeader } from '../../visits/in-person/components/medication-administration/PageHeader';
 import {
   useCancelImmunizationOrder,
   useCreateUpdateImmunizationOrder,
   useGetImmunizationOrders,
 } from '../../visits/in-person/hooks/useImmunization';
-import { AdministeringImmunizationFields } from '../components/AdministeringImmunizationFields';
-import { OrderDetailsSection } from '../components/OrderDetailsSection';
+import {
+  applyImmunizationQuickPick,
+  emptyImmunizationForm,
+  immunizationFormFromOrder,
+  ImmunizationFormValues,
+  immunizationOrderErrors,
+  immunizationOrderRequest,
+} from '../components/immunizationForm';
+import { ImmunizationSectionLabel, ImmunizationSentences } from '../components/ImmunizationSentences';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
 
-// explicit empty values: reset() falls back to defaultValues for fields it leaves undefined
-const EMPTY_ADMINISTRATION_DETAILS = {
-  lot: '',
-  ndc: '',
-  expDate: '',
-  mvx: '',
-  cvx: '',
-  cptCodes: [],
-  administeredDateTime: null,
-  visGiven: false,
-  visGivenDate: null,
-};
+const ROUNDED_BUTTON_SX = { borderRadius: '20px', textTransform: 'none' } as const;
 
 interface ImmunizationOrderCreateEditProps {
   orderId?: string;
@@ -62,7 +54,6 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   onFinished,
 }) => {
   const navigate = useNavigate();
-  const theme = useTheme();
   const isInlineFlow = useIsInlineFlow();
   const { id: appointmentId, orderId: orderIdFromUrl } = useParams();
   const orderId = orderIdProp ?? orderIdFromUrl;
@@ -75,7 +66,6 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
 
   const { setDraft, clearDraft, hasDraft, getDraft } = useImmunizationOrderStore();
   const draft = getDraft(encounterId);
-  const { administrationDetails: draftAdministrationDetails, ...draftDetails } = draft ?? {};
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
@@ -88,86 +78,58 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
   const currentUserProviderId = getIdFromReference(currentUser?.profile);
   const currentUserHasProviderRole = currentUser?.hasRole?.([RoleType.Provider]);
-  const defaultProviderId = currentUserHasProviderRole ? currentUserProviderId : undefined;
+  const currentUserName = currentUser?.userName;
+  const defaultProvider = useMemo(
+    () =>
+      currentUserHasProviderRole && currentUserProviderId
+        ? { id: currentUserProviderId, name: currentUserName ?? '' }
+        : undefined,
+    [currentUserHasProviderRole, currentUserProviderId, currentUserName]
+  );
 
   useMarkDraftNavigatedAway({ encounterId, setDraft, hasDraft });
 
   const finish = onFinished ?? ((): void => navigate(getImmunizationMARUrl(appointmentId!)));
 
-  const onSubmit = async (data: any): Promise<void> => {
-    const { details, administrationDetails } = (await cleanupProperties(data)) ?? {};
-    try {
-      await createUpdateOrder({
-        encounterId: encounter?.id ?? '',
-        orderId: orderId,
-        details,
-        // always sent so that clearing every field on edit clears them on the order too
-        administrationDetails: administrationDetails ?? {},
-      });
-    } catch (error) {
-      enqueueSnackbar(getApiError({ error, defaultError: 'An error occurred while saving the immunization order.' }), {
-        variant: 'error',
-      });
-      return;
-    }
-    setIsOrderSaved(true);
-    if (isCreating && encounterId) clearDraft(encounterId);
-    finish();
+  // What has been entered. A new order starts from its draft; the order being edited is loaded below.
+  const [entered, setEntered] = useState<ImmunizationFormValues>(() => {
+    const empty = emptyImmunizationForm();
+    if (!isCreating) return empty;
+    const { administrationDetails, hasNavigatedAway: _hasNavigatedAway, ...details } = draft;
+    return {
+      details: { ...empty.details, ...details },
+      administrationDetails: { ...empty.administrationDetails, ...administrationDetails },
+    };
+  });
+  // The form: on a new order the current provider is "Ordered by" until another is picked. A default is not a
+  // change of the user's, so it starts no draft.
+  const values = useMemo<ImmunizationFormValues>(
+    () =>
+      isCreating && defaultProvider && !entered.details.orderedProvider
+        ? { ...entered, details: { ...entered.details, orderedProvider: defaultProvider } }
+        : entered,
+    [isCreating, defaultProvider, entered]
+  );
+  const [dirty, setDirty] = useState(false);
+  const [orderAttempted, setOrderAttempted] = useState(false);
+
+  /** A change of the user's: a new order's draft follows it. */
+  const changeValues = (next: ImmunizationFormValues): void => {
+    setDirty(true);
+    setEntered(next);
   };
 
-  const handleDeleteOrder = async (): Promise<void> => {
+  useEffect(() => {
+    if (!isCreating || !encounterId || !dirty || isOrderSaved) return;
+    setDraft(encounterId, { ...values.details, administrationDetails: values.administrationDetails });
+  }, [isCreating, encounterId, dirty, isOrderSaved, values, setDraft]);
+
+  const { data: ordersResponse, isLoading: isOrderLoading } = useGetImmunizationOrders({ orderId });
+  useEffect(() => {
     if (!orderId) return;
-    try {
-      const response = await cancelOrder({ orderId });
-      enqueueOrderDeleteWarnings(response);
-      finish();
-    } catch {
-      setIsDeleteDialogOpen(false);
-      enqueueSnackbar('An error occurred while deleting the immunization order. Please try again.', {
-        variant: 'error',
-      });
-    }
-  };
-
-  const handleBack = (): void => {
-    if (isCreating && encounterId) clearDraft(encounterId);
-    finish();
-  };
-
-  const { data: ordersResponse, isLoading: isOrderLoading } = useGetImmunizationOrders({
-    orderId: orderId,
-  });
-
-  const methods = useForm<FieldValues>({
-    defaultValues: {
-      details: {
-        orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : undefined,
-        ...(isCreating && draftDetails),
-      },
-      administrationDetails: { ...EMPTY_ADMINISTRATION_DETAILS, ...(isCreating && draftAdministrationDetails) },
-    },
-  });
-
-  const handleClearForm = (): void => {
-    clearDraft(encounterId);
-
-    // set these fields explicitly, including to null, because under the hood, reset does comparisons where undefined
-    // is not sufficient and it will default to the original values in defaultValues
-    methods.reset({
-      details: {
-        medication: null,
-        associatedDx: null,
-        dose: '',
-        units: null,
-        route: '',
-        manufacturer: '',
-        location: null,
-        instructions: '',
-        orderedProvider: defaultProviderId ? { id: defaultProviderId, name: currentUser?.userName } : null,
-      },
-      administrationDetails: EMPTY_ADMINISTRATION_DETAILS,
-    });
-  };
+    const order = ordersResponse?.orders?.find((order) => order.id === orderId);
+    if (order) setEntered(immunizationFormFromOrder(order));
+  }, [ordersResponse, orderId]);
 
   const {
     mergedQuickPicks,
@@ -178,60 +140,15 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
     setQuickPickName,
     existingQuickPicks,
     quickPickSaving,
-    onQuickPickSelect,
     openQuickPickDialog,
     onSaveAsQuickPick,
-  } = useImmunizationQuickPickManagement({ methods, applyOrderDetails: true });
+  } = useImmunizationQuickPickManagement({ getValues: () => values });
 
-  useEffect(() => {
-    if (!orderId) return;
-    const order = ordersResponse?.orders?.find((order) => order.id === orderId);
-    methods.reset(order);
-  }, [methods, ordersResponse, orderId]);
-
-  useEffect(() => {
-    if (!orderId && defaultProviderId && !getDraft(encounterId)) {
-      methods.reset({
-        ...methods.getValues(),
-        details: {
-          ...methods.getValues('details'),
-          orderedProvider: {
-            id: defaultProviderId,
-            name: currentUser?.userName,
-          },
-        },
-      });
-    }
-  }, [methods, defaultProviderId, orderId, currentUser, encounterId, getDraft]);
-
-  useEffect(() => {
-    if (!isCreating || !encounterId) return;
-    const unsubscribe = methods.subscribe({
-      formState: { values: true, isDirty: true },
-      callback: ({ values, isDirty }) => {
-        if (!isDirty) return;
-        setDraft(encounterId, {
-          ...(values.details as InputImmunizationOrderDetails),
-          administrationDetails: values.administrationDetails,
-        });
-      },
-    });
-    return unsubscribe;
-  }, [isCreating, encounterId, methods, setDraft]);
-
-  const handleQuickPickSelect = useCallback(
-    (quickPick: ImmunizationQuickPickData): void => {
-      onQuickPickSelect(quickPick);
-      if (isCreating && encounterId) {
-        const { details, administrationDetails } = methods.getValues();
-        setDraft(encounterId, { ...(details as InputImmunizationOrderDetails), administrationDetails });
-      }
-    },
-    [onQuickPickSelect, isCreating, encounterId, methods, setDraft]
-  );
-
-  const onQuickPickSelectRef = useRef(handleQuickPickSelect);
-  onQuickPickSelectRef.current = handleQuickPickSelect;
+  const onQuickPickSelect = (quickPick: ImmunizationQuickPickData): void =>
+    changeValues(applyImmunizationQuickPick(values, quickPick, true));
+  // the command palette and a pending quick pick call the latest one
+  const onQuickPickSelectRef = useRef(onQuickPickSelect);
+  onQuickPickSelectRef.current = onQuickPickSelect;
 
   const commandPaletteItems = useMemo(
     () =>
@@ -262,132 +179,157 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
   );
   usePendingQuickPick('immunizations', handlePendingQuickPick, !isOrderLoading);
 
+  const order = async (): Promise<void> => {
+    setOrderAttempted(true);
+    if (immunizationOrderErrors(values).length > 0) return;
+    try {
+      await createUpdateOrder(immunizationOrderRequest(values, encounterId, orderId));
+    } catch (error) {
+      enqueueSnackbar(getApiError({ error, defaultError: 'An error occurred while saving the immunization order.' }), {
+        variant: 'error',
+      });
+      return;
+    }
+    setIsOrderSaved(true);
+    if (isCreating && encounterId) clearDraft(encounterId);
+    finish();
+  };
+
+  const handleDeleteOrder = async (): Promise<void> => {
+    if (!orderId) return;
+    try {
+      const response = await cancelOrder({ orderId });
+      enqueueOrderDeleteWarnings(response);
+      finish();
+    } catch {
+      setIsDeleteDialogOpen(false);
+      enqueueSnackbar('An error occurred while deleting the immunization order. Please try again.', {
+        variant: 'error',
+      });
+    }
+  };
+
+  const handleBack = (): void => {
+    if (isCreating && encounterId) clearDraft(encounterId);
+    finish();
+  };
+
+  const handleClearForm = (): void => {
+    clearDraft(encounterId);
+    setDirty(false);
+    setOrderAttempted(false);
+    setEntered(emptyImmunizationForm());
+  };
+
   return (
-    <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit)}>
-        <Stack spacing={2}>
-          {!isInlineFlow && (
-            <BaseBreadcrumbs
-              sectionName={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
-              baseCrumb={{ label: 'Immunizations', path: getImmunizationMARUrl(appointmentId ?? '') }}
-            />
-          )}
-          <PageHeader
-            title={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
-            variant="h3"
-            component="h1"
-            dataTestId={dataTestIds.orderVaccinePage.title}
+    <>
+      <Stack spacing={2}>
+        {!isInlineFlow && (
+          <BaseBreadcrumbs
+            sectionName={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
+            baseCrumb={{ label: 'Immunizations', path: getImmunizationMARUrl(appointmentId ?? '') }}
           />
+        )}
+        <PageHeader
+          title={orderId ? 'Edit Immunization Order' : 'Order Immunization'}
+          variant="h3"
+          component="h1"
+          dataTestId={dataTestIds.orderVaccinePage.title}
+        />
 
-          {isCreating && hasDraft(encounterId) && (
-            <UnsavedDraftWarning
-              message={
-                draft.hasNavigatedAway
-                  ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
-                  : 'You have an immunization order in progress. Your draft will be saved.'
-              }
+        {isCreating && hasDraft(encounterId) && (
+          <UnsavedDraftWarning
+            message={
+              draft.hasNavigatedAway
+                ? 'Your previously entered data has been restored. Click "Clear Form" to start fresh.'
+                : 'You have an immunization order in progress. Your draft will be saved.'
+            }
+          />
+        )}
+
+        <AccordionCard>
+          <Stack spacing={1.5} style={{ padding: '24px' }}>
+            <ImmunizationSectionLabel>Immunizations</ImmunizationSectionLabel>
+            <ImmunizationSentences
+              values={values}
+              onChange={changeValues}
+              // Quick picks start a new order; an order being edited keeps what it has.
+              quickPicks={isCreating ? mergedQuickPicks : undefined}
+              quickPicksLoading={mergedQuickPicksLoading}
+              onQuickPick={onQuickPickSelect}
+              onSaveQuickPick={isAdmin && isCreating ? () => void openQuickPickDialog() : undefined}
+              errors={orderAttempted ? immunizationOrderErrors(values) : []}
+              readOnly={isReadOnly}
+              collapseAdministration
             />
-          )}
-
-          {!orderId && (
-            <QuickPicksButton
-              quickPicks={mergedQuickPicks}
-              loading={mergedQuickPicksLoading}
-              getLabel={(qp) => qp.name}
-              onSelect={handleQuickPickSelect}
-              showAddOption
-              isAdmin={isAdmin}
-              onAddOrUpdate={() => void openQuickPickDialog()}
-              searchable
+            <WarningBlock
+              title="Safety Alert"
+              text="Vaccine orders do not automatically check for patient allergies (unlike medication orders). Before proceeding, please manually review the patient's allergies and confirm there is no risk of allergy to the vaccine or its components."
             />
-          )}
 
-          <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-            <Grid container spacing={2}>
-              <Grid xs={12} item>
-                <OrderDetailsSection />
-              </Grid>
-              <Grid xs={12} item>
-                <Typography variant="h5" sx={{ color: theme.palette.primary.dark }}>
-                  Administering immunization
-                </Typography>
-              </Grid>
-              <AdministeringImmunizationFields isReadOnly={isReadOnly} />
-              <Grid xs={12} item>
-                <WarningBlock
-                  title="Safety Alert"
-                  text="Vaccine orders do not automatically check for patient allergies (unlike medication orders). Before proceeding, please manually review the patient's allergies and confirm there is no risk of allergy to the vaccine or its components."
-                />
-              </Grid>
-              <Grid xs={12} item>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Stack direction="row" spacing={1}>
-                    <ButtonRounded variant="outlined" color="primary" size="large" onClick={handleBack}>
-                      Back
-                    </ButtonRounded>
-                    {isCreating && hasDraft(encounterId) && (
-                      <ButtonRounded variant="outlined" color="primary" size="large" onClick={handleClearForm}>
-                        Clear Form
-                      </ButtonRounded>
-                    )}
-                    {orderId && (
-                      <>
-                        <LoadingButton
-                          variant="outlined"
-                          color="error"
-                          size="large"
-                          loading={isDeleting}
-                          onClick={() => setIsDeleteDialogOpen(true)}
-                          sx={{
-                            borderRadius: '20px',
-                            textTransform: 'none',
-                          }}
-                        >
-                          Delete Order
-                        </LoadingButton>
-                        <CustomDialog
-                          open={isDeleteDialogOpen}
-                          handleClose={() => setIsDeleteDialogOpen(false)}
-                          title="Delete immunization order"
-                          description="Are you sure you want to delete the immunization order?"
-                          closeButtonText="Cancel"
-                          closeButton={false}
-                          handleConfirm={handleDeleteOrder}
-                          confirmText={isDeleting ? 'Deleting...' : 'Delete'}
-                          confirmLoading={isDeleting}
-                        />
-                      </>
-                    )}
-                  </Stack>
-                  <LoadingButton
-                    type="submit"
-                    disabled={isOrderLoading || isOrderSaved}
-                    loading={isOrderSaving}
-                    variant="contained"
-                    color="primary"
-                    size="large"
-                    sx={{
-                      borderRadius: '20px',
-                      textTransform: 'none',
-                    }}
-                    data-testid={dataTestIds.orderVaccinePage.orderVaccineButton}
-                  >
-                    {orderId ? 'Save changes' : 'Order Immunization'}
-                  </LoadingButton>
-                </Stack>
-              </Grid>
-            </Grid>
-          </Paper>
-          <AccordionCard
-            label="Immunization history"
-            collapsed={isImmunizationHistoryCollapsed}
-            onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
-            withBorder={false}
-          >
-            <OrderHistoryTable showActions={false} administeredOnly immunizationInput={{ patientId: patient?.id }} />
-          </AccordionCard>
-        </Stack>
-      </form>
+            <Divider orientation="horizontal" />
+
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Stack direction="row" spacing={1}>
+                <ButtonRounded variant="outlined" color="primary" size="large" onClick={handleBack}>
+                  Back
+                </ButtonRounded>
+                {isCreating && hasDraft(encounterId) && (
+                  <ButtonRounded variant="outlined" color="primary" size="large" onClick={handleClearForm}>
+                    Clear Form
+                  </ButtonRounded>
+                )}
+                {orderId && (
+                  <>
+                    <LoadingButton
+                      variant="outlined"
+                      color="error"
+                      size="large"
+                      loading={isDeleting}
+                      onClick={() => setIsDeleteDialogOpen(true)}
+                      sx={ROUNDED_BUTTON_SX}
+                    >
+                      Delete Order
+                    </LoadingButton>
+                    <CustomDialog
+                      open={isDeleteDialogOpen}
+                      handleClose={() => setIsDeleteDialogOpen(false)}
+                      title="Delete immunization order"
+                      description="Are you sure you want to delete the immunization order?"
+                      closeButtonText="Cancel"
+                      closeButton={false}
+                      handleConfirm={handleDeleteOrder}
+                      confirmText={isDeleting ? 'Deleting...' : 'Delete'}
+                      confirmLoading={isDeleting}
+                    />
+                  </>
+                )}
+              </Stack>
+              <LoadingButton
+                disabled={isOrderLoading || isOrderSaved || isReadOnly}
+                loading={isOrderSaving}
+                variant="contained"
+                color="primary"
+                size="large"
+                sx={ROUNDED_BUTTON_SX}
+                onClick={() => void order()}
+                data-testid={dataTestIds.orderVaccinePage.orderVaccineButton}
+              >
+                {orderId ? 'Save changes' : 'Order Immunization'}
+              </LoadingButton>
+            </Stack>
+          </Stack>
+        </AccordionCard>
+
+        <AccordionCard
+          label="Immunization history"
+          collapsed={isImmunizationHistoryCollapsed}
+          onSwitch={() => setIsImmunizationHistoryCollapsed((prev) => !prev)}
+          withBorder={false}
+        >
+          <OrderHistoryTable showActions={false} administeredOnly immunizationInput={{ patientId: patient?.id }} />
+        </AccordionCard>
+      </Stack>
 
       <QuickPickSaveDialogs
         open={quickPickDialogOpen}
@@ -399,6 +341,6 @@ export const ImmunizationOrderCreateEdit: React.FC<ImmunizationOrderCreateEditPr
         onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
         entityLabel="immunization"
       />
-    </FormProvider>
+    </>
   );
 };
