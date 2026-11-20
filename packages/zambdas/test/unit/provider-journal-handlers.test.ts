@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { JournalRow } from 'utils/lib/types/api/provider-journal.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
-import { MANUAL_TASK, RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
+import { MANUAL_TASK, PATIENT_REQUEST_TASK, RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
 import { APIErrorCode, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTask } from '../../src/shared/tasks';
@@ -132,38 +132,37 @@ describe('get-provider-journal access', () => {
     expect(openVisitSearch?.params.some((p: { name: string }) => p.name === 'appointment.date')).toBe(false);
   });
 
-  it('keeps open tasks on this person’s visits of any age, e.g. a pre-visit lab from a visit months ago', async () => {
+  it.each([
+    ['a pre-visit lab on a visit months ago', { months: -4 }, 'fulfilled', LAB_ORDER_TASK.category],
+    ['a text linked to an upcoming booking', { days: 7 }, 'booked', PATIENT_REQUEST_TASK.category],
+  ] as const)('keeps open tasks on this person’s visits of any date: %s', async (_case, offset, status, category) => {
     mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
-    const start = DateTime.now().minus({ months: 4 }).toUTC().toISO()!;
-    const oldVisit = [
+    const start = DateTime.now().plus(offset).toUTC().toISO()!;
+    const visit = [
       {
         resourceType: 'Encounter',
-        id: 'enc-old',
-        status: 'finished',
+        id: 'enc-1',
+        status: status === 'booked' ? 'planned' : 'finished',
         subject: { reference: 'Patient/pat-1' },
-        appointment: [{ reference: 'Appointment/appt-old' }],
+        appointment: [{ reference: 'Appointment/appt-1' }],
         participant: [
           {
             type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }] }],
             individual: { reference: `Practitioner/${PRACTITIONER_ID}` },
-            period: { start, end: start },
           },
         ],
       },
-      { resourceType: 'Appointment', id: 'appt-old', status: 'fulfilled', start },
+      { resourceType: 'Appointment', id: 'appt-1', status, start },
     ];
-    const lipids = {
-      ...createTask({ category: LAB_ORDER_TASK.category, title: 'Review results', encounterId: 'enc-old' }),
-      id: 'task-lipids',
-    };
+    const task = { ...createTask({ category, title: 'Open task', encounterId: 'enc-1' }), id: 'task-1' };
     mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
       const has = (name: string): boolean => params.some((p: { name: string }) => p.name === name);
-      if (resourceType === 'Task' && has('encounter.participant')) return [lipids, ...oldVisit];
+      if (resourceType === 'Task' && has('encounter.participant')) return [task, ...visit];
       if (resourceType === 'Patient') return [{ resourceType: 'Patient', id: 'pat-1', name: [{ given: ['Lee'] }] }];
       return [];
     });
     const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
-    expect(journal.recent.map((row: JournalRow) => row.items.map((item) => item.id))).toEqual([['task-lipids']]);
+    expect(journal.recent.map((row: JournalRow) => row.items.map((item) => item.id))).toEqual([['task-1']]);
     const chained = mockGetAllPages.mock.calls.find(([search]) =>
       search.params.some((p: { name: string }) => p.name === 'encounter.participant')
     )?.[0];
