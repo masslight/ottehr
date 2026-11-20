@@ -12,7 +12,6 @@ import {
 import { KeyboardEvent, MouseEvent, ReactElement, useState } from 'react';
 import { ClaimTagMatch } from 'utils/lib/types/data/billing/billing.schemas';
 
-
 export interface ClaimTagFilterValue {
   include: string[];
   exclude: string[];
