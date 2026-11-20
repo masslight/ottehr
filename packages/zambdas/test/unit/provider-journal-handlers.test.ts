@@ -101,6 +101,17 @@ describe('get-provider-journal access', () => {
     );
   });
 
+  it('includes task results with the untyped Task:based-on (FHIR refuses the typed form with a 400)', async () => {
+    mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
+    await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'America/New_York' });
+    const includes = mockGetAllPages.mock.calls
+      .filter(([search]) => search.resourceType === 'Task')
+      .flatMap(([search]) => search.params.filter((p: { name: string }) => p.name === '_include'))
+      .map((p: { value: string }) => p.value);
+    expect(includes).toContain('Task:based-on');
+    expect(includes.filter((value: string) => value.startsWith('Task:based-on:'))).toEqual([]);
+  });
+
   it('builds a clinician journal for a Clinician', async () => {
     mockPractitionerRoles.mockResolvedValue([RoleType.Clinician]);
     const result = await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'America/New_York' });

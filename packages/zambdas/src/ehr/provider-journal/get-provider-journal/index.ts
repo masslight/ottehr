@@ -68,7 +68,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           { name: '_tag', value: 'task' },
           { name: '_include', value: 'Task:encounter' },
           { name: '_include:iterate', value: 'Encounter:appointment' },
-          { name: '_include', value: 'Task:based-on:DiagnosticReport' },
+          { name: '_include', value: 'Task:based-on' },
         ],
       },
       oystehr
