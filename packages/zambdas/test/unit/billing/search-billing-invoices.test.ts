@@ -1,6 +1,10 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Invoice, Patient, Person } from 'fhir/r4b';
-import { buildBillingInvoice, withHostedInvoiceUrl } from 'utils/lib/fhir/billing-invoice';
+import { Claim, Invoice, Organization, Patient, Person } from 'fhir/r4b';
+import {
+  buildBillingInvoice,
+  INVOICE_NUMBER_IDENTIFIER_SYSTEM,
+  withHostedInvoiceUrl,
+} from 'utils/lib/fhir/billing-invoice';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/search-billing-invoices';
 
@@ -31,14 +35,54 @@ const sentInvoice = (id: string): Invoice => ({
   id,
 });
 
+const nio: Organization = {
+  resourceType: 'Organization',
+  id: 'nio-1',
+  name: 'Acme Health Services',
+};
+
+const nioInvoice = (id: string): Invoice => ({
+  ...buildBillingInvoice({
+    status: 'issued',
+    date: '2026-10-03T15:00:00.000Z',
+    dueDate: '2026-10-10',
+    recipient: {
+      reference: 'Organization/nio-1',
+    },
+    claims: [
+      {
+        claimId: 'claim-1',
+        amountCents: 18000,
+      },
+      {
+        claimId: 'claim-2',
+        amountCents: 14000,
+      },
+    ],
+  }),
+  id,
+  identifier: [
+    {
+      system: INVOICE_NUMBER_IDENTIFIER_SYSTEM,
+      value: 'INV-00042',
+    },
+  ],
+});
+
 const makeOystehr = (
   invoices: Invoice[],
   patients: Patient[] = [],
-  persons: Person[] = []
+  persons: Person[] = [],
+  organizations: Organization[] = []
 ): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
   const search = vi.fn(
     async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => {
-      if (resourceType === 'Invoice') return { total: invoices.length, unbundle: () => [...invoices, patient] };
+      if (resourceType === 'Invoice') {
+        return {
+          total: invoices.length,
+          unbundle: () => [...invoices, patient, ...organizations],
+        };
+      }
       if (resourceType === 'Claim') return { unbundle: () => [claim] };
       if (resourceType === 'Person') return { unbundle: () => persons };
       const id = params.find((param) => param.name === '_id')?.value;
@@ -67,6 +111,9 @@ describe('search-billing-invoices', () => {
           claimId: 'claim-1',
           serviceDate: '2026-09-20',
           hostedInvoiceUrl: 'https://pay.test/inv-1',
+          kind: 'patient',
+          recipient: undefined,
+          pastDue: false,
         },
       ],
       total: 1,
@@ -90,7 +137,46 @@ describe('search-billing-invoices', () => {
     });
   });
 
-  it('lists only patient invoices, leaving out NIO invoices', async () => {
+  it('lists NIO invoices with their payer and past-due flag', async () => {
+    const { oystehr, search } = makeOystehr([nioInvoice('inv-nio')], [], [], [nio]);
+
+    const result = await performEffect(oystehr, {
+      secrets: {},
+    });
+
+    expect(result.invoices).toEqual([
+      {
+        id: 'inv-nio',
+        status: 'issued',
+        issueDate: '2026-10-03T15:00:00.000Z',
+        dueDate: '2026-10-10',
+        amount: 320,
+        hostedInvoiceUrl: undefined,
+        patientId: undefined,
+        patientName: '',
+        claimId: undefined,
+        serviceDate: '',
+        kind: 'nio',
+        recipient: {
+          id: 'nio-1',
+          name: 'Acme Health Services',
+        },
+        pastDue: true,
+      },
+    ]);
+    expect(search).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'PaymentNotice',
+      })
+    );
+    expect(search).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Claim',
+      })
+    );
+  });
+
+  it('lists both patient and NIO invoices when no kind is given', async () => {
     const { oystehr, search } = makeOystehr([]);
 
     await performEffect(oystehr, {
@@ -98,9 +184,52 @@ describe('search-billing-invoices', () => {
     });
 
     const [{ params }] = search.mock.calls.find(([input]) => input.resourceType === 'Invoice')!;
+    expect(params).not.toContainEqual(
+      expect.objectContaining({
+        name: 'subject:missing',
+      })
+    );
+    expect(params).toContainEqual({
+      name: '_include',
+      value: 'Invoice:recipient',
+    });
+  });
+
+  it.each([
+    ['nio', 'true'],
+    ['patient', 'false'],
+  ] as const)('filters %s invoices by whether they have a patient subject', async (kind, missing) => {
+    const { oystehr, search } = makeOystehr([]);
+
+    await performEffect(oystehr, {
+      kind,
+      secrets: {},
+    });
+
+    const [{ params }] = search.mock.calls.find(([input]) => input.resourceType === 'Invoice')!;
     expect(params).toContainEqual({
       name: 'subject:missing',
-      value: 'false',
+      value: missing,
+    });
+  });
+
+  it.each([
+    ['nio', 'Organization/rec-1'],
+    ['patient', 'Patient/rec-1,RelatedPerson/rec-1'],
+    [undefined, 'Organization/rec-1,Patient/rec-1,RelatedPerson/rec-1'],
+  ] as const)('filters %s invoices by recipient as %s', async (kind, recipient) => {
+    const { oystehr, search } = makeOystehr([]);
+
+    await performEffect(oystehr, {
+      kind,
+      recipientId: 'rec-1',
+      secrets: {},
+    });
+
+    const [{ params }] = search.mock.calls.find(([input]) => input.resourceType === 'Invoice')!;
+    expect(params).toContainEqual({
+      name: 'recipient',
+      value: recipient,
     });
   });
 

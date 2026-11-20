@@ -37,6 +37,7 @@ import {
   ExportClaimX12InputSchema,
   GetBillingClaimsExportStatusInputSchema,
   GetBillingCoverageInputSchema,
+  GetBillingInvoiceInputSchema,
   GetBillingInvoiceRecipientInputSchema,
   GetBillingPatientAccountPaymentInputSchema,
   GetBillingPatientBalanceInputSchema,
@@ -98,6 +99,7 @@ import {
   BillingClaimsExportKickOffResponse,
   BillingClaimsExportStatusResponse,
   BillingCodeOption,
+  BillingInvoiceDetail,
   BillingProviderOption,
   CheckBillingNioInvoiceResponse,
   ClaimDetailResponse,
@@ -267,6 +269,11 @@ export const searchBillingInvoices = (
   oystehr: Oystehr,
   parameters: z.input<typeof SearchBillingInvoicesInputSchema>
 ): Promise<SearchBillingInvoicesResponse> => executeBillingZambda(oystehr, 'search-billing-invoices', parameters);
+
+export const getBillingInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingInvoiceInputSchema>
+): Promise<BillingInvoiceDetail> => executeBillingZambda(oystehr, 'get-billing-invoice', parameters);
 
 export const getBillingInvoiceStatement = (
   oystehr: Oystehr,
