@@ -76,7 +76,11 @@ const packet: DocumentReference = {
   resourceType: 'DocumentReference',
   id: 'packet-1',
   status: 'current',
-  content: [{ attachment: { url: 'https://z3.example.test/faxes/packet.pdf', title: 'Visit packet.pdf' } }],
+  content: [
+    {
+      attachment: { url: 'https://project-api.zapehr.com/v1/z3/project-1-faxes/packet.pdf', title: 'Visit packet.pdf' },
+    },
+  ],
 };
 
 const location: Location = {
