@@ -84,10 +84,13 @@ import {
   CONTAINED_MEDICATION_ID,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
 } from '../src/ehr/immunization/common';
-import { inHouseResults } from '../src/shared/adhoc-datasets/encounter-orders';
+import { fetchEncounterOrders, inHouseResults } from '../src/shared/adhoc-datasets/encounter-orders';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { makeNoteResource } from '../src/shared/chart-data';
 import { makeExamObservationResource, makeObservationResource } from '../src/shared/chart-data';
+
+// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
+process.env.ADHOC_SYNC_PAGES = '0';
 
 // Fixture tests for the Encounters layers that reuse the app's own mappers (tracking-board orders, chart
 // sections, visit-note signatures, tracking-board paperwork). The stubbed Oystehr serves each async-bulk
@@ -926,6 +929,9 @@ const resourcesByJob: Record<string, FhirResource[]> = {
     attending,
   ],
 };
+// The encounters dataset searches the encounters on their own (by appointment date); the other datasets still get
+// them revincluded with the appointments.
+resourcesByJob.Encounter ??= (resourcesByJob.Appointment ?? []).filter((r) => r.resourceType === 'Encounter');
 
 // Searches sharing a resource type are told apart by what they ask for.
 const jobIdFor = (resourceType: string, params: { name: string; value: string }[]): string => {
@@ -1458,4 +1464,63 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       resultInterpretations: ['A', 'N'],
     });
   });
+
+  it('labs and nursing at scale: each order is matched to its own resources only, in linear time', async () => {
+    // A report's order search returns every order of the range with its Tasks, reports, Provenances and Specimens.
+    // The EHR mappers scan whatever lists they are handed, so handed the whole report they compared every order
+    // with every resource (UC 18: 589 s). Here the fixture's orders are copied COPIES times, each copy on its own
+    // encounters with its own ids: every copy must map to exactly the original's records.
+    const COPIES = 1500;
+    const orderResources = resourcesByJob['ServiceRequest:orders'].filter((r) => r.resourceType !== 'Practitioner');
+    const renamed = new Set([...orderResources.map((r) => r.id!), 'enc-1', 'enc-2']);
+    const copy = <T extends FhirResource>(resource: T, i: number): T => {
+      let text = JSON.stringify(resource);
+      for (const id of renamed) text = text.replace(new RegExp(`(["/])${id}"`, 'g'), `$1${id}~${i}"`);
+      return JSON.parse(text);
+    };
+    const encounters = [signedEncounter, cancelledEncounter];
+    const practitioners = [attending, intakeNurse, supervisor];
+    const run = async (orders: FhirResource[], forEncounters: Encounter[]): Promise<Map<string, unknown>> => {
+      resourcesByJob['scaled-orders'] = [...orders, attending];
+      const oystehr = {
+        fhir: {
+          search: async ({
+            resourceType,
+            params,
+          }: {
+            resourceType: string;
+            params: { name: string; value: string }[];
+          }) => ({
+            jobId: jobIdFor(resourceType, params ?? []) === 'ServiceRequest:orders' ? 'scaled-orders' : 'none',
+            contentLocation: '',
+            mode: 'bulk',
+          }),
+          waitForAsyncJob: async (jobId: string) => ({ status: 200, mode: 'bulk', manifest: manifestFor(jobId) }),
+        },
+      } as unknown as Oystehr;
+      return fetchEncounterOrders(oystehr, {
+        encounters: forEncounters,
+        practitioners,
+        environment: 'test',
+        includeLabs: true,
+        includeNursing: true,
+      });
+    };
+
+    const original = await run(orderResources, encounters);
+    expect(original.get('enc-1')).toBeDefined();
+
+    const startedAt = Date.now();
+    const scaled = await run(
+      Array.from({ length: COPIES }, (_, i) => orderResources.map((r) => copy(r, i))).flat(),
+      Array.from({ length: COPIES }, (_, i) => encounters.map((e) => copy(e, i))).flat()
+    );
+    console.log(`[test] ${COPIES} copies of the fixture's orders mapped in ${Date.now() - startedAt} ms`);
+
+    for (let i = 0; i < COPIES; i++) {
+      expect(scaled.get(`enc-1~${i}`)).toEqual(original.get('enc-1'));
+      expect(scaled.get(`enc-2~${i}`)).toEqual(original.get('enc-2'));
+    }
+    delete resourcesByJob['scaled-orders'];
+  }, 120_000);
 });

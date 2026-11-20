@@ -91,7 +91,10 @@ const buildPrompt = (datasets: CatalogDataset[], request: string, feedback?: Inf
 You prepare a clinical ad-hoc report BEFORE any data is fetched. You do three things.
 
 JOB 1 — PICK THE DATASETS. Datasets differ in what one row is (see each description) and cannot be
-joined. Return in "datasets" the ONE dataset whose rows are the thing the request counts, lists or
+joined — except through FOREIGN layers: a layer whose id is "<other dataset id>.<layer>" (for example
+"patients.allergies") puts that other dataset's patient-level facts on every row of THIS dataset. A
+dataset covers a concept through a foreign layer exactly as through one of its own layers, so one
+dataset with a foreign layer is preferred to several datasets. Return in "datasets" the ONE dataset whose rows are the thing the request counts, lists or
 compares and whose fields cover EVERY requested concept — through its always-present fields, its
 layers, or what can be computed from them (tests 1-3 below). Words like "visits", "patients" or
 "diagnoses" do not by themselves point to a dataset: several datasets carry visit counts,
@@ -99,9 +102,12 @@ demographics or codes, so judge by the fields. Only when NO single dataset cover
 return every dataset the request needs, two or more.
 
 JOB 2 — PICK THE LAYERS. Optional layers add columns (and a heavier fetch) to a dataset. For each
-returned dataset, put in its "layerIds" ONLY the ids of its own layers the request genuinely needs —
+returned dataset, put in its "layerIds" ONLY the ids of its layers (own or foreign) the request genuinely needs —
 the minimal set. Base fields are always present, so never request a layer for those. When a
 borderline layer is doubtful, LEAVE IT OUT: a later step can still pull a missing layer on demand.
+When SEVERAL layers carry the field a request needs, pick the SMALLEST one that covers the whole
+request: a report about temperature takes the temperature layer, not the full vital-signs layer, which
+loads every vital of every visit.
 
 JOB 3 — REJECT WHAT THE DATA CANNOT ANSWER. List in "unavailable" every concept the request asks for
 that NO dataset holds — not in the chosen dataset, not in any other, not in any layer. Look for it in
@@ -166,6 +172,26 @@ only LAYER ids of that dataset and is an empty array when no optional layer is n
 `;
 };
 
+/**
+ * Drops a picked layer whose fields another picked layer already has (the temperature layer next to the full
+ * vital-signs one): it would only fetch the same readings twice.
+ */
+const withoutCoveredLayers = (layerIds: string[], dataset: CatalogDataset): string[] => {
+  const fieldsOf = (layerId: string): string[] =>
+    dataset.layers.find((l) => l.id === layerId)?.fields.map((f) => f.name) ?? [];
+  return layerIds.filter((layerId, index) => {
+    const own = fieldsOf(layerId);
+    if (!own.length) return true;
+    return !layerIds.some((otherId, otherIndex) => {
+      if (otherId === layerId) return false;
+      const other = new Set(fieldsOf(otherId));
+      const covers = own.every((name) => other.has(name));
+      // Two layers with the same fields: keep the first.
+      return covers && (other.size > own.length || otherIndex < index);
+    });
+  });
+};
+
 export const parseDatasets = (value: unknown, catalog: CatalogDataset[]): InferAdHocLayersOutput['datasets'] => {
   if (!Array.isArray(value)) return [];
 
@@ -189,7 +215,10 @@ export const parseDatasets = (value: unknown, catalog: CatalogDataset[]): InferA
     picked.set(dataset.id, layers);
   }
 
-  return Array.from(picked, ([id, layerIds]) => ({ id, layerIds: Array.from(layerIds) }));
+  return Array.from(picked, ([id, layerIds]) => ({
+    id,
+    layerIds: withoutCoveredLayers(Array.from(layerIds), catalog.find((d) => d.id === id)!),
+  }));
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

@@ -45,6 +45,7 @@ async function fetchAdHocPatients({
 
 export const patientsDataset: AdHocDataset = {
   id: 'patients',
+  rowKey: 'patientId',
   label: 'Patients',
   description: 'One row per patient seen in the date range, with demographics and a summary of their visits.',
   options: ADHOC_PATIENTS_OPTIONS,

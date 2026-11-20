@@ -27,6 +27,7 @@ import { showAdHocDebugLog } from '../debug';
 import { SANDBOX_TIMEOUT_MESSAGE } from '../hooks/useSandbox';
 import { toLocalYmd } from '../query/dataset-query';
 import { runAdHocReportGeneration } from '../query/generation-query';
+import { mergeRows } from '../query/merge-rows';
 
 // How many times to transparently regenerate after a runtime error before surfacing it to the user.
 // 1 initial generation + up to 2 repairs.
@@ -100,6 +101,14 @@ function defaultOptionsFor(datasetId: string): Record<string, boolean> {
     out[opt.id] = !!opt.default;
   });
   return out;
+}
+
+interface LoadedData {
+  datasetId: string;
+  rangeKey: string;
+  range: { start: string; end: string };
+  layers: Set<string>;
+  rows: AdHocRow[];
 }
 
 type UseReportBuilder = {
@@ -207,10 +216,21 @@ export function useReportBuilder(): UseReportBuilder {
     [customDate, customStartDate, customEndDate]
   );
 
+  // The loaded data of this session: which dataset, for which date controls, with which layers. The range is
+  // fixed at the first load (a range "until now" would get new visits every minute), so a later layer can be
+  // loaded alone and merged into the rows already here.
+  const loadedRef = useRef<LoadedData | null>(null);
+
+  const rangeKeyOf = useCallback(
+    (filter: AdHocDateRangeFilter): string => [filter, customDate, customStartDate, customEndDate].join('|'),
+    [customDate, customStartDate, customEndDate]
+  );
+
   const fetchWithOptions = useCallback(
     async (
       datasetId: string,
-      opts: Record<string, boolean>
+      opts: Record<string, boolean>,
+      { refresh = false }: { refresh?: boolean } = {}
     ): Promise<{ rows: AdHocRow[]; schema: LlmDatasetSchema } | null> => {
       if (!oystehrZambda) return null;
       const dataset = getDataset(datasetId);
@@ -218,8 +238,41 @@ export function useReportBuilder(): UseReportBuilder {
       setLoading(true);
       setError(null);
       try {
-        const range = getDateRangeIso(dateRange);
-        const fetched = await dataset.fetch({ oystehrZambda, queryClient, dateRange: range, options: opts });
+        const rangeKey = rangeKeyOf(dateRange);
+        const loaded = loadedRef.current;
+        const session =
+          !refresh && loaded && loaded.datasetId === datasetId && loaded.rangeKey === rangeKey ? loaded : null;
+        const range = session?.range ?? getDateRangeIso(dateRange);
+        const wanted = Object.keys(opts).filter((id) => opts[id]);
+        const missing = session ? wanted.filter((id) => !session.layers.has(id)) : wanted;
+
+        const fetchLayers = (ids: string[]): Promise<AdHocRow[]> =>
+          dataset.fetch({
+            oystehrZambda,
+            queryClient,
+            dateRange: range,
+            options: Object.fromEntries(Object.keys(opts).map((id) => [id, ids.includes(id)])),
+          });
+
+        let fetched: AdHocRow[];
+        let layers: Set<string>;
+
+        if (!session) {
+          fetched = await fetchLayers(wanted);
+          layers = new Set(wanted);
+        } else if (!missing.length) {
+          fetched = session.rows;
+          layers = session.layers;
+        } else {
+          // Only the layers not loaded yet; the rest comes from the rows already here.
+          const merged = mergeRows(session.rows, await fetchLayers(missing), dataset.rowKey);
+          fetched = merged ?? (await fetchLayers(wanted));
+          layers = merged ? new Set([...session.layers, ...missing]) : new Set(wanted);
+          if (!merged) showAdHocDebugLog('fetch', 'rows changed since the first load: loaded every layer again');
+        }
+
+        loadedRef.current = { datasetId, rangeKey, range, layers, rows: fetched };
+
         const builtSchema: LlmDatasetSchema = {
           ...dataset.buildSchema(fetched, opts),
           dateRange: schemaDateRange(range),
@@ -228,6 +281,7 @@ export function useReportBuilder(): UseReportBuilder {
         showAdHocDebugLog('fetch', `fetched ${fetched.length} rows`, {
           datasetId,
           options: opts,
+          loadedNow: session ? missing : wanted,
           fields: builtSchema.fields.length,
         });
         setDatasetId(datasetId);
@@ -243,11 +297,12 @@ export function useReportBuilder(): UseReportBuilder {
         setLoading(false);
       }
     },
-    [oystehrZambda, queryClient, dateRange, getDateRangeIso]
+    [oystehrZambda, queryClient, dateRange, getDateRangeIso, rangeKeyOf]
   );
 
+  // An explicit fetch starts a new session: the range is computed again and every layer is loaded.
   const handleFetch = useCallback((): void => {
-    if (datasetId) void fetchWithOptions(datasetId, datasetOptions);
+    if (datasetId) void fetchWithOptions(datasetId, datasetOptions, { refresh: true });
   }, [fetchWithOptions, datasetId, datasetOptions]);
 
   const inferOptions = useCallback(
@@ -535,6 +590,18 @@ export function useReportBuilder(): UseReportBuilder {
           saved.criteria.customEndDate ?? customEndDate
         );
         const fetched = await dataset.fetch({ oystehrZambda, dateRange: range, options: savedOptions, queryClient });
+        loadedRef.current = {
+          datasetId: saved.datasetId,
+          rangeKey: [
+            filter,
+            saved.criteria.customDate ?? customDate,
+            saved.criteria.customStartDate ?? customStartDate,
+            saved.criteria.customEndDate ?? customEndDate,
+          ].join('|'),
+          range,
+          layers: new Set(Object.keys(savedOptions).filter((id) => savedOptions[id])),
+          rows: fetched,
+        };
         const builtSchema: LlmDatasetSchema = {
           ...dataset.buildSchema(fetched, savedOptions),
           dateRange: schemaDateRange(range),

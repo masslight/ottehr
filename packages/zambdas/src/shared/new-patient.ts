@@ -17,6 +17,11 @@ import {
 
 const SCREENING_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/${ADDITIONAL_QUESTIONS_META_SYSTEM}`;
 const SEEN_BEFORE_FIELDS = [SEEN_IN_LAST_THREE_YEARS_FIELD, PATIENT_SEEN_IN_LAST_THREE_YEARS_FIELD];
+/** The `_tag` value of an Observation search for the seen-before screening answers. */
+export const SEEN_BEFORE_ANSWER_TAGS = SEEN_BEFORE_FIELDS.map((field) => `${SCREENING_TAG_SYSTEM}|${field}`).join(',');
+
+/** Each encounter's seen-before answers, newest first (isNewPatient reads the first one of each field). */
+export type SeenBeforeAnswers = Map<string, NonNullable<VisitSeenBeforeData['observations']>>;
 const ENCOUNTERS_PER_SEARCH = 100;
 const SEARCH_CONCURRENCY = 4;
 
@@ -30,6 +35,13 @@ export interface PatientVisitsInRange {
   visits: VisitInRange[];
 }
 
+/** The encounters whose seen-before answers can decide a patient without a prior visit (resolveNewPatients). */
+export function seenBeforeEncounterIds(visits: VisitInRange[]): string[] {
+  return visitsBeforeFirstSeen(visits)
+    .map((visit) => visit.encounterId)
+    .filter((id): id is string => Boolean(id));
+}
+
 function visitsBeforeFirstSeen(visits: VisitInRange[]): VisitInRange[] {
   const earliestFirst = [...visits].sort(
     (a, b) =>
@@ -41,9 +53,14 @@ function visitsBeforeFirstSeen(visits: VisitInRange[]): VisitInRange[] {
   return firstSeen === -1 ? earliestFirst : earliestFirst.slice(0, firstSeen + 1);
 }
 
+/**
+ * `answers`: the seen-before answers when the caller already has them (the ad-hoc reports load them with their own
+ * search helpers, beside the prior visits); otherwise they are searched here.
+ */
 export async function resolveNewPatients<K>(
   oystehr: Oystehr,
-  patients: Map<K, PatientVisitsInRange>
+  patients: Map<K, PatientVisitsInRange>,
+  answers?: SeenBeforeAnswers
 ): Promise<Map<K, boolean>> {
   const relevantVisits = new Map<K, VisitInRange[]>();
 
@@ -51,13 +68,15 @@ export async function resolveNewPatients<K>(
     relevantVisits.set(key, hasPriorVisit ? [] : visitsBeforeFirstSeen(visits));
   }
 
-  const answersByEncounter = await fetchSeenBeforeAnswers(
-    oystehr,
-    Array.from(relevantVisits.values())
-      .flat()
-      .map((visit) => visit.encounterId)
-      .filter((id): id is string => Boolean(id))
-  );
+  const answersByEncounter =
+    answers ??
+    (await fetchSeenBeforeAnswers(
+      oystehr,
+      Array.from(relevantVisits.values())
+        .flat()
+        .map((visit) => visit.encounterId)
+        .filter((id): id is string => Boolean(id))
+    ));
 
   const result = new Map<K, boolean>();
 
@@ -88,7 +107,7 @@ async function fetchSeenBeforeAnswers(
           resourceType: 'Observation',
           params: [
             { name: 'encounter', value: ids.map((id) => `Encounter/${id}`).join(',') },
-            { name: '_tag', value: SEEN_BEFORE_FIELDS.map((field) => `${SCREENING_TAG_SYSTEM}|${field}`).join(',') },
+            { name: '_tag', value: SEEN_BEFORE_ANSWER_TAGS },
             { name: '_sort', value: '-_lastUpdated' },
           ],
         },
@@ -96,23 +115,34 @@ async function fetchSeenBeforeAnswers(
       )
   );
 
-  const byEncounter = new Map<string, NonNullable<VisitSeenBeforeData['observations']>>();
-
+  const observations: Observation[] = [];
   for (const group of chunkThings(searches, SEARCH_CONCURRENCY)) {
-    for (const observation of (await Promise.all(group.map((search) => search()))).flat()) {
-      const encounterId = observation.encounter?.reference?.replace('Encounter/', '');
-
-      const field = observation.meta?.tag?.find(
-        (tag) => tag.system === SCREENING_TAG_SYSTEM && SEEN_BEFORE_FIELDS.includes(tag.code ?? '')
-      )?.code;
-
-      if (!encounterId || !field) continue;
-
-      byEncounter.set(encounterId, [
-        ...(byEncounter.get(encounterId) ?? []),
-        { field, value: observation.valueString ?? observation.valueBoolean },
-      ]);
-    }
+    observations.push(...(await Promise.all(group.map((search) => search()))).flat());
   }
+  return groupSeenBeforeAnswers(observations);
+}
+
+/** Seen-before answer Observations by encounter, newest first whatever order they came in. */
+export function groupSeenBeforeAnswers(observations: Observation[]): SeenBeforeAnswers {
+  const byEncounter: SeenBeforeAnswers = new Map();
+  // A stable sort: answers without a lastUpdated keep the order they came in.
+  const updatedAt = (o: Observation): number => Date.parse(o.meta?.lastUpdated ?? '') || 0;
+  const newestFirst = [...observations].sort((a, b) => updatedAt(b) - updatedAt(a));
+
+  for (const observation of newestFirst) {
+    const encounterId = observation.encounter?.reference?.replace('Encounter/', '');
+
+    const field = observation.meta?.tag?.find(
+      (tag) => tag.system === SCREENING_TAG_SYSTEM && SEEN_BEFORE_FIELDS.includes(tag.code ?? '')
+    )?.code;
+
+    if (!encounterId || !field) continue;
+
+    byEncounter.set(encounterId, [
+      ...(byEncounter.get(encounterId) ?? []),
+      { field, value: observation.valueString ?? observation.valueBoolean },
+    ]);
+  }
+
   return byEncounter;
 }

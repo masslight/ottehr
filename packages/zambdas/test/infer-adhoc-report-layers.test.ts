@@ -46,4 +46,33 @@ describe('parseDatasets', () => {
     expect(parseDatasets('patients', catalog)).toEqual([]);
     expect(parseDatasets(undefined, catalog)).toEqual([]);
   });
+
+  it('drops a layer whose fields another picked layer already has', () => {
+    const withFields = (id: string, names: string[]): CatalogDataset['layers'][number] => ({
+      id,
+      label: id,
+      fields: names.map((name) => ({ name })),
+    });
+    const vitalsCatalog: CatalogDataset[] = [
+      {
+        id: 'encounters-comprehensive',
+        label: 'Encounters',
+        fields: [],
+        layers: [
+          withFields('vitals', ['temperatureF', 'heartRate']),
+          withFields('vitalsTemperature', ['temperatureF']),
+          withFields('codes', ['icdCodes']),
+        ],
+      },
+    ];
+    expect(
+      parseDatasets(
+        [{ id: 'encounters-comprehensive', layerIds: ['vitalsTemperature', 'vitals', 'codes'] }],
+        vitalsCatalog
+      )
+    ).toEqual([{ id: 'encounters-comprehensive', layerIds: ['vitals', 'codes'] }]);
+    expect(
+      parseDatasets([{ id: 'encounters-comprehensive', layerIds: ['vitalsTemperature', 'codes'] }], vitalsCatalog)
+    ).toEqual([{ id: 'encounters-comprehensive', layerIds: ['vitalsTemperature', 'codes'] }]);
+  });
 });

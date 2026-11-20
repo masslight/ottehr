@@ -58,6 +58,23 @@ const dedupeById = <T extends FhirResource>(resources: T[]): T[] => {
   });
 };
 
+/** Groups resources by every reference `refsOf` returns, so a lookup by reference is a map read, not a scan. */
+const indexBy = <T>(
+  resources: T[],
+  refsOf: (resource: T) => ({ reference?: string } | undefined)[] | undefined
+): Map<string, T[]> => {
+  const index = new Map<string, T[]>();
+  for (const resource of resources) {
+    for (const ref of refsOf(resource) ?? []) {
+      if (!ref?.reference) continue;
+      const list = index.get(ref.reference);
+      if (list) list.push(resource);
+      else index.set(ref.reference, [resource]);
+    }
+  }
+  return index;
+};
+
 // Maps one order, logging and dropping it on failure so one malformed order never fails the report.
 const mapSafely = <T>(label: string, map: () => T): T | undefined => {
   try {
@@ -264,14 +281,7 @@ export async function fetchEncounterOrders(
 
   // Indexed once, so each order's Specimens and Provenances are lookups, not scans of the report's pools.
   const specimenById = new Map(specimens.map((sp) => [`Specimen/${sp.id}`, sp]));
-  const specimensByRequestRef = new Map<string, Specimen[]>();
-
-  for (const sp of specimens) {
-    for (const ref of sp.request ?? []) {
-      if (ref.reference)
-        specimensByRequestRef.set(ref.reference, [...(specimensByRequestRef.get(ref.reference) ?? []), sp]);
-    }
-  }
+  const specimensByRequestRef = indexBy(specimens, (sp) => sp.request);
 
   const specimensFor = (sr: ServiceRequest): Specimen[] =>
     dedupeById([
@@ -282,18 +292,7 @@ export async function fetchEncounterOrders(
       ...(specimensByRequestRef.get(`ServiceRequest/${sr.id}`) ?? []),
     ]);
 
-  const provenancesByTargetRef = new Map<string, Provenance[]>();
-
-  for (const provenance of pools.provenances) {
-    for (const target of provenance.target ?? []) {
-      if (target.reference) {
-        provenancesByTargetRef.set(target.reference, [
-          ...(provenancesByTargetRef.get(target.reference) ?? []),
-          provenance,
-        ]);
-      }
-    }
-  }
+  const provenancesByTargetRef = indexBy(pools.provenances, (provenance) => provenance.target);
 
   // Practitioners named only by a Provenance agent or a specimen collector are loaded once, by id.
   const loadMissingPractitioners = async (ids: (string | undefined)[]): Promise<void> => {
@@ -320,19 +319,21 @@ export async function fetchEncounterOrders(
   const provenancesFor = (serviceRequests: ServiceRequest[]): Provenance[] =>
     dedupeById(serviceRequests.flatMap((sr) => provenancesByTargetRef.get(`ServiceRequest/${sr.id}`) ?? []));
 
-  const serviceRequestById = new Map(pools.serviceRequests.map((sr) => [sr.id, sr]));
-
-  const reportsByBasedOnRef = new Map<string, DiagnosticReport[]>();
-
-  for (const report of pools.diagnosticReports) {
-    for (const ref of report.basedOn ?? []) {
-      if (ref.reference)
-        reportsByBasedOnRef.set(ref.reference, [...(reportsByBasedOnRef.get(ref.reference) ?? []), report]);
-    }
-  }
+  const reportsByBasedOnRef = indexBy(pools.diagnosticReports, (report) => report.basedOn);
 
   const reportsFor = (sr: ServiceRequest): DiagnosticReport[] =>
     reportsByBasedOnRef.get(`ServiceRequest/${sr.id}`) ?? [];
+
+  // The EHR mappers find an order's Tasks, reports, result Observations and Encounter by scanning the lists they
+  // are handed — fine for one visit's orders, hundreds of millions of comparisons for a report's thousands of
+  // orders (UC 18: 589 s). So each order is mapped on its own, handed only what is linked to it, which is all
+  // those mappers read: Tasks and Observations by basedOn (the order or its reports), the Encounter by id.
+  const tasksByBasedOnRef = indexBy(pools.tasks, (task) => task.basedOn);
+  const encounterById = new Map(encounters.map((e) => [e.id, e]));
+  const encountersFor = (sr: ServiceRequest): Encounter[] => {
+    const encounter = encounterById.get(encounterIdOf(sr));
+    return encounter ? [encounter] : [];
+  };
 
   if (includeLabs && partitions.externalLab.length) {
     // get-lab-orders hands its mapper the pre-submission Tasks plus the result-review Tasks based on the
@@ -371,34 +372,43 @@ export async function fetchEncounterOrders(
     ]);
 
     const labTasks = dedupeById([...pools.tasks.filter(isTaskPST), ...reportTasks]);
+    const labTasksByBasedOnRef = indexBy(labTasks, (task) => task.basedOn);
 
-    const orders = mapResourcesToLabOrderDTOs({
-      searchBy,
-      serviceRequests: partitions.externalLab,
-      tasks: labTasks,
-      results: pools.diagnosticReports,
-      practitioners: allPractitioners,
-      encounters,
-      locations: [],
-      appointments: [],
-      provenances: provenancesFor(partitions.externalLab),
-      organizations: [],
-      questionnaires: [],
-      labDocuments: undefined,
-      specimens: [],
-      appointmentScheduleMap: {},
-      communications: undefined,
-      coverages: [],
-      environment,
-    });
+    for (const serviceRequest of partitions.externalLab) {
+      const encounterId = encounterIdOf(serviceRequest);
 
-    for (const order of orders) {
-      const serviceRequest = serviceRequestById.get(order.serviceRequestId);
-      const encounterId = serviceRequest && encounterIdOf(serviceRequest);
+      if (!encounterId) continue;
 
-      if (!serviceRequest || !encounterId) continue;
-
+      // The order's reports, and the Tasks based on the order (PST) or on one of its reports (result review).
+      const ownReports = reportsFor(serviceRequest);
+      const ownTasks = dedupeById(
+        [`ServiceRequest/${serviceRequest.id}`, ...ownReports.map((dr) => `DiagnosticReport/${dr.id}`)].flatMap(
+          (ref) => labTasksByBasedOnRef.get(ref) ?? []
+        )
+      );
       const ownProvenances = provenancesFor([serviceRequest]);
+
+      const [order] = mapResourcesToLabOrderDTOs({
+        searchBy,
+        serviceRequests: [serviceRequest],
+        tasks: ownTasks,
+        results: ownReports,
+        practitioners: allPractitioners,
+        encounters: encountersFor(serviceRequest),
+        locations: [],
+        appointments: [],
+        provenances: ownProvenances,
+        organizations: [],
+        questionnaires: [],
+        labDocuments: undefined,
+        specimens: [],
+        appointmentScheduleMap: {},
+        communications: undefined,
+        coverages: [],
+        environment,
+      });
+
+      if (!order) continue;
 
       // The history builder dereferences the first Specimen of a non-PSC order past "pending" (AutoLab orders
       // may have none), so a malformed order costs its timeline, not the report.
@@ -407,8 +417,8 @@ export async function fetchEncounterOrders(
           parseLabOrdersHistory(
             serviceRequest,
             order.orderStatus,
-            labTasks,
-            pools.diagnosticReports,
+            ownTasks,
+            ownReports,
             allPractitioners,
             [...ownProvenances, ...reviewProvenances],
             specimensFor(serviceRequest)
@@ -416,7 +426,7 @@ export async function fetchEncounterOrders(
         ) ?? [];
 
       recordsFor(encounterId).labTests.push(
-        externalLabRecord(order, serviceRequest, ownProvenances, reportsFor(serviceRequest), history)
+        externalLabRecord(order, serviceRequest, ownProvenances, ownReports, history)
       );
     }
   }
@@ -447,39 +457,38 @@ export async function fetchEncounterOrders(
       fetchScopedResources<Observation>(oystehr, 'Observation', '_id', Array.from(new Set(resultIds))),
     ]);
 
-    const inHouseProvenances = provenancesFor(partitions.inHouseLab);
+    const observationsByBasedOnRef = indexBy(observations, (obs) => obs.basedOn);
 
-    const orders = mapResourcesToInHouseOrderDTOs(
-      searchBy,
-      partitions.inHouseLab,
-      pools.tasks,
-      allPractitioners,
-      encounters,
-      [],
-      inHouseProvenances,
-      activityDefinitions,
-      [],
-      observations,
-      pools.diagnosticReports,
-      [],
-      environment,
-      {}
-    );
+    for (const serviceRequest of partitions.inHouseLab) {
+      const encounterId = encounterIdOf(serviceRequest);
 
-    for (const order of orders) {
-      const serviceRequest = serviceRequestById.get(order.serviceRequestId);
-      const encounterId = serviceRequest && encounterIdOf(serviceRequest);
+      if (!encounterId) continue;
 
-      if (!serviceRequest || !encounterId) continue;
+      const ref = `ServiceRequest/${serviceRequest.id}`;
+      const ownProvenances = provenancesFor([serviceRequest]);
+      const ownReports = reportsFor(serviceRequest);
+
+      const [order] = mapResourcesToInHouseOrderDTOs(
+        searchBy,
+        [serviceRequest],
+        tasksByBasedOnRef.get(ref) ?? [],
+        allPractitioners,
+        encountersFor(serviceRequest),
+        [],
+        ownProvenances,
+        activityDefinitions,
+        [],
+        observationsByBasedOnRef.get(ref) ?? [],
+        ownReports,
+        [],
+        environment,
+        {}
+      );
+
+      if (!order) continue;
 
       recordsFor(encounterId).labTests.push(
-        inHouseLabRecord(
-          order,
-          serviceRequest,
-          provenancesFor([serviceRequest]),
-          reportsFor(serviceRequest),
-          specimensFor(serviceRequest)[0]
-        )
+        inHouseLabRecord(order, serviceRequest, ownProvenances, ownReports, specimensFor(serviceRequest)[0])
       );
     }
   }
@@ -501,10 +510,10 @@ export async function fetchEncounterOrders(
         mapSafely(`nursing order ${serviceRequest.id}`, () =>
           mapResourcesNursingOrderDTOs(
             [serviceRequest],
-            pools.tasks,
+            tasksByBasedOnRef.get(`ServiceRequest/${serviceRequest.id}`) ?? [],
             allPractitioners,
             provenancesFor([serviceRequest]),
-            encounters,
+            encountersFor(serviceRequest),
             // Searching by the order itself makes the mapper return the order page's detailed DTO with history.
             { field: 'serviceRequestId', value: serviceRequest.id ?? '' }
           )

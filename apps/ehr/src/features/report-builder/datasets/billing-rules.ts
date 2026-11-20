@@ -38,6 +38,7 @@ async function fetchAdHocBillingRules({ oystehrZambda, queryClient, dateRange }:
 
 export const billingRulesDataset: AdHocDataset = {
   id: BILLING_RULES_DATASET_ID,
+  rowKey: 'ruleId',
   label: LABEL,
   description: DESCRIPTION,
   options: layerOptions(BILLING_RULES_LAYERS),

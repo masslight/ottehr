@@ -23,7 +23,15 @@ import { OBSERVATION_CODES } from '../../data/in-house/in-house.constants';
 import { TestStatus } from '../../data/in-house/in-house.types';
 import { ExternalLabsStatus } from '../../data/labs/labs.types';
 import { NursingOrdersStatus } from '../../data/orders/constants';
-import { AdHocLayerMap, DatasetInput, datasetInputSchema, datasetRowSchema, LayerRowFields } from './dataset';
+import {
+  AdHocLayerMap,
+  DatasetInput,
+  datasetInputSchema,
+  datasetRowSchema,
+  foreignLayers,
+  LayerRowFields,
+} from './dataset';
+import { PATIENT_LAYERS } from './patients';
 
 // Closed vocabularies are taken from the app's own constants, so a status the app adds or renames
 // changes the schema the report is generated against instead of failing validation at runtime.
@@ -88,7 +96,7 @@ const RESULT_INTERPRETATION_VALUES = enumValues(Object.values(OBSERVATION_CODES)
 export const EncounterBaseRowSchema = z.object({
   // --- Visit ---
   appointmentId: z.string().describe('Visit id.'),
-  encounterId: z.string().optional().describe('Encounter id (internal — dedupe/joins).'),
+  encounterId: z.string().describe('Encounter id (internal — dedupe/joins; one row per encounter).'),
   date: z.string().nullable().describe('Viewer-local visit day (yyyy-MM-dd); day-level companion of startTime.'),
   startTime: z
     .string()
@@ -325,6 +333,176 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
 // Opt-in layers, declared once (metadata + Zod field schema). Row/response schema, endpoint input
 // flags, UI checkboxes, and the prompt's availableLayers all derive from this map — a layer's id
 // lives here and nowhere else.
+// Appended to each one-vital layer's description, so infer and generation pick it over the full vitals layer.
+const ONE_VITAL =
+  ' Same columns as in "Vital signs", loading only these readings: pick it instead of "Vital signs" when no other ' +
+  'vital is needed.';
+
+// The full vital-signs columns, shared by the "vitals" layer and the smaller vital layers below.
+const VITALS_SCHEMA = z.object({
+  temperatureF: z
+    .number()
+    .nullable()
+    .describe('Temperature °F, MOST RECENT reading only — for the initial one use temperatureFReadings[0].'),
+  heartRate: z
+    .number()
+    .nullable()
+    .describe('Heart rate bpm, MOST RECENT reading only — for the initial one use heartRateReadings[0].'),
+  respirationRate: z
+    .number()
+    .nullable()
+    .describe('Respiration /min, MOST RECENT only — for the initial one use respirationRateReadings[0].'),
+  oxygenSaturation: z
+    .number()
+    .nullable()
+    .describe('SpO₂ %, MOST RECENT only — for the initial one use oxygenSaturationReadings[0].'),
+  systolicBP: z
+    .number()
+    .nullable()
+    .describe('Systolic BP mmHg, MOST RECENT only — for the initial one use bloodPressureReadings[0].systolic.'),
+  diastolicBP: z
+    .number()
+    .nullable()
+    .describe('Diastolic BP mmHg, MOST RECENT only — for the initial one use bloodPressureReadings[0].diastolic.'),
+  weightKg: z.number().nullable().describe('Weight kg (most recent, normalized). Null if not taken.'),
+  heightCm: z.number().nullable().describe('Height cm (most recent, normalized). Null if not taken.'),
+  bmi: z.number().nullable().describe('BMI from weightKg/heightCm when both present. Null otherwise.'),
+  temperatureFReadings: z
+    .array(z.number())
+    .describe(
+      'Temperature readings in °F, oldest first (charted in °C, converted here). ' +
+        '[0] = initial screening. Empty if not taken.'
+    ),
+  heartRateReadings: z
+    .array(z.number())
+    .describe('Heart rate bpm readings, oldest first. [0] = initial screening. Empty if not taken.'),
+  respirationRateReadings: z
+    .array(z.number())
+    .describe('Respiration /min readings, oldest first. [0] = initial screening. Empty if not taken.'),
+  oxygenSaturationReadings: z
+    .array(z.number())
+    .describe('SpO₂ % readings, oldest first. [0] = initial screening. Empty if not taken.'),
+  systolicBPReadings: z
+    .array(z.number())
+    .describe(
+      'Systolic BP mmHg readings, oldest first. [0] = initial screening. The same index in ' +
+        'diastolicBPReadings is the SAME reading. Empty if not taken.'
+    ),
+  diastolicBPReadings: z
+    .array(z.number())
+    .describe(
+      'Diastolic BP mmHg readings, oldest first. [0] = initial screening. The same index in ' +
+        'systolicBPReadings is the SAME reading. Empty if not taken.'
+    ),
+  abnormalVitals: z
+    .array(z.string())
+    .describe(
+      'Vitals that were out of range on ANY reading of the visit, by the age-banded thresholds the ' +
+        'practice has configured. Applied at charting time, so the age band is the age on the visit ' +
+        'date. Includes the critical ones. Values: temperatureF, heartRate, respirationRate, ' +
+        'oxygenSaturation, bloodPressure, weightKg, heightCm. Empty if all readings were in range. ' +
+        'USE THIS instead of comparing readings to thresholds of your own.'
+    ),
+  criticalVitals: z
+    .array(z.string())
+    .describe('The subset of abnormalVitals that reached the CRITICAL level, not merely abnormal. Same values.'),
+  // --- The same readings in the other units the chart shows (converted with the chart's own helpers) ---
+  temperatureC: z
+    .number()
+    .nullable()
+    .describe('Temperature °C, MOST RECENT reading only — same reading as temperatureF. Null if not taken.'),
+  temperatureCReadings: z
+    .array(z.number())
+    .describe('Temperature readings in °C, oldest first, parallel to temperatureFReadings. Empty if not taken.'),
+  weightLbs: z.number().nullable().describe('Weight lbs (most recent) — same reading as weightKg. Null if not taken.'),
+  heightInches: z
+    .number()
+    .nullable()
+    .describe('Height in total inches (most recent) — same reading as heightCm. Null if not taken.'),
+  heightFeetInches: z
+    .string()
+    .describe('Height as feet and inches, e.g. 5\'7.5" (most recent) — same reading as heightCm. "" if not taken.'),
+  // --- How the most recent reading was taken ---
+  temperatureMethod: z
+    .enum(TEMPERATURE_METHOD_VALUES)
+    .nullable()
+    .describe('How the most recent temperature was taken. Null when not recorded / not taken.'),
+  heartRateMethod: z
+    .enum(HEARTBEAT_METHOD_VALUES)
+    .nullable()
+    .describe('Patient position for the most recent heart rate. Null when not recorded / not taken.'),
+  bloodPressureMethod: z
+    .enum(BLOOD_PRESSURE_METHOD_VALUES)
+    .nullable()
+    .describe('Patient position for the most recent blood pressure. Null when not recorded / not taken.'),
+  oxygenSaturationMethod: z
+    .enum(OXYGEN_SAT_METHOD_VALUES)
+    .nullable()
+    .describe('Room air or supplemental O₂ for the most recent SpO₂. Null when not recorded / not taken.'),
+  oxygenSaturationFlowRate: z
+    .number()
+    .nullable()
+    .describe('Supplemental O₂ flow rate, L/min, for the most recent SpO₂. Null when not recorded / not on O₂.'),
+  oxygenSaturationDeliveryType: z
+    .enum(SUPPLEMENTAL_O2_DELIVERY_TYPE_VALUES)
+    .nullable()
+    .describe('How supplemental O₂ was delivered for the most recent SpO₂. Null when not recorded / not on O₂.'),
+  oxygenSaturationDeliveryTypeOther: z
+    .string()
+    .describe('The delivery type as charted when oxygenSaturationDeliveryType is Other. "" otherwise.'),
+  weightRefused: z
+    .boolean()
+    .describe('The most recent weight entry is "patient refused" (no value). False when weighed or not entered.'),
+  // --- Vision and last menstrual period (most recent entry) ---
+  visionLeftEye: z.string().describe('Left-eye visual acuity as charted, e.g. "20/20". "" if not taken.'),
+  visionRightEye: z.string().describe('Right-eye visual acuity as charted. "" if not taken.'),
+  visionBothEyes: z.string().describe('Both-eyes visual acuity as charted. "" if not taken.'),
+  visionOptions: z
+    .array(z.enum(VISION_OPTION_VALUES))
+    .describe('Vision test conditions: with_glasses / without_glasses / child_too_young. Empty when none.'),
+  lastMenstrualPeriod: z
+    .string()
+    .nullable()
+    .describe('Last menstrual period date as charted (ISO). Null if not charted.'),
+  lastMenstrualPeriodUnsure: z
+    .boolean()
+    .nullable()
+    .describe('The patient was unsure of the last menstrual period date. Null if not charted.'),
+  // --- DOT (FMCSA MCSA-5875) vision screening, most recent DOT entry ---
+  dotHorizontalFieldLeftDegrees: z
+    .number()
+    .nullable()
+    .describe('DOT screening: horizontal field of vision, left eye, degrees. Null if not screened.'),
+  dotHorizontalFieldRightDegrees: z
+    .number()
+    .nullable()
+    .describe('DOT screening: horizontal field of vision, right eye, degrees. Null if not screened.'),
+  dotCanRecognizeColors: z
+    .boolean()
+    .nullable()
+    .describe('DOT screening: can recognize red, green and amber. Null if not answered.'),
+  dotMonocularVision: z
+    .boolean()
+    .nullable()
+    .describe('DOT screening: monocular vision (false = binocular). Null if not answered.'),
+  dotReferredToSpecialist: z
+    .boolean()
+    .nullable()
+    .describe('DOT screening: referred to an ophthalmologist or optometrist. Null if not answered.'),
+  dotReceivedReferralDocumentation: z
+    .boolean()
+    .nullable()
+    .describe('DOT screening: documentation received from the specialist. Null if not answered.'),
+  // --- Who recorded the vitals ---
+  vitalsRecordedBy: z
+    .array(z.string())
+    .describe('Staff who recorded vitals on the visit (full names, in order of their first reading). Empty if none.'),
+  vitalsFirstRecordedAt: z
+    .string()
+    .nullable()
+    .describe('Full ISO instant of the first vital reading on the visit. Null if no vitals.'),
+});
+
 export const ENCOUNTER_LAYERS = {
   codes: {
     label: 'Clinical codes (ICD / CPT / E&M)',
@@ -476,174 +654,72 @@ export const ENCOUNTER_LAYERS = {
       'Temperature (°F and °C), heart rate, blood pressure, SpO₂, respiration, weight (kg and lbs), height (cm, ' +
       'inches, feet/inches), BMI, how each was taken (route / position / room air or supplemental O₂ with its ' +
       'flow rate and delivery type), weight refused, vision ' +
-      '(visual acuity, DOT vision screening), last menstrual period, and who recorded the vitals and when.',
-    schema: z.object({
-      temperatureF: z
-        .number()
-        .nullable()
-        .describe('Temperature °F, MOST RECENT reading only — for the initial one use temperatureFReadings[0].'),
-      heartRate: z
-        .number()
-        .nullable()
-        .describe('Heart rate bpm, MOST RECENT reading only — for the initial one use heartRateReadings[0].'),
-      respirationRate: z
-        .number()
-        .nullable()
-        .describe('Respiration /min, MOST RECENT only — for the initial one use respirationRateReadings[0].'),
-      oxygenSaturation: z
-        .number()
-        .nullable()
-        .describe('SpO₂ %, MOST RECENT only — for the initial one use oxygenSaturationReadings[0].'),
-      systolicBP: z
-        .number()
-        .nullable()
-        .describe('Systolic BP mmHg, MOST RECENT only — for the initial one use bloodPressureReadings[0].systolic.'),
-      diastolicBP: z
-        .number()
-        .nullable()
-        .describe('Diastolic BP mmHg, MOST RECENT only — for the initial one use bloodPressureReadings[0].diastolic.'),
-      weightKg: z.number().nullable().describe('Weight kg (most recent, normalized). Null if not taken.'),
-      heightCm: z.number().nullable().describe('Height cm (most recent, normalized). Null if not taken.'),
-      bmi: z.number().nullable().describe('BMI from weightKg/heightCm when both present. Null otherwise.'),
-      temperatureFReadings: z
-        .array(z.number())
-        .describe(
-          'Temperature readings in °F, oldest first (charted in °C, converted here). ' +
-            '[0] = initial screening. Empty if not taken.'
-        ),
-      heartRateReadings: z
-        .array(z.number())
-        .describe('Heart rate bpm readings, oldest first. [0] = initial screening. Empty if not taken.'),
-      respirationRateReadings: z
-        .array(z.number())
-        .describe('Respiration /min readings, oldest first. [0] = initial screening. Empty if not taken.'),
-      oxygenSaturationReadings: z
-        .array(z.number())
-        .describe('SpO₂ % readings, oldest first. [0] = initial screening. Empty if not taken.'),
-      systolicBPReadings: z
-        .array(z.number())
-        .describe(
-          'Systolic BP mmHg readings, oldest first. [0] = initial screening. The same index in ' +
-            'diastolicBPReadings is the SAME reading. Empty if not taken.'
-        ),
-      diastolicBPReadings: z
-        .array(z.number())
-        .describe(
-          'Diastolic BP mmHg readings, oldest first. [0] = initial screening. The same index in ' +
-            'systolicBPReadings is the SAME reading. Empty if not taken.'
-        ),
-      abnormalVitals: z
-        .array(z.string())
-        .describe(
-          'Vitals that were out of range on ANY reading of the visit, by the age-banded thresholds the ' +
-            'practice has configured. Applied at charting time, so the age band is the age on the visit ' +
-            'date. Includes the critical ones. Values: temperatureF, heartRate, respirationRate, ' +
-            'oxygenSaturation, bloodPressure, weightKg, heightCm. Empty if all readings were in range. ' +
-            'USE THIS instead of comparing readings to thresholds of your own.'
-        ),
-      criticalVitals: z
-        .array(z.string())
-        .describe('The subset of abnormalVitals that reached the CRITICAL level, not merely abnormal. Same values.'),
-      // --- The same readings in the other units the chart shows (converted with the chart's own helpers) ---
-      temperatureC: z
-        .number()
-        .nullable()
-        .describe('Temperature °C, MOST RECENT reading only — same reading as temperatureF. Null if not taken.'),
-      temperatureCReadings: z
-        .array(z.number())
-        .describe('Temperature readings in °C, oldest first, parallel to temperatureFReadings. Empty if not taken.'),
-      weightLbs: z
-        .number()
-        .nullable()
-        .describe('Weight lbs (most recent) — same reading as weightKg. Null if not taken.'),
-      heightInches: z
-        .number()
-        .nullable()
-        .describe('Height in total inches (most recent) — same reading as heightCm. Null if not taken.'),
-      heightFeetInches: z
-        .string()
-        .describe('Height as feet and inches, e.g. 5\'7.5" (most recent) — same reading as heightCm. "" if not taken.'),
-      // --- How the most recent reading was taken ---
-      temperatureMethod: z
-        .enum(TEMPERATURE_METHOD_VALUES)
-        .nullable()
-        .describe('How the most recent temperature was taken. Null when not recorded / not taken.'),
-      heartRateMethod: z
-        .enum(HEARTBEAT_METHOD_VALUES)
-        .nullable()
-        .describe('Patient position for the most recent heart rate. Null when not recorded / not taken.'),
-      bloodPressureMethod: z
-        .enum(BLOOD_PRESSURE_METHOD_VALUES)
-        .nullable()
-        .describe('Patient position for the most recent blood pressure. Null when not recorded / not taken.'),
-      oxygenSaturationMethod: z
-        .enum(OXYGEN_SAT_METHOD_VALUES)
-        .nullable()
-        .describe('Room air or supplemental O₂ for the most recent SpO₂. Null when not recorded / not taken.'),
-      oxygenSaturationFlowRate: z
-        .number()
-        .nullable()
-        .describe('Supplemental O₂ flow rate, L/min, for the most recent SpO₂. Null when not recorded / not on O₂.'),
-      oxygenSaturationDeliveryType: z
-        .enum(SUPPLEMENTAL_O2_DELIVERY_TYPE_VALUES)
-        .nullable()
-        .describe('How supplemental O₂ was delivered for the most recent SpO₂. Null when not recorded / not on O₂.'),
-      oxygenSaturationDeliveryTypeOther: z
-        .string()
-        .describe('The delivery type as charted when oxygenSaturationDeliveryType is Other. "" otherwise.'),
-      weightRefused: z
-        .boolean()
-        .describe('The most recent weight entry is "patient refused" (no value). False when weighed or not entered.'),
-      // --- Vision and last menstrual period (most recent entry) ---
-      visionLeftEye: z.string().describe('Left-eye visual acuity as charted, e.g. "20/20". "" if not taken.'),
-      visionRightEye: z.string().describe('Right-eye visual acuity as charted. "" if not taken.'),
-      visionBothEyes: z.string().describe('Both-eyes visual acuity as charted. "" if not taken.'),
-      visionOptions: z
-        .array(z.enum(VISION_OPTION_VALUES))
-        .describe('Vision test conditions: with_glasses / without_glasses / child_too_young. Empty when none.'),
-      lastMenstrualPeriod: z
-        .string()
-        .nullable()
-        .describe('Last menstrual period date as charted (ISO). Null if not charted.'),
-      lastMenstrualPeriodUnsure: z
-        .boolean()
-        .nullable()
-        .describe('The patient was unsure of the last menstrual period date. Null if not charted.'),
-      // --- DOT (FMCSA MCSA-5875) vision screening, most recent DOT entry ---
-      dotHorizontalFieldLeftDegrees: z
-        .number()
-        .nullable()
-        .describe('DOT screening: horizontal field of vision, left eye, degrees. Null if not screened.'),
-      dotHorizontalFieldRightDegrees: z
-        .number()
-        .nullable()
-        .describe('DOT screening: horizontal field of vision, right eye, degrees. Null if not screened.'),
-      dotCanRecognizeColors: z
-        .boolean()
-        .nullable()
-        .describe('DOT screening: can recognize red, green and amber. Null if not answered.'),
-      dotMonocularVision: z
-        .boolean()
-        .nullable()
-        .describe('DOT screening: monocular vision (false = binocular). Null if not answered.'),
-      dotReferredToSpecialist: z
-        .boolean()
-        .nullable()
-        .describe('DOT screening: referred to an ophthalmologist or optometrist. Null if not answered.'),
-      dotReceivedReferralDocumentation: z
-        .boolean()
-        .nullable()
-        .describe('DOT screening: documentation received from the specialist. Null if not answered.'),
-      // --- Who recorded the vitals ---
-      vitalsRecordedBy: z
-        .array(z.string())
-        .describe(
-          'Staff who recorded vitals on the visit (full names, in order of their first reading). Empty if none.'
-        ),
-      vitalsFirstRecordedAt: z
-        .string()
-        .nullable()
-        .describe('Full ISO instant of the first vital reading on the visit. Null if no vitals.'),
+      '(visual acuity, DOT vision screening), last menstrual period, and who recorded the vitals and when. ' +
+      'The heaviest vitals layer: it loads every reading of every visit. Pick it only for several vitals at once, ' +
+      'vision, LMP or who recorded; for one vital pick its own layer (temperature, blood pressure, heart rate, ' +
+      'respiration, SpO₂, weight/height/BMI).',
+    schema: VITALS_SCHEMA,
+  },
+  // Smaller vital-sign layers: each loads only its own readings (one Observation tag), so a report about one vital
+  // does not download every vital of every visit. Their columns are the same as in "vitals"; pick the smallest
+  // layer that covers the request, and "vitals" for alerts, several vitals at once, vision, LMP or who recorded.
+  vitalsTemperature: {
+    label: 'Temperature',
+    description: 'Temperature only (°F and °C): latest, every reading in order, how it was taken.' + ONE_VITAL,
+    schema: VITALS_SCHEMA.pick({
+      temperatureF: true,
+      temperatureC: true,
+      temperatureFReadings: true,
+      temperatureCReadings: true,
+      temperatureMethod: true,
+    }),
+  },
+  vitalsBloodPressure: {
+    label: 'Blood pressure',
+    description:
+      'Blood pressure only: latest systolic / diastolic, every reading in order, how it was taken.' + ONE_VITAL,
+    schema: VITALS_SCHEMA.pick({
+      systolicBP: true,
+      diastolicBP: true,
+      systolicBPReadings: true,
+      diastolicBPReadings: true,
+      bloodPressureMethod: true,
+    }),
+  },
+  vitalsHeartRate: {
+    label: 'Heart rate',
+    description: 'Heart rate only: latest, every reading in order, how it was taken.' + ONE_VITAL,
+    schema: VITALS_SCHEMA.pick({ heartRate: true, heartRateReadings: true, heartRateMethod: true }),
+  },
+  vitalsRespiration: {
+    label: 'Respiration rate',
+    description: 'Respiration rate only: latest and every reading in order.' + ONE_VITAL,
+    schema: VITALS_SCHEMA.pick({ respirationRate: true, respirationRateReadings: true }),
+  },
+  vitalsOxygen: {
+    label: 'Oxygen saturation',
+    description:
+      'SpO₂ only: latest, every reading in order, how it was taken (room air or supplemental O₂).' + ONE_VITAL,
+    schema: VITALS_SCHEMA.pick({
+      oxygenSaturation: true,
+      oxygenSaturationReadings: true,
+      oxygenSaturationMethod: true,
+      oxygenSaturationFlowRate: true,
+      oxygenSaturationDeliveryType: true,
+      oxygenSaturationDeliveryTypeOther: true,
+    }),
+  },
+  vitalsBody: {
+    label: 'Weight, height and BMI',
+    description: 'Weight (kg and lbs), weight refused, height (cm, inches, feet/inches) and BMI only.' + ONE_VITAL,
+    schema: VITALS_SCHEMA.pick({
+      weightKg: true,
+      weightLbs: true,
+      weightRefused: true,
+      heightCm: true,
+      heightInches: true,
+      heightFeetInches: true,
+      bmi: true,
     }),
   },
   labs: {
@@ -1391,18 +1467,35 @@ export const ENCOUNTER_LAYERS = {
 
 export type EncounterLayerId = keyof typeof ENCOUNTER_LAYERS;
 
+// The patients dataset's layers, offered on every encounter row by its patientId (`patients.allergies`, …).
+export const ENCOUNTER_FOREIGN_LAYERS: AdHocLayerMap = foreignLayers({
+  sourceId: 'patients',
+  sourceLabel: 'Patient',
+  source: PATIENT_LAYERS,
+  key: 'patientId',
+  base: EncounterBaseRowSchema,
+  native: ENCOUNTER_LAYERS,
+});
+
+/** Every layer the encounters dataset offers: its own, then the foreign ones. */
+export const ENCOUNTER_ALL_LAYERS: AdHocLayerMap = { ...ENCOUNTER_LAYERS, ...ENCOUNTER_FOREIGN_LAYERS };
+
+type EncounterNativeRow = z.infer<typeof EncounterBaseRowSchema> & LayerRowFields<typeof ENCOUNTER_LAYERS>;
+/** The foreign patient-layer columns an encounter row may carry (each optional, the base's own fields excluded). */
+export type EncounterForeignRowFields = Omit<LayerRowFields<typeof PATIENT_LAYERS>, keyof EncounterNativeRow>;
+
 // Full row: base columns required, every layer column optional (present when its layer was
 // requested); the schema the response is validated against. `datasetRowSchema` merges generically
 // (loose static shape), so we tag it with the precise row type from the same layer map — validation
 // stays runtime-exact and consumers get the precise type.
-export type AdHocEncounterRow = z.infer<typeof EncounterBaseRowSchema> & LayerRowFields<typeof ENCOUNTER_LAYERS>;
-export const AdHocEncounterRowSchema = datasetRowSchema(EncounterBaseRowSchema, ENCOUNTER_LAYERS).describe(
+export type AdHocEncounterRow = EncounterNativeRow & EncounterForeignRowFields;
+export const AdHocEncounterRowSchema = datasetRowSchema(EncounterBaseRowSchema, ENCOUNTER_ALL_LAYERS).describe(
   'One row per encounter.'
 ) as unknown as z.ZodType<AdHocEncounterRow>;
 
-// Endpoint input: the date window + one include<Layer> flag per layer, derived from the map.
-export const AdHocEncountersInputSchema = datasetInputSchema(ENCOUNTER_LAYERS);
-export type AdHocEncountersInput = DatasetInput<typeof ENCOUNTER_LAYERS>;
+// Endpoint input: the date window + one include<Layer> flag per layer (foreign ones too), derived from the maps.
+export const AdHocEncountersInputSchema = datasetInputSchema(ENCOUNTER_ALL_LAYERS);
+export type AdHocEncountersInput = DatasetInput<typeof ENCOUNTER_LAYERS> & Partial<Record<`include${string}`, boolean>>;
 
 export const AdHocEncountersOutputSchema = z.object({
   encounters: z.array(AdHocEncounterRowSchema),

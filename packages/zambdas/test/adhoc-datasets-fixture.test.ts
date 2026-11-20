@@ -56,6 +56,9 @@ import { fetchAdHocBillingRows } from '../src/shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../src/shared/adhoc-datasets/encounters';
 import { fetchAdHocPatientRows } from '../src/shared/adhoc-datasets/patients';
 
+// These fakes emulate async-bulk jobs only; the sync first page has its own test (adhoc-async-bulk-next-link).
+process.env.ADHOC_SYNC_PAGES = '0';
+
 // Design requirement: "fixture tests asserting the fetched rows parse against the Zod schema
 // (fields present, typed, key resolved values correct) — the same schema the runtime validation
 // uses." The fetch+map pipeline runs against a stubbed Oystehr client returning a small FHIR graph;
@@ -536,8 +539,11 @@ const paymentNotices: FhirResource[] = [
 
 // The attending provider is not an _include on the main search: it is fetched by id afterwards, so
 // the fake serves Practitioner as a scoped type rather than alongside the appointment graph.
-const rootResources: FhirResource[] = [appointment, encounter, patient, location];
+const rootResources: FhirResource[] = [appointment, encounter];
 const scopedByType: Record<string, FhirResource[]> = {
+  // Patients and locations are loaded by id after the appointments, never as an _include.
+  Patient: [patient],
+  Location: [location],
   Practitioner: [practitioner],
   Schedule: [locationSchedule],
   Condition: [condition],
@@ -547,8 +553,14 @@ const scopedByType: Record<string, FhirResource[]> = {
   MedicationAdministration: [...medicationAdministrations, administeredStatement],
   PaymentNotice: paymentNotices,
 };
+// The encounters dataset searches the encounters on their own (by appointment date); the other datasets still get
+// them revincluded with the appointments.
 const resourcesFor = (resourceType: string): FhirResource[] =>
-  resourceType === 'Appointment' ? rootResources : scopedByType[resourceType] ?? [];
+  resourceType === 'Appointment'
+    ? rootResources
+    : resourceType === 'Encounter'
+    ? rootResources.filter((r) => r.resourceType === 'Encounter')
+    : scopedByType[resourceType] ?? [];
 
 // Emulates the async-bulk path the zambdas use: the job answers with a manifest of file urls, and
 // the zambda downloads each file itself — the NDJSON is served by the stubbed fetch below.
@@ -658,6 +670,21 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     expect(row.systolicBPReadings).toEqual([118]);
     expect(row.diastolicBPReadings).toEqual([76]);
     expect(row.systolicBPReadings?.length).toBe(row.diastolicBPReadings?.length);
+  });
+
+  it('smaller vital layers: the same columns as the vitals layer for their own vitals, and only those', async () => {
+    const full = (await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeVitals: true }))[0];
+    const temperature = (await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeVitalsTemperature: true }))[0];
+    const bp = (await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeVitalsBloodPressure: true }))[0];
+
+    expect(temperature.temperatureFReadings).toEqual(full.temperatureFReadings);
+    expect(temperature.temperatureF).toBe(full.temperatureF);
+    expect(temperature.heartRate).toBeUndefined();
+    expect(temperature.abnormalVitals).toBeUndefined();
+    expect(bp.systolicBPReadings).toEqual(full.systolicBPReadings);
+    expect(bp.diastolicBPReadings).toEqual(full.diastolicBPReadings);
+    expect(bp.temperatureF).toBeUndefined();
+    expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: [temperature, bp] }))).toEqual([]);
   });
 
   it('encounters vitals layer: alert levels come from the charted interpretation', async () => {

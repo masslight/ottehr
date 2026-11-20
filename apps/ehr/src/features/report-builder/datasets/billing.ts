@@ -3,17 +3,20 @@ import {
   AdHocBillingRow,
   BILLING_DOMAIN_FIELDS,
   BILLING_INTERNAL_FIELDS,
-  BILLING_LAYERS,
   BillingBaseRowSchema,
 } from 'utils/lib/types/adhoc/datasets/billing';
 import { layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
 import { AdHocRow } from 'utils/lib/types/adhoc/datasets/llm-schema';
+import { layersForDataset } from 'utils/lib/types/adhoc/datasets/meta';
 import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
 import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
 import { AdHocDataset, FetchContext } from './types';
 
-export const ADHOC_BILLING_OPTIONS: AdHocLayer[] = layerOptions(BILLING_LAYERS);
+// Own layers and the foreign `patients.*` ones (DATASET_META).
+const BILLING_ALL_LAYERS = layersForDataset('billing');
+
+export const ADHOC_BILLING_OPTIONS: AdHocLayer[] = layerOptions(BILLING_ALL_LAYERS);
 
 async function fetchAdHocBilling({
   oystehrZambda,
@@ -53,10 +56,11 @@ const DESCRIPTION =
 
 export const billingDataset: AdHocDataset = {
   id: 'billing',
+  rowKey: 'encounterId',
   label: LABEL,
   description: DESCRIPTION,
   options: ADHOC_BILLING_OPTIONS,
-  layers: BILLING_LAYERS,
+  layers: BILLING_ALL_LAYERS,
   baseSchema: BillingBaseRowSchema,
   internalFields: BILLING_INTERNAL_FIELDS,
   fetch: fetchAdHocBilling,
@@ -68,7 +72,7 @@ export const billingDataset: AdHocDataset = {
       description: DESCRIPTION,
       rows,
       base: BillingBaseRowSchema,
-      layers: BILLING_LAYERS,
+      layers: BILLING_ALL_LAYERS,
       selected: opts,
       internalFields: BILLING_INTERNAL_FIELDS,
       domainFields: BILLING_DOMAIN_FIELDS,
