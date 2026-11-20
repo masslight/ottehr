@@ -102,20 +102,22 @@ export const buildJournalActions = (
     },
   ];
   if (visit) {
+    // A Today row's chart links open today's visit, not an older to-do's.
+    const chartVisit = section === 'td' ? row.visit ?? visit : visit;
     actions.push(
       {
         key: 'progress',
         label: 'Progress Note',
         tooltip: 'Progress Note',
         icon: <DescriptionIcon />,
-        href: reviewAndSignUrl(visit),
+        href: reviewAndSignUrl(chartVisit),
       },
       {
         key: 'details',
         label: 'Visit Details',
         tooltip: 'Visit Details',
         icon: <InfoOutlinedIcon />,
-        href: visitDetailsUrl(visit),
+        href: visitDetailsUrl(chartVisit),
       }
     );
   }

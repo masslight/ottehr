@@ -1,0 +1,39 @@
+import { JournalItem, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
+import { describe, expect, it, vi } from 'vitest';
+import { buildJournalActions } from '../../src/features/journal/helpers/journalActions';
+import { JournalSectionKey, rowRef } from '../../src/features/journal/helpers/journalHelpers';
+
+const visit = (id: string, overrides: Partial<JournalVisit> = {}): JournalVisit => ({
+  appointmentId: `appt-${id}`,
+  encounterId: `enc-${id}`,
+  start: '2026-11-20T14:00:00Z',
+  isTelemed: false,
+  isFollowUp: false,
+  status: 'provider',
+  hasProgressNote: true,
+  ...overrides,
+});
+const todo = (encounterId: string): JournalItem => ({
+  id: `task-${encounterId}`,
+  kind: 'task',
+  label: 'Call about culture results',
+  when: 'created',
+  since: '2026-11-17T14:00:00Z',
+  encounterId,
+});
+const handlers = { onSelect: vi.fn(), onStart: vi.fn(), onText: vi.fn(), onNote: vi.fn(), onAddendum: vi.fn() };
+const actions = (section: JournalSectionKey, row: JournalRow, kind: 'provider' | 'clinician' = 'provider') =>
+  buildJournalActions(rowRef(section, row), kind, handlers);
+const byKey = (list: ReturnType<typeof actions>, key: string) => list.find((a) => a.key === key);
+const patient = { patientId: 'pat-cal', name: 'Cal Room', phones: [] };
+
+describe('journal row actions and the row visits', () => {
+  it("opens today's visit from a Today row's Progress Note and Visit Details, not an older to-do's visit", () => {
+    const older = visit('old', { start: '2026-11-17T14:00:00Z', status: 'completed' });
+    const today = visit('today');
+    const row: JournalRow = { patient, visit: today, visits: [today, older], items: [todo('enc-old')] };
+    const list = actions('td', row);
+    expect(byKey(list, 'progress')?.href).toBe('/in-person/appt-today/review-and-sign');
+    expect(byKey(list, 'details')?.href).toBe('/visit/appt-today');
+  });
+});
