@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DiagnosticReport, Encounter, Patient, RelatedPerson, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { chunkThings } from 'utils/lib/fhir/chat';
+import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { GetProviderJournalInputSchema, JournalKind } from 'utils/lib/types/api/provider-journal.types';
@@ -42,19 +43,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const windowStart = now.minus({ days: JOURNAL_WINDOW_DAYS }).startOf('day').toUTC().toISO()!;
   const windowEnd = now.endOf('day').toUTC().toISO()!;
 
-  const visitResources = await getAllFhirSearchPages<Encounter | Appointment | Patient | RelatedPerson>(
-    {
-      resourceType: 'Encounter',
-      params: [
-        { name: 'participant', value: `Practitioner/${practitionerId}` },
-        { name: 'appointment.date', value: `ge${windowStart}` },
-        { name: 'appointment.date', value: `le${windowEnd}` },
-        { name: '_include', value: 'Encounter:appointment' },
-        { name: '_include', value: 'Encounter:subject' },
-        { name: '_revinclude:iterate', value: 'RelatedPerson:patient' },
-      ],
-    },
-    oystehr
+  const visitIncludes = [
+    { name: '_include', value: 'Encounter:appointment' },
+    { name: '_include', value: 'Encounter:subject' },
+    { name: '_revinclude:iterate', value: 'RelatedPerson:patient' },
+  ];
+  const searchVisits = (params: { name: string; value: string }[]): Promise<VisitResource[]> =>
+    getAllFhirSearchPages<VisitResource>(
+      {
+        resourceType: 'Encounter',
+        params: [{ name: 'participant', value: `Practitioner/${practitionerId}` }, ...params, ...visitIncludes],
+      },
+      oystehr
+    );
+  const visitResources = deduplicateUnbundledResources(
+    (
+      await Promise.all([
+        searchVisits([
+          { name: 'appointment.date', value: `ge${windowStart}` },
+          { name: 'appointment.date', value: `le${windowEnd}` },
+        ]),
+        // Unfinished visits of any age: their notes still need signing (Incomplete Encounters report).
+        kind === 'provider' ? searchVisits([{ name: 'status', value: 'in-progress' }]) : [],
+      ])
+    ).flat()
   );
   const encounters = visitResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
 
@@ -147,6 +159,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   return lambdaResponse(200, journal);
 });
+
+type VisitResource = Encounter | Appointment | Patient | RelatedPerson;
 
 /** Journals exist for Providers (attender) and Clinicians (admitter); the picker's choice is checked here. */
 async function getJournalKind(oystehr: Oystehr, practitionerId: string): Promise<JournalKind> {

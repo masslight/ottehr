@@ -114,6 +114,22 @@ describe('get-provider-journal access', () => {
     expect(includes.filter((value: string) => value.startsWith('Task:based-on:'))).toEqual([]);
   });
 
+  it('also reads a provider’s open visits of any age, for notes still to sign', async () => {
+    mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
+    await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'America/New_York' });
+    const openVisitSearch = mockGetAllPages.mock.calls
+      .map(([search]) => search)
+      .find(
+        (search) =>
+          search.resourceType === 'Encounter' &&
+          search.params.some((p: { name: string; value: string }) => p.name === 'status' && p.value === 'in-progress')
+      );
+    expect(openVisitSearch?.params).toEqual(
+      expect.arrayContaining([{ name: 'participant', value: `Practitioner/${PRACTITIONER_ID}` }])
+    );
+    expect(openVisitSearch?.params.some((p: { name: string }) => p.name === 'appointment.date')).toBe(false);
+  });
+
   it('builds a clinician journal for a Clinician', async () => {
     mockPractitionerRoles.mockResolvedValue([RoleType.Clinician]);
     const result = await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'America/New_York' });

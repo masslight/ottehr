@@ -36,6 +36,8 @@ export type JournalItemKind =
 /** What the age counts from: "Review CBC, resulted 2d 5h ago". */
 export type JournalItemWhen =
   | 'discharged'
+  /** An unsigned note on a visit that was never discharged: counts from the visit. */
+  | 'seen'
   | 'resulted'
   | 'read'
   | 'received'

@@ -35,7 +35,7 @@ import {
 } from 'utils/lib/types/data/tasks/types';
 import { getInPersonVisitStatus, getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
 
-/** Visits older than this fall off the journal; open tasks owned by the person stay until done. */
+/** Visits older than this fall off the journal, except unfinished ones; owned tasks stay until done. */
 export const JOURNAL_WINDOW_DAYS = 90;
 export const PAST_WINDOW_DAYS = 7;
 
@@ -334,10 +334,19 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
 
   const notTied: JournalRow[] = [];
 
-  // Unsigned notes: discharged visits waiting for the provider's signature.
+  const isToday = (visit: Visit): boolean =>
+    DateTime.fromISO(visit.journal.start).setZone(now.zone).hasSame(now, 'day');
+
+  // Unsigned notes: the Incomplete Encounters report's rule (not completed, cancelled or no show) for
+  // visits with a progress note, any age; today's only once discharged (the rest are still in progress).
   if (kind === 'provider') {
     visits
-      .filter((visit) => visit.journal.status === 'discharged')
+      .filter(
+        (visit) =>
+          visit.journal.hasProgressNote &&
+          visit.journal.status !== 'completed' &&
+          (visit.journal.status === 'discharged' || !isToday(visit))
+      )
       .forEach((visit) => {
         const attender = visit.encounter.participant?.find(
           (p) => p.type?.some((t) => t.coding?.some((coding) => coding.code === 'ATND'))
@@ -346,8 +355,9 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
           id: `note:${visit.encounter.id}`,
           kind: 'unsigned-note',
           label: 'Review & sign',
-          when: 'discharged',
-          since: attender?.period?.end ?? visit.journal.start,
+          ...(visit.journal.status === 'discharged'
+            ? { when: 'discharged' as const, since: attender?.period?.end ?? visit.journal.start }
+            : { when: 'seen' as const, since: visit.journal.start }),
           patientId: visit.patientId,
           appointmentId: visit.journal.appointmentId,
           encounterId: visit.journal.encounterId,
@@ -384,8 +394,6 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
   });
   buckets.forEach((bucket) => bucket.items.sort(byAlertThenSinceDesc));
 
-  const isToday = (visit: Visit): boolean =>
-    DateTime.fromISO(visit.journal.start).setZone(now.zone).hasSame(now, 'day');
   const pastStart = now.minus({ days: PAST_WINDOW_DAYS }).startOf('day');
   const isPastWeek = (visit: Visit): boolean =>
     !isToday(visit) && DateTime.fromISO(visit.journal.start).setZone(now.zone) >= pastStart;

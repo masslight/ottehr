@@ -324,6 +324,44 @@ describe('buildJournal: Today, Recent, Past and unsigned notes', () => {
     expect(journal.seenTodayCount).toBe(3);
   });
 
+  it('asks to sign every earlier visit the Incomplete Encounters report lists, discharged or not', () => {
+    const earlier = (id: string, overrides: Partial<VisitSpec>): VisitSpec => ({
+      id,
+      patientId: `pat-${id}`,
+      start: '2026-11-03T15:00:00.000Z',
+      appointmentStatus: 'fulfilled',
+      encounterStatus: 'in-progress',
+      ...overrides,
+    });
+    const journal = buildJournal(
+      withVisits(
+        [
+          // Never discharged: still "provider" from Nov 3.
+          earlier('provider', { attender: { id: ME, start: '2026-11-03T15:05:00.000Z' } }),
+          // Still "ready for provider" from months ago (no age limit).
+          earlier('rfp', { start: '2026-06-01T15:00:00.000Z', attender: { id: ME } }),
+          // Booked and never started: no progress note to sign.
+          earlier('pending', { appointmentStatus: 'booked', encounterStatus: 'planned', attender: { id: ME } }),
+          // Signed.
+          earlier('done', { encounterStatus: 'finished', attender: { id: ME, start: 'x', end: 'y' } }),
+          // Today, in the room: not yet.
+          earlier('in-room', { start: '2026-11-07T18:00:00.000Z', attender: { id: ME, start: '2026-11-07T18:05:00.000Z' } }),
+        ],
+        {
+          patients: ['provider', 'rfp', 'pending', 'done', 'in-room'].map((id) => patient(`pat-${id}`, id, 'Test')),
+        }
+      )
+    );
+    const notes = [...journal.today, ...journal.recent, ...journal.past].flatMap((row) =>
+      row.items.filter((item) => item.kind === 'unsigned-note').map((item) => [item.encounterId, item.when, item.since])
+    );
+    expect(notes).toEqual([
+      ['enc-provider', 'seen', '2026-11-03T15:00:00.000Z'],
+      ['enc-rfp', 'seen', '2026-06-01T15:00:00.000Z'],
+    ]);
+    expect(journal.recent.map((row) => row.patient?.patientId)).toEqual(['pat-provider', 'pat-rfp']);
+  });
+
   it('does not create unsigned-note items on a clinician journal', () => {
     const journal = buildJournal(
       withVisits(
