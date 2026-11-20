@@ -23,6 +23,7 @@ export interface Task {
   createdById?: string;
   alert?: TaskAlertCode;
   completable: boolean;
+  reopenable?: boolean;
   chat?: {
     hasUnread: boolean;
   };
