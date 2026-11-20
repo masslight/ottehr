@@ -22,6 +22,8 @@ const HEIGHT_UNITS: UnitRule[] = [
   { pattern: /(?<![a-z])(?:feet|foot|ft)\b|'/i, canonical: 'in', factor: 12 },
 ];
 
+const HEAD_CIRCUMFERENCE_UNITS: UnitRule[] = HEIGHT_UNITS.filter((rule) => rule.factor <= 1);
+
 const WEIGHT_UNITS: UnitRule[] = [
   { pattern: /(?<![a-z])(?:milligrams?|mg)\b/i, canonical: 'kg', factor: 0.000001 },
   { pattern: /(?<![a-z])(?:kilograms?|kilos?|kgs?)\b/i, canonical: 'kg', factor: 1 },
@@ -33,6 +35,7 @@ const WEIGHT_UNITS: UnitRule[] = [
 
 const UNIT_TABLES: Partial<Record<PlannableVitalField, UnitRule[]>> = {
   'vital-height': HEIGHT_UNITS,
+  'vital-head-circumference': HEAD_CIRCUMFERENCE_UNITS,
   'vital-weight': WEIGHT_UNITS,
 };
 
@@ -51,6 +54,13 @@ export function canonicalizeVitalUnit(
   if (!rule) return undefined;
   // Round to 2dp: 5 st → 70 lb must not surface as 69.99999999999999.
   return { value: Math.round(value * rule.factor * 100) / 100, unit: rule.canonical };
+}
+
+const PLAUSIBLE_HEAD_CIRCUMFERENCE_CM = { min: 15, max: 80 };
+
+export function isImplausibleHeadCircumference(value: number, unit: string | undefined): boolean {
+  const cm = /^i/i.test(unit ?? '') ? value * 2.54 : value;
+  return !(cm >= PLAUSIBLE_HEAD_CIRCUMFERENCE_CM.min && cm <= PLAUSIBLE_HEAD_CIRCUMFERENCE_CM.max);
 }
 
 export const MIN_PLAUSIBLE_HEIGHT_IN = 20;
@@ -146,6 +156,37 @@ export function parseVitalDisplay(field: PlannableVitalField, display: string): 
         };
       }
       return finishHeight(converted.value, converted.unit, text);
+    });
+  }
+
+  if (field === 'vital-head-circumference') {
+    return parseSingleUnit(field, text, (value, writtenUnit) => {
+      if (!writtenUnit) {
+        return {
+          status: 'missing-unit',
+          value,
+          reason: `"${text}" has no unit — a bare head circumference could be centimetres or inches, so it needs confirming`,
+        };
+      }
+      const converted = canonicalizeVitalUnit(field, value, writtenUnit);
+      if (!converted) {
+        return {
+          status: 'unrecognized-unit',
+          writtenUnit,
+          reason: `"${writtenUnit}" is not a head circumference unit this system converts, so "${text}" was not charted`,
+        };
+      }
+      if (isImplausibleHeadCircumference(converted.value, converted.unit)) {
+        return {
+          status: 'implausible',
+          value: converted.value,
+          unit: converted.unit,
+          reason:
+            `"${text}" reads as ${converted.value} ${converted.unit}, outside any head circumference — almost ` +
+            `certainly a mis-stated unit`,
+        };
+      }
+      return { status: 'ok', value: converted.value, unit: converted.unit };
     });
   }
 
@@ -256,6 +297,8 @@ function parseSingleUnit(
   return finish(value, (match[2] ?? '').trim());
 }
 
+const HEAD_CIRCUMFERENCE_READING = String.raw`(?:head\s*circumference|\bofc\b|\bhc\b)[\s:=~-]*(?:(?:is|was|of|at|about|around|approx\w*|today|measures?|measured)\b[\s:=~.-]*){0,3}(${NUMBER}\s*(?:cm\b|centimet\w*|mm\b|millimet\w*|in\b|ins\b|inch(?:es)?\b|"|''))`;
+
 // Recovering a reading the model dropped: it sometimes emits a set-vital with no display. Each pattern is
 // anchored on a unit or vital keyword, so "cough for 5 days" is never read as a measurement.
 const RECOVERY_PATTERNS: Record<PlannableVitalField, RegExp[]> = {
@@ -272,6 +315,7 @@ const RECOVERY_PATTERNS: Record<PlannableVitalField, RegExp[]> = {
       'i'
     ),
   ],
+  'vital-head-circumference': [new RegExp(HEAD_CIRCUMFERENCE_READING, 'i')],
   'vital-weight': [
     new RegExp(String.raw`(${NUMBER}\s*(?:#|lbs?\b|pounds?\b)\s*${NUMBER}\s*(?:oz\b|ounces?\b))`, 'i'),
     new RegExp(
@@ -297,14 +341,17 @@ const RECOVERY_PATTERNS: Record<PlannableVitalField, RegExp[]> = {
   ],
 };
 
+const HEAD_CIRCUMFERENCE_READINGS = new RegExp(HEAD_CIRCUMFERENCE_READING, 'gi');
+
 /**
  * Find the reading for `field` in the provider's own message. Returns the matched substring, ready
  * to hand to `parseVitalDisplay`, or undefined when the message does not state one.
  */
 export function recoverVitalReading(field: PlannableVitalField, narrative: string): string | undefined {
   if (!narrative) return undefined;
+  const text = field === 'vital-height' ? narrative.replace(HEAD_CIRCUMFERENCE_READINGS, ' ') : narrative;
   for (const pattern of RECOVERY_PATTERNS[field]) {
-    const match = pattern.exec(narrative);
+    const match = pattern.exec(text);
     if (match) return (match[1] ?? match[0]).trim();
   }
   return undefined;

@@ -253,6 +253,7 @@ const VITAL_ALERT_FIELDS: Record<string, string> = {
   [VitalFieldNames.VitalBloodPressure]: 'bloodPressure',
   [VitalFieldNames.VitalWeight]: 'weightKg',
   [VitalFieldNames.VitalHeight]: 'heightCm',
+  [VitalFieldNames.VitalHeadCircumference]: 'headCircumferenceCm',
 };
 
 // "Ask the patient" screening answers are chart-data Observations (makeObservationResource): code.text
@@ -1289,6 +1290,11 @@ export async function fetchAdHocEncounterRows(
       const height = heightInCm == null ? undefined : HeightMeasurement.fromCm(heightInCm);
       row.heightInches = height ? height.getInches() : null;
       row.heightFeetInches = height ? height.getFeetInchesLabel() : '';
+
+      const headCircumferenceCm = qty(latest('vital-head-circumference'));
+      row.headCircumferenceCm = headCircumferenceCm == null ? null : round1(headCircumferenceCm);
+      row.headCircumferenceInches =
+        headCircumferenceCm == null ? null : HeightMeasurement.fromCm(headCircumferenceCm).getInches();
 
       // How each reading was taken, vision and LMP — read with the chart's vitals DTO builder.
       const latestDto = (field: VitalFieldNames): VitalsObservationDTO | undefined => {

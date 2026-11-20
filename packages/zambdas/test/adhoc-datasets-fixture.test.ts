@@ -250,6 +250,7 @@ const observations: Observation[] = [
   vitalObs('obs-o2-1', 'vital-oxygen-sat', '2026-07-01T14:02:00.000Z', 97, '%'),
   bpObs('obs-bp-1', '2026-07-01T14:02:00.000Z', 118, 76),
   bpObs('obs-bp-2', '2026-07-01T14:20:00.000Z', 122, undefined, 'LX'),
+  vitalObs('obs-hc-1', 'vital-head-circumference', '2026-07-01T14:02:00.000Z', 31, 'cm', 'LX'),
 ];
 
 const performer = (code: string): NonNullable<MedicationAdministration['performer']>[number] => ({
@@ -666,7 +667,12 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
 
     // Temperature was abnormal on the FIRST reading only, heart rate was critical, BP was abnormal on
     // a component. Oxygen saturation has no interpretation, so it counts as in range.
-    expect(row.abnormalVitals?.slice().sort()).toEqual(['bloodPressure', 'heartRate', 'temperatureF']);
+    expect(row.abnormalVitals?.slice().sort()).toEqual([
+      'bloodPressure',
+      'headCircumferenceCm',
+      'heartRate',
+      'temperatureF',
+    ]);
     expect(row.criticalVitals).toEqual(['heartRate']);
     // A reading dropped from the paired arrays still counts towards the alert.
     expect(row.abnormalVitals).toContain('bloodPressure');

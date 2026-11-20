@@ -221,6 +221,8 @@ describe('vitals', () => {
         { kind: 'set-vital', field: 'vital-temperature', display: '100.4 F', value: 100.4, unit: 'F' },
         { kind: 'set-vital', field: 'vital-weight', display: '77 kg', value: 77, unit: 'kg' },
         { kind: 'set-vital', field: 'vital-heartbeat', display: '88 bpm', value: 88 },
+        { kind: 'set-vital', field: 'vital-head-circumference', display: 'OFC 17.24 in', value: 17.24, unit: 'in' },
+        { kind: 'set-vital', field: 'vital-head-circumference', display: '438 mm', value: 43.8, unit: 'cm' },
       ],
       h.context
     );
@@ -230,6 +232,8 @@ describe('vitals', () => {
       { field: 'vital-temperature', value: 38 },
       { field: 'vital-weight', value: 77 },
       { field: 'vital-heartbeat', value: 88 },
+      { field: 'vital-head-circumference', value: 43.79 },
+      { field: 'vital-head-circumference', value: 43.8 },
     ]);
     expect(toStoredVitalValue(100.4, 'F')).toBe(38);
   });

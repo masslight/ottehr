@@ -137,6 +137,80 @@ describe('parseVitalDisplay', () => {
   });
 });
 
+describe('head circumference', () => {
+  it('converts cm, mm and inches, and nothing larger', () => {
+    expect(canonicalizeVitalUnit('vital-head-circumference', 438, 'mm')).toEqual({ value: 43.8, unit: 'cm' });
+    expect(canonicalizeVitalUnit('vital-head-circumference', 43.8, 'cm')).toEqual({ value: 43.8, unit: 'cm' });
+    expect(canonicalizeVitalUnit('vital-head-circumference', 17.2, 'inches')).toEqual({ value: 17.2, unit: 'in' });
+    expect(canonicalizeVitalUnit('vital-head-circumference', 17.2, '"')).toEqual({ value: 17.2, unit: 'in' });
+    expect(canonicalizeVitalUnit('vital-head-circumference', 0.44, 'm')).toBeUndefined();
+    expect(canonicalizeVitalUnit('vital-head-circumference', 1, 'ft')).toBeUndefined();
+  });
+
+  it('charts a reading with its unit', () => {
+    expect(parseVitalDisplay('vital-head-circumference', '43.8 cm')).toEqual({ status: 'ok', value: 43.8, unit: 'cm' });
+    expect(parseVitalDisplay('vital-head-circumference', '438 mm')).toEqual({ status: 'ok', value: 43.8, unit: 'cm' });
+    expect(parseVitalDisplay('vital-head-circumference', '17.24 in')).toEqual({
+      status: 'ok',
+      value: 17.24,
+      unit: 'in',
+    });
+  });
+
+  it('lets a newborn head circumference through, well under the live-birth length floor', () => {
+    expect(parseVitalDisplay('vital-head-circumference', '33 cm')).toEqual({ status: 'ok', value: 33, unit: 'cm' });
+  });
+
+  it('asks rather than charting a reading with no unit', () => {
+    expect(parseVitalDisplay('vital-head-circumference', '43.8')).toMatchObject({
+      status: 'missing-unit',
+      value: 43.8,
+    });
+  });
+
+  it('asks about a unit it does not convert', () => {
+    expect(parseVitalDisplay('vital-head-circumference', '0.44 m')).toMatchObject({
+      status: 'unrecognized-unit',
+      writtenUnit: 'm',
+    });
+  });
+
+  it('asks about a reading no head could measure, almost always a mis-stated unit', () => {
+    expect(parseVitalDisplay('vital-head-circumference', '0 cm')).toMatchObject({ status: 'implausible' });
+    expect(parseVitalDisplay('vital-head-circumference', '45 in')).toMatchObject({ status: 'implausible' });
+    expect(parseVitalDisplay('vital-head-circumference', '4.38 cm')).toMatchObject({ status: 'implausible' });
+    expect(parseVitalDisplay('vital-head-circumference', '13 in')).toEqual({ status: 'ok', value: 13, unit: 'in' });
+    expect(parseVitalDisplay('vital-head-circumference', '58 cm')).toEqual({ status: 'ok', value: 58, unit: 'cm' });
+  });
+
+  it('does not take a length that merely follows a head circumference keyword', () => {
+    expect(recoverVitalReading('vital-head-circumference', 'OFC nl; length 68 cm')).toBeUndefined();
+    expect(recoverVitalReading('vital-height', 'OFC nl; length 68 cm')).toBe('68 cm');
+    expect(recoverVitalReading('vital-head-circumference', 'HC: 43.8 cm')).toBe('43.8 cm');
+    expect(recoverVitalReading('vital-head-circumference', 'head circumference was 17.2 in')).toBe('17.2 in');
+    expect(recoverVitalReading('vital-head-circumference', 'head circumference at 44.5 cm')).toBe('44.5 cm');
+    expect(recoverVitalReading('vital-head-circumference', 'OFC approx. 44 cm')).toBe('44 cm');
+    expect(recoverVitalReading('vital-height', 'head circumference at 45 cm')).toBeUndefined();
+  });
+
+  it('never recovers a head circumference as a dropped height', () => {
+    expect(recoverVitalReading('vital-height', 'OFC 52 cm, length 88 cm')).toBe('88 cm');
+    expect(recoverVitalReading('vital-height', 'head circumference 45 cm')).toBeUndefined();
+  });
+
+  it('recovers a dropped reading named as head circumference, OFC or HC', () => {
+    expect(recoverVitalReading('vital-head-circumference', 'head circumference today 43.8 cm')).toBe('43.8 cm');
+    expect(recoverVitalReading('vital-head-circumference', 'OFC 438 mm, tracking well')).toBe('438 mm');
+    expect(recoverVitalReading('vital-head-circumference', 'HC 17.2 in')).toBe('17.2 in');
+  });
+
+  it('does not take a length that is not named as a head circumference', () => {
+    expect(recoverVitalReading('vital-head-circumference', 'length 68 cm, laceration 2 cm')).toBeUndefined();
+    expect(recoverVitalReading('vital-head-circumference', 'apply HC 2.5% cream twice daily')).toBeUndefined();
+    expect(recoverVitalReading('vital-head-circumference', 'head circumference 43.8')).toBeUndefined();
+  });
+});
+
 describe('isImplausibleHeight', () => {
   it('uses the documented thresholds', () => {
     expect(isImplausibleHeight(MIN_PLAUSIBLE_HEIGHT_IN, 'in')).toBe(false);

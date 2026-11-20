@@ -55,6 +55,24 @@ describe('vitals tokens', () => {
     expect(resolveToken('vitals.heightInchesRemainder', ctx)).toBe(11);
   });
 
+  it('fills head circumference in cm and inches as the visit note shows it', () => {
+    const ctx = contextWithVitals([
+      { field: 'vital-head-circumference', value: 41.6, lastUpdated: '2026-09-01T08:00:00Z' },
+      { field: 'vital-head-circumference', value: 43.84, lastUpdated: '2026-09-01T11:00:00Z' },
+      height,
+    ]);
+
+    expect(resolveToken('vitals.headCircumferenceCm', ctx)).toBe(43.8);
+    expect(resolveToken('vitals.headCircumferenceInches', ctx)).toBe(17.26);
+  });
+
+  it('leaves head circumference blank when it was not measured', () => {
+    const ctx = contextWithVitals([height]);
+
+    expect(resolveToken('vitals.headCircumferenceCm', ctx)).toBeUndefined();
+    expect(resolveToken('vitals.headCircumferenceInches', ctx)).toBeUndefined();
+  });
+
   it('converts a stored weight into pounds', () => {
     const ctx = contextWithVitals([weight]);
 
