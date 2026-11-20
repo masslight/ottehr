@@ -366,6 +366,23 @@ describe('buildJournal: Today, Recent, Past and unsigned notes', () => {
     expect(journal.recent.map((row) => row.patient?.patientId)).toEqual(['pat-provider', 'pat-rfp']);
   });
 
+  it('reads a visit awaiting supervisor approval as completed (seen, nothing to sign)', () => {
+    const journal = buildJournal(
+      withVisits([seenToday('approval', 'pat-nina')], {
+        patients: [patient('pat-nina', 'Nina', 'Park')],
+        encounters: [
+          {
+            ...visit(seenToday('approval', 'pat-nina')).encounter,
+            extension: [{ url: 'awaiting-supervisor-approval', valueBoolean: true }],
+          },
+        ],
+      })
+    );
+    expect(journal.todayDone.map((row) => [row.patient?.name, row.visit?.status, row.items])).toEqual([
+      ['Nina Park', 'completed', []],
+    ]);
+  });
+
   it('does not create unsigned-note items on a clinician journal', () => {
     const journal = buildJournal(
       withVisits(

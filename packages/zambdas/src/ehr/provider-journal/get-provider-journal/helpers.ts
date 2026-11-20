@@ -79,13 +79,13 @@ const JOURNAL_RULES: Record<
     ready: 'ready for provider',
     lookahead: 'intake',
     inProgress: 'provider',
-    seen: ['provider', 'discharged', 'awaiting supervisor approval', 'completed'],
+    seen: ['provider', 'discharged', 'completed'],
   },
   clinician: {
     owns: getAdmitterPractitionerId,
     ready: 'ready',
     inProgress: 'intake',
-    seen: ['intake', 'ready for provider', 'provider', 'discharged', 'awaiting supervisor approval', 'completed'],
+    seen: ['intake', 'ready for provider', 'provider', 'discharged', 'completed'],
   },
 };
 
