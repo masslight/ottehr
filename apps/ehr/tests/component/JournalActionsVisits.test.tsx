@@ -83,14 +83,16 @@ describe('journal row actions and the row visits', () => {
     expect(handlers.onAddendum).toHaveBeenCalledWith(recentRow, last);
   });
 
-  it("gives a clinician's virtual Ready row Start Intake, as the tracking board does; the provider keeps Join", () => {
+  it("gives a clinician's virtual Ready row Start Intake, as the tracking board does; the provider's opens the chart", () => {
     const ready = visit('tm', { status: 'ready', isTelemed: true, hasProgressNote: false });
     const clinician = actions('cu', { patient, visit: ready, visits: [ready], items: [] }, 'clinician');
     expect(byKey(clinician, 'start')?.label).toBe('Start Intake');
     expect(byKey(clinician, 'join')).toBeUndefined();
     const rfp = { ...ready, status: 'ready for provider' as const };
     const provider = actions('cu', { patient, visit: rfp, visits: [rfp], items: [] });
-    expect(byKey(provider, 'join')).toBeDefined();
+    // The tracking board's label for a virtual visit ready for the provider; it opens the chart, no status change.
+    expect(byKey(provider, 'join')?.label).toBe('Start Provider');
+    expect(byKey(provider, 'join')?.tooltip).toBe('Start Provider (opens the chart in a new tab)');
     expect(byKey(provider, 'start')).toBeUndefined();
   });
 });

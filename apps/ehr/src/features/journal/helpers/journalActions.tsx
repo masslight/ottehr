@@ -124,12 +124,12 @@ export const buildJournalActions = (
     );
   }
   if (section === 'cu' && row.visit && !row.lookahead) {
-    // The tracking board's actions: a virtual visit ready for the provider is joined; Start Intake changes the status.
+    // The tracking board's actions: on a virtual visit ready for the provider, Start Provider only opens the chart.
     if (row.visit.isTelemed && kind === 'provider') {
       actions.push({
         key: 'join',
-        label: 'Join video visit',
-        tooltip: 'Join the video visit',
+        label: 'Start Provider',
+        tooltip: 'Start Provider (opens the chart in a new tab)',
         icon: <VideocamIcon />,
         href: getChiefComplaintUrl(row.visit.appointmentId),
       });
