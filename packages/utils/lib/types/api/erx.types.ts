@@ -306,9 +306,9 @@ export interface ErxSavedFormResponse {
 export const erxSavedLineHasContent = (line: { drug: unknown; medication: unknown; compound?: unknown }): boolean =>
   !!(line.drug || line.medication || line.compound);
 
-/** Nothing to keep: no pharmacy picked and no line with a medication. */
-export const erxSavedFormIsEmpty = (form: ErxSavedForm): boolean =>
-  !form.pharmacy && !form.lines.some(erxSavedLineHasContent);
+/** Nothing to keep: no line with a medication. A pharmacy alone isn't an order; the patient's preferred one is set
+ * outside the form. */
+export const erxSavedFormIsEmpty = (form: ErxSavedForm): boolean => !form.lines.some(erxSavedLineHasContent);
 
 /** A saved line as the Tracking Board lists it: the product the pharmacy would read, else the drug or compound. */
 export const erxSavedLineName = (line: Pick<ErxSavedLine, 'drug' | 'medication' | 'compound'>): string =>

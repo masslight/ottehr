@@ -246,10 +246,14 @@ describe('erx-saved-form', () => {
       expect(mocks.create).not.toHaveBeenCalled();
     });
 
-    it('keeps a form with only a pharmacy', async () => {
+    it('removes a form with only a pharmacy, which is no order', async () => {
+      encounterFound(true, [savedBasic()]);
       const pharmacy = { ncpdpId: '1234567', npi: '1', name: 'CVS', phone: '5555550100', address: '1 Main St' };
-      await call({ action: 'save', encounterId: ENCOUNTER_ID, form: { pharmacy, lines: [line()] } });
-      expect(mocks.create).toHaveBeenCalled();
+      await expect(
+        call({ action: 'save', encounterId: ENCOUNTER_ID, form: { pharmacy, lines: [line()] } })
+      ).resolves.toEqual({ saved: null });
+      expect(mocks.delete).toHaveBeenCalledWith({ resourceType: 'Basic', id: 'basic-1' });
+      expect(mocks.create).not.toHaveBeenCalled();
     });
   });
 });

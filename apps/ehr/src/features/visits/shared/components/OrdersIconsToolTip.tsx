@@ -57,7 +57,7 @@ const RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES = [RadiologyOrderStatus.pending];
 const DME_ORDERS_PENDING_BADGE_STATUSES = [DmeOrderStatus.pending];
 
 export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointment, orders }) => {
-  // A saved eRx form shows even with no line named yet (a pharmacy only).
+  // A saved eRx form shows even before any prescription is sent.
   const ordersExistForAppointment = hasAtLeastOneOrder(orders) || !!orders.erxSavedForm;
   if (!ordersExistForAppointment) return null;
 

@@ -45,12 +45,6 @@ describe('OrdersIconsToolTip eRx', () => {
     expect(badge(container)).not.toBeNull();
   });
 
-  it('shows the icon for a saved form with only a pharmacy', () => {
-    const { container } = renderTooltip(rowWith(undefined, { lines: [] }));
-    expect(screen.getByRole('link')).toHaveAttribute('href', ERX_SURESCRIPTS_URL);
-    expect(badge(container)).not.toBeNull();
-  });
-
   it('has no dot for sent prescriptions alone, and opens eRx (Surescripts) for them too', () => {
     const { container } = renderTooltip(rowWith([sent], undefined));
     expect(screen.getByRole('link')).toHaveAttribute('href', ERX_SURESCRIPTS_URL);
