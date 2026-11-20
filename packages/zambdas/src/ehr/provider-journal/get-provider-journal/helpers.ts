@@ -260,7 +260,8 @@ export function taskToJournalItem(
       return {
         ...base,
         kind: 'text-message',
-        label: 'Reply to text',
+        // "Reply to text" while the patient's texts are unread (markTextUnread), like Support Chat requests.
+        label: task.description ?? 'Text message',
         when: 'received',
         since: task.lastModified ?? task.authoredOn ?? '',
         code,
@@ -313,6 +314,11 @@ export function taskToJournalItem(
     assigneeId: isCallTask ? taskOwnerId(task) : undefined,
   };
 }
+
+/** Support Chat's switch for texts: "Reply to text", counted as unread, only while the patient's texts are unread. */
+export const markTextUnread = (item: JournalItem): void => {
+  if (item.kind === 'text-message') Object.assign(item, { label: 'Reply to text', unread: true });
+};
 
 /** The patient a task is about, read from the task itself or its linked resources. */
 export function resolveTaskPatientId(

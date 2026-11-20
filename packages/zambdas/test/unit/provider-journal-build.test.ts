@@ -19,6 +19,7 @@ import {
   consentSignerLabel,
   isOpenBoardTask,
   JournalSources,
+  markTextUnread,
   phonesByBookingAppointment,
   taskToJournalItem,
 } from '../../src/ehr/provider-journal/get-provider-journal/helpers';
@@ -792,14 +793,19 @@ describe('taskToJournalItem wording', () => {
       code: { coding: [{ system: PATIENT_REQUEST_TASK.system, code: PATIENT_REQUEST_TASK.code.textMessage }] },
       lastModified: '2026-11-07T19:35:00.000Z',
     });
-    expect(taskToJournalItem(text, { patientId: 'pat-robert' })).toEqual(
+    // Support Chat's switch: the task title once read; "Reply to text" while the patient's texts are unread.
+    const textItem = taskToJournalItem(text, { patientId: 'pat-robert' });
+    expect(textItem).toEqual(
       expect.objectContaining({
         kind: 'text-message',
-        label: 'Reply to text',
+        label: 'Text message from Robert Hill 11/03/2026',
         when: 'received',
         since: '2026-11-07T19:35:00.000Z',
       })
     );
+    expect(textItem.unread).toBeUndefined();
+    markTextUnread(textItem);
+    expect(textItem).toEqual(expect.objectContaining({ label: 'Reply to text', unread: true }));
     const portal = boardTask({
       id: 'portal',
       category: PATIENT_REQUEST_TASK.category,
@@ -821,9 +827,7 @@ describe('taskToJournalItem wording', () => {
         category: LAB_ORDER_TASK.category,
         code: { coding: [{ system: LAB_ORDER_TASK.system, code }] },
         basedOn: [{ reference: 'DiagnosticReport/dr-1' }],
-        input: drTag
-          ? [{ type: { coding: [{ code: LAB_ORDER_TASK.input.drTag }] }, valueString: drTag }]
-          : undefined,
+        input: drTag ? [{ type: { coding: [{ code: LAB_ORDER_TASK.input.drTag }] }, valueString: drTag }] : undefined,
       });
     expect(taskToJournalItem(labTask(LAB_ORDER_TASK.code.reviewFinalResult, 'reflex'), {})).toEqual(
       expect.objectContaining({ kind: 'external-lab', diagnosticReportId: 'dr-1', isReflex: true })

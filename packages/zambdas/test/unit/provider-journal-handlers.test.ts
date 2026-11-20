@@ -2,7 +2,7 @@ import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { INTAKE_PAPERWORK_QR_TAG, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
-import { JournalRow } from 'utils/lib/types/api/provider-journal.types';
+import { JournalItem, JournalRow } from 'utils/lib/types/api/provider-journal.types';
 import { SUPPORT_CHAT_THREAD_SYSTEM, SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
@@ -188,6 +188,13 @@ describe('get-provider-journal access', () => {
         { type: { coding: [{ code: MANUAL_TASK.input.patient }] }, valueReference: { reference: 'Patient/pat-1' } },
       ],
     };
+    const text = {
+      ...createTask({ category: PATIENT_REQUEST_TASK.category, title: 'Text message from Ava Chen' }),
+      id: 'task-text',
+      owner: { reference: `Practitioner/${PRACTITIONER_ID}` },
+      code: { coding: [{ system: PATIENT_REQUEST_TASK.system, code: PATIENT_REQUEST_TASK.code.textMessage }] },
+      input: owned.input,
+    };
     const booking = {
       resourceType: 'Appointment',
       id: 'appt-1',
@@ -215,7 +222,7 @@ describe('get-provider-journal access', () => {
     };
     mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
       const has = (name: string): boolean => params.some((p: { name: string }) => p.name === name);
-      if (resourceType === 'Task' && has('owner')) return [owned];
+      if (resourceType === 'Task' && has('owner')) return [owned, text];
       if (resourceType === 'Patient')
         return [{ resourceType: 'Patient', id: 'pat-1', name: [{ given: ['Ava'], family: 'Chen' }] }, accountPhone];
       if (resourceType === 'Appointment') return [booking];
@@ -236,6 +243,10 @@ describe('get-provider-journal access', () => {
       { number: '+14105550123', recipientResourceUri: 'RelatedPerson/rp-1', signer: 'Mei Chen (Parent)' },
     ]);
     expect(journal.notTied[0].patient.hasUnreadTexts).toBe(true);
+    const textItem = journal.notTied
+      .flatMap((row: JournalRow) => row.items)
+      .find((i: JournalItem) => i.id === 'task-text');
+    expect(textItem).toMatchObject({ label: 'Reply to text', unread: true });
     expect(mockFhir.search.mock.calls[0][0]).toMatchObject({ resourceType: 'Communication' });
   });
 

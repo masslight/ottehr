@@ -21,6 +21,7 @@ import {
   GetProviderJournalResponse,
   JournalKind,
   JournalPatient,
+  JournalRow,
 } from 'utils/lib/types/api/provider-journal.types';
 import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
@@ -41,6 +42,7 @@ import {
   buildJournal,
   consentSignerLabel,
   JOURNAL_WINDOW_DAYS,
+  markTextUnread,
   phonesByBookingAppointment,
   resolveTaskPatientId,
 } from './helpers';
@@ -210,19 +212,17 @@ async function getUnreadMessageSentAt(oystehr: Oystehr, tasks: Task[]): Promise<
   return sentAt;
 }
 
+const journalRows = (journal: GetProviderJournalResponse): JournalRow[] =>
+  [journal.comingUp, journal.today, journal.todayDone, journal.recent, journal.notTied, journal.past].flat();
+
 /** The patients shown on the journal who have an account phone. */
-const patientsWithPhones = (journal: GetProviderJournalResponse): JournalPatient[] => {
-  const rows = [journal.comingUp, journal.today, journal.todayDone, journal.recent, journal.notTied, journal.past];
-  return [
-    ...new Map(
-      rows
-        .flat()
-        .flatMap((row): [string, JournalPatient][] =>
-          row.patient?.phones.length ? [[row.patient.patientId, row.patient]] : []
-        )
-    ).values(),
-  ];
-};
+const patientsWithPhones = (journal: GetProviderJournalResponse): JournalPatient[] => [
+  ...new Map(
+    journalRows(journal).flatMap((row): [string, JournalPatient][] =>
+      row.patient?.phones.length ? [[row.patient.patientId, row.patient]] : []
+    )
+  ).values(),
+];
 
 /** The tracking board's unread-text state for each shown patient, so opening the chat marks texts read. */
 async function markUnreadTexts(
@@ -238,6 +238,7 @@ async function markUnreadTexts(
   patients.forEach((patient) => {
     if (createSmsModel(patient.patientId, maps)?.hasUnreadMessages) patient.hasUnreadTexts = true;
   });
+  journalRows(journal).forEach((row) => row.patient?.hasUnreadTexts && row.items.forEach(markTextUnread));
 }
 
 /** Labels the shown patients' account phones with the consent signer of the newest visit each phone booked. */
