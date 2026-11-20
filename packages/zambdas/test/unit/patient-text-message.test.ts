@@ -131,7 +131,12 @@ describe('patient-text-message helpers', () => {
   });
 
   it('attaches a later text: links the Communication, appends to the details and restarts the age', () => {
-    const operations = getAttachTextOperations(openTextTask(), sms({ id: 'comm-2', sent: '2026-11-07T20:00:00.000Z' }));
+    const task = {
+      ...openTextTask(),
+      authoredOn: '2026-11-07T19:36:00.000Z',
+      lastModified: '2026-11-07T19:36:00.000Z',
+    };
+    const operations = getAttachTextOperations(task, sms({ id: 'comm-2', sent: '2026-11-07T20:00:00.000Z' }));
     expect(operations).toEqual([
       { op: 'add', path: '/basedOn/-', value: { reference: 'Communication/comm-2' } },
       { op: 'replace', path: '/lastModified', value: '2026-11-07T20:00:00.000Z' },
@@ -141,6 +146,19 @@ describe('patient-text-message helpers', () => {
         value: 'Still coughing a lot at night. Is that normal?\nStill coughing a lot at night. Is that normal?',
       },
     ]);
+  });
+});
+
+describe('patient-text-message burst texts', () => {
+  it('keeps lastModified >= authoredOn when a text was sent before the open task was created (FHIR inv-1)', () => {
+    // Text 2 was sent 2 s before text 1's subscription created the task.
+    const task = {
+      ...openTextTask(),
+      authoredOn: '2026-11-07T19:40:00.000Z',
+      lastModified: '2026-11-07T19:40:00.000Z',
+    };
+    const operations = getAttachTextOperations(task, sms({ id: 'comm-2', sent: '2026-11-07T19:39:58.000Z' }));
+    expect(operations).toContainEqual({ op: 'replace', path: '/lastModified', value: '2026-11-07T19:40:00.000Z' });
   });
 });
 

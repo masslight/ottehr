@@ -60,6 +60,10 @@ export function buildTextMessageTask(input: { patient: Patient; visit?: Visit; c
 /** Adds a new text to the patient's open text task: the message joins the details, and the task's age restarts. */
 export function getAttachTextOperations(task: Task, communication: Communication): Operation[] {
   const text = getMessageFromComm(communication);
+  // FHIR inv-1 requires lastModified >= authoredOn; in a burst, a text can be sent before the task was created.
+  const lastModified = [communication.sent ?? DateTime.now().toISO()!, task.authoredOn, task.lastModified]
+    .filter((time): time is string => Boolean(time))
+    .reduce((latest, time) => (DateTime.fromISO(time) > DateTime.fromISO(latest) ? time : latest));
   const detailsIndex = task.input?.findIndex(
     (input) => input.type?.coding?.some((coding) => coding.code === MANUAL_TASK.input.details)
   );
@@ -70,7 +74,7 @@ export function getAttachTextOperations(task: Task, communication: Communication
     {
       op: task.lastModified ? 'replace' : 'add',
       path: '/lastModified',
-      value: communication.sent ?? DateTime.now().toISO(),
+      value: lastModified,
     },
   ];
   if (detailsIndex != null && detailsIndex >= 0) {
