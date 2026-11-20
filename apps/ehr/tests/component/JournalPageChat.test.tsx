@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { JournalPage } from '../../src/features/journal/pages/JournalPage';
 
 const ME = '11111111-1111-4111-8111-111111111111';
-const { chatProps } = vi.hoisted(() => ({ chatProps: [] as any[] }));
+const { chatProps, refetch } = vi.hoisted(() => ({ chatProps: [] as any[], refetch: vi.fn() }));
 
 const journal: GetProviderJournalResponse = {
   kind: 'provider',
@@ -44,7 +44,7 @@ const journal: GetProviderJournalResponse = {
 };
 
 vi.mock('../../src/features/journal/hooks/useProviderJournal', () => ({
-  useProviderJournal: () => ({ data: journal, isLoading: false, isError: false, refetch: vi.fn() }),
+  useProviderJournal: () => ({ data: journal, isLoading: false, isError: false, refetch }),
 }));
 vi.mock('../../src/features/journal/hooks/useJournalOwners', () => ({
   useJournalOwners: () => ({
@@ -61,7 +61,12 @@ vi.mock('../../src/layout/PageContainer', () => ({
 vi.mock('../../src/features/chat/ChatModal', () => ({
   default: (props: any) => {
     chatProps.push(props);
-    return <button onClick={() => props.onMarkAllRead()}>mark read</button>;
+    return (
+      <>
+        <button onClick={() => props.onMarkAllRead()}>mark read</button>
+        <button onClick={() => props.onClose()}>close chat</button>
+      </>
+    );
   },
 }));
 
@@ -77,6 +82,23 @@ describe('JournalPage text chat', () => {
 
     await userEvent.click(screen.getByText('mark read'));
     expect(chatProps.at(-1).appointment.smsModel.hasUnreadMessages).toBe(false);
+  });
+
+  it('refetches the journal when the chat closes after marking read, and not otherwise', async () => {
+    render(
+      <MemoryRouter>
+        <JournalPage />
+      </MemoryRouter>
+    );
+    refetch.mockClear();
+    await userEvent.click(screen.getByText('Reply to text'));
+    await userEvent.click(screen.getByText('close chat'));
+    expect(refetch).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByText('Reply to text'));
+    await userEvent.click(screen.getByText('mark read'));
+    await userEvent.click(screen.getByText('close chat'));
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
 

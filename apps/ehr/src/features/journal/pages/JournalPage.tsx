@@ -453,7 +453,10 @@ export const JournalPage = (): ReactElement => {
         {chatRow?.patient && chatMessaging && (
           <ChatModal
             appointment={chatMessaging}
-            onClose={() => setChatRow(undefined)}
+            onClose={() => {
+              if (readChatPatientIds.includes(chatRow.patient!.patientId)) void refetch();
+              setChatRow(undefined);
+            }}
             onMarkAllRead={() => setReadChatPatientIds((ids) => [...ids, chatRow.patient!.patientId])}
             quickTextsContext={{
               patientFirstName: chatRow.patient.firstName,
