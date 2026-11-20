@@ -31,6 +31,8 @@ Name the files <something>.env.json.
 
 The script is intended to be run using systemctl on a PACS gateway server. Copy the dist folder to the server and run it with an appropriate cron task.
 
-## view logs
-journalctl -u pacs-poll.service  -f -n 100
+## misc cmd line cantrips
+`journalctl -u pacs-poll.service  -f -n 100`  &mdash;  tail logs
+`systemctl status pacs-poll` &mdash;  checks status of service
+`systemctl restart pacs-poll` &mdash; restarts service
 
