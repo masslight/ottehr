@@ -201,12 +201,24 @@ export const journalItemLink = (item: JournalItem): string => {
   }
 };
 
-/** Search: every typed word starts a word of the patient's name (case-insensitive), e.g. "gus pen". */
+/** Lower case without accents ("García" → "garcia"), as Oystehr's name search ignores accents. */
+const fold = (text: string): string => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const APOSTROPHES = /['’]/g;
+
+/**
+ * Search: every typed word starts a word of the patient's name, e.g. "gus pen". Ignores case and accents;
+ * hyphens split words ("lopez" finds García-López) and apostrophes are optional ("obrien", "brien": O'Brien).
+ */
 export const matchesSearch = (name: string | undefined, query: string): boolean => {
-  const typed = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const typed = fold(query)
+    .replace(APOSTROPHES, '')
+    .split(/[\s-]+/)
+    .filter(Boolean);
   if (!typed.length) return true;
   if (!name) return false;
-  const words = name.toLowerCase().split(/\s+/);
+  const words = fold(name)
+    .split(/[\s-]+/)
+    .flatMap((word) => [word.replace(APOSTROPHES, ''), ...word.split(APOSTROPHES)]);
   return typed.every((t) => words.some((word) => word.startsWith(t)));
 };
 
