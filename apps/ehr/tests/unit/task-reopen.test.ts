@@ -104,8 +104,10 @@ describe('which completed tasks can be reopened', () => {
 
 describe('reopenTaskVersionChecked', () => {
   it.each([
-    ['an unfiled fax', faxTask(FAX_TASK.code.matchInboundFax)],
-    ['a fax filed before filing left a marker', faxTask(FAX_TASK.code.matchInboundFax)],
+    [
+      'a fax without the filed marker (unfiled, or filed before the marker existed)',
+      faxTask(FAX_TASK.code.matchInboundFax),
+    ],
     ['a filed fax', faxTask(FAX_TASK.code.matchInboundFax, { businessStatus: FILED })],
     ['a fax review task', faxTask(FAX_TASK.code.reviewInboundFax)],
   ])('refuses %s, so it stays locked against filing and deletion', async (_name, task) => {

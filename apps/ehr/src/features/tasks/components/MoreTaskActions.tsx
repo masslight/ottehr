@@ -47,6 +47,7 @@ export const MoreTaskActions: React.FC<MoreTaskActionsProps> = ({ task, currentU
       closeMoreActionsPopover();
       if (refetchData) refetchData();
     } catch (error) {
+      closeMoreActionsPopover();
       enqueueSnackbar(error instanceof Error ? error.message : 'Failed to reopen the task.', { variant: 'error' });
     } finally {
       reopeningRef.current = false;

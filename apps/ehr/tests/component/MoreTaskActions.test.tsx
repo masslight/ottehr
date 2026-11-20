@@ -109,7 +109,7 @@ describe('MoreTaskActions on a completed task', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: [GET_TASKS_KEY], exact: false });
   });
 
-  it('shows why a return failed, keeps the menu open and refreshes the stale list', async () => {
+  it('shows why a return failed, closes the stale menu and refreshes the list', async () => {
     get.mockResolvedValue(storedTask({ status: 'ready', owner: undefined }));
     const { queryClient } = await openMenu(makeTask({ assignee: ASSIGNEE }));
     const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
@@ -124,10 +124,12 @@ describe('MoreTaskActions on a completed task', () => {
     expect(transaction).not.toHaveBeenCalled();
     expect(enqueueSnackbar).not.toHaveBeenCalledWith(expect.anything(), { variant: 'success' });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: [GET_TASKS_KEY], exact: false });
-    await waitFor(() => expect(menuItem(RETURN_TO_PENDING)).not.toHaveAttribute('aria-disabled'));
-    expect(menuItem(RETURN_TO_IN_PROGRESS)).not.toHaveAttribute('aria-disabled');
+    expect(screen.queryByRole('button', { name: RETURN_TO_PENDING })).toBeNull();
+    expect(screen.queryByRole('button', { name: RETURN_TO_IN_PROGRESS })).toBeNull();
 
-    await userEvent.setup().click(menuItem(RETURN_TO_PENDING));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button'));
+    await user.click(menuItem(RETURN_TO_PENDING));
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
   });
 
