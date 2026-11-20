@@ -33,4 +33,22 @@ describe('text message task on the Tasks page', () => {
     };
     expect(fhirTaskToTask(task).action).toEqual({ name: 'Patient Record', link: '/patient/pat-1' });
   });
+
+  it('gets the plain Complete, not the Support Chat icon and Complete dialog (it has no Support Chat thread)', () => {
+    const task: FhirTask = {
+      resourceType: 'Task',
+      id: 'task-2',
+      status: 'ready',
+      intent: 'order',
+      groupIdentifier: { value: PATIENT_REQUEST_TASK.category },
+      code: { coding: [{ system: PATIENT_REQUEST_TASK.system, code: PATIENT_REQUEST_TASK.code.textMessage }] },
+      description: 'Text message from Jane Doe 11/27/2026',
+    };
+    const supportChatTask: FhirTask = {
+      ...task,
+      code: { coding: [{ system: PATIENT_REQUEST_TASK.system, code: PATIENT_REQUEST_TASK.code.prescriptionRefill }] },
+    };
+    expect(fhirTaskToTask(supportChatTask).chat).toBeDefined();
+    expect(fhirTaskToTask(task).chat).toBeUndefined();
+  });
 });

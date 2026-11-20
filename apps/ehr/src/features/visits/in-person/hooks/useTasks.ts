@@ -1005,7 +1005,9 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     completable: completable,
     reopenable: isReopenableTaskCategory(category),
     chat:
-      FEATURE_FLAGS.SUPPORT_CHAT_ENABLED && category === PATIENT_REQUEST_TASK.category
+      FEATURE_FLAGS.SUPPORT_CHAT_ENABLED &&
+      category === PATIENT_REQUEST_TASK.category &&
+      getCoding(task.code, PATIENT_REQUEST_TASK.system)?.code !== PATIENT_REQUEST_TASK.code.textMessage
         ? {
             hasUnread: !!task.meta?.tag?.some(
               (tag) => tag.system === SUPPORT_CHAT_UNREAD_TAG.system && tag.code === SUPPORT_CHAT_UNREAD_TAG.code
