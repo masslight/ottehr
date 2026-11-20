@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -64,7 +64,15 @@ vi.mock('../../src/features/chat/ChatModal', () => ({
     return (
       <>
         <button onClick={() => props.onMarkAllRead()}>mark read</button>
-        <button onClick={() => props.onClose()}>close chat</button>
+        <button
+          onClick={() => {
+            // Like the real ChatModal's handleClose: starts marking read without waiting, then closes.
+            if (props.appointment.smsModel.hasUnreadMessages) void Promise.resolve().then(() => props.onMarkAllRead());
+            props.onClose();
+          }}
+        >
+          close chat
+        </button>
       </>
     );
   },
@@ -84,7 +92,7 @@ describe('JournalPage text chat', () => {
     expect(chatProps.at(-1).appointment.smsModel.hasUnreadMessages).toBe(false);
   });
 
-  it('refetches the journal when the chat closes after marking read, and not otherwise', async () => {
+  it('refetches the journal once the texts are marked read, including read-and-close', async () => {
     render(
       <MemoryRouter>
         <JournalPage />
@@ -93,11 +101,11 @@ describe('JournalPage text chat', () => {
     refetch.mockClear();
     await userEvent.click(screen.getByText('Reply to text'));
     await userEvent.click(screen.getByText('close chat'));
-    expect(refetch).not.toHaveBeenCalled();
+    await waitFor(() => expect(refetch).toHaveBeenCalledTimes(1));
 
     await userEvent.click(screen.getByText('Reply to text'));
-    await userEvent.click(screen.getByText('mark read'));
     await userEvent.click(screen.getByText('close chat'));
+    await new Promise((r) => setTimeout(r, 0));
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 });
