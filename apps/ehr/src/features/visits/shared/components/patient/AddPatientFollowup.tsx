@@ -1,6 +1,6 @@
 import { CircularProgress, FormControlLabel, Grid, Paper, Radio, RadioGroup, Tooltip, Typography } from '@mui/material';
 import { useState } from 'react';
-import { useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { useGetPatient } from 'src/hooks/useGetPatient';
 import PageContainer from 'src/layout/PageContainer';
@@ -21,10 +21,10 @@ export default function AddPatientFollowup(): JSX.Element {
   const { id } = useParams();
   const { patient, person } = useGetPatient(id);
   const location = useLocation();
-  const [searchParams] = useSearchParams();
   const routerState = location.state as { initialEncounterId?: string; convertFrom?: ConvertFromVisit } | undefined;
   // `?encounter=` lets a link opened in a new tab (the Journal) preselect the visit; router state does not survive that.
-  const initialEncounterId = routerState?.initialEncounterId ?? searchParams.get('encounter') ?? undefined;
+  const initialEncounterId =
+    routerState?.initialEncounterId ?? new URLSearchParams(location.search).get('encounter') ?? undefined;
   const convertFrom = routerState?.convertFrom;
   // Conversion only ever produces the scheduled subtype, so the annotation branch is closed off.
   const [followupSubtype, setFollowupSubtype] = useState<FollowupSubtype>(convertFrom ? 'scheduled' : 'annotation');
