@@ -62,6 +62,8 @@ const PATIENT_REQUEST_ACTION: Record<string, { name: string; path: string }> = {
   [PATIENT_REQUEST_TASK.code.prescriptionRefill]: { name: 'eRX', path: 'erx' },
   [PATIENT_REQUEST_TASK.code.schoolWorkNote]: { name: 'Plan', path: 'plan' },
   [PATIENT_REQUEST_TASK.code.followUp]: { name: 'Progress Note', path: 'review-and-sign' },
+  // A text is answered from the patient's chat, which lives on the chart; the visit is the one the text was linked to.
+  [PATIENT_REQUEST_TASK.code.textMessage]: { name: 'Progress Note', path: 'review-and-sign' },
 };
 
 export const TASKS_PAGE_SIZE = 20;
