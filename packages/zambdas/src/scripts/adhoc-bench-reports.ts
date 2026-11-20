@@ -765,6 +765,9 @@ async function runStudio(
 
 // ---- current: this version's encounters dataset ---------------------------------------------------------------------
 
+// ADHOC_BENCH_VITALS_FLAG=includeVitals measures the layers version with the full vitals layer instead.
+const VITALS_FLAG = process.env.ADHOC_BENCH_VITALS_FLAG ?? 'includeVitalsTemperature';
+
 async function runCurrent(
   oystehr: Oystehr,
   report: ReportId,
@@ -774,9 +777,10 @@ async function runCurrent(
   const dataset = await load('../shared/adhoc-datasets/encounters');
   const flags: Record<string, boolean> = {
     r1: {},
-    r2: { includeVitals: true },
+    // The layer a report about temperature would get: the temperature layer where the layers version has one.
+    r2: { [VITALS_FLAG]: true },
     r3: { includeCodes: true },
-    r4: { includeVitals: true, includeCodes: true, 'includePatients.allergies': true },
+    r4: { [VITALS_FLAG]: true, includeCodes: true, 'includePatients.allergies': true },
     r5: {
       includeCodes: true,
       'includePatients.problems': true,
@@ -810,7 +814,8 @@ async function runCurrent(
   if (match) {
     groups.push({ name: 'root', ms: Number(match[1]) }, { name: 'base lookups + layers', ms: Number(match[2]) });
     for (const part of match[4].split(', ').filter(Boolean)) {
-      const layer = /^(\w+): fetch (\d+)/.exec(part);
+      // Own layers (codes), foreign ones (patients.*, patients.visitHistory) and the root lookups.
+      const layer = /^([\w.*]+): fetch (\d+)/.exec(part);
       if (layer) groups.push({ name: `  layer ${layer[1]}`, ms: Number(layer[2]) });
     }
     groups.push({ name: 'rows (map)', ms: Number(match[3]) });
@@ -835,6 +840,13 @@ async function main(config: Record<string, string>): Promise<void> {
   if (!token) throw new Error('no token');
   const oystehr = createClinicalOystehrClient(token, config as never);
   const range = { start, end };
+
+  // Code loading is not fetching: the modules a way runs are loaded before the clock starts (tsx transpiles them on
+  // first import, ~1.5 s for the layers version's graph; a deployed zambda is bundled ahead of time). The ways load
+  // them again inside, from the module cache.
+  if (way === 'studio')
+    await Promise.all([load('utils/lib/types/adhoc/plan/fetch-plan'), load('../shared/adhoc-fetch-plan')]);
+  if (way === 'current') await load('../shared/adhoc-datasets/encounters');
 
   const startedAt = Date.now();
   let output: Record<string, unknown>;
