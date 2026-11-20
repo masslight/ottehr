@@ -105,6 +105,8 @@ export interface JournalSources {
   taskEncounters?: Encounter[];
   /** Results of tasks with no encounter (unsolicited labs), for the patient. */
   diagnosticReports?: DiagnosticReport[];
+  /** Task id → sent time of the newest unread patient message in the request's Support Chat thread. */
+  unreadMessageSentAt?: Map<string, string>;
 }
 
 interface Visit {
@@ -191,7 +193,13 @@ const byStartDesc = (a: Visit, b: Visit): number => b.journal.start.localeCompar
  */
 export function taskToJournalItem(
   task: Task,
-  context: { patientId?: string; appointmentId?: string; encounterId?: string; isFollowUpVisit?: boolean }
+  context: {
+    patientId?: string;
+    appointmentId?: string;
+    encounterId?: string;
+    isFollowUpVisit?: boolean;
+    unreadMessageSentAt?: string;
+  }
 ): JournalItem {
   const category = task.groupIdentifier?.value;
   const owned = Boolean(task.owner);
@@ -251,7 +259,7 @@ export function taskToJournalItem(
       kind: 'patient-request',
       label: unread ? 'Reply to patient message' : task.description ?? 'Patient request',
       ...(unread
-        ? { when: 'received' as const, since: task.lastModified ?? task.authoredOn ?? '' }
+        ? { when: 'received' as const, since: context.unreadMessageSentAt ?? task.authoredOn ?? '' }
         : assignedOrCreated()),
       code,
     };
@@ -387,6 +395,7 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
       appointmentId,
       encounterId,
       isFollowUpVisit: Boolean(encounter?.partOf),
+      unreadMessageSentAt: sources.unreadMessageSentAt?.get(task.id),
     });
     const bucket = patientId ? bucketFor(patientId) : undefined;
     if (bucket && bucket.visits.length) {

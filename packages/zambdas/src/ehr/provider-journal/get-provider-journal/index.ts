@@ -22,6 +22,7 @@ import {
   JournalKind,
   JournalPatient,
 } from 'utils/lib/types/api/provider-journal.types';
+import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import {
@@ -31,6 +32,7 @@ import {
   requireUserWithRole,
 } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getThreadIdFromTask, isUnreadFor, searchUnread } from '../../../shared/support-chat/thread';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -165,6 +167,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     : [];
 
   const everything = [...visitResources, ...extraPatientResources];
+  const unreadMessageSentAt = await getUnreadMessageSentAt(oystehr, tasks);
 
   const journal = buildJournal({
     kind,
@@ -177,6 +180,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     tasks,
     taskEncounters,
     diagnosticReports,
+    unreadMessageSentAt,
   });
   await labelAccountPhones(oystehr, journal);
   await markUnreadTexts(
@@ -187,6 +191,24 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   return lambdaResponse(200, journal);
 });
+
+/** Unread portal requests: the newest unread patient message in each request's Support Chat thread. */
+async function getUnreadMessageSentAt(oystehr: Oystehr, tasks: Task[]): Promise<Map<string, string>> {
+  const sentAt = new Map<string, string>();
+  await Promise.all(
+    tasks.map(async (task) => {
+      const threadId = getThreadIdFromTask(task);
+      if (!task.id || !threadId || !task.meta?.tag?.some((t) => t.system === SUPPORT_CHAT_UNREAD_TAG.system)) return;
+      const newest = (await searchUnread(oystehr, threadId))
+        .filter((message) => isUnreadFor(message, 'staff') && message.sent)
+        .map((message) => message.sent!)
+        .sort()
+        .at(-1);
+      if (newest) sentAt.set(task.id, newest);
+    })
+  );
+  return sentAt;
+}
 
 /** The patients shown on the journal who have an account phone. */
 const patientsWithPhones = (journal: GetProviderJournalResponse): JournalPatient[] => {

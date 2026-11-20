@@ -3,6 +3,7 @@ import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { INTAKE_PAPERWORK_QR_TAG, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { JournalRow } from 'utils/lib/types/api/provider-journal.types';
+import { SUPPORT_CHAT_THREAD_SYSTEM, SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { MANUAL_TASK, PATIENT_REQUEST_TASK, RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
@@ -226,6 +227,45 @@ describe('get-provider-journal access', () => {
     ]);
     expect(journal.notTied[0].patient.hasUnreadTexts).toBe(true);
     expect(mockFhir.search.mock.calls[0][0]).toMatchObject({ resourceType: 'Communication' });
+  });
+
+  it('dates "Reply to patient message" from the newest unread patient message, not the request', async () => {
+    mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
+    const thread = { system: SUPPORT_CHAT_THREAD_SYSTEM, code: 'person-1' };
+    const request = {
+      ...createTask({ category: PATIENT_REQUEST_TASK.category, title: 'Prescription Refill for Ava Chen' }),
+      id: 'task-portal',
+      authoredOn: '2026-11-05T12:00:00.000Z',
+      owner: { reference: `Practitioner/${PRACTITIONER_ID}` },
+      meta: { tag: [{ code: 'task' }, thread, SUPPORT_CHAT_UNREAD_TAG] },
+    };
+    const message = (id: string, sent: string, sender?: string): object => ({
+      resourceType: 'Communication',
+      id,
+      status: 'in-progress',
+      sent,
+      meta: { tag: [thread] },
+      sender: sender ? { reference: sender } : undefined,
+    });
+    mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
+      const has = (name: string): boolean => params.some((p: { name: string }) => p.name === name);
+      if (resourceType === 'Task' && has('owner')) return [request];
+      if (resourceType === 'Communication')
+        return [
+          message('m1', '2026-11-07T14:00:00.000Z', 'RelatedPerson/rp-1'),
+          message('m2', '2026-11-07T14:50:00.000Z', 'RelatedPerson/rp-1'),
+          // Staff and bot messages aren't the patient writing.
+          message('m3', '2026-11-07T14:55:00.000Z', 'Practitioner/p-1'),
+          message('m4', '2026-11-07T14:56:00.000Z'),
+        ];
+      return [];
+    });
+    const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
+    expect(journal.notTied[0].items[0]).toMatchObject({
+      label: 'Reply to patient message',
+      when: 'received',
+      since: '2026-11-07T14:50:00.000Z',
+    });
   });
 
   it('builds a clinician journal for a Clinician', async () => {
