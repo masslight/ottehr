@@ -141,6 +141,23 @@ describe('buildClaimFilterParams: multi-value filters', () => {
     });
   });
 
+  it('ANDs the tags into one _tag param each when every tag must match', async () => {
+    const params = await buildClaimFilterParams({ oystehr, params: { tag: ['a', 'b'], tagMatch: 'all' } });
+    expect(params.filter((p) => p.name === '_tag')).toEqual([
+      { name: '_tag', value: `${CLAIM_TAG_SYSTEM}|a` },
+      { name: '_tag', value: `${CLAIM_TAG_SYSTEM}|b` },
+    ]);
+  });
+
+  it('leaves out claims with any excluded tag, alongside the included ones', async () => {
+    const params = await buildClaimFilterParams({ oystehr, params: { tag: ['a'], excludeTag: ['x', 'y'] } });
+    expect(params).toContainEqual({ name: '_tag', value: `${CLAIM_TAG_SYSTEM}|a` });
+    expect(params.filter((p) => p.name === '_tag:not')).toEqual([
+      { name: '_tag:not', value: `${CLAIM_TAG_SYSTEM}|x` },
+      { name: '_tag:not', value: `${CLAIM_TAG_SYSTEM}|y` },
+    ]);
+  });
+
   it('adds no param for an empty list', async () => {
     const params = await buildClaimFilterParams({ oystehr, params: { tag: [], arStage: [], status: [] } });
     expect(params).toEqual([{ name: '_sort', value: '-_lastUpdated' }]);
