@@ -91,6 +91,8 @@ export interface JournalPhone {
   number: string;
   /** `RelatedPerson/<id>` of the account phone, the SMS recipient the chat uses. */
   recipientResourceUri: string;
+  /** Consent signer of the newest visit this phone booked, e.g. "Mei Chen (Parent)". */
+  signer?: string;
 }
 
 export interface JournalPatient {

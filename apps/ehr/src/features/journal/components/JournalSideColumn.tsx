@@ -294,6 +294,7 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
                 }}
               >
                 <PhoneIcon sx={{ width: 13, height: 13 }} />
+                {phone.signer && <span>{phone.signer}</span>}
                 <Box component="b" sx={{ fontWeight: 500, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
                   {phone.number}
                 </Box>

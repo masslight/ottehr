@@ -1,4 +1,4 @@
-import { Appointment, Encounter, Patient, RelatedPerson, Task } from 'fhir/r4b';
+import { Appointment, Encounter, Patient, QuestionnaireResponse, RelatedPerson, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   FHIR_EXTENSION,
@@ -8,14 +8,18 @@ import {
 } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { JournalPatient, JournalPhone } from 'utils/lib/types/api/provider-journal.types';
 import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
+import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { ERX_TASK, FAX_TASK, MANUAL_TASK, PATIENT_REQUEST_TASK, TaskAlertCode } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it } from 'vitest';
 import {
   buildJournal,
+  consentSignerLabel,
   isOpenBoardTask,
   JournalSources,
+  phonesByBookingAppointment,
   taskToJournalItem,
 } from '../../src/ehr/provider-journal/get-provider-journal/helpers';
 import { createTask } from '../../src/shared/tasks';
@@ -665,6 +669,57 @@ describe('buildJournal: task ownership and placement', () => {
     expect(journal.recent[0].patient?.phones).toEqual([
       { number: '+14105550175', recipientResourceUri: 'RelatedPerson/rp-1' },
     ]);
+  });
+});
+
+describe('account phone labels', () => {
+  const booked = (id: string, start: string, createdBy: string): Appointment => ({
+    resourceType: 'Appointment',
+    id,
+    status: 'fulfilled',
+    start,
+    participant: [{ actor: { reference: 'Patient/pat-ava' }, status: 'accepted' }],
+    meta: { tag: [{ system: CREATED_BY_SYSTEM, display: createdBy }] },
+  });
+  const phone = (number: string): JournalPhone => ({ number, recipientResourceUri: `RelatedPerson/${number}` });
+
+  it('picks, per account phone, the newest visit that phone booked (walk-in QR too); staff bookings give none', () => {
+    const mom = phone('+14105550123');
+    const dad = phone('+14105550124');
+    const never = phone('+14105550199');
+    const ava: JournalPatient = { patientId: 'pat-ava', name: 'Ava Chen', phones: [mom, dad, never] };
+    const bookings = phonesByBookingAppointment(
+      [ava],
+      [
+        booked('old', '2026-09-01T15:00:00.000Z', 'Patient (410) 555-0123'),
+        booked('new', '2026-11-01T15:00:00.000Z', 'QR - Patient (410) 555-0123'),
+        booked('dad', '2026-10-01T15:00:00.000Z', 'Patient (410) 555-0124'),
+        booked('staff', '2026-11-05T15:00:00.000Z', 'Staff someone@example.com'),
+      ]
+    );
+    expect([...bookings.entries()]).toEqual([
+      ['new', [mom]],
+      ['dad', [dad]],
+    ]);
+  });
+
+  it('labels with the consent signer and relationship, except the patient’s own number', () => {
+    const qr = (name: string, relationship: string): QuestionnaireResponse => ({
+      resourceType: 'QuestionnaireResponse',
+      status: 'completed',
+      item: [
+        {
+          linkId: 'consent-forms-page',
+          item: [
+            { linkId: 'full-name', answer: [{ valueString: name }] },
+            { linkId: 'consent-form-signer-relationship', answer: [{ valueString: relationship }] },
+          ],
+        },
+      ],
+    });
+    expect(consentSignerLabel(qr('Mei Chen', 'Parent'))).toBe('Mei Chen (Parent)');
+    expect(consentSignerLabel(qr('Ava Chen', 'Self'))).toBeUndefined();
+    expect(consentSignerLabel({ resourceType: 'QuestionnaireResponse', status: 'completed' })).toBeUndefined();
   });
 });
 

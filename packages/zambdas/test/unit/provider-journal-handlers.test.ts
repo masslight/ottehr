@@ -1,10 +1,12 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { INTAKE_PAPERWORK_QR_TAG, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { JournalRow } from 'utils/lib/types/api/provider-journal.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { MANUAL_TASK, PATIENT_REQUEST_TASK, RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
+import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { APIErrorCode, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTask } from '../../src/shared/tasks';
@@ -169,6 +171,55 @@ describe('get-provider-journal access', () => {
     expect(chained.params).toEqual(
       expect.arrayContaining([{ name: 'encounter.participant', value: `Practitioner/${PRACTITIONER_ID}` }])
     );
+  });
+
+  it('labels account phones with the consent signer of the newest visit the phone booked', async () => {
+    mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
+    const owned = {
+      ...createTask({ category: MANUAL_TASK.category.other, title: 'Call' }),
+      id: 'task-1',
+      owner: { reference: `Practitioner/${PRACTITIONER_ID}` },
+      input: [
+        { type: { coding: [{ code: MANUAL_TASK.input.patient }] }, valueReference: { reference: 'Patient/pat-1' } },
+      ],
+    };
+    const booking = {
+      resourceType: 'Appointment',
+      id: 'appt-1',
+      start: '2026-11-01T15:00:00.000Z',
+      participant: [{ actor: { reference: 'Patient/pat-1' } }],
+      meta: { tag: [{ system: CREATED_BY_SYSTEM, display: 'Patient (410) 555-0123' }] },
+    };
+    const intake = {
+      resourceType: 'QuestionnaireResponse',
+      encounter: { reference: 'Encounter/enc-1' },
+      meta: { tag: [INTAKE_PAPERWORK_QR_TAG] },
+      item: [
+        { linkId: 'full-name', answer: [{ valueString: 'Mei Chen' }] },
+        { linkId: 'consent-form-signer-relationship', answer: [{ valueString: 'Parent' }] },
+      ],
+    };
+    const accountPhone = {
+      resourceType: 'RelatedPerson',
+      id: 'rp-1',
+      patient: { reference: 'Patient/pat-1' },
+      relationship: [{ coding: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`, code: 'user-relatedperson' }] }],
+      telecom: [{ system: 'sms', value: '+14105550123' }],
+    };
+    mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
+      const has = (name: string): boolean => params.some((p: { name: string }) => p.name === name);
+      if (resourceType === 'Task' && has('owner')) return [owned];
+      if (resourceType === 'Patient')
+        return [{ resourceType: 'Patient', id: 'pat-1', name: [{ given: ['Ava'], family: 'Chen' }] }, accountPhone];
+      if (resourceType === 'Appointment') return [booking];
+      if (resourceType === 'Encounter' && has('appointment'))
+        return [{ resourceType: 'Encounter', id: 'enc-1', appointment: [{ reference: 'Appointment/appt-1' }] }, intake];
+      return [];
+    });
+    const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
+    expect(journal.notTied[0].patient.phones).toEqual([
+      { number: '+14105550123', recipientResourceUri: 'RelatedPerson/rp-1', signer: 'Mei Chen (Parent)' },
+    ]);
   });
 
   it('builds a clinician journal for a Clinician', async () => {

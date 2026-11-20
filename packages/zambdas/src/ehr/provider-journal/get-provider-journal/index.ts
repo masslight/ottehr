@@ -1,11 +1,26 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, DiagnosticReport, Encounter, Patient, RelatedPerson, Task } from 'fhir/r4b';
+import {
+  Appointment,
+  DiagnosticReport,
+  Encounter,
+  Patient,
+  QuestionnaireResponse,
+  RelatedPerson,
+  Task,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { isIntakePaperworkQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
-import { GetProviderJournalInputSchema, JournalKind } from 'utils/lib/types/api/provider-journal.types';
+import {
+  GetProviderJournalInputSchema,
+  GetProviderJournalResponse,
+  JournalKind,
+  JournalPatient,
+} from 'utils/lib/types/api/provider-journal.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import {
@@ -19,9 +34,16 @@ import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
-import { buildJournal, JOURNAL_WINDOW_DAYS, resolveTaskPatientId } from './helpers';
+import {
+  buildJournal,
+  consentSignerLabel,
+  JOURNAL_WINDOW_DAYS,
+  phonesByBookingAppointment,
+  resolveTaskPatientId,
+} from './helpers';
 
 const ZAMBDA_NAME = 'get-provider-journal';
+const IDS_PER_SEARCH = 50;
 
 let m2mToken: string;
 
@@ -155,9 +177,60 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     taskEncounters,
     diagnosticReports,
   });
+  await labelAccountPhones(oystehr, journal);
 
   return lambdaResponse(200, journal);
 });
+
+/** Labels the shown patients' account phones with the consent signer of the newest visit each phone booked. */
+async function labelAccountPhones(oystehr: Oystehr, journal: GetProviderJournalResponse): Promise<void> {
+  const rows = [journal.comingUp, journal.today, journal.todayDone, journal.recent, journal.notTied, journal.past];
+  const patients = [
+    ...new Map(
+      rows.flat().flatMap((row): [string, JournalPatient][] =>
+        row.patient?.phones.length ? [[row.patient.patientId, row.patient]] : []
+      )
+    ).values(),
+  ];
+  const searchInChunks = async <T extends Appointment | Encounter | QuestionnaireResponse>(
+    resourceType: 'Appointment' | 'Encounter',
+    name: string,
+    references: string[],
+    extra: { name: string; value: string }[] = []
+  ): Promise<T[]> =>
+    (
+      await Promise.all(
+        chunkThings(references, IDS_PER_SEARCH).map((chunk) =>
+          getAllFhirSearchPages<T>({ resourceType, params: [{ name, value: chunk.join(',') }, ...extra] }, oystehr)
+        )
+      )
+    ).flat();
+
+  const appointments = await searchInChunks<Appointment>(
+    'Appointment',
+    'actor',
+    patients.map((patient) => `Patient/${patient.patientId}`)
+  );
+  const bookings = phonesByBookingAppointment(patients, appointments);
+  const visits = await searchInChunks<Encounter | QuestionnaireResponse>(
+    'Encounter',
+    'appointment',
+    [...bookings.keys()].map((id) => `Appointment/${id}`),
+    [{ name: '_revinclude', value: 'QuestionnaireResponse:encounter' }]
+  );
+  visits.forEach((encounter) => {
+    if (encounter.resourceType !== 'Encounter') return;
+    const intake = visits.find(
+      (r): r is QuestionnaireResponse =>
+        r.resourceType === 'QuestionnaireResponse' &&
+        r.encounter?.reference === `Encounter/${encounter.id}` &&
+        isIntakePaperworkQuestionnaireResponse(r)
+    );
+    const signer = intake ? consentSignerLabel(intake) : undefined;
+    const appointmentId = getIdFromReference(encounter.appointment?.[0]?.reference, 'Appointment');
+    if (signer && appointmentId) bookings.get(appointmentId)?.forEach((phone) => (phone.signer = signer));
+  });
+}
 
 type VisitResource = Encounter | Appointment | Patient | RelatedPerson;
 

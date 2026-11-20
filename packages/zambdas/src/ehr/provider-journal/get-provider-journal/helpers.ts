@@ -1,4 +1,4 @@
-import { Appointment, DiagnosticReport, Encounter, Patient, RelatedPerson, Task } from 'fhir/r4b';
+import { Appointment, DiagnosticReport, Encounter, Patient, QuestionnaireResponse, RelatedPerson, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getAppointmentRoom, getReasonForVisitAndAdditionalDetailsFromAppointment } from 'utils/lib/fhir/appointments';
 import {
@@ -18,12 +18,15 @@ import {
   JournalItemWhen,
   JournalKind,
   JournalPatient,
+  JournalPhone,
   JournalRow,
   JournalVisit,
 } from 'utils/lib/types/api/provider-journal.types';
 import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
+import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
   ERX_TASK,
   FAX_TASK,
@@ -460,4 +463,44 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
     notTied,
     past,
   };
+}
+
+const phoneDigits = (phone: string | undefined): string | undefined => phone?.replace(/\D/g, '').slice(-10) || undefined;
+
+/**
+ * Decision 11-13: an account phone is labelled with the consent signer of the newest visit that phone
+ * booked (the visit's created-by tag, "Patient (202) 555-1313" or "QR - Patient …"). Staff bookings name
+ * no phone. Returns the phones each appointment labels.
+ */
+export function phonesByBookingAppointment(
+  patients: JournalPatient[],
+  appointments: Appointment[]
+): Map<string, JournalPhone[]> {
+  const newestFirst = [...appointments].sort((a, b) => (b.start ?? '').localeCompare(a.start ?? ''));
+  const result = new Map<string, JournalPhone[]>();
+  patients.forEach((patient) =>
+    patient.phones.forEach((phone) => {
+      const booking = newestFirst.find(
+        (appointment) =>
+          appointment.participant?.some((p) => p.actor?.reference === `Patient/${patient.patientId}`) &&
+          phoneDigits(
+            appointment.meta?.tag
+              ?.find((tag) => tag.system === CREATED_BY_SYSTEM)
+              ?.display?.match(/^(?:QR - )?Patient (.+)$/)?.[1]
+          ) === phoneDigits(phone.number)
+      );
+      if (booking?.id) result.set(booking.id, [...(result.get(booking.id) ?? []), phone]);
+    })
+  );
+  return result;
+}
+
+/** "Mei Chen (Parent)" from the intake consent page; the patient's own number (Self) stays unlabelled. */
+export function consentSignerLabel(questionnaireResponse: QuestionnaireResponse): string | undefined {
+  const answers = flattenQuestionnaireAnswers(questionnaireResponse.item ?? []);
+  const answer = (linkId: string): string | undefined =>
+    answers.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString?.trim() || undefined;
+  const name = answer('full-name');
+  const relationship = answer('consent-form-signer-relationship');
+  return name && relationship && relationship !== 'Self' ? `${name} (${relationship})` : undefined;
 }
