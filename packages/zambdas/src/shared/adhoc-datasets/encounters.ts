@@ -82,6 +82,7 @@ import {
   getPaperworkScreeningAnswer,
 } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
+import { bmiAppliesOnDate } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import {
   celsiusToFahrenheit,
@@ -1389,7 +1390,9 @@ export async function fetchAdHocEncounterRows(
       row.vitalsFirstRecordedAt = vitalReadings[0]?.effectiveDateTime ?? null;
 
       row.bmi =
-        row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
+        bmiAppliesOnDate(patient?.birthDate, appointment.start) && row.weightKg && row.heightCm && row.heightCm > 0
+          ? round1(row.weightKg / (row.heightCm / 100) ** 2)
+          : null;
     }
 
     if (includeImaging) {

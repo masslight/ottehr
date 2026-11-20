@@ -1203,6 +1203,24 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
     });
   });
 
+  it('vitals: BMI only from 24 months at the visit', async () => {
+    const teenRows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeVitals: true });
+    expect(teenRows.find((r) => r.appointmentId === 'appt-1')?.bmi).toBe(24.2);
+
+    const adultBirthDate = patient.birthDate;
+    patient.birthDate = '2025-01-01';
+    try {
+      const infantRows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeVitals: true });
+      expect(infantRows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
+        bmi: null,
+        weightKg: 70,
+        heightCm: 170,
+      });
+    } finally {
+      patient.birthDate = adultBirthDate;
+    }
+  });
+
   it('scheduled follow-up: a visit of its own — status, start, lock and signer like any visit', async () => {
     const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeSigning: true });
     const followUp = rows.find((r) => r.appointmentId === 'appt-3')!;

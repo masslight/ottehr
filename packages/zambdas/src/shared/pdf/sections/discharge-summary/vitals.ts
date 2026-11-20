@@ -1,4 +1,5 @@
 import { mapVitalsToDisplay } from 'utils/lib/helpers/visit-note/map-vitals-to-display.helper';
+import { bmiAppliesOnDate, withoutBMIUnder24Months } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { getDotVisionScreeningLines } from 'utils/lib/helpers/vitals/vitals-vision.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsVisionObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -8,14 +9,16 @@ import { PdfSection, VitalsDataInDischargeSummary } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
 
 export const composeVitalsForDischargeSummary: DataComposer<
-  { allChartData: AllChartData },
+  { allChartData: AllChartData; birthDate?: string; visitStart?: string },
   VitalsDataInDischargeSummary
-> = ({ allChartData }) => {
+> = ({ allChartData, birthDate, visitStart }) => {
   const { additionalChartData } = allChartData;
 
-  const newestFirst = [...(additionalChartData?.vitalsObservations ?? [])].sort((a, b) =>
-    compareDates(a.lastUpdated, b.lastUpdated)
-  );
+  const newestFirst = withoutBMIUnder24Months(
+    additionalChartData?.vitalsObservations ?? [],
+    birthDate,
+    visitStart
+  ).sort((a, b) => compareDates(a.lastUpdated, b.lastUpdated));
   const vitals = mapVitalsToDisplay(newestFirst, false);
 
   // The Vision grid cell should show the latest Snellen acuity reading only; DOT screening is
@@ -48,7 +51,7 @@ export const composeVitalsForDischargeSummary: DataComposer<
       weight: vitals?.['vital-weight']?.[0] ?? '',
       height: vitals?.['vital-height']?.[0] ?? '',
       headCircumference: vitals?.['vital-head-circumference']?.[0] ?? '',
-      bmi: vitals?.['vital-bmi']?.[0] ?? '',
+      bmi: bmiAppliesOnDate(birthDate, visitStart) ? vitals?.['vital-bmi']?.[0] ?? '' : undefined,
       vision: acuityDisplayLines[0] ?? '',
       dotVisionScreening: getDotVisionScreeningLines(latestDotEntry?.dotVisionScreening, { includeDocument: true }),
       lastMenstrualPeriod: vitals?.['vital-last-menstrual-period']?.[0] ?? '',
@@ -76,13 +79,19 @@ export const createVitalsSectionForDischargeSummary = <
         ['Weight', data.vitals.weight],
         ['Height', data.vitals.height],
         ...(data.vitals.headCircumference ? [['Head circumference', data.vitals.headCircumference]] : []),
-        ['BMI', data.vitals.bmi],
+        ...(data.vitals.bmi !== undefined ? [['BMI', data.vitals.bmi]] : []),
       ];
+      const gridRows = Array.from({ length: Math.max(leftColumn.length, rightColumn.length) }, (_, index) => [
+        ...(leftColumn[index] ?? ['', '']),
+        ...(rightColumn[index] ?? []),
+      ]);
       const vitals = [
-        ...rightColumn.map((rightCell, index) => [...(leftColumn[index] ?? ['', '']), ...rightCell]),
-        ['Last Menstrual Period', data.vitals.lastMenstrualPeriod],
-        ['Vision', data.vitals.vision],
-      ].filter(([, value1, label2]) => label2 || value1);
+        ...gridRows,
+        ...[
+          ['Last Menstrual Period', data.vitals.lastMenstrualPeriod],
+          ['Vision', data.vitals.vision],
+        ].filter(([, value]) => value),
+      ];
 
       const leftX = client.getLeftBound();
       const fullWidth = { leftBound: leftX, rightBound: client.getRightBound() };

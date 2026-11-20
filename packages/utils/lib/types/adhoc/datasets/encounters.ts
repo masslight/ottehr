@@ -508,7 +508,13 @@ export const ENCOUNTER_LAYERS = {
         .number()
         .nullable()
         .describe('Head circumference cm (most recent, 1 decimal). Null if not taken.'),
-      bmi: z.number().nullable().describe('BMI from weightKg/heightCm when both present. Null otherwise.'),
+      bmi: z
+        .number()
+        .nullable()
+        .describe(
+          'BMI from weightKg/heightCm when both present and the patient was 24 months or older at the visit. ' +
+            'Null otherwise (BMI is not used under 2 years).'
+        ),
       temperatureFReadings: z
         .array(z.number())
         .describe(

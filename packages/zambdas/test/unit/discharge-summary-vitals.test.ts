@@ -72,6 +72,34 @@ describe('discharge summary vitals', () => {
     expect(vitals.headCircumference).toBe('43.8 cm ≈ 17.24 in');
   });
 
+  describe('BMI under 24 months', () => {
+    const readings = [
+      { field: VitalFieldNames.VitalWeight, value: 8.25, lastUpdated: at('12:00') },
+      { field: VitalFieldNames.VitalBMI, value: 17.7, lastUpdated: at('12:00') },
+    ] as VitalsObservationDTO[];
+
+    it('leaves out a BMI saved for a visit when the patient was under 24 months', () => {
+      const { vitals } = composeVitalsForDischargeSummary({
+        allChartData: chartWith(readings),
+        birthDate: '2025-01-01',
+        visitStart: at('12:00'),
+      });
+
+      expect(vitals.bmi).toBeUndefined();
+      expect(vitals.weight).toBe('8.25 kg ≈ 18.19 lbs');
+    });
+
+    it('keeps it from 24 months at the visit', () => {
+      const { vitals } = composeVitalsForDischargeSummary({
+        allChartData: chartWith(readings),
+        birthDate: '2024-10-30',
+        visitStart: at('12:00'),
+      });
+
+      expect(vitals.bmi).toBe('17.7 kg/m2');
+    });
+  });
+
   it('is titled Discharge Vitals', () => {
     expect(createVitalsSectionForDischargeSummary().title).toBe('Discharge Vitals');
   });
@@ -102,7 +130,8 @@ describe('discharge summary vitals layout', () => {
     paths && Object.fromEntries(Object.entries(paths).map(([key, path]) => [key, join(__dirname, '..', '..', path)]));
 
   const renderVitals = async (
-    observations: VitalsObservationDTO[] = layoutReadings
+    observations: VitalsObservationDTO[] = layoutReadings,
+    visit: { birthDate?: string; visitStart?: string } = {}
   ): Promise<Map<string, { x: number; y: number }>> => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -110,6 +139,7 @@ describe('discharge summary vitals layout', () => {
     const data: PdfData & { vitals: VitalsDataInDischargeSummary } = {
       vitals: composeVitalsForDischargeSummary({
         allChartData: chartWith(observations),
+        ...visit,
       }),
     };
     await renderPdf(
@@ -161,6 +191,25 @@ describe('discharge summary vitals layout', () => {
     expect(bmi.x).toBe(height.x);
     expect(bmi.y).toBeLessThan(headCircumference.y);
     expect(drawn.get('43.8 cm ≈ 17.24 in')?.y).toBe(headCircumference.y);
+  });
+
+  it('prints no BMI line at all for a patient under 24 months at the visit', async () => {
+    const readings = [
+      { field: VitalFieldNames.VitalHeight, value: 68, lastUpdated: at('12:00') },
+      {
+        field: VitalFieldNames.VitalBloodPressure,
+        systolicPressure: 90,
+        diastolicPressure: 60,
+        lastUpdated: at('12:00'),
+      },
+      { field: VitalFieldNames.VitalBMI, value: 17.8, lastUpdated: at('12:00') },
+    ] as VitalsObservationDTO[];
+    const drawn = await renderVitals(readings, { birthDate: '2026-01-01', visitStart: at('12:00') });
+
+    expect(drawn.has('BMI: ')).toBe(false);
+    expect(drawn.get('BP: ')?.x).toBe(drawn.get('Temp: ')?.x);
+    expect(drawn.get('90/60 mm Hg')?.y).toBe(drawn.get('BP: ')?.y);
+    expect(drawn.get('BP: ')!.y).toBeLessThan(drawn.get('RR: ')!.y);
   });
 
   it('keeps BMI beside BP when no head circumference was recorded', async () => {

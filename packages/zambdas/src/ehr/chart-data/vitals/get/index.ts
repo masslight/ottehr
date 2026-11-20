@@ -17,6 +17,7 @@ import {
   VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE,
 } from 'utils/lib/fhir/vitals';
 import { convertVitalsListToMap } from 'utils/lib/helpers/vitals/utils';
+import { withoutBMIUnder24Months } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   PATIENT_VITALS_META_SYSTEM,
@@ -66,7 +67,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetVitalsResponseData> => {
-  const { encounter, mode, patient } = input;
+  const { encounter, mode, patient, visitStart } = input;
   const alertContext: VitalAlertContext = {
     patientDOB: patient.birthDate,
     patientSex: patient.gender,
@@ -75,7 +76,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetV
   if (!mode.historical) {
     // Fetch current vitals for the encounter
     const list = await fetchVitalsForEncounter(encounter.id, oystehr, alertContext);
-    const map = convertVitalsListToMap(list);
+    const map = convertVitalsListToMap(withoutBMIUnder24Months(list, patient.birthDate, visitStart));
     return map;
   } else {
     const list = await fetchVitalsPriorToEncounter(
@@ -83,7 +84,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetV
       oystehr,
       alertContext
     );
-    const map = convertVitalsListToMap(list);
+    const map = convertVitalsListToMap(withoutBMIUnder24Months(list, patient.birthDate));
     return map;
   }
 };
@@ -445,6 +446,7 @@ interface EffectInput {
   mode: { historical: true; searchBefore: string } | { historical: false };
   patientId: string;
   patient: Patient;
+  visitStart?: string;
 }
 
 const complexValidation = async (input: InputParameters, oystehr: Oystehr): Promise<EffectInput> => {
@@ -512,5 +514,6 @@ const complexValidation = async (input: InputParameters, oystehr: Oystehr): Prom
     mode: { historical: false },
     patientId,
     patient,
+    visitStart: start ?? encounter.period?.start,
   };
 };
