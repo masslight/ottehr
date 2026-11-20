@@ -178,7 +178,7 @@ export const buildJournalActions = (
   actions.push({
     key: 'followup',
     label: 'Follow-up',
-    tooltip: 'Add a follow-up note',
+    tooltip: 'Add a follow-up',
     icon: <EventRepeatIcon />,
     href: followUpUrl(patient.patientId, visit?.encounterId),
   });
