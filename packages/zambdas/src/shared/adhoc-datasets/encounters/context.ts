@@ -111,6 +111,8 @@ export function createEncounterContext(params: {
   root: EncounterRoot;
   /** Loads the root's patients and locations, returns its practitioners. */
   loadRootLookups: () => Promise<Practitioner[]>;
+  /** Filled with each shared search's time (`shared.<name>`, ms) once it is done, for the timing log. */
+  timings?: Map<string, number>;
 }): EncounterReportContext {
   const { oystehr, root, requested, environment } = params;
   const encRefs = Array.from(root.encounterById.keys()).map((id) => `Encounter/${id}`);
@@ -234,6 +236,23 @@ export function createEncounterContext(params: {
       });
     }),
   };
+
+  // Each shared search is timed from its first call: the layers waiting on it all wait that long.
+  for (const name of Object.keys(shared) as (keyof typeof shared)[]) {
+    const run = shared[name] as () => Promise<unknown>;
+    let timed: Promise<unknown> | undefined;
+    (shared as Record<string, () => Promise<unknown>>)[name] = () => {
+      if (!timed) {
+        const startedAt = Date.now();
+        timed = run();
+        timed.then(
+          () => params.timings?.set(`shared.${name}`, Date.now() - startedAt),
+          () => undefined
+        );
+      }
+      return timed;
+    };
+  }
 
   return {
     oystehr,

@@ -98,6 +98,7 @@ export async function fetchAdHocEncounterRows(
   const root = await fetchEncounterRoot(oystehr, dateRange);
   const rootMs = Date.now() - startedAt;
 
+  const sharedMs = new Map<string, number>();
   const ctx = createEncounterContext({
     oystehr,
     dateRange,
@@ -105,6 +106,7 @@ export async function fetchAdHocEncounterRows(
     requested: new Set(requested),
     root,
     loadRootLookups: () => loadEncounterRootLookups(oystehr, root),
+    timings: sharedMs,
   });
 
   // 2. All at once, each needing only the root: its patients / locations / practitioners by id (rootLookups — a
@@ -177,6 +179,7 @@ export async function fetchAdHocEncounterRows(
         .map((id) => `${id}: fetch ${fetchMs.get(id) ?? 0} map 0`)
         .concat(modules.map((m, i) => `${m.id}: fetch ${fetchMs.get(m.id) ?? 0} map ${mapMs[i]}`))
         .concat(Array.from(foreignMs, ([id, ms]) => `${id}: fetch ${ms} map 0`))
+        .concat(Array.from(sharedMs, ([id, ms]) => `${id}: fetch ${ms} map 0`))
         .join(', ')
   );
 
