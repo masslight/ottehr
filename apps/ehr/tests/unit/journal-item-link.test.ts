@@ -1,0 +1,33 @@
+import { JournalItem } from 'utils/lib/types/api/provider-journal.types';
+import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { describe, expect, it } from 'vitest';
+import { journalItemLink } from '../../src/features/journal/helpers/journalHelpers';
+
+const item = (overrides: Partial<JournalItem>): JournalItem => ({
+  id: 'task-1',
+  taskId: 'task-1',
+  kind: 'task',
+  label: 'x',
+  when: 'created',
+  since: '2026-11-07T13:00:00.000Z',
+  appointmentId: 'appt-1',
+  encounterId: 'enc-1',
+  patientId: 'pat-1',
+  ...overrides,
+});
+
+describe('journalItemLink opens the same page as the Tasks page', () => {
+  it('opens a reflex result on its report page, and an unmatched unsolicited result on Match', () => {
+    const lab = { kind: 'external-lab' as const, diagnosticReportId: 'dr-1' };
+    expect(journalItemLink(item({ ...lab, isReflex: true }))).toBe(
+      '/in-person/appt-1/external-lab-orders/report/dr-1/order-details'
+    );
+    expect(journalItemLink(item({ ...lab, code: LAB_ORDER_TASK.code.matchUnsolicitedResult }))).toBe(
+      '/unsolicited-results/dr-1/match'
+    );
+    expect(journalItemLink(item({ ...lab, appointmentId: undefined }))).toBe('/unsolicited-results/dr-1/review');
+    expect(journalItemLink(item({ ...lab, orderId: 'sr-1' }))).toBe(
+      '/in-person/appt-1/external-lab-orders/sr-1/order-details'
+    );
+  });
+});

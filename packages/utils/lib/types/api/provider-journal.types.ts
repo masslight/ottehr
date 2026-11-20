@@ -63,8 +63,10 @@ export interface JournalItem {
   /** ServiceRequest id of the lab or radiology order. */
   orderId?: string;
   diagnosticReportId?: string;
-  /** Task.code for patient requests and faxes, for the quick-action mapping. */
+  /** Task.code for patient requests, faxes and lab results, for the quick-action mapping. */
   code?: string;
+  /** A reflex lab result (no Ottehr order): opens its report page, as on the Tasks page. */
+  isReflex?: boolean;
   /** Review-fax task: the folder the document was filed into. */
   folderId?: string;
   /** Manual "Patient Follow-up" tasks: the Free form note dialog offers to complete them. */

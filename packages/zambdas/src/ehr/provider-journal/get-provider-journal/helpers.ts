@@ -34,6 +34,7 @@ import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types'
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { LabType } from 'utils/lib/types/data/labs/labs.types';
 import { flattenQuestionnaireAnswers } from 'utils/lib/types/data/paperwork/paperwork.types';
 import {
   ERX_TASK,
@@ -236,6 +237,8 @@ export function taskToJournalItem(
       since: getTaskInputValue(task, LAB_ORDER_TASK.input.receivedDate) ?? task.authoredOn ?? '',
       orderId: basedOnId(task, 'ServiceRequest'),
       diagnosticReportId: basedOnId(task, 'DiagnosticReport'),
+      code: getCoding(task.code, LAB_ORDER_TASK.system)?.code,
+      isReflex: getTaskInputValue(task, LAB_ORDER_TASK.input.drTag) === LabType.reflex || undefined,
     };
   }
   if (category === RADIOLOGY_TASK.category) {

@@ -808,6 +808,25 @@ describe('taskToJournalItem wording', () => {
     expect(taskToJournalItem(readPortal, {}).label).toBe('Prescription Refill for Robert Hill 11/03/2026');
   });
 
+  it('marks reflex results and keeps the lab task code (for the Tasks page links)', () => {
+    const labTask = (code: string, drTag?: string): Task =>
+      boardTask({
+        id: code,
+        category: LAB_ORDER_TASK.category,
+        code: { coding: [{ system: LAB_ORDER_TASK.system, code }] },
+        basedOn: [{ reference: 'DiagnosticReport/dr-1' }],
+        input: drTag
+          ? [{ type: { coding: [{ code: LAB_ORDER_TASK.input.drTag }] }, valueString: drTag }]
+          : undefined,
+      });
+    expect(taskToJournalItem(labTask(LAB_ORDER_TASK.code.reviewFinalResult, 'reflex'), {})).toEqual(
+      expect.objectContaining({ kind: 'external-lab', diagnosticReportId: 'dr-1', isReflex: true })
+    );
+    expect(taskToJournalItem(labTask(LAB_ORDER_TASK.code.matchUnsolicitedResult), {})).toEqual(
+      expect.objectContaining({ code: LAB_ORDER_TASK.code.matchUnsolicitedResult, isReflex: undefined })
+    );
+  });
+
   it('keeps the task category identifier system used by the board', () => {
     expect(boardTask({ title: 'x' }).groupIdentifier?.system).toBe(ottehrIdentifierSystem('task-category'));
   });

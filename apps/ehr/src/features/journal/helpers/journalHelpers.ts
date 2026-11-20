@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { FLAGGED_REASONS_FOR_VISIT } from 'src/constants';
 import {
+  getDrExternalLabEditUrl,
   getExternalLabOrderEditUrl,
   getInPersonVisitDetailsUrl,
   getRadiologyOrderEditUrl,
@@ -9,6 +10,7 @@ import {
 } from 'src/features/visits/in-person/routing/helpers';
 import { VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
 import { JournalItem, JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
+import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 
 /** Colors from the Provider Journal panel mockup (v15). */
 export const JOURNAL_COLORS = {
@@ -149,6 +151,13 @@ export const journalItemLink = (item: JournalItem): string => {
     case 'unsigned-note':
       return appointmentId ? chart(chartUrl(appointmentId, 'review-and-sign')) : TASKS_URL;
     case 'external-lab':
+      // Same pages as the Tasks page (useTasks fhirTaskToTask).
+      if (item.code === LAB_ORDER_TASK.code.matchUnsolicitedResult && item.diagnosticReportId) {
+        return `/unsolicited-results/${item.diagnosticReportId}/match`;
+      }
+      if (item.isReflex && appointmentId && item.diagnosticReportId) {
+        return chart(getDrExternalLabEditUrl(appointmentId, item.diagnosticReportId));
+      }
       if (item.orderId && appointmentId) return chart(getExternalLabOrderEditUrl(appointmentId, item.orderId));
       if (item.diagnosticReportId) return `/unsolicited-results/${item.diagnosticReportId}/review`;
       return TASKS_URL;
