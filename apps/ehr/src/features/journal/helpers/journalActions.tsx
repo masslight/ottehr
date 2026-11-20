@@ -124,7 +124,8 @@ export const buildJournalActions = (
     );
   }
   if (section === 'cu' && row.visit && !row.lookahead) {
-    if (row.visit.isTelemed) {
+    // The tracking board's actions: a virtual visit ready for the provider is joined; Start Intake changes the status.
+    if (row.visit.isTelemed && kind === 'provider') {
       actions.push({
         key: 'join',
         label: 'Join video visit',

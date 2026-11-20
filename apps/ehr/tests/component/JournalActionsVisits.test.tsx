@@ -57,4 +57,15 @@ describe('journal row actions and the row visits', () => {
     addendum?.onClick?.();
     expect(handlers.onAddendum).toHaveBeenCalledWith(row, completed);
   });
+
+  it("gives a clinician's virtual Ready row Start Intake, as the tracking board does; the provider keeps Join", () => {
+    const ready = visit('tm', { status: 'ready', isTelemed: true, hasProgressNote: false });
+    const clinician = actions('cu', { patient, visit: ready, visits: [ready], items: [] }, 'clinician');
+    expect(byKey(clinician, 'start')?.label).toBe('Start Intake');
+    expect(byKey(clinician, 'join')).toBeUndefined();
+    const rfp = { ...ready, status: 'ready for provider' as const };
+    const provider = actions('cu', { patient, visit: rfp, visits: [rfp], items: [] });
+    expect(byKey(provider, 'join')).toBeDefined();
+    expect(byKey(provider, 'start')).toBeUndefined();
+  });
 });
