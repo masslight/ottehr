@@ -7,8 +7,9 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { GetProviderJournalResponse } from 'utils/lib/types/api/provider-journal.types';
 
 /**
- * Reloads when the page mounts and when the Journal tab is clicked (no auto-refresh otherwise);
- * callers refetch after an action that moves a row.
+ * Reloads when the page mounts, when the Journal tab is clicked and when the user comes back to the
+ * journal's browser tab (every journal link opens a new tab); no timer. Callers refetch after an
+ * action that moves a row.
  */
 export const useProviderJournal = (
   practitionerId: string | undefined
@@ -19,7 +20,7 @@ export const useProviderJournal = (
     queryFn: () =>
       getProviderJournal(oystehrZambda!, { practitionerId: practitionerId!, timezone: DateTime.now().zoneName }),
     enabled: !!oystehrZambda && !!practitionerId,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: 'always',
     refetchOnMount: 'always',
     staleTime: Infinity,
     retry: 1,

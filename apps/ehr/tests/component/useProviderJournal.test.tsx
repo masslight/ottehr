@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactElement, useState } from 'react';
 import { Link, MemoryRouter } from 'react-router-dom';
@@ -51,5 +51,22 @@ describe('useProviderJournal', () => {
     await userEvent.click(screen.getByText('toggle'));
     await userEvent.click(screen.getByText('toggle'));
     await waitFor(() => expect(mockGetProviderJournal).toHaveBeenCalledTimes(3));
+  });
+
+  it('reloads when the user comes back to the journal browser tab (journal links open new tabs)', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/journal']}>
+          <Journal />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await screen.findByText('loaded');
+    expect(mockGetProviderJournal).toHaveBeenCalledTimes(1);
+    act(() => focusManager.setFocused(false));
+    act(() => focusManager.setFocused(true));
+    await waitFor(() => expect(mockGetProviderJournal).toHaveBeenCalledTimes(2));
+    focusManager.setFocused(undefined);
   });
 });
