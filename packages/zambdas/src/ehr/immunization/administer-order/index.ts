@@ -42,6 +42,7 @@ import {
   CONTAINED_MANUFACTURER_ORG_ID,
   CONTAINED_MEDICATION_ID,
   getContainedMedication,
+  getOrderVaccineCvx,
   updateOrderDetails,
   updateVaccineMedicationDetails,
   validateAdministrationDetailsValues,
@@ -150,6 +151,12 @@ export async function administerImmunizationOrder(
   }
 
   updateVaccineMedicationDetails(medication, administrationDetails);
+  // A given dose is recorded with its vaccine's CVX code. Only a vaccine ordered before the vaccine list can lack one.
+  if (isGiven && !getOrderVaccineCvx(medication)) {
+    throw INVALID_INPUT_ERROR(
+      `Vaccine "${getMedicationName(medication) ?? ''}" has no CVX code. Pick the immunization from the vaccine list.`
+    );
+  }
 
   const transactionRequests: BatchInputRequest<FhirResource>[] = [
     {
@@ -248,7 +255,6 @@ export function validateRequestParameters(
 
   if (['administered', 'administered-partly'].includes(type)) {
     if (!administrationDetails?.mvx) missingFields.push('administrationDetails.mvx');
-    if (!administrationDetails?.cvx) missingFields.push('administrationDetails.cvx');
     if (!administrationDetails?.ndc) missingFields.push('administrationDetails.ndc');
     if (!administrationDetails?.lot) missingFields.push('administrationDetails.lot');
     if (!administrationDetails?.expDate) missingFields.push('administrationDetails.expDate');

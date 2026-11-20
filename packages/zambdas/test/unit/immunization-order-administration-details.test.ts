@@ -5,13 +5,21 @@ import {
   applyOrderAdministrationDetails,
   CONTAINED_MEDICATION_ID,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
+  IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
   validateAdministrationDetailsValues,
 } from '../../src/ehr/immunization/common';
 import { updateImmunizationOrder } from '../../src/ehr/immunization/create-update-order';
 import { mapMedicationAdministrationToImmunizationOrder } from '../../src/ehr/immunization/get-orders';
 
+// A vaccine from the vaccine list: its id is its CVX code.
+const TDAP_CVX = '115';
+
 const pendingOrder = (): MedicationAdministration => {
-  const medication: Medication = { resourceType: 'Medication', id: CONTAINED_MEDICATION_ID };
+  const medication: Medication = {
+    resourceType: 'Medication',
+    id: CONTAINED_MEDICATION_ID,
+    extension: [{ url: IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL, valueString: TDAP_CVX }],
+  };
   return {
     resourceType: 'MedicationAdministration',
     id: 'order-1',
@@ -28,7 +36,6 @@ const fullDetails = {
   lot: 'L1',
   expDate: '2027-01-31',
   mvx: 'SKB',
-  cvx: '115',
   ndc: '58160-0842-11',
   cptCodes: [{ code: '90715', display: 'Tdap' }],
   administeredDateTime: '2026-10-28T09:30:00.000+01:00',
@@ -46,6 +53,7 @@ describe('applyOrderAdministrationDetails', () => {
     expect(mapped.details.orderedDateTime).toBe('2026-10-27T10:00:00Z');
     expect(mapped.administrationDetails).toEqual({
       ...fullDetails,
+      cvx: TDAP_CVX,
       administeredProvider: { id: '', name: '' },
       emergencyContact: undefined,
     });
@@ -55,11 +63,11 @@ describe('applyOrderAdministrationDetails', () => {
     const order = pendingOrder();
     applyOrderAdministrationDetails(order, fullDetails);
 
-    applyOrderAdministrationDetails(order, { cvx: '115' });
+    applyOrderAdministrationDetails(order, {});
 
     expect(mapMedicationAdministrationToImmunizationOrder(order).administrationDetails).toMatchObject({
       lot: '',
-      cvx: '115',
+      cvx: TDAP_CVX,
       cptCodes: [],
       administeredDateTime: '',
       visGiven: false,
@@ -84,9 +92,9 @@ describe('applyOrderAdministrationDetails', () => {
 
 describe('validateAdministrationDetailsValues', () => {
   it('trims codes', () => {
-    const details = { mvx: ' SKB ', cvx: '115 ', ndc: ' 58160-0842-11' };
+    const details = { mvx: ' SKB ', ndc: ' 58160-0842-11' };
     validateAdministrationDetailsValues(details);
-    expect(details).toEqual({ mvx: 'SKB', cvx: '115', ndc: '58160-0842-11' });
+    expect(details).toEqual({ mvx: 'SKB', ndc: '58160-0842-11' });
   });
 
   it.each(['expDate', 'administeredDateTime', 'visGivenDate'] as const)('rejects an invalid %s', (field) => {

@@ -91,7 +91,8 @@ describe('immunization updateOrderDetails - vaccine', () => {
     });
     // no Medication resource is read any more
     expect(get).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Medication' }));
-    // the order form reads the vaccine back as the option it picked, and no CVX is filled in for it
+    // the order form reads the vaccine back as the option it picked; its CVX code joins the administration codes
+    // only when those are saved
     const read = mapMedicationAdministrationToImmunizationOrder(order);
     expect(read.details.medication).toEqual({ id: '115', name: 'Tdap' });
     expect(read.administrationDetails?.cvx ?? '').toBe('');

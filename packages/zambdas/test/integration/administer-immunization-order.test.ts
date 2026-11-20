@@ -14,8 +14,9 @@ const VACCINE = { id: '115', name: 'Tdap' };
 
 // Happy path for administer-immunization-order: administer an existing immunization
 // order (type 'administered'), which requires the full administrationDetails
-// (mvx/cvx/ndc/lot/expDate/administeredDateTime/visGivenDate). Sets up an order
-// and removes it afterwards. FHIR-only.
+// (mvx/ndc/lot/expDate/administeredDateTime/visGivenDate); the CVX code is the
+// vaccine's own and is recorded by the endpoint. Sets up an order and removes it
+// afterwards. FHIR-only.
 describe('administer-immunization-order integration — happy path', () => {
   let oystehrAdmin: Oystehr;
   let oystehrProvider: Oystehr;
@@ -67,7 +68,6 @@ describe('administer-immunization-order integration — happy path', () => {
       },
       administrationDetails: {
         mvx: 'PMC',
-        cvx: '141',
         ndc: '00006-4047-41',
         lot: 'IT-LOT-1',
         expDate: '2030-01-01',
@@ -94,7 +94,6 @@ describe('administer-immunization-order integration — happy path', () => {
         },
         administrationDetails: {
           mvx: 'PMC',
-          cvx: '141',
           ndc: '00006-4047-41',
           lot: 'IT-LOT-1',
           expDate: '2030-01-01',
@@ -130,7 +129,6 @@ describe('administer-immunization-order integration — happy path', () => {
       },
       administrationDetails: {
         mvx: 'PMC',
-        cvx: '141',
         ndc: '00006-4047-41',
         lot: 'IT-LOT-1',
         expDate: '2030-01-01',

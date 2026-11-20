@@ -36,7 +36,9 @@ export interface ImmunizationEmergencyContact {
 export interface ImmunizationOrderAdministrationDetails {
   lot: string;
   expDate: string;
+  /** The manufacturer's MVX code; its name is the order's `details.manufacturer`. */
   mvx: string;
+  /** The vaccine's CVX code. The server records it from the order's vaccine, so no request carries it. */
   cvx: string;
   cptCodes?: { code: string; display: string }[];
   ndc: string;
@@ -63,7 +65,7 @@ export type InputImmunizationOrderDetails = Omit<ImmunizationOrderDetails, 'orde
 
 // Administration fields that can be entered at order time, before administration
 export type InputImmunizationOrderAdministrationDetails = Partial<
-  Omit<ImmunizationOrderAdministrationDetails, 'administeredProvider' | 'emergencyContact'>
+  Omit<ImmunizationOrderAdministrationDetails, 'administeredProvider' | 'emergencyContact' | 'cvx'>
 >;
 
 export interface CreateUpdateImmunizationOrderRequest {
@@ -92,7 +94,7 @@ export interface AdministerImmunizationOrderRequest {
   type: 'administered' | 'administered-partly' | 'administered-not';
   reason?: string;
   details: InputImmunizationOrderDetails;
-  administrationDetails: Omit<ImmunizationOrderAdministrationDetails, 'administeredProvider'>;
+  administrationDetails: Omit<ImmunizationOrderAdministrationDetails, 'administeredProvider' | 'cvx'>;
 }
 
 export interface CancelImmunizationOrderRequest {
