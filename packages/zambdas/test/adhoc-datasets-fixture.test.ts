@@ -798,17 +798,14 @@ describe('ad-hoc dataset zambdas: mapped rows parse against their Zod schema (fi
     const row = rows[0];
 
     expect(issuesOf(AdHocEncountersOutputSchema.safeParse({ encounters: rows }))).toEqual([]);
+    // Only fields in patientScreeningQuestionsConfig appear; COVID fields are not in the runtime config.
     expect(row.screeningAnswers).toEqual([
       { question: 'Has the patient been seen in one of our offices / telemed in last 3 years?', answer: 'Yes' },
-      { question: 'Do you have any COVID symptoms?', answer: 'Yes' },
       { question: 'Are you currently breastfeeding?', answer: 'Not applicable' },
-      { question: 'Have you tested positive for COVID?', answer: 'No' },
     ]);
     expect(row.screeningQuestions).toEqual([
       'Has the patient been seen in one of our offices / telemed in last 3 years?',
-      'Do you have any COVID symptoms?',
       'Are you currently breastfeeding?',
-      'Have you tested positive for COVID?',
     ]);
   });
 

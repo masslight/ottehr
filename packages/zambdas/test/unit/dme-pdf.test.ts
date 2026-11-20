@@ -391,12 +391,18 @@ describe('DME order form PDF', () => {
   });
 
   it.each([
-    ['in-house', makeDeviceRequest(inHouseFields, true)],
     ['pending in-house', makeDeviceRequest(inHouseFields)],
     ['external', makeDeviceRequest(externalFields)],
   ])('renders the %s order form onto one page', async (_label, deviceRequest) => {
     const doc = await PDFDocument.load(await createDmeOrderFormPdfBytes(makeInput(deviceRequest), ''));
     expect(doc.getPageCount()).toBe(1);
+  });
+
+  it('renders the in-house dispensed order form (with proof of delivery) onto two pages', async () => {
+    const doc = await PDFDocument.load(
+      await createDmeOrderFormPdfBytes(makeInput(makeDeviceRequest(inHouseFields, true)), '')
+    );
+    expect(doc.getPageCount()).toBe(2);
   });
 
   it('keeps the provider signature together when a long provider name wraps', async () => {
