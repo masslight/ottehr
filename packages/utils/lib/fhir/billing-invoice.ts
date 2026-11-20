@@ -31,6 +31,8 @@ export const INVOICE_PAYMENT_EXTENSION_URL = 'https://fhir.ottehr.com/billing/in
 export const INVOICE_PAYMENT_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-payment-id';
 // On the contained PaymentReconciliation of an invoice payment, for every payment method.
 export const PAYMENT_REFERENCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('payment-reference');
+// Shared by a payment's per-claim notices and attachment. Patient payment readers skip it.
+export const NIO_INVOICE_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('nio-invoice-payment-id');
 export const STRIPE_INVOICE_ID_SYSTEM = 'https://api.stripe.com/v1/invoices';
 
 export interface BillingInvoiceClaim {
@@ -183,6 +185,9 @@ export const invoicePaymentExtension = (invoiceId: string): Extension => ({
     reference: `Invoice/${invoiceId}`,
   },
 });
+
+export const getNioInvoicePaymentId = (resource: { identifier?: Identifier[] }): string | undefined =>
+  resource.identifier?.find((identifier) => identifier.system === NIO_INVOICE_PAYMENT_ID_SYSTEM)?.value;
 
 export const getPaymentNoticeInvoiceId = (notice: PaymentNotice): string | undefined =>
   getIdFromReference(

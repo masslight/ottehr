@@ -40,6 +40,7 @@ const payments = (overrides: Partial<ClaimPaymentSummary> = {}): ClaimPaymentSum
   // a remit reporting PR is what an adjudicated summary means in these tests
   patientResp: overrides.adjudicated ? 0 : null,
   patientPaid: 0,
+  nioPaid: 0,
   writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
