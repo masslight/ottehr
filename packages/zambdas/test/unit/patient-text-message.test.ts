@@ -97,7 +97,8 @@ describe('patient-text-message helpers', () => {
     expect(task.description).toBe('Text message from Robert Hill 11/03/2026');
     expect(task.encounter?.reference).toBe('Encounter/enc-1');
     expect(task.basedOn).toEqual([{ reference: 'Communication/comm-1' }]);
-    expect(task.lastModified).toBe('2026-11-07T19:35:00.000Z');
+    // FHIR inv-1: lastModified >= authoredOn. A received text was sent before the task is authored.
+    expect(DateTime.fromISO(task.lastModified!) >= DateTime.fromISO(task.authoredOn!)).toBe(true);
     expect(task.meta?.tag).toEqual([
       { code: 'task' },
       { system: TASK_LOCATION_SYSTEM, code: 'loc-1', display: 'Main Street' },
@@ -116,6 +117,17 @@ describe('patient-text-message helpers', () => {
     expect(task.encounter).toBeUndefined();
     expect(task.location).toBeUndefined();
     expect(task.meta?.tag).toEqual([{ code: 'task' }]);
+  });
+
+  it('keeps the sent time when it is later than authoredOn', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-07T19:34:00.000Z'));
+    try {
+      const task = buildTextMessageTask({ patient: PATIENT, communication: sms() });
+      expect(DateTime.fromISO(task.lastModified!).toMillis()).toBe(Date.parse('2026-11-07T19:35:00.000Z'));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('attaches a later text: links the Communication, appends to the details and restarts the age', () => {
@@ -181,6 +193,11 @@ describe('patient-text-message subscription', () => {
       { name: 'based-on', value: 'Communication/comm-1' },
       expect.objectContaining({ name: 'group-identifier' }),
     ]);
+  });
+
+  it('fails instead of reporting success when the task create is rejected', async () => {
+    mockFhir.create.mockRejectedValue({ code: 400, message: 'Constraint inv-1 violated' });
+    await expect(run(sms())).rejects.toMatchObject({ code: 400 });
   });
 
   it('creates no task when the patient has a visit today', async () => {

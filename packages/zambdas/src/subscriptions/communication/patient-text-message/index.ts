@@ -1,4 +1,3 @@
-import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Communication, Patient, RelatedPerson, Task } from 'fhir/r4b';
@@ -85,20 +84,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     ...buildTextMessageTask({ patient, visit: visits[0], communication }),
     identifier: [{ system: TEXT_TASK_CLAIM_SYSTEM, value: claimToken }],
   };
-  let result: Task;
-  try {
-    result = await oystehr.fhir.create<Task>(newTask, {
-      ifNoneExist: [
-        { name: 'based-on', value: `Communication/${communication.id}` },
-        { name: 'group-identifier', value: `${TASK_CATEGORY_IDENTIFIER}|${PATIENT_REQUEST_TASK.category}` },
-      ],
-    });
-  } catch (error) {
-    // 412 means tasks already exist for this Communication; failing would make the subscription retry forever.
-    console.error(`[${ZAMBDA_NAME}] conditional create failed for Communication/${communication.id}:`, error);
-    captureException(error);
-    return lambdaResponse(200, { alreadyProcessed: true });
-  }
+  const result = await oystehr.fhir.create<Task>(newTask, {
+    ifNoneExist: [
+      { name: 'based-on', value: `Communication/${communication.id}` },
+      { name: 'group-identifier', value: `${TASK_CATEGORY_IDENTIFIER}|${PATIENT_REQUEST_TASK.category}` },
+    ],
+  });
   const ownsClaim = result.identifier?.some((id) => id.system === TEXT_TASK_CLAIM_SYSTEM && id.value === claimToken);
   return lambdaResponse(200, { taskId: result.id, alreadyProcessed: !ownsClaim || undefined });
 });

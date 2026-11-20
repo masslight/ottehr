@@ -50,7 +50,10 @@ export function buildTextMessageTask(input: { patient: Patient; visit?: Visit; c
       { type: MANUAL_TASK.input.encounterId, valueString: visit?.encounterId },
     ],
   });
-  task.lastModified = communication.sent ?? DateTime.now().toISO()!;
+  // FHIR inv-1 requires lastModified >= authoredOn, and a received text was sent before now.
+  const authoredOn = DateTime.fromISO(task.authoredOn!);
+  const sent = communication.sent ? DateTime.fromISO(communication.sent) : authoredOn;
+  task.lastModified = DateTime.max(sent, authoredOn).toISO()!;
   return task;
 }
 
