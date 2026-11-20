@@ -33,6 +33,12 @@ const WEIGHT_UNITS: UnitRule[] = [
   { pattern: /(?<![a-z])(?:stones?|st)\b/i, canonical: 'lb', factor: 14 },
 ];
 
+const BARE_READING_AMBIGUITY: Partial<Record<PlannableVitalField, string>> = {
+  'vital-height': 'a bare height could be centimetres or inches',
+  'vital-weight': 'a bare weight could be kilograms or pounds',
+  'vital-head-circumference': 'a bare head circumference could be centimetres or inches',
+};
+
 const UNIT_TABLES: Partial<Record<PlannableVitalField, UnitRule[]>> = {
   'vital-height': HEIGHT_UNITS,
   'vital-head-circumference': HEAD_CIRCUMFERENCE_UNITS,
@@ -144,7 +150,7 @@ export function parseVitalDisplay(field: PlannableVitalField, display: string): 
         return {
           status: 'missing-unit',
           value,
-          reason: `"${text}" has no unit — a bare height could be centimetres or inches, so it needs confirming`,
+          reason: `"${text}" has no unit — ${BARE_READING_AMBIGUITY[field]}, so it needs confirming`,
         };
       }
       const converted = canonicalizeVitalUnit(field, value, writtenUnit);
@@ -165,7 +171,7 @@ export function parseVitalDisplay(field: PlannableVitalField, display: string): 
         return {
           status: 'missing-unit',
           value,
-          reason: `"${text}" has no unit — a bare head circumference could be centimetres or inches, so it needs confirming`,
+          reason: `"${text}" has no unit — ${BARE_READING_AMBIGUITY[field]}, so it needs confirming`,
         };
       }
       const converted = canonicalizeVitalUnit(field, value, writtenUnit);
@@ -201,7 +207,7 @@ export function parseVitalDisplay(field: PlannableVitalField, display: string): 
         return {
           status: 'missing-unit',
           value,
-          reason: `"${text}" has no unit — a bare weight could be kilograms or pounds, so it needs confirming`,
+          reason: `"${text}" has no unit — ${BARE_READING_AMBIGUITY[field]}, so it needs confirming`,
         };
       }
       const converted = canonicalizeVitalUnit(field, value, writtenUnit);
@@ -299,6 +305,28 @@ function parseSingleUnit(
 
 const LENGTH_UNIT = String.raw`(?:cm\b|centimet\w*|mm\b|millimet\w*|in\b|ins\b|inch(?:es)?\b|"|'')`;
 const HEAD_CIRCUMFERENCE_READING = String.raw`(?:head\s*circumference|\bofc\b|\bhc\b)[\s:=~-]*(?:(?:is|was|of|at|about|around|approx\w*|today|measures?|measured)\b[\s:=~.-]*){0,3}(${NUMBER}\s*${LENGTH_UNIT})`;
+
+// The model sometimes adds a unit nobody said ("head circumference 44" → "44 cm"); the narrative is the judge.
+export function unitNotSaid(
+  field: PlannableVitalField,
+  display: string,
+  narratives: (string | undefined)[]
+): VitalParse | undefined {
+  const rules = UNIT_TABLES[field];
+  const number = new RegExp(NUMBER).exec(display)?.[0];
+  if (!rules || !number) return undefined;
+  const occurrence = new RegExp(String.raw`(?<![\d.])${number.replace('.', '\\.')}(?!\.?\d)([^\d,;]*)`, 'g');
+  const trailing = narratives.flatMap((text) => (text ? [...text.matchAll(occurrence)].map((match) => match[1]) : []));
+  if (trailing.length === 0) return undefined;
+  const unitAfter = (text: string): boolean =>
+    rules.some((rule) => new RegExp(String.raw`^[\s(-]*(?:${rule.pattern.source})`, 'i').test(text));
+  if (trailing.some(unitAfter)) return undefined;
+  return {
+    status: 'missing-unit',
+    value: Number(number),
+    reason: `"${number}" was said with no unit — ${BARE_READING_AMBIGUITY[field]}, so it needs confirming`,
+  };
+}
 
 // Recovering a reading the model dropped: it sometimes emits a set-vital with no display. Each pattern is
 // anchored on a unit or vital keyword, so "cough for 5 days" is never read as a measurement.

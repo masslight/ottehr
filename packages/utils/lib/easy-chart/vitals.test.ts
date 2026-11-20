@@ -6,6 +6,7 @@ import {
   MIN_PLAUSIBLE_HEIGHT_IN,
   parseVitalDisplay,
   recoverVitalReading,
+  unitNotSaid,
 } from './vitals';
 
 describe('canonicalizeVitalUnit', () => {
@@ -253,5 +254,49 @@ describe('recoverVitalReading', () => {
     expect(recoverVitalReading('vital-weight', 'cough for 5 days')).toBeUndefined();
     expect(recoverVitalReading('vital-height', 'sick for 3 days')).toBeUndefined();
     expect(recoverVitalReading('vital-respiration-rate', 'seen 2 times this month')).toBeUndefined();
+  });
+});
+
+describe('unitNotSaid', () => {
+  it('flags a unit the narrative never gave after the number', () => {
+    expect(
+      unitNotSaid('vital-head-circumference', '44 cm', ['Head circumference 44 today. Weight 8.9 kg.'])
+    ).toMatchObject({ status: 'missing-unit', value: 44, reason: expect.stringMatching(/centimetres or inches/) });
+    expect(unitNotSaid('vital-height', '68 cm', ['Height 68 today.'])).toMatchObject({ status: 'missing-unit' });
+    expect(unitNotSaid('vital-weight', '20 lb', ['weight 20, OFC 44 cm'])).toMatchObject({ status: 'missing-unit' });
+  });
+
+  it('accepts a reading whose unit was said, however it was written', () => {
+    expect(unitNotSaid('vital-head-circumference', '441 mm', ['OFC 441 mm today'])).toBeUndefined();
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['HC 44-cm'])).toBeUndefined();
+    expect(unitNotSaid('vital-height', `5'8"`, [`patient is 5'8", weighs 130lb`])).toBeUndefined();
+    expect(unitNotSaid('vital-height', '1.73 m', ['patient is 1.73m'])).toBeUndefined();
+    expect(unitNotSaid('vital-weight', '130lb', [`patient is 5'8", weighs 130lb`])).toBeUndefined();
+    expect(unitNotSaid('vital-weight', '9 lb 4 oz', ['weighs 9 lb 4 oz'])).toBeUndefined();
+    expect(unitNotSaid('vital-weight', '130 lb', ['Weight: 130 (lbs)'])).toBeUndefined();
+  });
+
+  it('judges each number on its own, not by another vital that shares it', () => {
+    const narrative = 'weighs 44 lb, head circumference 44';
+    expect(unitNotSaid('vital-weight', '44 lb', [narrative])).toBeUndefined();
+    expect(unitNotSaid('vital-head-circumference', '44 cm', [narrative])).toMatchObject({ status: 'missing-unit' });
+  });
+
+  it('does not read a longer number as the reading', () => {
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['HC 44.5 cm, 144 days old'])).toBeUndefined();
+  });
+
+  it('leaves the reading alone when its number is not in the narrative at all', () => {
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['head circumference forty four'])).toBeUndefined();
+    expect(unitNotSaid('vital-head-circumference', '44 cm', [undefined])).toBeUndefined();
+  });
+
+  it('takes the unit from any of the narratives', () => {
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['HC 44', 'HC 44 cm'])).toBeUndefined();
+  });
+
+  it('does not judge vitals whose unit is fixed', () => {
+    expect(unitNotSaid('vital-heartbeat', '88 bpm', ['pulse 88'])).toBeUndefined();
+    expect(unitNotSaid('vital-temperature', '38.2 C', ['temp 38.2'])).toBeUndefined();
   });
 });

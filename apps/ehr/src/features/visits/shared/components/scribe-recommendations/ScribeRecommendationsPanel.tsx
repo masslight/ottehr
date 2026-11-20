@@ -508,7 +508,7 @@ const RejectedList: FC<{ rejected: RejectedAction[] }> = ({ rejected }) => (
           sx={{ px: 1, py: 0.75, '&:not(:last-of-type)': { borderBottom: '1px solid', borderColor: 'divider' } }}
         >
           <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            {describeAction({ kind: item.kind, display: item.display } as PlannedAction)}
+            {describeAction({ kind: item.kind, field: item.field, display: item.display } as PlannedAction)}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             {item.reason}
