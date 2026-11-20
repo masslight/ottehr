@@ -30191,3 +30191,213 @@ removed {
     destroy = false
   }
 }
+
+# Resources from vaccines.json
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_COVID19_ADULT_ADOL
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_COVID19_PEDIATRIC
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_DTAP
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_FLU_ADULT
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_FLU_PEDIATRIC
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_FLU_SENIOR
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_HEP_A_ADULT
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_HEP_A_PEDIATRIC
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_HEP_B_ADULT
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_HEP_B_PED_ADOL
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_HEP_B_HEPLISAV
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_MENINGOCOCCAL_ACWY_ADOLESCENT
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_MENINGOCOCCAL_ACWY_ADULT_TRAVELER
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_MMR_PED_COUNSELING
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_MMR_STANDARD
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_PNEUMOCOCCAL_PCV15_PEDIATRIC
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_PNEUMOCOCCAL_PCV20_ADULT
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_POLIO_IPV_ADULT
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_POLIO_IPV_PEDIATRIC
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_RABIES_POST_EXPOSURE
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_RSV_ADULT
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_TD
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_TDAP
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_TYPHOID_INJECTABLE
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_VARICELLA_PED
+
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = oystehr_fhir_resource.VACCINE_VARICELLA_STANDARD
+
+  lifecycle {
+    destroy = false
+  }
+}
