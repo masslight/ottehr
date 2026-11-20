@@ -176,15 +176,13 @@ export const journalItemLink = (item: JournalItem): string => {
   }
 };
 
-/** Search: a word of the patient's name starts with the query (case-insensitive). */
+/** Search: every typed word starts a word of the patient's name (case-insensitive), e.g. "gus pen". */
 export const matchesSearch = (name: string | undefined, query: string): boolean => {
-  if (!query) return true;
+  const typed = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!typed.length) return true;
   if (!name) return false;
-  const q = query.toLowerCase();
-  return name
-    .toLowerCase()
-    .split(' ')
-    .some((word) => word.startsWith(q));
+  const words = name.toLowerCase().split(/\s+/);
+  return typed.every((t) => words.some((word) => word.startsWith(t)));
 };
 
 export const rowMatchesSearch = (row: JournalRow, query: string): boolean => matchesSearch(row.patient?.name, query);
