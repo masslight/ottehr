@@ -9,7 +9,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { MouseEvent, ReactElement, useState } from 'react';
+import { KeyboardEvent, MouseEvent, ReactElement, useState } from 'react';
 import { ClaimTagMatch } from 'utils/lib/types/data/billing/billing.schemas';
 
 // The claims list tag filter: tags a claim must have (any or all of them) and tags it must not have.
@@ -57,6 +57,13 @@ export function ClaimTagFilter({
     if (!disabled) setAnchorEl(event.currentTarget);
   };
 
+  // The field is read-only, so open the pickers from the keyboard the way a select opens.
+  const openFromKeyboard = (event: KeyboardEvent<HTMLElement>): void => {
+    if (disabled || !['Enter', ' ', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    setAnchorEl(event.currentTarget);
+  };
+
   return (
     <>
       <TextField
@@ -66,6 +73,7 @@ export function ClaimTagFilter({
         placeholder="All"
         disabled={disabled}
         onClick={open}
+        onKeyDown={openFromKeyboard}
         title={summary || undefined}
         InputProps={{ readOnly: true }}
         inputProps={{ 'aria-haspopup': 'dialog', style: { cursor: disabled ? undefined : 'pointer' } }}
