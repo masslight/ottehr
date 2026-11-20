@@ -333,6 +333,11 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
 // Opt-in layers, declared once (metadata + Zod field schema). Row/response schema, endpoint input
 // flags, UI checkboxes, and the prompt's availableLayers all derive from this map — a layer's id
 // lives here and nowhere else.
+// Appended to each one-vital layer's description, so infer and generation pick it over the full vitals layer.
+const ONE_VITAL =
+  ' Same columns as in "Vital signs", loading only these readings: pick it instead of "Vital signs" when no other ' +
+  'vital is needed.';
+
 // The full vital-signs columns, shared by the "vitals" layer and the smaller vital layers below.
 const VITALS_SCHEMA = z.object({
   temperatureF: z
@@ -649,7 +654,10 @@ export const ENCOUNTER_LAYERS = {
       'Temperature (°F and °C), heart rate, blood pressure, SpO₂, respiration, weight (kg and lbs), height (cm, ' +
       'inches, feet/inches), BMI, how each was taken (route / position / room air or supplemental O₂ with its ' +
       'flow rate and delivery type), weight refused, vision ' +
-      '(visual acuity, DOT vision screening), last menstrual period, and who recorded the vitals and when.',
+      '(visual acuity, DOT vision screening), last menstrual period, and who recorded the vitals and when. ' +
+      'The heaviest vitals layer: it loads every reading of every visit. Pick it only for several vitals at once, ' +
+      'vision, LMP or who recorded; for one vital pick its own layer (temperature, blood pressure, heart rate, ' +
+      'respiration, SpO₂, weight/height/BMI).',
     schema: VITALS_SCHEMA,
   },
   // Smaller vital-sign layers: each loads only its own readings (one Observation tag), so a report about one vital
@@ -657,7 +665,7 @@ export const ENCOUNTER_LAYERS = {
   // layer that covers the request, and "vitals" for alerts, several vitals at once, vision, LMP or who recorded.
   vitalsTemperature: {
     label: 'Temperature',
-    description: 'Temperature only (°F and °C): latest, every reading in order, how it was taken.',
+    description: 'Temperature only (°F and °C): latest, every reading in order, how it was taken.' + ONE_VITAL,
     schema: VITALS_SCHEMA.pick({
       temperatureF: true,
       temperatureC: true,
@@ -668,7 +676,8 @@ export const ENCOUNTER_LAYERS = {
   },
   vitalsBloodPressure: {
     label: 'Blood pressure',
-    description: 'Blood pressure only: latest systolic / diastolic, every reading in order, how it was taken.',
+    description:
+      'Blood pressure only: latest systolic / diastolic, every reading in order, how it was taken.' + ONE_VITAL,
     schema: VITALS_SCHEMA.pick({
       systolicBP: true,
       diastolicBP: true,
@@ -679,17 +688,18 @@ export const ENCOUNTER_LAYERS = {
   },
   vitalsHeartRate: {
     label: 'Heart rate',
-    description: 'Heart rate only: latest, every reading in order, how it was taken.',
+    description: 'Heart rate only: latest, every reading in order, how it was taken.' + ONE_VITAL,
     schema: VITALS_SCHEMA.pick({ heartRate: true, heartRateReadings: true, heartRateMethod: true }),
   },
   vitalsRespiration: {
     label: 'Respiration rate',
-    description: 'Respiration rate only: latest and every reading in order.',
+    description: 'Respiration rate only: latest and every reading in order.' + ONE_VITAL,
     schema: VITALS_SCHEMA.pick({ respirationRate: true, respirationRateReadings: true }),
   },
   vitalsOxygen: {
     label: 'Oxygen saturation',
-    description: 'SpO₂ only: latest, every reading in order, how it was taken (room air or supplemental O₂).',
+    description:
+      'SpO₂ only: latest, every reading in order, how it was taken (room air or supplemental O₂).' + ONE_VITAL,
     schema: VITALS_SCHEMA.pick({
       oxygenSaturation: true,
       oxygenSaturationReadings: true,
@@ -701,7 +711,7 @@ export const ENCOUNTER_LAYERS = {
   },
   vitalsBody: {
     label: 'Weight, height and BMI',
-    description: 'Weight (kg and lbs), weight refused, height (cm, inches, feet/inches) and BMI only.',
+    description: 'Weight (kg and lbs), weight refused, height (cm, inches, feet/inches) and BMI only.' + ONE_VITAL,
     schema: VITALS_SCHEMA.pick({
       weightKg: true,
       weightLbs: true,
