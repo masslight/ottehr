@@ -14,7 +14,6 @@ import {
   settledRefundTotalInCents,
   staleReservationIds,
 } from 'utils/lib/fhir/paymentRefunds';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { Secrets } from 'utils/lib/secrets';
 import {
@@ -36,6 +35,7 @@ import {
 } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
+import { getEncounterScheduleStripeAccount } from '../clinical-payment-notices';
 import { practitionerRefForBillingUser } from '../clinical-practitioners';
 import {
   createStripeAccountResolver,
@@ -62,7 +62,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const user = await requireUserWithRole(getUserToken(input), secrets, PAYMENT_MANAGEMENT_ROLES);
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the schedule's Stripe account and the Candid client, and syncs refunds to Candid
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the Candid client and syncs refunds to Candid
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
   const stripeClient = getStripeClient(secrets);
@@ -80,8 +80,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const stripeAccount = stripePaymentIntentIdForNotice(notice)
     ? await createStripeAccountResolver({
         billingOystehr,
-        lookUpScheduleAccount: () =>
-          getStripeAccountForAppointmentOrEncounter({ encounterId: validatedParameters.encounterId }, clinicalOystehr),
+        lookUpScheduleAccount: () => getEncounterScheduleStripeAccount(billingOystehr, validatedParameters.encounterId),
       })(notice)
     : undefined;
   const effectInput = await complexValidation(validatedParameters, notice, stripeAccount, stripeClient);
