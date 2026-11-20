@@ -866,30 +866,38 @@ describe('ad-hoc Patients: layers mapped with the app logic (fixture)', () => {
   });
 
   it('visit history: without an earlier visit, the intake staff "seen in the last 3 years" answer decides', async () => {
-    const staffAnswer = {
-      resourceType: 'Observation',
-      id: 'obs-seen',
-      status: 'final',
-      code: { text: 'seen-in-last-three-years' },
-      encounter: { reference: 'Encounter/enc-2' },
-      valueString: 'yes',
-      meta: {
-        tag: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/additional-questions-field`, code: 'seen-in-last-three-years' }],
-      },
-    };
-    const withAnswers = {
-      ...fakeOystehr,
-      fhir: {
-        ...fakeOystehr.fhir,
-        search: async (args: { resourceType: string }, options?: { mode?: string }) =>
-          args.resourceType === 'Observation' && options?.mode !== 'async-bulk'
-            ? { unbundle: () => [staffAnswer], link: [] }
-            : (fakeOystehr.fhir.search as any)(args, options),
-      },
-    } as unknown as Oystehr;
+    const staffAnswer = (id: string, value: string, lastUpdated: string): FhirResource =>
+      ({
+        resourceType: 'Observation',
+        id,
+        status: 'final',
+        code: { text: 'seen-in-last-three-years' },
+        encounter: { reference: 'Encounter/enc-2' },
+        valueString: value,
+        meta: {
+          lastUpdated,
+          tag: [
+            { system: `${PRIVATE_EXTENSION_BASE_URL}/additional-questions-field`, code: 'seen-in-last-three-years' },
+          ],
+        },
+      }) as FhirResource;
 
-    const rows = await fetchAdHocPatientRows(withAnswers, { dateRange, includeVisitHistory: true });
-    expect(rows.find((r) => r.patientId === 'pat-2')?.patientStatus).toBe('existing');
+    // The answers come through the report's search helpers (the async-bulk path here), beside the prior visits.
+    try {
+      resourcesByJob.Observation = [staffAnswer('obs-seen', 'yes', '2026-07-01T10:00:00.000Z')];
+      const rows = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeVisitHistory: true });
+      expect(rows.find((r) => r.patientId === 'pat-2')?.patientStatus).toBe('existing');
+
+      // Answered twice: the newest answer decides, whatever order the search returns them in.
+      resourcesByJob.Observation = [
+        staffAnswer('obs-new', 'no', '2026-07-02T10:00:00.000Z'),
+        staffAnswer('obs-old', 'yes', '2026-07-01T10:00:00.000Z'),
+      ].reverse();
+      const corrected = await fetchAdHocPatientRows(fakeOystehr, { dateRange, includeVisitHistory: true });
+      expect(corrected.find((r) => r.patientId === 'pat-2')?.patientStatus).toBe('new');
+    } finally {
+      delete resourcesByJob.Observation;
+    }
   });
 
   it('demographics: face-sheet details, PCP and pharmacy', async () => {

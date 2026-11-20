@@ -9,6 +9,7 @@ import {
   EpisodeOfCare,
   FhirResource,
   MedicationStatement,
+  Observation,
   Organization,
   Patient,
   Practitioner,
@@ -34,7 +35,12 @@ import { InsuranceCheckStatusWithDate } from 'utils/lib/types/data/telemed/eligi
 import { PATIENT_CONTAINED_PHARMACY_ID } from '../../../ehr/shared/harvest';
 import { fetchScopedResources, presentFullName } from '../../adhoc-report';
 import { mapResourceToChartDataResponse } from '../../chart-data';
-import { resolveNewPatients } from '../../new-patient';
+import {
+  groupSeenBeforeAnswers,
+  resolveNewPatients,
+  SEEN_BEFORE_ANSWER_TAGS,
+  seenBeforeEncounterIds,
+} from '../../new-patient';
 import { getOccupationalMedicineEmployerName } from '../../occupational-medicine-employer';
 import { composeAttorneyData } from '../../pdf/sections/attorneyInfo';
 import { composeEmergencyContactData } from '../../pdf/sections/emergencyContactInfo';
@@ -223,13 +229,38 @@ const visitHistoryLayer = definePatientLayer<{
   fetch: async (ctx) => {
     const lastAppointmentBeforeRange = new Map<string, string>();
     const seenBeforeRange = new Set<string>();
-    const priorStartedAt = Date.now();
-    const priorAppointments = await fetchScopedResources<Appointment>(ctx.oystehr, 'Appointment', 'patient', ctx.refs, [
-      { name: 'date', value: `lt${ctx.dateRange.start}` },
-      { name: '_elements', value: 'id,start,status,participant' },
-    ]);
+    const timedStep = async <T>(step: string, run: Promise<T>): Promise<T> => {
+      const startedAt = Date.now();
+      const out = await run;
+      ctx.timings.set(`visitHistory.${step}`, Date.now() - startedAt);
+      return out;
+    };
 
-    ctx.timings.set('visitHistory.priorAppointments', Date.now() - priorStartedAt);
+    // The prior visits and the seen-before screening answers side by side, both through the report's search
+    // helpers. The answers are loaded for every patient's deciding visits, not only for those the prior visits
+    // leave undecided: waiting for the prior visits first cost ~2.8 s on synth (r5), the extra answers cost little.
+    const deciding = Array.from(
+      new Set(ctx.refs.flatMap((patientRef) => seenBeforeEncounterIds(ctx.visitsByPatient.get(patientRef) ?? [])))
+    );
+    const [priorAppointments, answers] = await Promise.all([
+      timedStep(
+        'priorAppointments',
+        fetchScopedResources<Appointment>(ctx.oystehr, 'Appointment', 'patient', ctx.refs, [
+          { name: 'date', value: `lt${ctx.dateRange.start}` },
+          { name: '_elements', value: 'id,start,status,participant' },
+        ])
+      ),
+      timedStep(
+        'seenBeforeAnswers',
+        fetchScopedResources<Observation>(
+          ctx.oystehr,
+          'Observation',
+          'encounter',
+          deciding.map((id) => `Encounter/${id}`),
+          [{ name: '_tag', value: SEEN_BEFORE_ANSWER_TAGS }]
+        ).then(groupSeenBeforeAnswers)
+      ),
+    ]);
 
     const firstVisitInRange = new Map<string, string | undefined>();
     for (const [patientRef, visits] of ctx.visitsByPatient) {
@@ -263,7 +294,6 @@ const visitHistoryLayer = definePatientLayer<{
       }
     }
 
-    const seenBeforeStartedAt = Date.now();
     const newPatients = await resolveNewPatients(
       ctx.oystehr,
       new Map(
@@ -271,10 +301,9 @@ const visitHistoryLayer = definePatientLayer<{
           patientRef,
           { hasPriorVisit: seenBeforeRange.has(patientRef), visits: ctx.visitsByPatient.get(patientRef) ?? [] },
         ])
-      )
+      ),
+      answers
     );
-
-    ctx.timings.set('visitHistory.seenBeforeAnswers', Date.now() - seenBeforeStartedAt);
 
     return { lastAppointmentBeforeRange, newPatients };
   },
