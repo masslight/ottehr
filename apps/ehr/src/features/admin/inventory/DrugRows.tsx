@@ -1,11 +1,12 @@
 import { otherColors } from '@ehrTheme/colors';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
-import { Button, IconButton, Link, TableCell, TableRow } from '@mui/material';
+import { Box, Button, Chip, IconButton, Link, TableCell, TableRow } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { Fragment, ReactElement, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { FundingChip } from 'src/features/immunization/components/VaccineLotBlank';
 import { InventoryDrugRow, InventoryLotRow, InventoryMarker } from 'utils/lib/types/api/config/in-house-medications';
 import AdjustStockDialog from './AdjustStockDialog';
 import CountLotDialog from './CountLotDialog';
@@ -47,6 +48,7 @@ const DrugHeaderCells = ({ drug, open, onToggle, onHandMarkers }: DrugHeaderCell
         <Link component={RouterLink} to={`/admin/medication/${drug.medicationId}`} underline="hover">
           {drug.name}
         </Link>
+        {drug.type === 'vaccine' && <Chip size="small" label="Vaccine" sx={{ ml: 1, height: 20, fontSize: 12 }} />}
       </TableCell>
       <TableCell>
         {formatQuantity(drug.onHand, drug.countedAs)}
@@ -130,7 +132,14 @@ export const LocationDrugRows = ({ drug, locationName, open, onToggle }: Locatio
               <TableCell>
                 <ExpandButton open={expandedLots.has(lot.id)} onClick={() => toggleLot(lot.id)} indent />
               </TableCell>
-              <TableCell>Lot {lot.lotNumber}</TableCell>
+              <TableCell>
+                Lot {lot.lotNumber}
+                {drug.type === 'vaccine' && (
+                  <Box component="span" sx={{ ml: 1 }}>
+                    <FundingChip fundingSource={lot.fundingSource} />
+                  </Box>
+                )}
+              </TableCell>
               <TableCell>
                 {formatQuantity(lot.onHand, lot.unit)}
                 <MarkerChips markers={lot.markers} only={['below-zero']} />

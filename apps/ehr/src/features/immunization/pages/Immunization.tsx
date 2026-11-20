@@ -6,7 +6,11 @@ import { AccordionCard } from 'src/components/AccordionCard';
 import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { getImmunizationMARUrl, getImmunizationVaccineDetailsUrl } from 'src/features/visits/in-person/routing/helpers';
+import {
+  getImmunizationMARUrl,
+  getImmunizationScheduleUrl,
+  getImmunizationVaccineDetailsUrl,
+} from 'src/features/visits/in-person/routing/helpers';
 import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerson';
 import { Loader } from 'src/features/visits/shared/components/Loader';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -15,13 +19,16 @@ import { PageTitle } from '../../visits/shared/components/PageTitle';
 import { ImmunizationNotes } from '../components/ImmunizationNotes';
 import { OrderHistoryTable } from '../components/OrderHistoryTable';
 import { VaccineDetailsCardList } from '../components/VaccineDetailsCardList';
+import { ImmunizationTimelineContainer } from '../timeline/ImmunizationTimelineContainer';
 
 interface TabContentProps {
   isActive: boolean;
   children: React.ReactNode;
 }
 
-export type ImmunizationTab = 'mar' | 'vaccine-details';
+export type ImmunizationTab = 'mar' | 'vaccine-details' | 'schedule';
+
+const TABS: ImmunizationTab[] = ['mar', 'vaccine-details', 'schedule'];
 
 interface ImmunizationProps {
   tab?: ImmunizationTab;
@@ -57,7 +64,7 @@ export const Immunization: React.FC<ImmunizationProps> = ({ tab, onTabChange, on
   const [inlineScrollTo, setInlineScrollTo] = useState<string | undefined>(undefined);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const {
-    resources: { patient },
+    resources: { patient, encounter },
   } = useAppointmentData(appointmentId);
 
   const onNewOrderClick = (): void => {
@@ -65,21 +72,26 @@ export const Immunization: React.FC<ImmunizationProps> = ({ tab, onTabChange, on
     else navigate(`/in-person/${appointmentId}/${ROUTER_PATH.IMMUNIZATION_ORDER_CREATE}`);
   };
 
-  const onTabChanged = useCallback(() => {
-    isTabTransitionRef.current = true;
-    requestAnimationFrame(() => {
-      if (onTabChange) {
-        setInlineScrollTo(undefined);
-        onTabChange(tabName === 'mar' ? 'vaccine-details' : 'mar');
-        return;
-      }
-      if (tabName === 'mar') {
-        navigate(getImmunizationVaccineDetailsUrl(appointmentId!));
-      } else {
-        navigate(getImmunizationMARUrl(appointmentId!));
-      }
-    });
-  }, [appointmentId, navigate, tabName, onTabChange]);
+  const onTabChanged = useCallback(
+    (_event: React.SyntheticEvent, index: number) => {
+      const nextTab = TABS[index] ?? 'mar';
+      isTabTransitionRef.current = true;
+      requestAnimationFrame(() => {
+        if (onTabChange) {
+          setInlineScrollTo(undefined);
+          onTabChange(nextTab);
+          return;
+        }
+        const url = {
+          mar: getImmunizationMARUrl,
+          'vaccine-details': getImmunizationVaccineDetailsUrl,
+          schedule: getImmunizationScheduleUrl,
+        }[nextTab];
+        navigate(url(appointmentId!));
+      });
+    },
+    [appointmentId, navigate, onTabChange]
+  );
 
   // Inline replacement for the MAR row's navigation to the details tab with ?scrollTo=<orderId>
   const onShowOrderDetails = useCallback(
@@ -153,9 +165,14 @@ export const Immunization: React.FC<ImmunizationProps> = ({ tab, onTabChange, on
               width: 'calc(100% + 40px)',
             }}
           >
-            <Tabs value={tabName === 'mar' ? 0 : 1} onChange={onTabChanged} aria-label="medication tabs">
+            <Tabs
+              value={Math.max(0, TABS.indexOf(tabName as ImmunizationTab))}
+              onChange={onTabChanged}
+              aria-label="medication tabs"
+            >
               <Tab label="MAR" data-testid={dataTestIds.immunizationPage.marTab} />
               <Tab label="Immunization Details" data-testid={dataTestIds.immunizationPage.vaccineDetailsTab} />
+              <Tab label="Schedule" />
             </Tabs>
           </Box>
         </AppBar>
@@ -173,6 +190,11 @@ export const Immunization: React.FC<ImmunizationProps> = ({ tab, onTabChange, on
           <ImmunizationNotes />
         </TabContent>
         <TabContent isActive={tabName === 'vaccine-details'}>{content.details}</TabContent>
+        <TabContent isActive={tabName === 'schedule'}>
+          {tabName === 'schedule' && (
+            <ImmunizationTimelineContainer patientId={patient?.id} encounterId={encounter?.id} readOnly={isReadOnly} />
+          )}
+        </TabContent>
       </Box>
     </Stack>
   );

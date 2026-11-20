@@ -20,11 +20,14 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
   applyOrderAdministrationDetails,
+  getImmunizationOrder,
   IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
   updateOrderDetails,
   validateAdministrationDetailsValues,
   validateOrderDetails,
 } from '../common';
+import { immunizationSyncRequest } from '../records';
+import { applyVaccineDoseFunding } from '../vaccine-stock';
 
 let m2mToken: string;
 
@@ -53,11 +56,26 @@ async function createImmunizationOrder(
   input: CreateUpdateImmunizationOrderRequest,
   userPractitionerId: string
 ): Promise<CreateUpdateImmunizationOrderResponse> {
-  const { encounterId, details, administrationDetails } = input;
   const encounter = await oystehr.fhir.get<Encounter>({
     resourceType: 'Encounter',
-    id: encounterId,
+    id: input.encounterId,
   });
+  const medicationAdministration = await buildImmunizationOrder(oystehr, input, encounter, userPractitionerId);
+  const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
+  return {
+    orderId: createdMedicationAdministration.id!,
+  };
+}
+
+/** A new in-progress order on the encounter, ordered by the practitioner at `orderedAt` (now, from the endpoint). */
+export async function buildImmunizationOrder(
+  oystehr: Oystehr,
+  input: CreateUpdateImmunizationOrderRequest,
+  encounter: Encounter,
+  userPractitionerId: string,
+  orderedAt: DateTime = DateTime.now()
+): Promise<MedicationAdministration> {
+  const { details, administrationDetails } = input;
   if (!encounter.subject) {
     throw new Error(`Encounter ${encounter.id} has no subject`);
   }
@@ -79,21 +97,19 @@ async function createImmunizationOrder(
         },
       },
     ],
-    effectiveDateTime: DateTime.now().toISO(),
+    effectiveDateTime: orderedAt.toISO()!,
     extension: [
       {
         url: IMMUNIZATION_ORDER_CREATED_DATETIME_EXTENSION_URL,
-        valueDateTime: DateTime.now().toISO(),
+        valueDateTime: orderedAt.toISO()!,
       },
     ],
     meta: fillMeta('immunization', 'immunization'),
   };
   await updateOrderDetails(medicationAdministration, details, oystehr);
   applyOrderAdministrationDetails(medicationAdministration, administrationDetails);
-  const createdMedicationAdministration = await oystehr.fhir.create(medicationAdministration);
-  return {
-    orderId: createdMedicationAdministration.id!,
-  };
+  applyVaccineDoseFunding(medicationAdministration, administrationDetails);
+  return medicationAdministration;
 }
 
 export async function updateImmunizationOrder(
@@ -101,10 +117,7 @@ export async function updateImmunizationOrder(
   input: CreateUpdateImmunizationOrderRequest
 ): Promise<CreateUpdateImmunizationOrderResponse> {
   const { orderId, details, administrationDetails } = input;
-  const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
-    resourceType: 'MedicationAdministration',
-    id: orderId!,
-  });
+  const medicationAdministration = await getImmunizationOrder(oystehr, orderId!);
   // administered orders are edited through administer-immunization-order, which keeps statements and CPT lines in sync
   if (administrationDetails && medicationAdministration.status !== 'in-progress') {
     const currentStatus = mapFhirToOrderStatus(medicationAdministration);
@@ -112,7 +125,11 @@ export async function updateImmunizationOrder(
   }
   await updateOrderDetails(medicationAdministration, details, oystehr);
   applyOrderAdministrationDetails(medicationAdministration, administrationDetails);
+  applyVaccineDoseFunding(medicationAdministration, administrationDetails);
   await oystehr.fhir.update(medicationAdministration);
+  // an administered order's Immunization record takes the edited dose, route and site
+  const immunizationRequest = await immunizationSyncRequest(oystehr, medicationAdministration);
+  if (immunizationRequest) await oystehr.fhir.transaction({ requests: [immunizationRequest] });
   return {
     orderId: medicationAdministration.id!,
   };

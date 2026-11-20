@@ -15,13 +15,28 @@ export interface CptCodeEntry {
   billableUnits?: number;
 }
 
+/** The list with `code` counted `billableUnits` times; an invalid count leaves the list as it is. */
+export const setCptCodeUnits = (cptCodes: CptCodeEntry[], code: string, billableUnits: number): CptCodeEntry[] =>
+  Number.isInteger(billableUnits) && billableUnits > 0
+    ? cptCodes.map((c) => (c.code === code ? { ...c, billableUnits } : c))
+    : cptCodes;
+
+/**
+ * The list with `code` added once; with designation, the first code added becomes the medication. With counts
+ * (90461 ×5), picking a code again adds one to its count instead.
+ */
 export const addCptCode = (
   cptCodes: CptCodeEntry[],
   code: CPTCodeDTO,
-  showMedicationDesignation: boolean
+  showMedicationDesignation: boolean,
+  withBillableUnits = false
 ): CptCodeEntry[] => {
-  if (cptCodes.some((c) => c.code === code.code)) return cptCodes;
+  const existing = cptCodes.find((c) => c.code === code.code);
+  if (existing) {
+    return withBillableUnits ? setCptCodeUnits(cptCodes, code.code, (existing.billableUnits ?? 1) + 1) : cptCodes;
+  }
   const newEntry: CptCodeEntry = { code: code.code, display: code.display };
+  if (withBillableUnits) newEntry.billableUnits = 1;
   if (showMedicationDesignation && cptCodes.length === 0) newEntry.isMedication = true;
   return [...cptCodes, newEntry];
 };
@@ -115,6 +130,8 @@ interface CptCodesInputProps {
   dataTestId?: string;
   /** When true, exactly one code is designated as the medication itself and can be re-designated from the list */
   showMedicationDesignation?: boolean;
+  /** When true, each code carries a count (90461 ×5): a units field beside it, and picking a code again adds one. */
+  withBillableUnits?: boolean;
 }
 
 export const CptCodesInput: FC<CptCodesInputProps> = ({
@@ -123,6 +140,7 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({
   isEditable,
   dataTestId,
   showMedicationDesignation = false,
+  withBillableUnits = false,
 }) => {
   return (
     <Box>
@@ -132,7 +150,7 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({
       {isEditable && (
         <CptCodeSearch
           dataTestId={dataTestId}
-          onPick={(code) => onChange(addCptCode(cptCodes, code, showMedicationDesignation))}
+          onPick={(code) => onChange(addCptCode(cptCodes, code, showMedicationDesignation, withBillableUnits))}
         />
       )}
       {cptCodes.length > 0 ? (
@@ -162,6 +180,24 @@ export const CptCodesInput: FC<CptCodesInputProps> = ({
                   {code.code} {code.display}
                 </Typography>
               </Box>
+              {withBillableUnits && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1, flexShrink: 0 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    ×
+                  </Typography>
+                  {isEditable ? (
+                    <TextField
+                      type="number"
+                      size="small"
+                      value={code.billableUnits ?? 1}
+                      onChange={(event) => onChange(setCptCodeUnits(cptCodes, code.code, Number(event.target.value)))}
+                      inputProps={{ min: 1, step: 1, 'aria-label': `Units for ${code.code}`, style: { width: 40 } }}
+                    />
+                  ) : (
+                    <Typography variant="body2">{code.billableUnits ?? 1}</Typography>
+                  )}
+                </Box>
+              )}
               {isEditable && (
                 <DeleteIconButton
                   onClick={() => onChange(removeCptCode(cptCodes, code.code, showMedicationDesignation))}

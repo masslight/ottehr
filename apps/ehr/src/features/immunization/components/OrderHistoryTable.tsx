@@ -4,8 +4,9 @@ import { useParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { GetImmunizationOrdersRequest } from 'utils/lib/types/data/immunization/types';
-import { useGetImmunizationOrders } from '../../visits/in-person/hooks/useImmunization';
+import { useGetImmunizationOrders, useGetPatientImmunizations } from '../../visits/in-person/hooks/useImmunization';
 import { ordersRecentFirstComparator } from '../common';
+import { ExternalImmunizationRow } from './ExternalImmunizationRow';
 import { OrderHistoryTableRow } from './OrderHistoryTableRow';
 import { OrderHistoryTableSkeletonBody } from './OrderHistoryTableSkeletonBody';
 
@@ -40,7 +41,14 @@ export const OrderHistoryTable: React.FC<Props> = ({
     .sort(ordersRecentFirstComparator)
     .filter((order) => (administeredOnly ? ['administered', 'administered-partly'].includes(order.status) : true));
 
-  const isLoading = patientIdLoading || ordersLoading;
+  // The history also lists the doses administered externally, which have no order
+  const { data: patientImmunizations, isLoading: externalLoading } = useGetPatientImmunizations(
+    administeredOnly ? immunizationInput?.patientId : undefined
+  );
+  const externalDoses = (patientImmunizations?.immunizations ?? []).filter((record) => record.external);
+
+  const isLoading =
+    patientIdLoading || ordersLoading || (administeredOnly && !!immunizationInput?.patientId && externalLoading);
 
   // When administeredOnly is true (backward compat for pre-visit history accordion), show flat table
   if (administeredOnly) {
@@ -69,7 +77,10 @@ export const OrderHistoryTable: React.FC<Props> = ({
                   onShowDetails={onShowDetails}
                 />
               ))}
-              {orders.length === 0 && (
+              {externalDoses.map((record) => (
+                <ExternalImmunizationRow key={record.id} record={record} />
+              ))}
+              {orders.length === 0 && externalDoses.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5}>
                     <Typography variant="body1" sx={{ opacity: 0.65 }}>

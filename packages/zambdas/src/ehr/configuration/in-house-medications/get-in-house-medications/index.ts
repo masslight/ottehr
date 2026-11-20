@@ -1,7 +1,10 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Medication } from 'fhir/r4b';
-import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  INVENTORY_MEDICATION_TYPE_CODE,
+  INVENTORY_VACCINE_TYPE_CODE,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
@@ -32,9 +35,10 @@ export const performEffect = async (oystehr: Oystehr): Promise<Medication[]> => 
     await oystehr.fhir.search<Medication>({
       resourceType: 'Medication',
       params: [
+        // Medications and vaccines share the catalog
         {
           name: 'identifier',
-          value: INVENTORY_MEDICATION_TYPE_CODE,
+          value: `${INVENTORY_MEDICATION_TYPE_CODE},${INVENTORY_VACCINE_TYPE_CODE}`,
         },
       ],
     })

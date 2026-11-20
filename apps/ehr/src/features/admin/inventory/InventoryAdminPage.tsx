@@ -26,6 +26,7 @@ import { ListMedicationInventoryInput } from 'utils/lib/types/api/config/in-hous
 import { AllLocationsDrugRows, LocationDrugRows } from './DrugRows';
 import { storedLocationId, useToggleSet } from './inventory.helpers';
 import { useMedicationInventory } from './inventory.queries';
+import VfcBorrowingLog from './VfcBorrowingLog';
 
 const ALL_LOCATIONS = '';
 const NUM_LOADING_ROWS = 3;
@@ -231,8 +232,9 @@ const InventoryAdminPage = (): ReactElement => {
         </TableContainer>
       )}
       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-        Only medications set up for inventory appear here.
+        Only medications and vaccines set up for inventory appear here.
       </Typography>
+      <VfcBorrowingLog />
     </Box>
   );
 };

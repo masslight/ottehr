@@ -1,12 +1,18 @@
 import { z } from 'zod';
 import { IN_HOUSE_MEDICATION_UNIT_OPTIONS, MedicationUnitOptions } from '../../../fhir/medication-administration';
+import { VaccineFundingSource, VaccineFundingSourceSchema, VfcEligibilityCode } from '../../data/immunization/vfc';
 
+/** A drug from the Medispan search, or (with `vaccine`) a vaccine from the CVX list; the vaccine needs nothing else. */
 export interface CreateInHouseMedicationInput {
-  name: string;
+  name?: string;
   ndc?: string;
-  medispanID: string;
+  medispanID?: string;
   medispanIDForInteractions?: string;
+  vaccine?: { cvx: string };
 }
+
+/** What the catalog entry is: an in-house medication or a vaccine. */
+export type CatalogMedicationType = 'medication' | 'vaccine';
 
 export const MEDICATION_COUNTED_AS_OPTIONS = [
   'vial',
@@ -19,6 +25,7 @@ export const MEDICATION_COUNTED_AS_OPTIONS = [
   'inhaler',
   'swab',
   'packet',
+  'dose',
   'other',
 ] as const;
 export type MedicationCountedAs = (typeof MEDICATION_COUNTED_AS_OPTIONS)[number];
@@ -33,6 +40,7 @@ export const MEDICATION_COUNTED_AS_LABELS: Record<MedicationCountedAs, { singula
   inhaler: { singular: 'Inhaler', plural: 'inhalers' },
   swab: { singular: 'Swab', plural: 'swabs' },
   packet: { singular: 'Packet', plural: 'packets' },
+  dose: { singular: 'Dose', plural: 'doses' },
   other: { singular: 'Other', plural: 'items' },
 };
 
@@ -62,6 +70,14 @@ export const InHouseMedicationInventorySchema = z.object({
     .default([]),
 });
 export type InHouseMedicationInventory = z.infer<typeof InHouseMedicationInventorySchema>;
+
+/** A vaccine's stock is counted in doses, one per syringe or vial, and set up the moment it is added. */
+export const VACCINE_DEFAULT_INVENTORY: InHouseMedicationInventory = {
+  countedAs: 'dose',
+  eachContains: { amount: 1, unit: 'unit' },
+  use: 'single-use',
+  reorderLevels: [],
+};
 
 export type UpdateInHouseMedicationInput = Partial<CreateInHouseMedicationInput> & {
   medicationID: string;
@@ -124,7 +140,11 @@ export interface InventoryLot {
   expirationDate: string;
   ndc?: string;
   manufacturer?: string;
+  /** Vaccine lots: the manufacturer's CDC MVX code, from the NDC crosswalk. */
+  mvx?: string;
   vendor?: string;
+  /** Vaccine lots: what the stock was paid with. Absent on medication lots (and on vaccine lots received before it existed). */
+  fundingSource?: VaccineFundingSource;
   onHand: number;
   unit: string;
   status: 'active' | 'inactive';
@@ -159,6 +179,8 @@ export const ReceiveMedicationShipmentInputSchema = z.object({
   ndc: z.string().trim().min(1),
   manufacturer: z.string().trim().min(1).optional(),
   vendor: z.string().trim().min(1).optional(),
+  /** Vaccines only: VFC, private or state stock. */
+  fundingSource: VaccineFundingSourceSchema.optional(),
   expirationConflict: z.enum(['separate-lot', 'correct-existing']).optional(),
   lotId: z.string().uuid().optional(),
 });
@@ -181,7 +203,11 @@ export type ReceiveMedicationShipmentResponse =
   | { expirationConflict: ReceiveExpirationConflict };
 
 export const LookupNdcInputSchema = z.object({
-  ndc: z.string().trim().min(1),
+  // A box NDC: digits and dashes only (10 or 11 digits, hyphenated or not); never anything else reaches a lookup.
+  ndc: z
+    .string()
+    .trim()
+    .regex(/^[0-9-]{1,20}$/, 'NDC must be digits and dashes'),
   medicationId: z.string().uuid(),
 });
 export type LookupNdcInput = z.infer<typeof LookupNdcInputSchema>;
@@ -197,7 +223,10 @@ export interface LookupNdcResponse {
     packageDescription?: string;
     rxcuis: string[];
   };
-  comparedBy?: 'rxcui' | 'name';
+  /** How match/mismatch was decided: RxCUI when both sides have one, otherwise generic name; CVX for a vaccine. */
+  comparedBy?: 'rxcui' | 'name' | 'cvx';
+  /** For a vaccine catalog entry: what the CDC NDC crosswalk says the box is. */
+  vaccine?: { cvx: string; vaccineName: string; mvx: string };
 }
 
 export const GetMedicationInventoryInputSchema = z.object({
@@ -207,7 +236,11 @@ export const GetMedicationInventoryInputSchema = z.object({
 export type GetMedicationInventoryInput = z.infer<typeof GetMedicationInventoryInputSchema>;
 
 export interface GetMedicationInventoryResponse {
-  lastReceivedLot?: Pick<InventoryLot, 'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'vendor'>;
+  /** The lot of this drug (any location) with the newest "received" entry; prefills the receive dialog. */
+  lastReceivedLot?: Pick<
+    InventoryLot,
+    'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'mvx' | 'vendor' | 'fundingSource'
+  >;
   lots?: InventoryLot[];
 }
 
@@ -242,6 +275,7 @@ export const ListMedicationInventoryInputSchema = z.discriminatedUnion('view', [
   z.object({ view: z.literal('all-locations'), today: TodaySchema }),
   z.object({ view: z.literal('location'), locationId: z.string().uuid(), today: TodaySchema }),
   z.object({ view: z.literal('lot-history'), lotId: z.string().uuid() }),
+  z.object({ view: z.literal('vfc-borrowing') }),
 ]);
 export type ListMedicationInventoryInput = z.infer<typeof ListMedicationInventoryInputSchema>;
 
@@ -261,6 +295,7 @@ export interface InventoryLotRow extends InventoryLot {
 export interface InventoryDrugRow {
   medicationId: string;
   name: string;
+  type: CatalogMedicationType;
   countedAs: MedicationCountedAs;
   use: MedicationUse;
   onHand: number;
@@ -279,9 +314,29 @@ export interface InventoryHistoryEntry extends InventoryStockEntry {
   visit?: { appointmentId?: string; patientName?: string; date?: string };
 }
 
+/** One borrowed vaccine dose on the VFC borrowing log, newest first. */
+export interface VfcBorrowingRow {
+  id: string;
+  date: string;
+  patientName?: string;
+  appointmentId?: string;
+  vaccineName?: string;
+  lotNumber?: string;
+  /** The stock the dose came from… */
+  fundingSource: VaccineFundingSource;
+  /** …and the stock it should have come from. */
+  owedTo: VaccineFundingSource;
+  vfcEligibility?: VfcEligibilityCode;
+  reason: string;
+  performerName?: string;
+  replaced?: { date: string; performerName?: string };
+}
+
 export interface ListMedicationInventoryResponse {
   drugs: InventoryDrugRow[];
   entries: InventoryHistoryEntry[];
+  /** VFC borrowing view. */
+  borrowings?: VfcBorrowingRow[];
 }
 
 export const AdjustMedicationInventoryInputSchema = z
@@ -299,6 +354,8 @@ export const AdjustMedicationInventoryInputSchema = z
       lotId: z.string().uuid(),
       counted: z.number().int().nonnegative(),
     }),
+    /** A borrowed VFC dose was paid back to the stock it came from. */
+    z.object({ action: z.literal('borrowing-replaced'), borrowingId: z.string().uuid() }),
   ])
   .superRefine((input, ctx) => {
     if (input.action === 'adjust' && input.direction === 'remove' && !input.reason) {
@@ -310,4 +367,4 @@ export const AdjustMedicationInventoryInputSchema = z
   });
 export type AdjustMedicationInventoryInput = z.infer<typeof AdjustMedicationInventoryInputSchema>;
 
-export type AdjustMedicationInventoryResponse = InventoryStockWriteResponse;
+export type AdjustMedicationInventoryResponse = InventoryStockWriteResponse | { borrowing: VfcBorrowingRow };

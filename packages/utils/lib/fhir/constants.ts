@@ -17,6 +17,7 @@ import {
   DISCHARGE_SUMMARY_CODE,
   EXPORTED_QUESTIONNAIRE_CODE,
   FAX_PACKET_CODE,
+  IMMUNIZATION_RECORD_CODE,
   INSURANCE_CARD_CODE,
   MEDICAL_RECORD_EXPORT_CODE,
   PATIENT_EDUCATION_DOC_TYPE_CODE,
@@ -813,6 +814,8 @@ export const BUCKET_NAMES = {
 } as const;
 
 export type BucketName = (typeof BUCKET_NAMES)[keyof typeof BUCKET_NAMES];
+/** Patient Record › Docs folder of the immunization record PDFs (not a bucket: they sit in discharge-summaries). */
+export const IMMUNIZATION_RECORDS_FOLDER = 'immunization-records';
 export interface ListConfig {
   title: string;
   display: string;
@@ -884,6 +887,12 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     title: BUCKET_NAMES.DISCHARGE_SUMMARIES,
     display: 'Discharge Summary',
     documentTypeCode: DISCHARGE_SUMMARY_CODE,
+  },
+  {
+    // The PDFs share the discharge-summaries bucket; the folder is the record's own.
+    title: IMMUNIZATION_RECORDS_FOLDER,
+    display: 'Immunization Records',
+    documentTypeCode: IMMUNIZATION_RECORD_CODE,
   },
   {
     title: BUCKET_NAMES.STATEMENTS,

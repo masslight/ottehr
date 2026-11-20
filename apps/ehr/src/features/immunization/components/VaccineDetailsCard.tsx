@@ -1,15 +1,14 @@
 import { LoadingButton } from '@mui/lab';
-import { Grid, Paper, Stack, Typography, useTheme } from '@mui/material';
+import { Divider, Skeleton, Stack } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AccordionCard } from 'src/components/AccordionCard';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
-import { PhoneInput } from 'src/components/input/PhoneInput';
-import { SelectInput } from 'src/components/input/SelectInput';
-import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { Sentence } from 'src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import {
   useAdministerImmunizationOrder,
@@ -17,78 +16,124 @@ import {
 } from 'src/features/visits/in-person/hooks/useImmunization';
 import { getImmunizationMARUrl } from 'src/features/visits/in-person/routing/helpers';
 import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
-import { QuickPicksButton } from 'src/features/visits/shared/components/QuickPicksButton';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
+import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { cleanupProperties } from 'src/helpers/misc.helper';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useGetPatientAccount } from 'src/hooks/useGetPatient';
 import { BASE_ROUTE_OPTIONS } from 'src/shared/utils/options';
 import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-administration.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
+import { effectiveVfcEligibility } from 'utils/lib/types/data/immunization/vfc';
 import { enqueueOrderDeleteWarnings } from '../../visits/shared/utils/orderDeleteWarnings';
-import { ADMINISTERED, AdministrationType, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../common';
+import {
+  ADMINISTERED,
+  AdministrationType,
+  formatPatientEmergencyContact,
+  formatRecordedEmergencyContact,
+  NOT_ADMINISTERED,
+  PARTLY_ADMINISTERED,
+} from '../common';
 import { useImmunizationQuickPickManagement } from '../hooks/useImmunizationQuickPickManagement';
-import { AdministeringImmunizationFields } from './AdministeringImmunizationFields';
+import { useVfcEligibility } from '../hooks/useVaccineInventory';
 import { AdministrationConfirmationDialog } from './AdministrationConfirmationDialog';
-import { OrderDetailsSection } from './OrderDetailsSection';
+import {
+  administrationErrors,
+  applyImmunizationQuickPick,
+  ImmunizationLine,
+  immunizationLineErrors,
+  immunizationLineFrom,
+} from './immunizationLines';
+import { ImmunizationSectionLabel, ImmunizationSentences } from './ImmunizationSentences';
 import { OrderStatusChip } from './OrderStatusChip';
+import { needsVfcConfirmation, shownVfcEligibility } from './VfcEligibilityBox';
 
 interface Props {
   order: ImmunizationOrder;
   onFinished?: () => void;
 }
 
-const RELATIONSHIP_OPTIONS = Object.entries(EMERGENCY_CONTACT_RELATIONSHIPS).map(([_, value]) => ({
-  value: value.code,
-  label: value.display,
-}));
+/** The reason the confirmation dialog asks for when the order isn't marked administered. */
+interface ReasonValues {
+  reason?: string;
+  otherReason: string;
+  /** The dialog's "Confirm VFC eligibility" box. */
+  confirmVfc: boolean;
+}
+
+const lineFromOrder = (order: ImmunizationOrder): ImmunizationLine => {
+  // The server records the patient's emergency contact on administration, so the line never sends one.
+  const { emergencyContact: _recordedContact, ...administrationDetails } = order.administrationDetails ?? {};
+  return immunizationLineFrom({
+    details: order.details,
+    administrationDetails: {
+      ...administrationDetails,
+      administeredDateTime: getInitialAdministeredDateTime(order),
+      visGiven: order.administrationDetails?.visGiven ?? false,
+    },
+  });
+};
 
 export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
-  const methods = useForm();
+  // The order as one line, as the order page holds it.
+  const [line, setLine] = useState(() => lineFromOrder(order));
   useEffect(() => {
-    methods.reset({
-      ...order,
-      administrationDetails: {
-        ...order.administrationDetails,
-        administeredDateTime: getInitialAdministeredDateTime(order),
-        visGiven: order.administrationDetails?.visGiven ?? false,
-      },
-      otherReason: '',
-    });
-  }, [methods, order]);
+    setLine(lineFromOrder(order));
+  }, [order]);
+  const reasonForm = useForm<ReasonValues>({ defaultValues: { otherReason: '', confirmVfc: true } });
 
-  const theme = useTheme();
   const navigate = useNavigate();
   const [showAdministrationConfirmationDialog, setShowAdministrationConfirmationDialog] = useState<boolean>(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const administrationTypeRef = useRef<AdministrationType>(ADMINISTERED);
+  const [administrationType, setAdministrationType] = useState<AdministrationType>(ADMINISTERED);
+  const [attempted, setAttempted] = useState(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { id: appointmentId } = useParams();
-  const { mappedData } = useAppointmentData(appointmentId);
+  const { mappedData, resources } = useAppointmentData(appointmentId);
+  const { data: vfc } = useVfcEligibility(order.encounterId || undefined);
+  // The lots and borrowing go by the eligibility line's category; an adult is never eligible.
+  const vfcEligibility = effectiveVfcEligibility(shownVfcEligibility(vfc), resources?.patient?.birthDate);
+  const apiClient = useOystehrAPIClient();
+  const showsPatientEmergencyContact = order.status === 'pending' || order.status === 'administered-not';
+  const { data: patientAccount, isError: isPatientAccountError } = useGetPatientAccount({
+    apiClient,
+    patientId: showsPatientEmergencyContact ? resources?.patient?.id ?? null : null,
+  });
+  const isEmergencyContactLoading = showsPatientEmergencyContact && !patientAccount && !isPatientAccountError;
+  const emergencyContact = showsPatientEmergencyContact
+    ? formatPatientEmergencyContact(patientAccount?.emergencyContactResource)
+    : formatRecordedEmergencyContact(order.administrationDetails?.emergencyContact);
+  const emergencyContactText = isPatientAccountError
+    ? 'Could not load emergency contact'
+    : emergencyContact ?? 'Not provided';
 
   const { mutateAsync: administerOrder } = useAdministerImmunizationOrder();
   const { mutateAsync: cancelOrder, isPending: isDeleting } = useCancelImmunizationOrder(order.encounterId);
   const currentUser = useEvolveUser();
-  const isAdmin = currentUser?.hasRole([RoleType.Administrator]) ?? false;
+  const isAdmin = currentUser?.hasRole([RoleType.Administrator, RoleType.CustomerSupport]) ?? false;
 
   const {
     mergedQuickPicks,
-    mergedQuickPicksLoading,
     quickPickDialogOpen,
     setQuickPickDialogOpen,
     quickPickName,
     setQuickPickName,
     existingQuickPicks,
     quickPickSaving,
-    onQuickPickSelect,
     openQuickPickDialog,
     onSaveAsQuickPick,
-  } = useImmunizationQuickPickManagement({ methods, applyOrderDetails: false });
+  } = useImmunizationQuickPickManagement({ getValues: () => line });
+  const onQuickPickSelect = (quickPick: Parameters<typeof applyImmunizationQuickPick>[1]): void =>
+    setLine((current) => applyImmunizationQuickPick(current, quickPick, true));
+
+  const errorsFor = (type: AdministrationType): string[] => [
+    ...immunizationLineErrors(line),
+    ...administrationErrors(line, type !== NOT_ADMINISTERED),
+  ];
 
   const handleDeleteOrder = async (): Promise<void> => {
     try {
@@ -108,14 +153,18 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     }
   };
 
-  const onSubmit = async (data: any): Promise<void> => {
-    if (data.otherReason?.trim()) {
-      data.reason = data.otherReason;
-    }
+  const onSubmit = async ({ reason, otherReason }: ReasonValues): Promise<void> => {
+    const data = {
+      ...order,
+      details: line.details,
+      administrationDetails: line.administrationDetails,
+      reason: otherReason?.trim() ? otherReason : reason,
+      otherReason,
+    };
     try {
       await administerOrder({
         orderId: order.id,
-        type: administrationTypeRef.current.type,
+        type: administrationType.type,
         ...(await cleanupProperties(data)),
       });
       if (onFinished) {
@@ -131,188 +180,134 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
     }
   };
 
-  const onAdministrationActionClick = async (administrationType: AdministrationType): Promise<void> => {
-    administrationTypeRef.current = administrationType;
-    if (await methods.trigger()) {
-      setShowAdministrationConfirmationDialog(true);
-    }
-  };
-
-  const requiredForAdministration = (value: string | undefined): boolean | string => {
-    if (administrationTypeRef.current !== NOT_ADMINISTERED && (typeof value === 'string' ? !value.trim() : !value)) {
-      return REQUIRED_FIELD_ERROR_MESSAGE;
-    }
-    return true;
-  };
-
-  const validateEmergencyContactField = (value: string | undefined): boolean | string => {
-    const contact = methods.getValues('administrationDetails.emergencyContact') ?? {};
-    const isFilled = (v: unknown): boolean => typeof v === 'string' && v.trim().length > 0;
-    const anyFilled = isFilled(contact.relationship) || isFilled(contact.fullName) || isFilled(contact.mobile);
-
-    if (anyFilled && !isFilled(value)) {
-      return 'Complete all emergency contact fields or leave them all empty';
-    }
-
-    return true;
+  const onAdministrationActionClick = (type: AdministrationType): void => {
+    setAdministrationType(type);
+    setAttempted(true);
+    if (errorsFor(type).length > 0) return;
+    reasonForm.setValue('confirmVfc', true);
+    setShowAdministrationConfirmationDialog(true);
   };
 
   return (
-    <FormProvider {...methods}>
-      <form onSubmit={methods.handleSubmit(onSubmit)}>
-        <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: 0 }}>
-          <Stack spacing={2}>
-            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-              <Grid container spacing={2}>
-                <Grid xs={12} item>
-                  <OrderDetailsSection />
-                </Grid>
-                <Grid xs={12} item>
-                  <Typography
-                    variant="h5"
+    <>
+      <AccordionCard>
+        <Stack spacing={1.5} style={{ padding: '24px' }}>
+          <ImmunizationSectionLabel>Order</ImmunizationSectionLabel>
+          <ImmunizationSentences
+            line={line}
+            index={0}
+            onChange={setLine}
+            quickPicks={mergedQuickPicks}
+            onQuickPick={onQuickPickSelect}
+            onSaveQuickPick={isAdmin ? () => void openQuickPickDialog() : undefined}
+            errors={attempted ? errorsFor(administrationType) : []}
+            readOnly={isReadOnly}
+            needAdministration
+            locationId={resources?.location?.id}
+            vfcEligibility={vfcEligibility}
+            patientFirstName={resources?.patient?.firstName}
+          >
+            <Sentence>
+              Emergency contact:{' '}
+              {isEmergencyContactLoading ? (
+                <Skeleton variant="text" width={300} sx={{ display: 'inline-block' }} />
+              ) : (
+                <span data-testid={dataTestIds.vaccineDetailsPage.emergencyContact}>{emergencyContactText}</span>
+              )}
+            </Sentence>
+          </ImmunizationSentences>
+
+          <Divider orientation="horizontal" />
+
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack direction="row" spacing={1} alignItems="center">
+              <OrderStatusChip status={order.status} />
+              {order.status !== 'cancelled' && !isReadOnly && (
+                <>
+                  <LoadingButton
+                    variant="outlined"
+                    color="error"
+                    size="large"
+                    loading={isDeleting}
+                    onClick={() => setIsDeleteDialogOpen(true)}
                     sx={{
-                      color: theme.palette.primary.dark,
+                      borderRadius: '20px',
+                      textTransform: 'none',
                     }}
                   >
-                    Administering immunization
-                  </Typography>
-                  {!isReadOnly && (
-                    <QuickPicksButton
-                      quickPicks={mergedQuickPicks}
-                      loading={mergedQuickPicksLoading}
-                      getLabel={(qp) => qp.name}
-                      onSelect={onQuickPickSelect}
-                      showAddOption
-                      isAdmin={isAdmin}
-                      onAddOrUpdate={() => void openQuickPickDialog()}
-                      searchable
-                    />
-                  )}
-                </Grid>
-                <AdministeringImmunizationFields validate={requiredForAdministration} isReadOnly={isReadOnly} />
-                <Grid xs={12} item>
-                  <Typography
-                    variant="h5"
-                    sx={{
-                      color: theme.palette.primary.dark,
-                    }}
-                  >
-                    Emergency contact
-                  </Typography>
-                </Grid>
-                <Grid xs={4} item>
-                  <SelectInput
-                    name="administrationDetails.emergencyContact.relationship"
-                    label="Relationship"
-                    options={RELATIONSHIP_OPTIONS.map((option) => option.value)}
-                    getOptionLabel={(option) =>
-                      RELATIONSHIP_OPTIONS.find((opt) => opt.value === option)?.label ?? option
-                    }
-                    validate={validateEmergencyContactField}
-                    dataTestId={dataTestIds.vaccineDetailsPage.relationship}
+                    Delete Order
+                  </LoadingButton>
+                  <CustomDialog
+                    open={isDeleteDialogOpen}
+                    handleClose={() => setIsDeleteDialogOpen(false)}
+                    title="Delete immunization order"
+                    description="Are you sure you want to delete the immunization order?"
+                    closeButtonText="Cancel"
+                    closeButton={false}
+                    handleConfirm={handleDeleteOrder}
+                    confirmText={isDeleting ? 'Deleting...' : 'Delete'}
+                    confirmLoading={isDeleting}
                   />
-                </Grid>
-                <Grid xs={4} item>
-                  <TextInput
-                    name="administrationDetails.emergencyContact.fullName"
-                    label="Full name"
-                    validate={validateEmergencyContactField}
-                    dataTestId={dataTestIds.vaccineDetailsPage.fullName}
-                  />
-                </Grid>
-                <Grid xs={4} item>
-                  <PhoneInput
-                    name="administrationDetails.emergencyContact.mobile"
-                    label="Mobile"
-                    validate={validateEmergencyContactField}
-                    dataTestId={dataTestIds.vaccineDetailsPage.mobile}
-                  />
-                </Grid>
-                <Grid xs={12} item>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <OrderStatusChip status={order.status} />
-                      {order.status !== 'cancelled' && !isReadOnly && (
-                        <>
-                          <LoadingButton
-                            variant="outlined"
-                            color="error"
-                            size="large"
-                            loading={isDeleting}
-                            onClick={() => setIsDeleteDialogOpen(true)}
-                            sx={{
-                              borderRadius: '20px',
-                              textTransform: 'none',
-                            }}
-                          >
-                            Delete Order
-                          </LoadingButton>
-                          <CustomDialog
-                            open={isDeleteDialogOpen}
-                            handleClose={() => setIsDeleteDialogOpen(false)}
-                            title="Delete immunization order"
-                            description="Are you sure you want to delete the immunization order?"
-                            closeButtonText="Cancel"
-                            closeButton={false}
-                            handleConfirm={handleDeleteOrder}
-                            confirmText={isDeleting ? 'Deleting...' : 'Delete'}
-                            confirmLoading={isDeleting}
-                          />
-                        </>
-                      )}
-                    </Stack>
-                    <Stack direction="row">
-                      <ButtonRounded
-                        variant="outlined"
-                        color="primary"
-                        size="large"
-                        onClick={async () => onAdministrationActionClick(NOT_ADMINISTERED)}
-                        disabled={isReadOnly}
-                        data-testid={dataTestIds.vaccineDetailsPage.notAdministeredButton}
-                      >
-                        Not Administered
-                      </ButtonRounded>
-                      <ButtonRounded
-                        variant="outlined"
-                        color="primary"
-                        size="large"
-                        onClick={async () => onAdministrationActionClick(PARTLY_ADMINISTERED)}
-                        disabled={isReadOnly}
-                        data-testid={dataTestIds.vaccineDetailsPage.partlyAdministeredButton}
-                      >
-                        Partly Administered
-                      </ButtonRounded>
-                      <ButtonRounded
-                        variant="contained"
-                        color="primary"
-                        size="large"
-                        onClick={async () => onAdministrationActionClick(ADMINISTERED)}
-                        disabled={isReadOnly}
-                        data-testid={dataTestIds.vaccineDetailsPage.administeredButton}
-                      >
-                        Administered
-                      </ButtonRounded>
-                    </Stack>
-                  </Stack>
-                </Grid>
-              </Grid>
-            </Paper>
+                </>
+              )}
+            </Stack>
+            <Stack direction="row">
+              <ButtonRounded
+                variant="outlined"
+                color="primary"
+                size="large"
+                onClick={() => onAdministrationActionClick(NOT_ADMINISTERED)}
+                disabled={isReadOnly}
+                data-testid={dataTestIds.vaccineDetailsPage.notAdministeredButton}
+              >
+                Not Administered
+              </ButtonRounded>
+              <ButtonRounded
+                variant="outlined"
+                color="primary"
+                size="large"
+                onClick={() => onAdministrationActionClick(PARTLY_ADMINISTERED)}
+                disabled={isReadOnly}
+                data-testid={dataTestIds.vaccineDetailsPage.partlyAdministeredButton}
+              >
+                Partly Administered
+              </ButtonRounded>
+              <ButtonRounded
+                variant="contained"
+                color="primary"
+                size="large"
+                onClick={() => onAdministrationActionClick(ADMINISTERED)}
+                disabled={isReadOnly}
+                data-testid={dataTestIds.vaccineDetailsPage.administeredButton}
+              >
+                Administered
+              </ButtonRounded>
+            </Stack>
           </Stack>
-          <AdministrationConfirmationDialog
-            administrationType={administrationTypeRef.current}
-            patientName={mappedData.patientName}
-            medicationName={methods.getValues('details.medication.name')}
-            dose={methods.getValues('details.dose')}
-            unit={BASE_UNIT_OPTIONS.find((unit) => unit.value === methods.getValues('details.units'))?.label}
-            route={BASE_ROUTE_OPTIONS.find((route) => route.code === methods.getValues('details.route'))?.name}
-            open={showAdministrationConfirmationDialog}
-            handleClose={() => {
-              setShowAdministrationConfirmationDialog(false);
-            }}
-            handleConfirm={methods.handleSubmit(onSubmit)}
-          />
-        </fieldset>
-      </form>
+        </Stack>
+      </AccordionCard>
+
+      {/* The dialog's reason fields are react-hook-form inputs, so they get a form of their own. */}
+      <FormProvider {...reasonForm}>
+        <AdministrationConfirmationDialog
+          administrationType={administrationType}
+          patientName={mappedData.patientName}
+          medicationName={line.details.medication?.name}
+          dose={line.details.dose ?? ''}
+          unit={BASE_UNIT_OPTIONS.find((unit) => unit.value === line.details.units)?.label}
+          route={BASE_ROUTE_OPTIONS.find((route) => route.code === line.details.route)?.name}
+          open={showAdministrationConfirmationDialog}
+          handleClose={() => {
+            setShowAdministrationConfirmationDialog(false);
+          }}
+          handleConfirm={reasonForm.handleSubmit(onSubmit)}
+          encounterId={order.encounterId || undefined}
+          vfcUnconfirmed={
+            administrationType !== NOT_ADMINISTERED &&
+            needsVfcConfirmation(vfc, line.administrationDetails.fundingSource)
+          }
+        />
+      </FormProvider>
 
       <QuickPickSaveDialogs
         open={quickPickDialogOpen}
@@ -324,7 +319,7 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
         onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
         entityLabel="immunization"
       />
-    </FormProvider>
+    </>
   );
 };
 

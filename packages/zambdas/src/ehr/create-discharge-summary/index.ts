@@ -24,6 +24,7 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import { getMedicationOrders } from '../get-medication-orders';
+import { getImmunizationOrders } from '../immunization/get-orders';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -94,11 +95,12 @@ export const performEffect = async (
     encounter.id
   );
 
-  const [visitNote, medicationOrdersData, upcomingFollowUps, dmeOrders] = await Promise.all([
+  const [visitNote, medicationOrdersData, upcomingFollowUps, dmeOrders, immunizationOrdersData] = await Promise.all([
     visitNotePromise,
     medicationOrdersPromise,
     upcomingFollowUpsPromise,
     getEncounterDmeOrders(oystehr, encounter.id!),
+    getImmunizationOrders(oystehr, { encounterIds: [encounter.id!] }),
   ]);
   // The discharge summary composers read the two whole-chart shapes; the adapter presents the note as both.
   const { chartData, additionalChartData } = visitNoteToLegacyChartData(visitNote, { module: 'in-person' });
@@ -113,6 +115,7 @@ export const performEffect = async (
         chartData,
         additionalChartData,
         medicationOrders,
+        immunizationOrders: immunizationOrdersData.orders,
       },
       appointmentPackage: visitResources,
       upcomingFollowUps,

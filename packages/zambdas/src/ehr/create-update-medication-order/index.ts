@@ -21,6 +21,7 @@ import {
   getMedicationFromMA,
   getMedicationName,
   getMedicationTypeCode,
+  isImmunizationOrder,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
   searchMedicationLocation,
@@ -100,7 +101,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-async function performEffect(
+export async function performEffect(
   oystehr: Oystehr,
   billingOystehr: Oystehr,
   params: UpdateMedicationOrderInput,
@@ -473,7 +474,8 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
   const medicationAdministration = resources.find(
     (res) => res.resourceType === 'MedicationAdministration'
   ) as MedicationAdministration;
-  if (!medicationAdministration)
+  // an immunization order is not this endpoint's to change: it fails as a missing id does
+  if (!medicationAdministration || isImmunizationOrder(medicationAdministration))
     throw FHIR_RESOURCE_NOT_FOUND_CUSTOM(`No medicationAdministration was found with id ${orderId}`);
   const patient = resources.find((res) => res.resourceType === 'Patient') as Patient;
   if (!patient)

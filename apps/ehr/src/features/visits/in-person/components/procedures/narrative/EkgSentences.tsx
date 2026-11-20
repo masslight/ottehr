@@ -3,6 +3,7 @@ import { Box, Button, InputBase, ToggleButton, ToggleButtonGroup, Typography } f
 import { FC, useMemo, useRef, useState } from 'react';
 import { SuggestedSentences } from 'src/components/SuggestedSentences';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { AI_SURFACE } from 'src/features/visits/shared/components/scribe-recommendations/ScribeStage';
 import {
   ekgAxis,
   ekgMeasurements,
@@ -63,13 +64,7 @@ const EkgMeasurementTiles: FC<TilesProps> = ({ facts, readOnly, update }) => {
   };
   return (
     <Box
-      sx={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))',
-        mx: '-24px',
-        borderTop: `1px solid ${TILE_LINE}`,
-        borderBottom: `1px solid ${TILE_LINE}`,
-      }}
+      sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))' }}
       data-testid={dataTestIds.documentProcedurePage.ekgTiles}
     >
       {TILES.map(({ key, label, unit }) => {
@@ -237,6 +232,7 @@ const EkgSuggestedInterpretations: FC<InterpretationProps & { isChild: boolean }
       addLabel="Use this interpretation"
       addedLabel="Added to interpretation"
       dataTestId={dataTestIds.documentProcedurePage.ekgSuggestions}
+      sx={{ m: 1.5, mt: 0.5, border: 'none', borderRadius: 2, backgroundColor: AI_SURFACE }}
     />
   );
 };
@@ -297,8 +293,10 @@ export const EkgSentences: FC<Props> = ({ isChild, ...props }) => (
         <Sentence>
           {pieces(['component', 'count'])}. {details(INTERPRETATION_KEYS)}
         </Sentence>
-        <EkgMeasurementTiles facts={answers} readOnly={readOnly} update={update} />
-        {!readOnly && <EkgSuggestedInterpretations facts={answers} isChild={isChild} update={update} />}
+        <Box sx={{ my: 2, border: `1px solid ${TILE_LINE}`, borderRadius: 2 }}>
+          <EkgMeasurementTiles facts={answers} readOnly={readOnly} update={update} />
+          {!readOnly && <EkgSuggestedInterpretations facts={answers} isChild={isChild} update={update} />}
+        </Box>
         <Sentence>{pieces(INTERPRETATION_KEYS, { ordered: true })}.</Sentence>
         {!readOnly && !isChild && <EkgReminders facts={answers} update={update} />}
       </>

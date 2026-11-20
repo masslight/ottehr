@@ -24,22 +24,28 @@ import { Medication } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useRef, useState } from 'react';
-import { lookupNdc, receiveMedicationShipment } from 'src/api/api';
+import { receiveMedicationShipment } from 'src/api/api';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getMedicationName } from 'utils/lib/fhir/medication-administration';
+import { isExpirationDatePast, isVaccineCatalogMedication } from 'utils/lib/fhir/medication-inventory';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import {
   InHouseMedicationInventory,
-  LookupNdcResponse,
   MEDICATION_COUNTED_AS_LABELS,
   ReceiveExpirationConflict,
   ReceiveMedicationShipmentInput,
 } from 'utils/lib/types/api/config/in-house-medications';
+import {
+  VACCINE_FUNDING_SOURCE_LABELS,
+  VACCINE_FUNDING_SOURCES,
+  VaccineFundingSource,
+} from 'utils/lib/types/data/immunization/vfc';
 import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
 import { formatExpiration, inventoryButtonSx, storedLocationId, unitLabel } from './inventory.helpers';
 import { useLastReceivedLot } from './inventory.queries';
+import { NdcLookupState, useNdcLookup } from './useNdcLookup';
 
 interface ReceiveShipmentDialogProps {
   open: boolean;
@@ -58,11 +64,10 @@ interface ReceiveFormState {
   quantity: string;
   locationId: string;
   vendor: string;
+  fundingSource: VaccineFundingSource;
 }
 
-type LookupState = { status: 'idle' | 'loading' } | LookupNdcResponse;
-
-const NDC_LOOKUP_DEBOUNCE_MS = 600;
+type LookupState = NdcLookupState;
 
 const LOOKUP_MESSAGES: Partial<Record<LookupState['status'], (ndc: string) => string>> = {
   loading: (ndc) => `Looking up NDC ${ndc} in the FDA NDC directory…`,
@@ -88,8 +93,9 @@ export default function ReceiveShipmentDialog({
     quantity: '',
     locationId: storedLocationId(locations) ?? locations[0]?.id ?? '',
     vendor: '',
+    fundingSource: 'private',
   }));
-  const [lookup, setLookup] = useState<LookupState>({ status: 'idle' });
+  const isVaccine = isVaccineCatalogMedication(medication);
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState<ReceiveExpirationConflict | undefined>(undefined);
   const setField = <K extends keyof ReceiveFormState>(field: K, value: ReceiveFormState[K]): void =>
@@ -109,34 +115,14 @@ export default function ReceiveShipmentDialog({
       ndc: prev.ndc || (lastLot.ndc ?? ''),
       manufacturer: prev.manufacturer || (lastLot.manufacturer ?? ''),
       vendor: prev.vendor || (lastLot.vendor ?? ''),
+      fundingSource: lastLot.fundingSource ?? prev.fundingSource,
     }));
   }, [lastReceivedLot.data]);
 
+  const lookup = useNdcLookup(form.ndc, medication.id);
   useEffect(() => {
-    const ndc = form.ndc.trim();
-    if (!oystehrZambda || !ndc) {
-      setLookup({ status: 'idle' });
-      return;
-    }
-    let cancelled = false;
-    setLookup({ status: 'loading' });
-    const timer = setTimeout(() => {
-      lookupNdc(oystehrZambda, { ndc, medicationId: medication.id })
-        .then((result) => {
-          if (cancelled) return;
-          setLookup(result);
-          if (result.product?.manufacturer) setField('manufacturer', result.product.manufacturer);
-        })
-        .catch((error) => {
-          console.error('Error looking up NDC', error);
-          if (!cancelled) setLookup({ status: 'unavailable' });
-        });
-    }, NDC_LOOKUP_DEBOUNCE_MS);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [form.ndc, oystehrZambda, medication.id]);
+    if ('product' in lookup && lookup.product?.manufacturer) setField('manufacturer', lookup.product.manufacturer);
+  }, [lookup]);
 
   const locationName = locations.find((location) => location.id === form.locationId)?.name ?? 'the location';
 
@@ -153,6 +139,7 @@ export default function ReceiveShipmentDialog({
         ndc: form.ndc.trim(),
         manufacturer: form.manufacturer.trim() || undefined,
         vendor: form.vendor.trim() || undefined,
+        ...(isVaccine ? { fundingSource: form.fundingSource } : {}),
         expirationConflict,
         lotId: expirationConflict === 'correct-existing' ? conflict?.lotId : undefined,
       });
@@ -174,6 +161,10 @@ export default function ReceiveShipmentDialog({
 
   const mismatch = lookup.status === 'mismatch';
   const product = 'product' in lookup ? lookup.product : undefined;
+  // A past expiration date is most often a typo; staff confirm it, never blocked.
+  const expirationIso = form.expirationDate?.toISODate() ?? undefined;
+  const expired = !!expirationIso && isExpirationDatePast(expirationIso, DateTime.now().toISODate() ?? '');
+  const expiredText = `This lot expired on ${formatExpiration(expirationIso)}.`;
   const unitsLabel = capitalize(units.plural);
   const receiveLabel = quantity > 0 ? `Receive ${quantity} ${unitsLabel}` : `Receive ${unitsLabel}`;
   const lookupPanel = ((): ReactElement | null => {
@@ -198,8 +189,9 @@ export default function ReceiveShipmentDialog({
           }}
         >
           <Typography variant="body2">
-            NDC {product?.packageNdc ?? form.ndc.trim()} is {product?.name ?? 'a different medication'}, not {name}.
-            Check the box before saving.
+            NDC {product?.packageNdc ?? form.ndc.trim()} is{' '}
+            {lookup.vaccine ? lookup.vaccine.vaccineName : product?.name ?? 'a different medication'}, not {name}. Check
+            the box before saving.
           </Typography>
         </Box>
       );
@@ -207,7 +199,7 @@ export default function ReceiveShipmentDialog({
     return (
       <Box sx={{ backgroundColor: otherColors.infoAlert, borderRadius: 2, px: 1.5, py: 1 }}>
         <Typography variant="body2" fontWeight={700}>
-          FDA NDC directory
+          {'vaccine' in lookup && lookup.vaccine ? 'CDC NDC crosswalk' : 'FDA NDC directory'}
         </Typography>
         <Typography variant="body2">{[product?.name, product?.manufacturer].filter(Boolean).join(' · ')}</Typography>
         {product?.packageDescription ? (
@@ -319,7 +311,7 @@ export default function ReceiveShipmentDialog({
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={isVaccine ? 3 : 6}>
               <TextField
                 fullWidth
                 label="Vendor (optional)"
@@ -327,11 +319,33 @@ export default function ReceiveShipmentDialog({
                 onChange={(e) => setField('vendor', e.target.value)}
               />
             </Grid>
+            {isVaccine ? (
+              <Grid item xs={3}>
+                <FormControl fullWidth required>
+                  <InputLabel id="receive-funding-source-label">Funding source</InputLabel>
+                  <Select
+                    labelId="receive-funding-source-label"
+                    label="Funding source"
+                    value={form.fundingSource}
+                    onChange={(e) => setField('fundingSource', e.target.value as VaccineFundingSource)}
+                    inputProps={{ 'data-testid': dataTestIds.receiveShipmentDialog.fundingSourceSelect }}
+                  >
+                    {VACCINE_FUNDING_SOURCES.map((source) => (
+                      <MenuItem key={source} value={source}>
+                        {VACCINE_FUNDING_SOURCE_LABELS[source]}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            ) : null}
             {prefilledFromLastLot || lastReceivedLot.isError ? (
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary">
                   {lastReceivedLot.isError
                     ? "Couldn't load the last lot received."
+                    : isVaccine
+                    ? 'NDC, manufacturer, vendor and funding source are filled from the last lot received.'
                     : 'NDC, manufacturer and vendor are filled from the last lot received.'}
                 </Typography>
               </Grid>
@@ -342,14 +356,30 @@ export default function ReceiveShipmentDialog({
           <Button variant="outlined" onClick={onClose} sx={inventoryButtonSx}>
             Cancel
           </Button>
-          {mismatch ? (
+          {mismatch || expired ? (
             <ConfirmationDialog
-              title="Receive under a different medication?"
-              description={`The FDA NDC directory says NDC ${product?.packageNdc ?? form.ndc.trim()} is ${
-                product?.name ?? 'a different medication'
-              }, not ${name}.`}
+              title={
+                mismatch
+                  ? `Receive under a different ${isVaccine ? 'vaccine' : 'medication'}?`
+                  : 'Receive an expired lot?'
+              }
+              description={
+                mismatch
+                  ? `The ${
+                      'vaccine' in lookup && lookup.vaccine ? 'CDC NDC crosswalk' : 'FDA NDC directory'
+                    } says NDC ${product?.packageNdc ?? form.ndc.trim()} is ${
+                      'vaccine' in lookup && lookup.vaccine
+                        ? lookup.vaccine.vaccineName
+                        : product?.name ?? 'a different medication'
+                    }, not ${name}.${expired ? ` ${expiredText}` : ''}`
+                  : expiredText
+              }
               response={() => receive()}
-              actionButtons={{ proceed: { text: receiveLabel, color: 'error', loading: saving }, reverse: true }}
+              actionButtons={{
+                proceed: { text: receiveLabel, color: 'error', loading: saving },
+                back: mismatch ? undefined : { text: 'Change date' },
+                reverse: true,
+              }}
             >
               {(showDialog) => (
                 <LoadingButton

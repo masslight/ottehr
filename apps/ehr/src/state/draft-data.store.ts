@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { DmeOrderFormValues } from 'src/features/dme/components/dmeQuickPick';
+import type { ImmunizationFormValues } from 'src/features/immunization/components/immunizationLines';
 import { LateralityValue } from 'utils/lib/fhir/radiology';
 import {
   CPTCodeDTO,
@@ -17,10 +18,6 @@ import {
 import { MedicationData } from 'utils/lib/types/api/medication-administration.types';
 import { ProcedurePageState } from 'utils/lib/types/api/procedures.types';
 import { CreateRadiologyZambdaOrderInput } from 'utils/lib/types/api/radiology';
-import {
-  InputImmunizationOrderAdministrationDetails,
-  InputImmunizationOrderDetails,
-} from 'utils/lib/types/data/immunization/types';
 import { CreateInHouseLabOrderParameters } from 'utils/lib/types/data/in-house/in-house.types';
 import { CreateLabOrderParameters } from 'utils/lib/types/data/labs/labs.types';
 import { CreateNursingOrderInput } from 'utils/lib/types/data/orders/types';
@@ -75,10 +72,8 @@ type CreateRadiologyOrderDraft = Partial<
 >;
 type CreateProcedureDraft = Partial<ProcedurePageState & GenericStateDraft>;
 type CreateNursingOrderDraft = Partial<CreateNursingOrderInput & GenericStateDraft>;
-type CreateImmunizationOrderDraft = Partial<
-  InputImmunizationOrderDetails &
-    GenericStateDraft & { administrationDetails: InputImmunizationOrderAdministrationDetails }
->;
+// every line of the order page, so a draft restores them all
+type CreateImmunizationOrderDraft = Partial<{ lines: ImmunizationFormValues[] } & GenericStateDraft>;
 type CreateInHouseMedicationOrderDraft = Partial<MedicationData & GenericStateDraft>;
 export type CreateDmeOrderDraft = Partial<DmeOrderFormValues & GenericStateDraft>;
 type VitalsDraft = Partial<

@@ -379,3 +379,10 @@ export const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['t
   }
   return undefined;
 };
+
+export function getLocationLabel(location: Location): string {
+  if (!location.name) {
+    return 'Unknown Location';
+  }
+  return location.address?.state ? `${location.address.state.toUpperCase()} - ${location.name}` : location.name;
+}

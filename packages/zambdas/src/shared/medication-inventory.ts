@@ -32,7 +32,7 @@ import {
   sumStockEntries,
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
-import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
+import { InHouseMedicationInventory, InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
 
 const INVENTORY_CATEGORY_PARAM = `${INVENTORY_STOCK_ENTRY_CATEGORY_SYSTEM}|${INVENTORY_STOCK_ENTRY_CODE}`;
@@ -238,23 +238,32 @@ export async function findOrderCatalogMedication(
   return isCatalogMedication(medication) ? medication : undefined;
 }
 
-// Preserve an existing stock deduction for legacy orders without a picked lot ID.
-// Newly typed lots must not trigger a deduction.
-async function resolveAdministrationStockTarget(
+export interface AdministrationLotMatch {
+  /** The lots the dose already holds stock on; they win when two lots share its number. */
+  heldLotIds?: string[];
+  /** The lots held by an order that never had a lot picked from the suggestions (legacy orders). */
+  heldWithoutPickLotIds?: string[];
+  /**
+   * Vaccines: the order's lot number names its lot, so a typed lot that is one of the vaccine's lots at the
+   * location is from that stock. Medications take stock only from a lot picked from the inventory suggestions.
+   */
+  byNumber?: boolean;
+}
+
+/**
+ * The inventory lot an order names: of its drug, at the visit's location. Undefined when the drug isn't tracked or
+ * the lot was typed (not in inventory, or for a medication not picked from the suggestions).
+ */
+export async function findAdministrationInventoryLot(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,
-  heldLotIds: string[],
-  heldWithoutPickLotIds: string[]
-): Promise<(AdministrationStockTarget & { lot: Medication }) | undefined> {
-  const status = mapFhirToOrderStatus(medicationAdministration);
-  if (status !== 'administered' && status !== 'administered-partly') return undefined;
-
+  { heldLotIds = [], heldWithoutPickLotIds = [], byNumber = false }: AdministrationLotMatch = {}
+): Promise<{ lot: Medication & { id: string }; inventory: InHouseMedicationInventory } | undefined> {
   const contained = getMedicationFromMA(medicationAdministration);
   const lotNumber = contained?.batch?.lotNumber?.trim();
   const name = getMedicationName(contained);
-  const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
   const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
-  if (!contained || !lotNumber || !name || dose === undefined || !units || !encounterId) return undefined;
+  if (!contained || !lotNumber || !name || !encounterId) return undefined;
 
   const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
   const locationId = getEncounterLocationId(encounter);
@@ -269,21 +278,48 @@ async function resolveAdministrationStockTarget(
     locationId,
     lotNumber,
   });
-  const selectedLotId = getOrderInventoryLotId(contained);
   const expirationDate = contained?.batch?.expirationDate?.slice(0, 10);
-  const heldWithoutPick = sameNumber.find(
-    (candidate) =>
-      candidate.id &&
-      heldWithoutPickLotIds.includes(candidate.id) &&
-      (sameNumber.length === 1 || candidate.batch?.expirationDate === expirationDate)
-  );
-  const lot =
-    (selectedLotId && sameNumber.find((candidate) => candidate.id === selectedLotId)) ||
-    sameNumber.find((candidate) => candidate.id && heldLotIds.includes(candidate.id)) ||
-    heldWithoutPick;
-  const taken = stockTakenForDose(inventory, dose, units);
-  if (!lot?.id || !taken) return undefined;
-  return { lotId: lot.id, lot, ...taken };
+  const held = sameNumber.find((candidate) => candidate.id && heldLotIds.includes(candidate.id));
+  let lot: Medication | undefined;
+  if (byNumber) {
+    lot =
+      sameNumber.length === 1
+        ? sameNumber[0]
+        : held ?? sameNumber.find((candidate) => candidate.batch?.expirationDate === expirationDate);
+  } else {
+    // Preserve an existing stock deduction for legacy orders without a picked lot ID.
+    // Newly typed lots must not trigger a deduction.
+    const selectedLotId = getOrderInventoryLotId(contained);
+    const heldWithoutPick = sameNumber.find(
+      (candidate) =>
+        candidate.id &&
+        heldWithoutPickLotIds.includes(candidate.id) &&
+        (sameNumber.length === 1 || candidate.batch?.expirationDate === expirationDate)
+    );
+    lot = (selectedLotId && sameNumber.find((candidate) => candidate.id === selectedLotId)) || held || heldWithoutPick;
+  }
+  return lot?.id ? { lot: { ...lot, id: lot.id }, inventory } : undefined;
+}
+
+/**
+ * What an administration should have off the shelf right now: the lot `findAdministrationInventoryLot` finds and
+ * what the dose takes from it. Undefined when nothing should be off: the order isn't administered, no inventory lot
+ * is found, or the drug is multi-use.
+ */
+async function resolveAdministrationStockTarget(
+  oystehr: Oystehr,
+  medicationAdministration: MedicationAdministration,
+  match: AdministrationLotMatch
+): Promise<(AdministrationStockTarget & { lot: Medication }) | undefined> {
+  const status = mapFhirToOrderStatus(medicationAdministration);
+  if (status !== 'administered' && status !== 'administered-partly') return undefined;
+  const { dose, units } = getDosageUnitsAndRouteOfMedication(medicationAdministration);
+  if (dose === undefined || !units) return undefined;
+
+  const found = await findAdministrationInventoryLot(oystehr, medicationAdministration, match);
+  const taken = found ? stockTakenForDose(found.inventory, dose, units) : undefined;
+  if (!found || !taken) return undefined;
+  return { lotId: found.lot.id, lot: found.lot, ...taken };
 }
 
 const administrationLotKey = (medicationAdministration: MedicationAdministration): string => {
@@ -313,7 +349,8 @@ export async function reconcileAdministrationStock(
   oystehr: Oystehr,
   medicationAdministration: MedicationAdministration,
   performerReference: string,
-  previous?: MedicationAdministration
+  previous?: MedicationAdministration,
+  { lotByNumber = false }: { lotByNumber?: boolean } = {}
 ): Promise<void> {
   const medicationAdministrationId = medicationAdministration.id;
   if (!medicationAdministrationId) return;
@@ -329,12 +366,11 @@ export async function reconcileAdministrationStock(
   const heldLotIds = [...new Set(existing.map((entry) => entry.lotId))].filter(
     (lotId) => existing.reduce((sum, entry) => sum + (entry.lotId === lotId ? entry.quantity : 0), 0) < 0
   );
-  const target = await resolveAdministrationStockTarget(
-    oystehr,
-    medicationAdministration,
-    sameLotAsBefore ? heldLotIds : [],
-    neverPicked ? heldLotIds : []
-  );
+  const target = await resolveAdministrationStockTarget(oystehr, medicationAdministration, {
+    heldLotIds: sameLotAsBefore ? heldLotIds : [],
+    heldWithoutPickLotIds: neverPicked ? heldLotIds : [],
+    byNumber: lotByNumber,
+  });
   const changes = planAdministrationStockChanges(target, existing);
   for (const change of changes) {
     const lot =

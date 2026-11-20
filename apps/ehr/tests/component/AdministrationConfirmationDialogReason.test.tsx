@@ -4,6 +4,10 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('src/components/input/SelectInput', () => ({ SelectInput: () => <div /> }));
+vi.mock('src/features/immunization/hooks/useVaccineInventory', () => ({
+  useVfcEligibility: () => ({ data: undefined }),
+  useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
 
 import { ADMINISTERED, NOT_ADMINISTERED, PARTLY_ADMINISTERED } from '../../src/features/immunization/common';
 import { AdministrationConfirmationDialog } from '../../src/features/immunization/components/AdministrationConfirmationDialog';

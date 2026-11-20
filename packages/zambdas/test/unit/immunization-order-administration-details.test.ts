@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication, MedicationAdministration } from 'fhir/r4b';
+import { IMMUNIZATION_ORDER_TAG_CODE, IMMUNIZATION_ORDER_TAG_SYSTEM } from 'utils/lib/fhir/medication-administration';
 import { describe, expect, it, vi } from 'vitest';
 import {
   applyOrderAdministrationDetails,
@@ -15,6 +16,7 @@ const pendingOrder = (): MedicationAdministration => {
   return {
     resourceType: 'MedicationAdministration',
     id: 'order-1',
+    meta: { tag: [{ system: IMMUNIZATION_ORDER_TAG_SYSTEM, code: IMMUNIZATION_ORDER_TAG_CODE }] },
     status: 'in-progress',
     subject: { reference: 'Patient/p1' },
     effectiveDateTime: '2026-10-27T10:00:00Z',

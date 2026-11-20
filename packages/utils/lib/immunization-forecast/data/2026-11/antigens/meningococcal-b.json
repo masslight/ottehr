@@ -1,0 +1,703 @@
+{
+ "antigen": "Meningococcal B",
+ "source": "cdc-4.64",
+ "series": [
+  {
+   "seriesName": "Meningococcal B 2-dose series MenB-4C Shared Clinical Decision Making",
+   "targetDisease": "Meningococcal B",
+   "vaccineGroup": "Meningococcal B",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": true,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 99
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "Delay MenB until after pregnancy due to lack of safety data in pregnant persons. May administer if at increased risk and vaccination benefits outweigh potential risks.",
+    "ACIP recommends a MenB vaccine series for persons aged 16-23 years on the basis of shared clinical decision-making to provide short-term protection against most strains of serogroup B meningococcal disease. The preferred age for MenB vaccination is 16-18 years. More guidance can be found here: https://www.cdc.gov/vaccines/hcp/admin/downloads/ISD-job-aid-SCDM-mening-b-shared-clinical-decision-making.pdf",
+    "People desiring more rapid protection against serogroup B (e.g., students with less than 6 months before college entry) may receive a 3-dose series (0, 1-2, 6 months) to optimize rapid protection.",
+    "Penmenvy (MenACWY/MenB - GSK) may be used when both MenACWY and MenB are indicated at the same visit."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "10 years - 4 days",
+       "minAge": "16 years",
+       "earliestRecAge": "16 years",
+       "maxAge": "24 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "meningococcal B, OMV",
+       "cvx": "163",
+       "beginAge": "10 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "Meningococcal oligosaccharide (MenACWY), (MenB), PF",
+       "cvx": "328",
+       "beginAge": "10 years",
+       "endAge": "26 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "meningococcal B, OMV",
+       "cvx": "163",
+       "beginAge": "10 years - 4 days"
+      },
+      {
+       "vaccineType": "Meningococcal oligosaccharide (MenACWY), (MenB), PF",
+       "cvx": "328",
+       "beginAge": "10 years - 4 days",
+       "endAge": "26 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "10 years - 4 days",
+       "minAge": "16 years",
+       "earliestRecAge": "16 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "cessationDate": "2017-05-18"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "effectiveDate": "2017-05-19",
+       "cessationDate": "2024-10-24"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 months - 4 days",
+       "minInt": "4 months",
+       "earliestRecInt": "4 months",
+       "effectiveDate": "2024-10-25"
+      },
+      {
+       "fromPrevious": false,
+       "fromTargetDose": 1,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months",
+       "effectiveDate": "2024-10-25"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "meningococcal B, OMV",
+       "cvx": "163",
+       "beginAge": "10 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "meningococcal B, OMV",
+       "cvx": "163",
+       "beginAge": "10 years"
+      },
+      {
+       "vaccineType": "meningococcal B, unspecified",
+       "cvx": "164",
+       "beginAge": "10 years"
+      },
+      {
+       "vaccineType": "Meningococcal oligosaccharide (MenACWY), (MenB), PF",
+       "cvx": "328",
+       "beginAge": "10 years - 4 days",
+       "endAge": "26 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Meningococcal B 2-dose series MenB-FHbp Shared Clinical Decision Making",
+   "targetDisease": "Meningococcal B",
+   "vaccineGroup": "Meningococcal B",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": true,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 99
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "Delay MenB until after pregnancy due to lack of safety data in pregnant persons. May administer if at increased risk and vaccination benefits outweigh potential risks.",
+    "ACIP recommends a MenB vaccine series for persons aged 16-23 years on the basis of shared clinical decision-making to provide short-term protection against most strains of serogroup B meningococcal disease. The preferred age for MenB vaccination is 16-18 years. More guidance can be found here: https://www.cdc.gov/vaccines/hcp/admin/downloads/ISD-job-aid-SCDM-mening-b-shared-clinical-decision-making.pdf",
+    "People desiring more rapid protection against serogroup B (e.g., students with less than 6 months before college entry) may receive a 3-dose series (0, 1-2, 6 months) to optimize rapid protection.",
+    "Penbraya (MenABCWY - Pfizer) may be used when both MenACWY and MenB are indicated at the same visit."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "10 years - 4 days",
+       "minAge": "16 years",
+       "earliestRecAge": "16 years",
+       "maxAge": "24 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "meningococcal B, recombinant",
+       "cvx": "162",
+       "beginAge": "10 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "meningococcal polysaccharide (MenACWY-TT conjugate), (MenB), PF",
+       "cvx": "316",
+       "beginAge": "10 years",
+       "endAge": "26 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "meningococcal B, recombinant",
+       "cvx": "162",
+       "beginAge": "10 years - 4 days"
+      },
+      {
+       "vaccineType": "meningococcal polysaccharide (MenACWY-TT conjugate), (MenB), PF",
+       "cvx": "316",
+       "beginAge": "10 years - 4 days",
+       "endAge": "26 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "10 years - 4 days",
+       "minAge": "16 years",
+       "earliestRecAge": "16 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 months - 4 days",
+       "minInt": "4 months",
+       "earliestRecInt": "4 months"
+      },
+      {
+       "fromPrevious": false,
+       "fromTargetDose": 1,
+       "absMinInt": "6 months - 4 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "meningococcal B, recombinant",
+       "cvx": "162",
+       "beginAge": "10 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "meningococcal B, recombinant",
+       "cvx": "162",
+       "beginAge": "10 years"
+      },
+      {
+       "vaccineType": "meningococcal B, unspecified",
+       "cvx": "164",
+       "beginAge": "10 years"
+      },
+      {
+       "vaccineType": "meningococcal polysaccharide (MenACWY-TT conjugate), (MenB), PF",
+       "cvx": "316",
+       "beginAge": "10 years - 4 days",
+       "endAge": "26 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Meningococcal B 3-dose series MenB-4C Shared Clinical Decision Making",
+   "targetDisease": "Meningococcal B",
+   "vaccineGroup": "Meningococcal B",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": true,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 99
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "Delay MenB until after pregnancy due to lack of safety data in pregnant persons. May administer if at increased risk and vaccination benefits outweigh potential risks.",
+    "ACIP recommends a MenB vaccine series for persons aged 16-23 years on the basis of shared clinical decision-making to provide short-term protection against most strains of serogroup B meningococcal disease. The preferred age for MenB vaccination is 16-18 years. More guidance can be found here: https://www.cdc.gov/vaccines/hcp/admin/downloads/ISD-job-aid-SCDM-mening-b-shared-clinical-decision-making.pdf",
+    "People desiring more rapid protection against serogroup B (e.g., students with less than 6 months before college entry) may receive a 3-dose series (0, 1-2, 6 months) to optimize rapid protection.",
+    "Penmenvy (MenACWY/MenB - GSK) may be used when both MenACWY and MenB are indicated at the same visit."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "10 years - 4 days",
+       "minAge": "16 years",
+       "earliestRecAge": "16 years",
+       "maxAge": "24 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "meningococcal B, OMV",
+       "cvx": "163",
+       "beginAge": "10 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "Meningococcal oligosaccharide (MenACWY), (MenB), PF",
+       "cvx": "328",
+       "beginAge": "10 years",
+       "endAge": "26 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "meningococcal B, OMV",
+       "cvx": "163",
+       "beginAge": "10 years - 4 days"
+      },
+      {
+       "vaccineType": "Meningococcal oligosaccharide (MenACWY), (MenB), PF",
+       "cvx": "328",
+       "beginAge": "10 years - 4 days",
+       "endAge": "26 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "10 years - 4 days",
+       "minAge": "16 years",
+       "earliestRecAge": "16 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "cessationDate": "2017-05-18"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "effectiveDate": "2017-05-19"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "meningococcal B, OMV",
+       "cvx": "163",
+       "beginAge": "10 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "meningococcal B, OMV",
+       "cvx": "163",
+       "beginAge": "10 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "absMinAge": "10 years - 4 days",
+       "minAge": "16 years",
+       "earliestRecAge": "16 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 months - 4 days",
+       "minInt": "4 months",
+       "earliestRecInt": "4 months"
+      },
+      {
+       "fromPrevious": false,
+       "fromTargetDose": 1,
+       "absMinInt": "0 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months"
+      }
+     ],
+     "allowableIntervals": [
+      {
+       "fromPrevious": false,
+       "fromTargetDose": 1,
+       "absMinInt": "6 months - 4 days"
+      }
+     ],
+     "preferableVaccines": [
+      {
+       "vaccineType": "meningococcal B, OMV",
+       "cvx": "163",
+       "beginAge": "10 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "Meningococcal oligosaccharide (MenACWY), (MenB), PF",
+       "cvx": "328",
+       "beginAge": "10 years",
+       "endAge": "26 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "meningococcal B, OMV",
+       "cvx": "163",
+       "beginAge": "10 years"
+      },
+      {
+       "vaccineType": "meningococcal B, unspecified",
+       "cvx": "164",
+       "beginAge": "10 years"
+      },
+      {
+       "vaccineType": "Meningococcal oligosaccharide (MenACWY), (MenB), PF",
+       "cvx": "328",
+       "beginAge": "10 years - 4 days",
+       "endAge": "26 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Meningococcal B 3-dose series MenB-FHbp Shared Clinical Decision Making",
+   "targetDisease": "Meningococcal B",
+   "vaccineGroup": "Meningococcal B",
+   "seriesType": "Standard",
+   "select": {
+    "defaultSeries": false,
+    "productPath": true,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 99
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "Delay MenB until after pregnancy due to lack of safety data in pregnant persons. May administer if at increased risk and vaccination benefits outweigh potential risks.",
+    "ACIP recommends a MenB vaccine series for persons aged 16-23 years on the basis of shared clinical decision-making to provide short-term protection against most strains of serogroup B meningococcal disease. The preferred age for MenB vaccination is 16-18 years. More guidance can be found here: https://www.cdc.gov/vaccines/hcp/admin/downloads/ISD-job-aid-SCDM-mening-b-shared-clinical-decision-making.pdf",
+    "People desiring more rapid protection against serogroup B (e.g., students with less than 6 months before college entry) may receive a 3-dose series (0, 1-2, 6 months) to optimize rapid protection.",
+    "Penbraya (MenABCWY - Pfizer) may be used when both MenACWY and MenB are indicated at the same visit."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "10 years - 4 days",
+       "minAge": "16 years",
+       "earliestRecAge": "16 years",
+       "maxAge": "24 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "meningococcal B, recombinant",
+       "cvx": "162",
+       "beginAge": "10 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "meningococcal polysaccharide (MenACWY-TT conjugate), (MenB), PF",
+       "cvx": "316",
+       "beginAge": "10 years",
+       "endAge": "26 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "meningococcal B, recombinant",
+       "cvx": "162",
+       "beginAge": "10 years - 4 days"
+      },
+      {
+       "vaccineType": "meningococcal polysaccharide (MenACWY-TT conjugate), (MenB), PF",
+       "cvx": "316",
+       "beginAge": "10 years - 4 days",
+       "endAge": "26 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "10 years - 4 days",
+       "minAge": "16 years",
+       "earliestRecAge": "16 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "latestRecInt": "8 weeks",
+       "cessationDate": "2017-05-18"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "latestRecInt": "8 weeks",
+       "effectiveDate": "2017-05-19"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "meningococcal B, recombinant",
+       "cvx": "162",
+       "beginAge": "10 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "meningococcal B, recombinant",
+       "cvx": "162",
+       "beginAge": "10 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required once 6 months has passed since the previous dose",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Interval",
+           "interval": "6 months"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "absMinAge": "10 years - 4 days",
+       "minAge": "16 years",
+       "earliestRecAge": "16 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "0 days",
+       "minInt": "4 months",
+       "earliestRecInt": "4 months",
+       "cessationDate": "2017-05-18"
+      },
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 months - 4 days",
+       "minInt": "4 months",
+       "earliestRecInt": "4 months",
+       "effectiveDate": "2017-05-19"
+      },
+      {
+       "fromPrevious": false,
+       "fromTargetDose": 1,
+       "absMinInt": "0 days",
+       "minInt": "6 months",
+       "earliestRecInt": "6 months"
+      }
+     ],
+     "allowableIntervals": [
+      {
+       "fromPrevious": false,
+       "fromTargetDose": 1,
+       "absMinInt": "6 months - 4 days"
+      }
+     ],
+     "preferableVaccines": [
+      {
+       "vaccineType": "meningococcal B, recombinant",
+       "cvx": "162",
+       "beginAge": "10 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      },
+      {
+       "vaccineType": "meningococcal polysaccharide (MenACWY-TT conjugate), (MenB), PF",
+       "cvx": "316",
+       "beginAge": "10 years",
+       "endAge": "26 years",
+       "volume": "0.5",
+       "forecastVaccineType": true
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "meningococcal B, recombinant",
+       "cvx": "162",
+       "beginAge": "10 years"
+      },
+      {
+       "vaccineType": "meningococcal B, unspecified",
+       "cvx": "164",
+       "beginAge": "10 years"
+      },
+      {
+       "vaccineType": "meningococcal polysaccharide (MenACWY-TT conjugate), (MenB), PF",
+       "cvx": "316",
+       "beginAge": "10 years - 4 days",
+       "endAge": "26 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  }
+ ]
+}

@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { isExpirationDatePast, sortInventoryLotsForPicking } from 'utils/lib/fhir/medication-inventory';
 import {
+  CatalogMedicationType,
   InHouseMedicationInventory,
   INVENTORY_EXPIRING_SOON_DAYS,
   InventoryDrugRow,
@@ -16,6 +17,7 @@ import { ListActiveLocationsOutput } from 'utils/lib/types/api/locations';
 export interface TrackedDrug {
   medicationId: string;
   name: string;
+  type: CatalogMedicationType;
   inventory: InHouseMedicationInventory;
 }
 
@@ -77,6 +79,7 @@ export const buildAllLocationsRows = (
     return {
       medicationId: drug.medicationId,
       name: drug.name,
+      type: drug.type,
       countedAs: drug.inventory.countedAs,
       use: drug.inventory.use,
       onHand,
@@ -111,6 +114,7 @@ export const buildLocationRows = (
     return {
       medicationId: drug.medicationId,
       name: drug.name,
+      type: drug.type,
       countedAs: drug.inventory.countedAs,
       use: drug.inventory.use,
       onHand,

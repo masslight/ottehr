@@ -369,6 +369,10 @@ import {
 } from 'utils/lib/types/data/get-patient-medical-record.types';
 import { GetScheduleRequestParams, GetScheduleResponse } from 'utils/lib/types/data/get-schedule.types';
 import {
+  CreateImmunizationRecordRequest,
+  CreateImmunizationRecordResponse,
+} from 'utils/lib/types/data/immunization/types';
+import {
   AdminAddInHouseLabInput,
   AdminAddInHouseLabOutput,
   AdminGetInHouseLabConfigInput,
@@ -563,6 +567,7 @@ const UPLOAD_AUDIO_RECORDING_ZAMBDA_ID = 'upload-audio-recording';
 const CREATE_RESOURCES_FROM_AUDIO_RECORDING_ZAMBDA_ID = 'create-resources-from-audio-recording';
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = 'get-or-create-visit-label-pdf';
 const CREATE_DISCHARGE_SUMMARY = 'create-discharge-summary';
+const CREATE_IMMUNIZATION_RECORD = 'create-immunization-record';
 const MAKE_PATIENT_INSTRUCTIONS_PDF = 'make-patient-instructions-pdf';
 const MAKE_PROGRESS_NOTE_PDF = 'make-progress-note-pdf';
 const PAPERWORK_TO_PDF_ZAMBDA_ID = 'paperwork-to-pdf';
@@ -2270,6 +2275,22 @@ export const createDischargeSummary = async (
   try {
     const response = await oystehr.zambda.execute({
       id: CREATE_DISCHARGE_SUMMARY,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createImmunizationRecord = async (
+  oystehr: Oystehr,
+  parameters: CreateImmunizationRecordRequest
+): Promise<CreateImmunizationRecordResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: CREATE_IMMUNIZATION_RECORD,
       ...parameters,
     });
     return chooseJson(response);

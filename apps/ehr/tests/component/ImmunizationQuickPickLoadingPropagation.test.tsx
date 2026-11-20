@@ -13,7 +13,6 @@ const defaultQuickPickState = {
   setQuickPickName: vi.fn(),
   existingQuickPicks: [] as { id: string; name: string }[],
   quickPickSaving: false,
-  onQuickPickSelect: vi.fn(),
   openQuickPickDialog: vi.fn(),
   onSaveAsQuickPick: vi.fn(),
 };
@@ -44,18 +43,6 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('../../src/features/visits/shared/components/QuickPicksButton', () => ({
-  QuickPicksButton: ({ loading }: { loading?: boolean }) => (
-    <div data-testid="quick-picks-button">{String(Boolean(loading))}</div>
-  ),
-}));
-
-vi.mock('src/features/visits/shared/components/QuickPicksButton', () => ({
-  QuickPicksButton: ({ loading }: { loading?: boolean }) => (
-    <div data-testid="quick-picks-button">{String(Boolean(loading))}</div>
-  ),
-}));
-
 vi.mock('../../src/features/immunization/hooks/useImmunizationQuickPickManagement', () => ({
   useImmunizationQuickPickManagement: () => quickPickState,
 }));
@@ -76,9 +63,17 @@ vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () =>
   useAppointmentData: () => appointmentData,
 }));
 
+vi.mock('src/features/visits/shared/hooks/useOystehrAPIClient', () => ({ useOystehrAPIClient: () => ({}) }));
+vi.mock('src/hooks/useGetPatient', () => ({
+  useGetPatientAccount: () => ({ data: undefined, isError: false }),
+}));
+
 vi.mock('../../src/features/visits/in-person/hooks/useImmunization', () => ({
+  useGetVaccines: () => ({ data: [], isLoading: false }),
+  useGetImmunizationForecast: () => ({ data: undefined, isLoading: false, isError: false }),
   useAdministerImmunizationOrder: () => ({ mutateAsync: vi.fn() }),
   useCancelImmunizationOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRecordExternalImmunization: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCreateUpdateImmunizationOrder: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useGetImmunizationOrders: () => ({ data: immunizationOrdersResponse, isLoading: false }),
 }));
@@ -179,10 +174,6 @@ vi.mock('../../src/features/immunization/components/AdministrationConfirmationDi
   AdministrationConfirmationDialog: () => <div />,
 }));
 
-vi.mock('../../src/features/immunization/components/OrderDetailsSection', () => ({
-  OrderDetailsSection: () => <div />,
-}));
-
 vi.mock('../../src/features/immunization/components/OrderStatusChip', () => ({
   OrderStatusChip: () => <div />,
 }));
@@ -219,28 +210,25 @@ vi.mock('../../src/features/immunization/components/OrderHistoryTable', () => ({
   OrderHistoryTable: () => <div />,
 }));
 
-describe('immunization quick pick loading propagation', () => {
-  it('passes the loading state to VaccineDetailsCard quick picks', () => {
-    render(
-      <VaccineDetailsCard
-        order={
-          {
-            id: 'order-1',
-            administrationDetails: {},
-          } as any
-        }
-      />
-    );
+vi.mock('../../src/features/immunization/hooks/useVaccineInventory', () => ({
+  useVfcEligibility: () => ({ data: undefined, isLoading: false }),
+  useConfirmVfcEligibility: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useVaccineLotsOnHand: () => ({ data: [] }),
+  useVaccineInventoryAtLocation: () => ({ data: undefined }),
+}));
 
-    expect(screen.getByTestId('quick-picks-button')).toHaveTextContent('true');
-  });
+vi.mock('../../src/features/immunization/components/ImmunizationSentences', () => ({
+  ImmunizationSectionLabel: ({ children }: { children: React.ReactNode }) => <h3>{children}</h3>,
+  ImmunizationSentences: () => <div />,
+}));
 
-  it('passes the loading state to ImmunizationOrderCreateEdit quick picks', () => {
-    render(<ImmunizationOrderCreateEdit />);
+vi.mock('../../src/features/visits/shared/components/review-tab/components/AllergiesContainer', () => ({
+  AllergiesContainer: () => <div />,
+}));
 
-    expect(screen.getByTestId('quick-picks-button')).toHaveTextContent('true');
-  });
-});
+vi.mock('../../src/features/visits/shared/components/review-tab/components/MedicationsContainer', () => ({
+  MedicationsContainer: () => <div />,
+}));
 
 describe('immunization save quick pick dialog', () => {
   afterEach(() => {

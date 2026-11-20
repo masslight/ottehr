@@ -44,7 +44,11 @@ import {
   IN_HOUSE_MEDICATION_UNIT_OPTIONS,
   MedicationUnitOptions,
 } from 'utils/lib/fhir/medication-administration';
-import { getMedicationInventoryConfig } from 'utils/lib/fhir/medication-inventory';
+import {
+  getMedicationCvx,
+  getMedicationInventoryConfig,
+  isVaccineCatalogMedication,
+} from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
   InHouseMedicationInventory,
@@ -315,7 +319,9 @@ export default function UpdateMedicationPage(): ReactElement {
     setLoading(false);
   }
 
-  if (!medication || isSearching || isFetchingDetailsForInteractions) {
+  // A vaccine is named by its CVX code and has no Medispan drug, so the drug database is not consulted.
+  const isVaccine = medication ? isVaccineCatalogMedication(medication) : false;
+  if (!medication || (!isVaccine && (isSearching || isFetchingDetailsForInteractions))) {
     return <Loading />;
   }
 
@@ -323,7 +329,9 @@ export default function UpdateMedicationPage(): ReactElement {
   // remap field can't be shown, and submitting the form would clear the stored interactions Medispan ID — so
   // explain why and block the update rather than rendering a spinner forever (the old behaviour).
   const medicationDatabaseError = medicationDetailsError ?? interactionsDetailsError;
-  const blockingNotice = isErxPermissionDeniedError(medicationDatabaseError)
+  const blockingNotice = isVaccine
+    ? null
+    : isErxPermissionDeniedError(medicationDatabaseError)
     ? `${MEDICATION_DATABASE_FORBIDDEN_MESSAGE} Medication details cannot be loaded, so this medication cannot be updated.`
     : medicationDatabaseError
     ? 'The medication database could not be reached, so this medication cannot be updated right now. Please try again in a few moments.'
@@ -349,14 +357,14 @@ export default function UpdateMedicationPage(): ReactElement {
           chain={[
             { link: '/admin', children: 'Admin' },
             { link: '/admin/medications', children: 'Medications' },
-            { link: '#', children: 'Update medication' },
+            { link: '#', children: isVaccine ? 'Update vaccine' : 'Update medication' },
           ]}
         />
         <Paper sx={{ padding: 2 }}>
           <form onSubmit={update}>
             <Grid container spacing={2}>
               <Grid item xs={12}>
-                <Typography variant="h4">Update medication</Typography>
+                <Typography variant="h4">{isVaccine ? 'Update vaccine' : 'Update medication'}</Typography>
               </Grid>
               {blockingNotice ? (
                 <Grid item xs={12}>
@@ -365,32 +373,44 @@ export default function UpdateMedicationPage(): ReactElement {
                   </Alert>
                 </Grid>
               ) : null}
-              <Grid item xs={6}>
-                <Autocomplete
-                  value={medication}
-                  getOptionLabel={() => getMedicationName(medication) ?? ''}
-                  fullWidth
-                  isOptionEqualToValue={(option, value) => getMedispanId(option) === getMedispanId(value)}
-                  loading={isSearching}
-                  disableClearable
-                  disabled={true}
-                  disablePortal
-                  noOptionsText={'Start typing to load results'}
-                  options={[medication]}
-                  onChange={(_e, _value) => {}}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Medication Name"
-                      placeholder="Search"
-                      required
-                      onChange={(_e) => {}}
-                    />
-                  )}
-                />
-              </Grid>
+              {isVaccine ? (
+                <Grid item xs={6}>
+                  <TextField
+                    fullWidth
+                    disabled
+                    label="Vaccine"
+                    value={getMedicationName(medication) ?? ''}
+                    helperText={`CVX ${getMedicationCvx(medication) ?? '—'} · from the CDC CVX list`}
+                  />
+                </Grid>
+              ) : (
+                <Grid item xs={6}>
+                  <Autocomplete
+                    value={medication}
+                    getOptionLabel={() => getMedicationName(medication) ?? ''}
+                    fullWidth
+                    isOptionEqualToValue={(option, value) => getMedispanId(option) === getMedispanId(value)}
+                    loading={isSearching}
+                    disableClearable
+                    disabled={true}
+                    disablePortal
+                    noOptionsText={'Start typing to load results'}
+                    options={[medication]}
+                    onChange={(_e, _value) => {}}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Medication Name"
+                        placeholder="Search"
+                        required
+                        onChange={(_e) => {}}
+                      />
+                    )}
+                  />
+                </Grid>
+              )}
               <Grid item xs={6} />
-              {medicationDetails?.isObsolete === true ? (
+              {!isVaccine && medicationDetails?.isObsolete === true ? (
                 <>
                   <Grid item xs={6}>
                     <Autocomplete
@@ -452,9 +472,11 @@ export default function UpdateMedicationPage(): ReactElement {
                   </Tooltip>
                 </Box>
                 <Typography variant="body2" color="text.secondary">
-                  {canEditSetup
-                    ? 'Leave blank to not track stock for this medication. Its medication card then works as today.'
-                    : 'Only an administrator or manager can change the inventory setup.'}
+                  {!canEditSetup
+                    ? 'Only an administrator or manager can change the inventory setup.'
+                    : isVaccine
+                    ? 'Vaccines are counted in doses. The lots on hand show what is stocked; the order screen lists them.'
+                    : 'Leave blank to not track stock for this medication. Its medication card then works as today.'}
                 </Typography>
               </Grid>
               <Grid item xs={3}>
@@ -606,7 +628,7 @@ export default function UpdateMedicationPage(): ReactElement {
                     disabled={Boolean(blockingNotice) || !locationsLoaded}
                     sx={{ textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
                   >
-                    Update Medication
+                    {isVaccine ? 'Update Vaccine' : 'Update Medication'}
                   </LoadingButton>
                 </Grid>
               ) : null}
@@ -617,7 +639,11 @@ export default function UpdateMedicationPage(): ReactElement {
         {savedInventory && medication.id ? (
           <Paper sx={{ padding: 2, marginTop: 2 }}>
             <Typography variant="h4">Receive shipment</Typography>
-            <Typography variant="body1">Add a lot of this medication to a location's stock.</Typography>
+            <Typography variant="body1">
+              {isVaccine
+                ? "Add a lot of this vaccine to a location's stock: lot, expiration, quantity, NDC and whether it is VFC or private stock."
+                : "Add a lot of this medication to a location's stock."}
+            </Typography>
             <LoadingButton
               variant="contained"
               sx={{ marginTop: 2, textTransform: 'none', borderRadius: 50, fontWeight: 'bold' }}
@@ -641,9 +667,15 @@ export default function UpdateMedicationPage(): ReactElement {
 
         {canEditSetup ? (
           <Paper sx={{ padding: 2, marginTop: 2 }}>
-            <Typography variant="h4">{status === 'active' ? 'Remove' : 'Activate'} medication</Typography>
+            <Typography variant="h4">
+              {status === 'active' ? 'Remove' : 'Activate'} {isVaccine ? 'vaccine' : 'medication'}
+            </Typography>
             <Typography variant="body1">
-              {status === 'active'
+              {isVaccine
+                ? status === 'active'
+                  ? 'Removing this vaccine makes it Inactive and takes it out of the order screen. Orders already placed are not affected.'
+                  : 'Activating this vaccine adds it to the vaccines the order screen offers.'
+                : status === 'active'
                 ? 'Removing this medication will make it so it can no longer be ordered for a visit. It will not affect any medications that have already been ordered.'
                 : 'Activating this medication will add it to the list of in-house medications that can be ordered for a visit.'}
             </Typography>
@@ -654,7 +686,7 @@ export default function UpdateMedicationPage(): ReactElement {
               onClick={() => updateStatus(status === 'active' ? 'inactive' : 'active')}
               loading={loading}
             >
-              {status === 'active' ? 'Remove' : 'Activate'} Medication
+              {status === 'active' ? 'Remove' : 'Activate'} {isVaccine ? 'Vaccine' : 'Medication'}
             </LoadingButton>
           </Paper>
         ) : null}

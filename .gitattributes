@@ -15,3 +15,6 @@ config/oystehr-core/roles.json merge=union
 config/oystehr-core/secrets.json merge=union
 config/oystehr-core/zambdas.json merge=union
 config/billing-app-core/zambdas.json merge=union
+
+# CDC code-set downloads are committed byte for byte (CRLF, BOM); sources.json records their SHA-256
+scripts/data/cdc-vaccines/*.txt -text

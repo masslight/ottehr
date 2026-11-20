@@ -1,0 +1,6369 @@
+{
+ "cvxToAntigen": [
+  {
+   "cvx": "01",
+   "shortDescription": "DTP",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    }
+   ]
+  },
+  {
+   "cvx": "02",
+   "shortDescription": "OPV",
+   "associations": [
+    {
+     "antigen": "Polio"
+    }
+   ]
+  },
+  {
+   "cvx": "03",
+   "shortDescription": "MMR",
+   "associations": [
+    {
+     "antigen": "Measles"
+    },
+    {
+     "antigen": "Mumps"
+    },
+    {
+     "antigen": "Rubella"
+    }
+   ]
+  },
+  {
+   "cvx": "04",
+   "shortDescription": "M/R",
+   "associations": [
+    {
+     "antigen": "Measles"
+    },
+    {
+     "antigen": "Rubella"
+    }
+   ]
+  },
+  {
+   "cvx": "05",
+   "shortDescription": "measles",
+   "associations": [
+    {
+     "antigen": "Measles"
+    }
+   ]
+  },
+  {
+   "cvx": "06",
+   "shortDescription": "rubella",
+   "associations": [
+    {
+     "antigen": "Rubella"
+    }
+   ]
+  },
+  {
+   "cvx": "07",
+   "shortDescription": "mumps",
+   "associations": [
+    {
+     "antigen": "Mumps"
+    }
+   ]
+  },
+  {
+   "cvx": "08",
+   "shortDescription": "Hep B, adolescent or pediatric",
+   "associations": [
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "09",
+   "shortDescription": "Td (adult), adsorbed",
+   "associations": [
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Diphtheria"
+    }
+   ]
+  },
+  {
+   "cvx": "10",
+   "shortDescription": "IPV",
+   "associations": [
+    {
+     "antigen": "Polio"
+    }
+   ]
+  },
+  {
+   "cvx": "11",
+   "shortDescription": "pertussis",
+   "associations": [
+    {
+     "antigen": "Pertussis"
+    }
+   ]
+  },
+  {
+   "cvx": "15",
+   "shortDescription": "influenza, split (incl. purified surface antigen)",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "16",
+   "shortDescription": "influenza, whole",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "17",
+   "shortDescription": "Hib, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Hib"
+    }
+   ]
+  },
+  {
+   "cvx": "20",
+   "shortDescription": "DTaP",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    }
+   ]
+  },
+  {
+   "cvx": "21",
+   "shortDescription": "varicella",
+   "associations": [
+    {
+     "antigen": "Varicella"
+    }
+   ]
+  },
+  {
+   "cvx": "22",
+   "shortDescription": "DTP-Hib",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    },
+    {
+     "antigen": "Hib"
+    }
+   ]
+  },
+  {
+   "cvx": "28",
+   "shortDescription": "DT (pediatric)",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    }
+   ]
+  },
+  {
+   "cvx": "31",
+   "shortDescription": "Hep A, pediatric, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "HepA"
+    }
+   ]
+  },
+  {
+   "cvx": "32",
+   "shortDescription": "meningococcal MPSV4",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "33",
+   "shortDescription": "pneumococcal polysaccharide PPV23",
+   "associations": [
+    {
+     "antigen": "Pneumococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "35",
+   "shortDescription": "tetanus toxoid, adsorbed",
+   "associations": [
+    {
+     "antigen": "Tetanus"
+    }
+   ]
+  },
+  {
+   "cvx": "38",
+   "shortDescription": "rubella/mumps",
+   "associations": [
+    {
+     "antigen": "Rubella"
+    },
+    {
+     "antigen": "Mumps"
+    }
+   ]
+  },
+  {
+   "cvx": "42",
+   "shortDescription": "Hep B, adolescent/high risk infant",
+   "associations": [
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "43",
+   "shortDescription": "Hep B, adult",
+   "associations": [
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "44",
+   "shortDescription": "Hep B, dialysis",
+   "associations": [
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "45",
+   "shortDescription": "Hep B, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "46",
+   "shortDescription": "Hib (PRP-D)",
+   "associations": [
+    {
+     "antigen": "Hib"
+    }
+   ]
+  },
+  {
+   "cvx": "47",
+   "shortDescription": "Hib (HbOC)",
+   "associations": [
+    {
+     "antigen": "Hib"
+    }
+   ]
+  },
+  {
+   "cvx": "48",
+   "shortDescription": "Hib (PRP-T)",
+   "associations": [
+    {
+     "antigen": "Hib"
+    }
+   ]
+  },
+  {
+   "cvx": "49",
+   "shortDescription": "Hib (PRP-OMP)",
+   "associations": [
+    {
+     "antigen": "Hib"
+    }
+   ]
+  },
+  {
+   "cvx": "50",
+   "shortDescription": "DTaP-Hib",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    },
+    {
+     "antigen": "Hib"
+    }
+   ]
+  },
+  {
+   "cvx": "51",
+   "shortDescription": "Hib-Hep B",
+   "associations": [
+    {
+     "antigen": "Hib"
+    },
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "52",
+   "shortDescription": "Hep A, adult",
+   "associations": [
+    {
+     "antigen": "HepA"
+    }
+   ]
+  },
+  {
+   "cvx": "62",
+   "shortDescription": "HPV, quadrivalent",
+   "associations": [
+    {
+     "antigen": "HPV"
+    }
+   ]
+  },
+  {
+   "cvx": "74",
+   "shortDescription": "rotavirus, tetravalent",
+   "associations": [
+    {
+     "antigen": "Rotavirus"
+    }
+   ]
+  },
+  {
+   "cvx": "83",
+   "shortDescription": "Hep A, ped/adol, 2 dose",
+   "associations": [
+    {
+     "antigen": "HepA"
+    }
+   ]
+  },
+  {
+   "cvx": "84",
+   "shortDescription": "Hep A, ped/adol, 3 dose",
+   "associations": [
+    {
+     "antigen": "HepA"
+    }
+   ]
+  },
+  {
+   "cvx": "85",
+   "shortDescription": "Hep A, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "HepA"
+    }
+   ]
+  },
+  {
+   "cvx": "88",
+   "shortDescription": "influenza, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "89",
+   "shortDescription": "polio, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Polio"
+    }
+   ]
+  },
+  {
+   "cvx": "94",
+   "shortDescription": "MMRV",
+   "associations": [
+    {
+     "antigen": "Measles"
+    },
+    {
+     "antigen": "Mumps"
+    },
+    {
+     "antigen": "Rubella"
+    },
+    {
+     "antigen": "Varicella"
+    }
+   ]
+  },
+  {
+   "cvx": "100",
+   "shortDescription": "pneumococcal conjugate PCV 7",
+   "associations": [
+    {
+     "antigen": "Pneumococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "102",
+   "shortDescription": "DTP-Hib-Hep B",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    },
+    {
+     "antigen": "Hib"
+    },
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "103",
+   "shortDescription": "meningococcal C conjugate",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "104",
+   "shortDescription": "Hep A-Hep B",
+   "associations": [
+    {
+     "antigen": "HepA"
+    },
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "106",
+   "shortDescription": "DTaP, 5 pertussis antigens",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    }
+   ]
+  },
+  {
+   "cvx": "107",
+   "shortDescription": "DTaP, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    }
+   ]
+  },
+  {
+   "cvx": "108",
+   "shortDescription": "meningococcal, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "109",
+   "shortDescription": "pneumococcal, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Pneumococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "110",
+   "shortDescription": "DTaP-Hep B-IPV",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    },
+    {
+     "antigen": "HepB"
+    },
+    {
+     "antigen": "Polio"
+    }
+   ]
+  },
+  {
+   "cvx": "111",
+   "shortDescription": "influenza, live, trivalent, intranasal",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "112",
+   "shortDescription": "tetanus toxoid, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Tetanus"
+    }
+   ]
+  },
+  {
+   "cvx": "113",
+   "shortDescription": "Td (adult) preservative free",
+   "associations": [
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Diphtheria"
+    }
+   ]
+  },
+  {
+   "cvx": "114",
+   "shortDescription": "meningococcal MCV4P",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "115",
+   "shortDescription": "Tdap",
+   "associations": [
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Pertussis"
+    }
+   ]
+  },
+  {
+   "cvx": "116",
+   "shortDescription": "rotavirus, pentavalent",
+   "associations": [
+    {
+     "antigen": "Rotavirus"
+    }
+   ]
+  },
+  {
+   "cvx": "118",
+   "shortDescription": "HPV, bivalent",
+   "associations": [
+    {
+     "antigen": "HPV"
+    }
+   ]
+  },
+  {
+   "cvx": "119",
+   "shortDescription": "rotavirus, monovalent",
+   "associations": [
+    {
+     "antigen": "Rotavirus"
+    }
+   ]
+  },
+  {
+   "cvx": "120",
+   "shortDescription": "DTaP-Hib-IPV",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    },
+    {
+     "antigen": "Hib"
+    },
+    {
+     "antigen": "Polio"
+    }
+   ]
+  },
+  {
+   "cvx": "121",
+   "shortDescription": "Zoster live",
+   "associations": [
+    {
+     "antigen": "Varicella",
+     "beginAge": "0 days",
+     "endAge": "50 years"
+    },
+    {
+     "antigen": "Zoster",
+     "beginAge": "50 years"
+    }
+   ]
+  },
+  {
+   "cvx": "122",
+   "shortDescription": "rotavirus, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Rotavirus"
+    }
+   ]
+  },
+  {
+   "cvx": "130",
+   "shortDescription": "DTaP-IPV",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    },
+    {
+     "antigen": "Polio"
+    }
+   ]
+  },
+  {
+   "cvx": "132",
+   "shortDescription": "DTaP-IPV-HIB-HEP B, historical",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    },
+    {
+     "antigen": "Polio"
+    },
+    {
+     "antigen": "Hib"
+    },
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "133",
+   "shortDescription": "Pneumococcal conjugate PCV 13",
+   "associations": [
+    {
+     "antigen": "Pneumococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "135",
+   "shortDescription": "Influenza, high dose, trivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "136",
+   "shortDescription": "Meningococcal MCV4O",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "137",
+   "shortDescription": "HPV, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "HPV"
+    }
+   ]
+  },
+  {
+   "cvx": "138",
+   "shortDescription": "Td (adult)",
+   "associations": [
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Diphtheria"
+    }
+   ]
+  },
+  {
+   "cvx": "139",
+   "shortDescription": "Td(adult) unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Diphtheria"
+    }
+   ]
+  },
+  {
+   "cvx": "140",
+   "shortDescription": "Influenza, split virus, trivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "141",
+   "shortDescription": "Influenza, split virus, trivalent, preservative",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "142",
+   "shortDescription": "tetanus toxoid, not adsorbed",
+   "associations": [
+    {
+     "antigen": "Tetanus"
+    }
+   ]
+  },
+  {
+   "cvx": "144",
+   "shortDescription": "influenza, seasonal, intradermal, preservative free",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "146",
+   "shortDescription": "DTaP, IPV, Hib, HepB",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    },
+    {
+     "antigen": "Polio"
+    },
+    {
+     "antigen": "Hib"
+    },
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "147",
+   "shortDescription": "meningococcal MCV4, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "148",
+   "shortDescription": "Meningococcal C/Y-HIB PRP",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    },
+    {
+     "antigen": "Hib"
+    }
+   ]
+  },
+  {
+   "cvx": "149",
+   "shortDescription": "Influenza, live, quadrivalent, intranasal",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "150",
+   "shortDescription": "Influenza, split virus, quadrivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "151",
+   "shortDescription": "influenza, nasal, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "152",
+   "shortDescription": "Pneumococcal Conjugate, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Pneumococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "153",
+   "shortDescription": "Influenza, MDCK, trivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "155",
+   "shortDescription": "Influenza, recombinant, trivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "158",
+   "shortDescription": "Influenza, split virus, quadrivalent, preservative",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "161",
+   "shortDescription": "Influenza, injectable, quadrivalent, preservative free, pediatric",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "162",
+   "shortDescription": "Meningococcal B, recombinant",
+   "associations": [
+    {
+     "antigen": "Meningococcal B"
+    }
+   ]
+  },
+  {
+   "cvx": "163",
+   "shortDescription": "Meningococcal B, OMV",
+   "associations": [
+    {
+     "antigen": "Meningococcal B"
+    }
+   ]
+  },
+  {
+   "cvx": "164",
+   "shortDescription": "meningococcal B, unspecified",
+   "associations": [
+    {
+     "antigen": "Meningococcal B"
+    }
+   ]
+  },
+  {
+   "cvx": "165",
+   "shortDescription": "HPV9",
+   "associations": [
+    {
+     "antigen": "HPV"
+    }
+   ]
+  },
+  {
+   "cvx": "166",
+   "shortDescription": "influenza, intradermal, quadrivalent, preservative free",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "167",
+   "shortDescription": "meningococcal, unknown serogroups",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    },
+    {
+     "antigen": "Meningococcal B"
+    }
+   ]
+  },
+  {
+   "cvx": "168",
+   "shortDescription": "Influenza, adjuvanted, trivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "169",
+   "shortDescription": "Hep A, live attenuated",
+   "associations": [
+    {
+     "antigen": "HepA"
+    }
+   ]
+  },
+  {
+   "cvx": "170",
+   "shortDescription": "DTAP/IPV/HIB - non-US",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    },
+    {
+     "antigen": "Polio"
+    },
+    {
+     "antigen": "Hib"
+    }
+   ]
+  },
+  {
+   "cvx": "171",
+   "shortDescription": "Influenza, MDCK, quadrivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "177",
+   "shortDescription": "pneumococcal conjugate PCV10",
+   "associations": [
+    {
+     "antigen": "Pneumococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "178",
+   "shortDescription": "OPV bivalent",
+   "associations": [
+    {
+     "antigen": "Polio"
+    }
+   ]
+  },
+  {
+   "cvx": "179",
+   "shortDescription": "OPV ,monovalent, unspecified",
+   "associations": [
+    {
+     "antigen": "Polio"
+    }
+   ]
+  },
+  {
+   "cvx": "182",
+   "shortDescription": "OPV, Unspecified",
+   "associations": [
+    {
+     "antigen": "Polio"
+    }
+   ]
+  },
+  {
+   "cvx": "185",
+   "shortDescription": "Influenza, recombinant, quadrivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "186",
+   "shortDescription": "Influenza, MDCK, quadrivalent, preservative",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "187",
+   "shortDescription": "zoster recombinant",
+   "associations": [
+    {
+     "antigen": "Zoster"
+    }
+   ]
+  },
+  {
+   "cvx": "188",
+   "shortDescription": "zoster, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Zoster"
+    }
+   ]
+  },
+  {
+   "cvx": "189",
+   "shortDescription": "Hep B, adjuvanted",
+   "associations": [
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "191",
+   "shortDescription": "meningococcal A polysaccharide",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "192",
+   "shortDescription": "meningococcal AC polysaccharide",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "193",
+   "shortDescription": "Hep A-Hep B, pediatric/adolescent",
+   "associations": [
+    {
+     "antigen": "HepA"
+    },
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "194",
+   "shortDescription": "Influenza, Southern Hemisphere, unspecified formulation",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "195",
+   "shortDescription": "DT, IPV adsorbed",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Polio"
+    }
+   ]
+  },
+  {
+   "cvx": "196",
+   "shortDescription": "Td, adsorbed, preservative free, adult use, Lf unspecified",
+   "associations": [
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Diphtheria"
+    }
+   ]
+  },
+  {
+   "cvx": "197",
+   "shortDescription": "Influenza, high-dose, quadrivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "198",
+   "shortDescription": "DTP-HepB-Hib Pentavalent Non-US",
+   "associations": [
+    {
+     "antigen": "Diphtheria"
+    },
+    {
+     "antigen": "Tetanus"
+    },
+    {
+     "antigen": "Pertussis"
+    },
+    {
+     "antigen": "HepB"
+    },
+    {
+     "antigen": "Hib"
+    }
+   ]
+  },
+  {
+   "cvx": "200",
+   "shortDescription": "Influenza, Southern Hemisphere, pediatric, preservative free",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "201",
+   "shortDescription": "Influenza, Southern Hemisphere, preservative free",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "202",
+   "shortDescription": "Influenza, Southern Hemisphere, quadrivalent, with preservative",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "203",
+   "shortDescription": "Meningococcal Polysaccharide groups A, C, Y, W-135 TT Conjugate",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "205",
+   "shortDescription": "Influenza, adjuvanted, quadrivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "207",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, 100 mcg/0.5 mL dose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "208",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "210",
+   "shortDescription": "COVID-19 vaccine, vector-nr, rS-ChAdOx1, PF, 0.5 mL",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "211",
+   "shortDescription": "COVID-19 vaccine, Subunit, rS-nanoparticle+Matrix-M1 Adjuvant, PF, 0.5 mL",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "212",
+   "shortDescription": "SARS-COV-2 (COVID-19) vaccine, vector non-replicating, recombinant spike protein-Ad26, preservative free, 0.5 mL",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "213",
+   "shortDescription": "SARS-COV-2 (COVID-19), vaccine Unspecified Formulation",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "215",
+   "shortDescription": "Pneumococcal conjugate PCV 15",
+   "associations": [
+    {
+     "antigen": "Pneumococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "216",
+   "shortDescription": "Pneumococcal conjugate PCV 20",
+   "associations": [
+    {
+     "antigen": "Pneumococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "217",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, 30 mcg/0.3 mL dose, tris-sucrose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "218",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL dose, tris-sucrose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "219",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, 3 mcg/0.2 mL dose, tris-sucrose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "220",
+   "shortDescription": "HepB recombinant, 3-antigen, Al(OH)3",
+   "associations": [
+    {
+     "antigen": "HepB"
+    }
+   ]
+  },
+  {
+   "cvx": "221",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL dose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "227",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, pediatric 50 mcg/0.5 mL dose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "228",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, pediatric 25 mcg/0.25 mL dose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "229",
+   "shortDescription": "COVID-19, mRNA, LNP-S, bivalent, PF, 50 mcg/0.5 mL or 25 mcg/0.25 mL dose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "230",
+   "shortDescription": "COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "231",
+   "shortDescription": "influenza, Southern Hemisphere, high-dose, quadrivalent",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "300",
+   "shortDescription": "COVID-19, mRNA, LNP-S, bivalent, PF, 30 mcg/0.3 mL dose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "301",
+   "shortDescription": "COVID-19, mRNA, LNP-S, bivalent, PF, 10 mcg/0.2 mL dose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "302",
+   "shortDescription": "COVID-19, mRNA, LNP-S, bivalent, PF, 3 mcg/0.2 mL dose",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "303",
+   "shortDescription": "RSV, recombinant, protein subunit RSVpreF, adjuvant reconstituted, 0.5 mL, PF",
+   "associations": [
+    {
+     "antigen": "RSV"
+    }
+   ]
+  },
+  {
+   "cvx": "304",
+   "shortDescription": "Respiratory syncytial virus (RSV), unspecified",
+   "associations": [
+    {
+     "antigen": "RSV"
+    }
+   ]
+  },
+  {
+   "cvx": "305",
+   "shortDescription": "RSV, bivalent, protein subunit RSVpreF, diluent reconstituted, 0.5 mL, PF",
+   "associations": [
+    {
+     "antigen": "RSV"
+    }
+   ]
+  },
+  {
+   "cvx": "306",
+   "shortDescription": "RSV, mAb, nirsevimab-alip, 0.5 mL, neonate to 24 months",
+   "associations": [
+    {
+     "antigen": "RSV"
+    }
+   ]
+  },
+  {
+   "cvx": "307",
+   "shortDescription": "RSV, mAb, nirsevimab-alip, 1.0 mL, neonate to 24 months",
+   "associations": [
+    {
+     "antigen": "RSV"
+    }
+   ]
+  },
+  {
+   "cvx": "308",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 3 mcg/0.3 mL",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "309",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 30 mcg/0.3 mL",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "310",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, tris-sucrose, 10 mcg/0.3 mL",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "311",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, 25 mcg/0.25 mL",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "312",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, 50 mcg/0.5 mL",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "313",
+   "shortDescription": "COVID-19, subunit, rS-nanoparticle, adjuvanted, PF, 5 mcg/0.5 mL",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "314",
+   "shortDescription": "Respiratory syncytial virus (RSV) vaccine, unspecified",
+   "associations": [
+    {
+     "antigen": "RSV"
+    }
+   ]
+  },
+  {
+   "cvx": "315",
+   "shortDescription": "Respiratory syncytial virus (RSV) monoclonal antibody (MAB), unspecified",
+   "associations": [
+    {
+     "antigen": "RSV"
+    }
+   ]
+  },
+  {
+   "cvx": "316",
+   "shortDescription": "meningococcal polysaccharide (MenACWY-TT conjugate), (MenB), PF",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    },
+    {
+     "antigen": "Meningococcal B"
+    }
+   ]
+  },
+  {
+   "cvx": "320",
+   "shortDescription": "Influenza, MDCK, trivalent, preservative",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "324",
+   "shortDescription": "Poliovirus, inactivated, fractional-dose (fIPV)",
+   "associations": [
+    {
+     "antigen": "Polio"
+    }
+   ]
+  },
+  {
+   "cvx": "326",
+   "shortDescription": "RSV, mRNA, injectable, PF",
+   "associations": [
+    {
+     "antigen": "RSV"
+    }
+   ]
+  },
+  {
+   "cvx": "327",
+   "shortDescription": "Pneumococcal conjugate PCV 21",
+   "associations": [
+    {
+     "antigen": "Pneumococcal"
+    }
+   ]
+  },
+  {
+   "cvx": "328",
+   "shortDescription": "Meningococcal oligosaccharide (MenACWY), (MenB), PF",
+   "associations": [
+    {
+     "antigen": "Meningococcal"
+    },
+    {
+     "antigen": "Meningococcal B"
+    }
+   ]
+  },
+  {
+   "cvx": "331",
+   "shortDescription": "Influenza, Southern Hemisphere, trivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "332",
+   "shortDescription": "RSV, mAb, clesrovimab-cfor, 0.7 mL, neonate and infant, PF",
+   "associations": [
+    {
+     "antigen": "RSV"
+    }
+   ]
+  },
+  {
+   "cvx": "333",
+   "shortDescription": "Influenza, live, trivalent, intranasal, self/caregiver admin, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "334",
+   "shortDescription": "COVID-19, mRNA, LNP-S, PF, 10 mcg/0.2 mL",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "337",
+   "shortDescription": "Influenza, Southern Hemisphere, high-dose, trivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "338",
+   "shortDescription": "Influenza, mRNA, trivalent, PF",
+   "associations": [
+    {
+     "antigen": "Influenza"
+    }
+   ]
+  },
+  {
+   "cvx": "500",
+   "shortDescription": "COVID-19 Non-US Vaccine, Product Unknown",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "501",
+   "shortDescription": "COVID-19 IV Non-US Vaccine (QAZCOVID-IN)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "502",
+   "shortDescription": "COVID-19 IV Non-US Vaccine (COVAXIN)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "503",
+   "shortDescription": "COVID-19 LAV Non-US Vaccine (COVIVAC)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "504",
+   "shortDescription": "COVID-19 VVnr Non-US Vaccine (Sputnik Light)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "505",
+   "shortDescription": "COVID-19 VVnr Non-US Vaccine (Sputnik V)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "506",
+   "shortDescription": "COVID-19 VVnr Non-US Vaccine (CanSino Biological Inc./Beijing Institute of Biotechnology)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "507",
+   "shortDescription": "COVID-19 PS Non-US Vaccine (Anhui Zhifei Longcom Biopharmaceutical + Institute of Microbiology Chinese academy of Sciences)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "508",
+   "shortDescription": "COVID-19 PS Non-US Vaccine (Jiangsu Province Centers for Disease Control and Prevention)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "509",
+   "shortDescription": "COVID-19 PS Non-US Vaccine (EpiVacCorona)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "510",
+   "shortDescription": "COVID-19 IV Non-US Vaccine (BIBP, Sinopharm)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "511",
+   "shortDescription": "COVID-19 IV Non-US Vaccine (CoronaVac, Sinovac)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "512",
+   "shortDescription": "COVID-19 VLP Non-US Vaccine (Medicago, Covifenz)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "513",
+   "shortDescription": "COVID-19 PS Non-US Vaccine (Anhui Zhifei Longcom, Zifivax)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "514",
+   "shortDescription": "COVID-19 DNA Non-US Vaccine (Zydus Cadila, ZyCoV-D)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "515",
+   "shortDescription": "COVID-19 PS Non-US Vaccine (Medigen, MVC-COV1901)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "516",
+   "shortDescription": "COVID-19 Inactivated Non-US Vaccine (Minhai Biotechnology Co, KCONVAC)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "517",
+   "shortDescription": "COVID-19 PS Non-US Vaccine (Biological E Limited, Corbevax)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "518",
+   "shortDescription": "COVID-19 Inactivated Non-US Vaccine (VLA2001, Valneva)",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "519",
+   "shortDescription": "COVID-19 mRNA, bivalent, original/Omicron BA.1 Non-US Vaccine Product (Spikevax Bivalent), Moderna",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "520",
+   "shortDescription": "COVID-19 mRNA, bivalent, original/Omicron BA.1 Non-US Vaccine Product (Comirnaty Bivalent), Pfizer-BioNTech",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  },
+  {
+   "cvx": "521",
+   "shortDescription": "COVID-19 SP, protein-based, adjuvanted (VidPrevtyn Beta), Sanofi-GSK",
+   "associations": [
+    {
+     "antigen": "COVID-19"
+    }
+   ]
+  }
+ ],
+ "liveVirusConflicts": [
+  {
+   "previousCvx": "03",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "03",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "04",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "05",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "06",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "07",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "26 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "19",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "21",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "37",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "38",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "56",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "75",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "94",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "105",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "111",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "121",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "125",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "149",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "151",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "169",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "183",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "184",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "204",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "317",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "333",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "03",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "04",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "05",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "06",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "07",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "19",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "30 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "21",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "37",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "38",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "56",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "75",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "94",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "105",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "111",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "121",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "125",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "149",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "151",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "169",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "183",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "184",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "30 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "204",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "317",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "333",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "28 days",
+   "conflictEndInterval": "28 days"
+  },
+  {
+   "previousCvx": "503",
+   "currentCvx": "503",
+   "conflictBeginInterval": "1 day",
+   "minConflictEndInterval": "24 days",
+   "conflictEndInterval": "28 days"
+  }
+ ],
+ "vaccineGroups": [
+  {
+   "name": "COVID-19",
+   "antigens": [
+    "COVID-19"
+   ]
+  },
+  {
+   "name": "DTaP/Tdap/Td",
+   "antigens": [
+    "Diphtheria",
+    "Pertussis",
+    "Tetanus"
+   ],
+   "administerFullVaccineGroup": false
+  },
+  {
+   "name": "HepA",
+   "antigens": [
+    "HepA"
+   ]
+  },
+  {
+   "name": "HepB",
+   "antigens": [
+    "HepB"
+   ]
+  },
+  {
+   "name": "Hib",
+   "antigens": [
+    "Hib"
+   ]
+  },
+  {
+   "name": "HPV",
+   "antigens": [
+    "HPV"
+   ]
+  },
+  {
+   "name": "Influenza",
+   "antigens": [
+    "Influenza"
+   ]
+  },
+  {
+   "name": "Meningococcal",
+   "antigens": [
+    "Meningococcal"
+   ]
+  },
+  {
+   "name": "Meningococcal B",
+   "antigens": [
+    "Meningococcal B"
+   ]
+  },
+  {
+   "name": "MMR",
+   "antigens": [
+    "Measles",
+    "Mumps",
+    "Rubella"
+   ],
+   "administerFullVaccineGroup": true
+  },
+  {
+   "name": "Pneumococcal",
+   "antigens": [
+    "Pneumococcal"
+   ]
+  },
+  {
+   "name": "Polio",
+   "antigens": [
+    "Polio"
+   ]
+  },
+  {
+   "name": "Rotavirus",
+   "antigens": [
+    "Rotavirus"
+   ]
+  },
+  {
+   "name": "RSV",
+   "antigens": [
+    "RSV"
+   ]
+  },
+  {
+   "name": "Varicella",
+   "antigens": [
+    "Varicella"
+   ]
+  },
+  {
+   "name": "Zoster",
+   "antigens": [
+    "Zoster"
+   ]
+  }
+ ]
+}

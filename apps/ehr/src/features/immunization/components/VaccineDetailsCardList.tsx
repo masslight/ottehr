@@ -3,6 +3,7 @@ import React, { useLayoutEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { replaceUrlKeepingRouterState } from 'src/helpers/misc.helper';
 import { useGetImmunizationOrders } from '../../visits/in-person/hooks/useImmunization';
@@ -10,6 +11,7 @@ import { ordersRecentFirstComparator } from '../common';
 import { ImmunizationNotes } from './ImmunizationNotes';
 import { OrderHistoryTable } from './OrderHistoryTable';
 import { VaccineDetailsCard } from './VaccineDetailsCard';
+import { VfcEligibilityBox } from './VfcEligibilityBox';
 
 interface Props {
   onOrderFinished?: () => void;
@@ -21,6 +23,7 @@ export const VaccineDetailsCardList: React.FC<Props> = ({ onOrderFinished, scrol
   const [searchParams] = useSearchParams();
   const scrollTo = scrollToOrderId ?? searchParams.get('scrollTo');
   const [isImmunizationHistoryCollapsed, setIsImmunizationHistoryCollapsed] = useState(false);
+  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const {
     encounter,
@@ -56,6 +59,7 @@ export const VaccineDetailsCardList: React.FC<Props> = ({ onOrderFinished, scrol
 
   return (
     <Stack spacing={2}>
+      <VfcEligibilityBox encounterId={encounter.id} readOnly={isReadOnly} />
       <AccordionCard
         label="Immunization history"
         collapsed={isImmunizationHistoryCollapsed}

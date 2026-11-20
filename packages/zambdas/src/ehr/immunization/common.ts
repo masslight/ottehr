@@ -1,8 +1,13 @@
 import Oystehr from '@oystehr/sdk';
-import { Medication, MedicationAdministration, Organization, Practitioner } from 'fhir/r4b';
+import { Coding, Medication, MedicationAdministration, Organization, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { CPT_BILLABLE_UNITS_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { codeableConcept, getCoding, sanitizeStringForFhirCode } from 'utils/lib/fhir/helpers';
-import { searchMedicationLocation, searchRouteByCode } from 'utils/lib/fhir/medication-administration';
+import {
+  isImmunizationOrder,
+  searchMedicationLocation,
+  searchRouteByCode,
+} from 'utils/lib/fhir/medication-administration';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
@@ -17,6 +22,7 @@ import {
   VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
 import {
+  ImmunizationCptCode,
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
 } from 'utils/lib/types/data/immunization/types';
@@ -35,6 +41,19 @@ export const IMMUNIZATION_ORDER_ADMINISTERED_DATETIME_EXTENSION_URL = ottehrExte
   'immunization-order-administered-date-time'
 );
 export const IMMUNIZATION_ORDER_VIS_GIVEN_EXTENSION_URL = ottehrExtensionUrl('immunization-order-vis-given');
+
+/** The immunization order with this id. An in-house medication order's id fails as a missing id does (both reach the
+ * caller as the same 500), so the endpoint neither changes it nor reveals that it exists. */
+export async function getImmunizationOrder(oystehr: Oystehr, orderId: string): Promise<MedicationAdministration> {
+  const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
+    resourceType: 'MedicationAdministration',
+    id: orderId,
+  });
+  if (!isImmunizationOrder(medicationAdministration)) {
+    throw new Error(`MedicationAdministration/${orderId} is not an immunization order`);
+  }
+  return medicationAdministration;
+}
 
 export async function updateOrderDetails(
   medicationAdministration: MedicationAdministration,
@@ -189,13 +208,26 @@ export function updateVaccineMedicationDetails(
     medication.extension.push({
       url: VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
       valueCodeableConcept: {
-        coding: [{ code: cptCode.code, system: CODE_SYSTEM_CPT, display: cptCode.display }],
+        coding: [cptCodeCoding(cptCode)],
       },
     });
   }
   if (visGivenDate) {
     medication.extension.push({ url: VACCINE_ADMINISTRATION_VIS_DATE_EXTENSION_URL, valueDate: visGivenDate });
   }
+}
+
+/** The CPT coding with its count, stored as the procedure CPT lines store theirs (a billable-units extension). */
+export function cptCodeCoding(cptCode: ImmunizationCptCode): Coding {
+  const { code, display, billableUnits } = cptCode;
+  return {
+    code,
+    system: CODE_SYSTEM_CPT,
+    display,
+    ...(billableUnits != null &&
+      Number.isFinite(billableUnits) &&
+      billableUnits > 0 && { extension: [{ url: CPT_BILLABLE_UNITS_EXTENSION_URL, valueDecimal: billableUnits }] }),
+  };
 }
 
 export function applyOrderAdministrationDetails(
@@ -243,6 +275,14 @@ export function validateAdministrationDetailsValues(
     if (value) administrationDetails[field] = sanitizeStringForFhirCode(value) || undefined;
   }
   if (administrationDetails.lot) administrationDetails.lot = administrationDetails.lot.trim() || undefined;
+  for (const cptCode of administrationDetails.cptCodes ?? []) {
+    const { billableUnits } = cptCode;
+    if (billableUnits != null && !(Number.isInteger(billableUnits) && billableUnits > 0)) {
+      throw INVALID_INPUT_ERROR(
+        `Invalid CPT code count, "${billableUnits}" for ${cptCode.code} is not a positive integer`
+      );
+    }
+  }
 }
 
 export function validateOrderDetails(orderDetails: any): string[] {

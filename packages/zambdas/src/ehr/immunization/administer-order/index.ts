@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   FhirResource,
@@ -11,6 +12,8 @@ import {
   Reference,
   RelatedPerson,
 } from 'fhir/r4b';
+import { getCptBillableUnitsFromCoding } from 'utils/lib/fhir/billing';
+import { getEmergencyContactSummary, isEmergencyContactRelatedPerson } from 'utils/lib/fhir/emergency-contact';
 import { createReference } from 'utils/lib/fhir/helpers';
 import {
   getMedicationName,
@@ -30,6 +33,7 @@ import {
   CreateUpdateImmunizationOrderResponse,
   ImmunizationEmergencyContact,
 } from 'utils/lib/types/data/immunization/types';
+import { cptCodesToBillForDose } from 'utils/lib/types/data/immunization/vfc';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient, fillMeta, validateJsonBody } from '../../../shared/helpers';
@@ -40,12 +44,21 @@ import {
   CONTAINED_EMERGENCY_CONTACT_ID,
   CONTAINED_MANUFACTURER_ORG_ID,
   CONTAINED_MEDICATION_ID,
+  cptCodeCoding,
   getContainedMedication,
+  getImmunizationOrder,
   updateOrderDetails,
   updateVaccineMedicationDetails,
   validateAdministrationDetailsValues,
   validateOrderDetails,
 } from '../common';
+import { immunizationSyncRequest } from '../records';
+import {
+  applyVaccineDoseFunding,
+  fillFundingFromInventoryLot,
+  fillVfcEligibilityFromVisit,
+  syncVaccineStockAndBorrowing,
+} from '../vaccine-stock';
 
 let m2mToken: string;
 
@@ -74,16 +87,21 @@ export async function administerImmunizationOrder(
   userPractitioner: Practitioner
 ): Promise<CreateUpdateImmunizationOrderResponse> {
   const { orderId, type, reason, details, administrationDetails } = input;
-  const medicationAdministration = await oystehr.fhir.get<MedicationAdministration>({
-    resourceType: 'MedicationAdministration',
-    id: orderId,
-  });
+  const medicationAdministration = await getImmunizationOrder(oystehr, orderId);
 
   const allowedStatuses = ['in-progress', 'completed', 'on-hold', 'not-done'];
   if (!allowedStatuses.includes(medicationAdministration.status)) {
     const currentStatus = mapFhirToOrderStatus(medicationAdministration);
     throw new Error(`Can't administer order in "${currentStatus}" status`);
   }
+
+  const wasGiven = ['administered', 'administered-partly'].includes(
+    mapFhirToOrderStatus(medicationAdministration) ?? ''
+  );
+  const recordedEmergencyContact = medicationAdministration.contained?.find(
+    (resource): resource is RelatedPerson =>
+      resource.resourceType === 'RelatedPerson' && resource.id === CONTAINED_EMERGENCY_CONTACT_ID
+  );
 
   await updateOrderDetails(medicationAdministration, details, oystehr);
 
@@ -116,21 +134,24 @@ export async function administerImmunizationOrder(
     },
   });
 
-  if (administrationDetails.emergencyContact) {
-    const emergencyContactRelatedPerson = createEmergencyContactRelatedPerson(
-      medicationAdministration.subject,
-      administrationDetails.emergencyContact
-    );
-
-    if (emergencyContactRelatedPerson) {
-      medicationAdministration.contained?.push(emergencyContactRelatedPerson);
-      medicationAdministration.supportingInformation = [
-        {
-          reference: '#' + CONTAINED_EMERGENCY_CONTACT_ID,
-        },
-      ];
-    }
-  }
+  const isGiven = ['administered', 'administered-partly'].includes(type);
+  const emergencyContactRelatedPerson = isGiven
+    ? (administrationDetails.emergencyContact &&
+        createEmergencyContactRelatedPerson(
+          medicationAdministration.subject,
+          administrationDetails.emergencyContact
+        )) ||
+      (wasGiven
+        ? recordedEmergencyContact
+        : await findPatientEmergencyContact(oystehr, medicationAdministration.subject))
+    : undefined;
+  medicationAdministration.contained = [
+    ...(medicationAdministration.contained ?? []).filter((resource) => resource.id !== CONTAINED_EMERGENCY_CONTACT_ID),
+    ...(emergencyContactRelatedPerson ? [emergencyContactRelatedPerson] : []),
+  ];
+  medicationAdministration.supportingInformation = emergencyContactRelatedPerson
+    ? [{ reference: '#' + CONTAINED_EMERGENCY_CONTACT_ID }]
+    : undefined;
 
   const medication = getContainedMedication(medicationAdministration);
   if (!medication) {
@@ -138,6 +159,11 @@ export async function administerImmunizationOrder(
   }
 
   updateVaccineMedicationDetails(medication, administrationDetails);
+  if (['administered', 'administered-partly'].includes(input.type)) {
+    await fillFundingFromInventoryLot(oystehr, medicationAdministration, administrationDetails);
+  }
+  await fillVfcEligibilityFromVisit(oystehr, medicationAdministration, administrationDetails);
+  applyVaccineDoseFunding(medicationAdministration, administrationDetails);
 
   const transactionRequests: BatchInputRequest<FhirResource>[] = [
     {
@@ -163,52 +189,76 @@ export async function administerImmunizationOrder(
     });
   }
 
+  // the dose's Immunization record follows the administration: created, updated or entered in error with it
+  const immunizationRequest = await immunizationSyncRequest(oystehr, medicationAdministration);
+  if (immunizationRequest) transactionRequests.push(immunizationRequest);
+
   console.log('Transaction requests: ', JSON.stringify(transactionRequests));
   const transactionResult = await oystehr.fhir.transaction({ requests: transactionRequests });
   console.log('Transaction result: ', JSON.stringify(transactionResult));
 
-  // Add CPT codes to chart data (assessment) on administration
-  if (['administered', 'administered-partly'].includes(input.type)) {
-    const cptCodesToAdd = administrationDetails.cptCodes ?? [];
-    if (cptCodesToAdd.length > 0) {
-      const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
-      const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
-      if (encounterId && patientId) {
-        try {
-          // Search for existing CPT code Procedures on this encounter
-          const existingProcedures = (
-            await oystehr.fhir.search<Procedure>({
-              resourceType: 'Procedure',
-              params: [
-                { name: 'encounter', value: `Encounter/${encounterId}` },
-                { name: '_tag', value: 'cpt-code' },
-              ],
-            })
-          ).unbundle();
-          const existingCodes = existingProcedures.map((p) => p.code?.coding?.[0]?.code).filter(Boolean);
-          const newCodes = cptCodesToAdd.filter((c) => !existingCodes.includes(c.code));
+  // The dose comes off its inventory lot (or goes back), and a borrowed VFC dose is logged.
+  await syncVaccineStockAndBorrowing(oystehr, medicationAdministration, `Practitioner/${userPractitioner.id}`);
 
-          for (const cptCode of newCodes) {
+  // Add CPT codes to chart data (assessment) on administration. A dose from VFC or state stock bills only the
+  // administration codes: the vaccine itself was supplied free.
+  if (['administered', 'administered-partly'].includes(input.type)) {
+    const cptCodesToAdd = cptCodesToBillForDose(
+      administrationDetails.cptCodes ?? [],
+      administrationDetails.fundingSource
+    );
+    const encounterId = medicationAdministration.context?.reference?.replace('Encounter/', '');
+    const patientId = medicationAdministration.subject?.reference?.replace('Patient/', '');
+    if (encounterId && patientId) {
+      try {
+        // The lines this administration already has: each vaccine given bills its own admin codes, so another
+        // vaccine's 90460 on the visit is not a reason to skip this one.
+        const existingProcedures = (
+          await oystehr.fhir.search<Procedure>({
+            resourceType: 'Procedure',
+            params: [
+              { name: 'part-of', value: `MedicationAdministration/${medicationAdministration.id}` },
+              { name: '_tag', value: 'cpt-code' },
+            ],
+          })
+        ).unbundle();
+        const changedCodes: string[] = [];
+        for (const cptCode of cptCodesToAdd) {
+          const coding = cptCodeCoding(cptCode);
+          const existing = existingProcedures.find((p) => p.code?.coding?.[0]?.code === cptCode.code);
+          if (!existing) {
             await oystehr.fhir.create<Procedure>({
               resourceType: 'Procedure',
               subject: { reference: `Patient/${patientId}` },
               encounter: { reference: `Encounter/${encounterId}` },
               partOf: [createReference(medicationAdministration)],
               status: 'completed',
-              code: {
-                coding: [{ code: cptCode.code, display: cptCode.display, system: 'http://www.ama-assn.org/go/cpt' }],
-              },
+              code: { coding: [coding] },
               meta: {
                 tag: [{ code: 'cpt-code', system: 'https://fhir.zapehr.com/r4/StructureDefinitions/cpt-code' }],
               },
             });
+            changedCodes.push(cptCode.code);
+          } else if (getCptBillableUnitsForProcedure(existing) !== (cptCode.billableUnits ?? 1)) {
+            // re-administered with a different count: the line keeps its id, the claim gets the new quantity
+            await oystehr.fhir.update<Procedure>({ ...existing, code: { coding: [coding] } });
+            changedCodes.push(`${cptCode.code} ×${cptCode.billableUnits ?? 1}`);
           }
-          if (newCodes.length > 0) {
-            console.log('Added CPT codes to chart data:', newCodes.map((c) => c.code).join(', '));
-          }
-        } catch (e) {
-          console.error('Failed to add CPT codes to chart data:', e);
         }
+        // re-administered without a code (re-saved from VFC stock, the vaccine's own code is no longer billed): its
+        // line goes, as cancelling the order deletes them
+        for (const procedure of existingProcedures) {
+          const code = procedure.code?.coding?.[0]?.code;
+          if (!procedure.id || cptCodesToAdd.some((cpt) => cpt.code === code)) continue;
+          await oystehr.fhir.delete({ resourceType: 'Procedure', id: procedure.id });
+          changedCodes.push(`-${code}`);
+        }
+        if (changedCodes.length > 0) {
+          console.log('Changed CPT codes in chart data:', changedCodes.join(', '));
+        }
+      } catch (e) {
+        console.error('Failed to update CPT codes in chart data:', e);
+        captureException(e);
       }
     }
   }
@@ -217,6 +267,9 @@ export async function administerImmunizationOrder(
     orderId: medicationAdministration.id!,
   };
 }
+
+const getCptBillableUnitsForProcedure = (procedure: Procedure): number =>
+  getCptBillableUnitsFromCoding(procedure.code?.coding?.[0]) ?? 1;
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -325,6 +378,29 @@ function createMedicationStatement(
   };
 }
 
+async function findPatientEmergencyContact(
+  oystehr: Oystehr,
+  patientReference: Reference
+): Promise<RelatedPerson | undefined> {
+  if (!patientReference.reference) return undefined;
+  try {
+    const relatedPerson = (
+      await oystehr.fhir.search<RelatedPerson>({
+        resourceType: 'RelatedPerson',
+        params: [{ name: 'patient', value: patientReference.reference }],
+      })
+    )
+      .unbundle()
+      .find(isEmergencyContactRelatedPerson);
+    if (!relatedPerson) return undefined;
+    const { relationship, fullName, phone } = getEmergencyContactSummary(relatedPerson);
+    return createEmergencyContactRelatedPerson(patientReference, { relationship, fullName, mobile: phone });
+  } catch (error) {
+    console.error('Could not read the patient emergency contact', error);
+    return undefined;
+  }
+}
+
 function createEmergencyContactRelatedPerson(
   patientReference: Reference,
   emergencyContact: ImmunizationEmergencyContact
@@ -332,8 +408,9 @@ function createEmergencyContactRelatedPerson(
   const fullName = emergencyContact.fullName?.trim();
   const mobile = emergencyContact.mobile?.trim();
 
+  const relationshipValue = emergencyContact.relationship?.trim();
   const relationshipCoding = EMERGENCY_CONTACT_RELATIONSHIPS.find(
-    (relationship) => relationship.code === emergencyContact.relationship
+    (relationship) => relationship.code === relationshipValue || relationship.display === relationshipValue
   );
 
   const name: RelatedPerson['name'] = fullName ? [{ text: fullName }] : undefined;
@@ -351,6 +428,8 @@ function createEmergencyContactRelatedPerson(
           ],
         },
       ]
+    : relationshipValue
+    ? [{ text: relationshipValue }]
     : undefined;
 
   if (!name && !telecom && !relationship) {

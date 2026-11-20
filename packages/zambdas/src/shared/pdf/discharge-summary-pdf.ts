@@ -39,6 +39,7 @@ import { composeUpcomingVisits, createUpcomingVisitsSection } from './sections/u
 import { composeAllergies } from './sections/visit-note/allergiesInfo';
 import { composeDmeOrders, createDmeOrdersSection } from './sections/visit-note/dme';
 import { composeExternalLabs, createExternalLabsSection } from './sections/visit-note/externalLabsInfo';
+import { composeImmunizationOrders, createImmunizationOrdersSection } from './sections/visit-note/immunization';
 import { composeInHouseLabs, createInHouseLabsSection } from './sections/visit-note/inHouseLabsInfo';
 import { composeMedications } from './sections/visit-note/medicationsInfo';
 import { composeProcedures, createProceduresSection } from './sections/visit-note/procedures';
@@ -65,6 +66,7 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
     diagnoses: composeDiagnoses({ allChartData }),
     procedures: composeProcedures({ allChartData, appointmentPackage }),
     dmeOrders: composeDmeOrders({ dmeOrders: input.dmeOrders }),
+    immunizationOrders: composeImmunizationOrders({ allChartData, appointmentPackage }),
     patientInstructions: composePatientInstructions({ allChartData }),
     educationDocuments: composeEducationalDocuments({ allChartData }),
     disposition: composeDisposition({ allChartData }),
@@ -97,6 +99,7 @@ const dischargeSummaryRenderConfig: PdfRenderConfig<DischargeSummaryData> = {
     createDiagnosesSection(),
     createProceduresSection(),
     createDmeOrdersSection(),
+    createImmunizationOrdersSection(),
     createPatientInstructionsSection(),
     createEducationalDocumentsSection(),
     createDispositionSection(),

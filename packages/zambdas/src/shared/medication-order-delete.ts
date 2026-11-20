@@ -13,6 +13,7 @@ import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCptCodesFromMA, isImmunizationOrder } from 'utils/lib/fhir/medication-administration';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { replaceOperation } from 'utils/lib/helpers/operations';
+import { cptCodesToBillForDose } from 'utils/lib/types/data/immunization/vfc';
 import { findBillingClaimForEncounter } from '../billing/payments';
 import { deleteResourceRequest } from '../ehr/delete-chart-data/helpers';
 import { mapMedicationAdministrationToImmunizationOrder } from '../ehr/immunization/get-orders';
@@ -27,6 +28,13 @@ const declaredVaccineCptCodes = (vaccine: MedicationAdministration): string[] =>
   (mapMedicationAdministrationToImmunizationOrder(vaccine).administrationDetails?.cptCodes ?? []).map(
     (cptCode) => cptCode.code
   );
+
+/** The codes a vaccine bills: a dose from VFC or state stock never takes over the vaccine product code. */
+const billedVaccineCptCodes = (vaccine: MedicationAdministration): string[] => {
+  const { cptCodes = [], fundingSource } =
+    mapMedicationAdministrationToImmunizationOrder(vaccine).administrationDetails ?? {};
+  return cptCodesToBillForDose(cptCodes, fundingSource).map((cptCode) => cptCode.code);
+};
 
 const byAdministrationTime = (a: MedicationAdministration, b: MedicationAdministration): number =>
   (a.effectiveDateTime ?? '').localeCompare(b.effectiveDateTime ?? '') || (a.id ?? '').localeCompare(b.id ?? '');
@@ -57,9 +65,7 @@ export function selectOrderCptLineChanges({
   const lineHandoffs: CptLineHandoff[] = [];
   for (const line of ownLines) {
     const code = codeOf(line);
-    const newOwner = code
-      ? activeVaccines.find((vaccine) => declaredVaccineCptCodes(vaccine).includes(code))
-      : undefined;
+    const newOwner = code ? activeVaccines.find((vaccine) => billedVaccineCptCodes(vaccine).includes(code)) : undefined;
     const coveredByAnotherLine = visitLines.some((other) => !ownLineIds.has(other.id) && codeOf(other) === code);
     const firstOwnLineForCode = line === ownLines.find((own) => codeOf(own) === code);
     if (!newOwner?.id || coveredByAnotherLine || !firstOwnLineForCode) {

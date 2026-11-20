@@ -53,6 +53,8 @@ export const PRIVACY_POLICY_CODE = '64292-6';
 export const VISIT_NOTE_SUMMARY_CODE = '75498-6';
 export const VISIT_DETAILS_CODE = 'visit-details';
 export const DISCHARGE_SUMMARY_CODE = 'discharge-summary';
+/** The patient's full immunization record, printed with the discharge papers (decision #10b). */
+export const IMMUNIZATION_RECORD_CODE = 'immunization-record';
 export const MEDICAL_RECORD_EXPORT_CODE = 'medical-record-export';
 export const PATIENT_EDUCATION_DOC_TYPE_CODE = 'patient-education';
 export const PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE = 'patient-education-approved';
