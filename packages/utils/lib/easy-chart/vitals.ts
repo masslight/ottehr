@@ -306,6 +306,12 @@ function parseSingleUnit(
 const LENGTH_UNIT = String.raw`(?:cm\b|centimet\w*|mm\b|millimet\w*|in\b|ins\b|inch(?:es)?\b|"|'')`;
 const HEAD_CIRCUMFERENCE_READING = String.raw`(?:head\s*circumference|\bofc\b|\bhc\b)[\s:=~-]*(?:(?:is|was|of|at|about|around|approx\w*|today|measures?|measured)\b[\s:=~.-]*){0,3}(${NUMBER}\s*${LENGTH_UNIT})`;
 
+const READING_KEYWORDS: Partial<Record<PlannableVitalField, string>> = {
+  'vital-height': String.raw`height|length|stature|\bht\b`,
+  'vital-weight': String.raw`weigh\w*|\bwt\b`,
+  'vital-head-circumference': String.raw`head\s*circumference|\bofc\b|\bhc\b`,
+};
+
 // The model sometimes adds a unit nobody said ("head circumference 44" → "44 cm"); the narrative is the judge.
 export function unitNotSaid(
   field: PlannableVitalField,
@@ -313,18 +319,21 @@ export function unitNotSaid(
   narratives: (string | undefined)[]
 ): VitalParse | undefined {
   const rules = UNIT_TABLES[field];
-  const number = new RegExp(NUMBER).exec(display)?.[0];
-  if (!rules || !number) return undefined;
-  const occurrence = new RegExp(String.raw`(?<![\d.])${number.replace('.', '\\.')}(?!\.?\d)([^\d,;]*)`, 'g');
-  const trailing = narratives.flatMap((text) => (text ? [...text.matchAll(occurrence)].map((match) => match[1]) : []));
+  const keyword = READING_KEYWORDS[field];
+  const value = Number(new RegExp(NUMBER).exec(display)?.[0]);
+  if (!rules || !keyword || !Number.isFinite(value)) return undefined;
+  const reading = new RegExp(String.raw`(?:${keyword})\D{0,24}?(${NUMBER})([^\d,;]*)`, 'gi');
+  const trailing = narratives.flatMap((text) =>
+    text ? [...text.matchAll(reading)].filter((match) => Number(match[1]) === value).map((match) => match[2]) : []
+  );
   if (trailing.length === 0) return undefined;
   const unitAfter = (text: string): boolean =>
     rules.some((rule) => new RegExp(String.raw`^[\s(-]*(?:${rule.pattern.source})`, 'i').test(text));
   if (trailing.some(unitAfter)) return undefined;
   return {
     status: 'missing-unit',
-    value: Number(number),
-    reason: `"${number}" was said with no unit — ${BARE_READING_AMBIGUITY[field]}, so it needs confirming`,
+    value,
+    reason: `"${value}" was said with no unit — ${BARE_READING_AMBIGUITY[field]}, so it needs confirming`,
   };
 }
 

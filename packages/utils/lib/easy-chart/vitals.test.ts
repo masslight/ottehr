@@ -282,6 +282,24 @@ describe('unitNotSaid', () => {
     expect(unitNotSaid('vital-head-circumference', '44 cm', [narrative])).toMatchObject({ status: 'missing-unit' });
   });
 
+  it('compares the numbers by value, however the decimals are written', () => {
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['Head circumference 44.0 today'])).toMatchObject({
+      status: 'missing-unit',
+    });
+    expect(unitNotSaid('vital-height', '68.0 cm', ['Height 68 today'])).toMatchObject({ status: 'missing-unit' });
+    expect(unitNotSaid('vital-weight', '9 kg', ['weighs 9.00 kg'])).toBeUndefined();
+  });
+
+  it("only looks at the number said for this vital, not another vital's or an age", () => {
+    expect(
+      unitNotSaid('vital-head-circumference', '52 cm', ['Head circumference 52 today. Height 52 inches.'])
+    ).toMatchObject({ status: 'missing-unit' });
+    expect(unitNotSaid('vital-height', '52 in', ['Head circumference 52 today. Height 52 inches.'])).toBeUndefined();
+    expect(
+      unitNotSaid('vital-head-circumference', '17 in', ['17 months old. Head circumference seventeen inches.'])
+    ).toBeUndefined();
+  });
+
   it('does not read a longer number as the reading', () => {
     expect(unitNotSaid('vital-head-circumference', '44 cm', ['HC 44.5 cm, 144 days old'])).toBeUndefined();
   });
