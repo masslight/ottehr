@@ -585,6 +585,8 @@ interface TextBlankProps {
   max?: number;
   step?: number;
   width?: string;
+  /** Free text that wraps onto more lines and grows as it is typed (text only). */
+  multiline?: boolean;
   dataTestId?: string;
   invalid?: boolean;
   describedBy?: string;
@@ -603,16 +605,19 @@ export const TextBlank: FC<TextBlankProps> = ({
   max,
   step,
   width,
+  multiline,
   dataTestId,
   invalid,
   describedBy,
 }) => {
   const text = value === undefined ? '' : String(value);
+  const grows = multiline && kind === 'text';
   if (readOnly) return <ReadOnlyBlank label={label} value={text} dataTestId={dataTestId} />;
   const placeholder = placeholderProp ?? label;
   return (
     <InputBase
-      type={kind}
+      type={grows ? undefined : kind}
+      multiline={grows}
       value={text}
       placeholder={placeholder}
       onChange={(event) => onChange(event.target.value)}
@@ -639,6 +644,17 @@ export const TextBlank: FC<TextBlankProps> = ({
             ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
             ...(kind === 'number' ? numberInputSx : {}),
           },
+          // A growing blank renders a textarea: it takes the same look, and its first line sits on the sentence's
+          // baseline like the other blanks.
+          ...(grows
+            ? {
+                '& textarea': {
+                  ...(inline['& input'] as Record<string, unknown>),
+                  ...(text ? { ...filledSx(theme), padding: '1px 2px' } : {}),
+                },
+                verticalAlign: 'baseline',
+              }
+            : {}),
           maxWidth: '100%',
           // The box hugs its content: the placeholder at first, then whatever is typed.
           width: width ?? `calc(${(text || placeholder).length + 1}ch + 8px)`,

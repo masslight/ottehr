@@ -13,7 +13,15 @@ type Props = {
   filter?: (employee: EmployeeDetails) => boolean;
 };
 
-export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, required, size, dataTestId, filter }) => {
+export interface EmployeeOption {
+  id: string;
+  name: string;
+}
+
+/** The employees a select offers, by name; `undefined` while they load. */
+export const useEmployeeOptions = (
+  filter?: (employee: EmployeeDetails) => boolean
+): { options: EmployeeOption[] | undefined; isLoading: boolean } => {
   const { oystehrZambda } = useApiClients();
   const { data: employees, isLoading } = useGetEmployeesWithDetails({ enabled: !!oystehrZambda });
   // Source from the broader assignable-staff pool (currently named
@@ -37,6 +45,11 @@ export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, re
           };
         })
         .sort((a, b) => a.name.localeCompare(b.name));
+  return { options, isLoading };
+};
+
+export const EmployeeSelectInput: React.FC<Props> = ({ name, label, multiple, required, size, dataTestId, filter }) => {
+  const { options, isLoading } = useEmployeeOptions(filter);
   return (
     <AutocompleteInput
       name={name}
