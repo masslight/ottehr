@@ -2,7 +2,6 @@ import { Box, CircularProgress, Link, MenuItem, Paper, Select, TextField, Typogr
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, ReactNode, useMemo, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
 import ChatModal from 'src/features/chat/ChatModal';
 import { getChiefComplaintUrl } from 'src/features/visits/in-person/routing/helpers';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
@@ -227,7 +226,7 @@ export const JournalPage = (): ReactElement => {
         {nothingMatches && (
           <Box sx={{ color: JOURNAL_COLORS.text2, fontSize: '13.5px', textAlign: 'center', padding: '28px 8px' }}>
             No match on this journal ·{' '}
-            <Link component={RouterLink} to={patientsSearchUrl(query)} sx={{ fontWeight: 500 }}>
+            <Link href={patientsSearchUrl(query)} target="_blank" rel="noopener" sx={{ fontWeight: 500 }}>
               Search all patients
             </Link>
           </Box>

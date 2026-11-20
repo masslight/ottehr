@@ -79,3 +79,17 @@ describe('JournalPage text chat', () => {
     expect(chatProps.at(-1).appointment.smsModel.hasUnreadMessages).toBe(false);
   });
 });
+
+describe('JournalPage Search all patients', () => {
+  it('opens the Patients page in a new tab, like the journal’s other page links', async () => {
+    render(
+      <MemoryRouter>
+        <JournalPage />
+      </MemoryRouter>
+    );
+    await userEvent.type(screen.getByPlaceholderText('Search patients'), 'zed');
+    const link = screen.getByRole('link', { name: 'Search all patients' });
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noopener');
+  });
+});
