@@ -1,6 +1,8 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
+import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { MANUAL_TASK, RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
 import { APIErrorCode, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTask } from '../../src/shared/tasks';
@@ -174,6 +176,14 @@ describe('complete-journal-task', () => {
     await expect(call(handler, { taskId: TASK_ID })).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
     mockFhir.get.mockResolvedValue(openTask({ meta: { tag: [] } }));
     await expect(call(handler, { taskId: TASK_ID })).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+    expect(mockFhir.patch).not.toHaveBeenCalled();
+  });
+
+  it('refuses result reviews and other non Patient Follow-up tasks (the Tasks page cannot complete them either)', async () => {
+    for (const category of [LAB_ORDER_TASK.category, RADIOLOGY_TASK.category, MANUAL_TASK.category.other]) {
+      mockFhir.get.mockResolvedValue({ ...openTask(), ...createTask({ category, title: 'Review CBC' }), id: TASK_ID });
+      await expect(call(handler, { taskId: TASK_ID })).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+    }
     expect(mockFhir.patch).not.toHaveBeenCalled();
   });
 

@@ -5,7 +5,7 @@ import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { CompleteJournalTaskInputSchema, CompleteJournalTaskOutput } from 'utils/lib/types/api/provider-journal.types';
 import { ALL_EHR_STAFF_ROLES } from 'utils/lib/types/api/user.types';
-import { isInboundFaxDeleting } from 'utils/lib/types/data/tasks/types';
+import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { CONCURRENT_UPDATE_WITH_MESSAGE, FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../shared/auth';
 import { isFhirNotFoundError } from '../../../shared/errors';
@@ -22,8 +22,8 @@ const ZAMBDA_NAME = 'complete-journal-task';
 let m2mToken: string;
 
 /**
- * Completes a Tasks-board task from the journal's Free form note dialog ("Mark '…' done"). Same
- * access as the Tasks page: any EHR staff role; the task is completed in the caller's name.
+ * Completes an open Patient Follow-up task from the journal's Free form note dialog ("Mark '…' done").
+ * Any EHR staff role, like the Tasks page's Complete on these tasks.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { taskId, secrets } = validateWithSchema(CompleteJournalTaskInputSchema, input);
@@ -40,7 +40,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw error;
   }
   if (!isOpenBoardTask(task)) throw INVALID_INPUT_ERROR('Only an open task on the Tasks board can be completed');
-  if (isInboundFaxDeleting(task)) throw INVALID_INPUT_ERROR('The fax is being deleted');
+  // The Free form note dialog only offers Patient Follow-up tasks; result reviews close through the order.
+  if (task.groupIdentifier?.value !== MANUAL_TASK.category.patientFollowUp) {
+    throw INVALID_INPUT_ERROR('Only a Patient Follow-up task can be marked done here');
+  }
 
   const operations: Operation[] = [{ op: 'replace', path: '/status', value: 'completed' }];
   const practitionerId = getIdFromReference(user.profile, 'Practitioner');
