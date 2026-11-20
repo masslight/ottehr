@@ -25,6 +25,9 @@ export interface Visit {
   patient: Patient;
   location?: { id: string; name?: string };
   label: string;
+  /** Appointment start (ISO) and the location's timezone, for "is this visit today" checks. */
+  start: string;
+  timezone: string;
 }
 
 export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<Visit[]> {
@@ -52,7 +55,8 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
       const encounter = encounters[appointment.id!];
       const locationId = encounter.location?.[0]?.location?.reference?.replace('Location/', '');
       const location = resources.find((r): r is Location => r.resourceType === 'Location' && r.id === locationId);
-      const date = DateTime.fromISO(appointment.start!, { zone: getLocationTimezone(locationId, resources) });
+      const timezone = getLocationTimezone(locationId, resources);
+      const date = DateTime.fromISO(appointment.start!, { zone: timezone });
 
       return [
         {
@@ -61,6 +65,8 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
           patient,
           location: locationId ? { id: locationId, name: location?.name } : undefined,
           label: `${getFullestAvailableName(patient)} ${date.toFormat('MM/dd/yyyy')}`,
+          start: appointment.start!,
+          timezone,
         },
       ];
     });
