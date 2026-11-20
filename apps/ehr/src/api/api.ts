@@ -64,6 +64,7 @@ import {
 import {
   AdjustMedicationInventoryInput,
   AdjustMedicationInventoryResponse,
+  CreateCatalogVaccineInput,
   CreateInHouseMedicationInput,
   GetMedicationInventoryInput,
   GetMedicationInventoryResponse,
@@ -2061,7 +2062,7 @@ export const deleteInHouseLabOrder = async (
 
 export const createInHouseMedication = async (
   oystehr: Oystehr,
-  parameters: CreateInHouseMedicationInput
+  parameters: CreateInHouseMedicationInput | CreateCatalogVaccineInput
 ): Promise<Medication> => {
   try {
     if (CREATE_IN_HOUSE_MEDICATION == null) {

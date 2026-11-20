@@ -11,6 +11,10 @@ import {
   MEDICATION_COUNTED_AS_LABELS,
   MedicationCountedAs,
 } from 'utils/lib/types/api/config/in-house-medications';
+import {
+  VACCINE_FUNDING_SOURCE_LABELS,
+  VaccineFundingSource,
+} from 'utils/lib/types/data/immunization/vaccine-funding-source';
 import { DISPLAY_DATE_FORMAT, formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 
 const MINUS = '−';
@@ -104,6 +108,35 @@ export function MarkerChips({ markers, only }: { markers: InventoryMarker[]; onl
           />
         ))}
     </>
+  );
+}
+
+// VFC and state program doses are both public stock, so they share a color.
+const FUNDING_SOURCE_COLORS: Record<VaccineFundingSource, string> = {
+  vfc: otherColors.infoAlert,
+  private: otherColors.cardChip,
+  state: otherColors.infoAlert,
+};
+
+/** The tag saying which stock a vaccine lot belongs to; nothing for a lot with no funding source. */
+export function FundingSourceChip({
+  fundingSource,
+}: {
+  fundingSource: VaccineFundingSource | undefined;
+}): ReactElement | null {
+  if (!fundingSource) return null;
+  return (
+    <Chip
+      size="small"
+      label={VACCINE_FUNDING_SOURCE_LABELS[fundingSource]}
+      sx={{
+        ml: 1,
+        height: 20,
+        fontSize: 12,
+        backgroundColor: FUNDING_SOURCE_COLORS[fundingSource],
+        color: 'text.primary',
+      }}
+    />
   );
 }
 

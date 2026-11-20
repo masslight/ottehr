@@ -10,10 +10,14 @@ import {
   GetMedicationInventoryResponse,
   MEDICATION_COUNTED_AS_LABELS,
   MEDICATION_COUNTED_AS_OPTIONS,
+  VACCINE_DEFAULT_INVENTORY,
 } from 'utils/lib/types/api/config/in-house-medications';
 import {
+  CVX_CODE_SYSTEM_URL,
+  INVENTORY_VACCINE_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  MEDICATION_TYPE_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -502,6 +506,129 @@ describe('UpdateMedicationPage', () => {
       await userEvent.click(await screen.findByRole('button', { name: /^update medication$/i }, { timeout: 10_000 }));
 
       await waitFor(() => expect(enqueueSnackbar).toHaveBeenCalledWith(toast, { variant: 'error' }));
+    });
+  });
+
+  describe('a vaccine', () => {
+    const vaccine: Medication = {
+      resourceType: 'Medication',
+      id: 'vaccine-1',
+      status: 'active',
+      identifier: [
+        { system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_VACCINE_TYPE_CODE },
+        { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: 'DTaP-Hep B-IPV' },
+      ],
+      code: {
+        coding: [{ system: CVX_CODE_SYSTEM_URL, code: '110', display: 'DTaP-hepatitis B and poliovirus vaccine' }],
+      },
+      extension: [makeMedicationInventoryExtension(VACCINE_DEFAULT_INVENTORY)],
+    };
+    const MEDICATION_UNITS = MEDICATION_COUNTED_AS_OPTIONS.map(
+      (option) => MEDICATION_COUNTED_AS_LABELS[option].singular
+    );
+
+    const findCountingUnit = (): Promise<HTMLElement> =>
+      screen.findByRole('combobox', { name: /^Counting Unit/ }, { timeout: 10_000 });
+
+    beforeEach(() => {
+      vi.mocked(useParams).mockReturnValue({ 'medication-id': 'vaccine-1' });
+      vi.mocked(getInHouseMedications).mockResolvedValue([vaccine]);
+      vi.mocked(updateInHouseMedication).mockResolvedValue(vaccine);
+      // A vaccine has no drug database entry, so there are never drug details for it.
+      vi.mocked(useGetMedicationDetails).mockReturnValue({ isFetching: false, data: undefined } as any);
+    });
+
+    it('is the Update vaccine page, with the CVX name and code read-only and no drug database notice', async () => {
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      expect(await screen.findByRole('heading', { name: 'Update vaccine' }, { timeout: 10_000 })).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: 'Vaccine' })).toHaveValue('DTaP-Hep B-IPV');
+      expect(screen.getByRole('textbox', { name: 'Vaccine' })).toBeDisabled();
+      expect(screen.getByText('CVX 110 · from the CDC CVX list')).toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: 'Medication Name' })).not.toBeInTheDocument();
+      expect(screen.queryByTestId(dataTestIds.updateMedicationPage.medicationDatabaseAlert)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Update Vaccine' })).toBeEnabled();
+      expect(screen.getByText("Add a lot of this vaccine to a location's stock.")).toBeInTheDocument();
+    });
+
+    it('does not wait for the drug database', async () => {
+      vi.mocked(useGetMedicationDetails).mockReturnValue({ isFetching: true, data: undefined } as any);
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      expect(await screen.findByRole('heading', { name: 'Update vaccine' }, { timeout: 10_000 })).toBeInTheDocument();
+    });
+
+    it('is counted in doses, a unit offered for a vaccine and not for a medication', async () => {
+      const user = userEvent.setup();
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      expect(await findCountingUnit()).toHaveTextContent('Dose');
+      await user.click(await findCountingUnit());
+      await waitFor(() =>
+        expect(
+          screen
+            .getAllByRole('option')
+            .filter((option) => option.getAttribute('aria-disabled') !== 'true')
+            .map((option) => option.textContent)
+        ).toEqual(['Not tracked', 'Dose', ...MEDICATION_UNITS])
+      );
+      expect(MEDICATION_UNITS).not.toContain('Dose');
+    });
+
+    it('saves the inventory setup under the vaccine name, with no drug codes', async () => {
+      vi.mocked(useGetAllLocations).mockReturnValue(locationsQuery('success', [mainStreet]));
+      const user = userEvent.setup();
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+      await user.type(await screen.findByLabelText('Main Street', undefined, { timeout: 10_000 }), '5');
+
+      await user.click(screen.getByRole('button', { name: 'Update Vaccine' }));
+
+      await waitFor(() => expect(updateInHouseMedication).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(updateInHouseMedication).mock.calls[0][1]).toEqual({
+        medicationID: 'vaccine-1',
+        name: 'DTaP-Hep B-IPV',
+        ndc: undefined,
+        medispanID: undefined,
+        medispanIDForInteractions: undefined,
+        inventory: { ...VACCINE_DEFAULT_INVENTORY, reorderLevels: [{ locationId: mainStreet.id, level: 5 }] },
+      });
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Vaccine updated successfully', { variant: 'success' });
+    });
+
+    it('stops tracking stock when the Counting Unit is set to Not tracked', async () => {
+      const user = userEvent.setup();
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+      await user.click(await findCountingUnit());
+      await user.click(screen.getByRole('option', { name: 'Not tracked' }));
+
+      await user.click(screen.getByRole('button', { name: 'Update Vaccine' }));
+
+      await waitFor(() => expect(updateInHouseMedication).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(updateInHouseMedication).mock.calls[0][1].inventory).toBeNull();
+    });
+
+    it('is removed like a medication, and says what that does for a vaccine', async () => {
+      vi.mocked(updateInHouseMedication).mockResolvedValue({ ...vaccine, status: 'inactive' });
+      const user = userEvent.setup();
+      render(<UpdateMedicationPage />, { wrapper: createWrapper() });
+
+      expect(await screen.findByRole('heading', { name: 'Remove vaccine' }, { timeout: 10_000 })).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          'Removing this vaccine makes it inactive in the catalog. Lots already received stay in inventory, and the vaccine can still be ordered for a visit.'
+        )
+      ).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Remove Vaccine' }));
+
+      await waitFor(() =>
+        expect(updateInHouseMedication).toHaveBeenCalledWith(mockOystehrZambda, {
+          medicationID: 'vaccine-1',
+          status: 'inactive',
+        })
+      );
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Vaccine removed successfully', { variant: 'success' });
+      expect(await screen.findByRole('button', { name: 'Activate Vaccine' })).toBeInTheDocument();
+      expect(screen.getByText('Activating this vaccine makes it active in the catalog again.')).toBeInTheDocument();
     });
   });
 });

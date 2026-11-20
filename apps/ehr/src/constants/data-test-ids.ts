@@ -989,6 +989,7 @@ export const dataTestIds = {
     ndcField: 'receive-shipment-ndc-field',
     lotNumberField: 'receive-shipment-lot-number-field',
     quantityField: 'receive-shipment-quantity-field',
+    fundingSourceSelect: 'receive-shipment-funding-source-select',
     receiveButton: 'receive-shipment-receive-button',
   },
 

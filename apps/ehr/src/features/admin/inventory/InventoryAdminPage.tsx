@@ -231,7 +231,7 @@ const InventoryAdminPage = (): ReactElement => {
         </TableContainer>
       )}
       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-        Only medications set up for inventory appear here.
+        Only medications and vaccines set up for inventory appear here.
       </Typography>
     </Box>
   );
