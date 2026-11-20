@@ -112,7 +112,6 @@ export const buildJournalActions = (
         tooltip: 'Progress Note',
         icon: <DescriptionIcon />,
         href: reviewAndSignUrl(chartVisit),
-        disabledReason: chartVisit.hasProgressNote ? undefined : NO_PROGRESS_NOTE_REASON,
       },
       {
         key: 'details',
@@ -167,6 +166,7 @@ export const buildJournalActions = (
     const noteVisits = itemVisits(row).filter((v) => v.hasProgressNote);
     const target =
       noteVisits.length === 0 && visit.hasProgressNote ? visit : noteVisits.length === 1 ? noteVisits[0] : undefined;
+    // Before intake nothing is charted yet, so there is nothing to add an addendum to.
     const anyNote = noteVisits.some((v) => v.hasProgressNote) || visit.hasProgressNote || !!row.visit?.hasProgressNote;
     actions.push({
       key: 'addendum',
