@@ -37,6 +37,7 @@ export function InPersonModal<T = undefined>({
   color = 'error.main',
   ContentComponent,
   disabled,
+  disabledReason,
   dataTestId,
   closeOnConfirm,
 }: InPersonModalProps<T> & Omit<CustomDialogProps, 'handleConfirm' | 'confirmLoading'>): React.ReactElement {
@@ -93,6 +94,7 @@ export function InPersonModal<T = undefined>({
       confirmLoading={isPerformingAction}
       error={error || errorFromAction}
       disabled={disabled}
+      disabledReason={disabledReason}
       dataTestId={dataTestId}
     />
   );

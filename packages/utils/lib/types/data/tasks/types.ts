@@ -36,6 +36,10 @@ export const CreateManualTaskRequestSchema = z
     category: requiredTextSchema,
     appointmentId: optionalTextSchema,
     orderId: optionalTextSchema,
+    // An eRx task on a prescription (orderId) that is a patient's refill request
+    refillRequest: z.boolean().default(false),
+    // An eRx task on a prescription (orderId) that is a patient's change request
+    changeRequest: z.boolean().default(false),
     progressNoteSection: z
       .enum(TASK_PROGRESS_NOTE_SECTION_KEYS)
       .nullish()
@@ -47,6 +51,13 @@ export const CreateManualTaskRequestSchema = z
     location: namedReference,
     patient: optionalNamedReference,
     createdBy: optionalTextSchema,
+  })
+  .refine((task) => !(task.refillRequest && task.changeRequest), {
+    message: 'A task is a refill request or a change request, not both',
+  })
+  .refine((task) => !((task.refillRequest || task.changeRequest) && !task.orderId), {
+    message: 'A refill or change request needs a prescription',
+    path: ['orderId'],
   })
   .refine((request) => !request.progressNoteSection || (!!request.appointmentId && !request.orderId), {
     message: 'A progress note section can only be linked to a visit, not to an order',
@@ -159,6 +170,10 @@ export const ERX_TASK = {
   system: 'erx-task',
   code: {
     providerNotification: 'provider-notification',
+    // A pharmacy's refill (renewal) request, basedOn the eRx service's Task
+    refillRequest: 'refill-request',
+    // A pharmacy's change request, basedOn the eRx service's Task
+    changeRequest: 'change-request',
   },
   input: {
     providerName: 'provider-name',

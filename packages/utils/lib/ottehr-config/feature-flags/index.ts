@@ -32,6 +32,8 @@ const FEATURE_FLAGS_DATA: FeatureFlagsConfig = {
   // legacy Employers mode with Candid sync; unit/component tests pin the flag themselves, so
   // both paths stay covered either way. See the schema comment in config-types for details.
   customOrganizationsEnabled: false,
+  // OFF in core: each practice turns eRx (Surescripts) on in its own config when it moves.
+  surescriptsErxEnabled: false,
 };
 
 export const FEATURE_FLAGS_CONFIG = Object.freeze(FeatureFlagsConfigSchema.parse(FEATURE_FLAGS_DATA));

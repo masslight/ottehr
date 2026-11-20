@@ -190,6 +190,10 @@ export const getErxUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/erx`;
 };
 
+export const getErxSurescriptsUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/erx-surescripts`;
+};
+
 export const getProceduresUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/procedures`;
 };

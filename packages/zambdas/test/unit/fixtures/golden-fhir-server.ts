@@ -47,6 +47,7 @@ const INCLUDE_LEGS: Record<string, (resource: AnyResource) => (string | undefine
   'DiagnosticReport:based-on': (r) => (r.basedOn ?? []).map((ref: { reference?: string }) => ref.reference),
   'DiagnosticReport:result': (r) => (r.result ?? []).map((ref: { reference?: string }) => ref.reference),
   'DocumentReference:related': (r) => (r.context?.related ?? []).map((ref: { reference?: string }) => ref.reference),
+  'Provenance:target': (r) => (r.target ?? []).map((ref: { reference?: string }) => ref.reference),
 };
 
 const leg = (name: string, url: string): { type: string; follow: (resource: AnyResource) => string[] } => {

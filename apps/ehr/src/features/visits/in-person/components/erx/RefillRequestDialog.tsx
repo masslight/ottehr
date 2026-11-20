@@ -1,0 +1,689 @@
+import {
+  Alert,
+  Box,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  Link,
+  MenuItem,
+  Radio,
+  RadioGroup,
+  Stack,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
+import { FC, ReactNode, useRef, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import { getErxRequest, respondToChange, respondToRenewal } from 'src/api/api';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { useAuthToken } from 'src/hooks/useAuthToken';
+import { getPatientName } from 'src/shared/utils/getPatientName';
+import {
+  CHANGE_DENIAL_REASONS,
+  CHANGE_REQUEST_KINDS,
+  ChangeResponseInput,
+  RENEWAL_DENIAL_REASONS,
+  RENEWAL_PENDING_REASONS,
+  RenewalResponseInput,
+} from 'utils/lib/types/api/erx.types';
+import { APIErrorCode } from 'utils/lib/types/errors';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
+import { SectionHeading } from '../../../shared/components/NoteSectionHeading';
+import { useCancelPrescription } from '../../../shared/hooks/useCancelPrescription';
+import { useCheckSurescriptsEnrollment } from '../../../shared/hooks/useCheckSurescriptsEnrollment';
+import { useOrderPrescription } from '../../../shared/hooks/useOrderPrescription';
+import { GET_TASKS_KEY, useCompleteErxTask } from '../../hooks/useTasks';
+import { getErxSurescriptsUrl, withEncounterIdParam } from '../../routing/helpers';
+import { OrderPrescriptionForm } from './OrderPrescriptionForm';
+import { errorMessage, patientAddressAndPhone, patientNameGenderBirthDate } from './prescriptionDialogs';
+import { prescriptionVitals } from './prescriptionLines';
+import {
+  cancelDeniedWarning,
+  isPrescriptionCancelDenied,
+  isPrescriptionCancellable,
+  prescriptionActionUnavailableText,
+} from './prescriptionStatus';
+import {
+  approvalMetadata,
+  changeApproval,
+  changeResponse,
+  refillLine,
+  renewalApproval,
+  renewalLineErrors,
+  requestRows,
+  strengthChangeWarning,
+  suggestionText,
+} from './refillRequest';
+import {
+  useErxSendDataFailed,
+  useErxSendDataLoading,
+  useVisitAllergies,
+  useVisitHeight,
+  useVisitWeight,
+} from './useVisitWeight';
+
+type Answer = 'approve' | 'change' | 'deny' | 'pending';
+
+const ANSWERS: Answer[] = ['approve', 'change', 'deny', 'pending'];
+
+const ANSWER_LABEL: Record<Answer, string> = {
+  approve: 'Approve',
+  change: 'Change',
+  deny: 'Deny',
+  pending: 'Pending',
+};
+
+/** The pharmacy's request and the original, side by side. */
+const COMPARISON_BOX_SX = { border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5, bgcolor: '#F3F6FA' };
+
+/** What a toast says went out, for each answer. */
+const SENT_LABEL: Record<Answer, string> = {
+  approve: 'Approval',
+  change: 'Approval',
+  deny: 'Denial',
+  pending: 'Pending',
+};
+
+const dateTime = (iso: string | undefined): string | undefined =>
+  iso ? DateTime.fromISO(iso).toLocal().toFormat('M/d/yyyy h:mm a') : undefined;
+
+/** Label and value rows, as the eRx dialogs list a prescription; a highlighted value differs from the other side. */
+const Rows: FC<{ rows: { label: string; value?: ReactNode; highlight?: boolean }[] }> = ({ rows }) => (
+  <Box sx={{ display: 'grid', gridTemplateColumns: '120px minmax(0, 1fr)', gap: '4px 10px' }}>
+    {rows.map((row) => (
+      <Box key={row.label} sx={{ display: 'contents' }}>
+        <Typography variant="body2" color="text.secondary">
+          {row.label}
+        </Typography>
+        <Typography variant="body2">
+          {row.value === undefined ? (
+            <Box component="span" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+              Not sent
+            </Box>
+          ) : (
+            <Box
+              component="span"
+              data-differs={row.highlight || undefined}
+              sx={row.highlight ? { bgcolor: 'rgba(237,108,2,.14)', borderRadius: '3px', px: '3px' } : undefined}
+            >
+              {row.value}
+            </Box>
+          )}
+        </Typography>
+      </Box>
+    ))}
+  </Box>
+);
+
+interface RefillRequestDialogProps {
+  /** The refill or change request task on the Tasks page */
+  taskId: string;
+  onClose: () => void;
+}
+
+/** A refill or change request, the pharmacy's beside the original prescription, and the provider's answer. */
+const SuggestionLabel: FC<{ suggestion: Parameters<typeof suggestionText>[0] }> = ({ suggestion }) => (
+  <Box>
+    <Typography variant="body2">
+      {suggestion.compound ? `Compound: ${suggestion.description}` : suggestion.description}
+    </Typography>
+    <Typography variant="body2" color="text.secondary">
+      {suggestionText(suggestion)}
+    </Typography>
+  </Box>
+);
+
+export const RefillRequestDialog: FC<RefillRequestDialogProps> = ({ taskId, onClose }) => {
+  const { oystehrZambda } = useApiClients();
+  const token = useAuthToken();
+  const queryClient = useQueryClient();
+  const { mutateAsync: completeTask, isPending: completingTask } = useCompleteErxTask();
+  const { mutateAsync: cancelPrescription } = useCancelPrescription();
+  const { mutateAsync: orderPrescription } = useOrderPrescription();
+  const [originalCancelled, setOriginalCancelled] = useState(false);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['erx-request', taskId],
+    queryFn: () => getErxRequest(oystehrZambda!, { taskId }),
+    enabled: !!oystehrZambda,
+  });
+  // An approval sends the vitals as the order form does: the original's visit's, else an earlier one's. Every answer
+  // sends the patient's allergies.
+  const height = useVisitHeight(data?.prescription.encounterId);
+  const weight = useVisitWeight(data?.prescription.encounterId);
+  const allergies = useVisitAllergies(data?.prescription.encounterId);
+  const sendDataLoading = useErxSendDataLoading(data?.prescription.encounterId);
+  const sendDataFailed = useErxSendDataFailed(data?.prescription.encounterId);
+  const [chosen, setChosen] = useState<Answer>();
+  const [fills, setFills] = useState<string>();
+  const [suggestion, setSuggestion] = useState(0);
+  const [priorAuthorization, setPriorAuthorization] = useState('');
+  const [note, setNote] = useState('');
+  const [reason, setReason] = useState('');
+  const noteRef = useRef<HTMLInputElement>(null);
+  const respond = useMutation({
+    mutationFn: async (body: RenewalResponseInput | ChangeResponseInput) => {
+      if (!token) throw new Error('Please reload and try again.');
+      return change
+        ? respondToChange(token, body as ChangeResponseInput)
+        : respondToRenewal(token, body as RenewalResponseInput);
+    },
+  });
+
+  const refill = data?.pharmacyRequest;
+  const change = data?.pharmacyChangeRequest;
+  const request = refill ?? change;
+  const kindName = data?.kind === 'change' ? 'Change' : 'Refill';
+  // A prior authorization request is approved with the prior authorization, never with changes.
+  const priorAuth = change?.code === 'P';
+  const suggestions = change?.suggestions ?? [];
+  const selected = suggestions[suggestion];
+  // A drug-use alert with no suggestion keeps Approve, to approve the original as written. The audited eRx service
+  // refuses that ("The prescription has no change to approve") until its release takes it (review R75).
+  const asWritten = change?.code === 'D' && !suggestions.length;
+  // Approve sends what the pharmacy asked; a change request with no suggestion has nothing to approve as is.
+  const answers = priorAuth
+    ? ANSWERS.filter((item) => item !== 'change')
+    : change && !suggestions.length && !asWritten
+    ? ANSWERS.filter((item) => item !== 'approve')
+    : ANSWERS;
+  // A safety alert starts with no answer picked, with or without a suggestion: the provider chooses.
+  const answer: Answer | undefined =
+    chosen && answers.includes(chosen) ? chosen : change?.code === 'D' ? undefined : answers[0];
+  const prescription = data?.prescription;
+  // The prescription the request is answered with, as the order form starts: the pharmacy's over the original's
+  // blanks. A plain approval keeps those blanks on the new prescription too, while they still write its directions.
+  const line = prescription && refillLine(prescription, change ? selected : refill?.medication, data?.metadata);
+  const pharmacyName = request?.pharmacy.name ?? 'the pharmacy';
+  const contact = patientAddressAndPhone(data?.patient);
+  const finished = !!request && (request.withdrawn || request.closed);
+  // eRx v4 refuses any answer once the pharmacy's expiry date has passed, and nothing closes the request then, so the
+  // dialog closes its task instead.
+  const expired = !!request && !finished && !!request.expires && new Date(request.expires) < new Date();
+  const closed = finished || expired;
+  // "Send a new prescription" goes to the eRx page of the original prescription's visit, when it has one.
+  const newPrescriptionUrl =
+    data?.visit && FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED
+      ? withEncounterIdParam(
+          getErxSurescriptsUrl(data.visit.appointmentId),
+          data.visit.followUp ? data.prescription.encounterId : undefined
+        )
+      : undefined;
+  // The eRx service takes an answer only from an enrolled prescriber, sent under their name: anyone else reads it.
+  const { data: enrollment } = useCheckSurescriptsEnrollment();
+  const notEnrolled = !closed && enrollment?.registered === false;
+  const notEnrolledAlert = <Alert severity="warning">You are not enrolled in Surescripts e-prescribing.</Alert>;
+  const asked = refill?.medication.requestedRefills;
+  const fillsText = fills ?? asked?.toString() ?? '';
+  const fillsNumber = Number(fillsText);
+  const fillsValid = Number.isInteger(fillsNumber) && fillsNumber >= 1 && fillsNumber <= 99;
+  // Why the send button is off, while it is.
+  const notReady = !answer
+    ? 'Pick an answer'
+    : answer !== 'approve'
+    ? reason === ''
+      ? 'Pick a reason'
+      : undefined
+    : change
+    ? priorAuth && priorAuthorization.trim() === ''
+      ? 'Enter the prior authorization number'
+      : undefined
+    : fillsValid
+    ? undefined
+    : 'Enter fills from 1 to 99';
+  const ready = !notReady;
+
+  // Once an answer goes out the dialog closes and a toast says what went out. What went out stays sent when the task
+  // can't be completed: the task stays open on the Tasks page.
+  const completeAfterSending = async (sentText: string): Promise<void> => {
+    onClose();
+    try {
+      // The request answered: the pharmacy's (the eRx service's Task), or a patient's, which is the task itself.
+      await completeTask({ taskId, requestId: refill?.renewalTaskId ?? change?.changeTaskId ?? taskId });
+      enqueueSnackbar(sentText, { variant: 'success' });
+    } catch (taskError) {
+      console.error(`Error completing the task: ${taskError}`);
+      enqueueSnackbar(`${sentText}, but its task couldn’t be closed and is still open on the Tasks page.`, {
+        variant: 'warning',
+      });
+    }
+  };
+
+  // The same call as after an answer: completed, not cancelled, because eRx v4 ignores a follow-up on a completed
+  // request but refuses one on a cancelled one.
+  const closeTask = async (): Promise<void> => {
+    try {
+      await completeTask({ taskId, requestId: refill?.renewalTaskId ?? change?.changeTaskId ?? taskId });
+      onClose();
+    } catch (taskError) {
+      console.error(`Error closing the task: ${taskError}`);
+      enqueueSnackbar(errorMessage(taskError), { variant: 'error' });
+    }
+  };
+
+  const send = async (): Promise<void> => {
+    if (!request || !answer || answer === 'change') return;
+    const trimmed = note.trim() || undefined;
+    const metadata = answer === 'approve' && line ? approvalMetadata(line) : undefined;
+    const vitals = answer === 'approve' ? prescriptionVitals(height, weight) : undefined;
+    try {
+      await respond.mutateAsync(
+        change
+          ? changeResponse(change.changeTaskId, answer, {
+              suggestion: selected ? suggestion : undefined,
+              priorAuthorization: priorAuth ? priorAuthorization.trim() : undefined,
+              reason,
+              note: trimmed,
+              metadata,
+              vitals,
+              allergies,
+            })
+          : ({
+              taskId: refill!.renewalTaskId,
+              decision: answer,
+              ...(allergies ? { allergies } : {}),
+              ...(answer === 'approve'
+                ? {
+                    numberOfRefills: fillsNumber,
+                    note: trimmed,
+                    ...(metadata ? { metadata } : {}),
+                    ...(vitals ? { vitals } : {}),
+                  }
+                : { reason, [answer === 'deny' ? 'denialReason' : 'note']: trimmed }),
+            } as RenewalResponseInput)
+      );
+    } catch (sendError) {
+      // The dialog stays open, with what was typed, to try again.
+      console.error(`Error answering the ${kindName.toLowerCase()} request: ${sendError}`);
+      enqueueSnackbar(errorMessage(sendError), { variant: 'error' });
+      return;
+    }
+    const sentText = `${SENT_LABEL[answer]} sent to ${pharmacyName}`;
+    // A pending answer keeps the task open, to answer again later: the task list refreshes in the background.
+    if (answer === 'pending') {
+      onClose();
+      enqueueSnackbar(sentText, { variant: 'success' });
+      void queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false });
+    } else await completeAfterSending(sentText);
+  };
+
+  const reasons = answer !== 'deny' ? RENEWAL_PENDING_REASONS : change ? CHANGE_DENIAL_REASONS : RENEWAL_DENIAL_REASONS;
+  // The pharmacy's medication the original is compared with: a refill request's, or the selected suggestion.
+  const requested = change ? selected : refill?.medication;
+  const compared = requested ?? {};
+  // Under the comparison, or with the Change form once it is open; never blocks. A refill can come back at another
+  // strength just as a change can.
+  const strengthWarning = requested && prescription && strengthChangeWarning(requested, prescription);
+  const sameDirections = strengthWarning && (
+    <Typography variant="body2" color="warning.dark">
+      {strengthWarning}
+    </Typography>
+  );
+  const noteMax = answer === 'deny' ? 210 : 70;
+
+  // A patient's change replaces the original as Send to another pharmacy does, so what blocks that blocks it.
+  const patientChange = !request && data?.kind === 'change' && prescription && !originalCancelled;
+  // The missing visit has its own line below, unless the not-enrolled line takes its place.
+  const changeBlocked = patientChange
+    ? prescriptionActionUnavailableText(
+        'sendToAnotherPharmacy',
+        [prescription],
+        'A change',
+        notEnrolled ? [] : ['visit']
+      )
+    : undefined;
+  // As there, a denied cancel can't be asked again, so the original stays live at its pharmacy.
+  const changeCancelDenied = patientChange && isPrescriptionCancelDenied(prescription);
+  // A new prescription in the order form, saved to the original's visit: the pharmacy's request changed and approved
+  // (sent to the pharmacy that asked), or a patient's request (sent as a new prescription, to any pharmacy).
+  const showForm =
+    !!data &&
+    !!prescription?.encounterId &&
+    !notEnrolled &&
+    (request ? answer === 'change' && !closed : !changeBlocked);
+  const orderForm = showForm && (
+    <OrderPrescriptionForm
+      // Picking another suggestion starts the form again from it.
+      key={suggestion}
+      visit={{ patient: data.patient, encounterId: prescription.encounterId! }}
+      initialLine={line}
+      {...(request
+        ? {
+            pharmacy: {
+              ncpdpId: request.pharmacy.ncpdpId ?? '',
+              npi: request.pharmacy.npi ?? '',
+              name: pharmacyName,
+              phone: request.pharmacy.phone ?? '',
+              address: '',
+            },
+            onSend: async (line, order) => {
+              await respond.mutateAsync(
+                change
+                  ? changeApproval(
+                      change.changeTaskId,
+                      selected ? suggestion : undefined,
+                      line,
+                      order.vitals,
+                      order.allergies
+                    )
+                  : renewalApproval(refill!.renewalTaskId, line, order.vitals, order.allergies)
+              );
+            },
+            ...(change ? {} : { sendLineErrors: renewalLineErrors }),
+            sendLabel: `Send to ${pharmacyName}`,
+          }
+        : data.kind === 'change'
+        ? {
+            sendLabel: 'Send prescription',
+            // A patient's change: the original is cancelled first, as Send to another pharmacy does, so a
+            // cancellation that fails sends nothing and the patient never has two.
+            onSend: async (_line, order) => {
+              if (!originalCancelled && isPrescriptionCancellable(prescription)) {
+                await cancelPrescription({
+                  medicationRequestId: prescription.resourceId!,
+                  practitionerId: order.practitionerId,
+                  reason: 'Prescription/Therapy change',
+                  ...(order.allergies ? { allergies: order.allergies } : {}),
+                });
+                setOriginalCancelled(true);
+              }
+              await orderPrescription(order);
+            },
+          }
+        : { sendLabel: 'Send prescription' })}
+      // The dialog's toast says what went out, in place of the form's.
+      quietSent
+      // Shown above, in the same place whatever the answer.
+      hidePatientInfo
+      onSent={(sentTo) =>
+        void completeAfterSending(`${request ? SENT_LABEL.change : 'Prescription'} sent to ${sentTo.name}`)
+      }
+    />
+  );
+
+  return (
+    // One size whatever the answer: the order form's width and the screen's height, the content scrolling inside, so
+    // moving between answers doesn't resize it.
+    <Dialog
+      open
+      onClose={respond.isPending ? undefined : onClose}
+      fullWidth
+      maxWidth="lg"
+      PaperProps={{ sx: { height: 'calc(100% - 64px)' } }}
+    >
+      <DialogTitle>
+        {request
+          ? `${kindName} request from ${pharmacyName}`
+          : data
+          ? `${kindName} request from ${getPatientName(data.patient.name).firstLastName}`
+          : 'Request'}
+        {data && (
+          <Typography variant="body2" color="text.secondary">
+            {patientNameGenderBirthDate(data.patient)}
+            {' · '}
+            {request
+              ? [
+                  `Received ${dateTime(request.received)}`,
+                  request.askedAgain && `asked again ${dateTime(request.askedAgain)}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+              : `Taken by ${data.patientRequest?.takenBy ?? 'staff'} · ${dateTime(data.patientRequest?.taken)}`}
+          </Typography>
+        )}
+      </DialogTitle>
+      <DialogContent>
+        {isLoading && <CircularProgress size={24} />}
+        {error && (
+          <Alert severity="error">
+            {/* Not found includes another patient's prescription (get-erx-request): plain words, not the server's. */}
+            {(error as { code?: unknown }).code === APIErrorCode.FHIR_RESOURCE_NOT_FOUND
+              ? "This request's prescription can't be found."
+              : errorMessage(error)}
+          </Alert>
+        )}
+        {data && prescription && (
+          <Stack spacing={2}>
+            {finished && (
+              <Alert severity={request.withdrawn ? 'warning' : 'info'}>
+                {request.withdrawn ? `${pharmacyName} withdrew this request.` : 'This request is closed.'} It can’t be
+                answered.
+              </Alert>
+            )}
+            {expired && (
+              <Alert severity="warning">
+                This request expired on {formatDateForDisplay(request.expires)}. To refill it,{' '}
+                {newPrescriptionUrl ? (
+                  <Link component={RouterLink} to={newPrescriptionUrl}>
+                    send a new prescription
+                  </Link>
+                ) : (
+                  'send a new prescription'
+                )}
+                .
+              </Alert>
+            )}
+            {change && (
+              <Typography>
+                {/* No raw codes: a kind Ottehr doesn't know reads "Other change", and the sub-codes, with no plain names
+                    to show, are left out. */}
+                <b>{CHANGE_REQUEST_KINDS[change.code] ?? 'Other change'}.</b>
+                {change.reason && ` “${change.reason}”`}
+              </Typography>
+            )}
+            {data.patientRequest?.title && (
+              <Typography>
+                <b>{data.patientRequest.title}</b>
+              </Typography>
+            )}
+            {data.patientRequest?.note && <Typography>{data.patientRequest.note}</Typography>}
+            {(contact.address || contact.phone) && (
+              <Box>
+                <SectionHeading>Patient Info</SectionHeading>
+                <Rows
+                  rows={[
+                    { label: 'Address', value: contact.address },
+                    { label: 'Phone', value: contact.phone },
+                  ].filter((row) => row.value)}
+                />
+              </Box>
+            )}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.25fr 1fr' }, gap: 2 }}>
+              {suggestions.length > 0 && (
+                <Box sx={COMPARISON_BOX_SX}>
+                  <SectionHeading>
+                    {suggestions.length === 1 ? 'Pharmacy’s suggestion' : 'Pharmacy’s suggestions'}
+                  </SectionHeading>
+                  {/* A choice only when there is one to make. */}
+                  {suggestions.length === 1 ? (
+                    <SuggestionLabel suggestion={suggestions[0]} />
+                  ) : (
+                    <RadioGroup value={suggestion} onChange={(_e, value) => setSuggestion(Number(value))}>
+                      {suggestions.map((item, index) => (
+                        <FormControlLabel
+                          key={index}
+                          value={index}
+                          disabled={closed}
+                          control={<Radio size="small" />}
+                          label={<SuggestionLabel suggestion={item} />}
+                        />
+                      ))}
+                    </RadioGroup>
+                  )}
+                </Box>
+              )}
+              {refill && (
+                <Box sx={COMPARISON_BOX_SX}>
+                  <SectionHeading>Pharmacy’s request</SectionHeading>
+                  <Rows
+                    rows={requestRows(refill.medication, prescription).map((row) => ({
+                      label: row.label,
+                      value:
+                        row.label === 'Refills' && asked !== undefined
+                          ? `Pharmacy asks for ${asked} ${asked === 1 ? 'fill' : 'fills'}`
+                          : row.request,
+                      highlight: row.differs,
+                    }))}
+                  />
+                </Box>
+              )}
+              <Box sx={COMPARISON_BOX_SX}>
+                <SectionHeading>Original prescription · {formatDateForDisplay(prescription.sent)}</SectionHeading>
+                <Rows
+                  rows={[
+                    ...requestRows(compared, prescription).map((row) => ({
+                      label: row.label,
+                      value: row.original,
+                      highlight: row.differs,
+                    })),
+                    {
+                      label: 'Diagnosis',
+                      value: prescription.order?.diagnosisCode
+                        ? `${prescription.order.diagnosisDescription ?? ''} (${prescription.order.diagnosisCode})`
+                        : undefined,
+                    },
+                    {
+                      label: 'Prescribed',
+                      value: [formatDateForDisplay(prescription.sent), data.prescriberName].filter(Boolean).join(' · '),
+                    },
+                  ].filter((row) => row.value !== undefined)}
+                />
+              </Box>
+            </Box>
+            {!showForm && sameDirections}
+            {changeBlocked && <Alert severity="warning">{changeBlocked}</Alert>}
+            {notEnrolled && notEnrolledAlert}
+            {/* A patient's request goes out as a new prescription on the original's visit. */}
+            {!request && !notEnrolled && !prescription.encounterId && (
+              <Alert severity="warning">This prescription has no visit to send from.</Alert>
+            )}
+            {showForm && changeCancelDenied && (
+              <Typography variant="body2" color="warning.dark">
+                {cancelDeniedWarning(prescription)}
+              </Typography>
+            )}
+            {!request && orderForm}
+            {request && !notEnrolled && (
+              <Stack spacing={2}>
+                <SectionHeading>Your answer</SectionHeading>
+                <Tooltip title={expired ? 'The pharmacy’s request expired, so it can’t be answered.' : ''}>
+                  <Box sx={{ alignSelf: 'flex-start' }}>
+                    <ToggleButtonGroup
+                      exclusive
+                      color="primary"
+                      size="small"
+                      value={answer ?? null}
+                      disabled={closed}
+                      onChange={(_e, next: Answer | null) => {
+                        if (!next) return;
+                        setChosen(next);
+                        setReason('');
+                        setNote('');
+                      }}
+                    >
+                      {answers.map((key) => (
+                        <ToggleButton key={key} value={key} sx={{ textTransform: 'none' }}>
+                          {ANSWER_LABEL[key]}
+                        </ToggleButton>
+                      ))}
+                    </ToggleButtonGroup>
+                  </Box>
+                </Tooltip>
+                {showForm && sameDirections}
+                {orderForm}
+                {!closed && answer === 'approve' && priorAuth && (
+                  <TextField
+                    label="Prior authorization number"
+                    required
+                    value={priorAuthorization}
+                    onChange={(event) => setPriorAuthorization(event.target.value)}
+                    inputProps={{ maxLength: 35 }}
+                    sx={{ maxWidth: 320 }}
+                  />
+                )}
+                {!closed && answer === 'approve' && refill && (
+                  <TextField
+                    label="Fills to authorize"
+                    value={fillsText}
+                    onChange={(event) => setFills(event.target.value)}
+                    error={fillsText !== '' && !fillsValid}
+                    helperText={fillsValid ? undefined : 'A whole number from 1 to 99.'}
+                    inputProps={{ inputMode: 'numeric' }}
+                    sx={{ maxWidth: 240 }}
+                  />
+                )}
+                {!closed && (answer === 'deny' || answer === 'pending') && (
+                  <TextField
+                    select
+                    label="Reason"
+                    required
+                    value={reason}
+                    onChange={(event) => {
+                      setReason(event.target.value);
+                      // The note is what's typed next, not the menu the reason was picked from.
+                      setTimeout(() => noteRef.current?.focus());
+                    }}
+                  >
+                    {reasons.map((item) => (
+                      <MenuItem key={item} value={item}>
+                        {item}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+                {!closed && answer && answer !== 'change' && (
+                  <TextField
+                    label="Note to pharmacy (optional)"
+                    inputRef={noteRef}
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    inputProps={{ maxLength: noteMax }}
+                  />
+                )}
+                {!closed && answer !== 'change' && sendDataFailed && (
+                  <Typography variant="body2" color="warning.dark">
+                    {sendDataFailed}
+                  </Typography>
+                )}
+              </Stack>
+            )}
+          </Stack>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <RoundedButton onClick={onClose} disabled={respond.isPending}>
+          {closed ? 'Close' : 'Cancel'}
+        </RoundedButton>
+        {expired && (
+          <RoundedButton variant="contained" loading={completingTask} onClick={() => void closeTask()}>
+            Close task
+          </RoundedButton>
+        )}
+        {request && !closed && !notEnrolled && answer !== 'change' && (
+          <Tooltip title={notReady ?? (sendDataLoading ? 'Loading allergies and vitals' : '')}>
+            <span>
+              <RoundedButton
+                variant="contained"
+                disabled={!ready || sendDataLoading}
+                loading={respond.isPending}
+                onClick={() => void send()}
+              >
+                {answer === 'deny' ? 'Send denial' : `Send to ${pharmacyName}`}
+              </RoundedButton>
+            </span>
+          </Tooltip>
+        )}
+      </DialogActions>
+    </Dialog>
+  );
+};

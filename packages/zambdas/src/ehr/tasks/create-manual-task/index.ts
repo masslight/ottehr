@@ -3,7 +3,7 @@ import { Practitioner, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getFullName } from 'utils/lib/fhir/patient';
-import { CreateManualTaskRequestSchema, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { CreateManualTaskRequestSchema, ERX_TASK, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { checkOrCreateM2MClientToken, getM2MClientId, isM2MClient } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { getMyPractitionerId } from '../../../shared/practitioners';
@@ -44,6 +44,14 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const taskToCreate = createTask({
     category: params.category,
     title: params.taskTitle,
+    code:
+      params.category !== MANUAL_TASK.category.erx
+        ? undefined
+        : params.refillRequest
+        ? { system: ERX_TASK.system, code: ERX_TASK.code.refillRequest }
+        : params.changeRequest
+        ? { system: ERX_TASK.system, code: ERX_TASK.code.changeRequest }
+        : undefined,
     encounterId: params.encounterId,
     location: {
       id: params.location.id,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { bodySchema } from '../../src/patient/search-places';
 import {
   addressComponentsFromPlacesDetailRes,
   findMatchingErxPharmacy,
@@ -367,5 +368,16 @@ describe('reconcilePharmacyPhone', () => {
   it('returns undefined when neither source has a phone', () => {
     expect(reconcilePharmacyPhone(undefined, undefined)).toBeUndefined();
     expect(reconcilePharmacyPhone('', '')).toBeUndefined();
+  });
+});
+
+// Review S10: the place id goes into the Places API path, with the API key, so it is one place id and nothing else.
+describe('search-places placesId', () => {
+  it('takes a Google place id', () => {
+    expect(bodySchema.safeParse({ placesId: 'ChIJN1t_tDeuEmsRUsoyG83frY4' }).success).toBe(true);
+  });
+
+  it.each(['../places:searchText', 'ChIJ?fields=*', 'ChIJ/photos', 'ChIJ#x', 'a b', ''])('refuses %j', (placesId) => {
+    expect(bodySchema.safeParse({ placesId }).success).toBe(false);
   });
 });

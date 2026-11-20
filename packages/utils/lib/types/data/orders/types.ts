@@ -113,6 +113,8 @@ export interface OrdersForTrackingBoardTable {
   inHouseMedicationsByEncounterId: Record<string, ExtendedMedicationDataForResponse[]>;
   radiologyOrdersByAppointmentId: Record<string, GetRadiologyOrderListZambdaOrder[]>;
   erxOrdersByEncounterId: Record<string, PrescribedMedicationDTO[]>;
+  /** The eRx order form saved for a provider to send, by its lines' names; not prescriptions yet */
+  erxSavedFormByEncounterId: Record<string, { lines: string[] }>;
   proceduresByEncounterId: Record<string, ProcedureDTO[]>;
   immunizationOrdersByEncounterId: Record<string, ImmunizationOrder[]>;
   /** Pending in-house DME orders only */
@@ -126,6 +128,7 @@ export interface OrdersForTrackingBoardRow {
   inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
   radiologyOrders: GetRadiologyOrderListZambdaOrder[] | undefined;
   erxOrders: PrescribedMedicationDTO[] | undefined;
+  erxSavedForm: { lines: string[] } | undefined;
   procedures: ProcedureDTO[] | undefined;
   immunizationOrders: ImmunizationOrder[] | undefined;
   dmeOrders: DmeOrderDTO[] | undefined;

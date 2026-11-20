@@ -14,7 +14,7 @@ import { MedicationStatusChip } from 'src/features/visits/in-person/components/m
 import {
   getDmeOrderDetailsUrl,
   getDmeOrdersUrl,
-  getErxUrl,
+  getErxSurescriptsUrl,
   getExternalLabOrderEditUrl,
   getExternalLabOrdersUrl,
   getImmunizationMARUrl,
@@ -57,7 +57,8 @@ const RADIOLOGY_ORDERS_PENDING_BADGE_STATUSES = [RadiologyOrderStatus.pending];
 const DME_ORDERS_PENDING_BADGE_STATUSES = [DmeOrderStatus.pending];
 
 export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointment, orders }) => {
-  const ordersExistForAppointment = hasAtLeastOneOrder(orders);
+  // A saved eRx form shows even before any prescription is sent.
+  const ordersExistForAppointment = hasAtLeastOneOrder(orders) || !!orders.erxSavedForm;
   if (!ordersExistForAppointment) return null;
 
   const navAppointmentId = appointment.parentAppointmentId || appointment.id;
@@ -69,6 +70,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     inHouseMedications,
     radiologyOrders,
     erxOrders,
+    erxSavedForm,
     procedures,
     immunizationOrders,
     dmeOrders,
@@ -193,17 +195,29 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointm
     orderConfigs.push(radiologyOrdersConfig);
   }
 
-  if (erxOrders?.length) {
+  // The saved form's lines, with the pending dot, beside the sent prescriptions; all open "eRx (Surescripts)" (53g).
+  if (erxOrders?.length || erxSavedForm) {
+    const erxUrl = withEncounter(getErxSurescriptsUrl(navAppointmentId));
     const ordersConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['eRX'],
       title: 'eRx',
-      tableUrl: withEncounter(getErxUrl(navAppointmentId)),
-      orders: erxOrders.map((order) => ({
-        fhirResourceId: order.resourceId ?? '',
-        itemDescription: order.name ?? '',
-        detailPageUrl: withEncounter(getErxUrl(navAppointmentId)),
-        statusChip: <MappedStatusChip status={order.status ?? 'unknown'} mapper={medicationStatusMapper} />,
-      })),
+      tableUrl: erxUrl,
+      unreadBadge: !!erxSavedForm,
+      orders: [
+        ...(erxSavedForm?.lines ?? []).map((name, index) => ({
+          fhirResourceId: `saved-${index}`,
+          itemDescription: name,
+          detailPageUrl: erxUrl,
+          statusChip: <MappedStatusChip status="saved" mapper={medicationStatusMapper} />,
+          unreadBadge: true,
+        })),
+        ...(erxOrders ?? []).map((order) => ({
+          fhirResourceId: order.resourceId ?? '',
+          itemDescription: order.name ?? '',
+          detailPageUrl: erxUrl,
+          statusChip: <MappedStatusChip status={order.status ?? 'unknown'} mapper={medicationStatusMapper} />,
+        })),
+      ],
     };
     orderConfigs.push(ordersConfig);
   }

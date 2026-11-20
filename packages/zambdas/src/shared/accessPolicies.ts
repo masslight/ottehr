@@ -1,5 +1,14 @@
 import { AccessPolicy } from 'utils/lib/types/api/user.types';
 
+// eRx v4's pharmacy directory search (Surescripts' public pharmacy list, no patient data), so every role that may save
+// the eRx order form for a provider can pick its pharmacy (eRx requirement 53f). Provider and Customer Support have it
+// through `eRx:*`. Keep in step with config/oystehr-core/roles.json.
+const ERX_PHARMACY_SEARCH_RULE: AccessPolicy['rule'][number] = {
+  action: ['eRx:SearchPharmacy'],
+  effect: 'Allow',
+  resource: ['eRx:Pharmacy'],
+};
+
 export const ADMINISTRATOR_RULES: AccessPolicy = {
   rule: [
     {
@@ -86,6 +95,7 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
       effect: 'Allow',
       resource: ['FHIR:Patient', 'FHIR:Appointment'],
     },
+    ERX_PHARMACY_SEARCH_RULE,
   ],
 };
 
@@ -184,6 +194,7 @@ export const MANAGER_RULES: AccessPolicy = {
       effect: 'Allow',
       resource: ['FHIR:List'],
     },
+    ERX_PHARMACY_SEARCH_RULE,
   ],
 };
 
@@ -251,6 +262,7 @@ export const STAFF_RULES: AccessPolicy = {
       effect: 'Allow',
       resource: ['FHIR:Patient', 'FHIR:Appointment'],
     },
+    ERX_PHARMACY_SEARCH_RULE,
   ],
 };
 
@@ -366,7 +378,8 @@ export const PROVIDER_RULES: AccessPolicy = {
 // external-medications list is empty for a Clinician.
 //
 // Everything that writes or transmits a prescription (and the DoseSpot practitioner connect/enroll flows)
-// stays Provider-only.
+// stays Provider-only. eRx v4's pharmacy search (eRx:SearchPharmacy) is granted, as to every role that may
+// save the eRx order form for a provider to send: it reads only Surescripts' public pharmacy directory.
 //
 // eRx:SyncPatient, eRx:Check and eRx:GetPharmacy are also NOT granted below. That one is a known gap
 // rather than a settled decision: ERXInteractionsReadiness runs the in-house medication interaction
@@ -395,6 +408,7 @@ const CLINICIAN_ERX_RULES: AccessPolicy['rule'] = [
     effect: 'Allow',
     resource: ['eRx:Patient'],
   },
+  ERX_PHARMACY_SEARCH_RULE,
 ];
 
 // Clinician = Provider access minus the two NPI-gated capabilities that are enforced at the access

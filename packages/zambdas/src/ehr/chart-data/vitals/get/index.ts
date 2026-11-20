@@ -79,7 +79,11 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetV
     return map;
   } else {
     const list = await fetchVitalsPriorToEncounter(
-      { patientId: input.patientId, searchBefore: mode.searchBefore, encounterId: encounter.id },
+      {
+        patientId: input.patientId,
+        searchBefore: mode.searchBefore,
+        encounterId: mode.searchBefore ? encounter.id : undefined,
+      },
       oystehr,
       alertContext
     );
@@ -116,8 +120,9 @@ const fetchVitalsForEncounter = async (
 
 interface FetchHistoricalVitalsInput {
   patientId: string;
-  searchBefore: string;
-  encounterId: string; // Optional, used to exclude current encounter observations
+  /** Absent in "all" mode: every visit's vitals, this one's included. */
+  searchBefore?: string;
+  encounterId?: string; // Optional, used to exclude current encounter observations
 }
 
 const fetchVitalsPriorToEncounter = async (
@@ -132,7 +137,7 @@ const fetchVitalsPriorToEncounter = async (
       params: [
         { name: 'patient._id', value: patientId },
         { name: 'status:not', value: 'entered-in-error,cancelled,unknown,cannot-be-obtained' }, // Exclude observations that are entered in error
-        { name: 'date', value: `lt${searchBefore}` }, // Fetch observations before the encounter start date
+        ...(searchBefore ? [{ name: 'date', value: `lt${searchBefore}` }] : []), // Fetch observations before the encounter start date
         { name: '_tag', value: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|` },
         { name: '_include', value: 'Observation:performer' },
         { name: '_sort', value: '-date' }, // Sort by date descending
@@ -148,7 +153,7 @@ const fetchVitalsPriorToEncounter = async (
     if (res.resourceType !== 'Observation') {
       return false;
     }
-    return res.encounter?.reference?.replace('Encounter/', '') !== encounterId;
+    return !encounterId || res.encounter?.reference?.replace('Encounter/', '') !== encounterId;
   }) as Observation[];
   const practitioners = currentVitalsAndPerformers.filter(
     (res) => res.resourceType === 'Practitioner'
@@ -396,7 +401,7 @@ const parseNumericValueObservation = (
 interface InputParameters {
   secrets: any;
   encounterId: string;
-  mode: 'current' | 'historical';
+  mode: 'current' | 'historical' | 'all';
 }
 
 const validateRequestParameters = (input: ZambdaInput): InputParameters => {
@@ -428,8 +433,10 @@ const validateRequestParameters = (input: ZambdaInput): InputParameters => {
     throw INVALID_INPUT_ERROR(`"${encounterId}" is not a valid UUID`);
   }
 
-  if (typeof mode !== 'string' || (mode !== 'current' && mode !== 'historical')) {
-    throw INVALID_INPUT_ERROR(`Invalid currentOrHistorical, "${mode}", specified - must be "current" or "historical"`);
+  if (typeof mode !== 'string' || (mode !== 'current' && mode !== 'historical' && mode !== 'all')) {
+    throw INVALID_INPUT_ERROR(
+      `Invalid currentOrHistorical, "${mode}", specified - must be "current", "historical" or "all"`
+    );
   }
 
   return { encounterId, mode, secrets };
@@ -441,7 +448,7 @@ interface EncounterWithId extends Encounter {
 
 interface EffectInput {
   encounter: EncounterWithId;
-  mode: { historical: true; searchBefore: string } | { historical: false };
+  mode: { historical: true; searchBefore?: string } | { historical: false };
   patientId: string;
   patient: Patient;
 }
@@ -504,6 +511,10 @@ const complexValidation = async (input: InputParameters, oystehr: Oystehr): Prom
       patientId,
       patient,
     };
+  }
+
+  if (mode === 'all') {
+    return { encounter, mode: { historical: true }, patientId, patient };
   }
 
   return {

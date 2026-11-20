@@ -44,24 +44,29 @@ export const PrescribedMedicationsContainer: FC = () => {
       {!titleInCardHeader && <SectionHeading>Prescriptions</SectionHeading>}
       {Array.from(groups.entries()).map(([pharmacyId, meds]) => {
         const pharmacy = pharmacyId ? pharmacyMap.get(pharmacyId) : undefined;
+        // The eRx lookup can fail; the name stored on the prescription still says where it went.
+        const storedName = pharmacyId ? meds?.find((med) => med.pharmacyName)?.pharmacyName : undefined;
+        const pharmacyText = pharmacy
+          ? [
+              pharmacy.name,
+              pharmacy.address1,
+              pharmacy.address2,
+              pharmacy.city,
+              pharmacy.state,
+              pharmacy.zipCode ? formatZipcodeForDisplay(pharmacy.zipCode) : undefined,
+              formatPhoneNumberDisplay(pharmacy.phone),
+            ]
+              .filter(Boolean)
+              .join(', ')
+          : storedName;
         return (
           <Box key={pharmacyId ?? 'no-pharmacy'} sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-            {pharmacy && (
+            {pharmacyText && (
               <Typography>
                 <Typography component="span" fontWeight={600}>
                   Pharmacy:{' '}
                 </Typography>
-                {[
-                  pharmacy.name,
-                  pharmacy.address1,
-                  pharmacy.address2,
-                  pharmacy.city,
-                  pharmacy.state,
-                  pharmacy.zipCode ? formatZipcodeForDisplay(pharmacy.zipCode) : undefined,
-                  formatPhoneNumberDisplay(pharmacy.phone),
-                ]
-                  .filter(Boolean)
-                  .join(', ')}
+                {pharmacyText}
               </Typography>
             )}
             {meds?.map((med) => <PrescribedMedicationReviewItem key={med.resourceId || med.name} medication={med} />)}

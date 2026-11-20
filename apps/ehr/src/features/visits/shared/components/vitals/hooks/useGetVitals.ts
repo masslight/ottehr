@@ -51,6 +51,30 @@ export const useGetHistoricalVitals = (
   });
 };
 
+/** The patient's vitals from every visit, the given one's included (the eRx order's "latest" height and weight). */
+export const useGetAllPatientVitals = (
+  encounterId: string | undefined
+): UseQueryResult<GetVitalsResponseData, Error> => {
+  const { oystehrZambda } = useApiClients();
+  const queryKey = encounterId ? [`all-patient-vitals-${encounterId}`] : [];
+  return useQuery({
+    queryKey,
+    queryFn: async () => {
+      if (oystehrZambda && encounterId) {
+        const result = await oystehrZambda.zambda.execute({
+          id: 'get-vitals',
+          encounterId,
+          currentOrHistorical: 'all',
+        });
+        return result.output as GetVitalsResponseData;
+      }
+
+      throw new Error('api client not defined or encounter id is not provided');
+    },
+    enabled: Boolean(encounterId) && Boolean(oystehrZambda),
+  });
+};
+
 export function useGetAbnormalVitals(): GetVitalsResponseData | undefined {
   const {
     resources: { encounter },

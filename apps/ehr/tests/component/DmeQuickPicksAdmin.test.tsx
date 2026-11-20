@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
@@ -216,9 +216,11 @@ describe('DME quick pick detail', () => {
 });
 
 describe('Quick Picks admin DME tab', () => {
-  const renderAdminTabs = async (dmeOrdersEnabled: boolean, subTab: string): Promise<void> => {
+  const renderAdminTabs = async (dmeOrdersEnabled: boolean, subTab: string, surescriptsErx = false): Promise<void> => {
     vi.resetModules();
-    vi.doMock('src/constants/feature-flags', () => ({ FEATURE_FLAGS: { DME_ORDERS_ENABLED: dmeOrdersEnabled } }));
+    vi.doMock('src/constants/feature-flags', () => ({
+      FEATURE_FLAGS: { DME_ORDERS_ENABLED: dmeOrdersEnabled, SURESCRIPTS_ERX_ENABLED: surescriptsErx },
+    }));
     vi.doMock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: undefined }) }));
     const queries = await import('src/features/visits/telemed/components/admin/admin.queries');
     vi.mocked(queries.useDmeQuickPicksQuery).mockReturnValue({ data: [CRUTCHES], isLoading: false } as any);
@@ -256,5 +258,15 @@ describe('Quick Picks admin DME tab', () => {
     expect(screen.getByRole('tab', { name: 'Radiology' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('tab', { name: 'DME' })).not.toBeInTheDocument();
     expect(screen.queryByText('DME Quick Picks')).not.toBeInTheDocument();
+  });
+
+  it('shows the Prescriptions and Prescription Sets tabs only with Surescripts eRx on', async () => {
+    await renderAdminTabs(false, 'radiology');
+    expect(screen.queryByRole('tab', { name: 'Prescriptions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Prescription Sets' })).not.toBeInTheDocument();
+    cleanup();
+    await renderAdminTabs(false, 'radiology', true);
+    expect(screen.getByRole('tab', { name: 'Prescriptions' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Prescription Sets' })).toBeInTheDocument();
   });
 });

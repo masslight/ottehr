@@ -1,0 +1,583 @@
+import Oystehr from '@oystehr/sdk';
+import { MedicationRequest, Task } from 'fhir/r4b';
+import {
+  ERX_CHANGE_REQUEST_TASK_CODE,
+  ERX_REQUEST_TASK_CODE_SYSTEM,
+  ERX_REQUEST_TASK_INPUT_SYSTEM,
+  PRESCRIPTION_ERX_METADATA_URL,
+  SURESCRIPTS_MESSAGE_ID_SYSTEM,
+} from 'utils/lib/fhir/constants';
+import { ERX_TASK, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { APIErrorCode } from 'utils/lib/types/errors';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  getErxRequest,
+  makeErxRequestTask,
+  readPharmacyChangeRequest,
+  readPharmacyRefillRequest,
+  readPrescriptionMetadata,
+  refillRequestTaskAction,
+  refillRequestTitle,
+  syncErxRequestTask,
+} from '../src/shared/erx-refill-requests';
+
+const input = (code: string, valueString: string): NonNullable<Task['input']>[number] => ({
+  type: { coding: [{ system: ERX_REQUEST_TASK_INPUT_SYSTEM, code }] },
+  valueString,
+});
+
+const renewal = (status: Task['status']): Task => ({
+  resourceType: 'Task',
+  id: 'renewal-1',
+  status,
+  intent: 'order',
+  focus: { reference: 'MedicationRequest/rx-1' },
+  for: { reference: 'Patient/patient-1' },
+  encounter: { reference: 'Encounter/encounter-1' },
+  requester: { display: 'CVS Pharmacy #7741' },
+  owner: { reference: 'Practitioner/practitioner-1' },
+  input: [input('pharmacy-name', 'CVS Pharmacy #7741'), input('drug-description', 'Lisinopril 10 mg tablet')],
+});
+
+const ottehrTask = (status: Task['status']): Task => ({ resourceType: 'Task', id: 'task-1', status, intent: 'order' });
+
+describe('eRx refill request tasks', () => {
+  it('makes one task while the request is open, and none for a closed one', () => {
+    expect(refillRequestTaskAction(renewal('requested'), [])).toBe('create');
+    // Answered Pending: still open.
+    expect(refillRequestTaskAction(renewal('in-progress'), [])).toBe('create');
+    expect(refillRequestTaskAction(renewal('cancelled'), [])).toBeUndefined();
+    // Asked again: the same Task changed; its task stays as it is.
+    expect(refillRequestTaskAction(renewal('requested'), [ottehrTask('in-progress')])).toBeUndefined();
+    // One already completed isn't made again.
+    expect(refillRequestTaskAction(renewal('requested'), [ottehrTask('completed')])).toBeUndefined();
+  });
+
+  it('makes a new task when the pharmacy asks again after its task was closed unanswered', () => {
+    const asked = (status: Task['status'], id: string): Task => ({
+      ...renewal(status),
+      identifier: [{ system: SURESCRIPTS_MESSAGE_ID_SYSTEM, value: id }],
+    });
+    const closedFor = (id: string): Task => ({
+      ...ottehrTask('completed'),
+      identifier: asked('requested', id).identifier,
+    });
+    expect(refillRequestTaskAction(asked('requested', 'm2'), [closedFor('m1')])).toBe('create');
+    // The same request: closed by whoever answered or dismissed it.
+    expect(refillRequestTaskAction(asked('in-progress', 'm1'), [closedFor('m1')])).toBeUndefined();
+    expect(refillRequestTaskAction(asked('requested', 'm2'), [closedFor('m1'), closedFor('m2')])).toBeUndefined();
+    expect(
+      refillRequestTaskAction(asked('requested', 'm2'), [closedFor('m1'), ottehrTask('in-progress')])
+    ).toBeUndefined();
+    // Each task names the request it was made for.
+    expect(makeErxRequestTask(asked('requested', 'm2'), undefined, undefined).identifier).toEqual([
+      { system: SURESCRIPTS_MESSAGE_ID_SYSTEM, value: 'm2' },
+    ]);
+  });
+
+  it('makes the task conditionally on its request, so racing deliveries make one', async () => {
+    const create = vi.fn(async (task: Task, _options: unknown) => ({ ...task, id: 'task-1' }));
+    const oystehr = {
+      fhir: { search: async () => ({ unbundle: () => [] }), get: async () => undefined, create },
+    } as unknown as Oystehr;
+    const request: Task = {
+      ...renewal('requested'),
+      identifier: [{ system: SURESCRIPTS_MESSAGE_ID_SYSTEM, value: 'm1' }],
+    };
+    await syncErxRequestTask(oystehr, request);
+    expect(create.mock.calls[0][1]).toEqual({
+      ifNoneExist: [
+        { name: 'based-on', value: 'Task/renewal-1' },
+        { name: 'identifier', value: `${SURESCRIPTS_MESSAGE_ID_SYSTEM}|m1` },
+      ],
+    });
+  });
+
+  it("is at the original prescription's visit location, so the Tasks page location filter finds it", async () => {
+    const create = vi.fn(async (task: Task) => ({ ...task, id: 'task-1' }));
+    const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
+      unbundle: () =>
+        resourceType === 'Encounter'
+          ? [
+              {
+                resourceType: 'Encounter',
+                id: 'encounter-1',
+                location: [{ location: { reference: 'Location/loc-north' } }],
+              },
+              { resourceType: 'Location', id: 'loc-north', name: 'North Clinic' },
+            ]
+          : [],
+    }));
+    const oystehr = { fhir: { search, get: async () => undefined, create } } as unknown as Oystehr;
+    await syncErxRequestTask(oystehr, renewal('requested'));
+    const task = create.mock.calls[0][0];
+    expect(task.location).toEqual({ reference: 'Location/loc-north', display: 'North Clinic' });
+    expect(task.meta?.tag).toContainEqual(expect.objectContaining({ code: 'loc-north', display: 'North Clinic' }));
+  });
+
+  it('has no location when eRx v4 sends the request with no visit', async () => {
+    const create = vi.fn(async (task: Task) => ({ ...task, id: 'task-1' }));
+    const search = vi.fn(async (_params: { resourceType: string }) => ({ unbundle: () => [] }));
+    const oystehr = { fhir: { search, get: async () => undefined, create } } as unknown as Oystehr;
+    const { encounter: _noVisit, ...request } = renewal('requested');
+    await syncErxRequestTask(oystehr, request);
+    const task = create.mock.calls[0][0];
+    expect(task.location).toBeUndefined();
+    expect(task.encounter).toBeUndefined();
+    expect(search.mock.calls.map(([params]) => params.resourceType)).not.toContain('Encounter');
+  });
+
+  it('cancels the task once the request is withdrawn, and completes it once answered', () => {
+    expect(refillRequestTaskAction(renewal('cancelled'), [ottehrTask('in-progress')])).toBe('cancel');
+    expect(refillRequestTaskAction(renewal('cancelled'), [ottehrTask('cancelled')])).toBeUndefined();
+    expect(refillRequestTaskAction(renewal('completed'), [ottehrTask('ready')])).toBe('complete');
+    expect(refillRequestTaskAction(renewal('completed'), [ottehrTask('completed')])).toBeUndefined();
+  });
+
+  it('marks the open task cancelled for a withdrawn request and completed for an answered one', async () => {
+    const statusPatched = async (status: Task['status']): Promise<unknown> => {
+      const patch = vi.fn(async () => ({}));
+      const oystehr = {
+        fhir: { search: async () => ({ unbundle: () => [ottehrTask('in-progress')] }), patch },
+      } as unknown as Oystehr;
+      await syncErxRequestTask(oystehr, renewal(status));
+      return (patch.mock.calls[0] as unknown as [{ operations: unknown[] }])[0].operations;
+    };
+    expect(await statusPatched('cancelled')).toEqual([{ op: 'replace', path: '/status', value: 'cancelled' }]);
+    expect(await statusPatched('completed')).toEqual([{ op: 'replace', path: '/status', value: 'completed' }]);
+  });
+
+  it('names the pharmacy, the medication and the patient', () => {
+    expect(refillRequestTitle(renewal('requested'), 'Maria Lopez')).toBe(
+      'Refill request from CVS Pharmacy #7741: Lisinopril 10 mg tablet for Maria Lopez'
+    );
+  });
+
+  it('is an eRx task basedOn the request, in its visit, assigned to the prescriber', () => {
+    const task = makeErxRequestTask(
+      renewal('requested'),
+      { resourceType: 'Patient', id: 'patient-1', name: [{ given: ['Maria'], family: 'Lopez' }] },
+      { resourceType: 'Practitioner', id: 'practitioner-1', name: [{ given: ['Carolyn'], family: 'Demo' }] }
+    );
+    expect(task.groupIdentifier?.value).toBe(ERX_TASK.category);
+    expect(task.code?.coding?.[0]).toEqual({ system: ERX_TASK.system, code: ERX_TASK.code.refillRequest });
+    expect(task.basedOn).toEqual([{ reference: 'Task/renewal-1' }]);
+    expect(task.encounter).toEqual({ reference: 'Encounter/encounter-1' });
+    expect(task.status).toBe('in-progress');
+    expect(task.owner?.reference).toBe('Practitioner/practitioner-1');
+    expect(task.description).toBe('Refill request from CVS Pharmacy #7741: Lisinopril 10 mg tablet for Maria Lopez');
+  });
+});
+
+const version = (
+  status: Task['status'],
+  messageId: string,
+  lastUpdated: string,
+  inputs = renewal(status).input
+): Task => ({
+  ...renewal(status),
+  authoredOn: '2026-10-27T16:12:00.000Z',
+  meta: { lastUpdated },
+  identifier: [{ system: SURESCRIPTS_MESSAGE_ID_SYSTEM, value: messageId }],
+  input: inputs,
+});
+
+describe('a pharmacy refill request, as the dialog reads it', () => {
+  it('keeps only what the pharmacy sent: a field it left out stays absent, never 0', () => {
+    const request = readPharmacyRefillRequest([
+      version('requested', 'm1', '2026-10-27T16:12:00.000Z', [
+        ...(renewal('requested').input ?? []),
+        { type: { coding: [{ system: ERX_REQUEST_TASK_INPUT_SYSTEM, code: 'quantity' }] }, valueDecimal: 0.27 },
+      ]),
+    ]);
+    expect(request.medication).toEqual({ description: 'Lisinopril 10 mg tablet', quantityValue: 0.27 });
+    expect(request.medication.daysSupply).toBeUndefined();
+    expect(request.medication.requestedRefills).toBeUndefined();
+    expect(request.pharmacy.name).toBe('CVS Pharmacy #7741');
+    expect(request).toMatchObject({ received: '2026-10-27T16:12:00.000Z', withdrawn: false, closed: false });
+    expect(request.askedAgain).toBeUndefined();
+  });
+
+  it('says when the pharmacy asked again: the first version with the newest message id', () => {
+    const request = readPharmacyRefillRequest([
+      version('requested', 'm1', '2026-10-27T16:12:00.000Z'),
+      version('in-progress', 'm1', '2026-10-27T17:00:00.000Z'),
+      version('requested', 'm2', '2026-10-28T09:05:00.000Z'),
+      version('requested', 'm2', '2026-10-28T09:06:00.000Z'),
+    ]);
+    expect(request.askedAgain).toBe('2026-10-28T09:05:00.000Z');
+    expect(request.received).toBe('2026-10-27T16:12:00.000Z');
+  });
+
+  it('reads a compound the pharmacy asks to renew, each ingredient as the amount that goes in, with its strength', () => {
+    const compound = {
+      dosageForm: 'Cream',
+      ingredients: [
+        {
+          description: 'Ketoprofen Powder',
+          ndc: '38779032709',
+          strength: { value: '10', form: 'Percentage' },
+          quantityValue: 3,
+          quantityUnit: 'Gram',
+        },
+        { description: 'Cream base', quantityValue: 27, quantityUnit: 'Gram' },
+      ],
+    };
+    const request = readPharmacyRefillRequest([
+      version('requested', 'm1', '2026-10-27T16:12:00.000Z', [
+        input('drug-description', 'Ketoprofen 10% cream'),
+        input('compound', JSON.stringify(compound)),
+      ]),
+    ]);
+    expect(request.medication.ndc).toBeUndefined();
+    expect(request.medication.compound).toEqual({
+      description: 'Ketoprofen 10% cream',
+      dosageForm: 'Cream',
+      ingredients: [
+        {
+          description: 'Ketoprofen Powder',
+          ndc: '38779032709',
+          amount: { value: 3, unit: 'Gram' },
+          sentStrength: { value: '10', form: 'Percentage' },
+        },
+        { description: 'Cream base', amount: { value: 27, unit: 'Gram' } },
+      ],
+    });
+  });
+
+  it('is withdrawn once the eRx service cancels its Task', () => {
+    const request = readPharmacyRefillRequest([
+      version('requested', 'm1', '2026-10-25T10:00:00.000Z'),
+      version('cancelled', 'm1', '2026-10-26T10:00:00.000Z'),
+    ]);
+    expect(request).toMatchObject({ withdrawn: true, closed: true });
+  });
+
+  // eRx v4 refuses an answer once the pharmacy's expiry date passed, and nothing closes the request then.
+  it('reads the expiry date the pharmacy set, and none when it set none', () => {
+    const expiring = readPharmacyRefillRequest([
+      version('requested', 'm1', '2026-10-27T16:12:00.000Z', [
+        ...(renewal('requested').input ?? []),
+        {
+          type: { coding: [{ system: ERX_REQUEST_TASK_INPUT_SYSTEM, code: 'expiration-date' }] },
+          valueDateTime: '2026-11-10T00:00:00.000Z',
+        },
+      ]),
+    ]);
+    expect(expiring).toMatchObject({ expires: '2026-11-10T00:00:00.000Z', closed: false });
+    expect(readPharmacyRefillRequest([version('requested', 'm1', '2026-10-27T16:12:00.000Z')]).expires).toBeUndefined();
+  });
+});
+
+const change = (status: Task['status'], inputs: NonNullable<Task['input']>): Task => ({
+  ...renewal(status),
+  id: 'change-1',
+  code: { coding: [{ system: ERX_REQUEST_TASK_CODE_SYSTEM, code: ERX_CHANGE_REQUEST_TASK_CODE }] },
+  authoredOn: '2026-10-28T14:02:00.000Z',
+  meta: { lastUpdated: '2026-10-28T14:02:00.000Z' },
+  identifier: [{ system: SURESCRIPTS_MESSAGE_ID_SYSTEM, value: 'c1' }],
+  input: [input('pharmacy-name', 'CVS Pharmacy #7741'), ...inputs],
+});
+
+describe('eRx change request tasks', () => {
+  it('are made and completed as refill requests are', () => {
+    expect(refillRequestTaskAction(change('requested', []), [])).toBe('create');
+    expect(refillRequestTaskAction(change('requested', []), [ottehrTask('in-progress')])).toBeUndefined();
+    expect(refillRequestTaskAction(change('cancelled', []), [ottehrTask('in-progress')])).toBe('cancel');
+    expect(refillRequestTaskAction(change('completed', []), [ottehrTask('in-progress')])).toBe('complete');
+  });
+
+  it('names REMS and prescriber authorization requests in words, never by their code', () => {
+    const titled = (code: string): string | undefined =>
+      makeErxRequestTask(change('requested', [input('change-code', code)]), undefined, undefined).description;
+    expect(titled('RM')).toMatch(/ — REMS requirements not met$/);
+    expect(titled('U')).toMatch(/ — Prescriber authorization$/);
+    // A kind Ottehr doesn't know reads as one, as the request dialog says it.
+    expect(titled('ZZ')).toMatch(/ — Other change$/);
+  });
+
+  it('is a change request task named by the pharmacy, the original medication, the patient and the kind', () => {
+    const task = makeErxRequestTask(
+      change('requested', [input('change-code', 'OS')]),
+      { resourceType: 'Patient', id: 'patient-1', name: [{ given: ['Maria'], family: 'Lopez' }] },
+      { resourceType: 'Practitioner', id: 'practitioner-1', name: [{ given: ['Carolyn'], family: 'Demo' }] },
+      {
+        resourceType: 'MedicationRequest',
+        status: 'active',
+        intent: 'order',
+        subject: { reference: 'Patient/patient-1' },
+        medicationCodeableConcept: { coding: [{ code: '64764017130', display: 'Dexilant 30 mg capsule' }] },
+      }
+    );
+    expect(task.code?.coding?.[0]).toEqual({ system: ERX_TASK.system, code: ERX_TASK.code.changeRequest });
+    expect(task.basedOn).toEqual([{ reference: 'Task/change-1' }]);
+    expect(task.owner?.reference).toBe('Practitioner/practitioner-1');
+    expect(task.description).toBe(
+      'Change request from CVS Pharmacy #7741: Dexilant 30 mg capsule for Maria Lopez — Out of stock'
+    );
+  });
+});
+
+describe('a pharmacy change request, as the dialog reads it', () => {
+  it('reads the kind, sub-codes, words and suggestions, keeping only what the pharmacy sent', () => {
+    const request = readPharmacyChangeRequest([
+      change('requested', [
+        input('change-code', 'OS'),
+        input('change-sub-codes', 'A,B'),
+        input('change-reason', 'Dexilant on backorder until December'),
+        input(
+          'requested-medications',
+          JSON.stringify([
+            { description: 'Omeprazole 40 mg capsule', ndc: '00093521998', quantityValue: 0.27, numberOfRefills: 0 },
+            { description: 'Pantoprazole 40 mg tablet' },
+          ])
+        ),
+      ]),
+    ]);
+    expect(request).toMatchObject({
+      changeTaskId: 'change-1',
+      code: 'OS',
+      subCodes: ['A', 'B'],
+      reason: 'Dexilant on backorder until December',
+      received: '2026-10-28T14:02:00.000Z',
+      withdrawn: false,
+      closed: false,
+    });
+    expect(request.suggestions).toEqual([
+      { description: 'Omeprazole 40 mg capsule', ndc: '00093521998', quantityValue: 0.27, numberOfRefills: 0 },
+      { description: 'Pantoprazole 40 mg tablet' },
+    ]);
+    // Left out: absent, never 0 or the original's.
+    expect(request.suggestions[1].quantityValue).toBeUndefined();
+    expect(request.suggestions[1].daysSupply).toBeUndefined();
+    expect(request.suggestions[1].numberOfRefills).toBeUndefined();
+  });
+
+  it('reads a suggested compound', () => {
+    const request = readPharmacyChangeRequest([
+      change('requested', [
+        input('change-code', 'T'),
+        input(
+          'requested-medications',
+          JSON.stringify([
+            {
+              description: 'Lidocaine 5% ointment',
+              compound: {
+                dosageForm: 'Ointment',
+                ingredients: [{ description: 'Lidocaine Powder', quantityValue: 1.5, quantityUnit: 'Gram' }],
+              },
+              quantityValue: 30,
+              quantityUnit: 'Gram',
+            },
+          ])
+        ),
+      ]),
+    ]);
+    expect(request.suggestions[0]).toEqual({
+      description: 'Lidocaine 5% ointment',
+      compound: {
+        description: 'Lidocaine 5% ointment',
+        dosageForm: 'Ointment',
+        ingredients: [{ description: 'Lidocaine Powder', amount: { value: 1.5, unit: 'Gram' } }],
+      },
+      quantityValue: 30,
+      quantityUnit: 'Gram',
+    });
+  });
+
+  it('has no suggestions for a prior authorization request', () => {
+    const request = readPharmacyChangeRequest([change('requested', [input('change-code', 'P')])]);
+    expect(request).toMatchObject({ code: 'P', subCodes: [], suggestions: [] });
+    expect(request.reason).toBeUndefined();
+  });
+});
+
+describe('a patient’s request that staff wrote down, as the dialog reads it', () => {
+  const RX_ID = '0d4f6a3e-6c1b-4b0e-9a3f-2b7c8d9e0f11';
+  const PATIENT_ID = '7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+  const manual = (code: string, valueString: string): NonNullable<Task['input']>[number] => ({
+    type: { coding: [{ code }] },
+    valueString,
+  });
+  const taskFor = (orderId: string, patientId = PATIENT_ID): Task => ({
+    resourceType: 'Task',
+    id: 'task-1',
+    status: 'requested',
+    intent: 'order',
+    code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.refillRequest }] },
+    groupIdentifier: { value: MANUAL_TASK.category.erx },
+    authoredOn: '2026-10-28T10:00:00.000Z',
+    input: [
+      manual(MANUAL_TASK.input.title, 'Mom called for albuterol refill'),
+      manual(MANUAL_TASK.input.details, 'Out in 2 days'),
+      manual(MANUAL_TASK.input.providerName, 'Kim Front'),
+      manual(MANUAL_TASK.input.orderId, orderId),
+      {
+        type: { coding: [{ code: MANUAL_TASK.input.patient }] },
+        valueReference: { reference: `Patient/${patientId}` },
+      },
+    ],
+  });
+  const oystehrWith = (task: Task, subjectId = PATIENT_ID): Oystehr =>
+    ({
+      fhir: {
+        get: vi.fn().mockResolvedValue(task),
+        search: vi.fn().mockResolvedValue({
+          unbundle: () => [
+            {
+              resourceType: 'MedicationRequest',
+              id: RX_ID,
+              status: 'active',
+              intent: 'order',
+              subject: { reference: `Patient/${subjectId}` },
+              extension: [
+                {
+                  url: PRESCRIPTION_ERX_METADATA_URL,
+                  valueString:
+                    '{"version":1,"route":"by mouth","dose":"2","frequency":"every 4 hours","durationDays":""}',
+                },
+              ],
+            },
+            {
+              resourceType: 'Patient',
+              id: subjectId,
+              name: [{ given: ['Ana'], family: 'Diaz' }],
+              gender: 'female',
+              birthDate: '2019-04-02',
+              telecom: [
+                { system: 'phone', value: '+15125550187' },
+                { system: 'email', value: 'ana@example.com' },
+              ],
+              address: [{ line: ['1 Main St'], city: 'Austin', state: 'TX', postalCode: '78701' }, { city: 'Old' }],
+              identifier: [{ system: 'http://hl7.org/fhir/sid/us-ssn', value: '123-45-6789' }],
+              extension: [{ url: 'https://example.com/anything', valueString: 'x' }],
+            },
+          ],
+        }),
+      },
+    }) as unknown as Oystehr;
+
+  it('reads the task’s title and details, who took it and when', async () => {
+    const response = await getErxRequest(oystehrWith(taskFor(RX_ID)), 'task-1');
+    expect(response.patientRequest).toEqual({
+      title: 'Mom called for albuterol refill',
+      note: 'Out in 2 days',
+      takenBy: 'Kim Front',
+      taken: '2026-10-28T10:00:00.000Z',
+    });
+    // The blanks the prescription was sent with come along, for the order form.
+    expect(response.metadata).toEqual({
+      version: 1,
+      route: 'by mouth',
+      dose: '2',
+      frequency: 'every 4 hours',
+      durationDays: '',
+    });
+  });
+
+  // Review S5: the order id is staff-written, so it is one id, of a prescription of the task’s patient.
+  it('takes only one prescription id', async () => {
+    const oystehr = oystehrWith(taskFor(`${RX_ID},${RX_ID}`));
+    await expect(getErxRequest(oystehr, 'task-1')).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+    expect(oystehr.fhir.search).not.toHaveBeenCalled();
+  });
+
+  // Review S2: a patient's change request names patient A and patient B's prescription. The dialog cancels and resends
+  // only the prescription this returns, so B's never reaches it.
+  it('answers "not found" for a change request on a prescription of another patient', async () => {
+    const other = '9f8e7d6c-5b4a-4c3d-8e2f-1a0b9c8d7e6f';
+    const change: Task = {
+      ...taskFor(RX_ID),
+      code: { coding: [{ system: ERX_TASK.system, code: ERX_TASK.code.changeRequest }] },
+    };
+    await expect(getErxRequest(oystehrWith(change, other), 'task-1')).rejects.toMatchObject({
+      message: 'The requested MedicationRequest resource could not be found',
+    });
+    await expect(getErxRequest(oystehrWith(change), 'task-1')).resolves.toMatchObject({ kind: 'change' });
+  });
+
+  it('answers "not found" for a prescription of another patient', async () => {
+    const other = '9f8e7d6c-5b4a-4c3d-8e2f-1a0b9c8d7e6f';
+    await expect(getErxRequest(oystehrWith(taskFor(RX_ID), other), 'task-1')).rejects.toMatchObject({
+      message: 'The requested MedicationRequest resource could not be found',
+    });
+  });
+
+  // The expired request's "send a new prescription" links to the eRx page of the original prescription's visit.
+  it("names the original prescription's visit, and none when its encounter has no appointment", async () => {
+    const withEncounter = (encounter: Record<string, unknown>): Oystehr => {
+      const oystehr = oystehrWith(taskFor(RX_ID));
+      const search = oystehr.fhir.search as ReturnType<typeof vi.fn>;
+      search.mockResolvedValue({
+        unbundle: () => [
+          {
+            resourceType: 'MedicationRequest',
+            id: RX_ID,
+            subject: { reference: `Patient/${PATIENT_ID}` },
+            encounter: { reference: 'Encounter/enc-1' },
+          },
+          { resourceType: 'Patient', id: PATIENT_ID },
+          { resourceType: 'Encounter', id: 'enc-1', status: 'finished', ...encounter },
+        ],
+      });
+      return oystehr;
+    };
+    const oystehr = withEncounter({ appointment: [{ reference: 'Appointment/appt-1' }] });
+    await expect(getErxRequest(oystehr, 'task-1')).resolves.toMatchObject({
+      visit: { appointmentId: 'appt-1', followUp: false },
+    });
+    expect((oystehr.fhir.search as ReturnType<typeof vi.fn>).mock.calls[0][0].params).toContainEqual({
+      name: '_include',
+      value: 'MedicationRequest:encounter',
+    });
+    await expect(
+      getErxRequest(
+        withEncounter({
+          appointment: [{ reference: 'Appointment/appt-1' }],
+          type: [{ coding: [{ system: 'http://snomed.info/sct', code: '390906007' }] }],
+        }),
+        'task-1'
+      )
+    ).resolves.toMatchObject({ visit: { appointmentId: 'appt-1', followUp: true } });
+    expect((await getErxRequest(withEncounter({}), 'task-1')).visit).toBeUndefined();
+    expect((await getErxRequest(oystehrWith(taskFor(RX_ID)), 'task-1')).visit).toBeUndefined();
+  });
+
+  it('returns only what the dialog shows of the patient', async () => {
+    const { patient } = await getErxRequest(oystehrWith(taskFor(RX_ID)), 'task-1');
+    expect(patient).toEqual({
+      resourceType: 'Patient',
+      id: PATIENT_ID,
+      name: [{ given: ['Ana'], family: 'Diaz' }],
+      gender: 'female',
+      birthDate: '2019-04-02',
+      telecom: [{ system: 'phone', value: '+15125550187' }],
+      address: [{ line: ['1 Main St'], city: 'Austin', state: 'TX', postalCode: '78701' }],
+    });
+  });
+});
+
+describe('the blanks a prescription was sent with (metadata)', () => {
+  const metadata = { version: 1, route: 'by mouth', dose: '1', frequency: 'once daily', durationDays: '30' };
+  const stored = (valueString: string): MedicationRequest => ({
+    resourceType: 'MedicationRequest',
+    id: 'rx-1',
+    status: 'active',
+    intent: 'order',
+    subject: { reference: 'Patient/patient-1' },
+    extension: [{ url: PRESCRIPTION_ERX_METADATA_URL, valueString }],
+  });
+
+  it('reads them from the metadata extension', () => {
+    expect(readPrescriptionMetadata(stored(JSON.stringify(metadata)))).toEqual(metadata);
+  });
+
+  it('treats anything else as none: no extension, not JSON, another version, or not the blanks', () => {
+    expect(readPrescriptionMetadata({ ...stored(''), extension: undefined })).toBeUndefined();
+    expect(readPrescriptionMetadata(stored('{not json'))).toBeUndefined();
+    expect(readPrescriptionMetadata(stored(JSON.stringify({ ...metadata, version: 2 })))).toBeUndefined();
+    expect(readPrescriptionMetadata(stored(JSON.stringify({ version: 1, dose: 1 })))).toBeUndefined();
+    expect(readPrescriptionMetadata(stored(JSON.stringify({ ...metadata, route: 'intravenously' })))).toBeUndefined();
+    expect(readPrescriptionMetadata(stored(JSON.stringify(['by mouth'])))).toBeUndefined();
+  });
+});
