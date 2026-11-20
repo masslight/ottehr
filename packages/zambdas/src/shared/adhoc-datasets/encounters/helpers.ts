@@ -122,6 +122,42 @@ export const lastSignedAt = (history: ReturnType<typeof getVisitStatusHistory>):
  * override applied, as slot generation applies them). 0 on a closed day; null when no schedule is set.
  */
 export const openHoursOnDay = (owner: Schedule | Location, start: string, timezone: string): number | null => {
+  // Every visit of a clinic reads the same schedule, and most visits share a day with others: the answer is
+  // computed once per clinic and local day (parsing the extension and applying overrides took ~1 s per 7 500 rows).
+  const date = localDate(start, timezone);
+  if (date === undefined) return openHoursOnDayUncached(owner, start, timezone);
+  let byDay = openHoursCache.get(owner);
+  if (!byDay) openHoursCache.set(owner, (byDay = new Map()));
+  const key = `${timezone}|${date}`;
+  if (!byDay.has(key)) byDay.set(key, openHoursOnDayUncached(owner, start, timezone));
+  return byDay.get(key)!;
+};
+
+const openHoursCache = new WeakMap<Schedule | Location, Map<string, number | null>>();
+const dateFormatByZone = new Map<string, Intl.DateTimeFormat>();
+
+/** The calendar day `start` falls on in `timezone` (yyyy-mm-dd); undefined for an unreadable time or zone. */
+const localDate = (start: string, timezone: string): string | undefined => {
+  const instant = new Date(start);
+  if (Number.isNaN(instant.getTime())) return undefined;
+  let format = dateFormatByZone.get(timezone);
+  if (!format) {
+    try {
+      format = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+    } catch {
+      return undefined;
+    }
+    dateFormatByZone.set(timezone, format);
+  }
+  return format.format(instant);
+};
+
+const openHoursOnDayUncached = (owner: Schedule | Location, start: string, timezone: string): number | null => {
   const scheduleExtension = getScheduleExtension(owner);
 
   if (!scheduleExtension?.schedule) return null;
