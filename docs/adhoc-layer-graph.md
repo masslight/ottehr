@@ -1,17 +1,18 @@
 # Ad-hoc reports: layers instead of datasets — dev design
 
-Repository: `local/core`. All paths are relative to it. Status: **prototype**, implemented 2026-11-11.
-Numbers marked "(SC)" come from the document "Ad hoc reports: speed and completeness" and are not re-measured. Other numbers are measured on `local` with the tools in section 6.
+Repository: `local/core`. All paths are relative to it. Status: **prototype**, implemented 2026-11-11, tuned on synth 2026-11-20.
+Numbers marked "(SC)" come from the document "Ad hoc reports: speed and completeness" and are not re-measured. Other numbers are measured on `local` or synth with the tools in section 6.
 
 **Summary**
 
 - **Stays as is:** the Task transport, the saved report format (`datasetId` + `criteria.options`), the LLM generation, the start input, the output (flat rows), and the names: dataset, layer, `ENCOUNTER_LAYERS`, `AdHocLayerDef`, `fetchAppointmentReportResources`, `fetchScopedResources`. Report code gets the same flat rows as before.
 - **Changes:**
-  - every FHIR search runs as **one async-bulk job per bounded search** (a 15-day window or 500 ids), 16 jobs at once, with a split rule that never returns a part of the data;
+  - every FHIR search is **bounded** (a 15-day window or 500 ids) and runs **first as up to 6 plain pages, as an async-bulk job only when larger** (a job costs ~2.5 s however little it returns), 16 at once, with a split rule that never returns a part of the data;
   - the monolithic `fetchAdHocEncounterRows` / `fetchAdHocPatientRows` became **one module per layer**; the worker loads root, then all requested layers in parallel;
   - the front end loads **only the missing layers** and merges them into the rows it has;
   - a layer is bound to a **base field** (`encounterId`, `patientId`), not to a dataset, so the patients dataset's layers are also offered on the encounters and billing rows (`patients.allergies`, …);
   - the report data is stored gzip.
+- **Result on synth** (90 days, ~4 700 visits, five typical reports, 2026-11-20): even with Report Studio's runner or faster — by the median of three passes, faster on four reports of five and within noise on the fifth; every result matched the hand-written searches (section 6, [adhoc-bench-reports.md](adhoc-bench-reports.md)).
 - **Result on local:** the encounters dataset with 5 layers loads 5× faster over 60 days with identical rows; a year (~43 500 visits) takes ~100 s, where the old code did not finish within the 13-minute budget. Settings may need tuning on production data (section 7).
 - **Difference from Report Studio:** the fetch mechanics are the same kind (bounded searches, parallel jobs, split rules). The layer code decides what to fetch, not an LLM plan, so there are no server-side value filters and no count-only steps.
 
@@ -122,7 +123,13 @@ sequenceDiagram
   I-->>FE: datasetId=encounters-comprehensive, layerIds=[vitals]
   FE->>FE: range fixed for the session
   FE->>W: Task{datasetId, range, options:{vitals}}
-  W->>F: root: one job per 15-day window, Appointment + _revinclude Encounter
+  par root, per 15-day window
+    W->>F: Appointment by date
+  and
+    W->>F: Encounter by appointment.date
+  and
+    W->>F: Encounter by part-of.appointment.date (follow-up notes)
+  end
   par root lookups, base lookups and layers
     W->>F: Patient / Location / Practitioner by id (500 ids per job)
   and
@@ -140,12 +147,12 @@ sequenceDiagram
 
 Run order in the worker (`adhoc-datasets/encounters/index.ts`):
 
-1. **Root** (`root.ts`): appointments with their encounters (and follow-ups through `Encounter:part-of`).
+1. **Root** (`root.ts`, `fetchReportVisits`): three searches side by side — appointments by date, encounters by `appointment.date`, follow-up encounters by `part-of.appointment.date` (by parent id if the server refuses that chain). Encounters are kept by the old revinclude rules. Patients and locations start loading as soon as the appointments are in, before the encounters.
 2. **In parallel:** the root lookups (patients, locations and the attending / intake practitioners by id — `ctx.rootLookups()`, once), the base lookups (registrar names, location schedules, provider groups), every requested layer's `fetch`, and the requested foreign patient layers. Each needs only the root; the job pool limits the requests, not the layers.
    - Most layers do not read patients or locations, so they no longer wait for them. The few that do while fetching await `rootLookups()` themselves: employer, paperwork, the foreign patient layers, the lab / nursing orders, the location schedules, and the practitioner loader. The root's practitioners (with the provider-type extension) therefore still land in the practitioner map before any other lookup, and the rows are the same as with the lookups first.
    - This saves one round of jobs (~2.5–4 s) on every report. The patients and billing datasets keep the lookups inside the root: they need the patients to build their rows.
 3. **Rows:** one per encounter — the base row, then each layer's `map`, then the foreign columns by `patientId`.
-4. A log line shows where the time went: `[adhoc] encounters timing: rows=… root ms=… layers ms=… map ms=… | <layer>: fetch … map …`.
+4. A log line shows where the time went: `[adhoc] encounters timing: rows=… root ms=… layers ms=… map ms=… | <layer>: fetch … map …`, with each shared search (`shared.procedures: fetch …`), each foreign layer and its steps (`patients.visitHistory.seenBeforeAnswers: fetch …`). Each visits search and base lookup logs its own time too.
 
 There is no dependency graph: no layer depends on another layer. A layer needs the root and, at most, a shared search or a by-id loader.
 
@@ -184,18 +191,22 @@ classDiagram
 - **Encounter layers:** `shared/adhoc-datasets/encounters/layers/*.ts`, 20 modules, one per id in `ENCOUNTER_LAYERS`. `map` gets the row's encounter, appointment, patient, attending practitioner, follow-up flag, visit status and status history.
 - **Shared searches** (`context.ts`, each runs once per report, on first use): diagnoses, procedures, document references, service requests, medication administrations, all Observations, encounter conditions, intake paperwork, lab / nursing orders.
 - **By-id loaders** (`memo.ts`): practitioners and conditions. An id is requested once per report, whoever asks.
-- **Vitals** search Observations by the vital tags only, unless `examRos` or `intake` is loaded too; then the three read one untagged search.
+- **Vitals** search Observations by the vital tags only, unless `examRos` or `intake` is loaded too; then the three read one untagged search. **One-vital layers** (`vitalsTemperature`, `vitalsBloodPressure`, `vitalsHeartRate`, `vitalsRespiration`, `vitalsOxygen`, `vitalsBody`) have the same columns and load only their own tag: a temperature report spent 7.3 s on the full layer against 1.1–2.0 s on `vitalsTemperature`. Their descriptions and infer's prompt say to pick the smallest layer that covers the request; a layer whose fields another picked layer already has is dropped (`parseDatasets`).
+- **Lab / nursing orders** are mapped one order at a time, each with only its own Tasks, reports, Observations and Encounter (indexed once). Handed the whole report, the EHR mappers compared every order with every resource: 589 s on synth (UC 18).
+- **Visit history** (`patients.visitHistory`) loads the prior visits and the seen-before screening answers side by side, both through the fetch helpers; `resolveNewPatients` takes the answers ready-made, so the rule stays the one of the Recent Patients report and the E&M suggestions.
 - **Patient layers:** `shared/adhoc-datasets/patients/layers.ts`, 12 modules, keyed by patient. The account picture is loaded once for the contacts, insurance, eligibility and employers layers. `fetchPatientLayerColumns` gives the columns of any of them for any patients — the patients dataset and the foreign layers use it.
 - **Billing dataset:** still one function; its independent layers now load in parallel.
 
 ### 2.5 Fetch helpers
 
-Every search runs as an **async-bulk job** (start → poll every 1 s → download), with `_count=30000`.
+A bounded search first runs as **plain pages** of 500: the first asks `_total=accurate`, then exactly the pages needed are read side by side. More than 6 pages, a timeout, 413 or a 5xx → the same search runs as an **async-bulk job** (start → poll every 1 s → download), with `_count=30000`. A 4xx fails the report. On synth most id chunks and 15-day windows fit in one to five pages, which saves the ~2.5 s a job costs.
 
 ```mermaid
 flowchart TD
   S[search set: date range or id list] --> E["bounded searches:<br/>15-day windows, or 500 ids each"]
-  E --> J["one async-bulk job per search, _count=30000<br/>at most 16 jobs at once"]
+  E --> P{"plain pages: ≤ 6 × 500?"}
+  P -- yes --> OK
+  P -- "no / timeout / 413 / 5xx" --> J["one async-bulk job per search, _count=30000<br/>at most 16 jobs at once"]
   J --> NXT{next link?}
   NXT -- yes --> J
   NXT -- no --> CHK{"job failed after it was accepted,<br/>error file, or 30 000 without a next link?"}
@@ -213,7 +224,7 @@ flowchart TD
 | A 5xx, timeout or dropped connection when the job is started or downloaded | halved and run again |
 | Halvings run out | the report fails; a part of the data is never returned |
 
-- Constants (`adhoc-report.ts`): `DEFAULT_WINDOW_DAYS = 15`, `IDS_PER_ENTRY = 500`, `JOBS_IN_PARALLEL = 16`, 3 halvings. `ADHOC_IDS_PER_SEARCH` and `ADHOC_JOBS_IN_PARALLEL` override the last two for tuning runs (bench, local server).
+- Constants (`adhoc-report.ts`): `DEFAULT_WINDOW_DAYS = 15`, `IDS_PER_ENTRY = 500`, `JOBS_IN_PARALLEL = 16`, 6 plain pages of 500, 3 halvings. `ADHOC_IDS_PER_SEARCH`, `ADHOC_JOBS_IN_PARALLEL`, `ADHOC_SYNC_PAGES` (0 = async jobs only, as before) and `ADHOC_SYNC_PAGE_SIZE` override them for tuning runs. Measured on synth: pages of 1 000 were slower (14.3 s against 9.1 s), and 24 slots instead of 16 made no difference (r5: 12.6 / 11.4 s against 12.3 / 11.2 / 14.7 s).
 - The pool counts jobs: one job, from start to download, holds one slot. A job waits for nothing else in the pool, so it cannot deadlock; halvings and next links run after the slot is free.
 - Patients and locations are loaded by the ids in the appointments, once per report, not as an `_include` in every window.
 
@@ -298,6 +309,14 @@ flowchart LR
 - **The database's 30 s limit answers 400 with no body**, not 500. The split rule now treats any failure of an accepted job as "did not finish".
 - **Time is mostly the fixed cost per job**, not data and not mapping (mapping a year: ~1.5 s). Fewer, larger searches and more jobs at once are what helps.
 
+Learned on synth (2026-11-20), each found by timing the steps first:
+
+- **Plain pages before an async job.** A small search as a job costs ~2.5 s; as one or a few pages, 0.1–1 s. r1 went from 22.9 s to 9.1 s.
+- **Mapping can be quadratic without looking like it.** The EHR lab mappers scan the lists they are handed; with a report's thousands of orders that was 589 s (UC 18). Clinic open hours re-parsed the Schedule extension on every row: ~1 s of the 2 s base map. Both are now indexed or cached.
+- **Steps that wait for each other cost their sum.** Visit history ran the prior visits, then the screening answers (4.3–5.7 s); side by side it is the longer of the two (1.7–3.0 s).
+- **Payload size did not matter here.** The codes layer loads whole Conditions and every Procedure, Report Studio only `_elements` and the CPT tag: both take ~3 s. Trimming would add code for nothing.
+- **Bench totals included code loading.** The bench imported each way's modules inside the timer; tsx transpiling this version's larger graph added ~1.5 s per run. A deployed zambda is bundled ahead of time; the bench now loads the modules before the clock starts.
+
 ## 4. Risks and open questions
 
 - **Production-like data.** `local` has many visits and few clinical records per visit. On real data a 500-id search carries far more records and may reach the 30 s limit: it then splits (slower, still complete). Run the bench there and watch for `split` / `FAILED` lines; lower `ADHOC_IDS_PER_SEARCH` if splits are frequent.
@@ -330,7 +349,7 @@ All in `packages/zambdas`, read-only against Oystehr, `<env>` is a file in `conf
 | `npm run adhoc-bench-reports -- <env> [ranges] [reports]` | three typical reports fetched three ways (this version, ideal searches, Report Studio from a worktree of its branch); time, requests, errors, whether the result matches the ideal one, where the time went |
 | `npm run adhoc-m0-spike -- <env> [days]` | compares each root window and a by-id search with an exact count; prints `MISSING` on any loss |
 
-Comparison of this version with hand-written ideal searches and Report Studio on three typical reports: [adhoc-bench-reports.md](adhoc-bench-reports.md).
+Comparison of this version with hand-written ideal searches and Report Studio on five typical reports, on synth and on local: [adhoc-bench-reports.md](adhoc-bench-reports.md).
 
 Measured on local (encounters dataset with codes, vitals, medications, labs, signing; server-side fetch only):
 
@@ -347,7 +366,7 @@ Measured on local (encounters dataset with codes, vitals, medications, labs, sig
 | Window size from an Appointment count | measured: the count for a year timed out at 14 s; fixed windows suffice |
 | Planner with stages, Executor, Strategy classes, a Catalog object | the same work in more code; no layer depends on another layer |
 | Time-based split of a job that is still running | not deterministic: a cold cache is 3–5× slower (SC) |
-| Sync search by id | the 14 s and 6 MiB limits of a sync call |
+| Sync search only | the 14 s and 6 MiB limits of a sync call; plain pages are used first and fall back to an async job (section 2.5) |
 | Direct zambda call for small reports (no Task) | a second transport with a 27 s cap |
 | Server snapshot of the root keys | not needed once the range is fixed per session |
 | Rename dataset → grain; infer by fields | no user value; the old names are in the prompts, saved reports and code |
