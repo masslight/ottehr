@@ -8,6 +8,14 @@ export interface CreateInHouseMedicationInput {
   medispanIDForInteractions?: string;
 }
 
+/** A vaccine is added to the catalog by its CVX code alone; its name comes from the CDC list. */
+export interface CreateCatalogVaccineInput {
+  vaccine: { cvx: string };
+}
+
+/** What a catalog entry is: an in-house medication or a vaccine. */
+export type CatalogMedicationType = 'medication' | 'vaccine';
+
 export const MEDICATION_COUNTED_AS_OPTIONS = [
   'vial',
   'ampule',
@@ -21,8 +29,11 @@ export const MEDICATION_COUNTED_AS_OPTIONS = [
   'packet',
   'other',
 ] as const;
-export type MedicationCountedAs = (typeof MEDICATION_COUNTED_AS_OPTIONS)[number];
+/** A vaccine is counted in doses, or like a medication in any of the units above. */
+export const VACCINE_COUNTED_AS_OPTIONS = ['dose', ...MEDICATION_COUNTED_AS_OPTIONS] as const;
+export type MedicationCountedAs = (typeof VACCINE_COUNTED_AS_OPTIONS)[number];
 export const MEDICATION_COUNTED_AS_LABELS: Record<MedicationCountedAs, { singular: string; plural: string }> = {
+  dose: { singular: 'Dose', plural: 'doses' },
   vial: { singular: 'Vial', plural: 'vials' },
   ampule: { singular: 'Ampule', plural: 'ampules' },
   syringe: { singular: 'Syringe', plural: 'syringes' },
@@ -54,7 +65,7 @@ const MedicationAmountSchema = z.object({
 });
 
 export const InHouseMedicationInventorySchema = z.object({
-  countedAs: z.enum(MEDICATION_COUNTED_AS_OPTIONS),
+  countedAs: z.enum(VACCINE_COUNTED_AS_OPTIONS),
   eachContains: MedicationAmountSchema.extend({ in: MedicationAmountSchema.optional() }),
   use: z.enum(MEDICATION_USE_OPTIONS),
   reorderLevels: z
@@ -62,6 +73,14 @@ export const InHouseMedicationInventorySchema = z.object({
     .default([]),
 });
 export type InHouseMedicationInventory = z.infer<typeof InHouseMedicationInventorySchema>;
+
+/** The inventory setup a vaccine gets when it is added: counted in doses, one dose per syringe or vial. */
+export const VACCINE_DEFAULT_INVENTORY: InHouseMedicationInventory = {
+  countedAs: 'dose',
+  eachContains: { amount: 1, unit: 'unit' },
+  use: 'single-use',
+  reorderLevels: [],
+};
 
 export type UpdateInHouseMedicationInput = Partial<CreateInHouseMedicationInput> & {
   medicationID: string;

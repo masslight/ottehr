@@ -1,6 +1,7 @@
 import { Coding, Extension, Medication, Observation } from 'fhir/r4b';
 import { CODE_SYSTEM_NDC } from '../helpers/rcm/constants';
 import {
+  CatalogMedicationType,
   InHouseMedicationInventory,
   InHouseMedicationInventorySchema,
   INVENTORY_ENTRY_COMPONENTS,
@@ -13,7 +14,9 @@ import {
   InventoryStockEntry,
 } from '../types/api/config/in-house-medications';
 import {
+  CVX_CODE_SYSTEM_URL,
   INVENTORY_MEDICATION_TYPE_CODE,
+  INVENTORY_VACCINE_TYPE_CODE,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
   MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
   MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM,
@@ -116,6 +119,28 @@ export const isCatalogMedication = (medication: Medication): boolean =>
   medication.identifier?.some(
     (identifier) => identifier.system === MEDICATION_TYPE_SYSTEM && identifier.value === INVENTORY_MEDICATION_TYPE_CODE
   ) ?? false;
+
+/** The CVX code a vaccine's Medication carries, if any. */
+export const getMedicationCvx = (medication: Medication | undefined): string | undefined =>
+  medication?.code?.coding?.find((coding) => coding.system === CVX_CODE_SYSTEM_URL)?.code;
+
+/**
+ * A vaccine in the practice's catalog: the vaccine type identifier and a CVX code. The vaccines that used to be
+ * set up from a config file keep the type identifier but have no CVX code, so they are not catalog entries.
+ */
+export const isVaccineCatalogMedication = (medication: Medication): boolean =>
+  Boolean(getMedicationCvx(medication)) &&
+  (medication.identifier?.some(
+    (identifier) => identifier.system === MEDICATION_TYPE_SYSTEM && identifier.value === INVENTORY_VACCINE_TYPE_CODE
+  ) ??
+    false);
+
+/** Which kind of catalog entry a Medication is; undefined when it is neither (an inventory lot, for one). */
+export const getCatalogMedicationType = (medication: Medication): CatalogMedicationType | undefined => {
+  if (isCatalogMedication(medication)) return 'medication';
+  if (isVaccineCatalogMedication(medication)) return 'vaccine';
+  return undefined;
+};
 
 export const getOrderCatalogMedicationId = (contained: Medication | undefined): string | undefined =>
   contained?.identifier?.find((identifier) => identifier.system === MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM)?.value;
