@@ -44,9 +44,9 @@ export const JournalNoteDialog = ({ target, onClose, onSaved }: Props): ReactEle
   );
 
   const isAddendum = target.mode === 'addendum';
-  const title = isAddendum ? 'Addendum' : 'Free form note';
+  const title = isAddendum ? 'Addendum' : 'Free Form';
   const visitLabel = isAddendum ? formatVisitLabel(target.visit.start) : '';
-  const where = isAddendum ? `${target.patient.name} · Progress note for ${visitLabel}` : target.patient.name;
+  const where = isAddendum ? `${target.patient.name} · Progress Note for ${visitLabel}` : target.patient.name;
   const stamp = `${DateTime.now().toFormat('MMM d, yyyy h:mm a')} · ${user?.userName ?? ''}`;
   const canSave = !!text.trim() && !saving;
 
@@ -64,12 +64,12 @@ export const JournalNoteDialog = ({ target, onClose, onSaved }: Props): ReactEle
           encounterId: target.visit.encounterId,
         };
         await apiClient?.saveChartData?.({ encounterId: target.visit.encounterId, notes: [note] });
-        enqueueSnackbar(`Addendum added to the progress note for ${target.patient.name}'s visit (${visitLabel})`, {
+        enqueueSnackbar(`Addendum added to the Progress Note for ${target.patient.name}'s visit (${visitLabel})`, {
           variant: 'success',
         });
       } else {
         await saveFreeFormEncounter(oystehrZambda, { patientId: target.patient.patientId, note: text.trim() });
-        enqueueSnackbar(`Free form note saved to ${target.patient.name}'s chart`, { variant: 'success' });
+        enqueueSnackbar(`Free Form saved to ${target.patient.name}'s chart`, { variant: 'success' });
         // The note is saved at this point; a task that could not be marked done gets its own message.
         for (const task of target.callTasks) {
           if (!done[task.id] || !task.taskId) continue;
@@ -85,7 +85,7 @@ export const JournalNoteDialog = ({ target, onClose, onSaved }: Props): ReactEle
       onClose();
     } catch (error) {
       console.error(error);
-      enqueueSnackbar(`Could not save the ${title.toLowerCase()}`, { variant: 'error' });
+      enqueueSnackbar(`Could not save the ${title}`, { variant: 'error' });
     } finally {
       setSaving(false);
     }

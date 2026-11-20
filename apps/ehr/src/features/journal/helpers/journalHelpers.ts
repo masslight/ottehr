@@ -84,9 +84,9 @@ export const formatVisitLabel = (iso: string, now: DateTime = DateTime.now()): s
 
 export const formatVisitDay = (iso: string): string => DateTime.fromISO(iso).toFormat('MMM d');
 
-/** "<visit label> · In-person|Telemed · <serviceCategory>". */
+/** "<visit label> · In Person|Virtual · <serviceCategory>", the tracking board's visit-type words. */
 export const visitHeading = (visit: JournalVisit, now?: DateTime): string =>
-  [formatVisitLabel(visit.start, now), visit.isTelemed ? 'Telemed' : 'In-person', visit.serviceCategory]
+  [formatVisitLabel(visit.start, now), visit.isTelemed ? 'Virtual' : 'In Person', visit.serviceCategory]
     .filter(Boolean)
     .join(' · ');
 

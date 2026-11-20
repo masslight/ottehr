@@ -95,8 +95,8 @@ export const buildJournalActions = (
   const actions: JournalAction[] = [
     {
       key: 'record',
-      label: 'Patient record',
-      tooltip: 'Patient record',
+      label: 'Patient Record',
+      tooltip: 'Patient Record',
       icon: <PersonIcon />,
       href: patientRecordUrl(patient.patientId),
     },
@@ -105,15 +105,15 @@ export const buildJournalActions = (
     actions.push(
       {
         key: 'progress',
-        label: 'Progress note',
-        tooltip: 'Progress note',
+        label: 'Progress Note',
+        tooltip: 'Progress Note',
         icon: <DescriptionIcon />,
         href: reviewAndSignUrl(visit),
       },
       {
         key: 'details',
-        label: 'Visit details',
-        tooltip: 'Visit details',
+        label: 'Visit Details',
+        tooltip: 'Visit Details',
         icon: <InfoOutlinedIcon />,
         href: visitDetailsUrl(visit),
       }
@@ -150,8 +150,8 @@ export const buildJournalActions = (
     },
     {
       key: 'note',
-      label: 'Free form note',
-      tooltip: 'Add a free form note',
+      label: 'Free Form',
+      tooltip: 'Add a Free Form',
       icon: <EditIcon />,
       onClick: () => handlers.onNote(row),
     }
@@ -169,9 +169,9 @@ export const buildJournalActions = (
     actions.push({
       key: 'addendum',
       label: 'Addendum',
-      tooltip: 'Add an addendum to the progress note',
+      tooltip: 'Add an addendum to the Progress Note',
       icon: <PostAddIcon />,
-      disabledReason: anyNote ? undefined : 'No progress note yet',
+      disabledReason: anyNote ? undefined : 'No Progress Note yet',
       onClick: target ? () => handlers.onAddendum(row, target) : () => handlers.onSelect(ref.key),
     });
   }
