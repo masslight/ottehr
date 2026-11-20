@@ -1,0 +1,254 @@
+{
+ "antigen": "Varicella",
+ "source": "cdc-4.64",
+ "immunity": {
+  "birthDate": "1980-01-01",
+  "birthCountry": "U.S."
+ },
+ "series": [
+  {
+   "seriesName": "Varicella childhood 2-dose series",
+   "targetDisease": "Varicella",
+   "vaccineGroup": "Varicella",
+   "seriesType": "Standard",
+   "select": {
+    "defaultSeries": true,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 1,
+    "maxAgeToStart": "13 years"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "HIV-infected people eligible for vaccination should get 2 doses of single-antigen varicella vaccine separated by 3 months. HIV-infected people should not get the combination MMRV vaccine."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "12 months",
+       "earliestRecAge": "12 months",
+       "latestRecAge": "16 months + 4 weeks"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Varicella",
+       "cvx": "21",
+       "beginAge": "12 months",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "MMRV",
+       "cvx": "94",
+       "beginAge": "4 years",
+       "endAge": "13 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Varicella",
+       "cvx": "21",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "MMRV",
+       "cvx": "94",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Zoster Live",
+       "cvx": "121",
+       "beginAge": "12 months - 4 days",
+       "endAge": "50 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "13 months",
+       "minAge": "15 months",
+       "earliestRecAge": "4 years",
+       "latestRecAge": "7 years + 4 weeks"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "12 weeks - 4 days",
+       "minInt": "12 weeks",
+       "earliestRecInt": "3 years",
+       "latestRecInt": "6 years + 4 weeks"
+      }
+     ],
+     "allowableIntervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks"
+      }
+     ],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Varicella",
+       "cvx": "21",
+       "beginAge": "12 months",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "MMRV",
+       "cvx": "94",
+       "beginAge": "4 years",
+       "endAge": "13 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Varicella",
+       "cvx": "21",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "MMRV",
+       "cvx": "94",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Zoster Live",
+       "cvx": "121",
+       "beginAge": "12 months - 4 days",
+       "endAge": "50 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Varicella 13+ 2-dose series",
+   "targetDisease": "Varicella",
+   "vaccineGroup": "Varicella",
+   "seriesType": "Standard",
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 2
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "Vaccination should be emphasized for those who have close contact with persons at high risk for severe disease or are at high risk for exposure or transmission. Pregnant women should be assessed for evidence of varicella immunity. Women who do not have evidence of immunity should receive the first dose of varicella vaccine upon completion or termination of pregnancy and before discharge from the health care facility.",
+    "HIV-infected people eligible for vaccination should get 2 doses of single-antigen varicella vaccine separated by 3 months. HIV-infected people should not get the combination MMRV vaccine."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "13 years",
+       "minAge": "13 years",
+       "earliestRecAge": "13 years",
+       "latestRecAge": "13 years"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Varicella",
+       "cvx": "21",
+       "beginAge": "12 months",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Varicella",
+       "cvx": "21",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "MMRV",
+       "cvx": "94",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Zoster Live",
+       "cvx": "121",
+       "beginAge": "12 months - 4 days",
+       "endAge": "50 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "latestRecInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "Varicella",
+       "cvx": "21",
+       "beginAge": "12 months",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Varicella",
+       "cvx": "21",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "MMRV",
+       "cvx": "94",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Zoster Live",
+       "cvx": "121",
+       "beginAge": "12 months - 4 days",
+       "endAge": "50 years"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  }
+ ]
+}
