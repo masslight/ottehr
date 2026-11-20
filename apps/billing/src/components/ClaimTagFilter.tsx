@@ -12,8 +12,6 @@ import {
 import { KeyboardEvent, MouseEvent, ReactElement, useState } from 'react';
 import { ClaimTagMatch } from 'utils/lib/types/data/billing/billing.schemas';
 
-// The claims list tag filter: tags a claim must have (any or all of them) and tags it must not have.
-// Sits in the filter bar as one field that summarizes the choice and opens the two pickers.
 
 export interface ClaimTagFilterValue {
   include: string[];
