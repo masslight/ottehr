@@ -1332,6 +1332,15 @@ export interface BillingInvoicePayment {
   reference?: string;
 }
 
+export interface RecordBillingNioInvoicePaymentResponse {
+  paymentId: string;
+}
+
+export interface PresignBillingInvoicePaymentAttachmentResponse {
+  uploadUrl: string;
+  path: string;
+}
+
 export interface BillingInvoiceDetail extends BillingInvoiceListItem {
   claims: BillingInvoiceClaimLine[];
   payments: BillingInvoicePayment[];

@@ -15,6 +15,7 @@ import { STATE_CODES } from '../../common';
 import {
   BILLING_INVOICE_LIMITS,
   BILLING_INVOICE_LIST_STATUSES,
+  BILLING_INVOICE_PAYMENT_METHODS,
   BILLING_MANUAL_PAYMENT_METHODS,
   BILLING_TASK_STATUSES,
   DRUG_UNIT_CODE_VALUES,
@@ -986,6 +987,27 @@ export const BillingOutreachTaskInputSchema = z.object({
   taskId: nonEmptyString.uuid(),
 });
 
+export const RecordBillingNioInvoicePaymentInputSchema = z.object({
+  invoiceId: nonEmptyString.uuid(),
+  amountInCents: z.number().int().positive(),
+  paymentMethod: z.enum(BILLING_INVOICE_PAYMENT_METHODS),
+  paymentDate: z.string().date(),
+  reference: nonEmptyString.max(BILLING_INVOICE_LIMITS.paymentReferenceLength).optional(),
+  attachment: z
+    .object({
+      path: nonEmptyString,
+      fileName: nonEmptyString.max(255),
+      mimeType: nonEmptyString.optional(),
+    })
+    .optional(),
+  idempotencyKey,
+});
+
+export const PresignBillingInvoicePaymentAttachmentInputSchema = z.object({
+  invoiceId: nonEmptyString.uuid(),
+  fileName: nonEmptyString.max(255),
+});
+
 export const VoidBillingInvoiceInputSchema = z.object({
   invoiceId: nonEmptyString.uuid(),
   reason: nonEmptyString.max(BILLING_INVOICE_LIMITS.voidReasonLength),
@@ -1368,6 +1390,10 @@ export type CreateBillingNioInvoiceInput = z.output<typeof CreateBillingNioInvoi
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
 export type SearchBillingInvoicesInput = z.output<typeof SearchBillingInvoicesInputSchema>;
 export type GetBillingInvoiceInput = z.output<typeof GetBillingInvoiceInputSchema>;
+export type RecordBillingNioInvoicePaymentInput = z.output<typeof RecordBillingNioInvoicePaymentInputSchema>;
+export type PresignBillingInvoicePaymentAttachmentInput = z.output<
+  typeof PresignBillingInvoicePaymentAttachmentInputSchema
+>;
 export type VoidBillingInvoiceInput = z.output<typeof VoidBillingInvoiceInputSchema>;
 export type AddClaimWriteOffInput = z.output<typeof AddClaimWriteOffInputSchema>;
 export type VoidClaimWriteOffInput = z.output<typeof VoidClaimWriteOffInputSchema>;
