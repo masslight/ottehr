@@ -173,5 +173,7 @@ export const PATIENT_REQUEST_TASK = {
     schoolWorkNote: 'school-work-note',
     medicalRecord: 'medical-record',
     followUp: 'follow-up',
+    /** An SMS from a patient with no appointment today (see `subscriptions/communication/patient-text-message`). */
+    textMessage: 'text-message',
   },
 } as const;

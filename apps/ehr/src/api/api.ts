@@ -182,6 +182,12 @@ import {
   UpdateProgressNoteConfigInput,
 } from 'utils/lib/types/api/progress-note-config/progress-note-config.types';
 import {
+  CompleteJournalTaskInput,
+  CompleteJournalTaskOutput,
+  GetProviderJournalInput,
+  GetProviderJournalResponse,
+} from 'utils/lib/types/api/provider-journal.types';
+import {
   GetProviderNotificationsOutput,
   MarkProviderNotificationsReadInput,
   MarkProviderNotificationsReadOutput,
@@ -1069,6 +1075,38 @@ export const saveFreeFormEncounter = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'save-free-form-encounter',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getProviderJournal = async (
+  oystehr: Oystehr,
+  parameters: GetProviderJournalInput
+): Promise<GetProviderJournalResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-provider-journal',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const completeJournalTask = async (
+  oystehr: Oystehr,
+  parameters: CompleteJournalTaskInput
+): Promise<CompleteJournalTaskOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'complete-journal-task',
       ...parameters,
     });
     return chooseJson(response);
