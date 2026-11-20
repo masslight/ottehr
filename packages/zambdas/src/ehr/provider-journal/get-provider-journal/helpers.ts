@@ -404,14 +404,15 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
       });
   }
 
-  // Tasks: owned by this person, or linked to one of this journal's visits.
+  // Tasks: owned by this person, or (provider journals) linked to one of this journal's visits. A clinician sees
+  // only tasks assigned to them, so an unassigned result reaches the "Pr:" before anyone else can close it.
   const seenTaskIds = new Set<string>();
   sources.tasks.forEach((task) => {
     if (!task.id || seenTaskIds.has(task.id) || !isOpenBoardTask(task)) return;
     seenTaskIds.add(task.id);
     const encounterId = getIdFromReference(task.encounter?.reference, 'Encounter');
     const owned = taskOwnerId(task) === practitionerId;
-    if (!owned && !(encounterId && visitEncounterIds.has(encounterId))) return;
+    if (!owned && !(kind === 'provider' && encounterId && visitEncounterIds.has(encounterId))) return;
     const encounter = encounterId ? encountersById.get(encounterId) : undefined;
     const appointmentId =
       getTaskInputValue(task, MANUAL_TASK.input.appointmentId) ??

@@ -569,6 +569,29 @@ describe('buildJournal: task ownership and placement', () => {
     expect(journal.notTied).toEqual([]);
   });
 
+  it('shows a clinician only the tasks assigned to them; unassigned visit tasks go to the "Pr:" journal', () => {
+    const roomed: VisitSpec = { ...myVisit(), admitter: { id: ME }, attender: { id: OTHER } };
+    const tasks = [
+      boardTask({
+        id: 'lipid',
+        category: LAB_ORDER_TASK.category,
+        title: 'Review Lipid panel',
+        encounterId: 'enc-mine',
+      }),
+      boardTask({ id: 'text', category: PATIENT_REQUEST_TASK.category, title: 'Text', encounterId: 'enc-mine' }),
+      boardTask({ id: 'mine', title: 'Assigned to me', owner: owner(ME), encounterId: 'enc-mine' }),
+    ];
+    const ids = (journal: ReturnType<typeof buildJournal>): string[] =>
+      [...journal.recent, ...journal.notTied].flatMap((row) => row.items.map((item) => item.id)).sort();
+    const shared = { patients: [patient('pat-robert', 'Robert', 'Hill')], tasks };
+    expect(ids(buildJournal(withVisits([roomed], { ...shared, kind: 'clinician' })))).toEqual(['mine']);
+    expect(ids(buildJournal(withVisits([roomed], { ...shared, practitionerId: OTHER })))).toEqual([
+      'lipid',
+      'mine',
+      'text',
+    ]);
+  });
+
   it('places an owned task by visit, then patient row, then "Not tied to a recent visit" with the patient name', () => {
     const other = visit({
       id: 'elsewhere',

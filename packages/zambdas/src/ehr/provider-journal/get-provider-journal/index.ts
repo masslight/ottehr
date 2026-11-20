@@ -110,20 +110,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
       oystehr
     ),
-    // Open tasks on any of this person's visits, however old: results and tasks stay until done.
-    getAllFhirSearchPages<Task | Encounter | Appointment>(
-      {
-        resourceType: 'Task',
-        params: [
-          { name: 'encounter.participant', value: `Practitioner/${practitionerId}` },
-          { name: 'status', value: 'ready,in-progress' },
-          { name: '_tag', value: 'task' },
-          { name: '_include', value: 'Task:encounter' },
-          { name: '_include:iterate', value: 'Encounter:appointment' },
-        ],
-      },
-      oystehr
-    ),
+    // Open tasks on any of this provider's visits, however old: results and tasks stay until done.
+    kind === 'provider'
+      ? getAllFhirSearchPages<Task | Encounter | Appointment>(
+          {
+            resourceType: 'Task',
+            params: [
+              { name: 'encounter.participant', value: `Practitioner/${practitionerId}` },
+              { name: 'status', value: 'ready,in-progress' },
+              { name: '_tag', value: 'task' },
+              { name: '_include', value: 'Task:encounter' },
+              { name: '_include:iterate', value: 'Encounter:appointment' },
+            ],
+          },
+          oystehr
+        )
+      : ([] as (Task | Encounter | Appointment)[]),
   ]);
 
   const tasks = [...ownedTaskResources, ...visitTaskResources].filter((r): r is Task => r.resourceType === 'Task');
