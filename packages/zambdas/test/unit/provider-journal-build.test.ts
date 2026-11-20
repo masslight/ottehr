@@ -838,10 +838,18 @@ describe('taskToJournalItem wording', () => {
       meta: { tag: [{ code: 'task' }, SUPPORT_CHAT_UNREAD_TAG] },
     });
     expect(taskToJournalItem(portal, {})).toEqual(
-      expect.objectContaining({ kind: 'patient-request', label: 'Reply to patient message', when: 'received' })
+      expect.objectContaining({
+        kind: 'patient-request',
+        label: 'Reply to patient message',
+        when: 'received',
+        // The page opens the Tasks page's Support Chat dialog, titled with the task title.
+        unread: true,
+        title: 'Prescription Refill for Robert Hill 11/03/2026',
+      })
     );
     const readPortal = { ...portal, meta: { tag: [{ code: 'task' }] } };
     expect(taskToJournalItem(readPortal, {}).label).toBe('Prescription Refill for Robert Hill 11/03/2026');
+    expect(taskToJournalItem(readPortal, {}).unread).toBeUndefined();
   });
 
   it('marks reflex results and keeps the lab task code (for the Tasks page links)', () => {

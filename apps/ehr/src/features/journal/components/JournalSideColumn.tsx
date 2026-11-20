@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { ReactElement, ReactNode } from 'react';
 import { PatientDateOfBirth } from 'src/components/PatientDateOfBirth';
 import { DEFAULT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
-import { JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
+import { JournalItem, JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
 import { JournalAction, SIDE_BUTTON_ORDER } from '../helpers/journalActions';
 import {
   formatAge,
@@ -28,7 +28,7 @@ interface Props {
   kind: JournalKind;
   now: DateTime;
   actions: JournalAction[];
-  onOpenChat: (row: JournalRow) => void;
+  onOpenChat: (row: JournalRow, item: JournalItem) => void;
   onAddendum: (row: JournalRow, visit: JournalVisit) => void;
 }
 
@@ -180,7 +180,7 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
   );
   const todo = (item: JournalRow['items'][number]): ReactElement => (
     <Box key={item.id} sx={TODO_SX}>
-      <JournalItemLink item={item} now={now} onOpenChat={() => onOpenChat(row)} inPanel />
+      <JournalItemLink item={item} now={now} onOpenChat={(item) => onOpenChat(row, item)} inPanel />
     </Box>
   );
 

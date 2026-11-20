@@ -9,7 +9,8 @@ import { adjustTopForBannerHeight, NAVBAR_HEIGHT_CSS_VAR } from 'src/helpers/mis
 import { useApiClients } from 'src/hooks/useAppClients';
 import PageContainer from 'src/layout/PageContainer';
 import { AppointmentMessaging } from 'utils/lib/types/api/messaging.types';
-import { JournalRow as JournalRowData } from 'utils/lib/types/api/provider-journal.types';
+import { JournalItem, JournalRow as JournalRowData } from 'utils/lib/types/api/provider-journal.types';
+import { SupportChatModal } from '../../support-chat/components/SupportChatModal';
 import { JournalDot } from '../components/JournalDot';
 import { JournalNoteDialog, JournalNoteTarget } from '../components/JournalNoteDialog';
 import { FLAG_SX, JournalRow } from '../components/JournalRow';
@@ -105,6 +106,10 @@ export const JournalPage = (): ReactElement => {
   const [chatRow, setChatRow] = useState<JournalRowData>();
   /** Chats marked read since the journal loaded, like the tracking board row's local unread state. */
   const [readChatPatientIds, setReadChatPatientIds] = useState<string[]>([]);
+  /** An unread Support Chat request: opens the Tasks page's Support Chat dialog. */
+  const [supportChatItem, setSupportChatItem] = useState<JournalItem>();
+  const openChat = (row: JournalRowData, item: JournalItem): void =>
+    item.kind === 'text-message' ? setChatRow(row) : setSupportChatItem(item);
 
   const now = DateTime.now();
   const q = query.trim().toLowerCase();
@@ -177,7 +182,7 @@ export const JournalPage = (): ReactElement => {
       selected={ref.key === selectedKey}
       actions={buildJournalActions(ref, kind, handlers)}
       onSelect={(key) => setSelectedKey((current) => (current === key ? undefined : key))}
-      onOpenChat={setChatRow}
+      onOpenChat={openChat}
     />
   );
 
@@ -436,7 +441,7 @@ export const JournalPage = (): ReactElement => {
                   kind={kind}
                   now={now}
                   actions={selected ? buildJournalActions(selected, kind, handlers) : []}
-                  onOpenChat={setChatRow}
+                  onOpenChat={openChat}
                   onAddendum={handlers.onAddendum}
                 />
               )}
@@ -448,6 +453,24 @@ export const JournalPage = (): ReactElement => {
             target={noteTarget}
             onClose={() => setNoteTarget(undefined)}
             onSaved={() => void refetch()}
+          />
+        )}
+        {supportChatItem?.taskId && (
+          <SupportChatModal
+            task={{
+              id: supportChatItem.taskId,
+              category: supportChatItem.category ?? '',
+              createdDate: supportChatItem.since,
+              title: supportChatItem.title ?? '',
+              subtitle: '',
+              status: 'ready',
+              completable: true,
+              chat: { hasUnread: true },
+            }}
+            onClose={() => {
+              setSupportChatItem(undefined);
+              void refetch();
+            }}
           />
         )}
         {chatRow?.patient && chatMessaging && (

@@ -10,15 +10,15 @@ import { formatAge, JOURNAL_COLORS, journalItemLink } from '../helpers/journalHe
 interface Props {
   item: JournalItem;
   now: DateTime;
-  /** Text-message items open the chat instead of a page. */
-  onOpenChat: () => void;
+  /** Text-message items and unread Support Chat requests open the chat instead of a page. */
+  onOpenChat: (item: JournalItem) => void;
   /** Side column: the action wraps and is bolder. */
   inPanel?: boolean;
 }
 
 /** "Review CBC, resulted 2d 5h ago" — the action is the link, opening in a new tab. */
 export const JournalItemLink = ({ item, now, onOpenChat, inPanel }: Props): ReactElement => {
-  const isChat = item.kind === 'text-message';
+  const isChat = item.kind === 'text-message' || (item.kind === 'patient-request' && !!item.unread);
   const stop = (e: MouseEvent): void => e.stopPropagation();
   const linkSx = {
     color: 'primary.main',
@@ -40,7 +40,7 @@ export const JournalItemLink = ({ item, now, onOpenChat, inPanel }: Props): Reac
           sx={linkSx}
           onClick={(e: MouseEvent) => {
             stop(e);
-            onOpenChat();
+            onOpenChat(item);
           }}
         >
           {item.label}

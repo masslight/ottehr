@@ -281,7 +281,12 @@ export function taskToJournalItem(
       kind: 'patient-request',
       label: unread ? 'Reply to patient message' : task.description ?? 'Patient request',
       ...(unread
-        ? { when: 'received' as const, since: context.unreadMessageSentAt ?? task.authoredOn ?? '' }
+        ? {
+            when: 'received' as const,
+            since: context.unreadMessageSentAt ?? task.authoredOn ?? '',
+            unread,
+            title: task.description,
+          }
         : assignedOrCreated()),
       code,
     };

@@ -81,8 +81,10 @@ export interface JournalItem {
   isCallTask?: boolean;
   /** Patient Follow-up tasks: the assignee's practitioner id (only the assignee can mark it done, like Complete). */
   assigneeId?: string;
-  /** Text tasks: the patient has unread texts ("Reply to text"). */
+  /** Text tasks: the patient has unread texts ("Reply to text"); Support Chat requests: unread messages. */
   unread?: boolean;
+  /** Unread Support Chat requests: the task title, for the Support Chat dialog. */
+  title?: string;
   /** The Tasks page's alert, e.g. an abnormal lab result. */
   alert?: TaskAlertCode;
 }

@@ -2,7 +2,7 @@ import { Box, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { Fragment, ReactElement, ReactNode } from 'react';
 import { PatientDateOfBirth } from 'src/components/PatientDateOfBirth';
-import { JournalKind, JournalRow as JournalRowData } from 'utils/lib/types/api/provider-journal.types';
+import { JournalItem, JournalKind, JournalRow as JournalRowData } from 'utils/lib/types/api/provider-journal.types';
 import { JournalAction } from '../helpers/journalActions';
 import {
   formatAge,
@@ -23,7 +23,7 @@ interface Props {
   selected: boolean;
   actions: JournalAction[];
   onSelect: (key: string) => void;
-  onOpenChat: (row: JournalRowData) => void;
+  onOpenChat: (row: JournalRowData, item: JournalItem) => void;
 }
 
 export const QUIET_SX = { color: JOURNAL_COLORS.text2, fontSize: '13.5px' };
@@ -54,7 +54,7 @@ export const JournalRow = ({ rowRef, kind, now, selected, actions, onSelect, onO
   const items = row.items.map((item, index) => (
     <Fragment key={item.id}>
       {index > 0 && <ItemSeparator />}
-      <JournalItemLink item={item} now={now} onOpenChat={() => onOpenChat(row)} />
+      <JournalItemLink item={item} now={now} onOpenChat={(item) => onOpenChat(row, item)} />
     </Fragment>
   ));
 
