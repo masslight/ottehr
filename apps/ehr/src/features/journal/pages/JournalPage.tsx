@@ -157,7 +157,11 @@ export const JournalPage = (): ReactElement => {
     onText: (row) => setChatRow(row),
     onNote: (row) => {
       if (!row.patient) return;
-      setNoteTarget({ mode: 'free-form', patient: row.patient, callTasks: row.items.filter((i) => i.isCallTask) });
+      setNoteTarget({
+        mode: 'free-form',
+        patient: row.patient,
+        callTasks: row.items.filter((i) => i.isCallTask && !!myPractitionerId && i.assigneeId === myPractitionerId),
+      });
     },
     onAddendum: (row, visit) => {
       if (!row.patient) return;

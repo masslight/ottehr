@@ -137,7 +137,8 @@ export const isOpenBoardTask = (task: Task): boolean =>
   OPEN_TASK_STATUSES.includes(task.status) &&
   !task.code?.coding?.some((coding) => coding.code && EXCLUDED_TASK_CODES.includes(coding.code));
 
-const taskOwnerId = (task: Task): string | undefined => getIdFromReference(task.owner?.reference, 'Practitioner');
+export const taskOwnerId = (task: Task): string | undefined =>
+  getIdFromReference(task.owner?.reference, 'Practitioner');
 
 const taskAssignedAt = (task: Task): string | undefined =>
   task.owner?.extension?.find((extension) => extension.url === TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime;
@@ -298,6 +299,7 @@ export function taskToJournalItem(
     label: task.description ?? 'Task',
     ...assignedOrCreated(),
     isCallTask: category === MANUAL_TASK.category.patientFollowUp || undefined,
+    assigneeId: category === MANUAL_TASK.category.patientFollowUp ? taskOwnerId(task) : undefined,
   };
 }
 

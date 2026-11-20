@@ -69,6 +69,8 @@ export interface JournalItem {
   folderId?: string;
   /** Manual "Patient Follow-up" tasks: the Free form note dialog offers to complete them. */
   isCallTask?: boolean;
+  /** Patient Follow-up tasks: the assignee's practitioner id (only the assignee can mark it done, like Complete). */
+  assigneeId?: string;
   /** The Tasks page's alert, e.g. an abnormal lab result. */
   alert?: TaskAlertCode;
 }

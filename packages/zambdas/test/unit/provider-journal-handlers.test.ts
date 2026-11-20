@@ -291,6 +291,7 @@ describe('complete-journal-task', () => {
     ...createTask({ category: 'manual-patient-follow-up', title: 'Call about culture results' }),
     id: TASK_ID,
     meta: { tag: [{ code: 'task' }], versionId: '2' },
+    owner: { reference: `Practitioner/${PRACTITIONER_ID}` },
     ...overrides,
   });
 
@@ -316,22 +317,28 @@ describe('complete-journal-task', () => {
   });
 
   it('completes exactly like the Tasks page: the caller’s own token, status only, version-checked', async () => {
+    const result = await call(handler, { taskId: TASK_ID });
+    expect(JSON.parse(result.body)).toEqual({ taskId: TASK_ID, status: 'completed' });
+    // Written as the signed-in user, so FHIR records who completed it and their access policy applies.
+    expect(vi.mocked(createClinicalOystehrClient).mock.calls.map(([token]) => token)).toEqual(['user-token']);
+    const [patch, options] = mockFhir.patch.mock.calls[0];
+    expect(patch).toEqual({
+      resourceType: 'Task',
+      id: TASK_ID,
+      operations: [{ op: 'replace', path: '/status', value: 'completed' }],
+    });
+    expect(options).toEqual({ optimisticLockingVersionId: '2' });
+  });
+
+  it('refuses a task not assigned to the caller, like the Tasks page’s Complete', async () => {
     for (const owner of [undefined, { reference: 'Practitioner/someone-else' }]) {
-      vi.mocked(createClinicalOystehrClient).mockClear();
-      mockFhir.patch.mockClear();
       mockFhir.get.mockResolvedValue(openTask({ owner }));
-      const result = await call(handler, { taskId: TASK_ID });
-      expect(JSON.parse(result.body)).toEqual({ taskId: TASK_ID, status: 'completed' });
-      // Written as the signed-in user, so FHIR records who completed it and their access policy applies.
-      expect(vi.mocked(createClinicalOystehrClient).mock.calls.map(([token]) => token)).toEqual(['user-token']);
-      const [patch, options] = mockFhir.patch.mock.calls[0];
-      expect(patch).toEqual({
-        resourceType: 'Task',
-        id: TASK_ID,
-        operations: [{ op: 'replace', path: '/status', value: 'completed' }],
-      });
-      expect(options).toEqual({ optimisticLockingVersionId: '2' });
+      await expect(call(handler, { taskId: TASK_ID })).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
     }
+    mockRequireRole.mockResolvedValue({ ...STAFF_USER, profile: undefined });
+    mockFhir.get.mockResolvedValue(openTask({ owner: undefined }));
+    await expect(call(handler, { taskId: TASK_ID })).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+    expect(mockFhir.patch).not.toHaveBeenCalled();
   });
 
   it('passes on the caller’s own access policy refusing the task', async () => {

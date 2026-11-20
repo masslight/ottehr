@@ -769,6 +769,7 @@ describe('taskToJournalItem wording', () => {
         when: 'assigned',
         since: '2026-11-07T14:00:00.000Z',
         isCallTask: true,
+        assigneeId: ME,
       })
     );
     const unassigned = boardTask({ id: 'u', title: 'Unassigned', authoredOn: '2026-11-07T09:00:00.000Z' });

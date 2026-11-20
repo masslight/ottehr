@@ -1,5 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { CompleteJournalTaskInputSchema, CompleteJournalTaskOutput } from 'utils/lib/types/api/provider-journal.types';
 import { ALL_EHR_STAFF_ROLES } from 'utils/lib/types/api/user.types';
 import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
@@ -16,7 +17,7 @@ import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
-import { isOpenBoardTask } from '../get-provider-journal/helpers';
+import { isOpenBoardTask, taskOwnerId } from '../get-provider-journal/helpers';
 
 const ZAMBDA_NAME = 'complete-journal-task';
 
@@ -24,12 +25,13 @@ const isForbidden = (error: unknown): boolean => [401, 403].includes((error as {
 
 /**
  * Completes an open Patient Follow-up task from the journal's Free form note dialog ("Mark '…' done"), with
- * the same access as the Tasks page's Complete: an EHR staff role whose own access policy can update the task.
+ * the same access as the Tasks page's Complete: an EHR staff role whose own access policy can update the task, and
+ * only the task's assignee.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { taskId, secrets } = validateWithSchema(CompleteJournalTaskInputSchema, input);
   const userToken = getUserToken(input);
-  await requireUserWithRole(userToken, secrets, ALL_EHR_STAFF_ROLES);
+  const user = await requireUserWithRole(userToken, secrets, ALL_EHR_STAFF_ROLES);
 
   // Exactly the Tasks page's Complete (completeTaskVersionChecked): the caller's own token, so FHIR records who
   // completed it and their access policy applies; status only; version-checked.
@@ -47,6 +49,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // The Free form note dialog only offers Patient Follow-up tasks; result reviews close through the order.
   if (task.groupIdentifier?.value !== MANUAL_TASK.category.patientFollowUp) {
     throw INVALID_INPUT_ERROR('Only a Patient Follow-up task can be marked done here');
+  }
+  // The Tasks page shows Complete only to the task's assignee.
+  const callerId = getIdFromReference(user.profile, 'Practitioner');
+  if (!callerId || taskOwnerId(task) !== callerId) {
+    throw INVALID_INPUT_ERROR("Only the task's assignee can mark it done");
   }
 
   try {
