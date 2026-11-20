@@ -395,7 +395,7 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
           label: 'Review & sign',
           ...(visit.journal.status === 'discharged'
             ? { when: 'discharged' as const, since: attender?.period?.end ?? visit.journal.start }
-            : { when: 'seen' as const, since: visit.journal.start }),
+            : { when: rules.seen.includes(visit.journal.status) ? 'seen' : 'visit', since: visit.journal.start }),
           patientId: visit.patientId,
           appointmentId: visit.journal.appointmentId,
           encounterId: visit.journal.encounterId,

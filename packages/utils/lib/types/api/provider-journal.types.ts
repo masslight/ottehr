@@ -38,6 +38,8 @@ export type JournalItemWhen =
   | 'discharged'
   /** An unsigned note on a visit that was never discharged: counts from the visit. */
   | 'seen'
+  /** The same, on a visit the provider never saw (still in intake or ready for provider). */
+  | 'visit'
   | 'resulted'
   | 'read'
   | 'received'

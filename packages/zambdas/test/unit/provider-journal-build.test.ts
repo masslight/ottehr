@@ -371,7 +371,8 @@ describe('buildJournal: Today, Recent, Past and unsigned notes', () => {
     );
     expect(notes).toEqual([
       ['enc-provider', 'seen', '2026-11-03T15:00:00.000Z'],
-      ['enc-rfp', 'seen', '2026-06-01T15:00:00.000Z'],
+      // Never with the provider: "visit 5mo ago", not "seen".
+      ['enc-rfp', 'visit', '2026-06-01T15:00:00.000Z'],
     ]);
     expect(journal.recent.map((row) => row.patient?.patientId)).toEqual(['pat-provider', 'pat-rfp']);
   });
