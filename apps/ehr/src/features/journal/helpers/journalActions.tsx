@@ -162,14 +162,11 @@ export const buildJournalActions = (
   );
   if (visit) {
     // One visit with a note opens the dialog; several visits open the side column to pick one.
+    // With no to-do on this journal's visits, it's the row's own visit (the one Progress Note opens).
     const noteVisits = itemVisits(row);
     const target =
-      noteVisits.length === 0 && row.visit?.hasProgressNote
-        ? row.visit
-        : noteVisits.length === 1
-        ? noteVisits[0]
-        : undefined;
-    const anyNote = noteVisits.some((v) => v.hasProgressNote) || !!row.visit?.hasProgressNote;
+      noteVisits.length === 0 && visit.hasProgressNote ? visit : noteVisits.length === 1 ? noteVisits[0] : undefined;
+    const anyNote = noteVisits.some((v) => v.hasProgressNote) || visit.hasProgressNote || !!row.visit?.hasProgressNote;
     actions.push({
       key: 'addendum',
       label: 'Addendum',

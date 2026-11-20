@@ -47,4 +47,14 @@ describe('journal row actions and the row visits', () => {
       undefined
     );
   });
+
+  it("enables Addendum on a completed visit of the row when its only to-do is on another provider's visit", () => {
+    const completed = visit('jay', { start: '2026-11-08T14:00:00Z', status: 'completed' });
+    // The text is linked to a visit that isn't on this journal.
+    const row: JournalRow = { patient, visits: [completed], items: [todo('enc-elsewhere')] };
+    const addendum = byKey(actions('rc', row), 'addendum');
+    expect(addendum?.disabledReason).toBeUndefined();
+    addendum?.onClick?.();
+    expect(handlers.onAddendum).toHaveBeenCalledWith(row, completed);
+  });
 });
