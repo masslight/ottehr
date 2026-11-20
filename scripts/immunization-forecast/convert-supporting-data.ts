@@ -6,13 +6,19 @@
  * Usage:
  *   npx tsx scripts/immunization-forecast/convert-supporting-data.ts \
  *     --cdc "<unzipped CDC folder>/XML" --cdc-version 4.64 \
+ *     --cdc-zip "<downloaded CDC zip>" --cdc-zip-url "<URL it was downloaded from>" \
  *     --aira "<unzipped AIRA folder>/XML" --aira-version 26.1 \
+ *     --aira-zip "<downloaded AIRA zip>" --aira-zip-url "<URL it was downloaded from>" \
  *     --out packages/utils/lib/immunization-forecast/data/2026-11
+ *
+ * The zips themselves are not committed: manifest.json records each one's file name, download URL and SHA-256,
+ * so anyone can download the same file and check it is the one the data was converted from.
  *
  * Antigens present in the AIRA folder replace the CDC ones (AIRA 26.1 ships Influenza, RSV, COVID-19 only).
  * Series that require a coded patient observation (Risk series with indications) are dropped: the engine
  * has no coded conditions (decision #6, option C: per-vaccine marks instead).
  */
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type {
@@ -70,6 +76,16 @@ function arg(name: string, required = true): string | undefined {
     return undefined;
   }
   return process.argv[i + 1];
+}
+
+/** File name, download URL and SHA-256 of a downloaded archive, for the manifest. */
+function archive(zipArg: string, urlArg: string): { file: string; downloadedFrom: string; sha256: string } {
+  const zip = arg(zipArg)!;
+  return {
+    file: path.basename(zip),
+    downloadedFrom: arg(urlArg)!,
+    sha256: createHash('sha256').update(fs.readFileSync(zip)).digest('hex'),
+  };
 }
 
 function readXml(file: string): XmlElement {
@@ -428,7 +444,7 @@ function main(): void {
         name: 'CDC CDSi Supporting Data',
         version: cdcVersion,
         url: CDC_URL,
-        file: `supporting-data-${cdcVersion}-508.zip`,
+        ...archive('cdc-zip', 'cdc-zip-url'),
         antigens: fromCdc,
       },
       ...(airaSource
@@ -437,7 +453,7 @@ function main(): void {
               name: 'AIRA medical societies (AAP/AAFP/ACOG/IDSA) Supporting Data',
               version: airaVersion!,
               url: AIRA_URL,
-              file: `Version ${airaVersion}.zip`,
+              ...archive('aira-zip', 'aira-zip-url'),
               antigens: fromAira,
             },
           ]

@@ -1,12 +1,14 @@
 {
   "version": "2026-11",
-  "generatedAt": "2026-11-11",
+  "generatedAt": "2026-11-20",
   "sources": [
     {
       "name": "CDC CDSi Supporting Data",
       "version": "4.64",
       "url": "https://www.cdc.gov/iis/cdsi/index.html",
       "file": "supporting-data-4.64-508.zip",
+      "downloadedFrom": "https://aira.memberclicks.net/assets/docs/CDS/supporting-data-4.64-508.zip",
+      "sha256": "9ff50f7ecee25eb3ced19f94fe1814eb8d752837012ef900ff1e47e0df64e5fe",
       "antigens": [
         "Diphtheria",
         "HepA",
@@ -32,6 +34,8 @@
       "version": "26.1",
       "url": "https://www.immregistries.org/clinical-decision-support",
       "file": "Version 26.1.zip",
+      "downloadedFrom": "https://aira.memberclicks.net/assets/docs/CDS/Version%2026.1.zip",
+      "sha256": "a8df84b9a7c465c3db749301adc1eea31907814dae094679b0adad8383162bac",
       "antigens": [
         "COVID-19",
         "Influenza",

@@ -102,27 +102,37 @@ came from AIRA's mirror.
 ### Updating the data (each season, and when CDC/AIRA publish)
 
 1. Download the zips: CDC from https://www.cdc.gov/iis/cdsi/index.html (use a browser), AIRA from
-   https://www.immregistries.org/clinical-decision-support. Unzip each into its own folder.
+   https://www.immregistries.org/clinical-decision-support. Keep each zip and unzip it into its own folder.
 2. Convert:
    ```sh
    npx tsx scripts/immunization-forecast/convert-supporting-data.ts \
      --cdc "<cdc folder>/XML" --cdc-version 4.66 \
+     --cdc-zip "<cdc zip>" --cdc-zip-url "<URL the cdc zip was downloaded from>" \
      --aira "<aira folder>/XML" --aira-version 27.1 \
+     --aira-zip "<aira zip>" --aira-zip-url "<URL the aira zip was downloaded from>" \
      --out packages/utils/lib/immunization-forecast/data/2027-09
    ```
-   Antigens present in the AIRA folder replace the CDC ones.
+   Antigens present in the AIRA folder replace the CDC ones. The converter writes each zip's file name, download
+   URL and SHA-256 into `manifest.json`.
 3. Point `data/rules-data.ts` at the new folder (imports + nothing else).
 4. Refresh the CDSi test fixture if a new test-case workbook exists:
    ```sh
    npx tsx scripts/immunization-forecast/convert-test-cases.ts \
      --xlsx "<CDSi_Healthy_Childhood_and_Adult_Test_Cases_vX.xlsx>" --version X \
+     --url "<URL the workbook was downloaded from>" \
      --out packages/utils/lib/immunization-forecast/test-data/cdsi-test-cases.json
    ```
    The seasonal groups in the CDC workbook describe the CDC season; the test converts the matching CDC seasonal
    antigens into `test-data/cdc-<version>/` (`--antigens "Influenza,COVID-19,RSV"`) and runs FLU/COVID-19/RSV on them.
 5. Run the tests (below) and update `test-data/cdsi-known-failures.json` only for failures you have understood.
 
-Raw downloads are not committed (the CDC zip is 2.4 MB, the AIRA zip 0.5 MB; `manifest.json` records file names).
+Raw downloads are not committed (the CDC zip is 2.4 MB, the AIRA zip 0.5 MB). Their file names, download URLs and
+SHA-256 checksums are: `data/<version>/manifest.json` has them for the two supporting-data zips, and the header of
+`test-data/cdsi-test-cases.json` has them for the test-case workbook. To check a download is the file the data was
+converted from, compare `shasum -a 256 <file>` with the recorded value.
+
+The 2026-11 data was re-converted from fresh downloads on 2026-11-20 and matched the committed files byte for
+byte. The seasonal test fixtures under `test-data/cdc-4.64/` come from the same CDC zip.
 
 ## Tests
 

@@ -5,11 +5,13 @@
  * Usage:
  *   npx tsx scripts/immunization-forecast/convert-test-cases.ts \
  *     --xlsx "<CDSi_Healthy_Childhood_and_Adult_Test_Cases_v4.45.xlsx>" --version 4.45 \
+ *     --url "<URL the workbook was downloaded from>" \
  *     --out packages/utils/lib/immunization-forecast/test-data/cdsi-test-cases.json
  *
  * The workbook is read with `unzip -p` (no xlsx dependency); only the "FITS Exported TestCases" sheet is used.
  */
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { child, children, parseXml, XmlElement } from './xml';
@@ -124,6 +126,7 @@ const asText = (v: string | number | undefined): string | undefined => {
 function main(): void {
   const xlsx = arg('xlsx');
   const version = arg('version');
+  const downloadedFrom = arg('url');
   const out = arg('out');
   const rows = readSheet(xlsx, 'FITS Exported TestCases');
   const header = rows[0].map((h) => String(h ?? ''));
@@ -174,7 +177,14 @@ function main(): void {
   fs.writeFileSync(
     out,
     JSON.stringify(
-      { source: path.basename(xlsx), version, generatedAt: new Date().toISOString().slice(0, 10), cases },
+      {
+        source: path.basename(xlsx),
+        downloadedFrom,
+        sha256: createHash('sha256').update(fs.readFileSync(xlsx)).digest('hex'),
+        version,
+        generatedAt: new Date().toISOString().slice(0, 10),
+        cases,
+      },
       null,
       1
     ) + '\n'

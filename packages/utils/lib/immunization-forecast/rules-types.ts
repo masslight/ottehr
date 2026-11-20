@@ -21,6 +21,9 @@ export interface RulesManifest {
     version: string;
     url: string;
     file: string;
+    /** A downloaded archive's URL and SHA-256. A source entered by hand in this repo has neither. */
+    downloadedFrom?: string;
+    sha256?: string;
     /** Which antigens were taken from this source. */
     antigens: string[];
   }[];
