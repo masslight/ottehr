@@ -217,7 +217,8 @@ describe('deleting in-house medication and vaccine orders', () => {
 
   describe('vaccine', () => {
     const vaccineOrderDetails = (): Record<string, unknown> => ({
-      medication: { id: medicationId, name: 'IT Vaccine' },
+      // a vaccine from the vaccine list: its id is its CVX code
+      medication: { id: '141', name: 'Influenza, split virus, trivalent, preservative' },
       dose: '0.5',
       units: 'mL',
       orderedProvider: { id: practitionerId, name: 'M2M Client' },
