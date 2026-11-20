@@ -60,7 +60,7 @@ export interface JournalItem {
   encounterId?: string;
   /** The visit is a scheduled follow-up (chart links need `?encounterId=`). */
   isFollowUpVisit?: boolean;
-  /** ServiceRequest id of the lab or radiology order. */
+  /** ServiceRequest id of the lab or radiology order; other tasks: the order the task was created from. */
   orderId?: string;
   diagnosticReportId?: string;
   /** Task.code for patient requests, faxes and lab results, for the quick-action mapping. */
@@ -71,6 +71,8 @@ export interface JournalItem {
   category?: string;
   /** A completed practice form's PDF (Patient Follow-up tasks from submit-paperwork). */
   documentReferenceId?: string;
+  /** The Progress Note section the task was created from, e.g. "vitals". */
+  progressNoteSection?: string;
   /** Review-fax task: the folder the document was filed into. */
   folderId?: string;
   /** Manual "Patient Follow-up" tasks: the Free form note dialog offers to complete them. */

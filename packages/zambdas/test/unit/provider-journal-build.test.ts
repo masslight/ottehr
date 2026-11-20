@@ -846,6 +846,27 @@ describe('taskToJournalItem wording', () => {
     );
   });
 
+  it('keeps the order and Progress Note section of a manual task (for the Tasks page link)', () => {
+    const input = (code: string, value: string): NonNullable<Task['input']>[number] => ({
+      type: { coding: [{ code }] },
+      valueString: value,
+    });
+    const vaccine = boardTask({
+      id: 'vax',
+      category: MANUAL_TASK.category.immunization,
+      input: [input(MANUAL_TASK.input.orderId, 'order-1')],
+    });
+    expect(taskToJournalItem(vaccine, {})).toEqual(
+      expect.objectContaining({ category: MANUAL_TASK.category.immunization, orderId: 'order-1' })
+    );
+    const vitals = boardTask({
+      id: 'bp',
+      category: MANUAL_TASK.category.nursingOrders,
+      input: [input(MANUAL_TASK.input.progressNoteSection, 'vitals')],
+    });
+    expect(taskToJournalItem(vitals, {})).toEqual(expect.objectContaining({ progressNoteSection: 'vitals' }));
+  });
+
   it('keeps the task category identifier system used by the board', () => {
     expect(boardTask({ title: 'x' }).groupIdentifier?.system).toBe(ottehrIdentifierSystem('task-category'));
   });

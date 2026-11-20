@@ -306,6 +306,8 @@ export function taskToJournalItem(
     ...assignedOrCreated(),
     category,
     documentReferenceId,
+    orderId: getTaskInputValue(task, MANUAL_TASK.input.orderId),
+    progressNoteSection: getTaskInputValue(task, MANUAL_TASK.input.progressNoteSection),
     isCallTask: isCallTask || undefined,
     assigneeId: isCallTask ? taskOwnerId(task) : undefined,
   };

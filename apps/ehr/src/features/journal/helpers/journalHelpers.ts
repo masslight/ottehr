@@ -183,10 +183,12 @@ export const journalItemLink = (item: JournalItem): string => {
         appointmentId,
         encounterId: item.encounterId,
         isFollowUp: !!item.isFollowUpVisit,
+        orderId: item.orderId,
+        progressNoteSection: item.progressNoteSection,
         documentReferenceId: item.documentReferenceId,
         patientId,
       });
-      if (item.documentReferenceId && taskLink) return taskLink;
+      if ((item.documentReferenceId || item.orderId || item.progressNoteSection) && taskLink) return taskLink;
       if (appointmentId) return chart(chartUrl(appointmentId, 'review-and-sign'));
       return patientUrl ?? TASKS_URL;
     }

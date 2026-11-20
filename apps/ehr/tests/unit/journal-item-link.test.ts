@@ -39,4 +39,14 @@ describe('journalItemLink opens the same page as the Tasks page', () => {
       '/in-person/appt-1/review-and-sign'
     );
   });
+
+  it('opens an order- or section-linked task on that order or section', () => {
+    expect(journalItemLink(item({ category: MANUAL_TASK.category.immunization, orderId: 'order-1' }))).toBe(
+      '/in-person/appt-1/immunization/vaccine-details?scrollTo=order-1'
+    );
+    expect(journalItemLink(item({ category: MANUAL_TASK.category.nursingOrders, progressNoteSection: 'vitals' }))).toBe(
+      '/in-person/appt-1/vitals?encounterId=enc-1'
+    );
+    expect(journalItemLink(item({ category: MANUAL_TASK.category.other }))).toBe('/in-person/appt-1/review-and-sign');
+  });
 });
