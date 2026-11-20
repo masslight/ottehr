@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IN_HOUSE_MEDICATION_UNIT_OPTIONS, MedicationUnitOptions } from '../../../fhir/medication-administration';
+import { VaccineFundingSource, VaccineFundingSourceSchema } from '../../data/immunization/vaccine-funding-source';
 
 export interface CreateInHouseMedicationInput {
   name: string;
@@ -144,6 +145,8 @@ export interface InventoryLot {
   ndc?: string;
   manufacturer?: string;
   vendor?: string;
+  /** Vaccine lots: what the stock was paid with. A medication lot has none. */
+  fundingSource?: VaccineFundingSource;
   onHand: number;
   unit: string;
   status: 'active' | 'inactive';
@@ -178,6 +181,8 @@ export const ReceiveMedicationShipmentInputSchema = z.object({
   ndc: z.string().trim().min(1),
   manufacturer: z.string().trim().min(1).optional(),
   vendor: z.string().trim().min(1).optional(),
+  /** Required to receive a vaccine; a medication has none. */
+  fundingSource: VaccineFundingSourceSchema.optional(),
   expirationConflict: z.enum(['separate-lot', 'correct-existing']).optional(),
   lotId: z.string().uuid().optional(),
 });
@@ -280,6 +285,7 @@ export interface InventoryLotRow extends InventoryLot {
 export interface InventoryDrugRow {
   medicationId: string;
   name: string;
+  type: CatalogMedicationType;
   countedAs: MedicationCountedAs;
   use: MedicationUse;
   onHand: number;

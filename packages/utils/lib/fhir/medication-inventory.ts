@@ -22,6 +22,7 @@ import {
   MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from '../types/api/medication-administration.constants';
+import { VACCINE_FUNDING_SOURCES, VaccineFundingSource } from '../types/data/immunization/vaccine-funding-source';
 import { getExtension, getTag } from './helpers';
 import { getMedicationName } from './medication-administration';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
@@ -97,6 +98,7 @@ export const INVENTORY_LOT_LOCATION_TAG_SYSTEM = ottehrCodeSystemUrl('inventory-
 const INVENTORY_LOT_EXTENSION_URL = ottehrExtensionUrl('inventory-lot');
 const LOT_LOCATION = 'location';
 const LOT_VENDOR = 'vendor';
+const LOT_FUNDING_SOURCE = 'funding-source';
 const LOT_ON_HAND = 'on-hand';
 
 const INVENTORY_STOCK_ENTRY_EXTENSION_URL = ottehrExtensionUrl('inventory-stock-entry');
@@ -156,17 +158,20 @@ export interface InventoryLotInput {
   ndc: string;
   manufacturer?: string;
   vendor?: string;
+  /** Vaccine lots: what the stock was paid with. */
+  fundingSource?: VaccineFundingSource;
   unit: string;
 }
 
 const makeLotExtension = (
-  input: Pick<InventoryLotInput, 'locationId' | 'vendor' | 'unit'>,
+  input: Pick<InventoryLotInput, 'locationId' | 'vendor' | 'fundingSource' | 'unit'>,
   onHand: number
 ): Extension => ({
   url: INVENTORY_LOT_EXTENSION_URL,
   extension: [
     { url: LOT_LOCATION, valueReference: { reference: `Location/${input.locationId}` } },
     ...(input.vendor ? [{ url: LOT_VENDOR, valueString: input.vendor }] : []),
+    ...(input.fundingSource ? [{ url: LOT_FUNDING_SOURCE, valueCode: input.fundingSource }] : []),
     { url: LOT_ON_HAND, valueQuantity: { value: onHand, unit: input.unit } },
   ],
 });
@@ -191,23 +196,34 @@ export const makeInventoryLot = (catalog: Medication & { id: string }, input: In
   };
 };
 
+const isFundingSource = (code: string | undefined): code is VaccineFundingSource =>
+  VACCINE_FUNDING_SOURCES.includes(code as VaccineFundingSource);
+
 const readLotExtension = (
   lot: Medication
-): { locationId?: string; vendor?: string; unit: string; onHand: number } | undefined => {
+):
+  | { locationId?: string; vendor?: string; fundingSource?: VaccineFundingSource; unit: string; onHand: number }
+  | undefined => {
   const root = getExtension(lot, INVENTORY_LOT_EXTENSION_URL);
   if (!root) return undefined;
   const onHand = getExtension(root, LOT_ON_HAND)?.valueQuantity;
+  const fundingSource = getExtension(root, LOT_FUNDING_SOURCE)?.valueCode;
   return {
     locationId:
       getExtension(root, LOT_LOCATION)?.valueReference?.reference?.replace('Location/', '') ??
       getTag(lot, INVENTORY_LOT_LOCATION_TAG_SYSTEM)?.code,
     vendor: getExtension(root, LOT_VENDOR)?.valueString,
+    ...(isFundingSource(fundingSource) ? { fundingSource } : {}),
     unit: onHand?.unit ?? '',
     onHand: onHand?.value ?? 0,
   };
 };
 
-const replaceLotExtension = (lot: Medication, details: { vendor?: string }, onHand: number): Medication => {
+const replaceLotExtension = (
+  lot: Medication,
+  details: { vendor?: string; fundingSource?: VaccineFundingSource },
+  onHand: number
+): Medication => {
   const existing = readLotExtension(lot);
   if (!existing?.locationId) throw new Error(`Medication/${lot.id} is not an inventory lot`);
   return {
@@ -219,6 +235,7 @@ const replaceLotExtension = (lot: Medication, details: { vendor?: string }, onHa
           locationId: existing.locationId,
           unit: existing.unit,
           vendor: details.vendor ?? existing.vendor,
+          fundingSource: details.fundingSource ?? existing.fundingSource,
         },
         onHand
       ),
@@ -231,8 +248,11 @@ export const withLotOnHand = (lot: Medication, onHand: number): Medication => ({
   status: onHand === 0 ? 'inactive' : 'active',
 });
 
-export const withLotDetails = (lot: Medication, details: { vendor?: string }): Medication =>
-  replaceLotExtension(lot, details, readLotExtension(lot)?.onHand ?? 0);
+/** The lot with its vendor and funding source replaced; one left undefined is kept as it is. */
+export const withLotDetails = (
+  lot: Medication,
+  details: { vendor?: string; fundingSource?: VaccineFundingSource }
+): Medication => replaceLotExtension(lot, details, readLotExtension(lot)?.onHand ?? 0);
 
 export const parseInventoryLot = (lot: Medication): InventoryLot | undefined => {
   const details = readLotExtension(lot);
@@ -251,6 +271,7 @@ export const parseInventoryLot = (lot: Medication): InventoryLot | undefined => 
     ndc: lot.code?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC)?.code,
     manufacturer: lot.manufacturer?.display,
     vendor: details.vendor,
+    ...(details.fundingSource ? { fundingSource: details.fundingSource } : {}),
     onHand: details.onHand,
     unit: details.unit,
     status: lot.status === 'active' ? 'active' : 'inactive',

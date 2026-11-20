@@ -40,6 +40,7 @@ const lot = (overrides: Partial<InventoryLotRow>): InventoryLotRow => ({
 const drug = (overrides: Partial<InventoryDrugRow>): InventoryDrugRow => ({
   medicationId: 'med-a',
   name: 'Albuterol Sulfate (1mg)',
+  type: 'medication',
   countedAs: 'tablet',
   use: 'single-use',
   onHand: 0,

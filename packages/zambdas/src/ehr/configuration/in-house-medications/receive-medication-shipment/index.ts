@@ -3,8 +3,8 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Medication, Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  getCatalogMedicationType,
   getMedicationInventoryConfig,
-  isCatalogMedication,
   makeInventoryLot,
   parseInventoryLot,
   parseInventoryStockEntry,
@@ -17,6 +17,7 @@ import {
   ReceiveMedicationShipmentResponse,
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
+import { VACCINE_FUNDING_SOURCE_LABELS } from 'utils/lib/types/data/immunization/vaccine-funding-source';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
@@ -62,10 +63,16 @@ export const performEffect = async (
   const { medicationId, locationId, lotNumber, expirationDate, quantity, ndc, manufacturer, vendor } = params;
 
   const catalog = await oystehr.fhir.get<Medication & { id: string }>({ resourceType: 'Medication', id: medicationId });
-  if (!catalog.id || !isCatalogMedication(catalog)) throw FHIR_RESOURCE_NOT_FOUND('Medication');
+  const type = getCatalogMedicationType(catalog);
+  if (!catalog.id || !type) throw FHIR_RESOURCE_NOT_FOUND('Medication');
   const inventory = getMedicationInventoryConfig(catalog);
   if (!inventory) {
-    throw INVALID_INPUT_ERROR('This medication is not set up for inventory. Save its inventory setup first.');
+    throw INVALID_INPUT_ERROR(`This ${type} is not set up for inventory. Save its inventory setup first.`);
+  }
+  // A vaccine lot is VFC, private or state stock; a medication lot has no funding source.
+  const fundingSource = type === 'vaccine' ? params.fundingSource : undefined;
+  if (type === 'vaccine' && !fundingSource) {
+    throw INVALID_INPUT_ERROR('A vaccine lot needs its funding source: VFC, Private or State program.');
   }
   const { locations } = await listActiveLocations(oystehr, { inPersonOnly: true });
   if (!locations.some((location) => location.id === locationId)) {
@@ -97,6 +104,20 @@ export const performEffect = async (
     return { expirationConflict: { lotId, expirationDate: existingDate, onHand, unit } };
   }
 
+  // A lot holds one stock: doses on hand keep the funding source they were received under. An empty lot takes
+  // the funding source of the shipment received into it.
+  const assertSameFundingSource = (lot: Medication): void => {
+    const held = parseInventoryLot(lot);
+    if (!fundingSource || !held?.fundingSource || held.fundingSource === fundingSource || held.onHand === 0) return;
+    throw INVALID_INPUT_ERROR(
+      `Lot ${lotNumber} at this location is ${VACCINE_FUNDING_SOURCE_LABELS[held.fundingSource]} stock with ${
+        held.onHand
+      } on hand, so it cannot be received as ${VACCINE_FUNDING_SOURCE_LABELS[fundingSource]}. Receive it as ${
+        VACCINE_FUNDING_SOURCE_LABELS[held.fundingSource]
+      }, or adjust the lot to zero first to change its funding source.`
+    );
+  };
+
   const received: StockEntryWrite = {
     locationId,
     type: 'received',
@@ -108,6 +129,7 @@ export const performEffect = async (
   };
   let written: { lot: Medication; entry: Observation | undefined };
   if (otherExpiration && confirmedLot && params.expirationConflict === 'correct-existing') {
+    assertSameFundingSource(confirmedLot);
     const previous = confirmedLot.batch?.expirationDate ?? '';
     const corrected: StockEntryWrite = {
       locationId,
@@ -120,10 +142,13 @@ export const performEffect = async (
       note: `Expiration changed from ${formatDateForDisplay(previous)} to ${formatDateForDisplay(expirationDate)}`,
     };
     written = await writeInventoryStockEntry(oystehr, confirmedLot, [corrected, received], (lot) =>
-      withLotDetails({ ...lot, batch: { ...lot.batch, expirationDate } }, { vendor })
+      withLotDetails({ ...lot, batch: { ...lot.batch, expirationDate } }, { vendor, fundingSource })
     );
   } else if (existingLot) {
-    written = await writeInventoryStockEntry(oystehr, existingLot, received, (lot) => withLotDetails(lot, { vendor }));
+    assertSameFundingSource(existingLot);
+    written = await writeInventoryStockEntry(oystehr, existingLot, received, (lot) =>
+      withLotDetails(lot, { vendor, fundingSource })
+    );
   } else {
     written = await writeInventoryStockEntry(
       oystehr,
@@ -134,6 +159,7 @@ export const performEffect = async (
         ndc,
         manufacturer,
         vendor,
+        fundingSource,
         unit: inventory.countedAs,
       }),
       received
