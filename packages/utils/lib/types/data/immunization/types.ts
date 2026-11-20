@@ -1,4 +1,8 @@
 export interface ImmunizationOrderDetails {
+  /**
+   * The vaccine. `id` is its CVX code in the vaccine list (CVX_VACCINES). An order placed before that list
+   * existed keeps the id of the Medication resource it was ordered from, which the list does not have.
+   */
   medication: {
     id: string;
     name: string;

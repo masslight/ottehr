@@ -5,17 +5,19 @@ import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useGetVaccines } from 'src/features/visits/in-person/hooks/useImmunization';
 import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useMainEncounterChartData } from 'src/features/visits/shared/hooks/useMainEncounterChartData';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
 import { BASE_ROUTE_OPTIONS, LOCATION_OPTIONS } from 'src/shared/utils/options';
 import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
+import { CVX_VACCINES } from 'utils/lib/types/data/immunization/cvx-vaccines.generated';
+
+// Every vaccine that can be ordered. An option's id is the vaccine's CVX code.
+const VACCINE_OPTIONS = CVX_VACCINES.map((vaccine) => ({ id: vaccine.cvx, name: vaccine.name }));
 
 export const OrderDetailsSection: React.FC = () => {
   const theme = useTheme();
-  const { data: vaccines, isLoading } = useGetVaccines();
   const { chartData } = useChartData();
   const { visitType } = useGetAppointmentAccessibility();
   const isFollowup = visitType === 'follow-up';
@@ -41,8 +43,7 @@ export const OrderDetailsSection: React.FC = () => {
         <AutocompleteInput
           name="details.medication"
           label="Immunization"
-          options={vaccines}
-          loading={isLoading}
+          options={VACCINE_OPTIONS}
           getOptionLabel={(option) => option.name}
           getOptionKey={(option) => option.id}
           isOptionEqualToValue={(option, value) => option.id === value.id}

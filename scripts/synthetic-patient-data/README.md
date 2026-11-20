@@ -590,7 +590,7 @@ const payers = await oystehr.fhir.search<Organization>({
 });
 ```
 
-#### Intake Questionnaire and vaccine catalog
+#### Intake Questionnaire and vaccine list
 
 ```ts
 const questionnaires = await oystehr.fhir.search<Questionnaire>({
@@ -601,13 +601,9 @@ const questionnaires = await oystehr.fhir.search<Questionnaire>({
   ],
 });
 
-const vaccines = await oystehr.fhir.search<Medication>({
-  resourceType: 'Medication',
-  params: [{ name: 'identifier', value: 'virtual-medication-type|virtual-vaccine-inventory' }],
-});
-const vaccinesByCvx = new Map(
-  vaccines.unbundle().map(m => [m.code?.coding?.find(c => c.system === 'http://hl7.org/fhir/sid/cvx')?.code, m])
-);
+// Vaccines are not project resources: the list is generated from CDC's CVX code set.
+import { CVX_VACCINES } from 'utils/lib/types/data/immunization/cvx-vaccines.generated';
+const vaccinesByCvx = new Map(CVX_VACCINES.map(vaccine => [vaccine.cvx, vaccine]));
 ```
 
 #### Global template
@@ -682,7 +678,7 @@ For each prerequisite, fail loudly with a clear error pointing to the EHR admin 
 | Payer Organization | EHR `/admin/insurances` (`EditInsurance.tsx`) or IaC `config/oystehr/payers.json` |
 | Fee schedule | EHR `/admin/fee-schedule` → create + associate to payer + add ChargeItems |
 | Intake Questionnaire | IaC `config/oystehr/in-person-intake-questionnaire.json` + `npm run bump-canonical-version` + redeploy |
-| Vaccine catalog | IaC `config/oystehr/vaccines.json` |
+| Vaccine list | Generated from CDC's CVX code set: `npm run codes:vaccines:refresh` (see `scripts/data/cdc-vaccines/README.md`) |
 | Global template | EHR Global Templates admin (see §6.3) — built from a fully-charted reference encounter |
 
 ---

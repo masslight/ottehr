@@ -20,7 +20,7 @@ scripts/synthetic-quick-picks/
 │   ├── radiology/                                  # 22 picks; idempotent on name
 │   ├── allergies/                                  # 26 picks; needs allergyId from eRx
 │   ├── medication-history/                         # 31 picks; needs medicationId from eRx
-│   ├── immunizations/                              # 3 picks; needs vaccine.id from project FHIR
+│   ├── immunizations/                              # 3 picks; vaccine.id is a CVX code from the vaccine list
 │   └── in-house-medications/                       # 12 picks; needs medicationId from project FHIR
 └── README.md
 ```
@@ -99,10 +99,8 @@ npx env-cmd -f packages/zambdas/.env/<env>.json \
 npx env-cmd -f packages/zambdas/.env/<env>.json \
   npx tsx scripts/synthetic-quick-picks/bootstrap-medication-history-examples.ts --execute
 
-# Immunization: resolves vaccine names → project-local Medication FHIR ids
-# (Medications tagged virtual-medication-type|virtual-vaccine-inventory)
-npx env-cmd -f packages/zambdas/.env/<env>.json \
-  npx tsx scripts/synthetic-quick-picks/bootstrap-immunization-examples.ts --execute
+# Immunization: takes each vaccine from the vaccine list (CVX_VACCINES) by CVX code; no project lookup
+NODE_OPTIONS='--preserve-symlinks' npx tsx scripts/synthetic-quick-picks/bootstrap-immunization-examples.ts --execute
 
 # In-house medication: resolves med names → project-local Medication FHIR ids
 # (Medications tagged virtual-medication-type|virtual-medication-inventory)
@@ -114,12 +112,13 @@ Each bootstrap prints its resolution table and refuses to write JSON for entries
 
 ### Project-local catalog dependencies
 
-Two categories are bounded by what the target project already has:
+One category is bounded by what the target project already has:
 
-- **Immunization**: needs vaccine `Medication` resources tagged `virtual-medication-type|virtual-vaccine-inventory`. The Ottehr IaC ships only 3 (Tdap / DTaP / Td — see `config/oystehr/vaccines.json`). To get more picks, expand that config and redeploy first.
 - **In-house medication**: needs in-house `Medication` resources tagged `virtual-medication-type|virtual-medication-inventory`. Synth has 12; bootstrap script targets all 12.
 
-The bootstraps reuse the project-local Medication FHIR ids that are already there. To add picks, add Medications first.
+That bootstrap reuses the project-local Medication FHIR ids that are already there. To add picks, add Medications first.
+
+Immunization picks need nothing on the project: every vaccine in the vaccine list (`packages/utils/lib/types/data/immunization/cvx-vaccines.generated.ts`) can be picked, by CVX code.
 
 ## Where the picks land in the EHR
 

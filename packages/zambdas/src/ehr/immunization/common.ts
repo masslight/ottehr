@@ -8,9 +8,12 @@ import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
 import {
   CVX_CODE_SYSTEM_URL,
+  INVENTORY_VACCINE_TYPE_CODE,
   MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM,
   MEDICATION_ADMINISTRATION_ROUTES_CODES_SYSTEM,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  MEDICATION_TYPE_SYSTEM,
   MVX_CODE_SYSTEM_URL,
   PRACTITIONER_ORDERED_BY_MEDICATION_CODE,
   VACCINE_ADMINISTRATION_CODES_EXTENSION_URL,
@@ -20,8 +23,9 @@ import {
   InputImmunizationOrderAdministrationDetails,
   InputImmunizationOrderDetails,
 } from 'utils/lib/types/data/immunization/types';
+import { CvxVaccine } from 'utils/lib/types/data/immunization/vaccine-codes';
+import { getCvxVaccine } from 'utils/lib/types/data/immunization/vaccine-lookup';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { createMedicationCopy } from '../create-update-medication-order/helpers';
 
 export const CONTAINED_MEDICATION_ID = 'medication';
 export const CONTAINED_EMERGENCY_CONTACT_ID = 'emergencyContact';
@@ -49,26 +53,15 @@ export async function updateOrderDetails(
     (e) => e.url === IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL
   )?.valueString;
 
+  // An order placed before the vaccine list keeps its vaccine (a copy of a retired config Medication) until
+  // the user picks another one, which has to come from the list.
   if (medication.id !== currentMedicationId) {
-    const medicationResource = await oystehr.fhir.get<Medication>({
-      resourceType: 'Medication',
-      id: medication.id,
-    });
-    const medicationLocalCopy = createMedicationCopy(medicationResource, {});
-    if (medicationLocalCopy.extension == null) {
-      medicationLocalCopy.extension = [];
+    const vaccine = getCvxVaccine(medication.id);
+    if (!vaccine) {
+      throw INVALID_INPUT_ERROR(`Vaccine "${medication.name ?? medication.id}" is not in the vaccine list`);
     }
-    medicationLocalCopy.extension.push({
-      url: IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL,
-      valueString: medication.id,
-    });
     medicationAdministration.medicationReference = { reference: '#' + CONTAINED_MEDICATION_ID };
-    medicationAdministration.contained = [
-      {
-        ...medicationLocalCopy,
-        id: CONTAINED_MEDICATION_ID,
-      },
-    ];
+    medicationAdministration.contained = [createOrderVaccineMedication(vaccine)];
   }
 
   const containedMed = getContainedMedication(medicationAdministration);
@@ -160,6 +153,20 @@ export async function updateOrderDetails(
       },
     },
   ];
+}
+
+/** The order's own Medication for a vaccine from the list: its name, its CVX code and the id the order form reads back. */
+export function createOrderVaccineMedication(vaccine: CvxVaccine): Medication {
+  return {
+    resourceType: 'Medication',
+    id: CONTAINED_MEDICATION_ID,
+    identifier: [
+      { system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_VACCINE_TYPE_CODE },
+      { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: vaccine.name },
+    ],
+    code: { coding: [{ system: CVX_CODE_SYSTEM_URL, code: vaccine.cvx, display: vaccine.fullName }] },
+    extension: [{ url: IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL, valueString: vaccine.cvx }],
+  };
 }
 
 export function updateVaccineMedicationDetails(
