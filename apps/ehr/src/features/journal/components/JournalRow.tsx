@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { Fragment, ReactElement, ReactNode } from 'react';
+import { PatientDateOfBirth } from 'src/components/PatientDateOfBirth';
 import { JournalKind, JournalRow as JournalRowData } from 'utils/lib/types/api/provider-journal.types';
 import { JournalAction } from '../helpers/journalActions';
 import {
@@ -141,19 +142,22 @@ export const JournalRow = ({ rowRef, kind, now, selected, actions, onSelect, onO
     >
       <JournalDot color={dotColor(rowRef, kind)} />
       {row.patient ? (
-        <Typography
-          component="span"
-          sx={{
-            fontWeight: 600,
-            fontSize: 14,
-            minWidth: 0,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {row.patient.name}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
+          <Typography
+            component="span"
+            sx={{
+              fontWeight: 600,
+              fontSize: 14,
+              minWidth: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {row.patient.name}
+          </Typography>
+          {row.patient.birthDate && <PatientDateOfBirth dateOfBirth={row.patient.birthDate} />}
+        </Box>
       ) : (
         <span />
       )}

@@ -178,6 +178,12 @@ describe('buildJournal: ownership', () => {
     expect(journal.recent).toEqual([]);
   });
 
+  it("returns the patient's date of birth, the second identifier the tracking board shows", () => {
+    const maria = { ...patient('pat-maria', 'Maria', 'Lopez'), birthDate: '1958-03-14' };
+    const journal = buildJournal(withVisits([TODAY_READY], { patients: [maria] }));
+    expect(journal.comingUp[0].patient?.birthDate).toBe('1958-03-14');
+  });
+
   it('builds a clinician journal from visits where they are the admitter, Coming Up = Ready', () => {
     const journal = buildJournal(
       withVisits(

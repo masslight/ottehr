@@ -108,6 +108,8 @@ export interface JournalPhone {
 export interface JournalPatient {
   patientId: string;
   name: string;
+  /** Shown next to the name, as on the tracking board. */
+  birthDate?: string;
   firstName?: string;
   lastName?: string;
   phones: JournalPhone[];

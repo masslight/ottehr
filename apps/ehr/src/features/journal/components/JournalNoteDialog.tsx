@@ -14,6 +14,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { completeJournalTask, saveFreeFormEncounter } from 'src/api/api';
+import { PatientDateOfBirth } from 'src/components/PatientDateOfBirth';
 import { DEFAULT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -95,7 +96,10 @@ export const JournalNoteDialog = ({ target, onClose, onSaved }: Props): ReactEle
     <Dialog open onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ fontSize: 20, fontWeight: 600, color: 'primary.dark', pb: 1 }}>{title}</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1 }}>
-        <Box sx={{ color: JOURNAL_COLORS.text2, fontSize: 13 }}>{where}</Box>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, color: JOURNAL_COLORS.text2, fontSize: 13 }}>
+          {where}
+          {target.patient.birthDate && <PatientDateOfBirth dateOfBirth={target.patient.birthDate} />}
+        </Box>
         <Box sx={{ color: JOURNAL_COLORS.text2, fontSize: 13 }}>{stamp}</Box>
         <TextField
           autoFocus

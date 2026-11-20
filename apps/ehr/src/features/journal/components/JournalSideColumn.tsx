@@ -2,6 +2,7 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import { Box, Button, Link, Tooltip, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, ReactNode } from 'react';
+import { PatientDateOfBirth } from 'src/components/PatientDateOfBirth';
 import { DEFAULT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
 import { JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
 import { JournalAction, SIDE_BUTTON_ORDER } from '../helpers/journalActions';
@@ -274,6 +275,7 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
         <Typography component="h3" sx={{ fontSize: 18, fontWeight: 600, color: 'primary.dark' }}>
           {patient.name}
         </Typography>
+        {patient.birthDate && <PatientDateOfBirth dateOfBirth={patient.birthDate} />}
         {meta && <Box sx={{ ...META_SX, ml: 'auto' }}>{meta}</Box>}
       </Box>
       {body}
