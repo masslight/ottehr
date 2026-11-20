@@ -91,6 +91,8 @@ export interface PatientLayerContext {
   refs: string[];
   /** Each patient's visits in the range (keyed `Patient/{id}`), for the new-vs-established check. */
   visitsByPatient: Map<string, PatientVisit[]>;
+  /** Fetch time per layer (and per step inside a layer, `<layer>.<step>`), in ms, for the report's timing log. */
+  timings: Map<string, number>;
   shared: {
     /** The patient-account page's account / coverage picture, for the contacts, insurance, eligibility and employer layers. */
     accounts(): Promise<Map<string, PatientAccountAndCoverageResources>>;
@@ -221,10 +223,13 @@ const visitHistoryLayer = definePatientLayer<{
   fetch: async (ctx) => {
     const lastAppointmentBeforeRange = new Map<string, string>();
     const seenBeforeRange = new Set<string>();
+    const priorStartedAt = Date.now();
     const priorAppointments = await fetchScopedResources<Appointment>(ctx.oystehr, 'Appointment', 'patient', ctx.refs, [
       { name: 'date', value: `lt${ctx.dateRange.start}` },
       { name: '_elements', value: 'id,start,status,participant' },
     ]);
+
+    ctx.timings.set('visitHistory.priorAppointments', Date.now() - priorStartedAt);
 
     const firstVisitInRange = new Map<string, string | undefined>();
     for (const [patientRef, visits] of ctx.visitsByPatient) {
@@ -258,6 +263,7 @@ const visitHistoryLayer = definePatientLayer<{
       }
     }
 
+    const seenBeforeStartedAt = Date.now();
     const newPatients = await resolveNewPatients(
       ctx.oystehr,
       new Map(
@@ -267,6 +273,8 @@ const visitHistoryLayer = definePatientLayer<{
         ])
       )
     );
+
+    ctx.timings.set('visitHistory.seenBeforeAnswers', Date.now() - seenBeforeStartedAt);
 
     return { lastAppointmentBeforeRange, newPatients };
   },
@@ -543,6 +551,8 @@ export async function fetchPatientLayerColumns(
     patients: Patient[];
     visitsByPatient: Map<string, PatientVisit[]>;
     layerIds: PatientLayerId[];
+    /** Filled with each layer's fetch time (PatientLayerContext.timings). */
+    timings?: Map<string, number>;
   }
 ): Promise<Map<string, Partial<AdHocPatientRow>>> {
   const patients = params.patients.filter((p) => p.id);
@@ -552,11 +562,19 @@ export async function fetchPatientLayerColumns(
     patients,
     refs: patients.map((p) => `Patient/${p.id}`),
     visitsByPatient: params.visitsByPatient,
+    timings: params.timings ?? new Map(),
     shared: { accounts: once(() => fetchPatientAccounts(oystehr, patients)) },
   };
 
   const modules = params.layerIds.map((id) => PATIENT_LAYER_MODULES[id]);
-  const outs = await Promise.all(modules.map((module) => module.fetch(ctx)));
+  const outs = await Promise.all(
+    modules.map(async (module) => {
+      const startedAt = Date.now();
+      const out = await module.fetch(ctx);
+      ctx.timings.set(module.id, Date.now() - startedAt);
+      return out;
+    })
+  );
 
   const columns = new Map<string, Partial<AdHocPatientRow>>();
   for (const patient of patients) {

@@ -57,6 +57,8 @@ export async function fetchForeignPatientColumns(
     encounters: Encounter[];
     foreign: AdHocLayerMap;
     requested: string[];
+    /** Filled with each foreign layer's fetch time, keyed `patients.<layer>` (and `patients.<layer>.<step>`). */
+    timings?: Map<string, number>;
   }
 ): Promise<Map<string, Record<string, unknown>>> {
   const out = new Map<string, Record<string, unknown>>();
@@ -67,12 +69,15 @@ export async function fetchForeignPatientColumns(
     .filter((id): id is PatientLayerId => id in PATIENT_LAYER_MODULES);
   const fields = params.requested.flatMap((id) => layerFields(params.foreign[id]));
 
+  const layerTimings = new Map<string, number>();
   const columns = await fetchPatientLayerColumns(oystehr, {
     dateRange: params.dateRange,
     patients: params.patients,
     visitsByPatient: patientVisits(params.appointments, params.encounters),
     layerIds,
+    timings: layerTimings,
   });
+  for (const [id, ms] of layerTimings) params.timings?.set(`${PATIENT_PREFIX}${id}`, ms);
 
   for (const [patientRef, row] of columns) {
     const picked: Record<string, unknown> = {};

@@ -117,6 +117,8 @@ export async function fetchAdHocEncounterRows(
     fetchMs.set(id, Date.now() - fetchStartedAt);
     return out;
   };
+  // Each foreign layer, and the steps inside it (patients.visitHistory.seenBeforeAnswers), for the timing log.
+  const foreignMs = new Map<string, number>();
   const [, lookups, outs, foreignColumns] = await Promise.all([
     timed('rootLookups', () => ctx.rootLookups()),
     timed('baseLookups', () => fetchEncounterBaseLookups(oystehr, root, ctx.rootLookups)),
@@ -130,6 +132,7 @@ export async function fetchAdHocEncounterRows(
           encounters: Array.from(root.encounterById.values()),
           foreign: ENCOUNTER_FOREIGN_LAYERS,
           requested: requestedForeignPatientLayers(ENCOUNTER_FOREIGN_LAYERS, params),
+          timings: foreignMs,
         })
       )
     ),
@@ -173,6 +176,7 @@ export async function fetchAdHocEncounterRows(
       ['rootLookups', 'baseLookups', 'patients.*']
         .map((id) => `${id}: fetch ${fetchMs.get(id) ?? 0} map 0`)
         .concat(modules.map((m, i) => `${m.id}: fetch ${fetchMs.get(m.id) ?? 0} map ${mapMs[i]}`))
+        .concat(Array.from(foreignMs, ([id, ms]) => `${id}: fetch ${ms} map 0`))
         .join(', ')
   );
 
