@@ -349,7 +349,10 @@ describe('buildJournal: Today, Recent, Past and unsigned notes', () => {
           // Signed.
           earlier('done', { encounterStatus: 'finished', attender: { id: ME, start: 'x', end: 'y' } }),
           // Today, in the room: not yet.
-          earlier('in-room', { start: '2026-11-07T18:00:00.000Z', attender: { id: ME, start: '2026-11-07T18:05:00.000Z' } }),
+          earlier('in-room', {
+            start: '2026-11-07T18:00:00.000Z',
+            attender: { id: ME, start: '2026-11-07T18:05:00.000Z' },
+          }),
         ],
         {
           patients: ['provider', 'rfp', 'pending', 'done', 'in-room'].map((id) => patient(`pat-${id}`, id, 'Test')),
@@ -514,7 +517,12 @@ describe('buildJournal: Recent "Seen"', () => {
           patients: [patient('pat-gus', 'Gus', 'Pending'), patient('pat-jane', 'Jane', 'Doe')],
           tasks: [
             boardTask({ id: 'culture', category: LAB_ORDER_TASK.category, title: 'R', encounterId: 'enc-last-week' }),
-            boardTask({ id: 'text', category: PATIENT_REQUEST_TASK.category, title: 'T', encounterId: 'enc-next-week' }),
+            boardTask({
+              id: 'text',
+              category: PATIENT_REQUEST_TASK.category,
+              title: 'T',
+              encounterId: 'enc-next-week',
+            }),
           ],
         }
       )
@@ -655,7 +663,12 @@ describe('buildJournal: task ownership and placement', () => {
         input: [
           { type: { coding: [{ code: LAB_ORDER_TASK.input.receivedDate }] }, valueString: receivedDate },
           ...(abnormal
-            ? [{ type: { coding: [{ code: LAB_ORDER_TASK.input.alert }] }, valueString: TaskAlertCode.abnormalLabResult }]
+            ? [
+                {
+                  type: { coding: [{ code: LAB_ORDER_TASK.input.alert }] },
+                  valueString: TaskAlertCode.abnormalLabResult,
+                },
+              ]
             : []),
         ],
       });

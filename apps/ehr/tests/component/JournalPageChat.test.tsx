@@ -47,11 +47,17 @@ vi.mock('../../src/features/journal/hooks/useProviderJournal', () => ({
   useProviderJournal: () => ({ data: journal, isLoading: false, isError: false, refetch: vi.fn() }),
 }));
 vi.mock('../../src/features/journal/hooks/useJournalOwners', () => ({
-  useJournalOwners: () => ({ owners: [{ practitionerId: ME, name: 'Ana Rivera' }], myPractitionerId: ME, isLoading: false }),
+  useJournalOwners: () => ({
+    owners: [{ practitionerId: ME, name: 'Ana Rivera' }],
+    myPractitionerId: ME,
+    isLoading: false,
+  }),
 }));
 vi.mock('src/api/api', () => ({}));
 vi.mock('../../src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {}, oystehr: {} }) }));
-vi.mock('../../src/layout/PageContainer', () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
+vi.mock('../../src/layout/PageContainer', () => ({
+  default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
 vi.mock('../../src/features/chat/ChatModal', () => ({
   default: (props: any) => {
     chatProps.push(props);

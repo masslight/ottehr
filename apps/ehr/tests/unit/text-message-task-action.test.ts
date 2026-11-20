@@ -21,7 +21,10 @@ describe('text message task on the Tasks page', () => {
       code: { coding: [{ system: PATIENT_REQUEST_TASK.system, code: PATIENT_REQUEST_TASK.code.textMessage }] },
       description: 'Text message from Jane Doe 11/27/2026',
       input: [
-        { type: { coding: [{ system: TASK_INPUT_SYSTEM, code: MANUAL_TASK.input.appointmentId }] }, valueString: 'a-1' },
+        {
+          type: { coding: [{ system: TASK_INPUT_SYSTEM, code: MANUAL_TASK.input.appointmentId }] },
+          valueString: 'a-1',
+        },
         {
           type: { coding: [{ system: TASK_INPUT_SYSTEM, code: MANUAL_TASK.input.patient }] },
           valueReference: { reference: 'Patient/pat-1' },

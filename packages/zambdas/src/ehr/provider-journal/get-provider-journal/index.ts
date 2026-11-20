@@ -215,9 +215,11 @@ const patientsWithPhones = (journal: GetProviderJournalResponse): JournalPatient
   const rows = [journal.comingUp, journal.today, journal.todayDone, journal.recent, journal.notTied, journal.past];
   return [
     ...new Map(
-      rows.flat().flatMap((row): [string, JournalPatient][] =>
-        row.patient?.phones.length ? [[row.patient.patientId, row.patient]] : []
-      )
+      rows
+        .flat()
+        .flatMap((row): [string, JournalPatient][] =>
+          row.patient?.phones.length ? [[row.patient.patientId, row.patient]] : []
+        )
     ).values(),
   ];
 };

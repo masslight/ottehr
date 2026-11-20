@@ -1,4 +1,12 @@
-import { Appointment, DiagnosticReport, Encounter, Patient, QuestionnaireResponse, RelatedPerson, Task } from 'fhir/r4b';
+import {
+  Appointment,
+  DiagnosticReport,
+  Encounter,
+  Patient,
+  QuestionnaireResponse,
+  RelatedPerson,
+  Task,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getAppointmentRoom, getReasonForVisitAndAdditionalDetailsFromAppointment } from 'utils/lib/fhir/appointments';
 import {
@@ -474,7 +482,8 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
   };
 }
 
-const phoneDigits = (phone: string | undefined): string | undefined => phone?.replace(/\D/g, '').slice(-10) || undefined;
+const phoneDigits = (phone: string | undefined): string | undefined =>
+  phone?.replace(/\D/g, '').slice(-10) || undefined;
 
 /**
  * Decision 11-13: an account phone is labelled with the consent signer of the newest visit that phone

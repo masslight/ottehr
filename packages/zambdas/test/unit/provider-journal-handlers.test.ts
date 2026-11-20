@@ -152,7 +152,9 @@ describe('get-provider-journal access', () => {
         appointment: [{ reference: 'Appointment/appt-1' }],
         participant: [
           {
-            type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }] }],
+            type: [
+              { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }] },
+            ],
             individual: { reference: `Practitioner/${PRACTITIONER_ID}` },
           },
         ],
@@ -206,7 +208,9 @@ describe('get-provider-journal access', () => {
       resourceType: 'RelatedPerson',
       id: 'rp-1',
       patient: { reference: 'Patient/pat-1' },
-      relationship: [{ coding: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`, code: 'user-relatedperson' }] }],
+      relationship: [
+        { coding: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`, code: 'user-relatedperson' }] },
+      ],
       telecom: [{ system: 'sms', value: '+14105550123' }],
     };
     mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
@@ -220,7 +224,12 @@ describe('get-provider-journal access', () => {
       return [];
     });
     // The tracking board's search: SMS Communications from the account phone numbers, with their senders.
-    const unreadText = { resourceType: 'Communication', id: 'sms-1', status: 'completed', sender: { reference: 'RelatedPerson/rp-1' } };
+    const unreadText = {
+      resourceType: 'Communication',
+      id: 'sms-1',
+      status: 'completed',
+      sender: { reference: 'RelatedPerson/rp-1' },
+    };
     mockFhir.search.mockResolvedValue({ unbundle: () => [unreadText, accountPhone] });
     const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
     expect(journal.notTied[0].patient.phones).toEqual([
