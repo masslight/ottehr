@@ -26,6 +26,7 @@ export type NavbarItems = {
 const administratorNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
+  Journal: { urls: ['/journal'] },
   Admin: { urls: ['/admin'] },
   Reports: { urls: ['/reports'] },
 };
@@ -33,6 +34,7 @@ const administratorNavbarItems: NavbarItems = {
 const managerNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
+  Journal: { urls: ['/journal'] },
   Admin: { urls: ['/admin'] },
   Tasks: { urls: ['/tasks', '/inbound-fax'] },
   Reports: { urls: ['/reports'] },
@@ -41,6 +43,7 @@ const managerNavbarItems: NavbarItems = {
 const staffNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
+  Journal: { urls: ['/journal'] },
   Admin: { urls: ['/admin'] },
   Tasks: { urls: ['/tasks', '/inbound-fax'] },
   Reports: { urls: ['/reports'] },
@@ -49,6 +52,7 @@ const staffNavbarItems: NavbarItems = {
 const providerNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
+  Journal: { urls: ['/journal'] },
   Admin: { urls: ['/admin'] },
   Tasks: { urls: ['/tasks', '/inbound-fax'] },
   Reports: { urls: ['/reports'] },
@@ -57,6 +61,7 @@ const providerNavbarItems: NavbarItems = {
 const customerSupportNavbarItems: NavbarItems = {
   'Tracking Board': { urls: ['/visits', '/visit'] },
   Patients: { urls: ['/patients', '/patient'] },
+  Journal: { urls: ['/journal'] },
   Admin: { urls: ['/admin'] },
   Reports: { urls: ['/reports'] },
 };

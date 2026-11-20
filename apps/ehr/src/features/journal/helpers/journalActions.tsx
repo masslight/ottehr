@@ -1,0 +1,195 @@
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import DescriptionIcon from '@mui/icons-material/Description';
+import EditIcon from '@mui/icons-material/Edit';
+import EventRepeatIcon from '@mui/icons-material/EventRepeat';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import PersonIcon from '@mui/icons-material/Person';
+import PlayCircleIcon from '@mui/icons-material/PlayCircle';
+import PostAddIcon from '@mui/icons-material/PostAdd';
+import VideocamIcon from '@mui/icons-material/Videocam';
+import { ReactNode } from 'react';
+import { getChiefComplaintUrl } from 'src/features/visits/in-person/routing/helpers';
+import { sidebarMenuIcons } from 'src/features/visits/shared/components/sidebarMenuIcons';
+import { JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
+import {
+  followUpUrl,
+  getRowVisit,
+  itemVisits,
+  JournalRowRef,
+  patientRecordUrl,
+  reviewAndSignUrl,
+  visitDetailsUrl,
+} from './journalHelpers';
+
+export type JournalActionKey =
+  | 'record'
+  | 'progress'
+  | 'details'
+  | 'start'
+  | 'join'
+  | 'text'
+  | 'note'
+  | 'addendum'
+  | 'followup'
+  | 'rx';
+
+export interface JournalAction {
+  key: JournalActionKey;
+  /** Side column button text. */
+  label: string;
+  /** Row icon hover text. */
+  tooltip: string;
+  icon: ReactNode;
+  /** Opens in a new tab. */
+  href?: string;
+  onClick?: () => void;
+  /** Set when the control is disabled; shown as its hover text. */
+  disabledReason?: string;
+}
+
+export interface JournalActionHandlers {
+  onStart: (row: JournalRow) => void;
+  onText: (row: JournalRow) => void;
+  onNote: (row: JournalRow) => void;
+  onAddendum: (row: JournalRow, visit: JournalVisit) => void;
+  onSelect: (key: string) => void;
+}
+
+/** Row icon order: the first three, a separator, then the rest. */
+export const ROW_ICON_ORDER: JournalActionKey[] = [
+  'record',
+  'progress',
+  'details',
+  'start',
+  'join',
+  'text',
+  'note',
+  'addendum',
+  'followup',
+  'rx',
+];
+export const ROW_ICON_SEPARATOR_AFTER: JournalActionKey = 'details';
+export const SIDE_BUTTON_ORDER: JournalActionKey[] = [
+  'start',
+  'join',
+  'record',
+  'progress',
+  'details',
+  'text',
+  'note',
+  'followup',
+  'rx',
+];
+
+export const RX_DISABLED_REASON = 'Available once the new eRx is released';
+
+export const buildJournalActions = (
+  ref: JournalRowRef,
+  kind: JournalKind,
+  handlers: JournalActionHandlers
+): JournalAction[] => {
+  const { row, section } = ref;
+  const patient = row.patient;
+  if (!patient) return [];
+  const visit = getRowVisit(ref);
+  const actions: JournalAction[] = [
+    {
+      key: 'record',
+      label: 'Patient record',
+      tooltip: 'Patient record',
+      icon: <PersonIcon />,
+      href: patientRecordUrl(patient.patientId),
+    },
+  ];
+  if (visit) {
+    actions.push(
+      {
+        key: 'progress',
+        label: 'Progress note',
+        tooltip: 'Progress note',
+        icon: <DescriptionIcon />,
+        href: reviewAndSignUrl(visit),
+      },
+      {
+        key: 'details',
+        label: 'Visit details',
+        tooltip: 'Visit details',
+        icon: <InfoOutlinedIcon />,
+        href: visitDetailsUrl(visit),
+      }
+    );
+  }
+  if (section === 'cu' && row.visit && !row.lookahead) {
+    if (row.visit.isTelemed) {
+      actions.push({
+        key: 'join',
+        label: 'Join video visit',
+        tooltip: 'Join the video visit',
+        icon: <VideocamIcon />,
+        href: getChiefComplaintUrl(row.visit.appointmentId),
+      });
+    } else {
+      const label = kind === 'provider' ? 'Start Provider' : 'Start Intake';
+      actions.push({
+        key: 'start',
+        label,
+        tooltip: `${label} (opens the chart in a new tab)`,
+        icon: <PlayCircleIcon />,
+        onClick: () => handlers.onStart(row),
+      });
+    }
+  }
+  actions.push(
+    {
+      key: 'text',
+      label: 'Text',
+      tooltip: 'Text the patient',
+      icon: <ChatBubbleOutlineIcon />,
+      onClick: () => handlers.onText(row),
+      disabledReason: patient.phones.length ? undefined : 'No phone number on file',
+    },
+    {
+      key: 'note',
+      label: 'Free form note',
+      tooltip: 'Add a free form note',
+      icon: <EditIcon />,
+      onClick: () => handlers.onNote(row),
+    }
+  );
+  if (visit) {
+    // One visit with a note opens the dialog; several visits open the side column to pick one.
+    const noteVisits = itemVisits(row);
+    const target =
+      noteVisits.length === 0 && row.visit?.hasProgressNote
+        ? row.visit
+        : noteVisits.length === 1
+        ? noteVisits[0]
+        : undefined;
+    const anyNote = noteVisits.some((v) => v.hasProgressNote) || !!row.visit?.hasProgressNote;
+    actions.push({
+      key: 'addendum',
+      label: 'Addendum',
+      tooltip: 'Add an addendum to the progress note',
+      icon: <PostAddIcon />,
+      disabledReason: anyNote ? undefined : 'No progress note yet',
+      onClick: target ? () => handlers.onAddendum(row, target) : () => handlers.onSelect(ref.key),
+    });
+  }
+  actions.push({
+    key: 'followup',
+    label: 'Follow-up',
+    tooltip: 'Add a follow-up note',
+    icon: <EventRepeatIcon />,
+    href: followUpUrl(patient.patientId, visit?.encounterId),
+  });
+  if (visit) {
+    actions.push({
+      key: 'rx',
+      label: 'Prescription',
+      tooltip: 'Add a prescription (available once the new eRx is released)',
+      icon: sidebarMenuIcons.Prescription,
+      disabledReason: RX_DISABLED_REASON,
+    });
+  }
+  return actions;
+};

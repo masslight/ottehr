@@ -49,6 +49,7 @@ import { UnsolicitedResultsMatch } from './features/external-labs/pages/Unsolici
 import { UnsolicitedResultsReview } from './features/external-labs/pages/UnsolicitedResultsReview';
 import { FormTemplateDetailPage } from './features/form-templates/FormTemplateDetailPage';
 import { InboundFaxMatch } from './features/inbound-fax/pages/InboundFaxMatch';
+import { JournalPage } from './features/journal/pages/JournalPage';
 import LocationConfigPage from './features/locations/LocationConfigPage';
 import { MedicalRecordExportSnackbar } from './features/medical-record-export/components/MedicalRecordExportSnackbar';
 import { MedicalRecordExportWatcher } from './features/medical-record-export/components/MedicalRecordExportWatcher';
@@ -305,6 +306,7 @@ function App(): ReactElement {
                 </Route>
                 {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                 <Route path="/tasks" element={<Tasks />} />
+                <Route path="/journal" element={<JournalPage />} />
                 <Route path="*" element={<Navigate to={'/'} />} />
               </>
             )}
@@ -348,6 +350,7 @@ function App(): ReactElement {
 
                 {FEATURE_FLAGS.LEGACY_DATA_ENABLED && <Route path="/legacy-data" element={<LegacyDataPage />} />}
                 <Route path="/tasks" element={<Tasks />} />
+                <Route path="/journal" element={<JournalPage />} />
                 <Route path="*" element={<Navigate to={'/'} />} />
               </>
             )}

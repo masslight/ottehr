@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type AppTab = 'Tracking Board' | 'Patients' | 'Admin' | 'Tasks' | 'Reports';
+export type AppTab = 'Tracking Board' | 'Patients' | 'Journal' | 'Admin' | 'Tasks' | 'Reports';
 
 interface NavState {
   currentTab?: string;
