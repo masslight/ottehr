@@ -759,7 +759,11 @@ describe('useGetPatientDocs — downloadDocument target tab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     downloadOk = true;
-    attachment = { url: 'z3://bucket/summary.pdf', title: 'summary.pdf', contentType: 'application/pdf' };
+    attachment = {
+      url: 'https://project-api.zapehr.com/v1/z3/bucket/summary.pdf',
+      title: 'summary.pdf',
+      contentType: 'application/pdf',
+    };
     mockFhirSearch.mockImplementation(async (req: any) => {
       const params: { name: string; value: string }[] = req?.params ?? [];
       return params.some((p) => p.name === '_id') ? docRefBundle() : stubBundle([]);

@@ -1,8 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, FhirResource, PaymentNotice } from 'fhir/r4b';
+import { Appointment, Encounter, FhirResource, Location, PaymentNotice } from 'fhir/r4b';
+import { getReasonForVisitFromAppointment } from 'utils/lib/fhir/appointments';
 import { chunkThings } from 'utils/lib/fhir/chat';
+import { isAnnotationFollowupEncounter, isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getAllStripeCustomerAccountPairs, scheduleOwnerAmong } from 'utils/lib/fhir/helpers';
+import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getPaymentNoticeSubmitterRef, getStripeAccountForScheduleOwner } from 'utils/lib/fhir/payments';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
@@ -10,6 +13,7 @@ import {
   GetPatientPaymentVisitsResponse,
   PatientPaymentVisit,
 } from 'utils/lib/types/api/patient-payment-visits.types';
+import { ServiceMode } from 'utils/lib/types/common';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -64,7 +68,8 @@ export const getPatientPaymentVisits = async (
 
 // One paged search for every encounter (follow-ups included), or just the one asked for, with its
 // appointment, the appointment's actors and its slot's schedule actor: the same candidates
-// getScheduleOwnerFromAppointmentOrEncounter picks the schedule owner from.
+// getScheduleOwnerFromAppointmentOrEncounter picks the schedule owner from. The encounter's
+// locations come along too, so each visit can be told apart by where it took place.
 const fetchVisits = async (
   oystehr: Oystehr,
   patientId: string,
@@ -76,6 +81,7 @@ const fetchVisits = async (
     {
       includeEncountersWithoutAppointment: true,
       includeScheduleOwnerCandidates: true,
+      includeEncounterLocations: true,
       encounterId,
     }
   );
@@ -91,14 +97,38 @@ const fetchVisits = async (
       const scheduleOwner = appointment
         ? scheduleOwnerAmong(scheduleOwnerCandidates(appointment, relatedResourcesByReference))
         : undefined;
+      const followUp = isFollowupEncounter(encounter);
+      const describedBy = isAnnotationFollowupEncounter(encounter) ? undefined : appointment;
       return {
         encounterId: encounter.id,
         appointmentId: appointment?.id,
-        visitDateISO: appointment?.start ?? encounter.period?.start,
+        visitDateISO: describedBy?.start ?? encounter.period?.start,
+        serviceMode: describedBy
+          ? isTelemedAppointment(describedBy)
+            ? ServiceMode.virtual
+            : ServiceMode['in-person']
+          : undefined,
+        followUp,
+        locationName: visitLocation(encounter, describedBy, relatedResourcesByReference)?.name,
+        visitReason: getReasonForVisitFromAppointment(describedBy) ?? encounter.reasonCode?.[0]?.text,
         ...(scheduleOwner ? { scheduleOwner: { stripeAccount: getStripeAccountForScheduleOwner(scheduleOwner) } } : {}),
       };
     });
 };
+
+// The appointment's location, as the EHR visit history shows it, else the encounter's own (a
+// follow-up is described by only that).
+const visitLocation = (
+  encounter: Encounter,
+  appointment: Appointment | undefined,
+  resourcesByReference: Map<string, FhirResource>
+): Location | undefined =>
+  [
+    ...(appointment?.participant ?? []).map((participant) => participant.actor?.reference),
+    ...(encounter.location ?? []).map((location) => location.location.reference),
+  ]
+    .map((reference) => (reference ? resourcesByReference.get(reference) : undefined))
+    .find((resource): resource is Location => resource?.resourceType === 'Location');
 
 // The appointment's actors plus the actor of each schedule its slots belong to, so a location that is
 // only linked through the schedule is still found.

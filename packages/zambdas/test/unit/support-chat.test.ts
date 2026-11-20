@@ -1,5 +1,6 @@
 import { SupportChatTopic } from 'utils/lib/types/api/support-chat.types';
 import { PATIENT_REQUEST_TASK } from 'utils/lib/types/data/tasks/types';
+import { findActivePromptIndex } from 'utils/lib/utils/support-chat';
 import { describe, expect, it } from 'vitest';
 import { BOT_TEXT, resolveStep } from '../../src/shared/support-chat/bot';
 import { buildRequestTitle } from '../../src/shared/support-chat/request-task';
@@ -164,6 +165,20 @@ describe('support chat bot', () => {
     [visitPrompt, { action: 'select-visit' as const, appointmentId: 'unknown' }],
   ])('rejects an action that does not match the active prompt', (last, action) => {
     expect(() => resolveStep({ last, action, visits, hasOpenTask: false })).toThrow();
+  });
+});
+
+describe('findActivePromptIndex', () => {
+  it('keeps a prompt active after staff replies and patient texts', () => {
+    expect(findActivePromptIndex(['greeting', 'text', 'visit-prompt', 'text', 'text'])).toBe(2);
+  });
+
+  it('disables a prompt after it is answered', () => {
+    expect(findActivePromptIndex(['greeting', 'recap', 'visit-prompt', 'recap', 'confirmation', 'text'])).toBe(-1);
+  });
+
+  it('uses only the newest prompt', () => {
+    expect(findActivePromptIndex(['visit-prompt', 'text', 'greeting'])).toBe(2);
   });
 });
 

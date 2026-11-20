@@ -44,6 +44,7 @@ import {
   SOURCE_IDENTIFIER_SYSTEM,
 } from '../../../src/billing/shared';
 import {
+  ClaimChangedDuringRunError,
   complexValidation,
   ensureClaimHeld,
   loadCustomInsuranceOrganizations,
@@ -1637,6 +1638,35 @@ describe('sub-rules-engine persistModel', () => {
     const requests = transaction.mock.calls[0][0].requests;
     expect(requests.filter((r: { method: string }) => r.method === 'PUT')).toHaveLength(1);
     expect(requests[0].url).toBe('Patient/patient-1');
+  });
+
+  it.each([
+    ['a 412 code', { message: 'Precondition Failed', code: 412 }],
+    ['an Oystehr transaction message', { message: 'Pre condition Failed! - PUT Claim/claim-1', code: 4120 }],
+  ])('throws ClaimChangedDuringRunError when the write-back loses a version race (%s)', async (_label, error) => {
+    const { oystehr, transaction } = makeOystehrMock();
+    const model = makeModel();
+    const snapshot = snapshotModel(model);
+    model.patient!.name = [{ given: ['Janet'], family: 'Doe' }];
+    transaction.mockRejectedValue(error);
+
+    const thrown = await persistModel(oystehr, model, snapshot, [AGENT]).catch((e) => e);
+
+    expect(thrown).toBeInstanceOf(ClaimChangedDuringRunError);
+    expect((thrown as Error).cause).toBe(error);
+  });
+
+  it.each([
+    ['a plain server error', { message: 'Internal error', code: 500 }],
+    ['a resource id containing "412"', { message: 'Failed PUT Claim/ab412123-1234-4abc-8abc-123456789abc', code: 500 }],
+  ])('rethrows other write-back failures unchanged (%s)', async (_label, error) => {
+    const { oystehr, transaction } = makeOystehrMock();
+    const model = makeModel();
+    const snapshot = snapshotModel(model);
+    model.patient!.name = [{ given: ['Janet'], family: 'Doe' }];
+    transaction.mockRejectedValue(error);
+
+    await expect(persistModel(oystehr, model, snapshot, [AGENT])).rejects.toBe(error);
   });
 
   it('does not write anything (or open a transaction) when nothing changed', async () => {

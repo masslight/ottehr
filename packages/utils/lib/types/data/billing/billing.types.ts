@@ -3,6 +3,8 @@ import type { BillingInvoiceKind } from '../../../fhir/billing-invoice';
 import { SubscriberRelationship } from '../../../fhir/constants';
 import { CLAIM_ACCIDENT_TYPE, CODE_SYSTEM_CLAIM_TYPE_CODES } from '../../../helpers/rcm/constants';
 import type { PatientPaymentDTO } from '../../api/patient-payment-types';
+import type { PatientPaymentVisit } from '../../api/patient-payment-visits.types';
+import type { ListOutreachTasksResponse, OutreachTaskSummary } from '../../api/scheduled-outreach.types';
 import type {
   BillingInvoiceListStatus,
   EraClaimStatusCode,
@@ -262,7 +264,7 @@ export interface EraClaimListItem {
   allowed: number;
   paid: number;
   posted: number;
-  patientResp: number;
+  patientResp: number | null;
   // CLP01 patient control number: the patient account number echoed back from the submitted claim
   patientAccountNumber: string;
   // the focal coverage's subscriber id (the same field the claim detail screen shows); '' when the
@@ -353,7 +355,7 @@ export interface BillingClaimItem {
   billed: number;
   allowed: number;
   insurancePaid: number;
-  patientResp: number;
+  patientResp: number | null;
   patientPaid: number;
   writeOffsTotal: number;
   claimBalance: number;
@@ -419,9 +421,34 @@ export type BillingPatientAccountPayment = PatientPaymentDTO & {
   claimServiceDate?: string;
 };
 
+// a clinical visit of the patient a payment can be recorded against
+export type BillingPatientVisit = Pick<
+  PatientPaymentVisit,
+  'encounterId' | 'appointmentId' | 'visitDateISO' | 'serviceMode' | 'followUp' | 'locationName' | 'visitReason'
+>;
+
 export interface ListBillingPatientAccountPaymentsResponse {
   // newest first
   payments: BillingPatientAccountPayment[];
+  // every visit of the patient, newest first; payments are recorded against one of them
+  visits: BillingPatientVisit[];
+}
+
+// a saved card on the Stripe customer a visit takes payments on
+export interface BillingPatientCard {
+  // Stripe PaymentMethod id
+  id: string;
+  brand: string;
+  lastFour: string;
+  expMonth: number;
+  expYear: number;
+  // the customer's default payment method
+  default: boolean;
+}
+
+export interface ListBillingPatientPaymentMethodsResponse {
+  // unexpired cards, the default first
+  cards: BillingPatientCard[];
 }
 
 export interface GetBillingPatientAccountPaymentResponse {
@@ -562,6 +589,7 @@ export interface ClaimDetailResponse {
   quaternaryMemberId: string;
   quaternaryGroupNumber?: string;
   quaternaryPayerClaimControlNumber?: string;
+  medicareSecondaryReasonCode?: string;
   nonInsurancePayerFhirId: string;
   nonInsurancePayerName: string;
   renderingProviderId: string;
@@ -606,7 +634,7 @@ export interface ClaimDetailResponse {
   billed: number;
   allowed: number;
   insurancePaid: number;
-  patientResp: number;
+  patientResp: number | null;
   patientPaid: number;
   writeOffsTotal: number;
   balance: number;
@@ -638,7 +666,7 @@ export interface ClaimDetailResponse {
   accidentDate: string;
   attachments: ClaimAttachment[];
   writeOffs: ClaimWriteOff[];
-  invoices: BillingInvoiceSummary[];
+  invoices: ClaimInvoiceSummary[];
 }
 
 interface Paginated {
@@ -701,7 +729,7 @@ export interface PatientArClaimItem {
   billed: number;
   allowed: number;
   insurancePaid: number;
-  patientResp: number;
+  patientResp: number | null;
   patientPaid: number;
   balance: number;
   adjudicated: boolean;
@@ -1201,6 +1229,29 @@ export interface CreateBillingInvoiceResponse {
   smsSent?: boolean;
 }
 
+export type CheckBillingNioInvoiceResponse =
+  | {
+      invoiceable: true;
+    }
+  | {
+      invoiceable: false;
+      reason: string;
+    };
+
+export interface PreviewBillingNioInvoiceResponse {
+  pdfBase64: string;
+  recipient: {
+    id: string;
+    name: string;
+  };
+}
+
+export interface CreateBillingNioInvoiceResponse {
+  invoiceId: string;
+  invoiceNumber: string;
+  pdfUrl: string;
+}
+
 export interface BillingInvoiceSummary {
   id: string;
   status: BillingInvoiceListStatus;
@@ -1226,8 +1277,21 @@ export interface BillingInvoiceListItem extends BillingInvoiceSummary {
   pastDue?: boolean;
 }
 
+export interface ClaimInvoiceSummary extends BillingInvoiceSummary {
+  kind: BillingInvoiceKind;
+  pastDue: boolean;
+}
+
 export interface SearchBillingInvoicesResponse extends Paginated {
   invoices: BillingInvoiceListItem[];
+}
+
+export interface BillingOutreachTask extends OutreachTaskSummary {
+  invoice?: BillingInvoiceSummary & { claimId?: string };
+}
+
+export interface ListBillingOutreachTasksResponse extends Omit<ListOutreachTasksResponse, 'tasks'> {
+  tasks: BillingOutreachTask[];
 }
 
 export interface GetBillingInvoiceStatementResponse {

@@ -1,6 +1,7 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
 import { filterActiveMedications } from 'utils/lib/helpers/medications/current-medications.helper';
+import { TaskProgressNoteSection } from 'utils/lib/types/data/tasks/progress-note-sections';
 import { sidebarMenuIcons } from '../../shared/components/sidebarMenuIcons';
 import { useChartData } from '../../shared/hooks/useChartData';
 import { useChartSection } from '../../shared/hooks/useChartSection';
@@ -24,6 +25,7 @@ export interface RouteInPerson {
   iconKey: keyof typeof sidebarMenuIcons;
   isSkippedInNavigation?: boolean;
   groupLabel?: string;
+  taskSection: TaskProgressNoteSection | null;
 }
 
 interface InPersonNavigationContextType {

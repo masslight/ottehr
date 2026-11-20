@@ -4,6 +4,7 @@ import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from '../../fhir/systemUr
 import { InvoicePlaceholderInput } from '../../helpers/rcm/invoice-config';
 import { Secrets } from '../../secrets';
 import { requiredTextSchema } from '../text-schemas';
+import { OutreachMediumResult } from './scheduled-outreach.types';
 
 export const INVOICEABLE_PATIENTS_PAGE_SIZE = 40;
 export const GET_INVOICES_TASKS_ZAMBDA_KEY = 'get-invoices-tasks';
@@ -11,6 +12,7 @@ export const EXPORT_INVOICES_ZAMBDA_KEY = 'export-invoices';
 export const CREATE_INVOICE_TASKS_FOR_BILLING_CLAIMS_ZAMBDA_KEY = 'create-invoice-tasks-for-billing-claims';
 export const PREPARE_BILLING_INVOICE_ZAMBDA_KEY = 'prepare-billing-invoice';
 export const SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY = 'send-billing-invoice-sms';
+export const SEND_BILLING_OUTREACH_NOTIFICATION_ZAMBDA_KEY = 'send-billing-outreach-notification';
 export const GET_BILLING_INVOICE_VISIT_ZAMBDA_KEY = 'get-billing-invoice-visit';
 export const EXPORT_TASK_SYSTEM = ottehrCodeSystemUrl('export-task');
 export const EXPORT_INVOICES_CSV_TASK_CODE = 'export-invoices-csv';
@@ -232,6 +234,24 @@ export const SendBillingInvoiceSmsInputSchema = z.object({
   message: z.string().trim().min(1),
 });
 export type SendBillingInvoiceSmsInput = z.infer<typeof SendBillingInvoiceSmsInputSchema>;
+
+export const SendBillingOutreachNotificationInputSchema = z.object({
+  encounterId: z.string().uuid(),
+  mediums: z.array(z.enum(['sms', 'email', 'paper-mail'])).min(1),
+  smsTemplate: z.string().optional(),
+  emailTemplate: z.string().optional(),
+  statementType: z.enum(['standard', 'past-due', 'final-notice']).optional(),
+  amountCents: z.number().int().nonnegative().optional(),
+  dueDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'dueDate must be in YYYY-MM-DD format')
+    .optional(),
+  invoiceLink: z.string().url().optional(),
+  // Selects the email subject for a card charge result.
+  chargeOutcome: z.boolean().optional(),
+});
+export type SendBillingOutreachNotificationInput = z.infer<typeof SendBillingOutreachNotificationInputSchema>;
+export type SendBillingOutreachNotificationResponse = { results: OutreachMediumResult[] };
 
 export type ExportInvoicesCsvKickOffResponse = { taskId: string };
 export type ExportInvoicesCsvStatusResponse = {

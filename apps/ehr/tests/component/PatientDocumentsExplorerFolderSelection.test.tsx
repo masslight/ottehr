@@ -18,10 +18,10 @@ const SYNTHETIC_FOLDER: PatientDocumentsFolder = {
 };
 const REAL_FOLDER: PatientDocumentsFolder = { ...SYNTHETIC_FOLDER, id: 'list-1', documentsCount: 1 };
 
-vi.mock('src/features/fax/hooks/useSendFax', () => ({
-  useSendFax: () => ({ isOpen: false, open: vi.fn(), close: vi.fn(), isSending: false, failures: [] }),
+vi.mock('src/features/send-documents/hooks/useSendDocuments', () => ({
+  useSendDocuments: () => ({ isOpen: false, open: vi.fn(), close: vi.fn(), isSending: false, failures: [] }),
 }));
-vi.mock('src/features/fax/ui/SendFaxDialog', () => ({ SendFaxDialog: () => <div /> }));
+vi.mock('src/features/send-documents/ui/SendDocumentsDialog', () => ({ SendDocumentsDialog: () => <div /> }));
 vi.mock('../../src/hooks/useGetPatientDocs', () => ({
   useGetPatientDocs: () => ({
     documents: [],

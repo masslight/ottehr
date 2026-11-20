@@ -1448,4 +1448,28 @@ describe('PatientEncountersGrid free-form encounters', () => {
     expect(await screen.findByText('No encounters found')).toBeInTheDocument();
     expect(countOf('Has no status')).toBe(0);
   });
+
+  it('hides in-person and virtual no-shows with Hide “No Show”', async () => {
+    const user = userEvent.setup();
+    setHistory(
+      PATIENT_A,
+      historyOf([
+        visit('attended', '2026-01-01T10:00:00-05:00'),
+        { ...visit('in-person-no-show', '2026-01-02T10:00:00-05:00', 'In-person Office'), status: 'no show' },
+        {
+          ...visit('virtual-no-show', '2026-01-03T10:00:00-05:00', 'Virtual Office'),
+          status: 'no show',
+          serviceMode: ServiceMode.virtual,
+        },
+      ])
+    );
+    renderGrid();
+    await waitForVisits();
+
+    await user.click(screen.getByLabelText('Hide “No Show”'));
+
+    await waitFor(() => expect(screen.queryByText('In-person Office')).not.toBeInTheDocument());
+    expect(screen.queryByText('Virtual Office')).not.toBeInTheDocument();
+    expect(screen.getByText('NY Office')).toBeInTheDocument();
+  });
 });

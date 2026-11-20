@@ -42,3 +42,28 @@ describe('isSameClaimsListView', () => {
     ).toBe(false);
   });
 });
+
+describe('claimsListFiltersToSearchInput: tags', () => {
+  it('passes included and excluded tags, and the all-tags match', () => {
+    expect(claimsListFiltersToSearchInput({ tag: ['a', 'b'], tagMatch: 'all', excludeTag: ['x'] })).toEqual({
+      tag: ['a', 'b'],
+      tagMatch: 'all',
+      excludeTag: ['x'],
+    });
+  });
+
+  it('drops the match when there are no included tags', () => {
+    expect(claimsListFiltersToSearchInput({ tag: [], tagMatch: 'all', excludeTag: ['x'] })).toEqual({
+      excludeTag: ['x'],
+    });
+  });
+
+  it("treats a missing match and 'any' as the same view", () => {
+    expect(
+      isSameClaimsListView(
+        { filters: { tag: ['a'], tagMatch: 'any' }, layout: {} },
+        { filters: { tag: ['a'] }, layout: {} }
+      )
+    ).toBe(true);
+  });
+});

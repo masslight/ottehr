@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { SECRETS } from '../data/secrets';
 import {
   InsertFullAppointmentDataBaseResult,
   insertInPersonAppointmentBase,
@@ -44,9 +45,20 @@ describe('upload-patient-condition-photo integration — happy path', () => {
     const response = await oystehrZambdas.zambda.execute({
       id: 'upload-patient-condition-photo',
       appointmentID: base.appointment.id,
-      z3URL: 'https://example.com/integration-test-condition-photo.jpg',
+      z3URL: `${SECRETS.PROJECT_API}/z3/${SECRETS.PROJECT_ID}-patient-photos/${base.patient.id}/integration-test-condition-photo.jpg`,
       title: 'Integration test condition photo',
     });
     expect(response.output).toBeDefined();
+  });
+
+  it('rejects a URL that is not a stored file', async () => {
+    await expect(
+      oystehrZambdas.zambda.execute({
+        id: 'upload-patient-condition-photo',
+        appointmentID: base.appointment.id,
+        z3URL: 'https://example.com/integration-test-condition-photo.jpg',
+        title: 'Integration test condition photo',
+      })
+    ).rejects.toBeDefined();
   });
 });

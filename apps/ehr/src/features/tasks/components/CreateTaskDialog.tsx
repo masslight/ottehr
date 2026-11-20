@@ -1,10 +1,10 @@
 import { Stack, Tooltip } from '@mui/material';
 import React, { useEffect, useRef, useState } from 'react';
 import { FieldValues, FormProvider, useForm } from 'react-hook-form';
-import { useParams } from 'react-router-dom';
+import { useMatch, useParams } from 'react-router-dom';
 import { CheckboxInput } from 'src/components/input/CheckboxInput';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
-import { getLocationLabel, LocationSelectInput } from 'src/components/input/LocationSelectInput';
+import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
 import { PatientSelectInput } from 'src/components/input/PatientSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
@@ -14,12 +14,22 @@ import { useCreateManualTask } from 'src/features/visits/in-person/hooks/useTask
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
 import { getVisitTypeLabelForTypeAndServiceMode } from 'src/shared/utils/formatLabelValue';
+import { getEncounterVisitType } from 'utils/lib/fhir/encounter';
+import { getLocationLabel } from 'utils/lib/fhir/location';
+import {
+  isTaskProgressNoteSection,
+  TASK_FOLLOW_UP_PROGRESS_NOTE_SECTIONS,
+  TASK_MAIN_PROGRESS_NOTE_SECTIONS,
+  TASK_PROGRESS_NOTE_SECTIONS,
+} from 'utils/lib/types/data/tasks/progress-note-sections';
 import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { useGetPatientVisitHistory } from '../../../hooks/useGetPatientVisitHistory';
 import {
   getPatientLabel,
   TASK_CATEGORY_LABEL,
+  useDmeOrdersOptions,
   useExternalLabOrdersOptions,
+  useImmunizationOrdersOptions,
   useInHouseLabOrdersOptions,
   useInHouseMedicationsOptions,
   useNursingOrdersOptions,
@@ -79,15 +89,19 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const isErx = formValue.category === MANUAL_TASK.category.erx;
   const refillRequest = isErx && !!formValue.refillRequest;
   const changeRequest = isErx && !!formValue.changeRequest;
+  // A plain eRx task has no order field, so any order picked for a request is dropped.
+  const taskOrderId = isErx && !refillRequest && !changeRequest ? undefined : formValue.order;
+  const canLinkSection = !!formValue.appointment && !taskOrderId;
 
   const { mutateAsync: createManualTask } = useCreateManualTask();
   const handleConfirm = async (): Promise<void> => {
     await createManualTask({
       category: formValue.category,
       appointmentId: formValue.appointment,
-      orderId: isErx && !refillRequest && !changeRequest ? undefined : formValue.order,
+      orderId: taskOrderId,
       refillRequest,
       changeRequest,
+      progressNoteSection: formValue.progressNoteSection,
       encounterId: encounterId || undefined,
       taskTitle: formValue.taskTitle,
       taskDetails: formValue.taskDetails,
@@ -114,6 +128,10 @@ export const CreateTaskDialog: React.FC<Props> = ({
     appointments?.find((appointment) => appointment.appointmentId === formValue.appointment)?.appointmentId
   );
   const encounterId = encounter?.id ?? '';
+  const sectionOptions =
+    getEncounterVisitType(encounter) === 'follow-up'
+      ? TASK_FOLLOW_UP_PROGRESS_NOTE_SECTIONS
+      : TASK_MAIN_PROGRESS_NOTE_SECTIONS;
 
   const { inHouseLabOrdersLoading, inHouseLabOrdersOptions } = useInHouseLabOrdersOptions(encounterId, refreshKey);
   const { externalLabOrdersLoading, externalLabOrdersOptions } = useExternalLabOrdersOptions(encounterId, refreshKey);
@@ -122,6 +140,12 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const { proceduresLoading, proceduresOptions } = useProceduresOptions(encounterId);
   const { inHouseMedicationsLoading, inHouseMedicationsOptions } = useInHouseMedicationsOptions(encounterId);
   const { prescriptionsLoading, prescriptionsOptions } = usePrescriptionsOptions(encounterId);
+  const { immunizationOrdersLoading, immunizationOrdersOptions } = useImmunizationOrdersOptions(
+    formValue.category === MANUAL_TASK.category.immunization ? encounterId : ''
+  );
+  const { dmeOrdersLoading, dmeOrdersOptions } = useDmeOrdersOptions(
+    formValue.category === MANUAL_TASK.category.dme ? encounterId : ''
+  );
 
   const ordersLoading =
     formValue.category === MANUAL_TASK.category.inHouseLab
@@ -138,6 +162,10 @@ export const CreateTaskDialog: React.FC<Props> = ({
       ? inHouseMedicationsLoading
       : formValue.category === MANUAL_TASK.category.erx
       ? prescriptionsLoading
+      : formValue.category === MANUAL_TASK.category.immunization
+      ? immunizationOrdersLoading
+      : formValue.category === MANUAL_TASK.category.dme
+      ? dmeOrdersLoading
       : false;
 
   const orderOptions =
@@ -155,6 +183,10 @@ export const CreateTaskDialog: React.FC<Props> = ({
       ? inHouseMedicationsOptions
       : formValue.category === MANUAL_TASK.category.erx
       ? prescriptionsOptions
+      : formValue.category === MANUAL_TASK.category.immunization
+      ? immunizationOrdersOptions
+      : formValue.category === MANUAL_TASK.category.dme
+      ? dmeOrdersOptions
       : [];
 
   useEffect(() => {
@@ -162,6 +194,13 @@ export const CreateTaskDialog: React.FC<Props> = ({
       methods.setValue('appointment', null);
     }
   }, [formValue.patient, methods]);
+
+  useEffect(() => {
+    const section = formValue.progressNoteSection;
+    if (!canLinkSection || (encounterId && section && !sectionOptions.includes(section))) {
+      methods.setValue('progressNoteSection', null);
+    }
+  }, [canLinkSection, encounterId, sectionOptions, formValue.progressNoteSection, methods]);
 
   useEffect(() => {
     if (!formValue.appointment || !formValue.category) {
@@ -172,6 +211,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const urlParams = useParams();
   const appointmentId = appointmentIdProp ?? urlParams['id'];
   const appointment = useAppointmentData(appointmentId);
+  const visitRoute = useMatch('/in-person/:id/*');
+  const visitSection = visitRoute?.params.id === appointmentId ? visitRoute?.params['*'] : undefined;
   useEffect(() => {
     if (appointment.patient && open && !prefillApplied.current.appointment) {
       methods.setValue('patient', {
@@ -179,9 +220,12 @@ export const CreateTaskDialog: React.FC<Props> = ({
         name: getPatientLabel(appointment.patient),
       });
       methods.setValue('appointment', appointmentId);
+      if (isTaskProgressNoteSection(visitSection)) {
+        methods.setValue('progressNoteSection', visitSection);
+      }
       prefillApplied.current.appointment = true;
     }
-  }, [appointmentId, appointment.patient, methods, open]);
+  }, [appointmentId, appointment.patient, methods, open, visitSection]);
 
   useEffect(() => {
     if (
@@ -200,6 +244,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const orderFullUrl = urlParams['*'];
   const serviceRequestId = urlParams['serviceRequestID'];
   const procedureId = urlParams['procedureId'];
+  const dmeOrderId = urlParams['dmeOrderId'];
+  const orderId = urlParams['orderId'];
   useEffect(() => {
     if (!open) {
       return;
@@ -219,6 +265,12 @@ export const CreateTaskDialog: React.FC<Props> = ({
     } else if (procedureId) {
       methods.setValue('category', MANUAL_TASK.category.procedures);
       methods.setValue('order', procedureId);
+    } else if (orderFullUrl?.startsWith('immunization/order') && orderId) {
+      methods.setValue('category', MANUAL_TASK.category.immunization);
+      methods.setValue('order', orderId);
+    } else if (FEATURE_FLAGS.DME_ORDERS_ENABLED && orderFullUrl?.startsWith('dme') && dmeOrderId) {
+      methods.setValue('category', MANUAL_TASK.category.dme);
+      methods.setValue('order', dmeOrderId);
     } else {
       methods.setValue('category', null);
       methods.setValue('order', null);
@@ -227,7 +279,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
     methods.setValue('taskDetails', null);
     methods.setValue('assignee', null);
     methods.setValue('location', null);
-  }, [orderFullUrl, serviceRequestId, procedureId, methods, open]);
+  }, [orderFullUrl, serviceRequestId, procedureId, orderId, dmeOrderId, methods, open]);
 
   // Visit context implies the location; declared after the URL-context effect above so its 'location' clear on open runs first.
   useEffect(() => {
@@ -272,8 +324,11 @@ export const CreateTaskDialog: React.FC<Props> = ({
             <SelectInput
               name="category"
               label="Category"
-              options={Object.values(MANUAL_TASK.category)}
+              options={Object.values(MANUAL_TASK.category).filter(
+                (category) => category !== MANUAL_TASK.category.dme || FEATURE_FLAGS.DME_ORDERS_ENABLED
+              )}
               getOptionLabel={(option) => TASK_CATEGORY_LABEL[option]}
+              onOptionSelected={() => methods.setValue('order', null)}
               required
             />
             {isErx && FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED && (
@@ -301,6 +356,13 @@ export const CreateTaskDialog: React.FC<Props> = ({
                 required={refillRequest || changeRequest}
               />
             )}
+            <SelectInput
+              name="progressNoteSection"
+              label="Progress Note section"
+              options={sectionOptions}
+              getOptionLabel={(option) => TASK_PROGRESS_NOTE_SECTIONS[option]}
+              disabled={!canLinkSection}
+            />
             <TextInput name="taskTitle" label="Title" required />
             <TextInput name="taskDetails" label="Task details" />
             <Stack direction="row" spacing={1}>

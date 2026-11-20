@@ -100,6 +100,17 @@ describe('laceration grouping and exclusions', () => {
       codes('laceration', { wounds: [{ ...wound, length: 1.1, closure: 'layered', exposedStructure: true }] })
     ).toEqual(['13100']);
   });
+  it('names stapled wounds in the payer note for a mix with adhesive-only wounds', () => {
+    const mixed = suggestCode(
+      input('laceration', {
+        wounds: [
+          { ...wound, closure: 'adhesive only' },
+          { ...wound, closure: 'staples' },
+        ],
+      })
+    );
+    expect(mixed.payerNotes).toEqual([expect.stringContaining('sutured or stapled wounds')]);
+  });
   it('excludes deliberate transfer and closure included in small benign excision', () => {
     expect(codes('laceration', { wounds: [{ ...wound, plannedTransfer: true }] })).toEqual([]);
     expect(codes('laceration', { wounds: [{ ...wound, closure: 'layered', smallBenignExcision: true }] })).toEqual([]);

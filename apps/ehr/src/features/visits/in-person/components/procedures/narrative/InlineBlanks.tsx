@@ -88,8 +88,12 @@ const ghostSx = (theme: Theme): Record<string, unknown> => ({
   '&:hover': { backgroundColor: theme.palette.action.hover, color: theme.palette.text.primary },
 });
 
-const ReadOnlyBlank: FC<{ label: string; value?: string }> = ({ label, value }) => (
-  <Box component="span" sx={(theme) => (value ? { ...filledSx(theme), '&:hover': {} } : { color: 'text.secondary' })}>
+const ReadOnlyBlank: FC<{ label: string; value?: string; dataTestId?: string }> = ({ label, value, dataTestId }) => (
+  <Box
+    component="span"
+    data-testid={dataTestId}
+    sx={(theme) => (value ? { ...filledSx(theme), '&:hover': {} } : { color: 'text.secondary' })}
+  >
     {value || `[${label}]`}
   </Box>
 );
@@ -129,7 +133,7 @@ export const BlankButton: FC<BlankButtonProps> = ({
   invalid,
   describedBy,
 }) => {
-  if (readOnly) return <ReadOnlyBlank label={label} value={value} />;
+  if (readOnly) return <ReadOnlyBlank label={label} value={value} dataTestId={dataTestId} />;
   // An inline span rather than <button>: a long value then wraps across lines like the surrounding text.
   return (
     <Box
@@ -387,6 +391,7 @@ interface SelectBlankProps {
   need?: boolean;
   /** Offers "Clear" at the end of the list, as the old dropdown's clear button did. */
   clearable?: boolean;
+  emptyText?: string;
   dataTestId?: string;
   helperText?: string;
   /** Shows the picked option as the list does, not lower-cased for running prose (a field of its own, not a sentence). */
@@ -403,6 +408,7 @@ export const SelectBlank: FC<SelectBlankProps> = ({
   readOnly,
   need,
   clearable,
+  emptyText,
   dataTestId,
   helperText,
   otherValue,
@@ -453,6 +459,11 @@ export const SelectBlank: FC<SelectBlankProps> = ({
             />
           )}
           <List dense disablePadding role="listbox" aria-label={title ?? label}>
+            {shown.length === 0 && emptyText && (
+              <Typography sx={{ fontSize: '14px', color: 'text.secondary', fontStyle: 'italic', px: 1, py: 0.5 }}>
+                {emptyText}
+              </Typography>
+            )}
             {shown.map((option, i) => (
               <Fragment key={option.value}>
                 {option.group && option.group !== shown[i - 1]?.group && (
@@ -531,7 +542,7 @@ export const MultiBlank: FC<MultiBlankProps> = ({
         : sentenceValue(all.find((option) => option.value === v)?.label ?? v)
     )
   );
-  if (readOnly) return <ReadOnlyBlank label={label} value={display || undefined} />;
+  if (readOnly) return <ReadOnlyBlank label={label} value={display || undefined} dataTestId={dataTestId} />;
   return (
     <PopoverBlank
       label={ghost ? `+ ${label}` : label}
@@ -661,7 +672,7 @@ export const TextBlank: FC<TextBlankProps> = ({
 }) => {
   const text = value === undefined ? '' : String(value);
   const grows = multiline && kind === 'text';
-  if (readOnly) return <ReadOnlyBlank label={label} value={text} />;
+  if (readOnly) return <ReadOnlyBlank label={label} value={text} dataTestId={dataTestId} />;
   const placeholder = placeholderProp ?? label;
   return (
     <InputBase
@@ -736,7 +747,7 @@ export const DateTimeBlank: FC<DateTimeBlankProps> = ({ kind, label, value, onCh
       ? value.toLocaleString(DateTime.DATE_MED)
       : value.toLocaleString(DateTime.TIME_SIMPLE)
     : undefined;
-  if (readOnly) return <ReadOnlyBlank label={label} value={display} />;
+  if (readOnly) return <ReadOnlyBlank label={label} value={display} dataTestId={dataTestId} />;
   const Picker = kind === 'date' ? DatePicker : TimePicker;
   return (
     <LocalizationProvider dateAdapter={AdapterLuxon}>

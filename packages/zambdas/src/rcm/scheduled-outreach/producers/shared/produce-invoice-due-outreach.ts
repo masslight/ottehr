@@ -3,10 +3,11 @@ import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { Secrets } from 'utils/lib/secrets';
+import { OutreachAction } from 'utils/lib/types/api/scheduled-outreach.types';
+import { isInvoicedFromBillingApp, isOutreachInBillingApp } from '../../../../shared/invoice-tasks';
 import { getStripeClient, STRIPE_METADATA_KEYS } from '../../../../shared/stripeIntegration';
 import {
   getOrCreateOutreachConfig,
-  OutreachAction,
   parseConfiguredAt,
   parsePlanDefinitionToActions,
 } from '../../../scheduled-outreach-config/helpers';
@@ -80,6 +81,7 @@ export async function produceInvoiceDueOutreach(
 
   // Collect encounter IDs that still have open invoices so we can cancel stale tasks
   const openEncounterIds = new Set<string>();
+  const outreachInBillingApp = isOutreachInBillingApp(secrets);
 
   let tasksCreated = 0;
   let tasksSkipped = 0;
@@ -106,6 +108,13 @@ export async function produceInvoiceDueOutreach(
       : DateTime.fromSeconds(invoice.created).toISODate()!;
 
     try {
+      // Only checked in projects that run invoice outreach from the billing app. Kept after
+      // openEncounterIds.add so the visit's pending EHR Tasks are not cancelled as paid.
+      if (outreachInBillingApp && (await isInvoicedFromBillingApp(oystehr, encounterId))) {
+        console.log(`Encounter ${encounterId} is invoiced from the billing app, skipping Stripe invoice ${invoice.id}`);
+        continue;
+      }
+
       // Look up the Encounter to find its linked Appointment for visit date tracking
       let appointmentRef: string | undefined;
       try {
@@ -217,7 +226,7 @@ export function selectApplicableInvoiceDueActionIds(actions: OutreachAction[], e
  * than meta.lastUpdated, which would move the cutoff forward on every config edit and silently
  * exclude older-but-still-open invoices. Legacy configs without the stamp fall back to lastUpdated.
  */
-async function calculateEarliestEligibleDueDate(oystehr: Oystehr): Promise<number | undefined> {
+export async function calculateEarliestEligibleDueDate(oystehr: Oystehr): Promise<number | undefined> {
   try {
     const planDefinition = await getOrCreateOutreachConfig(oystehr);
     const activationTimestamp = parseConfiguredAt(planDefinition) ?? planDefinition.meta?.lastUpdated;

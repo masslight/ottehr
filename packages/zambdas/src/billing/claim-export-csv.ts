@@ -72,7 +72,7 @@ export const CLAIM_EXPORT_COLUMNS: ClaimExportColumn[] = [
   },
   {
     header: 'Patient Resp',
-    value: (claim) => money(claim.patientResp),
+    value: (claim) => (claim.patientResp === null ? '' : money(claim.patientResp)),
   },
   {
     header: 'Patient Paid',

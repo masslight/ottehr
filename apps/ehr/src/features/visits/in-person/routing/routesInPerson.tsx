@@ -111,6 +111,7 @@ export enum ROUTER_PATH {
 export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   [ROUTER_PATH.FOLLOW_UP_NOTE]: {
     path: ROUTER_PATH.FOLLOW_UP_NOTE,
+    taskSection: 'follow-up-note',
     modes: ['follow-up'],
     element: <FollowUpNote />,
     text: 'Follow-up Note',
@@ -118,6 +119,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.CC_AND_INTAKE_NOTES]: {
     path: ROUTER_PATH.CC_AND_INTAKE_NOTES,
+    taskSection: 'cc-and-intake-notes',
     modes: ['main', 'readonly'],
     element: <ChiefComplaintAndIntakeNotes />,
     text: 'Chief Complaint',
@@ -126,6 +128,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.SCREENING]: {
     path: ROUTER_PATH.SCREENING,
+    taskSection: 'screening-questions',
     modes: ['main', 'readonly'],
     element: <Screening />,
     text: 'Screening Questions',
@@ -134,6 +137,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.QUESTIONNAIRES]: {
     path: ROUTER_PATH.QUESTIONNAIRES,
+    taskSection: 'questionnaires',
     modes: ['main', 'readonly'],
     element: <Questionnaires />,
     text: 'Clinical Forms',
@@ -142,6 +146,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.VITALS]: {
     path: ROUTER_PATH.VITALS,
+    taskSection: 'vitals',
     modes: ['main', 'readonly'],
     element: <PatientVitals />,
     text: 'Vitals',
@@ -150,6 +155,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.ALLERGIES]: {
     path: ROUTER_PATH.ALLERGIES,
+    taskSection: 'allergies',
     modes: ['main', 'readonly', 'follow-up'],
     element: <Allergies />,
     text: 'Allergies',
@@ -158,6 +164,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.MEDICATIONS]: {
     path: ROUTER_PATH.MEDICATIONS,
+    taskSection: 'medications',
     modes: ['main', 'readonly', 'follow-up'],
     element: <Medications />,
     text: 'Medications',
@@ -166,6 +173,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.MEDICAL_CONDITIONS]: {
     path: ROUTER_PATH.MEDICAL_CONDITIONS,
+    taskSection: 'medical-conditions',
     modes: ['main', 'readonly', 'follow-up'],
     element: <MedicalConditions />,
     text: 'Medical Conditions',
@@ -174,6 +182,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.SURGICAL_HISTORY]: {
     path: ROUTER_PATH.SURGICAL_HISTORY,
+    taskSection: 'surgical-history',
     modes: ['main', 'readonly', 'follow-up'],
     element: <SurgicalHistory />,
     text: 'Surgical History',
@@ -182,6 +191,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.HOSPITALIZATION]: {
     path: ROUTER_PATH.HOSPITALIZATION,
+    taskSection: 'hospitalization',
     modes: ['main', 'readonly', 'follow-up'],
     element: <Hospitalization />,
     text: 'Hospitalization',
@@ -190,6 +200,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IN_HOUSE_MEDICATION]: {
     path: ROUTER_PATH.IN_HOUSE_MEDICATION,
+    taskSection: null,
     sidebarPath: 'in-house-medication/mar',
     activeCheckPath: 'in-house-medication',
     modes: ['main', 'readonly', 'follow-up'],
@@ -200,6 +211,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IN_HOUSE_ORDER_NEW]: {
     path: ROUTER_PATH.IN_HOUSE_ORDER_NEW,
+    taskSection: null,
     modes: ['main', 'readonly', 'follow-up'],
     isSkippedInNavigation: true,
     activeCheckPath: 'order/new',
@@ -210,6 +222,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IN_HOUSE_ORDER_EDIT]: {
     path: ROUTER_PATH.IN_HOUSE_ORDER_EDIT,
+    taskSection: null,
     modes: ['main', 'readonly', 'follow-up'],
     isSkippedInNavigation: true,
     activeCheckPath: 'order/edit',
@@ -220,6 +233,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IN_HOUSE_LAB_ORDERS]: {
     path: ROUTER_PATH.IN_HOUSE_LAB_ORDERS,
+    taskSection: null,
     modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabsPage /> : null,
     text: 'In-House Labs',
@@ -228,6 +242,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IN_HOUSE_LAB_ORDER_CREATE]: {
     path: ROUTER_PATH.IN_HOUSE_LAB_ORDER_CREATE,
+    taskSection: null,
     modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabOrderCreatePage /> : null,
@@ -237,6 +252,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IN_HOUSE_LAB_ORDER_DETAILS]: {
     path: ROUTER_PATH.IN_HOUSE_LAB_ORDER_DETAILS,
+    taskSection: null,
     modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabTestDetailsPage /> : null,
@@ -246,6 +262,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.RADIOLOGY_ORDER]: {
     path: ROUTER_PATH.RADIOLOGY_ORDER,
+    taskSection: null,
     modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrdersListPage /> : null,
     text: 'Radiology',
@@ -254,6 +271,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.RADIOLOGY_ORDER_CREATE]: {
     path: ROUTER_PATH.RADIOLOGY_ORDER_CREATE,
+    taskSection: null,
     modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <CreateRadiologyOrder /> : null,
@@ -263,6 +281,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.RADIOLOGY_ORDER_CREATE_EXTERNAL]: {
     path: ROUTER_PATH.RADIOLOGY_ORDER_CREATE_EXTERNAL,
+    taskSection: null,
     modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <CreateExternalRadiologyOrder /> : null,
@@ -272,6 +291,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.RADIOLOGY_ORDER_DETAILS]: {
     path: ROUTER_PATH.RADIOLOGY_ORDER_DETAILS,
+    taskSection: null,
     modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrderDetailsPage /> : null,
@@ -281,6 +301,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.RADIOLOGY_ORDER_EXTERNAL_DETAILS]: {
     path: ROUTER_PATH.RADIOLOGY_ORDER_EXTERNAL_DETAILS,
+    taskSection: null,
     modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyExternalOrderDetailsPage /> : null,
@@ -290,6 +311,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.RADIOLOGY_ORDER_EDIT_EXTERNAL]: {
     path: ROUTER_PATH.RADIOLOGY_ORDER_EDIT_EXTERNAL,
+    taskSection: null,
     modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <EditExternalRadiologyOrder /> : null,
@@ -299,6 +321,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.PROCEDURES]: {
     path: ROUTER_PATH.PROCEDURES,
+    taskSection: null,
     modes: ['main', 'follow-up'],
     element: <Procedures />,
     text: 'Procedures',
@@ -307,6 +330,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.PROCEDURES_NEW]: {
     path: ROUTER_PATH.PROCEDURES_NEW,
+    taskSection: null,
     modes: ['main', 'follow-up'],
     isSkippedInNavigation: true,
     element: <ProceduresNew />,
@@ -316,6 +340,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.PROCEDURES_EDIT]: {
     path: ROUTER_PATH.PROCEDURES_EDIT,
+    taskSection: null,
     modes: ['main', 'follow-up'],
     isSkippedInNavigation: true,
     element: <ProceduresNew />,
@@ -325,6 +350,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.DME]: {
     path: ROUTER_PATH.DME,
+    taskSection: null,
     modes: FEATURE_FLAGS.DME_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
     element: FEATURE_FLAGS.DME_ORDERS_ENABLED ? <DmeOrdersPage /> : null,
     text: 'DME',
@@ -333,6 +359,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.DME_CREATE]: {
     path: ROUTER_PATH.DME_CREATE,
+    taskSection: null,
     modes: FEATURE_FLAGS.DME_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.DME_ORDERS_ENABLED ? <DmeOrderCreatePage /> : null,
@@ -342,6 +369,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.DME_DETAILS]: {
     path: ROUTER_PATH.DME_DETAILS,
+    taskSection: null,
     modes: ['main', 'follow-up'],
     isSkippedInNavigation: true,
     element: <DmeOrderDetailsPage />,
@@ -351,6 +379,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.DME_EDIT]: {
     path: ROUTER_PATH.DME_EDIT,
+    taskSection: null,
     modes: FEATURE_FLAGS.DME_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.DME_ORDERS_ENABLED ? <DmeOrderEditPage /> : null,
@@ -360,6 +389,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.NURSING_ORDERS]: {
     path: ROUTER_PATH.NURSING_ORDERS,
+    taskSection: null,
     modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
     element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrdersPage /> : null,
     text: 'Nursing Orders',
@@ -368,6 +398,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.NURSING_ORDER_CREATE]: {
     path: ROUTER_PATH.NURSING_ORDER_CREATE,
+    taskSection: null,
     modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderCreatePage /> : null,
@@ -377,6 +408,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.NURSING_ORDER_DETAILS]: {
     path: ROUTER_PATH.NURSING_ORDER_DETAILS,
+    taskSection: null,
     modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['main', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderDetailsPage /> : null,
@@ -386,6 +418,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IMMUNIZATION]: {
     path: ROUTER_PATH.IMMUNIZATION,
+    taskSection: null,
     sidebarPath: 'immunization/mar',
     activeCheckPath: 'immunization',
     modes: ['main', 'follow-up'],
@@ -396,6 +429,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IMMUNIZATION_ORDER_CREATE]: {
     path: ROUTER_PATH.IMMUNIZATION_ORDER_CREATE,
+    taskSection: null,
     modes: ['main', 'follow-up'],
     isSkippedInNavigation: true,
     element: <ImmunizationOrderCreateEdit />,
@@ -405,6 +439,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.IMMUNIZATION_ORDER_EDIT]: {
     path: ROUTER_PATH.IMMUNIZATION_ORDER_EDIT,
+    taskSection: null,
     modes: ['main', 'follow-up'],
     isSkippedInNavigation: true,
     element: <ImmunizationOrderCreateEdit />,
@@ -414,6 +449,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
+    taskSection: null,
     modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <ExternalLabOrdersListPage /> : null,
     text: 'External Labs',
@@ -422,6 +458,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
+    taskSection: null,
     modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <CreateExternalLabOrder /> : null,
@@ -431,6 +468,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS,
+    taskSection: null,
     modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
@@ -440,6 +478,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_REPORT_DETAILS]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER_REPORT_DETAILS,
+    taskSection: null,
     modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
@@ -449,6 +488,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.HISTORY_AND_TEMPLATES]: {
     path: ROUTER_PATH.HISTORY_AND_TEMPLATES,
+    taskSection: 'history-of-present-illness-and-templates',
     modes: ['main', 'readonly'],
     element: <HistoryAndTemplates />,
     text: 'HPI/MOI & Templates',
@@ -457,6 +497,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.REVIEW_OF_SYSTEMS]: {
     path: ROUTER_PATH.REVIEW_OF_SYSTEMS,
+    taskSection: 'review-of-systems',
     modes: ['main', 'readonly'],
     element: <RosTab />,
     text: 'Review of Systems',
@@ -465,6 +506,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,
+    taskSection: 'examination',
     modes: ['main', 'readonly'],
     element: <ExamTab />,
     text: 'Exam',
@@ -473,6 +515,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.ASSESSMENT]: {
     path: ROUTER_PATH.ASSESSMENT,
+    taskSection: 'assessment',
     modes: ['main', 'readonly'],
     element: <AssessmentCard />,
     text: 'Assessment',
@@ -481,6 +524,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.PLAN]: {
     path: ROUTER_PATH.PLAN,
+    taskSection: 'plan',
     modes: ['main', 'readonly', 'follow-up'],
     element: <Plan />,
     text: 'Plan',
@@ -489,6 +533,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.ERX]: {
     path: ROUTER_PATH.ERX,
+    taskSection: 'erx',
     modes: ['main', 'readonly', 'follow-up'],
     element: <ERXPage />,
     text: 'eRX',
@@ -497,6 +542,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.ERX_SURESCRIPTS]: {
     path: ROUTER_PATH.ERX_SURESCRIPTS,
+    taskSection: null,
     modes: FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED ? ['main', 'readonly', 'follow-up'] : [],
     element: FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED ? <ERXSurescriptsPage /> : null,
     text: 'eRx (Surescripts)',
@@ -505,6 +551,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.DOCUMENTS]: {
     path: ROUTER_PATH.DOCUMENTS,
+    taskSection: 'documents',
     modes: ['main', 'readonly', 'follow-up'],
     element: <VisitDocuments />,
     text: 'Documents',
@@ -513,6 +560,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.REVIEW_AND_SIGN]: {
     path: ROUTER_PATH.REVIEW_AND_SIGN,
+    taskSection: 'review-and-sign',
     modes: ['main', 'readonly'],
     element: <ProgressNote />,
     text: 'Review & Sign',
@@ -521,6 +569,7 @@ export const routesInPerson: Record<ROUTER_PATH, RouteInPerson> = {
   },
   [ROUTER_PATH.OTTEHR_AI]: {
     path: ROUTER_PATH.OTTEHR_AI,
+    taskSection: null,
     modes: ['main', 'readonly'],
     element: <OttehrAi />,
     text: 'Oystehr AI',

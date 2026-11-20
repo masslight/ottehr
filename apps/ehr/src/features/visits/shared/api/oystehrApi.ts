@@ -45,13 +45,13 @@ import {
 import { GetVisitNoteRequest, VisitNoteResponse } from 'utils/lib/types/api/chart-data/get-visit-note.types';
 import { SaveChartDataRequest, SaveChartDataResponse } from 'utils/lib/types/api/chart-data/save-chart-data.types';
 import {
-  GetFaxPacketPreviewInput,
-  GetFaxPacketPreviewOutput,
-  GetFaxPacketStatusInput,
-  GetFaxPacketStatusOutput,
-  SendFaxPacketInput,
-  SendFaxPacketOutput,
-} from 'utils/lib/types/api/fax.types';
+  GetDocumentPacketPreviewInput,
+  GetDocumentPacketPreviewOutput,
+  GetDocumentPacketStatusInput,
+  GetDocumentPacketStatusOutput,
+  SendDocumentPacketInput,
+  SendDocumentPacketOutput,
+} from 'utils/lib/types/api/document-packet.types';
 import {
   InitTelemedSessionRequestParams,
   InitTelemedSessionResponse,
@@ -145,9 +145,9 @@ enum ZambdaNames {
   'update patient account' = 'update patient account',
   'remove patient coverage' = 'remove patient coverage',
   'merge patients' = 'merge patients',
-  'send fax packet' = 'send fax packet',
-  'get fax packet preview' = 'get fax packet preview',
-  'get fax packet status' = 'get fax packet status',
+  'send document packet' = 'send document packet',
+  'get document packet preview' = 'get document packet preview',
+  'get document packet status' = 'get document packet status',
   'external lab resource search' = 'external lab resource search',
   'get unsolicited results resources' = 'get unsolicited results resources',
   'update lab order resources' = 'update lab order resources',
@@ -190,9 +190,9 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'update patient account': false,
   'remove patient coverage': false,
   'merge patients': false,
-  'send fax packet': false,
-  'get fax packet preview': false,
-  'get fax packet status': false,
+  'send document packet': false,
+  'get document packet preview': false,
+  'get document packet status': false,
   'external lab resource search': false,
   'get unsolicited results resources': false,
   'update lab order resources': false,
@@ -246,9 +246,9 @@ export const getOystehrTelemedAPI = (
   removePatientCoverage: typeof removePatientCoverage;
   mergePatients: typeof mergePatients;
   getMergePatientsTask: typeof getMergePatientsTask;
-  sendFaxPacket: typeof sendFaxPacket;
-  getFaxPacketPreview: typeof getFaxPacketPreview;
-  getFaxPacketStatus: typeof getFaxPacketStatus;
+  sendDocumentPacket: typeof sendDocumentPacket;
+  getDocumentPacketPreview: typeof getDocumentPacketPreview;
+  getDocumentPacketStatus: typeof getDocumentPacketStatus;
   getCreateExternalLabResources: typeof getCreateExternalLabResources;
   getUnsolicitedResultsResources: typeof getUnsolicitedResultsResources;
   updateLabOrderResources: typeof updateLabOrderResources;
@@ -290,9 +290,9 @@ export const getOystehrTelemedAPI = (
     updatePatientAccountZambdaID,
     removePatientCoverageZambdaID,
     mergePatientsZambdaID,
-    sendFaxPacketZambdaID,
-    getFaxPacketPreviewZambdaID,
-    getFaxPacketStatusZambdaID,
+    sendDocumentPacketZambdaID,
+    getDocumentPacketPreviewZambdaID,
+    getDocumentPacketStatusZambdaID,
     externalLabResourceSearchID,
     getUnsolicitedResultsResourcesID,
     updateLabOrderResourcesID,
@@ -335,9 +335,9 @@ export const getOystehrTelemedAPI = (
     'update patient account': updatePatientAccountZambdaID,
     'remove patient coverage': removePatientCoverageZambdaID,
     'merge patients': mergePatientsZambdaID,
-    'send fax packet': sendFaxPacketZambdaID,
-    'get fax packet preview': getFaxPacketPreviewZambdaID,
-    'get fax packet status': getFaxPacketStatusZambdaID,
+    'send document packet': sendDocumentPacketZambdaID,
+    'get document packet preview': getDocumentPacketPreviewZambdaID,
+    'get document packet status': getDocumentPacketStatusZambdaID,
     'external lab resource search': externalLabResourceSearchID,
     'get unsolicited results resources': getUnsolicitedResultsResourcesID,
     'update lab order resources': updateLabOrderResourcesID,
@@ -518,16 +518,20 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('merge patients', { ...parameters, requestMode: 'status' });
   };
 
-  const sendFaxPacket = async (parameters: SendFaxPacketInput): Promise<SendFaxPacketOutput> => {
-    return await makeZapRequest('send fax packet', parameters);
+  const sendDocumentPacket = async (parameters: SendDocumentPacketInput): Promise<SendDocumentPacketOutput> => {
+    return await makeZapRequest('send document packet', parameters);
   };
 
-  const getFaxPacketPreview = async (parameters: GetFaxPacketPreviewInput): Promise<GetFaxPacketPreviewOutput> => {
-    return await makeZapRequest('get fax packet preview', parameters);
+  const getDocumentPacketPreview = async (
+    parameters: GetDocumentPacketPreviewInput
+  ): Promise<GetDocumentPacketPreviewOutput> => {
+    return await makeZapRequest('get document packet preview', parameters);
   };
 
-  const getFaxPacketStatus = async (parameters: GetFaxPacketStatusInput): Promise<GetFaxPacketStatusOutput> => {
-    return await makeZapRequest('get fax packet status', parameters);
+  const getDocumentPacketStatus = async (
+    parameters: GetDocumentPacketStatusInput
+  ): Promise<GetDocumentPacketStatusOutput> => {
+    return await makeZapRequest('get document packet status', parameters);
   };
 
   const getCreateExternalLabResources = async (
@@ -626,9 +630,9 @@ export const getOystehrTelemedAPI = (
     removePatientCoverage,
     mergePatients,
     getMergePatientsTask,
-    sendFaxPacket,
-    getFaxPacketPreview,
-    getFaxPacketStatus,
+    sendDocumentPacket,
+    getDocumentPacketPreview,
+    getDocumentPacketStatus,
     getCreateExternalLabResources,
     getUnsolicitedResultsResources,
     updateLabOrderResources,

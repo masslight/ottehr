@@ -59,8 +59,13 @@ export function configSentry(zambdaName: string, secrets: Secrets | null): void 
  * Only the request body is logged: headers carry caller credentials and `input.secrets` is the
  * secrets bag, neither of which belongs in CloudWatch.
  */
-function logInputBody(body: string | null): void {
-  console.log(`Input body: ${body ? truncateForLog(body) : '<empty>'}`);
+function logInputBody(body: string | null, redact: boolean): void {
+  console.log(`Input body: ${!body ? '<empty>' : redact ? '<redacted>' : truncateForLog(body)}`);
+}
+
+export interface WrapHandlerOptions {
+  /** For an endpoint whose body is itself a credential: the log records that a body arrived, not its content. */
+  redactInputBody?: boolean;
 }
 
 /** The Lambda runtime's context, as opposed to the empty object the local server passes. */
@@ -106,13 +111,14 @@ function scheduleTimeoutWarning(context: Context): ReturnType<typeof setTimeout>
  */
 export function wrapHandler(
   zambdaName: string,
-  handler: (input: ZambdaInput, context?: Context) => Promise<APIGatewayProxyResult>
+  handler: (input: ZambdaInput, context?: Context) => Promise<APIGatewayProxyResult>,
+  options: WrapHandlerOptions = {}
 ): Handler<ZambdaInput, APIGatewayProxyResult> {
   return async (input: ZambdaInput, context?: Context): Promise<APIGatewayProxyResult> => {
     // Respond as soon as the handler settles instead of waiting for open sockets and timers to drain.
     if (context) context.callbackWaitsForEmptyEventLoop = false;
     configSentry(zambdaName, input.secrets);
-    logInputBody(input.body);
+    logInputBody(input.body, Boolean(options.redactInputBody));
 
     return withIsolationScope(async () => {
       let timeoutWarning: ReturnType<typeof setTimeout> | undefined;

@@ -337,6 +337,7 @@ export async function createAppointment(
     listRequests,
     newPatientDob: (createPatientRequest?.resource as Patient | undefined)?.birthDate,
     createdBy,
+    createdByCode: !m2m && isEHRUser ? user?.id : undefined,
     slot,
     appointmentMetadata,
     followUpOptions: input.followUpOptions,
@@ -418,6 +419,8 @@ interface TransactionInput {
   oystehr: Oystehr;
   secrets: Secrets | null;
   createdBy: string;
+  /** Stable user id of the staff creator (EHR users only); lets the activity log show their current name. */
+  createdByCode?: string;
   verifiedPhoneNumber: string | undefined;
   contactInfo: { phone: string; email: string; noEmail?: boolean };
   additionalInfo?: string;
@@ -463,6 +466,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     updatePatientRequest,
     newPatientDob,
     createdBy,
+    createdByCode,
     serviceMode,
     slot,
     appointmentMetadata,
@@ -658,6 +662,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
         { code: serviceMode === ServiceMode.virtual ? OTTEHR_MODULE.TM : OTTEHR_MODULE.IP },
         {
           system: CREATED_BY_SYSTEM,
+          ...(createdByCode ? { code: createdByCode } : {}),
           display: createdBy,
         },
         ...otherMetaTags,

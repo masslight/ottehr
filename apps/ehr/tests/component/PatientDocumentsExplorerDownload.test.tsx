@@ -22,7 +22,7 @@ const PATIENT: Patient = {
 const makeDocument = (id: string, docName: string): PatientDocumentInfo => ({
   id,
   docName,
-  attachments: [{ title: docName, z3Url: `https://project-api.test/z3/bucket/${docName}` }],
+  attachments: [{ title: docName, z3Url: `https://project-api.zapehr.com/v1/z3/bucket/${docName}` }],
 });
 
 const DOCUMENTS = [
@@ -41,10 +41,10 @@ vi.mock('../../src/hooks/useDownloadDocumentsZip', () => ({
     isDownloading: downloadState.isDownloading,
   }),
 }));
-vi.mock('src/features/fax/hooks/useSendFax', () => ({
-  useSendFax: () => ({ isOpen: false, open: vi.fn(), close: vi.fn(), isSending: false, failures: [] }),
+vi.mock('src/features/send-documents/hooks/useSendDocuments', () => ({
+  useSendDocuments: () => ({ isOpen: false, open: vi.fn(), close: vi.fn(), isSending: false, failures: [] }),
 }));
-vi.mock('src/features/fax/ui/SendFaxDialog', () => ({ SendFaxDialog: () => <div /> }));
+vi.mock('src/features/send-documents/ui/SendDocumentsDialog', () => ({ SendDocumentsDialog: () => <div /> }));
 vi.mock('../../src/hooks/useGetPatient', () => ({
   useGetPatient: () => ({ loading: false, patient: PATIENT }),
 }));

@@ -1974,7 +1974,7 @@ export function replaceTemplateVariablesHandlebars(template: string, variables: 
 /**
  * Escape HTML special characters to prevent XSS.
  */
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

@@ -18,6 +18,7 @@ import { BillingClaimItem, EraClaimListItem } from 'utils/lib/types/data/billing
 import { formatAntCaseString } from 'utils/lib/types/data/billing/claim-status';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { matchClaimResponseToClaim } from '../api/api';
+import { formatPatientResp } from '../constants/claimStatus';
 import { useApiClients } from '../hooks/useAppClients';
 import { Meta } from '../pages/ClaimDetail';
 import { ClaimSearchList } from './ClaimSearchList';
@@ -79,7 +80,7 @@ export function MatchClaimDialog({ claimResponseId, eraClaim, onMatched, onClose
               <Meta label="Billed" value={formatCurrency(eraClaim.billed)} />
               <Meta label="Allowed" value={formatCurrency(eraClaim.allowed)} />
               <Meta label="Ins Paid" value={formatCurrency(eraClaim.paid)} />
-              <Meta label="Patient Resp" value={formatCurrency(eraClaim.patientResp)} />
+              <Meta label="Patient Resp" value={formatPatientResp(eraClaim.patientResp)} />
               <Meta label="Patient Account Number" value={eraClaim.patientAccountNumber} />
               <Meta label="Member ID" value={eraClaim.memberId} />
             </Box>

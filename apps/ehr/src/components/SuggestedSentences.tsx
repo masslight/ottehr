@@ -9,6 +9,8 @@ import {
   Menu,
   MenuItem,
   Popover,
+  SxProps,
+  Theme,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -61,6 +63,7 @@ interface SuggestedSentencesProps<T extends SuggestedSentence> {
   /** With `onCollapsedChange`, the title line toggles the rows with a chevron; collapsed, only it shows. */
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
+  sx?: SxProps<Theme>;
 }
 
 interface BlankRef {
@@ -93,6 +96,7 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   tinted,
   collapsed = false,
   onCollapsedChange,
+  sx,
 }: SuggestedSentencesProps<T>): ReactElement => {
   const [picked, setPicked] = useState<{ rows: T[]; values: Record<string, string> }>({ rows, values: {} });
   const [opened, setOpened] = useState<{ rows: T[]; blank: BlankRef; anchor: HTMLElement } | null>(null);
@@ -254,13 +258,16 @@ export const SuggestedSentences = <T extends SuggestedSentence>({
   );
   return (
     <Box
-      sx={{
-        p: 1.5,
-        border: '1px solid',
-        borderColor: tinted ? '#d6e0ec' : '#e0e0e0',
-        borderRadius: 1,
-        ...(tinted && { bgcolor: '#f3f6fa' }),
-      }}
+      sx={[
+        {
+          p: 1.5,
+          border: '1px solid',
+          borderColor: tinted ? '#d6e0ec' : '#e0e0e0',
+          borderRadius: 1,
+          ...(tinted && { bgcolor: '#f3f6fa' }),
+        },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
       data-testid={dataTestId}
     >
       {onCollapsedChange ? (

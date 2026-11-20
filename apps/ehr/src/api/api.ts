@@ -21,6 +21,8 @@ import {
   GetActionLogsOutput,
   RetryActionLogInput,
   RetryActionLogOutput,
+  RevokeActionLogInput,
+  RevokeActionLogOutput,
 } from 'utils/lib/types/api/action-logs.types';
 import {
   AiAssistedEncountersReportZambdaInput,
@@ -60,7 +62,17 @@ import {
   UpdateEmCodeInput,
 } from 'utils/lib/types/api/config/em-codes';
 import {
+  AdjustMedicationInventoryInput,
+  AdjustMedicationInventoryResponse,
   CreateInHouseMedicationInput,
+  GetMedicationInventoryInput,
+  GetMedicationInventoryResponse,
+  ListMedicationInventoryInput,
+  ListMedicationInventoryResponse,
+  LookupNdcInput,
+  LookupNdcResponse,
+  ReceiveMedicationShipmentInput,
+  ReceiveMedicationShipmentResponse,
   UpdateInHouseMedicationInput,
 } from 'utils/lib/types/api/config/in-house-medications';
 import {
@@ -142,6 +154,7 @@ import {
   DeleteLocationResponse,
   GetLocationParams,
   GetLocationResponse,
+  ListActiveLocationsInput,
   ListActiveLocationsOutput,
   ToggleLocationActiveParams,
   UpdateLocationParams,
@@ -561,6 +574,11 @@ const DELETE_IN_HOUSE_LAB_ORDER = 'delete-in-house-lab-order';
 const CREATE_IN_HOUSE_MEDICATION = 'create-in-house-medication';
 const UPDATE_IN_HOUSE_MEDICATION = 'update-in-house-medication';
 const GET_IN_HOUSE_MEDICATIONS = 'get-in-house-medications';
+const RECEIVE_MEDICATION_SHIPMENT = 'receive-medication-shipment';
+const LOOKUP_NDC = 'lookup-ndc';
+const GET_MEDICATION_INVENTORY = 'get-medication-inventory';
+const LIST_MEDICATION_INVENTORY = 'list-medication-inventory';
+const ADJUST_MEDICATION_INVENTORY = 'adjust-medication-inventory';
 const GET_EM_CODES = 'get-em-codes';
 const CREATE_EM_CODE = 'create-em-code';
 const UPDATE_EM_CODE = 'update-em-code';
@@ -1707,8 +1725,11 @@ export const getLocation = async (params: GetLocationParams, oystehr: Oystehr): 
   return chooseJson(response);
 };
 
-export const listActiveLocations = async (oystehr: Oystehr): Promise<ListActiveLocationsOutput> => {
-  const response = await oystehr.zambda.execute({ id: LIST_ACTIVE_LOCATIONS_ZAMBDA_ID });
+export const listActiveLocations = async (
+  oystehr: Oystehr,
+  parameters: ListActiveLocationsInput = {}
+): Promise<ListActiveLocationsOutput> => {
+  const response = await oystehr.zambda.execute({ id: LIST_ACTIVE_LOCATIONS_ZAMBDA_ID, ...parameters });
   return chooseJson(response);
 };
 
@@ -2330,6 +2351,43 @@ export const getInHouseMedications = async (oystehr: Oystehr): Promise<Medicatio
   }
 };
 
+export const receiveMedicationShipment = async (
+  oystehr: Oystehr,
+  parameters: ReceiveMedicationShipmentInput
+): Promise<ReceiveMedicationShipmentResponse> => {
+  const response = await oystehr.zambda.execute({ id: RECEIVE_MEDICATION_SHIPMENT, ...parameters });
+  return chooseJson(response);
+};
+
+export const lookupNdc = async (oystehr: Oystehr, parameters: LookupNdcInput): Promise<LookupNdcResponse> => {
+  const response = await oystehr.zambda.execute({ id: LOOKUP_NDC, ...parameters });
+  return chooseJson(response);
+};
+
+export const getMedicationInventory = async (
+  oystehr: Oystehr,
+  parameters: GetMedicationInventoryInput
+): Promise<GetMedicationInventoryResponse> => {
+  const response = await oystehr.zambda.execute({ id: GET_MEDICATION_INVENTORY, ...parameters });
+  return chooseJson(response);
+};
+
+export const listMedicationInventory = async (
+  oystehr: Oystehr,
+  parameters: ListMedicationInventoryInput
+): Promise<ListMedicationInventoryResponse> => {
+  const response = await oystehr.zambda.execute({ id: LIST_MEDICATION_INVENTORY, ...parameters });
+  return chooseJson(response);
+};
+
+export const adjustMedicationInventory = async (
+  oystehr: Oystehr,
+  parameters: AdjustMedicationInventoryInput
+): Promise<AdjustMedicationInventoryResponse> => {
+  const response = await oystehr.zambda.execute({ id: ADJUST_MEDICATION_INVENTORY, ...parameters });
+  return chooseJson(response);
+};
+
 export const getEmCodes = async (oystehr: Oystehr): Promise<EmCodeOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: GET_EM_CODES });
@@ -2775,6 +2833,18 @@ export const retryActionLog = async (
 ): Promise<RetryActionLogOutput> => {
   try {
     const response = await oystehr.zambda.execute({ id: 'retry-action-log', ...parameters });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const revokeActionLog = async (
+  oystehr: Oystehr,
+  parameters: RevokeActionLogInput
+): Promise<RevokeActionLogOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({ id: 'revoke-action-log', ...parameters });
     return chooseJson(response);
   } catch (error: unknown) {
     throw apiErrorToThrow(error);

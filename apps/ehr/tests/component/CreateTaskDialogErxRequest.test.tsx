@@ -87,6 +87,8 @@ vi.mock('../../src/features/tasks/common', () => {
     useRadiologyOrdersOptions: none('radiologyOrders'),
     useProceduresOptions: none('procedures'),
     useInHouseMedicationsOptions: none('inHouseMedications'),
+    useImmunizationOrdersOptions: none('immunizationOrders'),
+    useDmeOrdersOptions: none('dmeOrders'),
     usePrescriptionsOptions: () => ({
       prescriptionsLoading: false,
       prescriptionsOptions: [{ id: 'rx-1', label: 'Lisinopril' }],
