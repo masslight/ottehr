@@ -19,10 +19,11 @@ export const CVX_VACCINES: readonly CvxVaccine[] = [
     cvx: '317',
     name: 'Chikungunya live attenuated vaccine, 0.5 mL, PF',
     fullName: 'Chikungunya, live attenuated vaccine, 0.5 mL, preservative free',
+    notes: 'Chikungunya Vaccine',
   },
   {
     cvx: '329',
-    name: 'Chikungunya Vaccine',
+    name: 'Chikungunya, VLP, recombinant, 0.8 mL, PF',
     fullName: 'Chikungunya, virus-like particle (VLP), recombinant vaccine, 0.8 mL, preservative free',
   },
   { cvx: '174', name: 'cholera, live attenuated', fullName: 'cholera, live attenuated' },
@@ -94,7 +95,8 @@ export const CVX_VACCINES: readonly CvxVaccine[] = [
     name: 'DTaP,IPV,Hib,HepB',
     fullName:
       'Diphtheria and Tetanus Toxoids and Acellular Pertussis Adsorbed, Inactivated Poliovirus, Haemophilus b Conjugate (Meningococcal Protein Conjugate), and Hepatitis B (Recombinant) Vaccine.',
-    notes: 'This vaccine is different from CVX 132.',
+    notes:
+      'This vaccine is different from CVX 132. Code may be used to document non-US vaccines (e.g. Hexamin) of the same component formulation',
   },
   {
     cvx: '204',
@@ -113,18 +115,22 @@ export const CVX_VACCINES: readonly CvxVaccine[] = [
     cvx: '08',
     name: 'Hep B, adolescent or pediatric',
     fullName: 'hepatitis B vaccine, pediatric or pediatric/adolescent dosage',
-    notes: 'Any standard pediatric formulation of Hepatitis B vaccine. Use code 43 for the 2-dose adolescent schedule.',
+    notes:
+      'This code applies to any standard pediatric formulation of Hepatitis B vaccine. It should not be used for the 2-dose hepatitis B schedule for adolescents (11-15 year olds). Use code 43 for that vaccine.',
   },
   {
     cvx: '43',
     name: 'Hep B, adult',
     fullName: 'hepatitis B vaccine, adult dosage',
-    notes: 'Any standard adult dose and schedule, including the Recombivax HB 2-dose adolescent schedule.',
+    notes:
+      'This code applies to any standard adult dose and schedule. Also use CVX 43 for the FDA approved Recombivax HB 2-dose hepatitis B schedule for adolescents (11-15 year olds) using the adult formulation.',
   },
   {
     cvx: '44',
     name: 'Hep B, high-dosage, dialysis or IC',
     fullName: 'Hepatitis B vaccine (Hep B), high-dosage, dialysis or immunocompromised patient',
+    notes:
+      'This code is used record patient high dosage vaccine administration for dialysis or immunocompromised patients. For NDCs that are used for both regular vaccine and dialysis/IC high-dosage schedules (e.g. Engerix-B), are mapped to both CVX 43 and CVX 44. CVX code 44 should be utilized to record dialysis/IC dosing.',
   },
   { cvx: '189', name: 'HepB-CpG', fullName: 'Hepatitis B vaccine (recombinant), CpG adjuvanted' },
   { cvx: '49', name: 'Hib (PRP-OMP)', fullName: 'Haemophilus influenzae type b vaccine, PRP-OMP conjugate' },
@@ -135,93 +141,108 @@ export const CVX_VACCINES: readonly CvxVaccine[] = [
     cvx: '205',
     name: 'Influenza, adjuvanted, quadrivalent, PF',
     fullName: 'Influenza, adjuvanted, inactivated, quadrivalent, injectable, preservative free',
+    notes: 'Quadrivalent code starting 2020/2021 season',
   },
   {
     cvx: '168',
     name: 'Influenza, adjuvanted, trivalent, PF',
     fullName: 'Influenza, adjuvanted, inactivated, trivalent, injectable, preservative free',
+    notes: 'Trivalent code reactivated for 2024/2025 season',
   },
   {
     cvx: '197',
     name: 'Influenza, high-dose, quadrivalent, PF',
     fullName: 'Influenza, high-dose, split virus, quadrivalent, injectable, preservative free',
+    notes: 'Quadrivalent code starting season 2020/2021',
   },
   {
     cvx: '135',
     name: 'Influenza, high-dose, trivalent, PF',
     fullName: 'Influenza, high-dose, split virus, trivalent, injectable, preservative free',
+    notes: 'Trivalent code reactivated for 2024/2025 season',
   },
   {
     cvx: '161',
-    name: 'Influenza, injectable, quadrivalent, preservative free, pediatric',
-    fullName: 'Influenza, injectable, quadrivalent, preservative free, pediatric',
+    name: 'Influenza, injectable,quadrivalent, preservative free, pediatric',
+    fullName: 'Influenza, injectable,quadrivalent, preservative free, pediatric',
   },
   {
     cvx: '149',
     name: 'Influenza, live, quadrivalent, intranasal',
     fullName: 'Influenza, live, quadrivalent, intranasal',
+    notes: 'Quadrivalent code starting 2013/2014 season',
   },
   {
     cvx: '111',
     name: 'Influenza, live, trivalent, intranasal, PF',
     fullName: 'Influenza, live, trivalent, intranasal, preservative free',
-    notes: 'HCP administered',
+    notes: 'HCP administered, trivalent code reactivated for 2024/2025 season',
   },
   {
     cvx: '171',
     name: 'Influenza, MDCK, quadrivalent, PF',
     fullName: 'Influenza, Madin Darby Canine Kidney, subunit, quadrivalent, injectable, preservative free',
+    notes: 'Quadrivalent code starting 2016/2017 season',
   },
   {
     cvx: '186',
     name: 'Influenza, MDCK, quadrivalent, preservative',
     fullName: 'Influenza, Madin Darby Canine Kidney, subunit, quadrivalent, injectable, contains preservative',
+    notes: 'Quadrivalent code starting 2017/2018 season',
   },
   {
     cvx: '153',
     name: 'Influenza, MDCK, trivalent, PF',
     fullName: 'Influenza, Madin Darby Canine Kidney, subunit, trivalent, injectable, preservative free',
+    notes: 'Trivalent code reactivated for 2024/2025 season',
   },
   {
     cvx: '320',
     name: 'Influenza, MDCK, trivalent, preservative',
     fullName: 'Influenza, Madin Darby Canine Kidney, subunit, trivalent, injectable, contains preservative',
+    notes: 'Trivalent code starting 2024/2025 season',
   },
   {
     cvx: '338',
     name: 'Influenza, mRNA, trivalent, PF',
     fullName: 'Influenza, mRNA lipid nanoparticle, trivalent, injectable, 0.38 mL dose, preservative-free',
-    notes: 'FDA approved 08/05/2026, starting with the 2026/2027 season',
+    notes: 'mRNA influenza vaccine FDA approved 08/05/2026 starting with Fall 2026/2027 season',
   },
   {
     cvx: '185',
     name: 'Influenza, recombinant, quadrivalent, PF',
     fullName: 'Influenza, recombinant, quadrivalent, injectable, preservative free',
+    notes: 'Quadrivalent code starting 2017/2018 season',
   },
   {
     cvx: '155',
     name: 'Influenza, recombinant, trivalent, PF',
     fullName: 'Influenza, recombinant, trivalent, injectable, preservative free',
+    notes: 'Trivalent code reactivated for 2024/2025 season',
   },
   {
     cvx: '150',
     name: 'Influenza, split virus, quadrivalent, PF',
     fullName: 'Influenza, split virus, quadrivalent, injectable, preservative free',
+    notes: 'Quadrivalent code starting 2013/2014 season',
   },
   {
     cvx: '158',
     name: 'Influenza, split virus, quadrivalent, preservative',
     fullName: 'Influenza, split virus, quadrivalent, injectable, contains preservative',
+    notes: 'Quadrivalent code starting 2013/2014 season',
   },
   {
     cvx: '140',
     name: 'Influenza, split virus, trivalent, PF',
     fullName: 'Influenza, split virus, trivalent, injectable, preservative free',
+    notes: 'Trivalent code reactivated for 2024/2025 season',
   },
   {
     cvx: '141',
     name: 'Influenza, split virus, trivalent, preservative',
     fullName: 'Influenza, split virus, trivalent, injectable, contains preservative',
+    notes: 'Trivalent code reactivated for 2024/2025 season',
   },
   { cvx: '10', name: 'IPV', fullName: 'poliovirus vaccine, inactivated' },
   {
@@ -305,7 +326,7 @@ export const CVX_VACCINES: readonly CvxVaccine[] = [
     name: 'RSV, mAb, clesrovimab-cfor, 0.7 mL, neonate and infant, PF',
     fullName:
       'Respiratory syncytial virus (RSV), monoclonal antibody, IgG1κ, (clesrovimab-cfor), 0.7 mL, neonate and infant, preservative free',
-    notes: 'RSV mAb for neonates and infants (Enflonsia)',
+    notes: 'RSV mAb for neonates and infants born during or entering first RSV season (Enflonsia)',
   },
   {
     cvx: '306',
@@ -377,9 +398,16 @@ export const CVX_VACCINES: readonly CvxVaccine[] = [
     name: 'Vaccinia, smallpox monkeypox vaccine live, PF, SQ or ID injection',
     fullName:
       'Vaccinia, smallpox monkeypox vaccine, live attenuated, preservative free, subcutaneous or intradermal injection',
-    notes: 'JYNNEOS',
+    notes:
+      'Associated to FDA US Licensed product JYNNEOS, non-US tradenames IMVANEX, IMVAMUNE. Review CDC & FDA guidance for updates regarding administration',
   },
   { cvx: '21', name: 'varicella', fullName: 'varicella virus vaccine' },
-  { cvx: '37', name: 'yellow fever live', fullName: 'yellow fever vaccine live' },
+  {
+    cvx: '37',
+    name: 'yellow fever live',
+    fullName: 'yellow fever vaccine live',
+    notes:
+      'This is the YF vaccine that has been available in the US for years. It is stabilized with sorbitol and gelatin.',
+  },
   { cvx: '187', name: 'zoster recombinant', fullName: 'zoster vaccine recombinant' },
 ];
