@@ -10,6 +10,7 @@ import { MANUAL_TASK, PATIENT_REQUEST_TASK, RADIOLOGY_TASK } from 'utils/lib/typ
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { APIErrorCode, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { createTask } from '../../src/shared/tasks';
 import type { ZambdaInput } from '../../src/shared/types/common';
 
@@ -305,24 +306,28 @@ describe('complete-journal-task', () => {
     expect(mockFhir.patch).not.toHaveBeenCalled();
   });
 
-  it('completes an open board task in the caller’s name when it has no owner, with an optimistic lock', async () => {
-    const result = await call(handler, { taskId: TASK_ID });
-    expect(JSON.parse(result.body)).toEqual({ taskId: TASK_ID, status: 'completed' });
-    const [patch, options] = mockFhir.patch.mock.calls[0];
-    expect(patch).toMatchObject({ resourceType: 'Task', id: TASK_ID });
-    expect(patch.operations[0]).toEqual({ op: 'replace', path: '/status', value: 'completed' });
-    expect(patch.operations[1]).toMatchObject({
-      op: 'add',
-      path: '/owner',
-      value: { reference: `Practitioner/${PRACTITIONER_ID}` },
-    });
-    expect(options).toEqual({ optimisticLockingVersionId: '2' });
+  it('completes exactly like the Tasks page: the caller’s own token, status only, version-checked', async () => {
+    for (const owner of [undefined, { reference: 'Practitioner/someone-else' }]) {
+      vi.mocked(createClinicalOystehrClient).mockClear();
+      mockFhir.patch.mockClear();
+      mockFhir.get.mockResolvedValue(openTask({ owner }));
+      const result = await call(handler, { taskId: TASK_ID });
+      expect(JSON.parse(result.body)).toEqual({ taskId: TASK_ID, status: 'completed' });
+      // Written as the signed-in user, so FHIR records who completed it and their access policy applies.
+      expect(vi.mocked(createClinicalOystehrClient).mock.calls.map(([token]) => token)).toEqual(['user-token']);
+      const [patch, options] = mockFhir.patch.mock.calls[0];
+      expect(patch).toEqual({
+        resourceType: 'Task',
+        id: TASK_ID,
+        operations: [{ op: 'replace', path: '/status', value: 'completed' }],
+      });
+      expect(options).toEqual({ optimisticLockingVersionId: '2' });
+    }
   });
 
-  it('keeps the existing owner', async () => {
-    mockFhir.get.mockResolvedValue(openTask({ owner: { reference: 'Practitioner/someone-else' } }));
-    await call(handler, { taskId: TASK_ID });
-    expect(mockFhir.patch.mock.calls[0][0].operations).toHaveLength(1);
+  it('passes on the caller’s own access policy refusing the task', async () => {
+    mockFhir.patch.mockRejectedValue({ code: 403 });
+    await expect(call(handler, { taskId: TASK_ID })).rejects.toMatchObject({ code: APIErrorCode.NOT_AUTHORIZED });
   });
 
   it('refuses tasks that are not open board tasks', async () => {

@@ -1,42 +1,46 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Operation } from 'fast-json-patch';
-import { Practitioner, Task } from 'fhir/r4b';
-import { getFullestAvailableName } from 'utils/lib/fhir/patient';
-import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { Task } from 'fhir/r4b';
 import { CompleteJournalTaskInputSchema, CompleteJournalTaskOutput } from 'utils/lib/types/api/provider-journal.types';
 import { ALL_EHR_STAFF_ROLES } from 'utils/lib/types/api/user.types';
 import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
-import { CONCURRENT_UPDATE_WITH_MESSAGE, FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../shared/auth';
+import {
+  CONCURRENT_UPDATE_WITH_MESSAGE,
+  FHIR_RESOURCE_NOT_FOUND,
+  INVALID_INPUT_ERROR,
+  NOT_AUTHORIZED,
+} from 'utils/lib/types/errors';
+import { getUserToken, requireUserWithRole } from '../../../shared/auth';
 import { isFhirNotFoundError } from '../../../shared/errors';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
-import { createOwnerReference } from '../../../shared/tasks';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
 import { isOpenBoardTask } from '../get-provider-journal/helpers';
 
 const ZAMBDA_NAME = 'complete-journal-task';
 
-let m2mToken: string;
+const isForbidden = (error: unknown): boolean => [401, 403].includes((error as { code?: number })?.code ?? 0);
 
 /**
- * Completes an open Patient Follow-up task from the journal's Free form note dialog ("Mark '…' done").
- * Any EHR staff role, like the Tasks page's Complete on these tasks.
+ * Completes an open Patient Follow-up task from the journal's Free form note dialog ("Mark '…' done"), with
+ * the same access as the Tasks page's Complete: an EHR staff role whose own access policy can update the task.
  */
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { taskId, secrets } = validateWithSchema(CompleteJournalTaskInputSchema, input);
-  const user = await requireUserWithRole(getUserToken(input), secrets, ALL_EHR_STAFF_ROLES);
+  const userToken = getUserToken(input);
+  await requireUserWithRole(userToken, secrets, ALL_EHR_STAFF_ROLES);
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+  // Exactly the Tasks page's Complete (completeTaskVersionChecked): the caller's own token, so FHIR records who
+  // completed it and their access policy applies; status only; version-checked.
+  const oystehr = createClinicalOystehrClient(userToken, secrets);
 
   let task: Task;
   try {
     task = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: taskId });
   } catch (error) {
     if (isFhirNotFoundError(error)) throw FHIR_RESOURCE_NOT_FOUND('Task');
+    if (isForbidden(error)) throw NOT_AUTHORIZED;
     throw error;
   }
   if (!isOpenBoardTask(task)) throw INVALID_INPUT_ERROR('Only an open task on the Tasks board can be completed');
@@ -45,26 +49,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw INVALID_INPUT_ERROR('Only a Patient Follow-up task can be marked done here');
   }
 
-  const operations: Operation[] = [{ op: 'replace', path: '/status', value: 'completed' }];
-  const practitionerId = getIdFromReference(user.profile, 'Practitioner');
-  if (!task.owner && practitionerId) {
-    const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
-    operations.push({
-      op: 'add',
-      path: '/owner',
-      value: createOwnerReference(practitionerId, getFullestAvailableName(practitioner) ?? ''),
-    });
-  }
-
   try {
     await oystehr.fhir.patch<Task>(
-      { resourceType: 'Task', id: taskId, operations },
+      { resourceType: 'Task', id: taskId, operations: [{ op: 'replace', path: '/status', value: 'completed' }] },
       task.meta?.versionId ? { optimisticLockingVersionId: task.meta.versionId } : undefined
     );
   } catch (error) {
     if ((error as { code?: number })?.code === 412) {
       throw CONCURRENT_UPDATE_WITH_MESSAGE('The task was changed by someone else. Reload the journal and try again.');
     }
+    if (isForbidden(error)) throw NOT_AUTHORIZED;
     throw error;
   }
 
