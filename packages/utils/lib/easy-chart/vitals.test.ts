@@ -193,6 +193,13 @@ describe('head circumference', () => {
     expect(recoverVitalReading('vital-height', 'head circumference at 45 cm')).toBeUndefined();
   });
 
+  it('never recovers the other-unit value written next to a head circumference as a dropped height', () => {
+    expect(recoverVitalReading('vital-height', 'OFC 52 cm ≈ 20.47 in')).toBeUndefined();
+    expect(recoverVitalReading('vital-height', 'Head circumference 52 cm (20.47 in)')).toBeUndefined();
+    expect(recoverVitalReading('vital-height', 'OFC 52 cm ≈ 20.47 in, length 88 cm')).toBe('88 cm');
+    expect(recoverVitalReading('vital-height', 'HC 20.5 in / 52 cm. Length 34 in')).toBe('34 in');
+  });
+
   it('never recovers a head circumference as a dropped height', () => {
     expect(recoverVitalReading('vital-height', 'OFC 52 cm, length 88 cm')).toBe('88 cm');
     expect(recoverVitalReading('vital-height', 'head circumference 45 cm')).toBeUndefined();

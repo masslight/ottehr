@@ -297,7 +297,8 @@ function parseSingleUnit(
   return finish(value, (match[2] ?? '').trim());
 }
 
-const HEAD_CIRCUMFERENCE_READING = String.raw`(?:head\s*circumference|\bofc\b|\bhc\b)[\s:=~-]*(?:(?:is|was|of|at|about|around|approx\w*|today|measures?|measured)\b[\s:=~.-]*){0,3}(${NUMBER}\s*(?:cm\b|centimet\w*|mm\b|millimet\w*|in\b|ins\b|inch(?:es)?\b|"|''))`;
+const LENGTH_UNIT = String.raw`(?:cm\b|centimet\w*|mm\b|millimet\w*|in\b|ins\b|inch(?:es)?\b|"|'')`;
+const HEAD_CIRCUMFERENCE_READING = String.raw`(?:head\s*circumference|\bofc\b|\bhc\b)[\s:=~-]*(?:(?:is|was|of|at|about|around|approx\w*|today|measures?|measured)\b[\s:=~.-]*){0,3}(${NUMBER}\s*${LENGTH_UNIT})`;
 
 // Recovering a reading the model dropped: it sometimes emits a set-vital with no display. Each pattern is
 // anchored on a unit or vital keyword, so "cough for 5 days" is never read as a measurement.
@@ -341,7 +342,10 @@ const RECOVERY_PATTERNS: Record<PlannableVitalField, RegExp[]> = {
   ],
 };
 
-const HEAD_CIRCUMFERENCE_READINGS = new RegExp(HEAD_CIRCUMFERENCE_READING, 'gi');
+const HEAD_CIRCUMFERENCE_READINGS = new RegExp(
+  String.raw`${HEAD_CIRCUMFERENCE_READING}(?:\s*[≈=~/(]\s*${NUMBER}\s*${LENGTH_UNIT}\)?)?`,
+  'gi'
+);
 
 /**
  * Find the reading for `field` in the provider's own message. Returns the matched substring, ready
