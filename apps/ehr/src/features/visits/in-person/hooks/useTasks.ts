@@ -46,6 +46,7 @@ import {
   getImmunizationVaccineDetailsUrl,
   getRadiologyOrderEditUrl,
   getVisitDocumentsUrl,
+  withEncounterIdParam,
 } from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
@@ -627,6 +628,61 @@ export const useCompleteTask = (): UseMutationResult<void, Error, CompleteTaskRe
   });
 };
 
+/** The "Go to task" link of a manual task. Exported for the Provider Journal, which opens the same page. */
+export function getManualTaskLink(task: {
+  category: string;
+  appointmentId?: string;
+  encounterId?: string;
+  isFollowUp: boolean;
+  orderId?: string;
+  progressNoteSection?: string;
+  documentReferenceId?: string;
+  patientId?: string;
+}): string | undefined {
+  const { category, appointmentId, encounterId, orderId, progressNoteSection, patientId } = task;
+  const addEncounterIdToLink = (link: string): string =>
+    withEncounterIdParam(link, task.isFollowUp ? encounterId : undefined);
+
+  if (category === MANUAL_TASK.category.patientFollowUp && task.documentReferenceId && patientId) {
+    return `/patient/${patientId}/docs?folder=Paperwork`;
+  }
+  if (orderId) {
+    if (category === MANUAL_TASK.category.inHouseLab) {
+      return addEncounterIdToLink(`/in-person/${appointmentId}/in-house-lab-orders/${orderId}/order-details`);
+    }
+    if (category === MANUAL_TASK.category.externalLab) {
+      return addEncounterIdToLink(`/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`);
+    }
+    if (category === MANUAL_TASK.category.nursingOrders) {
+      return addEncounterIdToLink(`/in-person/${appointmentId}/nursing-orders/${orderId}/order-details`);
+    }
+    if (category === MANUAL_TASK.category.radiology) {
+      return addEncounterIdToLink(`/in-person/${appointmentId}/radiology/${orderId}/order-details`);
+    }
+    if (category === MANUAL_TASK.category.procedures) {
+      return addEncounterIdToLink(`/in-person/${appointmentId}/procedures/${orderId}`);
+    }
+    if (category === MANUAL_TASK.category.immunization) {
+      return addEncounterIdToLink(`${getImmunizationVaccineDetailsUrl(appointmentId ?? '')}?scrollTo=${orderId}`);
+    }
+    if (category === MANUAL_TASK.category.dme) {
+      return addEncounterIdToLink(getDmeOrderDetailsUrl(appointmentId ?? '', orderId));
+    }
+    return undefined;
+  }
+  if (appointmentId && isTaskProgressNoteSection(progressNoteSection)) {
+    const sectionLink = `/in-person/${appointmentId}/${progressNoteSection}`;
+    return encounterId ? `${sectionLink}?encounterId=${encounterId}` : sectionLink;
+  }
+  if (appointmentId) {
+    return addEncounterIdToLink(`/in-person/${appointmentId}`);
+  }
+  if (patientId) {
+    return `/patient/${patientId}`;
+  }
+  return undefined;
+}
+
 /** Exported for tests. */
 export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encounter>): Task {
   const category = task.groupIdentifier?.value ?? '';
@@ -751,15 +807,22 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
   if (category.startsWith('manual')) {
     const providerName = getInputString(MANUAL_TASK.input.providerName, task);
     const patientReference = getInputReference(MANUAL_TASK.input.patient, task);
-    const appointmentId = getInputString(MANUAL_TASK.input.appointmentId, task);
-    const orderId = getInputString(MANUAL_TASK.input.orderId, task);
-    const progressNoteSection = getInputString(MANUAL_TASK.input.progressNoteSection, task);
     const documentReferenceId = getInputString(MANUAL_TASK.input.documentReferenceId, task);
     // Follow-up tasks emitted by completed practice-managed forms carry a
     // document-reference-id; use it as a signal to route to the patient docs
     // page with the Paperwork folder preselected, rather than the default
     // manual-task behaviour.
     const patientIdFromRef = patientReference?.reference?.split('/')?.[1];
+    const link = getManualTaskLink({
+      category,
+      appointmentId: getInputString(MANUAL_TASK.input.appointmentId, task),
+      encounterId,
+      isFollowUp,
+      orderId: getInputString(MANUAL_TASK.input.orderId, task),
+      progressNoteSection: getInputString(MANUAL_TASK.input.progressNoteSection, task),
+      documentReferenceId,
+      patientId: patientIdFromRef,
+    });
 
     if (category === MANUAL_TASK.category.patientFollowUp && documentReferenceId && patientIdFromRef) {
       title =
@@ -770,7 +833,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       completable = true;
       action = {
         name: GO_TO_TASK,
-        link: `/patient/${patientIdFromRef}/docs?folder=Paperwork`,
+        link,
       };
       return {
         id: task.id ?? '',
@@ -799,65 +862,8 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     subtitle = `Manual task by ${providerName} / ${task.location?.display ?? ''}`;
     details = getInputString(MANUAL_TASK.input.details, task) ?? '';
     completable = true;
-    if (orderId) {
-      if (category === MANUAL_TASK.category.inHouseLab) {
-        action = {
-          name: GO_TO_TASK,
-          link: addEncounterIdToLink(`/in-person/${appointmentId}/in-house-lab-orders/${orderId}/order-details`),
-        };
-      }
-      if (category === MANUAL_TASK.category.externalLab) {
-        action = {
-          name: GO_TO_TASK,
-          link: addEncounterIdToLink(`/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`),
-        };
-      }
-      if (category === MANUAL_TASK.category.nursingOrders) {
-        action = {
-          name: GO_TO_TASK,
-          link: addEncounterIdToLink(`/in-person/${appointmentId}/nursing-orders/${orderId}/order-details`),
-        };
-      }
-      if (category === MANUAL_TASK.category.radiology) {
-        action = {
-          name: GO_TO_TASK,
-          link: addEncounterIdToLink(`/in-person/${appointmentId}/radiology/${orderId}/order-details`),
-        };
-      }
-      if (category === MANUAL_TASK.category.procedures) {
-        action = {
-          name: GO_TO_TASK,
-          link: addEncounterIdToLink(`/in-person/${appointmentId}/procedures/${orderId}`),
-        };
-      }
-      if (category === MANUAL_TASK.category.immunization) {
-        action = {
-          name: GO_TO_TASK,
-          link: addEncounterIdToLink(`${getImmunizationVaccineDetailsUrl(appointmentId ?? '')}?scrollTo=${orderId}`),
-        };
-      }
-      if (category === MANUAL_TASK.category.dme) {
-        action = {
-          name: GO_TO_TASK,
-          link: addEncounterIdToLink(getDmeOrderDetailsUrl(appointmentId ?? '', orderId)),
-        };
-      }
-    } else if (appointmentId && isTaskProgressNoteSection(progressNoteSection)) {
-      const sectionLink = `/in-person/${appointmentId}/${progressNoteSection}`;
-      action = {
-        name: GO_TO_TASK,
-        link: encounterId ? `${sectionLink}?encounterId=${encounterId}` : sectionLink,
-      };
-    } else if (appointmentId) {
-      action = {
-        name: GO_TO_TASK,
-        link: addEncounterIdToLink(`/in-person/${appointmentId}`),
-      };
-    } else if (patientReference) {
-      action = {
-        name: GO_TO_TASK,
-        link: `/patient/${patientReference.reference?.split('/')?.[1]}`,
-      };
+    if (link) {
+      action = { name: GO_TO_TASK, link };
     }
   }
 

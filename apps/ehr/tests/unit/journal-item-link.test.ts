@@ -1,5 +1,6 @@
 import { JournalItem } from 'utils/lib/types/api/provider-journal.types';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it } from 'vitest';
 import { journalItemLink } from '../../src/features/journal/helpers/journalHelpers';
 
@@ -28,6 +29,14 @@ describe('journalItemLink opens the same page as the Tasks page', () => {
     expect(journalItemLink(item({ ...lab, appointmentId: undefined }))).toBe('/unsolicited-results/dr-1/review');
     expect(journalItemLink(item({ ...lab, orderId: 'sr-1' }))).toBe(
       '/in-person/appt-1/external-lab-orders/sr-1/order-details'
+    );
+  });
+
+  it("opens a completed form's review task in the patient's Paperwork folder", () => {
+    const form = item({ category: MANUAL_TASK.category.patientFollowUp, documentReferenceId: 'doc-1' });
+    expect(journalItemLink(form)).toBe('/patient/pat-1/docs?folder=Paperwork');
+    expect(journalItemLink(item({ category: MANUAL_TASK.category.patientFollowUp }))).toBe(
+      '/in-person/appt-1/review-and-sign'
     );
   });
 });

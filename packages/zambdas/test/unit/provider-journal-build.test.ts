@@ -827,6 +827,25 @@ describe('taskToJournalItem wording', () => {
     );
   });
 
+  it('treats a completed-form review task (submit-paperwork) as a task, not a call', () => {
+    const form = boardTask({
+      id: 'form',
+      category: MANUAL_TASK.category.patientFollowUp,
+      title: 'Ava Doe completed Vanderbilt Parent Follow-up',
+      owner: owner(ME),
+      input: [{ type: { coding: [{ code: MANUAL_TASK.input.documentReferenceId }] }, valueString: 'doc-1' }],
+    });
+    expect(taskToJournalItem(form, { patientId: 'pat-ava' })).toEqual(
+      expect.objectContaining({
+        kind: 'task',
+        category: MANUAL_TASK.category.patientFollowUp,
+        documentReferenceId: 'doc-1',
+        isCallTask: undefined,
+        assigneeId: undefined,
+      })
+    );
+  });
+
   it('keeps the task category identifier system used by the board', () => {
     expect(boardTask({ title: 'x' }).groupIdentifier?.system).toBe(ottehrIdentifierSystem('task-category'));
   });

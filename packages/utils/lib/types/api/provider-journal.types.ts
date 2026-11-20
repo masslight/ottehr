@@ -67,6 +67,10 @@ export interface JournalItem {
   code?: string;
   /** A reflex lab result (no Ottehr order): opens its report page, as on the Tasks page. */
   isReflex?: boolean;
+  /** Other tasks: Task category and inputs, for the Tasks page's "Go to task" link. */
+  category?: string;
+  /** A completed practice form's PDF (Patient Follow-up tasks from submit-paperwork). */
+  documentReferenceId?: string;
   /** Review-fax task: the folder the document was filed into. */
   folderId?: string;
   /** Manual "Patient Follow-up" tasks: the Free form note dialog offers to complete them. */

@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 import { FLAGGED_REASONS_FOR_VISIT } from 'src/constants';
+import { getManualTaskLink } from 'src/features/visits/in-person/hooks/useTasks';
 import {
   getDrExternalLabEditUrl,
   getExternalLabOrderEditUrl,
@@ -176,9 +177,19 @@ export const journalItemLink = (item: JournalItem): string => {
         return `/patient/${patientId}/docs${item.folderId ? `?folderId=${encodeURIComponent(item.folderId)}` : ''}`;
       }
       return TASKS_URL;
-    case 'task':
+    case 'task': {
+      const taskLink = getManualTaskLink({
+        category: item.category ?? '',
+        appointmentId,
+        encounterId: item.encounterId,
+        isFollowUp: !!item.isFollowUpVisit,
+        documentReferenceId: item.documentReferenceId,
+        patientId,
+      });
+      if (item.documentReferenceId && taskLink) return taskLink;
       if (appointmentId) return chart(chartUrl(appointmentId, 'review-and-sign'));
       return patientUrl ?? TASKS_URL;
+    }
     case 'erx':
     case 'text-message':
       return TASKS_URL;

@@ -296,13 +296,18 @@ export function taskToJournalItem(
       since: task.authoredOn ?? '',
     };
   }
+  // submit-paperwork files a completed practice form as a Patient Follow-up task with the form's PDF: not a call.
+  const documentReferenceId = getTaskInputValue(task, MANUAL_TASK.input.documentReferenceId);
+  const isCallTask = category === MANUAL_TASK.category.patientFollowUp && !documentReferenceId;
   return {
     ...base,
     kind: 'task',
     label: task.description ?? 'Task',
     ...assignedOrCreated(),
-    isCallTask: category === MANUAL_TASK.category.patientFollowUp || undefined,
-    assigneeId: category === MANUAL_TASK.category.patientFollowUp ? taskOwnerId(task) : undefined,
+    category,
+    documentReferenceId,
+    isCallTask: isCallTask || undefined,
+    assigneeId: isCallTask ? taskOwnerId(task) : undefined,
   };
 }
 
