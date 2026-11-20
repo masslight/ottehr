@@ -93,6 +93,8 @@ export const buildJournalActions = (
   const patient = row.patient;
   if (!patient) return [];
   const visit = getRowVisit(ref);
+  // A Today row's chart links open today's visit, not an older to-do's.
+  const chartVisit = visit && section === 'td' ? row.visit ?? visit : visit;
   const actions: JournalAction[] = [
     {
       key: 'record',
@@ -102,9 +104,7 @@ export const buildJournalActions = (
       href: patientRecordUrl(patient.patientId),
     },
   ];
-  if (visit) {
-    // A Today row's chart links open today's visit, not an older to-do's.
-    const chartVisit = section === 'td' ? row.visit ?? visit : visit;
+  if (chartVisit) {
     actions.push(
       {
         key: 'progress',
@@ -182,7 +182,7 @@ export const buildJournalActions = (
     label: 'Follow-up',
     tooltip: 'Add a follow-up',
     icon: <EventRepeatIcon />,
-    href: followUpUrl(patient.patientId, visit?.encounterId),
+    href: followUpUrl(patient.patientId, chartVisit?.encounterId),
   });
   if (visit) {
     actions.push({

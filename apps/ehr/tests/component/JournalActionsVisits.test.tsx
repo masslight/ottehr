@@ -38,6 +38,7 @@ describe('journal row actions and the row visits', () => {
     const list = actions('td', row);
     expect(byKey(list, 'progress')?.href).toBe('/in-person/appt-today/review-and-sign');
     expect(byKey(list, 'details')?.href).toBe('/visit/appt-today');
+    expect(byKey(list, 'followup')?.href).toContain('encounter=enc-today');
   });
 
   it('disables Progress Note with the same hover as Addendum while the visit has no note yet', () => {
