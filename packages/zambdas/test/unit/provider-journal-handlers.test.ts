@@ -1,5 +1,7 @@
 import type { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { JournalRow } from 'utils/lib/types/api/provider-journal.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { MANUAL_TASK, RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
@@ -128,6 +130,46 @@ describe('get-provider-journal access', () => {
       expect.arrayContaining([{ name: 'participant', value: `Practitioner/${PRACTITIONER_ID}` }])
     );
     expect(openVisitSearch?.params.some((p: { name: string }) => p.name === 'appointment.date')).toBe(false);
+  });
+
+  it('keeps open tasks on this person’s visits of any age, e.g. a pre-visit lab from a visit months ago', async () => {
+    mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
+    const start = DateTime.now().minus({ months: 4 }).toUTC().toISO()!;
+    const oldVisit = [
+      {
+        resourceType: 'Encounter',
+        id: 'enc-old',
+        status: 'finished',
+        subject: { reference: 'Patient/pat-1' },
+        appointment: [{ reference: 'Appointment/appt-old' }],
+        participant: [
+          {
+            type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }] }],
+            individual: { reference: `Practitioner/${PRACTITIONER_ID}` },
+            period: { start, end: start },
+          },
+        ],
+      },
+      { resourceType: 'Appointment', id: 'appt-old', status: 'fulfilled', start },
+    ];
+    const lipids = {
+      ...createTask({ category: LAB_ORDER_TASK.category, title: 'Review results', encounterId: 'enc-old' }),
+      id: 'task-lipids',
+    };
+    mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
+      const has = (name: string): boolean => params.some((p: { name: string }) => p.name === name);
+      if (resourceType === 'Task' && has('encounter.participant')) return [lipids, ...oldVisit];
+      if (resourceType === 'Patient') return [{ resourceType: 'Patient', id: 'pat-1', name: [{ given: ['Lee'] }] }];
+      return [];
+    });
+    const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
+    expect(journal.recent.map((row: JournalRow) => row.items.map((item) => item.id))).toEqual([['task-lipids']]);
+    const chained = mockGetAllPages.mock.calls.find(([search]) =>
+      search.params.some((p: { name: string }) => p.name === 'encounter.participant')
+    )?.[0];
+    expect(chained.params).toEqual(
+      expect.arrayContaining([{ name: 'encounter.participant', value: `Practitioner/${PRACTITIONER_ID}` }])
+    );
   });
 
   it('builds a clinician journal for a Clinician', async () => {

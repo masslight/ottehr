@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DiagnosticReport, Encounter, Patient, RelatedPerson, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { chunkThings } from 'utils/lib/fhir/chat';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
@@ -23,7 +22,6 @@ import { validateWithSchema } from '../../../shared/validation';
 import { buildJournal, JOURNAL_WINDOW_DAYS, resolveTaskPatientId } from './helpers';
 
 const ZAMBDA_NAME = 'get-provider-journal';
-const ENCOUNTER_IDS_PER_TASK_SEARCH = 50;
 
 let m2mToken: string;
 
@@ -70,7 +68,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   );
   const encounters = visitResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
 
-  const [ownedTaskResources, visitTasks] = await Promise.all([
+  const [ownedTaskResources, visitTaskResources] = await Promise.all([
     getAllFhirSearchPages<Task | Encounter | Appointment | Patient | DiagnosticReport>(
       {
         resourceType: 'Task',
@@ -85,36 +83,37 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       },
       oystehr
     ),
-    Promise.all(
-      chunkThings(
-        encounters.map((encounter) => encounter.id!),
-        ENCOUNTER_IDS_PER_TASK_SEARCH
-      ).map((ids) =>
-        getAllFhirSearchPages<Task>(
-          {
-            resourceType: 'Task',
-            params: [
-              { name: 'encounter', value: ids.map((id) => `Encounter/${id}`).join(',') },
-              { name: 'status', value: 'ready,in-progress' },
-              { name: '_tag', value: 'task' },
-            ],
-          },
-          oystehr
-        )
-      )
-    ).then((pages) => pages.flat()),
+    // Open tasks on any of this person's visits, however old: results and tasks stay until done.
+    getAllFhirSearchPages<Task | Encounter | Appointment>(
+      {
+        resourceType: 'Task',
+        params: [
+          { name: 'encounter.participant', value: `Practitioner/${practitionerId}` },
+          { name: 'status', value: 'ready,in-progress' },
+          { name: '_tag', value: 'task' },
+          { name: '_include', value: 'Task:encounter' },
+          { name: '_include:iterate', value: 'Encounter:appointment' },
+        ],
+      },
+      oystehr
+    ),
   ]);
 
-  const tasks = [...ownedTaskResources.filter((r): r is Task => r.resourceType === 'Task'), ...visitTasks];
+  const tasks = [...ownedTaskResources, ...visitTaskResources].filter((r): r is Task => r.resourceType === 'Task');
+  // The visits of those tasks join this journal's visits (buildJournal keeps the ones in this person's role).
+  const allEncounters = deduplicateUnbundledResources([
+    ...encounters,
+    ...visitTaskResources.filter((r): r is Encounter => r.resourceType === 'Encounter'),
+  ]);
   const taskEncounters = ownedTaskResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
   const diagnosticReports = ownedTaskResources.filter(
     (r): r is DiagnosticReport => r.resourceType === 'DiagnosticReport'
   );
-  const appointments = [...visitResources, ...ownedTaskResources].filter(
+  const appointments = [...visitResources, ...ownedTaskResources, ...visitTaskResources].filter(
     (r): r is Appointment => r.resourceType === 'Appointment'
   );
 
-  // Patients of owned tasks that are not on one of this journal's visits ("Not tied to a recent visit").
+  // Patients of tasks that are not on one of the window's visits.
   const knownPatientIds = new Set(
     visitResources.filter((r): r is Patient => r.resourceType === 'Patient').map((patient) => patient.id!)
   );
@@ -123,7 +122,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       tasks
         .map((task) => {
           const encounterId = getIdFromReference(task.encounter?.reference, 'Encounter');
-          const encounter = taskEncounters.find((e) => e.id === encounterId);
+          const encounter = [...taskEncounters, ...allEncounters].find((e) => e.id === encounterId);
           return resolveTaskPatientId(task, encounter, diagnosticReports);
         })
         .filter((patientId): patientId is string => Boolean(patientId) && !knownPatientIds.has(patientId!))
@@ -148,7 +147,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     kind,
     practitionerId,
     now,
-    encounters,
+    encounters: allEncounters,
     appointments,
     patients: everything.filter((r): r is Patient => r.resourceType === 'Patient'),
     relatedPersons: everything.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson'),
