@@ -1,5 +1,5 @@
-import { OTHER_SPECIALTY_TRANSFER_OPTION, specialtyTransferOptions } from 'utils/lib/fhir/disposition';
-import { FaxDocumentKind } from 'utils/lib/types/api/fax.types';
+import { DEFAULT_SPECIALTY_TRANSFER_OPTIONS, OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
+import { PacketDocumentKind } from 'utils/lib/types/api/document-packet.types';
 import {
   REFERRAL_DEFAULTS,
   ReferralAsk,
@@ -11,10 +11,8 @@ import {
 } from 'utils/lib/types/api/referrals/referrals.types';
 import { normalizeAddressBookTag } from 'utils/lib/types/data/address-book';
 
-/** The disposition's specialty list without "Other"; "Other" is a free-text entry on the referral form. */
-export const REFERRAL_SPECIALTY_OPTIONS = specialtyTransferOptions.filter(
-  (option) => option !== OTHER_SPECIALTY_TRANSFER_OPTION
-);
+/** The disposition's default specialty list, which has no "Other"; "Other" is a free-text entry on the referral form. */
+export const REFERRAL_SPECIALTY_OPTIONS = DEFAULT_SPECIALTY_TRANSFER_OPTIONS;
 
 /** The directory tag a specialty filters by, normalized the way tags are stored. */
 export const specialtyTag = (specialty: string): string | undefined =>
@@ -34,7 +32,7 @@ export interface ReferralFormValues {
   whatIsAsked: ReferralAsk;
   whoSchedules: ReferralScheduler;
   responseRequested: boolean;
-  includeDocuments: FaxDocumentKind[];
+  includeDocuments: PacketDocumentKind[];
   /** Documents from earlier visits, shown as chips in the order they were chosen. */
   earlierDocuments: ReferralEarlierDocument[];
   notesToRecipient: string;

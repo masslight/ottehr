@@ -81,6 +81,7 @@ import {
   getClaimSupportingInfo,
   getClaimType,
   getClaimTypeCoding,
+  getPayerClaimControlNumber,
   getProviderLicense,
   getTaxonomy,
   prepareWorkingCopy,
@@ -308,7 +309,7 @@ export const writeServiceLineProperty = (
   const writer = SERVICE_LINE_WRITERS[propertyId];
   if (!writer) return false;
   if (operation !== 'set' && getServiceLinePropertyDef(propertyId)?.valueType !== 'list') return false;
-  return writer(line, value, operation);
+  return writer(line, value.trim(), operation);
 };
 
 export type DateValueResolution = { value: string } | { error: string };
@@ -513,15 +514,19 @@ const READERS: Record<string, FieldReader> = {
 
   ...coverageReaders('insurance', primaryCoverage),
   ...personReaders('policyHolder', policyHolder(primaryCoverage)),
+  'insurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'primary'),
 
   ...coverageReaders('secondaryInsurance', secondaryCoverage),
   ...personReaders('secondaryPolicyHolder', policyHolder(secondaryCoverage)),
+  'secondaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'secondary'),
 
   ...coverageReaders('tertiaryInsurance', tertiaryCoverage),
   ...personReaders('tertiaryPolicyHolder', policyHolder(tertiaryCoverage)),
+  'tertiaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'tertiary'),
 
   ...coverageReaders('quaternaryInsurance', quaternaryCoverage),
   ...personReaders('quaternaryPolicyHolder', policyHolder(quaternaryCoverage)),
+  'quaternaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'quaternary'),
 
   'renderingProvider.ref': (m) => copySourceRef(m.renderingProvider),
   ...providerReaders('renderingProvider', (m) => m.renderingProvider),
@@ -756,7 +761,7 @@ const setCoverageFromPatient = (
 
   const payorRef = copy.payor?.[0]?.reference;
   const payerLabel = coveragePayerDisplay(copy) ?? extractPayerIdFromUrl(payorRef);
-  attachCoverageToClaim({
+  const attachedIsFocal = attachCoverageToClaim({
     claim: model.claim,
     coverageReference: reference,
     type: coverageType,
@@ -766,8 +771,9 @@ const setCoverageFromPatient = (
     display: payerLabel ?? `Coverage/${entry.coverage.id}`,
     payerReference: payorRef,
   });
-  // The insurer carries the payer label alone — never the coverage-reference fallback.
-  if (payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
+  // The insurer carries the payer label alone — never the coverage-reference fallback — and names
+  // the focal payer only, so a coverage attached behind an existing primary leaves it alone.
+  if (attachedIsFocal && payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
   return true;
 };
 
@@ -1191,5 +1197,5 @@ export const WRITABLE_FIELD_IDS: string[] = Object.keys(WRITERS);
 export const writeField = (model: RulesEngineClaimModel, fieldId: string, value: string | null): boolean => {
   const writer = WRITERS[fieldId];
   if (!writer) return false;
-  return writer(model, value);
+  return writer(model, value?.trim() ?? null);
 };

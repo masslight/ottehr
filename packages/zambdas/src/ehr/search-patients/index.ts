@@ -1,5 +1,5 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { APIGatewayProxyResult } from 'aws-lambda';
+import Oystehr, { Bundle, SearchParam } from '@oystehr/sdk';
+import { APIGatewayProxyResult, Context } from 'aws-lambda';
 import { Patient } from 'fhir/r4b';
 import {
   getEmailForIndividual,
@@ -7,7 +7,11 @@ import {
   getPatientFriendlyId,
   getPhoneNumberForIndividual,
 } from 'utils/lib/fhir/patient';
+import { getOptionalSecret, SecretsKeys } from 'utils/lib/secrets';
+import { PATIENT_SEARCH_TOO_BROAD_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { deadlineFromContext, settleByDeadline } from '../../shared/concurrency';
+import { sendWarning } from '../../shared/errors';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -16,6 +20,8 @@ import { SearchPatientsInputValidated, validateRequestParameters } from './valid
 const ZAMBDA_NAME = 'search-patients';
 const DEFAULT_PAGE_SIZE = 15;
 const DEFAULT_OFFSET = 0;
+// Stop waiting for FHIR this long before the Lambda timeout, so a slow search returns an error instead of timing out.
+const RESPONSE_RESERVE_MS = 5_000;
 let m2mToken = '';
 
 export interface SearchPatientsResult {
@@ -36,17 +42,22 @@ export interface SearchPatientsOutput {
   offset: number;
 }
 
-export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  const parameters = validateRequestParameters(input);
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, parameters.secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, parameters.secrets);
-  const output = await performEffect(parameters, oystehr);
-  return { statusCode: 200, body: JSON.stringify(output) };
-});
+export const index = wrapHandler(
+  ZAMBDA_NAME,
+  async (input: ZambdaInput, context?: Context): Promise<APIGatewayProxyResult> => {
+    const deadline = deadlineFromContext(context, RESPONSE_RESERVE_MS);
+    const parameters = validateRequestParameters(input);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, parameters.secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, parameters.secrets);
+    const output = await performEffect(parameters, oystehr, deadline);
+    return { statusCode: 200, body: JSON.stringify(output) };
+  }
+);
 
 export async function performEffect(
   input: SearchPatientsInputValidated,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  deadline?: number
 ): Promise<SearchPatientsOutput> {
   const { name, dateOfBirth, phone, email } = input;
   const offset = input.offset ?? DEFAULT_OFFSET;
@@ -62,7 +73,19 @@ export async function performEffect(
   if (phone) params.push({ name: 'phone', value: phone });
   if (email) params.push({ name: 'email', value: email });
 
-  const bundle = await oystehr.fhir.search<Patient>({ resourceType: 'Patient', params });
+  const startedAt = Date.now();
+  const bundle = await settleByDeadline<Bundle<Patient> | undefined>(
+    oystehr.fhir.search<Patient>({ resourceType: 'Patient', params }),
+    deadline,
+    () => undefined
+  );
+  if (!bundle) {
+    const elapsedMs = Date.now() - startedAt;
+    console.warn(`Patient search gave up after ${elapsedMs} ms`);
+    const env = getOptionalSecret(SecretsKeys.ENVIRONMENT, input.secrets) ?? '';
+    sendWarning('Patient search gave up before the Lambda timeout', env, { elapsedMs });
+    throw PATIENT_SEARCH_TOO_BROAD_ERROR;
+  }
   const patients: SearchPatientsResult[] = bundle.unbundle().map((patient) => ({
     id: patient.id!,
     patientFriendlyId: getPatientFriendlyId(patient) || undefined,

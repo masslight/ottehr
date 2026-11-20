@@ -18,8 +18,8 @@ import { DateTime } from 'luxon';
 import { FC, Fragment, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useSendFax } from 'src/features/fax/hooks/useSendFax';
-import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
+import { useSendDocuments } from 'src/features/send-documents/hooks/useSendDocuments';
+import { SendDocumentsDialog } from 'src/features/send-documents/ui/SendDocumentsDialog';
 import { DATE_FORMAT } from 'src/helpers/formatDateTime';
 import { ReferralForm } from './ReferralForm';
 import { useReferralsQuery } from './referrals.queries';
@@ -40,7 +40,7 @@ export const PatientReferralsTab: FC<PatientReferralsTabProps> = ({ patientId })
   const [expandedId, setExpandedId] = useState<string>();
   // One fax dialog for the tab: a new referral's form is replaced by its row the moment it is saved.
   const [faxReferralId, setFaxReferralId] = useState<string>();
-  const fax = useSendFax(faxReferralId ? { type: 'referral', referralId: faxReferralId } : undefined);
+  const fax = useSendDocuments(faxReferralId ? { type: 'referral', referralId: faxReferralId } : undefined);
   const sendFax = (referralId: string): void => {
     setFaxReferralId(referralId);
     fax.open();
@@ -168,7 +168,7 @@ export const PatientReferralsTab: FC<PatientReferralsTabProps> = ({ patientId })
           />
         </Paper>
       )}
-      <SendFaxDialog controller={fax} title="Send referral" />
+      <SendDocumentsDialog controller={fax} title="Send referral" />
     </Box>
   );
 };

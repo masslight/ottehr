@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, Schedule, Slot } from 'fhir/r4b';
 import { getGroupAssignmentMode } from 'utils/lib/fhir/healthcareService';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ScheduleOwnerFhirResource } from 'utils/lib/types/api/schedules';
 import { checkSlotAvailable, getSlotAtLocationId, getSlotBookedViaGroupId } from 'utils/lib/utils/scheduleUtils';
 import { getGroupMemberPractitionerRoleSchedules } from '../../../shared/fhir';
@@ -83,7 +84,7 @@ export async function tryGroupMemberFallback(
   const candidates = memberPairs.filter((entry) => {
     if (entry.schedule.id === schedule.id) return false;
     const locIds = (entry.role.location ?? [])
-      .map((l) => l.reference?.split('/')[1])
+      .map((l) => getIdFromReference(l.reference))
       .filter((id): id is string => !!id);
     return locIds.includes(originatingLocationId);
   });
@@ -100,7 +101,7 @@ export async function tryGroupMemberFallback(
     if (!isAvailable) continue;
 
     const candidateLocIds = (candidate.role.location ?? [])
-      .map((l) => l.reference?.split('/')[1])
+      .map((l) => getIdFromReference(l.reference))
       .filter((id): id is string => !!id);
     const needsAtLocationStamp = candidateLocIds.length > 1 && !getSlotAtLocationId(slot);
 

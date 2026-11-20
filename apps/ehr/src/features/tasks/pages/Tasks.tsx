@@ -27,22 +27,27 @@ import { RoundedButton } from 'src/components/RoundedButton';
 import { StatusChip } from 'src/components/StatusChip';
 import { useTaskNotes } from 'src/features/patient-notes/hooks/useTaskNotes';
 import {
+  ACTIVE_TASK_STATUSES,
   formatDate,
-  OPEN_DOSESPOT,
   TASKS_PAGE_SIZE,
   useCompleteTask,
   useGetTasks,
+  useMyActiveTaskLocations,
   VIEW_FAX,
 } from 'src/features/visits/in-person/hooks/useTasks';
-import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import PageContainer from 'src/layout/PageContainer';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { FAX_TASK, Task, TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
+import { CompleteSupportChatTaskButton } from '../../support-chat/components/CompleteSupportChatTaskButton';
+import { SupportChatTaskButton } from '../../support-chat/components/SupportChatTaskButton';
 import { TASK_CATEGORY_LABEL } from '../common';
 import { CategoryChip } from '../components/CategoryChip';
 import { CreateTaskDialog } from '../components/CreateTaskDialog';
 import { MoreTaskActions } from '../components/MoreTaskActions';
+import { MyTasksInOtherLocationsHint } from '../components/MyTasksInOtherLocationsHint';
+import { TaskActionButton } from '../components/TaskActionButton';
 import { TaskNotesButton } from '../components/TaskNotesButton';
 import { TaskNotesDialog } from '../components/TaskNotesDialog';
 import { TaskTitle } from '../components/TaskTitle';
@@ -56,6 +61,8 @@ const TASK_STATUS_LABEL: Record<string, string> = {
   'in-progress': 'in progress',
   completed: 'completed',
 };
+// Label -> comma-joined category codes: several codes share a label (e.g. the system and the manual
+// "External Lab" tasks), so each option selects all of them.
 const CATEGORIES: Record<string, string> = Object.entries(TASK_CATEGORY_LABEL).reduce<Record<string, string>>(
   (previousValue, entry) => {
     const category = entry[0];
@@ -70,47 +77,64 @@ const CATEGORIES: Record<string, string> = Object.entries(TASK_CATEGORY_LABEL).r
   {}
 );
 
+/**
+ * The `category` URL param is a flat comma-separated list of category codes, so the options it holds are
+ * the ones it names any code of, kept in the order they were picked. A single-category URL from before the
+ * filter was multi-select reads the same way.
+ */
+const parseCategoryParam = (param: string | null): string[] => {
+  const options = (param ?? '')
+    .split(',')
+    .map((code) => Object.values(CATEGORIES).find((option) => option.split(',').includes(code)))
+    .filter((option): option is string => !!option);
+  return [...new Set(options)];
+};
+
+const parseIdListParam = (param: string | null): { id: string }[] =>
+  (param ?? '')
+    .split(',')
+    .filter(Boolean)
+    .map((id) => ({ id }));
+
+/** A filter's form value as stored in the URL and localStorage: select options by `id`, arrays as lists. */
+const toFilterValue = (value: unknown): string | string[] | undefined => {
+  const toItem = (item: unknown): string | undefined =>
+    (typeof item === 'string' ? item : (item as { id?: string } | null)?.id) || undefined;
+  if (Array.isArray(value)) {
+    const items = value.map(toItem).filter((item): item is string => !!item);
+    return items.length > 0 ? items : undefined;
+  }
+  return toItem(value);
+};
+
+const persistFilters = (values: Record<string, unknown>): URLSearchParams => {
+  const queryParams = new URLSearchParams();
+  const filtersToPersist: Record<string, string | string[]> = {};
+  for (const key in values) {
+    const value = toFilterValue(values[key]);
+    if (value) {
+      queryParams.set(key, Array.isArray(value) ? value.join(',') : value);
+      filtersToPersist[key] = value;
+    }
+  }
+  localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
+  return queryParams;
+};
+
 export const Tasks: React.FC = () => {
   const navigate = useNavigate();
-  const { mutateAsync: completeTask } = useCompleteTask();
+  const { mutateAsync: completeTask, isPending: isCompleting, variables: completingTask } = useCompleteTask();
   const currentUser = useEvolveUser();
-  const currentUserProviderId = currentUser?.profile?.split('/')[1];
-  const { oystehr } = useApiClients();
-
-  const renderActionButton = (task: Task): ReactElement | null => {
-    // Completed tasks normally have no action, except read-only "View" actions (e.g. a completed
-    // inbound fax, where the PDF can still be opened) which fall through to the generic button.
-    if (task.status === COMPLETED && task.action?.name !== VIEW_FAX) {
-      return null;
-    }
-    if (task.action) {
-      if (task.action.name === OPEN_DOSESPOT) {
-        return (
-          <RoundedButton
-            variant="contained"
-            onClick={async () => {
-              if (!oystehr) {
-                return;
-              }
-              const { ssoLink } = await oystehr.erx.connectPractitioner();
-              window.open(ssoLink, '_blank');
-            }}
-          >
-            {task.action.name}
-          </RoundedButton>
-        );
-      }
-      return (
-        <RoundedButton variant="contained" onClick={() => window.open(task.action?.link, '_blank')}>
-          {task.action.name}
-        </RoundedButton>
-      );
-    }
-    return null;
-  };
+  const currentUserProviderId = getIdFromReference(currentUser?.profile);
 
   const renderCompleteButton = (task: Task): ReactElement | null => {
     if (task.status !== COMPLETED && currentUserProviderId === task.assignee?.id && task.completable) {
+      if (task.chat) {
+        return <CompleteSupportChatTaskButton task={task} />;
+      }
+
+      const isCompletingTask = isCompleting && completingTask?.taskId === task.id;
+
       const complete = async (): Promise<void> => {
         try {
           await completeTask({ taskId: task.id });
@@ -120,6 +144,7 @@ export const Tasks: React.FC = () => {
           });
         }
       };
+
       // A completed fax can no longer be filed or deleted, so completing an unfiled one is confirmed first.
       if (task.category === FAX_TASK.category && task.action?.name !== VIEW_FAX) {
         return (
@@ -128,10 +153,10 @@ export const Tasks: React.FC = () => {
             title="Complete without filing?"
             description="This fax hasn't been filed to a patient's chart. Once the task is completed, the fax can no longer be filed or deleted."
             response={complete}
-            actionButtons={{ proceed: { text: 'Complete' }, back: { text: 'Cancel' } }}
+            actionButtons={{ proceed: { text: 'Complete', loading: isCompletingTask }, back: { text: 'Cancel' } }}
           >
             {(showDialog) => (
-              <RoundedButton variant="contained" onClick={showDialog}>
+              <RoundedButton variant="contained" onClick={showDialog} loading={isCompletingTask}>
                 Complete
               </RoundedButton>
             )}
@@ -139,7 +164,7 @@ export const Tasks: React.FC = () => {
         );
       }
       return (
-        <RoundedButton variant="contained" onClick={complete}>
+        <RoundedButton variant="contained" onClick={complete} loading={isCompletingTask}>
           Complete
         </RoundedButton>
       );
@@ -157,12 +182,8 @@ export const Tasks: React.FC = () => {
             id: searchParams.get('assignedTo'),
           }
         : null,
-      category: searchParams.get('category'),
-      location: searchParams.get('location')
-        ? {
-            id: searchParams.get('location'),
-          }
-        : null,
+      category: parseCategoryParam(searchParams.get('category')),
+      location: parseIdListParam(searchParams.get('location')),
       status: searchParams.get('status')?.split(','),
     };
     methods.reset(filtersValues);
@@ -174,26 +195,7 @@ export const Tasks: React.FC = () => {
         values: true,
       },
       callback: ({ values }) => {
-        const queryParams = new URLSearchParams();
-        const filtersToPersist: Record<string, string | string[]> = {};
-        for (const key in values) {
-          const value = values[key]?.id ?? values[key];
-          if (value) {
-            if (!Array.isArray(value)) {
-              queryParams.set(key, value);
-              filtersToPersist[key] = value;
-            } else if (value.length > 0) {
-              queryParams.set(key, value.join(','));
-              filtersToPersist[key] = value;
-            }
-          }
-        }
-        setSearchParams(queryParams);
-        if (Object.keys(filtersToPersist).length > 0) {
-          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify(filtersToPersist));
-        } else {
-          localStorage.setItem(LOCAL_STORAGE_FILTERS_KEY, JSON.stringify({}));
-        }
+        setSearchParams(persistFilters(values));
       },
     });
     return () => callback();
@@ -212,7 +214,7 @@ export const Tasks: React.FC = () => {
     }
     if (searchParams.size === 0 && persistedFilters == null) {
       const queryParams = new URLSearchParams();
-      queryParams.set('status', 'ready,in-progress');
+      queryParams.set('status', ACTIVE_TASK_STATUSES.join(','));
       setSearchParams(queryParams);
     }
   }, [searchParams, setSearchParams]);
@@ -254,6 +256,17 @@ export const Tasks: React.FC = () => {
   }, [taskNotes]);
   const [notesTaskId, setNotesTaskId] = useState<string | undefined>();
 
+  const myActiveTaskLocations = useMyActiveTaskLocations(currentUserProviderId);
+  const selectedLocationIds = searchParams.get('location')?.split(',') ?? [];
+  const myTasksInOtherLocations = myActiveTaskLocations.filter(
+    (location) => !selectedLocationIds.includes(location.id)
+  );
+  const showMyTasksInLocation = (locationId: string): void => {
+    setSearchParams(
+      persistFilters({ location: [locationId], assignedTo: currentUserProviderId, status: ACTIVE_TASK_STATUSES })
+    );
+  };
+
   const [showCreateTaskDialog, setShowCreateTaskDialog] = useState(false);
   const onNewTaskClick = (): void => {
     setShowCreateTaskDialog(true);
@@ -273,11 +286,13 @@ export const Tasks: React.FC = () => {
       <Stack spacing={2}>
         <FormProvider {...methods}>
           <Paper>
-            <Stack direction="row" spacing={2} padding="8px">
-              <LocationSelectInput name="location" label="Location" type="in-person" />
+            <Stack direction="row" alignItems="flex-start" spacing={2} padding="8px">
+              <LocationSelectInput name="location" label="Location" type="in-person" multiple limitTags={2} />
               <SelectInput
                 name="category"
                 label="Category"
+                multiple
+                limitTags={2}
                 options={Object.values(CATEGORIES)}
                 getOptionLabel={(option) =>
                   Object.entries(CATEGORIES).find(([_key, value]) => value === option)?.[0] ?? option
@@ -291,12 +306,20 @@ export const Tasks: React.FC = () => {
                 options={Object.keys(TASK_STATUS_LABEL)}
                 getOptionLabel={(option) => TASK_STATUS_LABEL[option]}
               />
-              <RoundedButton variant="contained" onClick={onNewTaskClick} startIcon={<AddIcon />}>
+              <RoundedButton
+                variant="contained"
+                onClick={onNewTaskClick}
+                startIcon={<AddIcon />}
+                sx={{ flexShrink: 0 }}
+              >
                 New Task
               </RoundedButton>
             </Stack>
           </Paper>
         </FormProvider>
+        {myTasksInOtherLocations.length > 0 && (
+          <MyTasksInOtherLocationsHint locations={myTasksInOtherLocations} onSelect={showMyTasksInLocation} />
+        )}
         <Paper>
           <Box sx={{ position: 'relative' }}>
             {isTasksRefreshing && !isTasksLoading && (
@@ -420,7 +443,8 @@ export const Tasks: React.FC = () => {
                               currentUserId={currentUserProviderId}
                               onOpenNotes={() => setNotesTaskId(task.id)}
                             />
-                            {renderActionButton(task)}
+                            {task.chat && <SupportChatTaskButton task={task} />}
+                            <TaskActionButton task={task} />
                             {renderCompleteButton(task)}
                           </Stack>
                         </TableCell>

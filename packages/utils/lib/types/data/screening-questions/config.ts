@@ -4,6 +4,7 @@ import {
   HistorySourceKeys,
   PATIENT_BREASTFEEDING_STATUS,
   PATIENT_PREGNANCY_STATUS,
+  PATIENT_SEEN_IN_LAST_THREE_YEARS_FIELD,
   PATIENT_VACCINATION_STATUS,
   PatientBreastfeedingKeys,
   PatientPregnancyKeys,
@@ -52,7 +53,7 @@ export const baseScreeningQuestionsConfig: ScreeningQuestionsConfig = {
       id: 'seen_in_last_3_years',
       type: 'radio',
       question: 'Have you been seen by us in the last 3 years?',
-      fhirField: 'seen-in-last-3-years',
+      fhirField: PATIENT_SEEN_IN_LAST_THREE_YEARS_FIELD,
       existsInQuestionnaire: true,
       hideInVirtualPaperwork: true,
       options: [

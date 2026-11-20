@@ -4,6 +4,14 @@ export const adjustTopForBannerHeight = (top: number): number => {
   return import.meta.env.VITE_APP_ENV !== 'production' ? top + BANNER_HEIGHT : top;
 };
 
+/** Height of the sticky navbar, kept up to date by Navbar (0px on pages that hide it). */
+export const NAVBAR_HEIGHT_CSS_VAR = '--navbar-height';
+
+// Keeps react-router's history state (its index and key); replacing it with {} leaves NaN indexes.
+export const replaceUrlKeepingRouterState = (url: string): void => {
+  window.history.replaceState(window.history.state, '', url);
+};
+
 /**
  * Returns a copy of an object with empty string properties and empty object properties removed.
  */

@@ -285,6 +285,27 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       expect(screen.getByRole('button', { name: disabledBtn })).toBeDisabled();
     });
 
+    it('disables "Teleradiology Final Read" with a tooltip while the internal final read has text', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      const textbox = screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL });
+      const teleradiologyBtn = (): HTMLElement =>
+        screen.getByRole('button', { name: TELERADIOLOGY_FINAL_READ_BTN_LABEL });
+
+      await user.type(textbox, '   ');
+      expect(teleradiologyBtn()).toBeEnabled();
+
+      await user.type(textbox, 'Normal');
+      expect(teleradiologyBtn()).toBeDisabled();
+      await user.hover(teleradiologyBtn().parentElement!);
+      expect(
+        await screen.findByRole('tooltip', { name: 'Clear the internal final read report to send to teleradiology.' })
+      ).toBeInTheDocument();
+
+      await user.clear(textbox);
+      expect(teleradiologyBtn()).toBeEnabled();
+    });
+
     it('does not carry an unsaved internal final read over to the next order', async () => {
       const user = userEvent.setup();
       const otherId = 'sr-002';

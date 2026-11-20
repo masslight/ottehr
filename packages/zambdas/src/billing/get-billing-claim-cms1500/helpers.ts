@@ -14,6 +14,7 @@ import {
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { FHIR_IDENTIFIER_CODE_TAX_SS, FHIR_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import { getExtensionValue, getNPI, getTaxID } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   CLAIM_ACCIDENT_STATE_EXTENSION_URL,
   CLAIM_ACCIDENT_TYPE_EXTENSION_URLS,
@@ -42,14 +43,9 @@ import {
   Cms1500ServiceLine,
   Cms1500Sex,
 } from 'utils/lib/types/data/billing/cms1500.types';
+import { RulesEngineInsurance, RulesEngineSubmissionType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { getCLIA } from '../service-facility.helpers';
-import {
-  ClaimGraph,
-  EXTENSION_CLAIM_FREQUENCY_CODE,
-  getClaimPcn,
-  getClaimSupportingInfo,
-  getTaxonomy,
-} from '../shared';
+import { ClaimGraph, getClaimPcn, getClaimSupportingInfo, getTaxonomy } from '../shared';
 
 export interface Cms1500Resources extends ClaimGraph {
   // Payer Organizations keyed by their payer list reference (Claim.insurer, Coverage.payor)
@@ -57,6 +53,9 @@ export interface Cms1500Resources extends ClaimGraph {
   referringProvider?: Practitioner | Organization;
   // What the patient has paid toward the claim's encounter
   patientPaid: number;
+  submissionType?: RulesEngineSubmissionType;
+  submissionInsurance?: RulesEngineInsurance;
+  payerClaimControlNumber?: string;
 }
 
 export const SIGNATURE_ON_FILE = 'SIGNATURE ON FILE';
@@ -99,14 +98,14 @@ const isLabProcedure = (code: string | undefined): boolean =>
 export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormData {
   const { claim, patient, coverages, billingProvider, serviceFacility, renderingProvider, referringProvider } =
     resources;
-  const [primary, other] = coverages;
-  const payer =
-    resources.payers.get(claim.insurer?.reference ?? '') ?? resources.payers.get(primary?.payor?.[0]?.reference ?? '');
+  const coverage = getCoverageForSubmissionParams(resources);
+  const other = coverages.find((cov) => cov.id !== coverage?.id);
+  const payer = resources.payers.get(coverage?.payor?.[0]?.reference ?? '');
   const otherPayer = resources.payers.get(other?.payor?.[0]?.reference ?? '');
-  const insured = subscriberOf(primary, resources);
+  const insured = subscriberOf(coverage, resources);
   const otherInsured = subscriberOf(other, resources);
-  const insuranceType = primary
-    ? INSURANCE_TYPE_BY_PLAN_TYPE[getCoveragePlanType(primary) ?? ''] ?? 'other'
+  const insuranceType = coverage
+    ? INSURANCE_TYPE_BY_PLAN_TYPE[getCoveragePlanType(coverage) ?? ''] ?? 'other'
     : undefined;
   const billingNpi = billingProvider ? getNPI(billingProvider) : undefined;
   const renderingNpi = renderingProvider ? getNPI(renderingProvider) : undefined;
@@ -145,11 +144,12 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
       !lineInformationSequences.has(info.sequence)
   )?.valueString;
   const outsideCharges = getExtensionValue(claim, EXTENSION_OUTSIDE_CHARGES, 'valueMoney')?.value;
-  const frequencyCode = getExtensionValue(claim, EXTENSION_CLAIM_FREQUENCY_CODE, 'valueString');
-  const resubmissionCode =
-    frequencyCode === '7' || frequencyCode === '8'
-      ? frequencyCode
-      : claim.related?.[0]?.relationship?.coding?.[0]?.code;
+  const frequencyCode =
+    !resources.submissionType || resources.submissionType === 'new'
+      ? '1'
+      : resources.submissionType === 'correction'
+      ? '7'
+      : '8';
   const focalInsurance = claim.insurance?.find((entry) => entry.focal) ?? claim.insurance?.[0];
   const clia = serviceFacility ? getCLIA(serviceFacility) : undefined;
   const hasLabProcedure = (claim.item ?? []).some((item) => isLabProcedure(item.productOrService?.coding?.[0]?.code));
@@ -168,29 +168,29 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
   const form: Cms1500FormData = {
     payer: payer ? { name: payer.name, address: toAddress(payer.address?.[0]) } : undefined,
     insuranceType,
-    insuredId: primary?.subscriberId,
+    insuredId: coverage?.subscriberId,
     patientName: toPersonName(patient?.name?.[0]),
     patientBirthDate: patient?.birthDate,
     patientSex: toSex(patient?.gender),
     patientAddress: toAddress(patient?.address?.[0]),
     patientPhone: phoneOf(patient?.telecom),
-    patientRelationshipToInsured: primary ? toRelationship(primary.relationship?.coding?.[0]?.code) : undefined,
+    patientRelationshipToInsured: coverage ? toRelationship(coverage.relationship?.coding?.[0]?.code) : undefined,
     insuredName: toPersonName(insured?.name?.[0]),
     insuredAddress: toAddress(insured?.address?.[0]),
     insuredPhone: phoneOf(insured?.telecom),
     insuredBirthDate: insured?.birthDate,
     insuredSex: toSex(insured?.gender),
     // Medicare asks for NONE when there is no insurance primary to Medicare.
-    insuredPolicyGroupNumber:
-      coverageClass(primary, 'group')?.value ?? (insuranceType === 'medicare' ? 'NONE' : undefined),
-    insuredPlanName: planName(primary, payer),
+    insuredPolicyGroupNumber: coverage?.class?.[0]?.value ?? (insuranceType === 'medicare' ? 'NONE' : undefined),
+    insuredPlanName: planName(coverage, payer),
     otherClaimId: claimIdentifier(claim),
-    anotherHealthBenefitPlan: primary ? !!other : undefined,
+    anotherHealthBenefitPlan: coverage ? !!other : undefined,
     otherInsuredName: other ? toPersonName(otherInsured?.name?.[0]) : undefined,
-    otherInsuredPolicyOrGroupNumber: other ? coverageClass(other, 'group')?.value ?? other.subscriberId : undefined,
+    // Prefer policy number to group number for other insured
+    otherInsuredPolicyOrGroupNumber: other ? other.subscriberId ?? other?.class?.[0]?.value : undefined,
     otherInsuredPlanName: other ? planName(other, otherPayer) : undefined,
     conditionRelatedTo: {
-      employment: accidentTypes.includes('employment') || getCoveragePlanType(primary) === 'WC',
+      employment: accidentTypes.includes('employment') || getCoveragePlanType(coverage) === 'WC',
       autoAccident: accidentTypes.includes('auto'),
       autoAccidentState: getExtensionValue(claim, CLAIM_ACCIDENT_STATE_EXTENSION_URL, 'valueString'),
       otherAccident: accidentTypes.includes('other'),
@@ -239,12 +239,13 @@ export function buildCms1500FormData(resources: Cms1500Resources): Cms1500FormDa
     diagnosisCodes: diagnoses
       .map((diagnosis) => diagnosis.diagnosisCodeableConcept?.coding?.[0]?.code)
       .filter((code): code is string => !!code),
-    resubmission: resubmissionCode
-      ? {
-          code: resubmissionCode,
-          originalReferenceNumber: claim.related?.[0]?.reference?.value ?? claim.related?.[0]?.claim?.identifier?.value,
-        }
-      : undefined,
+    resubmission:
+      frequencyCode !== '1'
+        ? {
+            code: frequencyCode,
+            originalReferenceNumber: resources.payerClaimControlNumber,
+          }
+        : undefined,
     priorAuthorizationNumber: focalInsurance?.preAuthRef?.[0] ?? (hasLabProcedure ? clia : undefined),
     serviceLines: [...(claim.item ?? [])]
       .sort((a, b) => a.sequence - b.sequence)
@@ -397,4 +398,25 @@ function toRelationship(code: string | undefined): Cms1500Relationship {
 
 function phoneOf(telecom: ContactPoint[] | undefined): string | undefined {
   return telecom?.find((contact) => contact.system === 'phone' && contact.value)?.value;
+}
+
+function getCoverageForSubmissionParams(resources: Cms1500Resources): Coverage | undefined {
+  let sequence: number;
+  switch (resources.submissionInsurance) {
+    case 'quaternary':
+      sequence = 4;
+      break;
+    case 'tertiary':
+      sequence = 3;
+      break;
+    case 'secondary':
+      sequence = 2;
+      break;
+    case 'primary':
+    default:
+      sequence = 1;
+      break;
+  }
+  const covRef = resources.claim.insurance.find((ins) => ins.sequence === sequence)?.coverage?.reference;
+  return resources.coverages.find((cov) => cov.id === getIdFromReference(covRef));
 }

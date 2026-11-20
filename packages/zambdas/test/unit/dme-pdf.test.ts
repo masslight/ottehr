@@ -1,9 +1,14 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, DeviceRequest, Patient, Practitioner } from 'fhir/r4b';
-import { PDFDocument } from 'pdf-lib';
+import { Address, Coverage, DeviceRequest, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
+import { PDFDocument, PDFPage } from 'pdf-lib';
 import { FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { DmeOrderFields, DmeOrderFieldsSchema } from 'utils/lib/types/api/dme.types';
 import { describe, expect, it, vi } from 'vitest';
+import { makeDmeOrderFormVersion } from '../../src/ehr/dme/get-dme-order-pdf/helpers';
+import {
+  makeRadiologyOrderFormSourceVersion,
+  OrderFormSource,
+} from '../../src/ehr/radiology/shared/order-form-resources';
 import { makeDmeDeviceRequest, makeDmeDispensedExtension, parseDmeOrder } from '../../src/shared/dme';
 import { getEncounterDmeOrders } from '../../src/shared/pdf/assemble-progress-note-input';
 import {
@@ -159,14 +164,75 @@ describe('DME order form PDF', () => {
   const oystehr = {
     fhir: { formatAddress: (address: Address) => [...(address.line ?? []), address.city].join(', ') },
   } as unknown as DmeOrderFormInput['oystehr'];
-  const makeInput = (deviceRequest: DeviceRequest): DmeOrderFormInput => ({
+  const parent: RelatedPerson = {
+    resourceType: 'RelatedPerson',
+    id: 'coverageSubscriber',
+    patient: { reference: 'Patient/patient-1' },
+    name: [{ given: ['Emma'], family: 'Black' }],
+    birthDate: '1965-03-09',
+    address: [{ line: ['40 Oak Ln'], city: 'Chicago' }],
+  };
+  const coverage = (planName: string, memberId: string, relationship: string): Coverage => ({
+    resourceType: 'Coverage',
+    status: 'active',
+    beneficiary: { reference: 'Patient/patient-1' },
+    payor: [{ reference: 'Organization/payer-1' }],
+    subscriberId: memberId,
+    relationship: { coding: [{ code: relationship.toLowerCase(), display: relationship }] },
+    class: [
+      {
+        type: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/coverage-class', code: 'plan' }] },
+        value: '60054',
+        name: planName,
+      },
+    ],
+  });
+  const twoCoverages: DmeOrderFormInput['coverages'] = {
+    primary: coverage('Blue Cross', 'BC-123', 'Self'),
+    primarySubscriber: patient as unknown as RelatedPerson,
+    secondary: coverage('My Health', 'MH-555', 'Child'),
+    secondarySubscriber: parent,
+  };
+  const location: Location = {
+    resourceType: 'Location',
+    name: 'Downtown Clinic',
+    address: { line: ['5 Clinic Ave'] },
+    telecom: [
+      { system: 'phone', value: '(123) 456-7815' },
+      { system: 'fax', value: '(098) 765-4321' },
+    ],
+  };
+  const makeInput = (deviceRequest: DeviceRequest, overrides: Partial<DmeOrderFormInput> = {}): DmeOrderFormInput => ({
     deviceRequest,
     patient,
     practitioners,
-    location: { resourceType: 'Location', name: 'Downtown Clinic', address: { line: ['5 Clinic Ave'] } },
+    location,
     timezone: 'America/New_York',
+    coverages: {},
     oystehr,
+    ...overrides,
   });
+
+  type DrawnText = { text: string; x: number; y: number; page: PDFPage };
+  const drawnText = async (input: DmeOrderFormInput): Promise<DrawnText[]> => {
+    const drawText = vi.spyOn(PDFPage.prototype, 'drawText');
+    try {
+      await createDmeOrderFormPdfBytes(input, '');
+      return drawText.mock.calls.map(([text, options], index) => ({
+        text: text.trimEnd(),
+        x: options?.x ?? 0,
+        y: options?.y ?? 0,
+        page: drawText.mock.contexts[index] as PDFPage,
+      }));
+    } finally {
+      drawText.mockRestore();
+    }
+  };
+  const find = (drawn: DrawnText[], text: string): DrawnText => {
+    const line = drawn.find((entry) => entry.text === text);
+    expect(line, `"${text}" was not drawn`).toBeDefined();
+    return line!;
+  };
 
   it('composes an in-house dispensed order with proof of delivery and no third party', () => {
     const data = composeDmeOrderFormData(makeInput(makeDeviceRequest(inHouseFields, true)));
@@ -209,6 +275,121 @@ describe('DME order form PDF', () => {
     expect(data.order.dispensed).toBeUndefined();
   });
 
+  it('lists both insurances with their subscribers, primary first', () => {
+    const data = composeDmeOrderFormData(makeInput(makeDeviceRequest(inHouseFields), { coverages: twoCoverages }));
+    expect(data.insurance).toEqual({
+      billClass: 'Third-Party Bill (T)',
+      coverages: [
+        {
+          rank: 'Primary',
+          name: 'Blue Cross',
+          subscriberNumber: 'BC-123',
+          subscriberName: 'Black, Oliver',
+          subscriberDob: '01/01/1990',
+          relationship: 'Self',
+          address: '12 Main St, Springfield',
+        },
+        {
+          rank: 'Secondary',
+          name: 'My Health',
+          subscriberNumber: 'MH-555',
+          subscriberName: 'Black, Emma',
+          subscriberDob: '03/09/1965',
+          relationship: 'Child',
+          address: '40 Oak Ln, Chicago',
+        },
+      ],
+    });
+  });
+
+  it('bills the patient when they have no insurance', () => {
+    const data = composeDmeOrderFormData(makeInput(makeDeviceRequest(inHouseFields)));
+    expect(data.insurance).toEqual({ billClass: 'Patient Bill (P)', coverages: [] });
+  });
+
+  it('bills a third party when the only insurance left is the secondary', () => {
+    const { secondary, secondarySubscriber } = twoCoverages;
+    const data = composeDmeOrderFormData(
+      makeInput(makeDeviceRequest(inHouseFields), { coverages: { secondary, secondarySubscriber } })
+    );
+    expect(data.insurance.billClass).toBe('Third-Party Bill (T)');
+    expect(data.insurance.coverages.map((coverage) => coverage.rank)).toEqual(['Secondary']);
+  });
+
+  it("carries the ordering provider's credentials", () => {
+    const data = composeDmeOrderFormData(
+      makeInput(makeDeviceRequest(inHouseFields), {
+        practitioners: [{ ...practitioners[0], name: [{ given: ['Jane'], family: 'Doe', suffix: ['MD'] }] }],
+      })
+    );
+    expect(data.orderingProvider.credentials).toBe('MD');
+  });
+
+  it('asks for results by fax under the clinic phone and signs with the credentials beside the name', async () => {
+    const drawn = await drawnText(
+      makeInput(makeDeviceRequest(inHouseFields), {
+        practitioners: [{ ...practitioners[0], name: [{ given: ['Jane'], family: 'Doe', suffix: ['MD'] }] }],
+      })
+    );
+
+    const phone = find(drawn, 'Phone: (123) 456-7815');
+    const faxLabel = find(drawn, 'Please fax results to:');
+    const faxNumber = find(drawn, '(098) 765-4321');
+    expect(faxLabel.y).toBeLessThan(phone.y);
+    expect(faxNumber.y).toBeLessThan(faxLabel.y);
+    expect(drawn.map((entry) => entry.text)).not.toContain('Fax: (098) 765-4321');
+
+    const signature = find(drawn, 'Jane Doe');
+    const credentials = find(drawn, ', MD');
+    expect(credentials.y).toBe(signature.y);
+    expect(credentials.x).toBeGreaterThan(signature.x);
+  });
+
+  it('leaves the same room under the signature whether or not it carries credentials', async () => {
+    const roomUnderSignature = async (suffix?: string[]): Promise<number> => {
+      const drawn = await drawnText(
+        makeInput(makeDeviceRequest(inHouseFields), {
+          practitioners: [{ ...practitioners[0], name: [{ given: ['Jane'], family: 'Doe', suffix }] }],
+        })
+      );
+      return find(drawn, 'Jane Doe').y - find(drawn, 'Provider Signature').y;
+    };
+
+    expect(await roomUnderSignature(['MD'])).toBe(await roomUnderSignature());
+  });
+
+  it('draws each insurance as a column in the order of the design, primary on the left', async () => {
+    const drawn = await drawnText(makeInput(makeDeviceRequest(inHouseFields), { coverages: twoCoverages }));
+    const fieldLabels = [
+      'Subscriber Number:',
+      'Subscriber Name:',
+      'Subscriber DOB:',
+      'Relation to Subscriber:',
+      'Address:',
+    ];
+    const column = (heading: string): { x: number; y: number }[] => {
+      const top = find(drawn, heading);
+      const fields = fieldLabels.map((label) => drawn.find((entry) => entry.text === label && entry.x === top.x)!);
+      return [top, ...fields];
+    };
+    const descending = (positions: { y: number }[]): void =>
+      expect(positions.map(({ y }) => y)).toEqual(positions.map(({ y }) => y).sort((a, b) => b - a));
+
+    const primary = column('Primary Insurance Name:');
+    const secondary = column('Secondary Insurance Name:');
+    descending([find(drawn, 'Bill Class:'), ...primary]);
+    descending(secondary);
+    expect(secondary[0].y).toBe(primary[0].y);
+    expect(secondary[0].x).toBeGreaterThan(primary[0].x);
+  });
+
+  it('keeps an external order with two insurances on one page', async () => {
+    const doc = await PDFDocument.load(
+      await createDmeOrderFormPdfBytes(makeInput(makeDeviceRequest(externalFields), { coverages: twoCoverages }), '')
+    );
+    expect(doc.getPageCount()).toBe(1);
+  });
+
   it.each([
     ['in-house', makeDeviceRequest(inHouseFields, true)],
     ['pending in-house', makeDeviceRequest(inHouseFields)],
@@ -216,5 +397,50 @@ describe('DME order form PDF', () => {
   ])('renders the %s order form onto one page', async (_label, deviceRequest) => {
     const doc = await PDFDocument.load(await createDmeOrderFormPdfBytes(makeInput(deviceRequest), ''));
     expect(doc.getPageCount()).toBe(1);
+  });
+
+  it('keeps the provider signature together when a long provider name wraps', async () => {
+    const family = 'Featherstonehaugh Montgomery Wellington Smythe Ashworth Blackwood Carrington Davenport Ellsworth';
+    const drawn = await drawnText(
+      makeInput(makeDeviceRequest(inHouseFields, true), {
+        coverages: twoCoverages,
+        practitioners: [{ ...practitioners[0], name: [{ given: ['Jane'], family, suffix: ['MD'] }] }],
+      })
+    );
+    const pageOf = (text: string): PDFPage => find(drawn, text).page;
+    const credentialsIndex = drawn.findIndex((entry) => entry.text === ', MD');
+    const lastSignatureLine = drawn[credentialsIndex - 1];
+
+    expect(pageOf('Provider Signature')).toBe(pageOf('Ordering Provider:'));
+    expect(lastSignatureLine.text).not.toBe(`Jane ${family}`);
+    expect(drawn[credentialsIndex].y).toBe(lastSignatureLine.y);
+    expect(drawn[credentialsIndex].x).toBeGreaterThan(lastSignatureLine.x);
+  });
+
+  it('moves the proof of delivery to the next page whole rather than splitting it', async () => {
+    const drawn = await drawnText(makeInput(makeDeviceRequest(inHouseFields, true), { coverages: twoCoverages }));
+    const pageOf = (text: string): PDFPage => find(drawn, text).page;
+
+    expect(new Set(drawn.map((entry) => entry.page)).size).toBe(2);
+    expect(pageOf('Provider Signature')).toBe(pageOf('Ordering Provider:'));
+    expect(pageOf('Proof of Delivery:')).not.toBe(pageOf('Ordering Provider:'));
+    expect(pageOf('Date:')).toBe(pageOf('Proof of Delivery:'));
+  });
+});
+
+describe('DME order form version', () => {
+  const sources: OrderFormSource[] = [
+    { resourceType: 'DeviceRequest', id: 'device-request-1', meta: { versionId: '3' } },
+    { resourceType: 'Coverage', id: 'coverage-1', meta: { versionId: '1' } },
+  ];
+
+  it('differs from what forms of the earlier layout were stamped with, so they are drawn again', () => {
+    const version = makeDmeOrderFormVersion(sources);
+    expect(version).toBeDefined();
+    expect(version).not.toBe(makeRadiologyOrderFormSourceVersion(sources));
+  });
+
+  it('is undefined while a source is unversioned', () => {
+    expect(makeDmeOrderFormVersion([...sources, { resourceType: 'Account', id: 'account-1' }])).toBeUndefined();
   });
 });

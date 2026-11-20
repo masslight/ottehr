@@ -18,13 +18,13 @@ import RecentPatients from 'src/pages/reports/RecentPatients';
 import VisitsOverview from 'src/pages/reports/VisitsOverview';
 import { setupSentry } from 'utils/lib/frontend/configurations/sentry';
 import { parseCommaSeparatedTags } from 'utils/lib/helpers/parseCommaSeparatedTags';
-import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import Banner from './components/Banner';
 import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteCreateTask } from './components/CommandPaletteCreateTask';
 import { CommandPalettePhraseDialog } from './components/CommandPalettePhraseDialog';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
+import { CommandPaletteUploadDocument } from './components/CommandPaletteUploadDocument';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
@@ -32,7 +32,7 @@ import { ProtectedRoute } from './components/routing/ProtectedRoute';
 import { TestErrorPage } from './components/TestErrorPage';
 import { FEATURE_FLAGS } from './constants/feature-flags';
 import { CustomThemeProvider } from './CustomThemeProvider';
-import { DEFAULT_BILLING_PATH } from './features/admin/adminNav';
+import { DEFAULT_BILLING_PATH, resolveAccessibleAdminNavGroups } from './features/admin/adminNav';
 import {
   BILLING_URL,
   CHARGE_MASTERS_URL,
@@ -95,6 +95,7 @@ import Reports from './pages/Reports';
 import SchedulePage from './pages/SchedulePage';
 import TaskAdmin from './pages/TaskAdmin';
 import VisitDetailsPage from './pages/VisitDetailsPage';
+import { useOttehrBillingInvoicingInEhr } from './rcm/state/invoice-config/invoice-config.queries';
 import { useNavStore } from './state/nav.store';
 
 const { VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_TAGS } = import.meta.env;
@@ -117,6 +118,7 @@ export const showEnvironmentBanner = import.meta.env.VITE_APP_ENV !== 'productio
 function App(): ReactElement {
   useApiClients();
   const currentUser = useEvolveUser();
+  const ottehrBillingInvoicingInEhr = useOttehrBillingInvoicingInEhr();
   const currentTab = useNavStore((state) => state.currentTab) || 'Tracking Board';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -229,7 +231,7 @@ function App(): ReactElement {
                     element={<InvoiceablePatientsReportPage source="candid" />}
                   />
                 )}
-                {FEATURE_FLAGS.OTTEHR_BILLING_INVOICING_ENABLED && (
+                {ottehrBillingInvoicingInEhr && (
                   <Route
                     path="/reports/invoiceable-patients-billing"
                     element={<InvoiceablePatientsReportPage source="ottehr-billing" />}
@@ -330,10 +332,11 @@ function App(): ReactElement {
                 <Route path="/patients" element={<PatientsPage />} />
                 <Route path="/patients/add" element={<AddPatient key="patient-only" patientOnly />} />
 
-                {currentUser.hasRole(GLOBAL_ACTION_LOG_VIEWER_ROLES) && (
+                {resolveAccessibleAdminNavGroups(currentUser.hasRole, ottehrBillingInvoicingInEhr).length > 0 && (
                   <Route element={<AdminLayout />}>
                     <Route path="/admin" element={<AdminPage />} />
                     <Route path="/admin/:adminTab" element={<AdminPage />} />
+                    <Route path="/admin/medication/:medication-id" element={<UpdateMedicationPage />} />
                   </Route>
                 )}
 
@@ -354,6 +357,7 @@ function App(): ReactElement {
         <CommandPaletteRegistrations />
         <CommandPalette />
         <CommandPaletteCreateTask />
+        <CommandPaletteUploadDocument />
         <CommandPalettePhraseDialog />
         <SnackbarProvider
           maxSnack={5}

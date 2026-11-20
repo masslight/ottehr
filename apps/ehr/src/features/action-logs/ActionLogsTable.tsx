@@ -15,6 +15,7 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
@@ -25,6 +26,7 @@ import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import {
   ACTION_LOGS_PAGE_SIZE,
   ActionLogChannel,
+  ActionLogLinkOpen,
   ActionLogStatus,
   GetActionLogsOutput,
 } from 'utils/lib/types/api/action-logs.types';
@@ -36,6 +38,8 @@ import { MappedStatusChip, Mapper } from '../../components/MappedStatusChip';
 import { useApiClients } from '../../hooks/useAppClients';
 import { ACTION_LOG_CHANNEL_COPY, actionLogsQueryKey } from './actionLogs.constants';
 import { RetryActionButton } from './RetryActionButton';
+import { RevokeActionButton } from './RevokeActionButton';
+import { describeBrowser } from './userAgent';
 
 const ACTION_STATUS_COLORS_MAP: Mapper<ActionLogStatus> = {
   sent: {
@@ -50,6 +54,66 @@ const ACTION_STATUS_COLORS_MAP: Mapper<ActionLogStatus> = {
     background: { primary: otherColors.outreachInfoBg },
     color: { primary: palette.info.dark },
   },
+  revoked: {
+    background: { primary: otherColors.outreachInfoBg },
+    color: { primary: palette.secondary.dark },
+  },
+};
+
+const OPENED_AT_FORMAT = 'MM/dd/yyyy hh:mm a';
+
+const formatOpenedAt = (open: ActionLogLinkOpen): string =>
+  formatDateConfigurable({ isoDate: open.openedAt, format: OPENED_AT_FORMAT }) ?? '-';
+
+const formatBrowser = (open: ActionLogLinkOpen): string =>
+  open.userAgent ? describeBrowser(open.userAgent) ?? 'Unknown browser' : '-';
+
+/** The latest open of an emailed document link, with the earlier ones behind a tooltip. */
+const LinkOpenCells: FC<{ opens?: ActionLogLinkOpen[] }> = ({ opens }) => {
+  const [latest, ...earlier] = opens ?? [];
+  if (!latest) {
+    return (
+      <>
+        <TableCell>{opens ? 'Not opened' : '-'}</TableCell>
+        <TableCell>-</TableCell>
+        <TableCell>-</TableCell>
+      </>
+    );
+  }
+  return (
+    <>
+      <TableCell>
+        <Typography variant="body2">{formatOpenedAt(latest)}</Typography>
+        {earlier.length > 0 && (
+          <Tooltip
+            title={
+              <Box>
+                {earlier.map((open) => (
+                  <Typography key={open.openedAt} variant="caption" component="div">
+                    {formatOpenedAt(open)} · {open.ipAddress ?? '-'} · {formatBrowser(open)}
+                  </Typography>
+                ))}
+              </Box>
+            }
+          >
+            <Typography variant="caption" color="text.secondary" tabIndex={0}>
+              +{earlier.length} earlier
+            </Typography>
+          </Tooltip>
+        )}
+      </TableCell>
+      <TableCell>{latest.ipAddress ?? '-'}</TableCell>
+      <TableCell>
+        {latest.userAgent ? (
+          <Tooltip title={latest.userAgent}>
+            <span tabIndex={0}>{formatBrowser(latest)}</span>
+          </Tooltip>
+        ) : (
+          '-'
+        )}
+      </TableCell>
+    </>
+  );
 };
 
 interface ActionLogsTableProps {
@@ -122,7 +186,8 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
   const logs = visitIdIsInvalid ? [] : actionLogs?.logs ?? [];
   const totalCount = visitIdIsInvalid ? 0 : actionLogs?.totalCount ?? 0;
   const showLoading = isFetching && !visitIdIsInvalid;
-  const columnsCount = (patientId ? 5 : 6) + (channelCopy.senderAddressLabel ? 1 : 0);
+  const showOpens = channel === 'email';
+  const columnsCount = (patientId ? 5 : 6) + (channelCopy.senderAddressLabel ? 1 : 0) + (showOpens ? 3 : 0);
 
   const renderSearchField = (
     label: string,
@@ -203,6 +268,13 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
             <TableCell>Recipient</TableCell>
             <TableCell>{channelCopy.recipientAddressLabel}</TableCell>
             {channelCopy.senderAddressLabel && <TableCell>{channelCopy.senderAddressLabel}</TableCell>}
+            {showOpens && (
+              <>
+                <TableCell>Opened</TableCell>
+                <TableCell>IP Address</TableCell>
+                <TableCell>Browser</TableCell>
+              </>
+            )}
             <TableCell>Status</TableCell>
           </TableRow>
         </TableHead>
@@ -263,10 +335,12 @@ export const ActionLogsTable: FC<ActionLogsTableProps> = ({ patientId, channel }
                 {channelCopy.senderAddressLabel && (
                   <TableCell>{log.senderAddress ? formatPhoneNumberDisplay(log.senderAddress) : '-'}</TableCell>
                 )}
+                {showOpens && <LinkOpenCells opens={log.opens} />}
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <MappedStatusChip status={log.status} mapper={ACTION_STATUS_COLORS_MAP} />
                     {log.canRetry && <RetryActionButton log={log} onResent={() => void refetch()} />}
+                    {log.canRevoke && <RevokeActionButton log={log} onRevoked={() => void refetch()} />}
                   </Box>
                 </TableCell>
               </TableRow>

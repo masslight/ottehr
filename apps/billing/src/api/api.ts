@@ -1,15 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { apiErrorToThrow, chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { InvoiceConfigResponse, SaveInvoiceConfigInput } from 'utils/lib/types/api/invoice-config.types';
+import { RefundPatientPaymentResponse, VoidPatientPaymentResponse } from 'utils/lib/types/api/patient-payment-types';
+import {
+  NotificationsTimeRestriction,
+  OutreachAction,
+  OutreachConfigResponse,
+} from 'utils/lib/types/api/scheduled-outreach.types';
 import { CREATE_TIMELY_FILING_REPORT_ZAMBDA, RefreshReportKind } from 'utils/lib/types/data/billing/billing.constants';
 import {
   AddClaimAttachmentInputSchema,
   AddClaimNoteInputSchema,
   AddClaimWriteOffInputSchema,
   AddEraAttachmentInputSchema,
+  BillingInvoiceStatementInputSchema,
+  BillingOutreachTaskInputSchema,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
+  CreateBillingInvoiceInputSchema,
+  CreateBillingNioInvoiceInputSchema,
   CreateBillingPatientInputSchema,
   CreateBillingProviderInputSchema,
   CreateChargeItemDefinitionInputSchema,
@@ -27,6 +37,8 @@ import {
   ExportClaimX12InputSchema,
   GetBillingClaimsExportStatusInputSchema,
   GetBillingCoverageInputSchema,
+  GetBillingInvoiceRecipientInputSchema,
+  GetBillingPatientAccountPaymentInputSchema,
   GetBillingPatientBalanceInputSchema,
   GetBillingPaymentsReportDrilldownInputSchema,
   GetBillingProviderInputSchema,
@@ -39,10 +51,16 @@ import {
   GetPatientDetailInputSchema,
   GetServiceFacilityInputSchema,
   ImportEraInputSchema,
+  ListBillingOutreachTasksInputSchema,
+  ListBillingPatientAccountPaymentsInputSchema,
+  ListBillingPatientPaymentMethodsInputSchema,
   MatchClaimResponseToClaimInputSchema,
   NetCollectionsDrilldownParamsSchema,
   PatientPaymentsDrilldownParamsSchema,
+  PostBillingPatientPaymentInputSchema,
+  PreviewBillingNioInvoiceInputSchema,
   RecordBillingManualPaymentInputSchema,
+  RefundBillingPatientPaymentInputSchema,
   RenameClaimAttachmentInputSchema,
   RenameEraAttachmentInputSchema,
   ReportDateWindowParams,
@@ -51,6 +69,7 @@ import {
   SaveServiceFacilityInputSchema,
   SearchBillingClaimsInputSchema,
   SearchBillingClaimTasksInputSchema,
+  SearchBillingInvoicesInputSchema,
   SearchBillingLocationsInputSchema,
   SearchBillingPatientARClaimsInputSchema,
   SearchBillingPatientsInputSchema,
@@ -68,6 +87,7 @@ import {
   UpdateBillingProviderInputSchema,
   UpdateBillingResourceInputSchema,
   UpdateChargeItemDefinitionInputSchema,
+  VoidBillingPatientPaymentInputSchema,
   VoidClaimWriteOffInputSchema,
   VoidEraInputSchema,
 } from 'utils/lib/types/data/billing/billing.schemas';
@@ -79,7 +99,10 @@ import {
   BillingClaimsExportStatusResponse,
   BillingCodeOption,
   BillingProviderOption,
+  CheckBillingNioInvoiceResponse,
   ClaimDetailResponse,
+  CreateBillingInvoiceResponse,
+  CreateBillingNioInvoiceResponse,
   CreatedClaimResponse,
   CreatedResourceResponse,
   CreateTimelyFilingReportResponse,
@@ -90,9 +113,12 @@ import {
   ExportClaimX12Response,
   GetBillingCardsOnFileReportResponse,
   GetBillingCoverageResponse,
+  GetBillingInvoiceRecipientResponse,
   GetBillingInvoiceReportResponse,
+  GetBillingInvoiceStatementResponse,
   GetBillingNetCollectionsDrilldownResponse,
   GetBillingNetCollectionsReportResponse,
+  GetBillingPatientAccountPaymentResponse,
   GetBillingPatientBalanceResponse,
   GetBillingPatientPaymentsDrilldownResponse,
   GetBillingPatientPaymentsReportResponse,
@@ -102,14 +128,19 @@ import {
   GetBillingProductivityReportResponse,
   GetBillingReportHistoryResponse,
   GetPatientCoveragesResponse,
+  ListBillingOutreachTasksResponse,
+  ListBillingPatientAccountPaymentsResponse,
+  ListBillingPatientPaymentMethodsResponse,
   OkResponse,
   PatientDetailResponse,
+  PreviewBillingNioInvoiceResponse,
   RecordBillingManualPaymentResponse,
   SavedResourceResponse,
   SaveManualEraResponse,
   SearchBillingClaimsResponse,
   SearchBillingClaimTasksResponse,
   SearchBillingErasResponse,
+  SearchBillingInvoicesResponse,
   SearchBillingLocationsResponse,
   SearchBillingPatientARClaimsResponse,
   SearchBillingPatientsResponse,
@@ -177,6 +208,77 @@ export const saveInvoiceConfig = (
   parameters: SaveInvoiceConfigInput
 ): Promise<InvoiceConfigResponse> => executeBillingZambda(oystehr, 'save-billing-invoice-config', parameters);
 
+// --- Outreach configuration ---
+
+export const getOutreachConfig = (oystehr: Oystehr): Promise<OutreachConfigResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-outreach-config', {});
+
+export const saveOutreachConfig = (
+  oystehr: Oystehr,
+  parameters: { actions: OutreachAction[]; notificationsTimeRestriction: NotificationsTimeRestriction }
+): Promise<OutreachConfigResponse> => executeBillingZambda(oystehr, 'save-billing-outreach-config', parameters);
+
+export const listOutreachTasks = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ListBillingOutreachTasksInputSchema>
+): Promise<ListBillingOutreachTasksResponse> =>
+  executeBillingZambda(oystehr, 'list-billing-outreach-tasks', parameters);
+
+export const retryOutreachTask = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof BillingOutreachTaskInputSchema>
+): Promise<unknown> => executeBillingZambda(oystehr, 'retry-billing-outreach-task', parameters);
+
+export const cancelOutreachTask = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof BillingOutreachTaskInputSchema>
+): Promise<unknown> => executeBillingZambda(oystehr, 'cancel-billing-outreach-task', parameters);
+
+// --- Invoices ---
+
+export const getBillingInvoiceRecipient = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingInvoiceRecipientInputSchema>
+): Promise<GetBillingInvoiceRecipientResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-invoice-recipient', parameters);
+
+export const createBillingInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateBillingInvoiceInputSchema>
+): Promise<CreateBillingInvoiceResponse> => executeBillingZambda(oystehr, 'create-billing-invoice', parameters);
+
+export const checkBillingNioInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof PreviewBillingNioInvoiceInputSchema>
+): Promise<CheckBillingNioInvoiceResponse> => executeBillingZambda(oystehr, 'check-billing-nio-invoice', parameters);
+
+export const previewBillingNioInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof PreviewBillingNioInvoiceInputSchema>
+): Promise<PreviewBillingNioInvoiceResponse> =>
+  executeBillingZambda(oystehr, 'preview-billing-nio-invoice', parameters);
+
+export const createBillingNioInvoice = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof CreateBillingNioInvoiceInputSchema>
+): Promise<CreateBillingNioInvoiceResponse> => executeBillingZambda(oystehr, 'create-billing-nio-invoice', parameters);
+
+export const searchBillingInvoices = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof SearchBillingInvoicesInputSchema>
+): Promise<SearchBillingInvoicesResponse> => executeBillingZambda(oystehr, 'search-billing-invoices', parameters);
+
+export const getBillingInvoiceStatement = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof BillingInvoiceStatementInputSchema>
+): Promise<GetBillingInvoiceStatementResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-invoice-statement', parameters);
+
+export const createBillingInvoiceStatement = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof BillingInvoiceStatementInputSchema>
+): Promise<void> => executeBillingZambda(oystehr, 'create-billing-invoice-statement', parameters);
+
 // --- Rules engines ---
 
 export const getBillingRules = (
@@ -210,6 +312,28 @@ export const getBillingPatientDetail = (
   oystehr: Oystehr,
   parameters: z.input<typeof GetPatientDetailInputSchema>
 ): Promise<PatientDetailResponse> => executeBillingZambda(oystehr, 'get-billing-patient-detail', parameters);
+
+export const listBillingPatientAccountPayments = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ListBillingPatientAccountPaymentsInputSchema>
+): Promise<ListBillingPatientAccountPaymentsResponse> =>
+  executeBillingZambda(oystehr, 'list-billing-patient-account-payments', parameters);
+
+export const getBillingPatientAccountPayment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingPatientAccountPaymentInputSchema>
+): Promise<GetBillingPatientAccountPaymentResponse> =>
+  executeBillingZambda(oystehr, 'get-billing-patient-account-payment', parameters);
+
+export const refundBillingPatientPayment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof RefundBillingPatientPaymentInputSchema>
+): Promise<RefundPatientPaymentResponse> => executeBillingZambda(oystehr, 'refund-billing-patient-payment', parameters);
+
+export const voidBillingPatientPayment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof VoidBillingPatientPaymentInputSchema>
+): Promise<VoidPatientPaymentResponse> => executeBillingZambda(oystehr, 'void-billing-patient-payment', parameters);
 
 export const updateBillingPatient = (
   oystehr: Oystehr,
@@ -718,6 +842,18 @@ export const recordBillingManualPayment = (
   parameters: z.input<typeof RecordBillingManualPaymentInputSchema>
 ): Promise<RecordBillingManualPaymentResponse> =>
   executeBillingZambda(oystehr, 'record-billing-manual-payment', parameters);
+
+export const listBillingPatientPaymentMethods = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ListBillingPatientPaymentMethodsInputSchema>
+): Promise<ListBillingPatientPaymentMethodsResponse> =>
+  executeBillingZambda(oystehr, 'list-billing-patient-payment-methods', parameters);
+
+// charges a saved card (or records an in-person payment) for a visit; patientId is the clinical patient
+export const postBillingPatientPayment = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof PostBillingPatientPaymentInputSchema>
+): Promise<unknown> => executeBillingZambda(oystehr, 'post-billing-patient-payment', parameters);
 
 // --- Claim Write-offs ---
 

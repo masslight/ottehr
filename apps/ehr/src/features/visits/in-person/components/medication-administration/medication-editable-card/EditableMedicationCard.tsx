@@ -1,18 +1,5 @@
-import { LoadingButton } from '@mui/lab';
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  TextField as MuiTextField,
-  Typography,
-} from '@mui/material';
 import { Medication } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -23,9 +10,11 @@ import {
 } from 'src/api/api';
 import DeleteDialog from 'src/components/dialogs/DeleteDialog';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
+import { useInventoryLotsOnHand } from 'src/features/admin/inventory/inventory.queries';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { ERXStatus } from 'src/features/visits/shared/components/ERX';
 import { ERXInteractionsReadiness } from 'src/features/visits/shared/components/ERXInteractionsReadiness';
+import { QuickPickSaveDialogs } from 'src/features/visits/shared/components/QuickPickSaveDialogs';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { enqueueOrderDeleteWarnings } from 'src/features/visits/shared/utils/orderDeleteWarnings';
@@ -40,8 +29,10 @@ import {
   getMedicationName,
   medicationExtendedToMedicationData,
 } from 'utils/lib/fhir/medication-administration';
+import { isExpirationDatePast, sortInventoryLotsForPicking } from 'utils/lib/fhir/medication-inventory';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { MEDICAL_HISTORY_CONFIG } from 'utils/lib/ottehr-config/medical-history';
+import { InventoryLot } from 'utils/lib/types/api/config/in-house-medications';
 import { IN_HOUSE_CONTAINED_MEDICATION_ID } from 'utils/lib/types/api/medication-administration.constants';
 import {
   ExtendedMedicationDataForResponse,
@@ -56,13 +47,14 @@ import {
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM_FOR_INTERACTIONS,
 } from 'utils/lib/types/constants';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import { InPersonModal } from '../../InPersonModal';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { interactionsSummary } from '../util';
-import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
+import { fieldsConfig, getFieldsConfig, MedicationOrderType } from './fieldsConfig';
 import { InteractionsMessage, MedicationCardView } from './MedicationCardView';
 import {
   ConfirmSaveModalConfig,
@@ -125,7 +117,6 @@ export const EditableMedicationCard: React.FC<{
   const [quickPickName, setQuickPickName] = useState('');
   const [existingQuickPicksForDialog, setExistingQuickPicksForDialog] = useState<InHouseMedicationQuickPickData[]>([]);
   const [quickPickSaving, setQuickPickSaving] = useState(false);
-  const [overwriteTarget, setOverwriteTarget] = useState<InHouseMedicationQuickPickData | null>(null);
 
   // There are dynamic form config which depend on what button was clicked:
   // - If "administered" was clicked, then "dispense" form config should be used
@@ -157,6 +148,8 @@ export const EditableMedicationCard: React.FC<{
   const [isDeleting, setIsDeleting] = useState(false);
   const isSavedRef = useRef(false);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const [expiredLotPrompt, setExpiredLotPrompt] = useState<{ lotNumber: string; expDate: string } | null>(null);
+  const pendingSaveRef = useRef<UpdateMedicationOrderInput | null>(null);
 
   useMarkDraftNavigatedAway({ encounterId: isCreating ? encounterId : '', setDraft, hasDraft });
 
@@ -217,7 +210,15 @@ export const EditableMedicationCard: React.FC<{
     value: MedicationData[Field]
   ): void => {
     isSavedRef.current = false;
-    const newValues = { ...localValues, [field]: field === 'dose' ? Number(value) : value };
+    const newValues: Partial<MedicationData> = { ...localValues, [field]: field === 'dose' ? Number(value) : value };
+    if (field === 'lotNumber') {
+      const lot = { ...medication, ...newValues };
+      const isSavedLot =
+        Boolean(medication?.lotNumber) &&
+        lot.lotNumber?.trim() === medication?.lotNumber &&
+        lot.expDate?.slice(0, 10) === medication?.expDate?.slice(0, 10);
+      newValues.inventoryLotId = isSavedLot ? medication?.inventoryLotId : undefined;
+    }
     setLocalValues(newValues);
     if (isCreating && encounterId) setDraft(encounterId, newValues);
     if (field === 'medicationId' && value !== '' && (typeFromProps === 'order-new' || typeFromProps === 'order-edit')) {
@@ -271,17 +272,33 @@ export const EditableMedicationCard: React.FC<{
         ndc: quickPick.ndc,
         expDate: quickPick.expDate,
         cptCodes: quickPick.cptCodes ?? [],
+        // Tracked drugs take lot details from the stocked lot; a quick pick's stale lot would block preselection.
+        ...(resolvedMedicationId &&
+          selectsOptions.medicationId.inventoryTrackedIds?.has(resolvedMedicationId) && {
+            lotNumber: undefined,
+            ndc: undefined,
+            expDate: undefined,
+            manufacturer: undefined,
+          }),
       };
       setLocalValues(newValues);
       if (isCreating && encounterId) setDraft(encounterId, newValues);
       // Only enable ERX on order pages — the ERX component isn't rendered for dispense/completed-edit
       if (resolvedMedicationId && isOrderType) setErxEnabled(true);
     },
-    [isOrderType, selectsOptions.medicationId.options, isCreating, encounterId, setDraft]
+    [
+      isOrderType,
+      selectsOptions.medicationId.options,
+      selectsOptions.medicationId.inventoryTrackedIds,
+      isCreating,
+      encounterId,
+      setDraft,
+    ]
   );
 
+  const catalogLoaded = selectsOptions.medicationId.inventoryTrackedIds !== undefined;
   const commandPaletteItems = useMemo(() => {
-    if (typeFromProps !== 'order-new' || isReadOnly) {
+    if (typeFromProps !== 'order-new' || isReadOnly || !catalogLoaded) {
       return [];
     }
 
@@ -291,7 +308,7 @@ export const EditableMedicationCard: React.FC<{
       category: 'Add Medication',
       onSelect: () => handleFhirQuickPickSelect(quickPick),
     }));
-  }, [fhirQuickPicks, handleFhirQuickPickSelect, isReadOnly, typeFromProps]);
+  }, [fhirQuickPicks, handleFhirQuickPickSelect, isReadOnly, typeFromProps, catalogLoaded]);
   useCommandPaletteSource('in-house-medication-quick-picks', commandPaletteItems);
 
   const handlePendingInHouseMedication = useCallback(
@@ -304,7 +321,7 @@ export const EditableMedicationCard: React.FC<{
     },
     [handleFhirQuickPickSelect, isReadOnly]
   );
-  usePendingQuickPick('in-house-medications', handlePendingInHouseMedication);
+  usePendingQuickPick('in-house-medications', handlePendingInHouseMedication, catalogLoaded);
 
   const openQuickPickDialog = async (): Promise<void> => {
     if (!oystehrZambda) return;
@@ -325,7 +342,6 @@ export const EditableMedicationCard: React.FC<{
     if (localValues.expDate) parts.push(`exp: ${localValues.expDate.slice(0, 10)}`);
     if (localValues.lotNumber) parts.push(`lot: ${localValues.lotNumber}`);
     setQuickPickName(parts.join(' | '));
-    setOverwriteTarget(null);
     setQuickPickDialogOpen(true);
   };
 
@@ -404,6 +420,23 @@ export const EditableMedicationCard: React.FC<{
       return;
     }
 
+    const { newStatus, orderData } = updatedRequestInput;
+    if (
+      (newStatus === 'administered' || newStatus === 'administered-partly') &&
+      isExpirationDatePast(
+        orderData?.expDate,
+        DateTime.fromISO(orderData?.effectiveDateTime ?? '').toISODate() ?? DateTime.now().toISODate()
+      )
+    ) {
+      pendingSaveRef.current = updatedRequestInput;
+      setExpiredLotPrompt({ lotNumber: orderData?.lotNumber ?? '', expDate: orderData!.expDate! });
+      return;
+    }
+
+    await proceedWithSave(updatedRequestInput);
+  };
+
+  const proceedWithSave = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
     /**
      * Using ref to store data that will be:
      * 1. Displayed in confirmation modal for user review
@@ -581,6 +614,45 @@ export const EditableMedicationCard: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Orders saved before the copy recorded its catalog drug fall back to a name match.
+  const medicationIdValue = getFieldValue('medicationId');
+  const catalogMedicationId =
+    medicationIdValue && medicationIdValue !== IN_HOUSE_CONTAINED_MEDICATION_ID
+      ? medicationIdValue
+      : medication?.catalogMedicationId ??
+        selectsOptions.medicationId.options.find((option) => option.label === medication?.medicationName)?.value;
+  const { data: inventoryLots } = useInventoryLotsOnHand({
+    catalogMedicationId,
+    locationId: resources.location?.id,
+    enabled: !isOrderType,
+  });
+
+  const handleInventoryLotPick = useCallback(
+    (lot: InventoryLot): void => {
+      isSavedRef.current = false;
+      setLocalValues((prev) => ({
+        ...prev,
+        lotNumber: lot.lotNumber,
+        inventoryLotId: lot.id,
+        expDate: lot.expirationDate ? DateTime.fromISO(lot.expirationDate).toISO() ?? undefined : undefined,
+        ndc: lot.ndc,
+        manufacturer: lot.manufacturer ?? '',
+      }));
+    },
+    [setLocalValues]
+  );
+
+  const lotPreselectedRef = useRef(false);
+  const hasLotValue = Boolean(getFieldValue('lotNumber'));
+  useEffect(() => {
+    if (lotPreselectedRef.current || typeFromProps !== 'dispense' || hasLotValue || !inventoryLots?.length) return;
+    lotPreselectedRef.current = true;
+    const first = sortInventoryLotsForPicking(inventoryLots, DateTime.now().toISODate()).find(
+      (option) => !option.expired
+    );
+    if (first) handleInventoryLotPick(first.lot);
+  }, [inventoryLots, hasLotValue, typeFromProps, handleInventoryLotPick]);
+
   const defaultProviderValue = selectsOptions.providerId.defaultOption?.value;
   const currentProviderValue = getFieldValue('providerId');
   const wasProvidedByFieldTouched = useRef(false);
@@ -732,7 +804,7 @@ export const EditableMedicationCard: React.FC<{
         type={typeRef.current}
         onSave={updateOrCreateOrder}
         medication={medication}
-        fieldsConfig={fieldsConfig[typeRef.current]}
+        fieldsConfig={getFieldsConfig(typeRef.current, getFieldValue('route'))}
         localValues={localValues}
         selectedStatus={currentStatus}
         isUpdating={isOrderUpdating}
@@ -769,13 +841,50 @@ export const EditableMedicationCard: React.FC<{
         onQuickPickSelect={
           typeFromProps === 'order-new' || typeFromProps === 'order-edit' ? handleQuickPickSelect : undefined
         }
-        fhirQuickPicks={fhirQuickPicks}
-        fhirQuickPicksLoading={fhirQuickPicksLoading}
+        fhirQuickPicks={catalogLoaded ? fhirQuickPicks : []}
+        fhirQuickPicksLoading={fhirQuickPicksLoading || selectsOptions.medicationId.status === 'loading'}
         onFhirQuickPickSelect={handleFhirQuickPickSelect}
         showQuickPickAddOption
         isAdmin={isAdmin}
         onQuickPickAddOrUpdate={() => void openQuickPickDialog()}
+        inventoryLots={
+          inventoryLots?.length ? { lots: inventoryLots, locationName: resources.location?.name } : undefined
+        }
+        onInventoryLotPick={handleInventoryLotPick}
       />
+      {expiredLotPrompt && (
+        <InPersonModal
+          icon={null}
+          color="primary.main"
+          open
+          title="Expired Lot"
+          showEntityPreview={false}
+          closeOnConfirm={false}
+          description={
+            <>
+              Lot <strong>{expiredLotPrompt.lotNumber}</strong> expired on{' '}
+              {formatDateForDisplay(expiredLotPrompt.expDate)}. Mark {medication?.medicationName}{' '}
+              {pendingSaveRef.current?.orderData?.dose}{' '}
+              {selectsOptions.units.options.find((option) => option.value === pendingSaveRef.current?.orderData?.units)
+                ?.label ?? pendingSaveRef.current?.orderData?.units}{' '}
+              as administered anyway?
+            </>
+          }
+          closeButtonText="Cancel"
+          confirmText="Mark as Administered"
+          handleClose={() => {
+            setExpiredLotPrompt(null);
+            pendingSaveRef.current = null;
+            typeRef.current = typeFromProps;
+          }}
+          handleConfirm={() => {
+            const pendingSave = pendingSaveRef.current;
+            setExpiredLotPrompt(null);
+            pendingSaveRef.current = null;
+            if (pendingSave) void proceedWithSave(pendingSave);
+          }}
+        />
+      )}
       <InPersonModal
         icon={null}
         color="error.main"
@@ -847,51 +956,16 @@ export const EditableMedicationCard: React.FC<{
         />
       )}
 
-      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Save as Quick Pick</DialogTitle>
-        <DialogContent>
-          <MuiTextField
-            autoFocus
-            label="Quick pick name"
-            fullWidth
-            value={quickPickName}
-            onChange={(e) => setQuickPickName(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-          {existingQuickPicksForDialog.length > 0 && (
-            <>
-              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-                Or overwrite an existing quick pick:
-              </Typography>
-              <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                {existingQuickPicksForDialog.map((qp) => (
-                  <ListItem key={qp.id} disablePadding>
-                    <ListItemButton
-                      selected={overwriteTarget?.id === qp.id}
-                      onClick={() => {
-                        setOverwriteTarget(qp);
-                        setQuickPickName(qp.name);
-                      }}
-                    >
-                      <ListItemText primary={qp.name} />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQuickPickDialogOpen(false)}>Cancel</Button>
-          <LoadingButton
-            loading={quickPickSaving}
-            variant="contained"
-            onClick={() => void onSaveAsQuickPick(overwriteTarget?.id)}
-          >
-            {overwriteTarget ? 'Overwrite' : 'Save'}
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+      <QuickPickSaveDialogs
+        open={quickPickDialogOpen}
+        name={quickPickName}
+        onNameChange={setQuickPickName}
+        existingQuickPicks={existingQuickPicksForDialog}
+        saving={quickPickSaving}
+        onClose={() => setQuickPickDialogOpen(false)}
+        onSave={(overwriteId) => void onSaveAsQuickPick(overwriteId)}
+        entityLabel="medication"
+      />
     </>
   );
 };

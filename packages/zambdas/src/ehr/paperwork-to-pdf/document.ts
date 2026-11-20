@@ -13,6 +13,7 @@ import {
 import { getPatientFriendlyId } from 'utils/lib/fhir/patient';
 import { getCanonicalQuestionnaire, resolveEffectiveQuestionnaire } from 'utils/lib/fhir/questionnaires';
 import { getAppointmentType } from 'utils/lib/helpers/helpers';
+import { assertZ3Url } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { getMimeType } from 'utils/lib/utils/file';
 import { assertDefined, resolveTimezone } from '../../shared/helpers';
@@ -250,7 +251,8 @@ function collectImageItems(
 }
 
 async function downloadImage(url: string, oystehr: Oystehr): Promise<ArrayBuffer> {
-  const pathTokens = url.substring(url.indexOf('/z3/') + 4).split('/');
+  const { pathname } = new URL(assertZ3Url(url));
+  const pathTokens = pathname.substring(pathname.indexOf('/z3/') + 4).split('/');
   return oystehr.z3.downloadFile({
     bucketName: pathTokens[0],
     'objectPath+': pathTokens.slice(1).join('/'),

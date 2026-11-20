@@ -181,6 +181,8 @@ interface LabsData {
 export type OrderFormInsuranceInfo = {
   insuranceRank: number;
   insuredName?: string;
+  insuredDOB?: string;
+  relationToInsured?: string;
   insuredAddress?: string;
   insuranceName?: string;
   insuranceAddress?: string;
@@ -405,14 +407,6 @@ export interface PatientInfo extends PdfData {
   ssn: string;
 }
 
-export interface PatientInfoForProgressNote extends PdfData {
-  patientName: string;
-  patientDOB: string;
-  patientId: string;
-  personAccompanying: string;
-  patientPhone: string;
-}
-
 export interface EncounterInfo extends PdfData {
   isFollowup: boolean;
 }
@@ -424,13 +418,11 @@ interface VisitDetailsForFollowUpVisit extends PdfData {
   message?: string;
   location?: Location;
   provider?: ProviderDetails;
+  personAccompanying?: string;
 }
 
 interface VisitDetailsForInitialVisit extends PdfData {
   visitType: 'initial';
-  type?: string;
-  serviceCategory?: string;
-  bookingType?: string;
   dateOfService: string;
   reasonForVisit: string;
   provider: string;
@@ -441,6 +433,7 @@ interface VisitDetailsForInitialVisit extends PdfData {
   insuranceCompany?: string;
   insuranceSubscriberId?: string;
   address: string;
+  personAccompanying?: string;
 }
 
 export type VisitDetailsForProgressNote = VisitDetailsForFollowUpVisit | VisitDetailsForInitialVisit;
@@ -844,17 +837,11 @@ export interface VisitDataInput {
 export interface ProgressNoteVisitDataInput {
   allChartData: AllChartData;
   appointmentPackage: FullAppointmentResourcePackage;
-  serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
 export interface PatientDataInput {
   patient: Patient;
   appointment: Appointment;
-}
-
-export interface ProgressNotePatientDataInput {
-  patient: Patient;
-  questionnaireResponse?: QuestionnaireResponse;
 }
 
 export interface EncounterDataInput {
@@ -1109,7 +1096,8 @@ export interface ProgressNoteInput {
 
 export interface ProgressNoteData extends PdfData {
   visit: VisitDetailsForProgressNote;
-  patient: PatientInfoForProgressNote;
+  visitHeader?: VisitInfo;
+  patient: PatientInfoForDischargeSummary;
   encounter: EncounterInfo;
   chiefComplaint: ChiefComplaint;
   historyOfPresentIllness: HistoryOfPresentIllness;
@@ -1184,13 +1172,13 @@ export interface DischargeSummaryData extends PdfData {
   documentsAttached?: boolean;
 }
 /**
- * Data for the generated first page of an outbound fax packet.
+ * Data for the generated first page of an outbound document packet.
  */
 /**
  * Who and what the cover sheet is about. The visit fields are absent for packets that do not belong
  * to a single visit (a whole medical record, or one document from the patient's Docs table).
  */
-export interface FaxCoverSheetSubject {
+export interface PacketCoverSheetSubject {
   /** "Black, Oliver" */
   patientName: string;
   /** MRN or patient uuid — printed as PID. */
@@ -1203,8 +1191,9 @@ export interface FaxCoverSheetSubject {
   visitTypeLabel?: string;
 }
 
-export interface FaxCoverSheetData extends PdfData {
-  recipient: { name?: string; organization?: string; faxNumber: string; phoneNumber?: string };
+export interface PacketCoverSheetData extends PdfData {
+  /** Exactly one of `faxNumber` / `email` is set, matching the recipient's delivery channel. */
+  recipient: { name?: string; organization?: string; faxNumber?: string; email?: string; phoneNumber?: string };
   sender: {
     practitionerName: string;
     npi?: string;
@@ -1213,7 +1202,7 @@ export interface FaxCoverSheetData extends PdfData {
     phoneNumber?: string;
     faxNumber?: string;
   };
-  subject: FaxCoverSheetSubject;
+  subject: PacketCoverSheetSubject;
   /** Total pages of the merged packet, cover sheet included. */
   totalPages: number;
   /** Already formatted "MM/DD/YYYY  hh:mm A". */

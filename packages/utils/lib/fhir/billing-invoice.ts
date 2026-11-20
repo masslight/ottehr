@@ -20,8 +20,12 @@ import { ottehrIdentifierSystem } from './systemUrls';
 
 export const INVOICE_CLAIM_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-claim';
 export const INVOICE_CLAIM_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-claim-id';
+export const INVOICE_FACILITY_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-facility-id';
 export const INVOICE_DUE_DATE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-due-date';
+export const INVOICE_HOSTED_URL_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-hosted-url';
+export const INVOICE_UNCOLLECTIBLE_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-uncollectible';
 export const INVOICE_NUMBER_IDENTIFIER_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-number';
+export const BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM = ottehrIdentifierSystem('billing-invoice-idempotency-key');
 export const INVOICE_PAYMENT_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-payment';
 export const INVOICE_PAYMENT_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-payment-id';
 // On the contained PaymentReconciliation of an invoice payment, for every payment method.
@@ -44,6 +48,8 @@ export interface BuildBillingInvoiceInput {
   // Leave empty when the claims cover more than one patient.
   subject?: Reference;
   claims: BillingInvoiceClaim[];
+  // The service facility, so the Invoices screen can filter by it.
+  facilityId?: string;
 }
 
 export interface StripeInvoiceLink {
@@ -65,9 +71,11 @@ export function buildBillingInvoice(input: BuildBillingInvoiceInput): Invoice {
   if (invalid) throw new Error(`Claim ${invalid.claimId} amount must be a positive whole number of cents`);
 
   const totalCents = input.claims.reduce((sum, claim) => sum + claim.amountCents, 0);
+  const tags = input.claims.map((claim) => invoiceClaimTag(claim.claimId));
+  if (input.facilityId) tags.push({ system: INVOICE_FACILITY_TAG_SYSTEM, code: input.facilityId });
   return {
     resourceType: 'Invoice',
-    meta: { tag: input.claims.map((claim) => invoiceClaimTag(claim.claimId)) },
+    meta: { tag: tags },
     extension: [{ url: INVOICE_DUE_DATE_EXTENSION_URL, valueDate: input.dueDate }],
     status: input.status,
     date: input.date,
@@ -98,6 +106,32 @@ export function getBillingInvoiceClaims(invoice: Invoice): BillingInvoiceClaim[]
 
 export const getBillingInvoiceDueDate = (invoice: Invoice): string | undefined =>
   invoice.extension?.find((ext) => ext.url === INVOICE_DUE_DATE_EXTENSION_URL)?.valueDate;
+
+export function withHostedInvoiceUrl(invoice: Invoice, url: string): Invoice {
+  const others = (invoice.extension ?? []).filter((ext) => ext.url !== INVOICE_HOSTED_URL_EXTENSION_URL);
+  return { ...invoice, extension: [...others, { url: INVOICE_HOSTED_URL_EXTENSION_URL, valueUrl: url }] };
+}
+
+export const getHostedInvoiceUrl = (invoice: Invoice): string | undefined =>
+  invoice.extension?.find((ext) => ext.url === INVOICE_HOSTED_URL_EXTENSION_URL)?.valueUrl;
+
+// FHIR has no uncollectible status, so the invoice stays issued and this marker tells outreach to leave it alone.
+export function withInvoiceUncollectible(invoice: Invoice): Invoice {
+  if (isInvoiceUncollectible(invoice)) return invoice;
+  return {
+    ...invoice,
+    extension: [...(invoice.extension ?? []), { url: INVOICE_UNCOLLECTIBLE_EXTENSION_URL, valueBoolean: true }],
+  };
+}
+
+export const isInvoiceUncollectible = (invoice: Invoice): boolean =>
+  invoice.extension?.find((ext) => ext.url === INVOICE_UNCOLLECTIBLE_EXTENSION_URL)?.valueBoolean === true;
+
+// On a copy of an invoice the EHR sent. The EHR keeps running its outreach.
+export const INVOICE_ISSUED_FROM_EHR_TAG: Coding = {
+  system: 'https://fhir.ottehr.com/billing/invoice-issued-from',
+  code: 'ehr',
+};
 
 // The FHIR statuses billing invoices use; entered-in-error is never set.
 export const BILLING_INVOICE_STATUSES = ['draft', 'issued', 'balanced', 'cancelled'] as const;
@@ -132,6 +166,9 @@ export function formatInvoiceNumber(sequence: number): string {
 
 export const getInvoiceNumber = (invoice: Invoice): string | undefined =>
   invoice.identifier?.find((ident) => ident.system === INVOICE_NUMBER_IDENTIFIER_SYSTEM)?.value;
+
+export const getBillingInvoiceIdempotencyKey = (invoice: Invoice): string | undefined =>
+  invoice.identifier?.find((ident) => ident.system === BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM)?.value;
 
 // Payments for an invoice are found by searching this tag.
 export const invoicePaymentTag = (invoiceId: string): Coding => ({

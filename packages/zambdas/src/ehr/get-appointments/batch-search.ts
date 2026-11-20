@@ -4,6 +4,7 @@ import { Bundle, FhirResource } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { isResponseSizeExceededError } from 'utils/lib/fhir/responseSize';
 import { toRelativeFhirUrl } from 'utils/lib/fhir/uri';
+import { settleByDeadline } from '../../shared/concurrency';
 
 /**
  * Oystehr runs a batch Bundle's same-method entries concurrently, up to 20 at a time. Entries beyond that
@@ -54,20 +55,6 @@ export interface BatchSearchResult {
 }
 
 const isSuccessStatus = (status: string | undefined): boolean => !status || status.startsWith('2');
-
-/** Resolves with `work`, or with `onDeadline()` once the deadline passes; `work` itself is not cancelled. */
-export const settleByDeadline = <T>(
-  work: Promise<T>,
-  deadline: number | undefined,
-  onDeadline: () => T
-): Promise<T> => {
-  if (deadline === undefined) return work;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const expired = new Promise<T>((resolve) => {
-    timer = setTimeout(() => resolve(onDeadline()), Math.max(0, deadline - Date.now()));
-  });
-  return Promise.race([work, expired]).finally(() => clearTimeout(timer));
-};
 
 const splitOversizedBatch = (batch: BatchSearch[]): BatchSearch[][] | undefined => {
   if (batch.length > 1) return batch.map((search) => [search]);

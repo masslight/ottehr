@@ -970,6 +970,12 @@ export const WOUND_REPAIR_VISITS: Visit[] = [
     suggests: ['12001'],
   },
   {
+    visit: 'A cut closed with skin staples — billed like stitches through the skin only',
+    procedure: LACERATION,
+    answers: { Wounds: [{ Site: 'trunk', 'Length (cm)': 2, Closure: 'staples' }] },
+    suggests: ['12001'],
+  },
+  {
     visit: 'Two cuts of the same kind — their lengths are added together before choosing the code',
     procedure: LACERATION,
     answers: {
@@ -1137,6 +1143,18 @@ export const UNFINISHED_FORMS: { visit: string; procedure: string; answers: Form
     procedure: EKG,
     answers: { 'Component furnished': 'tracing and report', ...EKG_REPORT, 'ST / T': ['ST elevation, all leads'] },
     asksFor: ['ST / T'],
+  },
+  {
+    visit: 'The axis is below -180°',
+    procedure: EKG,
+    answers: { 'Component furnished': 'tracing and report', ...EKG_REPORT, 'Axis (°)': -181 },
+    asksFor: ['Axis (°)'],
+  },
+  {
+    visit: 'The axis is above +180°',
+    procedure: EKG,
+    answers: { 'Component furnished': 'tracing and report', ...EKG_REPORT, 'Axis (°)': 181 },
+    asksFor: ['Axis (°)'],
   },
   {
     visit: 'The catheter type has not been chosen',

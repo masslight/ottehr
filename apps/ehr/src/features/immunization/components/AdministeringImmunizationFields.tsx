@@ -56,7 +56,7 @@ export const AdministeringImmunizationFields: React.FC<Props> = ({ validate, isR
           dataTestId={dataTestIds.vaccineDetailsPage.cvxCode}
         />
       </Grid>
-      <Grid xs={6} item>
+      <Grid xs={3} item>
         <ImmunizationCptCodesField isReadOnly={isReadOnly} dataTestId={dataTestIds.vaccineDetailsPage.cptCode} />
       </Grid>
       <Grid xs={3} item>

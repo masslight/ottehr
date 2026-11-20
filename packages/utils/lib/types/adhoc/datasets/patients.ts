@@ -23,7 +23,15 @@ const MEDICATION_STATUS_VALUES = Object.keys(MEDICATION_STATUSES) as [
 
 export const PatientBaseRowSchema = z.object({
   // --- Patient ---
-  patientId: z.string().describe('Patient id.'),
+  patientId: z
+    .string()
+    .describe('Patient id (internal UUID). Display friendlyPatientId instead unless asked for the UUID.'),
+  friendlyPatientId: z
+    .string()
+    .describe(
+      'Human-readable patient id (PID) shown in the EHR patient header — the "friendly" / short patient id. Use ' +
+        'it whenever the user asks to display a patient id / PID. "" when the patient has none.'
+    ),
   firstName: z.string().describe('Patient first name.'),
   lastName: z.string().describe('Patient last name.'),
   patientName: z.string().describe('Patient full name.'),
@@ -175,19 +183,20 @@ export const PATIENT_LAYERS = {
   visitHistory: {
     label: 'New vs returning',
     description:
-      'Whether the patient is new or returning (had any appointment before the date range), as the Recent ' +
-      'Patients report decides it, and when their last appointment before the range was.',
+      'Whether the patient is new or returning, decided the same way as the Recent Patients report and the E&M ' +
+      'suggestions, and when their last appointment before the range was.',
     schema: z.object({
       patientStatus: RecentPatientRecordSchema.shape.patientStatus.describe(
-        'new = no appointment of any kind before the date range start; existing = at least one. Same rule as ' +
-          'the Recent Patients report.'
+        'existing = a visit that took place (fulfilled appointment) before the date range start. Without one, ' +
+          'the intake staff answer to "seen in our offices in the last 3 years?" decides, then the patient\'s own ' +
+          'answer; with no answer at all the patient is new. Same rule as the Recent Patients report.'
       ),
       lastAppointmentBeforeRange: z
         .string()
         .nullable()
         .describe(
           'Full ISO start of the latest appointment before the date range (any status, cancelled included). ' +
-            'Null for new patients.'
+            'Null when there is none.'
         ),
     }),
   },

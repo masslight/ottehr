@@ -17,7 +17,7 @@ import {
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { Secrets } from 'utils/lib/secrets';
-import { FAX_DOCUMENT_LABELS, HIPAA_FAX_CONFIDENTIALITY_STATEMENT } from 'utils/lib/types/api/fax.types';
+import { HIPAA_CONFIDENTIALITY_STATEMENT, PACKET_DOCUMENT_LABELS } from 'utils/lib/types/api/document-packet.types';
 import {
   REFERRAL_ASK_LABELS,
   REFERRAL_DEFAULTS,
@@ -27,7 +27,7 @@ import {
   ReferralRecipient,
 } from 'utils/lib/types/api/referrals/referrals.types';
 import { formatDateForLabs, formatDOB } from 'utils/lib/utils/dateUtils';
-import { getPatientFolders } from '../fax/resolve-fax-source';
+import { getPatientFolders } from '../document-packet/resolve-packet-source';
 import { getPatientLastFirstName } from '../patients';
 import { byVisitDateAscending, ReferralDocument, referralDocumentTitle } from '../referrals/referral-documents';
 import { drawFieldLine } from './helpers/render/drawFieldLine';
@@ -129,7 +129,7 @@ const composeReferralFormData: DataComposer<ReferralFormInput, ReferralFormData>
       whoSchedules: REFERRAL_SCHEDULER_LABELS[details?.whoSchedules ?? REFERRAL_DEFAULTS.whoSchedules],
       documents:
         [
-          ...(details?.includeDocuments ?? []).map((kind) => FAX_DOCUMENT_LABELS[kind]),
+          ...(details?.includeDocuments ?? []).map((kind) => PACKET_DOCUMENT_LABELS[kind]),
           // Oldest first, the order the fax packet sends them in, each named the way its chip shows it.
           ...[...(earlierDocuments ?? [])].sort(byVisitDateAscending).map((document) => {
             const date = document.visitDate ?? document.documentReference.date;
@@ -273,7 +273,7 @@ const confidentialitySection: PdfSection<ReferralFormData, ReferralFormData> = {
   dataSelector: (data) => data,
   render: (client, _data, styles) => {
     client.newLine(24);
-    client.drawText(HIPAA_FAX_CONFIDENTIALITY_STATEMENT, styles.textStyles.confidentiality);
+    client.drawText(HIPAA_CONFIDENTIALITY_STATEMENT, styles.textStyles.confidentiality);
   },
 };
 

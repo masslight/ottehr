@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
+import { replaceUrlKeepingRouterState } from 'src/helpers/misc.helper';
 import { useGetImmunizationOrders } from '../../visits/in-person/hooks/useImmunization';
 import { ordersRecentFirstComparator } from '../common';
 import { ImmunizationNotes } from './ImmunizationNotes';
@@ -43,7 +44,7 @@ export const VaccineDetailsCardList: React.FC<Props> = ({ onOrderFinished, scrol
         if (!scrollToOrderId) {
           const url = new URL(window.location.href);
           url.searchParams.delete('scrollTo');
-          window.history.replaceState({}, '', url.toString());
+          replaceUrlKeepingRouterState(url.toString());
         }
       });
     }

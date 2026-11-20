@@ -115,6 +115,7 @@ category (auto-generated + manual variants). `getUiTaskCategoryForCode(code)` pe
 | `erx` | eRX | `erx`, `manual-erx` |
 | `inHouseMedications` | In-house Medications | `manual-in-house-medications` |
 | `nursingOrders` | Nursing Orders | `manual-nursing-orders` |
+| `dme` | DME | `dme`, `manual-dme` |
 | `patientFollowUp` | Patient Follow-up | `manual-patient-follow-up` |
 | `procedures` | Procedures | `manual-procedures` |
 | `charting` | Charting | `manual-charting` |

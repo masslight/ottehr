@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice, Task } from 'fhir/r4b';
 import Stripe from 'stripe';
@@ -8,7 +7,7 @@ import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { index } from '../../src/ehr/clinical-stripe-webhook';
 import { checkOrCreateM2MClientToken } from '../../src/shared/auth';
-import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../src/shared/types/common';
 
@@ -80,7 +79,7 @@ beforeEach(() => {
       patch,
       transaction,
     },
-  } as unknown as Oystehr);
+  } as unknown as ClinicalOystehr);
 });
 
 describe('clinical-stripe-webhook', () => {

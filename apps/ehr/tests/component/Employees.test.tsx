@@ -86,7 +86,6 @@ function makeEmployee(overrides: Partial<EmployeeDetails> = {}): EmployeeDetails
     status: 'Active',
     lastLogin: '',
     licenses: [],
-    seenPatientRecently: false,
     gettingAlerts: false,
     roles: [RoleType.Staff],
     needsReview: false,

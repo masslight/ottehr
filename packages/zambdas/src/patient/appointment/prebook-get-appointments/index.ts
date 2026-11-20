@@ -3,6 +3,7 @@ import { Appointment as FhirAppointment, Encounter, Location, Patient, Questionn
 import { DateTime } from 'luxon';
 import { getPatientsForUser } from 'utils/lib/auth/user-auth.helper';
 import { SLUG_SYSTEM } from 'utils/lib/fhir/constants';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { Secrets } from 'utils/lib/secrets';
 import { PatientAppointmentDTO } from 'utils/lib/types/api/appointment.types';
@@ -145,12 +146,16 @@ export const index = wrapHandler('get-appointments', async (input: ZambdaInput):
     .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
     .map((appointmentTemp) => {
       const fhirAppointment = appointmentTemp as FhirAppointment;
-      const patientID = fhirAppointment.participant
-        .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))
-        ?.actor?.reference?.split('/')[1];
-      const locationID = fhirAppointment.participant
-        .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Location/'))
-        ?.actor?.reference?.split('/')[1];
+      const patientID = getIdFromReference(
+        fhirAppointment.participant.find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))
+          ?.actor?.reference,
+        'Patient'
+      );
+      const locationID = getIdFromReference(
+        fhirAppointment.participant.find((participantTemp) => participantTemp.actor?.reference?.startsWith('Location/'))
+          ?.actor?.reference,
+        'Location'
+      );
       const encounter = allResources
         .filter((resourceTemp) => resourceTemp.resourceType === 'Encounter')
         .find(

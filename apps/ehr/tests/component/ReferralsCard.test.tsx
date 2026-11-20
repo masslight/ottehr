@@ -77,10 +77,10 @@ vi.mock('src/features/address-book/addressBook.api', () => ({
 }));
 vi.mock('src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {} }) }));
 vi.mock('notistack', () => ({ enqueueSnackbar: vi.fn() }));
-vi.mock('src/features/fax/hooks/useSendFax', () => ({
-  useSendFax: () => ({ isOpen: false, open: faxOpen, close: vi.fn() }),
+vi.mock('src/features/send-documents/hooks/useSendDocuments', () => ({
+  useSendDocuments: () => ({ isOpen: false, open: faxOpen, close: vi.fn() }),
 }));
-vi.mock('src/features/fax/ui/SendFaxDialog', () => ({ SendFaxDialog: () => null }));
+vi.mock('src/features/send-documents/ui/SendDocumentsDialog', () => ({ SendDocumentsDialog: () => null }));
 vi.mock('src/features/visits/shared/hooks/useGetAppointmentAccessibility', () => ({
   useGetAppointmentAccessibility: () => accessibility,
 }));

@@ -32,6 +32,7 @@ import { checkIsEHRUser, checkOrCreateM2MClientToken, getUser } from '../../../s
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { assertScheduleLocationActorBookable } from './helpers';
 
 const ZAMBDA_NAME = 'create-slot';
 
@@ -241,6 +242,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   if (!schedule) {
     throw FHIR_RESOURCE_NOT_FOUND('Schedule');
   }
+  await assertScheduleLocationActorBookable(schedule, oystehr);
 
   // Compute the effective service category code — what actually lands on
   // Slot.serviceCategory below. Sources, in priority order:

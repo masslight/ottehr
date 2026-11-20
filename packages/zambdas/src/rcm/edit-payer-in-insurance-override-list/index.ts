@@ -10,6 +10,7 @@ import {
   MISSING_REQUEST_SECRETS,
   PRECONDITION_FAILED,
 } from 'utils/lib/types/errors';
+import { requiredTextSchema } from 'utils/lib/types/text-schemas';
 import { z } from 'zod';
 import { getAuth0Token } from '../../shared/getAuth0Token';
 import { wrapHandler } from '../../shared/sentry';
@@ -21,12 +22,12 @@ const payerInfoSchema = z.discriminatedUnion('listName', [
   z.object({
     listName: z.literal(ListName.EHR),
     payerId: z.string(),
-    payerNote: z.string(),
+    payerNote: requiredTextSchema,
   }),
   z.object({
     listName: z.literal(ListName.Patient),
     payerId: z.string(),
-    payerNameOverride: z.string().optional(),
+    payerNameOverride: requiredTextSchema,
   }),
 ]);
 
@@ -74,7 +75,7 @@ export const index = wrapHandler(
   }
 );
 
-async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: PayerInfo): Promise<List> {
+export async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: PayerInfo): Promise<List> {
   const list = await getInsuranceOverrideList(oystehr, payerInfo.listName);
   if (!list.entry) {
     throw INVALID_INPUT_ERROR('Cannot find insurance override list');
@@ -86,18 +87,16 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
     throw INVALID_INPUT_ERROR('Cannot find insurance override list entry');
   }
 
-  const extensionValue: Extension | undefined =
+  const extensionValue: Extension =
     payerInfo.listName === ListName.EHR
       ? {
           url: ottehrExtensionUrl('insurance-override-note'),
           valueString: payerInfo.payerNote,
         }
-      : payerInfo.payerNameOverride
-      ? {
+      : {
           url: ottehrExtensionUrl('insurance-override-name'),
           valueString: payerInfo.payerNameOverride,
-        }
-      : undefined;
+        };
 
   try {
     return await oystehr.fhir.patch<List>(
@@ -106,7 +105,7 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
         id: list.id,
         operations: [
           {
-            op: 'replace',
+            op: 'add',
             path: `/entry/${entryIndex}/extension`,
             value: [extensionValue],
           },
@@ -136,7 +135,7 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
             id: list.id,
             operations: [
               {
-                op: 'replace',
+                op: 'add',
                 path: `/entry/${entryIndex}/extension`,
                 value: [extensionValue],
               },
@@ -160,7 +159,7 @@ async function editPayerInInsuranceOverrideList(oystehr: Oystehr, payerInfo: Pay
   }
 }
 
-function validateInput(input: ZambdaInput): Input {
+export function validateInput(input: ZambdaInput): Input {
   const { body, secrets } = input;
   if (!body) {
     throw MISSING_REQUEST_BODY;

@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Account, Coverage, Patient, RelatedPerson } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { CreateBillingCoverageInput, UpdateBillingCoverageInput } from 'utils/lib/types/data/billing/billing.schemas';
 import {
   BillingPayerOption,
@@ -166,7 +167,7 @@ describe('billing coverage CRUD', () => {
 
   it('delete-billing-coverage hard-deletes the coverage and its subscriber', async () => {
     const coverageBefore = await oystehr.fhir.get<Coverage>({ resourceType: 'Coverage', id: coverageId });
-    const subscriberId = coverageBefore.subscriber?.reference?.split('/')[1];
+    const subscriberId = getIdFromReference(coverageBefore.subscriber?.reference);
 
     const result = (await oystehr.zambda.execute({ id: 'delete-billing-coverage', coverageId }))
       .output as DeletedResponse;

@@ -20,7 +20,7 @@ import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { InputMask } from 'ui-components/lib/components/InputMask';
-import { OTHER_SPECIALTY_TRANSFER_OPTION, specialtyTransferOptions } from 'utils/lib/fhir/disposition';
+import { DEFAULT_SPECIALTY_TRANSFER_OPTIONS } from 'utils/lib/fhir/disposition';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { AllStates } from 'utils/lib/types/common';
 import {
@@ -43,9 +43,7 @@ export const addressBookContactLabel = (contact: AddressBookContactInput): strin
   formatAddressBookPersonName(contact) || contact.organizationName || '';
 
 const STATE_OPTIONS = AllStates.map((state) => state.value);
-const SPECIALTY_TAGS = specialtyTransferOptions
-  .filter((specialty) => specialty !== OTHER_SPECIALTY_TRANSFER_OPTION)
-  .map(normalizeAddressBookTag);
+const SPECIALTY_TAGS = DEFAULT_SPECIALTY_TRANSFER_OPTIONS.map(normalizeAddressBookTag);
 
 interface FormValues {
   firstName: string;

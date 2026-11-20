@@ -118,6 +118,7 @@ import { RemitHighlightProvider } from '../components/claim/RemitHighlight';
 import { InsurancePaymentsSection, RemitsSection } from '../components/claim/RemitSections';
 import { ServiceLineRow, ServiceLinesEditor } from '../components/claim/ServiceLinesEditor';
 import { RemitTotals, ServiceLinesTable } from '../components/claim/ServiceLinesLedger';
+import { ClaimInvoicesSection } from '../components/ClaimInvoicesSection';
 import {
   ClaimSubmissionFields,
   ClaimSubmissionForm,
@@ -139,7 +140,7 @@ import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { WriteOffsSection } from '../components/WriteOffsSection';
 import { AccidentInfoData } from '../constants/accidentInfo';
-import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
+import { claimStatusValueColor, provisionalBalanceHint } from '../constants/claimStatus';
 import {
   CoverageForm,
   coverageToCreateInput,
@@ -166,6 +167,10 @@ type UpdateFn = (
 
 function applicableRulesEngine(claim: ClaimDetailResponse): RulesEngineDef | undefined {
   const arStage = claim.statuses.arStage;
+  const insuranceARStatus = claim.statuses.insuranceArStatus;
+  // For the purposes of the ClaimDetail page, only adjudicated Insurance AR claims run the post-adjudication rules engine.
+  if (arStage === AR_STAGE.insurancePayer && insuranceARStatus === 'adjudicated')
+    return RULES_ENGINES['post-adjudication'];
   if (arStage === AR_STAGE.insurancePayer) return RULES_ENGINES['claim-submission'];
   if (arStage === AR_STAGE.nonInsurancePayer) return RULES_ENGINES['non-insurance-payer-pre-invoice'];
   if (arStage === AR_STAGE.patient) return RULES_ENGINES['patient-ar-pre-invoice'];
@@ -576,7 +581,7 @@ export default function ClaimDetail(): ReactElement {
           claim={claim}
         />
       )}
-      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claimId={claim.id} />
+      <Cms1500Dialog open={cms1500Open} onClose={() => setCms1500Open(false)} claim={claim} />
 
       <ClaimNotesDrawer
         key={claim.id}
@@ -620,11 +625,7 @@ export default function ClaimDetail(): ReactElement {
             <Amount label="Payments" sublabel="Insurance Paid" value={claim.insurancePaid} />
             <Amount label="Patient Paid" value={claim.patientPaid} />
             {claim.writeOffsTotal > 0 ? <Amount label="Write-offs" value={claim.writeOffsTotal} /> : <></>}
-            <Amount
-              label="Balance"
-              value={claim.balance}
-              hint={claim.adjudicated ? undefined : PROVISIONAL_BALANCE_HINT}
-            />
+            <Amount label="Balance" value={claim.balance} hint={provisionalBalanceHint(claim)} />
             <Box>
               <Typography variant="caption" color="text.secondary">
                 Responsible Party
@@ -721,6 +722,7 @@ export default function ClaimDetail(): ReactElement {
             ) : (
               <></>
             )}
+            <MedicareSecondaryReasonSection claim={claim} updateResource={updateResource} />
             <NonInsurancePayerSection claim={claim} updateResource={updateResource} />
             <RenderingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <FacilitySection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
@@ -745,6 +747,7 @@ export default function ClaimDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
+            <ClaimInvoicesSection claim={claim} refetchClaim={fetchDetail} />
             <PatientPaymentsSection payments={claim.patientPayments} />
             <WriteOffsSection
               claimId={claim.id}
@@ -778,7 +781,7 @@ export default function ClaimDetail(): ReactElement {
           title={runEngine.runButtonLabel}
           confirmLabel={getSubmitClaimLabel(skipRules, rulesEngine, submissionType)}
           loading={submitting}
-          onConfirm={() => void handleRunRulesEngine()}
+          onConfirm={() => void submitMethods.handleSubmit(handleRunRulesEngine)()}
           onCancel={() => setConfirmingSubmit(false)}
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
@@ -793,15 +796,17 @@ export default function ClaimDetail(): ReactElement {
             ) : (
               <></>
             )}
-            <FormControlLabel
-              control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
-              label="Skip rules"
-              slotProps={{
-                typography: {
-                  variant: 'body2',
-                },
-              }}
-            />
+            {rulesEngine !== 'post-adjudication' && (
+              <FormControlLabel
+                control={<Switch checked={skipRules} onChange={(_event, checked) => setSkipRules(checked)} />}
+                label="Skip rules"
+                slotProps={{
+                  typography: {
+                    variant: 'body2',
+                  },
+                }}
+              />
+            )}
           </Box>
         </ConfirmDialog>
       )}
@@ -819,6 +824,9 @@ function getSubmitClaimLabel(
     case rulesEngine === 'non-insurance-payer-pre-invoice':
     case rulesEngine === 'patient-ar-pre-invoice':
       action = 'Prepare for invoice';
+      break;
+    case rulesEngine === 'post-adjudication':
+      action = 'Run rules';
       break;
     case submissionType === 'new':
       action = 'Submit claim';
@@ -1092,6 +1100,90 @@ export function InsuranceSection({
           </Box>
         </Box>
       )}
+    </EditableSection>
+  );
+}
+
+const MEDICARE_SECONDARY_REASON_OPTIONS: Record<string, string> = {
+  '12': 'Working Aged Beneficiary or Spouse with Employer Group Health Plan',
+  '13': "End-Stage Renal Disease Beneficiary in the Mandated Coordination Period with an Employer's Group Health Plan",
+  '14': 'No-fault Insurance including Auto is Primary',
+  '15': "Worker's Compensation",
+  '16': 'Public Health Service (PHS)or Other Federal Agency',
+  '41': 'Black Lung',
+  '42': "Veteran's Administration",
+  '43': 'Disabled Beneficiary Under Age 65 with Large Group Health Plan (LGHP)',
+  '47': 'Other Liability Insurance is Primary',
+};
+
+function MedicareSecondaryReasonSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+
+  updateResource: UpdateFn;
+}): ReactElement {
+  const [reason, setReason] = useState(claim.medicareSecondaryReasonCode ?? '');
+  const setLoading = useCallback(() => {}, []);
+  const setError = useCallback(() => {}, []);
+  const [secondaryCoverage] = useCoverage({
+    id: claim.secondaryCoverageFhirId,
+    onLoading: setLoading,
+    onError: setError,
+  });
+  const [tertiaryCoverage] = useCoverage({
+    id: claim.tertiaryCoverageFhirId,
+    onLoading: setLoading,
+    onError: setError,
+  });
+  const [quaternaryCoverage] = useCoverage({
+    id: claim.quaternaryCoverageFhirId,
+    onLoading: setLoading,
+    onError: setError,
+  });
+  const isMedicareSecondary = useMemo(
+    () =>
+      [secondaryCoverage?.planType, tertiaryCoverage?.planType, quaternaryCoverage?.planType].some((type) =>
+        ['MA', 'MB'].includes(type ?? '')
+      ),
+    [secondaryCoverage, tertiaryCoverage, quaternaryCoverage]
+  );
+  const handleSave = useCallback(async () => {
+    await updateResource('Claim', claim.id, { medicareSecondaryReasonCode: reason });
+  }, [claim.id, reason, updateResource]);
+  if (!isMedicareSecondary) {
+    return <></>;
+  }
+  return (
+    <EditableSection
+      title="Medicare as Non-Primary Insurance Reason"
+      defaultValues={{ reason: '' }}
+      onSave={handleSave}
+      onCancel={() => setReason(claim.medicareSecondaryReasonCode ?? '')}
+      editForm={
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
+          <Select size="small" value={reason} onChange={(e) => setReason(e.target.value)}>
+            <MenuItem key={'none'} value={''}>
+              <em>None</em>
+            </MenuItem>
+            {Object.entries(MEDICARE_SECONDARY_REASON_OPTIONS).map(([key, value]) => (
+              <MenuItem key={key} value={key}>
+                {value}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      }
+    >
+      <Row
+        label="Reason"
+        value={
+          claim.medicareSecondaryReasonCode
+            ? MEDICARE_SECONDARY_REASON_OPTIONS[claim.medicareSecondaryReasonCode]
+            : undefined
+        }
+      />
     </EditableSection>
   );
 }

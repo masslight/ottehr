@@ -75,10 +75,10 @@ vi.mock('../../src/hooks/usePatientVisitOptions', () => ({
 vi.mock('../../src/hooks/useDownloadDocumentsZip', () => ({
   useDownloadDocumentsZip: () => ({ downloadDocumentsZip: vi.fn(), isDownloading: false }),
 }));
-vi.mock('src/features/fax/hooks/useSendFax', () => ({
-  useSendFax: () => ({ isOpen: false, open: vi.fn(), close: vi.fn() }),
+vi.mock('src/features/send-documents/hooks/useSendDocuments', () => ({
+  useSendDocuments: () => ({ isOpen: false, open: vi.fn(), close: vi.fn() }),
 }));
-vi.mock('src/features/fax/ui/SendFaxDialog', () => ({ SendFaxDialog: () => null }));
+vi.mock('src/features/send-documents/ui/SendDocumentsDialog', () => ({ SendDocumentsDialog: () => null }));
 vi.mock('../../src/components/DateSearch', () => ({ default: () => <div /> }));
 vi.mock('../../src/components/ScannerModal', () => ({ ScannerModal: () => null }));
 vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentFoldersColumn', () => ({

@@ -77,6 +77,32 @@ describe('coding field sentences', () => {
     expect(latest.facts?.overHour).toBe(true);
   });
 
+  it('enforces numeric bounds in generic fields and leaves other measurements unbounded', async () => {
+    const user = userEvent.setup();
+    render(<Form family={ekgFamily} />);
+    const axis = screen.getByRole('spinbutton', { name: 'axis (°)' });
+    expect(axis).toHaveAttribute('inputmode', 'text');
+
+    for (const [value, valid] of [
+      [181, false],
+      [-181, false],
+      [180, true],
+      [-180, true],
+    ] as const) {
+      await user.clear(axis);
+      await user.type(axis, String(value));
+      expect(axis).toHaveValue(value);
+      if (valid) expect(axis).toBeValid();
+      else expect(axis).toBeInvalid();
+    }
+
+    const rate = screen.getByRole('spinbutton', { name: 'rate (bpm)' });
+    expect(rate).toHaveAttribute('inputmode', 'decimal');
+    await user.type(rate, '200');
+    expect(rate).toBeValid();
+    expect(rate).not.toHaveAttribute('max');
+  });
+
   it('marks laterality only for locations that need it for coding', async () => {
     const user = userEvent.setup();
     render(<Form family={foreignBodyFamily} />);
@@ -86,6 +112,23 @@ describe('coding field sentences', () => {
     await user.click(screen.getByRole('button', { name: 'foreign body location: nose' }));
     await user.click(screen.getByRole('option', { name: 'cornea' }));
     expect(screen.getByRole('button', { name: 'side (empty)' })).toHaveAttribute('data-needed', 'true');
+  });
+
+  it('offers staples as a repair type in alphabetical order and keeps the staple count', async () => {
+    const user = userEvent.setup();
+    render(<Form family={lacerationFamily} />);
+    await user.click(screen.getByRole('button', { name: 'repair type (empty)' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'adhesive only',
+      'layered',
+      'open',
+      'single layer',
+      'staples',
+      'strips only',
+    ]);
+    await user.click(screen.getByRole('option', { name: 'staples' }));
+    await user.type(screen.getByRole('spinbutton', { name: 'suture/staple count' }), '6');
+    expect(readRows(latest.facts ?? {}, 'wounds')[0]).toMatchObject({ closure: 'staples', sutureCount: 6 });
   });
 
   it.each(['adhesive only', 'open', 'strips only'])(
@@ -118,6 +161,7 @@ describe('coding field sentences', () => {
 
   it.each([
     ['layered', true],
+    ['staples', true],
     ['open', false],
     ['strips only', false],
   ])('marks the length as needed for a %s closure: %s', async (closure, needed) => {

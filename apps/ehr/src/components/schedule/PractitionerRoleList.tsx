@@ -34,6 +34,7 @@ import {
 } from 'src/api/api';
 import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getPractitionerRoleAllCategories } from 'utils/lib/fhir/healthcareService';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { useApiClients } from '../../hooks/useAppClients';
 
@@ -127,7 +128,7 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
         // (empty + toggle off = offers nothing).
         const resolvedCategoryNames = (role.healthcareService || [])
           .map((ref) => {
-            const id = ref.reference?.split('/')[1];
+            const id = getIdFromReference(ref.reference);
             if (!id) return undefined;
             return categoriesById.get(id)?.name;
           })

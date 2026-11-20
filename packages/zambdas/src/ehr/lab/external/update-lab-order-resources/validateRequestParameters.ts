@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { Secrets } from 'utils/lib/secrets';
 import { LAB_ORDER_UPDATE_RESOURCES_EVENTS, UpdateLabOrderResourcesInput } from 'utils/lib/types/data/labs/labs.types';
+import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { safeJsonParse } from '../../../../shared/validation';
 
@@ -146,11 +147,15 @@ export function validateRequestParameters(
     if (note.length > 300) {
       throw Error(`Note must be under 300 characters long, length of note: ${note.length}`);
     }
+    const isBlank = !note.trim();
+    if (isBlank && event === LAB_ORDER_UPDATE_RESOURCES_EVENTS.addOrderLevelNote) {
+      throw INVALID_INPUT_ERROR('Order level note is required');
+    }
 
     return {
       event,
       requisitionNumber,
-      note,
+      note: isBlank ? '' : note,
       secrets,
       userToken,
     };

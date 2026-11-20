@@ -11,6 +11,7 @@ import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import FolderCopyOutlinedIcon from '@mui/icons-material/FolderCopyOutlined';
 import Groups2OutlinedIcon from '@mui/icons-material/Groups2Outlined';
 import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import ListOutlinedIcon from '@mui/icons-material/ListOutlined';
 import MedicalInformationOutlinedIcon from '@mui/icons-material/MedicalInformationOutlined';
@@ -28,6 +29,7 @@ import { FeeSchedulesIcon } from 'src/features/admin/icons/FeeSchedulesIcon';
 import { InHouseLabsIcon } from 'src/features/admin/icons/InHouseLabsIcon';
 import { InsuranceIcon } from 'src/features/admin/icons/InsuranceIcon';
 import { ProgressNoteIcon } from 'src/features/admin/icons/ProgressNoteIcon';
+import InventoryAdminPage from 'src/features/admin/inventory/InventoryAdminPage';
 import { PatientEducationAdminPage } from 'src/features/admin/patient-education/PatientEducationAdminPage';
 import ProgressNoteAdminPage from 'src/features/admin/ProgressNoteAdminPage';
 import { FormTemplatesAdminPage } from 'src/features/form-templates/FormTemplatesAdminPage';
@@ -52,7 +54,7 @@ import ServiceCategoriesAdminPage from 'src/pages/ServiceCategoriesAdminPage';
 import Invoicing from 'src/rcm/features/invoicing/Invoicing';
 import ScheduledPatientOutreach from 'src/rcm/features/scheduled-patient-outreach/ScheduledPatientOutreach';
 import { GLOBAL_ACTION_LOG_VIEWER_ROLES } from 'utils/lib/types/api/action-logs.types';
-import { ADMIN_TIER_ROLES, RoleType } from 'utils/lib/types/api/user.types';
+import { ADMIN_TIER_ROLES, INVENTORY_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import PaperworkFlowsAdminPage from '../visits/telemed/components/admin/paperwork-flows/PaperworkFlowsAdminPage';
 import QuestionnaireAdminPage from '../visits/telemed/components/admin/questionnaires/QuestionnaireAdminPage';
 
@@ -75,6 +77,8 @@ export interface AdminNavItem {
   beta?: boolean;
   /** Explicit access policy; items without one stay admin-tier only. */
   allowedRoles?: RoleType[];
+  /** Hidden once Ottehr billing invoicing moves to the billing app, which a secret can do without a deploy. */
+  ottehrBillingInvoicing?: boolean;
   render: (ctx: AdminNavContext) => ReactNode;
 }
 
@@ -162,6 +166,14 @@ export const adminNavGroups: AdminNavGroup[] = [
         path: '/admin/medications',
         icon: <MedicationOutlinedIcon />,
         render: () => <MedicationsConfigurationPage />,
+      },
+      {
+        label: 'Medications Inventory',
+        title: 'In-house Medications Inventory',
+        path: '/admin/inventory',
+        icon: <Inventory2OutlinedIcon />,
+        allowedRoles: INVENTORY_STAFF_ROLES,
+        render: () => <InventoryAdminPage />,
       },
     ],
   },
@@ -261,6 +273,7 @@ export const adminNavGroups: AdminNavGroup[] = [
                 : 'Patient Invoicing',
               path: '/admin/outreach/patient-invoices-billing',
               icon: <EmailOutlinedIcon />,
+              ottehrBillingInvoicing: true,
               render: () => <InvoiceablePatients source="ottehr-billing" />,
             },
           ]
@@ -321,11 +334,18 @@ export const DEFAULT_ADMIN_PATH = allAdminNavItems[0].path;
 /** Roles with access to every admin page unless an item supplies a narrower explicit policy. */
 
 /** Nav groups the given user may see, dropping groups left with no accessible items. */
-export function resolveAccessibleAdminNavGroups(hasRole: (roles: RoleType[]) => boolean): AdminNavGroup[] {
+export function resolveAccessibleAdminNavGroups(
+  hasRole: (roles: RoleType[]) => boolean,
+  ottehrBillingInvoicingInEhr: boolean
+): AdminNavGroup[] {
   return adminNavGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => hasRole(item.allowedRoles ?? ADMIN_TIER_ROLES)),
+      items: group.items.filter(
+        (item) =>
+          hasRole(item.allowedRoles ?? ADMIN_TIER_ROLES) &&
+          (!item.ottehrBillingInvoicing || ottehrBillingInvoicingInEhr)
+      ),
     }))
     .filter((group) => group.items.length > 0);
 }

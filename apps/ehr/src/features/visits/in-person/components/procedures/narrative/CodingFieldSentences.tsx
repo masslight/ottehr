@@ -100,6 +100,7 @@ function fieldBlank(
       readOnly={readOnly}
       need={need}
       min={field.kind === 'number' ? field.min : undefined}
+      max={field.kind === 'number' ? field.max : undefined}
       step={field.kind === 'number' ? field.step : undefined}
     />
   );

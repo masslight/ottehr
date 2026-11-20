@@ -8,7 +8,11 @@ vi.mock('utils/lib/frontend/sentry', () => ({
   safelyCaptureException: vi.fn(),
 }));
 
-import { mergeLocationFilteredTasks, TaskSearchStream } from '../../src/features/visits/in-person/hooks/useTasks';
+import {
+  countTasksByLocation,
+  mergeLocationFilteredTasks,
+  TaskSearchStream,
+} from '../../src/features/visits/in-person/hooks/useTasks';
 
 const LOCATION_ID = 'location-1';
 
@@ -169,5 +173,41 @@ describe('mergeLocationFilteredTasks', () => {
 
       expect(mockSafelyCaptureMessage).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('countTasksByLocation', () => {
+  const LOCATION_NAMES = new Map([
+    ['pasadena', 'CA - Pasadena'],
+    ['los-angeles', 'CA - Los Angeles'],
+  ]);
+
+  const locationTask = (id: string, locationId: string): FhirTask => ({
+    resourceType: 'Task',
+    id,
+    status: 'in-progress',
+    intent: 'order',
+    meta: { tag: [{ code: 'task' }, { system: TASK_LOCATION_SYSTEM, code: locationId, display: 'Tag display' }] },
+  });
+
+  it('counts tasks per location under the location label, ordered by label', () => {
+    const counts = countTasksByLocation(
+      [locationTask('t-1', 'pasadena'), locationTask('t-2', 'los-angeles'), locationTask('t-3', 'pasadena')],
+      LOCATION_NAMES
+    );
+
+    expect(counts).toEqual([
+      { id: 'los-angeles', name: 'CA - Los Angeles', count: 1 },
+      { id: 'pasadena', name: 'CA - Pasadena', count: 2 },
+    ]);
+  });
+
+  it('leaves out tasks with no location or with a location the board cannot filter by', () => {
+    expect(
+      countTasksByLocation(
+        [locationLessTask('fax-1', '2026-08-01T10:00:00Z'), locationTask('t-1', 'virtual-clinic')],
+        LOCATION_NAMES
+      )
+    ).toEqual([]);
   });
 });

@@ -7,6 +7,7 @@ import {
   DOCUMENT_REFERENCE_SUMMARY_FROM_AUDIO,
   PUBLIC_EXTENSION_BASE_URL,
 } from 'utils/lib/fhir/constants';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getFormatDuration } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { CreateResourcesFromAudioRecordingInput } from 'utils/lib/types/api/appointment.types';
@@ -35,7 +36,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const providerUserProfile = (await userMe(userToken, secrets)).profile;
 
   const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: visitID });
-  const patientId = assertDefined(encounter.subject?.reference?.split('/')[1], 'patientId');
+  const patientId = assertDefined(getIdFromReference(encounter.subject?.reference), 'patientId');
 
   const pendingDocumentReference: DocumentReference = {
     resourceType: 'DocumentReference',

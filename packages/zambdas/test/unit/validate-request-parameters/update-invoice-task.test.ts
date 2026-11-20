@@ -67,6 +67,36 @@ describe('update-invoice-task - validateRequestParameters', () => {
     expect(() => validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input)).toThrow();
   });
 
+  test.each([
+    ['memo', '   '],
+    ['memo', '\n'],
+    ['smsTextMessage', '  '],
+    ['smsTextMessage', ''],
+  ])('should throw when invoiceTaskInput.%s is blank (%j)', (field, value) => {
+    const secrets = createMockSecrets();
+    const input = createMockZambdaInput(
+      {
+        taskId: validTaskId,
+        status: 'in-progress',
+        invoiceTaskInput: { memo: 'Memo', smsTextMessage: 'Sms', [field]: value },
+      },
+      { secrets }
+    );
+    expect(() => validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input)).toThrow();
+  });
+
+  test('should accept invoiceTaskInput without memo or smsTextMessage', () => {
+    const secrets = createMockSecrets();
+    const input = createMockZambdaInput(
+      { taskId: validTaskId, status: 'in-progress', invoiceTaskInput: { dueDate: '2030-01-31', amountCents: 100 } },
+      { secrets }
+    );
+    const result = validateWithSchema(UpdateInvoiceTaskZambdaInputSchema, input);
+
+    expect(result.invoiceTaskInput?.memo).toBeUndefined();
+    expect(result.invoiceTaskInput?.smsTextMessage).toBeUndefined();
+  });
+
   test('should accept without invoiceTaskInput', () => {
     const secrets = createMockSecrets();
     const input = createMockZambdaInput({ taskId: validTaskId, status: 'completed' }, { secrets });

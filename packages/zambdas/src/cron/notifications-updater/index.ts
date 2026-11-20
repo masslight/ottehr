@@ -29,6 +29,7 @@ import {
   getProviderNotificationSettingsForPractitioner,
   hasExplicitProviderNotificationPreferencesV2,
 } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary, getPatchOperationForNewMetaTag, normalizePhoneNumber } from 'utils/lib/fhir/resourcePatch';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
@@ -803,7 +804,7 @@ async function getResourcePackagesAppointmentsMap(
     const appointment = resourcePackagesMap[appointmentId].appointment;
     const locationReference = encounter?.location?.find((loc) => loc.location.reference)?.location.reference;
     if (locationReference) {
-      const locationId = removePrefix('Location/', locationReference);
+      const locationId = getIdFromReference(locationReference, 'Location');
       if (locationId) {
         const pack = getOrCreateAppointmentResourcePackage(appointmentId);
         pack.location = locationIdMap[locationId];
@@ -814,7 +815,7 @@ async function getResourcePackagesAppointmentsMap(
       (participant) => participant.actor?.reference?.startsWith('Patient')
     )?.actor?.reference;
     if (patientReference) {
-      const patientId = removePrefix('Patient/', patientReference);
+      const patientId = getIdFromReference(patientReference, 'Patient');
       if (patientId) {
         const pack = getOrCreateAppointmentResourcePackage(appointmentId);
         pack.patient = patientIdMap[patientId];
@@ -842,7 +843,7 @@ const getActiveStaffAndProviders = async (
     throw new Error('Error searching for Inactive or Provider role.');
   }
 
-  const practitionerIds = employees.map((employee) => employee.profile.split('/')[1]);
+  const practitionerIds = employees.map((employee) => getIdFromReference(employee.profile));
 
   const [inactiveRoleMembers, providerRoleMembers, practitionerResources] = await Promise.all([
     getRoleMembers(inactiveRoleId, oystehr),
@@ -865,7 +866,7 @@ const getActiveStaffAndProviders = async (
   const activeProvidersMap: ProvidersMap = {};
   employees.forEach((employee) => {
     if (inactiveUsersMap.has(employee.id)) return;
-    const practitionerId = removePrefix('Practitioner/', employee.profile || '');
+    const practitionerId = getIdFromReference(employee.profile, 'Practitioner');
     const practitioner = practitionerId ? practitionerById.get(practitionerId) : undefined;
     if (!practitioner) return;
     activeStaffMap[practitioner.id!] = practitioner;
@@ -993,7 +994,7 @@ export async function getRecentTaskNotes(
 
 export function resolveTaskNoteRecipientIds(task: Task, notesOnTask: Communication[], note: Communication): string[] {
   const involved = [task.owner, task.requester, ...notesOnTask.map((other) => other.sender)].map((reference) =>
-    removePrefix('Practitioner/', reference?.reference ?? '')
+    getIdFromReference(reference?.reference, 'Practitioner')
   );
   return [...new Set(involved)].filter((id): id is string => !!id && isTaskNoteUnreadBy(note, id));
 }
@@ -1061,7 +1062,7 @@ export function buildRecentlyAssignedTasksMap(
         : null;
 
       if (assignedDateTime && assignedDateTime >= fromDate) {
-        const practitionerId = removePrefix('Practitioner/', task.owner.reference);
+        const practitionerId = getIdFromReference(task.owner.reference, 'Practitioner');
         if (practitionerId && practitionerIdMap[practitionerId]) {
           resultMap[task.id!] = {
             task,
@@ -1288,7 +1289,7 @@ const getTelemedEncounterAppointmentId = (encounterResource: Resource): string |
   if (!(encounterResource.resourceType === 'Encounter' && getVideoRoomResourceExtension(encounterResource)))
     return undefined;
   const appointmentReference = (encounterResource as Encounter)?.appointment?.[0].reference || '';
-  const appointmentId = removePrefix('Appointment/', appointmentReference);
+  const appointmentId = getIdFromReference(appointmentReference, 'Appointment');
 
   return appointmentId;
 };

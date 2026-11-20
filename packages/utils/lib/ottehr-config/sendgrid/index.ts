@@ -274,4 +274,7 @@ export type TelemedConfirmationTemplateData = DynamicTemplateDataRecord<
 export type TelemedCompletionTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['telemedCompletion']>;
 export type TelemedInvitationTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['telemedInvitation']>;
 export type OrderResultAlertTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['orderResultAlert']>;
-export type GenericOutreachTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['genericOutreach']>;
+export type GenericOutreachTemplateData = DynamicTemplateDataRecord<SendgridConfig['templates']['genericOutreach']> & {
+  /** Drops the "© brand — website" footer line, for emails to people the website isn't for. */
+  'hide-copyright'?: boolean;
+};

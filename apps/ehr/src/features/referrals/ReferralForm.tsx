@@ -29,7 +29,7 @@ import { DATE_FORMAT } from 'src/helpers/formatDateTime';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
 import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
-import { FAX_DOCUMENT_LABELS, FAX_DOCUMENT_ORDER } from 'utils/lib/types/api/fax.types';
+import { PACKET_DOCUMENT_LABELS, PACKET_DOCUMENT_ORDER } from 'utils/lib/types/api/document-packet.types';
 import {
   isReferralOpen,
   REFERRAL_ASK_LABELS,
@@ -448,10 +448,10 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
               control={control}
               render={({ field: { value, onChange } }) => (
                 <>
-                  {FAX_DOCUMENT_ORDER.map((kind) => (
+                  {PACKET_DOCUMENT_ORDER.map((kind) => (
                     <FormControlLabel
                       key={kind}
-                      label={FAX_DOCUMENT_LABELS[kind]}
+                      label={PACKET_DOCUMENT_LABELS[kind]}
                       control={
                         <Checkbox
                           checked={value.includes(kind)}
@@ -459,7 +459,7 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
                           onChange={(event) =>
                             onChange(
                               event.target.checked
-                                ? FAX_DOCUMENT_ORDER.filter((item) => item === kind || value.includes(item))
+                                ? PACKET_DOCUMENT_ORDER.filter((item) => item === kind || value.includes(item))
                                 : value.filter((item) => item !== kind)
                             )
                           }

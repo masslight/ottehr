@@ -17,9 +17,9 @@ vi.mock('../../src/billing/shared', async (importOriginal) => ({
   createBillingClient: vi.fn(),
 }));
 
-import { createBillingClient } from '../../src/billing/shared';
+import { BillingOystehr, createBillingClient } from '../../src/billing/shared';
 import { index } from '../../src/ehr/daily-payments-report';
-import { createClinicalOystehrClient } from '../../src/shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../src/shared/helpers';
 import { STRIPE_PAYMENT_ID_SYSTEM } from '../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../src/shared/types/common';
 
@@ -87,8 +87,8 @@ const report = async (start: string, end: string): Promise<DailyPaymentsReportZa
 };
 
 beforeEach(() => {
-  vi.mocked(createBillingClient).mockReturnValue(fakeWorkspace([billingCopy]));
-  vi.mocked(createClinicalOystehrClient).mockReturnValue(fakeWorkspace([legacyNotice]));
+  vi.mocked(createBillingClient).mockReturnValue(fakeWorkspace([billingCopy]) as BillingOystehr);
+  vi.mocked(createClinicalOystehrClient).mockReturnValue(fakeWorkspace([legacyNotice]) as ClinicalOystehr);
 });
 
 describe('daily-payments-report', () => {

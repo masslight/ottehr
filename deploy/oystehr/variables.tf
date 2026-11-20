@@ -19,6 +19,12 @@ variable "sendgrid_template_ids" {
   sensitive = false
 }
 
+variable "sendgrid_enabled" {
+  description = "whether the SendGrid feature flag is on; drives resource counts because the send-email key is unknown until apply"
+  type        = bool
+  default     = false
+}
+
 variable "sendgrid_send_email_api_key" {
   description = "api key used to send emails via sendgrid; null when SendGrid feature flag is disabled"
   type        = string

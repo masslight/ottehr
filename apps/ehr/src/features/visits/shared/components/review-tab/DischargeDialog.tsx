@@ -21,12 +21,12 @@ import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { makePatientInstructionsPdf, makeProgressNotePdf } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useSendFax } from 'src/features/fax/hooks/useSendFax';
-import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
 import { NO_FAX_SEND_TEXT, NO_RECIPIENT_SEND_TEXT } from 'src/features/referrals/referralForm.helpers';
 import { getReferralPdf } from 'src/features/referrals/referrals.api';
 import { openReferralPdf, useReferralsQuery } from 'src/features/referrals/referrals.queries';
 import { ReferralUrgencyChip } from 'src/features/referrals/ReferralStatusChip';
+import { useSendDocuments } from 'src/features/send-documents/hooks/useSendDocuments';
+import { SendDocumentsDialog } from 'src/features/send-documents/ui/SendDocumentsDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
@@ -159,7 +159,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     [givenReferrals, skippedReferralIds]
   );
   const [faxReferralId, setFaxReferralId] = useState<string>();
-  const referralFax = useSendFax(faxReferralId ? { type: 'referral', referralId: faxReferralId } : undefined);
+  const referralFax = useSendDocuments(faxReferralId ? { type: 'referral', referralId: faxReferralId } : undefined);
   const sendReferralFax = (referralId: string): void => {
     setFaxReferralId(referralId);
     referralFax.open();
@@ -518,7 +518,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
             </Box>
           )}
           {/* Outside the section: a delivered fax empties the list, and the result dialog must outlive it. */}
-          <SendFaxDialog controller={referralFax} title="Send referral" />
+          <SendDocumentsDialog controller={referralFax} title="Send referral" />
 
           <Box>
             <Typography variant="h6" color="primary.dark">

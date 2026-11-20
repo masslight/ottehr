@@ -718,6 +718,20 @@ describe('rules-engine evaluator', () => {
     expect(m.serviceFacility?.name).toBeUndefined();
   });
 
+  it('treats a whitespace-only setField value as a clear', () => {
+    const m = makeModel();
+    expect(writeField(m, 'serviceFacility.name', '   ')).toBe(true);
+    expect(m.serviceFacility?.name).toBeUndefined();
+    expect(writeField(m, 'renderingProvider.lastName', ' ')).toBe(true);
+    expect((m.renderingProvider as Practitioner).name?.[0]?.family).toBeUndefined();
+  });
+
+  it('trims surrounding whitespace from a setField value', () => {
+    const m = makeModel();
+    expect(writeField(m, 'serviceFacility.name', ' North Clinic ')).toBe(true);
+    expect(m.serviceFacility?.name).toBe('North Clinic');
+  });
+
   it('fails positional name/address writes that would leave a leading empty slot', () => {
     const m = makeModel();
     // A middle name with no first name would store given: ['', 'M'] — invalid FHIR.
@@ -888,6 +902,20 @@ describe('service line actions', () => {
         m
       )
     ).toContain('units');
+  });
+
+  it('trims literal service line values before writing them as codes', () => {
+    const m = makeModel();
+    const update = (property: string, value: string, operation?: 'set' | 'add' | 'remove'): string | undefined =>
+      applyAction({ type: 'updateServiceLines', match: { type: 'all' }, set: { property, value, operation } }, m);
+
+    expect(update('modifiers', '25 ', 'add')).toBeUndefined();
+    expect(readServiceLineProperty(m.claim.item![0], 'modifiers')).toEqual(['25']);
+    expect(update('cptCode', ' 99214')).toBeUndefined();
+    expect(m.claim.item![0].productOrService.coding?.[0]?.code).toBe('99214');
+    expect(update('revenueCode', '0450 ')).toBeUndefined();
+    expect(m.claim.item![0].revenue?.coding?.[0]?.code).toBe('0450');
+    expect(update('modifiers', '  ', 'add')).toContain('modifiers');
   });
 
   it("sets a line's place of service from the claim's facility", () => {
@@ -1993,6 +2021,34 @@ describe('primary coverage from patient swap', () => {
     expect(m.claim.insurance).toHaveLength(1);
     expect(m.claim.insurance?.[0]?.coverage?.reference).toBe(`urn:uuid:${m.coverages[0].id}`);
     expect(readField(m, 'billingType')).toBe('Insurance Pay');
+  });
+
+  it('keeps the primary insurer when a secondary coverage is attached behind an existing primary', () => {
+    const m = makeModel();
+    m.patientCoverageContext = makeCoverageContext();
+    m.claim.insurer = { reference: getPayerUrl('555666'), display: 'Primary Payer (555666)' };
+
+    expect(writeField(m, 'secondaryInsurance.coverageFromPatient', 'workersComp')).toBe(true);
+
+    const secondary = m.claim.insurance?.find((entry) => entry.sequence === 2);
+    expect(secondary?.focal).toBe(false);
+    expect(secondary?.coverage?.display).toBe('WorkSafe (999001)');
+    expect(m.claim.insurance?.find((entry) => entry.focal)?.coverage?.reference).toBe('Coverage/cov-primary');
+    expect(m.claim.insurer).toEqual({ reference: getPayerUrl('555666'), display: 'Primary Payer (555666)' });
+  });
+
+  it('points the insurer at a secondary coverage that becomes focal on a self-pay claim', () => {
+    const m = makeModel();
+    m.claim.insurance = [buildNoCoverageStub()];
+    m.coverages = [];
+    m.subscribers = [];
+    m.patientCoverageContext = makeCoverageContext();
+
+    expect(writeField(m, 'secondaryInsurance.coverageFromPatient', 'workersComp')).toBe(true);
+
+    expect(m.claim.insurance).toHaveLength(1);
+    expect(m.claim.insurance?.[0]?.focal).toBe(true);
+    expect(m.claim.insurer).toEqual({ reference: getPayerUrl('999001'), display: 'WorkSafe (999001)' });
   });
 
   it('supersedes pending coverage and policy-holder copies when swapped twice in one run', () => {

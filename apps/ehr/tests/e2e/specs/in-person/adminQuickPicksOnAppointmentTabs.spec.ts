@@ -31,7 +31,6 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
 
     context = await browser.newContext();
     page = await context.newPage();
-    page.on('dialog', (dialog) => dialog.accept());
 
     await openVisit(page);
   });
@@ -46,6 +45,7 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
         const allergyRow = page.locator('tr', { hasText: addedAllergyName });
         if (await allergyRow.isVisible({ timeout: 3000 }).catch(() => false)) {
           await allergyRow.getByTitle('Remove').click();
+          await page.getByTestId(dataTestIds.dialog.proceedButton).click();
           await page
             .locator('div[id=notistack-snackbar]')
             .waitFor({ state: 'visible', timeout: 5000 })
@@ -58,6 +58,7 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
         const conditionRow = page.locator('tr', { hasText: addedMedicalConditionDisplay });
         if (await conditionRow.isVisible({ timeout: 3000 }).catch(() => false)) {
           await conditionRow.getByTitle('Remove').click();
+          await page.getByTestId(dataTestIds.dialog.proceedButton).click();
           await page
             .locator('div[id=notistack-snackbar]')
             .waitFor({ state: 'visible', timeout: 5000 })
@@ -117,6 +118,7 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
           .catch(() => false)
       ) {
         await duplicateRows.nth(1).getByTitle('Remove').click();
+        await page.getByTestId(dataTestIds.dialog.proceedButton).click();
         await page
           .locator('div[id=notistack-snackbar]')
           .waitFor({ state: 'visible', timeout: 5000 })
@@ -214,6 +216,7 @@ test.describe('Admin-added quick picks are visible and usable on appointment tab
           .catch(() => false)
       ) {
         await duplicateRows.nth(1).getByTitle('Remove').click();
+        await page.getByTestId(dataTestIds.dialog.proceedButton).click();
         await page
           .locator('div[id=notistack-snackbar]')
           .waitFor({ state: 'visible', timeout: 5000 })

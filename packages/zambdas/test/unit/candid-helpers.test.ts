@@ -341,6 +341,39 @@ describe('getCptModifierCodeFromProcedure', () => {
     expect(result).toEqual([{ code: '25', display: '' }]);
   });
 
+  it('returns modifiers from every modifier extension on the CPT coding', () => {
+    const procedure: Procedure = {
+      resourceType: 'Procedure',
+      status: 'completed',
+      subject: { reference: 'Patient/123' },
+      code: {
+        coding: [
+          {
+            system: CODE_SYSTEM_CPT,
+            code: '84591',
+            extension: [
+              {
+                url: EXTENSION_URL_CPT_MODIFIER,
+                valueCodeableConcept: { coding: [{ system: CODE_SYSTEM_CPT_MODIFIER, code: '91', display: 'Repeat' }] },
+              },
+              {
+                url: EXTENSION_URL_CPT_MODIFIER,
+                valueCodeableConcept: {
+                  coding: [{ system: CODE_SYSTEM_CPT_MODIFIER, code: '50', display: 'Bilateral' }],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    expect(getCptModifierCodeFromProcedure(procedure)).toEqual([
+      { code: '91', display: 'Repeat' },
+      { code: '50', display: 'Bilateral' },
+    ]);
+  });
+
   it('filters out codings with no code', () => {
     const procedure: Procedure = {
       resourceType: 'Procedure',

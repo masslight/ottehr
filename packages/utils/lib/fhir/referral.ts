@@ -1,6 +1,6 @@
 import { DocumentReference, Reference, ServiceRequest } from 'fhir/r4b';
 import { docRefIsLabGeneratedResult, docRefIsOttehrGeneratedResultAndCurrent } from '../helpers/labs/helpers';
-import { FaxDocumentKind } from '../types/api/fax.types';
+import { PacketDocumentKind } from '../types/api/document-packet.types';
 import {
   ReferralAsk,
   ReferralCloseReason,
@@ -83,7 +83,7 @@ export interface ReferralDetails {
   whatIsAsked: ReferralAsk;
   whoSchedules: ReferralScheduler;
   responseRequested: boolean;
-  includeDocuments: FaxDocumentKind[];
+  includeDocuments: PacketDocumentKind[];
   /**
    * The number in the form's Fax field at save, whether the picker copied it from the contact or staff typed it.
    * The referral faxes to this number; later edits to the directory contact do not change it.

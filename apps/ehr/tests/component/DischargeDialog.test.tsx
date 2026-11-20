@@ -78,11 +78,11 @@ vi.mock('src/features/referrals/referrals.queries', () => ({
 vi.mock('src/features/referrals/referrals.api', () => ({
   getReferralPdf: (...args: unknown[]) => getReferralPdf(...args),
 }));
-vi.mock('src/features/fax/hooks/useSendFax', () => ({
-  useSendFax: () => ({ isOpen: false, open: vi.fn(), close: vi.fn() }),
+vi.mock('src/features/send-documents/hooks/useSendDocuments', () => ({
+  useSendDocuments: () => ({ isOpen: false, open: vi.fn(), close: vi.fn() }),
 }));
-vi.mock('src/features/fax/ui/SendFaxDialog', () => ({
-  SendFaxDialog: () => null,
+vi.mock('src/features/send-documents/ui/SendDocumentsDialog', () => ({
+  SendDocumentsDialog: () => null,
 }));
 
 import { DischargeDialog } from '../../src/features/visits/shared/components/review-tab/DischargeDialog';

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ActionLogStatus } from '../action-logs.types';
-import { FaxDocumentKind, FaxDocumentKindSchema } from '../fax.types';
+import { PacketDocumentKind, PacketDocumentKindSchema } from '../document-packet.types';
 import { RoleType } from '../user.types';
 
 /**
@@ -92,7 +92,7 @@ export const REFERRAL_DEFAULTS = {
   urgency: 'routine' as ReferralUrgency,
   whatIsAsked: 'evaluate-and-treat' as ReferralAsk,
   whoSchedules: 'patient' as ReferralScheduler,
-  includeDocuments: ['progress-note', 'lab-results', 'radiology-results'] as FaxDocumentKind[],
+  includeDocuments: ['progress-note', 'lab-results', 'radiology-results'] as PacketDocumentKind[],
 };
 /** Days without a response before a referral task is flagged overdue, by urgency. */
 export const REFERRAL_OVERDUE_DAYS: Record<ReferralUrgency, number> = { routine: 14, urgent: 7, asap: 2 };
@@ -155,7 +155,7 @@ export const SaveReferralInputSchema = z.object({
   whatIsAsked: ReferralAskSchema,
   whoSchedules: ReferralSchedulerSchema,
   responseRequested: z.boolean(),
-  includeDocuments: z.array(FaxDocumentKindSchema),
+  includeDocuments: z.array(PacketDocumentKindSchema),
   /** DocumentReference ids from the patient's earlier visits, sent after this visit's documents. Duplicates are dropped. */
   earlierDocumentIds: z
     .array(z.string().uuid())
@@ -229,7 +229,7 @@ export interface ReferralDTO {
   whatIsAsked: ReferralAsk;
   whoSchedules: ReferralScheduler;
   responseRequested: boolean;
-  includeDocuments: FaxDocumentKind[];
+  includeDocuments: PacketDocumentKind[];
   /** In the order they were chosen; documents that no longer qualify are left out. */
   earlierDocuments: ReferralEarlierDocument[];
   notesToRecipient?: string;

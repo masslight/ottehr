@@ -5,6 +5,7 @@ import { billingDataset } from './billing';
 import { billingClaimsDataset } from './billing-claims';
 import { billingRulesDataset } from './billing-rules';
 import { adhocEncountersDataset } from './encounters';
+import { medicationInventoryDataset } from './medication-inventory';
 import { patientsDataset } from './patients';
 import { referralsDataset } from './referrals';
 import { AdHocDataset } from './types';
@@ -16,6 +17,7 @@ export const AD_HOC_DATASETS: AdHocDataset[] = [
   billingDataset,
   billingClaimsDataset,
   billingRulesDataset,
+  medicationInventoryDataset,
 ];
 
 export function getDataset(id: string): AdHocDataset | undefined {

@@ -261,6 +261,11 @@ export const getClaimServiceDate = (claim: Claim): string =>
 const toServiceDay = (value?: string): string | null =>
   value ? DateTime.fromISO(value, { setZone: true }).toISODate() : null;
 
+export const getClaimServiceDay = (claim: Claim): string => {
+  const serviceDate = getClaimServiceDate(claim);
+  return toServiceDay(serviceDate) ?? DateTime.fromISO(serviceDate).toFormat('yyyy-MM-dd');
+};
+
 export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: string): boolean => {
   const day = toServiceDay(getClaimServiceDate(claim));
   if (!day) return false;
@@ -753,8 +758,7 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
   const renderingRef = claim.careTeam?.[0]?.provider?.reference;
   const renderingProvider = findRef<Practitioner | Organization>(lookups.providers, renderingRef);
   const patientName = fhirName(patient);
-  const claimServiceDate = getClaimServiceDate(claim);
-  const serviceDate = toServiceDay(claimServiceDate) ?? DateTime.fromISO(claimServiceDate).toFormat('yyyy-MM-dd');
+  const serviceDate = getClaimServiceDay(claim);
   const patientPaid = lookups.patientPaidByClaimId.get(claim.id ?? '') ?? 0;
   const writeOffsTotal = sumWriteOffs(lookups.writeOffs.get(claim.id ?? '') ?? []);
 

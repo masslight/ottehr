@@ -23,6 +23,7 @@ import {
 } from 'utils/lib/fhir/constants';
 import { genderMap } from 'utils/lib/fhir/helpers';
 import { RelationshipOption } from 'utils/lib/fhir/patientMasterRecord';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   createSampleAppointments,
   GetPaperworkAnswers,
@@ -686,9 +687,11 @@ export class ResourceHandler {
       resourceType: 'Appointment',
       id: appointmentId,
     });
-    const patientId = appointment.participant
-      .find((participant) => participant.actor?.reference?.startsWith('Patient/'))
-      ?.actor?.reference?.split('/')[1];
+    const patientId = getIdFromReference(
+      appointment.participant.find((participant) => participant.actor?.reference?.startsWith('Patient/'))?.actor
+        ?.reference,
+      'Patient'
+    );
     if (patientId == null) {
       throw new Error(`Patient for appointment ${appointmentId} not found`);
     }

@@ -75,6 +75,7 @@ import {
   getTaxID,
   setNpi,
 } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { extractNioIdFromReferenceUrl, getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
@@ -89,6 +90,7 @@ import {
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
   EXTENSION_URL_CPT_MODIFIER,
 } from 'utils/lib/helpers/rcm/constants';
+import { zambdaApiUrlOverride } from 'utils/lib/helpers/zambda-api-url-override';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { STATE_CODES } from 'utils/lib/types/common';
 import { CLAIM_TAG_SYSTEM, ERA_SOURCE, EraSource, ndcToDigits } from 'utils/lib/types/data/billing/billing.constants';
@@ -120,7 +122,7 @@ import {
   withArStageInitialization,
 } from 'utils/lib/types/data/billing/claim-status';
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
-import { RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
+import { RulesEngineInsurance, RulesEngineType } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { BillingRule } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isSystemManagedTagName } from 'utils/lib/types/data/billing/system-tags';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
@@ -343,6 +345,8 @@ export const EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS =
   'https://extensions.fhir.oystehr.com/rcm-claim-patient-discharge-status';
 export const EXTENSION_CLAIM_FACILITY_TYPE_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-facility-type-code';
 export const EXTENSION_CLAIM_FREQUENCY_CODE = 'https://extensions.fhir.oystehr.com/rcm-claim-frequency-code';
+export const EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE =
+  'https://extensions.fhir.oystehr.com/rcm-claim-medicare-secondary-code';
 export const CODE_SYSTEM_NUBC_REVENUE = 'https://www.nubc.org/CodeSystem/RevenueCodes';
 
 export const CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem(
@@ -603,7 +607,7 @@ export async function searchPatientsByClinicalIds({
     }
   }
 
-  return searchOnClinicalIDs(oystehr, baseSearchParams, offset, pageSize, uuid, friendlyId);
+  return { total: 0, results: [] };
 }
 
 export interface ClinicalPatientIds {
@@ -897,31 +901,54 @@ export const EXCLUDE_WORKING_COPIES_PARAMS = [
   { name: '_tag:not', value: `${BILLING_WORKING_COPY_TAG.system}|${BILLING_WORKING_COPY_TAG.code}` },
 ];
 
+declare const billingScope: unique symbol;
+
+// The client createBillingClient makes, whose FHIR reads and writes see only billing-tagged resources.
+// ottehr/billing-fhir-client-only tells it from other clients by this type, so billing code can't get
+// another client unnoticed. The brand is keyed by a symbol nothing else can name, so only this factory
+// makes one.
+export interface BillingOystehr extends Oystehr {
+  readonly [billingScope]: true;
+}
+
 export function createBillingClient(
   token: string,
   secrets: Secrets | null,
   overrides?: Partial<OystehrConfig>
-): Oystehr {
+): BillingOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the billing client factory, which sets the workspace tag
   return new Oystehr({
     accessToken: token,
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+      zambdaApiUrl: zambdaApiUrlOverride(),
     },
     ...overrides,
     workspaceTag: BILLING_RESOURCE_TAG,
-  });
+  }) as BillingOystehr;
+}
+
+declare const unscopedScope: unique symbol;
+
+// The client createEraReadClient makes, which sees untagged and billing-tagged resources alike: for code
+// that must see resources before they are tagged, or that nothing tags. Billing code that needs one gets
+// it with a justified exception to ottehr/billing-fhir-client-only, then uses it like any other client.
+export interface UnscopedOystehr extends Oystehr {
+  readonly [unscopedScope]: true;
 }
 
 // ERA resources are untagged by Oystehr
-export function createEraReadClient(token: string, secrets: Secrets | null): Oystehr {
+export function createEraReadClient(token: string, secrets: Secrets | null): UnscopedOystehr {
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- the unscoped client factory
   return new Oystehr({
     accessToken: token,
     services: {
       fhirApiUrl: getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, ''),
       projectApiUrl: getSecret(SecretsKeys.PROJECT_API, secrets),
+      zambdaApiUrl: zambdaApiUrlOverride(),
     },
-  });
+  }) as UnscopedOystehr;
 }
 
 export async function findById<T extends FhirResource>(
@@ -975,15 +1002,22 @@ export async function listToRulesReportingMalformed(list: List, env: string): Pr
  * The rules engine responsible for a claim, decided by its AR Stage:
  * - Insurance Payer AR -> Claim Submission Rules
  * - Non-insurance Payer AR -> Non-Insurance Payer Pre-Invoice Rules
+ * - Insurance Payer AR + Adjudicated AR Status -> Post-Adjudication Rules
  * - Patient AR -> Patient AR Pre-Invoice Rules
- * Undefined when no engine applies (no AR Stage).
+ * Undefined when no engine applies. If an override is provided, that will be used instead.
  *
  * An engine runs automatically only when a claim is created in its stage. Changing an existing
  * claim's AR Stage never runs an engine — set-billing-claim-status holds the claim instead, and the
  * biller runs the rules explicitly (Submit claim / Prepare for invoice).
  */
-export function determineRulesEngineForClaim(claim: Claim): RulesEngineType | undefined {
+export function determineRulesEngineForClaim(
+  claim: Claim,
+  engineOverride?: RulesEngineType
+): RulesEngineType | undefined {
+  if (engineOverride) return engineOverride;
   const arStage = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.arStage);
+  const insuranceARStatus = getClaimStatusFieldValue(claim, CLAIM_STATUS_FIELDS_BY_KEY.insuranceArStatus);
+  if (arStage === AR_STAGE.insurancePayer && insuranceARStatus === 'adjudicated') return 'post-adjudication';
   if (arStage === AR_STAGE.insurancePayer) return 'claim-submission';
   if (arStage === AR_STAGE.nonInsurancePayer) return 'non-insurance-payer-pre-invoice';
   if (arStage === AR_STAGE.patient) return 'patient-ar-pre-invoice';
@@ -1076,9 +1110,9 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
       )
       .map(
         (supportingInfo) =>
-          `/${supportingInfo.valueReference.reference?.split(
-            '/'
-          )[0]}?_id=${supportingInfo.valueReference.reference?.split('/')[1]}`
+          `/${supportingInfo.valueReference.reference?.split('/')[0]}?_id=${getIdFromReference(
+            supportingInfo.valueReference.reference
+          )}`
       )
   );
 
@@ -1087,7 +1121,7 @@ export async function fetchClaimGraph(oystehr: Oystehr, claimId: string): Promis
   const coverages = coverageRefs
     .map((ref) => followUp.find((r) => r.resourceType === 'Coverage' && r.id === ref.replace('Coverage/', '')))
     .filter((c): c is Coverage => !!c);
-  const renderingId = renderingRef?.split('/')[1];
+  const renderingId = getIdFromReference(renderingRef);
   const renderingProvider = renderingId
     ? (followUp.find(
         (r) => r.id === renderingId && (r.resourceType === 'Practitioner' || r.resourceType === 'Organization')
@@ -1579,7 +1613,7 @@ export function setCoveragePayer(
   coverage.class = [
     {
       type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] },
-      value: groupNumber || payerId!,
+      value: groupNumber?.trim() || payerId!,
       name: payerOrg.name ?? '',
     },
   ];
@@ -1637,16 +1671,19 @@ export function buildClaimCoverageCopies(params: {
   return { coverage, subscriber };
 }
 
-// Point the claim's coverage slot at `coverageReference` and its insurer at the
-// coverage's payer, keeping any other insurance entries (re-sequenced after the new primary).
-// ensureClaimInsurance drops the no-coverage stub now that a real focal coverage is attached.
+// Point the claim's coverage slot at `coverageReference`, keeping any other insurance entries
+// (re-sequenced after the new primary). ensureClaimInsurance drops the no-coverage stub and
+// re-sequences, so a non-primary coverage attached to a self-pay claim becomes the focal entry.
+// Claim.insurer names the focal payer, so it is re-pointed only when the attached coverage is focal
+// after normalization — attaching a secondary behind an existing primary leaves it alone.
+// Returns whether the attached coverage ended up focal.
 export function attachCoverageToClaim(params: {
   claim: Claim;
   coverageReference: string;
   type: ClaimCoverageType;
   display?: string;
   payerReference?: string;
-}): void {
+}): boolean {
   const { claim, coverageReference, display, payerReference } = params;
   const sequence = params.type === 'primary' ? 1 : params.type === 'secondary' ? 2 : params.type === 'tertiary' ? 3 : 4;
   const focal = params.type === 'primary';
@@ -1654,7 +1691,9 @@ export function attachCoverageToClaim(params: {
     { sequence, focal, coverage: { reference: coverageReference, display } },
     ...(claim.insurance ?? []).filter((i) => i.sequence !== sequence),
   ]);
-  if (payerReference) claim.insurer = { reference: payerReference, display };
+  const attachedIsFocal = claim.insurance.find((i) => i.coverage.reference === coverageReference)?.focal ?? false;
+  if (attachedIsFocal && payerReference) claim.insurer = { reference: payerReference, display };
+  return attachedIsFocal;
 }
 
 // Account type + priority an insurance type maps to. primary/secondary share the patient billing
@@ -2143,4 +2182,57 @@ export async function getGroupNumber(
   if (groupNumber === payorOrg?.id) groupNumber = undefined;
 
   return groupNumber;
+}
+
+export function isPayerClaimControlNumberFor(identifier: Identifier, insurance: RulesEngineInsurance): boolean {
+  if (identifier.system !== CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM) return false;
+  // a type-less identifier is the legacy one for the primary insurance
+  if (!identifier.type) return insurance === 'primary';
+  return (
+    identifier.type.coding?.some(
+      (c) => c.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM && c.code === insurance
+    ) ?? false
+  );
+}
+
+export function getPayerClaimControlNumber(claim: Claim, insurance: RulesEngineInsurance): string | undefined {
+  // an identifier without a value carries no number to read
+  return (claim.identifier ?? []).find((i) => i.value && isPayerClaimControlNumberFor(i, insurance))?.value;
+}
+
+export function payerClaimControlNumberIdentifier(
+  value: string,
+  insurance: RulesEngineInsurance | undefined
+): Identifier {
+  return {
+    system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+    value,
+    ...(insurance
+      ? { type: { coding: [{ system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM, code: insurance }] } }
+      : {}),
+  };
+}
+
+export async function getInsuranceOrdinal(
+  oystehr: Oystehr,
+  claim: Claim,
+  insurer: Reference | undefined
+): Promise<RulesEngineInsurance | undefined> {
+  const coverageIds = (claim.insurance ?? []).flatMap((ins) => {
+    const id = ins.coverage.reference?.replace('Coverage/', '');
+    return id ? [id] : [];
+  });
+  if (!insurer?.reference || coverageIds.length === 0) return undefined;
+  const coverages = (
+    await oystehr.fhir.search<Coverage>({
+      resourceType: 'Coverage',
+      params: [{ name: '_id', value: coverageIds.join(',') }],
+    })
+  ).unbundle();
+  const targetCoverage = coverages.find((cov) => cov.payor?.[0]?.reference === insurer.reference);
+  if (!targetCoverage) return undefined;
+  const sequence = claim.insurance.find((ins) => ins.coverage.reference?.replace('Coverage/', '') === targetCoverage.id)
+    ?.sequence;
+  if (!sequence) return undefined;
+  return sequence === 1 ? 'primary' : sequence === 2 ? 'secondary' : sequence === 3 ? 'tertiary' : 'quaternary';
 }

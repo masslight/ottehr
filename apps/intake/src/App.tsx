@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-d
 import BookingHome from 'src/pages/BookingHome';
 import GetReadyForVisit from 'src/pages/GetReadyForVisit';
 import NewUser from 'src/pages/NewUser';
+import OpenDocumentLink, { moveDocumentLinkTokenOutOfUrl, OPEN_DOCUMENT_LINK_PATH } from 'src/pages/OpenDocumentLink';
 import Reschedule from 'src/pages/Reschedule';
 import Version from 'src/pages/Version';
 import { ProtectedRoute } from 'src/telemed/features/auth/ProtectedRoute';
@@ -50,6 +51,7 @@ import WaitingRoom from './telemed/pages/WaitingRoom';
 import Welcome from './telemed/pages/Welcome';
 const { VITE_APP_SENTRY_ENV, VITE_APP_SENTRY_DSN, VITE_APP_SENTRY_TAGS } = import.meta.env;
 
+moveDocumentLinkTokenOutOfUrl();
 setupSentry({
   dsn: VITE_APP_SENTRY_DSN,
   environment: VITE_APP_SENTRY_ENV,
@@ -188,6 +190,10 @@ export const intakeFlowPageRoute = {
     path: '/invited-call-ended',
     getPage: () => <CallEndedPage />,
   },
+  OpenDocumentLink: {
+    path: OPEN_DOCUMENT_LINK_PATH,
+    getPage: () => <OpenDocumentLink />,
+  },
 
   IOSPatientPhotosEdit: {
     path: '/ios-patient-photos',
@@ -310,6 +316,10 @@ function App(): JSX.Element {
                 <Route
                   path={intakeFlowPageRoute.InvitedWaitingRoom.path}
                   element={intakeFlowPageRoute.InvitedWaitingRoom.getPage()}
+                />
+                <Route
+                  path={intakeFlowPageRoute.OpenDocumentLink.path}
+                  element={intakeFlowPageRoute.OpenDocumentLink.getPage()}
                 />
                 <Route
                   path={intakeFlowPageRoute.PrebookVisit.path}

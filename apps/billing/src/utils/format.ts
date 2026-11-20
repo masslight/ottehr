@@ -3,7 +3,8 @@ import { formatZipcodeForDisplay } from 'utils/lib/helpers/helpers';
 import { CMS_PLACE_OF_SERVICE_CODES } from 'utils/lib/helpers/rcm/constants';
 import { ServiceFacilityItem } from 'utils/lib/types/data/billing/billing.types';
 
-export function formatDate(iso: string): string {
+export function formatDate(iso: string | undefined): string {
+  if (!iso) return '-';
   const date = DateTime.fromISO(iso, { zone: 'utc' });
   return date.isValid ? date.toFormat('MM/dd/yyyy') : iso;
 }
@@ -53,3 +54,16 @@ export function buildAddressInput(
 
 export const valueToText = (value: string | string[] | null | undefined): string =>
   Array.isArray(value) ? value.join(', ') : value ?? '';
+
+const CARD_BRAND_NAMES: Record<string, string> = {
+  visa: 'Visa',
+  mastercard: 'Mastercard',
+  amex: 'American Express',
+  discover: 'Discover',
+};
+
+// a Stripe card brand ('amex', 'jcb', ...) as shown to staff
+export function cardBrandName(brand: string | undefined): string {
+  if (!brand) return 'Card';
+  return CARD_BRAND_NAMES[brand] ?? brand.charAt(0).toUpperCase() + brand.slice(1);
+}

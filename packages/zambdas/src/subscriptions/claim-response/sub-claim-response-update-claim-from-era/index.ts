@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputPatchRequest, FhirResourceReturnValue } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, ClaimResponse, Coverage, Provenance, ProvenanceAgent, Reference } from 'fhir/r4b';
+import { Claim, ClaimResponse, Provenance, ProvenanceAgent, Task } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import {
   getExtensionValue,
@@ -27,18 +27,20 @@ import {
   claimMetaTagsWithProvenanceRequests,
   resolveClaimActor,
 } from '../../../billing/provenance';
+import { buildRulesEngineKickoffTask } from '../../../billing/rules-engine/serialization';
 import {
   buildUpdatedClaimStatusTags,
-  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
-  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
   createBillingClient,
   ERA_CLAIM_RESPONSE_TYPE_TAG,
   ERA_ICN_EXTENSION,
   ERA_ITEM_REMARK_CODE_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   getEraExtensionString,
+  getInsuranceOrdinal,
   getTag,
   hasTag,
+  isPayerClaimControlNumberFor,
+  payerClaimControlNumberIdentifier,
 } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { truncateForLog } from '../../../shared/logging';
@@ -231,26 +233,9 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
           ...current,
           identifier: [
             ...(current.identifier ?? []).filter(
-              (identifier) => identifier.system !== CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM
+              (identifier) => !isPayerClaimControlNumberFor(identifier, insuranceOrdinal ?? 'primary')
             ),
-            {
-              system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
-              value: claimResponseIcn,
-              ...(insuranceOrdinal
-                ? [
-                    {
-                      type: {
-                        coding: [
-                          {
-                            system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
-                            coe: insuranceOrdinal,
-                          },
-                        ],
-                      },
-                    },
-                  ]
-                : []),
-            },
+            payerClaimControlNumberIdentifier(claimResponseIcn, insuranceOrdinal),
           ],
         }
       : current;
@@ -262,7 +247,7 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
       agent,
       activity: 'update',
     });
-    const merged = reducePatchOperations<Claim | Provenance>([
+    const merged = reducePatchOperations<Claim | Provenance | Task>([
       ...(updatedTags.length ? claimMetaTagsWithProvenanceRequests(current, updatedTags, 'statusChange', agent) : []),
       ...(claimResponseIcn
         ? [
@@ -281,6 +266,11 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
         : []),
       ...(icnHistory ? [icnHistory] : []),
       ...(matchHistory ? [matchHistory] : []),
+      {
+        method: 'POST',
+        url: '/Task',
+        resource: buildRulesEngineKickoffTask('post-adjudication', current.id, false, agent.who),
+      },
     ]);
     // locked to the claim this attempt read
     const requests = versionLockedPatches({
@@ -291,7 +281,7 @@ export async function performEffect(oystehr: Oystehr, validated: ComplexValidati
       // Nothing to do
       return;
     }
-    await oystehr.fhir.transaction({ requests });
+    await oystehr.fhir.transaction<Claim | Provenance | Task>({ requests });
   });
 }
 
@@ -327,28 +317,4 @@ export function claimWasForwarded(claimResponse: ClaimResponse): boolean {
     return true;
   }
   return false;
-}
-
-async function getInsuranceOrdinal(
-  oystehr: Oystehr,
-  claim: FhirResourceReturnValue<Claim>,
-  insurer: Reference
-): Promise<string | undefined> {
-  const coverages = (
-    await oystehr.fhir.search<Coverage>({
-      resourceType: 'Coverage',
-      params: [
-        {
-          name: '_id',
-          value: claim.insurance.map((ins) => ins.coverage.reference?.replace('Coverage/', '')).join(','),
-        },
-      ],
-    })
-  ).unbundle();
-  const targetCoverage = coverages.find((cov) => cov.payor[0].reference === insurer.reference);
-  if (!targetCoverage) return;
-  const sequence = claim.insurance.find((ins) => ins.coverage.reference?.replace('Coverage/', '') === targetCoverage.id)
-    ?.sequence;
-  if (!sequence) return;
-  return sequence === 1 ? 'primary' : sequence === 2 ? 'secondary' : sequence === 3 ? 'tertiary' : 'quaternary';
 }

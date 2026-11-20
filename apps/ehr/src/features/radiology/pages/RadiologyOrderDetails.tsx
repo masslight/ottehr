@@ -253,7 +253,8 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     label: string,
     loading?: boolean,
     btnOnClick?: () => void,
-    disabled?: boolean
+    disabled?: boolean,
+    disabledReason?: string
   ): JSX.Element => {
     const btn = (
       <LoadingButton
@@ -262,15 +263,16 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
         color="primary"
         sx={{ borderRadius: 28, padding: '8px 22px', textTransform: 'none' }}
         onClick={btnOnClick}
-        disabled={isReadOnly || disabled}
+        disabled={isReadOnly || disabled || !!disabledReason}
       >
         {label}
       </LoadingButton>
     );
 
-    if (isReadOnly) {
+    const tooltip = isReadOnly ? `Please unlock the progress note to use "${label}"` : disabledReason;
+    if (tooltip) {
       return (
-        <Tooltip placement="top" title={`Please unlock the progress note to use "${label}"`}>
+        <Tooltip placement="top" title={tooltip}>
           <span>{btn}</span>
         </Tooltip>
       );
@@ -284,6 +286,8 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
   if (!order) {
     return <RadiologyOrderLoading />;
   }
+
+  const trimmedFinalReport = finalReport?.trim();
 
   const content = (
     <>
@@ -528,12 +532,11 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                       'Internal Final Read',
                       isSavingReport,
                       () => {
-                        const report = finalReport?.trim();
-                        if (!report) {
+                        if (!trimmedFinalReport) {
                           setMissingFinalReport(true);
                           return;
                         }
-                        void handleSaveReport(serviceRequestId, report, 'final');
+                        void handleSaveReport(serviceRequestId, trimmedFinalReport, 'final');
                       },
                       isSendingForFinalRead
                     )}
@@ -544,7 +547,8 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
                         setMissingFinalReport(false);
                         void handleSendForFinalRead(serviceRequestId);
                       },
-                      isSavingReport
+                      isSavingReport,
+                      trimmedFinalReport ? 'Clear the internal final read report to send to teleradiology.' : undefined
                     )}
                   </Box>
                 </>

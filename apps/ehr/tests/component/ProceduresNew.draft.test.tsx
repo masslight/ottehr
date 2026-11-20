@@ -749,4 +749,25 @@ describe('ProceduresNew — EKG save and reopen', () => {
     for (const key of ['rate', 'qt', 'qtc', 'qtcMethod', 'conduction', ...INTERPRETATION_KEYS])
       expect(saved[key], key).toBeUndefined();
   });
+
+  it('saves the axis corrected from a reminder and reopens it without the reminder', async () => {
+    const user = userEvent.setup();
+    const facts = { ...EKG_FACTS, axisDegrees: -45, axis: 'normal', impression: 'otherwise normal EKG' };
+    useProcedureStore.getState().setDraft(ENCOUNTER_ID, { procedureType: 'EKG', structuredFacts: facts });
+    const { unmount } = renderComponent();
+    const reminders = screen.getByTestId(dataTestIds.documentProcedurePage.ekgReminders);
+    await user.click(within(reminders).getByRole('button', { name: 'Set axis to left axis deviation' }));
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+    await user.click(screen.getByTestId(dataTestIds.documentProcedurePage.saveButton));
+    await waitFor(() => expect(mockSaveChartData).toHaveBeenCalledTimes(2));
+    const saved = mockSaveChartData.mock.calls[1][0].procedures[0].structuredFacts;
+    expect(saved).toMatchObject({ ...facts, axis: 'left axis deviation' });
+    unmount();
+
+    mockChartData.procedures = [{ resourceId: 'ekg-axis', procedureType: 'EKG', structuredFacts: saved }];
+    render(<ProceduresNew procedureId="ekg-axis" />, { wrapper: createWrapper() });
+    expect(await screen.findByRole('spinbutton', { name: 'Axis (°)' })).toHaveValue(-45);
+    expect(screen.getByRole('button', { name: 'axis: left axis deviation' })).toBeInTheDocument();
+    expect(screen.queryByTestId(dataTestIds.documentProcedurePage.ekgReminders)).not.toBeInTheDocument();
+  });
 });

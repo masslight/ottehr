@@ -3,8 +3,8 @@ import { Box, Button, Chip, Skeleton, Typography, useTheme } from '@mui/material
 import { FC, useState } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useSendFax } from 'src/features/fax/hooks/useSendFax';
-import { SendFaxDialog } from 'src/features/fax/ui/SendFaxDialog';
+import { useSendDocuments } from 'src/features/send-documents/hooks/useSendDocuments';
+import { SendDocumentsDialog } from 'src/features/send-documents/ui/SendDocumentsDialog';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { ReferralForm } from './ReferralForm';
 import { ReferralRow } from './ReferralRow';
@@ -26,7 +26,7 @@ export const ReferralsCard: FC = () => {
   const [expandedId, setExpandedId] = useState<string>();
   // One fax dialog for the card: a new referral's form is replaced by its row the moment it is saved.
   const [faxReferralId, setFaxReferralId] = useState<string>();
-  const fax = useSendFax(faxReferralId ? { type: 'referral', referralId: faxReferralId } : undefined);
+  const fax = useSendDocuments(faxReferralId ? { type: 'referral', referralId: faxReferralId } : undefined);
   const sendFax = (referralId: string): void => {
     setFaxReferralId(referralId);
     fax.open();
@@ -88,7 +88,7 @@ export const ReferralsCard: FC = () => {
           </Box>
         )}
       </Box>
-      <SendFaxDialog controller={fax} title="Send referral" />
+      <SendDocumentsDialog controller={fax} title="Send referral" />
     </AccordionCard>
   );
 };

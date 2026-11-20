@@ -401,7 +401,6 @@ function QuantityFields(props: ComponentProps): ReactElement {
             <TextField
               id={`unit-input-${index}`}
               label="Unit"
-              required
               onChange={onChange}
               value={value || ''}
               sx={{ width: '100%' }}

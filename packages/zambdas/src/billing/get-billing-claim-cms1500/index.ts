@@ -30,6 +30,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 export async function performEffect(oystehr: Oystehr, params: GetClaimCms1500Params): Promise<Cms1500FormData> {
+  const { submissionType, submissionInsurance, payerClaimControlNumber } = params;
   const graph = await fetchClaimGraph(oystehr, params.claimId);
   if (getClaimType(graph.claim) !== 'professional') {
     throw INVALID_INPUT_ERROR('The CMS-1500 form is only for professional claims. Institutional claims use the UB-04.');
@@ -47,7 +48,15 @@ export async function performEffect(oystehr: Oystehr, params: GetClaimCms1500Par
       : Promise.resolve(new Map<string, PaymentNotice[]>()),
   ]);
   const patientPaid = sumPatientPayments(paymentsByEncounter.get(encounterId) ?? []);
-  return buildCms1500FormData({ ...graph, payers, referringProvider, patientPaid });
+  return buildCms1500FormData({
+    ...graph,
+    payers,
+    referringProvider,
+    patientPaid,
+    submissionType,
+    submissionInsurance,
+    payerClaimControlNumber,
+  });
 }
 
 // Item 17's provider isn't part of the claim graph, which only follows the rendering provider.

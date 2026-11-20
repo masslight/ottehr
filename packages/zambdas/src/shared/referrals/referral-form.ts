@@ -10,8 +10,8 @@ import {
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { DEFAULT_TIMEZONE } from '../document-packet/deliver-document-packet';
 import { isFhirNotFoundError } from '../errors';
-import { DEFAULT_TIMEZONE } from '../fax/run-fax-packet';
 import { createReferralFormPDF } from '../pdf/referral-form-pdf';
 import { loadReferralRecipient } from './recipient';
 import { findReferralDocuments } from './referral-documents';

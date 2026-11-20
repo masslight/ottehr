@@ -1,0 +1,63 @@
+import Oystehr, { User } from '@oystehr/sdk';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Task } from 'fhir/r4b';
+import { isDocumentLinkAttempt } from 'utils/lib/fhir/outbound-delivery';
+import {
+  PATIENT_ACTION_LOG_VIEWER_ROLES,
+  RevokeActionLogInputValidated,
+  RevokeActionLogOutput,
+} from 'utils/lib/types/api/action-logs.types';
+import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
+import { collectResendChain, findResendChainRoot } from '../../shared/outbound-delivery';
+import { wrapHandler } from '../../shared/sentry';
+import { ZambdaInput } from '../../shared/types/common';
+import { validateRequestParameters } from './validateRequestParameters';
+
+const ZAMBDA_NAME = 'revoke-action-log';
+let m2mToken = '';
+
+/**
+ * Revokes an emailed document link: every attempt in its resend chain, from the original send on, is cancelled,
+ * which makes `open-document-link` refuse them and stops an expired one from re-sending.
+ */
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  const parameters = validateRequestParameters(input);
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
+  const user = await requireUserWithRole(userToken, parameters.secrets, PATIENT_ACTION_LOG_VIEWER_ROLES);
+  m2mToken = await checkOrCreateM2MClientToken(m2mToken, parameters.secrets);
+  const oystehr = createClinicalOystehrClient(m2mToken, parameters.secrets);
+
+  const output = await performEffect(parameters, oystehr, user);
+  return { statusCode: 200, body: JSON.stringify(output) };
+});
+
+export async function performEffect(
+  parameters: RevokeActionLogInputValidated,
+  oystehr: Oystehr,
+  user: User
+): Promise<RevokeActionLogOutput> {
+  const original = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: parameters.attemptId });
+  // A cancelled attempt is accepted so that retrying a partly applied revoke can finish the rest of the chain.
+  if (!isDocumentLinkAttempt(original) || (original.status !== 'completed' && original.status !== 'cancelled')) {
+    throw new Error('Only sent document links can be revoked');
+  }
+
+  // The recipient may hold an earlier or a later link than the one shown in the log, so the whole send goes.
+  const chain = await collectResendChain(oystehr, await findResendChainRoot(oystehr, original));
+  const revocable = chain.filter((task) => task.status !== 'failed' && task.status !== 'cancelled');
+  const statusReason = { text: `Revoked by ${user.name || user.email || user.id}` };
+  await Promise.all(
+    revocable.map((task) =>
+      oystehr.fhir.patch<Task>({
+        resourceType: 'Task',
+        id: task.id!,
+        operations: [
+          { op: 'replace', path: '/status', value: 'cancelled' },
+          { op: 'add', path: '/statusReason', value: statusReason },
+        ],
+      })
+    )
+  );
+  return { attemptId: parameters.attemptId, revokedCount: revocable.length };
+}

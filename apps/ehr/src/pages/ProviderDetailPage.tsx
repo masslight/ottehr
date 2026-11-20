@@ -2,6 +2,7 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { ReactElement } from 'react';
 import { Navigate, useLocation, useParams } from 'react-router-dom';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getEmployees } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 
@@ -27,7 +28,7 @@ export default function ProviderDetailPage(): ReactElement {
     enabled: !!oystehrZambda,
   });
 
-  const userId = data?.employees.find((e) => e.profile.split('/')[1] === practitionerId)?.id;
+  const userId = data?.employees.find((e) => getIdFromReference(e.profile) === practitionerId)?.id;
 
   if (isLoading || !oystehrZambda) {
     return (

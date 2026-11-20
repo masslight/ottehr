@@ -11,7 +11,7 @@ import {
 } from 'utils/lib/types/data/billing/billing.types';
 import { AR_STAGE, emptyClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PROVISIONAL_BALANCE_HINT } from '../../src/constants/claimStatus';
+import { PROVISIONAL_BALANCE_HINT, UNDETERMINED_PATIENT_RESP_HINT } from '../../src/constants/claimStatus';
 import ClaimDetail, { InsuranceSection } from '../../src/pages/ClaimDetail';
 
 const {
@@ -66,6 +66,7 @@ vi.mock('../../src/hooks/useAppClients', () => ({
     oystehrZambda: oystehrZambdaStub,
   }),
 }));
+vi.mock('../../src/hooks/useInvoicingInBillingApp', () => ({ useInvoicingInBillingApp: () => false }));
 
 const { enqueueSnackbarMock } = vi.hoisted(() => ({ enqueueSnackbarMock: vi.fn() }));
 
@@ -82,7 +83,7 @@ const emptyAddressParts = {
   postalCode: '',
 };
 
-const makeClaim = (arStage: string): ClaimDetailResponse => ({
+export const makeClaim = (arStage: string): ClaimDetailResponse => ({
   id: 'claim-1',
   encounterId: '',
   appointmentId: '',
@@ -147,7 +148,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   billed: 0,
   allowed: 0,
   insurancePaid: 0,
-  patientResp: 0,
+  patientResp: null,
   patientPaid: 0,
   writeOffsTotal: 0,
   balance: 0,
@@ -157,6 +158,7 @@ const makeClaim = (arStage: string): ClaimDetailResponse => ({
   insurancePayments: [],
   patientPayments: [],
   writeOffs: [],
+  invoices: [],
   otherClaims: [],
   tags: [],
   pcn: '',
@@ -912,6 +914,15 @@ describe('ClaimDetail — service line remit details', () => {
     expect(within(totals).getByText('-$20.00')).toBeInTheDocument();
   });
 
+  it('shows patient responsibility as unknown while no remit has reported it', async () => {
+    getBillingClaimDetailMock.mockResolvedValue(claimWithRemits({ patientResp: null }));
+    renderDetail();
+    await openRemitsTab();
+
+    const totals = await screen.findByRole('group', { name: 'Remit totals' });
+    expect(within(totals).getByText('Unknown')).toBeInTheDocument();
+  });
+
   it('shows the service lines as before when no ERA is matched', async () => {
     getBillingClaimDetailMock.mockResolvedValue(claimWithRemits({ remits: [], insurancePayments: [] }));
     renderDetail();
@@ -1000,6 +1011,116 @@ describe('ClaimDetail — run rules engine button', () => {
       'Claim Submission Rules started — when every rule passes, the claim is submitted to the payer; a Hold keeps the claim for review. Refresh to see the result.',
       { variant: 'info' }
     );
+  });
+
+  describe('correction and void submissions without a stored PCCN', () => {
+    const openSubmitDialog = async (): Promise<HTMLElement> => {
+      getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.insurancePayer));
+      runBillingRulesEngineMock.mockResolvedValue({
+        results: [{ claimId: 'claim-1', taskId: 'task-1', engine: 'claim-submission' }],
+      });
+      renderDetail();
+      fireEvent.click(await screen.findByRole('button', { name: 'Submit Claim' }));
+      return screen.findByRole('dialog');
+    };
+    const pccnField = (dialog: HTMLElement): HTMLElement =>
+      within(dialog).getByRole('textbox', { name: /Payer Claim Control Number/ });
+
+    it.each(['Correction', 'Void Claim'] as const)('allows %s and blocks submitting without a PCCN', async (label) => {
+      const dialog = await openSubmitDialog();
+
+      const radio = within(dialog).getByRole('radio', { name: label });
+      expect(radio).toBeEnabled();
+      fireEvent.click(radio);
+
+      expect(pccnField(dialog)).toHaveValue('');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+
+      expect(await within(dialog).findByText('Payer Claim Control Number is required')).toBeInTheDocument();
+      expect(runBillingRulesEngineMock).not.toHaveBeenCalled();
+    });
+
+    it('blocks a whitespace-only PCCN', async () => {
+      const dialog = await openSubmitDialog();
+      fireEvent.click(within(dialog).getByRole('radio', { name: 'Correction' }));
+      fireEvent.change(pccnField(dialog), { target: { value: '   ' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+
+      expect(await within(dialog).findByText('Payer Claim Control Number is required')).toBeInTheDocument();
+      expect(runBillingRulesEngineMock).not.toHaveBeenCalled();
+    });
+
+    it('submits the PCCN without surrounding whitespace', async () => {
+      const dialog = await openSubmitDialog();
+      fireEvent.click(within(dialog).getByRole('radio', { name: 'Correction' }));
+      fireEvent.change(pccnField(dialog), { target: { value: '  PCCN-123  ' } });
+      expect(pccnField(dialog)).toHaveValue('PCCN-123');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+
+      await waitFor(() =>
+        expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+          {},
+          {
+            claimIds: ['claim-1'],
+            skipRules: false,
+            submissionType: 'correction',
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: 'PCCN-123',
+          }
+        )
+      );
+    });
+
+    it.each([
+      ['Correction', 'correction'],
+      ['Void Claim', 'void'],
+    ] as const)('submits %s with the entered PCCN once valid', async (label, submissionType) => {
+      const dialog = await openSubmitDialog();
+      fireEvent.click(within(dialog).getByRole('radio', { name: label }));
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+      expect(await within(dialog).findByText('Payer Claim Control Number is required')).toBeInTheDocument();
+
+      fireEvent.change(pccnField(dialog), { target: { value: 'PCCN-123' } });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+
+      await waitFor(() =>
+        expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+          {},
+          {
+            claimIds: ['claim-1'],
+            skipRules: false,
+            submissionType,
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: 'PCCN-123',
+          }
+        )
+      );
+      expect(runBillingRulesEngineMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops the PCCN requirement when switching back to New Submission', async () => {
+      const dialog = await openSubmitDialog();
+      fireEvent.click(within(dialog).getByRole('radio', { name: 'Correction' }));
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+      expect(await within(dialog).findByText('Payer Claim Control Number is required')).toBeInTheDocument();
+
+      fireEvent.click(within(dialog).getByRole('radio', { name: 'New Submission' }));
+      expect(within(dialog).queryByRole('textbox', { name: /Payer Claim Control Number/ })).not.toBeInTheDocument();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Run rules' }));
+
+      await waitFor(() =>
+        expect(runBillingRulesEngineMock).toHaveBeenCalledWith(
+          {},
+          {
+            claimIds: ['claim-1'],
+            skipRules: false,
+            submissionType: 'new',
+            submissionInsurance: 'primary',
+            payerClaimControlNumber: undefined,
+          }
+        )
+      );
+    });
   });
 
   it('runs the pre-invoice rules through the Prepare for invoice dialog', async () => {
@@ -1098,15 +1219,29 @@ describe('ClaimDetail — provisional balance indicator', () => {
     expect(await screen.findByRole('img', { name: PROVISIONAL_BALANCE_HINT })).toBeInTheDocument();
   });
 
-  it('does not flag the balance once the claim is adjudicated', async () => {
+  it('flags the balance as provisional when remits came back but none reported patient responsibility', async () => {
+    // e.g. a CO-B16 denial: the open balance may still be the payer's
     getBillingClaimDetailMock.mockResolvedValue({
       ...makeClaim(AR_STAGE.patient),
       adjudicated: true,
+      patientResp: null,
+    });
+    renderDetail();
+
+    expect(await screen.findByRole('img', { name: UNDETERMINED_PATIENT_RESP_HINT })).toBeInTheDocument();
+  });
+
+  it('does not flag the balance once a remit reports patient responsibility', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.patient),
+      adjudicated: true,
+      patientResp: 0,
     });
     renderDetail();
 
     await screen.findAllByText('Jane Doe');
     expect(screen.queryByRole('img', { name: PROVISIONAL_BALANCE_HINT })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: UNDETERMINED_PATIENT_RESP_HINT })).not.toBeInTheDocument();
   });
 });
 

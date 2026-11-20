@@ -1,7 +1,15 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, FhirResource, Organization, PaymentNotice, Provenance } from 'fhir/r4b';
+import { Claim, FhirResource, Invoice, Organization, PaymentNotice, Provenance, Task } from 'fhir/r4b';
 import Stripe from 'stripe';
+import {
+  buildBillingInvoice,
+  getHostedInvoiceUrl,
+  isInvoiceUncollectible,
+  STRIPE_INVOICE_ID_SYSTEM,
+  withInvoiceUncollectible,
+  withStripeInvoiceLink,
+} from 'utils/lib/fhir/billing-invoice';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { buildPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation } from 'utils/lib/fhir/payments';
@@ -11,7 +19,7 @@ import {
   CLAIM_PROVENANCE_ACTIVITY,
   CLAIM_PROVENANCE_DIFF_EXTENSION_URL,
 } from 'utils/lib/types/data/billing/claim-history';
-import { INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
+import { APIErrorCode, INVALID_INPUT_ERROR, MISCONFIGURED_ENVIRONMENT_ERROR } from 'utils/lib/types/errors';
 import { afterEach, describe, expect, it, Mock, vi } from 'vitest';
 import { claimHistoryEntries, provenanceChanges } from './claim-history-fixtures';
 
@@ -53,7 +61,11 @@ vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
 
 import { index, performEffect } from '../../../src/billing/billing-stripe-webhook';
 import { validateRequestParameters } from '../../../src/billing/billing-stripe-webhook/validateRequestParameters';
-import { stripeAccountExtension } from '../../../src/billing/payments';
+import {
+  EHR_PATIENT_PAYMENT_ID_SYSTEM,
+  EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM,
+  stripeAccountExtension,
+} from '../../../src/billing/payments';
 import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { createClinicalOystehrClient } from '../../../src/shared/helpers';
 import { getStripeClient, STRIPE_PAYMENT_ID_SYSTEM } from '../../../src/shared/stripeIntegration';
@@ -1008,6 +1020,292 @@ describe('billing-stripe-webhook', () => {
   });
 });
 
+// Regression: the EHR and this webhook both created a notice for the same saved-card charge at the
+// same moment, and neither conditional create saw the other's, recording the charge twice. The EHR
+// now reserves the notice before charging and the webhook only activates or refreshes it.
+describe('billing-stripe-webhook charges the EHR reserved a notice for', () => {
+  const EHR_PAYMENT_ID = 'enc-1_key';
+  const submitter = { reference: 'Practitioner/pr-1', display: 'Front Desk' };
+  const ehrCharge = (over: Record<string, unknown> = {}): Stripe.Charge =>
+    makeCharge({ metadata: { oystehr_encounter_id: 'enc-1', oystehr_ehr_payment_id: EHR_PAYMENT_ID }, ...over });
+  const reservation = (): PaymentNotice =>
+    ({
+      resourceType: 'PaymentNotice',
+      id: 'pn-reserved',
+      meta: { versionId: '1' },
+      status: 'draft',
+      amount: { value: 10, currency: 'USD' },
+      identifier: [{ system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID }],
+      contained: [
+        {
+          resourceType: 'PaymentReconciliation',
+          id: 'contained-reconciliation',
+          status: 'draft',
+          outcome: 'complete',
+          detail: [{ type: {}, submitter }],
+        },
+      ],
+    }) as PaymentNotice;
+
+  it('activates the reservation of a charge that went through, recording the payment as its creation', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [reservation()]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', ehrCharge()), secrets });
+
+    expect(createdNotices(transaction)).toEqual([]);
+    const [activated] = refreshedNotices(transaction);
+    expect(activated.id).toBe('pn-reserved');
+    expect(activated.status).toBe('active');
+    // the reservation identifier stays, so a replay of the EHR request finds the payment
+    expect(activated.identifier).toEqual([
+      { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+      { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+      { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+      { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+    ]);
+    expect(activated.request?.identifier).toEqual({ system: CLAIM_ENC_SYSTEM, value: 'enc-1' });
+    const reconciliation = getContainedReconciliation(activated);
+    expect(reconciliation?.status).toBe('active');
+    expect(reconciliation?.detail).toEqual([{ type: {}, submitter }]);
+    // recorded by whoever took the payment; reconcile then links the entry to the claim
+    expect(claimHistoryEntries(transaction.mock.calls[0][0].requests)).toMatchObject([
+      {
+        target: [{ reference: 'PaymentNotice/pn-reserved' }],
+        activity: { coding: [CLAIM_PROVENANCE_ACTIVITY.create] },
+        agent: [expect.objectContaining({ who: submitter })],
+      },
+    ]);
+  });
+
+  it('activates the reservation the charge names, not another one stored for the same payment', async () => {
+    const loser = { ...reservation(), id: 'pn-loser', status: 'cancelled' } as PaymentNotice;
+    const winner = { ...reservation(), id: 'pn-winner' };
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [loser, winner]);
+
+    await performEffect(oystehr, {
+      event: makeEvent(
+        'charge.succeeded',
+        ehrCharge({
+          metadata: {
+            oystehr_encounter_id: 'enc-1',
+            oystehr_ehr_payment_id: EHR_PAYMENT_ID,
+            oystehr_ehr_payment_notice_id: 'pn-winner',
+          },
+        })
+      ),
+      secrets,
+    });
+
+    expect(refreshedNotices(transaction).map((notice) => [notice.id, notice.status])).toEqual([
+      ['pn-winner', 'active'],
+    ]);
+  });
+
+  it('activates the reservation the charge names although it was cancelled without its identifier', async () => {
+    const cancelled = { ...reservation(), id: 'pn-named', status: 'cancelled', identifier: [] } as PaymentNotice;
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [cancelled]);
+
+    await performEffect(oystehr, {
+      event: makeEvent(
+        'charge.succeeded',
+        ehrCharge({
+          metadata: {
+            oystehr_encounter_id: 'enc-1',
+            oystehr_ehr_payment_id: EHR_PAYMENT_ID,
+            oystehr_ehr_payment_notice_id: 'pn-named',
+          },
+        })
+      ),
+      secrets,
+    });
+
+    const [activated] = refreshedNotices(transaction);
+    expect(activated.status).toBe('active');
+    expect(activated.identifier).toEqual(
+      expect.arrayContaining([
+        { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+        { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+      ])
+    );
+    expect(claimHistoryEntries(transaction.mock.calls[0][0].requests)[0].activity?.coding).toEqual([
+      CLAIM_PROVENANCE_ACTIVITY.create,
+    ]);
+  });
+
+  it('asks for redelivery when the reservation the charge names is not found', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]]);
+
+    await expect(
+      performEffect(oystehr, {
+        event: makeEvent(
+          'charge.succeeded',
+          ehrCharge({
+            metadata: {
+              oystehr_encounter_id: 'enc-1',
+              oystehr_ehr_payment_id: EHR_PAYMENT_ID,
+              oystehr_ehr_payment_notice_id: 'pn-missing',
+            },
+          })
+        ),
+        secrets,
+      })
+    ).rejects.toMatchObject({ code: APIErrorCode.EHR_PAYMENT_RESERVATION_NOT_FOUND });
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  // Regression: the payment kept the dates of its reservation, which can be from another day than the
+  // charge (a replay reusing it, or one reserved just before midnight), and reports placed it there.
+  it('dates the payment it activates by the charge, not by the reservation', async () => {
+    const reservedTheDayBefore = {
+      ...reservation(),
+      created: '2025-07-06T15:00:00.000Z',
+      paymentDate: '2025-07-06',
+      contained: [
+        {
+          ...reservation().contained![0],
+          created: '2025-07-06T15:00:00.000Z',
+          paymentDate: '2025-07-06',
+        },
+      ],
+    } as PaymentNotice;
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [reservedTheDayBefore]);
+
+    // 2025-07-08 03:30 UTC is 2025-07-07 23:30 in the default timezone, which the EHR dates payments in
+    await performEffect(oystehr, {
+      event: makeEvent('charge.succeeded', ehrCharge({ created: 1751945400 })),
+      secrets,
+    });
+
+    const [activated] = refreshedNotices(transaction);
+    expect(activated.created).toBe('2025-07-08T03:30:00.000Z');
+    expect(activated.paymentDate).toBe('2025-07-07');
+    expect(getContainedReconciliation(activated)).toMatchObject({
+      created: '2025-07-08T03:30:00.000Z',
+      paymentDate: '2025-07-07',
+    });
+  });
+
+  it('keeps the dates of a payment it only refreshes', async () => {
+    const recorded = {
+      ...reservation(),
+      status: 'active',
+      created: '2025-07-06T15:00:00.000Z',
+      paymentDate: '2025-07-06',
+      identifier: [
+        { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+        { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+      ],
+    } as PaymentNotice;
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [recorded]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.updated', ehrCharge({ created: 1751945400 })), secrets });
+
+    const [refreshed] = refreshedNotices(transaction);
+    expect(refreshed.created).toBe('2025-07-06T15:00:00.000Z');
+    expect(refreshed.paymentDate).toBe('2025-07-06');
+  });
+
+  it('never creates a notice for a charge whose reservation is not found, asking for redelivery', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]]);
+
+    await expect(
+      performEffect(oystehr, { event: makeEvent('charge.succeeded', ehrCharge()), secrets })
+    ).rejects.toMatchObject({ code: APIErrorCode.EHR_PAYMENT_RESERVATION_NOT_FOUND });
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('answers a charge whose reservation is not found with a retryable status', async () => {
+    (getStripeClient as Mock).mockReturnValue(stripe);
+    const { oystehr, transaction } = makeOystehr([[claim]]);
+    (createBillingClient as Mock).mockReturnValue(oystehr);
+
+    // wrapHandler is mocked away; its top level catch answers an APIError with the error's status
+    await expect(
+      (index as unknown as (i: ZambdaInput) => Promise<APIGatewayProxyResult>)(
+        signedInput(makeEvent('charge.succeeded', ehrCharge()))
+      )
+    ).rejects.toMatchObject({ code: APIErrorCode.EHR_PAYMENT_RESERVATION_NOT_FOUND, statusCode: 503 });
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('looks the notice up by the charge and by the EHR payment id, reserved or activated', async () => {
+    const { oystehr } = makeOystehr([[claim]], [], [reservation()]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', ehrCharge()), secrets });
+
+    expect(oystehr.fhir.search).toHaveBeenCalledWith({
+      resourceType: 'PaymentNotice',
+      params: [
+        {
+          name: 'identifier',
+          value: [
+            `${STRIPE_PAYMENT_ID_SYSTEM}|ch_1`,
+            `${EHR_PATIENT_PAYMENT_ID_SYSTEM}|${EHR_PAYMENT_ID}`,
+            `${EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM}|${EHR_PAYMENT_ID}`,
+          ].join(','),
+        },
+      ],
+    });
+  });
+
+  it('refreshes the notice the EHR activated like any other, recording an update', async () => {
+    const activated = {
+      ...reservation(),
+      status: 'active',
+      identifier: [
+        { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+        { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+      ],
+    } as PaymentNotice;
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [activated]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.updated', ehrCharge({ status: 'succeeded' })), secrets });
+
+    expect(createdNotices(transaction)).toEqual([]);
+    const [refreshed] = refreshedNotices(transaction);
+    expect(refreshed.identifier).toEqual([
+      { system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+      { system: EHR_PATIENT_PAYMENT_ID_SYSTEM, value: EHR_PAYMENT_ID },
+      { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+      { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+    ]);
+    expect(claimHistoryEntries(writes(transaction))[0]?.activity?.coding).toEqual([CLAIM_PROVENANCE_ACTIVITY.update]);
+  });
+
+  it('leaves the reservation of a charge that did not go through to the EHR', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [reservation()]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('charge.updated', ehrCharge({ status: 'failed', paid: false })),
+      secrets,
+    });
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('activates a reservation the EHR cancelled when the charge went through after all', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [{ ...reservation(), status: 'cancelled' }]);
+
+    await performEffect(oystehr, { event: makeEvent('charge.succeeded', ehrCharge()), secrets });
+
+    expect(refreshedNotices(transaction)[0].status).toBe('active');
+  });
+
+  it('activates the reservation also when BILLING_INTEGRATION does not include ottehr', async () => {
+    const { oystehr, transaction } = makeOystehr([[claim]], [], [reservation()]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('charge.succeeded', ehrCharge()),
+      secrets: { ...secrets, BILLING_INTEGRATION: 'candid' },
+    });
+
+    expect(createdNotices(transaction)).toEqual([]);
+    expect(refreshedNotices(transaction)[0].status).toBe('active');
+  });
+});
+
 describe('billing-stripe-webhook invoice-originated charges', () => {
   it('resolves the encounter from the invoice when the charge carries no metadata', async () => {
     const retrieve = vi.fn().mockResolvedValue(makeInvoice());
@@ -1268,5 +1566,192 @@ describe('billing-stripe-webhook chargeless invoices', () => {
     });
 
     expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('billing-stripe-webhook billing app invoices', () => {
+  const billingInvoice = (status: Invoice['status']): Invoice => ({
+    ...withStripeInvoiceLink(
+      buildBillingInvoice({
+        status,
+        date: '2026-10-29T15:00:00.000Z',
+        dueDate: '2026-11-05',
+        recipient: { reference: 'Patient/pat-1' },
+        subject: { reference: 'Patient/pat-1' },
+        claims: [{ claimId: 'claim-1', amountCents: 9000 }],
+      }),
+      { stripeInvoiceId: 'in_1' }
+    ),
+    id: 'inv-1',
+    meta: { versionId: '3' },
+  });
+
+  const pendingTask = { resourceType: 'Task', id: 'task-1', status: 'draft' } as Task;
+
+  const makeInvoiceOystehr = (
+    invoices: Invoice[],
+    tasks: Task[] = []
+  ): { oystehr: Oystehr; search: Mock; update: Mock; patch: Mock } => {
+    const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
+      unbundle: () => (resourceType === 'Invoice' ? invoices : resourceType === 'Task' ? tasks : []),
+    }));
+    const update = vi.fn(async (resource: Invoice) => resource);
+    const patch = vi.fn();
+    return { oystehr: { fhir: { search, update, patch } } as unknown as Oystehr, search, update, patch };
+  };
+
+  const cancelledWith = (reason: string): unknown => ({
+    resourceType: 'Task',
+    id: 'task-1',
+    operations: [
+      { op: 'replace', path: '/status', value: 'cancelled' },
+      { op: 'add', path: '/statusReason', value: { text: reason } },
+    ],
+  });
+
+  it('marks the invoice paid and fills in its Stripe page', async () => {
+    const { oystehr, search, update } = makeInvoiceOystehr([billingInvoice('issued')]);
+    // Settled by a charge, so only the invoice status changes here.
+    const stripeInvoice = makeInvoice({ charge: 'ch_1', hosted_invoice_url: 'https://pay.test/in_1' });
+
+    await performEffect(oystehr, { event: makeEvent('invoice.paid', stripeInvoice), secrets });
+
+    expect(search).toHaveBeenCalledWith({
+      resourceType: 'Invoice',
+      params: [{ name: 'identifier', value: `${STRIPE_INVOICE_ID_SYSTEM}|in_1` }],
+    });
+    const [saved, options] = update.mock.calls[0];
+    expect(saved.status).toBe('balanced');
+    expect(getHostedInvoiceUrl(saved)).toBe('https://pay.test/in_1');
+    expect(options).toEqual({ optimisticLockingVersionId: '3' });
+  });
+
+  it('marks the invoice cancelled when it is voided in Stripe', async () => {
+    const { oystehr, update } = makeInvoiceOystehr([billingInvoice('issued')]);
+
+    await performEffect(oystehr, { event: makeEvent('invoice.voided', makeInvoice({ status: 'void' })), secrets });
+
+    expect(update.mock.calls[0][0].status).toBe('cancelled');
+  });
+
+  it('marks the invoice paid without recording AR when billing integration is Candid only', async () => {
+    const { oystehr, search, update } = makeInvoiceOystehr([billingInvoice('issued')]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.paid', makeInvoice({ paid_out_of_band: true })),
+      secrets: { ...secrets, BILLING_INTEGRATION: 'candid', INVOICING_IN_BILLING_APP: 'true' },
+    });
+
+    expect(update.mock.calls[0][0].status).toBe('balanced');
+    expect(search.mock.calls.map(([input]) => input.resourceType)).toEqual(['Invoice', 'Task']);
+    expect(search).toHaveBeenCalledWith({
+      resourceType: 'Invoice',
+      params: [{ name: 'identifier', value: `${STRIPE_INVOICE_ID_SYSTEM}|in_1` }],
+    });
+  });
+
+  it('leaves an invoice that is already paid when a late event arrives', async () => {
+    const { oystehr, update } = makeInvoiceOystehr([billingInvoice('balanced')]);
+
+    await performEffect(oystehr, { event: makeEvent('invoice.voided', makeInvoice({ status: 'void' })), secrets });
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('cancels outreach that has not started when the invoice is paid', async () => {
+    const { oystehr, patch } = makeInvoiceOystehr([billingInvoice('issued')], [pendingTask]);
+
+    await performEffect(oystehr, { event: makeEvent('invoice.paid', makeInvoice({ charge: 'ch_1' })), secrets });
+
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was paid'), expect.anything());
+  });
+
+  it('cancels outreach that has not started when the invoice is voided', async () => {
+    const { oystehr, patch } = makeInvoiceOystehr([billingInvoice('issued')], [pendingTask]);
+
+    await performEffect(oystehr, { event: makeEvent('invoice.voided', makeInvoice({ status: 'void' })), secrets });
+
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was voided'), expect.anything());
+  });
+
+  it('finishes cancelling outreach when the paid event is delivered again', async () => {
+    const { oystehr, update, patch } = makeInvoiceOystehr([billingInvoice('balanced')], [pendingTask]);
+
+    await performEffect(oystehr, { event: makeEvent('invoice.paid', makeInvoice({ charge: 'ch_1' })), secrets });
+
+    expect(update).not.toHaveBeenCalled();
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was paid'), expect.anything());
+  });
+
+  it('fails the event when outreach cannot be cancelled, so Stripe delivers it again', async () => {
+    const { oystehr, update, patch } = makeInvoiceOystehr([billingInvoice('issued')], [pendingTask]);
+    const failure = new Error('patch failed');
+    patch.mockRejectedValueOnce(failure);
+
+    await expect(
+      performEffect(oystehr, { event: makeEvent('invoice.paid', makeInvoice({ charge: 'ch_1' })), secrets })
+    ).rejects.toBe(failure);
+    expect(update.mock.calls[0][0].status).toBe('balanced');
+  });
+
+  it('marks an issued invoice uncollectible, keeps it issued and cancels pending outreach', async () => {
+    const { oystehr, update, patch } = makeInvoiceOystehr([billingInvoice('issued')], [pendingTask]);
+    const stripeInvoice = makeInvoice({ status: 'uncollectible', hosted_invoice_url: 'https://pay.test/in_1' });
+
+    await performEffect(oystehr, { event: makeEvent('invoice.marked_uncollectible', stripeInvoice), secrets });
+
+    const [saved, options] = update.mock.calls[0];
+    expect(saved.status).toBe('issued');
+    expect(isInvoiceUncollectible(saved)).toBe(true);
+    expect(getHostedInvoiceUrl(saved)).toBe('https://pay.test/in_1');
+    expect(options).toEqual({ optimisticLockingVersionId: '3' });
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was marked uncollectible'), expect.anything());
+  });
+
+  it('issues a draft invoice and marks it uncollectible when the send request stopped before saving its status', async () => {
+    const { oystehr, update } = makeInvoiceOystehr([billingInvoice('draft')]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.marked_uncollectible', makeInvoice({ status: 'uncollectible' })),
+      secrets,
+    });
+
+    const [saved] = update.mock.calls[0];
+    expect(saved.status).toBe('issued');
+    expect(isInvoiceUncollectible(saved)).toBe(true);
+  });
+
+  it('finishes cancelling outreach when the uncollectible event is delivered again', async () => {
+    const marked = withInvoiceUncollectible(billingInvoice('issued'));
+    const { oystehr, update, patch } = makeInvoiceOystehr([marked], [pendingTask]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.marked_uncollectible', makeInvoice({ status: 'uncollectible' })),
+      secrets,
+    });
+
+    expect(update).not.toHaveBeenCalled();
+    expect(patch).toHaveBeenCalledWith(cancelledWith('Invoice was marked uncollectible'), expect.anything());
+  });
+
+  it('leaves an invoice that is already paid when a late uncollectible event arrives', async () => {
+    const { oystehr, update } = makeInvoiceOystehr([billingInvoice('balanced')]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('invoice.marked_uncollectible', makeInvoice({ status: 'uncollectible' })),
+      secrets,
+    });
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('skips a Stripe invoice the billing app did not create', async () => {
+    const { oystehr, search, update, patch } = makeInvoiceOystehr([], [pendingTask]);
+
+    await performEffect(oystehr, { event: makeEvent('invoice.voided', makeInvoice({ status: 'void' })), secrets });
+
+    expect(update).not.toHaveBeenCalled();
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(patch).not.toHaveBeenCalled();
   });
 });

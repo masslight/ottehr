@@ -4,6 +4,7 @@ import { Operation } from 'fast-json-patch';
 import { Encounter, FhirResource, Provenance } from 'fhir/r4b';
 import { getEncounterStatusHistoryUpdateOp } from 'utils/lib/fhir/encounter';
 import { createExtensionValue, findExtensionIndex, getTaskResource } from 'utils/lib/fhir/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { visitStatusToFhirEncounterStatusMap } from 'utils/lib/types/api/appointment.types';
 import { TaskIndicator } from 'utils/lib/types/common';
@@ -106,7 +107,7 @@ export const index = wrapHandler(
     });
 
     console.log(`Updated encounter: ${encounter.id}.`);
-    const appointmentId = encounter.appointment?.[0].reference?.split('/')[1];
+    const appointmentId = getIdFromReference(encounter.appointment?.[0].reference);
 
     if (appointmentId === undefined) {
       throw new Error('Appointment ID is not defined');

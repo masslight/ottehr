@@ -1,9 +1,7 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PaymentNotice } from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG, PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { buildPaymentRefundsExtension } from 'utils/lib/fhir/paymentRefunds';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getOrCreateCandidApiClient } from 'utils/lib/helpers/candidApi';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
@@ -17,8 +15,8 @@ vi.mock('../../../src/shared/auth', () => ({
   getUserToken: vi.fn().mockReturnValue('user-token'),
   requireUserWithRole: vi.fn().mockResolvedValue({ id: 'user-1', profile: 'Practitioner/pr-1', name: 'Pat Admin' }),
 }));
-vi.mock('../../../src/shared/practitioners', () => ({
-  practitionerRefForUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Pat Admin' }),
+vi.mock('../../../src/billing/clinical-practitioners', () => ({
+  practitionerRefForBillingUser: vi.fn().mockResolvedValue({ reference: 'Practitioner/pr-1', display: 'Pat Admin' }),
 }));
 vi.mock('../../../src/shared/helpers', async (importOriginal) => ({
   ...(await importOriginal<object>()),
@@ -39,10 +37,6 @@ vi.mock('../../../src/shared/stripeIntegration', async (importOriginal) => ({
   getStripeClient: vi.fn().mockReturnValue({}),
 }));
 vi.mock('utils/lib/helpers/candidApi', () => ({ getOrCreateCandidApiClient: vi.fn() }));
-vi.mock('utils/lib/fhir/payments', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  getStripeAccountForAppointmentOrEncounter: vi.fn().mockResolvedValue('acct_schedule'),
-}));
 // transitive imports of shared/candid that pull heavy modules
 vi.mock('../../../src/ehr/shared/harvest', () => ({ getAccountAndCoverageResourcesForPatient: vi.fn() }));
 vi.mock('../../../src/shared/chart-data', () => ({ chartDataResourceHasMetaTagByCode: vi.fn() }));
@@ -55,15 +49,16 @@ import {
   stripeAccountExtension,
 } from '../../../src/billing/payments';
 import { index } from '../../../src/billing/refund-billing-patient-payment';
-import { createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
+import { BillingOystehr, createBillingClient, STRIPE_ACCOUNT_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 import { CANDID_PRE_ENCOUNTER_APPOINTMENT_ID_IDENTIFIER_SYSTEM } from '../../../src/shared/candid';
-import { createClinicalOystehrClient } from '../../../src/shared/helpers';
+import { ClinicalOystehr, createClinicalOystehrClient } from '../../../src/shared/helpers';
 import {
   applyRefundsToPaymentNotice,
   getStripeClient,
   STRIPE_PAYMENT_ID_SYSTEM,
 } from '../../../src/shared/stripeIntegration';
 import { ZambdaInput } from '../../../src/shared/types/common';
+import { fakeEhrPaymentNoticeZambda } from './ehr-payment-notice-zambda-fake';
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
 
@@ -117,6 +112,8 @@ function makeLegacyNotice(): PaymentNotice {
 const notFound = { code: 404 };
 
 const clinicalGet = vi.fn();
+// legacy notices come from the EHR zambda, never clinical FHIR
+const ehr = fakeEhrPaymentNoticeZambda('acct_schedule');
 const clinicalSearch = vi.fn();
 const billingGet = vi.fn();
 const billingSearch = vi.fn();
@@ -151,6 +148,7 @@ beforeEach(() => {
     meta: { tag: [BILLING_RESOURCE_TAG] },
   }));
   clinicalGet.mockRejectedValue(notFound);
+  ehr.serve();
   clinicalSearch.mockReturnValue({
     unbundle: () => [
       { resourceType: 'Patient', id: PATIENT_ID },
@@ -167,10 +165,11 @@ beforeEach(() => {
 
   vi.mocked(createClinicalOystehrClient).mockReturnValue({
     fhir: { get: clinicalGet, search: clinicalSearch },
-  } as unknown as Oystehr);
+  } as unknown as ClinicalOystehr);
   vi.mocked(createBillingClient).mockReturnValue({
+    zambda: { execute: ehr.execute },
     fhir: { get: billingGet, search: billingSearch, create: billingCreate, patch: billingPatch },
-  } as unknown as Oystehr);
+  } as unknown as BillingOystehr);
   vi.mocked(getOrCreateCandidApiClient).mockResolvedValue({
     patientRefunds: { v1: { getMulti: candidGetMulti, create: candidCreate } },
   } as any);
@@ -251,7 +250,7 @@ describe('refund-billing-patient-payment manual refunds', () => {
 describe('refund-billing-patient-payment legacy EHR notices', () => {
   beforeEach(() => {
     billingGet.mockRejectedValue(notFound);
-    clinicalGet.mockResolvedValue(makeLegacyNotice());
+    ehr.serve(makeLegacyNotice());
   });
 
   it('adopts the legacy notice into billing and refunds the copy', async () => {
@@ -272,8 +271,11 @@ describe('refund-billing-patient-payment legacy EHR notices', () => {
     });
 
     expect(vi.mocked(applyRefundsToPaymentNotice).mock.calls[0][1].id).toBe('adopted-1');
-    // the legacy notice itself is never written
-    expect(clinicalGet).toHaveBeenCalledOnce();
+    // the legacy notice is read once, over the wire, and never written
+    expect(ehr.noticeRequests()).toEqual([
+      expect.objectContaining({ encounterId: ENCOUNTER_ID, paymentNoticeId: LEGACY_NOTICE_ID }),
+    ]);
+    expect(clinicalGet).not.toHaveBeenCalled();
     expect(vi.mocked(recordBillingManualRefund).mock.calls[0][1]).toMatchObject({ paymentMethod: 'check' });
   });
 
@@ -306,7 +308,7 @@ describe('refund-billing-patient-payment legacy EHR notices', () => {
       identifier: [{ system: CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, value: LEGACY_NOTICE_ID }],
     };
     billingGet.mockResolvedValue(bridgedCopy);
-    clinicalGet.mockResolvedValue({
+    ehr.serve({
       ...makeLegacyNotice(),
       extension: [
         { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'cash' },
@@ -323,18 +325,65 @@ describe('refund-billing-patient-payment legacy EHR notices', () => {
       message: 'Refund amount exceeds the remaining refundable amount of 10.00.',
     });
 
-    expect(clinicalGet).toHaveBeenCalledWith({ resourceType: 'PaymentNotice', id: LEGACY_NOTICE_ID });
+    expect(ehr.noticeRequests()).toEqual([
+      expect.objectContaining({ encounterId: ENCOUNTER_ID, paymentNoticeId: LEGACY_NOTICE_ID }),
+    ]);
     const { operations } = billingPatch.mock.calls[0][0];
     expect(operations[0]).toEqual({ op: 'test', path: '/meta/versionId', value: '5' });
     expect(applyRefundsToPaymentNotice).not.toHaveBeenCalled();
   });
 
   it('reports a payment id that neither workspace knows as not found', async () => {
-    clinicalGet.mockRejectedValue(notFound);
+    ehr.serve();
 
     await expect(invoke('ottehr', { paymentNoticeId: LEGACY_NOTICE_ID })).rejects.toMatchObject({
       message: 'The requested PaymentNotice resource could not be found',
     });
+  });
+
+  it("does not adopt another encounter's legacy notice", async () => {
+    ehr.serve({ ...makeLegacyNotice(), request: { reference: 'Encounter/9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d' } });
+
+    await expect(invoke('ottehr', { paymentNoticeId: LEGACY_NOTICE_ID })).rejects.toMatchObject({
+      message: 'The requested PaymentNotice resource could not be found',
+    });
+    expect(billingCreate).not.toHaveBeenCalled();
+  });
+
+  it("finds a webhook copy's legacy counterpart by its Stripe payment", async () => {
+    const legacyRefund: PaymentRefundDTO = {
+      stripeRefundId: 'manual_legacy',
+      amountInCents: 4000,
+      dateISO: '2026-04-20T13:00:00Z',
+      status: 'succeeded',
+      reason: 'Overcharge',
+    };
+    // the webhook keys its copy on the charge; the legacy notice records the payment intent
+    billingGet.mockResolvedValue({
+      ...makeBillingNotice([]),
+      meta: { versionId: '5', tag: [BILLING_RESOURCE_TAG] },
+      identifier: [
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' },
+        { system: STRIPE_PAYMENT_ID_SYSTEM, value: 'ch_1' },
+      ],
+    });
+    ehr.serve({
+      ...makeLegacyNotice(),
+      identifier: [{ system: STRIPE_PAYMENT_ID_SYSTEM, value: 'pi_1' }],
+      extension: [
+        { url: PAYMENT_METHOD_EXTENSION_URL, valueString: 'card' },
+        buildPaymentRefundsExtension([legacyRefund]),
+      ],
+    });
+    billingPatch.mockRejectedValue(new Error('stop after carrying legacy state'));
+
+    await expect(invoke('ottehr')).rejects.toThrow('stop after carrying legacy state');
+
+    expect(ehr.noticeRequests()).toEqual([
+      expect.objectContaining({ encounterId: ENCOUNTER_ID, stripePaymentIds: ['pi_1', 'ch_1'] }),
+    ]);
+    const extension = billingPatch.mock.calls[0][0].operations.find((op: { path: string }) => op.path === '/extension');
+    expect(JSON.stringify(extension.value)).toContain('manual_legacy');
   });
 
   describe('Stripe account', () => {
@@ -409,11 +458,9 @@ describe('refund-billing-patient-payment legacy EHR notices', () => {
 
   it('refunds a cash payment without looking up a Stripe account, so it needs no schedule', async () => {
     // a manual billing payment's encounter may have no appointment, so there is no schedule owner
-    vi.mocked(getStripeAccountForAppointmentOrEncounter).mockRejectedValueOnce(new Error('Appointment not found'));
+    await invoke('candid', { paymentNoticeId: LEGACY_NOTICE_ID });
 
-    await invoke('candid');
-
-    expect(getStripeAccountForAppointmentOrEncounter).not.toHaveBeenCalled();
+    expect(ehr.stripeAccountRequests()).toHaveLength(0);
     expect(stampedRefunds()).toContainEqual(expect.objectContaining({ amountInCents: 500, status: 'succeeded' }));
   });
 });
