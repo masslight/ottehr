@@ -430,7 +430,9 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
       return;
     }
     if (bucket.items.length) {
-      recent.push({ ...rowBase, lastSeen: bucket.visits[0]?.journal.start });
+      // "Seen" counts from the newest visit the patient was seen at; a booking doesn't count.
+      const lastSeen = bucket.visits.find((v) => rules.seen.includes(v.journal.status))?.journal.start;
+      recent.push({ ...rowBase, lastSeen });
       return;
     }
     const seenPastWeek = bucket.visits

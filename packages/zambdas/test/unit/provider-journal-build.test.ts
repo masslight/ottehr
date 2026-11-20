@@ -459,6 +459,52 @@ describe('buildJournal: Today, Recent, Past and unsigned notes', () => {
   });
 });
 
+describe('buildJournal: Recent "Seen"', () => {
+  it('counts from the newest visit the patient was seen at, not a booking later today', () => {
+    const journal = buildJournal(
+      withVisits(
+        [
+          {
+            id: 'last-week',
+            patientId: 'pat-gus',
+            start: '2026-11-02T15:00:00.000Z',
+            appointmentStatus: 'fulfilled',
+            encounterStatus: 'finished',
+            attender: { id: ME, start: '2026-11-02T15:05:00.000Z', end: '2026-11-02T15:30:00.000Z' },
+          },
+          {
+            id: 'later-today',
+            patientId: 'pat-gus',
+            start: '2026-11-07T21:00:00.000Z',
+            appointmentStatus: 'booked',
+            encounterStatus: 'planned',
+            attender: { id: ME },
+          },
+          {
+            id: 'next-week',
+            patientId: 'pat-jane',
+            start: '2026-11-14T15:00:00.000Z',
+            appointmentStatus: 'booked',
+            encounterStatus: 'planned',
+            attender: { id: ME },
+          },
+        ],
+        {
+          patients: [patient('pat-gus', 'Gus', 'Pending'), patient('pat-jane', 'Jane', 'Doe')],
+          tasks: [
+            boardTask({ id: 'culture', category: LAB_ORDER_TASK.category, title: 'R', encounterId: 'enc-last-week' }),
+            boardTask({ id: 'text', category: PATIENT_REQUEST_TASK.category, title: 'T', encounterId: 'enc-next-week' }),
+          ],
+        }
+      )
+    );
+    expect(journal.recent.map((row) => [row.patient?.name, row.lastSeen])).toEqual([
+      ['Gus Pending', '2026-11-02T15:00:00.000Z'],
+      ['Jane Doe', undefined],
+    ]);
+  });
+});
+
 describe('buildJournal: task ownership and placement', () => {
   const myVisit = (): VisitSpec => ({
     id: 'mine',

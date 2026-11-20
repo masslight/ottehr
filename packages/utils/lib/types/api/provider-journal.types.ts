@@ -116,7 +116,7 @@ export interface JournalRow {
   waitingSince?: string;
   /** Coming Up: "In intake, next up" (provider journal lookahead). */
   lookahead?: boolean;
-  /** Recent: ISO start of the newest visit on this journal. */
+  /** Recent: ISO start of the newest visit on this journal the patient was seen at. */
   lastSeen?: string;
 }
 
