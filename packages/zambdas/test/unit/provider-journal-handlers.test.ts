@@ -5,9 +5,9 @@ import { INTAKE_PAPERWORK_QR_TAG, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/f
 import { JournalRow } from 'utils/lib/types/api/provider-journal.types';
 import { SUPPORT_CHAT_THREAD_SYSTEM, SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
+import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { MANUAL_TASK, PATIENT_REQUEST_TASK, RADIOLOGY_TASK } from 'utils/lib/types/data/tasks/types';
-import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { APIErrorCode, NOT_AUTHORIZED } from 'utils/lib/types/errors';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';

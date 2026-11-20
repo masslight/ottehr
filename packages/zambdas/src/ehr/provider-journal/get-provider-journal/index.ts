@@ -13,8 +13,8 @@ import { DateTime } from 'luxon';
 import { chunkThings, createSmsModel } from 'utils/lib/fhir/chat';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { isIntakePaperworkQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
 import { relatedPersonAndCommunicationMaps } from 'utils/lib/fhir/patient';
+import { isIntakePaperworkQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   GetProviderJournalInputSchema,
@@ -32,9 +32,9 @@ import {
   requireUserWithRole,
 } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { getThreadIdFromTask, isUnreadFor, searchUnread } from '../../../shared/support-chat/thread';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
+import { getThreadIdFromTask, isUnreadFor, searchUnread } from '../../../shared/support-chat/thread';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
 import {
