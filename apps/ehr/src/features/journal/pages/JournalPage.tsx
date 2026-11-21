@@ -195,6 +195,11 @@ export const JournalPage = (): ReactElement => {
 
   const { phonesByLocationName } = useSupportPhonesMap();
   const chatVisit = chatRef && getChartVisit(chatRef);
+  // The paperwork and AI interview links: today's visit, or the patient's upcoming booking, never a visit that's over.
+  const linkVisit =
+    chatRef?.section === 'cu' || chatRef?.section === 'td' || chatRef?.section === 'tdd'
+      ? chatRow?.visit
+      : chatRow?.visits.filter((v) => v.status === 'pending' && DateTime.fromISO(v.start) >= now.startOf('day')).at(-1);
   // A row with no visit: its newest to-do's own Location.
   const chatLocation = chatVisit?.location ?? chatRow?.location;
   const chatMessaging: AppointmentMessaging | undefined = useMemo(() => {
@@ -496,7 +501,7 @@ export const JournalPage = (): ReactElement => {
               ...visitQuickTextsContext({
                 patientFirstName: chatRow.patient.firstName,
                 patientLastName: chatRow.patient.lastName,
-                visitId: chatVisit?.appointmentId,
+                visitId: linkVisit?.appointmentId,
                 start: chatVisit?.start,
                 location: chatLocation,
                 // The visit's or to-do's own Location only, never the tracking board's last-selected one.
@@ -504,6 +509,7 @@ export const JournalPage = (): ReactElement => {
                 phonesByLocationName,
               }),
               noVisit: !chatVisit,
+              noLinkVisit: !linkVisit,
             }}
           />
         )}

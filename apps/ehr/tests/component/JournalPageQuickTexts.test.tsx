@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DateTime } from 'luxon';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { LOCATION_REVIEW_LINK_EXTENSION_URL } from 'utils/lib/fhir/constants';
@@ -159,9 +160,6 @@ describe('JournalPage chat quick texts', () => {
     expect(resolveQuickText(TRYING_TO_REACH_YOU, vars).english).toMatch(
       /Please call us at \(919\) 555-0100 or respond/
     );
-    expect(resolveQuickText(COMPLETE_PAPERWORK, vars).english).toBe(
-      'Please complete the paperwork and sign consent forms to avoid a delay in check-in. For Ava, click here: https://portal.example/visit/appt-1'
-    );
     expect(vars['location-name']).toBe('New York');
     expect(vars['location-review-link']).toBe('https://review.example/ny');
     expect(vars['support-phone']).toBe('(800) 555-0199');
@@ -179,19 +177,49 @@ describe('JournalPage chat quick texts', () => {
     expect(offeredQuickTexts(QUICK_TEXTS, context).map((q) => q.name)).toEqual(['Trying to reach you']);
   });
 
-  it('offers every quick text on a row with a visit', async () => {
+  it('doesn’t offer the paperwork or AI interview link on a Recent row whose visits are over', async () => {
     await openChat('Reply to Ava');
-    expect(offeredQuickTexts(QUICK_TEXTS, chatProps.at(-1).quickTextsContext)).toEqual(QUICK_TEXTS);
+    const context = chatProps.at(-1).quickTextsContext;
+    expect(context.visitId).toBeUndefined();
+    expect(offeredQuickTexts(QUICK_TEXTS, context).map((q) => q.name)).toEqual(['Trying to reach you']);
   });
 
-  it('fills from the visit Progress Note opens, not an upcoming booking', async () => {
+  it('links paperwork to today’s visit on a Today row and offers every quick text', async () => {
+    const today: JournalVisit = {
+      ...visit,
+      appointmentId: 'appt-today',
+      encounterId: 'enc-today',
+      start: DateTime.now().startOf('hour').toISO()!,
+      status: 'provider',
+    };
+    journal.today = [
+      {
+        ...journal.recent[0],
+        visit: today,
+        visits: [today, visit],
+        items: [
+          { ...journal.recent[0].items[0], label: 'Reply today', appointmentId: undefined, encounterId: undefined },
+        ],
+      },
+    ];
+    try {
+      const vars = await openChat('Reply today');
+      expect(vars['paperwork-url']).toBe('https://portal.example/visit/appt-today');
+      expect(offeredQuickTexts(QUICK_TEXTS, chatProps.at(-1).quickTextsContext)).toEqual(QUICK_TEXTS);
+    } finally {
+      journal.today = [];
+    }
+  });
+
+  it('links paperwork to the upcoming booking, while Progress Note and the office values stay on the started visit', async () => {
     const booking: JournalVisit = {
       ...visit,
       appointmentId: 'appt-booked',
       encounterId: 'enc-booked',
-      start: '2026-11-27T14:00:00Z',
+      start: DateTime.now().plus({ days: 7 }).toISO()!,
       status: 'pending',
       hasProgressNote: false,
+      location: { resourceType: 'Location', id: 'loc-booked', name: 'Booked Location' },
     };
     const row = journal.recent[0];
     const saved = { visits: row.visits, items: row.items };
@@ -199,8 +227,11 @@ describe('JournalPage chat quick texts', () => {
     row.items = [{ ...row.items[0], appointmentId: 'appt-booked', encounterId: 'enc-booked' }];
     try {
       const vars = await openChat('Reply to Ava');
-      expect(chatProps.at(-1).quickTextsContext.visitId).toBe('appt-1');
-      expect(vars['paperwork-url']).toBe('https://portal.example/visit/appt-1');
+      expect(vars['paperwork-url']).toBe('https://portal.example/visit/appt-booked');
+      expect(vars['ai-interview-url']).toBe('https://portal.example/visit/appt-booked/ai-interview-start');
+      expect(vars['location-name']).toBe('New York');
+      expect(vars['booking-time']).toBe(DateTime.fromISO(visit.start).toFormat('h:mm a'));
+      expect(offeredQuickTexts(QUICK_TEXTS, chatProps.at(-1).quickTextsContext)).toEqual(QUICK_TEXTS);
       expect(screen.getByRole('link', { name: 'Progress Note' }).getAttribute('href')).toContain('/in-person/appt-1/');
     } finally {
       Object.assign(row, saved);
