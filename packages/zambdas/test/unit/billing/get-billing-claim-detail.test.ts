@@ -41,6 +41,14 @@ vi.mock('../../../src/billing/claim-amounts', async (importOriginal) => ({
   fetchClaimFirstSubmittedDate: vi.fn(),
 }));
 
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/feature-flags')>();
+  return {
+    ...original,
+    FEATURE_FLAGS_CONFIG: { ...original.FEATURE_FLAGS_CONFIG, ottehrBillingInvoicingEnabled: true },
+  };
+});
+
 const CLAIM_ENC_SYSTEM = ottehrIdentifierSystem('claim-encounter-id');
 
 const claim = {
