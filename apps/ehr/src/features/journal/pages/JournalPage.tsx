@@ -245,8 +245,8 @@ export const JournalPage = (): ReactElement => {
           <Section
             title="Today"
             sumbar={summarizeItems(
-              refs.td.flatMap((r) => r.row.items),
-              `${plural(data.seenTodayCount, 'patient')} seen`
+              td.flatMap((r) => r.row.items),
+              `${plural(q ? td.length + tdd.length : data.seenTodayCount, 'patient')} seen`
             )}
           >
             {td.map(renderRow)}
@@ -272,7 +272,7 @@ export const JournalPage = (): ReactElement => {
           </Section>
         )}
         {(!q || rc.length > 0) && (
-          <Section title="Recent" sumbar={summarizeItems(refs.rc.flatMap((r) => r.row.items))}>
+          <Section title="Recent" sumbar={summarizeItems(rc.flatMap((r) => r.row.items))}>
             {rc.map(renderRow)}
           </Section>
         )}
