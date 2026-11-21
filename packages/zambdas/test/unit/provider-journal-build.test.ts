@@ -656,6 +656,38 @@ describe('buildJournal: task ownership and placement', () => {
     );
   });
 
+  it('gives each patient one "Not tied to a recent visit" row; to-dos without a patient stay one row each', () => {
+    const forHelen = (id: string, assignedAt: string): Task =>
+      boardTask({
+        id,
+        title: id,
+        owner: owner(ME, assignedAt),
+        input: [
+          {
+            type: { coding: [{ code: MANUAL_TASK.input.patient }] },
+            valueReference: { reference: 'Patient/pat-helen' },
+          },
+        ],
+      });
+    const erx = (id: string): Task => boardTask({ id, category: ERX_TASK.category, title: id, owner: owner(ME) });
+    const journal = buildJournal(
+      sources({
+        patients: [patient('pat-helen', 'Helen', 'Park')],
+        tasks: [
+          forHelen('call', '2026-11-06T13:00:00.000Z'),
+          erx('erx-1'),
+          forHelen('fax', '2026-11-07T13:00:00.000Z'),
+          erx('erx-2'),
+        ],
+      })
+    );
+    const helen = journal.notTied.filter((row) => row.patient?.patientId === 'pat-helen');
+    expect(helen).toHaveLength(1);
+    expect(helen[0].items.map((item) => item.id)).toEqual(['fax', 'call']);
+    const noPatient = journal.notTied.filter((row) => !row.patient);
+    expect(noPatient.map((row) => row.items.map((item) => item.id))).toEqual([['erx-1'], ['erx-2']]);
+  });
+
   it('follows the Tasks board rule: hides tasks without the board tag (preliminary lab results) and excluded codes', () => {
     const hidden = boardTask({
       id: 'prelim',

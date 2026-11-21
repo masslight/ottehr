@@ -384,6 +384,8 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
   buckets.forEach((bucket) => bucket.visits.sort(byStartDesc));
 
   const notTied: JournalRow[] = [];
+  // One row per patient; to-dos with no patient (faxes, eRx notifications, unmatched results) get a row each.
+  const notTiedByPatient = new Map<PatientBucket, JournalRow>();
 
   const isToday = (visit: Visit): boolean =>
     DateTime.fromISO(visit.journal.start).setZone(now.zone).hasSame(now, 'day');
@@ -439,13 +441,18 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
       unreadMessageSentAt: sources.unreadMessageSentAt?.get(task.id),
     });
     const bucket = patientId ? bucketFor(patientId) : undefined;
+    const notTiedRow = bucket && notTiedByPatient.get(bucket);
     if (bucket && bucket.visits.length) {
       bucket.items.push(item);
+    } else if (notTiedRow) {
+      notTiedRow.items.push(item);
     } else {
-      notTied.push({ patient: bucket?.patient, visits: [], items: [item] });
+      const row = { patient: bucket?.patient, visits: [], items: [item] };
+      notTied.push(row);
+      if (bucket) notTiedByPatient.set(bucket, row);
     }
   });
-  buckets.forEach((bucket) => bucket.items.sort(byAlertThenSinceDesc));
+  [...buckets.values(), ...notTied].forEach((row) => row.items.sort(byAlertThenSinceDesc));
 
   const pastStart = now.minus({ days: PAST_WINDOW_DAYS }).startOf('day');
   const isPastWeek = (visit: Visit): boolean =>
