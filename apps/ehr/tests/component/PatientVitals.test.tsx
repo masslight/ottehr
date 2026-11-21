@@ -78,7 +78,7 @@ vi.mock('src/features/visits/shared/components/vitals/AbnormalVitalsModal', () =
 }));
 
 vi.mock('src/features/visits/shared/components/vitals/bmi/VitalsBMICard', () => ({
-  default: () => <div />,
+  default: () => <div data-testid="bmi-card" />,
 }));
 
 // Vital card stubs expose field.hasData for draft-restore assertions.
@@ -103,6 +103,9 @@ vi.mock('src/features/visits/shared/components/vitals/weights/VitalsWeightsCard'
 vi.mock('src/features/visits/shared/components/vitals/heights/VitalsHeightCard', () => ({
   default: ({ field }: any) => <div data-testid="height-card" data-has-data={String(field.hasData)} />,
 }));
+vi.mock('src/features/visits/shared/components/vitals/head-circumference/VitalsHeadCircumferenceCard', () => ({
+  default: ({ field }: any) => <div data-testid="head-circumference-card" data-has-data={String(field.hasData)} />,
+}));
 vi.mock('src/features/visits/shared/components/vitals/vision/VitalsVisionCard', () => ({
   default: ({ field }: any) => <div data-testid="vision-card" data-has-data={String(field.hasData)} />,
 }));
@@ -116,6 +119,7 @@ vi.mock('src/features/visits/shared/components/vitals/last-menstrual-period/Vita
 
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
+  VitalsHeadCircumferenceObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
   VitalsTemperatureObservationDTO,
@@ -148,6 +152,17 @@ describe('PatientVitals', () => {
   beforeEach(() => {
     useVitalsDraftStore.setState({ draftsByEncounterId: {} });
     vi.clearAllMocks();
+  });
+
+  it('places the head circumference card directly below height', () => {
+    render(<PatientVitals />, { wrapper });
+
+    const cards = screen.getAllByTestId(/-card$/).map((card) => card.dataset.testid);
+    expect(cards.slice(cards.indexOf('height-card'), cards.indexOf('height-card') + 3)).toEqual([
+      'height-card',
+      'head-circumference-card',
+      'bmi-card',
+    ]);
   });
 
   describe('UnsavedDraftWarning banner', () => {
@@ -424,6 +439,36 @@ describe('PatientVitals', () => {
         expect(result.current.fields.heartbeat.hasData).toBe(true);
       });
 
+      it('restores head circumference in cm and inches from a pre-existing draft', async () => {
+        useVitalsDraftStore.getState().setDraft(HOOK_ENCOUNTER_ID, {
+          headCircumference: {
+            field: VitalFieldNames.VitalHeadCircumference,
+            value: 43.8,
+          } as VitalsHeadCircumferenceObservationDTO,
+        });
+
+        const { result } = renderHook(() => useVitalsManagement({ encounterId: HOOK_ENCOUNTER_ID }));
+
+        await act(async () => {});
+
+        expect(result.current.fields.headCircumference.localState.valueCm).toBe('43.8');
+        expect(result.current.fields.headCircumference.localState.valueInches).toBe('17.24');
+        expect(result.current.fields.headCircumference.hasData).toBe(true);
+      });
+
+      it('writes head circumference typed in inches to the draft in cm', () => {
+        const { result } = renderHook(() => useVitalsManagement({ encounterId: HOOK_ENCOUNTER_ID }));
+
+        act(() => {
+          result.current.fields.headCircumference.localState.handleInchesChange(changeEvent('17.24'));
+        });
+
+        expect(useVitalsDraftStore.getState().getDraft(HOOK_ENCOUNTER_ID).headCircumference).toEqual({
+          field: VitalFieldNames.VitalHeadCircumference,
+          value: 43.79,
+        });
+      });
+
       it('does not write back to the draft store during hydration', async () => {
         useVitalsDraftStore.getState().setDraft(HOOK_ENCOUNTER_ID, {
           temperature: { field: VitalFieldNames.VitalTemperature, value: 36.6 } as VitalsTemperatureObservationDTO,
@@ -448,6 +493,10 @@ describe('PatientVitals', () => {
             value: '',
             isUnsure: true,
           } as VitalsLastMenstrualPeriodObservationDTO,
+          headCircumference: {
+            field: VitalFieldNames.VitalHeadCircumference,
+            value: 43.8,
+          } as VitalsHeadCircumferenceObservationDTO,
         });
 
         const { result } = renderHook(() => useVitalsManagement({ encounterId: HOOK_ENCOUNTER_ID }));
@@ -458,6 +507,7 @@ describe('PatientVitals', () => {
         expect(result.current.fields.temperature.hasData).toBe(true);
         expect(result.current.fields.heartbeat.hasData).toBe(true);
         expect(result.current.fields.lmp.hasData).toBe(true);
+        expect(result.current.fields.headCircumference.hasData).toBe(true);
 
         await act(async () => {
           await result.current.saveAll();
@@ -467,6 +517,7 @@ describe('PatientVitals', () => {
         expect(draft.temperature).toBeUndefined();
         expect(draft.heartbeat).toBeUndefined();
         expect(draft.lmp).toBeUndefined();
+        expect(draft.headCircumference).toBeUndefined();
       });
     });
   });

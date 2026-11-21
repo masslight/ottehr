@@ -19,6 +19,7 @@ export const VITAL_LABELS: { [value in VitalFieldNames]: string } & { notes: str
   [VitalFieldNames.VitalOxygenSaturation]: 'Oxygen saturation',
   [VitalFieldNames.VitalWeight]: 'Weight',
   [VitalFieldNames.VitalHeight]: 'Height',
+  [VitalFieldNames.VitalHeadCircumference]: 'Head circumference',
   [VitalFieldNames.VitalBMI]: 'BMI',
   [VitalFieldNames.VitalVision]: 'Vision',
   [VitalFieldNames.VitalLastMenstrualPeriod]: 'Last Menstrual Period',

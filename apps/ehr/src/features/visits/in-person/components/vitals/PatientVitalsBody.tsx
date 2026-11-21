@@ -7,6 +7,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import VitalsNotesCard from 'src/features/visits/shared/components/patient-info/VitalsNotesCard';
 import VitalsBloodPressureCard from 'src/features/visits/shared/components/vitals/blood-pressure/VitalsBloodPressureCard';
 import VitalsBMICard from 'src/features/visits/shared/components/vitals/bmi/VitalsBMICard';
+import VitalsHeadCircumferenceCard from 'src/features/visits/shared/components/vitals/head-circumference/VitalsHeadCircumferenceCard';
 import VitalsHeartbeatCard from 'src/features/visits/shared/components/vitals/heartbeat/VitalsHeartbeatCard';
 import VitalsHeightCard from 'src/features/visits/shared/components/vitals/heights/VitalsHeightCard';
 import { useVitalsManagement } from 'src/features/visits/shared/components/vitals/hooks/useVitalsManagement';
@@ -46,6 +47,7 @@ export const PatientVitalsBody: FC = () => {
     vitalsDraft.oxygenSat ||
     vitalsDraft.weight ||
     vitalsDraft.height ||
+    vitalsDraft.headCircumference ||
     vitalsDraft.vision ||
     vitalsDraft.lmp
   );
@@ -61,6 +63,7 @@ export const PatientVitalsBody: FC = () => {
         d.oxygenSat ||
         d.weight ||
         d.height ||
+        d.headCircumference ||
         d.vision ||
         d.lmp
       );
@@ -104,6 +107,9 @@ export const PatientVitalsBody: FC = () => {
       </Box>
       <Box ref={vitals.refs.height}>
         <VitalsHeightCard field={vitals.fields.height} />
+      </Box>
+      <Box ref={vitals.refs.headCircumference}>
+        <VitalsHeadCircumferenceCard field={vitals.fields.headCircumference} />
       </Box>
       <VitalsBMICard
         current={vitals.fields.bmi.current}

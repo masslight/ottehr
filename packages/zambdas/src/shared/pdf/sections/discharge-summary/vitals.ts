@@ -47,6 +47,7 @@ export const composeVitalsForDischargeSummary: DataComposer<
       oxygenSat: vitals?.['vital-oxygen-sat']?.[0] ?? '',
       weight: vitals?.['vital-weight']?.[0] ?? '',
       height: vitals?.['vital-height']?.[0] ?? '',
+      headCircumference: vitals?.['vital-head-circumference']?.[0] ?? '',
       bmi: vitals?.['vital-bmi']?.[0] ?? '',
       vision: acuityDisplayLines[0] ?? '',
       dotVisionScreening: getDotVisionScreeningLines(latestDotEntry?.dotVisionScreening, { includeDocument: true }),
@@ -64,11 +65,21 @@ export const createVitalsSectionForDischargeSummary = <
     shouldRender: (sectionData) =>
       Object.values(sectionData.vitals || {}).some((val) => (Array.isArray(val) ? val.length > 0 : !!val)),
     render: (client, data, styles) => {
+      const leftColumn = [
+        ['Temp', data.vitals.temp],
+        ['HR', data.vitals.hr],
+        ['RR', data.vitals.rr],
+        ['BP', data.vitals.bp],
+      ];
+      const rightColumn = [
+        ['Oxygen Sat', data.vitals.oxygenSat],
+        ['Weight', data.vitals.weight],
+        ['Height', data.vitals.height],
+        ...(data.vitals.headCircumference ? [['Head circumference', data.vitals.headCircumference]] : []),
+        ['BMI', data.vitals.bmi],
+      ];
       const vitals = [
-        ['Temp', data.vitals.temp, 'Oxygen Sat', data.vitals.oxygenSat],
-        ['HR', data.vitals.hr, 'Weight', data.vitals.weight],
-        ['RR', data.vitals.rr, 'Height', data.vitals.height],
-        ['BP', data.vitals.bp, 'BMI', data.vitals.bmi],
+        ...rightColumn.map((rightCell, index) => [...(leftColumn[index] ?? ['', '']), ...rightCell]),
         ['Last Menstrual Period', data.vitals.lastMenstrualPeriod],
         ['Vision', data.vitals.vision],
       ].filter(([, value1, label2]) => label2 || value1);
@@ -92,33 +103,37 @@ export const createVitalsSectionForDischargeSummary = <
         client.setY(rowStartY);
         const col1RightBound = label2 ? leftX + colWidth : fullWidth.rightBound;
 
-        client.drawTextSequential(
-          `${label1}: `,
-          {
-            ...styles.textStyles.bold,
-            newLineAfter: false,
-          },
-          {
-            leftBound: leftX,
-            rightBound: col1RightBound,
-          }
-        );
+        let col1EndPage = rowStartPage;
+        let col1EndY = rowStartY;
+        if (label1) {
+          client.drawTextSequential(
+            `${label1}: `,
+            {
+              ...styles.textStyles.bold,
+              newLineAfter: false,
+            },
+            {
+              leftBound: leftX,
+              rightBound: col1RightBound,
+            }
+          );
 
-        const label1Width = client.getTextDimensions(`${label1}: `, styles.textStyles.bold).width;
-        client.drawTextSequential(
-          `${value1 ?? ''}`,
-          {
-            ...styles.textStyles.regular,
-            newLineAfter: true,
-          },
-          {
-            leftBound: leftX + label1Width,
-            rightBound: col1RightBound,
-          }
-        );
+          const label1Width = client.getTextDimensions(`${label1}: `, styles.textStyles.bold).width;
+          client.drawTextSequential(
+            `${value1 ?? ''}`,
+            {
+              ...styles.textStyles.regular,
+              newLineAfter: true,
+            },
+            {
+              leftBound: leftX + label1Width,
+              rightBound: col1RightBound,
+            }
+          );
 
-        const col1EndPage = client.getCurrentPageIndex();
-        const col1EndY = client.getY();
+          col1EndPage = client.getCurrentPageIndex();
+          col1EndY = client.getY();
+        }
 
         if (!label2) {
           rowStartPage = col1EndPage;
