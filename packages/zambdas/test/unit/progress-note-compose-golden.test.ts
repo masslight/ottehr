@@ -5,6 +5,14 @@
  */
 import { visitNoteToLegacyChartData } from 'utils/lib/helpers/visit-note/visit-note-to-chart-data.helper';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+
+// Core tests must use the base screening-questions config so they pass regardless of which
+// customer overlay is applied. Overlays may omit fields (e.g. COVID questions) that the
+// golden fixture includes, causing additionalQuestions to omit them and mismatching the snapshot.
+vi.mock('utils/lib/ottehr-config/screening-questions', async () => {
+  const { baseScreeningQuestionsConfig } = await import('utils/lib/types/data/screening-questions/config');
+  return { patientScreeningQuestionsConfig: baseScreeningQuestionsConfig };
+});
 import { buildVisitNote } from '../../src/shared/chart-sections/visit-note';
 import { composeProgressNoteData } from '../../src/shared/pdf/progress-note-pdf';
 import { ProgressNoteInput } from '../../src/shared/pdf/types';
