@@ -13,6 +13,7 @@ import { sidebarMenuIcons } from 'src/features/visits/shared/components/sidebarM
 import { JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
 import {
   followUpUrl,
+  getChartVisit,
   getRowVisit,
   itemVisits,
   JournalRowRef,
@@ -93,8 +94,7 @@ export const buildJournalActions = (
   const patient = row.patient;
   if (!patient) return [];
   const visit = getRowVisit(ref);
-  // A Today row's chart links open today's visit, not an older to-do's.
-  const chartVisit = visit && section === 'td' ? row.visit ?? visit : visit;
+  const chartVisit = getChartVisit(ref);
   const actions: JournalAction[] = [
     {
       key: 'record',

@@ -120,6 +120,12 @@ export const getRowVisit = (ref: JournalRowRef): JournalVisit | undefined => {
   return oldestItemVisit(row) ?? row.visit ?? row.visits.find((v) => v.hasProgressNote) ?? row.visits[0];
 };
 
+/** The visit Progress Note and Visit Details open: a Today row's chart links open today's visit, not an older to-do's. */
+export const getChartVisit = (ref: JournalRowRef): JournalVisit | undefined => {
+  const visit = getRowVisit(ref);
+  return visit && ref.section === 'td' ? ref.row.visit ?? visit : visit;
+};
+
 /** Distinct visits among the row's open items, newest first. */
 export const itemVisits = (row: JournalRow): JournalVisit[] => {
   const seen = new Set<string>();

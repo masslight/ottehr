@@ -183,4 +183,27 @@ describe('JournalPage chat quick texts', () => {
     await openChat('Reply to Ava');
     expect(offeredQuickTexts(QUICK_TEXTS, chatProps.at(-1).quickTextsContext)).toEqual(QUICK_TEXTS);
   });
+
+  it('fills from the visit Progress Note opens, not an upcoming booking', async () => {
+    const booking: JournalVisit = {
+      ...visit,
+      appointmentId: 'appt-booked',
+      encounterId: 'enc-booked',
+      start: '2026-11-27T14:00:00Z',
+      status: 'pending',
+      hasProgressNote: false,
+    };
+    const row = journal.recent[0];
+    const saved = { visits: row.visits, items: row.items };
+    row.visits = [booking, visit];
+    row.items = [{ ...row.items[0], appointmentId: 'appt-booked', encounterId: 'enc-booked' }];
+    try {
+      const vars = await openChat('Reply to Ava');
+      expect(chatProps.at(-1).quickTextsContext.visitId).toBe('appt-1');
+      expect(vars['paperwork-url']).toBe('https://portal.example/visit/appt-1');
+      expect(screen.getByRole('link', { name: 'Progress Note' }).getAttribute('href')).toContain('/in-person/appt-1/');
+    } finally {
+      Object.assign(row, saved);
+    }
+  });
 });

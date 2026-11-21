@@ -20,11 +20,11 @@ import { FLAG_SX, JournalRow } from '../components/JournalRow';
 import { JournalSideColumn } from '../components/JournalSideColumn';
 import { buildJournalActions, JournalActionHandlers } from '../helpers/journalActions';
 import {
+  getChartVisit,
   inProgressStatus,
   JOURNAL_COLORS,
   JournalRowRef,
   journalTitle,
-  oldestItemVisit,
   patientsSearchUrl,
   plural,
   rowMatchesSearch,
@@ -106,7 +106,8 @@ export const JournalPage = (): ReactElement => {
   const [showMore, setShowMore] = useState(false);
   const [showPast, setShowPast] = useState(false);
   const [noteTarget, setNoteTarget] = useState<JournalNoteTarget>();
-  const [chatRow, setChatRow] = useState<JournalRowData>();
+  const [chatRef, setChatRef] = useState<JournalRowRef>();
+  const chatRow = chatRef?.row;
   /** Chats marked read since the last load, like the tracking board row's local unread state (reset on new data). */
   const [readChatPatientIds, setReadChatPatientIds] = useState<string[]>([]);
   useEffect(() => setReadChatPatientIds([]), [data]);
@@ -135,6 +136,8 @@ export const JournalPage = (): ReactElement => {
 
   const allRefs = useMemo(() => (refs ? Object.values(refs).flat() : []), [refs]);
   const selected = allRefs.find((r) => r.key === selectedKey);
+  /** The chat keeps the row's section: it fills quick texts from the visit Progress Note opens. */
+  const setChatRow = (row?: JournalRowData): void => setChatRef(row && allRefs.find((r) => r.row === row));
 
   const changeOwner = (id: string): void => {
     setPickedOwnerId(id);
@@ -191,7 +194,7 @@ export const JournalPage = (): ReactElement => {
   );
 
   const { phonesByLocationName } = useSupportPhonesMap();
-  const chatVisit = chatRow && (chatRow.visit ?? oldestItemVisit(chatRow) ?? chatRow.visits[0]);
+  const chatVisit = chatRef && getChartVisit(chatRef);
   // A row with no visit: its newest to-do's own Location.
   const chatLocation = chatVisit?.location ?? chatRow?.location;
   const chatMessaging: AppointmentMessaging | undefined = useMemo(() => {
