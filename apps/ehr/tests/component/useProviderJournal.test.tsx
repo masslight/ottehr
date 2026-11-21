@@ -53,6 +53,33 @@ describe('useProviderJournal', () => {
     await waitFor(() => expect(mockGetProviderJournal).toHaveBeenCalledTimes(3));
   });
 
+  it('reloads when "Journal for" switches back to a journal already opened in this tab', async () => {
+    const Picker = (): ReactElement => {
+      const [id, setId] = useState('prac-a');
+      const { data } = useProviderJournal(id);
+      return (
+        <>
+          <button onClick={() => setId((current) => (current === 'prac-a' ? 'prac-b' : 'prac-a'))}>switch</button>
+          <div>{data ? 'loaded' : 'loading'}</div>
+        </>
+      );
+    };
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/journal']}>
+          <Picker />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await screen.findByText('loaded');
+    await userEvent.click(screen.getByText('switch'));
+    await waitFor(() => expect(mockGetProviderJournal).toHaveBeenCalledTimes(2));
+    await userEvent.click(screen.getByText('switch'));
+    await waitFor(() => expect(mockGetProviderJournal).toHaveBeenCalledTimes(3));
+    expect(mockGetProviderJournal.mock.calls[2][1]).toEqual(expect.objectContaining({ practitionerId: 'prac-a' }));
+  });
+
   it('reloads when the user comes back to the journal browser tab (journal links open new tabs)', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
