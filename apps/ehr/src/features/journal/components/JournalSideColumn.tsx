@@ -213,7 +213,10 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
     </Box>
   );
   const todo = (item: JournalRow['items'][number]): ReactElement => (
-    <Box key={item.id} sx={item.assignedTo ? { ...TODO_SX, borderStyle: 'dashed' } : TODO_SX}>
+    <Box
+      key={item.id}
+      sx={item.assignedTo ? { ...TODO_SX, border: `1px dashed ${JOURNAL_COLORS.rowLineDash}` } : TODO_SX}
+    >
       <JournalItemLink item={item} now={now} onOpenChat={(item) => onOpenChat(row, item)} inPanel />
     </Box>
   );

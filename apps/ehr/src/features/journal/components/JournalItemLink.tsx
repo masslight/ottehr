@@ -5,12 +5,12 @@ import { MouseEvent, ReactElement } from 'react';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { JournalItem } from 'utils/lib/types/api/provider-journal.types';
 import { TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
-import { formatAge, JOURNAL_COLORS, journalItemLink } from '../helpers/journalHelpers';
+import { formatAge, JOURNAL_COLORS, journalItemLink, opensTaskNotes } from '../helpers/journalHelpers';
 
 interface Props {
   item: JournalItem;
   now: DateTime;
-  /** Text-message items and unread Support Chat requests open the chat instead of a page. */
+  /** Text-message items and unread Support Chat requests open the chat, and general tasks their Task notes, instead of a page. */
   onOpenChat: (item: JournalItem) => void;
   /** Side column: the action wraps and is bolder. */
   inPanel?: boolean;
@@ -18,7 +18,8 @@ interface Props {
 
 /** "Review CBC, resulted 2d 5h ago" — the action is the link, opening in a new tab. */
 export const JournalItemLink = ({ item, now, onOpenChat, inPanel }: Props): ReactElement => {
-  const isChat = item.kind === 'text-message' || (item.kind === 'patient-request' && !!item.unread);
+  const isChat =
+    item.kind === 'text-message' || (item.kind === 'patient-request' && !!item.unread) || opensTaskNotes(item);
   const stop = (e: MouseEvent): void => e.stopPropagation();
   const linkSx = {
     color: 'primary.main',

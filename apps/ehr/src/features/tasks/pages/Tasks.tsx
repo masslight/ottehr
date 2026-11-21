@@ -55,7 +55,7 @@ import { TaskTitle } from '../components/TaskTitle';
 const LOCAL_STORAGE_FILTERS_KEY = 'tasks.filters';
 const UNKNOWN = 'Unknown';
 const COMPLETED = 'completed';
-const NOTE_CREATED_PREVIEW_LENGTH = 80;
+export const NOTE_CREATED_PREVIEW_LENGTH = 80;
 const TASK_STATUS_LABEL: Record<string, string> = {
   ready: 'pending',
   'in-progress': 'in progress',

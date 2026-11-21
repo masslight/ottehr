@@ -16,6 +16,8 @@ import { AppointmentMessaging } from 'utils/lib/types/api/messaging.types';
 import { JournalItem, JournalRow as JournalRowData } from 'utils/lib/types/api/provider-journal.types';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { SupportChatModal } from '../../support-chat/components/SupportChatModal';
+import { TaskNotesDialog } from '../../tasks/components/TaskNotesDialog';
+import { NOTE_CREATED_PREVIEW_LENGTH } from '../../tasks/pages/Tasks';
 import { JournalDot } from '../components/JournalDot';
 import { JournalNoteDialog, JournalNoteTarget } from '../components/JournalNoteDialog';
 import { FLAG_SX, JournalRow } from '../components/JournalRow';
@@ -27,6 +29,7 @@ import {
   JOURNAL_COLORS,
   JournalRowRef,
   journalTitle,
+  opensTaskNotes,
   patientsSearchUrl,
   plural,
   reviewAndSignUrl,
@@ -116,8 +119,12 @@ export const JournalPage = (): ReactElement => {
   useEffect(() => setReadChatPatientIds([]), [data]);
   /** An unread Support Chat request: opens the Tasks page's Support Chat dialog. */
   const [supportChatItem, setSupportChatItem] = useState<JournalItem>();
-  const openChat = (row: JournalRowData, item: JournalItem): void =>
-    item.kind === 'text-message' ? setChatRow(row) : setSupportChatItem(item);
+  const [notesTaskId, setNotesTaskId] = useState<string>();
+  const openChat = (row: JournalRowData, item: JournalItem): void => {
+    if (opensTaskNotes(item)) setNotesTaskId(item.taskId);
+    else if (item.kind === 'text-message') setChatRow(row);
+    else setSupportChatItem(item);
+  };
 
   const now = DateTime.now();
   const q = query.trim().toLowerCase();
@@ -494,6 +501,19 @@ export const JournalPage = (): ReactElement => {
             target={noteTarget}
             onClose={() => setNoteTarget(undefined)}
             onSaved={() => void refetch()}
+          />
+        )}
+        {notesTaskId && (
+          // The Tasks page's Task notes dialog, with its "Note created" message.
+          <TaskNotesDialog
+            taskId={notesTaskId}
+            onClose={() => setNotesTaskId(undefined)}
+            onNoteCreated={(text) => {
+              setNotesTaskId(undefined);
+              const preview =
+                text.length > NOTE_CREATED_PREVIEW_LENGTH ? `${text.slice(0, NOTE_CREATED_PREVIEW_LENGTH)}…` : text;
+              enqueueSnackbar(`Note created: ${preview}`, { variant: 'success' });
+            }}
           />
         )}
         {supportChatItem?.taskId && (

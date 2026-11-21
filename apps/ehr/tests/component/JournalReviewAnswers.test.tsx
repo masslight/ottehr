@@ -64,14 +64,15 @@ describe('OTR-3941 review answers', () => {
       />
     );
     expect(screen.getByText(/Waiting/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Call about culture results' })).toBeInTheDocument();
+    // A general task opens its Task notes, so it's a button.
+    expect(screen.getByRole('button', { name: 'Call about culture results' })).toBeInTheDocument();
   });
 
   it('shows a task held by someone else with their name, apart under "Assigned to others"', () => {
     side(row());
     const heading = screen.getByText('Assigned to others');
     expect(heading.nextElementSibling).toHaveTextContent('Call pharmacy, assigned to Joe Lin 2h ago');
-    expect(screen.getAllByRole('link', { name: 'Call pharmacy' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Call pharmacy' })).toHaveLength(1);
   });
 
   it("leaves someone else's task out of the row's action count", () => {

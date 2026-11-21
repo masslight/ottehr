@@ -159,6 +159,18 @@ export const followUpUrl = (patientId: string, encounterId?: string): string =>
   `/patient/${patientId}/followup/add${encounterId ? `?encounter=${encodeURIComponent(encounterId)}` : ''}`;
 
 /** Where an item's link goes; text-message items open the chat instead. */
+/**
+ * A general task (no order, Progress Note section or form) opens its Task notes, as on the Tasks page, because staff
+ * follow a task through its notes. Result reviews and order tasks keep opening their page.
+ */
+export const opensTaskNotes = (item: JournalItem): boolean =>
+  item.kind === 'task' &&
+  !!item.taskId &&
+  !item.orderId &&
+  !item.progressNoteSection &&
+  !item.documentReferenceId &&
+  item.category !== DME_TASK.category;
+
 export const journalItemLink = (item: JournalItem): string => {
   const { appointmentId, patientId } = item;
   // Chart links need ?encounterId= when the visit is a scheduled follow-up.

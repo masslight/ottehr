@@ -30,3 +30,33 @@ describe('JournalItemLink', () => {
     expect(screen.queryByTestId('WarningAmberOutlinedIcon')).not.toBeInTheDocument();
   });
 });
+
+describe('JournalItemLink general tasks', () => {
+  const general: JournalItem = {
+    id: 'task-2',
+    taskId: 'task-2',
+    kind: 'task',
+    label: 'Call pharmacy about refill',
+    when: 'assigned',
+    since: '2026-11-07T13:00:00.000Z',
+    appointmentId: 'appt-1',
+  };
+
+  it('opens a general task’s Task notes instead of a page', () => {
+    const opened: JournalItem[] = [];
+    render(<JournalItemLink item={general} now={NOW} onOpenChat={(item) => opened.push(item)} />);
+    screen.getByRole('button', { name: 'Call pharmacy about refill' }).click();
+    expect(opened).toEqual([general]);
+  });
+
+  it('keeps the page link for a task linked to an order', () => {
+    render(
+      <JournalItemLink
+        item={{ ...general, orderId: 'sr-1', category: 'manual-in-house-lab' }}
+        now={NOW}
+        onOpenChat={() => {}}
+      />
+    );
+    expect(screen.getByRole('link', { name: 'Call pharmacy about refill' })).toBeInTheDocument();
+  });
+});
