@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { FOLLOWUP_SYSTEMS, FOLLOWUP_TYPES, isFreeFormEncounter } from 'utils/lib/fhir/encounter';
 import { withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { addOrReplaceOperation } from 'utils/lib/helpers/operations';
+import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isFhirNotFoundError } from '../../shared/errors';
 import { createEncounterResource } from '../save-followup-encounter/helpers';
@@ -33,10 +34,12 @@ export const buildFreeFormNotePatchOperations = (encounter: Encounter, note: str
   return [guard, addOrReplaceOperation(valueString, `/extension/${index}/valueString`, note)];
 };
 
+/** The author is the signed-in user, saved the way the follow-up form saves its Provider. */
 export const createFreeFormEncounter = async (
   oystehr: Oystehr,
   patientId: string,
-  note: string
+  note: string,
+  author: ProviderDetails
 ): Promise<Encounter> => {
   const now = DateTime.now().toUTC().toISO();
   return createEncounterResource(
@@ -48,6 +51,7 @@ export const createFreeFormEncounter = async (
       end: now,
       message: note,
       resolved: true,
+      provider: author,
     },
     oystehr
   );

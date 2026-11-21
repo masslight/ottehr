@@ -75,6 +75,8 @@ export interface FreeFormEncounterHistoryRow {
   dateTime: string | undefined;
   note: string;
   lastUpdated: string | undefined;
+  /** Who wrote the note; notes saved before authors were recorded have none. */
+  author?: string;
 }
 
 export interface PatientVisitListResponse {

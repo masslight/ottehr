@@ -1,5 +1,5 @@
 import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
-import { IconButton, InputBase, TableCell, TableRow } from '@mui/material';
+import { IconButton, InputBase, TableCell, TableRow, Typography } from '@mui/material';
 import { isCancelledError, useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import React, { FC, useEffect, useRef, useState } from 'react';
@@ -18,6 +18,8 @@ export interface FreeFormSaveSession {
 type FreeFormEncounterRowProps = {
   patientId: string;
   dateTime: string | undefined;
+  /** Who wrote the note, under the date; older notes have none. */
+  author?: string;
   encounterId?: string;
   note: string;
   columnCount: number;
@@ -31,6 +33,7 @@ type FreeFormEncounterRowProps = {
 export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
   patientId,
   dateTime,
+  author,
   encounterId,
   note,
   columnCount,
@@ -154,6 +157,11 @@ export const FreeFormEncounterRow: FC<FreeFormEncounterRowProps> = ({
     >
       <TableCell sx={{ width: 150, paddingLeft: 2 }}>
         {dateTime ? formatISOStringToDateAndTime(dateTime) : '-'}
+        {author && (
+          <Typography variant="body2" color="text.secondary">
+            {author}
+          </Typography>
+        )}
       </TableCell>
       <TableCell colSpan={columnCount - 2} sx={{ paddingLeft: 1 }}>
         <InputBase

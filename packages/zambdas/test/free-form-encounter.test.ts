@@ -260,17 +260,38 @@ describe('assertFreeFormEncounterOfPatient', () => {
   });
 });
 
+const AUTHOR = { practitionerId: 'practitioner-1', name: 'Ana Rivera' };
+
 describe('createFreeFormEncounter', () => {
   it('creates a parentless follow-up marked with the free-form subtype', async () => {
     const create = vi.fn(async (encounter: Encounter) => ({ ...encounter, id: 'created' }));
     const oystehr = { fhir: { create } } as unknown as Oystehr;
 
-    const created = await createFreeFormEncounter(oystehr, PATIENT_ID, 'Called about the prescription');
+    const created = await createFreeFormEncounter(oystehr, PATIENT_ID, 'Called about the prescription', AUTHOR);
 
     expect(created.type).toEqual(buildFollowupEncounterType('free-form'));
     expect(created.partOf).toBeUndefined();
     expect(created.appointment).toBeUndefined();
     expect(isFreeFormEncounter(created)).toBe(true);
+  });
+
+  it('saves the author, and the visit list row names them', async () => {
+    const create = vi.fn(async (encounter: Encounter) => ({ ...encounter, id: 'created' }));
+    const oystehr = { fhir: { create } } as unknown as Oystehr;
+
+    const created = await createFreeFormEncounter(oystehr, PATIENT_ID, 'Told mom culture negative', AUTHOR);
+
+    expect(created.participant?.[0]?.individual).toEqual({
+      type: 'Practitioner',
+      reference: 'Practitioner/practitioner-1',
+      display: 'Ana Rivera',
+    });
+    expect(freeFormEncounterHistoryRowFromEncounter(created)?.author).toBe('Ana Rivera');
+  });
+
+  it('shows no author on a note saved before authors were recorded', () => {
+    const legacy = freeFormEncounter({ type: buildFollowupEncounterType('free-form') });
+    expect(freeFormEncounterHistoryRowFromEncounter(legacy)?.author).toBeUndefined();
   });
 });
 

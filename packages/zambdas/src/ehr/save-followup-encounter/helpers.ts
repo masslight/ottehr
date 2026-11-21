@@ -71,6 +71,7 @@ export async function createEncounterResource(
       createEncounterParticipantIndividual(PRACTITIONER_CODINGS.Attender, {
         type: 'Practitioner',
         reference: `Practitioner/${encounterDetails.provider.practitionerId}`,
+        display: encounterDetails.provider.name || undefined,
       })
     );
   }

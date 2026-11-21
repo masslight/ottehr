@@ -745,6 +745,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                 key={`draft-${draft.draftId}`}
                 patientId={currentPatientId}
                 dateTime={draftSavedRow?.dateTime ?? draft.createdAt}
+                author={draftSavedRow?.author}
                 encounterId={draft.encounterId}
                 note={draftSavedRow?.note ?? ''}
                 columnCount={columns.length}
@@ -777,6 +778,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
                       key={gridRow.id}
                       patientId={currentPatientId ?? ''}
                       dateTime={gridRow.encounter.dateTime}
+                      author={gridRow.encounter.author}
                       encounterId={gridRow.encounter.encounterId}
                       note={gridRow.encounter.note}
                       columnCount={columns.length}

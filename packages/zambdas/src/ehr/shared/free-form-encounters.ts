@@ -3,6 +3,7 @@ import { Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FOLLOWUP_SYSTEMS, isFreeFormEncounter } from 'utils/lib/fhir/encounter';
 import { FreeFormEncounterHistoryRow } from 'utils/lib/types/api/patient-visit-history.types';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 
 interface FreeFormEncounterDateRange {
   from?: string;
@@ -34,6 +35,13 @@ export const freeFormEncounterHistoryRowFromEncounter = (
       encounter.reasonCode?.[0]?.text ||
       '',
     lastUpdated: encounter.meta?.lastUpdated,
+    // The author saved at creation (save-free-form-encounter); older notes have none.
+    author: encounter.participant?.find(
+      (participant) =>
+        participant.type?.some(
+          (type) => type.coding?.some((coding) => coding.code === PRACTITIONER_CODINGS.Attender[0].code)
+        )
+    )?.individual?.display,
   };
 };
 
