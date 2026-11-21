@@ -96,7 +96,7 @@ export const JournalPage = (): ReactElement => {
   const owner = owners.find((o) => o.practitionerId === ownerId);
   const isMe = ownerId === myPractitionerId;
 
-  const { data, isLoading, isError, refetch } = useProviderJournal(ownerId);
+  const { data, isLoading, refetch } = useProviderJournal(ownerId);
 
   const [query, setQuery] = useState('');
   const [selectedKey, setSelectedKey] = useState<string>();
@@ -208,7 +208,7 @@ export const JournalPage = (): ReactElement => {
         <CircularProgress />
       </Box>
     );
-  } else if (isError || !data || !refs) {
+  } else if (!data || !refs) {
     content = (
       <Typography color="error" sx={{ p: 2 }}>
         {ownerId ? 'Could not load the journal' : 'No providers or clinicians found'}

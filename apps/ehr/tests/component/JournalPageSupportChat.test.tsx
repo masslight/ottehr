@@ -44,10 +44,11 @@ const journal = (item: JournalItem): GetProviderJournalResponse => ({
   ],
 });
 
-let data = journal(request({}));
+let data: GetProviderJournalResponse | undefined = journal(request({}));
+let isError = false;
 
 vi.mock('../../src/features/journal/hooks/useProviderJournal', () => ({
-  useProviderJournal: () => ({ data, isLoading: false, isError: false, refetch }),
+  useProviderJournal: () => ({ data, isLoading: false, isError, refetch }),
 }));
 vi.mock('../../src/features/journal/hooks/useJournalOwners', () => ({
   useJournalOwners: () => ({
@@ -103,5 +104,29 @@ describe('JournalPage Support Chat request', () => {
     );
     const link = screen.getByText('Prescription Refill for Ava Doe 11/06/2026').closest('a');
     expect(link?.getAttribute('target')).toBe('_blank');
+  });
+});
+
+describe('JournalPage load error', () => {
+  it('keeps a loaded journal on screen when a reload fails, and shows the error only with no data', () => {
+    data = journal(request({}));
+    isError = true;
+    const { unmount } = render(
+      <MemoryRouter>
+        <JournalPage />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Reply to patient message')).toBeTruthy();
+    expect(screen.queryByText('Could not load the journal')).toBeNull();
+    unmount();
+
+    data = undefined;
+    render(
+      <MemoryRouter>
+        <JournalPage />
+      </MemoryRouter>
+    );
+    expect(screen.getByText('Could not load the journal')).toBeTruthy();
+    isError = false;
   });
 });
