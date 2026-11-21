@@ -48,7 +48,8 @@ import {
   RADIOLOGY_TASK,
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
-import { getInPersonVisitStatus, getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
+import { getVisitStatusHistory } from 'utils/lib/utils/visitUtils';
+import { getTrackingBoardVisitStatus } from '../../../shared/queueingUtils';
 
 /** Visits older than this fall off the journal, except unfinished ones; owned tasks stay until done. */
 export const JOURNAL_WINDOW_DAYS = 90;
@@ -402,7 +403,8 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
     const appointment = appointmentId ? appointmentsById.get(appointmentId) : undefined;
     const patientId = getIdFromReference(encounter.subject?.reference, 'Patient');
     if (!appointment?.start || !patientId || rules.owns(encounter) !== practitionerId) return [];
-    const status = getInPersonVisitStatus(appointment, encounter);
+    // The tracking board's status: an on-demand virtual visit stays booked while the patient waits, shown as arrived.
+    const status = getTrackingBoardVisitStatus(appointment, encounter);
     return [{ appointment, encounter, patientId, journal: toJournalVisit(appointment, encounter, status) }];
   });
   const visitEncounterIds = new Set(visits.map((visit) => visit.encounter.id!));

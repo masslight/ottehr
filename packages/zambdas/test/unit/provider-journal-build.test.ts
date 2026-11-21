@@ -1067,6 +1067,19 @@ describe('buildJournal: OTR-3941 review answers', () => {
     expect(journal.comingUp[0].visit?.isTelemed).toBe(true);
   });
 
+  it('reads an on-demand virtual visit still booked while the patient waits as the tracking board does (arrived)', () => {
+    const journal = buildJournal(
+      withVisits([{ ...TODAY_TELEMED, appointmentStatus: 'booked', encounterStatus: 'planned' }], {
+        patients: [patient('pat-maria', 'Maria', 'Lopez')],
+      })
+    );
+    expect(journal.comingUp).toHaveLength(1);
+    expect(journal.comingUp[0].visit?.status).toBe('arrived');
+    expect(journal.comingUp[0].lookahead).toBeUndefined();
+    // "Waiting …" counts from the booking, the moment the patient joined the waiting room.
+    expect(journal.comingUp[0].waitingSince).toBe(TODAY_TELEMED.start);
+  });
+
   it('leaves an in-person visit that has only arrived off a provider’s Coming Up', () => {
     const journal = buildJournal(
       withVisits([{ ...TODAY_TELEMED, telemed: false }], { patients: [patient('pat-maria', 'Maria', 'Lopez')] })
