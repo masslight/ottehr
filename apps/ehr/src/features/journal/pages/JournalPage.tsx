@@ -195,7 +195,7 @@ export const JournalPage = (): ReactElement => {
 
   const { phonesByLocationName } = useSupportPhonesMap();
   const chatVisit = chatRef && getChartVisit(chatRef);
-  // The paperwork and AI interview links: today's visit, or the patient's upcoming booking, never a visit that's over.
+  // The paperwork link, AI interview link and booking time: today's visit, or the patient's upcoming booking, never a visit that's over.
   const linkVisit =
     chatRef?.section === 'cu' || chatRef?.section === 'td' || chatRef?.section === 'tdd'
       ? chatRow?.visit
@@ -502,7 +502,7 @@ export const JournalPage = (): ReactElement => {
                 patientFirstName: chatRow.patient.firstName,
                 patientLastName: chatRow.patient.lastName,
                 visitId: linkVisit?.appointmentId,
-                start: chatVisit?.start,
+                start: linkVisit?.start,
                 location: chatLocation,
                 // The visit's or to-do's own Location only, never the tracking board's last-selected one.
                 officePhone: chatLocation ? getOfficePhoneNumber(chatLocation) : PLACEHOLDER_PHONE_NUMBER,

@@ -103,7 +103,7 @@ export interface QuickTextsContext {
   supportPhone?: string;
   /** No visit to link to (a journal row with no visit): quick texts that need a visit aren't offered. */
   noVisit?: boolean;
-  /** No visit today or upcoming booking (a journal row whose visits are over): no paperwork or AI interview link. */
+  /** No visit today or upcoming booking (a journal row whose visits are over): no paperwork link, AI interview link or booking time. */
   noLinkVisit?: boolean;
   /** No Location (a journal row with no visit whose to-dos have none): no office phone or location values. */
   noLocation?: boolean;
@@ -178,8 +178,8 @@ const VISIT_ONLY_TOKEN_IDS: readonly (typeof QUICK_TEXT_TOKEN_IDS)[number][] = [
 export const offeredQuickTexts = <T extends QuickTextQuickPickData>(quickPicks: T[], ctx: QuickTextsContext): T[] => {
   const missing = [
     ...(ctx.noVisit ? VISIT_ONLY_TOKEN_IDS : []),
-    ...(ctx.noLinkVisit ? ['paperwork-url', 'ai-interview-url'] : []),
-    ...(ctx.noLocation ? ['office-phone', 'location-name', 'location-review-link'] : []),
+    ...(ctx.noLinkVisit ? VISIT_ONLY_TOKEN_IDS : []),
+    ...(ctx.noLocation ? ['office-phone', 'location-name', 'location-review-link', 'support-phone'] : []),
   ];
   return quickPicks.filter(
     (quickPick) => !missing.some((id) => `${quickPick.english} ${quickPick.spanish ?? ''}`.includes(`{{${id}}}`))

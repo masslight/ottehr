@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DateTime } from 'luxon';
 import { ReactNode } from 'react';
@@ -163,7 +163,8 @@ describe('JournalPage chat quick texts', () => {
     expect(vars['location-name']).toBe('New York');
     expect(vars['location-review-link']).toBe('https://review.example/ny');
     expect(vars['support-phone']).toBe('(800) 555-0199');
-    expect(vars['booking-time']).toMatch(/^\d{1,2}:\d{2} [AP]M$/);
+    // The visit is over: no booking time.
+    expect(vars['booking-time']).toBe('');
   });
 
   it('fills a row with no visit from its newest to-do’s Location and offers no visit-link quick texts', async () => {
@@ -251,11 +252,53 @@ describe('JournalPage chat quick texts', () => {
       expect(vars['paperwork-url']).toBe('https://portal.example/visit/appt-booked');
       expect(vars['ai-interview-url']).toBe('https://portal.example/visit/appt-booked/ai-interview-start');
       expect(vars['location-name']).toBe('New York');
-      expect(vars['booking-time']).toBe(DateTime.fromISO(visit.start).toFormat('h:mm a'));
+      expect(vars['booking-time']).toBe(DateTime.fromISO(booking.start).toFormat('h:mm a'));
       expect(offeredQuickTexts(QUICK_TEXTS, chatProps.at(-1).quickTextsContext)).toEqual(QUICK_TEXTS);
       expect(screen.getByRole('link', { name: 'Progress Note' }).getAttribute('href')).toContain('/in-person/appt-1/');
     } finally {
       Object.assign(row, saved);
+    }
+  });
+
+  it('fills a practice-made booking-time quick text from the upcoming booking, and doesn’t offer it with no booking', async () => {
+    const SEE_YOU = { name: 'See you', english: 'See you at {{booking-time}}.' } as QuickTextQuickPickData;
+    const booking: JournalVisit = {
+      ...visit,
+      appointmentId: 'appt-booked',
+      encounterId: 'enc-booked',
+      start: DateTime.now().plus({ days: 7 }).set({ hour: 9, minute: 30 }).toISO()!,
+      status: 'pending',
+      hasProgressNote: false,
+    };
+    const row = journal.recent[0];
+    const saved = row.visits;
+    row.visits = [booking, visit];
+    try {
+      const vars = await openChat('Reply to Ava');
+      expect(offeredQuickTexts([SEE_YOU], chatProps.at(-1).quickTextsContext)).toEqual([SEE_YOU]);
+      expect(resolveQuickText(SEE_YOU, vars).english).toBe(
+        `See you at ${DateTime.fromISO(booking.start).toFormat('h:mm a')}.`
+      );
+    } finally {
+      row.visits = saved;
+    }
+    cleanup();
+    await openChat('Reply to Ava');
+    expect(offeredQuickTexts([SEE_YOU], chatProps.at(-1).quickTextsContext)).toEqual([]);
+  });
+
+  it('doesn’t offer a support-phone quick text on a Not tied row with no Location', async () => {
+    const CALL_SUPPORT = { name: 'Call support', english: 'Call {{support-phone}}.' } as QuickTextQuickPickData;
+    const row = journal.notTied[0];
+    const saved = row.location;
+    row.location = undefined;
+    try {
+      const vars = await openChat('Reply to Jay');
+      // Unfilled, the placeholder itself would go to the patient.
+      expect(resolveQuickText(CALL_SUPPORT, vars).english).toBe('Call {{support-phone}}.');
+      expect(offeredQuickTexts([CALL_SUPPORT], chatProps.at(-1).quickTextsContext)).toEqual([]);
+    } finally {
+      row.location = saved;
     }
   });
 });
