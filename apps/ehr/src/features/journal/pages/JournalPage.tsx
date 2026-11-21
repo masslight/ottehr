@@ -190,7 +190,7 @@ export const JournalPage = (): ReactElement => {
       if (!row.patient) return;
       setNoteTarget({ mode: 'addendum', patient: row.patient, visit });
     },
-    // A covering provider takes the visit over, as the tracking board's Pr: picker does; the status stays as it is.
+    // A covering provider takes the visit over, as "Assign Current Chart to Me" does in the command palette.
     onMakeMeProvider:
       !isMe && myPractitionerId && oystehrZambda && iAmProvider
         ? async (visit) => {
@@ -200,12 +200,13 @@ export const JournalPage = (): ReactElement => {
                 practitionerId: myPractitionerId,
                 userRole: PRACTITIONER_CODINGS.Attender,
               });
+              enqueueSnackbar('You are now the provider for this chart.', { variant: 'success' });
               window.open(reviewAndSignUrl(visit), '_blank');
               setSelectedKey(undefined);
               await refetch();
             } catch (error) {
               console.error(error);
-              enqueueSnackbar('An error occurred while updating the assignment. Please try again.', {
+              enqueueSnackbar('An error occurred trying to assign you to this chart. Please try again.', {
                 variant: 'error',
               });
             }

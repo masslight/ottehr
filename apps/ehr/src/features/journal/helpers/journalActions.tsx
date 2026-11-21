@@ -10,7 +10,6 @@ import VideocamIcon from '@mui/icons-material/Videocam';
 import { ReactNode } from 'react';
 import { getChiefComplaintUrl } from 'src/features/visits/in-person/routing/helpers';
 import { sidebarMenuIcons } from 'src/features/visits/shared/components/sidebarMenuIcons';
-import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
 import {
   followUpUrl,
@@ -88,7 +87,6 @@ export const SIDE_BUTTON_ORDER: JournalActionKey[] = [
 ];
 
 /** A covering provider can't take over a signed, cancelled or no-show visit. */
-const SIGNED_OR_CLOSED: VisitStatusLabel[] = ['completed', 'awaiting supervisor approval', 'cancelled', 'no show'];
 
 export const RX_DISABLED_REASON = 'Available once the new eRx is released';
 export const NO_PROGRESS_NOTE_REASON = 'No Progress Note yet';
@@ -121,7 +119,7 @@ export const buildJournalActions = (
         icon: <DescriptionIcon />,
         href: reviewAndSignUrl(chartVisit),
         menu:
-          kind === 'provider' && handlers.onMakeMeProvider && !SIGNED_OR_CLOSED.includes(chartVisit.status)
+          kind === 'provider' && handlers.onMakeMeProvider
             ? [{ label: 'Make me provider and open note', onClick: () => handlers.onMakeMeProvider?.(chartVisit) }]
             : undefined,
       },

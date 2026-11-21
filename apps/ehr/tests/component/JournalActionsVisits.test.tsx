@@ -41,7 +41,8 @@ describe('Make me provider and open note', () => {
   };
 
   it("offers it on a colleague's open visit and passes the visit, without changing what the button opens", () => {
-    for (const status of ['ready for provider', 'provider', 'discharged'] as const) {
+    // In every status, signed ones included, as "Assign Current Chart to Me" in the command palette.
+    for (const status of ['ready for provider', 'provider', 'discharged', 'completed', 'cancelled'] as const) {
       const action = progress(status);
       expect(action.href).toBe('/in-person/appt-v/review-and-sign');
       expect(action.menu?.map((m) => m.label)).toEqual(['Make me provider and open note']);
@@ -50,10 +51,7 @@ describe('Make me provider and open note', () => {
     expect(withTakeOver.onMakeMeProvider).toHaveBeenCalledWith(expect.objectContaining({ encounterId: 'enc-v' }));
   });
 
-  it('does not offer it on a signed or closed visit, on a clinician journal, or without the handler', () => {
-    for (const status of ['completed', 'awaiting supervisor approval', 'cancelled', 'no show'] as const) {
-      expect(progress(status).menu).toBeUndefined();
-    }
+  it('does not offer it on a clinician journal or without the handler', () => {
     expect(progress('provider', 'clinician').menu).toBeUndefined();
     const v = visit('v');
     expect(byKey(actions('td', { patient, visit: v, visits: [v], items: [] }), 'progress')?.menu).toBeUndefined();
