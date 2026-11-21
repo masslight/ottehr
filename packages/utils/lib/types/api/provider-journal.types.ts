@@ -51,7 +51,7 @@ export interface JournalItem {
   /** Task id, or `note:<encounterId>` for an unsigned note. */
   id: string;
   kind: JournalItemKind;
-  /** The action, e.g. "Review & sign", "Review CBC", "Reply to text", or the task title. */
+  /** The action, e.g. "Review & Sign", "Review CBC", "Reply to text", or the task title. */
   label: string;
   when: JournalItemWhen;
   /** ISO time the age counts from. */

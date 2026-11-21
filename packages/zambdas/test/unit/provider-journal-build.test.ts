@@ -285,7 +285,7 @@ describe('buildJournal: Today, Recent, Past and unsigned notes', () => {
     attender: { id: ME, start, end: '2026-11-07T17:00:00.000Z' },
   });
 
-  it('puts a discharged visit under Today with a "Review & sign" item and a seen patient with nothing to do under +N more', () => {
+  it('puts a discharged visit under Today with a "Review & Sign" item and a seen patient with nothing to do under +N more', () => {
     const journal = buildJournal(
       withVisits(
         [
@@ -322,7 +322,7 @@ describe('buildJournal: Today, Recent, Past and unsigned notes', () => {
       expect.objectContaining({
         id: 'note:enc-discharged',
         kind: 'unsigned-note',
-        label: 'Review & sign',
+        label: 'Review & Sign',
         when: 'discharged',
         since: '2026-11-07T18:52:00.000Z',
         appointmentId: 'appt-discharged',

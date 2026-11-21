@@ -405,7 +405,7 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
         bucketFor(visit.patientId)?.items.push({
           id: `note:${visit.encounter.id}`,
           kind: 'unsigned-note',
-          label: 'Review & sign',
+          label: 'Review & Sign',
           ...(visit.journal.status === 'discharged'
             ? { when: 'discharged' as const, since: attender?.period?.end ?? visit.journal.start }
             : { when: rules.seen.includes(visit.journal.status) ? 'seen' : 'visit', since: visit.journal.start }),
