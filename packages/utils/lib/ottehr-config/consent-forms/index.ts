@@ -11,9 +11,9 @@ const CONSENT_FORMS_DATA: ConsentFormsConfig = {
   forms: [
     {
       id: 'hipaa-acknowledgement',
-      formTitle: 'HIPAA Acknowledgement',
+      formTitle: 'HIPAA, Privacy Practices, and Authorizations',
       resourceTitle: 'HIPAA forms',
-      assetPath: './assets/HIPAA.Acknowledgement-S.pdf',
+      assetPath: './assets/HIPAA_Privacy_Authorizations.pdf',
       publicUrl: '/hipaa_notice_template.pdf',
       type: {
         coding: [
@@ -32,9 +32,9 @@ const CONSENT_FORMS_DATA: ConsentFormsConfig = {
       formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
       resourceTitle: 'Consent forms',
       assetPath: {
-        default: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf',
+        default: './assets/ConsentToTreat_GuaranteePaymentCardOnFile.pdf',
         byState: {
-          IL: './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf',
+          IL: './assets/ConsentToTreat_GuaranteePaymentCardOnFile_Illinois.pdf',
         },
       },
       publicUrl: '/consent_to_treat_template.pdf',
