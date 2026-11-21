@@ -511,6 +511,14 @@ export const JournalPage = (): ReactElement => {
               noVisit: !chatVisit,
               noLinkVisit: !linkVisit,
               noLocation: !chatVisit && !chatLocation,
+              linkVisitLocation:
+                linkVisit?.location && linkVisit.location.id !== chatLocation?.id
+                  ? visitQuickTextsContext({
+                      location: linkVisit.location,
+                      officePhone: getOfficePhoneNumber(linkVisit.location),
+                      phonesByLocationName,
+                    })
+                  : undefined,
             }}
           />
         )}

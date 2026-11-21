@@ -7,7 +7,12 @@ import { LOCATION_REVIEW_LINK_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { GetProviderJournalResponse, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
 import { QuickTextQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildQuickTextVariables, offeredQuickTexts, resolveQuickText } from '../../src/features/chat/chat.queries';
+import {
+  buildQuickTextVariables,
+  offeredQuickTexts,
+  resolveOfferedQuickTexts,
+  resolveQuickText,
+} from '../../src/features/chat/chat.queries';
 import { JournalPage } from '../../src/features/journal/pages/JournalPage';
 
 const ME = '11111111-1111-4111-8111-111111111111';
@@ -285,6 +290,42 @@ describe('JournalPage chat quick texts', () => {
     cleanup();
     await openChat('Reply to Ava');
     expect(offeredQuickTexts([SEE_YOU], chatProps.at(-1).quickTextsContext)).toEqual([]);
+  });
+
+  it('fills a booking-time quick text’s location from the booking, and “Trying to reach you” from Progress Note’s visit', async () => {
+    const SEE_YOU = {
+      name: 'See you',
+      english: 'See you at {{location-name}} at {{booking-time}}.',
+    } as QuickTextQuickPickData;
+    const booking: JournalVisit = {
+      ...visit,
+      appointmentId: 'appt-booked',
+      encounterId: 'enc-booked',
+      start: DateTime.now().plus({ days: 4 }).set({ hour: 15, minute: 30 }).toISO()!,
+      status: 'pending',
+      hasProgressNote: false,
+      location: {
+        resourceType: 'Location',
+        id: 'loc-main',
+        name: 'Main St',
+        telecom: [{ system: 'phone', value: '+19195550177' }],
+      },
+    };
+    const row = journal.recent[0];
+    const saved = { visits: row.visits, items: row.items };
+    row.visits = [booking, visit];
+    row.items = [{ ...row.items[0], appointmentId: 'appt-booked', encounterId: 'enc-booked' }];
+    try {
+      await openChat('Reply to Ava');
+      const texts = resolveOfferedQuickTexts([SEE_YOU, TRYING_TO_REACH_YOU], chatProps.at(-1).quickTextsContext);
+      expect(texts.map((t) => t.english)).toEqual([
+        'See you at Main St at 3:30 PM.',
+        expect.stringMatching(/Please call us at \(919\) 555-0100 or respond/),
+      ]);
+      expect(screen.getByRole('link', { name: 'Progress Note' }).getAttribute('href')).toContain('/in-person/appt-1/');
+    } finally {
+      Object.assign(row, saved);
+    }
   });
 
   it('doesn’t offer a support-phone quick text on a Not tied row with no Location', async () => {

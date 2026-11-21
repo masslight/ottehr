@@ -107,6 +107,8 @@ export interface QuickTextsContext {
   noLinkVisit?: boolean;
   /** No Location (a journal row with no visit whose to-dos have none): no office phone or location values. */
   noLocation?: boolean;
+  /** The journal chat's visit-link visit, when at another Location: quick texts with a visit value take its location values. */
+  linkVisitLocation?: Pick<QuickTextsContext, 'locationName' | 'locationReviewLink' | 'officePhone' | 'supportPhone'>;
 }
 
 /** A visit's quick-text values (the tracking board row's and the journal chat's). */
@@ -181,8 +183,30 @@ export const offeredQuickTexts = <T extends QuickTextQuickPickData>(quickPicks: 
     ...(ctx.noLinkVisit ? VISIT_ONLY_TOKEN_IDS : []),
     ...(ctx.noLocation ? ['office-phone', 'location-name', 'location-review-link', 'support-phone'] : []),
   ];
-  return quickPicks.filter(
-    (quickPick) => !missing.some((id) => `${quickPick.english} ${quickPick.spanish ?? ''}`.includes(`{{${id}}}`))
+  return quickPicks.filter((quickPick) => !usesToken(quickPick, missing));
+};
+
+const usesToken = (quickPick: QuickTextQuickPickData, ids: readonly string[]): boolean =>
+  ids.some((id) => `${quickPick.english} ${quickPick.spanish ?? ''}`.includes(`{{${id}}}`));
+
+/** The chat's quick texts, offered and filled in. */
+export const resolveOfferedQuickTexts = (
+  quickPicks: QuickTextQuickPickData[],
+  ctx: QuickTextsContext
+): ResolvedQuickText[] => {
+  const vars = buildQuickTextVariables(ctx);
+  const link = ctx.linkVisitLocation;
+  const linkVars =
+    link &&
+    buildQuickTextVariables({
+      ...ctx,
+      locationName: link.locationName,
+      locationReviewLink: link.locationReviewLink,
+      officePhone: link.officePhone,
+      supportPhone: link.supportPhone,
+    });
+  return offeredQuickTexts(quickPicks, ctx).map((quickPick) =>
+    resolveQuickText(quickPick, linkVars && usesToken(quickPick, VISIT_ONLY_TOKEN_IDS) ? linkVars : vars)
   );
 };
 

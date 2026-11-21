@@ -33,10 +33,8 @@ import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../hooks/useEvolveUser';
 import {
-  buildQuickTextVariables,
-  offeredQuickTexts,
   QuickTextsContext,
-  resolveQuickText,
+  resolveOfferedQuickTexts,
   useFetchChatMessagesQuery,
   useGetMessagingConfigQuery,
   useQuickTextsQuery,
@@ -221,10 +219,10 @@ const ChatModal = memo(
     };
 
     const { data: rawQuickTexts = [] } = useQuickTextsQuery();
-    const quickTexts = useMemo(() => {
-      const vars = buildQuickTextVariables(quickTextsContext);
-      return offeredQuickTexts(rawQuickTexts, quickTextsContext).map((quickPick) => resolveQuickText(quickPick, vars));
-    }, [rawQuickTexts, quickTextsContext]);
+    const quickTexts = useMemo(
+      () => resolveOfferedQuickTexts(rawQuickTexts, quickTextsContext),
+      [rawQuickTexts, quickTextsContext]
+    );
     const visibleQuickTexts = useMemo(
       () => quickTexts.filter((text) => (text[language] ?? '').trim().length > 0),
       [quickTexts, language]
