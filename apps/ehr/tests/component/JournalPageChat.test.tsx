@@ -7,7 +7,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { JournalPage } from '../../src/features/journal/pages/JournalPage';
 
 const ME = '11111111-1111-4111-8111-111111111111';
-const { chatProps, refetch } = vi.hoisted(() => ({ chatProps: [] as any[], refetch: vi.fn() }));
+const { chatProps, refetch, served } = vi.hoisted(() => ({
+  chatProps: [] as any[],
+  refetch: vi.fn(),
+  served: { journal: undefined as GetProviderJournalResponse | undefined },
+}));
 
 const journal: GetProviderJournalResponse = {
   kind: 'provider',
@@ -44,7 +48,7 @@ const journal: GetProviderJournalResponse = {
 };
 
 vi.mock('../../src/features/journal/hooks/useProviderJournal', () => ({
-  useProviderJournal: () => ({ data: journal, isLoading: false, isError: false, refetch }),
+  useProviderJournal: () => ({ data: served.journal ?? journal, isLoading: false, isError: false, refetch }),
 }));
 vi.mock('../../src/features/journal/hooks/useJournalOwners', () => ({
   useJournalOwners: () => ({
@@ -90,6 +94,27 @@ describe('JournalPage text chat', () => {
 
     await userEvent.click(screen.getByText('mark read'));
     expect(chatProps.at(-1).appointment.smsModel.hasUnreadMessages).toBe(false);
+  });
+
+  it('trusts the server again once new journal data arrives (a later text from the same patient)', async () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <JournalPage />
+      </MemoryRouter>
+    );
+    await userEvent.click(screen.getByText('Reply to text'));
+    await userEvent.click(screen.getByText('mark read'));
+    await userEvent.click(screen.getByText('close chat'));
+    // A reload after the patient texts again: the server says unread.
+    served.journal = { ...journal };
+    rerender(
+      <MemoryRouter>
+        <JournalPage />
+      </MemoryRouter>
+    );
+    await userEvent.click(screen.getByText('Reply to text'));
+    expect(chatProps.at(-1).appointment.smsModel.hasUnreadMessages).toBe(true);
+    served.journal = undefined;
   });
 
   it('refetches the journal once the texts are marked read, including read-and-close', async () => {

@@ -1,7 +1,7 @@
 import { Box, CircularProgress, Link, MenuItem, Paper, Select, TextField, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, ReactNode, useMemo, useState } from 'react';
+import { ReactElement, ReactNode, useEffect, useMemo, useState } from 'react';
 import ChatModal from 'src/features/chat/ChatModal';
 import { getChiefComplaintUrl } from 'src/features/visits/in-person/routing/helpers';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
@@ -104,8 +104,9 @@ export const JournalPage = (): ReactElement => {
   const [showPast, setShowPast] = useState(false);
   const [noteTarget, setNoteTarget] = useState<JournalNoteTarget>();
   const [chatRow, setChatRow] = useState<JournalRowData>();
-  /** Chats marked read since the journal loaded, like the tracking board row's local unread state. */
+  /** Chats marked read since the last load, like the tracking board row's local unread state (reset on new data). */
   const [readChatPatientIds, setReadChatPatientIds] = useState<string[]>([]);
+  useEffect(() => setReadChatPatientIds([]), [data]);
   /** An unread Support Chat request: opens the Tasks page's Support Chat dialog. */
   const [supportChatItem, setSupportChatItem] = useState<JournalItem>();
   const openChat = (row: JournalRowData, item: JournalItem): void =>
