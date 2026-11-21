@@ -56,6 +56,7 @@ const composeDischargeSummaryData: DataComposer<DischargeSummaryInput, Discharge
     visit,
     vitals: composeVitalsForDischargeSummary({
       allChartData,
+      timezone,
       birthDate: appointmentPackage.patient?.birthDate,
       visitStart: appointment?.start,
     }),

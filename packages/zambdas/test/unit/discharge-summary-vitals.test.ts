@@ -19,6 +19,7 @@ const chartWith = (vitalsObservations: VitalsObservationDTO[]): AllChartData => 
 });
 
 const at = (time: string): string => `2026-10-30T${time}:00.000Z`;
+const timezone = 'America/New_York';
 
 const readingsNewestFirst = [
   { field: VitalFieldNames.VitalOxygenSaturation, value: 91, lastUpdated: at('12:56') },
@@ -35,7 +36,7 @@ describe('discharge summary vitals', () => {
     ['newest first, as the visit note returns them', readingsNewestFirst],
     ['oldest first', [...readingsNewestFirst].reverse()],
   ])('shows the most recent reading of each vital when readings come %s', (_order, readings) => {
-    const { vitals } = composeVitalsForDischargeSummary({ allChartData: chartWith(readings) });
+    const { vitals } = composeVitalsForDischargeSummary({ allChartData: chartWith(readings), timezone });
 
     expect(vitals.oxygenSat).toBe('91%');
     expect(vitals.hr).toBe('88/min');
@@ -44,6 +45,7 @@ describe('discharge summary vitals', () => {
 
   it('shows the most recent DOT vision screening', () => {
     const { vitals } = composeVitalsForDischargeSummary({
+      timezone,
       allChartData: chartWith([
         {
           field: VitalFieldNames.VitalVision,
@@ -63,6 +65,7 @@ describe('discharge summary vitals', () => {
 
   it('shows the most recent head circumference in cm and inches', () => {
     const { vitals } = composeVitalsForDischargeSummary({
+      timezone,
       allChartData: chartWith([
         { field: VitalFieldNames.VitalHeadCircumference, value: 43.8, lastUpdated: at('12:20') },
         { field: VitalFieldNames.VitalHeadCircumference, value: 41.6, lastUpdated: at('11:20') },
@@ -81,6 +84,7 @@ describe('discharge summary vitals', () => {
     it('leaves out a BMI saved for a visit when the patient was under 24 months', () => {
       const { vitals } = composeVitalsForDischargeSummary({
         allChartData: chartWith(readings),
+        timezone,
         birthDate: '2025-01-01',
         visitStart: at('12:00'),
       });
@@ -92,6 +96,7 @@ describe('discharge summary vitals', () => {
     it('keeps it from 24 months at the visit', () => {
       const { vitals } = composeVitalsForDischargeSummary({
         allChartData: chartWith(readings),
+        timezone,
         birthDate: '2024-10-30',
         visitStart: at('12:00'),
       });
@@ -139,6 +144,7 @@ describe('discharge summary vitals layout', () => {
     const data: PdfData & { vitals: VitalsDataInDischargeSummary } = {
       vitals: composeVitalsForDischargeSummary({
         allChartData: chartWith(observations),
+        timezone,
         ...visit,
       }),
     };

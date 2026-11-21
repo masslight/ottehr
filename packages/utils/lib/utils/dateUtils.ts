@@ -310,10 +310,14 @@ export const isPediatricOnDate = (birthDate: string | undefined, onDate?: string
   return dob.isValid && at.isValid && at.diff(dob, 'years').years < PEDIATRIC_AGE_LIMIT_YEARS;
 };
 
-export const ageInMonthsOnDate = (birthDate: string | undefined, onDate?: string): number | undefined => {
+export const ageInMonthsOnDate = (
+  birthDate: string | undefined,
+  onDate?: string,
+  timezone?: string
+): number | undefined => {
   if (!birthDate) return undefined;
-  const dob = DateTime.fromISO(birthDate);
-  const at = onDate ? DateTime.fromISO(onDate) : DateTime.now();
+  const dob = DateTime.fromISO(birthDate, { zone: timezone });
+  const at = onDate ? DateTime.fromISO(onDate, { zone: timezone }) : DateTime.now().setZone(timezone);
   return dob.isValid && at.isValid ? at.diff(dob, 'months').months : undefined;
 };
 

@@ -36,7 +36,12 @@ export const composeVitals: DataComposer<ProgressNoteVisitDataInput, Vitals> = (
 
   const vitalsData = additionalChartData?.vitalsObservations
     ? mapVitalsToDisplay(
-        withoutBMIUnder24Months(additionalChartData.vitalsObservations, patient?.birthDate, appointment?.start),
+        withoutBMIUnder24Months(
+          additionalChartData.vitalsObservations,
+          patient?.birthDate,
+          timezone,
+          appointment?.start
+        ),
         true,
         timezone
       )

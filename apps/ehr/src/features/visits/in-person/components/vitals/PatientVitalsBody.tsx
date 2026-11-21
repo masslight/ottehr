@@ -17,6 +17,7 @@ import VitalsRespirationRateCard from 'src/features/visits/shared/components/vit
 import VitalsTemperaturesCard from 'src/features/visits/shared/components/vitals/temperature/VitalsTemperaturesCard';
 import VitalsVisionCard from 'src/features/visits/shared/components/vitals/vision/VitalsVisionCard';
 import VitalsWeightsCard from 'src/features/visits/shared/components/vitals/weights/VitalsWeightsCard';
+import { getTimezone } from 'src/helpers/formatDateTime';
 import { useMarkDraftNavigatedAway, useVitalsDraftStore } from 'src/state/draft-data.store';
 import { bmiAppliesOnDate } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { Loader } from '../../../shared/components/Loader';
@@ -26,11 +27,12 @@ import { useAppointmentData } from '../../../shared/stores/appointment/appointme
 
 export const PatientVitalsBody: FC = () => {
   const {
+    location,
     resources: { encounter, patient, appointment },
   } = useAppointmentData();
 
   const encounterId = encounter?.id ?? '';
-  const bmiApplies = bmiAppliesOnDate(patient?.birthDate, appointment?.start);
+  const bmiApplies = bmiAppliesOnDate(patient?.birthDate, appointment?.start, getTimezone(location));
   const vitals = useVitalsManagement({ encounterId, bmiApplies });
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();

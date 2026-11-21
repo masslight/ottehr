@@ -9,14 +9,15 @@ import { PdfSection, VitalsDataInDischargeSummary } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
 
 export const composeVitalsForDischargeSummary: DataComposer<
-  { allChartData: AllChartData; birthDate?: string; visitStart?: string },
+  { allChartData: AllChartData; timezone: string; birthDate?: string; visitStart?: string },
   VitalsDataInDischargeSummary
-> = ({ allChartData, birthDate, visitStart }) => {
+> = ({ allChartData, timezone, birthDate, visitStart }) => {
   const { additionalChartData } = allChartData;
 
   const newestFirst = withoutBMIUnder24Months(
     additionalChartData?.vitalsObservations ?? [],
     birthDate,
+    timezone,
     visitStart
   ).sort((a, b) => compareDates(a.lastUpdated, b.lastUpdated));
   const vitals = mapVitalsToDisplay(newestFirst, false);
@@ -51,7 +52,7 @@ export const composeVitalsForDischargeSummary: DataComposer<
       weight: vitals?.['vital-weight']?.[0] ?? '',
       height: vitals?.['vital-height']?.[0] ?? '',
       headCircumference: vitals?.['vital-head-circumference']?.[0] ?? '',
-      bmi: bmiAppliesOnDate(birthDate, visitStart) ? vitals?.['vital-bmi']?.[0] ?? '' : undefined,
+      bmi: bmiAppliesOnDate(birthDate, visitStart, timezone) ? vitals?.['vital-bmi']?.[0] ?? '' : undefined,
       vision: acuityDisplayLines[0] ?? '',
       dotVisionScreening: getDotVisionScreeningLines(latestDotEntry?.dotVisionScreening, { includeDocument: true }),
       lastMenstrualPeriod: vitals?.['vital-last-menstrual-period']?.[0] ?? '',

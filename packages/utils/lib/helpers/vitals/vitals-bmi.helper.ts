@@ -31,15 +31,21 @@ export const BMI_FROM_MONTHS = 24;
 export const bmiAppliesAt = (ageMonths: number | undefined): boolean =>
   ageMonths === undefined || ageMonths >= BMI_FROM_MONTHS;
 
-export const bmiAppliesOnDate = (birthDate: string | undefined, onDate: string | undefined): boolean =>
-  bmiAppliesAt(ageInMonthsOnDate(birthDate, onDate));
+// The age is counted on the clinic's calendar, so the browser and the server agree on the day of the second birthday.
+export const bmiAppliesOnDate = (
+  birthDate: string | undefined,
+  onDate: string | undefined,
+  timezone: string
+): boolean => bmiAppliesAt(ageInMonthsOnDate(birthDate, onDate, timezone));
 
 // Without a visit date, each BMI is judged by the age at the reading's own date.
 export const withoutBMIUnder24Months = <T extends VitalsObservationDTO>(
   vitals: T[],
   birthDate: string | undefined,
+  timezone: string,
   visitStart?: string
 ): T[] =>
   vitals.filter(
-    (vital) => vital.field !== VitalFieldNames.VitalBMI || bmiAppliesOnDate(birthDate, visitStart ?? vital.lastUpdated)
+    (vital) =>
+      vital.field !== VitalFieldNames.VitalBMI || bmiAppliesOnDate(birthDate, visitStart ?? vital.lastUpdated, timezone)
   );
