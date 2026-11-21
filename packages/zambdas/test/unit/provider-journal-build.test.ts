@@ -14,6 +14,7 @@ import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { ERX_TASK, FAX_TASK, MANUAL_TASK, PATIENT_REQUEST_TASK, TaskAlertCode } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it } from 'vitest';
+import { makeDmeDispenseTask } from '../../src/ehr/dme/shared/order-helpers';
 import {
   buildJournal,
   consentSignerLabel,
@@ -940,6 +941,22 @@ describe('taskToJournalItem wording', () => {
     });
     expect(taskToJournalItem(fax, {})).toEqual(
       expect.objectContaining({ kind: 'fax', code: FAX_TASK.code.matchInboundFax, communicationId: 'comm-1' })
+    );
+  });
+
+  it("keeps a DME dispense task's DeviceRequest id (for the Tasks page's Go to Order link)", () => {
+    const encounter = { resourceType: 'Encounter', id: 'enc-1', status: 'in-progress' } as Encounter;
+    const dispense = makeDmeDispenseTask({
+      deviceRequestReference: 'DeviceRequest/dr-1',
+      itemName: 'Crutches',
+      orderDate: '2026-11-07',
+      providerName: 'Ana Rivera',
+      context: { encounter, patient: patient('pat-mia', 'Mia', 'Lin'), appointmentId: 'appt-1' } as Parameters<
+        typeof makeDmeDispenseTask
+      >[0]['context'],
+    });
+    expect(taskToJournalItem(dispense, {})).toEqual(
+      expect.objectContaining({ kind: 'task', category: 'dme', orderId: 'dr-1' })
     );
   });
 

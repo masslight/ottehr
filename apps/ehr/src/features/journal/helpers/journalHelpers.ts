@@ -3,6 +3,7 @@ import { FLAGGED_REASONS_FOR_VISIT } from 'src/constants';
 import { inboundFaxMatchPath } from 'src/features/inbound-fax/routes';
 import { getManualTaskLink } from 'src/features/visits/in-person/hooks/useTasks';
 import {
+  getDmeOrderDetailsUrl,
   getDrExternalLabEditUrl,
   getExternalLabOrderEditUrl,
   getInPersonVisitDetailsUrl,
@@ -11,6 +12,7 @@ import {
   withEncounterIdParam,
 } from 'src/features/visits/in-person/routing/helpers';
 import { VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
+import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { JournalItem, JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { FAX_TASK } from 'utils/lib/types/data/tasks/types';
@@ -187,6 +189,10 @@ export const journalItemLink = (item: JournalItem): string => {
       }
       return TASKS_URL;
     case 'task': {
+      // The Tasks page's Go to Order for a DME "Dispense" task (useTasks fhirTaskToTask).
+      if (item.category === DME_TASK.category && item.orderId && appointmentId) {
+        return chart(getDmeOrderDetailsUrl(appointmentId, item.orderId));
+      }
       const taskLink = getManualTaskLink({
         category: item.category ?? '',
         appointmentId,

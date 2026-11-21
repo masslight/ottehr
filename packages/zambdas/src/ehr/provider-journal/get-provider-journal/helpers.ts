@@ -20,6 +20,7 @@ import { getFirstName, getFullestAvailableName, getLastName, getSMSNumberForIndi
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
+import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import {
   GetProviderJournalResponse,
   JournalItem,
@@ -144,7 +145,10 @@ export const taskOwnerId = (task: Task): string | undefined =>
 const taskAssignedAt = (task: Task): string | undefined =>
   task.owner?.extension?.find((extension) => extension.url === TASK_ASSIGNED_DATE_TIME_EXTENSION_URL)?.valueDateTime;
 
-const basedOnId = (task: Task, resourceType: 'ServiceRequest' | 'DiagnosticReport'): string | undefined =>
+const basedOnId = (
+  task: Task,
+  resourceType: 'ServiceRequest' | 'DiagnosticReport' | 'DeviceRequest'
+): string | undefined =>
   task.basedOn?.map((reference) => getIdFromReference(reference.reference, resourceType)).find(Boolean);
 
 /** The Tasks page's alert (useTasks getAlertCode): the "alert" input, when it is a known code. */
@@ -322,7 +326,11 @@ export function taskToJournalItem(
     ...assignedOrCreated(),
     category,
     documentReferenceId,
-    orderId: getTaskInputValue(task, MANUAL_TASK.input.orderId),
+    // A DME "Dispense" task names its DeviceRequest in basedOn (makeDmeDispenseTask), as the Tasks page reads it.
+    orderId:
+      category === DME_TASK.category
+        ? basedOnId(task, 'DeviceRequest')
+        : getTaskInputValue(task, MANUAL_TASK.input.orderId),
     progressNoteSection: getTaskInputValue(task, MANUAL_TASK.input.progressNoteSection),
     isCallTask: isCallTask || undefined,
     assigneeId: isCallTask ? taskOwnerId(task) : undefined,

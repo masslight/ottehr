@@ -1,3 +1,4 @@
+import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { JournalItem } from 'utils/lib/types/api/provider-journal.types';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { FAX_TASK, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
@@ -48,6 +49,12 @@ describe('journalItemLink opens the same page as the Tasks page', () => {
       '/in-person/appt-1/vitals?encounterId=enc-1'
     );
     expect(journalItemLink(item({ category: MANUAL_TASK.category.other }))).toBe('/in-person/appt-1/review-and-sign');
+  });
+
+  it("opens a DME dispense task on its order, like the Tasks page's Go to Order", () => {
+    expect(journalItemLink(item({ category: DME_TASK.category, orderId: 'dr-1' }))).toBe(
+      '/in-person/appt-1/dme/dr-1/order-details'
+    );
   });
 
   it("opens a fax with no patient on Match Inbound Fax, like the Tasks page's Match button", () => {
