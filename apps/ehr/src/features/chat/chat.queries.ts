@@ -101,6 +101,8 @@ export interface QuickTextsContext {
   bookingTime?: string;
   officePhone?: string;
   supportPhone?: string;
+  /** No visit to link to (a journal row with no visit): quick texts that need a visit aren't offered. */
+  noVisit?: boolean;
 }
 
 /** A visit's quick-text values (the tracking board row's and the journal chat's). */
@@ -161,6 +163,21 @@ export const buildQuickTextVariables = (ctx: QuickTextsContext): Record<string, 
   'office-phone': ctx.officePhone ?? '',
   'support-phone': ctx.supportPhone ?? '',
 });
+
+const VISIT_ONLY_TOKEN_IDS: readonly (typeof QUICK_TEXT_TOKEN_IDS)[number][] = [
+  'paperwork-url',
+  'ai-interview-url',
+  'booking-time',
+];
+
+/** The quick texts the chat lists: with no visit, none that need a visit's link or booking time. */
+export const offeredQuickTexts = <T extends QuickTextQuickPickData>(quickPicks: T[], ctx: QuickTextsContext): T[] =>
+  ctx.noVisit
+    ? quickPicks.filter(
+        (quickPick) =>
+          !VISIT_ONLY_TOKEN_IDS.some((id) => `${quickPick.english} ${quickPick.spanish ?? ''}`.includes(`{{${id}}}`))
+      )
+    : quickPicks;
 
 export const resolveQuickText = (
   quickPick: QuickTextQuickPickData,

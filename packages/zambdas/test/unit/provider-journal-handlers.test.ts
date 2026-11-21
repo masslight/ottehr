@@ -289,6 +289,50 @@ describe('get-provider-journal access', () => {
     });
   });
 
+  it('gives a row with no visit its newest to-do’s own Location, in the one Location search', async () => {
+    mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
+    const followUp = (id: string, authoredOn: string, locationId: string): Task => ({
+      ...createTask({
+        category: MANUAL_TASK.category.patientFollowUp,
+        title: 'Call Helen',
+        location: { id: locationId, name: locationId },
+      }),
+      id,
+      authoredOn,
+      owner: { reference: `Practitioner/${PRACTITIONER_ID}` },
+      input: [
+        { type: { coding: [{ code: MANUAL_TASK.input.patient }] }, valueReference: { reference: 'Patient/pat-1' } },
+      ],
+    });
+    const location = (id: string, phone: string): object => ({
+      resourceType: 'Location',
+      id,
+      name: id,
+      address: { line: ['1 Main St'] },
+      telecom: [{ system: 'phone', value: phone }],
+    });
+    mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
+      const has = (name: string): boolean => params.some((p: { name: string }) => p.name === name);
+      if (resourceType === 'Task' && has('owner'))
+        return [
+          followUp('task-old', '2026-11-01T12:00:00Z', 'loc-old'),
+          followUp('task-new', '2026-11-19T12:00:00Z', 'loc-main'),
+        ];
+      if (resourceType === 'Patient') return [{ resourceType: 'Patient', id: 'pat-1', name: [{ given: ['Helen'] }] }];
+      if (resourceType === 'Location') return [location('loc-main', '+19195550100')];
+      return [];
+    });
+    const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
+    expect(journal.notTied[0].location).toEqual({
+      resourceType: 'Location',
+      id: 'loc-main',
+      name: 'loc-main',
+      telecom: [{ system: 'phone', value: '+19195550100' }],
+    });
+    const locationSearches = mockGetAllPages.mock.calls.filter(([search]) => search.resourceType === 'Location');
+    expect(locationSearches.map(([search]) => search.params)).toEqual([[{ name: '_id', value: 'loc-main' }]]);
+  });
+
   it('builds a clinician journal for a Clinician', async () => {
     mockPractitionerRoles.mockResolvedValue([RoleType.Clinician]);
     const result = await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'America/New_York' });

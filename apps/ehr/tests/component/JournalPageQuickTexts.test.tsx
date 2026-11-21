@@ -6,7 +6,7 @@ import { LOCATION_REVIEW_LINK_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { GetProviderJournalResponse, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
 import { QuickTextQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildQuickTextVariables, resolveQuickText } from '../../src/features/chat/chat.queries';
+import { buildQuickTextVariables, offeredQuickTexts, resolveQuickText } from '../../src/features/chat/chat.queries';
 import { JournalPage } from '../../src/features/journal/pages/JournalPage';
 
 const ME = '11111111-1111-4111-8111-111111111111';
@@ -23,6 +23,12 @@ const COMPLETE_PAPERWORK: QuickTextQuickPickData = {
   english:
     'Please complete the paperwork and sign consent forms to avoid a delay in check-in. For {{patient-first-name}}, click here: {{paperwork-url}}',
 } as QuickTextQuickPickData;
+const COMPLETE_AI_INTAKE: QuickTextQuickPickData = {
+  name: 'Complete AI HPI Intake',
+  english:
+    'Please complete a brief AI chat session for {{patient-first-name}} to help your provider prepare for your visit: {{ai-interview-url}}',
+} as QuickTextQuickPickData;
+const QUICK_TEXTS = [COMPLETE_AI_INTAKE, COMPLETE_PAPERWORK, TRYING_TO_REACH_YOU];
 
 const visit: JournalVisit = {
   appointmentId: 'appt-1',
@@ -73,6 +79,13 @@ const journal: GetProviderJournalResponse = {
     {
       patient: { patientId: 'pat-jay', name: 'Jay Text', firstName: 'Jay', lastName: 'Text', phones: [phone] },
       visits: [],
+      // The newest to-do's own Location, from the server.
+      location: {
+        resourceType: 'Location',
+        id: 'loc-main',
+        name: 'Main St',
+        telecom: [{ system: 'phone', value: '+19195550177' }],
+      },
       items: [
         {
           id: 't2',
@@ -155,12 +168,19 @@ describe('JournalPage chat quick texts', () => {
     expect(vars['booking-time']).toMatch(/^\d{1,2}:\d{2} [AP]M$/);
   });
 
-  it('passes no visit id or location for a row with no visit (no last-selected-location fallback)', async () => {
+  it('fills a row with no visit from its newest to-do’s Location and offers no visit-link quick texts', async () => {
     const vars = await openChat('Reply to Jay');
     const context = chatProps.at(-1).quickTextsContext;
     expect(context.visitId).toBeUndefined();
-    expect(vars['paperwork-url']).toBe('');
-    expect(vars['location-name']).toBe('');
-    expect(resolveQuickText(TRYING_TO_REACH_YOU, vars).english).not.toContain('212');
+    expect(vars['location-name']).toBe('Main St');
+    expect(resolveQuickText(TRYING_TO_REACH_YOU, vars).english).toBe(
+      `${vars['practice-name']} is trying to get a hold of you. Please call us at (919) 555-0177 or respond to this text message.`
+    );
+    expect(offeredQuickTexts(QUICK_TEXTS, context).map((q) => q.name)).toEqual(['Trying to reach you']);
+  });
+
+  it('offers every quick text on a row with a visit', async () => {
+    await openChat('Reply to Ava');
+    expect(offeredQuickTexts(QUICK_TEXTS, chatProps.at(-1).quickTextsContext)).toEqual(QUICK_TEXTS);
   });
 });

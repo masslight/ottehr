@@ -38,6 +38,7 @@ import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
 import { getThreadIdFromTask, isUnreadFor, searchUnread } from '../../../shared/support-chat/thread';
+import { getTaskLocation } from '../../../shared/tasks';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
 import {
@@ -190,7 +191,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     diagnosticReports,
     unreadMessageSentAt,
   });
-  await addVisitLocations(oystehr, journal, [...allEncounters, ...taskEncounters]);
+  await addVisitLocations(oystehr, journal, [...allEncounters, ...taskEncounters], tasks);
   await labelAccountPhones(oystehr, journal);
   await markUnreadTexts(
     oystehr,
@@ -222,11 +223,15 @@ async function getUnreadMessageSentAt(oystehr: Oystehr, tasks: Task[]): Promise<
 const journalRows = (journal: GetProviderJournalResponse): JournalRow[] =>
   [journal.comingUp, journal.today, journal.todayDone, journal.recent, journal.notTied, journal.past].flat();
 
-/** Each shown visit's Location (the chat's quick texts fill the office phone, location name and review link). */
+/**
+ * Each shown visit's Location, and on a row with no visit its newest to-do's own Location (the chat's quick texts fill
+ * the office phone, location name and review link).
+ */
 async function addVisitLocations(
   oystehr: Oystehr,
   journal: GetProviderJournalResponse,
-  encounters: Encounter[]
+  encounters: Encounter[],
+  tasks: Task[]
 ): Promise<void> {
   const visits = [
     ...new Set(
@@ -234,7 +239,16 @@ async function addVisitLocations(
     ),
   ];
   const locationIds = visitLocationIds(visits, encounters);
-  const ids = [...new Set(locationIds.values())];
+  const rowLocationIds = new Map(
+    journalRows(journal).flatMap((row): [JournalRow, string][] => {
+      if (!row.patient || row.visit || row.visits.length) return [];
+      const newest = [...row.items].sort((a, b) => b.since.localeCompare(a.since))[0];
+      const task = newest?.taskId ? tasks.find((t) => t.id === newest.taskId) : undefined;
+      const locationId = task && getTaskLocation(task)?.id;
+      return locationId ? [[row, locationId]] : [];
+    })
+  );
+  const ids = [...new Set([...locationIds.values(), ...rowLocationIds.values()])];
   if (!ids.length) return;
   const locations = (
     await Promise.all(
@@ -249,6 +263,10 @@ async function addVisitLocations(
   locationIds.forEach((locationId, visit) => {
     const location = locations.find((l) => l.id === locationId);
     if (location) visit.location = quickTextLocation(location);
+  });
+  rowLocationIds.forEach((locationId, row) => {
+    const location = locations.find((l) => l.id === locationId);
+    if (location) row.location = quickTextLocation(location);
   });
 }
 

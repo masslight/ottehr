@@ -192,6 +192,8 @@ export const JournalPage = (): ReactElement => {
 
   const { phonesByLocationName } = useSupportPhonesMap();
   const chatVisit = chatRow && (chatRow.visit ?? oldestItemVisit(chatRow) ?? chatRow.visits[0]);
+  // A row with no visit: its newest to-do's own Location.
+  const chatLocation = chatVisit?.location ?? chatRow?.location;
   const chatMessaging: AppointmentMessaging | undefined = useMemo(() => {
     if (!chatRow?.patient) return undefined;
     const { patient } = chatRow;
@@ -487,16 +489,19 @@ export const JournalPage = (): ReactElement => {
               setReadChatPatientIds((ids) => [...ids, chatRow.patient!.patientId]);
               void refetch();
             }}
-            quickTextsContext={visitQuickTextsContext({
-              patientFirstName: chatRow.patient.firstName,
-              patientLastName: chatRow.patient.lastName,
-              visitId: chatVisit?.appointmentId,
-              start: chatVisit?.start,
-              location: chatVisit?.location,
-              // The visit's own Location only, never the tracking board's last-selected one.
-              officePhone: chatVisit?.location ? getOfficePhoneNumber(chatVisit.location) : PLACEHOLDER_PHONE_NUMBER,
-              phonesByLocationName,
-            })}
+            quickTextsContext={{
+              ...visitQuickTextsContext({
+                patientFirstName: chatRow.patient.firstName,
+                patientLastName: chatRow.patient.lastName,
+                visitId: chatVisit?.appointmentId,
+                start: chatVisit?.start,
+                location: chatLocation,
+                // The visit's or to-do's own Location only, never the tracking board's last-selected one.
+                officePhone: chatLocation ? getOfficePhoneNumber(chatLocation) : PLACEHOLDER_PHONE_NUMBER,
+                phonesByLocationName,
+              }),
+              noVisit: !chatVisit,
+            }}
           />
         )}
       </Box>

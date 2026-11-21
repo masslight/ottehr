@@ -145,6 +145,8 @@ export interface JournalRow {
   lookahead?: boolean;
   /** Recent: ISO start of the newest visit on this journal the patient was seen at. */
   lastSeen?: string;
+  /** A row with no visit: its newest to-do's own Location, trimmed like `JournalVisit.location` (chat quick texts). */
+  location?: Location;
 }
 
 export interface GetProviderJournalResponse {
