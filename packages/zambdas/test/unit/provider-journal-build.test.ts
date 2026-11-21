@@ -1120,6 +1120,25 @@ describe('buildJournal: OTR-3941 review answers', () => {
     expect(items.find((item) => item.id === 'unassigned')?.assignedTo).toBeUndefined();
   });
 
+  it('lists the provider’s own to-dos before ones held by someone else, even when theirs are newer', () => {
+    const journal = buildJournal(
+      withVisits([{ ...TODAY_READY }], {
+        patients: [patient('pat-maria', 'Maria', 'Lopez')],
+        tasks: [
+          boardTask({
+            id: 'theirs',
+            title: 'Call pharmacy',
+            encounterId: 'enc-ready',
+            authoredOn: '2026-11-07T18:00:00.000Z',
+            owner: { ...owner(OTHER), display: 'Joe Lin' },
+          }),
+          boardTask({ id: 'mine', title: 'Mine', encounterId: 'enc-ready', authoredOn: '2026-11-06T18:00:00.000Z' }),
+        ],
+      })
+    );
+    expect(journal.comingUp[0].items.map((item) => item.id)).toEqual(['mine', 'theirs']);
+  });
+
   it('gives a text task its assignee and keeps its title after it is marked unread (item 51)', () => {
     const text = boardTask({
       id: 'text',

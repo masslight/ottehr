@@ -224,9 +224,11 @@ const toJournalPatient = (patient: Patient, relatedPersons: RelatedPerson[]): Jo
 });
 
 const bySinceDesc = (a: JournalItem, b: JournalItem): number => b.since.localeCompare(a.since);
-/** Flagged (abnormal) items first, as the provider should open them first; then newest first. */
-const byAlertThenSinceDesc = (a: JournalItem, b: JournalItem): number =>
-  Number(Boolean(b.alert)) - Number(Boolean(a.alert)) || bySinceDesc(a, b);
+/** The provider's own items before ones held by someone else; then flagged (abnormal) items, as the provider should open them first; then newest first. */
+const byOwnThenAlertThenSinceDesc = (a: JournalItem, b: JournalItem): number =>
+  Number(Boolean(a.assignedTo)) - Number(Boolean(b.assignedTo)) ||
+  Number(Boolean(b.alert)) - Number(Boolean(a.alert)) ||
+  bySinceDesc(a, b);
 const byStartDesc = (a: Visit, b: Visit): number => b.journal.start.localeCompare(a.journal.start);
 
 /**
@@ -494,7 +496,7 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
       if (bucket) notTiedByPatient.set(bucket, row);
     }
   });
-  [...buckets.values(), ...notTied].forEach((row) => row.items.sort(byAlertThenSinceDesc));
+  [...buckets.values(), ...notTied].forEach((row) => row.items.sort(byOwnThenAlertThenSinceDesc));
 
   const pastStart = now.minus({ days: PAST_WINDOW_DAYS }).startOf('day');
   const isPastWeek = (visit: Visit): boolean =>
