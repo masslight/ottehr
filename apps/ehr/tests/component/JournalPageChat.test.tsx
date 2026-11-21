@@ -59,6 +59,9 @@ vi.mock('../../src/features/journal/hooks/useJournalOwners', () => ({
 }));
 vi.mock('src/api/api', () => ({}));
 vi.mock('../../src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {}, oystehr: {} }) }));
+vi.mock('../../src/hooks/useLocationSupportPhones', () => ({
+  useSupportPhonesMap: () => ({ phonesByLocationName: {} }),
+}));
 vi.mock('../../src/layout/PageContainer', () => ({
   default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));

@@ -1,11 +1,15 @@
 import { MessagingGetMessagingConfigResponse, TransactionalSMSSendResponse } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
+import { Location } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { LOCATION_REVIEW_LINK_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { useErrorQuery } from 'utils/lib/frontend/hooks/useErrorQuery';
 import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
 import { replaceTemplateVariablesHandlebars } from 'utils/lib/helpers/helpers';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { ConversationMessage, SMSRecipient } from 'utils/lib/types/api/messaging.types';
 import { QuickTextQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
 import { getConversation, getQuickTextQuickPicks } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { MessageModel } from './ChatModal';
@@ -98,6 +102,32 @@ export interface QuickTextsContext {
   officePhone?: string;
   supportPhone?: string;
 }
+
+/** A visit's quick-text values (the tracking board row's and the journal chat's). */
+export const visitQuickTextsContext = (visit: {
+  patientFirstName?: string;
+  patientLastName?: string;
+  visitId?: string;
+  /** ISO start. */
+  start?: string;
+  location?: Location;
+  officePhone: string;
+  phonesByLocationName: Record<string, string>;
+}): QuickTextsContext => {
+  const start = visit.start ? DateTime.fromISO(visit.start) : undefined;
+  return {
+    patientAppUrl: import.meta.env.VITE_APP_PATIENT_APP_URL,
+    patientFirstName: visit.patientFirstName,
+    patientLastName: visit.patientLastName,
+    visitId: visit.visitId,
+    locationName: visit.location?.name,
+    locationReviewLink: visit.location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)
+      ?.valueUrl,
+    bookingTime: start?.isValid ? start.toFormat('h:mm a') : undefined,
+    officePhone: visit.officePhone,
+    supportPhone: getSupportPhoneFor(visit.location?.name, visit.phonesByLocationName) || '',
+  };
+};
 
 export interface ResolvedQuickText {
   name: string;

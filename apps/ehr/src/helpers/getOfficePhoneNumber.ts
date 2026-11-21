@@ -1,7 +1,7 @@
 import { Location } from 'fhir/r4b';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 
-const PLACEHOLDER_PHONE_NUMBER = '[office phone number]';
+export const PLACEHOLDER_PHONE_NUMBER = '[office phone number]';
 
 export const getOfficePhoneNumber = (location: Location | undefined): string => {
   let locationToUse = location;

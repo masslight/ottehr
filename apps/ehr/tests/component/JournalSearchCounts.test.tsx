@@ -67,6 +67,9 @@ vi.mock('../../src/features/journal/hooks/useJournalOwners', () => ({
 }));
 vi.mock('src/api/api', () => ({}));
 vi.mock('../../src/hooks/useAppClients', () => ({ useApiClients: () => ({ oystehrZambda: {}, oystehr: {} }) }));
+vi.mock('../../src/hooks/useLocationSupportPhones', () => ({
+  useSupportPhonesMap: () => ({ phonesByLocationName: {} }),
+}));
 vi.mock('src/features/visits/shared/hooks/useOystehrAPIClient', () => ({ useOystehrAPIClient: () => undefined }));
 vi.mock('src/hooks/useEvolveUser', () => ({
   default: () => ({ userName: 'Ana Rivera', profile: `Practitioner/${ME}` }),

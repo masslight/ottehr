@@ -2,13 +2,14 @@ import { Appointment, Encounter, Patient, QuestionnaireResponse, RelatedPerson, 
 import { DateTime } from 'luxon';
 import {
   FHIR_EXTENSION,
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
   PRIVATE_EXTENSION_BASE_URL,
   ROOM_EXTENSION_URL,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
 } from 'utils/lib/fhir/constants';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { JournalPatient, JournalPhone } from 'utils/lib/types/api/provider-journal.types';
+import { JournalPatient, JournalPhone, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
 import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { CREATED_BY_SYSTEM } from 'utils/lib/types/common';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
@@ -22,7 +23,9 @@ import {
   JournalSources,
   markTextUnread,
   phonesByBookingAppointment,
+  quickTextLocation,
   taskToJournalItem,
+  visitLocationIds,
 } from '../../src/ehr/provider-journal/get-provider-journal/helpers';
 import { createTask } from '../../src/shared/tasks';
 
@@ -1002,5 +1005,46 @@ describe('taskToJournalItem wording', () => {
 
   it('keeps the task category identifier system used by the board', () => {
     expect(boardTask({ title: 'x' }).groupIdentifier?.system).toBe(ottehrIdentifierSystem('task-category'));
+  });
+});
+
+describe('visit locations for quick texts', () => {
+  it('reads each visit’s Location from its encounter, like the tracking board', () => {
+    const visit = { encounterId: 'enc-1' } as JournalVisit;
+    const bare = { encounterId: 'enc-2' } as JournalVisit;
+    const encounters: Encounter[] = [
+      {
+        resourceType: 'Encounter',
+        id: 'enc-1',
+        status: 'finished',
+        class: {},
+        location: [{ location: { reference: 'Location/loc-1' } }],
+      },
+      { resourceType: 'Encounter', id: 'enc-2', status: 'finished', class: {} },
+    ];
+    expect([...visitLocationIds([visit, bare], encounters)]).toEqual([[visit, 'loc-1']]);
+  });
+
+  it('keeps only the name, phone and review link', () => {
+    const review = { url: LOCATION_REVIEW_LINK_EXTENSION_URL, valueUrl: 'https://review.example' };
+    expect(
+      quickTextLocation({
+        resourceType: 'Location',
+        id: 'loc-1',
+        name: 'New York',
+        address: { line: ['1 Main St'] },
+        telecom: [
+          { system: 'fax', value: '+19195550101' },
+          { system: 'phone', value: '+19195550100' },
+        ],
+        extension: [{ url: 'https://example/timezone', valueString: 'America/New_York' }, review],
+      })
+    ).toEqual({
+      resourceType: 'Location',
+      id: 'loc-1',
+      name: 'New York',
+      telecom: [{ system: 'phone', value: '+19195550100' }],
+      extension: [review],
+    });
   });
 });

@@ -2,6 +2,7 @@ import {
   Appointment,
   DiagnosticReport,
   Encounter,
+  Location,
   Patient,
   QuestionnaireResponse,
   RelatedPerson,
@@ -10,6 +11,7 @@ import {
 import { DateTime } from 'luxon';
 import { getAppointmentRoom, getReasonForVisitAndAdditionalDetailsFromAppointment } from 'utils/lib/fhir/appointments';
 import {
+  LOCATION_REVIEW_LINK_EXTENSION_URL,
   PRIVATE_EXTENSION_BASE_URL,
   SERVICE_CATEGORY_SYSTEM,
   TASK_ASSIGNED_DATE_TIME_EXTENSION_URL,
@@ -159,6 +161,25 @@ const taskAlert = (task: Task): TaskAlertCode | undefined => {
 
 const hasTag = (task: Task, tag: { system: string; code: string }): boolean =>
   Boolean(task.meta?.tag?.some((t) => t.system === tag.system && t.code === tag.code));
+
+/** The Location id of each visit on the journal: the encounter's, as the tracking board reads it. */
+export const visitLocationIds = (visits: JournalVisit[], encounters: Encounter[]): Map<JournalVisit, string> =>
+  new Map(
+    visits.flatMap((visit): [JournalVisit, string][] => {
+      const encounter = encounters.find((e) => e.id === visit.encounterId);
+      const locationId = getIdFromReference(encounter?.location?.[0]?.location?.reference, 'Location');
+      return locationId ? [[visit, locationId]] : [];
+    })
+  );
+
+/** A Location trimmed to what quick texts use: name, phone, review link. */
+export const quickTextLocation = (location: Location): Location => ({
+  resourceType: 'Location',
+  id: location.id,
+  name: location.name,
+  telecom: location.telecom?.filter((telecom) => telecom.system === 'phone').slice(0, 1),
+  extension: location.extension?.filter((extension) => extension.url === LOCATION_REVIEW_LINK_EXTENSION_URL),
+});
 
 const toJournalVisit = (appointment: Appointment, encounter: Encounter, status: VisitStatusLabel): JournalVisit => {
   const category = appointment.serviceCategory

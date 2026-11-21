@@ -2,11 +2,14 @@ import { Box, CircularProgress, Link, MenuItem, Paper, Select, TextField, Typogr
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, ReactNode, useEffect, useMemo, useState } from 'react';
+import { visitQuickTextsContext } from 'src/features/chat/chat.queries';
 import ChatModal from 'src/features/chat/ChatModal';
 import { getChiefComplaintUrl } from 'src/features/visits/in-person/routing/helpers';
+import { getOfficePhoneNumber, PLACEHOLDER_PHONE_NUMBER } from 'src/helpers/getOfficePhoneNumber';
 import { handleChangeInPersonVisitStatus } from 'src/helpers/inPersonVisitStatusUtils';
 import { adjustTopForBannerHeight, NAVBAR_HEIGHT_CSS_VAR } from 'src/helpers/misc.helper';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useSupportPhonesMap } from 'src/hooks/useLocationSupportPhones';
 import PageContainer from 'src/layout/PageContainer';
 import { AppointmentMessaging } from 'utils/lib/types/api/messaging.types';
 import { JournalItem, JournalRow as JournalRowData } from 'utils/lib/types/api/provider-journal.types';
@@ -187,20 +190,21 @@ export const JournalPage = (): ReactElement => {
     />
   );
 
+  const { phonesByLocationName } = useSupportPhonesMap();
+  const chatVisit = chatRow && (chatRow.visit ?? oldestItemVisit(chatRow) ?? chatRow.visits[0]);
   const chatMessaging: AppointmentMessaging | undefined = useMemo(() => {
     if (!chatRow?.patient) return undefined;
     const { patient } = chatRow;
-    const visit = chatRow.visit ?? oldestItemVisit(chatRow) ?? chatRow.visits[0];
     return {
-      id: visit?.appointmentId ?? patient.patientId,
-      encounterId: visit?.encounterId ?? patient.patientId,
+      id: chatVisit?.appointmentId ?? patient.patientId,
+      encounterId: chatVisit?.encounterId ?? patient.patientId,
       patient: { id: patient.patientId, firstName: patient.firstName, lastName: patient.lastName, dateOfBirth: '' },
       smsModel: {
         recipients: patient.phones.map((p) => ({ recipientResourceUri: p.recipientResourceUri, smsNumber: p.number })),
         hasUnreadMessages: Boolean(patient.hasUnreadTexts) && !readChatPatientIds.includes(patient.patientId),
       },
     };
-  }, [chatRow, readChatPatientIds]);
+  }, [chatRow, chatVisit, readChatPatientIds]);
 
   let content: ReactNode;
   if (ownersLoading || (isLoading && ownerId)) {
@@ -483,10 +487,16 @@ export const JournalPage = (): ReactElement => {
               setReadChatPatientIds((ids) => [...ids, chatRow.patient!.patientId]);
               void refetch();
             }}
-            quickTextsContext={{
+            quickTextsContext={visitQuickTextsContext({
               patientFirstName: chatRow.patient.firstName,
               patientLastName: chatRow.patient.lastName,
-            }}
+              visitId: chatVisit?.appointmentId,
+              start: chatVisit?.start,
+              location: chatVisit?.location,
+              // The visit's own Location only, never the tracking board's last-selected one.
+              officePhone: chatVisit?.location ? getOfficePhoneNumber(chatVisit.location) : PLACEHOLDER_PHONE_NUMBER,
+              phonesByLocationName,
+            })}
           />
         )}
       </Box>

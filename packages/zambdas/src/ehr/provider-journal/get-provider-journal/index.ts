@@ -4,6 +4,7 @@ import {
   Appointment,
   DiagnosticReport,
   Encounter,
+  Location,
   Patient,
   QuestionnaireResponse,
   RelatedPerson,
@@ -22,6 +23,7 @@ import {
   JournalKind,
   JournalPatient,
   JournalRow,
+  JournalVisit,
 } from 'utils/lib/types/api/provider-journal.types';
 import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
@@ -44,7 +46,9 @@ import {
   JOURNAL_WINDOW_DAYS,
   markTextUnread,
   phonesByBookingAppointment,
+  quickTextLocation,
   resolveTaskPatientId,
+  visitLocationIds,
 } from './helpers';
 
 const ZAMBDA_NAME = 'get-provider-journal';
@@ -186,6 +190,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     diagnosticReports,
     unreadMessageSentAt,
   });
+  await addVisitLocations(oystehr, journal, [...allEncounters, ...taskEncounters]);
   await labelAccountPhones(oystehr, journal);
   await markUnreadTexts(
     oystehr,
@@ -216,6 +221,36 @@ async function getUnreadMessageSentAt(oystehr: Oystehr, tasks: Task[]): Promise<
 
 const journalRows = (journal: GetProviderJournalResponse): JournalRow[] =>
   [journal.comingUp, journal.today, journal.todayDone, journal.recent, journal.notTied, journal.past].flat();
+
+/** Each shown visit's Location (the chat's quick texts fill the office phone, location name and review link). */
+async function addVisitLocations(
+  oystehr: Oystehr,
+  journal: GetProviderJournalResponse,
+  encounters: Encounter[]
+): Promise<void> {
+  const visits = [
+    ...new Set(
+      journalRows(journal).flatMap((row): JournalVisit[] => (row.visit ? [row.visit, ...row.visits] : row.visits))
+    ),
+  ];
+  const locationIds = visitLocationIds(visits, encounters);
+  const ids = [...new Set(locationIds.values())];
+  if (!ids.length) return;
+  const locations = (
+    await Promise.all(
+      chunkThings(ids, IDS_PER_SEARCH).map((chunk) =>
+        getAllFhirSearchPages<Location>(
+          { resourceType: 'Location', params: [{ name: '_id', value: chunk.join(',') }] },
+          oystehr
+        )
+      )
+    )
+  ).flat();
+  locationIds.forEach((locationId, visit) => {
+    const location = locations.find((l) => l.id === locationId);
+    if (location) visit.location = quickTextLocation(location);
+  });
+}
 
 /** The patients shown on the journal who have an account phone. */
 const patientsWithPhones = (journal: GetProviderJournalResponse): JournalPatient[] => [

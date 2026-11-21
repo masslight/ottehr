@@ -37,7 +37,7 @@ import { ROUTER_PATH } from 'src/features/visits/in-person/routing/routesInPerso
 import { VitalsIconTooltip } from 'src/features/visits/shared/components/VitalsIconTooltip';
 import { otherColors } from 'src/themes/ottehr/colors';
 import { updateAppointmentRoom } from 'utils/lib/fhir/appointments';
-import { LOCATION_REVIEW_LINK_EXTENSION_URL, ROOM_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { ROOM_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAdmitterPractitionerId, getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getAbnormalVitals } from 'utils/lib/helpers/vitals/utils';
 import { VisitStatusHistoryEntry, VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
@@ -49,10 +49,10 @@ import {
 } from 'utils/lib/types/data/appointments/appointments.types';
 import { OrdersForTrackingBoardRow } from 'utils/lib/types/data/orders/types';
 import { mdyStringFromISOString } from 'utils/lib/utils/date';
-import { getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
 import { formatMinutes, getDurationOfStatus, getVisitTotalTime, NON_LOS_STATUSES } from 'utils/lib/utils/visitUtils';
 import { NOTES_WIDTH_MIN } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
+import { visitQuickTextsContext } from '../features/chat/chat.queries';
 import ChatModal from '../features/chat/ChatModal';
 import { InfoIconsToolTip } from '../features/visits/shared/components/InfoIconsToolTip';
 import { useOystehrAPIClient } from '../features/visits/shared/hooks/useOystehrAPIClient';
@@ -78,8 +78,6 @@ import { IN_PERSON_CHIP_STATUS_MAP, InPersonAppointmentStatusChip } from './InPe
 import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';
-
-const VITE_APP_PATIENT_APP_URL = import.meta.env.VITE_APP_PATIENT_APP_URL;
 
 interface AppointmentTableRowProps {
   appointment: InPersonAppointmentInformation;
@@ -472,18 +470,15 @@ export default function AppointmentTableRow({
     </>
   ) : undefined;
 
-  const quickTextsContext = {
-    patientAppUrl: VITE_APP_PATIENT_APP_URL,
+  const quickTextsContext = visitQuickTextsContext({
     patientFirstName: appointment.patient.firstName,
     patientLastName: appointment.patient.lastName,
     visitId: appointment.id,
-    locationName: appointment.location?.name,
-    locationReviewLink: appointment.location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)
-      ?.valueUrl,
-    bookingTime: start,
+    start: appointment.start,
+    location: appointment.location,
     officePhone: officePhoneNumber,
-    supportPhone: getSupportPhoneFor(appointment.location?.name, phonesByLocationName) || '',
-  };
+    phonesByLocationName,
+  });
 
   const onCloseChat = useCallback(() => {
     setChatModalOpen(false);

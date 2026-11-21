@@ -1,3 +1,4 @@
+import { Location } from 'fhir/r4b';
 import { z } from 'zod';
 import { TaskAlertCode } from '../data/tasks/types';
 import { VisitStatusLabel } from './appointment.types';
@@ -103,6 +104,8 @@ export interface JournalVisit {
   reasonForVisit?: string;
   /** The progress note exists once the visit has reached intake (the chart is open). */
   hasProgressNote: boolean;
+  /** The encounter's Location, trimmed to what quick texts use: name, phone, review link. */
+  location?: Location;
 }
 
 export interface JournalPhone {
