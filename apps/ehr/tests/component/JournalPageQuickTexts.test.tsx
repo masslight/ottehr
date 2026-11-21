@@ -177,6 +177,27 @@ describe('JournalPage chat quick texts', () => {
     expect(offeredQuickTexts(QUICK_TEXTS, context).map((q) => q.name)).toEqual(['Trying to reach you']);
   });
 
+  it('doesn’t offer quick texts that need the office phone or location on a row with no visit and no Location', async () => {
+    const READY_TO_BE_SEEN = {
+      name: 'Ready to be seen',
+      english: 'We are ready for the patient to be seen, please enter the facility.',
+    } as QuickTextQuickPickData;
+    const REVIEW = {
+      name: 'Review',
+      english: 'Review {{location-name}}: {{location-review-link}}',
+    } as QuickTextQuickPickData;
+    const row = journal.notTied[0];
+    const saved = row.location;
+    row.location = undefined;
+    try {
+      await openChat('Reply to Jay');
+      const offered = offeredQuickTexts([...QUICK_TEXTS, REVIEW, READY_TO_BE_SEEN], chatProps.at(-1).quickTextsContext);
+      expect(offered.map((q) => q.name)).toEqual(['Ready to be seen']);
+    } finally {
+      row.location = saved;
+    }
+  });
+
   it('doesn’t offer the paperwork or AI interview link on a Recent row whose visits are over', async () => {
     await openChat('Reply to Ava');
     const context = chatProps.at(-1).quickTextsContext;

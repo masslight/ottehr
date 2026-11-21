@@ -510,6 +510,7 @@ export const JournalPage = (): ReactElement => {
               }),
               noVisit: !chatVisit,
               noLinkVisit: !linkVisit,
+              noLocation: !chatVisit && !chatLocation,
             }}
           />
         )}

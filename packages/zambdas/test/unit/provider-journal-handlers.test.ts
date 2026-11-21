@@ -291,11 +291,11 @@ describe('get-provider-journal access', () => {
 
   const LOC_MAIN = '6f1c1c2e-3333-4a5a-9c2b-000000000003';
   const LOC_OLD = '6f1c1c2e-4444-4a5a-9c2b-000000000004';
-  const followUp = (id: string, authoredOn: string, locationId: string): Task => ({
+  const followUp = (id: string, authoredOn: string, locationId?: string): Task => ({
     ...createTask({
       category: MANUAL_TASK.category.patientFollowUp,
       title: 'Call Helen',
-      location: { id: locationId, name: locationId },
+      location: locationId ? { id: locationId, name: locationId } : undefined,
     }),
     id,
     authoredOn,
@@ -334,6 +334,21 @@ describe('get-provider-journal access', () => {
     });
     const locationSearches = mockGetAllPages.mock.calls.filter(([search]) => search.resourceType === 'Location');
     expect(locationSearches.map(([search]) => search.params)).toEqual([[{ name: '_id', value: LOC_MAIN }]]);
+  });
+
+  it('takes the newest to-do that has a Location when the newest has none', async () => {
+    mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
+    mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
+      const has = (name: string): boolean => params.some((p: { name: string }) => p.name === name);
+      if (resourceType === 'Task' && has('owner'))
+        return [followUp('task-old', '2026-11-01T12:00:00Z', LOC_OLD), followUp('task-new', '2026-11-19T12:00:00Z')];
+      if (resourceType === 'Patient') return [{ resourceType: 'Patient', id: 'pat-1', name: [{ given: ['Helen'] }] }];
+      if (resourceType === 'Location') return [location(LOC_OLD, '+19195550111')];
+      return [];
+    });
+    const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
+    expect(journal.notTied[0].items.map((item: JournalItem) => item.taskId)).toEqual(['task-new', 'task-old']);
+    expect(journal.notTied[0].location?.id).toBe(LOC_OLD);
   });
 
   it('leaves a malformed to-do Location id out of the Location search (FHIR refuses a non-UUID _id with a 400)', async () => {

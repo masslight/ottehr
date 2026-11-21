@@ -225,8 +225,8 @@ const journalRows = (journal: GetProviderJournalResponse): JournalRow[] =>
   [journal.comingUp, journal.today, journal.todayDone, journal.recent, journal.notTied, journal.past].flat();
 
 /**
- * Each shown visit's Location, and on a row with no visit its newest to-do's own Location (the chat's quick texts fill
- * the office phone, location name and review link).
+ * Each shown visit's Location, and on a row with no visit the Location of its newest to-do that has one (the chat's
+ * quick texts fill the office phone, location name and review link).
  */
 async function addVisitLocations(
   oystehr: Oystehr,
@@ -243,9 +243,11 @@ async function addVisitLocations(
   const rowLocationIds = new Map(
     journalRows(journal).flatMap((row): [JournalRow, string][] => {
       if (!row.patient || row.visit || row.visits.length) return [];
-      const newest = [...row.items].sort((a, b) => b.since.localeCompare(a.since))[0];
-      const task = newest?.taskId ? tasks.find((t) => t.id === newest.taskId) : undefined;
-      const locationId = task && getTaskLocation(task)?.id;
+      const locationId = [...row.items]
+        .sort((a, b) => b.since.localeCompare(a.since))
+        .map((item) => tasks.find((t) => item.taskId && t.id === item.taskId))
+        .map((task) => task && getTaskLocation(task)?.id)
+        .find(Boolean);
       return locationId ? [[row, locationId]] : [];
     })
   );
