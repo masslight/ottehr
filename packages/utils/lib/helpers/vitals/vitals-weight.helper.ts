@@ -11,7 +11,12 @@ export function formatWeightLbs(weightKg: number): string {
   return formatWeight(weightKg, 'lbs');
 }
 
+export const WEIGHT_DISPLAY_PRECISION = 2;
+export const WEIGHT_KG_SAVE_PRECISION = 3;
+
+export const lbsToKg = (lbs: number): number => roundNumberToDecimalPlaces(lbs / LBS_IN_KG, WEIGHT_KG_SAVE_PRECISION);
+
 export function formatWeight(weightKg: number, unit: 'kg' | 'lbs'): string {
   const weight = unit === 'kg' ? weightKg : weightKg * LBS_IN_KG;
-  return roundNumberToDecimalPlaces(weight, 1).toString();
+  return roundNumberToDecimalPlaces(weight, WEIGHT_DISPLAY_PRECISION).toString();
 }

@@ -82,6 +82,7 @@ import {
   getPaperworkScreeningAnswer,
 } from 'utils/lib/helpers/screening-questions/screening-questions-formatting.helper';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
+import { bmiAppliesOnDate } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import {
   celsiusToFahrenheit,
@@ -119,7 +120,7 @@ import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-d
 import { MEDICATION_ADMINISTRATION_IN_PERSON_RESOURCE_CODE } from 'utils/lib/types/api/medication-administration.constants';
 import { PROVIDER_TYPE_VALUES } from 'utils/lib/types/api/practitioner.types';
 import { ClosureType, CREATED_BY_SYSTEM, OVERRIDE_DATE_FORMAT } from 'utils/lib/types/common';
-import { PATIENT_POINT_OF_DISCOVERY_URL } from 'utils/lib/types/constants';
+import { PATIENT_POINT_OF_DISCOVERY_URL, TIMEZONES } from 'utils/lib/types/constants';
 import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
 import {
   DISCHARGE_SUMMARY_CODE,
@@ -1388,8 +1389,14 @@ export async function fetchAdHocEncounterRows(
       row.vitalsRecordedBy = recordedBy;
       row.vitalsFirstRecordedAt = vitalReadings[0]?.effectiveDateTime ?? null;
 
+      const visitTimezone = location ? timezoneForLocation(location) : TIMEZONES[0];
       row.bmi =
-        row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
+        bmiAppliesOnDate(patient?.birthDate, appointment.start, visitTimezone) &&
+        row.weightKg &&
+        row.heightCm &&
+        row.heightCm > 0
+          ? round1(row.weightKg / (row.heightCm / 100) ** 2)
+          : null;
     }
 
     if (includeImaging) {
