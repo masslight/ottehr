@@ -28,6 +28,7 @@ import {
 import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { isValidUUID } from 'utils/lib/validation/helper';
 import {
   checkOrCreateM2MClientToken,
   getPractitionerRoles,
@@ -248,7 +249,8 @@ async function addVisitLocations(
       return locationId ? [[row, locationId]] : [];
     })
   );
-  const ids = [...new Set([...locationIds.values(), ...rowLocationIds.values()])];
+  // Task location tags are staff-written: FHIR refuses the whole search over one non-UUID id.
+  const ids = [...new Set([...locationIds.values(), ...rowLocationIds.values()])].filter(isValidUUID);
   if (!ids.length) return;
   const locations = (
     await Promise.all(

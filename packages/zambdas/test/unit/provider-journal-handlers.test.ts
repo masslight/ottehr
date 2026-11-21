@@ -289,48 +289,65 @@ describe('get-provider-journal access', () => {
     });
   });
 
+  const LOC_MAIN = '6f1c1c2e-3333-4a5a-9c2b-000000000003';
+  const LOC_OLD = '6f1c1c2e-4444-4a5a-9c2b-000000000004';
+  const followUp = (id: string, authoredOn: string, locationId: string): Task => ({
+    ...createTask({
+      category: MANUAL_TASK.category.patientFollowUp,
+      title: 'Call Helen',
+      location: { id: locationId, name: locationId },
+    }),
+    id,
+    authoredOn,
+    owner: { reference: `Practitioner/${PRACTITIONER_ID}` },
+    input: [
+      { type: { coding: [{ code: MANUAL_TASK.input.patient }] }, valueReference: { reference: 'Patient/pat-1' } },
+    ],
+  });
+  const location = (id: string, phone: string): object => ({
+    resourceType: 'Location',
+    id,
+    name: id,
+    address: { line: ['1 Main St'] },
+    telecom: [{ system: 'phone', value: phone }],
+  });
+
   it('gives a row with no visit its newest to-do’s own Location, in the one Location search', async () => {
     mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
-    const followUp = (id: string, authoredOn: string, locationId: string): Task => ({
-      ...createTask({
-        category: MANUAL_TASK.category.patientFollowUp,
-        title: 'Call Helen',
-        location: { id: locationId, name: locationId },
-      }),
-      id,
-      authoredOn,
-      owner: { reference: `Practitioner/${PRACTITIONER_ID}` },
-      input: [
-        { type: { coding: [{ code: MANUAL_TASK.input.patient }] }, valueReference: { reference: 'Patient/pat-1' } },
-      ],
-    });
-    const location = (id: string, phone: string): object => ({
-      resourceType: 'Location',
-      id,
-      name: id,
-      address: { line: ['1 Main St'] },
-      telecom: [{ system: 'phone', value: phone }],
-    });
     mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
       const has = (name: string): boolean => params.some((p: { name: string }) => p.name === name);
       if (resourceType === 'Task' && has('owner'))
         return [
-          followUp('task-old', '2026-11-01T12:00:00Z', 'loc-old'),
-          followUp('task-new', '2026-11-19T12:00:00Z', 'loc-main'),
+          followUp('task-old', '2026-11-01T12:00:00Z', LOC_OLD),
+          followUp('task-new', '2026-11-19T12:00:00Z', LOC_MAIN),
         ];
       if (resourceType === 'Patient') return [{ resourceType: 'Patient', id: 'pat-1', name: [{ given: ['Helen'] }] }];
-      if (resourceType === 'Location') return [location('loc-main', '+19195550100')];
+      if (resourceType === 'Location') return [location(LOC_MAIN, '+19195550100')];
       return [];
     });
     const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
     expect(journal.notTied[0].location).toEqual({
       resourceType: 'Location',
-      id: 'loc-main',
-      name: 'loc-main',
+      id: LOC_MAIN,
+      name: LOC_MAIN,
       telecom: [{ system: 'phone', value: '+19195550100' }],
     });
     const locationSearches = mockGetAllPages.mock.calls.filter(([search]) => search.resourceType === 'Location');
-    expect(locationSearches.map(([search]) => search.params)).toEqual([[{ name: '_id', value: 'loc-main' }]]);
+    expect(locationSearches.map(([search]) => search.params)).toEqual([[{ name: '_id', value: LOC_MAIN }]]);
+  });
+
+  it('leaves a malformed to-do Location id out of the Location search (FHIR refuses a non-UUID _id with a 400)', async () => {
+    mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
+    mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
+      const has = (name: string): boolean => params.some((p: { name: string }) => p.name === name);
+      if (resourceType === 'Task' && has('owner')) return [followUp('task-new', '2026-11-19T12:00:00Z', 'not a uuid!')];
+      if (resourceType === 'Patient') return [{ resourceType: 'Patient', id: 'pat-1', name: [{ given: ['Helen'] }] }];
+      if (resourceType === 'Location') throw new Error('400 Valid UUID value expected');
+      return [];
+    });
+    const response = await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' });
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).notTied[0].location).toBeUndefined();
   });
 
   it('builds a clinician journal for a Clinician', async () => {
