@@ -155,7 +155,7 @@ export const JournalPage = (): ReactElement => {
         await refetch();
       } catch (error) {
         console.error(error);
-        enqueueSnackbar(`Could not start the visit: ${(error as Error).message}`, { variant: 'error' });
+        enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
       }
     },
     onText: (row) => setChatRow(row),
