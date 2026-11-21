@@ -931,6 +931,18 @@ describe('taskToJournalItem wording', () => {
     ).toBe('Match unsolicited test results for CBC / Quest');
   });
 
+  it("keeps a fax's Communication id (for the Tasks page's Match link)", () => {
+    const fax = boardTask({
+      id: 'fax',
+      category: FAX_TASK.category,
+      code: { coding: [{ system: FAX_TASK.system, code: FAX_TASK.code.matchInboundFax }] },
+      input: [{ type: { coding: [{ code: FAX_TASK.input.communicationId }] }, valueString: 'comm-1' }],
+    });
+    expect(taskToJournalItem(fax, {})).toEqual(
+      expect.objectContaining({ kind: 'fax', code: FAX_TASK.code.matchInboundFax, communicationId: 'comm-1' })
+    );
+  });
+
   it('treats a completed-form review task (submit-paperwork) as a task, not a call', () => {
     const form = boardTask({
       id: 'form',

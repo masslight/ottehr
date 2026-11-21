@@ -77,6 +77,8 @@ export interface JournalItem {
   progressNoteSection?: string;
   /** Review-fax task: the folder the document was filed into. */
   folderId?: string;
+  /** Fax task: the fax's Communication id, for the Tasks page's Match Inbound Fax link. */
+  communicationId?: string;
   /** Manual "Patient Follow-up" tasks: the Free form note dialog offers to complete them. */
   isCallTask?: boolean;
   /** Patient Follow-up tasks: the assignee's practitioner id (only the assignee can mark it done, like Complete). */

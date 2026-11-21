@@ -1,6 +1,6 @@
 import { JournalItem } from 'utils/lib/types/api/provider-journal.types';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
-import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { FAX_TASK, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { describe, expect, it } from 'vitest';
 import { journalItemLink, summarizeItems } from '../../src/features/journal/helpers/journalHelpers';
 
@@ -48,6 +48,12 @@ describe('journalItemLink opens the same page as the Tasks page', () => {
       '/in-person/appt-1/vitals?encounterId=enc-1'
     );
     expect(journalItemLink(item({ category: MANUAL_TASK.category.other }))).toBe('/in-person/appt-1/review-and-sign');
+  });
+
+  it("opens a fax with no patient on Match Inbound Fax, like the Tasks page's Match button", () => {
+    const fax = item({ kind: 'fax', appointmentId: undefined, patientId: undefined, communicationId: 'comm-1' });
+    expect(journalItemLink({ ...fax, code: FAX_TASK.code.matchInboundFax })).toBe('/inbound-fax/comm-1/match');
+    expect(journalItemLink({ ...fax, code: FAX_TASK.code.reviewInboundFax })).toBe('/tasks');
   });
 
   it('counts a text as unread only while the patient has unread texts, like Support Chat requests', () => {

@@ -300,6 +300,7 @@ export function taskToJournalItem(
       since: getTaskInputValue(task, FAX_TASK.input.receivedDate) ?? task.authoredOn ?? '',
       code: getCoding(task.code, FAX_TASK.system)?.code,
       folderId: getTaskInputValue(task, FAX_TASK.input.folderId),
+      communicationId: getTaskInputValue(task, FAX_TASK.input.communicationId),
     };
   }
   if (category === ERX_TASK.category) {

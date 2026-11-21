@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 import { FLAGGED_REASONS_FOR_VISIT } from 'src/constants';
+import { inboundFaxMatchPath } from 'src/features/inbound-fax/routes';
 import { getManualTaskLink } from 'src/features/visits/in-person/hooks/useTasks';
 import {
   getDrExternalLabEditUrl,
@@ -12,6 +13,7 @@ import {
 import { VisitStatusWithoutUnknown } from 'utils/lib/types/api/appointment.types';
 import { JournalItem, JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
+import { FAX_TASK } from 'utils/lib/types/data/tasks/types';
 
 /** Colors from the Provider Journal panel mockup (v15). */
 export const JOURNAL_COLORS = {
@@ -178,6 +180,10 @@ export const journalItemLink = (item: JournalItem): string => {
       if (appointmentId) return chart(getVisitDocumentsUrl(appointmentId));
       if (patientId) {
         return `/patient/${patientId}/docs${item.folderId ? `?folderId=${encodeURIComponent(item.folderId)}` : ''}`;
+      }
+      // The Tasks page's Match button (useTasks fhirTaskToTask).
+      if (item.code === FAX_TASK.code.matchInboundFax && item.communicationId) {
+        return inboundFaxMatchPath(item.communicationId);
       }
       return TASKS_URL;
     case 'task': {
