@@ -24,7 +24,8 @@ import { JournalItem, JournalPatient, JournalVisit } from 'utils/lib/types/api/p
 import { formatVisitLabel, JOURNAL_COLORS } from '../helpers/journalHelpers';
 
 export type JournalNoteTarget =
-  | { mode: 'free-form'; patient: JournalPatient; callTasks: JournalItem[] }
+  /** Call and text tasks assigned to the signed-in user, offered as "Mark … done". */
+  | { mode: 'free-form'; patient: JournalPatient; completableTasks: JournalItem[] }
   | { mode: 'addendum'; patient: JournalPatient; visit: JournalVisit };
 
 interface Props {
@@ -40,9 +41,8 @@ export const JournalNoteDialog = ({ target, onClose, onSaved }: Props): ReactEle
   const user = useEvolveUser();
   const [text, setText] = useState('');
   const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState<Record<string, boolean>>(() =>
-    target.mode === 'free-form' ? Object.fromEntries(target.callTasks.map((t) => [t.id, true])) : {}
-  );
+  // Unticked: the provider ticks the call or text the note is about.
+  const [done, setDone] = useState<Record<string, boolean>>({});
 
   const isAddendum = target.mode === 'addendum';
   const title = isAddendum ? 'Addendum' : 'Free Form';
@@ -72,13 +72,15 @@ export const JournalNoteDialog = ({ target, onClose, onSaved }: Props): ReactEle
         await saveFreeFormEncounter(oystehrZambda, { patientId: target.patient.patientId, note: text.trim() });
         enqueueSnackbar(`Free Form saved to ${target.patient.name}'s chart`, { variant: 'success' });
         // The note is saved at this point; a task that could not be marked done gets its own message.
-        for (const task of target.callTasks) {
+        for (const task of target.completableTasks) {
           if (!done[task.id] || !task.taskId) continue;
           try {
             await completeJournalTask(oystehrZambda, { taskId: task.taskId });
           } catch (error) {
             console.error(error);
-            enqueueSnackbar(`Note saved, but '${task.label}' could not be marked done`, { variant: 'error' });
+            enqueueSnackbar(`Note saved, but '${task.title ?? task.label}' could not be marked done`, {
+              variant: 'error',
+            });
           }
         }
       }
@@ -111,7 +113,7 @@ export const JournalNoteDialog = ({ target, onClose, onSaved }: Props): ReactEle
           inputProps={{ 'aria-label': title }}
         />
         {target.mode === 'free-form' &&
-          target.callTasks.map((task) => (
+          target.completableTasks.map((task) => (
             <FormControlLabel
               key={task.id}
               control={
@@ -120,7 +122,7 @@ export const JournalNoteDialog = ({ target, onClose, onSaved }: Props): ReactEle
                   onChange={(e) => setDone({ ...done, [task.id]: e.target.checked })}
                 />
               }
-              label={`Mark '${task.label}' done`}
+              label={`Mark '${task.title ?? task.label}' done`}
             />
           ))}
       </DialogContent>

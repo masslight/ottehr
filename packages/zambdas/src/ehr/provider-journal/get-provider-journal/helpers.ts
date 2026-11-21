@@ -78,8 +78,10 @@ const JOURNAL_RULES: Record<
     owns: (encounter: Encounter) => string | undefined;
     /** The row is in Coming Up. */
     ready: VisitStatusLabel;
-    /** Provider journals also look ahead at their own patients still in intake. */
-    lookahead?: VisitStatusLabel;
+    /** A virtual visit in the virtual waiting room is ready too, as the bell's waiting room notification says. */
+    virtualReady?: VisitStatusLabel[];
+    /** Coming Up also looks ahead at their own patients one step earlier ("In intake, next up"). */
+    lookahead: VisitStatusLabel;
     /** The patient is in the room with this person. */
     inProgress: VisitStatusLabel;
     /** The patient counts as seen (Today / Past). */
@@ -89,6 +91,7 @@ const JOURNAL_RULES: Record<
   provider: {
     owns: getAttendingPractitionerId,
     ready: 'ready for provider',
+    virtualReady: ['arrived', 'ready'],
     lookahead: 'intake',
     inProgress: 'provider',
     seen: ['provider', 'discharged', 'completed'],
@@ -96,6 +99,8 @@ const JOURNAL_RULES: Record<
   clinician: {
     owns: getAdmitterPractitionerId,
     ready: 'ready',
+    // Only practices that pick "In:" before intake have these; elsewhere the look-ahead stays empty.
+    lookahead: 'arrived',
     inProgress: 'intake',
     seen: ['intake', 'ready for provider', 'provider', 'discharged', 'completed'],
   },
@@ -295,9 +300,11 @@ export function taskToJournalItem(
         kind: 'text-message',
         // "Reply to text" while the patient's texts are unread (markTextUnread), like Support Chat requests.
         label: task.description ?? 'Text message',
+        title: task.description,
         when: 'received',
         since: task.lastModified ?? task.authoredOn ?? '',
         code,
+        assigneeId: taskOwnerId(task),
       };
     }
     const unread = hasTag(task, SUPPORT_CHAT_UNREAD_TAG);
@@ -458,6 +465,8 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
     const encounterId = getIdFromReference(task.encounter?.reference, 'Encounter');
     const owned = taskOwnerId(task) === practitionerId;
     if (!owned && !(kind === 'provider' && encounterId && visitEncounterIds.has(encounterId))) return;
+    // A task on this provider's visit that someone else holds: shown with their name, not counted as an action.
+    const assignedTo = !owned && taskOwnerId(task) ? task.owner?.display || 'someone else' : undefined;
     const encounter = encounterId ? encountersById.get(encounterId) : undefined;
     const appointmentId =
       getTaskInputValue(task, MANUAL_TASK.input.appointmentId) ??
@@ -470,6 +479,7 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
       isFollowUpVisit: Boolean(encounter?.partOf),
       unreadMessageSentAt: sources.unreadMessageSentAt?.get(task.id),
     });
+    if (assignedTo) item.assignedTo = assignedTo;
     const bucket = patientId ? bucketFor(patientId) : undefined;
     const notTiedRow = bucket && notTiedByPatient.get(bucket);
     if (bucket && bucket.visits.length) {
@@ -497,12 +507,15 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
   buckets.forEach((bucket) => {
     const rowBase = { patient: bucket.patient, visits: bucket.visits.map((v) => v.journal), items: bucket.items };
     const todays = bucket.visits.filter(isToday);
-    const ready = todays.find((v) => v.journal.status === rules.ready);
-    const lookahead = rules.lookahead ? todays.find((v) => v.journal.status === rules.lookahead) : undefined;
+    const ready = todays.find(
+      (v) =>
+        v.journal.status === rules.ready || (v.journal.isTelemed && !!rules.virtualReady?.includes(v.journal.status))
+    );
+    const lookahead = todays.find((v) => v.journal.status === rules.lookahead);
     const coming = ready ?? lookahead;
     if (coming) {
       const waiting = getVisitStatusHistory(coming.encounter, coming.appointment)
-        .filter((entry) => entry.status === rules.ready && !entry.period.end)
+        .filter((entry) => entry.status === coming.journal.status && !entry.period.end)
         .at(-1);
       comingUp.push({
         ...rowBase,

@@ -61,7 +61,7 @@ export const JournalItemLink = ({ item, now, onOpenChat, inPanel }: Props): Reac
         component="span"
         sx={{ color: JOURNAL_COLORS.text2, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
       >
-        {item.when} {formatAge(item.since, now)} ago
+        {item.assignedTo ? `assigned to ${item.assignedTo}` : item.when} {formatAge(item.since, now)} ago
       </Box>
     </Box>
   );

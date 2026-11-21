@@ -1,9 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Task } from 'fhir/r4b';
+import { getCoding } from 'utils/lib/fhir/helpers';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { CompleteJournalTaskInputSchema, CompleteJournalTaskOutput } from 'utils/lib/types/api/provider-journal.types';
 import { ALL_EHR_STAFF_ROLES } from 'utils/lib/types/api/user.types';
-import { MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
+import { MANUAL_TASK, PATIENT_REQUEST_TASK } from 'utils/lib/types/data/tasks/types';
 import {
   CONCURRENT_UPDATE_WITH_MESSAGE,
   FHIR_RESOURCE_NOT_FOUND,
@@ -24,7 +25,7 @@ const ZAMBDA_NAME = 'complete-journal-task';
 const isForbidden = (error: unknown): boolean => [401, 403].includes((error as { code?: number })?.code ?? 0);
 
 /**
- * Completes an open Patient Follow-up task from the journal's Free form note dialog ("Mark '…' done"), with
+ * Completes an open Patient Follow-up or text task from the journal's Free form note dialog ("Mark '…' done"), with
  * the same access as the Tasks page's Complete: an EHR staff role whose own access policy can update the task, and
  * only the task's assignee.
  */
@@ -46,9 +47,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw error;
   }
   if (!isOpenBoardTask(task)) throw INVALID_INPUT_ERROR('Only an open task on the Tasks board can be completed');
-  // The Free form note dialog only offers Patient Follow-up tasks; result reviews close through the order.
-  if (task.groupIdentifier?.value !== MANUAL_TASK.category.patientFollowUp) {
-    throw INVALID_INPUT_ERROR('Only a Patient Follow-up task can be marked done here');
+  // The Free form note dialog only offers Patient Follow-up and text tasks; result reviews close through the order.
+  const isTextTask =
+    task.groupIdentifier?.value === PATIENT_REQUEST_TASK.category &&
+    getCoding(task.code, PATIENT_REQUEST_TASK.system)?.code === PATIENT_REQUEST_TASK.code.textMessage;
+  if (task.groupIdentifier?.value !== MANUAL_TASK.category.patientFollowUp && !isTextTask) {
+    throw INVALID_INPUT_ERROR('Only a Patient Follow-up or text task can be marked done here');
   }
   // The Tasks page shows Complete only to the task's assignee.
   const callerId = getIdFromReference(user.profile, 'Practitioner');

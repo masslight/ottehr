@@ -449,6 +449,27 @@ describe('complete-journal-task', () => {
     expect(mockFhir.patch).not.toHaveBeenCalled();
   });
 
+  it('completes a text task assigned to the caller (Free Form "Mark … done")', async () => {
+    mockFhir.get.mockResolvedValue({
+      ...openTask(),
+      ...createTask({ category: PATIENT_REQUEST_TASK.category, title: 'Text message from Robert Hill' }),
+      code: { coding: [{ system: PATIENT_REQUEST_TASK.system, code: PATIENT_REQUEST_TASK.code.textMessage }] },
+      id: TASK_ID,
+    });
+    await call(handler, { taskId: TASK_ID });
+    expect(mockFhir.patch).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a Patient Request that is not a text (a portal request closes in Support Chat)', async () => {
+    mockFhir.get.mockResolvedValue({
+      ...openTask(),
+      ...createTask({ category: PATIENT_REQUEST_TASK.category, title: 'Portal message' }),
+      id: TASK_ID,
+    });
+    await expect(call(handler, { taskId: TASK_ID })).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT });
+    expect(mockFhir.patch).not.toHaveBeenCalled();
+  });
+
   it('reports a concurrent change instead of overwriting it', async () => {
     mockFhir.patch.mockRejectedValue({ code: 412, message: 'Precondition Failed' });
     await expect(call(handler, { taskId: TASK_ID })).rejects.toMatchObject({ code: APIErrorCode.CONCURRENT_UPDATE });

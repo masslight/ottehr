@@ -2,6 +2,7 @@ import { Box, CircularProgress, Link, MenuItem, Paper, Select, TextField, Typogr
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, ReactNode, useEffect, useMemo, useState } from 'react';
+import { assignPractitioner } from 'src/api/api';
 import { visitQuickTextsContext } from 'src/features/chat/chat.queries';
 import ChatModal from 'src/features/chat/ChatModal';
 import { getChiefComplaintUrl } from 'src/features/visits/in-person/routing/helpers';
@@ -13,6 +14,7 @@ import { useSupportPhonesMap } from 'src/hooks/useLocationSupportPhones';
 import PageContainer from 'src/layout/PageContainer';
 import { AppointmentMessaging } from 'utils/lib/types/api/messaging.types';
 import { JournalItem, JournalRow as JournalRowData } from 'utils/lib/types/api/provider-journal.types';
+import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { SupportChatModal } from '../../support-chat/components/SupportChatModal';
 import { JournalDot } from '../components/JournalDot';
 import { JournalNoteDialog, JournalNoteTarget } from '../components/JournalNoteDialog';
@@ -27,6 +29,7 @@ import {
   journalTitle,
   patientsSearchUrl,
   plural,
+  reviewAndSignUrl,
   rowMatchesSearch,
   rowRef,
   summarizeItems,
@@ -91,7 +94,7 @@ const Section = ({
 
 export const JournalPage = (): ReactElement => {
   const { oystehrZambda } = useApiClients();
-  const { owners, myPractitionerId, isLoading: ownersLoading } = useJournalOwners();
+  const { owners, myPractitionerId, iAmProvider, isLoading: ownersLoading } = useJournalOwners();
   const [pickedOwnerId, setPickedOwnerId] = useState<string>();
   const ownerId =
     pickedOwnerId ??
@@ -171,13 +174,36 @@ export const JournalPage = (): ReactElement => {
       setNoteTarget({
         mode: 'free-form',
         patient: row.patient,
-        callTasks: row.items.filter((i) => i.isCallTask && !!myPractitionerId && i.assigneeId === myPractitionerId),
+        completableTasks: row.items.filter(
+          (i) => (i.isCallTask || i.kind === 'text-message') && !!myPractitionerId && i.assigneeId === myPractitionerId
+        ),
       });
     },
     onAddendum: (row, visit) => {
       if (!row.patient) return;
       setNoteTarget({ mode: 'addendum', patient: row.patient, visit });
     },
+    // A covering provider takes the visit over, as the tracking board's Pr: picker does; the status stays as it is.
+    onMakeMeProvider:
+      !isMe && myPractitionerId && oystehrZambda && iAmProvider
+        ? async (visit) => {
+            try {
+              await assignPractitioner(oystehrZambda, {
+                encounterId: visit.encounterId,
+                practitionerId: myPractitionerId,
+                userRole: PRACTITIONER_CODINGS.Attender,
+              });
+              window.open(reviewAndSignUrl(visit), '_blank');
+              setSelectedKey(undefined);
+              await refetch();
+            } catch (error) {
+              console.error(error);
+              enqueueSnackbar('An error occurred while updating the assignment. Please try again.', {
+                variant: 'error',
+              });
+            }
+          }
+        : undefined,
   };
 
   const renderRow = (ref: JournalRowRef): ReactElement => (

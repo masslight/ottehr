@@ -4,8 +4,16 @@ import useEvolveUser from 'src/hooks/useEvolveUser';
 import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
 import { RoleType } from 'utils/lib/types/api/user.types';
 
-/** Active Providers and Clinicians (the people who have a journal), with the signed-in user's practitioner id. */
-export const useJournalOwners = (): { owners: ProviderDetails[]; myPractitionerId?: string; isLoading: boolean } => {
+/**
+ * Active Providers and Clinicians (the people who have a journal), with the signed-in user's practitioner id and
+ * whether they are a Provider (who can take over a colleague's visit).
+ */
+export const useJournalOwners = (): {
+  owners: ProviderDetails[];
+  myPractitionerId?: string;
+  iAmProvider: boolean;
+  isLoading: boolean;
+} => {
   const { data, isLoading } = useGetEmployeesWithDetails();
   const user = useEvolveUser();
   const myPractitionerId = user?.profile?.split('/')[1];
@@ -24,5 +32,5 @@ export const useJournalOwners = (): { owners: ProviderDetails[]; myPractitionerI
     [data]
   );
 
-  return { owners, myPractitionerId, isLoading };
+  return { owners, myPractitionerId, iAmProvider: !!user?.hasRole([RoleType.Provider]), isLoading };
 };

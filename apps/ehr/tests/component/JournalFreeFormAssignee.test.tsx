@@ -37,6 +37,17 @@ const journal: GetProviderJournalResponse = {
         callTask('t-mine', 'Call about culture results', ME),
         callTask('t-other', 'Call about x-ray', OTHER),
         callTask('t-none', 'Call about refill'),
+        {
+          id: 't-text',
+          taskId: 't-text',
+          kind: 'text-message',
+          label: 'Reply to text',
+          title: 'Text message from Ida Notied',
+          when: 'received',
+          since: new Date().toISOString(),
+          patientId: 'pat-ida',
+          assigneeId: ME,
+        },
       ],
     },
   ],
@@ -77,5 +88,18 @@ describe('Free Form "Mark … done"', () => {
     expect(screen.getByLabelText("Mark 'Call about culture results' done")).toBeTruthy();
     expect(screen.queryByLabelText("Mark 'Call about x-ray' done")).toBeNull();
     expect(screen.queryByLabelText("Mark 'Call about refill' done")).toBeNull();
+  });
+
+  it('offers my text tasks by their title too, and starts every box unticked', async () => {
+    render(
+      <MemoryRouter>
+        <JournalPage />
+      </MemoryRouter>
+    );
+    await userEvent.click(screen.getAllByRole('button', { name: 'Add a Free Form' })[0]);
+    const text = screen.getByLabelText<HTMLInputElement>("Mark 'Text message from Ida Notied' done");
+    const call = screen.getByLabelText<HTMLInputElement>("Mark 'Call about culture results' done");
+    expect(text.checked).toBe(false);
+    expect(call.checked).toBe(false);
   });
 });

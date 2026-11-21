@@ -82,11 +82,13 @@ export interface JournalItem {
   communicationId?: string;
   /** Manual "Patient Follow-up" tasks: the Free form note dialog offers to complete them. */
   isCallTask?: boolean;
-  /** Patient Follow-up tasks: the assignee's practitioner id (only the assignee can mark it done, like Complete). */
+  /** Patient Follow-up and text tasks: the assignee's practitioner id (only the assignee can mark it done, like Complete). */
   assigneeId?: string;
+  /** Provider journals: a task on their visit that someone else holds, by that person's name ("assigned to Joe Lin"). */
+  assignedTo?: string;
   /** Text tasks: the patient has unread texts ("Reply to text"); Support Chat requests: unread messages. */
   unread?: boolean;
-  /** Unread Support Chat requests: the task title, for the Support Chat dialog. */
+  /** Unread Support Chat requests: the task title, for the Support Chat dialog. Text tasks: for "Mark … done". */
   title?: string;
   /** The Tasks page's alert, e.g. an abnormal lab result. */
   alert?: TaskAlertCode;
@@ -141,7 +143,7 @@ export interface JournalRow {
   room?: string;
   /** Coming Up: ISO time the visit became ready for this journal's owner. */
   waitingSince?: string;
-  /** Coming Up: "In intake, next up" (provider journal lookahead). */
+  /** Coming Up: "In intake, next up" (provider journal) or "Arrived, next up" (clinician journal). */
   lookahead?: boolean;
   /** Recent: ISO start of the newest visit on this journal the patient was seen at. */
   lastSeen?: string;

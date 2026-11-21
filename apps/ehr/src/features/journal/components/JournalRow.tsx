@@ -11,6 +11,7 @@ import {
   isInProgress,
   JOURNAL_COLORS,
   JournalRowRef,
+  lookaheadLabel,
 } from '../helpers/journalHelpers';
 import { DotColor, JournalDot } from './JournalDot';
 import { JournalItemLink } from './JournalItemLink';
@@ -60,21 +61,25 @@ export const JournalRow = ({ rowRef, kind, now, selected, actions, onSelect, onO
 
   let todo: ReactNode;
   if (section === 'cu') {
-    // The reason and any flag show in the side column, as in the mockup.
+    // The reason and any flag show in the side column, as in the mockup; open to-dos follow, so the provider walks in knowing.
     todo = (
-      <Box component="span" sx={QUIET_SX}>
-        {row.lookahead || !row.waitingSince ? (
-          'In intake, next up'
-        ) : (
-          <>
-            Waiting{' '}
-            <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-              {formatAge(row.waitingSince, now)}
-            </Box>
-            {row.room ? ` in room ${row.room}` : ''}
-          </>
-        )}
-      </Box>
+      <>
+        <Box component="span" sx={QUIET_SX}>
+          {row.lookahead || !row.waitingSince ? (
+            lookaheadLabel(kind)
+          ) : (
+            <>
+              Waiting{' '}
+              <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                {formatAge(row.waitingSince, now)}
+              </Box>
+              {row.room ? ` in room ${row.room}` : ''}
+            </>
+          )}
+        </Box>
+        {items.length > 0 && <ItemSeparator />}
+        {items}
+      </>
     );
   } else if (section === 'tdd') {
     todo = (

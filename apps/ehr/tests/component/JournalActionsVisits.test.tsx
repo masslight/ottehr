@@ -30,6 +30,36 @@ const actions = (
 const byKey = (list: JournalAction[], key: string): JournalAction | undefined => list.find((a) => a.key === key);
 const patient = { patientId: 'pat-cal', name: 'Cal Room', phones: [] };
 
+describe('Make me provider and open note', () => {
+  const withTakeOver = { ...handlers, onMakeMeProvider: vi.fn() };
+  const progress = (status: JournalVisit['status'], kind: 'provider' | 'clinician' = 'provider'): JournalAction => {
+    const v = visit('v', { status });
+    return byKey(
+      buildJournalActions(rowRef('td', { patient, visit: v, visits: [v], items: [] }), kind, withTakeOver),
+      'progress'
+    )!;
+  };
+
+  it("offers it on a colleague's open visit and passes the visit, without changing what the button opens", () => {
+    for (const status of ['ready for provider', 'provider', 'discharged'] as const) {
+      const action = progress(status);
+      expect(action.href).toBe('/in-person/appt-v/review-and-sign');
+      expect(action.menu?.map((m) => m.label)).toEqual(['Make me provider and open note']);
+    }
+    progress('provider').menu?.[0].onClick();
+    expect(withTakeOver.onMakeMeProvider).toHaveBeenCalledWith(expect.objectContaining({ encounterId: 'enc-v' }));
+  });
+
+  it('does not offer it on a signed or closed visit, on a clinician journal, or without the handler', () => {
+    for (const status of ['completed', 'awaiting supervisor approval', 'cancelled', 'no show'] as const) {
+      expect(progress(status).menu).toBeUndefined();
+    }
+    expect(progress('provider', 'clinician').menu).toBeUndefined();
+    const v = visit('v');
+    expect(byKey(actions('td', { patient, visit: v, visits: [v], items: [] }), 'progress')?.menu).toBeUndefined();
+  });
+});
+
 describe('journal row actions and the row visits', () => {
   it("opens today's visit from a Today row's Progress Note and Visit Details, not an older to-do's visit", () => {
     const older = visit('old', { start: '2026-11-17T14:00:00Z', status: 'completed' });

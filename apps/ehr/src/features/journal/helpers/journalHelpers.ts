@@ -60,6 +60,9 @@ export const TASKS_URL = '/tasks';
 export const inProgressStatus = (kind: JournalKind): VisitStatusWithoutUnknown =>
   kind === 'provider' ? 'provider' : 'intake';
 export const inProgressLabel = (kind: JournalKind): string => (kind === 'provider' ? 'With provider' : 'In intake');
+/** A Coming Up look-ahead row: the patient one step before this journal's Ready. */
+export const lookaheadLabel = (kind: JournalKind): string =>
+  kind === 'provider' ? 'In intake, next up' : 'Arrived, next up';
 export const isInProgress = (row: JournalRow, kind: JournalKind): boolean =>
   row.visit?.status === inProgressStatus(kind);
 
@@ -267,8 +270,12 @@ const SUMMARY_CATEGORIES: { matches: (item: JournalItem) => boolean; one: string
   { matches: (i) => i.kind === 'task' && !i.isCallTask, one: 'task', many: 'tasks' },
 ];
 
-/** "3 actions to take: 2 unsigned notes, 1 result to review" or "Nothing waiting", with an optional lead. */
-export const summarizeItems = (items: JournalItem[], lead?: string): string => {
+/**
+ * "3 actions to take: 2 unsigned notes, 1 result to review" or "Nothing waiting", with an optional lead. A task
+ * someone else holds isn't this person's action.
+ */
+export const summarizeItems = (allItems: JournalItem[], lead?: string): string => {
+  const items = allItems.filter((item) => !item.assignedTo);
   const parts = SUMMARY_CATEGORIES.map(({ matches, one, many }) => {
     const n = items.filter(matches).length;
     return n ? `${n} ${n === 1 ? one : many}` : '';

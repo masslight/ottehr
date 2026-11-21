@@ -1048,3 +1048,77 @@ describe('visit locations for quick texts', () => {
     });
   });
 });
+
+describe('buildJournal: OTR-3941 review answers', () => {
+  const TODAY_TELEMED = {
+    id: 'tm',
+    patientId: 'pat-maria',
+    start: '2026-11-07T19:30:00.000Z',
+    appointmentStatus: 'arrived' as const,
+    encounterStatus: 'arrived' as const,
+    attender: { id: ME },
+    telemed: true,
+  };
+
+  it('puts a virtual visit waiting in the virtual waiting room on Coming Up as ready (item 49)', () => {
+    const journal = buildJournal(withVisits([TODAY_TELEMED], { patients: [patient('pat-maria', 'Maria', 'Lopez')] }));
+    expect(journal.comingUp).toHaveLength(1);
+    expect(journal.comingUp[0].lookahead).toBeUndefined();
+    expect(journal.comingUp[0].visit?.isTelemed).toBe(true);
+  });
+
+  it('leaves an in-person visit that has only arrived off a provider’s Coming Up', () => {
+    const journal = buildJournal(
+      withVisits([{ ...TODAY_TELEMED, telemed: false }], { patients: [patient('pat-maria', 'Maria', 'Lopez')] })
+    );
+    expect(journal.comingUp).toEqual([]);
+  });
+
+  it('shows a clinician their arrived patient as a look-ahead (item 56)', () => {
+    const journal = buildJournal(
+      withVisits([{ ...TODAY_TELEMED, telemed: false, attender: undefined, admitter: { id: ME } }], {
+        kind: 'clinician',
+        patients: [patient('pat-maria', 'Maria', 'Lopez')],
+      })
+    );
+    expect(journal.comingUp).toHaveLength(1);
+    expect(journal.comingUp[0].lookahead).toBe(true);
+  });
+
+  it('shows a task on the provider’s visit held by someone else with their name (item 67)', () => {
+    const journal = buildJournal(
+      withVisits([{ ...TODAY_READY }], {
+        patients: [patient('pat-maria', 'Maria', 'Lopez')],
+        tasks: [
+          boardTask({
+            id: 'theirs',
+            title: 'Call pharmacy',
+            encounterId: 'enc-ready',
+            owner: { ...owner(OTHER), display: 'Joe Lin' },
+          }),
+          boardTask({ id: 'mine', title: 'Mine', encounterId: 'enc-ready', owner: owner(ME) }),
+          boardTask({ id: 'unassigned', title: 'Nobody', encounterId: 'enc-ready' }),
+        ],
+      })
+    );
+    const items = journal.comingUp[0].items;
+    expect(items.find((item) => item.id === 'theirs')?.assignedTo).toBe('Joe Lin');
+    expect(items.find((item) => item.id === 'mine')?.assignedTo).toBeUndefined();
+    expect(items.find((item) => item.id === 'unassigned')?.assignedTo).toBeUndefined();
+  });
+
+  it('gives a text task its assignee and keeps its title after it is marked unread (item 51)', () => {
+    const text = boardTask({
+      id: 'text',
+      category: PATIENT_REQUEST_TASK.category,
+      title: 'Text message from Robert Hill 11/03/2026',
+      code: { coding: [{ system: PATIENT_REQUEST_TASK.system, code: PATIENT_REQUEST_TASK.code.textMessage }] },
+      owner: owner(ME),
+    });
+    const item = taskToJournalItem(text, { patientId: 'pat-robert' });
+    markTextUnread(item);
+    expect(item).toEqual(
+      expect.objectContaining({ assigneeId: ME, title: 'Text message from Robert Hill 11/03/2026' })
+    );
+  });
+});

@@ -1,7 +1,8 @@
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import PhoneIcon from '@mui/icons-material/Phone';
-import { Box, Button, Link, Tooltip, Typography } from '@mui/material';
+import { Box, Button, ButtonGroup, Link, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { ReactElement, ReactNode } from 'react';
+import { ReactElement, ReactNode, useState } from 'react';
 import { PatientDateOfBirth } from 'src/components/PatientDateOfBirth';
 import { DEFAULT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
 import { JournalItem, JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
@@ -18,6 +19,7 @@ import {
   JOURNAL_COLORS,
   journalItemLink,
   JournalRowRef,
+  lookaheadLabel,
   visitHeading,
 } from '../helpers/journalHelpers';
 import { JournalItemLink } from './JournalItemLink';
@@ -82,8 +84,9 @@ const Dot = (): ReactElement => (
 );
 
 const SideButton = ({ action, primary }: { action: JournalAction; primary?: boolean }): ReactElement => {
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const disabled = !!action.disabledReason;
-  const button = (
+  const main = (
     <Button
       variant={primary ? 'contained' : 'outlined'}
       size="small"
@@ -97,6 +100,37 @@ const SideButton = ({ action, primary }: { action: JournalAction; primary?: bool
       {action.label}
     </Button>
   );
+  // A split button, like the Progress Note's Discharge: the main part does what the plain button does.
+  const button =
+    action.menu && !disabled ? (
+      <>
+        <ButtonGroup variant="outlined" size="small" sx={{ '& .MuiButtonGroup-grouped': { minWidth: 0 } }}>
+          {main}
+          <Button
+            aria-label={`${action.label} options`}
+            onClick={(e) => setMenuAnchor(e.currentTarget)}
+            sx={{ ...BUTTON_SX, padding: '0 6px' }}
+          >
+            <ArrowDropDownIcon fontSize="small" />
+          </Button>
+        </ButtonGroup>
+        <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
+          {action.menu.map((item) => (
+            <MenuItem
+              key={item.label}
+              onClick={() => {
+                setMenuAnchor(null);
+                item.onClick();
+              }}
+            >
+              {item.label}
+            </MenuItem>
+          ))}
+        </Menu>
+      </>
+    ) : (
+      main
+    );
   return disabled ? (
     <Tooltip {...DEFAULT_TOOLTIP_PROPS} title={action.disabledReason}>
       <span>{button}</span>
@@ -179,16 +213,19 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
     </Box>
   );
   const todo = (item: JournalRow['items'][number]): ReactElement => (
-    <Box key={item.id} sx={TODO_SX}>
+    <Box key={item.id} sx={item.assignedTo ? { ...TODO_SX, borderStyle: 'dashed' } : TODO_SX}>
       <JournalItemLink item={item} now={now} onOpenChat={(item) => onOpenChat(row, item)} inPanel />
     </Box>
   );
+  // Tasks on this provider's visits that someone else holds sit apart, under their own heading.
+  const ownItems = row.items.filter((item) => !item.assignedTo);
+  const othersItems = row.items.filter((item) => item.assignedTo);
 
   let meta: string | undefined;
   let body: ReactNode;
   if (section === 'np') {
     meta = 'No recent visit';
-    body = row.items.map(todo);
+    body = ownItems.map(todo);
   } else if (section === 'cu' && row.visit) {
     const reason = row.visit.reasonForVisit;
     const flagged = isFlaggedReason(reason);
@@ -197,7 +234,7 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
         {visitLine(row.visit)}
         <Box sx={LINE_SX}>
           {row.lookahead || !row.waitingSince ? (
-            'In intake, next up'
+            lookaheadLabel(kind)
           ) : (
             <>
               Waiting{' '}
@@ -220,6 +257,7 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
             </>
           )}
         </Box>
+        {ownItems.map(todo)}
       </>
     );
   } else if (section === 'tdd' || section === 'pa' || (section === 'td' && isInProgress(row, kind))) {
@@ -231,12 +269,12 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
         {visit && visitLine(visit)}
         {visit?.reasonForVisit && <Box sx={LINE_SX}>{visit.reasonForVisit}</Box>}
         <Box sx={LINE_SX}>{section === 'td' ? inProgressLabel(kind) : 'Nothing to do'}</Box>
-        {row.items.map(todo)}
+        {ownItems.map(todo)}
       </>
     );
   } else {
     // Grouped by visit, newest first; to-dos not from a visit (a text) sit on their own at the top.
-    const visits = itemVisits(row);
+    const visits = itemVisits({ ...row, items: ownItems });
     if (section === 'td') {
       const todayVisits = row.visits.filter((v) => isToday(v.start, now)).length;
       if (todayVisits > 1) meta = `${todayVisits} visits today`;
@@ -245,7 +283,7 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
     }
     body = (
       <>
-        {row.items.filter((item) => !itemVisit(item, row)).map(todo)}
+        {ownItems.filter((item) => !itemVisit(item, row)).map(todo)}
         {visits.map((visit) => (
           <Box
             key={visit.encounterId}
@@ -262,7 +300,7 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
               {visit.hasProgressNote && <AddendumLink onClick={() => onAddendum(row, visit)} />}
             </Box>
             {visit.reasonForVisit && <Box sx={{ color: JOURNAL_COLORS.text2, mt: '-4px' }}>{visit.reasonForVisit}</Box>}
-            {row.items.filter((item) => itemVisit(item, row)?.encounterId === visit.encounterId).map(todo)}
+            {ownItems.filter((item) => itemVisit(item, row)?.encounterId === visit.encounterId).map(todo)}
           </Box>
         ))}
       </>
@@ -279,6 +317,12 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
         {meta && <Box sx={{ ...META_SX, ml: 'auto' }}>{meta}</Box>}
       </Box>
       {body}
+      {othersItems.length > 0 && (
+        <>
+          <Box sx={SECTION_HEADING_SX}>Assigned to others</Box>
+          {othersItems.map(todo)}
+        </>
+      )}
       {patient.phones.length > 0 && (
         <>
           <Box sx={SECTION_HEADING_SX}>Phones</Box>

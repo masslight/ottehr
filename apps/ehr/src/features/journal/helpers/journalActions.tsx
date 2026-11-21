@@ -10,6 +10,7 @@ import VideocamIcon from '@mui/icons-material/Videocam';
 import { ReactNode } from 'react';
 import { getChiefComplaintUrl } from 'src/features/visits/in-person/routing/helpers';
 import { sidebarMenuIcons } from 'src/features/visits/shared/components/sidebarMenuIcons';
+import { VisitStatusLabel } from 'utils/lib/types/api/appointment.types';
 import { JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
 import {
   followUpUrl,
@@ -46,6 +47,8 @@ export interface JournalAction {
   onClick?: () => void;
   /** Set when the control is disabled; shown as its hover text. */
   disabledReason?: string;
+  /** Side column only: the button's ▾ menu. */
+  menu?: { label: string; onClick: () => void }[];
 }
 
 export interface JournalActionHandlers {
@@ -54,6 +57,8 @@ export interface JournalActionHandlers {
   onNote: (row: JournalRow) => void;
   onAddendum: (row: JournalRow, visit: JournalVisit) => void;
   onSelect: (key: string) => void;
+  /** Set only when the signed-in user is a provider looking at a colleague's journal. */
+  onMakeMeProvider?: (visit: JournalVisit) => void;
 }
 
 /** Row icon order: the first three, a separator, then the rest. */
@@ -81,6 +86,9 @@ export const SIDE_BUTTON_ORDER: JournalActionKey[] = [
   'followup',
   'rx',
 ];
+
+/** A covering provider can't take over a signed, cancelled or no-show visit. */
+const SIGNED_OR_CLOSED: VisitStatusLabel[] = ['completed', 'awaiting supervisor approval', 'cancelled', 'no show'];
 
 export const RX_DISABLED_REASON = 'Available once the new eRx is released';
 export const NO_PROGRESS_NOTE_REASON = 'No Progress Note yet';
@@ -112,6 +120,10 @@ export const buildJournalActions = (
         tooltip: 'Progress Note',
         icon: <DescriptionIcon />,
         href: reviewAndSignUrl(chartVisit),
+        menu:
+          kind === 'provider' && handlers.onMakeMeProvider && !SIGNED_OR_CLOSED.includes(chartVisit.status)
+            ? [{ label: 'Make me provider and open note', onClick: () => handlers.onMakeMeProvider?.(chartVisit) }]
+            : undefined,
       },
       {
         key: 'details',
