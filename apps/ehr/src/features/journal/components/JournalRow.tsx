@@ -142,7 +142,7 @@ export const JournalRow = ({ rowRef, kind, now, selected, actions, onSelect, onO
     >
       <JournalDot color={dotColor(rowRef, kind)} />
       {row.patient ? (
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <Typography
             component="span"
             sx={{
