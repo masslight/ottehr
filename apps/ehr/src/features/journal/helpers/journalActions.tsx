@@ -86,8 +86,6 @@ export const SIDE_BUTTON_ORDER: JournalActionKey[] = [
   'rx',
 ];
 
-/** A covering provider can't take over a signed, cancelled or no-show visit. */
-
 export const RX_DISABLED_REASON = 'Available once the new eRx is released';
 export const NO_PROGRESS_NOTE_REASON = 'No Progress Note yet';
 

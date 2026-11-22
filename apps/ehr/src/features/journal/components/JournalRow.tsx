@@ -1,9 +1,9 @@
 import { Box, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { Fragment, ReactElement, ReactNode } from 'react';
+import { Fragment, memo, ReactElement, ReactNode, useMemo } from 'react';
 import { PatientDateOfBirth } from 'src/components/PatientDateOfBirth';
 import { JournalItem, JournalKind, JournalRow as JournalRowData } from 'utils/lib/types/api/provider-journal.types';
-import { JournalAction } from '../helpers/journalActions';
+import { buildJournalActions, JournalActionHandlers } from '../helpers/journalActions';
 import {
   formatAge,
   formatVisitDay,
@@ -22,7 +22,8 @@ interface Props {
   kind: JournalKind;
   now: DateTime;
   selected: boolean;
-  actions: JournalAction[];
+  /** Must not change between renders, or every row redraws. */
+  handlers: JournalActionHandlers;
   onSelect: (key: string) => void;
   onOpenChat: (row: JournalRowData, item: JournalItem) => void;
 }
@@ -50,8 +51,18 @@ export const ItemSeparator = (): ReactElement => (
   </Box>
 );
 
-export const JournalRow = ({ rowRef, kind, now, selected, actions, onSelect, onOpenChat }: Props): ReactElement => {
+/** Memoized: a journal can have hundreds of rows, and picking one should redraw only the two that change. */
+export const JournalRow = memo(function JournalRow({
+  rowRef,
+  kind,
+  now,
+  selected,
+  handlers,
+  onSelect,
+  onOpenChat,
+}: Props): ReactElement {
   const { row, section } = rowRef;
+  const actions = useMemo(() => buildJournalActions(rowRef, kind, handlers), [rowRef, kind, handlers]);
   const items = row.items.map((item, index) => (
     <Fragment key={item.id}>
       {index > 0 && <ItemSeparator />}
@@ -182,4 +193,4 @@ export const JournalRow = ({ rowRef, kind, now, selected, actions, onSelect, onO
       <JournalRowActions actions={actions} />
     </Box>
   );
-};
+});

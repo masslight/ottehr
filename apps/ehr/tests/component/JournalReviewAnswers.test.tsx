@@ -58,7 +58,7 @@ describe('OTR-3941 review answers', () => {
         kind="provider"
         now={NOW}
         selected={false}
-        actions={[]}
+        handlers={{ onSelect: () => {}, onStart: () => {}, onText: () => {}, onNote: () => {}, onAddendum: () => {} }}
         onSelect={() => {}}
         onOpenChat={() => {}}
       />

@@ -1,7 +1,7 @@
 import { Box, CircularProgress, Link, MenuItem, Paper, Select, TextField, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { ReactElement, ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { assignPractitioner } from 'src/api/api';
 import { visitQuickTextsContext } from 'src/features/chat/chat.queries';
 import ChatModal from 'src/features/chat/ChatModal';
@@ -126,7 +126,9 @@ export const JournalPage = (): ReactElement => {
     else setSupportChatItem(item);
   };
 
-  const now = DateTime.now();
+  // Ages count to when the journal loaded, so rows stay memoized; every reload (tab focus, actions) moves it on.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const now = useMemo(() => DateTime.now(), [data]);
   const q = query.trim().toLowerCase();
 
   const refs = useMemo(() => {
@@ -214,6 +216,27 @@ export const JournalPage = (): ReactElement => {
         : undefined,
   };
 
+  // Rows are memoized, so they get handlers that never change and call this render's.
+  const latest = useRef({ handlers, openChat });
+  latest.current = { handlers, openChat };
+  const canMakeMeProvider = Boolean(handlers.onMakeMeProvider);
+  const rowHandlers = useMemo<JournalActionHandlers>(
+    () => ({
+      onSelect: (key) => latest.current.handlers.onSelect(key),
+      onStart: (row) => latest.current.handlers.onStart(row),
+      onText: (row) => latest.current.handlers.onText(row),
+      onNote: (row) => latest.current.handlers.onNote(row),
+      onAddendum: (row, visit) => latest.current.handlers.onAddendum(row, visit),
+      onMakeMeProvider: canMakeMeProvider ? (visit) => latest.current.handlers.onMakeMeProvider?.(visit) : undefined,
+    }),
+    [canMakeMeProvider]
+  );
+  const rowOpenChat = useCallback((row: JournalRowData, item: JournalItem) => latest.current.openChat(row, item), []);
+  const toggleSelected = useCallback(
+    (key: string) => setSelectedKey((current) => (current === key ? undefined : key)),
+    []
+  );
+
   const renderRow = (ref: JournalRowRef): ReactElement => (
     <JournalRow
       key={ref.key}
@@ -221,9 +244,9 @@ export const JournalPage = (): ReactElement => {
       kind={kind}
       now={now}
       selected={ref.key === selectedKey}
-      actions={buildJournalActions(ref, kind, handlers)}
-      onSelect={(key) => setSelectedKey((current) => (current === key ? undefined : key))}
-      onOpenChat={openChat}
+      handlers={rowHandlers}
+      onSelect={toggleSelected}
+      onOpenChat={rowOpenChat}
     />
   );
 
