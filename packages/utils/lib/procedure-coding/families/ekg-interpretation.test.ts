@@ -1,4 +1,25 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../ottehr-config/procedures', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('../../ottehr-config/procedures')>();
+  const quickPicks = [...orig.PROCEDURES_CONFIG.quickPicks];
+  if (!quickPicks.some((p: { name: string }) => p.name === 'EKG – normal')) {
+    quickPicks.push({
+      name: 'EKG – normal',
+      procedureType: 'ekg',
+      structuredFacts: {
+        rhythm: 'sinus rhythm',
+        axis: 'normal',
+        conduction: ['normal'],
+        stt: ['no acute ST-T wave changes'],
+        otherFindings: ['none'],
+        impression: 'normal EKG',
+      },
+    });
+  }
+  return { ...orig, PROCEDURES_CONFIG: { ...orig.PROCEDURES_CONFIG, quickPicks } };
+});
+
 import procedureTypes from '../../../../../config/oystehr/procedure-type.json';
 import { assembleSentence, isSentenceBlank } from '../../helpers/suggested-sentences';
 import { PROCEDURES_CONFIG } from '../../ottehr-config/procedures';
