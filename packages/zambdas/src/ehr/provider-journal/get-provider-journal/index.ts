@@ -142,7 +142,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     ]),
   ].filter(isValidUUID);
 
-  const [olderVisitResources, extraPatientResources] = await Promise.all([
+  const [olderVisitResources, extraPatientResources, unreadMessageSentAt] = await Promise.all([
     // Older visits matter only on rows with a to-do: they keep the row in Recent and give its "Seen" and chart links.
     // To-dos are tasks and notes to sign, and every note to sign is on an unfinished visit above.
     Promise.all(
@@ -169,6 +169,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           oystehr
         )
       : [],
+    getUnreadMessageSentAt(oystehr, tasks),
   ]);
 
   const visitResources = deduplicateUnbundledResources([
@@ -187,7 +188,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   );
 
   const everything = [...visitResources, ...extraPatientResources];
-  const unreadMessageSentAt = await getUnreadMessageSentAt(oystehr, tasks);
 
   const journal = buildJournal({
     kind,
@@ -202,13 +202,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     diagnosticReports,
     unreadMessageSentAt,
   });
-  await addVisitLocations(oystehr, journal, [...allEncounters, ...taskEncounters], tasks);
-  await labelAccountPhones(oystehr, journal);
-  await markUnreadTexts(
-    oystehr,
-    journal,
-    everything.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson')
-  );
+  // Each fills its own fields on the shown rows, so they run together.
+  await Promise.all([
+    addVisitLocations(oystehr, journal, [...allEncounters, ...taskEncounters], tasks),
+    labelAccountPhones(oystehr, journal),
+    markUnreadTexts(
+      oystehr,
+      journal,
+      everything.filter((r): r is RelatedPerson => r.resourceType === 'RelatedPerson')
+    ),
+  ]);
 
   return lambdaResponse(200, journal);
 });
