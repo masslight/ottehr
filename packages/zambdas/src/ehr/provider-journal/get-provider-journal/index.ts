@@ -58,16 +58,21 @@ let m2mToken: string;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { practitionerId, timezone, secrets } = validateWithSchema(GetProviderJournalInputSchema, input);
-  // Anyone who can open charts can open a journal; what they can do on it keeps each action's own rules.
-  await requireUserWithRole(getUserToken(input), secrets, ALL_EHR_STAFF_ROLES);
-
   const now = DateTime.now().setZone(timezone);
   if (!now.isValid) throw INVALID_INPUT_ERROR(`"timezone" is invalid: ${now.invalidExplanation ?? ''}`);
 
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-
-  const kind = await getJournalKind(oystehr, practitionerId);
+  // The target's role lookup runs alongside the caller's check, to save the wait, but is read only once the caller
+  // passes: a caller who isn't staff always gets "not authorized", never a hint about the target's roles.
+  const kindLookup = (async () => {
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
+    return { oystehr, kind: await getJournalKind(oystehr, practitionerId) };
+  })();
+  // A failed lookup is reported by the await below, or not at all when the caller check fails first.
+  kindLookup.catch(() => undefined);
+  // Anyone who can open charts can open a journal; what they can do on it keeps each action's own rules.
+  await requireUserWithRole(getUserToken(input), secrets, ALL_EHR_STAFF_ROLES);
+  const { oystehr, kind } = await kindLookup;
 
   const windowStart = now.minus({ days: JOURNAL_WINDOW_DAYS }).startOf('day').toUTC().toISO()!;
   const pastStart = pastWeekStart(now).toUTC().toISO()!;

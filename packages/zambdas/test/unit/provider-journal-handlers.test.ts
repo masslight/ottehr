@@ -60,7 +60,7 @@ describe('get-provider-journal access', () => {
     mockFhir.search.mockResolvedValue({ unbundle: () => [] });
   });
 
-  it('requires an EHR staff role before reading anything', async () => {
+  it('requires an EHR staff role before reading any patient data', async () => {
     mockRequireRole.mockRejectedValue(NOT_AUTHORIZED);
     await expect(
       call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'America/New_York' })
@@ -68,7 +68,23 @@ describe('get-provider-journal access', () => {
       code: APIErrorCode.NOT_AUTHORIZED,
     });
     expect(mockRequireRole).toHaveBeenCalledWith('user-token', expect.anything(), ALL_EHR_STAFF_ROLES);
-    expect(mockPractitionerRoles).not.toHaveBeenCalled();
+    // The target's role lookup may already have started; no FHIR search has.
+    expect(mockGetAllPages).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['is not a Provider or Clinician', (): void => void mockPractitionerRoles.mockResolvedValue([RoleType.Staff])],
+    ['lookup fails', (): void => void mockPractitionerRoles.mockRejectedValue(new Error('IAM down'))],
+  ])('tells a caller who is not staff only "not authorized" when the target %s', async (_case, setUp) => {
+    setUp();
+    // The target's lookup settles before the caller's check does.
+    mockRequireRole.mockImplementation(
+      () => new Promise((_resolve, reject) => setTimeout(() => reject(NOT_AUTHORIZED), 10))
+    );
+    await expect(
+      call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'America/New_York' })
+    ).rejects.toMatchObject({ code: APIErrorCode.NOT_AUTHORIZED });
+    expect(mockPractitionerRoles).toHaveBeenCalled();
     expect(mockGetAllPages).not.toHaveBeenCalled();
   });
 
