@@ -5,6 +5,7 @@ import { PLANNABLE_VITAL_FIELDS } from './actions';
 import { ChartPlanResponse, PatientStatus, PlannedAction } from './api';
 import { isCptShaped, isIcd10Shaped } from './codes';
 import { findingPolarity, rosPolarity } from './provenance';
+import { isImplausibleHeadCircumference } from './vitals';
 
 export type EvalRuleId =
   | 'diagnosis-code-missing'
@@ -51,6 +52,7 @@ const NEW_PATIENT_EM = new Set(['99202', '99203', '99204', '99205']);
 const ESTABLISHED_EM = new Set(['99212', '99213', '99214', '99215']);
 const VITAL_UNITS: Partial<Record<string, string[]>> = {
   'vital-height': ['cm', 'in'],
+  'vital-head-circumference': ['cm', 'in'],
   'vital-weight': ['kg', 'lb'],
   'vital-temperature': ['F', 'C'],
 };
@@ -160,6 +162,12 @@ function checkVitals(actions: PlannedAction[], violations: EvalViolation[]): voi
       violations.push({
         rule: 'vital-implausible-charted',
         detail: `a height of ${action.value} ${action.unit} was charted instead of being questioned`,
+      });
+    }
+    if (field === 'vital-head-circumference' && isImplausibleHeadCircumference(Number(action.value), action.unit)) {
+      violations.push({
+        rule: 'vital-implausible-charted',
+        detail: `a head circumference of ${action.value} ${action.unit} was charted instead of being questioned`,
       });
     }
   }

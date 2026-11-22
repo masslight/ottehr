@@ -61,6 +61,17 @@ describe('discharge summary vitals', () => {
     expect(vitals.dotVisionScreening).toEqual([expect.stringContaining('85 degrees')]);
   });
 
+  it('shows the most recent head circumference in cm and inches', () => {
+    const { vitals } = composeVitalsForDischargeSummary({
+      allChartData: chartWith([
+        { field: VitalFieldNames.VitalHeadCircumference, value: 43.8, lastUpdated: at('12:20') },
+        { field: VitalFieldNames.VitalHeadCircumference, value: 41.6, lastUpdated: at('11:20') },
+      ] as VitalsObservationDTO[]),
+    });
+
+    expect(vitals.headCircumference).toBe('43.8 cm ≈ 17.24 in');
+  });
+
   it('is titled Discharge Vitals', () => {
     expect(createVitalsSectionForDischargeSummary().title).toBe('Discharge Vitals');
   });
@@ -132,6 +143,34 @@ describe('discharge summary vitals layout', () => {
     expect(dotHeading.x).toBe(temp.x);
     expect(dotHeading.y).toBeLessThan(vision.y);
     expect(drawn.get('Horizontal Field of Vision – Left: 85 degrees')?.x).toBe(temp.x);
+  });
+
+  it('prints Head circumference directly below Height, above BMI', async () => {
+    const drawn = await renderVitals([
+      { field: VitalFieldNames.VitalHeight, value: 68, lastUpdated: at('12:00') },
+      { field: VitalFieldNames.VitalHeadCircumference, value: 43.8, lastUpdated: at('12:00') },
+      { field: VitalFieldNames.VitalBMI, value: 17.7, lastUpdated: at('12:00') },
+    ] as VitalsObservationDTO[]);
+    const height = drawn.get('Height: ')!;
+    const headCircumference = drawn.get('Head circumference: ')!;
+    const bmi = drawn.get('BMI: ')!;
+
+    expect(headCircumference.x).toBe(height.x);
+    expect(headCircumference.y).toBeLessThan(height.y);
+    expect(headCircumference.y).toBe(drawn.get('BP: ')!.y);
+    expect(bmi.x).toBe(height.x);
+    expect(bmi.y).toBeLessThan(headCircumference.y);
+    expect(drawn.get('43.8 cm ≈ 17.24 in')?.y).toBe(headCircumference.y);
+  });
+
+  it('keeps BMI beside BP when no head circumference was recorded', async () => {
+    const drawn = await renderVitals([
+      { field: VitalFieldNames.VitalHeight, value: 180, lastUpdated: at('12:00') },
+      { field: VitalFieldNames.VitalBMI, value: 24.7, lastUpdated: at('12:00') },
+    ] as VitalsObservationDTO[]);
+
+    expect(drawn.has('Head circumference: ')).toBe(false);
+    expect(drawn.get('BMI: ')!.y).toBe(drawn.get('BP: ')!.y);
   });
 
   it('leaves out Last Menstrual Period and Vision when they were not recorded', async () => {

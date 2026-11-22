@@ -186,6 +186,7 @@ type AllOtherFields =
   | VitalFieldNames.VitalTemperature
   | VitalFieldNames.VitalRespirationRate
   | VitalFieldNames.VitalHeight
+  | VitalFieldNames.VitalHeadCircumference
   | VitalFieldNames.VitalWeight
   | VitalFieldNames.VitalBMI;
 

@@ -267,7 +267,8 @@ export const CAPABILITIES = {
   and a recheck), emit a separate set-vital for EACH reading, in order: serial measurements all belong
   on the chart and are not duplicates. Do not invent vitals the narrative does not give.
   For blood pressure keep BOTH numbers in display as "systolic/diastolic". For temperature include the
-  unit letter (F or C).`,
+  unit letter (F or C). A head circumference, also dictated as "OFC" or "HC", is vital-head-circumference,
+  never vital-height.`,
   },
 
   'add-exam-finding': {

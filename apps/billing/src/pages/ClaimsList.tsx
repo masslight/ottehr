@@ -37,6 +37,7 @@ import {
   CLAIM_SORT_FIELDS,
   ClaimSort,
   ClaimSortField,
+  ClaimTagMatch,
   ExportBillingClaimsInput,
   SearchBillingClaimsInput,
   UpdateBillingResourceInput,
@@ -84,6 +85,7 @@ import {
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
 import { ClaimStatusValueChip } from '../components/ClaimStatusValueChip';
+import { ClaimTagFilter } from '../components/ClaimTagFilter';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateRangeInput } from '../components/DateInput';
 import { NioInvoiceDialog } from '../components/NioInvoiceDialog';
@@ -113,6 +115,8 @@ interface Filters {
   arStage?: string[];
   status?: string[];
   tag?: string[];
+  tagMatch?: ClaimTagMatch;
+  excludeTag?: string[];
   createdFrom?: string;
   createdTo?: string;
   serviceDateFrom?: string;
@@ -130,6 +134,8 @@ function toSearchParams(filters: Filters): ExportBillingClaimsInput {
   if (filters.arStage?.length) params.arStage = filters.arStage;
   if (filters.status?.length) params.status = filters.status;
   if (filters.tag?.length) params.tag = filters.tag;
+  if (filters.tag?.length && filters.tagMatch === 'all') params.tagMatch = 'all';
+  if (filters.excludeTag?.length) params.excludeTag = filters.excludeTag;
   if (filters.createdFrom) params.createdFrom = filters.createdFrom;
   if (filters.createdTo) params.createdTo = filters.createdTo;
   if (filters.serviceDateFrom) params.serviceDateFrom = filters.serviceDateFrom;
@@ -171,6 +177,9 @@ interface StoredClaimsListFilters {
   arStageFilter: string[];
   statusFilter: string[];
   tagFilter: string[];
+  // Optional: filters kept before tags could be excluded or all-matched don't have them.
+  tagMatch?: ClaimTagMatch;
+  excludeTagFilter?: string[];
   createdFrom: string;
   createdTo: string;
   serviceDateFrom: string;
@@ -212,6 +221,8 @@ function storedToFilters(stored: StoredClaimsListFilters): ClaimsListFilters {
     arStage: stored.arStageFilter,
     status: stored.statusFilter,
     tag: stored.tagFilter,
+    tagMatch: stored.tagMatch,
+    excludeTag: Array.isArray(stored.excludeTagFilter) ? stored.excludeTagFilter : [],
     type: stored.typeFilter,
     service: stored.selectedServices.map((sv) => sv.name),
     createdFrom: stored.createdFrom,
@@ -230,6 +241,8 @@ function stateToStored({ filters, layout, paginationModel }: ClaimsListViewState
     arStageFilter: filters.arStage ?? [],
     statusFilter: filters.status ?? [],
     tagFilter: filters.tag ?? [],
+    tagMatch: filters.tagMatch,
+    excludeTagFilter: filters.excludeTag ?? [],
     createdFrom: filters.createdFrom ?? '',
     createdTo: filters.createdTo ?? '',
     serviceDateFrom: filters.serviceDateFrom ?? '',
@@ -494,6 +507,8 @@ export function ClaimsListView({
   const [arStageFilter, setArStageFilter] = useState<string[]>(initialFilters?.arStage ?? []);
   const [statusFilter, setStatusFilter] = useState<string[]>(initialFilters?.status ?? []);
   const [tagFilter, setTagFilter] = useState<string[]>(initialFilters?.tag ?? []);
+  const [tagMatch, setTagMatch] = useState<ClaimTagMatch>(initialFilters?.tagMatch ?? 'any');
+  const [excludeTagFilter, setExcludeTagFilter] = useState<string[]>(initialFilters?.excludeTag ?? []);
   const [tagOptions, setTagOptions] = useState<{ id: string; name: string }[]>([]);
   const [createdFrom, setCreatedFrom] = useState(initialFilters?.createdFrom ?? '');
   const [createdTo, setCreatedTo] = useState(initialFilters?.createdTo ?? '');
@@ -590,6 +605,8 @@ export function ClaimsListView({
       arStage: overrides?.arStage ?? arStageFilter,
       status: overrides?.status ?? statusFilter,
       tag: overrides?.tag ?? tagFilter,
+      tagMatch: overrides?.tagMatch ?? tagMatch,
+      excludeTag: overrides?.excludeTag ?? excludeTagFilter,
       createdFrom: overrides?.createdFrom ?? createdFrom,
       createdTo: overrides?.createdTo ?? createdTo,
       serviceDateFrom: overrides?.serviceDateFrom ?? serviceDateFrom,
@@ -605,6 +622,8 @@ export function ClaimsListView({
       arStageFilter,
       statusFilter,
       tagFilter,
+      tagMatch,
+      excludeTagFilter,
       createdFrom,
       createdTo,
       serviceDateFrom,
@@ -641,6 +660,8 @@ export function ClaimsListView({
         arStage: arStageFilter,
         status: statusFilter,
         tag: tagFilter,
+        tagMatch,
+        excludeTag: excludeTagFilter,
         type: typeFilter,
         service: selectedServices.map((sv) => sv.name),
         createdFrom,
@@ -657,6 +678,8 @@ export function ClaimsListView({
       arStageFilter,
       statusFilter,
       tagFilter,
+      tagMatch,
+      excludeTagFilter,
       typeFilter,
       selectedServices,
       createdFrom,
@@ -715,6 +738,8 @@ export function ClaimsListView({
     setArStageFilter([]);
     setStatusFilter([]);
     setTagFilter([]);
+    setTagMatch('any');
+    setExcludeTagFilter([]);
     setCreatedFrom('');
     setCreatedTo('');
     setServiceDateFrom('');
@@ -738,6 +763,7 @@ export function ClaimsListView({
     arStageFilter.length ||
     statusFilter.length ||
     tagFilter.length ||
+    excludeTagFilter.length ||
     createdFrom ||
     createdTo ||
     serviceDateFrom ||
@@ -1035,15 +1061,16 @@ export function ClaimsListView({
           sx={{ minWidth: 180, maxWidth: 300 }}
         />
 
-        <MultiSelectFilter
-          label="Tag"
-          options={tagOptions.map((t) => ({ value: t.name, label: t.name }))}
-          value={tagFilter}
-          minWidth={140}
-          disabled={tagOptions.length === 0}
-          onChange={(value) => {
-            setTagFilter(value);
-            applyFilters({ tag: value });
+        <ClaimTagFilter
+          options={tagOptions.map((t) => t.name)}
+          value={{ include: tagFilter, exclude: excludeTagFilter, match: tagMatch }}
+          minWidth={160}
+          disabled={tagOptions.length === 0 && !tagFilter.length && !excludeTagFilter.length}
+          onChange={({ include, exclude, match }) => {
+            setTagFilter(include);
+            setExcludeTagFilter(exclude);
+            setTagMatch(match);
+            applyFilters({ tag: include, excludeTag: exclude, tagMatch: match });
           }}
         />
 

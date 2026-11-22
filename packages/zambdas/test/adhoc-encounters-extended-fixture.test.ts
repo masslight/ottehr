@@ -616,6 +616,8 @@ const vitals: Observation[] = [
   ),
   vital('enc-1', { field: VitalFieldNames.VitalWeight, value: 70 }, '2026-07-01T14:07:00.000Z'),
   vital('enc-1', { field: VitalFieldNames.VitalHeight, value: 170 }, '2026-07-01T14:07:00.000Z'),
+  vital('enc-1', { field: VitalFieldNames.VitalHeadCircumference, value: 41.55 }, '2026-07-01T14:07:00.000Z'),
+  vital('enc-1', { field: VitalFieldNames.VitalHeadCircumference, value: 43.84 }, '2026-07-01T14:09:00.000Z'),
   vital(
     'enc-1',
     {
@@ -1148,6 +1150,8 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       weightLbs: 154.3,
       heightInches: 66.93,
       heightFeetInches: `5'7"`,
+      headCircumferenceCm: 43.8,
+      headCircumferenceInches: 17.26,
       temperatureMethod: 'Oral',
       heartRateMethod: 'Sitting',
       bloodPressureMethod: 'Standing',
@@ -1187,6 +1191,8 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       temperatureC: null,
       temperatureMethod: null,
       heightFeetInches: '',
+      headCircumferenceCm: null,
+      headCircumferenceInches: null,
       visionOptions: [],
       lastMenstrualPeriod: null,
       lastMenstrualPeriodUnsure: null,

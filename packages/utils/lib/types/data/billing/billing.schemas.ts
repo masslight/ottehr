@@ -191,15 +191,24 @@ export const ClaimSortSchema = z.object({
   direction: z.enum(['asc', 'desc']),
 });
 
+export const CLAIM_TAG_MATCH_MODES = ['any', 'all'] as const;
+export const ClaimTagMatchSchema = z.enum(CLAIM_TAG_MATCH_MODES);
+export type ClaimTagMatch = z.output<typeof ClaimTagMatchSchema>;
+
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   // Limit search to patient names and claim IDs.
   patientNameOnly: z.boolean().optional(),
-  // Each list filter below matches a claim with any one of its values.
+  // Each list filter below matches a claim with any one of its values (tag: see tagMatch).
   type: oneOrMany(z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES)).optional(),
   arStage: oneOrMany(nonEmptyString).optional(),
   status: oneOrMany(nonEmptyString).optional(),
   tag: oneOrMany(nonEmptyString).optional(),
+  // How `tag` matches: 'any' (the default) keeps a claim with at least one of the tags, 'all' only a
+  // claim with every one of them.
+  tagMatch: ClaimTagMatchSchema.optional(),
+  // Claims carrying any of these tags are left out.
+  excludeTag: oneOrMany(nonEmptyString).optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
   // only claims last updated on/before this ISO timestamp (stale-claim drilldowns)

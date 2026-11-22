@@ -19,6 +19,7 @@ const {
   searchBillingPatientsMock,
   searchBillingServicesMock,
   checkBillingNioInvoiceMock,
+  searchBillingTagsMock,
   mockOystehrZambda,
 } = vi.hoisted(() => ({
   searchBillingClaimsMock: vi.fn(),
@@ -31,6 +32,7 @@ const {
   searchBillingPatientsMock: vi.fn().mockResolvedValue({ patients: [] }),
   searchBillingServicesMock: vi.fn().mockResolvedValue({ services: [] }),
   checkBillingNioInvoiceMock: vi.fn(),
+  searchBillingTagsMock: vi.fn().mockResolvedValue({ tags: [] }),
   mockOystehrZambda: {},
 }));
 
@@ -45,7 +47,7 @@ vi.mock('../../src/api/api', () => ({
   searchBillingCustomInsuranceOrgs: vi.fn().mockResolvedValue({ organizations: [] }),
   // Preloaded on mount — without this export the load explodes after the test body has finished.
   searchBillingServices: searchBillingServicesMock,
-  searchBillingTags: vi.fn().mockResolvedValue({ tags: [] }),
+  searchBillingTags: searchBillingTagsMock,
   checkBillingNioInvoice: checkBillingNioInvoiceMock,
 }));
 
@@ -1009,5 +1011,81 @@ describe('ClaimsList — sorting', () => {
       const stored = JSON.parse(sessionStorage.getItem(FILTERS_STORAGE_KEY) ?? '{}');
       expect(stored.layout).toEqual({ sort: { field: 'billed', direction: 'desc' } });
     });
+  });
+});
+
+describe('ClaimsList — tag filter', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    searchBillingClaimsMock.mockResolvedValue({ claims: [], total: 0 });
+    searchBillingTagsMock.mockResolvedValue({
+      tags: [
+        { id: 't-1', name: 'needs-review' },
+        { id: 't-2', name: 'urgent' },
+        { id: 't-3', name: 'on-hold' },
+      ],
+    });
+  });
+
+  afterEach(() => {
+    searchBillingTagsMock.mockResolvedValue({ tags: [] });
+  });
+
+  it('searches for claims with some tags and without others', async () => {
+    const user = userEvent.setup();
+    renderList();
+
+    const tagsField = await screen.findByLabelText('Tags');
+    await waitFor(() => expect(tagsField).not.toBeDisabled());
+    await user.click(tagsField);
+
+    await user.click(await screen.findByLabelText('Include'));
+    await user.click(await screen.findByRole('option', { name: 'needs-review' }));
+    await user.click(screen.getByLabelText('Exclude'));
+    // A tag already included isn't offered for exclusion.
+    expect(screen.queryByRole('option', { name: 'needs-review' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('option', { name: 'on-hold' }));
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenLastCalledWith(
+        {},
+        expect.objectContaining({ tag: ['needs-review'], excludeTag: ['on-hold'] })
+      )
+    );
+    expect(searchBillingClaimsMock.mock.lastCall?.[1]).not.toHaveProperty('tagMatch');
+    expect(tagsField).toHaveValue('needs-review; not on-hold');
+  });
+
+  it('restores kept include, all-match and exclude tag filters', async () => {
+    sessionStorage.setItem(
+      FILTERS_STORAGE_KEY,
+      JSON.stringify({
+        searchText: '',
+        arStageFilter: [],
+        statusFilter: [],
+        tagFilter: ['needs-review', 'urgent'],
+        tagMatch: 'all',
+        excludeTagFilter: ['on-hold'],
+        createdFrom: '',
+        createdTo: '',
+        serviceDateFrom: '',
+        serviceDateTo: '',
+        selectedPayers: [],
+        selectedPatients: [],
+        typeFilter: [],
+        selectedServices: [],
+        paginationModel: { page: 0, pageSize: 25 },
+      })
+    );
+
+    renderList();
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({ tag: ['needs-review', 'urgent'], tagMatch: 'all', excludeTag: ['on-hold'] })
+      )
+    );
+    expect(await screen.findByLabelText('Tags')).toHaveValue('needs-review and urgent; not on-hold');
   });
 });
