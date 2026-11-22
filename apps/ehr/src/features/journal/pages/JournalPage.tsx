@@ -101,9 +101,13 @@ export const JournalPage = (): ReactElement => {
   const { oystehrZambda } = useApiClients();
   const { owners, myPractitionerId, iAmProvider, isLoading: ownersLoading } = useJournalOwners();
   const [pickedOwnerId, setPickedOwnerId] = useState<string>();
+  // While the staff list loads, start on the user's own journal rather than wait for it. A user without a journal
+  // gets a failed request, hidden behind the spinner, then the first owner's once the list arrives.
   const ownerId =
     pickedOwnerId ??
-    (owners.some((o) => o.practitionerId === myPractitionerId) ? myPractitionerId : owners[0]?.practitionerId);
+    (ownersLoading || owners.some((o) => o.practitionerId === myPractitionerId)
+      ? myPractitionerId
+      : owners[0]?.practitionerId);
   const owner = owners.find((o) => o.practitionerId === ownerId);
   const isMe = ownerId === myPractitionerId;
 
