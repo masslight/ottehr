@@ -48,6 +48,8 @@ const COLUMN_GAP_PX = 16;
 const TWO_COLUMN_QUERY = `@container (min-width: ${MAIN_MIN_WIDTH + COLUMN_GAP_PX + SIDE_MIN_WIDTH}px)`;
 
 const META_SX = { color: JOURNAL_COLORS.text2, fontSize: '13px' };
+/** Recent rows drawn before "+ N more": drawing hundreds at once freezes the page for seconds. */
+const RECENT_FIRST_ROWS = 50;
 const MORE_SX = {
   fontSize: '13px',
   color: JOURNAL_COLORS.text2,
@@ -110,6 +112,7 @@ export const JournalPage = (): ReactElement => {
   const [query, setQuery] = useState('');
   const [selectedKey, setSelectedKey] = useState<string>();
   const [showMore, setShowMore] = useState(false);
+  const [showAllRecent, setShowAllRecent] = useState(false);
   const [showPast, setShowPast] = useState(false);
   const [noteTarget, setNoteTarget] = useState<JournalNoteTarget>();
   const [chatRef, setChatRef] = useState<JournalRowRef>();
@@ -155,6 +158,7 @@ export const JournalPage = (): ReactElement => {
     setPickedOwnerId(id);
     setSelectedKey(undefined);
     setShowMore(false);
+    setShowAllRecent(false);
     setShowPast(false);
   };
 
@@ -345,7 +349,21 @@ export const JournalPage = (): ReactElement => {
         )}
         {(!q || rc.length > 0) && (
           <Section title="Recent" sumbar={summarizeItems(rc.flatMap((r) => r.row.items))}>
-            {rc.map(renderRow)}
+            {(showAllRecent || q ? rc : rc.slice(0, RECENT_FIRST_ROWS)).map(renderRow)}
+            {!q && rc.length > RECENT_FIRST_ROWS && (
+              <Box
+                component="button"
+                type="button"
+                onClick={() => setShowAllRecent(!showAllRecent)}
+                sx={{ ...MORE_SX, border: 0, background: 'none', font: 'inherit' }}
+              >
+                {showAllRecent
+                  ? 'Show fewer'
+                  : `+ ${rc.length - RECENT_FIRST_ROWS} more ${
+                      rc.length - RECENT_FIRST_ROWS === 1 ? 'patient' : 'patients'
+                    } with to-dos`}
+              </Box>
+            )}
           </Section>
         )}
         {np.length > 0 && <Section title="Not tied to a recent visit">{np.map(renderRow)}</Section>}
