@@ -313,17 +313,18 @@ describe('get-provider-journal access', () => {
     expect(mockFhir.search.mock.calls[0][0]).toMatchObject({ resourceType: 'Communication' });
   });
 
-  it('dates "Reply to patient message" from the newest unread patient message, not the request', async () => {
+  it('dates each "Reply to patient message" from its own thread’s newest unread patient message, in one search', async () => {
     mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
-    const thread = { system: SUPPORT_CHAT_THREAD_SYSTEM, code: 'person-1' };
-    const request = {
+    const threadA = { system: SUPPORT_CHAT_THREAD_SYSTEM, code: '6f1c1c2e-5555-4a5a-9c2b-00000000000a' };
+    const threadB = { system: SUPPORT_CHAT_THREAD_SYSTEM, code: '6f1c1c2e-5555-4a5a-9c2b-00000000000b' };
+    const request = (id: string, thread: object): object => ({
       ...createTask({ category: PATIENT_REQUEST_TASK.category, title: 'Prescription Refill for Ava Chen' }),
-      id: 'task-portal',
+      id,
       authoredOn: '2026-11-05T12:00:00.000Z',
       owner: { reference: `Practitioner/${PRACTITIONER_ID}` },
       meta: { tag: [{ code: 'task' }, thread, SUPPORT_CHAT_UNREAD_TAG] },
-    };
-    const message = (id: string, sent: string, sender?: string): object => ({
+    });
+    const message = (id: string, thread: object, sent: string, sender?: string): object => ({
       resourceType: 'Communication',
       id,
       status: 'in-progress',
@@ -333,23 +334,36 @@ describe('get-provider-journal access', () => {
     });
     mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
       const has = (name: string): boolean => params.some((p: { name: string }) => p.name === name);
-      if (resourceType === 'Task' && has('owner')) return [request];
+      if (resourceType === 'Task' && has('owner')) return [request('task-a', threadA), request('task-b', threadB)];
       if (resourceType === 'Communication')
         return [
-          message('m1', '2026-11-07T14:00:00.000Z', 'RelatedPerson/rp-1'),
-          message('m2', '2026-11-07T14:50:00.000Z', 'RelatedPerson/rp-1'),
+          message('m1', threadA, '2026-11-07T14:00:00.000Z', 'RelatedPerson/rp-1'),
+          message('m2', threadA, '2026-11-07T14:50:00.000Z', 'RelatedPerson/rp-1'),
           // Staff and bot messages aren't the patient writing.
-          message('m3', '2026-11-07T14:55:00.000Z', 'Practitioner/p-1'),
-          message('m4', '2026-11-07T14:56:00.000Z'),
+          message('m3', threadA, '2026-11-07T14:55:00.000Z', 'Practitioner/p-1'),
+          message('m4', threadA, '2026-11-07T14:56:00.000Z'),
+          message('m5', threadB, '2026-11-06T09:00:00.000Z', 'RelatedPerson/rp-2'),
         ];
       return [];
     });
     const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
-    expect(journal.notTied[0].items[0]).toMatchObject({
+    const items = journal.notTied.flatMap((row: JournalRow) => row.items);
+    expect(items.find((i: JournalItem) => i.id === 'task-a')).toMatchObject({
       label: 'Reply to patient message',
       when: 'received',
       since: '2026-11-07T14:50:00.000Z',
     });
+    expect(items.find((i: JournalItem) => i.id === 'task-b')).toMatchObject({ since: '2026-11-06T09:00:00.000Z' });
+    const searches = mockGetAllPages.mock.calls.filter(([search]) => search.resourceType === 'Communication');
+    expect(searches).toHaveLength(1);
+    expect(searches[0][0].params).toEqual(
+      expect.arrayContaining([
+        {
+          name: '_tag',
+          value: `${SUPPORT_CHAT_THREAD_SYSTEM}|${threadA.code},${SUPPORT_CHAT_THREAD_SYSTEM}|${threadB.code}`,
+        },
+      ])
+    );
   });
 
   const LOC_MAIN = '6f1c1c2e-3333-4a5a-9c2b-000000000003';

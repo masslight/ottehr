@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
+  Communication,
   DiagnosticReport,
   Encounter,
   Location,
@@ -25,7 +26,7 @@ import {
   JournalRow,
   JournalVisit,
 } from 'utils/lib/types/api/provider-journal.types';
-import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
+import { SUPPORT_CHAT_THREAD_SYSTEM, SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { ALL_EHR_STAFF_ROLES, RoleType } from 'utils/lib/types/api/user.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
@@ -38,7 +39,7 @@ import {
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
-import { getThreadIdFromTask, isUnreadFor, searchUnread } from '../../../shared/support-chat/thread';
+import { getThreadIdFromTask, isUnreadFor } from '../../../shared/support-chat/thread';
 import { getTaskLocation } from '../../../shared/tasks';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
@@ -214,19 +215,42 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 /** Unread portal requests: the newest unread patient message in each request's Support Chat thread. */
 async function getUnreadMessageSentAt(oystehr: Oystehr, tasks: Task[]): Promise<Map<string, string>> {
-  const sentAt = new Map<string, string>();
-  await Promise.all(
-    tasks.map(async (task) => {
+  const threadIds = new Map(
+    tasks.flatMap((task): [string, string][] => {
       const threadId = getThreadIdFromTask(task);
-      if (!task.id || !threadId || !task.meta?.tag?.some((t) => t.system === SUPPORT_CHAT_UNREAD_TAG.system)) return;
-      const newest = (await searchUnread(oystehr, threadId))
-        .filter((message) => isUnreadFor(message, 'staff') && message.sent)
-        .map((message) => message.sent!)
-        .sort()
-        .at(-1);
-      if (newest) sentAt.set(task.id, newest);
+      const unread = task.meta?.tag?.some((t) => t.system === SUPPORT_CHAT_UNREAD_TAG.system);
+      // Thread ids are account ids; a malformed one would break the combined tag search.
+      return task.id && threadId && unread && isValidUUID(threadId) ? [[task.id, threadId]] : [];
     })
   );
+  // One search per 50 threads, not one per request (searchUnread's query for many threads at once).
+  const messages = (
+    await Promise.all(
+      chunkThings([...new Set(threadIds.values())], IDS_PER_SEARCH).map((chunk) =>
+        getAllFhirSearchPages<Communication>(
+          {
+            resourceType: 'Communication',
+            params: [
+              { name: '_tag', value: chunk.map((id) => `${SUPPORT_CHAT_THREAD_SYSTEM}|${id}`).join(',') },
+              { name: 'status', value: 'in-progress' },
+            ],
+          },
+          oystehr
+        )
+      )
+    )
+  ).flat();
+  const newestByThread = new Map<string, string>();
+  messages.forEach((message) => {
+    const threadId = message.meta?.tag?.find((tag) => tag.system === SUPPORT_CHAT_THREAD_SYSTEM)?.code;
+    if (!threadId || !message.sent || !isUnreadFor(message, 'staff')) return;
+    if (message.sent > (newestByThread.get(threadId) ?? '')) newestByThread.set(threadId, message.sent);
+  });
+  const sentAt = new Map<string, string>();
+  threadIds.forEach((threadId, taskId) => {
+    const newest = newestByThread.get(threadId);
+    if (newest) sentAt.set(taskId, newest);
+  });
   return sentAt;
 }
 
