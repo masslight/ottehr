@@ -184,6 +184,8 @@ import {
 import {
   CompleteJournalTaskInput,
   CompleteJournalTaskOutput,
+  GetJournalPhoneLabelsInput,
+  GetJournalPhoneLabelsResponse,
   GetProviderJournalInput,
   GetProviderJournalResponse,
 } from 'utils/lib/types/api/provider-journal.types';
@@ -1107,6 +1109,22 @@ export const completeJournalTask = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'complete-journal-task',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getJournalPhoneLabels = async (
+  oystehr: Oystehr,
+  parameters: GetJournalPhoneLabelsInput
+): Promise<GetJournalPhoneLabelsResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'get-journal-phone-labels',
       ...parameters,
     });
     return chooseJson(response);

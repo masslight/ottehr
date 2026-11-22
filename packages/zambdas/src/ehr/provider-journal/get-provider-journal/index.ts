@@ -7,7 +7,6 @@ import {
   Encounter,
   Location,
   Patient,
-  QuestionnaireResponse,
   RelatedPerson,
   Task,
 } from 'fhir/r4b';
@@ -16,7 +15,6 @@ import { chunkThings, createSmsModel } from 'utils/lib/fhir/chat';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { relatedPersonAndCommunicationMaps } from 'utils/lib/fhir/patient';
-import { isIntakePaperworkQuestionnaireResponse } from 'utils/lib/fhir/questionnaires';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   GetProviderJournalInputSchema,
@@ -45,11 +43,9 @@ import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
 import {
   buildJournal,
-  consentSignerLabel,
   JOURNAL_WINDOW_DAYS,
   markTextUnread,
   pastWeekStart,
-  phonesByBookingAppointment,
   quickTextLocation,
   resolveTaskPatientId,
   visitLocationIds,
@@ -205,7 +201,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Each fills its own fields on the shown rows, so they run together.
   await Promise.all([
     addVisitLocations(oystehr, journal, [...allEncounters, ...taskEncounters], tasks),
-    labelAccountPhones(oystehr, journal),
     markUnreadTexts(
       oystehr,
       journal,
@@ -334,49 +329,6 @@ async function markUnreadTexts(
     if (createSmsModel(patient.patientId, maps)?.hasUnreadMessages) patient.hasUnreadTexts = true;
   });
   journalRows(journal).forEach((row) => row.patient?.hasUnreadTexts && row.items.forEach(markTextUnread));
-}
-
-/** Labels the shown patients' account phones with the consent signer of the newest visit each phone booked. */
-async function labelAccountPhones(oystehr: Oystehr, journal: GetProviderJournalResponse): Promise<void> {
-  const patients = patientsWithPhones(journal);
-  const searchInChunks = async <T extends Appointment | Encounter | QuestionnaireResponse>(
-    resourceType: 'Appointment' | 'Encounter',
-    name: string,
-    references: string[],
-    extra: { name: string; value: string }[] = []
-  ): Promise<T[]> =>
-    (
-      await Promise.all(
-        chunkThings(references, IDS_PER_SEARCH).map((chunk) =>
-          getAllFhirSearchPages<T>({ resourceType, params: [{ name, value: chunk.join(',') }, ...extra] }, oystehr)
-        )
-      )
-    ).flat();
-
-  const appointments = await searchInChunks<Appointment>(
-    'Appointment',
-    'actor',
-    patients.map((patient) => `Patient/${patient.patientId}`)
-  );
-  const bookings = phonesByBookingAppointment(patients, appointments);
-  const visits = await searchInChunks<Encounter | QuestionnaireResponse>(
-    'Encounter',
-    'appointment',
-    [...bookings.keys()].map((id) => `Appointment/${id}`),
-    [{ name: '_revinclude', value: 'QuestionnaireResponse:encounter' }]
-  );
-  visits.forEach((encounter) => {
-    if (encounter.resourceType !== 'Encounter') return;
-    const intake = visits.find(
-      (r): r is QuestionnaireResponse =>
-        r.resourceType === 'QuestionnaireResponse' &&
-        r.encounter?.reference === `Encounter/${encounter.id}` &&
-        isIntakePaperworkQuestionnaireResponse(r)
-    );
-    const signer = intake ? consentSignerLabel(intake) : undefined;
-    const appointmentId = getIdFromReference(encounter.appointment?.[0]?.reference, 'Appointment');
-    if (signer && appointmentId) bookings.get(appointmentId)?.forEach((phone) => (phone.signer = signer));
-  });
 }
 
 /** Open board tasks owned by this person, and on a provider journal those on any of their visits. */

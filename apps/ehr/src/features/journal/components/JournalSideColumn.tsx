@@ -1,11 +1,17 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import PhoneIcon from '@mui/icons-material/Phone';
-import { Box, Button, ButtonGroup, Link, Menu, MenuItem, Tooltip, Typography } from '@mui/material';
+import { Box, Button, ButtonGroup, Link, Menu, MenuItem, Skeleton, Tooltip, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, ReactNode, useState } from 'react';
 import { PatientDateOfBirth } from 'src/components/PatientDateOfBirth';
 import { DEFAULT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
-import { JournalItem, JournalKind, JournalRow, JournalVisit } from 'utils/lib/types/api/provider-journal.types';
+import {
+  JournalItem,
+  JournalKind,
+  JournalPatient,
+  JournalRow,
+  JournalVisit,
+} from 'utils/lib/types/api/provider-journal.types';
 import { JournalAction, SIDE_BUTTON_ORDER } from '../helpers/journalActions';
 import {
   formatAge,
@@ -22,6 +28,7 @@ import {
   lookaheadLabel,
   visitHeading,
 } from '../helpers/journalHelpers';
+import { useJournalPhoneLabels } from '../hooks/useJournalPhoneLabels';
 import { JournalItemLink } from './JournalItemLink';
 import { FLAG_SX } from './JournalRow';
 
@@ -159,6 +166,44 @@ const AddendumLink = ({ onClick }: { onClick: () => void }): ReactElement => (
 );
 
 /** Everything a row does not show, with the icons as buttons. */
+/** Account phones; each phone's consent signer loads when the patient is shown. */
+const Phones = ({ patient }: { patient: JournalPatient }): ReactElement => {
+  const { data, isLoading } = useJournalPhoneLabels(patient.patientId);
+  return (
+    <>
+      <Box sx={SECTION_HEADING_SX}>Phones</Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {patient.phones.map((phone, index) => {
+          const signer = data?.labels.find((l) => l.recipientResourceUri === phone.recipientResourceUri)?.signer;
+          return (
+            <Box
+              key={`${phone.recipientResourceUri}-${index}`}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '13.5px',
+                color: JOURNAL_COLORS.text2,
+                userSelect: 'all',
+              }}
+            >
+              <PhoneIcon sx={{ width: 13, height: 13 }} />
+              {isLoading ? (
+                <Skeleton variant="text" width={96} aria-label="Loading who signed for this phone" />
+              ) : (
+                signer && <span>{signer}</span>
+              )}
+              <Box component="b" sx={{ fontWeight: 500, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
+                {phone.number}
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
+    </>
+  );
+};
+
 export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, onAddendum }: Props): ReactElement => {
   if (!selected) {
     return (
@@ -326,32 +371,7 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
           {othersItems.map(todo)}
         </>
       )}
-      {patient.phones.length > 0 && (
-        <>
-          <Box sx={SECTION_HEADING_SX}>Phones</Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {patient.phones.map((phone, index) => (
-              <Box
-                key={`${phone.recipientResourceUri}-${index}`}
-                sx={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  fontSize: '13.5px',
-                  color: JOURNAL_COLORS.text2,
-                  userSelect: 'all',
-                }}
-              >
-                <PhoneIcon sx={{ width: 13, height: 13 }} />
-                {phone.signer && <span>{phone.signer}</span>}
-                <Box component="b" sx={{ fontWeight: 500, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
-                  {phone.number}
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        </>
-      )}
+      {patient.phones.length > 0 && <Phones patient={patient} />}
       {buttons}
     </Panel>
   );

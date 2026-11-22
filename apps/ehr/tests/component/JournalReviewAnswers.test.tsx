@@ -8,6 +8,11 @@ import { JournalSideColumn } from '../../src/features/journal/components/Journal
 import { JournalAction } from '../../src/features/journal/helpers/journalActions';
 import { rowRef, summarizeItems } from '../../src/features/journal/helpers/journalHelpers';
 
+// The side column loads phone labels from the server; these tests are about to-dos.
+vi.mock('../../src/features/journal/hooks/useJournalPhoneLabels', () => ({
+  useJournalPhoneLabels: () => ({ data: undefined, isLoading: false }),
+}));
+
 const NOW = DateTime.fromISO('2026-11-21T15:00:00.000Z');
 const visit: JournalVisit = {
   appointmentId: 'appt-1',

@@ -21,6 +21,16 @@ export interface CompleteJournalTaskOutput {
   status: 'completed';
 }
 
+export const GetJournalPhoneLabelsInputSchema = z.object({
+  patientId: z.string().uuid(),
+});
+export type GetJournalPhoneLabelsInput = z.infer<typeof GetJournalPhoneLabelsInputSchema>;
+
+export interface GetJournalPhoneLabelsResponse {
+  /** The patient's account phones that have a label; read when the side column opens, not with the journal. */
+  labels: { recipientResourceUri: string; signer: string }[];
+}
+
 /** Provider = visits where they are the attender; clinician = visits where they are the admitter (intake). */
 export type JournalKind = 'provider' | 'clinician';
 
@@ -114,8 +124,6 @@ export interface JournalPhone {
   number: string;
   /** `RelatedPerson/<id>` of the account phone, the SMS recipient the chat uses. */
   recipientResourceUri: string;
-  /** Consent signer of the newest visit this phone booked, e.g. "Mei Chen (Parent)". */
-  signer?: string;
 }
 
 export interface JournalPatient {

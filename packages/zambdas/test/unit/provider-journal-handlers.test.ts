@@ -241,7 +241,7 @@ describe('get-provider-journal access', () => {
     );
   });
 
-  it('labels account phones with the consent signer of the newest visit the phone booked, and flags unread texts', async () => {
+  it('flags unread texts, and leaves phone labels to get-journal-phone-labels', async () => {
     mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
     const owned = {
       ...createTask({ category: MANUAL_TASK.category.other, title: 'Call' }),
@@ -303,8 +303,10 @@ describe('get-provider-journal access', () => {
     mockFhir.search.mockResolvedValue({ unbundle: () => [unreadText, accountPhone] });
     const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
     expect(journal.notTied[0].patient.phones).toEqual([
-      { number: '+14105550123', recipientResourceUri: 'RelatedPerson/rp-1', signer: 'Mei Chen (Parent)' },
+      { number: '+14105550123', recipientResourceUri: 'RelatedPerson/rp-1' },
     ]);
+    // Reading every booking of every shown patient made the journal slow; the side column asks for one patient.
+    expect(mockGetAllPages.mock.calls.some(([search]) => search.resourceType === 'Appointment')).toBe(false);
     expect(journal.notTied[0].patient.hasUnreadTexts).toBe(true);
     const textItem = journal.notTied
       .flatMap((row: JournalRow) => row.items)
@@ -446,6 +448,92 @@ describe('get-provider-journal access', () => {
     mockPractitionerRoles.mockResolvedValue([RoleType.Clinician]);
     const result = await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'America/New_York' });
     expect(JSON.parse(result.body).kind).toBe('clinician');
+  });
+});
+
+describe('get-journal-phone-labels', () => {
+  let handler!: Handler;
+  const PATIENT_ID = '6f1c1c2e-6666-4a5a-9c2b-000000000006';
+  beforeAll(async () => {
+    handler = (await import('../../src/ehr/provider-journal/get-journal-phone-labels/index')).index as Handler;
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireRole.mockResolvedValue(STAFF_USER);
+    mockGetAllPages.mockResolvedValue([]);
+  });
+
+  it('requires an EHR staff role before reading anything, and a valid patient id', async () => {
+    mockRequireRole.mockRejectedValue(NOT_AUTHORIZED);
+    await expect(call(handler, { patientId: PATIENT_ID })).rejects.toMatchObject({ code: APIErrorCode.NOT_AUTHORIZED });
+    expect(mockRequireRole).toHaveBeenCalledWith('user-token', expect.anything(), ALL_EHR_STAFF_ROLES);
+    expect(mockGetAllPages).not.toHaveBeenCalled();
+    mockRequireRole.mockResolvedValue(STAFF_USER);
+    await expect(call(handler, { patientId: 'Patient/x,Patient/y' })).rejects.toMatchObject({
+      code: APIErrorCode.INVALID_INPUT,
+    });
+  });
+
+  it('answers an unknown patient the same as one with no labels', async () => {
+    const result = await call(handler, { patientId: PATIENT_ID });
+    expect(JSON.parse(result.body)).toEqual({ labels: [] });
+  });
+
+  it('labels each account phone with the consent signer of the newest visit that phone booked', async () => {
+    const accountPhone = (id: string, phone: string): object => ({
+      resourceType: 'RelatedPerson',
+      id,
+      patient: { reference: `Patient/${PATIENT_ID}` },
+      relationship: [
+        { coding: [{ system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`, code: 'user-relatedperson' }] },
+      ],
+      telecom: [{ system: 'sms', value: phone }],
+    });
+    const booking = (id: string, start: string, phone: string): object => ({
+      resourceType: 'Appointment',
+      id,
+      start,
+      participant: [{ actor: { reference: `Patient/${PATIENT_ID}` } }],
+      meta: { tag: [{ system: CREATED_BY_SYSTEM, display: `Patient ${phone}` }] },
+    });
+    const intake = (encounterId: string, name: string): object => ({
+      resourceType: 'QuestionnaireResponse',
+      encounter: { reference: `Encounter/${encounterId}` },
+      meta: { tag: [INTAKE_PAPERWORK_QR_TAG] },
+      item: [
+        { linkId: 'full-name', answer: [{ valueString: name }] },
+        { linkId: 'consent-form-signer-relationship', answer: [{ valueString: 'Parent' }] },
+      ],
+    });
+    mockGetAllPages.mockImplementation(async ({ resourceType }) => {
+      if (resourceType === 'Patient')
+        return [
+          { resourceType: 'Patient', id: PATIENT_ID },
+          accountPhone('rp-1', '+14105550123'),
+          accountPhone('rp-2', '+14105550124'),
+        ];
+      if (resourceType === 'Appointment')
+        return [
+          booking('appt-old', '2026-10-01T15:00:00.000Z', '(410) 555-0123'),
+          booking('appt-new', '2026-11-01T15:00:00.000Z', '(410) 555-0123'),
+        ];
+      if (resourceType === 'Encounter')
+        return [
+          { resourceType: 'Encounter', id: 'enc-new', appointment: [{ reference: 'Appointment/appt-new' }] },
+          intake('enc-new', 'Mei Chen'),
+        ];
+      return [];
+    });
+    const result = JSON.parse((await call(handler, { patientId: PATIENT_ID })).body);
+    expect(result).toEqual({ labels: [{ recipientResourceUri: 'RelatedPerson/rp-1', signer: 'Mei Chen (Parent)' }] });
+    const searches = mockGetAllPages.mock.calls.map(([search]) => search);
+    expect(searches.find((s) => s.resourceType === 'Appointment').params).toEqual([
+      { name: 'actor', value: `Patient/${PATIENT_ID}` },
+    ]);
+    // Only the newest booking each phone made is read; rp-2 booked nothing.
+    expect(searches.find((s) => s.resourceType === 'Encounter').params).toEqual(
+      expect.arrayContaining([{ name: 'appointment', value: 'Appointment/appt-new' }])
+    );
   });
 });
 

@@ -206,7 +206,7 @@ const toJournalVisit = (appointment: Appointment, encounter: Encounter, status: 
   };
 };
 
-const toJournalPatient = (patient: Patient, relatedPersons: RelatedPerson[]): JournalPatient => ({
+export const toJournalPatient = (patient: Patient, relatedPersons: RelatedPerson[]): JournalPatient => ({
   patientId: patient.id!,
   name: getFullestAvailableName(patient) ?? '',
   birthDate: patient.birthDate,
