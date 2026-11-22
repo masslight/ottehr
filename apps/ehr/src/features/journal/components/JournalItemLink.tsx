@@ -1,7 +1,7 @@
 import { WarningAmberOutlined } from '@mui/icons-material';
 import { Box, Link } from '@mui/material';
 import { DateTime } from 'luxon';
-import { MouseEvent, ReactElement } from 'react';
+import { KeyboardEvent, MouseEvent, ReactElement } from 'react';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { JournalItem } from 'utils/lib/types/api/provider-journal.types';
 import { TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
@@ -35,12 +35,20 @@ export const JournalItemLink = ({ item, now, onOpenChat, inPanel }: Props): Reac
   return (
     <Box component="span" sx={{ whiteSpace: inPanel ? 'normal' : 'nowrap' }}>
       {isChat ? (
+        // An inline span, not a <button>, so a long name wraps with the text after it in the side column.
         <Link
-          component="button"
-          type="button"
+          component="span"
+          role="button"
+          tabIndex={0}
           sx={linkSx}
           onClick={(e: MouseEvent) => {
             stop(e);
+            onOpenChat(item);
+          }}
+          onKeyDown={(e: KeyboardEvent) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            e.stopPropagation();
             onOpenChat(item);
           }}
         >

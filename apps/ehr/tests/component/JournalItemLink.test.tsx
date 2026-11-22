@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { DateTime } from 'luxon';
 import { JournalItem } from 'utils/lib/types/api/provider-journal.types';
 import { TaskAlertCode, TaskAlertDisplay } from 'utils/lib/types/data/tasks/types';
@@ -47,6 +47,22 @@ describe('JournalItemLink general tasks', () => {
     render(<JournalItemLink item={general} now={NOW} onOpenChat={(item) => opened.push(item)} />);
     screen.getByRole('button', { name: 'Call pharmacy about refill' }).click();
     expect(opened).toEqual([general]);
+  });
+
+  it('opens Task notes from the keyboard, without selecting the row', () => {
+    const opened: JournalItem[] = [];
+    const rowKeys: string[] = [];
+    render(
+      <div onKeyDown={(e) => rowKeys.push(e.key)}>
+        <JournalItemLink item={general} now={NOW} onOpenChat={(item) => opened.push(item)} inPanel />
+      </div>
+    );
+    const name = screen.getByRole('button', { name: 'Call pharmacy about refill' });
+    expect(name.tagName).toBe('SPAN');
+    fireEvent.keyDown(name, { key: 'Enter' });
+    fireEvent.keyDown(name, { key: ' ' });
+    expect(opened).toEqual([general, general]);
+    expect(rowKeys).toEqual([]);
   });
 
   it('keeps the page link for a task linked to an order', () => {
