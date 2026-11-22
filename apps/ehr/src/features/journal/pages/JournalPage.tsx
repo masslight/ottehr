@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Link, MenuItem, Paper, Select, TextField, Typography } from '@mui/material';
+import { Box, Link, MenuItem, Paper, Select, Skeleton, TextField, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -94,6 +94,20 @@ const Section = ({
       </Box>
     )}
     {children}
+  </Box>
+);
+
+/** Placeholder sections in the journal's shape while it loads, like the side column's phone labels. */
+const LoadingSections = (): ReactElement => (
+  <Box role="progressbar" aria-label="Loading the journal" aria-busy="true">
+    {[3, 4].map((rows, section) => (
+      <Section key={section}>
+        <Skeleton variant="text" width={120} sx={{ fontSize: 16 }} />
+        {Array.from({ length: rows }, (_, row) => (
+          <Skeleton key={row} variant="rounded" height={46} />
+        ))}
+      </Section>
+    ))}
   </Box>
 );
 
@@ -283,11 +297,7 @@ export const JournalPage = (): ReactElement => {
 
   let content: ReactNode;
   if (ownersLoading || (isLoading && ownerId)) {
-    content = (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
-      </Box>
-    );
+    content = <LoadingSections />;
   } else if (!data || !refs) {
     content = (
       <Typography color="error" sx={{ p: 2 }}>

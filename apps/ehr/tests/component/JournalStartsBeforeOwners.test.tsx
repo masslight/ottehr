@@ -68,7 +68,7 @@ describe('the journal starts loading before the staff list arrives', () => {
     state.journals.add(ME);
     const { rerender } = render(page());
     expect(state.requested).toEqual([ME]);
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Loading the journal' })).toBeInTheDocument();
 
     state.owners = { owners: [{ practitionerId: ME, name: 'Ana Rivera' }], isLoading: false };
     rerender(page());
@@ -80,7 +80,7 @@ describe('the journal starts loading before the staff list arrives', () => {
     state.journals.add(COLLEAGUE);
     const { rerender } = render(page());
     expect(screen.queryByText('Could not load the journal')).toBeNull();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Loading the journal' })).toBeInTheDocument();
 
     state.owners = { owners: [{ practitionerId: COLLEAGUE, name: 'Joe Lin' }], isLoading: false };
     rerender(page());
