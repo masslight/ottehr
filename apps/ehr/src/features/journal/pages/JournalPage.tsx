@@ -20,7 +20,7 @@ import { TaskNotesDialog } from '../../tasks/components/TaskNotesDialog';
 import { NOTE_CREATED_PREVIEW_LENGTH } from '../../tasks/pages/Tasks';
 import { JournalDot } from '../components/JournalDot';
 import { JournalNoteDialog, JournalNoteTarget } from '../components/JournalNoteDialog';
-import { FLAG_SX, JournalRow } from '../components/JournalRow';
+import { JournalRow } from '../components/JournalRow';
 import { JournalSideColumn } from '../components/JournalSideColumn';
 import { buildJournalActions, JournalActionHandlers } from '../helpers/journalActions';
 import {
@@ -434,9 +434,6 @@ export const JournalPage = (): ReactElement => {
               {label}
             </Box>
           ))}
-          <Box component="span" sx={FLAG_SX}>
-            Flagged
-          </Box>
         </Box>
         <Box sx={{ containerType: 'inline-size' }}>
           <Box

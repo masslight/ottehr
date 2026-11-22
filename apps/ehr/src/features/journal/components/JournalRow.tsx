@@ -1,13 +1,17 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Tooltip, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { Fragment, memo, ReactElement, ReactNode, useMemo } from 'react';
+import { FlaggedReasonIcon } from 'src/components/FlaggedReasonIcon';
 import { PatientDateOfBirth } from 'src/components/PatientDateOfBirth';
+import { DEFAULT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
+import { FLAGGED_REASON_FOR_VISIT_TOOLTIP } from 'src/constants';
 import { JournalItem, JournalKind, JournalRow as JournalRowData } from 'utils/lib/types/api/provider-journal.types';
 import { buildJournalActions, JournalActionHandlers } from '../helpers/journalActions';
 import {
   formatAge,
   formatVisitDay,
   inProgressLabel,
+  isFlaggedReason,
   isInProgress,
   JOURNAL_COLORS,
   JournalRowRef,
@@ -30,6 +34,16 @@ interface Props {
 
 export const QUIET_SX = { color: JOURNAL_COLORS.text2, fontSize: '13.5px' };
 export const FLAG_SX = { color: JOURNAL_COLORS.red, fontSize: '13px', fontWeight: 500, whiteSpace: 'nowrap' };
+
+/** The tracking board's flagged-reason icon and hover; with a reason, the reason follows in red. */
+export const FlaggedReason = ({ reason }: { reason?: string }): ReactElement => (
+  <Tooltip {...DEFAULT_TOOLTIP_PROPS} title={FLAGGED_REASON_FOR_VISIT_TOOLTIP}>
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', ...(reason && FLAG_SX) }}>
+      <FlaggedReasonIcon />
+      {reason}
+    </Box>
+  </Tooltip>
+);
 
 const dotColor = (ref: JournalRowRef, kind: JournalKind): DotColor => {
   switch (ref.section) {
@@ -72,9 +86,10 @@ export const JournalRow = memo(function JournalRow({
 
   let todo: ReactNode;
   if (section === 'cu') {
-    // The reason and any flag show in the side column, as in the mockup; open to-dos follow, so the provider walks in knowing.
+    // The reason shows in the side column, a flag on the row too; open to-dos follow, so the provider walks in knowing.
     todo = (
       <>
+        {isFlaggedReason(row.visit?.reasonForVisit) && <FlaggedReason />}
         <Box component="span" sx={QUIET_SX}>
           {row.lookahead || !row.waitingSince ? (
             lookaheadLabel(kind)

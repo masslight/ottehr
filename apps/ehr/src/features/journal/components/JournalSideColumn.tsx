@@ -30,7 +30,7 @@ import {
 } from '../helpers/journalHelpers';
 import { useJournalPhoneLabels } from '../hooks/useJournalPhoneLabels';
 import { JournalItemLink } from './JournalItemLink';
-import { FLAG_SX } from './JournalRow';
+import { FlaggedReason } from './JournalRow';
 
 interface Props {
   selected: JournalRowRef | undefined;
@@ -295,13 +295,7 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
           {reason && (
             <>
               <Dot />
-              {flagged ? (
-                <Box component="span" sx={FLAG_SX}>
-                  {reason}
-                </Box>
-              ) : (
-                reason
-              )}
+              {flagged ? <FlaggedReason reason={reason} /> : reason}
             </>
           )}
         </Box>
