@@ -137,6 +137,69 @@ describe('get-provider-journal access', () => {
     expect(openVisitSearch?.params.some((p: { name: string }) => p.name === 'appointment.date')).toBe(false);
   });
 
+  it('reads visits older than the past week only for patients with a to-do, without their phones', async () => {
+    mockPractitionerRoles.mockResolvedValue([RoleType.Provider]);
+    const PATIENT_ID = '6f1c1c2e-3333-4a5a-9c2b-000000000003';
+    const attender = (end?: string): object => ({
+      type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code: 'ATND' }] }],
+      individual: { reference: `Practitioner/${PRACTITIONER_ID}` },
+      period: { start: '2026-01-01T00:00:00Z', ...(end && { end }) },
+    });
+    const visit = (id: string, daysAgo: number, encounterStatus: string, appointmentStatus: string): object[] => [
+      {
+        resourceType: 'Encounter',
+        id: `enc-${id}`,
+        status: encounterStatus,
+        subject: { reference: `Patient/${PATIENT_ID}` },
+        appointment: [{ reference: `Appointment/appt-${id}` }],
+        participant: [attender(encounterStatus === 'finished' ? '2026-01-01T01:00:00Z' : undefined)],
+      },
+      {
+        resourceType: 'Appointment',
+        id: `appt-${id}`,
+        status: appointmentStatus,
+        start: DateTime.now().minus({ days: daysAgo }).toUTC().toISO()!,
+      },
+    ];
+    const seenVisit = visit('seen', 20, 'finished', 'fulfilled');
+    const seenAt = (seenVisit[1] as { start: string }).start;
+    mockGetAllPages.mockImplementation(async ({ resourceType, params }) => {
+      const has = (name: string): boolean => params.some((p: { name: string }) => p.name === name);
+      if (resourceType !== 'Encounter') return [];
+      // An unsigned note from a month ago, on the any-age search of unfinished visits.
+      if (has('status'))
+        return [...visit('open', 30, 'in-progress', 'fulfilled'), { resourceType: 'Patient', id: PATIENT_ID }];
+      if (has('subject')) return seenVisit;
+      return [];
+    });
+
+    const journal = JSON.parse((await call(handler, { practitionerId: PRACTITIONER_ID, timezone: 'UTC' })).body);
+    expect(journal.recent).toHaveLength(1);
+    expect(journal.recent[0].lastSeen).toBe(seenAt);
+    const encounterSearches = mockGetAllPages.mock.calls
+      .map(([search]) => search)
+      .filter((search) => search.resourceType === 'Encounter');
+    const older = encounterSearches.filter((search) =>
+      search.params.some((p: { name: string }) => p.name === 'subject')
+    );
+    expect(older).toHaveLength(1);
+    expect(older[0].params).toEqual(
+      expect.arrayContaining([
+        { name: 'participant', value: `Practitioner/${PRACTITIONER_ID}` },
+        { name: 'subject', value: `Patient/${PATIENT_ID}` },
+      ])
+    );
+    expect(older[0].params.filter((p: { name: string }) => p.name.includes('include'))).toEqual([
+      { name: '_include', value: 'Encounter:appointment' },
+    ]);
+    // The full search with patients and phones covers only today and the past week.
+    const week = encounterSearches.find((search) =>
+      search.params.some((p: { name: string }) => p.name === 'appointment.date')
+    );
+    const from = week?.params.find((p: { name: string; value: string }) => p.value.startsWith('ge'))?.value;
+    expect(from?.slice(2)).toBe(DateTime.now().toUTC().minus({ days: 7 }).startOf('day').toISO());
+  });
+
   it.each([
     ['a pre-visit lab on a visit months ago', { months: -4 }, 'fulfilled', LAB_ORDER_TASK.category],
     ['a text linked to an upcoming booking', { days: 7 }, 'booked', PATIENT_REQUEST_TASK.category],

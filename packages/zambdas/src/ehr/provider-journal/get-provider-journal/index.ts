@@ -47,6 +47,7 @@ import {
   consentSignerLabel,
   JOURNAL_WINDOW_DAYS,
   markTextUnread,
+  pastWeekStart,
   phonesByBookingAppointment,
   quickTextLocation,
   resolveTaskPatientId,
@@ -72,6 +73,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const kind = await getJournalKind(oystehr, practitionerId);
 
   const windowStart = now.minus({ days: JOURNAL_WINDOW_DAYS }).startOf('day').toUTC().toISO()!;
+  const pastStart = pastWeekStart(now).toUTC().toISO()!;
   const windowEnd = now.endOf('day').toUTC().toISO()!;
 
   const visitIncludes = [
@@ -79,102 +81,109 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     { name: '_include', value: 'Encounter:subject' },
     { name: '_revinclude:iterate', value: 'RelatedPerson:patient' },
   ];
-  const searchVisits = (params: { name: string; value: string }[]): Promise<VisitResource[]> =>
+  const searchVisits = (
+    params: { name: string; value: string }[],
+    includes = visitIncludes
+  ): Promise<VisitResource[]> =>
     getAllFhirSearchPages<VisitResource>(
       {
         resourceType: 'Encounter',
-        params: [{ name: 'participant', value: `Practitioner/${practitionerId}` }, ...params, ...visitIncludes],
+        params: [{ name: 'participant', value: `Practitioner/${practitionerId}` }, ...params, ...includes],
       },
       oystehr
     );
-  const visitResources = deduplicateUnbundledResources(
-    (
-      await Promise.all([
-        searchVisits([
-          { name: 'appointment.date', value: `ge${windowStart}` },
-          { name: 'appointment.date', value: `le${windowEnd}` },
-        ]),
-        // Unfinished visits of any age: their notes still need signing (Incomplete Encounters report).
-        kind === 'provider' ? searchVisits([{ name: 'status', value: 'in-progress' }]) : [],
-      ])
-    ).flat()
-  );
-  const encounters = visitResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
 
-  const [ownedTaskResources, visitTaskResources] = await Promise.all([
-    getAllFhirSearchPages<Task | Encounter | Appointment | Patient | DiagnosticReport>(
-      {
-        resourceType: 'Task',
-        params: [
-          { name: 'owner', value: `Practitioner/${practitionerId}` },
-          { name: 'status', value: 'ready,in-progress' },
-          { name: '_tag', value: 'task' },
-          { name: '_include', value: 'Task:encounter' },
-          { name: '_include:iterate', value: 'Encounter:appointment' },
-          { name: '_include', value: 'Task:based-on' },
-        ],
-      },
-      oystehr
+  const [weekVisitResources, inProgressVisitResources, [ownedTaskResources, visitTaskResources]] = await Promise.all([
+    // Today and the past week: Coming Up, Today and Past show these visits.
+    searchVisits([
+      { name: 'appointment.date', value: `ge${pastStart}` },
+      { name: 'appointment.date', value: `le${windowEnd}` },
+    ]),
+    // Unfinished visits of any age: their notes still need signing (Incomplete Encounters report).
+    kind === 'provider' ? searchVisits([{ name: 'status', value: 'in-progress' }]) : [],
+    searchTasks(oystehr, practitionerId, kind),
+  ]);
+
+  const tasks = [...ownedTaskResources, ...visitTaskResources].filter((r): r is Task => r.resourceType === 'Task');
+  const taskEncounters = ownedTaskResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
+  const diagnosticReports = ownedTaskResources.filter(
+    (r): r is DiagnosticReport => r.resourceType === 'DiagnosticReport'
+  );
+  const taskEncounterPool = [
+    ...taskEncounters,
+    ...visitTaskResources.filter((r): r is Encounter => r.resourceType === 'Encounter'),
+  ];
+  const taskPatientIds = [
+    ...new Set(
+      tasks
+        .map((task) => {
+          const encounterId = getIdFromReference(task.encounter?.reference, 'Encounter');
+          const encounter = taskEncounterPool.find((e) => e.id === encounterId);
+          return resolveTaskPatientId(task, encounter, diagnosticReports);
+        })
+        .filter((patientId): patientId is string => Boolean(patientId))
     ),
-    // Open tasks on any of this provider's visits, however old: results and tasks stay until done.
-    kind === 'provider'
-      ? getAllFhirSearchPages<Task | Encounter | Appointment>(
+  ];
+  // Patients of tasks that are not on one of the past week's or unfinished visits.
+  const knownPatientIds = new Set(
+    [...weekVisitResources, ...inProgressVisitResources]
+      .filter((r): r is Patient => r.resourceType === 'Patient')
+      .map((patient) => patient.id!)
+  );
+  const missingPatientIds = taskPatientIds.filter((patientId) => !knownPatientIds.has(patientId));
+
+  const todoPatientIds = [
+    ...new Set([
+      ...taskPatientIds,
+      ...inProgressVisitResources
+        .filter((r): r is Patient => r.resourceType === 'Patient')
+        .map((patient) => patient.id!),
+    ]),
+  ].filter(isValidUUID);
+
+  const [olderVisitResources, extraPatientResources] = await Promise.all([
+    // Older visits matter only on rows with a to-do: they keep the row in Recent and give its "Seen" and chart links.
+    // To-dos are tasks and notes to sign, and every note to sign is on an unfinished visit above.
+    Promise.all(
+      chunkThings(todoPatientIds, IDS_PER_SEARCH).map((chunk) =>
+        searchVisits(
+          [
+            { name: 'subject', value: chunk.map((id) => `Patient/${id}`).join(',') },
+            { name: 'appointment.date', value: `ge${windowStart}` },
+            { name: 'appointment.date', value: `lt${pastStart}` },
+          ],
+          [{ name: '_include', value: 'Encounter:appointment' }]
+        )
+      )
+    ),
+    missingPatientIds.length
+      ? getAllFhirSearchPages<Patient | RelatedPerson>(
           {
-            resourceType: 'Task',
+            resourceType: 'Patient',
             params: [
-              { name: 'encounter.participant', value: `Practitioner/${practitionerId}` },
-              { name: 'status', value: 'ready,in-progress' },
-              { name: '_tag', value: 'task' },
-              { name: '_include', value: 'Task:encounter' },
-              { name: '_include:iterate', value: 'Encounter:appointment' },
+              { name: '_id', value: missingPatientIds.join(',') },
+              { name: '_revinclude', value: 'RelatedPerson:patient' },
             ],
           },
           oystehr
         )
-      : ([] as (Task | Encounter | Appointment)[]),
+      : [],
   ]);
 
-  const tasks = [...ownedTaskResources, ...visitTaskResources].filter((r): r is Task => r.resourceType === 'Task');
+  const visitResources = deduplicateUnbundledResources([
+    ...weekVisitResources,
+    ...inProgressVisitResources,
+    ...olderVisitResources.flat(),
+  ]);
+  const encounters = visitResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
   // The visits of those tasks join this journal's visits (buildJournal keeps the ones in this person's role).
   const allEncounters = deduplicateUnbundledResources([
     ...encounters,
     ...visitTaskResources.filter((r): r is Encounter => r.resourceType === 'Encounter'),
   ]);
-  const taskEncounters = ownedTaskResources.filter((r): r is Encounter => r.resourceType === 'Encounter');
-  const diagnosticReports = ownedTaskResources.filter(
-    (r): r is DiagnosticReport => r.resourceType === 'DiagnosticReport'
-  );
   const appointments = [...visitResources, ...ownedTaskResources, ...visitTaskResources].filter(
     (r): r is Appointment => r.resourceType === 'Appointment'
   );
-
-  // Patients of tasks that are not on one of the window's visits.
-  const knownPatientIds = new Set(
-    visitResources.filter((r): r is Patient => r.resourceType === 'Patient').map((patient) => patient.id!)
-  );
-  const missingPatientIds = [
-    ...new Set(
-      tasks
-        .map((task) => {
-          const encounterId = getIdFromReference(task.encounter?.reference, 'Encounter');
-          const encounter = [...taskEncounters, ...allEncounters].find((e) => e.id === encounterId);
-          return resolveTaskPatientId(task, encounter, diagnosticReports);
-        })
-        .filter((patientId): patientId is string => Boolean(patientId) && !knownPatientIds.has(patientId!))
-    ),
-  ];
-  const extraPatientResources = missingPatientIds.length
-    ? await getAllFhirSearchPages<Patient | RelatedPerson>(
-        {
-          resourceType: 'Patient',
-          params: [
-            { name: '_id', value: missingPatientIds.join(',') },
-            { name: '_revinclude', value: 'RelatedPerson:patient' },
-          ],
-        },
-        oystehr
-      )
-    : [];
 
   const everything = [...visitResources, ...extraPatientResources];
   const unreadMessageSentAt = await getUnreadMessageSentAt(oystehr, tasks);
@@ -342,6 +351,45 @@ async function labelAccountPhones(oystehr: Oystehr, journal: GetProviderJournalR
     if (signer && appointmentId) bookings.get(appointmentId)?.forEach((phone) => (phone.signer = signer));
   });
 }
+
+/** Open board tasks owned by this person, and on a provider journal those on any of their visits. */
+const searchTasks = (
+  oystehr: Oystehr,
+  practitionerId: string,
+  kind: JournalKind
+): Promise<[(Task | Encounter | Appointment | Patient | DiagnosticReport)[], (Task | Encounter | Appointment)[]]> =>
+  Promise.all([
+    getAllFhirSearchPages<Task | Encounter | Appointment | Patient | DiagnosticReport>(
+      {
+        resourceType: 'Task',
+        params: [
+          { name: 'owner', value: `Practitioner/${practitionerId}` },
+          { name: 'status', value: 'ready,in-progress' },
+          { name: '_tag', value: 'task' },
+          { name: '_include', value: 'Task:encounter' },
+          { name: '_include:iterate', value: 'Encounter:appointment' },
+          { name: '_include', value: 'Task:based-on' },
+        ],
+      },
+      oystehr
+    ),
+    // Open tasks on any of this provider's visits, however old: results and tasks stay until done.
+    kind === 'provider'
+      ? getAllFhirSearchPages<Task | Encounter | Appointment>(
+          {
+            resourceType: 'Task',
+            params: [
+              { name: 'encounter.participant', value: `Practitioner/${practitionerId}` },
+              { name: 'status', value: 'ready,in-progress' },
+              { name: '_tag', value: 'task' },
+              { name: '_include', value: 'Task:encounter' },
+              { name: '_include:iterate', value: 'Encounter:appointment' },
+            ],
+          },
+          oystehr
+        )
+      : ([] as (Task | Encounter | Appointment)[]),
+  ]);
 
 type VisitResource = Encounter | Appointment | Patient | RelatedPerson;
 

@@ -54,6 +54,8 @@ import { getTrackingBoardVisitStatus } from '../../../shared/queueingUtils';
 /** Visits older than this fall off the journal, except unfinished ones; owned tasks stay until done. */
 export const JOURNAL_WINDOW_DAYS = 90;
 export const PAST_WINDOW_DAYS = 7;
+/** Past starts this many days back, and the visits fetched in full start there too. */
+export const pastWeekStart = (now: DateTime): DateTime => now.minus({ days: PAST_WINDOW_DAYS }).startOf('day');
 
 /** The Tasks board hides these codes too (`TASK_CODES_TO_EXCLUDE` in the EHR's useTasks). */
 const EXCLUDED_TASK_CODES: string[] = [
@@ -498,7 +500,7 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
   });
   [...buckets.values(), ...notTied].forEach((row) => row.items.sort(byOwnThenAlertThenSinceDesc));
 
-  const pastStart = now.minus({ days: PAST_WINDOW_DAYS }).startOf('day');
+  const pastStart = pastWeekStart(now);
   const isPastWeek = (visit: Visit): boolean =>
     !isToday(visit) && DateTime.fromISO(visit.journal.start).setZone(now.zone) >= pastStart;
 

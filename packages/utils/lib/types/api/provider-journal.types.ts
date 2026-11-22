@@ -133,7 +133,7 @@ export interface JournalPatient {
 export interface JournalRow {
   /** Missing only for items with no patient (unmatched fax, eRx notifications) in "Not tied to a recent visit". */
   patient?: JournalPatient;
-  /** This journal's visits for the patient in the window, newest first. */
+  /** This journal's visits for the patient, newest first: the past week's, plus the 90-day window's on a row with a to-do. */
   visits: JournalVisit[];
   /** Open items, newest first. */
   items: JournalItem[];
