@@ -41,9 +41,15 @@ vi.mock('src/features/visits/shared/components/vitals/hooks/useDeleteVitals', ()
   useDeleteVitals: () => vi.fn().mockResolvedValue(undefined),
 }));
 
+const visitPatient = vi.hoisted(() => ({ birthDate: undefined as string | undefined }));
+
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: () => ({
-    resources: { appointment: { id: 'appt-1' }, encounter: { id: 'enc-pv-test' } },
+    resources: {
+      appointment: { id: 'appt-1', start: '2026-11-20T14:00:00.000Z' },
+      encounter: { id: 'enc-pv-test' },
+      patient: visitPatient.birthDate ? { id: 'patient-1', birthDate: visitPatient.birthDate } : undefined,
+    },
     isAppointmentLoading: false,
     appointmentError: null,
   }),
@@ -152,6 +158,22 @@ describe('PatientVitals', () => {
   beforeEach(() => {
     useVitalsDraftStore.setState({ draftsByEncounterId: {} });
     vi.clearAllMocks();
+    visitPatient.birthDate = undefined;
+  });
+
+  it('hides the BMI card for a patient under 24 months at the visit', () => {
+    visitPatient.birthDate = '2024-11-21';
+    render(<PatientVitals />, { wrapper });
+
+    expect(screen.queryByTestId('bmi-card')).not.toBeInTheDocument();
+    expect(screen.getByTestId('height-card')).toBeInTheDocument();
+  });
+
+  it('shows the BMI card from 24 months at the visit', () => {
+    visitPatient.birthDate = '2024-11-20';
+    render(<PatientVitals />, { wrapper });
+
+    expect(screen.getByTestId('bmi-card')).toBeInTheDocument();
   });
 
   it('places the head circumference card directly below height', () => {

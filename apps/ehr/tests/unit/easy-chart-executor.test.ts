@@ -227,7 +227,7 @@ describe('vitals', () => {
       h.context
     );
     expect(h.saved.map((fields) => fields.vitalsObservations?.[0])).toEqual([
-      { field: 'vital-weight', value: 77.11 },
+      { field: 'vital-weight', value: 77.111 },
       { field: 'vital-height', value: 172.72 },
       { field: 'vital-temperature', value: 38 },
       { field: 'vital-weight', value: 77 },

@@ -16,6 +16,7 @@ import {
   sectionForAction,
   toPlannedAction,
 } from '../../src/features/visits/shared/components/scribe-recommendations/analysis';
+import { describeRecommendation } from '../../src/features/visits/shared/components/scribe-recommendations/scribeSections';
 import {
   ExamRecommendation,
   ExamResolution,
@@ -91,8 +92,8 @@ describe('buildAnalysis', () => {
 
   it('shows a kilogram weight in pounds for the editor, and puts pounds back on the wire', () => {
     const [rec] = analyse([{ kind: 'set-vital', field: 'vital-weight', display: '77 kg', value: 77, unit: 'kg' }]);
-    expect(rec).toMatchObject({ kind: 'vital-weight', weightLbs: 169.8 });
-    expect(toPlannedAction(rec)).toMatchObject({ kind: 'set-vital', field: 'vital-weight', value: 169.8, unit: 'lb' });
+    expect(rec).toMatchObject({ kind: 'vital-weight', weightLbs: 169.76 });
+    expect(toPlannedAction(rec)).toMatchObject({ kind: 'set-vital', field: 'vital-weight', value: 169.76, unit: 'lb' });
   });
 
   it('wraps everything else as a generic row carrying the step label the executor would show', () => {
@@ -265,6 +266,13 @@ describe('buildAnalysis', () => {
 
 // An exam finding is resolved against the exam's checkboxes when the list is built — the same lookup the
 // executor runs at apply time — so the row can name the box, offer the choice, or say where a miss goes.
+describe('weight recommendation label', () => {
+  it('shows the kg it will save at the precision weights are shown everywhere else', () => {
+    const [rec] = analyse([{ kind: 'set-vital', field: 'vital-weight', display: '170 lb', value: 170, unit: 'lb' }]);
+    expect(describeRecommendation(rec).primary).toBe('Weight 170 lbs (77.11 kg)');
+  });
+});
+
 describe('exam findings', () => {
   // A catalogue small enough to reason about: one box that matches on its own, two that tie, and nothing
   // for a finding the exam has no box for.
