@@ -233,7 +233,7 @@ export const InHouseLabOrderCreatePage: React.FC<InHouseLabOrderCreatePageProps>
     else navigate(-1);
   };
 
-  const canBeSubmitted = !!(encounter?.id && selectedTests.length > 0);
+  const canBeSubmitted = !!(encounter?.id && selectedTests.length > 0 && attendingPractitionerId);
 
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
@@ -632,6 +632,13 @@ export const InHouseLabOrderCreatePage: React.FC<InHouseLabOrderCreatePageProps>
                   </Box>
                 </Stack>
               </Grid>
+              {encounter?.id && !attendingPractitionerId && (
+                <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }}>
+                  <Typography sx={{ color: theme.palette.error.main }}>
+                    No attending practitioner has been assigned to this encounter
+                  </Typography>
+                </Grid>
+              )}
               {error &&
                 error.length > 0 &&
                 error.map((msg, idx) => (
