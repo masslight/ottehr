@@ -50,6 +50,7 @@ import {
 } from './shared/constants';
 import { absolutizeFixtures } from './shared/fixtures';
 import { type HarnessCommand, prepareHarnessCommand } from './shared/harness-bundle';
+import { findClinicalLocationByName } from './shared/locations';
 import { createOystehrFromToken, mintAccessToken, need, searchAllPages } from './shared/oystehr-client';
 import { withRetry } from './shared/retry';
 import { ensureSynthM2MInProcess } from './shared/synth-m2m';
@@ -867,23 +868,8 @@ async function main(): Promise<void> {
   // no visit can be booked. NON-FATAL (warn): progress-note templates — missing
   // ones make those archetypes' notes thin (the harness skips meds/labs/payers it
   // can't resolve, so those are degrade-not-fail).
-  // Resolve each required Location by an exact NAME search — never a capped list fetch.
-  // A project with >100 Locations (e.g. a local project full of integration-test
-  // Locations) would otherwise hide the real "Los Angeles"/"New York" past the first
-  // page and falsely report them missing. FHIR `name` is a starts-with match, so filter
-  // to the exact, active Location.
   for (const ln of IN_PERSON_LOCATIONS) {
-    const loc = (
-      await o.fhir.search({
-        resourceType: 'Location',
-        params: [
-          { name: 'name', value: ln },
-          { name: '_count', value: '20' },
-        ],
-      })
-    )
-      .unbundle()
-      .find((l: any) => l.name === ln && l.status !== 'inactive') as any;
+    const loc = await findClinicalLocationByName(o, ln);
     if (!loc?.id) {
       throw new Error(`Environment '${ENV}' is missing required in-person location: ${ln}.`);
     }

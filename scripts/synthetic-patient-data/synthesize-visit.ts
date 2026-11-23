@@ -111,7 +111,6 @@ import type {
   CoverageEligibilityRequest,
   CoverageEligibilityResponse,
   EpisodeOfCare,
-  Location,
   Medication,
   MedicationStatement,
   Organization,
@@ -138,6 +137,7 @@ import {
   SYNTHETIC_PATIENT_ID_SYSTEM,
   VISIT_STATUS_ORDER,
 } from './shared/constants';
+import { findClinicalLocationByName } from './shared/locations';
 import { createOystehrFromToken, mintAccessToken, need } from './shared/oystehr-client';
 import { withRetry } from './shared/retry';
 import { zambdaExecute, zambdaPost } from './shared/zambda';
@@ -330,11 +330,7 @@ async function phase0_lookups(ctx: SynthesisContext): Promise<void> {
   }
   logFhir('search', `Location with name="${locationNameToUse}"`);
   if (ctx.mode === 'execute' && ctx.oystehr) {
-    const result = await ctx.oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [{ name: 'name', value: locationNameToUse }],
-    });
-    const location = result.unbundle()[0];
+    const location = await findClinicalLocationByName(ctx.oystehr, locationNameToUse);
     if (!location?.id)
       throw new Error(`Location not found: "${locationNameToUse}". Pass --location <existing-name> to override.`);
     ctx.locationId = location.id;
