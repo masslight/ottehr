@@ -14,10 +14,7 @@ import { InPersonHeader } from 'tests/e2e/page/InPersonHeader';
 import { SideMenu } from 'tests/e2e/page/SideMenu';
 import { ResourceHandler } from 'tests/e2e-utils/resource-handler';
 import { getFirstName, getLastName } from 'utils/lib/fhir/patient';
-import {
-  medicationApplianceLocations,
-  medicationApplianceRoutes,
-} from 'utils/lib/types/api/medication-administration.types';
+import { medicationApplianceRoutes, vaccineSiteLocations } from 'utils/lib/types/api/medication-administration.types';
 import { CVX_VACCINES } from 'utils/lib/types/data/immunization/cvx-vaccines.generated';
 import { MVX_MANUFACTURERS } from 'utils/lib/types/data/immunization/mvx-manufacturers.generated';
 
@@ -68,7 +65,7 @@ const VACCINE: VaccineInfo = {
   dose: '0.5',
   units: 'mg',
   route: medicationApplianceRoutes.BODY_CAVITY.display!,
-  location: medicationApplianceLocations[0].name!,
+  location: vaccineSiteLocations[0].name!,
   instructions: 'test vaccine instructions',
   manufacturer: manufacturerNameFor('MSD'),
   associatedDx: DIAGNOSIS_CODE_ONE,
@@ -79,7 +76,7 @@ const EDITED_VACCINE: VaccineInfo = {
   dose: '1',
   units: 'mL',
   route: medicationApplianceRoutes.CAUDAL.display!,
-  location: medicationApplianceLocations[1].name!,
+  location: vaccineSiteLocations[1].name!,
   instructions: 'test vaccine instructions edited',
   manufacturer: manufacturerNameFor('PFR'),
   associatedDx: DIAGNOSIS_CODE_TWO,

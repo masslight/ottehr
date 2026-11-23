@@ -2,6 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DateTime, Settings } from 'luxon';
 import { ReactNode, useState } from 'react';
+import { vaccineSiteLocations } from 'utils/lib/types/api/medication-administration.types';
 import { CVX_VACCINES } from 'utils/lib/types/data/immunization/cvx-vaccines.generated';
 import { MVX_MANUFACTURERS } from 'utils/lib/types/data/immunization/mvx-manufacturers.generated';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -159,6 +160,32 @@ describe('ImmunizationSentences - the order', () => {
       /^Tdap for add diagnosis\S?\.$/
     );
     expect(screen.getByTestId(dataTestIds.orderVaccinePage.orderedBy)).toHaveTextContent('Dr. Test');
+  });
+
+  it('offers the vaccine site list in its own order, and picking a site saves its code and name', async () => {
+    const { saved } = renderWithState(form({ medication: TDAP }));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByTestId(dataTestIds.orderVaccinePage.location));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(
+      vaccineSiteLocations.map((site) => site.name)
+    );
+    // the in-house medication sites are not offered
+    expect(screen.queryByRole('option', { name: 'given via nebulizer' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Volume divided - Left vastus lateralis' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('option', { name: 'Left thigh (vastus lateralis)' }));
+    expect(saved().details.location).toEqual({ code: '61396006', name: 'Left thigh (vastus lateralis)' });
+  });
+
+  it('a site saved from the medication list still reads, and stays offered until another is picked', async () => {
+    renderSentences(form({ medication: TDAP, location: { code: '206007', name: 'Left Gluteus Maximus' } }));
+    const location = screen.getByTestId(dataTestIds.orderVaccinePage.location);
+    expect(location).toHaveTextContent(/left gluteus maximus/i);
+
+    await userEvent.setup().click(location);
+    expect(screen.getByRole('option', { name: 'Left Gluteus Maximus' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Left gluteus' })).toBeInTheDocument();
   });
 
   it('offers every vaccine of the vaccine list in the immunization menu', async () => {

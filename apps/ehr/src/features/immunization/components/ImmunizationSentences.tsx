@@ -23,7 +23,7 @@ import {
   TextBlank,
 } from 'src/features/visits/in-person/components/procedures/narrative/InlineBlanks';
 import { PROVIDERS_FILTER } from 'src/shared/utils/employeeFilters';
-import { BASE_ROUTE_OPTIONS, LOCATION_OPTIONS } from 'src/shared/utils/options';
+import { BASE_ROUTE_OPTIONS, VACCINE_SITE_OPTIONS } from 'src/shared/utils/options';
 import { BASE_UNIT_OPTIONS } from 'utils/lib/fhir/medication-administration';
 import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
@@ -45,7 +45,7 @@ export const SAVE_QUICK_PICK_LABEL = 'Save as quick pick';
 
 const UNIT_OPTIONS = BASE_UNIT_OPTIONS.map((option) => ({ value: option.value, label: option.label }));
 const ROUTE_OPTIONS = BASE_ROUTE_OPTIONS.map((option) => ({ value: option.code, label: option.name }));
-const LOCATION_BLANK_OPTIONS = LOCATION_OPTIONS.map((option) => ({ value: option.code, label: option.name }));
+const LOCATION_BLANK_OPTIONS = VACCINE_SITE_OPTIONS.map((option) => ({ value: option.code, label: option.name }));
 
 const toDate = (value: string | undefined): DateTime | null => (value ? DateTime.fromISO(value) : null);
 
@@ -298,7 +298,7 @@ export const ImmunizationSentences: FC<ImmunizationSentencesProps> = ({
           onChange={(code) =>
             update({
               location:
-                LOCATION_OPTIONS.find((option) => option.code === code) ??
+                VACCINE_SITE_OPTIONS.find((option) => option.code === code) ??
                 (code === details.location?.code ? details.location : undefined),
             })
           }
