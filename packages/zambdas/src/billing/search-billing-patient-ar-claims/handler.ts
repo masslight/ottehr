@@ -16,6 +16,7 @@ import { fetchAllPages } from '../../shared/fhir';
 import {
   ClaimPaymentSummary,
   fetchClaimResponsesByClaimIds,
+  fetchNioPaidByClaimId,
   fetchPatientPaidByClaimId,
   summarizeClaimPayments,
 } from '../claim-amounts';
@@ -86,10 +87,12 @@ async function collectPatientArMatches(params: {
     encounterIds,
     claimIds,
   });
-  const [claimResponsesByClaimId, patientPaidByClaimId, writeOffs] = await Promise.all([
-    fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+  const foundClaimIds = claims.map((c) => c.id).filter(Boolean) as string[];
+  const [claimResponsesByClaimId, patientPaidByClaimId, writeOffs, nioPaidByClaimId] = await Promise.all([
+    fetchClaimResponsesByClaimIds(oystehr, foundClaimIds),
     fetchPatientPaidByClaimId({ oystehr, claims }),
-    fetchWriteOffsByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
+    fetchWriteOffsByClaimIds(oystehr, foundClaimIds),
+    fetchNioPaidByClaimId(oystehr, foundClaimIds),
   ]);
 
   const candidates: PatientArMatch[] = claims.map((claim) => {
@@ -104,7 +107,8 @@ async function collectPatientArMatches(params: {
         claimResponsesByClaimId.get(claimId) ?? [],
         claim.total?.value ?? 0,
         patientPaidByClaimId.get(claimId) ?? 0,
-        writeOffsTotal
+        writeOffsTotal,
+        nioPaidByClaimId.get(claimId) ?? 0
       ),
     };
   });

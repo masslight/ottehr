@@ -1,5 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, Patient } from 'fhir/r4b';
+import { NIO_INVOICE_PAYMENT_ID_SYSTEM } from 'utils/lib/fhir/billing-invoice';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
   AR_STAGE,
@@ -493,6 +494,30 @@ describe('fetchAllActivePatientArClaims with encounter ids', () => {
     expect(items.map((item) => item.claimId)).toEqual(['c-partial']);
     expect(items[0].patientPaid).toBe(40);
     expect(items[0].balance).toBe(60);
+  });
+
+  it('drops a claim its non-insurance payer paid, without counting it as patient paid', async () => {
+    const nioPaid = arClaim('c-nio-paid', 'enc-0');
+    const owing = arClaim('c-owing', 'enc-1');
+    const nioPayment = {
+      resourceType: 'PaymentNotice',
+      status: 'active',
+      amount: { value: 100 },
+      identifier: [
+        {
+          system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
+          value: 'payment-1',
+        },
+      ],
+      request: { reference: 'Claim/c-nio-paid' },
+    };
+
+    const items = await fetchAllActivePatientArClaims(oystehrReturning([[nioPaid, owing]], [nioPayment]), {
+      encounterIds: ['enc-0', 'enc-1'],
+    });
+
+    expect(items.map((item) => item.claimId)).toEqual(['c-owing']);
+    expect(items[0].patientPaid).toBe(0);
   });
 
   it('keeps settled and overpaid claims when zero balances are requested', async () => {

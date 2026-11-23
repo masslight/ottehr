@@ -214,6 +214,25 @@ describe('computeBillingStatementAmounts', () => {
     expect(lines.map((line) => line.patientOwesCents)).toEqual([2234, 7566]);
   });
 
+  it("owes nothing once the claim's non-insurance payer paid it, without showing a patient payment", () => {
+    const amounts = (nioPaid: number): ReturnType<typeof computeBillingStatementAmounts> =>
+      computeBillingStatementAmounts({
+        claim: billingClaim(),
+        claimResponses: [fullyAdjudicatedRemit()],
+        patientPaid: 0,
+        writeOffsTotal: 0,
+        nioPaid,
+      });
+    const owed = amounts(0).totals.balanceDueCents;
+    expect(owed).toBeGreaterThan(0);
+
+    const { lines, totals } = amounts(owed / 100);
+
+    expect(totals.balanceDueCents).toBe(0);
+    expect(totals.patientPaidCents).toBe(0);
+    expect(lines.map((line) => line.patientOwesCents)).toEqual(lines.map(() => 0));
+  });
+
   it('sums insurance payments across remits but takes responsibility from the latest', () => {
     const secondary = claimResponse({
       id: 'cr-2',
