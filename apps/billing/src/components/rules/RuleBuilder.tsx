@@ -1388,8 +1388,9 @@ function ActionEditor({ name, engine }: { name: string; engine: RulesEngineType 
             control={control}
             render={({ field }) => (
               <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel>Insurance</InputLabel>
+                <InputLabel id={`${name}-insurance-label`}>Insurance</InputLabel>
                 <Select
+                  labelId={`${name}-insurance-label`}
                   label="Insurance"
                   value={field.value}
                   onChange={(e) => field.onChange(e.target.value as RulesEngineInsurance)}
