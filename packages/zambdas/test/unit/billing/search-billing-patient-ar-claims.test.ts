@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Patient } from 'fhir/r4b';
+import { Claim, Patient, PaymentNotice } from 'fhir/r4b';
 import { NIO_INVOICE_PAYMENT_ID_SYSTEM } from 'utils/lib/fhir/billing-invoice';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
@@ -14,6 +14,7 @@ import {
 } from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, it, vi } from 'vitest';
 import { ClaimPaymentSummary } from '../../../src/billing/claim-amounts';
+import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM } from '../../../src/billing/payments';
 import {
   deriveFinalizationDate,
   fetchAllActivePatientArClaims,
@@ -442,6 +443,12 @@ describe('fetchAllActivePatientArClaims with encounter ids', () => {
     resourceType: 'PaymentNotice',
     status: 'active',
     amount: { value: amount },
+    identifier: [
+      {
+        system: MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM,
+        value: `payment-${encounterId}`,
+      },
+    ],
     request: { identifier: { value: encounterId } },
   });
 
@@ -454,7 +461,14 @@ describe('fetchAllActivePatientArClaims with encounter ids', () => {
         return { link: [], unbundle: () => claims };
       }
       if (args.resourceType === 'PaymentNotice') {
-        return { link: [], unbundle: () => notices };
+        const systems = (args.params.find((param) => param.name === 'identifier')?.value ?? '')
+          .split(',')
+          .map((systemFilter) => systemFilter.split('|')[0]);
+        const matching = notices.filter(
+          (notice) =>
+            (notice as PaymentNotice).identifier?.some((identifier) => systems.includes(identifier.system ?? ''))
+        );
+        return { link: [], unbundle: () => matching };
       }
       return { link: [], unbundle: () => [] };
     });
