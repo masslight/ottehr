@@ -240,6 +240,60 @@ describe('patient tokens with logic behind them', () => {
   });
 });
 
+describe('provider tokens', () => {
+  const participant = (code: string, practitionerId: string): Record<string, unknown> => ({
+    type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code }] }],
+    individual: { reference: `Practitioner/${practitionerId}` },
+  });
+  const intakePerson = {
+    resourceType: 'Practitioner',
+    id: 'intake-1',
+    name: [{ given: ['Ivy'], family: 'Intake', suffix: ['MA'] }],
+    identifier: [{ system: 'http://hl7.org/fhir/sid/us-npi', value: '1111111111' }],
+  };
+  const provider = {
+    resourceType: 'Practitioner',
+    id: 'provider-1',
+    name: [{ given: ['Paula', 'Q'], family: 'Provider', suffix: ['MD'] }],
+    identifier: [{ system: 'http://hl7.org/fhir/sid/us-npi', value: '2222222222' }],
+  };
+  const withParticipants = (participants: Record<string, unknown>[]): FormFillContext =>
+    contextWith(
+      {},
+      {
+        encounter: { resourceType: 'Encounter', id: 'enc-1', participant: participants },
+        appointmentPackage: { practitioners: [intakePerson, provider] },
+      }
+    );
+
+  it('fills the attending provider, not the intake person listed before them', () => {
+    const ctx = withParticipants([participant('ADM', 'intake-1'), participant('ATND', 'provider-1')]);
+
+    expect(resolveToken('provider.firstName', ctx)).toBe('Paula');
+    expect(resolveToken('provider.middleName', ctx)).toBe('Q');
+    expect(resolveToken('provider.lastName', ctx)).toBe('Provider');
+    expect(resolveToken('provider.fullName', ctx)).toBe('Paula Provider');
+    expect(resolveToken('provider.credentials', ctx)).toBe('MD');
+    expect(resolveToken('provider.npi', ctx)).toBe('2222222222');
+  });
+
+  it('still fills the provider once the note is signed and their attendance period has ended', () => {
+    const ctx = withParticipants([
+      participant('ADM', 'intake-1'),
+      { ...participant('ATND', 'provider-1'), period: { start: '2026-11-20T10:00:00Z', end: '2026-11-20T11:00:00Z' } },
+    ]);
+
+    expect(resolveToken('provider.fullName', ctx)).toBe('Paula Provider');
+  });
+
+  it('leaves the provider blank when only the intake person is on the visit', () => {
+    const ctx = withParticipants([participant('ADM', 'intake-1')]);
+
+    expect(resolveToken('provider.fullName', ctx)).toBeUndefined();
+    expect(resolveToken('provider.npi', ctx)).toBeUndefined();
+  });
+});
+
 describe('form tokens', () => {
   it('gives today as a plain date, in the visit’s timezone', () => {
     const ctx = contextWith({}, { appointmentPackage: { timezone: 'America/Chicago' } });

@@ -1,7 +1,7 @@
 import { Address, ContactPoint, Coverage, HumanName, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getMemberIdFromCoverage } from 'utils/lib/fhir/helpers';
-import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 
 /** Where a Social Security number is recorded on a Patient — see `makeSSNIdentifier`. */
 const SSN_SYSTEM = 'http://hl7.org/fhir/sid/us-ssn';
@@ -101,15 +101,10 @@ const wholeSsnDigits = (patient: Patient | undefined): string | undefined => {
   return digits?.length === 9 ? digits : undefined;
 };
 
-/** The practitioner attending the visit, preferring the encounter's own participant list. */
 const attendingPractitioner = (ctx: FormFillContext): Practitioner | undefined => {
-  const participantIds = (ctx.encounter?.participant ?? [])
-    .map((p) => p.individual?.reference)
-    .filter((ref): ref is string => !!ref?.startsWith('Practitioner/'))
-    .map((ref) => getIdFromReference(ref, 'Practitioner'));
-
-  const practitioners = ctx.appointmentPackage?.practitioners ?? [];
-  return practitioners.find((p) => p.id && participantIds.includes(p.id)) ?? practitioners[0];
+  const attenderId = ctx.encounter && getAttendingPractitionerId(ctx.encounter);
+  if (!attenderId) return undefined;
+  return ctx.appointmentPackage?.practitioners?.find((p) => p.id === attenderId);
 };
 
 /**
