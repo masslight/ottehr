@@ -77,7 +77,14 @@ describe('vitals tokens', () => {
     const ctx = contextWithVitals([weight]);
 
     expect(resolveToken('vitals.weightKg', ctx)).toBe(70);
-    expect(resolveToken('vitals.weightLbs', ctx)).toBe(154.3);
+    expect(resolveToken('vitals.weightLbs', ctx)).toBe(154.32);
+  });
+
+  it('writes a weight with the same 2 decimals the chart shows', () => {
+    const ctx = contextWithVitals([{ field: 'vital-weight', value: 3.248, lastUpdated: '2026-09-01T08:00:00Z' }]);
+
+    expect(resolveToken('vitals.weightKg', ctx)).toBe(3.25);
+    expect(resolveToken('vitals.weightLbs', ctx)).toBe(7.16);
   });
 
   it('takes the most recent reading, not the first recorded', () => {

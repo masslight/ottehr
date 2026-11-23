@@ -20,7 +20,7 @@ import {
 import { FormTokenKey } from 'utils/lib/form-tokens/token-catalog';
 import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { celsiusToFahrenheit } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
-import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { kgToLbs, roundWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import {
   AllergyDTO,
   VitalsBloodPressureObservationDTO,
@@ -363,7 +363,10 @@ export const TOKEN_RESOLVERS: Record<FormTokenKey, FormTokenResolver> = {
   'vitals.heightInchesRemainder': (ctx) => latestHeight(ctx)?.getInchRemainder(),
   'vitals.headCircumferenceCm': (ctx) => latestHeadCircumference(ctx)?.getCm(HEIGHT_CM_DISPLAY_PRECISION),
   'vitals.headCircumferenceInches': (ctx) => latestHeadCircumference(ctx)?.getInches(),
-  'vitals.weightKg': (ctx) => latestWeightKg(ctx),
+  'vitals.weightKg': (ctx) => {
+    const kg = latestWeightKg(ctx);
+    return kg === undefined ? undefined : roundWeightKg(kg);
+  },
   'vitals.weightLbs': (ctx) => {
     const kg = latestWeightKg(ctx);
     return kg === undefined ? undefined : kgToLbs(kg);

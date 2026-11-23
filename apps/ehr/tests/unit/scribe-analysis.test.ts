@@ -92,8 +92,8 @@ describe('buildAnalysis', () => {
 
   it('shows a kilogram weight in pounds for the editor, and puts pounds back on the wire', () => {
     const [rec] = analyse([{ kind: 'set-vital', field: 'vital-weight', display: '77 kg', value: 77, unit: 'kg' }]);
-    expect(rec).toMatchObject({ kind: 'vital-weight', weightLbs: 169.8 });
-    expect(toPlannedAction(rec)).toMatchObject({ kind: 'set-vital', field: 'vital-weight', value: 169.8, unit: 'lb' });
+    expect(rec).toMatchObject({ kind: 'vital-weight', weightLbs: 169.76 });
+    expect(toPlannedAction(rec)).toMatchObject({ kind: 'set-vital', field: 'vital-weight', value: 169.76, unit: 'lb' });
   });
 
   it('wraps everything else as a generic row carrying the step label the executor would show', () => {

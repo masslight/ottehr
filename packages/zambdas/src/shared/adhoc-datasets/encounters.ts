@@ -90,7 +90,7 @@ import {
   roundTemperatureValue,
 } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { isDotVisionScreeningEntry } from 'utils/lib/helpers/vitals/vitals-vision.helper';
-import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { kgToLbs, roundWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { patientScreeningQuestionsConfig } from 'utils/lib/ottehr-config/screening-questions';
 import {
   AdHocEncounterRow,
@@ -1279,7 +1279,7 @@ export async function fetchAdHocEncounterRows(
       const weightUnit = (weightObs?.valueQuantity?.unit || '').toLowerCase();
 
       const weightInKg = weightVal == null ? null : weightUnit.startsWith('lb') ? weightVal * 0.453592 : weightVal;
-      row.weightKg = weightInKg == null ? null : round1(weightInKg);
+      row.weightKg = weightInKg == null ? null : roundWeightKg(weightInKg);
       row.weightLbs = weightInKg == null ? null : kgToLbs(weightInKg);
 
       const heightObs = latest('vital-height');
