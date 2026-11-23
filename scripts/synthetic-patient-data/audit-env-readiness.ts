@@ -9,6 +9,7 @@
 //     scripts/synthetic-patient-data/audit-env-readiness.ts [--env demo]
 
 import { arg } from './shared/cli';
+import { findClinicalLocationByName } from './shared/locations';
 import { createOystehrFromEnv, need, searchAllPages } from './shared/oystehr-client';
 
 const ENV = arg('--env', 'demo');
@@ -80,15 +81,18 @@ function report(label: string, want: string[], have: string[]): { ok: number; mi
       .filter((r: any) => r.resourceType === rt) as any[];
 
   // Locations + Schedules
-  const locs = await search('Location', []);
-  const locResult = report('In-person Locations', REQUIRED.locations, locs.map((l: any) => l.name).filter(Boolean));
+  const locs = await Promise.all(REQUIRED.locations.map((ln) => findClinicalLocationByName(o, ln)));
+  const locResult = report(
+    'In-person Locations',
+    REQUIRED.locations,
+    locs.flatMap((l) => (l?.name ? [l.name] : []))
+  );
   let schedOk = true;
-  for (const ln of REQUIRED.locations) {
-    const loc = locs.find((l: any) => l.name === ln);
+  for (const loc of locs) {
     if (loc?.id) {
       const sched = await search('Schedule', [{ name: 'actor', value: `Location/${loc.id}` }]);
       if (!sched.length) {
-        console.log(`     ⚠️  Location "${ln}" has no Schedule — slot booking will fail.`);
+        console.log(`     ⚠️  Location "${loc.name}" has no Schedule — slot booking will fail.`);
         schedOk = false;
       }
     }
