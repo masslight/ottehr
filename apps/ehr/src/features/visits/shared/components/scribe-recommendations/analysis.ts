@@ -397,6 +397,10 @@ export function toPlannedAction(rec: ScribeRecommendation): PlannedAction {
         ...(rec.doseForm ? { doseForm: rec.doseForm } : {}),
       };
     case 'vital-weight':
+      // Unedited kilograms are saved as said, not rounded through the pounds shown in the editor.
+      if (original?.unit === 'kg' && typeof original.value === 'number' && kgToLbs(original.value) === rec.weightLbs) {
+        return base;
+      }
       return {
         ...base,
         kind: 'set-vital',

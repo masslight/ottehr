@@ -7,6 +7,7 @@ import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-pe
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { describe, expect, it } from 'vitest';
 import { buildChartSnapshot } from '../../src/features/easy-chart/executor/chartSnapshot';
+import { toStoredVitalValue } from '../../src/features/easy-chart/executor/handlers';
 import {
   appendToNoteField,
   buildAnalysis,
@@ -90,10 +91,17 @@ describe('buildAnalysis', () => {
     recs.forEach((rec) => expect(rec.action?.kind).toBeDefined());
   });
 
-  it('shows a kilogram weight in pounds for the editor, and puts pounds back on the wire', () => {
-    const [rec] = analyse([{ kind: 'set-vital', field: 'vital-weight', display: '77 kg', value: 77, unit: 'kg' }]);
-    expect(rec).toMatchObject({ kind: 'vital-weight', weightLbs: 169.76 });
-    expect(toPlannedAction(rec)).toMatchObject({ kind: 'set-vital', field: 'vital-weight', value: 169.76, unit: 'lb' });
+  it('shows a kilogram weight in pounds for the editor, and saves the kilograms said unless the pounds are edited', () => {
+    const [rec] = analyse([{ kind: 'set-vital', field: 'vital-weight', display: '16.3 kg', value: 16.3, unit: 'kg' }]);
+    expect(rec).toMatchObject({ kind: 'vital-weight', weightLbs: 35.94 });
+
+    const unedited = toPlannedAction(rec);
+    expect(unedited).toMatchObject({ kind: 'set-vital', field: 'vital-weight', value: 16.3, unit: 'kg' });
+    expect(toStoredVitalValue(unedited.value as number, unedited.unit)).toBe(16.3);
+
+    const edited = toPlannedAction({ ...rec, weightLbs: 36 } as ScribeRecommendation);
+    expect(edited).toMatchObject({ kind: 'set-vital', field: 'vital-weight', value: 36, unit: 'lb' });
+    expect(toStoredVitalValue(edited.value as number, edited.unit)).toBe(16.329);
   });
 
   it('wraps everything else as a generic row carrying the step label the executor would show', () => {
