@@ -1,0 +1,174 @@
+{
+ "antigen": "Rubella",
+ "source": "cdc-4.64",
+ "immunity": {
+  "birthDate": "1957-01-01"
+ },
+ "series": [
+  {
+   "seriesName": "Rubella 2-dose series",
+   "targetDisease": "Rubella",
+   "vaccineGroup": "MMR",
+   "seriesType": "Standard",
+   "select": {
+    "defaultSeries": true,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 1
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "For women of childbearing age, regardless of birth year, rubella immunity should be determined. If there is no evidence of immunity, women who are not pregnant should be vaccinated. Pregnant women who do not have evidence of immunity should receive MMR vaccine upon completion or termination of pregnancy and before discharge from the health care facility."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "12 months",
+       "earliestRecAge": "12 months",
+       "latestRecAge": "16 months + 4 weeks"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "MMR",
+       "cvx": "03",
+       "beginAge": "12 months",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "MMRV",
+       "cvx": "94",
+       "beginAge": "4 years",
+       "endAge": "13 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "MMR",
+       "cvx": "03",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Measles/Rubella",
+       "cvx": "04",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Rubella",
+       "cvx": "06",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Rubella/Mumps",
+       "cvx": "38",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "MMRV",
+       "cvx": "94",
+       "beginAge": "12 months - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "13 months - 4 days",
+       "minAge": "13 months",
+       "earliestRecAge": "4 years",
+       "latestRecAge": "7 years + 4 weeks"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "3 years",
+       "latestRecInt": "6 years + 4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "MMR",
+       "cvx": "03",
+       "beginAge": "12 months",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "MMRV",
+       "cvx": "94",
+       "beginAge": "4 years",
+       "endAge": "13 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "MMR",
+       "cvx": "03",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Measles/Rubella",
+       "cvx": "04",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Rubella",
+       "cvx": "06",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Rubella/Mumps",
+       "cvx": "38",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "MMRV",
+       "cvx": "94",
+       "beginAge": "12 months - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Both",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Dose is not required for those 19 year or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "19 years - 4 days"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    }
+   ]
+  }
+ ]
+}

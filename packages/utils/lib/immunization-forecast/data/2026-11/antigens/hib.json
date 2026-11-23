@@ -1,0 +1,1767 @@
+{
+ "antigen": "Hib",
+ "source": "cdc-4.64",
+ "series": [
+  {
+   "seriesName": "Hib start at 2 months 4-dose series",
+   "targetDisease": "Hib",
+   "vaccineGroup": "Hib",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": true,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 1,
+    "maxAgeToStart": "7 months - 4 days"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "A primary Hib vaccination series consisting of either 1) monovalent PRP-OMP (2-dose series at ages 2 and 4 months) or 2) DTaP-IPV-Hib-HepB (3-dose series at ages 2, 4, and 6 months) is preferred over other Hib vaccine formulations for American Indian or Alaskan Native (AI/AN) infants. For the booster dose of Hib vaccine, no vaccine formulation is preferred for AI/AN children."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "6 weeks - 4 days",
+       "minAge": "6 weeks",
+       "earliestRecAge": "2 months",
+       "latestRecAge": "3 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hib, unspecified formulation",
+       "cvx": "17",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-D",
+       "cvx": "46",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "HbOC",
+       "cvx": "47",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-MenCY-TT",
+       "cvx": "148",
+       "beginAge": "6 weeks - 4 days",
+       "endAge": "19 months"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "10 weeks - 4 days",
+       "minAge": "10 weeks",
+       "earliestRecAge": "4 months",
+       "latestRecAge": "5 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "16 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hib, unspecified formulation",
+       "cvx": "17",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-D",
+       "cvx": "46",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "HbOC",
+       "cvx": "47",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-MenCY-TT",
+       "cvx": "148",
+       "beginAge": "6 weeks - 4 days",
+       "endAge": "19 months"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Target Dose is not required if the current dose was administered on or after 15 months - 4 days of age.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "15 months - 4 days"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "sets": [
+        {
+         "id": 2,
+         "description": "Dose is not required for those 15 months or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "15 months"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "absMinAge": "14 weeks - 4 days",
+       "minAge": "14 weeks",
+       "earliestRecAge": "6 months",
+       "latestRecAge": "7 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "16 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hib, unspecified formulation",
+       "cvx": "17",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-D",
+       "cvx": "46",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "HbOC",
+       "cvx": "47",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP/Hib",
+       "cvx": "50",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-MenCY-TT",
+       "cvx": "148",
+       "beginAge": "6 weeks - 4 days",
+       "endAge": "19 months"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Target Dose is not required if the current dose was administered on or after 12 months of age.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "12 months"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Target Dose is not required if the current dose was administered on or after 12 months - 4 days of age AND the previous dose was administered at least 8 weeks - 4 day from the current dose.",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "12 months - 4 days"
+          },
+          {
+           "id": 2,
+           "type": "Interval",
+           "interval": "8 weeks - 4 days"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "sets": [
+        {
+         "id": 3,
+         "description": "Dose is not required for those 12 months or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "12 months"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 4",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "12 months",
+       "earliestRecAge": "12 months",
+       "latestRecAge": "16 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "6 months",
+       "latestRecInt": "10 months + 4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hib, unspecified formulation",
+       "cvx": "17",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-D",
+       "cvx": "46",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "HbOC",
+       "cvx": "47",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP/Hib",
+       "cvx": "50",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-MenCY-TT",
+       "cvx": "148",
+       "beginAge": "6 weeks - 4 days",
+       "endAge": "19 months"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Hib start at 7 months 3-dose series",
+   "targetDisease": "Hib",
+   "vaccineGroup": "Hib",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 3,
+    "maxAgeToStart": "12 months - 4 days"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "A primary Hib vaccination series consisting of either 1) monovalent PRP-OMP (2-dose series at ages 2 and 4 months) or 2) DTaP-IPV-Hib-HepB (3-dose series at ages 2, 4, and 6 months) is preferred over other Hib vaccine formulations for American Indian or Alaskan Native (AI/AN) infants. For the booster dose of Hib vaccine, no vaccine formulation is preferred for AI/AN children."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "7 months - 4 days",
+       "minAge": "7 months",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hib, unspecified formulation",
+       "cvx": "17",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-D",
+       "cvx": "46",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "HbOC",
+       "cvx": "47",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-MenCY-TT",
+       "cvx": "148",
+       "beginAge": "6 weeks - 4 days",
+       "endAge": "19 months"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "4 weeks",
+       "latestRecInt": "4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hib, unspecified formulation",
+       "cvx": "17",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-D",
+       "cvx": "46",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "HbOC",
+       "cvx": "47",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP/Hib",
+       "cvx": "50",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-MenCY-TT",
+       "cvx": "148",
+       "beginAge": "6 weeks - 4 days",
+       "endAge": "19 months"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [
+      {
+       "context": "Evaluation",
+       "setLogic": "OR",
+       "sets": [
+        {
+         "id": 1,
+         "description": "Target Dose is not required if the current dose was administered on or after 15 months of age.",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "15 months"
+          }
+         ]
+        },
+        {
+         "id": 2,
+         "description": "Target Dose is not required if the current dose was administered on or after 15 months - 4 days of age AND the previous dose was administered at least 8 weeks - 4 day from the current dose.",
+         "conditionLogic": "AND",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "15 months - 4 days"
+          },
+          {
+           "id": 2,
+           "type": "Interval",
+           "interval": "8 weeks - 4 days"
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "context": "Forecast",
+       "sets": [
+        {
+         "id": 3,
+         "description": "Dose is not required for those 15 months or older",
+         "conditions": [
+          {
+           "id": 1,
+           "type": "Age",
+           "beginAge": "15 months"
+          }
+         ]
+        }
+       ]
+      }
+     ],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "12 months",
+       "earliestRecAge": "12 months",
+       "latestRecAge": "16 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hib, unspecified formulation",
+       "cvx": "17",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-D",
+       "cvx": "46",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "HbOC",
+       "cvx": "47",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP/Hib",
+       "cvx": "50",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-MenCY-TT",
+       "cvx": "148",
+       "beginAge": "6 weeks - 4 days",
+       "endAge": "19 months"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Hib start at 12 months 2-dose series",
+   "targetDisease": "Hib",
+   "vaccineGroup": "Hib",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 4,
+    "maxAgeToStart": "15 months - 4 days"
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "A primary Hib vaccination series consisting of either 1) monovalent PRP-OMP (2-dose series at ages 2 and 4 months) or 2) DTaP-IPV-Hib-HepB (3-dose series at ages 2, 4, and 6 months) is preferred over other Hib vaccine formulations for American Indian or Alaskan Native (AI/AN) infants. For the booster dose of Hib vaccine, no vaccine formulation is preferred for AI/AN children."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "12 months",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-HepB",
+       "cvx": "146",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hib, unspecified formulation",
+       "cvx": "17",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-D",
+       "cvx": "46",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "HbOC",
+       "cvx": "47",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP/Hib",
+       "cvx": "50",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-MenCY-TT",
+       "cvx": "148",
+       "beginAge": "6 weeks - 4 days",
+       "endAge": "19 months"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hib, unspecified formulation",
+       "cvx": "17",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-D",
+       "cvx": "46",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "HbOC",
+       "cvx": "47",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP/Hib",
+       "cvx": "50",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-MenCY-TT",
+       "cvx": "148",
+       "beginAge": "6 weeks - 4 days",
+       "endAge": "19 months"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Hib start at 15 months 1-dose series",
+   "targetDisease": "Hib",
+   "vaccineGroup": "Hib",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": false,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 5
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "A primary Hib vaccination series consisting of either 1) monovalent PRP-OMP (2-dose series at ages 2 and 4 months) or 2) DTaP-IPV-Hib-HepB (3-dose series at ages 2, 4, and 6 months) is preferred over other Hib vaccine formulations for American Indian or Alaskan Native (AI/AN) infants. For the booster dose of Hib vaccine, no vaccine formulation is preferred for AI/AN children."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "15 months - 4 days",
+       "minAge": "15 months",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hib, unspecified formulation",
+       "cvx": "17",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-D",
+       "cvx": "46",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "HbOC",
+       "cvx": "47",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP/Hib",
+       "cvx": "50",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-MenCY-TT",
+       "cvx": "148",
+       "beginAge": "6 weeks - 4 days",
+       "endAge": "19 months"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  },
+  {
+   "seriesName": "Hib PRP-OMP 3-dose series",
+   "targetDisease": "Hib",
+   "vaccineGroup": "Hib",
+   "seriesType": "Standard",
+   "equivalentSeriesGroups": [
+    2
+   ],
+   "select": {
+    "defaultSeries": false,
+    "productPath": true,
+    "seriesGroupName": "Standard",
+    "seriesGroup": 1,
+    "seriesPriority": "A",
+    "seriesPreference": 2
+   },
+   "requiresIndication": false,
+   "seriesAdminGuidance": [
+    "A primary Hib vaccination series consisting of either 1) monovalent PRP-OMP (2-dose series at ages 2 and 4 months) or 2) DTaP-IPV-Hib-HepB (3-dose series at ages 2, 4, and 6 months) is preferred over other Hib vaccine formulations for American Indian or Alaskan Native (AI/AN) infants. For the booster dose of Hib vaccine, no vaccine formulation is preferred for AI/AN children."
+   ],
+   "doses": [
+    {
+     "doseNumber": "Dose 1",
+     "ages": [
+      {
+       "absMinAge": "6 weeks - 4 days",
+       "minAge": "6 weeks",
+       "earliestRecAge": "2 months",
+       "latestRecAge": "3 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 2",
+     "ages": [
+      {
+       "absMinAge": "10 weeks - 4 days",
+       "minAge": "10 weeks",
+       "earliestRecAge": "4 months",
+       "latestRecAge": "5 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "4 weeks - 4 days",
+       "minInt": "4 weeks",
+       "earliestRecInt": "8 weeks",
+       "latestRecInt": "16 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    },
+    {
+     "doseNumber": "Dose 3",
+     "ages": [
+      {
+       "absMinAge": "12 months - 4 days",
+       "minAge": "12 months",
+       "earliestRecAge": "12 months",
+       "latestRecAge": "16 months + 4 weeks",
+       "maxAge": "5 years"
+      }
+     ],
+     "intervals": [
+      {
+       "fromPrevious": true,
+       "absMinInt": "8 weeks - 4 days",
+       "minInt": "8 weeks",
+       "earliestRecInt": "6 months",
+       "latestRecInt": "10 months + 4 weeks"
+      }
+     ],
+     "allowableIntervals": [],
+     "preferableVaccines": [
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks",
+       "endAge": "5 years",
+       "volume": "0.5",
+       "forecastVaccineType": false
+      }
+     ],
+     "allowableVaccines": [
+      {
+       "vaccineType": "Hib, unspecified formulation",
+       "cvx": "17",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib",
+       "cvx": "22",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-D",
+       "cvx": "46",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "HbOC",
+       "cvx": "47",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-T",
+       "cvx": "48",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "PRP-OMP",
+       "cvx": "49",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP/Hib",
+       "cvx": "50",
+       "beginAge": "12 months - 4 days"
+      },
+      {
+       "vaccineType": "Hib-Hep B",
+       "cvx": "51",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-Hib-HepB",
+       "cvx": "102",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-Hib-IPV",
+       "cvx": "120",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B, historical",
+       "cvx": "132",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib-Hep B",
+       "cvx": "146",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "Hib-MenCY-TT",
+       "cvx": "148",
+       "beginAge": "6 weeks - 4 days",
+       "endAge": "19 months"
+      },
+      {
+       "vaccineType": "DTaP-IPV-Hib",
+       "cvx": "170",
+       "beginAge": "6 weeks - 4 days"
+      },
+      {
+       "vaccineType": "DTP-HepB-Hib Pentavalent Non-US",
+       "cvx": "198",
+       "beginAge": "6 weeks - 4 days"
+      }
+     ],
+     "inadvertentVaccines": [],
+     "conditionalSkips": [],
+     "recurringDose": false
+    }
+   ]
+  }
+ ]
+}
