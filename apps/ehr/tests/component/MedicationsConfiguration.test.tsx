@@ -3,7 +3,13 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { Medication } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import { MEDICATION_IDENTIFIER_NAME_SYSTEM } from 'utils/lib/types/api/medication-administration.constants';
+import {
+  CVX_CODE_SYSTEM_URL,
+  INVENTORY_MEDICATION_TYPE_CODE,
+  INVENTORY_VACCINE_TYPE_CODE,
+  MEDICATION_IDENTIFIER_NAME_SYSTEM,
+  MEDICATION_TYPE_SYSTEM,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -26,6 +32,7 @@ vi.mock('notistack', () => ({
 
 import { enqueueSnackbar } from 'notistack';
 import { getInHouseMedications, updateInHouseMedication } from 'src/api/api';
+import { AdminHeaderSlotProvider } from 'src/features/admin/AdminPageHeader';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import MedicationsConfigurationPage from '../../src/pages/configuration/MedicationsConfiguration';
@@ -48,6 +55,23 @@ const makeMed = (id: string, name: string, status: Medication['status']): Medica
   identifier: [{ system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name }],
 });
 
+const makeCatalogMed = (id: string, name: string): Medication => ({
+  ...makeMed(id, name, 'active'),
+  identifier: [
+    { system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_MEDICATION_TYPE_CODE },
+    { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name },
+  ],
+});
+
+const makeVaccine = (id: string, name: string, cvx: string, status: Medication['status'] = 'active'): Medication => ({
+  ...makeMed(id, name, status),
+  identifier: [
+    { system: MEDICATION_TYPE_SYSTEM, value: INVENTORY_VACCINE_TYPE_CODE },
+    { system: MEDICATION_IDENTIFIER_NAME_SYSTEM, value: name },
+  ],
+  code: { coding: [{ system: CVX_CODE_SYSTEM_URL, code: cvx }] },
+});
+
 const adminUser = {
   hasRole: (roles: RoleType[]) => roles.includes(RoleType.Administrator),
 } as any;
@@ -55,6 +79,24 @@ const adminUser = {
 const nonAdminUser = {
   hasRole: () => false,
 } as any;
+
+const selectType = (label: 'All types' | 'Medications' | 'Vaccines'): void => {
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Type' }));
+  fireEvent.click(within(screen.getByRole('listbox')).getByRole('option', { name: label }));
+};
+
+const dataRowCells = (): string[][] => {
+  const table = screen.getByRole('table', { name: 'medicationsTable' });
+  return within(table)
+    .getAllByRole('row')
+    .slice(1)
+    .map((row) =>
+      within(row)
+        .getAllByRole('cell')
+        .slice(0, 3)
+        .map((cell) => cell.textContent ?? '')
+    );
+};
 
 const selectStatus = (label: 'All statuses' | 'Active' | 'Inactive'): void => {
   fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Status' }));
@@ -260,5 +302,95 @@ describe('MedicationsConfigurationPage', () => {
 
     await waitFor(() => expect(dataRowNames()).toHaveLength(10));
     expect(screen.queryByText('Med 10')).not.toBeInTheDocument();
+  });
+
+  describe('vaccines in the catalog', () => {
+    const catalog = [
+      makeCatalogMed('1', 'Ibuprofen 200mg'),
+      makeVaccine('2', 'MMR', '03'),
+      makeVaccine('3', 'DTaP-Hep B-IPV', '110', 'inactive'),
+    ];
+
+    it('says in the Type column which entries are vaccines', async () => {
+      vi.mocked(getInHouseMedications).mockResolvedValue(catalog);
+
+      render(<MedicationsConfigurationPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(screen.getByText('MMR')).toBeInTheDocument());
+      expect(
+        within(screen.getByRole('table', { name: 'medicationsTable' }))
+          .getAllByRole('columnheader')
+          .map((header) => header.textContent)
+      ).toEqual(['Name', 'Type', 'Status', 'Actions']);
+      selectStatus('All statuses');
+      expect(dataRowCells()).toEqual([
+        ['Ibuprofen 200mg', 'Medication', 'Active'],
+        ['MMR', 'Vaccine', 'Active'],
+        ['DTaP-Hep B-IPV', 'Vaccine', 'Inactive'],
+      ]);
+    });
+
+    it('lists both types until one is picked in the Type filter', async () => {
+      vi.mocked(getInHouseMedications).mockResolvedValue(catalog);
+
+      render(<MedicationsConfigurationPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(screen.getByText('MMR')).toBeInTheDocument());
+      selectStatus('All statuses');
+      expect(dataRowNames()).toEqual(['Ibuprofen 200mg', 'MMR', 'DTaP-Hep B-IPV']);
+
+      selectType('Vaccines');
+      expect(dataRowNames()).toEqual(['MMR', 'DTaP-Hep B-IPV']);
+
+      selectType('Medications');
+      expect(dataRowNames()).toEqual(['Ibuprofen 200mg']);
+
+      selectType('All types');
+      expect(dataRowNames()).toEqual(['Ibuprofen 200mg', 'MMR', 'DTaP-Hep B-IPV']);
+    });
+
+    it('deactivates and activates a vaccine as it does a medication, and says vaccine', async () => {
+      vi.mocked(getInHouseMedications).mockResolvedValue([makeVaccine('vaccine-1', 'MMR', '03')]);
+      vi.mocked(updateInHouseMedication).mockResolvedValue({} as any);
+
+      render(<MedicationsConfigurationPage />, { wrapper: createWrapper() });
+
+      await waitFor(() => expect(screen.getByText('MMR')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
+
+      await waitFor(() => {
+        expect(updateInHouseMedication).toHaveBeenCalledWith(mockOystehrZambda, {
+          medicationID: 'vaccine-1',
+          status: 'inactive',
+        });
+      });
+      expect(enqueueSnackbar).toHaveBeenCalledWith('Vaccine deactivated', { variant: 'success' });
+    });
+
+    it.each([
+      ['an administrator', adminUser, true],
+      ['anyone else', nonAdminUser, false],
+    ])('offers "Add medication or vaccine" to %s', async (_label, user, enabled) => {
+      vi.mocked(useEvolveUser).mockReturnValue(user);
+      vi.mocked(getInHouseMedications).mockResolvedValue(catalog);
+      const header = document.createElement('div');
+      document.body.appendChild(header);
+
+      render(
+        <AdminHeaderSlotProvider value={header}>
+          <MedicationsConfigurationPage />
+        </AdminHeaderSlotProvider>,
+        { wrapper: createWrapper() }
+      );
+
+      const button = await within(header).findByRole('button', { name: 'Add medication or vaccine' });
+      if (enabled) {
+        expect(button).toBeEnabled();
+        expect(button.closest('a')).toHaveAttribute('href', '/admin/medications/add');
+      } else {
+        expect(button).toBeDisabled();
+      }
+      header.remove();
+    });
   });
 });

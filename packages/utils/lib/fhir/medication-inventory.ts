@@ -1,6 +1,7 @@
 import { Coding, Extension, Medication, Observation } from 'fhir/r4b';
 import { CODE_SYSTEM_NDC } from '../helpers/rcm/constants';
 import {
+  CatalogMedicationType,
   InHouseMedicationInventory,
   InHouseMedicationInventorySchema,
   INVENTORY_ENTRY_COMPONENTS,
@@ -13,12 +14,16 @@ import {
   InventoryStockEntry,
 } from '../types/api/config/in-house-medications';
 import {
+  CVX_CODE_SYSTEM_URL,
   INVENTORY_MEDICATION_TYPE_CODE,
+  INVENTORY_VACCINE_TYPE_CODE,
   MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
   MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
   MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
+  MVX_CODE_SYSTEM_URL,
 } from '../types/api/medication-administration.constants';
+import { VACCINE_FUNDING_SOURCES, VaccineFundingSource } from '../types/data/immunization/vaccine-funding-source';
 import { getExtension, getTag } from './helpers';
 import { getMedicationName } from './medication-administration';
 import { ottehrCodeSystemUrl, ottehrExtensionUrl, ottehrIdentifierSystem } from './systemUrls';
@@ -94,6 +99,7 @@ export const INVENTORY_LOT_LOCATION_TAG_SYSTEM = ottehrCodeSystemUrl('inventory-
 const INVENTORY_LOT_EXTENSION_URL = ottehrExtensionUrl('inventory-lot');
 const LOT_LOCATION = 'location';
 const LOT_VENDOR = 'vendor';
+const LOT_FUNDING_SOURCE = 'funding-source';
 const LOT_ON_HAND = 'on-hand';
 
 const INVENTORY_STOCK_ENTRY_EXTENSION_URL = ottehrExtensionUrl('inventory-stock-entry');
@@ -117,6 +123,28 @@ export const isCatalogMedication = (medication: Medication): boolean =>
     (identifier) => identifier.system === MEDICATION_TYPE_SYSTEM && identifier.value === INVENTORY_MEDICATION_TYPE_CODE
   ) ?? false;
 
+/** The CVX code a vaccine's Medication carries, if any. */
+export const getMedicationCvx = (medication: Medication | undefined): string | undefined =>
+  medication?.code?.coding?.find((coding) => coding.system === CVX_CODE_SYSTEM_URL)?.code;
+
+/**
+ * A vaccine in the practice's catalog: the vaccine type identifier and a CVX code. The vaccines that used to be
+ * set up from a config file keep the type identifier but have no CVX code, so they are not catalog entries.
+ */
+export const isVaccineCatalogMedication = (medication: Medication): boolean =>
+  Boolean(getMedicationCvx(medication)) &&
+  (medication.identifier?.some(
+    (identifier) => identifier.system === MEDICATION_TYPE_SYSTEM && identifier.value === INVENTORY_VACCINE_TYPE_CODE
+  ) ??
+    false);
+
+/** Which kind of catalog entry a Medication is; undefined when it is neither (an inventory lot, for one). */
+export const getCatalogMedicationType = (medication: Medication): CatalogMedicationType | undefined => {
+  if (isCatalogMedication(medication)) return 'medication';
+  if (isVaccineCatalogMedication(medication)) return 'vaccine';
+  return undefined;
+};
+
 export const getOrderCatalogMedicationId = (contained: Medication | undefined): string | undefined =>
   contained?.identifier?.find((identifier) => identifier.system === MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM)?.value;
 
@@ -130,18 +158,23 @@ export interface InventoryLotInput {
   expirationDate: string;
   ndc: string;
   manufacturer?: string;
+  /** Vaccine lots: the manufacturer's MVX code, from the manufacturers list. `manufacturer` is its name there. */
+  mvx?: string;
   vendor?: string;
+  /** Vaccine lots: what the stock was paid with. */
+  fundingSource?: VaccineFundingSource;
   unit: string;
 }
 
 const makeLotExtension = (
-  input: Pick<InventoryLotInput, 'locationId' | 'vendor' | 'unit'>,
+  input: Pick<InventoryLotInput, 'locationId' | 'vendor' | 'fundingSource' | 'unit'>,
   onHand: number
 ): Extension => ({
   url: INVENTORY_LOT_EXTENSION_URL,
   extension: [
     { url: LOT_LOCATION, valueReference: { reference: `Location/${input.locationId}` } },
     ...(input.vendor ? [{ url: LOT_VENDOR, valueString: input.vendor }] : []),
+    ...(input.fundingSource ? [{ url: LOT_FUNDING_SOURCE, valueCode: input.fundingSource }] : []),
     { url: LOT_ON_HAND, valueQuantity: { value: onHand, unit: input.unit } },
   ],
 });
@@ -150,6 +183,7 @@ export const makeInventoryLot = (catalog: Medication & { id: string }, input: In
   const codings: Coding[] = [
     ...(catalog.code?.coding ?? []).filter((coding) => coding.system !== CODE_SYSTEM_NDC),
     { system: CODE_SYSTEM_NDC, code: input.ndc },
+    ...(input.mvx ? [{ system: MVX_CODE_SYSTEM_URL, code: input.mvx }] : []),
   ];
   return {
     resourceType: 'Medication',
@@ -166,23 +200,34 @@ export const makeInventoryLot = (catalog: Medication & { id: string }, input: In
   };
 };
 
+const isFundingSource = (code: string | undefined): code is VaccineFundingSource =>
+  VACCINE_FUNDING_SOURCES.includes(code as VaccineFundingSource);
+
 const readLotExtension = (
   lot: Medication
-): { locationId?: string; vendor?: string; unit: string; onHand: number } | undefined => {
+):
+  | { locationId?: string; vendor?: string; fundingSource?: VaccineFundingSource; unit: string; onHand: number }
+  | undefined => {
   const root = getExtension(lot, INVENTORY_LOT_EXTENSION_URL);
   if (!root) return undefined;
   const onHand = getExtension(root, LOT_ON_HAND)?.valueQuantity;
+  const fundingSource = getExtension(root, LOT_FUNDING_SOURCE)?.valueCode;
   return {
     locationId:
       getExtension(root, LOT_LOCATION)?.valueReference?.reference?.replace('Location/', '') ??
       getTag(lot, INVENTORY_LOT_LOCATION_TAG_SYSTEM)?.code,
     vendor: getExtension(root, LOT_VENDOR)?.valueString,
+    ...(isFundingSource(fundingSource) ? { fundingSource } : {}),
     unit: onHand?.unit ?? '',
     onHand: onHand?.value ?? 0,
   };
 };
 
-const replaceLotExtension = (lot: Medication, details: { vendor?: string }, onHand: number): Medication => {
+const replaceLotExtension = (
+  lot: Medication,
+  details: { vendor?: string; fundingSource?: VaccineFundingSource },
+  onHand: number
+): Medication => {
   const existing = readLotExtension(lot);
   if (!existing?.locationId) throw new Error(`Medication/${lot.id} is not an inventory lot`);
   return {
@@ -194,6 +239,7 @@ const replaceLotExtension = (lot: Medication, details: { vendor?: string }, onHa
           locationId: existing.locationId,
           unit: existing.unit,
           vendor: details.vendor ?? existing.vendor,
+          fundingSource: details.fundingSource ?? existing.fundingSource,
         },
         onHand
       ),
@@ -206,8 +252,11 @@ export const withLotOnHand = (lot: Medication, onHand: number): Medication => ({
   status: onHand === 0 ? 'inactive' : 'active',
 });
 
-export const withLotDetails = (lot: Medication, details: { vendor?: string }): Medication =>
-  replaceLotExtension(lot, details, readLotExtension(lot)?.onHand ?? 0);
+/** The lot with its vendor and funding source replaced; one left undefined is kept as it is. */
+export const withLotDetails = (
+  lot: Medication,
+  details: { vendor?: string; fundingSource?: VaccineFundingSource }
+): Medication => replaceLotExtension(lot, details, readLotExtension(lot)?.onHand ?? 0);
 
 export const parseInventoryLot = (lot: Medication): InventoryLot | undefined => {
   const details = readLotExtension(lot);
@@ -217,6 +266,7 @@ export const parseInventoryLot = (lot: Medication): InventoryLot | undefined => 
   if (!lot.id || !details?.locationId || !isInventoryLot(lot) || !catalogMedicationId || !lot.batch?.lotNumber) {
     return undefined;
   }
+  const mvx = lot.code?.coding?.find((coding) => coding.system === MVX_CODE_SYSTEM_URL)?.code;
   return {
     id: lot.id,
     catalogMedicationId,
@@ -225,7 +275,9 @@ export const parseInventoryLot = (lot: Medication): InventoryLot | undefined => 
     expirationDate: lot.batch.expirationDate ?? '',
     ndc: lot.code?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC)?.code,
     manufacturer: lot.manufacturer?.display,
+    ...(mvx ? { mvx } : {}),
     vendor: details.vendor,
+    ...(details.fundingSource ? { fundingSource: details.fundingSource } : {}),
     onHand: details.onHand,
     unit: details.unit,
     status: lot.status === 'active' ? 'active' : 'inactive',

@@ -62,6 +62,7 @@ const drug = (
 ): TrackedDrug => ({
   medicationId,
   name,
+  type: 'medication',
   inventory: { countedAs: 'vial', eachContains: { amount: 4, unit: 'mg' }, use: 'single-use', reorderLevels },
 });
 

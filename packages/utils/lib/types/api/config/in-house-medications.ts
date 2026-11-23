@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IN_HOUSE_MEDICATION_UNIT_OPTIONS, MedicationUnitOptions } from '../../../fhir/medication-administration';
+import { VaccineFundingSource, VaccineFundingSourceSchema } from '../../data/immunization/vaccine-funding-source';
 
 export interface CreateInHouseMedicationInput {
   name: string;
@@ -7,6 +8,14 @@ export interface CreateInHouseMedicationInput {
   medispanID: string;
   medispanIDForInteractions?: string;
 }
+
+/** A vaccine is added to the catalog by its CVX code alone; its name comes from the CDC list. */
+export interface CreateCatalogVaccineInput {
+  vaccine: { cvx: string };
+}
+
+/** What a catalog entry is: an in-house medication or a vaccine. */
+export type CatalogMedicationType = 'medication' | 'vaccine';
 
 export const MEDICATION_COUNTED_AS_OPTIONS = [
   'vial',
@@ -21,8 +30,11 @@ export const MEDICATION_COUNTED_AS_OPTIONS = [
   'packet',
   'other',
 ] as const;
-export type MedicationCountedAs = (typeof MEDICATION_COUNTED_AS_OPTIONS)[number];
+/** A vaccine is counted in doses, or like a medication in any of the units above. */
+export const VACCINE_COUNTED_AS_OPTIONS = ['dose', ...MEDICATION_COUNTED_AS_OPTIONS] as const;
+export type MedicationCountedAs = (typeof VACCINE_COUNTED_AS_OPTIONS)[number];
 export const MEDICATION_COUNTED_AS_LABELS: Record<MedicationCountedAs, { singular: string; plural: string }> = {
+  dose: { singular: 'Dose', plural: 'doses' },
   vial: { singular: 'Vial', plural: 'vials' },
   ampule: { singular: 'Ampule', plural: 'ampules' },
   syringe: { singular: 'Syringe', plural: 'syringes' },
@@ -54,7 +66,7 @@ const MedicationAmountSchema = z.object({
 });
 
 export const InHouseMedicationInventorySchema = z.object({
-  countedAs: z.enum(MEDICATION_COUNTED_AS_OPTIONS),
+  countedAs: z.enum(VACCINE_COUNTED_AS_OPTIONS),
   eachContains: MedicationAmountSchema.extend({ in: MedicationAmountSchema.optional() }),
   use: z.enum(MEDICATION_USE_OPTIONS),
   reorderLevels: z
@@ -62,6 +74,14 @@ export const InHouseMedicationInventorySchema = z.object({
     .default([]),
 });
 export type InHouseMedicationInventory = z.infer<typeof InHouseMedicationInventorySchema>;
+
+/** The inventory setup a vaccine gets when it is added: counted in doses, one dose per syringe or vial. */
+export const VACCINE_DEFAULT_INVENTORY: InHouseMedicationInventory = {
+  countedAs: 'dose',
+  eachContains: { amount: 1, unit: 'unit' },
+  use: 'single-use',
+  reorderLevels: [],
+};
 
 export type UpdateInHouseMedicationInput = Partial<CreateInHouseMedicationInput> & {
   medicationID: string;
@@ -124,7 +144,11 @@ export interface InventoryLot {
   expirationDate: string;
   ndc?: string;
   manufacturer?: string;
+  /** Vaccine lots: the manufacturer's MVX code, picked from the manufacturers list. A medication lot has none. */
+  mvx?: string;
   vendor?: string;
+  /** Vaccine lots: what the stock was paid with. A medication lot has none. */
+  fundingSource?: VaccineFundingSource;
   onHand: number;
   unit: string;
   status: 'active' | 'inactive';
@@ -157,8 +181,13 @@ export const ReceiveMedicationShipmentInputSchema = z.object({
   expirationDate: z.string().regex(ISO_DATE, 'expirationDate must be YYYY-MM-DD'),
   quantity: z.number().int().positive(),
   ndc: z.string().trim().min(1),
+  /** A medication's manufacturer, as typed. A vaccine's is picked by `mvx`, and its name comes from the list. */
   manufacturer: z.string().trim().min(1).optional(),
+  /** The manufacturer's MVX code from the manufacturers list. Required to receive a vaccine; a medication has none. */
+  mvx: z.string().trim().min(1).optional(),
   vendor: z.string().trim().min(1).optional(),
+  /** Required to receive a vaccine; a medication has none. */
+  fundingSource: VaccineFundingSourceSchema.optional(),
   expirationConflict: z.enum(['separate-lot', 'correct-existing']).optional(),
   lotId: z.string().uuid().optional(),
 });
@@ -207,7 +236,7 @@ export const GetMedicationInventoryInputSchema = z.object({
 export type GetMedicationInventoryInput = z.infer<typeof GetMedicationInventoryInputSchema>;
 
 export interface GetMedicationInventoryResponse {
-  lastReceivedLot?: Pick<InventoryLot, 'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'vendor'>;
+  lastReceivedLot?: Pick<InventoryLot, 'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'mvx' | 'vendor'>;
   lots?: InventoryLot[];
 }
 
@@ -261,6 +290,7 @@ export interface InventoryLotRow extends InventoryLot {
 export interface InventoryDrugRow {
   medicationId: string;
   name: string;
+  type: CatalogMedicationType;
   countedAs: MedicationCountedAs;
   use: MedicationUse;
   onHand: number;

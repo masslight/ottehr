@@ -9,7 +9,10 @@ import {
   withLotOnHand,
 } from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_HL7_HCPCS, CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
-import { InHouseMedicationInventory } from 'utils/lib/types/api/config/in-house-medications';
+import {
+  CreateInHouseMedicationInput,
+  InHouseMedicationInventory,
+} from 'utils/lib/types/api/config/in-house-medications';
 import {
   INVENTORY_MEDICATION_TYPE_CODE,
   MEDICATION_DISPENSABLE_DRUG_ID,
@@ -36,14 +39,21 @@ const createInput = (body: Record<string, unknown>): ZambdaInput => ({
 
 // ─── create-in-house-medication/validateRequestParameters ─────────────────────
 
+const asMedicationInput = (result: ReturnType<typeof createValidate>): CreateInHouseMedicationInput => {
+  if ('vaccine' in result) throw new Error('expected a medication request, got a vaccine request');
+  return result;
+};
+
 describe('create-in-house-medication - validateRequestParameters', () => {
   it('validates with all fields', () => {
-    const result = createValidate(
-      createInput({
-        name: 'Ibuprofen 200mg',
-        ndc: '12345-678-90',
-        medispanID: 'DRUG123',
-      })
+    const result = asMedicationInput(
+      createValidate(
+        createInput({
+          name: 'Ibuprofen 200mg',
+          ndc: '12345-678-90',
+          medispanID: 'DRUG123',
+        })
+      )
     );
     expect(result.name).toBe('Ibuprofen 200mg');
     expect(result.ndc).toBe('12345-678-90');
@@ -51,7 +61,7 @@ describe('create-in-house-medication - validateRequestParameters', () => {
   });
 
   it('validates without optional ndc', () => {
-    const result = createValidate(createInput({ name: 'Ibuprofen 200mg', medispanID: 'DRUG123' }));
+    const result = asMedicationInput(createValidate(createInput({ name: 'Ibuprofen 200mg', medispanID: 'DRUG123' })));
     expect(result.name).toBe('Ibuprofen 200mg');
     expect(result.ndc).toBeUndefined();
   });

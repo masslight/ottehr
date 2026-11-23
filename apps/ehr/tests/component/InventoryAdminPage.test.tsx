@@ -40,6 +40,7 @@ const lot = (overrides: Partial<InventoryLotRow>): InventoryLotRow => ({
 const drug = (overrides: Partial<InventoryDrugRow>): InventoryDrugRow => ({
   medicationId: 'med-a',
   name: 'Albuterol Sulfate (1mg)',
+  type: 'medication',
   countedAs: 'tablet',
   use: 'single-use',
   onHand: 0,
@@ -239,5 +240,108 @@ describe('Inventory admin page', () => {
     });
     expect(readsOf('location')).toBe(reads.list + 1);
     expect(readsOf('lot-history')).toBe(reads.history + 1);
+  });
+
+  describe('vaccines', () => {
+    const vaccineLot = (overrides: Partial<InventoryLotRow>): InventoryLotRow =>
+      lot({ catalogMedicationId: 'vaccine-m', unit: 'dose', ndc: '00006-4681-00', ...overrides });
+    const mmr = drug({
+      medicationId: 'vaccine-m',
+      name: 'MMR',
+      type: 'vaccine',
+      countedAs: 'dose',
+      onHand: 21,
+      lots: [
+        vaccineLot({ id: 'lot-vfc', lotNumber: 'Y0112', onHand: 8, fundingSource: 'vfc' }),
+        vaccineLot({ id: 'lot-private', lotNumber: 'Y0200', onHand: 10, fundingSource: 'private' }),
+        vaccineLot({ id: 'lot-state', lotNumber: 'Y0300', onHand: 3, fundingSource: 'state' }),
+      ],
+    });
+    const FUNDING_SOURCE_TAGS = ['VFC', 'Private', 'State program'];
+
+    const tagsIn = (rowTestId: string): string[] =>
+      Array.from(screen.getByTestId(rowTestId).querySelectorAll('.MuiChip-label')).map(
+        (chip) => chip.textContent ?? ''
+      );
+
+    const expand = async (medicationId: string): Promise<void> =>
+      userEvent.click(
+        within(await screen.findByTestId(inventoryPage.medicationRow(medicationId))).getByRole('button', {
+          name: 'Expand',
+        })
+      );
+
+    it('lists a vaccine beside the medications of a clinic, tagged Vaccine and counted in doses', async () => {
+      renderPage(() => ({ drugs: [albuterol, mmr], entries: [] }));
+
+      await screen.findByTestId(inventoryPage.medicationRow('vaccine-m'));
+      expect(shownRows()).toEqual([inventoryPage.medicationRow('med-a'), inventoryPage.medicationRow('vaccine-m')]);
+      expect(tagsIn(inventoryPage.medicationRow('vaccine-m'))).toEqual(['Vaccine']);
+      expect(tagsIn(inventoryPage.medicationRow('med-a'))).toEqual([]);
+      expect(onHandCell(inventoryPage.medicationRow('vaccine-m'))).toHaveTextContent(/^21 doses$/);
+      expect(screen.getByText('Only medications and vaccines set up for inventory appear here.')).toBeInTheDocument();
+    });
+
+    it('shows the funding source of each vaccine lot next to its lot number, and none on a medication lot', async () => {
+      renderPage(() => ({ drugs: [albuterol, mmr], entries: [] }));
+      await expand('vaccine-m');
+      await expand('med-a');
+
+      expect(tagsIn(inventoryPage.lotRow('lot-vfc'))).toEqual(['VFC']);
+      expect(tagsIn(inventoryPage.lotRow('lot-private'))).toEqual(['Private']);
+      expect(tagsIn(inventoryPage.lotRow('lot-state'))).toEqual(['State program']);
+      expect(within(screen.getByTestId(inventoryPage.lotRow('lot-vfc'))).getAllByRole('cell')[1]).toHaveTextContent(
+        /^Lot Y0112VFC$/
+      );
+      expect(onHandCell(inventoryPage.lotRow('lot-vfc'))).toHaveTextContent(/^8 doses$/);
+      for (const lotId of ['lot-1', 'lot-2']) {
+        expect(tagsIn(inventoryPage.lotRow(lotId)).filter((tag) => FUNDING_SOURCE_TAGS.includes(tag))).toEqual([]);
+      }
+    });
+
+    it('shows no funding source tag on a vaccine lot that has none', async () => {
+      renderPage(() => ({
+        drugs: [{ ...mmr, lots: [vaccineLot({ id: 'lot-untagged', lotNumber: 'Y0400', onHand: 2 })] }],
+        entries: [],
+      }));
+      await expand('vaccine-m');
+
+      expect(tagsIn(inventoryPage.lotRow('lot-untagged'))).toEqual([]);
+    });
+
+    it('offers Count and Adjust on a vaccine lot, counting in doses', async () => {
+      renderPage(() => ({ drugs: [mmr], entries: [] }));
+      await expand('vaccine-m');
+      expect(screen.getByTestId(inventoryPage.adjustButton('lot-vfc'))).toBeEnabled();
+
+      await userEvent.click(screen.getByTestId(inventoryPage.countButton('lot-vfc')));
+
+      expect(await screen.findByText('MMR · Lot Y0112 · Main Street')).toBeInTheDocument();
+      expect(screen.getByLabelText(/Doses on the Shelf/)).toBeInTheDocument();
+    });
+
+    it('expands a vaccine to on hand per clinic in the all clinics view, without lots or funding source', async () => {
+      localStorage.removeItem('selectedLocation');
+      renderPage(() => ({
+        drugs: [
+          drug({
+            medicationId: 'vaccine-m',
+            name: 'MMR',
+            type: 'vaccine',
+            countedAs: 'dose',
+            onHand: 21,
+            locations: [{ locationId: 'loc-a', locationName: 'Main Street', onHand: 21, markers: [] }],
+          }),
+        ],
+        entries: [],
+      }));
+      await expand('vaccine-m');
+
+      expect(tagsIn(inventoryPage.medicationRow('vaccine-m'))).toEqual(['Vaccine']);
+      const clinicRow = screen.getByRole('row', { name: /Main Street/ });
+      expect(clinicRow).toHaveTextContent('21 doses');
+      expect(screen.queryByText(/^Lot /)).not.toBeInTheDocument();
+      for (const tag of FUNDING_SOURCE_TAGS) expect(screen.queryByText(tag)).not.toBeInTheDocument();
+    });
   });
 });

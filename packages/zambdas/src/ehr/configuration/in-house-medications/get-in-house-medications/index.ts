@@ -1,7 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Medication } from 'fhir/r4b';
-import { INVENTORY_MEDICATION_TYPE_CODE } from 'utils/lib/types/api/medication-administration.constants';
+import { getCatalogMedicationType } from 'utils/lib/fhir/medication-inventory';
+import {
+  INVENTORY_MEDICATION_TYPE_CODE,
+  INVENTORY_VACCINE_TYPE_CODE,
+} from 'utils/lib/types/api/medication-administration.constants';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
@@ -32,12 +36,14 @@ export const performEffect = async (oystehr: Oystehr): Promise<Medication[]> => 
     await oystehr.fhir.search<Medication>({
       resourceType: 'Medication',
       params: [
+        // Medications and vaccines share the catalog.
         {
           name: 'identifier',
-          value: INVENTORY_MEDICATION_TYPE_CODE,
+          value: `${INVENTORY_MEDICATION_TYPE_CODE},${INVENTORY_VACCINE_TYPE_CODE}`,
         },
       ],
     })
   ).unbundle();
-  return medications;
+  // The vaccine type is also on Medications that are not catalog vaccines (they have no CVX code); leave them out.
+  return medications.filter((medication) => getCatalogMedicationType(medication) !== undefined);
 };
