@@ -108,6 +108,27 @@ describe('diffResources', () => {
     });
   });
 
+  it('records the group number, treating the payer-ID placeholder in the class value as no group number', () => {
+    const PAYER_URL = 'https://rcm-api.zapehr.com/v1/payer/60054';
+    const withClass = (value: string, payor = PAYER_URL): Coverage =>
+      coverage({ payor: [{ reference: payor }], class: [{ type: { coding: [{ code: 'plan' }] }, value }] });
+
+    // Placeholder (RCM payer ID) → real group number, e.g. a rule copying the member ID over.
+    expect(diffResources(withClass('60054'), withClass('WC-42'))).toEqual([
+      { field: 'groupNumber', label: 'Group Number', previousValue: null, newValue: 'WC-42' },
+    ]);
+    // Placeholder for a directly referenced payer Organization.
+    expect(
+      diffResources(undefined, withClass('org-1', 'Organization/org-1')).find((c) => c.field === 'groupNumber')
+    ).toBeUndefined();
+    // A coverage created with only the placeholder records no group number.
+    expect(diffResources(undefined, withClass('60054')).find((c) => c.field === 'groupNumber')).toBeUndefined();
+    // Genuine group number changes are recorded as-is.
+    expect(diffResources(withClass('GRP-1'), withClass('GRP-2'))).toEqual([
+      { field: 'groupNumber', label: 'Group Number', previousValue: 'GRP-1', newValue: 'GRP-2' },
+    ]);
+  });
+
   it('prefers reference displays and compares reference fields by ref, not display', () => {
     const withPayer = (display: string | undefined): Coverage =>
       coverage({ payor: [{ reference: 'https://rcm.example/payer/1', display }] });

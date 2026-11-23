@@ -78,7 +78,13 @@ import {
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary, getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { ottehrCodeSystemUrl, ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
-import { extractNioIdFromReferenceUrl, getPayerId, getPayerUrl, isPayerUrl } from 'utils/lib/helpers/helpers';
+import {
+  extractNioIdFromReferenceUrl,
+  extractPayerIdFromUrl,
+  getPayerId,
+  getPayerUrl,
+  isPayerUrl,
+} from 'utils/lib/helpers/helpers';
 import {
   CODE_SYSTEM_CLAIM_SECONDARY_IDENTIFIER_TYPE,
   CODE_SYSTEM_CLAIM_TYPE,
@@ -2177,11 +2183,25 @@ export async function getGroupNumber(
   const payorRef = coverage.payor?.[0]?.reference;
   const payorOrg = payorRef ? payersByRef.get(payorRef) : undefined;
 
-  // EHR stores payer ID in the same place and we recently stopped copying it in billing app
-  let groupNumber = coverage.class?.[0]?.value;
-  if (groupNumber === payorOrg?.id) groupNumber = undefined;
+  return coverageGroupNumber(coverage, payorOrg);
+}
 
-  return groupNumber;
+// A coverage's group number: the value of its first class entry, unless that value is the payer-ID
+// placeholder the EHR stores there (and the billing app falls back to when no group number is
+// entered — see setCoveragePayer). Synchronous, so it recognizes the placeholder from the payor
+// reference (an RCM payer URL carries the payer ID; a direct Organization reference, its id); pass
+// the resolved payer Organization when available to also recognize its resolved payer ID.
+export function coverageGroupNumber(coverage: Coverage, payerOrg?: Organization): string | undefined {
+  const value = coverage.class?.[0]?.value;
+  if (!value) return undefined;
+  const payorRef = coverage.payor?.[0]?.reference;
+  const placeholders = [
+    payerOrg?.id,
+    resolvedPayerId(payerOrg),
+    extractPayerIdFromUrl(payorRef),
+    payorRef?.startsWith('Organization/') ? payorRef.slice('Organization/'.length) : undefined,
+  ];
+  return placeholders.includes(value) ? undefined : value;
 }
 
 export function isPayerClaimControlNumberFor(identifier: Identifier, insurance: RulesEngineInsurance): boolean {
