@@ -79,10 +79,13 @@ export function RecordInvoicePaymentDialog({
   const [submitError, setSubmitError] = useState('');
   const balance = invoice.balance ?? 0;
 
-  // A resent payment reuses its key and uploaded file, so it's recorded once.
+  // A resent payment reuses its key, invoice, amount and uploaded file, so it's recorded once even
+  // after a refetch drops the balance it paid.
   const lastAttempt = useRef<{
     idempotencyKey: string;
     signature: string;
+    invoiceId: string;
+    amountInCents: number;
     attachment?: RecordBillingNioInvoicePaymentInput['attachment'];
   } | null>(null);
 
@@ -109,17 +112,19 @@ export function RecordInvoicePaymentDialog({
       lastAttempt.current = {
         idempotencyKey: crypto.randomUUID(),
         signature,
+        invoiceId: invoice.id,
+        amountInCents: Math.round(balance * 100),
       };
     }
     const attempt = lastAttempt.current;
-    const { idempotencyKey } = attempt;
+    const { idempotencyKey, invoiceId, amountInCents } = attempt;
 
     setSubmitting(true);
     setSubmitError('');
     try {
       if (form.file && !attempt.attachment) {
         const { uploadUrl, path } = await presignBillingInvoicePaymentAttachment(oystehrZambda, {
-          invoiceId: invoice.id,
+          invoiceId,
           fileName: form.file.name,
         });
         await uploadObjectToZ3(form.file, uploadUrl, form.file.type);
@@ -135,8 +140,8 @@ export function RecordInvoicePaymentDialog({
       }
       const { attachment } = attempt;
       await recordBillingNioInvoicePayment(oystehrZambda, {
-        invoiceId: invoice.id,
-        amountInCents: Math.round(balance * 100),
+        invoiceId,
+        amountInCents,
         paymentMethod: form.paymentMethod,
         paymentDate: form.paymentDate,
         reference,

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecordInvoicePaymentDialog } from '../../src/components/RecordInvoicePaymentDialog';
 
@@ -162,5 +163,32 @@ describe('RecordInvoicePaymentDialog', () => {
     expect(second.idempotencyKey).toBe(first.idempotencyKey);
     expect(second.attachment).toEqual(first.attachment);
     expect(mocks.upload).toHaveBeenCalledTimes(1);
+  });
+
+  it('resends the amount it first sent after a refetch shows the invoice paid', async () => {
+    mocks.record.mockRejectedValueOnce(new Error('Network error'));
+    const dialog = (balance: number): ReactElement => (
+      <RecordInvoicePaymentDialog
+        open
+        onClose={mocks.onClose}
+        onRecorded={mocks.onRecorded}
+        invoice={{
+          id: 'invoice-1',
+          balance,
+        }}
+      />
+    );
+    const { rerender } = render(dialog(320));
+    fillPayment();
+
+    submit();
+    await screen.findByText('Network error');
+    rerender(dialog(0));
+    submit();
+
+    await waitFor(() => expect(mocks.onRecorded).toHaveBeenCalled());
+    const [[, first], [, second]] = mocks.record.mock.calls;
+    expect(second).toEqual(first);
+    expect(second.amountInCents).toBe(32000);
   });
 });
