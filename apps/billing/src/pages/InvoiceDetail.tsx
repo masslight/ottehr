@@ -177,7 +177,8 @@ export default function InvoiceDetail(): ReactElement {
       }),
   });
 
-  const canRecordPayment = invoice.data?.status === 'issued' && (invoice.data.balance ?? 0) > 0;
+  const canRecordPayment =
+    invoice.data?.status === 'issued' && invoice.data.amount > 0 && invoice.data.balance === invoice.data.amount;
 
   const download = async ({
     pick,

@@ -65,6 +65,12 @@ const invoice: BillingInvoiceDetail = {
   pdfUrl: 'https://z3.example/INV-00042.pdf',
 };
 
+const unpaidInvoice: BillingInvoiceDetail = {
+  ...invoice,
+  balance: 320,
+  payments: [],
+};
+
 function renderPage(): void {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -158,7 +164,8 @@ describe('InvoiceDetail', () => {
     expect(balanceLabel.parentElement).toHaveTextContent('Balance-');
   });
 
-  it('offers to record a payment while the invoice has a balance, and keeps card payments disabled', async () => {
+  it('offers to record a payment on an unpaid invoice, and keeps card payments disabled', async () => {
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
     renderPage();
 
     await screen.findByRole('heading', { name: 'INV-00042' });
@@ -166,6 +173,14 @@ describe('InvoiceDetail', () => {
     const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
     expect(recordPayment).toBeEnabled();
     expect(collectCardPayment).toBeDisabled();
+  });
+
+  it('takes no recorded payment on a partially paid invoice, since only full payments are recorded', async () => {
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    expect(recordPayment).toBeDisabled();
   });
 
   it('takes no payment on a paid invoice', async () => {
@@ -183,6 +198,7 @@ describe('InvoiceDetail', () => {
 
   it('opens the record payment dialog for the balance', async () => {
     const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
     renderPage();
     await screen.findByRole('heading', { name: 'INV-00042' });
 
@@ -190,7 +206,7 @@ describe('InvoiceDetail', () => {
     await user.click(recordPayment);
 
     const dialog = within(screen.getByRole('dialog'));
-    expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('140.00');
+    expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('320.00');
   });
 
   it('downloads the invoice PDF from a freshly presigned link', async () => {
