@@ -12,8 +12,9 @@ import {
   NIO_INVOICE_PAYMENT_ID_SYSTEM,
   PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
-import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
+import { INVALID_INPUT_ERROR, MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
+import { buildPaymentNotice } from '../../../src/billing/payments';
 import { performEffect } from '../../../src/billing/record-billing-nio-invoice-payment';
 
 vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
@@ -87,6 +88,53 @@ const existingPayment = (paymentId: string, amount: number): PaymentNotice => ({
   },
   extension: [invoicePaymentExtension(INVOICE_ID)],
 });
+
+const recordedPaymentNotice = ({
+  claimId,
+  amountInCents,
+}: {
+  claimId: string;
+  amountInCents: number;
+}): PaymentNotice => ({
+  ...buildPaymentNotice({
+    request: {
+      reference: `Claim/${claimId}`,
+    },
+    payee: {
+      reference: 'Organization/issuer-1',
+    },
+    amountInCents,
+    paymentMethod: 'check',
+    identifier: {
+      system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
+      value: PAYMENT_ID,
+    },
+    paymentDate: '2026-11-18',
+    createdISO: '2026-11-19T15:00:00.000Z',
+    disposition: 'Payment toward invoice INV-00042',
+    reconciliation: {
+      identifier: [
+        {
+          system: PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
+          value: '88123',
+        },
+      ],
+    },
+    invoiceId: INVOICE_ID,
+  }),
+  id: `notice-${claimId}`,
+});
+
+const recordedPayment = (): PaymentNotice[] => [
+  recordedPaymentNotice({
+    claimId: 'claim-1',
+    amountInCents: 18000,
+  }),
+  recordedPaymentNotice({
+    claimId: 'claim-2',
+    amountInCents: 14000,
+  }),
+];
 
 const setup = ({
   invoice = nioInvoice(),
@@ -247,7 +295,7 @@ describe('record-billing-nio-invoice-payment', () => {
       invoice: nioInvoice({
         status: 'balanced',
       }),
-      notices: [existingPayment(PAYMENT_ID, 180), existingPayment(PAYMENT_ID, 140)],
+      notices: recordedPayment(),
     });
 
     const result = await performEffect({
@@ -260,6 +308,44 @@ describe('record-billing-nio-invoice-payment', () => {
       paymentId: PAYMENT_ID,
     });
     expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses a resent payment whose details differ from the one recorded under its key', async () => {
+    const changes = [
+      {
+        amountInCents: 18000,
+      },
+      {
+        paymentMethod: 'wire' as const,
+      },
+      {
+        paymentDate: '2026-11-17',
+      },
+      {
+        reference: '99999',
+      },
+    ];
+
+    for (const change of changes) {
+      const { oystehr, transaction } = setup({
+        invoice: nioInvoice({
+          status: 'balanced',
+        }),
+        notices: recordedPayment(),
+      });
+
+      await expect(
+        performEffect({
+          oystehr,
+          params: {
+            ...params,
+            ...change,
+          },
+          now: NOW,
+        })
+      ).rejects.toEqual(MANUAL_PAYMENT_CONFLICT_ERROR(PAYMENT_ID));
+      expect(transaction).not.toHaveBeenCalled();
+    }
   });
 
   it('refuses an amount other than the balance', async () => {

@@ -14,13 +14,22 @@ import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { RecordBillingNioInvoicePaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingNioInvoicePaymentResponse } from 'utils/lib/types/data/billing/billing.types';
-import { INVALID_INPUT_ERROR, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
+import {
+  INVALID_INPUT_ERROR,
+  MANUAL_PAYMENT_CONFLICT_ERROR,
+  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
+} from 'utils/lib/types/errors';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
-import { getInvoiceBalanceInCents } from '../claim-amounts';
+import {
+  getInvoiceBalanceInCents,
+  getInvoicePaymentReference,
+  sumPatientPayments,
+  toClaimPatientPayment,
+} from '../claim-amounts';
 import {
   assertInvoiceTakesRecordedPayments,
   buildInvoicePaymentAttachment,
@@ -89,7 +98,15 @@ export async function performEffect({
     fetchById<Invoice>(oystehr, 'Invoice', invoiceId),
     fetchInvoicePaymentNotices(oystehr, [invoiceId]),
   ]);
-  if (notices.some((notice) => getNioInvoicePaymentId(notice) === paymentId)) {
+  const recorded = notices.filter((notice) => getNioInvoicePaymentId(notice) === paymentId);
+  if (recorded.length > 0) {
+    const { paymentDate: recordedDate, method: recordedMethod } = toClaimPatientPayment(recorded[0]);
+    const samePayment =
+      Math.round(sumPatientPayments(recorded) * 100) === amountInCents &&
+      recordedMethod === paymentMethod &&
+      recordedDate === paymentDate &&
+      getInvoicePaymentReference(recorded[0]) === reference;
+    if (!samePayment) throw MANUAL_PAYMENT_CONFLICT_ERROR(paymentId);
     return {
       paymentId,
     };
