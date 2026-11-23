@@ -12,6 +12,7 @@ import {
   CLAIM_LIST_PARAMS,
   enrichAndMapClaims,
   fetchClaimsPageByIds,
+  hasInMemoryClaimFilter,
   scanMatchingClaims,
   sortScannedClaims,
 } from '../claim-search';
@@ -66,25 +67,24 @@ async function searchClaims({
   const pageSize = params.pageSize ?? 25;
   const offset = params.offset ?? 0;
 
-  const filteringByServiceDate = Boolean(params.serviceDateFrom || params.serviceDateTo);
-
   let pageClaims: Claim[];
   let includedResources: Resource[];
   let total: number;
   let incomplete = false;
 
-  // Neither a search text nor a service date can be paginated by the server: FHIR ANDs separate
-  // search parameters and only ORs within one, so searching several fields at once means several
-  // searches whose union only exists here (_filter would express it as one paginated search, but
-  // Oystehr discards _filter), and Claim has no service-date search parameter at all. Neither sort
-  // field (service date, billed) has one either. All of these
+  // Neither a search text nor a service date or service line filter can be paginated by the server:
+  // FHIR ANDs separate search parameters and only ORs within one, so searching several fields at
+  // once means several searches whose union only exists here (_filter would express it as one
+  // paginated search, but Oystehr discards _filter), and Claim has no search parameter for its
+  // service date or its lines' CPT codes, modifiers or places of service. Neither sort field
+  // (service date, billed) has one either. All of these
   // scan for matching ids, sort and page in memory, and hydrate only the page they settle on.
-  if (params.searchText || filteringByServiceDate || params.sort) {
+  if (params.searchText || hasInMemoryClaimFilter(params) || params.sort) {
     const matched = await scanMatchingClaims({
       oystehr,
       params,
       filterParams,
-      // A sort reads the dates or the total; the service date filter asks for the dates itself.
+      // A sort reads the dates or the total; the in-memory filters ask for the dates themselves.
       withServiceDate: params.sort?.field === 'serviceDate',
       withTotal: params.sort?.field === 'billed',
     });

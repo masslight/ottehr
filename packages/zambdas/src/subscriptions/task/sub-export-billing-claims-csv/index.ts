@@ -13,9 +13,10 @@ import { CLAIM_EXPORT_HEADERS, claimExportRow } from '../../../billing/claim-exp
 import {
   buildClaimFilterParams,
   CLAIM_LIST_PARAMS,
-  claimMatchesServiceDateRange,
+  claimMatchesInMemoryFilters,
   enrichAndMapClaims,
   fetchClaimsPageByIds,
+  hasInMemoryClaimFilter,
   searchClaimsBySearchText,
 } from '../../../billing/claim-search';
 import { createBillingClient } from '../../../billing/shared';
@@ -103,7 +104,8 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
     sort: filters.searchText ? undefined : '_id',
   });
 
-  const filteringByServiceDate = Boolean(filters.serviceDateFrom || filters.serviceDateTo);
+  // Service date and service line filters have no search parameter; both read the dates' elements.
+  const filteringInMemory = hasInMemoryClaimFilter(filters);
   const rows: string[][] = [];
   const exported = new Set<string>();
 
@@ -132,12 +134,10 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
       oystehr,
       searchText: filters.searchText,
       filterParams,
-      withServiceDateElements: filteringByServiceDate,
+      withServiceDateElements: filteringInMemory,
     });
-    const matching = filteringByServiceDate
-      ? matched.claims.filter((claim) =>
-          claimMatchesServiceDateRange(claim, filters.serviceDateFrom, filters.serviceDateTo)
-        )
+    const matching = filteringInMemory
+      ? matched.claims.filter((claim) => claimMatchesInMemoryFilters(claim, filters))
       : matched.claims;
     const claimIds = matching.map((claim) => claim.id);
     const withinLimit = claimIds.slice(0, EXPORT_CLAIMS_MATCH_LIMIT);
@@ -193,9 +193,7 @@ async function buildRows(oystehr: Oystehr, filters: ExportBillingClaimsInput): P
     if (claims.length === 0) break;
 
     await addPage(
-      filteringByServiceDate
-        ? claims.filter((claim) => claimMatchesServiceDateRange(claim, filters.serviceDateFrom, filters.serviceDateTo))
-        : claims,
+      filteringInMemory ? claims.filter((claim) => claimMatchesInMemoryFilters(claim, filters)) : claims,
       includedResources
     );
     offset += claims.length;

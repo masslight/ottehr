@@ -84,6 +84,12 @@ import {
 } from '../api/api';
 import { dataGridSlots, dataGridSx } from '../components/BillingDataGrid';
 import { ClaimStatusFields } from '../components/claim/ClaimStatusFields';
+import {
+  ClaimServiceLineFilter,
+  ClaimServiceLineFilterValue,
+  EMPTY_SERVICE_LINE_FILTER,
+  hasServiceLineFilterValue,
+} from '../components/ClaimServiceLineFilter';
 import { ClaimStatusValueChip } from '../components/ClaimStatusValueChip';
 import { ClaimTagFilter } from '../components/ClaimTagFilter';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -126,6 +132,9 @@ interface Filters {
   patientId?: string[];
   type?: ClaimTypeCode[];
   service?: string[];
+  cptCode?: string[];
+  modifier?: string[];
+  placeOfService?: string[];
 }
 
 function toSearchParams(filters: Filters): ExportBillingClaimsInput {
@@ -145,6 +154,9 @@ function toSearchParams(filters: Filters): ExportBillingClaimsInput {
   if (filters.patientId?.length) params.patientId = filters.patientId;
   if (filters.type?.length) params.type = filters.type;
   if (filters.service?.length) params.service = filters.service;
+  if (filters.cptCode?.length) params.cptCode = filters.cptCode;
+  if (filters.modifier?.length) params.modifier = filters.modifier;
+  if (filters.placeOfService?.length) params.placeOfService = filters.placeOfService;
   return params;
 }
 
@@ -188,6 +200,9 @@ interface StoredClaimsListFilters {
   selectedPatients: StoredPatientOption[];
   typeFilter: ClaimTypeCode[];
   selectedServices: BillingService[];
+  cptCodeFilter?: string[];
+  modifierFilter?: string[];
+  placeOfServiceFilter?: string[];
   paginationModel: GridPaginationModel;
   layout?: ClaimsListLayout;
 }
@@ -215,6 +230,9 @@ function loadStoredClaimsListFilters(): StoredClaimsListFilters | null {
   }
 }
 
+const storedList = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+
 function storedToFilters(stored: StoredClaimsListFilters): ClaimsListFilters {
   return normalizeClaimsListFilters({
     searchText: stored.searchText,
@@ -225,6 +243,9 @@ function storedToFilters(stored: StoredClaimsListFilters): ClaimsListFilters {
     excludeTag: Array.isArray(stored.excludeTagFilter) ? stored.excludeTagFilter : [],
     type: stored.typeFilter,
     service: stored.selectedServices.map((sv) => sv.name),
+    cptCode: storedList(stored.cptCodeFilter),
+    modifier: storedList(stored.modifierFilter),
+    placeOfService: storedList(stored.placeOfServiceFilter),
     createdFrom: stored.createdFrom,
     createdTo: stored.createdTo,
     serviceDateFrom: stored.serviceDateFrom,
@@ -251,6 +272,9 @@ function stateToStored({ filters, layout, paginationModel }: ClaimsListViewState
     selectedPatients: filters.patients ?? [],
     typeFilter: filters.type ?? [],
     selectedServices: (filters.service ?? []).map((name) => ({ name })),
+    cptCodeFilter: filters.cptCode ?? [],
+    modifierFilter: filters.modifier ?? [],
+    placeOfServiceFilter: filters.placeOfService ?? [],
     paginationModel,
     layout,
   };
@@ -527,6 +551,11 @@ export function ClaimsListView({
   const [selectedServices, setSelectedServices] = useState<BillingService[]>(
     (initialFilters?.service ?? []).map((name) => ({ name }))
   );
+  const [serviceLineFilter, setServiceLineFilter] = useState<ClaimServiceLineFilterValue>({
+    cptCode: initialFilters?.cptCode ?? [],
+    modifier: initialFilters?.modifier ?? [],
+    placeOfService: initialFilters?.placeOfService ?? [],
+  });
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nioDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -616,6 +645,9 @@ export function ClaimsListView({
       patientId: overrides?.patientId ?? patientIds(selectedPatients),
       type: overrides?.type ?? typeFilter,
       service: overrides?.service ?? selectedServices.map((sv) => sv.name),
+      cptCode: overrides?.cptCode ?? serviceLineFilter.cptCode,
+      modifier: overrides?.modifier ?? serviceLineFilter.modifier,
+      placeOfService: overrides?.placeOfService ?? serviceLineFilter.placeOfService,
     }),
     [
       searchText,
@@ -633,6 +665,7 @@ export function ClaimsListView({
       selectedPatients,
       typeFilter,
       selectedServices,
+      serviceLineFilter,
     ]
   );
 
@@ -664,6 +697,9 @@ export function ClaimsListView({
         excludeTag: excludeTagFilter,
         type: typeFilter,
         service: selectedServices.map((sv) => sv.name),
+        cptCode: serviceLineFilter.cptCode,
+        modifier: serviceLineFilter.modifier,
+        placeOfService: serviceLineFilter.placeOfService,
         createdFrom,
         createdTo,
         serviceDateFrom,
@@ -682,6 +718,7 @@ export function ClaimsListView({
       excludeTagFilter,
       typeFilter,
       selectedServices,
+      serviceLineFilter,
       createdFrom,
       createdTo,
       serviceDateFrom,
@@ -749,6 +786,7 @@ export function ClaimsListView({
     setSelectedPatients([]);
     setTypeFilter([]);
     setSelectedServices([]);
+    setServiceLineFilter(EMPTY_SERVICE_LINE_FILTER);
     const resetPage = { ...paginationModel, page: 0 };
     setPaginationModel(resetPage);
     void fetchClaims({}, resetPage);
@@ -772,7 +810,8 @@ export function ClaimsListView({
     selectedNios.length ||
     selectedPatients.length ||
     typeFilter.length ||
-    selectedServices.length;
+    selectedServices.length ||
+    hasServiceLineFilterValue(serviceLineFilter);
 
   const selectedInvoiceableClaim =
     selected.length === 1
@@ -1059,6 +1098,14 @@ export function ClaimsListView({
           renderInput={(params) => <TextField {...params} label="Service" />}
           isOptionEqualToValue={(o, v) => o.name === v.name}
           sx={{ minWidth: 180, maxWidth: 300 }}
+        />
+
+        <ClaimServiceLineFilter
+          value={serviceLineFilter}
+          onChange={(next) => {
+            setServiceLineFilter(next);
+            applyFilters(next);
+          }}
         />
 
         <ClaimTagFilter

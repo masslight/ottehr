@@ -49,6 +49,7 @@ vi.mock('../../src/api/api', () => ({
   searchBillingServices: searchBillingServicesMock,
   searchBillingTags: searchBillingTagsMock,
   checkBillingNioInvoice: checkBillingNioInvoiceMock,
+  searchBillingProcedureCodes: vi.fn().mockResolvedValue({ codes: [] }),
 }));
 
 // mockOystehrZambda is a stable reference, like the real store-backed hook returns — a fresh object on
@@ -1087,5 +1088,67 @@ describe('ClaimsList — tag filter', () => {
       )
     );
     expect(await screen.findByLabelText('Tags')).toHaveValue('needs-review and urgent; not on-hold');
+  });
+});
+
+describe('ClaimsList — service line filter', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    searchBillingClaimsMock.mockResolvedValue({ claims: [], total: 0 });
+  });
+
+  it('searches for claims by CPT code, modifier and place of service', async () => {
+    const user = userEvent.setup();
+    renderList();
+
+    const linesField = await screen.findByLabelText('Service Lines');
+    await user.click(linesField);
+
+    await user.type(await screen.findByLabelText('CPT / HCPCS codes'), '99213{Enter}');
+    await user.type(screen.getByLabelText('Modifiers'), '25{Enter}');
+    await user.click(screen.getByLabelText('Places of service'));
+    await user.click(await screen.findByRole('option', { name: /^11 - / }));
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenLastCalledWith(
+        {},
+        expect.objectContaining({ cptCode: ['99213'], modifier: ['25'], placeOfService: ['11'] })
+      )
+    );
+    expect(linesField).toHaveValue('CPT 99213; Mod 25; POS 11');
+  });
+
+  it('restores kept service line filters', async () => {
+    sessionStorage.setItem(
+      FILTERS_STORAGE_KEY,
+      JSON.stringify({
+        searchText: '',
+        arStageFilter: [],
+        statusFilter: [],
+        tagFilter: [],
+        createdFrom: '',
+        createdTo: '',
+        serviceDateFrom: '',
+        serviceDateTo: '',
+        selectedPayers: [],
+        selectedPatients: [],
+        typeFilter: [],
+        selectedServices: [],
+        cptCodeFilter: ['99213', '99214'],
+        modifierFilter: ['25'],
+        placeOfServiceFilter: ['20'],
+        paginationModel: { page: 0, pageSize: 25 },
+      })
+    );
+
+    renderList();
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({ cptCode: ['99213', '99214'], modifier: ['25'], placeOfService: ['20'] })
+      )
+    );
+    expect(await screen.findByLabelText('Service Lines')).toHaveValue('CPT 99213, 99214; Mod 25; POS 20');
   });
 });
