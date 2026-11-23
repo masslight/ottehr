@@ -18,6 +18,7 @@ import {
 } from 'utils/lib/types/api/config/in-house-medications';
 import { INVENTORY_STAFF_ROLES } from 'utils/lib/types/api/user.types';
 import { VACCINE_FUNDING_SOURCE_LABELS } from 'utils/lib/types/data/immunization/vaccine-funding-source';
+import { getMvxManufacturer } from 'utils/lib/types/data/immunization/vaccine-lookup';
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
@@ -60,7 +61,7 @@ export const performEffect = async (
   params: ReceiveMedicationShipmentInput,
   performerReference: string
 ): Promise<ReceiveMedicationShipmentResponse> => {
-  const { medicationId, locationId, lotNumber, expirationDate, quantity, ndc, manufacturer, vendor } = params;
+  const { medicationId, locationId, lotNumber, expirationDate, quantity, ndc, vendor } = params;
 
   const catalog = await oystehr.fhir.get<Medication & { id: string }>({ resourceType: 'Medication', id: medicationId });
   const type = getCatalogMedicationType(catalog);
@@ -74,6 +75,17 @@ export const performEffect = async (
   if (type === 'vaccine' && !fundingSource) {
     throw INVALID_INPUT_ERROR('A vaccine lot needs its funding source: VFC, Private or State program.');
   }
+  // A vaccine's manufacturer is picked from the manufacturers list, so the lot has its MVX code and the name the
+  // list gives it, whatever name the request carries. A medication's manufacturer is saved as typed.
+  const vaccineManufacturer = type === 'vaccine' ? getMvxManufacturer(params.mvx) : undefined;
+  if (type === 'vaccine' && !vaccineManufacturer) {
+    throw INVALID_INPUT_ERROR(
+      params.mvx
+        ? `MVX ${params.mvx} is not in the manufacturers list.`
+        : 'A vaccine lot needs its manufacturer, picked from the manufacturers list.'
+    );
+  }
+  const manufacturer = type === 'vaccine' ? vaccineManufacturer?.name : params.manufacturer;
   const { locations } = await listActiveLocations(oystehr, { inPersonOnly: true });
   if (!locations.some((location) => location.id === locationId)) {
     throw INVALID_INPUT_ERROR('This location is not an active in-person location.');
@@ -84,6 +96,21 @@ export const performEffect = async (
     locationId,
     lotNumber,
   });
+  // One lot number is one stock at a location. While any lot with this number holds doses there, whatever its
+  // expiration date, the number cannot be received under another funding source. An empty lot takes the funding
+  // source of the shipment received into it.
+  for (const lot of sameNumber) {
+    const held = parseInventoryLot(lot);
+    if (!fundingSource || !held?.fundingSource || held.fundingSource === fundingSource || held.onHand === 0) continue;
+    throw INVALID_INPUT_ERROR(
+      `Lot ${lotNumber} at this location is ${VACCINE_FUNDING_SOURCE_LABELS[held.fundingSource]} stock with ${
+        held.onHand
+      } on hand, so it cannot be received as ${VACCINE_FUNDING_SOURCE_LABELS[fundingSource]}. Receive it as ${
+        VACCINE_FUNDING_SOURCE_LABELS[held.fundingSource]
+      }, or adjust the lot to zero first to change its funding source.`
+    );
+  }
+
   const existingLot = sameNumber.find((lot) => lot.batch?.expirationDate === expirationDate);
   const confirmedLot = sameNumber.find((lot) => lot.id === params.lotId);
   if (
@@ -104,20 +131,6 @@ export const performEffect = async (
     return { expirationConflict: { lotId, expirationDate: existingDate, onHand, unit } };
   }
 
-  // A lot holds one stock: doses on hand keep the funding source they were received under. An empty lot takes
-  // the funding source of the shipment received into it.
-  const assertSameFundingSource = (lot: Medication): void => {
-    const held = parseInventoryLot(lot);
-    if (!fundingSource || !held?.fundingSource || held.fundingSource === fundingSource || held.onHand === 0) return;
-    throw INVALID_INPUT_ERROR(
-      `Lot ${lotNumber} at this location is ${VACCINE_FUNDING_SOURCE_LABELS[held.fundingSource]} stock with ${
-        held.onHand
-      } on hand, so it cannot be received as ${VACCINE_FUNDING_SOURCE_LABELS[fundingSource]}. Receive it as ${
-        VACCINE_FUNDING_SOURCE_LABELS[held.fundingSource]
-      }, or adjust the lot to zero first to change its funding source.`
-    );
-  };
-
   const received: StockEntryWrite = {
     locationId,
     type: 'received',
@@ -129,7 +142,6 @@ export const performEffect = async (
   };
   let written: { lot: Medication; entry: Observation | undefined };
   if (otherExpiration && confirmedLot && params.expirationConflict === 'correct-existing') {
-    assertSameFundingSource(confirmedLot);
     const previous = confirmedLot.batch?.expirationDate ?? '';
     const corrected: StockEntryWrite = {
       locationId,
@@ -145,7 +157,6 @@ export const performEffect = async (
       withLotDetails({ ...lot, batch: { ...lot.batch, expirationDate } }, { vendor, fundingSource })
     );
   } else if (existingLot) {
-    assertSameFundingSource(existingLot);
     written = await writeInventoryStockEntry(oystehr, existingLot, received, (lot) =>
       withLotDetails(lot, { vendor, fundingSource })
     );
@@ -158,6 +169,7 @@ export const performEffect = async (
         expirationDate,
         ndc,
         manufacturer,
+        mvx: vaccineManufacturer?.mvx,
         vendor,
         fundingSource,
         unit: inventory.countedAs,

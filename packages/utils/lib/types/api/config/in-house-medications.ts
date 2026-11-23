@@ -144,6 +144,8 @@ export interface InventoryLot {
   expirationDate: string;
   ndc?: string;
   manufacturer?: string;
+  /** Vaccine lots: the manufacturer's MVX code, picked from the manufacturers list. A medication lot has none. */
+  mvx?: string;
   vendor?: string;
   /** Vaccine lots: what the stock was paid with. A medication lot has none. */
   fundingSource?: VaccineFundingSource;
@@ -179,7 +181,10 @@ export const ReceiveMedicationShipmentInputSchema = z.object({
   expirationDate: z.string().regex(ISO_DATE, 'expirationDate must be YYYY-MM-DD'),
   quantity: z.number().int().positive(),
   ndc: z.string().trim().min(1),
+  /** A medication's manufacturer, as typed. A vaccine's is picked by `mvx`, and its name comes from the list. */
   manufacturer: z.string().trim().min(1).optional(),
+  /** The manufacturer's MVX code from the manufacturers list. Required to receive a vaccine; a medication has none. */
+  mvx: z.string().trim().min(1).optional(),
   vendor: z.string().trim().min(1).optional(),
   /** Required to receive a vaccine; a medication has none. */
   fundingSource: VaccineFundingSourceSchema.optional(),
@@ -231,7 +236,7 @@ export const GetMedicationInventoryInputSchema = z.object({
 export type GetMedicationInventoryInput = z.infer<typeof GetMedicationInventoryInputSchema>;
 
 export interface GetMedicationInventoryResponse {
-  lastReceivedLot?: Pick<InventoryLot, 'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'vendor'>;
+  lastReceivedLot?: Pick<InventoryLot, 'id' | 'locationId' | 'lotNumber' | 'ndc' | 'manufacturer' | 'mvx' | 'vendor'>;
   lots?: InventoryLot[];
 }
 

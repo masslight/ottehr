@@ -21,6 +21,7 @@ import {
   MEDICATION_CATALOG_ID_IDENTIFIER_SYSTEM,
   MEDICATION_ORDER_INVENTORY_LOT_IDENTIFIER_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
+  MVX_CODE_SYSTEM_URL,
 } from '../types/api/medication-administration.constants';
 import { VACCINE_FUNDING_SOURCES, VaccineFundingSource } from '../types/data/immunization/vaccine-funding-source';
 import { getExtension, getTag } from './helpers';
@@ -157,6 +158,8 @@ export interface InventoryLotInput {
   expirationDate: string;
   ndc: string;
   manufacturer?: string;
+  /** Vaccine lots: the manufacturer's MVX code, from the manufacturers list. `manufacturer` is its name there. */
+  mvx?: string;
   vendor?: string;
   /** Vaccine lots: what the stock was paid with. */
   fundingSource?: VaccineFundingSource;
@@ -180,6 +183,7 @@ export const makeInventoryLot = (catalog: Medication & { id: string }, input: In
   const codings: Coding[] = [
     ...(catalog.code?.coding ?? []).filter((coding) => coding.system !== CODE_SYSTEM_NDC),
     { system: CODE_SYSTEM_NDC, code: input.ndc },
+    ...(input.mvx ? [{ system: MVX_CODE_SYSTEM_URL, code: input.mvx }] : []),
   ];
   return {
     resourceType: 'Medication',
@@ -262,6 +266,7 @@ export const parseInventoryLot = (lot: Medication): InventoryLot | undefined => 
   if (!lot.id || !details?.locationId || !isInventoryLot(lot) || !catalogMedicationId || !lot.batch?.lotNumber) {
     return undefined;
   }
+  const mvx = lot.code?.coding?.find((coding) => coding.system === MVX_CODE_SYSTEM_URL)?.code;
   return {
     id: lot.id,
     catalogMedicationId,
@@ -270,6 +275,7 @@ export const parseInventoryLot = (lot: Medication): InventoryLot | undefined => 
     expirationDate: lot.batch.expirationDate ?? '',
     ndc: lot.code?.coding?.find((coding) => coding.system === CODE_SYSTEM_NDC)?.code,
     manufacturer: lot.manufacturer?.display,
+    ...(mvx ? { mvx } : {}),
     vendor: details.vendor,
     ...(details.fundingSource ? { fundingSource: details.fundingSource } : {}),
     onHand: details.onHand,

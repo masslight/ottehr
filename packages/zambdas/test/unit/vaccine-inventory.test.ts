@@ -24,10 +24,12 @@ import {
   INVENTORY_VACCINE_TYPE_CODE,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
+  MVX_CODE_SYSTEM_URL,
 } from 'utils/lib/types/api/medication-administration.constants';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect as adjustPerformEffect } from '../../src/ehr/configuration/in-house-medications/adjust-medication-inventory/index';
+import { performEffect as getInventoryPerformEffect } from '../../src/ehr/configuration/in-house-medications/get-medication-inventory/index';
 import { performEffect as listPerformEffect } from '../../src/ehr/configuration/in-house-medications/list-medication-inventory/index';
 import { performEffect as receivePerformEffect } from '../../src/ehr/configuration/in-house-medications/receive-medication-shipment/index';
 
@@ -83,7 +85,8 @@ const vfcLotInput: InventoryLotInput = {
   lotNumber: 'Y0112',
   expirationDate: '2027-07-11',
   ndc: '00006-4681-00',
-  manufacturer: 'Merck',
+  manufacturer: 'Merck and Co., Inc.',
+  mvx: 'MSD',
   fundingSource: 'vfc',
   unit: 'dose',
 };
@@ -124,16 +127,20 @@ const received = (lotId: string, quantity: number, unit = 'dose'): Observation =
 });
 
 describe('a lot and its funding source', () => {
-  it('keeps the funding source in the lot extension, with the vaccine CVX code and the box NDC as codings', () => {
+  it('keeps the funding source in the lot extension, with the vaccine CVX code, the box NDC and the MVX code as codings', () => {
     const lot = makeInventoryLot(vaccine, vfcLotInput);
     expect(lot.code?.coding).toEqual([
       { system: CVX_CODE_SYSTEM_URL, code: '03', display: 'measles, mumps and rubella virus vaccine' },
       { system: CODE_SYSTEM_NDC, code: '00006-4681-00' },
+      { system: MVX_CODE_SYSTEM_URL, code: 'MSD' },
     ]);
+    expect(lot.manufacturer).toEqual({ display: 'Merck and Co., Inc.' });
     expect(lot.extension?.[0].extension).toContainEqual({ url: 'funding-source', valueCode: 'vfc' });
     expect(parseInventoryLot({ ...lot, id: 'lot-1' })).toMatchObject({
       catalogMedicationId: 'mmr',
       lotNumber: 'Y0112',
+      manufacturer: 'Merck and Co., Inc.',
+      mvx: 'MSD',
       fundingSource: 'vfc',
       unit: 'dose',
       onHand: 0,
@@ -143,6 +150,11 @@ describe('a lot and its funding source', () => {
   it.each(['vfc', 'private', 'state'] as const)('reads %s back', (fundingSource) => {
     const lot = { ...makeInventoryLot(vaccine, { ...vfcLotInput, fundingSource }), id: 'lot-1' };
     expect(parseInventoryLot(lot)?.fundingSource).toBe(fundingSource);
+  });
+
+  it('a medication lot has no MVX code, in FHIR or when read back', () => {
+    expect(parseInventoryLot(medicationLot)).not.toHaveProperty('mvx');
+    expect(JSON.stringify(medicationLot)).not.toContain(MVX_CODE_SYSTEM_URL);
   });
 
   it('a medication lot has no funding source, in FHIR or when read back', () => {
@@ -222,7 +234,7 @@ const receiveBody = {
   expirationDate: '2027-07-11',
   quantity: 10,
   ndc: '00006-4681-00',
-  manufacturer: 'Merck',
+  mvx: 'MSD',
   fundingSource: 'vfc' as const,
 };
 
@@ -259,7 +271,8 @@ describe('receive-medication-shipment for a vaccine', () => {
       lotNumber: 'Y0112',
       expirationDate: '2027-07-11',
       ndc: '00006-4681-00',
-      manufacturer: 'Merck',
+      manufacturer: 'Merck and Co., Inc.',
+      mvx: 'MSD',
       fundingSource: 'vfc',
       onHand: 10,
       unit: 'dose',
@@ -277,6 +290,51 @@ describe('receive-medication-shipment for a vaccine', () => {
     ).rejects.toMatchObject({ code: APIErrorCode.INVALID_INPUT, message: expect.stringContaining('funding source') });
     expect(oystehr.fhir.search).not.toHaveBeenCalled();
     expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses a vaccine lot without a manufacturer from the list before reading or writing any stock', async () => {
+    const oystehr = makeMockOystehr();
+    oystehr.fhir.get.mockResolvedValue(vaccine);
+
+    await expect(
+      receivePerformEffect(oystehr, { ...receiveBody, mvx: undefined, manufacturer: 'Merck' }, performer)
+    ).rejects.toMatchObject({
+      code: APIErrorCode.INVALID_INPUT,
+      message: 'A vaccine lot needs its manufacturer, picked from the manufacturers list.',
+    });
+    await expect(receivePerformEffect(oystehr, { ...receiveBody, mvx: 'ZZZ' }, performer)).rejects.toMatchObject({
+      code: APIErrorCode.INVALID_INPUT,
+      message: 'MVX ZZZ is not in the manufacturers list.',
+    });
+    expect(oystehr.fhir.search).not.toHaveBeenCalled();
+    expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+  });
+
+  it("names a vaccine lot's manufacturer as the list does, whatever name the request carries", async () => {
+    const oystehr = makeMockOystehr();
+    oystehr.fhir.get.mockResolvedValue(vaccine);
+
+    const result = written(
+      await receivePerformEffect(oystehr, { ...receiveBody, mvx: 'PMC', manufacturer: 'Merck' }, performer)
+    );
+
+    expect(result.lot).toMatchObject({ manufacturer: 'Sanofi Pasteur', mvx: 'PMC' });
+  });
+
+  it('saves a medication lot manufacturer as typed, with no MVX code even when the request carries one', async () => {
+    const oystehr = makeMockOystehr();
+    oystehr.fhir.get.mockResolvedValue(medication);
+
+    const result = written(
+      await receivePerformEffect(
+        oystehr,
+        { ...receiveBody, medicationId: 'ondansetron', manufacturer: 'Fresenius Kabi' },
+        performer
+      )
+    );
+
+    expect(result.lot).toMatchObject({ manufacturer: 'Fresenius Kabi' });
+    expect(result.lot).not.toHaveProperty('mvx');
   });
 
   it('gives a medication lot no funding source, even when the request carries one', async () => {
@@ -387,8 +445,40 @@ describe('receive-medication-shipment for a vaccine', () => {
       expect(result.lot).toMatchObject({ id: 'lot-1', expirationDate: '2028-01-01', fundingSource: 'vfc', onHand: 18 });
     });
 
-    it('a second lot of the same number under another date can be another stock', async () => {
+    it('a second lot of the same number under another date cannot be another stock while the first has doses', async () => {
       const oystehr = makeMockOystehr({ lots: [vaccineLot('lot-1', 8)], ledger: [received('lot-1', 8)] });
+      oystehr.fhir.get.mockResolvedValue(vaccine);
+      const body = { ...receiveBody, expirationDate: '2028-01-01', fundingSource: 'private' as const };
+
+      // refused before the question about the other expiration date is asked, and after it is answered
+      for (const expirationConflict of [undefined, 'separate-lot' as const]) {
+        await expect(receivePerformEffect(oystehr, { ...body, expirationConflict }, performer)).rejects.toMatchObject({
+          code: APIErrorCode.INVALID_INPUT,
+          message:
+            'Lot Y0112 at this location is VFC stock with 8 on hand, so it cannot be received as Private. Receive it as VFC, or adjust the lot to zero first to change its funding source.',
+        });
+      }
+      expect(oystehr.fhir.transaction).not.toHaveBeenCalled();
+    });
+
+    it('a second lot of the same number under another date is the same stock as the first', async () => {
+      const oystehr = makeMockOystehr({ lots: [vaccineLot('lot-1', 8)], ledger: [received('lot-1', 8)] });
+      oystehr.fhir.get.mockResolvedValue(vaccine);
+
+      const result = written(
+        await receivePerformEffect(
+          oystehr,
+          { ...receiveBody, expirationDate: '2028-01-01', expirationConflict: 'separate-lot' },
+          performer
+        )
+      );
+
+      expect(oystehr.fhir.transaction.mock.calls[0][0].requests.map((r: any) => r.method)).toEqual(['POST', 'POST']);
+      expect(result.lot).toMatchObject({ lotNumber: 'Y0112', expirationDate: '2028-01-01', fundingSource: 'vfc' });
+    });
+
+    it('a second lot of the same number can be another stock once the first has no doses left', async () => {
+      const oystehr = makeMockOystehr({ lots: [vaccineLot('lot-1', 0)], ledger: [] });
       oystehr.fhir.get.mockResolvedValue(vaccine);
 
       const result = written(
@@ -404,7 +494,6 @@ describe('receive-medication-shipment for a vaccine', () => {
         )
       );
 
-      expect(oystehr.fhir.transaction.mock.calls[0][0].requests.map((r: any) => r.method)).toEqual(['POST', 'POST']);
       expect(result.lot).toMatchObject({ lotNumber: 'Y0112', expirationDate: '2028-01-01', fundingSource: 'private' });
     });
   });
@@ -497,5 +586,34 @@ describe('adjust-medication-inventory on a vaccine lot', () => {
     );
 
     expect(result.lot).toMatchObject({ fundingSource: 'vfc', onHand: 0, status: 'inactive' });
+  });
+});
+
+describe('get-medication-inventory for a vaccine', () => {
+  it('returns the manufacturer of the last lot received by name and MVX code, so the next shipment starts on it', async () => {
+    const lot = vaccineLot('lot-1', 8);
+    const search = vi.fn().mockImplementation(({ resourceType }: { resourceType: string }) =>
+      resourceType === 'Medication'
+        ? {
+            resourceType: 'Bundle',
+            total: 1,
+            entry: [{ resource: { resourceType: 'Medication', id: 'lot-1' }, search: { mode: 'match' } }],
+            unbundle: () => [{ resourceType: 'Medication', id: 'lot-1' }],
+          }
+        : { unbundle: () => [received('lot-1', 8), lot] }
+    );
+    const oystehr = { fhir: { search } } as unknown as Oystehr;
+
+    const response = await getInventoryPerformEffect(oystehr, { medicationId: 'mmr' });
+
+    expect(response.lastReceivedLot).toMatchObject({
+      id: 'lot-1',
+      lotNumber: 'Y0112',
+      ndc: '00006-4681-00',
+      manufacturer: 'Merck and Co., Inc.',
+      mvx: 'MSD',
+    });
+    // the funding source is never filled in from the last lot: staff choose it for every shipment
+    expect(response.lastReceivedLot).not.toHaveProperty('fundingSource');
   });
 });

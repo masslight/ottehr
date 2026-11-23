@@ -38,6 +38,7 @@ import {
   ReceiveExpirationConflict,
   ReceiveMedicationShipmentInput,
 } from 'utils/lib/types/api/config/in-house-medications';
+import { MVX_MANUFACTURERS } from 'utils/lib/types/data/immunization/mvx-manufacturers.generated';
 import {
   VACCINE_FUNDING_SOURCE_LABELS,
   VACCINE_FUNDING_SOURCES,
@@ -58,7 +59,10 @@ interface ReceiveShipmentDialogProps {
 
 interface ReceiveFormState {
   ndc: string;
+  /** A medication's manufacturer, as typed. */
   manufacturer: string;
+  /** A vaccine's manufacturer: the MVX code of the one picked from the manufacturers list. */
+  mvx: string;
   lotNumber: string;
   expirationDate: DateTime | null;
   quantity: string;
@@ -91,6 +95,7 @@ export default function ReceiveShipmentDialog({
   const [form, setForm] = useState<ReceiveFormState>(() => ({
     ndc: '',
     manufacturer: '',
+    mvx: '',
     lotNumber: '',
     expirationDate: null,
     quantity: '',
@@ -118,6 +123,7 @@ export default function ReceiveShipmentDialog({
       ...prev,
       ndc: prev.ndc || (lastLot.ndc ?? ''),
       manufacturer: prev.manufacturer || (lastLot.manufacturer ?? ''),
+      mvx: prev.mvx || (lastLot.mvx ?? ''),
       vendor: prev.vendor || (lastLot.vendor ?? ''),
     }));
   }, [lastReceivedLot.data]);
@@ -152,7 +158,7 @@ export default function ReceiveShipmentDialog({
   const locationName = locations.find((location) => location.id === form.locationId)?.name ?? 'the location';
 
   const receive = async (expirationConflict?: ReceiveMedicationShipmentInput['expirationConflict']): Promise<void> => {
-    if (!oystehrZambda || !form.expirationDate || (isVaccine && !form.fundingSource)) return;
+    if (!oystehrZambda || !form.expirationDate || (isVaccine && (!form.fundingSource || !form.mvx))) return;
     setSaving(true);
     try {
       const result = await receiveMedicationShipment(oystehrZambda, {
@@ -162,9 +168,10 @@ export default function ReceiveShipmentDialog({
         expirationDate: form.expirationDate.toISODate() ?? '',
         quantity,
         ndc: form.ndc.trim(),
-        manufacturer: form.manufacturer.trim() || undefined,
         vendor: form.vendor.trim() || undefined,
-        ...(isVaccine && form.fundingSource ? { fundingSource: form.fundingSource } : {}),
+        ...(isVaccine && form.fundingSource
+          ? { mvx: form.mvx, fundingSource: form.fundingSource }
+          : { manufacturer: form.manufacturer.trim() || undefined }),
         expirationConflict,
         lotId: expirationConflict === 'correct-existing' ? conflict?.lotId : undefined,
       });
@@ -273,12 +280,31 @@ export default function ReceiveShipmentDialog({
               />
             </Grid>
             <Grid item xs={6}>
-              <TextField
-                fullWidth
-                label="Manufacturer"
-                value={form.manufacturer}
-                onChange={(e) => setField('manufacturer', e.target.value)}
-              />
+              {isVaccine ? (
+                <FormControl fullWidth required>
+                  <InputLabel id="receive-manufacturer-label">Manufacturer</InputLabel>
+                  <Select
+                    labelId="receive-manufacturer-label"
+                    label="Manufacturer"
+                    value={form.mvx}
+                    onChange={(e) => setField('mvx', e.target.value)}
+                    data-testid={dataTestIds.receiveShipmentDialog.manufacturerSelect}
+                  >
+                    {MVX_MANUFACTURERS.map((manufacturer) => (
+                      <MenuItem key={manufacturer.mvx} value={manufacturer.mvx}>
+                        {manufacturer.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ) : (
+                <TextField
+                  fullWidth
+                  label="Manufacturer"
+                  value={form.manufacturer}
+                  onChange={(e) => setField('manufacturer', e.target.value)}
+                />
+              )}
             </Grid>
             {lookupPanel ? (
               <Grid item xs={12}>

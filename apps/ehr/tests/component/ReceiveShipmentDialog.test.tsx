@@ -14,6 +14,7 @@ import {
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils/lib/types/api/medication-administration.constants';
+import { MVX_MANUFACTURERS } from 'utils/lib/types/data/immunization/mvx-manufacturers.generated';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ReceiveShipmentDialog from '../../src/features/admin/inventory/ReceiveShipmentDialog';
 
@@ -217,6 +218,9 @@ describe('Receive Shipment dialog', () => {
       />
     );
     expect(screen.queryByRole('combobox', { name: /Funding source/ })).not.toBeInTheDocument();
+    // a medication's manufacturer is typed, not picked from the vaccine manufacturers list
+    expect(screen.queryByRole('combobox', { name: /Manufacturer/ })).not.toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: /Manufacturer/ }), 'Fresenius Kabi');
 
     await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.ndcField), '72572-0160-25');
     await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.lotNumberField), 'A123');
@@ -229,8 +233,13 @@ describe('Receive Shipment dialog', () => {
     await waitFor(() => expect(receiveMedicationShipment).toHaveBeenCalledTimes(1));
     expect(screen.queryByText('Receive an expired lot?')).not.toBeInTheDocument();
     const sent = vi.mocked(receiveMedicationShipment).mock.calls[0][1];
-    expect(sent).toMatchObject({ medicationId: 'med-1', expirationDate: '2020-01-01' });
+    expect(sent).toMatchObject({
+      medicationId: 'med-1',
+      expirationDate: '2020-01-01',
+      manufacturer: 'Fresenius Kabi',
+    });
     expect(sent).not.toHaveProperty('fundingSource');
+    expect(sent).not.toHaveProperty('mvx');
   });
 
   describe('for a vaccine', () => {
@@ -252,7 +261,20 @@ describe('Receive Shipment dialog', () => {
       await user.click(within(screen.getByRole('listbox')).getByRole('option', { name: label }));
     };
 
-    const fillLot = async (user: ReturnType<typeof userEvent.setup>, expiration = '01012028'): Promise<void> => {
+    const manufacturer = (): HTMLElement => screen.getByRole('combobox', { name: /Manufacturer/ });
+
+    const chooseManufacturer = async (user: ReturnType<typeof userEvent.setup>, label: string): Promise<void> => {
+      await user.click(manufacturer());
+      await user.click(within(screen.getByRole('listbox')).getByRole('option', { name: label }));
+    };
+
+    /** Everything about the lot but its funding source. `manufacturerName: null` leaves the manufacturer unpicked. */
+    const fillLot = async (
+      user: ReturnType<typeof userEvent.setup>,
+      expiration = '01012028',
+      manufacturerName: string | null = 'Merck and Co., Inc.'
+    ): Promise<void> => {
+      if (manufacturerName) await chooseManufacturer(user, manufacturerName);
       await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.ndcField), '00006-4681-00');
       await user.type(screen.getByTestId(dataTestIds.receiveShipmentDialog.lotNumberField), 'Y0112');
       await user.click(screen.getByLabelText(/Expiration Date/));
@@ -313,15 +335,50 @@ describe('Receive Shipment dialog', () => {
         expirationDate: '2028-01-01',
         quantity: 10,
         ndc: '00006-4681-00',
+        mvx: 'MSD',
         fundingSource: 'state',
       });
       expect(onClose).toHaveBeenCalled();
     });
 
-    it('does not look the NDC up in the FDA directory, and takes the manufacturer as typed', async () => {
+    it('offers the manufacturers list for the manufacturer, with none picked to begin with', async () => {
+      const user = userEvent.setup();
+      expect(screen.getByTestId(dataTestIds.receiveShipmentDialog.manufacturerSelect)).toContainElement(manufacturer());
+      expect(manufacturer()).toHaveTextContent(/^\W*$/);
+      // a pick list, not a box to type in
+      expect(screen.queryByRole('textbox', { name: /Manufacturer/ })).not.toBeInTheDocument();
+
+      await user.click(manufacturer());
+
+      expect(
+        within(screen.getByRole('listbox'))
+          .getAllByRole('option')
+          .map((option) => option.textContent)
+      ).toEqual(MVX_MANUFACTURERS.map((listed) => listed.name));
+    });
+
+    it('does not receive until a manufacturer is picked, then sends its MVX code and no typed name', async () => {
+      const user = userEvent.setup();
+      await fillLot(user, '01012028', null);
+      await chooseFundingSource(user, 'Private');
+
+      await user.click(screen.getByTestId(dataTestIds.receiveShipmentDialog.receiveButton));
+      expect(receiveMedicationShipment).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+
+      await chooseManufacturer(user, 'Sanofi Pasteur');
+      await user.click(screen.getByRole('button', { name: 'Receive 10 Doses' }));
+
+      await waitFor(() => expect(receiveMedicationShipment).toHaveBeenCalledTimes(1));
+      const sent = vi.mocked(receiveMedicationShipment).mock.calls[0][1];
+      expect(sent).toMatchObject({ mvx: 'PMC', fundingSource: 'private' });
+      expect(sent).not.toHaveProperty('manufacturer');
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it('does not look the NDC up in the FDA directory', async () => {
       const user = userEvent.setup();
       await fillLot(user);
-      await user.type(screen.getByLabelText('Manufacturer'), 'Merck');
       await chooseFundingSource(user, 'VFC');
       // longer than the debounce a medication's NDC lookup waits
       await new Promise((resolve) => setTimeout(resolve, 800));
@@ -332,7 +389,7 @@ describe('Receive Shipment dialog', () => {
 
       await waitFor(() => expect(receiveMedicationShipment).toHaveBeenCalledTimes(1));
       expect(vi.mocked(receiveMedicationShipment).mock.calls[0][1]).toMatchObject({
-        manufacturer: 'Merck',
+        mvx: 'MSD',
         fundingSource: 'vfc',
       });
       expect(lookupNdc).not.toHaveBeenCalled();
