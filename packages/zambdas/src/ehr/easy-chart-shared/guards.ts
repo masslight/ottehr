@@ -28,7 +28,12 @@ import {
   requiredFields,
 } from 'utils/lib/easy-chart/registry';
 import { detectDispositionLanguage, detectSpeakerLabels, sniffIcdCodeScoped } from 'utils/lib/easy-chart/sniffers';
-import { parseVitalDisplay, recoverVitalReading, sniffVitalsFromNarrative } from 'utils/lib/easy-chart/vitals';
+import {
+  parseVitalDisplay,
+  recoverVitalReading,
+  sniffVitalsFromNarrative,
+  unitNotSaid,
+} from 'utils/lib/easy-chart/vitals';
 import { createTerminologyIcdSearch } from './icd-search';
 import { ModelActionSchema } from './model-output';
 
@@ -244,13 +249,16 @@ function guardVital(action: PlannedAction, context: ResolvedGuardContext): Guard
     return {
       rejected: {
         kind: 'set-vital',
-        display: field,
+        field,
         reason: `no reading for ${field} was given, and none could be found in the dictation`,
       },
     };
   }
 
-  const parsed = parseVitalDisplay(field, display);
+  const parsedDisplay = parseVitalDisplay(field, display);
+  const parsed =
+    (parsedDisplay.status === 'ok' && unitNotSaid(field, display, [context.narrative, context.editedNarrative])) ||
+    parsedDisplay;
   switch (parsed.status) {
     case 'ok':
       action.value = parsed.value;
@@ -266,7 +274,7 @@ function guardVital(action: PlannedAction, context: ResolvedGuardContext): Guard
     case 'unrecognized-unit':
     case 'missing-unit':
     case 'no-value':
-      return { rejected: { kind: 'set-vital', display, reason: parsed.reason } };
+      return { rejected: { kind: 'set-vital', field, display, reason: parsed.reason } };
   }
 }
 

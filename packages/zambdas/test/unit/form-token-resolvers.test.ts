@@ -55,11 +55,36 @@ describe('vitals tokens', () => {
     expect(resolveToken('vitals.heightInchesRemainder', ctx)).toBe(11);
   });
 
+  it('fills head circumference in cm and inches as the visit note shows it', () => {
+    const ctx = contextWithVitals([
+      { field: 'vital-head-circumference', value: 41.6, lastUpdated: '2026-09-01T08:00:00Z' },
+      { field: 'vital-head-circumference', value: 43.84, lastUpdated: '2026-09-01T11:00:00Z' },
+      height,
+    ]);
+
+    expect(resolveToken('vitals.headCircumferenceCm', ctx)).toBe(43.8);
+    expect(resolveToken('vitals.headCircumferenceInches', ctx)).toBe(17.26);
+  });
+
+  it('leaves head circumference blank when it was not measured', () => {
+    const ctx = contextWithVitals([height]);
+
+    expect(resolveToken('vitals.headCircumferenceCm', ctx)).toBeUndefined();
+    expect(resolveToken('vitals.headCircumferenceInches', ctx)).toBeUndefined();
+  });
+
   it('converts a stored weight into pounds', () => {
     const ctx = contextWithVitals([weight]);
 
     expect(resolveToken('vitals.weightKg', ctx)).toBe(70);
-    expect(resolveToken('vitals.weightLbs', ctx)).toBe(154.3);
+    expect(resolveToken('vitals.weightLbs', ctx)).toBe(154.32);
+  });
+
+  it('writes a weight with the same 2 decimals the chart shows', () => {
+    const ctx = contextWithVitals([{ field: 'vital-weight', value: 3.248, lastUpdated: '2026-09-01T08:00:00Z' }]);
+
+    expect(resolveToken('vitals.weightKg', ctx)).toBe(3.25);
+    expect(resolveToken('vitals.weightLbs', ctx)).toBe(7.16);
   });
 
   it('takes the most recent reading, not the first recorded', () => {
@@ -212,6 +237,60 @@ describe('patient tokens with logic behind them', () => {
     const ctx = withPatient({ identifier: [{ system: 'http://hl7.org/fhir/sid/us-ssn', value: '123456789' }] });
 
     expect(resolveToken('patient.ssnLast4', ctx)).toBe('6789');
+  });
+});
+
+describe('provider tokens', () => {
+  const participant = (code: string, practitionerId: string): Record<string, unknown> => ({
+    type: [{ coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType', code }] }],
+    individual: { reference: `Practitioner/${practitionerId}` },
+  });
+  const intakePerson = {
+    resourceType: 'Practitioner',
+    id: 'intake-1',
+    name: [{ given: ['Ivy'], family: 'Intake', suffix: ['MA'] }],
+    identifier: [{ system: 'http://hl7.org/fhir/sid/us-npi', value: '1111111111' }],
+  };
+  const provider = {
+    resourceType: 'Practitioner',
+    id: 'provider-1',
+    name: [{ given: ['Paula', 'Q'], family: 'Provider', suffix: ['MD'] }],
+    identifier: [{ system: 'http://hl7.org/fhir/sid/us-npi', value: '2222222222' }],
+  };
+  const withParticipants = (participants: Record<string, unknown>[]): FormFillContext =>
+    contextWith(
+      {},
+      {
+        encounter: { resourceType: 'Encounter', id: 'enc-1', participant: participants },
+        appointmentPackage: { practitioners: [intakePerson, provider] },
+      }
+    );
+
+  it('fills the attending provider, not the intake person listed before them', () => {
+    const ctx = withParticipants([participant('ADM', 'intake-1'), participant('ATND', 'provider-1')]);
+
+    expect(resolveToken('provider.firstName', ctx)).toBe('Paula');
+    expect(resolveToken('provider.middleName', ctx)).toBe('Q');
+    expect(resolveToken('provider.lastName', ctx)).toBe('Provider');
+    expect(resolveToken('provider.fullName', ctx)).toBe('Paula Provider');
+    expect(resolveToken('provider.credentials', ctx)).toBe('MD');
+    expect(resolveToken('provider.npi', ctx)).toBe('2222222222');
+  });
+
+  it('still fills the provider once the note is signed and their attendance period has ended', () => {
+    const ctx = withParticipants([
+      participant('ADM', 'intake-1'),
+      { ...participant('ATND', 'provider-1'), period: { start: '2026-11-20T10:00:00Z', end: '2026-11-20T11:00:00Z' } },
+    ]);
+
+    expect(resolveToken('provider.fullName', ctx)).toBe('Paula Provider');
+  });
+
+  it('leaves the provider blank when only the intake person is on the visit', () => {
+    const ctx = withParticipants([participant('ADM', 'intake-1')]);
+
+    expect(resolveToken('provider.fullName', ctx)).toBeUndefined();
+    expect(resolveToken('provider.npi', ctx)).toBeUndefined();
   });
 });
 

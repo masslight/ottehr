@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES } from '../../../helpers/rcm/constants';
-import { ClaimSortSchema, ExportBillingClaimsInput } from './billing.schemas';
+import { ClaimSortSchema, ClaimTagMatchSchema, ExportBillingClaimsInput } from './billing.schemas';
 
 // A view of the claims list: the filters that pick its claims and the grid layout (column order,
 // sort) they're shown in — what the claims list screen edits, and what can be kept to open it again.
@@ -12,12 +12,17 @@ const stringList = z.array(nonEmptyString);
 const NamedOptionSchema = z.object({ id: nonEmptyString, name: z.string() });
 
 // The claims list filters, in the shape the filter bar edits them. Every list matches a claim with
-// any one of its values; an empty or missing list doesn't filter.
+// any one of its values (unless tagMatch says otherwise for tag); an empty or missing list doesn't
+// filter.
 export const ClaimsListFiltersSchema = z.object({
   searchText: z.string().trim().optional(),
   arStage: stringList.optional(),
   status: stringList.optional(),
   tag: stringList.optional(),
+  // How `tag` matches (see SearchBillingClaimsInputSchema); missing means 'any'.
+  tagMatch: ClaimTagMatchSchema.optional(),
+  // Claims with any of these tags are left out.
+  excludeTag: stringList.optional(),
   type: z.array(z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES)).optional(),
   service: stringList.optional(),
   createdFrom: z.string().optional(),
@@ -53,6 +58,8 @@ export function claimsListFiltersToSearchInput(filters: ClaimsListFilters): Expo
   params.arStage = list(filters.arStage);
   params.status = list(filters.status);
   params.tag = list(filters.tag);
+  if (filters.tagMatch === 'all' && params.tag) params.tagMatch = 'all';
+  params.excludeTag = list(filters.excludeTag);
   params.type = list(filters.type);
   params.service = list(filters.service);
   if (filters.createdFrom) params.createdFrom = filters.createdFrom;
@@ -75,6 +82,8 @@ export function normalizeClaimsListFilters(filters: ClaimsListFilters): ClaimsLi
   const normalized: Record<string, unknown> = {};
   for (const key of keys) {
     const value = key === 'searchText' ? filters.searchText?.trim() : filters[key];
+    // 'any' is the default match, and the match means nothing without tags to match.
+    if (key === 'tagMatch' && (value !== 'all' || !filters.tag?.length)) continue;
     if (value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) continue;
     normalized[key] = value;
   }

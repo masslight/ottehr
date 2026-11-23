@@ -1,5 +1,6 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Claim, Organization, Patient, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
+import { buildBillingInvoice } from 'utils/lib/fhir/billing-invoice';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
@@ -241,6 +242,62 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
 
     expect(response.invoices).toEqual([]);
     expect(oystehr.fhir.search).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Invoice' }));
+  });
+
+  it("shows the claim's own amount on an overdue NIO invoice that covers several claims", async () => {
+    const nioInvoice = {
+      ...buildBillingInvoice({
+        status: 'issued',
+        date: '2026-01-10T15:00:00.000Z',
+        dueDate: '2026-01-17',
+        recipient: {
+          reference: 'Organization/nio-1',
+        },
+        claims: [
+          {
+            claimId: 'claim-1',
+            amountCents: 15000,
+          },
+          {
+            claimId: 'claim-2',
+            amountCents: 15000,
+          },
+        ],
+      }),
+      id: 'invoice-1',
+    };
+    const oystehr = makeBillingClient([]);
+    (oystehr.fhir.search as Mock).mockImplementation(({ resourceType }: { resourceType: string }) =>
+      Promise.resolve({
+        unbundle: () => (resourceType === 'Invoice' ? [nioInvoice] : []),
+        link: [],
+      })
+    );
+
+    const response = await performEffect(
+      oystehr,
+      {} as unknown as Oystehr,
+      {
+        claimId: 'claim-1',
+        secrets: {
+          BILLING_INTEGRATION: 'ottehr',
+          INVOICING_IN_BILLING_APP: 'true',
+        },
+      } as never
+    );
+
+    expect(response.invoices).toEqual([
+      {
+        id: 'invoice-1',
+        status: 'issued',
+        issueDate: '2026-01-10T15:00:00.000Z',
+        dueDate: '2026-01-17',
+        amount: 150,
+        hostedInvoiceUrl: undefined,
+        kind: 'nio',
+        pastDue: true,
+      },
+    ]);
   });
 
   it('lists a cancelled refund for the audit trail but keeps it out of patientPaid and the balance', async () => {

@@ -666,7 +666,7 @@ export interface ClaimDetailResponse {
   accidentDate: string;
   attachments: ClaimAttachment[];
   writeOffs: ClaimWriteOff[];
-  invoices: BillingInvoiceSummary[];
+  invoices: ClaimInvoiceSummary[];
 }
 
 interface Paginated {
@@ -1275,6 +1275,11 @@ export interface BillingInvoiceListItem extends BillingInvoiceSummary {
   };
   balance?: number;
   pastDue?: boolean;
+}
+
+export interface ClaimInvoiceSummary extends BillingInvoiceSummary {
+  kind: BillingInvoiceKind;
+  pastDue: boolean;
 }
 
 export interface SearchBillingInvoicesResponse extends Paginated {

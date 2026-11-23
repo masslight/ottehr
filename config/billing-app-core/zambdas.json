@@ -428,6 +428,13 @@
       "src": "src/billing/search-billing-invoices/index",
       "zip": ".dist/zips/search-billing-invoices.zip"
     },
+    "GET-BILLING-INVOICE": {
+      "name": "get-billing-invoice",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/get-billing-invoice/index",
+      "zip": ".dist/zips/get-billing-invoice.zip"
+    },
     "GET-BILLING-INVOICE-STATEMENT": {
       "name": "get-billing-invoice-statement",
       "type": "http_auth",
