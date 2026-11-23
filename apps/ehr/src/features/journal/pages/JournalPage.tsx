@@ -26,6 +26,7 @@ import { buildJournalActions, JournalActionHandlers } from '../helpers/journalAc
 import {
   getChartVisit,
   inProgressStatus,
+  isInProgress,
   JOURNAL_COLORS,
   JournalRowRef,
   journalTitle,
@@ -35,6 +36,7 @@ import {
   reviewAndSignUrl,
   rowMatchesSearch,
   rowRef,
+  rowRole,
   summarizeItems,
 } from '../helpers/journalHelpers';
 import { useJournalOwners } from '../hooks/useJournalOwners';
@@ -158,7 +160,7 @@ export const JournalPage = (): ReactElement => {
     return {
       cu: comingUp.map((r) => rowRef('cu', r)),
       td: data.today
-        .filter((r) => r.items.length || r.visit?.status === inProgressStatus(data.kind))
+        .filter((r) => r.items.length || r.waitingSince || isInProgress(r, data.kind))
         .map((r) => rowRef('td', r)),
       tdd: data.todayDone.map((r) => rowRef('tdd', r)),
       rc: data.recent.filter((r) => r.items.length).map((r) => rowRef('rc', r)),
@@ -183,12 +185,13 @@ export const JournalPage = (): ReactElement => {
   const kind = data?.kind ?? 'provider';
 
   const handlers: JournalActionHandlers = {
+    myPractitionerId,
     onSelect: (key) => setSelectedKey(key),
     onStart: async (row) => {
       if (!row.visit) return;
       try {
         await handleChangeInPersonVisitStatus(
-          { encounterId: row.visit.encounterId, updatedStatus: inProgressStatus(kind) },
+          { encounterId: row.visit.encounterId, updatedStatus: inProgressStatus(rowRole(row, kind)) },
           oystehrZambda
         );
         window.open(getChiefComplaintUrl(row.visit.appointmentId), '_blank');

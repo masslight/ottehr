@@ -63,8 +63,12 @@ export const inProgressLabel = (kind: JournalKind): string => (kind === 'provide
 /** A Coming Up look-ahead row: the patient one step before this journal's Ready. */
 export const lookaheadLabel = (kind: JournalKind): string =>
   kind === 'provider' ? 'In intake, next up' : 'Arrived, next up';
+/** Whose step the row's visit is at: the journal's kind, unless a provider is also the visit's "In:" (intake). */
+export const rowRole = (row: JournalRow, kind: JournalKind): JournalKind => row.role ?? kind;
 export const isInProgress = (row: JournalRow, kind: JournalKind): boolean =>
-  row.visit?.status === inProgressStatus(kind);
+  row.visit?.status === inProgressStatus(rowRole(row, kind));
+/** Today: Ready for provider after the provider did the intake themselves, so they're already with the patient. */
+export const isReadyInToday = ({ section, row }: JournalRowRef): boolean => section === 'td' && !!row.waitingSince;
 
 /** "2d 5h", "1h 8m", "5m" — the mockup's rel(). */
 export const formatAge = (iso: string, now: DateTime = DateTime.now()): string => {

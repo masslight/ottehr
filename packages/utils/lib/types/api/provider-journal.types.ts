@@ -118,6 +118,8 @@ export interface JournalVisit {
   hasProgressNote: boolean;
   /** The encounter's Location, trimmed to what quick texts use: name, phone, review link. */
   location?: Location;
+  /** The visit's "Pr:" Practitioner id, so Make me provider hides for the provider who already holds it. */
+  attenderId?: string;
 }
 
 export interface JournalPhone {
@@ -149,10 +151,15 @@ export interface JournalRow {
   visit?: JournalVisit;
   /** Coming Up only. */
   room?: string;
-  /** Coming Up: ISO time the visit became ready for this journal's owner. */
+  /** Coming Up, and Today for Ready for provider after this person's own intake: ISO time the visit became ready. */
   waitingSince?: string;
   /** Coming Up: "In intake, next up" (provider journal) or "Arrived, next up" (clinician journal). */
   lookahead?: boolean;
+  /**
+   * Coming Up and Today rows: whose step the visit is at, "provider" ("Pr:") or "clinician" ("In:"). It
+   * differs from the journal's kind when a provider is also the visit's "In:" and does its intake.
+   */
+  role?: JournalKind;
   /** Recent: ISO start of the newest visit on this journal the patient was seen at. */
   lastSeen?: string;
   /** A row with no visit: its newest to-do's own Location, trimmed like `JournalVisit.location` (chat quick texts). */

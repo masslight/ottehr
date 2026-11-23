@@ -13,9 +13,11 @@ import {
   inProgressLabel,
   isFlaggedReason,
   isInProgress,
+  isReadyInToday,
   JOURNAL_COLORS,
   JournalRowRef,
   lookaheadLabel,
+  rowRole,
 } from '../helpers/journalHelpers';
 import { DotColor, JournalDot } from './JournalDot';
 import { JournalItemLink } from './JournalItemLink';
@@ -50,6 +52,7 @@ const dotColor = (ref: JournalRowRef, kind: JournalKind): DotColor => {
     case 'cu':
       return ref.row.lookahead ? 'none' : 'blue';
     case 'td':
+      if (isReadyInToday(ref)) return 'blue';
       return isInProgress(ref.row, kind) ? 'purple' : 'orange';
     case 'tdd':
     case 'pa':
@@ -92,7 +95,7 @@ export const JournalRow = memo(function JournalRow({
         {isFlaggedReason(row.visit?.reasonForVisit) && <FlaggedReason />}
         <Box component="span" sx={QUIET_SX}>
           {row.lookahead || !row.waitingSince ? (
-            lookaheadLabel(kind)
+            lookaheadLabel(rowRole(row, kind))
           ) : (
             <>
               Waiting{' '}
@@ -119,11 +122,25 @@ export const JournalRow = memo(function JournalRow({
         {row.visit ? `${formatVisitDay(row.visit.start)} · ` : ''}Nothing to do
       </Box>
     );
+  } else if (isReadyInToday(rowRef) && row.waitingSince) {
+    todo = (
+      <>
+        <Box component="span" sx={QUIET_SX}>
+          Ready for provider, waiting{' '}
+          <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+            {formatAge(row.waitingSince, now)}
+          </Box>
+          {row.room ? ` in room ${row.room}` : ''}
+        </Box>
+        {items.length > 0 && <ItemSeparator />}
+        {items}
+      </>
+    );
   } else if (section === 'td' && isInProgress(row, kind)) {
     todo = (
       <>
         <Box component="span" sx={QUIET_SX}>
-          {inProgressLabel(kind)}
+          {inProgressLabel(rowRole(row, kind))}
         </Box>
         {items.length > 0 && <ItemSeparator />}
         {items}

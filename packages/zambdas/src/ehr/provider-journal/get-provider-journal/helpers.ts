@@ -78,7 +78,6 @@ const STATUSES_WITHOUT_PROGRESS_NOTE: VisitStatusLabel[] = [
 const JOURNAL_RULES: Record<
   JournalKind,
   {
-    owns: (encounter: Encounter) => string | undefined;
     /** The row is in Coming Up. */
     ready: VisitStatusLabel;
     /** A virtual visit in the virtual waiting room is ready too, as the bell's waiting room notification says. */
@@ -92,7 +91,6 @@ const JOURNAL_RULES: Record<
   }
 > = {
   provider: {
-    owns: getAttendingPractitionerId,
     ready: 'ready for provider',
     virtualReady: ['arrived', 'ready'],
     lookahead: 'intake',
@@ -100,7 +98,6 @@ const JOURNAL_RULES: Record<
     seen: ['provider', 'discharged', 'completed'],
   },
   clinician: {
-    owns: getAdmitterPractitionerId,
     ready: 'ready',
     // Only practices that pick "In:" before intake have these; elsewhere the look-ahead stays empty.
     lookahead: 'arrived',
@@ -134,6 +131,10 @@ interface Visit {
   encounter: Encounter;
   patientId: string;
   journal: JournalVisit;
+  /** This person is the visit's "Pr:". */
+  isAttender: boolean;
+  /** This person is the visit's "In:". On a provider journal these visits follow the clinician journal's rules. */
+  isAdmitter: boolean;
 }
 
 interface PatientBucket {
@@ -203,6 +204,7 @@ const toJournalVisit = (appointment: Appointment, encounter: Encounter, status: 
     serviceCategory: category?.display ?? category?.code,
     reasonForVisit: getReasonForVisitAndAdditionalDetailsFromAppointment(appointment).reasonForVisit,
     hasProgressNote: !STATUSES_WITHOUT_PROGRESS_NOTE.includes(status),
+    attenderId: getAttendingPractitionerId(encounter),
   };
 };
 
@@ -394,24 +396,44 @@ export function resolveTaskPatientId(
 
 export function buildJournal(sources: JournalSources): GetProviderJournalResponse {
   const { kind, practitionerId, now } = sources;
-  const rules = JOURNAL_RULES[kind];
   const appointmentsById = new Map(sources.appointments.map((appointment) => [appointment.id!, appointment]));
   const patientsById = new Map(sources.patients.map((patient) => [patient.id!, patient]));
   const encountersById = new Map(
     [...sources.encounters, ...(sources.taskEncounters ?? [])].map((encounter) => [encounter.id!, encounter])
   );
 
-  // This journal's visits: the practitioner holds the journal's role on the encounter.
+  // This journal's visits: a provider's where they are the "Pr:", a clinician's where they are the "In:". A provider who is also the
+  // visit's "In:" does its intake too, so their journal covers that step as a clinician's would (decision 11-22).
+  const windowStart = now.minus({ days: JOURNAL_WINDOW_DAYS }).startOf('day');
   const visits: Visit[] = sources.encounters.flatMap((encounter) => {
     const appointmentId = getIdFromReference(encounter.appointment?.[0]?.reference, 'Appointment');
     const appointment = appointmentId ? appointmentsById.get(appointmentId) : undefined;
     const patientId = getIdFromReference(encounter.subject?.reference, 'Patient');
-    if (!appointment?.start || !patientId || rules.owns(encounter) !== practitionerId) return [];
+    const isAttender = kind === 'provider' && getAttendingPractitionerId(encounter) === practitionerId;
+    const isAdmitter = getAdmitterPractitionerId(encounter) === practitionerId;
+    if (!appointment?.start || !patientId || !(isAttender || isAdmitter)) return [];
+    // The any-age searches (unfinished visits, task-linked visits) are for the "Pr:"; an "In:" only visit keeps the 90-day window.
+    if (!isAttender && DateTime.fromISO(appointment.start).setZone(now.zone) < windowStart) return [];
     // The tracking board's status: an on-demand virtual visit stays booked while the patient waits, shown as arrived.
     const status = getTrackingBoardVisitStatus(appointment, encounter);
-    return [{ appointment, encounter, patientId, journal: toJournalVisit(appointment, encounter, status) }];
+    return [
+      {
+        appointment,
+        encounter,
+        patientId,
+        journal: toJournalVisit(appointment, encounter, status),
+        isAttender,
+        isAdmitter,
+      },
+    ];
   });
-  const visitEncounterIds = new Set(visits.map((visit) => visit.encounter.id!));
+  // Unassigned tasks and notes to sign belong to the "Pr:", not the "In:".
+  const providerVisits = kind === 'provider' ? visits.filter((visit) => visit.isAttender) : [];
+  const visitEncounterIds = new Set(providerVisits.map((visit) => visit.encounter.id!));
+  const { provider, clinician } = JOURNAL_RULES;
+  const isSeen = (visit: Visit): boolean =>
+    (visit.isAttender && provider.seen.includes(visit.journal.status)) ||
+    (visit.isAdmitter && clinician.seen.includes(visit.journal.status));
 
   const buckets = new Map<string, PatientBucket>();
   const bucketFor = (patientId: string): PatientBucket | undefined => {
@@ -436,7 +458,7 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
   // Unsigned notes: the Incomplete Encounters report's rule (not completed, cancelled or no show) for
   // visits with a progress note, any age; today's only once discharged (the rest are still in progress).
   if (kind === 'provider') {
-    visits
+    providerVisits
       .filter(
         (visit) =>
           visit.journal.hasProgressNote &&
@@ -453,7 +475,7 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
           label: 'Review & Sign',
           ...(visit.journal.status === 'discharged'
             ? { when: 'discharged' as const, since: attender?.period?.end ?? visit.journal.start }
-            : { when: rules.seen.includes(visit.journal.status) ? 'seen' : 'visit', since: visit.journal.start }),
+            : { when: isSeen(visit) ? 'seen' : 'visit', since: visit.journal.start }),
           patientId: visit.patientId,
           appointmentId: visit.journal.appointmentId,
           encounterId: visit.journal.encounterId,
@@ -513,40 +535,60 @@ export function buildJournal(sources: JournalSources): GetProviderJournalRespons
   buckets.forEach((bucket) => {
     const rowBase = { patient: bucket.patient, visits: bucket.visits.map((v) => v.journal), items: bucket.items };
     const todays = bucket.visits.filter(isToday);
-    const ready = todays.find(
+    const statusIs = (v: Visit, status: VisitStatusLabel): boolean => v.journal.status === status;
+    const waitingSince = (v: Visit): string =>
+      getVisitStatusHistory(v.encounter, v.appointment)
+        .filter((entry) => entry.status === v.journal.status && !entry.period.end)
+        .at(-1)?.period.start ?? v.journal.start;
+    // Ready for this person's next step: intake as the "In:", the visit as the "Pr:". Someone who did the intake
+    // themselves is already with the patient, so their Ready for provider is in Today, not Coming Up.
+    const readyForIntake = todays.find((v) => v.isAdmitter && statusIs(v, clinician.ready));
+    const readyForProvider = todays.find(
       (v) =>
-        v.journal.status === rules.ready || (v.journal.isTelemed && !!rules.virtualReady?.includes(v.journal.status))
+        v.isAttender &&
+        !(v.isAdmitter && statusIs(v, provider.ready)) &&
+        (statusIs(v, provider.ready) || (v.journal.isTelemed && !!provider.virtualReady?.includes(v.journal.status)))
     );
-    const lookahead = todays.find((v) => v.journal.status === rules.lookahead);
+    const ready = readyForIntake ?? readyForProvider;
+    // "In intake, next up" waits for someone else's intake; "Arrived, next up" for this person's.
+    const intakeLookahead = todays.find((v) => v.isAdmitter && statusIs(v, clinician.lookahead));
+    const lookahead =
+      todays.find((v) => v.isAttender && !v.isAdmitter && statusIs(v, provider.lookahead)) ?? intakeLookahead;
     const coming = ready ?? lookahead;
     if (coming) {
-      const waiting = getVisitStatusHistory(coming.encounter, coming.appointment)
-        .filter((entry) => entry.status === coming.journal.status && !entry.period.end)
-        .at(-1);
       comingUp.push({
         ...rowBase,
         visit: coming.journal,
         room: getAppointmentRoom(coming.appointment),
-        waitingSince: ready ? waiting?.period.start ?? coming.journal.start : undefined,
+        waitingSince: ready ? waitingSince(coming) : undefined,
         lookahead: !ready || undefined,
+        role: coming === readyForIntake || (!ready && coming === intakeLookahead) ? 'clinician' : 'provider',
       });
       return;
     }
-    const seenToday = todays.filter((v) => rules.seen.includes(v.journal.status)).sort(byStartDesc)[0];
+    const inRoom = (v: Visit): boolean =>
+      (v.isAttender && statusIs(v, provider.inProgress)) ||
+      (v.isAdmitter && statusIs(v, clinician.inProgress)) ||
+      (v.isAttender && v.isAdmitter && statusIs(v, provider.ready));
+    const seenToday = todays.filter(isSeen).sort(byStartDesc)[0];
     if (seenToday) {
-      const row = { ...rowBase, visit: seenToday.journal };
-      (bucket.items.length || seenToday.journal.status === rules.inProgress ? today : todayDone).push(row);
+      // An "In:" only visit is never with this person as provider, whatever its status.
+      const role = !seenToday.isAttender || statusIs(seenToday, clinician.inProgress) ? 'clinician' : 'provider';
+      const row: JournalRow = { ...rowBase, visit: seenToday.journal, role };
+      if (inRoom(seenToday) && statusIs(seenToday, provider.ready)) {
+        row.room = getAppointmentRoom(seenToday.appointment);
+        row.waitingSince = waitingSince(seenToday);
+      }
+      (bucket.items.length || inRoom(seenToday) ? today : todayDone).push(row);
       return;
     }
     if (bucket.items.length) {
       // "Seen" counts from the newest visit the patient was seen at; a booking doesn't count.
-      const lastSeen = bucket.visits.find((v) => rules.seen.includes(v.journal.status))?.journal.start;
+      const lastSeen = bucket.visits.find(isSeen)?.journal.start;
       recent.push({ ...rowBase, lastSeen });
       return;
     }
-    const seenPastWeek = bucket.visits
-      .filter((v) => isPastWeek(v) && rules.seen.includes(v.journal.status))
-      .sort(byStartDesc)[0];
+    const seenPastWeek = bucket.visits.filter((v) => isPastWeek(v) && isSeen(v)).sort(byStartDesc)[0];
     if (seenPastWeek) past.push({ ...rowBase, visit: seenPastWeek.journal });
   });
 

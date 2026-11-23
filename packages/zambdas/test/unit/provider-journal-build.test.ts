@@ -167,7 +167,7 @@ const TODAY_READY = {
 };
 
 describe('buildJournal: ownership', () => {
-  it('shows only visits where the provider is the attender', () => {
+  it('shows visits where the provider is the "Pr:" or the "In:", not other providers\' visits', () => {
     const journal = buildJournal(
       withVisits(
         [
@@ -179,7 +179,9 @@ describe('buildJournal: ownership', () => {
       )
     );
     expect(journal.comingUp.map((row) => row.patient?.name)).toEqual(['Maria Lopez']);
-    expect(journal.today).toEqual([]);
+    expect(journal.today.map((row) => [row.patient?.name, row.visit?.status, row.role])).toEqual([
+      ['Y Z', 'intake', 'clinician'],
+    ]);
     expect(journal.recent).toEqual([]);
   });
 
@@ -1152,5 +1154,155 @@ describe('buildJournal: OTR-3941 review answers', () => {
     expect(item).toEqual(
       expect.objectContaining({ assigneeId: ME, title: 'Text message from Robert Hill 11/03/2026' })
     );
+  });
+});
+
+describe('buildJournal: a provider who is also the "In:" (decision 11-22)', () => {
+  const PATIENTS = { patients: [patient('pat-kelly', 'Kelly', 'Smith')] };
+  const kelly = (spec: Partial<VisitSpec>): VisitSpec => ({
+    id: 'kelly',
+    patientId: 'pat-kelly',
+    start: '2026-11-07T19:30:00.000Z',
+    appointmentStatus: 'checked-in',
+    encounterStatus: 'arrived',
+    room: '2',
+    ...spec,
+  });
+
+  it('lists a Ready patient on Coming Up for intake, whether or not they are also the "Pr:"', () => {
+    [{ id: OTHER }, { id: ME }, undefined].forEach((attender) => {
+      const journal = buildJournal(
+        withVisits([kelly({ admitter: { id: ME }, attender, readySince: '2026-11-07T19:32:00.000Z' })], PATIENTS)
+      );
+      expect(journal.comingUp).toHaveLength(1);
+      expect(journal.comingUp[0]).toMatchObject({
+        role: 'clinician',
+        waitingSince: '2026-11-07T19:32:00.000Z',
+        visit: { status: 'ready' },
+      });
+      expect(journal.comingUp[0].lookahead).toBeUndefined();
+    });
+  });
+
+  it('shows an arrived patient as "Arrived, next up" (the clinician look-ahead)', () => {
+    const journal = buildJournal(
+      withVisits([kelly({ appointmentStatus: 'arrived', admitter: { id: ME }, attender: { id: ME } })], PATIENTS)
+    );
+    expect(journal.comingUp[0]).toMatchObject({ role: 'clinician', lookahead: true, visit: { status: 'arrived' } });
+  });
+
+  it('puts their own intake in Today as "In intake"', () => {
+    const journal = buildJournal(
+      withVisits(
+        [
+          kelly({
+            encounterStatus: 'in-progress',
+            admitter: { id: ME, start: '2026-11-07T19:35:00.000Z' },
+            attender: { id: ME },
+          }),
+        ],
+        PATIENTS
+      )
+    );
+    expect(journal.comingUp).toEqual([]);
+    expect(journal.today[0]).toMatchObject({ role: 'clinician', visit: { status: 'intake' } });
+  });
+
+  it('keeps Ready for provider in Today, with the wait and Start Provider, after their own intake', () => {
+    const journal = buildJournal(
+      withVisits(
+        [
+          kelly({
+            appointmentStatus: 'fulfilled',
+            encounterStatus: 'in-progress',
+            admitter: { id: ME, start: '2026-11-07T19:35:00.000Z', end: '2026-11-07T19:41:00.000Z' },
+            attender: { id: ME },
+            readyForProviderSince: '2026-11-07T19:41:00.000Z',
+          }),
+        ],
+        PATIENTS
+      )
+    );
+    expect(journal.comingUp).toEqual([]);
+    expect(journal.today[0]).toMatchObject({
+      role: 'provider',
+      room: '2',
+      waitingSince: '2026-11-07T19:41:00.000Z',
+      visit: { status: 'ready for provider' },
+    });
+  });
+
+  it('keeps Ready for provider on Coming Up when someone else did the intake', () => {
+    const journal = buildJournal(withVisits([TODAY_READY], { patients: [patient('pat-maria', 'Maria', 'Lopez')] }));
+    expect(journal.comingUp[0]).toMatchObject({ role: 'provider', visit: { status: 'ready for provider' } });
+    expect(journal.today).toEqual([]);
+  });
+
+  it('keeps Start Provider on a virtual waiting room visit when they are also the "Pr:"', () => {
+    const journal = buildJournal(
+      withVisits(
+        [kelly({ telemed: true, appointmentStatus: 'arrived', admitter: { id: ME }, attender: { id: ME } })],
+        PATIENTS
+      )
+    );
+    expect(journal.comingUp[0]).toMatchObject({ role: 'provider', visit: { status: 'arrived' } });
+    expect(journal.comingUp[0].lookahead).toBeUndefined();
+  });
+
+  it('marks an "In:" only visit with the provider as not in the room', () => {
+    const journal = buildJournal(
+      withVisits(
+        [
+          kelly({
+            appointmentStatus: 'fulfilled',
+            encounterStatus: 'in-progress',
+            admitter: { id: ME, start: '2026-11-07T19:35:00.000Z', end: '2026-11-07T19:41:00.000Z' },
+            attender: { id: OTHER, start: '2026-11-07T19:45:00.000Z' },
+          }),
+        ],
+        {
+          ...PATIENTS,
+          tasks: [boardTask({ id: 'task-mine', title: 'Mine', encounterId: 'enc-kelly', owner: owner(ME) })],
+        }
+      )
+    );
+    expect(journal.today[0]).toMatchObject({ role: 'clinician', visit: { status: 'provider' } });
+  });
+
+  it('drops an "In:" only visit older than 90 days, so it does not tie a to-do to the patient', () => {
+    const old = kelly({
+      start: '2026-04-01T14:00:00.000Z',
+      appointmentStatus: 'fulfilled',
+      encounterStatus: 'in-progress',
+      admitter: { id: ME, start: '2026-04-01T14:05:00.000Z', end: '2026-04-01T14:10:00.000Z' },
+      attender: { id: OTHER, start: '2026-04-01T14:15:00.000Z' },
+    });
+    const mine = boardTask({
+      id: 'task-mine',
+      title: 'Mine',
+      owner: owner(ME),
+      input: [
+        { type: { coding: [{ code: MANUAL_TASK.input.patient }] }, valueReference: { reference: 'Patient/pat-kelly' } },
+      ],
+    });
+    const journal = buildJournal(withVisits([old], { ...PATIENTS, tasks: [mine] }));
+    expect(journal.recent).toEqual([]);
+    expect(journal.notTied.map((row) => row.items.map((item) => item.id))).toEqual([['task-mine']]);
+  });
+
+  it('gives an "In:" only visit no note to sign and only the tasks assigned to them', () => {
+    const intakeOnly = kelly({
+      start: '2026-11-05T15:00:00.000Z',
+      appointmentStatus: 'fulfilled',
+      encounterStatus: 'finished',
+      admitter: { id: ME, start: '2026-11-05T15:05:00.000Z', end: '2026-11-05T15:15:00.000Z' },
+      attender: { id: OTHER, start: '2026-11-05T15:20:00.000Z', end: '2026-11-05T15:40:00.000Z' },
+    });
+    const unassigned = boardTask({ id: 'task-unassigned', title: 'Unassigned', encounterId: 'enc-kelly' });
+    const mine = boardTask({ id: 'task-mine', title: 'Mine', encounterId: 'enc-kelly', owner: owner(ME) });
+    const journal = buildJournal(withVisits([intakeOnly], { ...PATIENTS, tasks: [unassigned, mine] }));
+    expect(journal.recent).toHaveLength(1);
+    expect(journal.recent[0].items.map((item) => item.id)).toEqual(['task-mine']);
+    expect(journal.recent[0].lastSeen).toBe('2026-11-05T15:00:00.000Z');
   });
 });

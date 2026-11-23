@@ -15,10 +15,12 @@ import {
   followUpUrl,
   getChartVisit,
   getRowVisit,
+  isReadyInToday,
   itemVisits,
   JournalRowRef,
   patientRecordUrl,
   reviewAndSignUrl,
+  rowRole,
   visitDetailsUrl,
 } from './journalHelpers';
 
@@ -58,6 +60,8 @@ export interface JournalActionHandlers {
   onSelect: (key: string) => void;
   /** Set only when the signed-in user is a provider looking at a colleague's journal. */
   onMakeMeProvider?: (visit: JournalVisit) => void;
+  /** The signed-in provider: Make me provider hides on visits they already hold, as the command palette does. */
+  myPractitionerId?: string;
 }
 
 /** Row icon order: the first three, a separator, then the rest. */
@@ -117,7 +121,9 @@ export const buildJournalActions = (
         icon: <DescriptionIcon />,
         href: reviewAndSignUrl(chartVisit),
         menu:
-          kind === 'provider' && handlers.onMakeMeProvider
+          kind === 'provider' &&
+          handlers.onMakeMeProvider &&
+          !(handlers.myPractitionerId && chartVisit.attenderId === handlers.myPractitionerId)
             ? [{ label: 'Make me provider and open note', onClick: () => handlers.onMakeMeProvider?.(chartVisit) }]
             : undefined,
       },
@@ -130,9 +136,10 @@ export const buildJournalActions = (
       }
     );
   }
-  if (section === 'cu' && row.visit && !row.lookahead) {
+  if (row.visit && ((section === 'cu' && !row.lookahead) || isReadyInToday(ref))) {
+    const role = rowRole(row, kind);
     // The tracking board's actions: on a virtual visit ready for the provider, Start Provider only opens the chart.
-    if (row.visit.isTelemed && kind === 'provider') {
+    if (row.visit.isTelemed && role === 'provider') {
       actions.push({
         key: 'join',
         label: 'Start Provider',
@@ -141,7 +148,7 @@ export const buildJournalActions = (
         href: getChiefComplaintUrl(row.visit.appointmentId),
       });
     } else {
-      const label = kind === 'provider' ? 'Start Provider' : 'Start Intake';
+      const label = role === 'provider' ? 'Start Provider' : 'Start Intake';
       actions.push({
         key: 'start',
         label,

@@ -19,6 +19,7 @@ import {
   inProgressLabel,
   isFlaggedReason,
   isInProgress,
+  isReadyInToday,
   isToday,
   itemVisit,
   itemVisits,
@@ -26,6 +27,7 @@ import {
   journalItemLink,
   JournalRowRef,
   lookaheadLabel,
+  rowRole,
   visitHeading,
 } from '../helpers/journalHelpers';
 import { useJournalPhoneLabels } from '../hooks/useJournalPhoneLabels';
@@ -282,7 +284,7 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
         {visitLine(row.visit)}
         <Box sx={LINE_SX}>
           {row.lookahead || !row.waitingSince ? (
-            lookaheadLabel(kind)
+            lookaheadLabel(rowRole(row, kind))
           ) : (
             <>
               Waiting{' '}
@@ -302,7 +304,11 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
         {ownItems.map(todo)}
       </>
     );
-  } else if (section === 'tdd' || section === 'pa' || (section === 'td' && isInProgress(row, kind))) {
+  } else if (
+    section === 'tdd' ||
+    section === 'pa' ||
+    (section === 'td' && (isInProgress(row, kind) || isReadyInToday(selected)))
+  ) {
     const visit = row.visit;
     const todayVisits = row.visits.filter((v) => isToday(v.start, now)).length;
     if (section === 'td' && todayVisits > 1) meta = `${todayVisits} visits today`;
@@ -310,7 +316,21 @@ export const JournalSideColumn = ({ selected, kind, now, actions, onOpenChat, on
       <>
         {visit && visitLine(visit)}
         {visit?.reasonForVisit && <Box sx={LINE_SX}>{visit.reasonForVisit}</Box>}
-        <Box sx={LINE_SX}>{section === 'td' ? inProgressLabel(kind) : 'Nothing to do'}</Box>
+        <Box sx={LINE_SX}>
+          {section !== 'td' ? (
+            'Nothing to do'
+          ) : isReadyInToday(selected) && row.waitingSince ? (
+            <>
+              Ready for provider, waiting{' '}
+              <Box component="span" sx={{ color: JOURNAL_COLORS.text2, fontVariantNumeric: 'tabular-nums' }}>
+                {formatAge(row.waitingSince, now)}
+              </Box>
+              {row.room ? ` in room ${row.room}` : ''}
+            </>
+          ) : (
+            inProgressLabel(rowRole(row, kind))
+          )}
+        </Box>
         {ownItems.map(todo)}
       </>
     );

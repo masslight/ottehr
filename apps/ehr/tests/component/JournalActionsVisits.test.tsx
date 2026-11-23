@@ -51,6 +51,15 @@ describe('Make me provider and open note', () => {
     expect(withTakeOver.onMakeMeProvider).toHaveBeenCalledWith(expect.objectContaining({ encounterId: 'enc-v' }));
   });
 
+  it('does not offer it on a visit the signed-in provider already holds, as the command palette does', () => {
+    const mine = visit('v', { status: 'provider', attenderId: 'prac-me' });
+    const ref = rowRef('td', { patient, visit: mine, visits: [mine], items: [] });
+    const own = { ...withTakeOver, myPractitionerId: 'prac-me' };
+    expect(byKey(buildJournalActions(ref, 'provider', own), 'progress')?.menu).toBeUndefined();
+    const other = { ...withTakeOver, myPractitionerId: 'prac-other' };
+    expect(byKey(buildJournalActions(ref, 'provider', other), 'progress')?.menu).toHaveLength(1);
+  });
+
   it('does not offer it on a clinician journal or without the handler', () => {
     expect(progress('provider', 'clinician').menu).toBeUndefined();
     const v = visit('v');
@@ -123,5 +132,24 @@ describe('journal row actions and the row visits', () => {
     expect(byKey(provider, 'join')?.label).toBe('Start Provider');
     expect(byKey(provider, 'join')?.tooltip).toBe('Start Provider (opens the chart in a new tab)');
     expect(byKey(provider, 'start')).toBeUndefined();
+  });
+  it('follows the row\'s role when a provider is also the visit\'s "In:" (decision 11-22)', () => {
+    // Ready for intake on their Coming Up: Start Intake, like a clinician's.
+    const ready = visit('k', { status: 'ready', hasProgressNote: false });
+    const intake = actions('cu', { patient, visit: ready, visits: [ready], items: [], role: 'clinician' });
+    expect(byKey(intake, 'start')?.label).toBe('Start Intake');
+    // Ready for provider after their own intake sits in Today, with Start Provider.
+    const rfp = visit('k', { status: 'ready for provider' });
+    const todayRow: JournalRow = {
+      patient,
+      visit: rfp,
+      visits: [rfp],
+      items: [],
+      role: 'provider',
+      waitingSince: '2026-11-20T14:10:00Z',
+    };
+    expect(byKey(actions('td', todayRow), 'start')?.label).toBe('Start Provider');
+    // Other Today rows still have no start action.
+    expect(byKey(actions('td', { ...todayRow, waitingSince: undefined }), 'start')).toBeUndefined();
   });
 });
