@@ -12,7 +12,7 @@ import { getCvxVaccine } from 'utils/lib/types/data/immunization/vaccine-lookup'
 import { createVaccine } from '../ehr/configuration/in-house-medications/create-in-house-medication/index';
 import { IMMUNIZATION_QUICK_PICK_CATEGORY } from '../ehr/shared/quick-pick-categories';
 import { activityDefinitionToQuickPick, QUICK_PICK_TAG_SYSTEM } from '../ehr/shared/quick-pick-helpers';
-import { CONFIG_VACCINE_MAPPINGS, planQuickPickRepoints } from './migrate-vaccine-quick-picks.helpers';
+import { CONFIG_VACCINE_MAPPINGS } from './config-vaccine-mappings';
 
 /** A vaccine the practice already uses, and why it is taken to: its old config vaccines and its quick picks. */
 export interface PlannedCatalogVaccine {
@@ -32,7 +32,7 @@ export interface VaccineCatalogPlan {
   removed: PlannedCatalogVaccine[];
   /** Retired config vaccines whose name is not in the mapping table (an instance's own vaccines); left alone. */
   unknownConfigVaccines: string[];
-  /** Quick picks whose vaccine is neither in the vaccine list nor in the mapping table; left alone. */
+  /** Quick picks saved before the vaccine list, whose vaccine it does not have; left alone. */
   unknownQuickPicks: string[];
 }
 
@@ -40,9 +40,10 @@ export interface VaccineCatalogPlan {
  * Which vaccines to add to the catalog of a practice that gave vaccines before it had one. A practice already
  * uses a vaccine when it has the retired config vaccine for it (a vaccine Medication without a CVX code, matched
  * through CONFIG_VACCINE_MAPPINGS) or an immunization quick pick that gives it. A quick pick counts by the list
- * vaccine it points at, or the one the quick pick migration would repoint it to, so the two upgrades can run in
- * either order. Vaccines that share a CVX code fold into one entry. A vaccine the catalog already has is skipped,
- * active or not, so a run can be repeated and never brings back a vaccine someone removed.
+ * vaccine it points at. One saved before the vaccine list points at a retired config vaccine instead: it is
+ * reported and adds nothing, since delete-immunization-quick-picks deletes those. Vaccines that share a CVX code
+ * fold into one entry. A vaccine the catalog already has is skipped, active or not, so a run can be repeated and
+ * never brings back a vaccine someone removed.
  */
 export function planVaccineCatalog(
   vaccineMedications: Medication[],
@@ -73,13 +74,15 @@ export function planVaccineCatalog(
     planned(cvx).configNames.push(configName);
   }
 
-  const repoints = planQuickPickRepoints(quickPicks);
-  const repointCvxById = new Map(repoints.repoint.map((entry) => [entry.quickPickId, entry.cvx]));
+  const unknownQuickPicks: string[] = [];
   for (const quickPick of quickPicks) {
     if (!quickPick.vaccine) continue;
-    const cvx =
-      getCvxVaccine(quickPick.vaccine.id)?.cvx ?? (quickPick.id ? repointCvxById.get(quickPick.id) : undefined);
-    if (cvx) planned(cvx).quickPickNames.push(quickPick.name);
+    const cvx = getCvxVaccine(quickPick.vaccine.id)?.cvx;
+    if (!cvx) {
+      unknownQuickPicks.push(quickPick.name);
+      continue;
+    }
+    planned(cvx).quickPickNames.push(quickPick.name);
   }
 
   const activeCvx = new Set<string>();
@@ -94,7 +97,7 @@ export function planVaccineCatalog(
     alreadyActive: entries.filter((entry) => activeCvx.has(entry.cvx)),
     removed: entries.filter((entry) => !activeCvx.has(entry.cvx) && inactiveCvx.has(entry.cvx)),
     unknownConfigVaccines,
-    unknownQuickPicks: repoints.unknown.map((entry) => entry.quickPickName),
+    unknownQuickPicks,
   };
 }
 
@@ -161,7 +164,10 @@ export async function migrateVaccineCatalog(oystehr: Oystehr, dryRun: boolean): 
     console.log(`  ? config vaccine "${configName}" is not in the mapping table, left alone`);
   }
   for (const quickPickName of plan.unknownQuickPicks) {
-    console.log(`  ? quick pick "${quickPickName}": its vaccine is not in the vaccine list or the mapping table`);
+    console.log(
+      `  ? quick pick "${quickPickName}" was saved before the vaccine list, left alone ` +
+        `(delete-immunization-quick-picks deletes these)`
+    );
   }
   for (const entry of plan.toAdd) {
     if (dryRun) {

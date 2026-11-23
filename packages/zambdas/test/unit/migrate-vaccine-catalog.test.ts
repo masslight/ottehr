@@ -41,7 +41,7 @@ const quickPick = (
   rest: Partial<ImmunizationQuickPickData> = {}
 ): ImmunizationQuickPickData => ({ id, name, vaccine, dose: '0.5', units: 'ml', route: '78421000', ...rest });
 
-/** A quick pick still on a retired config vaccine: its vaccine id is the old Medication's, not a CVX code. */
+/** A quick pick saved before the vaccine list: its vaccine id is the old Medication's, not a CVX code. */
 const onConfigVaccine = (name: string): { id: string; name: string } => ({
   id: 'a3f1c2d4-0000-4000-8000-000000000001',
   name,
@@ -71,25 +71,33 @@ describe('planVaccineCatalog', () => {
     expect(plan).toMatchObject({ alreadyActive: [], removed: [], unknownConfigVaccines: [], unknownQuickPicks: [] });
   });
 
-  it('adds the vaccine a quick pick gives, whether or not the quick pick was repointed yet', () => {
+  it('adds the list vaccine a quick pick gives, once for the quick picks that share it', () => {
     const plan = planVaccineCatalog(
       [],
       [
-        // already repointed at the vaccine list
         quickPick('qp-1', 'Varicella 0.5 mL', { id: '21', name: nameOf('21') }),
-        // not repointed yet: the table decides
-        quickPick('qp-2', 'Tdap adult', onConfigVaccine('Tdap (Adacel/Boostrix)')),
-        // not repointed yet: its own CVX wins over the table (Daptacel 106, where the table says Infanrix 20)
-        quickPick('qp-3', 'Daptacel', onConfigVaccine('DTaP (Infanrix/Daptacel)'), { cvx: '106' }),
+        quickPick('qp-2', 'Varicella catch-up', { id: '21', name: nameOf('21') }),
+        quickPick('qp-3', 'Daptacel', { id: '106', name: nameOf('106') }),
       ]
     );
     expect(plan.toAdd.map((entry) => [entry.cvx, entry.quickPickNames])).toEqual(
       [
         ['106', ['Daptacel']],
-        ['115', ['Tdap adult']],
-        ['21', ['Varicella 0.5 mL']],
+        ['21', ['Varicella 0.5 mL', 'Varicella catch-up']],
       ].sort((a, b) => nameOf(a[0] as string).localeCompare(nameOf(b[0] as string)))
     );
+  });
+
+  it('a quick pick saved before the vaccine list adds nothing, whatever its old vaccine or its own CVX', () => {
+    const plan = planVaccineCatalog(
+      [],
+      [
+        quickPick('qp-1', 'Tdap adult', onConfigVaccine('Tdap (Adacel/Boostrix)')),
+        quickPick('qp-2', 'Daptacel', onConfigVaccine('DTaP (Infanrix/Daptacel)'), { cvx: '106' }),
+      ]
+    );
+    expect(plan.toAdd).toEqual([]);
+    expect(plan.unknownQuickPicks).toEqual(['Tdap adult', 'Daptacel']);
   });
 
   it('a quick pick on a product the table does not name adds that product beside the table one', () => {
@@ -120,7 +128,7 @@ describe('planVaccineCatalog', () => {
     expect(plan.removed.map((entry) => entry.cvx)).toEqual(['115']);
   });
 
-  it('leaves alone a config vaccine and a quick pick it cannot match to the vaccine list', () => {
+  it('leaves alone a config vaccine the table does not have, and a quick pick without a vaccine', () => {
     const plan = planVaccineCatalog(
       [configVaccine('m-1', 'Our own vaccine name')],
       [quickPick('qp-1', 'Custom', onConfigVaccine('Our own vaccine name')), quickPick('qp-2', 'No vaccine', undefined)]
