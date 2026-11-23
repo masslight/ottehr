@@ -3,6 +3,7 @@ import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants
 import {
   VitalsBloodPressureObservationDTO,
   VitalsBMIObservationDTO,
+  VitalsHeadCircumferenceObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -16,6 +17,7 @@ import {
 import { formatDateTimeToZone } from '../../utils/date';
 import { vitalsConfig } from '../vitals/config-schema';
 import { formatBMIWithUnit } from '../vitals/vitals-bmi.helper';
+import { formatHeadCircumferenceObservationValue } from '../vitals/vitals-head-circumference.helper';
 import { formatHeightObservationValue } from '../vitals/vitals-height.helper';
 import { formatOxygenSatObservationMethod } from '../vitals/vitals-oxygen-saturation.helper';
 import { celsiusToFahrenheit } from '../vitals/vitals-temperature.helper';
@@ -81,6 +83,10 @@ export const mapVitalsToDisplay = (
       case VitalFieldNames.VitalHeight:
         parsed = observation as VitalsHeightObservationDTO;
         text = formatHeightObservationValue(parsed.value);
+        break;
+      case VitalFieldNames.VitalHeadCircumference:
+        parsed = observation as VitalsHeadCircumferenceObservationDTO;
+        text = formatHeadCircumferenceObservationValue(parsed.value);
         break;
       case VitalFieldNames.VitalBMI:
         parsed = observation as VitalsBMIObservationDTO;

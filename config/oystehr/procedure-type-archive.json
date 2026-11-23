@@ -227,6 +227,140 @@
           ]
         }
       }
+    },
+    "value-set-procedure-type-1_0_1": {
+      "resource": {
+        "resourceType": "ValueSet",
+        "url": "https://fhir.ottehr.com/ValueSet/procedure-type",
+        "version": "1.0.1",
+        "name": "Procedures - Procedure type",
+        "status": "active",
+        "expansion": {
+          "timestamp": "2025-06-10T11:36:51.034Z",
+          "contains": [
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "laceration-repair",
+              "display": "Laceration Repair (Suturing/Stapling)"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "wound-care",
+              "display": "Wound Care / Dressing Change"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "splint-application",
+              "display": "Splint Application / Immobilization"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "abscess-drainage",
+              "display": "Incision and Drainage (I&D) of Abscess"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "elbow-reduction",
+              "display": "Reduction of Nursemaid’s Elbow"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "burn-treatment",
+              "display": "Burn Treatment / Dressing"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "foreign-body-removal",
+              "display": "Foreign Body Removal (Skin, Ear, Nose, Eye)"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "nail-trephination",
+              "display": "Nail Trephination (Subungual Hematoma Drainage)"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "tick-removal",
+              "display": "Tick or Insect Removal"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "staple-removal",
+              "display": "Staple or Suture Removal"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "iv-catheter-placement",
+              "display": "Intravenous (IV) Catheter Placement"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "iv-fluid-administration",
+              "display": "IV Fluid Administration"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "iv-push-medication-administration",
+              "display": "IV Push Medication Administration"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "im-medication-injection",
+              "display": "Intramuscular (IM) Medication Injection"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "nebulizer-treatment",
+              "display": "Nebulizer Treatment (e.g., Albuterol)"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "oral-rehydration",
+              "display": "Oral Rehydration / Medication Administration (including challenge doses)"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "wart-treatment",
+              "display": "Wart Treatment (Cryotherapy with Liquid Nitrogen"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "urinary-catheterization",
+              "display": "Urinary Catheterization"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "ear-lavage",
+              "display": "Ear Lavage / Cerumen Removal"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "nasal-packing",
+              "display": "Nasal Packing (Epistaxis Control)"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "eye-irrigation",
+              "display": "Eye Irrigation or Eye Foreign Body Removal"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "nasal-lavage",
+              "display": "Nasal Lavage (schnozzle)"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "ekg",
+              "display": "EKG"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "x-ray",
+              "display": "X-Ray"
+            }
+          ]
+        }
+      }
     }
   }
 }

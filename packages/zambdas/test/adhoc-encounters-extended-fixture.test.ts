@@ -619,6 +619,8 @@ const vitals: Observation[] = [
   ),
   vital('enc-1', { field: VitalFieldNames.VitalWeight, value: 70 }, '2026-07-01T14:07:00.000Z'),
   vital('enc-1', { field: VitalFieldNames.VitalHeight, value: 170 }, '2026-07-01T14:07:00.000Z'),
+  vital('enc-1', { field: VitalFieldNames.VitalHeadCircumference, value: 41.55 }, '2026-07-01T14:07:00.000Z'),
+  vital('enc-1', { field: VitalFieldNames.VitalHeadCircumference, value: 43.84 }, '2026-07-01T14:09:00.000Z'),
   vital(
     'enc-1',
     {
@@ -1151,9 +1153,11 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       // the same readings in the chart's other units
       temperatureC: 37,
       temperatureCReadings: [37],
-      weightLbs: 154.3,
+      weightLbs: 154.32,
       heightInches: 66.93,
       heightFeetInches: `5'7"`,
+      headCircumferenceCm: 43.8,
+      headCircumferenceInches: 17.26,
       temperatureMethod: 'Oral',
       heartRateMethod: 'Sitting',
       bloodPressureMethod: 'Standing',
@@ -1193,6 +1197,8 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       temperatureC: null,
       temperatureMethod: null,
       heightFeetInches: '',
+      headCircumferenceCm: null,
+      headCircumferenceInches: null,
       visionOptions: [],
       lastMenstrualPeriod: null,
       lastMenstrualPeriodUnsure: null,
@@ -1201,6 +1207,36 @@ describe('ad-hoc Encounters: layers mapped with the app mappers (fixture)', () =
       vitalsRecordedBy: ['Ivy Lee'],
       vitalsFirstRecordedAt: '2026-07-01T13:01:00.000Z',
     });
+  });
+
+  it('vitals: BMI only from 24 months at the visit', async () => {
+    const teenRows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeVitals: true });
+    expect(teenRows.find((r) => r.appointmentId === 'appt-1')?.bmi).toBe(24.2);
+
+    const adultBirthDate = patient.birthDate;
+    patient.birthDate = '2025-01-01';
+    try {
+      const infantRows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeVitals: true });
+      expect(infantRows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({
+        bmi: null,
+        weightKg: 70,
+        heightCm: 170,
+      });
+    } finally {
+      patient.birthDate = adultBirthDate;
+    }
+  });
+
+  it('vitals: weight with the same 2 decimals the chart shows', async () => {
+    const weight = vitals.find((obs) => obs.id === 'vit-enc-1-vital-weight-2026-07-01T14:07:00.000Z')!;
+    const savedKg = weight.valueQuantity!.value;
+    weight.valueQuantity!.value = 3.248;
+    try {
+      const rows = await fetchAdHocEncounterRows(fakeOystehr, { dateRange, includeVitals: true });
+      expect(rows.find((r) => r.appointmentId === 'appt-1')).toMatchObject({ weightKg: 3.25, weightLbs: 7.16 });
+    } finally {
+      weight.valueQuantity!.value = savedKg;
+    }
   });
 
   it('scheduled follow-up: a visit of its own — status, start, lock and signer like any visit', async () => {

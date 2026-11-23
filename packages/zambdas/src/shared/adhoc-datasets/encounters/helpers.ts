@@ -67,6 +67,7 @@ export const VITAL_ALERT_FIELDS: Record<string, string> = {
   [VitalFieldNames.VitalBloodPressure]: 'bloodPressure',
   [VitalFieldNames.VitalWeight]: 'weightKg',
   [VitalFieldNames.VitalHeight]: 'heightCm',
+  [VitalFieldNames.VitalHeadCircumference]: 'headCircumferenceCm',
 };
 
 // "Ask the patient" screening answers are chart-data Observations (makeObservationResource): code.text

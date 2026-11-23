@@ -82,8 +82,12 @@ export class HeightMeasurement {
     return `${this.getFeet()}'${this.getInchRemainder()}"`;
   }
 
+  getCmInchesLabel(): string {
+    return `${this.getCm(HEIGHT_CM_DISPLAY_PRECISION)} cm ≈ ${this.getInches()} in`;
+  }
+
   getObservationLabel(): string {
-    return `${this.getCm(HEIGHT_CM_DISPLAY_PRECISION)} cm ≈ ${this.getInches()} in ≈ ${this.getFeetInchesLabel()}`;
+    return `${this.getCmInchesLabel()} ≈ ${this.getFeetInchesLabel()}`;
   }
 }
 

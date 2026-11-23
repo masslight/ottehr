@@ -17,9 +17,9 @@ import { formatCurrency } from 'utils/lib/utils/convert';
 import { cancelOutreachTask, listOutreachTasks, retryOutreachTask } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
 import { useDebounce } from '../hooks/useDebounce';
-import { InvoiceStatusChip } from '../pages/InvoicesList';
 import { formatDate, formatDateTime } from '../utils/format';
 import { dataGridSlots, dataGridSx } from './BillingDataGrid';
+import { InvoiceStatusChip } from './InvoiceStatusChip';
 
 const ALL_STATUSES = Object.keys(OUTREACH_TASK_STATUS_LABELS).join(',');
 

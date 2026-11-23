@@ -331,7 +331,16 @@ export function buildEncounterBaseRow(
 
   return {
     row,
-    input: { encounter, appointment, patient, attendingPractitioner, isFollowUpRow, visitStatus, statusHistory },
+    input: {
+      encounter,
+      appointment,
+      patient,
+      location,
+      attendingPractitioner,
+      isFollowUpRow,
+      visitStatus,
+      statusHistory,
+    },
   };
 }
 

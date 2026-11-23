@@ -85,6 +85,8 @@ export interface EncounterRowInput {
   encounter: Encounter;
   appointment: Appointment;
   patient: Patient | undefined;
+  /** The visit's location (its timezone gives the visit day). */
+  location: Location | undefined;
   attendingPractitioner: Practitioner | undefined;
   isFollowUpRow: boolean;
   visitStatus: string;

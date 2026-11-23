@@ -34,4 +34,8 @@ export const vitalsBloodPressureLayer = vitalSubLayer('vitalsBloodPressure', [Vi
 export const vitalsHeartRateLayer = vitalSubLayer('vitalsHeartRate', [VitalFieldNames.VitalHeartbeat]);
 export const vitalsRespirationLayer = vitalSubLayer('vitalsRespiration', [VitalFieldNames.VitalRespirationRate]);
 export const vitalsOxygenLayer = vitalSubLayer('vitalsOxygen', [VitalFieldNames.VitalOxygenSaturation]);
-export const vitalsBodyLayer = vitalSubLayer('vitalsBody', [VitalFieldNames.VitalWeight, VitalFieldNames.VitalHeight]);
+export const vitalsBodyLayer = vitalSubLayer('vitalsBody', [
+  VitalFieldNames.VitalWeight,
+  VitalFieldNames.VitalHeight,
+  VitalFieldNames.VitalHeadCircumference,
+]);

@@ -5,7 +5,7 @@
       "resource": {
         "resourceType": "ValueSet",
         "url": "https://fhir.ottehr.com/ValueSet/procedure-type",
-        "version": "1.0.1",
+        "version": "1.0.2",
         "name": "Procedures - Procedure type",
         "status": "active",
         "expansion": {
@@ -65,6 +65,11 @@
               "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
               "code": "iv-catheter-placement",
               "display": "Intravenous (IV) Catheter Placement"
+            },
+            {
+              "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",
+              "code": "iv-catheter-removal",
+              "display": "Intravenous (IV) Catheter Removal"
             },
             {
               "system": "https://fhir.ottehr.com/CodeSystem/procedure-type",

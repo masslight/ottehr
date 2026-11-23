@@ -15,12 +15,10 @@ import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { PAYMENT_METHOD_EXTENSION_URL, PAYMENT_STRIPE_ACCOUNT_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import {
-  getStripeCustomerIdFromAccount,
   isVersionConflictError,
   makeOptimisticLockIfMatchHeader,
   withVersionConflictRetries,
 } from 'utils/lib/fhir/helpers';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PostBillingPatientPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import {
@@ -31,7 +29,6 @@ import {
   SPECIFIC_STRIPE_PAYMENT_ERROR,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
 } from 'utils/lib/types/errors';
-import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 import { checkOrCreateM2MClientToken, getUser, getUserToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
@@ -44,6 +41,7 @@ import {
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { practitionerRefForBillingUser } from '../clinical-practitioners';
+import { ehrClinicalPaymentLookups, getPatientPaymentVisits } from '../ehr-payment-data';
 import { ensurePaymentTaskForNotice, unionIdentifiers } from '../patient-payments';
 import {
   billingProviderRefForStripeAccount,
@@ -82,7 +80,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the patient's Account and the schedule's Stripe account, and schedules the payment Task
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- schedules the payment Task, a clinical work item
   const clinicalOystehr = createClinicalOystehrClient(m2mToken, secrets);
   const billingOystehr = createBillingClient(m2mToken, secrets);
 
@@ -139,7 +137,7 @@ const performEffect = async (
 
   let storedNotice =
     paymentDetails.paymentMethod === 'card'
-      ? await recordCardPayment(input, paymentDetails.paymentMethodId, dedupValue, clinicalOystehr, billingOystehr)
+      ? await recordCardPayment(input, paymentDetails.paymentMethodId, dedupValue, billingOystehr)
       : await recordCollectedPayment(input, dedupValue, billingOystehr);
 
   if (!storedNotice.request?.reference && storedNotice.id) {
@@ -201,12 +199,11 @@ const recordCardPayment = async (
   input: EffectInput,
   paymentMethodId: string,
   ehrPaymentId: string,
-  clinicalOystehr: Oystehr,
   billingOystehr: Oystehr
 ): Promise<PaymentNotice> => {
   const { encounterId, secrets } = input;
   const agent = humanClaimActor(input.submitterRef);
-  const { customerId, stripeAccount } = await savedCardCustomer(input, clinicalOystehr);
+  const { customerId, stripeAccount } = await savedCardCustomer(input, billingOystehr);
   // the org behind the Stripe account the money lands in, as the billing webhook records it
   const payeeRef = await billingProviderRefForStripeAccount(billingOystehr, stripeAccount, secrets);
   const noticeFor = (claim: Claim | undefined, identifiers: Identifier[]): PaymentNotice =>
@@ -365,17 +362,20 @@ const cancelPendingPaymentNotice = async (billingOystehr: Oystehr, pending: Paym
   }
 };
 
+// The patient's Stripe customer on the account the visit's schedule takes payments on, both from the
+// EHR's zambda. It only returns the visit when it is the patient's, so another patient's is never charged.
 const savedCardCustomer = async (
   input: EffectInput,
-  clinicalOystehr: Oystehr
+  billingOystehr: Oystehr
 ): Promise<{ customerId: string; stripeAccount: string | undefined }> => {
   const { patientId, encounterId } = input;
-  const { account } = await getAccountAndCoverageResourcesForPatient(patientId, clinicalOystehr);
-  if (!account) {
-    throw FHIR_RESOURCE_NOT_FOUND('Account');
+  const ehrData = await getPatientPaymentVisits(billingOystehr, patientId, encounterId);
+  if (!ehrData.visits.some((visit) => visit.encounterId === encounterId)) {
+    throw FHIR_RESOURCE_NOT_FOUND('Encounter');
   }
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ encounterId }, clinicalOystehr);
-  const customerId = getStripeCustomerIdFromAccount(account, stripeAccount);
+  const clinical = ehrClinicalPaymentLookups(ehrData);
+  const stripeAccount = await clinical.scheduleStripeAccount(encounterId);
+  const customerId = clinical.stripeCustomerId(stripeAccount);
   if (!customerId) {
     throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
   }

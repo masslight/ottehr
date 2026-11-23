@@ -366,7 +366,17 @@ const VITALS_SCHEMA = z.object({
     .describe('Diastolic BP mmHg, MOST RECENT only — for the initial one use bloodPressureReadings[0].diastolic.'),
   weightKg: z.number().nullable().describe('Weight kg (most recent, normalized). Null if not taken.'),
   heightCm: z.number().nullable().describe('Height cm (most recent, normalized). Null if not taken.'),
-  bmi: z.number().nullable().describe('BMI from weightKg/heightCm when both present. Null otherwise.'),
+  headCircumferenceCm: z
+    .number()
+    .nullable()
+    .describe('Head circumference cm (most recent, 1 decimal). Null if not taken.'),
+  bmi: z
+    .number()
+    .nullable()
+    .describe(
+      'BMI from weightKg/heightCm when both present and the patient was 24 months or older at the visit. ' +
+        'Null otherwise (BMI is not used under 2 years).'
+    ),
   temperatureFReadings: z
     .array(z.number())
     .describe(
@@ -400,7 +410,8 @@ const VITALS_SCHEMA = z.object({
       'Vitals that were out of range on ANY reading of the visit, by the age-banded thresholds the ' +
         'practice has configured. Applied at charting time, so the age band is the age on the visit ' +
         'date. Includes the critical ones. Values: temperatureF, heartRate, respirationRate, ' +
-        'oxygenSaturation, bloodPressure, weightKg, heightCm. Empty if all readings were in range. ' +
+        'oxygenSaturation, bloodPressure, weightKg, heightCm, headCircumferenceCm. Empty if all readings ' +
+        'were in range. ' +
         'USE THIS instead of comparing readings to thresholds of your own.'
     ),
   criticalVitals: z
@@ -422,6 +433,12 @@ const VITALS_SCHEMA = z.object({
   heightFeetInches: z
     .string()
     .describe('Height as feet and inches, e.g. 5\'7.5" (most recent) — same reading as heightCm. "" if not taken.'),
+  headCircumferenceInches: z
+    .number()
+    .nullable()
+    .describe(
+      'Head circumference in inches (most recent, 2 decimals) — same reading as headCircumferenceCm. Null if not taken.'
+    ),
   // --- How the most recent reading was taken ---
   temperatureMethod: z
     .enum(TEMPERATURE_METHOD_VALUES)
@@ -652,12 +669,12 @@ export const ENCOUNTER_LAYERS = {
     label: 'Vital signs',
     description:
       'Temperature (°F and °C), heart rate, blood pressure, SpO₂, respiration, weight (kg and lbs), height (cm, ' +
-      'inches, feet/inches), BMI, how each was taken (route / position / room air or supplemental O₂ with its ' +
-      'flow rate and delivery type), weight refused, vision ' +
+      'inches, feet/inches), head circumference (cm and inches), BMI, how each was taken (route / position / ' +
+      'room air or supplemental O₂ with its flow rate and delivery type), weight refused, vision ' +
       '(visual acuity, DOT vision screening), last menstrual period, and who recorded the vitals and when. ' +
       'The heaviest vitals layer: it loads every reading of every visit. Pick it only for several vitals at once, ' +
       'vision, LMP or who recorded; for one vital pick its own layer (temperature, blood pressure, heart rate, ' +
-      'respiration, SpO₂, weight/height/BMI).',
+      'respiration, SpO₂, weight/height/head circumference/BMI).',
     schema: VITALS_SCHEMA,
   },
   // Smaller vital-sign layers: each loads only its own readings (one Observation tag), so a report about one vital
@@ -710,8 +727,11 @@ export const ENCOUNTER_LAYERS = {
     }),
   },
   vitalsBody: {
-    label: 'Weight, height and BMI',
-    description: 'Weight (kg and lbs), weight refused, height (cm, inches, feet/inches) and BMI only.' + ONE_VITAL,
+    label: 'Weight, height, head circumference and BMI',
+    description:
+      'Weight (kg and lbs), weight refused, height (cm, inches, feet/inches), head circumference (cm and inches) ' +
+      'and BMI only.' +
+      ONE_VITAL,
     schema: VITALS_SCHEMA.pick({
       weightKg: true,
       weightLbs: true,
@@ -719,6 +739,8 @@ export const ENCOUNTER_LAYERS = {
       heightCm: true,
       heightInches: true,
       heightFeetInches: true,
+      headCircumferenceCm: true,
+      headCircumferenceInches: true,
       bmi: true,
     }),
   },

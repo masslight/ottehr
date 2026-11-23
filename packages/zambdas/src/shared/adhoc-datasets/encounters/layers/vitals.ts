@@ -2,6 +2,7 @@ import { Observation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { makeVitalsObservationDTO } from 'utils/lib/fhir/vitals';
 import { getVitalDTOCriticalityFromObservation } from 'utils/lib/helpers/vitals/utils';
+import { bmiAppliesOnDate } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import {
   celsiusToFahrenheit,
@@ -9,7 +10,7 @@ import {
   roundTemperatureValue,
 } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
 import { isDotVisionScreeningEntry } from 'utils/lib/helpers/vitals/vitals-vision.helper';
-import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { kgToLbs, roundWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { AdHocEncounterRow } from 'utils/lib/types/adhoc/datasets/encounters';
 import {
   VitalAlertCriticality,
@@ -20,6 +21,8 @@ import {
   VitalTemperatureObservationMethod,
 } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsObservationDTO, VitalsVisionObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { TIMEZONES } from 'utils/lib/types/constants';
+import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { fetchScopedResources, knownValueOrNull, presentFullName } from '../../../adhoc-report';
 import { defineEncounterLayer } from '../context';
 import {
@@ -151,7 +154,7 @@ export const vitalsLayer = defineEncounterLayer<{ observationsByEncounterId: Map
     const weightUnit = (weightObs?.valueQuantity?.unit || '').toLowerCase();
 
     const weightInKg = weightVal == null ? null : weightUnit.startsWith('lb') ? weightVal * 0.453592 : weightVal;
-    row.weightKg = weightInKg == null ? null : round1(weightInKg);
+    row.weightKg = weightInKg == null ? null : roundWeightKg(weightInKg);
     row.weightLbs = weightInKg == null ? null : kgToLbs(weightInKg);
 
     const heightObs = latest('vital-height');
@@ -163,6 +166,11 @@ export const vitalsLayer = defineEncounterLayer<{ observationsByEncounterId: Map
     const height = heightInCm == null ? undefined : HeightMeasurement.fromCm(heightInCm);
     row.heightInches = height ? height.getInches() : null;
     row.heightFeetInches = height ? height.getFeetInchesLabel() : '';
+
+    const headCircumferenceCm = qty(latest('vital-head-circumference'));
+    row.headCircumferenceCm = headCircumferenceCm == null ? null : round1(headCircumferenceCm);
+    row.headCircumferenceInches =
+      headCircumferenceCm == null ? null : HeightMeasurement.fromCm(headCircumferenceCm).getInches();
 
     // How each reading was taken, vision and LMP — read with the chart's vitals DTO builder.
     const latestDto = (field: VitalFieldNames): VitalsObservationDTO | undefined => {
@@ -256,8 +264,15 @@ export const vitalsLayer = defineEncounterLayer<{ observationsByEncounterId: Map
     row.vitalsRecordedBy = recordedBy;
     row.vitalsFirstRecordedAt = vitalReadings[0]?.effectiveDateTime ?? null;
 
+    // No BMI under 24 months, by the age on the visit day in the clinic's timezone (as the chart decides it).
+    const visitTimezone = input.location ? getTimezone(input.location) : TIMEZONES[0];
     row.bmi =
-      row.weightKg && row.heightCm && row.heightCm > 0 ? round1(row.weightKg / (row.heightCm / 100) ** 2) : null;
+      bmiAppliesOnDate(input.patient?.birthDate, input.appointment.start, visitTimezone) &&
+      row.weightKg &&
+      row.heightCm &&
+      row.heightCm > 0
+        ? round1(row.weightKg / (row.heightCm / 100) ** 2)
+        : null;
     return row;
   },
 });

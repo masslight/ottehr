@@ -92,6 +92,7 @@ export enum APIErrorCode {
   ERA_VOID_INCOMPLETE = 4507,
   EHR_PAYMENT_RESERVATION_NOT_FOUND = 4508,
   BILLING_INVOICE_CONFLICT = 4509,
+  TERMINAL_READER_BUSY = 4510,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -656,6 +657,16 @@ export const SPECIFIC_STRIPE_PAYMENT_ERROR = (message: string): APIError => {
     message,
   };
 };
+
+export const TERMINAL_READER_BUSY_ERROR: APIError = {
+  code: APIErrorCode.TERMINAL_READER_BUSY,
+  statusCode: 409,
+  message:
+    'The card reader is busy with something else right now. Finish or cancel whatever is in progress on the reader, then try again.',
+};
+
+export const isStripeTerminalReaderBusyError = (stripeError: unknown): boolean =>
+  (stripeError as { code?: unknown } | undefined)?.code === 'terminal_reader_busy';
 
 export const parseStripeError = (stripeError: any): APIError => {
   if (stripeError?.type === 'StripeCardError' && stripeError?.decline_code) {

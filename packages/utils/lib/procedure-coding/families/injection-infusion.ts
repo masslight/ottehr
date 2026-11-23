@@ -38,8 +38,17 @@ const INJECTION_INFUSION_CODES = {
   AdditionalInfusionHour: '96366',
   IntramuscularOrSubcutaneousInjection: '96372',
   InitialIvPush: '96374',
+  NormalSaline1000: 'J7030',
+  NormalSaline500: 'J7040',
+  NormalSaline250: 'J7050',
 } as const;
 type InjectionInfusionCode = (typeof INJECTION_INFUSION_CODES)[keyof typeof INJECTION_INFUSION_CODES];
+
+const SALINE_CODE_BY_VOLUME: Record<string, InjectionInfusionCode> = {
+  '250 mL': INJECTION_INFUSION_CODES.NormalSaline250,
+  '500 mL': INJECTION_INFUSION_CODES.NormalSaline500,
+  '1000 mL': INJECTION_INFUSION_CODES.NormalSaline1000,
+};
 
 const ADMINISTRATION_ROUTE = {
   IntramuscularOrSubcutaneous: 'IM/SC',
@@ -60,6 +69,7 @@ const administrationFields: ScalarCodingField[] = [
   { key: 'site', label: 'IV access site', kind: 'text' },
   { key: 'start', label: 'Start', kind: 'time' },
   { key: 'stop', label: 'Stop', kind: 'time' },
+  { key: 'salineVolume', label: 'Normal saline volume', kind: 'select', options: Object.keys(SALINE_CODE_BY_VOLUME) },
   { key: 'event', label: 'Same administration group (for interrupted infusions)', kind: 'text' },
   { key: 'primary', label: 'Primary reason for visit', kind: 'checkbox', defaultValue: false },
   {
@@ -84,6 +94,7 @@ for (const field of administrationFields) {
       facts.route === ADMINISTRATION_ROUTE.IvInfusion ||
       facts.route === ADMINISTRATION_ROUTE.IvPush ||
       facts.route === ADMINISTRATION_ROUTE.IvHydration;
+  if (field.key === 'salineVolume') field.visible = (facts) => facts.route === ADMINISTRATION_ROUTE.IvHydration;
   if (['event', 'separateInitial', 'distinctService'].includes(field.key)) field.details = true;
   field.neededForCoding = ['route', 'drug', 'site', 'start', 'stop'].includes(field.key);
 }
@@ -122,6 +133,7 @@ interface AdministrationEvent {
   separate: boolean;
   distinct: boolean;
   intervals: InfusionInterval[];
+  salineVolumes: string[];
 }
 
 /** Hydration is timed exactly like a therapeutic infusion: elapsed clock time from start to stop. */
@@ -175,6 +187,16 @@ function suggestHydration(events: AdministrationEvent[]): FamilyEvaluation {
       display: 'Additional hydration hour',
       justification: 'Additional elapsed hydration time.',
       units: Math.floor((minutes - ADDITIONAL_HOUR_MIN_MINUTES) / MINUTES_PER_HOUR),
+      modifiers: [],
+    });
+
+  for (const volume of events[0].salineVolumes)
+    lines.push({
+      requiresCode: INJECTION_INFUSION_CODES.InitialHydration,
+      code: SALINE_CODE_BY_VOLUME[volume],
+      display: `Normal saline infusion, ${volume}`,
+      justification: 'Normal saline given as hydration.',
+      units: 1,
       modifiers: [],
     });
 
@@ -249,6 +271,7 @@ export const injectionInfusionFamily: ProcedureFamilyModel<InjectionInfusionCode
         separate: false,
         distinct: false,
         intervals: [],
+        salineVolumes: [],
       };
 
       if (isTimedInfusion(row.route)) {
@@ -270,6 +293,7 @@ export const injectionInfusionFamily: ProcedureFamilyModel<InjectionInfusionCode
       event.primary ||= row.primary === true;
       event.separate ||= row.separateInitial === true;
       event.distinct ||= row.distinctService === true;
+      if (row.salineVolume) event.salineVolumes.push(String(row.salineVolume));
       events.set(key, event);
     }
     if ([...events.values()].some((event) => event.minutes > MAX_INFUSION_MINUTES)) return missing('Start', 'Stop');
