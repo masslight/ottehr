@@ -318,7 +318,15 @@ export default function ClaimDetail(): ReactElement {
           value: value || null,
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to update status');
+        enqueueSnackbar(
+          getApiError({
+            error: err,
+            defaultError: 'Failed to update status',
+          }),
+          {
+            variant: 'warning',
+          }
+        );
         return;
       }
       await fetchDetail();

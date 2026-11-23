@@ -1,7 +1,13 @@
+import { patientArBlockedByNioInvoiceMessage } from 'utils/lib/fhir/billing-invoice';
 import { resourceHasTag } from 'utils/lib/fhir/helpers';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { AR_STAGE } from 'utils/lib/types/data/billing/claim-status';
 import { RulesEngineInsurance, RulesEngineSubmissionType } from 'utils/lib/types/data/billing/rules-engine.constants';
-import { getRuleFieldDef, getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
+import {
+  getRuleFieldDef,
+  getServiceLinePropertyDef,
+  ruleActionMovesClaimToArStage,
+} from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import {
   BillingRule,
   DiagnosisPointerMode,
@@ -440,6 +446,9 @@ export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): s
     case RULE_ACTION_TYPE.noop:
       return undefined;
     case RULE_ACTION_TYPE.setField:
+      if (model.activeNioInvoice && ruleActionMovesClaimToArStage(action, AR_STAGE.patient)) {
+        return patientArBlockedByNioInvoiceMessage(model.activeNioInvoice);
+      }
       return writeField(model, action.field, action.value)
         ? undefined
         : `could not set "${action.field}" — the field is unknown or read-only, the value is invalid, or the target is missing from this claim`;

@@ -170,6 +170,10 @@ export function formatInvoiceNumber(sequence: number): string {
 export const getInvoiceNumber = (invoice: Invoice): string | undefined =>
   invoice.identifier?.find((ident) => ident.system === INVOICE_NUMBER_IDENTIFIER_SYSTEM)?.value;
 
+export const patientArBlockedByNioInvoiceMessage = (invoice: Invoice): string =>
+  `This claim is on non-insurance payer invoice ${getInvoiceNumber(invoice) ?? invoice.id}, ` +
+  "so it can't move to Patient AR";
+
 export const getBillingInvoiceIdempotencyKey = (invoice: Invoice): string | undefined =>
   invoice.identifier?.find((ident) => ident.system === BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM)?.value;
 

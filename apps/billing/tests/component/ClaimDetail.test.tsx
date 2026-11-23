@@ -10,7 +10,7 @@ import {
   EraRemitServiceLine,
 } from 'utils/lib/types/data/billing/billing.types';
 import { AR_STAGE, emptyClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PROVISIONAL_BALANCE_HINT, UNDETERMINED_PATIENT_RESP_HINT } from '../../src/constants/claimStatus';
 import ClaimDetail, { InsuranceSection } from '../../src/pages/ClaimDetail';
 
@@ -1247,6 +1247,47 @@ describe('ClaimDetail — patient payments', () => {
 
     const nioPaidLabel = await screen.findByText('NIO Paid');
     expect(nioPaidLabel.parentElement?.parentElement).toHaveTextContent('NIO Paid$150.00');
+  });
+});
+
+describe('ClaimDetail — status changes', () => {
+  beforeEach(() => {
+    getBillingClaimDetailMock.mockReset();
+    enqueueSnackbarMock.mockReset();
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(oystehrZambdaStub, 'zambda');
+  });
+
+  it('warns and keeps the claim on screen when a status change is refused', async () => {
+    const refusal = "This claim is on non-insurance payer invoice INV-00042, so it can't move to Patient AR";
+    const execute = vi.fn().mockRejectedValue(new Error(refusal));
+    Object.assign(oystehrZambdaStub, {
+      zambda: {
+        execute,
+      },
+    });
+    getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.nonInsurancePayer));
+    renderDetail();
+
+    const arStage = await screen.findByRole('combobox', { name: 'AR Stage *' });
+    fireEvent.mouseDown(arStage);
+    const patientAr = await screen.findByRole('option', { name: 'Patient AR' });
+    fireEvent.click(patientAr);
+
+    await waitFor(() =>
+      expect(enqueueSnackbarMock).toHaveBeenCalledWith(refusal, {
+        variant: 'warning',
+      })
+    );
+    expect(execute).toHaveBeenCalledWith({
+      id: 'set-billing-claim-status',
+      claimId: 'claim-1',
+      field: 'arStage',
+      value: AR_STAGE.patient,
+    });
+    expect(screen.getByText('Jane Doe')).toBeInTheDocument();
   });
 });
 

@@ -23,6 +23,7 @@ import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants
 import { claimAccidentProblems } from 'utils/lib/types/data/billing/billing.schemas';
 import { CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-history';
 import { ClaimHistoryRuleRef } from 'utils/lib/types/data/billing/claim-history';
+import { AR_STAGE } from 'utils/lib/types/data/billing/claim-status';
 import {
   RULES_ENGINES,
   RulesEngineInsurance,
@@ -33,6 +34,7 @@ import {
   collectSetNioIds,
   collectSetPayerIds,
   collectSetResourceRefs,
+  ruleMovesClaimToArStage,
   ruleReferencesPatientCoverage,
   ruleUsesChargeMasterPrices,
 } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
@@ -41,6 +43,7 @@ import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { activeDefaultChargeMasterSearchParams } from '../../../billing/charge-master.helpers';
 import { isCustomInsuranceOrganization } from '../../../billing/custom-insurance-org.helpers';
+import { findActiveNioInvoice } from '../../../billing/invoices';
 import { isNonInsuranceOrganization } from '../../../billing/non-insurance-org.helpers';
 import {
   addErrorProvenanceForClaimSubmission,
@@ -224,19 +227,27 @@ export async function complexValidation(
   }
   console.log(`[rules-engine] ${engine} starting for Claim/${claimId}`);
   const [rules, model] = await Promise.all([loadRules(oystehr, engine, env), loadClaimModel(oystehr, claimId)]);
-  const [referenceResources, chargeMasters, patientCoverageContext, nioOrganizations, customInsuranceOrganizations] =
-    await Promise.all([
-      loadReferenceResources(oystehr, rules),
-      loadChargeMasters(oystehr, rules),
-      loadPatientCoverageContext(oystehr, rules, model.patient),
-      loadNioOrganizations(oystehr, rules),
-      loadCustomInsuranceOrganizations(oystehr, rules),
-    ]);
+  const [
+    referenceResources,
+    chargeMasters,
+    patientCoverageContext,
+    nioOrganizations,
+    customInsuranceOrganizations,
+    activeNioInvoice,
+  ] = await Promise.all([
+    loadReferenceResources(oystehr, rules),
+    loadChargeMasters(oystehr, rules),
+    loadPatientCoverageContext(oystehr, rules, model.patient),
+    loadNioOrganizations(oystehr, rules),
+    loadCustomInsuranceOrganizations(oystehr, rules),
+    loadActiveNioInvoice(oystehr, rules, claimId),
+  ]);
   model.referenceResources = referenceResources;
   model.chargeMasters = chargeMasters;
   model.patientCoverageContext = patientCoverageContext;
   model.nioOrganizations = nioOrganizations;
   model.customInsuranceOrganizations = customInsuranceOrganizations;
+  model.activeNioInvoice = activeNioInvoice;
   console.log(
     `[rules-engine] loaded ${rules.length} rule(s); patient=${model.patient?.id ?? 'none'}, ` +
       `coverages=${model.coverages.length}, renderingProvider=${model.renderingProvider?.id ?? 'none'}, ` +
@@ -293,6 +304,16 @@ async function loadReferenceResources(
     map.set(`${resourceType}/${typed.id}`, typed);
   }
   return map;
+}
+
+async function loadActiveNioInvoice(
+  oystehr: Oystehr,
+  rules: BillingRule[],
+  claimId: string
+): Promise<RulesEngineClaimModel['activeNioInvoice']> {
+  const movesToPatientAr = rules.some((rule) => rule.enabled && ruleMovesClaimToArStage(rule, AR_STAGE.patient));
+  if (!movesToPatientAr) return undefined;
+  return findActiveNioInvoice(oystehr, claimId);
 }
 
 // The non-insurance organizations named by the rule set's "set non-insurance organization" actions,

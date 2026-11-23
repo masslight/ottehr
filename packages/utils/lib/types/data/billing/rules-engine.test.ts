@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { AR_STAGE } from './claim-status';
 import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
@@ -11,6 +12,7 @@ import {
   PATIENT_COVERAGE_FIELD_ID,
   ruleConditionValueProblem,
   RuleFieldDef,
+  ruleMovesClaimToArStage,
   ruleReferencesPatientCoverage,
   ruleUsesChargeMasterPrices,
   serviceLineMatchValueProblem,
@@ -567,6 +569,33 @@ describe('rule value validation', () => {
       },
     });
     expect(ids).toEqual([uuidA, uuidB]);
+  });
+
+  it('knows whether a rule can move the claim into an AR stage', () => {
+    const settingArStage = (value: string): Parameters<typeof ruleMovesClaimToArStage>[0] => ({
+      conditional: {
+        branches: [
+          {
+            condition: {
+              type: 'all',
+            },
+            outcome: {
+              type: 'actions',
+              actions: [
+                {
+                  type: 'setField',
+                  field: 'status.arStage',
+                  value,
+                },
+              ],
+            },
+          },
+        ],
+      },
+    });
+
+    expect(ruleMovesClaimToArStage(settingArStage(AR_STAGE.patient), AR_STAGE.patient)).toBe(true);
+    expect(ruleMovesClaimToArStage(settingArStage(AR_STAGE.insurancePayer), AR_STAGE.patient)).toBe(false);
   });
 
   it('detects applyChargeMasterPrices actions anywhere in the conditional tree', () => {
