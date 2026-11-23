@@ -117,6 +117,8 @@ export const parseCoverageEligibilityResponse = (
   return coverageResponse.servicedDate ? { ...parsed, servicedDate: coverageResponse.servicedDate } : parsed;
 };
 
+const PAYER_ELIGIBILITY_NOT_SUPPORTED_CODES = ['410', 'ml-410'];
+
 const parseCoverageEligibilityResponseOutcome = (
   coverageResponse: CoverageEligibilityResponse
 ): InsuranceCheckStatusWithDate => {
@@ -130,7 +132,7 @@ const parseCoverageEligibilityResponseOutcome = (
       console.log('errors', JSON.stringify(errors));
       const errorCodes = errors.map((error) => error.code);
       const errorMessages = errors.map((error) => error.text);
-      if (errorCodes.includes('410')) {
+      if (PAYER_ELIGIBILITY_NOT_SUPPORTED_CODES.some((code) => errorCodes.includes(code))) {
         // "Payer ID [<ID>] does not support real-time eligibility."
         console.log('Payer does not support real-time eligibility. Bypassing.');
         return {

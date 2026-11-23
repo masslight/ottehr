@@ -1,14 +1,59 @@
-import { Coding } from 'fhir/r4b';
+import { Coding, CoverageEligibilityResponse } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import { CODE_SYSTEM_CPT_MODIFIER, EXTENSION_URL_CPT_MODIFIER } from '../helpers/rcm/constants';
+import { InsuranceEligibilityCheckStatus } from '../types/data/paperwork/paperwork.types';
 import {
   extractCptCodeModifiersFromCoding,
   getCptBillableUnitsFromCoding,
   INSURANCE_TYPE_CODE_TO_CANDID_CODE,
   mapInsuranceTypeCodeToCandidCode,
+  parseCoverageEligibilityResponse,
 } from './billing';
 import { CPT_BILLABLE_UNITS_EXTENSION_URL } from './constants';
 import { INSURANCE_CANDID_PLAN_TYPE_CODES } from './insurance';
+
+describe('parseCoverageEligibilityResponse error classification', () => {
+  const errorResponse = (system: string | undefined, code: string, text: string): CoverageEligibilityResponse => ({
+    resourceType: 'CoverageEligibilityResponse',
+    status: 'active',
+    purpose: ['benefits'],
+    patient: { reference: 'Patient/patient-1' },
+    created: '2026-10-23T17:37:59.585Z',
+    request: { reference: 'CoverageEligibilityRequest/request-1' },
+    insurer: { reference: 'Organization/payer' },
+    outcome: 'error',
+    error: [{ code: { coding: [{ ...(system ? { system } : {}), code }], text } }],
+  });
+
+  it.each([
+    [
+      'https://terminology.fhir.oystehr.com/CodeSystem/error',
+      '410',
+      'Payer ID [13162] does not support real-time eligibility.',
+    ],
+    [
+      'https://terminology.fhir.oystehr.com/CodeSystem/rcm-eligibility-error',
+      'ml-410',
+      'Real-time eligibility checks are not supported for payer: Acclaim (64071)',
+    ],
+  ])('treats %s|%s as a payer that does not support real-time eligibility', (system, code, text) => {
+    expect(parseCoverageEligibilityResponse(errorResponse(system, code, text)).status).toBe(
+      InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
+    );
+  });
+
+  it.each([
+    [undefined, '75', 'Subscriber/Insured Not Found'],
+    ['https://terminology.fhir.oystehr.com/CodeSystem/rcm-eligibility-error', 'ml-75', 'Subscriber/Insured Not Found'],
+    ['https://terminology.fhir.oystehr.com/CodeSystem/error', '430B', 'ERROR- Tax ID number invalid.'],
+    ['https://terminology.fhir.oystehr.com/CodeSystem/error', '4100', 'Similar code'],
+    ['https://terminology.fhir.oystehr.com/CodeSystem/rcm-eligibility-error', 'ml-4100', 'Similar code'],
+  ])('keeps %s|%s as not confirmed', (system, code, text) => {
+    expect(parseCoverageEligibilityResponse(errorResponse(system, code, text)).status).toBe(
+      InsuranceEligibilityCheckStatus.eligibilityNotConfirmed
+    );
+  });
+});
 
 describe('extractCptCodeModifiersFromCoding', () => {
   it('returns modifiers from every modifier extension on the coding', () => {
