@@ -84,6 +84,19 @@ describe('coding rows written by the sentence UI', () => {
     expect(screen.getByRole('textbox', { name: 'drug' })).not.toHaveAttribute('data-needed');
   });
 
+  it('asks for the normal saline volume only on hydration, smallest bag first', async () => {
+    const user = userEvent.setup();
+    render(<Form family={injectionInfusionFamily} />);
+    await user.click(screen.getByRole('button', { name: 'route (empty)' }));
+    await user.click(screen.getByRole('option', { name: 'IV infusion' }));
+    expect(screen.queryByRole('button', { name: /^normal saline volume/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^route/ }));
+    await user.click(screen.getByRole('option', { name: 'IV hydration' }));
+    await user.click(screen.getByRole('button', { name: 'normal saline volume (empty)' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['250 mL', '500 mL', '1000 mL']);
+  });
+
   it('names the incomplete administration by its on-screen position', async () => {
     const user = userEvent.setup();
     render(<Form family={injectionInfusionFamily} />);

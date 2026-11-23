@@ -6,6 +6,7 @@ import { foreignBodyFamily } from './families/foreign-body';
 import { incisionDrainageFamily } from './families/incision-drainage';
 import { injectionInfusionFamily } from './families/injection-infusion';
 import { ivCatheterPlacementFamily } from './families/iv-catheter-placement';
+import { ivCatheterRemovalFamily } from './families/iv-catheter-removal';
 import { lacerationFamily } from './families/laceration';
 import { lesionDestructionFamily } from './families/lesion-destruction';
 import { nailTrephinationFamily } from './families/nail-trephination';
@@ -45,6 +46,7 @@ export const PROCEDURE_FAMILIES: ProcedureFamilyModel[] = [
   nailTrephinationFamily,
   nebulizerFamily,
   ivCatheterPlacementFamily,
+  ivCatheterRemovalFamily,
 ];
 
 /** Routing accepts only the exact catalog display name. CPTs and clinical answers cannot select a family. */

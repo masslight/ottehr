@@ -51,7 +51,7 @@ const visitNoteDocument: DocumentReference = {
   resourceType: 'DocumentReference',
   id: 'doc-1',
   status: 'current',
-  content: [{ attachment: { url: 'https://example.test/presign' } }],
+  content: [{ attachment: { url: 'https://project-api.zapehr.com/v1/z3/project-1-faxes/packet.pdf' } }],
 };
 
 const retryingPractitioner = {
@@ -324,7 +324,7 @@ describe('retry-action-log eligibility', () => {
       id: 'doc-legacy',
       status: 'current',
       type: { coding: [{ code: VISIT_NOTE_SUMMARY_CODE }] },
-      content: [{ attachment: { url: 'https://example.test/visit-note.pdf' } }],
+      content: [{ attachment: { url: 'https://project-api.zapehr.com/v1/z3/project-1-visit-notes/visit-note.pdf' } }],
     };
     const search = vi.fn().mockResolvedValue({ unbundle: () => [visitNote] });
 

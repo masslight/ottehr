@@ -140,6 +140,7 @@ export const VitalsMap = z.object({
   'vital-respiration-rate': VitalsObjectSchema.optional(),
   'vital-weight': VitalsWeightSchema.optional().default({ unit: 'kg' }),
   'vital-height': VitalsObjectSchema.optional(),
+  'vital-head-circumference': VitalsObjectSchema.optional(),
   'vital-blood-pressure': VitalsBloodPressureSchema.optional(),
   'vital-vision': VitalsVisionSchema.optional(),
 });
