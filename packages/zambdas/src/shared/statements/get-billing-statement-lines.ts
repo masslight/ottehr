@@ -124,8 +124,8 @@ export function computeBillingStatementAmounts(params: {
   const chargedCents = insurancePaidCents + patientRespCents;
   const patientPaidCents = toCents(payments.patientPaid);
   const writeOffsCents = toCents(payments.writeOffsTotal);
-  const balanceCents =
-    hasReachedPatientAr(claim) || payments.patientResp !== null ? toCents(payments.balance) : undeterminedRespCents;
+  const patientRespDetermined = hasReachedPatientAr(claim) || payments.patientResp !== null;
+  const balanceCents = patientRespDetermined ? toCents(payments.balance) : undeterminedRespCents;
   const deductibleSumCents = respRemitLines.reduce(
     (total, line) => total + toCents(patientRespBuckets(line.adjustments).deductible),
     0
@@ -166,7 +166,7 @@ export function computeBillingStatementAmounts(params: {
   const owedAfterPatientPaid = stillOwedByLine(owedByLine, patientPaidByLine);
   const writeOffsByLine = applyPaymentToLines(writeOffsCents, owedAfterPatientPaid);
   const nioPaidByLine = applyPaymentToLines(
-    toCents(payments.nioPaid),
+    patientRespDetermined ? toCents(payments.nioPaid) : 0,
     stillOwedByLine(owedAfterPatientPaid, writeOffsByLine)
   );
 

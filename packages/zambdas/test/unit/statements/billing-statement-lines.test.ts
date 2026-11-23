@@ -233,6 +233,21 @@ describe('computeBillingStatementAmounts', () => {
     expect(lines.map((line) => line.patientOwesCents)).toEqual(lines.map(() => 0));
   });
 
+  it('shows no patient credit for an NIO payment while the patient owes nothing yet', () => {
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim({
+        arStage: AR_STAGE.nonInsurancePayer,
+      }),
+      claimResponses: [],
+      patientPaid: 0,
+      writeOffsTotal: 0,
+      nioPaid: 100,
+    });
+
+    expect(totals.balanceDueCents).toBe(0);
+    expect(lines.map((line) => line.patientOwesCents)).toEqual([0, 0]);
+  });
+
   it('settles each line once when patient payments, write-offs and the NIO payment cover the claim together', () => {
     const { lines, totals } = computeBillingStatementAmounts({
       claim: billingClaim(),
