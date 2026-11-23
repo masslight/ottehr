@@ -538,6 +538,43 @@ describe('extract-insurance-card helpers', () => {
     expect(allNull.readable).toBeNull();
   });
 
+  it('EXTRACTION_PROMPT tells the model to use the TRICARE Benefits Number (not the DoD ID) as memberId', () => {
+    expect(EXTRACTION_PROMPT).toContain('TRICARE');
+    expect(EXTRACTION_PROMPT).toContain('Benefits Number');
+    expect(EXTRACTION_PROMPT).toContain('Beneficiary DoD ID');
+    expect(EXTRACTION_PROMPT).toContain('Sponsor Name');
+  });
+
+  describe('TRICARE memberId normalization', () => {
+    const tricareBack = (memberId: string | null): string =>
+      JSON.stringify({
+        isInsuranceCard: true,
+        payer: 'TRICARE',
+        insuranceType: 'TRICARE',
+        memberId,
+        effectiveDate: '2019-07-01',
+        readable: true,
+      });
+
+    it('strips the hyphen from an 11-digit Benefits Number', () => {
+      expect(parseModelResponse(tricareBack('123456789-02')).fields?.memberId).toBe('12345678902');
+      expect(parseModelResponse(tricareBack('12345678902')).fields?.memberId).toBe('12345678902');
+    });
+
+    it('drops a 10-digit DoD ID so it cannot override the back-of-card Benefits Number', () => {
+      const result = parseModelResponse(tricareBack('1010101010'));
+      expect(result.fields?.memberId).toBeNull();
+      expect(result.fields?.payer).toBe('TRICARE');
+    });
+
+    it('leaves non-TRICARE member IDs untouched', () => {
+      const result = parseModelResponse(
+        JSON.stringify({ isInsuranceCard: true, payer: 'Aetna', memberId: 'W-123 45' })
+      );
+      expect(result.fields?.memberId).toBe('W-123 45');
+    });
+  });
+
   it('parseModelResponse throws on a response missing the boolean isInsuranceCard', () => {
     expect(() => parseModelResponse(JSON.stringify({ memberId: 'W1' }))).toThrow();
   });

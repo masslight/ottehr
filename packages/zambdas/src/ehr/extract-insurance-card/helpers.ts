@@ -31,6 +31,17 @@ If it is an insurance card, extract exactly these fields, using ONLY values that
 - insuranceType: the plan type if printed (e.g. PPO, HMO, EPO, POS, Medicaid, Medicare)
 - effectiveDate: the coverage effective date, formatted YYYY-MM-DD
 
+TRICARE / U.S. military ID cards:
+A TRICARE beneficiary usually shows a U.S. Department of Defense / Uniformed Services Identification and Privilege Card (a "Uniformed Services ID card", often with a CAC-style layout) instead of a card printed with an insurer's name. Treat such a card as a health insurance card (isInsuranceCard = true) and set payer to "TRICARE" and insuranceType to "TRICARE". It has two sides:
+- FRONT: the cardholder's photo, printed name (usually "LAST, FIRST MIDDLE"), relationship (Spouse, Child, ...), sponsor status, pay grade, rank, branch, and an expiration date. There is NO benefits number on the front.
+- BACK: a barcode, the sponsor's name and "Sponsor DoD ID", the cardholder's date of birth, "Beneficiary DoD ID", the "Benefits Number" (also called the DoD Benefits Number or DBN), and an "Effective Date".
+Rules for these cards:
+- memberId is ONLY the "Benefits Number" printed on the back (11 digits, sometimes printed with a hyphen before the last two digits, e.g. 123456789-02). Return its digits only, with no hyphen or spaces (e.g. 12345678902). If the image is the front, or the Benefits Number is not clearly printed, set memberId to null.
+- NEVER use the "Beneficiary DoD ID", the "Sponsor DoD ID", an EDIPI, a Social Security number or the sponsor's number as memberId; they are 10-digit identity numbers, not benefits numbers, and a claim filed with them is denied.
+- Member name (memberFirstName / memberMiddleName / memberLastName) is the cardholder's own printed name, taken from the FRONT. The "Sponsor Name" on the back is a different person (the service member) — do not use it as the member name. On the back, set the member name fields to null.
+- effectiveDate comes from the back's "Effective Date" and is printed like 2019JUL01 — convert it to YYYY-MM-DD (2019-07-01). The "Expires" date on the front is NOT an effective date; do not use it.
+- groupNumber, payerId, rxBin, rxPcn and rxGroup are not printed on these cards: set them to null.
+
 Also judge the card's orientation:
 - readable: is the card RIGHT-SIDE-UP — is its printed text in a normal, upright, human-readable orientation (not rotated sideways or upside-down)? Return true if it is right-side-up, false if it is not.
 
@@ -93,6 +104,28 @@ const EXTRACTION_FIELD_KEYS: (keyof InsuranceCardExtractionFields)[] = [
   'effectiveDate',
 ];
 
+const TRICARE_BENEFITS_NUMBER_LENGTH = 11;
+
+/**
+ * Safety net for the TRICARE rules in EXTRACTION_PROMPT. A TRICARE member ID is the 11-digit DoD
+ * Benefits Number on the back of the ID card, printed like "123456789-02"; claims must use it
+ * digits-only. The 10-digit DoD ID on the front is not a benefits number, and since the EHR merges
+ * front over back (see mergeFrontBack), a DoD ID leaking into memberId would beat the real number
+ * from the back — so any TRICARE memberId that isn't 11 digits once cleaned is dropped.
+ */
+function normalizeTricareMemberId(fields: InsuranceCardExtractionFields | null): InsuranceCardExtractionFields | null {
+  if (!fields?.memberId) {
+    return fields;
+  }
+  const isTricare = /tricare/i.test(fields.payer ?? '') || /tricare/i.test(fields.insuranceType ?? '');
+  if (!isTricare) {
+    return fields;
+  }
+  const digits = fields.memberId.replace(/[\s-]/g, '');
+  const memberId = /^\d+$/.test(digits) && digits.length === TRICARE_BENEFITS_NUMBER_LENGTH ? digits : null;
+  return { ...fields, memberId };
+}
+
 export interface ParsedModelResponse {
   isInsuranceCard: boolean;
   /** Normalized fields; null when isInsuranceCard is false or nothing at all was extracted. */
@@ -116,7 +149,9 @@ export function parseModelResponse(raw: string): ParsedModelResponse {
     return { isInsuranceCard: false, fields: null, readable: null };
   }
 
-  const fields = extractFieldsWithAllNullFold<InsuranceCardExtractionFields>(parsed, EXTRACTION_FIELD_KEYS);
+  const fields = normalizeTricareMemberId(
+    extractFieldsWithAllNullFold<InsuranceCardExtractionFields>(parsed, EXTRACTION_FIELD_KEYS)
+  );
   const readable = typeof parsed.readable === 'boolean' ? parsed.readable : null;
 
   // all-null extraction is a permanent no-op condition, same as notACard — readable is nulled
