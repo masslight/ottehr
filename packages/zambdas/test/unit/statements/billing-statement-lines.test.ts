@@ -233,6 +233,21 @@ describe('computeBillingStatementAmounts', () => {
     expect(lines.map((line) => line.patientOwesCents)).toEqual(lines.map(() => 0));
   });
 
+  it('settles each line once when patient payments, write-offs and the NIO payment cover the claim together', () => {
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [fullyAdjudicatedRemit()],
+      patientPaid: 20,
+      writeOffsTotal: 30,
+      nioPaid: 38,
+    });
+
+    expect(totals.balanceDueCents).toBe(0);
+    expect(lines.map((line) => line.patientPaidCents)).toEqual([2000, 0]);
+    expect(lines.map((line) => line.writeOffsCents)).toEqual([0, 3000]);
+    expect(lines.map((line) => line.patientOwesCents)).toEqual([0, 0]);
+  });
+
   it('sums insurance payments across remits but takes responsibility from the latest', () => {
     const secondary = claimResponse({
       id: 'cr-2',

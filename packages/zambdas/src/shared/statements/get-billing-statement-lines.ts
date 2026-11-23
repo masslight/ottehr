@@ -72,6 +72,9 @@ function sumByClaimLine(
   return byLine;
 }
 
+const stillOwedByLine = (owedCents: number[], appliedCents: number[]): number[] =>
+  owedCents.map((owed, index) => Math.max(owed - appliedCents[index], 0));
+
 function fitToTotal(totalCents: number, attributed: number[], chargeCents: number[]): number[] {
   const perLine = attributed.map((cents) => Math.max(cents, 0));
   const attributedTotal = perLine.reduce((total, cents) => total + cents, 0);
@@ -160,8 +163,12 @@ export function computeBillingStatementAmounts(params: {
     grossCents
   );
   const patientPaidByLine = applyPaymentToLines(patientPaidCents, owedByLine);
-  const writeOffsByLine = applyPaymentToLines(writeOffsCents, owedByLine);
-  const nioPaidByLine = applyPaymentToLines(toCents(payments.nioPaid), owedByLine);
+  const owedAfterPatientPaid = stillOwedByLine(owedByLine, patientPaidByLine);
+  const writeOffsByLine = applyPaymentToLines(writeOffsCents, owedAfterPatientPaid);
+  const nioPaidByLine = applyPaymentToLines(
+    toCents(payments.nioPaid),
+    stillOwedByLine(owedAfterPatientPaid, writeOffsByLine)
+  );
 
   return {
     lines: items.map((_, index) => ({
