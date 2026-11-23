@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { AR_STAGE } from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, it, vi } from 'vitest';
@@ -20,11 +21,17 @@ describe('ClaimInvoicesSection', () => {
           dueDate: '2026-11-05',
           amount: 3.5,
           hostedInvoiceUrl: 'https://pay.test/in_1',
+          kind: 'patient',
+          pastDue: false,
         },
       ],
     } as ClaimDetailResponse;
 
-    render(<ClaimInvoicesSection claim={claim} refetchClaim={vi.fn()} />);
+    render(
+      <MemoryRouter>
+        <ClaimInvoicesSection claim={claim} refetchClaim={vi.fn()} />
+      </MemoryRouter>
+    );
 
     const row = within(screen.getByText('Void').closest('tr')!);
     expect(row.getAllByRole('cell').map((cell) => cell.textContent)).toEqual([
@@ -36,5 +43,38 @@ describe('ClaimInvoicesSection', () => {
     ]);
     expect(row.getByRole('link', { name: 'View' })).toHaveAttribute('href', 'https://pay.test/in_1');
     expect(screen.getByRole('button', { name: 'Send Invoice' })).toBeEnabled();
+  });
+
+  it('links an NIO invoice to its details page and shows it past due', () => {
+    const claim = {
+      id: 'claim-1',
+      balance: 150,
+      statuses: {
+        arStage: AR_STAGE.nonInsurancePayer,
+        nonInsuranceArStatus: 'invoiced',
+      },
+      invoices: [
+        {
+          id: 'inv-nio',
+          status: 'issued',
+          issueDate: '2026-11-10T12:00:00.000Z',
+          dueDate: '2026-11-17',
+          amount: 150,
+          kind: 'nio',
+          pastDue: true,
+        },
+      ],
+    } as ClaimDetailResponse;
+
+    render(
+      <MemoryRouter>
+        <ClaimInvoicesSection claim={claim} refetchClaim={vi.fn()} />
+      </MemoryRouter>
+    );
+
+    const row = within(screen.getByText('Past due').closest('tr')!);
+    const view = row.getByRole('link', { name: 'View' });
+    expect(view).toHaveAttribute('href', '/invoices/inv-nio');
+    expect(row.getByText('$150.00')).toBeInTheDocument();
   });
 });

@@ -97,6 +97,21 @@ describe('scorePlan', () => {
     ).toContain('vital-implausible-charted');
   });
 
+  it('catches an implausible head circumference that was charted instead of questioned', () => {
+    expect(
+      rules(
+        envelope([{ kind: 'set-vital', field: 'vital-head-circumference', display: '45 in', value: 45, unit: 'in' }])
+      )
+    ).toContain('vital-implausible-charted');
+    expect(
+      rules(
+        envelope([
+          { kind: 'set-vital', field: 'vital-head-circumference', display: '43.8 cm', value: 43.8, unit: 'cm' },
+        ])
+      )
+    ).not.toContain('vital-implausible-charted');
+  });
+
   it('catches a missing, malformed or wrong-family E&M code', () => {
     expect(rules(envelope([{ kind: 'add-diagnosis', display: 'X', code: 'J02.0', isPrimary: true }]))).toContain(
       'em-code-missing'

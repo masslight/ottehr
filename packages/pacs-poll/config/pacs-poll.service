@@ -1,0 +1,13 @@
+[Unit]
+Description=PACS Poll Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/pacs-poll-service
+ExecStart= /home/ubuntu/.nvm/versions/node/v22.22.0/bin/node src/index.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

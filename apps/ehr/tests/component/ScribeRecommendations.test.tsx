@@ -110,6 +110,7 @@ const PLAN: ChartPlanResponse = {
   rejected: [
     {
       kind: 'set-vital',
+      field: 'vital-height',
       display: '5.8',
       reason: '"5.8" has no unit — a bare height could be centimetres or inches, so it needs confirming',
     },
@@ -751,6 +752,7 @@ describe('ScribeRecommendationsDrawer', () => {
     const user = userEvent.setup();
     await openPanelWithRecommendations(user);
 
+    expect(screen.getByTestId(testIds.rejected)).toHaveTextContent('Recording height: 5.8');
     expect(screen.getByTestId(testIds.rejected)).toHaveTextContent(
       '"5.8" has no unit — a bare height could be centimetres or inches, so it needs confirming'
     );

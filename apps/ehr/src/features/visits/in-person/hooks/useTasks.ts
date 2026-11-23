@@ -56,6 +56,7 @@ export const VIEW_FAX = 'View';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
 const GO_TO_ORDER = 'Go to Order';
+const TASK_CHANGED_MESSAGE = 'This task was changed by someone else. Refresh the page and try again.';
 
 const PATIENT_REQUEST_ACTION: Record<string, { name: string; path: string }> = {
   [PATIENT_REQUEST_TASK.code.prescriptionRefill]: { name: 'eRX', path: 'erx' },
@@ -119,6 +120,11 @@ export interface AssignTaskRequest {
 
 export interface UnassignTaskRequest {
   taskId: string;
+}
+
+export interface ReopenTaskRequest {
+  taskId: string;
+  status: 'ready' | 'in-progress';
 }
 
 export interface CompleteTaskRequest {
@@ -428,6 +434,17 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
   });
 };
 
+const removeProviderNotificationTagOperations = (task: FhirTask): Operation[] => {
+  const tags = task.meta?.tag;
+  if (!tags) return [];
+  const remainingTags = tags.filter((tag) => tag.system !== PROVIDER_NOTIFICATION_TAG_SYSTEM);
+  return [
+    remainingTags.length
+      ? { op: 'replace', path: '/meta/tag', value: remainingTags }
+      : { op: 'remove', path: '/meta/tag' },
+  ];
+};
+
 export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRequest> => {
   const { oystehr } = useApiClients();
   const queryClient = useQueryClient();
@@ -449,18 +466,7 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
           value: 'ready',
         },
       ];
-
-      const taskMetaTags = taskResource.meta?.tag;
-      if (taskMetaTags) {
-        const updatedMetaTags = taskResource.meta?.tag?.filter(
-          (tag) => tag.system !== PROVIDER_NOTIFICATION_TAG_SYSTEM
-        );
-        operations.push({
-          op: updatedMetaTags?.length ? 'replace' : 'remove',
-          path: '/meta/tag',
-          value: updatedMetaTags?.length ? updatedMetaTags : undefined,
-        });
-      }
+      operations.push(...removeProviderNotificationTagOperations(taskResource));
       await oystehr.fhir.patch<FhirTask>({
         resourceType: 'Task',
         id: input.taskId,
@@ -468,6 +474,67 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
       });
     },
     onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: [GET_TASKS_KEY],
+        exact: false,
+      });
+    },
+  });
+};
+
+const isReopenableTaskCategory = (category: string | undefined): boolean =>
+  !!category &&
+  (category.startsWith('manual') || category === ERX_TASK.category || category === PATIENT_REQUEST_TASK.category);
+
+export const reopenTaskVersionChecked = async (oystehr: Oystehr, input: ReopenTaskRequest): Promise<void> => {
+  const task = await oystehr.fhir.get<FhirTask>({ resourceType: 'Task', id: input.taskId });
+  if (!isReopenableTaskCategory(task.groupIdentifier?.value)) {
+    throw new Error('This task cannot be reopened.');
+  }
+  if (task.status !== 'completed') {
+    throw new Error(TASK_CHANGED_MESSAGE);
+  }
+  if (input.status === 'in-progress' && !getIdFromReference(task.owner?.reference, 'Practitioner')) {
+    throw new Error('This task has no assignee, so it can only be returned to Pending.');
+  }
+  const patchOperations: Operation[] =
+    input.status === 'in-progress'
+      ? [{ op: 'replace', path: '/status', value: 'in-progress' }]
+      : [
+          { op: 'replace', path: '/status', value: 'ready' },
+          ...(task.owner ? [{ op: 'remove' as const, path: '/owner' }] : []),
+          ...removeProviderNotificationTagOperations(task),
+        ];
+  const reopenRequest = getPatchBinary({
+    resourceType: 'Task',
+    resourceId: input.taskId,
+    patchOperations,
+    ifMatch: makeOptimisticLockIfMatchHeader(task),
+  });
+  try {
+    await oystehr.fhir.transaction<FhirTask>({ requests: [reopenRequest] });
+  } catch (error) {
+    if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
+      throw new Error(TASK_CHANGED_MESSAGE);
+    }
+    throw error;
+  }
+};
+
+export const useReopenTask = (): UseMutationResult<void, Error, ReopenTaskRequest> => {
+  const { oystehr } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ReopenTaskRequest) => {
+      if (!oystehr) throw new Error('oystehr not defined');
+      await reopenTaskVersionChecked(oystehr, input);
+    },
+    onSuccess: (_data, input) => {
+      enqueueSnackbar(`Task returned to ${input.status === 'ready' ? 'Pending' : 'In Progress'}.`, {
+        variant: 'success',
+      });
+    },
+    onSettled: async () => {
       await queryClient.invalidateQueries({
         queryKey: [GET_TASKS_KEY],
         exact: false,
@@ -536,7 +603,7 @@ export const completeTaskVersionChecked = async (oystehr: Oystehr, input: Comple
     await oystehr.fhir.transaction<FhirTask>({ requests: [completeRequest] });
   } catch (error) {
     if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
-      throw new Error('This task was changed by someone else. Refresh the page and try again.');
+      throw new Error(TASK_CHANGED_MESSAGE);
     }
     throw error;
   }
@@ -723,6 +790,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           : undefined,
         createdById: getIdFromReference(task.requester?.reference, 'Practitioner'),
         completable,
+        reopenable: isReopenableTaskCategory(category),
       };
     }
     title =
@@ -929,6 +997,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     createdById: getIdFromReference(task.requester?.reference, 'Practitioner'),
     alert: getAlertCode(task),
     completable: completable,
+    reopenable: isReopenableTaskCategory(category),
     chat:
       FEATURE_FLAGS.SUPPORT_CHAT_ENABLED && category === PATIENT_REQUEST_TASK.category
         ? {
