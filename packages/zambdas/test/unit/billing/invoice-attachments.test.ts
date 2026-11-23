@@ -8,7 +8,11 @@ import {
   newAttachmentLocation,
   ownedAttachmentLocation,
 } from '../../../src/billing/attachments';
-import { buildInvoicePaymentAttachment, getInvoicePaymentAttachmentDownloadUrl } from '../../../src/billing/invoices';
+import {
+  buildInvoicePaymentAttachment,
+  fetchInvoicePaymentAttachments,
+  getInvoicePaymentAttachmentDownloadUrl,
+} from '../../../src/billing/invoices';
 
 const SECRETS = {
   PROJECT_API: 'https://project-api.zapehr.com/v1',
@@ -96,6 +100,44 @@ describe('invoice payment attachments', () => {
     });
 
     expect(url).toBe('https://z3.test/download');
+  });
+
+  it('finds payment attachments past the first page of results', async () => {
+    const pages = [
+      {
+        ...attachment('invoice-attachments/invoice-1/abc-check-88123.pdf'),
+        id: 'attachment-1',
+      },
+      {
+        ...attachment('invoice-attachments/invoice-1/def-check-88123.pdf'),
+        id: 'attachment-2',
+      },
+    ];
+    const search = vi.fn(async ({ params }: { params: { name: string; value: string }[] }) => {
+      const offset = Number(params.find((param) => param.name === '_offset')?.value);
+      return {
+        total: pages.length,
+        entry: [
+          {
+            search: {
+              mode: 'match',
+            },
+          },
+        ],
+        unbundle: () => [pages[offset]],
+      };
+    });
+
+    const found = await fetchInvoicePaymentAttachments(
+      {
+        fhir: {
+          search,
+        },
+      } as unknown as Oystehr,
+      ['payment-1']
+    );
+
+    expect(found.map((documentReference) => documentReference.id)).toEqual(['attachment-1', 'attachment-2']);
   });
 
   it("refuses to download another payment's attachment", async () => {

@@ -150,8 +150,8 @@ export async function fetchInvoicePaymentAttachments(
   paymentIds: string[]
 ): Promise<DocumentReference[]> {
   if (paymentIds.length === 0) return [];
-  return (
-    await oystehr.fhir.search<DocumentReference>({
+  return getAllFhirSearchPages<DocumentReference>(
+    {
       resourceType: 'DocumentReference',
       params: [
         {
@@ -163,8 +163,9 @@ export async function fetchInvoicePaymentAttachments(
           value: 'current',
         },
       ],
-    })
-  ).unbundle();
+    },
+    oystehr
+  );
 }
 
 export async function getInvoicePaymentAttachmentDownloadUrl({
