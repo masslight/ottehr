@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Observation, ObservationComponent, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Observation, ObservationComponent, Patient, Practitioner } from 'fhir/r4b';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getFullName } from 'utils/lib/fhir/patient';
 import {
@@ -17,6 +17,7 @@ import {
   VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE,
 } from 'utils/lib/fhir/vitals';
 import { convertVitalsListToMap } from 'utils/lib/helpers/vitals/utils';
+import { withoutBMIUnder24Months } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import {
   PATIENT_VITALS_META_SYSTEM,
@@ -39,7 +40,7 @@ import {
 import { isValidUUID } from 'utils/lib/validation/helper';
 import * as z from 'zod';
 import { checkOrCreateM2MClientToken } from '../../../../shared/auth';
-import { createClinicalOystehrClient } from '../../../../shared/helpers';
+import { createClinicalOystehrClient, resolveTimezone } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
 import {
@@ -66,7 +67,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 });
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetVitalsResponseData> => {
-  const { encounter, mode, patient } = input;
+  const { encounter, mode, patient, timezone, visitStart } = input;
   const alertContext: VitalAlertContext = {
     patientDOB: patient.birthDate,
     patientSex: patient.gender,
@@ -75,7 +76,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetV
   if (!mode.historical) {
     // Fetch current vitals for the encounter
     const list = await fetchVitalsForEncounter(encounter.id, oystehr, alertContext);
-    const map = convertVitalsListToMap(list);
+    const map = convertVitalsListToMap(withoutBMIUnder24Months(list, patient.birthDate, timezone, visitStart));
     return map;
   } else {
     const list = await fetchVitalsPriorToEncounter(
@@ -83,7 +84,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetV
       oystehr,
       alertContext
     );
-    const map = convertVitalsListToMap(list);
+    const map = convertVitalsListToMap(withoutBMIUnder24Months(list, patient.birthDate, timezone));
     return map;
   }
 };
@@ -354,6 +355,7 @@ type AllOtherFields =
   | VitalFieldNames.VitalTemperature
   | VitalFieldNames.VitalRespirationRate
   | VitalFieldNames.VitalHeight
+  | VitalFieldNames.VitalHeadCircumference
   | VitalFieldNames.VitalWeight
   | VitalFieldNames.VitalBMI;
 
@@ -444,13 +446,15 @@ interface EffectInput {
   mode: { historical: true; searchBefore: string } | { historical: false };
   patientId: string;
   patient: Patient;
+  timezone: string;
+  visitStart?: string;
 }
 
 const complexValidation = async (input: InputParameters, oystehr: Oystehr): Promise<EffectInput> => {
   // Add any complex validation logic here if needed
   const { encounterId, mode } = input;
   const resourcesFound = (
-    await oystehr.fhir.search<Encounter | Patient | Appointment>({
+    await oystehr.fhir.search<Encounter | Patient | Appointment | Location>({
       resourceType: 'Encounter',
       params: [
         {
@@ -465,6 +469,10 @@ const complexValidation = async (input: InputParameters, oystehr: Oystehr): Prom
           name: '_include',
           value: 'Encounter:appointment',
         },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:location',
+        },
       ],
     })
   ).unbundle();
@@ -472,6 +480,8 @@ const complexValidation = async (input: InputParameters, oystehr: Oystehr): Prom
   const patient = resourcesFound.find((res) => res.resourceType === 'Patient') as Patient | undefined;
   const patientId = patient?.id;
   const maybeAppointment = resourcesFound.find((res) => res.resourceType === 'Appointment') as Appointment | undefined;
+  const location = resourcesFound.find((res) => res.resourceType === 'Location') as Location | undefined;
+  const timezone = resolveTimezone(undefined, location);
 
   if (!maybeEncounter) {
     throw FHIR_RESOURCE_NOT_FOUND('Encounter');
@@ -503,6 +513,7 @@ const complexValidation = async (input: InputParameters, oystehr: Oystehr): Prom
       mode: { historical: true, searchBefore: start || '' },
       patientId,
       patient,
+      timezone,
     };
   }
 
@@ -511,5 +522,7 @@ const complexValidation = async (input: InputParameters, oystehr: Oystehr): Prom
     mode: { historical: false },
     patientId,
     patient,
+    timezone,
+    visitStart: start ?? encounter.period?.start,
   };
 };

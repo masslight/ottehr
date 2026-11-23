@@ -7,6 +7,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 import VitalsNotesCard from 'src/features/visits/shared/components/patient-info/VitalsNotesCard';
 import VitalsBloodPressureCard from 'src/features/visits/shared/components/vitals/blood-pressure/VitalsBloodPressureCard';
 import VitalsBMICard from 'src/features/visits/shared/components/vitals/bmi/VitalsBMICard';
+import VitalsHeadCircumferenceCard from 'src/features/visits/shared/components/vitals/head-circumference/VitalsHeadCircumferenceCard';
 import VitalsHeartbeatCard from 'src/features/visits/shared/components/vitals/heartbeat/VitalsHeartbeatCard';
 import VitalsHeightCard from 'src/features/visits/shared/components/vitals/heights/VitalsHeightCard';
 import { useVitalsManagement } from 'src/features/visits/shared/components/vitals/hooks/useVitalsManagement';
@@ -16,7 +17,9 @@ import VitalsRespirationRateCard from 'src/features/visits/shared/components/vit
 import VitalsTemperaturesCard from 'src/features/visits/shared/components/vitals/temperature/VitalsTemperaturesCard';
 import VitalsVisionCard from 'src/features/visits/shared/components/vitals/vision/VitalsVisionCard';
 import VitalsWeightsCard from 'src/features/visits/shared/components/vitals/weights/VitalsWeightsCard';
+import { getTimezone } from 'src/helpers/formatDateTime';
 import { useMarkDraftNavigatedAway, useVitalsDraftStore } from 'src/state/draft-data.store';
+import { bmiAppliesOnDate } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { Loader } from '../../../shared/components/Loader';
 import { AbnormalVitalsModal } from '../../../shared/components/vitals/AbnormalVitalsModal';
 import { useGetAppointmentAccessibility } from '../../../shared/hooks/useGetAppointmentAccessibility';
@@ -24,11 +27,13 @@ import { useAppointmentData } from '../../../shared/stores/appointment/appointme
 
 export const PatientVitalsBody: FC = () => {
   const {
-    resources: { encounter },
+    location,
+    resources: { encounter, patient, appointment },
   } = useAppointmentData();
 
   const encounterId = encounter?.id ?? '';
-  const vitals = useVitalsManagement({ encounterId });
+  const bmiApplies = bmiAppliesOnDate(patient?.birthDate, appointment?.start, getTimezone(location));
+  const vitals = useVitalsManagement({ encounterId, bmiApplies });
 
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
@@ -46,6 +51,7 @@ export const PatientVitalsBody: FC = () => {
     vitalsDraft.oxygenSat ||
     vitalsDraft.weight ||
     vitalsDraft.height ||
+    vitalsDraft.headCircumference ||
     vitalsDraft.vision ||
     vitalsDraft.lmp
   );
@@ -61,6 +67,7 @@ export const PatientVitalsBody: FC = () => {
         d.oxygenSat ||
         d.weight ||
         d.height ||
+        d.headCircumference ||
         d.vision ||
         d.lmp
       );
@@ -105,12 +112,17 @@ export const PatientVitalsBody: FC = () => {
       <Box ref={vitals.refs.height}>
         <VitalsHeightCard field={vitals.fields.height} />
       </Box>
-      <VitalsBMICard
-        current={vitals.fields.bmi.current}
-        historical={vitals.fields.bmi.historical}
-        onDelete={vitals.fields.bmi.delete}
-        isWeightRefused={vitals.fields.weight.current[0]?.extraWeightOptions?.includes('patient_refused') ?? false}
-      />
+      <Box ref={vitals.refs.headCircumference}>
+        <VitalsHeadCircumferenceCard field={vitals.fields.headCircumference} />
+      </Box>
+      {bmiApplies && (
+        <VitalsBMICard
+          current={vitals.fields.bmi.current}
+          historical={vitals.fields.bmi.historical}
+          onDelete={vitals.fields.bmi.delete}
+          isWeightRefused={vitals.fields.weight.current[0]?.extraWeightOptions?.includes('patient_refused') ?? false}
+        />
+      )}
       <Box ref={vitals.refs.vision}>
         <VitalsVisionCard field={vitals.fields.vision} />
       </Box>

@@ -1,12 +1,13 @@
 import { Button, Link, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { isInvoiceableClaimStatus } from 'utils/lib/types/data/billing/claim-status';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
-import { InvoiceStatusChip } from '../pages/InvoicesList';
 import { formatDate } from '../utils/format';
+import { InvoiceStatusChip } from './InvoiceStatusChip';
 import { ReadOnlySection, thSx } from './ReadOnlySection';
 import { SendInvoiceDialog } from './SendInvoiceDialog';
 
@@ -59,10 +60,14 @@ export function ClaimInvoicesSection({
                     <TableCell>{DateTime.fromISO(invoice.issueDate).toFormat('MM/dd/yyyy')}</TableCell>
                     <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                     <TableCell>
-                      <InvoiceStatusChip status={invoice.status} />
+                      <InvoiceStatusChip status={invoice.status} pastDue={invoice.pastDue} />
                     </TableCell>
                     <TableCell>
-                      {invoice.hostedInvoiceUrl ? (
+                      {invoice.kind === 'nio' ? (
+                        <Link component={RouterLink} to={`/invoices/${invoice.id}`} underline="hover">
+                          View
+                        </Link>
+                      ) : invoice.hostedInvoiceUrl ? (
                         <Link href={invoice.hostedInvoiceUrl} target="_blank" rel="noopener" underline="hover">
                           View
                         </Link>

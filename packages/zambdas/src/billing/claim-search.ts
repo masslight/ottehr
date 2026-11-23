@@ -144,6 +144,8 @@ export type ClaimFilterInput = Pick<
   | 'payerName'
   | 'nonInsurancePayerId'
   | 'tag'
+  | 'tagMatch'
+  | 'excludeTag'
 >;
 
 export async function buildClaimFilterParams({
@@ -245,7 +247,18 @@ export async function buildClaimFilterParams({
       name: 'insurer',
       value: insurerFilter,
     });
-  pushTagFilter(CLAIM_TAG_SYSTEM, params.tag);
+  if (params.tagMatch === 'all') {
+    params.tag?.forEach((tag) => pushTagFilter(CLAIM_TAG_SYSTEM, [tag]));
+  } else {
+    pushTagFilter(CLAIM_TAG_SYSTEM, params.tag);
+  }
+  // One :not param per tag: separate params AND together, so a claim with any excluded tag drops out.
+  params.excludeTag?.forEach((tag) =>
+    filterParams.push({
+      name: '_tag:not',
+      value: `${CLAIM_TAG_SYSTEM}|${tag}`,
+    })
+  );
   pushTagFilter(CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM, params.nonInsurancePayerId);
 
   return filterParams;
