@@ -26,6 +26,7 @@ import {
 import { DmeOrderDTO } from 'utils/lib/types/api/dme.types';
 import { ProviderDetails } from 'utils/lib/types/api/encounter.types';
 import { ExternalLabOrderResult, InHouseLabResult as InHouseLabResultPdfData } from 'utils/lib/types/api/lab';
+import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { QuantityDataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';
@@ -714,6 +715,16 @@ export interface PatientPaymentsInfo extends PdfData {
   payments: Payment[];
 }
 
+export interface EligibilityRowGroup {
+  title?: string;
+  rows: { label: string; value: string }[];
+}
+
+export interface EligibilityInfo extends PdfData {
+  groups: EligibilityRowGroup[];
+  unavailable?: boolean;
+}
+
 export interface ResponsiblePartyInfo extends PdfData {
   relationship: string;
   fullName: string;
@@ -806,6 +817,7 @@ export interface VisitDetailsInput {
   consents: Consent[];
   questionnaireResponse?: QuestionnaireResponse;
   payments: PatientPaymentDTO[];
+  coverageChecks: CoverageCheckWithDetails[] | undefined;
   serviceCategories?: ServiceCategoryCatalogEntry[];
 }
 
@@ -888,6 +900,13 @@ export interface AttorneyDataInput {
 
 export interface PatientPaymentsDataInput {
   payments: PatientPaymentDTO[];
+}
+
+export interface EligibilityDataInput {
+  coverages: OrderedCoveragesWithSubscribers;
+  insurances: InsuranceInfo;
+  coverageChecks: CoverageCheckWithDetails[] | undefined;
+  timezone: string;
 }
 
 export interface UploadMetadata {
@@ -1030,6 +1049,7 @@ export interface VisitDetailsData extends PdfData {
   documents: Documents;
   pharmacy: pharmacyInfo;
   paymentHistory: PatientPaymentsInfo;
+  eligibility: EligibilityInfo;
 }
 export interface GetPaymentDataResponse {
   chargeUuid: string;

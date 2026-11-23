@@ -80,6 +80,8 @@ export const getPatientCoverageChecks = async (
       return {
         ...parseCoverageEligibilityResponse(result),
         ...coverageDetails,
+        payerId: coverage.class?.[0]?.value,
+        relationship: coverage.relationship?.coding?.[0]?.display,
       } as CoverageCheckWithDetails;
     })
     .filter((result) => result !== null) as CoverageCheckWithDetails[];

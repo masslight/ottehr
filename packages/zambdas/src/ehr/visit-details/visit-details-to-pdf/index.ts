@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Encounter, Organization, Practitioner } from 'fhir/r4b';
 import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
@@ -16,6 +17,7 @@ import {
   getOccupationalMedicineEmployerName,
   getVisitEmployerOrganizationId,
 } from '../../../shared/occupational-medicine-employer';
+import { getPatientCoverageChecks } from '../../../shared/patient-coverage-checks';
 import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -93,6 +95,14 @@ export const performEffect = async (
     employerOrganization,
     occupationalMedicineEmployerOrganization,
   } = accountResources;
+  const coverageChecksPromise =
+    coverages.primary || coverages.secondary
+      ? getPatientCoverageChecks(patient.id, oystehr).catch((error) => {
+          console.error('Failed to load eligibility checks for the Visit Details PDF:', error);
+          captureException(error);
+          return undefined;
+        })
+      : Promise.resolve([]);
   const primaryCarePhysician = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
@@ -131,6 +141,7 @@ export const performEffect = async (
     occupationalMedicineEmployerOrganization,
     occupationalMedicineAccount: accountResources.occupationalMedicineAccount,
   });
+  const coverageChecks = await coverageChecksPromise;
 
   const { pdfInfo, attached } = await createVisitDetailsPdf(
     {
@@ -152,6 +163,7 @@ export const performEffect = async (
       consents: consents || [],
       questionnaireResponse,
       payments,
+      coverageChecks,
     },
     secrets,
     token

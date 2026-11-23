@@ -140,6 +140,8 @@ export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInf
   };
 };
 
+export const isInsuranceSectionRendered = (insurance: Insurance): boolean => !!insurance.insuranceCarrier;
+
 /**
  * `keySuffix` mirrors how the EHR resolves `hiddenFields`: each item in
  * `PATIENT_RECORD_CONFIG.FormFields.insurance.items[ordinal]` has its own key
@@ -156,7 +158,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
   return createConfiguredSection('insurance', (shouldShow) => ({
     title,
     dataSelector,
-    shouldRender: (coverage) => !!coverage.insuranceCarrier,
+    shouldRender: isInsuranceSectionRendered,
     render: (client, data, styles) => {
       if (shouldShow(k('insurance-carrier'))) {
         client.drawLabelValueRow(
