@@ -76,3 +76,14 @@ describe('JournalItemLink general tasks', () => {
     expect(screen.getByRole('link', { name: 'Call pharmacy about refill' })).toBeInTheDocument();
   });
 });
+
+describe('JournalItemLink on a row', () => {
+  it('lets a long name wrap but keeps the age on one line', () => {
+    const long = { ...lab(), label: 'Review 30341-2_Erythrocyte Sedimentation Rate' };
+    render(<JournalItemLink item={long} now={NOW} onOpenChat={() => {}} />);
+    const name = screen.getByRole('link', { name: long.label });
+    expect(getComputedStyle(name).whiteSpace).not.toBe('nowrap');
+    expect(getComputedStyle(name.parentElement!).whiteSpace).not.toBe('nowrap');
+    expect(getComputedStyle(screen.getByText(/resulted 2h ago/)).whiteSpace).toBe('nowrap');
+  });
+});

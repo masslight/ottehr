@@ -24,7 +24,6 @@ export const JournalItemLink = ({ item, now, onOpenChat, inPanel }: Props): Reac
   const linkSx = {
     color: 'primary.main',
     cursor: 'pointer',
-    whiteSpace: inPanel ? 'normal' : 'nowrap',
     fontWeight: inPanel ? 500 : undefined,
     px: '2px',
     py: '1px',
@@ -33,7 +32,8 @@ export const JournalItemLink = ({ item, now, onOpenChat, inPanel }: Props): Reac
     '&:hover': { textDecoration: 'underline' },
   };
   return (
-    <Box component="span" sx={{ whiteSpace: inPanel ? 'normal' : 'nowrap' }}>
+    // The name wraps so a long lab name stays in its column instead of running under the row's icons.
+    <Box component="span">
       {isChat ? (
         // An inline span, not a <button>, so a long name wraps with the text after it in the side column.
         <Link
