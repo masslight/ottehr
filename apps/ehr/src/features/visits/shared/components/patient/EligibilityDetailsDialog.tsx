@@ -20,8 +20,8 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { DateTime } from 'luxon';
 import { FC, Fragment, useState } from 'react';
+import { getDateOfServiceLabel } from 'utils/lib/fhir/billing';
 import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
 import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { EligibilityCheckSimpleStatus, PatientPaymentBenefit } from 'utils/lib/types/data/telemed/eligibility.types';
@@ -73,14 +73,6 @@ const getStatusDisplay = (status: InsuranceEligibilityCheckStatus): { text: stri
     default:
       return { text: 'Unknown Status', color: '#757575' };
   }
-};
-
-/** "DOS MM/dd/yyyy" when a check was run for a date of service other than the day it was run, else undefined. */
-export const getDateOfServiceLabel = (servicedDate: string | undefined, checkedAtISO: string): string | undefined => {
-  if (!servicedDate) return undefined;
-  const serviced = DateTime.fromISO(servicedDate);
-  if (!serviced.isValid || serviced.toISODate() === DateTime.fromISO(checkedAtISO).toISODate()) return undefined;
-  return `DOS ${serviced.toFormat('MM/dd/yyyy')}`;
 };
 
 const formatDate = (dateISO: string): string => {

@@ -1,12 +1,11 @@
 import { Button } from '@mui/material';
 import { FormFieldItemRecord } from 'config-types/config/form-fields';
-import { Coverage, Patient } from 'fhir/r4b';
+import { Patient } from 'fhir/r4b';
 import { FC, ReactNode, useMemo } from 'react';
 import { Section } from 'src/components/layout/Section';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { checkCoverageMatchesDetails } from 'utils/lib/fhir/billing';
+import { getEligibilityCheckDetailsForCoverage } from 'utils/lib/fhir/billing';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
-import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
 import { CoverageWithPriority } from 'utils/lib/types/data/account';
 import { InsuranceContainer } from './InsuranceContainer';
 import { SectionSaveButton } from './SectionSaveButton';
@@ -19,13 +18,6 @@ const getInsuranceSectionDefinition = (index: number): { items: FormFieldItemRec
     items: items ?? {},
     requiredFields: insuranceSection.requiredFields ?? [],
   };
-};
-
-export const getEligibilityCheckDetailsForCoverage = (
-  coverage: Coverage,
-  coverageChecks: CoverageCheckWithDetails[]
-): CoverageCheckWithDetails | undefined => {
-  return coverageChecks.find((check) => checkCoverageMatchesDetails(coverage, check));
 };
 
 export const InsuranceSection: FC<{

@@ -92,7 +92,7 @@ vi.mock('../../src/hooks/useGetPatient', () => ({
 }));
 
 // Imported AFTER the mocks so they take effect.
-import { getDateOfServiceLabel } from '../../src/features/visits/shared/components/patient/EligibilityDetailsDialog';
+import { getDateOfServiceLabel } from 'utils/lib/fhir/billing';
 import {
   buildInsuranceSectionCounts,
   useCoverageFormRehydration,

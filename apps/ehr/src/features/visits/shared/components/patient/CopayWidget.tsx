@@ -3,24 +3,18 @@ import HowToRegIcon from '@mui/icons-material/HowToReg';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import { Box, Grid, Typography, useTheme } from '@mui/material';
 import { FC, useMemo } from 'react';
+import { formatPatientPaymentBenefitAmount, getPatientPaymentBenefitsByNetwork } from 'utils/lib/fhir/billing';
 import { PatientPaymentBenefit } from 'utils/lib/types/data/telemed/eligibility.types';
 
 interface CopayWidgetProps {
   copay: PatientPaymentBenefit[];
 }
 
-// This set contains the service codes that are supported by the CopayWidget.
-// Currently, it only includes 'UC' (Urgent Care), but can be overwritten to include any from
-// the enumeration defined as BenefitCoverageCodes in packages/utils/lib/types/data/telemed/eligibility.types.ts
-const supportedServiceCodes = new Set(['UC']);
-
 export const CopayWidget: FC<CopayWidgetProps> = ({ copay }) => {
-  const { inNetworkList, outOfNetworkList } = useMemo(() => {
-    const filteredByService = copay.filter((b) => supportedServiceCodes.has(b.code));
-    const inNetworkList = filteredByService.filter((b) => b.inNetwork);
-    const outOfNetworkList = filteredByService.filter((b) => !b.inNetwork);
-    return { inNetworkList, outOfNetworkList };
-  }, [copay]);
+  const { inNetwork: inNetworkList, outOfNetwork: outOfNetworkList } = useMemo(
+    () => getPatientPaymentBenefitsByNetwork(copay),
+    [copay]
+  );
   const theme = useTheme();
 
   return (
@@ -100,7 +94,7 @@ const BenefitSection: FC<BenefitSectionProps> = ({ title, titleIcon, emptyMessag
                 color={theme.palette.text.primary}
                 textAlign="right"
               >
-                {amountStringForBenefit(benefit)} / {benefit.periodDescription}
+                {formatPatientPaymentBenefitAmount(benefit)} / {benefit.periodDescription}
               </Typography>
             </Grid>
           </Grid>
@@ -110,27 +104,4 @@ const BenefitSection: FC<BenefitSectionProps> = ({ title, titleIcon, emptyMessag
       )}
     </Grid>
   );
-};
-
-const amountStringForBenefit = (benefit: PatientPaymentBenefit): string => {
-  const amountInUSD = benefit.amountInUSD;
-  const percentage = benefit.percentage;
-
-  if (benefit.coverageCode === 'A') {
-    if (percentage > 0) {
-      return `${percentage}%`;
-    } else if (amountInUSD > 0) {
-      return `$${amountInUSD}`;
-    } else {
-      return '0%';
-    }
-  } else {
-    if (amountInUSD > 0) {
-      return `$${amountInUSD}`;
-    } else if (percentage > 0) {
-      return `${percentage}%`;
-    } else {
-      return '$0';
-    }
-  }
 };

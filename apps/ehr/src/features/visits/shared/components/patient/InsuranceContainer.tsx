@@ -24,7 +24,13 @@ import { Row } from 'src/components/layout/Row';
 import { StatusStyleObject } from 'src/components/RefreshableStatusWidget';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
-import { mapInsuranceTypeCodeToCandidCode } from 'utils/lib/fhir/billing';
+import {
+  formatEligibilityMoney,
+  getDateOfServiceLabel,
+  getEligibilityErrorDetails,
+  getFinancialDetailSummary,
+  mapInsuranceTypeCodeToCandidCode,
+} from 'utils/lib/fhir/billing';
 import { chooseJson } from 'utils/lib/helpers/oystehrApi';
 import { PATIENT_RECORD_CONFIG } from 'utils/lib/ottehr-config/patient-record';
 import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
@@ -37,7 +43,7 @@ import {
   PatientPaymentBenefit,
 } from 'utils/lib/types/data/telemed/eligibility.types';
 import { CopayWidget } from './CopayWidget';
-import { EligibilityDetailsDialog, getDateOfServiceLabel } from './EligibilityDetailsDialog';
+import { EligibilityDetailsDialog } from './EligibilityDetailsDialog';
 import { InsuranceCardAiSuggestionRow } from './InsuranceCardAiSuggestionRow';
 import { InsuranceCarrierQuickPicks } from './InsuranceCarrierQuickPicks';
 import PatientRecordFormField, { buildAnswerSourceOptionsInput, useAnswerOptionsQuery } from './PatientRecordFormField';
@@ -113,24 +119,6 @@ function mapSimpleStatusToDetailedStatus(simpleStatus: EligibilityCheckSimpleSta
     default:
       return InsuranceEligibilityCheckStatus.eligibilityNotChecked;
   }
-}
-
-function getErrorDetailsFromCoverageResponse(
-  eligibilityCheck?: CoverageCheckWithDetails
-): Array<{ code: string; text: string }> | undefined {
-  if (!eligibilityCheck) return undefined;
-
-  // First, try to extract errors from the errors field if available
-  if (eligibilityCheck.errors && eligibilityCheck.errors.length > 0) {
-    return eligibilityCheck.errors.map((error) => {
-      // Extract code and text from FHIR CodeableConcept
-      const code = error.code?.coding?.[0]?.code || error.code?.text || 'UNKNOWN';
-      const text = error.code?.text || 'No error details available';
-      return { code, text };
-    });
-  }
-
-  return undefined;
 }
 
 interface SimpleStatusCheckWithDate {
@@ -543,25 +531,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   // Medicaid member is enrolled in). Only entries that carry a name are surfaced.
   const mcoPlans = (eligibilityCheck?.coverageDetails?.plans ?? []).filter((plan) => plan.entityName || plan.planName);
 
-  function formatMoney(value: number | undefined): string {
-    if (value === undefined) {
-      return 'Unknown';
-    }
-    const formatMoneyTemp = new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    });
-    return formatMoneyTemp.format(value);
-  }
-
   const BenefitProgressDetails = ({ detail }: { detail: FinancialDetails }): ReactElement => {
     // When this category has no meaningful breakdown (every value is unknown or $0), show a single
     // summary line ("Name: $0" or "Name: Unspecified") instead of the progress bar and paid/total/
     // remaining rows. "$0" when any value is a known zero, "Unspecified" when nothing was reported.
-    const values = [detail.paid, detail.total, detail.remaining];
-    const hasPositiveValue = values.some((value) => typeof value === 'number' && value > 0);
-    if (!hasPositiveValue) {
-      const summaryLabel = values.some((value) => value === 0) ? '$0' : 'Unspecified';
+    const summaryLabel = getFinancialDetailSummary(detail);
+    if (summaryLabel) {
       return (
         <Typography variant="body1" color={theme.palette.primary.dark}>
           {detail.name}: <strong>{summaryLabel}</strong>
@@ -583,13 +558,13 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           />
         )}
         <Typography variant="body2" color={theme.palette.primary.dark}>
-          Paid: {formatMoney(detail.paid)}
+          Paid: {formatEligibilityMoney(detail.paid)}
         </Typography>
         <Typography variant="body2" color={theme.palette.primary.dark}>
-          Total: {formatMoney(detail.total)}
+          Total: {formatEligibilityMoney(detail.total)}
         </Typography>
         <Typography variant="body2" color={theme.palette.primary.dark}>
-          Remaining: <strong>{formatMoney(detail.remaining)}</strong>
+          Remaining: <strong>{formatEligibilityMoney(detail.remaining)}</strong>
         </Typography>
       </>
     );
@@ -619,7 +594,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           }}
         >
           {(() => {
-            const eligibilityErrorDetails = getErrorDetailsFromCoverageResponse(getCurrentEligibilityData());
+            const eligibilityErrorDetails = getEligibilityErrorDetails(getCurrentEligibilityData());
             if (!eligibilityErrorDetails || eligibilityErrorDetails.length === 0) {
               return null;
             }
@@ -975,7 +950,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           onClose={() => setShowEligibilityDetails(false)}
           eligibilityCheck={getCurrentEligibilityData()}
           simpleStatus={eligibilityStatus?.status}
-          errorDetails={getErrorDetailsFromCoverageResponse(getCurrentEligibilityData())}
+          errorDetails={getEligibilityErrorDetails(getCurrentEligibilityData())}
         />
       )}
     </>
