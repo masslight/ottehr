@@ -894,6 +894,8 @@ export const dataTestIds = {
     orderVaccineButton: 'order-vaccine-button',
     associatedDx: 'order-vaccine-associated-dx',
     manufacturer: 'order-vaccine-manufacturer',
+    administrationToggle: 'order-vaccine-administration-toggle',
+    administrationSummary: 'order-vaccine-administration-summary',
   },
 
   immunizationPage: {
@@ -920,13 +922,10 @@ export const dataTestIds = {
   vaccineDetailsPage: {
     lotNumber: 'lot-number',
     expiredDate: 'expired-date',
-    mvxCode: 'mvx-code',
-    cvxCode: 'cvx-code',
     cptCode: 'cpt-code',
     ndcCode: 'ndc-code',
     administeredDate: 'administered-date',
     administeredTime: 'administered-time',
-    visCheckbox: 'vis-checkbox',
     visGivenDate: 'vis-given-date',
     emergencyContact: 'vaccine-emergency-contact',
     administeredButton: 'administered-button',

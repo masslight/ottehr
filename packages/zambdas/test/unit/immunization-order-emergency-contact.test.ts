@@ -13,6 +13,9 @@ import {
 import { mapMedicationAdministrationToImmunizationOrder } from '../../src/ehr/immunization/get-orders';
 import { createMockZambdaInput } from './validate-request-parameters/helpers';
 
+// A vaccine from the vaccine list: its id is its CVX code.
+const TDAP_CVX = '115';
+
 const practitioner: Practitioner = {
   resourceType: 'Practitioner',
   id: 'pr-1',
@@ -34,7 +37,7 @@ const order = (
     {
       resourceType: 'Medication',
       id: CONTAINED_MEDICATION_ID,
-      extension: [{ url: IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL, valueString: 'med-1' }],
+      extension: [{ url: IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL, valueString: TDAP_CVX }],
     },
     ...contained,
   ],
@@ -65,7 +68,7 @@ const administer = async ({
   medicationAdministration = order(),
   relatedPersons = [],
   type = 'administered',
-  medicationId = 'med-1',
+  medicationId = TDAP_CVX,
   emergencyContact,
   searchError,
 }: {
@@ -100,7 +103,6 @@ const administer = async ({
         lot: 'L1',
         expDate: '2027-01-31',
         mvx: 'SKB',
-        cvx: '115',
         ndc: '58160-0842-11',
         administeredDateTime: '2026-10-28T09:30:00.000+01:00',
         visGivenDate: '2026-10-28',

@@ -23,6 +23,9 @@ const practitioner: Practitioner = {
   name: [{ given: ['Ann'], family: 'Lee' }],
 };
 
+// A vaccine from the vaccine list: its id is its CVX code.
+const TDAP_CVX = '115';
+
 const pendingOrder = (): MedicationAdministration => ({
   resourceType: 'MedicationAdministration',
   id: 'order-1',
@@ -35,13 +38,13 @@ const pendingOrder = (): MedicationAdministration => ({
     {
       resourceType: 'Medication',
       id: CONTAINED_MEDICATION_ID,
-      extension: [{ url: IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL, valueString: 'med-1' }],
+      extension: [{ url: IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL, valueString: TDAP_CVX }],
     },
   ],
 });
 
 const orderDetails = (overrides: Partial<InputImmunizationOrderDetails> = {}): InputImmunizationOrderDetails => ({
-  medication: { id: 'med-1', name: 'Tdap' },
+  medication: { id: TDAP_CVX, name: 'Tdap' },
   dose: '0.5',
   units: 'mL',
   orderedProvider: { id: 'pr-1', name: 'Ann Lee' },
@@ -80,7 +83,6 @@ const administeredBody = {
     lot: 'L1',
     expDate: '2027-01-31',
     mvx: 'SKB',
-    cvx: '115',
     ndc: '58160-0842-11',
     administeredDateTime: '2026-10-28T09:30:00.000+01:00',
     visGivenDate: '2026-10-28',
@@ -152,9 +154,9 @@ describe('immunization validateAdministrationDetailsValues - lot and codes', () 
   });
 
   it('drops whitespace-only codes', () => {
-    const details: { mvx?: string; cvx?: string; ndc?: string } = { mvx: ' ', cvx: '\t', ndc: '  ' };
+    const details: { mvx?: string; ndc?: string } = { mvx: ' ', ndc: '\t' };
     validateAdministrationDetailsValues(details);
-    expect(details).toEqual({ mvx: undefined, cvx: undefined, ndc: undefined });
+    expect(details).toEqual({ mvx: undefined, ndc: undefined });
   });
 
   it('collapses inner whitespace runs in a code', () => {
@@ -206,7 +208,7 @@ describe('administer-immunization-order validateRequestParameters - blank text',
     expect(result.reason).toBeUndefined();
   });
 
-  it.each(['lot', 'mvx', 'cvx', 'ndc'] as const)('rejects a whitespace-only %s as missing with a 400', (field) => {
+  it.each(['lot', 'mvx', 'ndc'] as const)('rejects a whitespace-only %s as missing with a 400', (field) => {
     const error = thrownBy(() =>
       validateAdministerRequest(
         createMockZambdaInput({

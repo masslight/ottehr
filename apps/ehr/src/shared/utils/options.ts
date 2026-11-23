@@ -2,6 +2,7 @@ import {
   inHouseMedicationsMedicationApplianceRoutes,
   medicationApplianceLocations,
   medicationApplianceRoutes,
+  vaccineSiteLocations,
 } from 'utils/lib/types/api/medication-administration.types';
 
 export const BASE_ROUTE_OPTIONS = Object.entries(medicationApplianceRoutes)
@@ -24,3 +25,9 @@ export const LOCATION_OPTIONS = Object.entries(medicationApplianceLocations)
     name: value.name ?? '',
   }))
   ?.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+// The vaccine sentences' own short site list, in its given order.
+export const VACCINE_SITE_OPTIONS = vaccineSiteLocations.map((location) => ({
+  code: location.code,
+  name: location.name ?? '',
+}));

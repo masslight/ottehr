@@ -2,7 +2,7 @@ import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AdministeredDialogue, expectAdministrationConfirmationDialogue } from './AdministrationConfirmationDialog';
 import { expectMarTab, MarTab } from './MarTab';
-import { OrderDetailsSection } from './OrderDetailsSection';
+import { OrderSentencesSection } from './OrderSentencesSection';
 
 export class VaccineDetailsTab {
   #page: Page;
@@ -10,24 +10,20 @@ export class VaccineDetailsTab {
   // Scope all in-card fields and buttons to the first card so the section stays unambiguous when
   // earlier tests have left administered orders behind on a shared appointment.
   #root: Locator;
-  #orderDetailsSection: OrderDetailsSection;
+  #orderDetailsSection: OrderSentencesSection;
 
   constructor(page: Page) {
     this.#page = page;
     this.#root = page.getByTestId(dataTestIds.immunizationPage.vaccineDetailsCard).first();
-    this.#orderDetailsSection = new OrderDetailsSection(this.#root);
+    this.#orderDetailsSection = new OrderSentencesSection(this.#root);
   }
 
-  get orderDetailsSection(): OrderDetailsSection {
+  get orderDetailsSection(): OrderSentencesSection {
     return this.#orderDetailsSection;
   }
 
   async enterLotNumber(lotNumber: string): Promise<void> {
-    await this.#root
-      .getByTestId(dataTestIds.vaccineDetailsPage.lotNumber)
-      .locator('input')
-      .locator('visible=true')
-      .fill(lotNumber);
+    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.lotNumber).fill(lotNumber);
   }
 
   async enterExpiredDate(expiredDate: string): Promise<void> {
@@ -36,33 +32,16 @@ export class VaccineDetailsTab {
     await locator.pressSequentially(expiredDate);
   }
 
-  async enterMvxCode(mvxCode: string): Promise<void> {
-    await this.#root
-      .getByTestId(dataTestIds.vaccineDetailsPage.mvxCode)
-      .locator('input')
-      .locator('visible=true')
-      .fill(mvxCode);
-  }
-
-  async enterCvxCode(cvxCode: string): Promise<void> {
-    await this.#root
-      .getByTestId(dataTestIds.vaccineDetailsPage.cvxCode)
-      .locator('input')
-      .locator('visible=true')
-      .fill(cvxCode);
-  }
-
   async selectCptCode(cptCode: string): Promise<void> {
-    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.cptCode).locator('input').fill(cptCode);
+    // The CPT codes blank opens the code search in a popover, which stays open for more codes.
+    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.cptCode).click();
+    await this.#page.getByLabel('Search CPT / HCPCS codes').fill(cptCode);
     await this.#page.locator('li').getByText(cptCode, { exact: false }).click();
+    await this.#page.keyboard.press('Escape');
   }
 
   async enterNdcCode(ndcCode: string): Promise<void> {
-    await this.#root
-      .getByTestId(dataTestIds.vaccineDetailsPage.ndcCode)
-      .locator('input')
-      .locator('visible=true')
-      .fill(ndcCode);
+    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.ndcCode).fill(ndcCode);
   }
 
   async clearAdministeredDate(): Promise<void> {
@@ -85,10 +64,7 @@ export class VaccineDetailsTab {
     await locator.pressSequentially(administeredTime);
   }
 
-  async setVisCheckboxChecked(checked: boolean): Promise<void> {
-    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.visCheckbox).locator('input').setChecked(checked);
-  }
-
+  /** "VIS given to the patient on [date]": the date is what says the VIS was given. */
   async enterVisGivenDate(visGivenDate: string): Promise<void> {
     const locator = this.#root.getByTestId(dataTestIds.vaccineDetailsPage.visGivenDate);
     await locator.click();

@@ -3,10 +3,14 @@ import { DateTime } from 'luxon';
 import { getEmergencyContactSummary } from 'utils/lib/fhir/emergency-contact';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { EMERGENCY_CONTACT_RELATIONSHIPS } from 'utils/lib/types/api/medication-administration.types';
-import { ImmunizationEmergencyContact, ImmunizationOrder } from 'utils/lib/types/data/immunization/types';
+import {
+  AdministerImmunizationOrderRequest,
+  ImmunizationEmergencyContact,
+  ImmunizationOrder,
+} from 'utils/lib/types/data/immunization/types';
 
 export interface AdministrationType {
-  type: string;
+  type: AdministerImmunizationOrderRequest['type'];
   label: string;
 }
 

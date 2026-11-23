@@ -169,11 +169,31 @@ export function createOrderVaccineMedication(vaccine: CvxVaccine): Medication {
   };
 }
 
+/**
+ * The CVX code recorded with an order vaccine's administration codes. A vaccine from the vaccine list has its CVX
+ * code as its id, and that is the code. A vaccine ordered before the list existed has no code of its own, so it
+ * keeps the one already recorded with it, if any.
+ */
+export function getOrderVaccineCvx(medication: Medication): string | undefined {
+  const vaccineId = medication.extension?.find((e) => e.url === IMMUNIZATION_ORDER_MEDICATION_ID_EXTENSION_URL)
+    ?.valueString;
+  const listedVaccine = getCvxVaccine(vaccineId);
+  if (listedVaccine) return listedVaccine.cvx;
+  for (const extension of medication.extension ?? []) {
+    if (extension.url !== VACCINE_ADMINISTRATION_CODES_EXTENSION_URL) continue;
+    const recorded = getCoding(extension.valueCodeableConcept, CVX_CODE_SYSTEM_URL)?.code;
+    if (recorded) return recorded;
+  }
+  return undefined;
+}
+
 export function updateVaccineMedicationDetails(
   medication: Medication,
   administrationDetails: InputImmunizationOrderAdministrationDetails
 ): void {
-  const { lot, expDate, mvx, cvx, ndc, cptCodes, visGivenDate } = administrationDetails;
+  const { lot, expDate, mvx, ndc, cptCodes, visGivenDate } = administrationDetails;
+  // read before the codes are rewritten: an order placed before the vaccine list keeps its recorded code
+  const cvx = getOrderVaccineCvx(medication);
   medication.batch = lot || expDate ? { lotNumber: lot || undefined, expirationDate: expDate || undefined } : undefined;
   medication.extension = (medication.extension ?? []).filter(
     (ext) =>
@@ -245,7 +265,7 @@ export function validateAdministrationDetailsValues(
       throw INVALID_INPUT_ERROR(`Invalid ${label}, "${value}" is not a valid date`);
     }
   }
-  for (const field of ['mvx', 'cvx', 'ndc'] as const) {
+  for (const field of ['mvx', 'ndc'] as const) {
     const value = administrationDetails[field];
     if (value) administrationDetails[field] = sanitizeStringForFhirCode(value) || undefined;
   }
