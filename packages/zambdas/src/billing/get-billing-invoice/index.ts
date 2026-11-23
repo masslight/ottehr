@@ -209,15 +209,20 @@ async function buildInvoicePayments({
     [...noticesByPaymentId].map(async ([paymentId, paymentNotices]): Promise<BillingInvoicePayment> => {
       const [first] = paymentNotices;
       const { paymentDate, method } = toClaimPatientPayment(first);
+      const paymentNoticeReferences = paymentNotices.map((notice) => `PaymentNotice/${notice.id}`);
       const documentReference = attachments.find(
-        (documentReference) => getNioInvoicePaymentId(documentReference) === paymentId
+        (documentReference) =>
+          getNioInvoicePaymentId(documentReference) === paymentId &&
+          documentReference.context?.related?.some(
+            (related) => related.reference && paymentNoticeReferences.includes(related.reference)
+          )
       );
       const attachment = documentReference
         ? await paymentAttachmentLink({
             oystehr,
             invoiceId,
             documentReference,
-            paymentNotices,
+            paymentNoticeReferences,
             secrets,
           })
         : undefined;
@@ -237,13 +242,13 @@ async function paymentAttachmentLink({
   oystehr,
   invoiceId,
   documentReference,
-  paymentNotices,
+  paymentNoticeReferences,
   secrets,
 }: {
   oystehr: Oystehr;
   invoiceId: string;
   documentReference: DocumentReference;
-  paymentNotices: PaymentNotice[];
+  paymentNoticeReferences: string[];
   secrets: Secrets;
 }): Promise<BillingInvoicePayment['attachment']> {
   try {
@@ -253,7 +258,7 @@ async function paymentAttachmentLink({
         oystehr,
         invoiceId,
         documentReference,
-        paymentNoticeReferences: paymentNotices.map((notice) => `PaymentNotice/${notice.id}`),
+        paymentNoticeReferences,
         secrets,
       }),
     };

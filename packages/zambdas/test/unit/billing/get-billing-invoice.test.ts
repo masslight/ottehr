@@ -349,6 +349,53 @@ describe('get-billing-invoice', () => {
     expect(result.pdfUrl).toBe(`https://z3.test/download/invoice-attachments/${INVOICE_ID}/abc-INV-00042.pdf`);
   });
 
+  it("picks the payment's own attachment when another invoice's payment shares its key", async () => {
+    const { oystehr } = setup({
+      paymentAttachments: [
+        buildInvoicePaymentAttachment({
+          invoiceId: 'other-invoice',
+          paymentId: 'payment-1',
+          paymentNoticeReference: 'PaymentNotice/other-notice',
+          path: 'invoice-attachments/other-invoice/abc-wire.pdf',
+          fileName: 'wire.pdf',
+          secrets,
+        }),
+        buildInvoicePaymentAttachment({
+          invoiceId: INVOICE_ID,
+          paymentId: 'payment-1',
+          paymentNoticeReference: 'PaymentNotice/notice-1',
+          path: `invoice-attachments/${INVOICE_ID}/abc-check.pdf`,
+          fileName: 'check.pdf',
+          secrets,
+        }),
+      ],
+      notices: [
+        {
+          ...payment('active'),
+          id: 'notice-1',
+          identifier: [
+            {
+              system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
+              value: 'payment-1',
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await performEffect({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      secrets,
+      today: TODAY,
+    });
+
+    expect(result.payments[0].attachment).toEqual({
+      fileName: 'check.pdf',
+      url: `https://z3.test/download/invoice-attachments/${INVOICE_ID}/abc-check.pdf`,
+    });
+  });
+
   it("still shows the invoice and payment when a payment's attachment isn't related to its notices", async () => {
     const { oystehr } = setup({
       paymentAttachments: [
