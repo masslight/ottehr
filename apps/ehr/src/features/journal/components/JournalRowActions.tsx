@@ -2,7 +2,7 @@ import { Box, IconButton, Tooltip } from '@mui/material';
 import { FocusEvent, Fragment, MouseEvent, ReactElement, useState } from 'react';
 import { DEFAULT_TOOLTIP_PROPS } from 'src/components/WithTooltip';
 import { JournalAction, ROW_ICON_ORDER, ROW_ICON_SEPARATOR_AFTER } from '../helpers/journalActions';
-import { JOURNAL_COLORS } from '../helpers/journalHelpers';
+import { JOURNAL_COLORS, ROW_ACTIONS_CLASS } from '../helpers/journalHelpers';
 
 const ICON_SX = {
   width: 34,
@@ -42,6 +42,7 @@ export const JournalRowActions = ({ actions }: { actions: JournalAction[] }): Re
       slotProps={{ popper: { anchorEl: pointed } }}
     >
       <Box
+        className={ROW_ACTIONS_CLASS}
         sx={{ display: 'flex', alignItems: 'center', gap: '6px' }}
         onClick={stop}
         onMouseOver={point}

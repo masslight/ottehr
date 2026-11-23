@@ -17,6 +17,7 @@ import {
   JOURNAL_COLORS,
   JournalRowRef,
   lookaheadLabel,
+  ROW_ACTIONS_CLASS,
   rowRole,
 } from '../helpers/journalHelpers';
 import { DotColor, JournalDot } from './JournalDot';
@@ -174,6 +175,10 @@ export const JournalRow = memo(function JournalRow({
         borderRadius: '6px',
         cursor: 'pointer',
         '&:hover': { bgcolor: JOURNAL_COLORS.hover },
+        // Transparent rather than removed: the to-dos don't move when the icons appear, and keyboard and screen
+        // reader users still reach them.
+        [`& .${ROW_ACTIONS_CLASS}`]: { opacity: 0 },
+        [`&:hover .${ROW_ACTIONS_CLASS}, &:focus-within .${ROW_ACTIONS_CLASS}`]: { opacity: 1 },
         ...(selected && {
           borderColor: theme.palette.primary.main,
           bgcolor: JOURNAL_COLORS.selected,

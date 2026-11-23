@@ -40,6 +40,9 @@ export const JOURNAL_COLORS = {
   disabledLine: 'rgba(0,0,0,.12)',
 };
 
+/** A row shows its icon group only while the pointer is over the row or focus is in it. */
+export const ROW_ACTIONS_CLASS = 'journal-row-actions';
+
 export type JournalSectionKey = 'cu' | 'td' | 'tdd' | 'rc' | 'np' | 'pa';
 
 export interface JournalRowRef {
