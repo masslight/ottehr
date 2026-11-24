@@ -37,7 +37,8 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
   const fields = mapExcuseTypeToFields[type];
   const isSchool = ['schoolTemplate', 'schoolFree'].includes(type);
   const isTemplate = ['schoolTemplate', 'workTemplate'].includes(type);
-  const { patient, questionnaireResponse, encounter, practitioners } = useAppointmentData();
+  const { patient, questionnaireResponse, encounter, practitioners, appointment } = useAppointmentData();
+  const visitStart = appointment?.start;
   const { setPartialChartData, chartData } = useChartData();
   const user = useEvolveUser();
 
@@ -72,6 +73,7 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       providerName: signingProviderName,
       phoneNumber: supportPhoneNumber,
       patientOrRelatedPerson: 'patient',
+      visitStart,
     }),
   });
   const { handleSubmit, getValues, setValue, control } = methods;
@@ -92,9 +94,19 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
         isSchool,
         isTemplate,
         phoneNumber: supportPhoneNumber,
+        visitStart,
       })
     );
-  }, [patientOrRelatedPerson, patientName, fullParentName, isSchool, isTemplate, supportPhoneNumber, setValue]);
+  }, [
+    patientOrRelatedPerson,
+    patientName,
+    fullParentName,
+    isSchool,
+    isTemplate,
+    supportPhoneNumber,
+    visitStart,
+    setValue,
+  ]);
 
   const onSubmit = (values: ExcuseFormValues): void => {
     const excuse = mapValuesToExcuse(values, {
