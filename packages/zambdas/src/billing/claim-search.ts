@@ -30,6 +30,7 @@ import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import {
   fetchClaimResponsesByClaimIds,
+  fetchNioPaidByClaimId,
   fetchPatientPaymentsByClaimId,
   summarizeClaimPayments,
   sumPatientPaymentsByClaimId,
@@ -721,19 +722,22 @@ export async function buildClaimLookups({
     );
   }
 
-  const [resolvedPayersByRef, claimResponsesByClaimId, patientPaymentsByClaimId, writeOffs] = await Promise.all([
-    payersByRef ??
-      resolvePayersByRef(
+  const claimIds = claims.map((c) => c.id).filter(Boolean) as string[];
+  const [resolvedPayersByRef, claimResponsesByClaimId, patientPaymentsByClaimId, writeOffs, nioPaidByClaimId] =
+    await Promise.all([
+      payersByRef ??
+        resolvePayersByRef(
+          oystehr,
+          claims.map((c) => c.insurer?.reference)
+        ),
+      fetchClaimResponsesByClaimIds(oystehr, claimIds),
+      fetchPatientPaymentsByClaimId({
         oystehr,
-        claims.map((c) => c.insurer?.reference)
-      ),
-    fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
-    fetchPatientPaymentsByClaimId({
-      oystehr,
-      claims,
-    }),
-    fetchWriteOffsByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
-  ]);
+        claims,
+      }),
+      fetchWriteOffsByClaimIds(oystehr, claimIds),
+      fetchNioPaidByClaimId(oystehr, claimIds),
+    ]);
 
   return {
     patients,
@@ -745,6 +749,7 @@ export async function buildClaimLookups({
     patientPaidByClaimId: sumPatientPaymentsByClaimId(patientPaymentsByClaimId),
     patientPaymentsByClaimId,
     writeOffs,
+    nioPaidByClaimId,
   };
 }
 
@@ -759,6 +764,7 @@ export interface ClaimLookups {
   // The notices patientPaidByClaimId sums; set by buildClaimLookups.
   patientPaymentsByClaimId?: Map<string, PaymentNotice[]>;
   writeOffs: Map<string, PaymentNotice[]>;
+  nioPaidByClaimId: Map<string, number>;
 }
 
 export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
@@ -779,7 +785,8 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [],
     billed,
     patientPaid,
-    writeOffsTotal
+    writeOffsTotal,
+    lookups.nioPaidByClaimId.get(claim.id ?? '') ?? 0
   );
 
   return {

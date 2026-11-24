@@ -1,6 +1,11 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Claim, Organization, Patient, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
-import { buildBillingInvoice } from 'utils/lib/fhir/billing-invoice';
+import {
+  buildBillingInvoice,
+  invoicePaymentExtension,
+  NIO_INVOICE_PAYMENT_ID_SYSTEM,
+  PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
+} from 'utils/lib/fhir/billing-invoice';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
@@ -130,15 +135,18 @@ const paymentNotice = (opts: {
   } as PaymentNotice;
 };
 
-const makeBillingClient = (notices: PaymentNotice[]): Oystehr => {
+const makeBillingClient = (notices: PaymentNotice[], nioNotices: PaymentNotice[] = []): Oystehr => {
   const search = vi
     .fn()
     .mockImplementation(({ resourceType, params }: { resourceType: string; params: SearchParam[] }) => {
-      const isPatientPaymentNoticeSearch =
-        resourceType === 'PaymentNotice' &&
-        !params.some((p) => p.name === 'identifier' && String(p.value).startsWith(WRITE_OFF_SYSTEM));
+      const searchesSystem = (system: string): boolean =>
+        params.some((p) => p.name === 'identifier' && String(p.value).startsWith(system));
+      const results = (): PaymentNotice[] => {
+        if (resourceType !== 'PaymentNotice' || searchesSystem(WRITE_OFF_SYSTEM)) return [];
+        return searchesSystem(NIO_INVOICE_PAYMENT_ID_SYSTEM) ? nioNotices : notices;
+      };
       return Promise.resolve({
-        unbundle: () => (isPatientPaymentNoticeSearch ? notices : []),
+        unbundle: results,
         link: [],
       });
     });
@@ -331,6 +339,87 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
     expect(response.balance).toBe(100);
     expect(response.patientPayments.map((p) => p.paymentNoticeId)).toEqual(['pn-refund-failed', 'pn-charge']);
     expect(response.patientPayments[0].status).toBe('cancelled');
+  });
+
+  it("settles the balance with the claim's NIO invoice payments, listed apart from patient payments", async () => {
+    const nioPayment: PaymentNotice = {
+      ...paymentNotice({
+        id: 'pn-nio',
+        amount: 150,
+        paymentDate: '2026-07-20',
+        method: 'wire',
+      }),
+      identifier: [
+        {
+          system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
+          value: 'payment-1',
+        },
+      ],
+      request: {
+        reference: 'Claim/claim-1',
+      },
+      extension: [
+        {
+          url: PAYMENT_METHOD_EXTENSION_URL,
+          valueString: 'wire',
+        },
+        invoicePaymentExtension('invoice-1'),
+      ],
+      contained: [
+        {
+          resourceType: 'PaymentReconciliation',
+          id: 'contained-reconciliation',
+          status: 'active',
+          created: '2026-07-20T12:00:00Z',
+          paymentDate: '2026-07-20',
+          paymentAmount: {
+            value: 150,
+            currency: 'USD',
+          },
+          identifier: [
+            {
+              system: PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
+              value: 'WIRE-88',
+            },
+          ],
+        },
+      ],
+    };
+    const oystehr = makeBillingClient(
+      [
+        paymentNotice({
+          id: 'pn-patient',
+          amount: 50,
+          paymentDate: '2026-07-01',
+        }),
+      ],
+      [nioPayment]
+    );
+
+    const response = await performEffect(
+      oystehr,
+      {} as unknown as Oystehr,
+      {
+        claimId: 'claim-1',
+        secrets: {},
+      } as never
+    );
+
+    expect(response.patientPaid).toBe(50);
+    expect(response.nioPaid).toBe(150);
+    expect(response.balance).toBe(0);
+    expect(response.patientPayments.map((p) => p.paymentNoticeId)).toEqual(['pn-patient']);
+    expect(response.nioPayments).toEqual([
+      {
+        paymentNoticeId: 'pn-nio',
+        invoiceId: 'invoice-1',
+        paymentDate: '2026-07-20',
+        amount: 150,
+        method: 'wire',
+        reference: 'WIRE-88',
+        status: 'active',
+      },
+    ]);
   });
 });
 

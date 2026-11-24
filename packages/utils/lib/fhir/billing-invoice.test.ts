@@ -318,6 +318,22 @@ describe('getPaymentNoticeInvoiceId', () => {
   it('is undefined for a notice without an invoice', () => {
     expect(getPaymentNoticeInvoiceId(notice)).toBeUndefined();
   });
+
+  it('is undefined when the extension references another resource type', () => {
+    expect(
+      getPaymentNoticeInvoiceId({
+        ...notice,
+        extension: [
+          {
+            url: invoicePaymentExtension('invoice-1').url,
+            valueReference: {
+              reference: 'Claim/claim-1',
+            },
+          },
+        ],
+      })
+    ).toBeUndefined();
+  });
 });
 
 describe('withStripeInvoiceLink', () => {

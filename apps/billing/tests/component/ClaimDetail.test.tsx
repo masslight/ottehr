@@ -150,6 +150,7 @@ export const makeClaim = (arStage: string): ClaimDetailResponse => ({
   insurancePaid: 0,
   patientResp: null,
   patientPaid: 0,
+  nioPaid: 0,
   writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
@@ -157,6 +158,7 @@ export const makeClaim = (arStage: string): ClaimDetailResponse => ({
   remits: [],
   insurancePayments: [],
   patientPayments: [],
+  nioPayments: [],
   writeOffs: [],
   invoices: [],
   otherClaims: [],
@@ -1176,7 +1178,7 @@ describe('ClaimDetail — patient payments', () => {
     });
     renderDetail();
 
-    const paymentsTab = await screen.findByRole('tab', { name: 'Patient Payments & Write-offs' });
+    const paymentsTab = await screen.findByRole('tab', { name: 'Payments & Write-offs' });
     fireEvent.click(paymentsTab);
 
     const paymentRow = (await screen.findByText('check collected at front desk')).closest('tr');
@@ -1197,10 +1199,54 @@ describe('ClaimDetail — patient payments', () => {
     getBillingClaimDetailMock.mockResolvedValue(makeClaim(AR_STAGE.patient));
     renderDetail();
 
-    const paymentsTab = await screen.findByRole('tab', { name: 'Patient Payments & Write-offs' });
+    const paymentsTab = await screen.findByRole('tab', { name: 'Payments & Write-offs' });
     fireEvent.click(paymentsTab);
 
     expect(await screen.findByText('No patient payments yet')).toBeInTheDocument();
+    expect(screen.queryByText('NIO Payments')).not.toBeInTheDocument();
+  });
+
+  it("lists the claim's share of NIO invoice payments apart from patient payments", async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.nonInsurancePayer),
+      nonInsurancePayerFhirId: 'nio-1',
+      nioPayments: [
+        {
+          paymentNoticeId: 'pn-nio',
+          invoiceId: 'invoice-1',
+          paymentDate: '2026-07-20',
+          amount: 150,
+          method: 'wire',
+          reference: 'WIRE-88',
+          status: 'active',
+        },
+      ],
+    });
+    renderDetail();
+
+    const paymentsTab = await screen.findByRole('tab', { name: 'Payments & Write-offs' });
+    fireEvent.click(paymentsTab);
+
+    const invoiceLink = await screen.findByRole('link', { name: 'View invoice' });
+    expect(invoiceLink).toHaveAttribute('href', '/invoices/invoice-1');
+    const nioCells = within(invoiceLink.closest('tr') as HTMLElement)
+      .getAllByRole('cell')
+      .map((cell) => cell.textContent);
+    expect(nioCells).toEqual(['07/20/2026', 'Wire', 'WIRE-88', 'View invoice', 'active', '$150.00']);
+    expect(screen.getByText('No patient payments yet')).toBeInTheDocument();
+  });
+
+  it('shows what the NIO paid beside the balance it settled', async () => {
+    getBillingClaimDetailMock.mockResolvedValue({
+      ...makeClaim(AR_STAGE.nonInsurancePayer),
+      billed: 150,
+      nioPaid: 150,
+      balance: 0,
+    });
+    renderDetail();
+
+    const nioPaidLabel = await screen.findByText('NIO Paid');
+    expect(nioPaidLabel.parentElement?.parentElement).toHaveTextContent('NIO Paid$150.00');
   });
 });
 
