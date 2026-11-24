@@ -7,8 +7,6 @@ interface ChatIconButtonProps {
   onClick: () => void;
 }
 
-// The round blue chat button, with a dot when there are unread messages. Shared by the tracking board
-// and the patient record so the two always look and behave the same.
 export function ChatIconButton({ hasUnread, onClick }: ChatIconButtonProps): ReactElement {
   const theme = useTheme();
 

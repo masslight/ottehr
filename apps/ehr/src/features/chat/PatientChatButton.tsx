@@ -21,7 +21,6 @@ const getPersonPhone = (person: Person): string | undefined =>
 
 interface PatientChatButtonProps {
   patient: Patient | undefined;
-  // The patient's most recent visit, if any; only used to fill in quick text variables.
   latestVisitId?: string;
 }
 
@@ -58,18 +57,20 @@ export function PatientChatButton({ patient, latestVisitId }: PatientChatButtonP
         if (!map.has(key)) map.set(key, { recipientResourceUri, smsNumber });
       };
 
+      const ownRelatedPersonRefs = new Set<string>();
       resources.forEach((resource) => {
-        if (resource.resourceType === 'RelatedPerson') {
-          if (resource.id && isUserRelatedPerson(resource)) {
-            add(`RelatedPerson/${resource.id}`, getSMSNumberForIndividual(resource));
-          }
-        } else {
-          const phone = getPersonPhone(resource);
-          resource.link?.forEach((link) => {
-            const ref = link.target?.reference;
-            if (ref?.startsWith('RelatedPerson/')) add(ref, phone);
-          });
+        if (resource.resourceType === 'RelatedPerson' && resource.id && isUserRelatedPerson(resource)) {
+          ownRelatedPersonRefs.add(`RelatedPerson/${resource.id}`);
+          add(`RelatedPerson/${resource.id}`, getSMSNumberForIndividual(resource));
         }
+      });
+      resources.forEach((resource) => {
+        if (resource.resourceType !== 'Person') return;
+        const phone = getPersonPhone(resource);
+        resource.link?.forEach((link) => {
+          const ref = link.target?.reference;
+          if (ref && ownRelatedPersonRefs.has(ref)) add(ref, phone);
+        });
       });
       return Array.from(map.values());
     },
