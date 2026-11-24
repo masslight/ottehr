@@ -209,6 +209,7 @@ export const SearchBillingClaimsInputSchema = z.object({
   tagMatch: ClaimTagMatchSchema.optional(),
   // Claims carrying any of these tags are left out.
   excludeTag: oneOrMany(nonEmptyString).optional(),
+  planType: oneOrMany(nonEmptyString).optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
   // only claims last updated on/before this ISO timestamp (stale-claim drilldowns)

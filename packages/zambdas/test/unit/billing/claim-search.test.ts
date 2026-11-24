@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
 import { Claim, ClaimResponse, Coverage, Location, Organization, Patient, Practitioner, Resource } from 'fhir/r4b';
+import { CANDID_PLAN_TYPE_SYSTEM } from 'utils/lib/fhir/insurance';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
-import { CODE_SYSTEM_CLAIM_TYPE } from 'utils/lib/helpers/rcm/constants';
+import { CODE_SYSTEM_CLAIM_TYPE, EXTENSION_CLAIM_INSURANCE_TYPE } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, AR_STAGE_NONE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import {
@@ -18,6 +19,7 @@ import {
   buildClaimFilterParams,
   CLAIM_LIST_ELEMENTS,
   claimMatchesServiceDateRange,
+  filterClaimsByPrimaryPlanType,
   getClaimServiceDate,
   mapClaimToItem,
 } from '../../../src/billing/claim-search';
@@ -658,5 +660,66 @@ describe('claim search service date', () => {
   it('includes same-day claims when bounds are passed as ISO datetimes', () => {
     const claim = makeServiceDatedClaim('2026-07-21', '2026-07-19');
     expect(claimMatchesServiceDateRange(claim, '2026-07-19T00:00:00Z', '2026-07-19T23:59:59Z')).toBe(true);
+  });
+});
+
+describe('filterClaimsByPrimaryPlanType', () => {
+  const claimWithCoverages = (id: string, coverages: { ref: string; sequence: number }[]): Claim =>
+    ({
+      resourceType: 'Claim',
+      id,
+      insurance: coverages.map(({ ref, sequence }) => ({
+        sequence,
+        focal: sequence === 1,
+        coverage: { reference: ref },
+      })),
+    }) as unknown as Claim;
+
+  const coverage = (id: string, planType: { extension?: string; typeCoding?: string }): Coverage =>
+    ({
+      resourceType: 'Coverage',
+      id,
+      ...(planType.extension
+        ? { extension: [{ url: EXTENSION_CLAIM_INSURANCE_TYPE, valueString: planType.extension }] }
+        : {}),
+      ...(planType.typeCoding
+        ? { type: { coding: [{ system: CANDID_PLAN_TYPE_SYSTEM, code: planType.typeCoding }] } }
+        : {}),
+    }) as unknown as Coverage;
+
+  it('keeps claims whose primary coverage has one of the plan types, read from the extension or Coverage.type', async () => {
+    const search = vi.fn().mockResolvedValue({
+      unbundle: () => [
+        coverage('cov-ppo', { extension: '12' }),
+        coverage('cov-mc', { typeCoding: 'MC' }),
+        coverage('cov-hmo', { extension: 'HM' }),
+      ],
+    });
+    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    const claims = [
+      claimWithCoverages('ppo', [{ ref: 'Coverage/cov-ppo', sequence: 1 }]),
+      // Medicaid is only the secondary coverage here, so this claim's plan type is HMO.
+      claimWithCoverages('hmo-primary', [
+        { ref: 'Coverage/cov-mc', sequence: 2 },
+        { ref: 'Coverage/cov-hmo', sequence: 1 },
+      ]),
+      claimWithCoverages('medicaid', [{ ref: 'Coverage/cov-mc', sequence: 1 }]),
+      claimWithCoverages('self-pay', []),
+    ];
+
+    const kept = await filterClaimsByPrimaryPlanType({ oystehr, claims, planTypes: ['12', 'MC'] });
+
+    expect(kept.map((c) => c.id)).toEqual(['ppo', 'medicaid']);
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(search.mock.calls[0][0].params).toContainEqual({ name: '_id', value: 'cov-ppo,cov-hmo,cov-mc' });
+  });
+
+  it('reads no coverages when no claim has one', async () => {
+    const search = vi.fn();
+    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    expect(
+      await filterClaimsByPrimaryPlanType({ oystehr, claims: [claimWithCoverages('a', [])], planTypes: ['12'] })
+    ).toEqual([]);
+    expect(search).not.toHaveBeenCalled();
   });
 });

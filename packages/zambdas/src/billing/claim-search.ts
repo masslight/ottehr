@@ -11,7 +11,7 @@ import {
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getClaimNonInsurancePayer } from 'utils/lib/fhir/billing';
+import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { getAllFhirSearchPages, searchPageWithSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
@@ -28,6 +28,7 @@ import {
 import { CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM } from 'utils/lib/types/data/billing/non-insurance-org.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
+import { mapWithConcurrency } from '../shared/concurrency';
 import {
   fetchClaimResponsesByClaimIds,
   fetchPatientPaymentsByClaimId,
@@ -292,13 +293,18 @@ export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: s
 export const CLAIM_SEARCH_TEXT_MATCH_LIMIT = 1000;
 export const CLAIM_SEARCH_TEXT_CONCURRENCY = 4;
 
-export const claimScanElements = (withServiceDate: boolean, withTotal = false): ClaimSearchParam => ({
+export const claimScanElements = (
+  withServiceDate: boolean,
+  withTotal = false,
+  withInsurance = false
+): ClaimSearchParam => ({
   name: '_elements',
   value: [
     'id',
     'meta',
     ...(withServiceDate ? ['created', 'item', 'billablePeriod'] : []),
     ...(withTotal ? ['total'] : []),
+    ...(withInsurance ? ['insurance'] : []),
   ].join(','),
 });
 
@@ -402,6 +408,7 @@ export async function scanClaimIds({
   maxMatches,
   withServiceDate,
   withTotal,
+  withInsurance,
   beforePage,
 }: {
   oystehr: Oystehr;
@@ -410,12 +417,14 @@ export async function scanClaimIds({
   withServiceDate: boolean;
   // Also read Claim.total, for sorting or summing by billed amount.
   withTotal?: boolean;
+  // Also read Claim.insurance, for filtering by the primary coverage's plan type.
+  withInsurance?: boolean;
   // Runs before each page is requested; a caller with a time budget throws from it to stop the scan.
   beforePage?: () => void;
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
   const searchParams = {
     resourceType: 'Claim' as const,
-    params: [...params, claimScanElements(withServiceDate, withTotal)],
+    params: [...params, claimScanElements(withServiceDate, withTotal, withInsurance)],
   };
 
   const claims: FhirResourceReturnValue<Claim>[] = [];
@@ -468,6 +477,7 @@ export async function searchClaimsBySearchText({
   filterParams,
   withServiceDateElements,
   withTotalElements,
+  withInsuranceElements,
   patientNameOnly,
 }: {
   oystehr: Oystehr;
@@ -475,6 +485,7 @@ export async function searchClaimsBySearchText({
   filterParams: ClaimSearchParam[];
   withServiceDateElements: boolean;
   withTotalElements?: boolean;
+  withInsuranceElements?: boolean;
   patientNameOnly?: boolean;
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
   const clauses = buildClaimSearchTextQueries({ searchText, patientNameOnly });
@@ -494,6 +505,7 @@ export async function searchClaimsBySearchText({
             maxMatches: CLAIM_SEARCH_TEXT_MATCH_LIMIT,
             withServiceDate: withServiceDateElements,
             withTotal: withTotalElements,
+            withInsurance: withInsuranceElements,
           });
         } catch (error) {
           // One clause the server won't accept shouldn't empty the search, but it must be loud.
@@ -529,10 +541,71 @@ export async function searchClaimsBySearchText({
   };
 }
 
+const PLAN_TYPE_COVERAGE_CHUNK_SIZE = 100;
+const PLAN_TYPE_COVERAGE_CONCURRENCY = 4;
+
+const primaryCoverageId = (claim: Pick<Claim, 'insurance'>): string | undefined => {
+  const ref = sortClaimInsurance(claim)[0]?.coverage?.reference;
+  return ref?.startsWith('Coverage/') ? ref.slice('Coverage/'.length) : undefined;
+};
+
+/**
+ * The claims whose primary coverage has one of the plan types. Claim has no search parameter that
+ * reaches its coverage, so this reads the coverages the claims point at (which must carry
+ * Claim.insurance) and matches in memory. A claim with no coverage (self-pay stub) has no plan type.
+ */
+export async function filterClaimsByPrimaryPlanType<T extends Pick<Claim, 'insurance'>>({
+  oystehr,
+  claims,
+  planTypes,
+}: {
+  oystehr: Oystehr;
+  claims: T[];
+  planTypes: string[];
+}): Promise<T[]> {
+  const coverageIds = [...new Set(claims.map(primaryCoverageId).filter((id): id is string => !!id))];
+  if (coverageIds.length === 0) return [];
+
+  const chunks: string[][] = [];
+  for (let start = 0; start < coverageIds.length; start += PLAN_TYPE_COVERAGE_CHUNK_SIZE) {
+    chunks.push(coverageIds.slice(start, start + PLAN_TYPE_COVERAGE_CHUNK_SIZE));
+  }
+  // The plan type lives in an extension or a Coverage.type coding (see getCoveragePlanType), and an
+  // extension can't be searched, so read both and decide here.
+  const coverages = (
+    await mapWithConcurrency(chunks, PLAN_TYPE_COVERAGE_CONCURRENCY, async (ids) =>
+      (
+        await oystehr.fhir.search<Coverage>({
+          resourceType: 'Coverage',
+          params: [
+            { name: '_id', value: ids.join(',') },
+            { name: '_elements', value: 'id,type,extension' },
+            { name: '_count', value: String(ids.length) },
+          ],
+        })
+      ).unbundle()
+    )
+  ).flat();
+
+  const wanted = new Set(planTypes);
+  const matchingCoverageIds = new Set(
+    coverages
+      .filter((coverage) => {
+        const planType = getCoveragePlanType(coverage);
+        return !!coverage.id && !!planType && wanted.has(planType);
+      })
+      .map((coverage) => coverage.id)
+  );
+  return claims.filter((claim) => {
+    const id = primaryCoverageId(claim);
+    return !!id && matchingCoverageIds.has(id);
+  });
+}
+
 /**
  * Every claim a claims list search matches, as the scan fields only (id, meta, plus dates and total
  * when asked for) — for when the matches can't be paged by the server: a search text, a service
- * date range, a sort with no search parameter, or a sum across all matches. Bounded by the scan
+ * date range, a plan type, a sort with no search parameter, or a sum across all matches. Bounded by the scan
  * limits, so `incomplete` reports whether claims were left out.
  */
 export async function scanMatchingClaims({
@@ -543,13 +616,17 @@ export async function scanMatchingClaims({
   withTotal,
 }: {
   oystehr: Oystehr;
-  params: Pick<SearchBillingClaimsInput, 'searchText' | 'patientNameOnly' | 'serviceDateFrom' | 'serviceDateTo'>;
+  params: Pick<
+    SearchBillingClaimsInput,
+    'searchText' | 'patientNameOnly' | 'serviceDateFrom' | 'serviceDateTo' | 'planType'
+  >;
   filterParams: ClaimSearchParam[];
   withServiceDate?: boolean;
   withTotal?: boolean;
 }): Promise<{ claims: FhirResourceReturnValue<Claim>[]; incomplete: boolean }> {
   const filteringByServiceDate = Boolean(params.serviceDateFrom || params.serviceDateTo);
   const withDates = Boolean(withServiceDate) || filteringByServiceDate;
+  const filteringByPlanType = Boolean(params.planType?.length);
   const matched = params.searchText
     ? await searchClaimsBySearchText({
         oystehr,
@@ -557,6 +634,7 @@ export async function scanMatchingClaims({
         filterParams,
         withServiceDateElements: withDates,
         withTotalElements: withTotal,
+        withInsuranceElements: filteringByPlanType,
         patientNameOnly: params.patientNameOnly,
       })
     : await scanClaimIds({
@@ -565,11 +643,16 @@ export async function scanMatchingClaims({
         maxMatches: CLAIM_SCAN_MATCH_LIMIT,
         withServiceDate: withDates,
         withTotal,
+        withInsurance: filteringByPlanType,
       });
+  let claims = filteringByServiceDate
+    ? matched.claims.filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo))
+    : matched.claims;
+  if (params.planType?.length) {
+    claims = await filterClaimsByPrimaryPlanType({ oystehr, claims, planTypes: params.planType });
+  }
   return {
-    claims: filteringByServiceDate
-      ? matched.claims.filter((c) => claimMatchesServiceDateRange(c, params.serviceDateFrom, params.serviceDateTo))
-      : matched.claims,
+    claims,
     incomplete: matched.incomplete,
   };
 }
