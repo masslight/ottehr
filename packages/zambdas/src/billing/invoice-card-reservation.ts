@@ -61,20 +61,13 @@ export async function settleOtherCardReservation({
   const customerId = getStripeCustomerIdFromAccount(nio, stripeAccount);
   const reservedAt = DateTime.fromISO(reservation.reservedAt);
   const paymentIntent = customerId
-    ? (
-        await getStripe().paymentIntents.list(
-          {
-            customer: customerId,
-            created: {
-              gte: reservedAt.minus({ minutes: 1 }).toUnixInteger(),
-            },
-            limit: 100,
-          },
-          {
-            stripeAccount,
-          }
-        )
-      ).data.find((intent) => intent.metadata?.[STRIPE_METADATA_KEYS.invoicePaymentId] === reservation.paymentId)
+    ? await findPaymentIntentForPayment({
+        stripe: getStripe(),
+        stripeAccount,
+        customerId,
+        createdFrom: reservedAt.minus({ minutes: 1 }),
+        paymentId: reservation.paymentId,
+      })
     : undefined;
 
   if (paymentIntent?.status === 'succeeded') {
@@ -109,6 +102,47 @@ export async function settleOtherCardReservation({
     invoiceId,
     paymentId: reservation.paymentId,
   });
+}
+
+async function findPaymentIntentForPayment({
+  stripe,
+  stripeAccount,
+  customerId,
+  createdFrom,
+  paymentId,
+}: {
+  stripe: Stripe;
+  stripeAccount: string | undefined;
+  customerId: string;
+  createdFrom: DateTime;
+  paymentId: string;
+}): Promise<Stripe.PaymentIntent | undefined> {
+  let startingAfter: string | undefined;
+  let hasMore = true;
+  while (hasMore) {
+    const page = await stripe.paymentIntents.list(
+      {
+        customer: customerId,
+        created: {
+          gte: createdFrom.toUnixInteger(),
+        },
+        limit: 100,
+        ...(startingAfter
+          ? {
+              starting_after: startingAfter,
+            }
+          : {}),
+      },
+      {
+        stripeAccount,
+      }
+    );
+    const found = page.data.find((intent) => intent.metadata?.[STRIPE_METADATA_KEYS.invoicePaymentId] === paymentId);
+    if (found) return found;
+    startingAfter = page.data.at(-1)?.id;
+    hasMore = page.has_more && startingAfter !== undefined;
+  }
+  return undefined;
 }
 
 // Reserves the invoice for this card payment, locked to the version its balance was read at. Undefined

@@ -201,6 +201,39 @@ describe('settleOtherCardReservation', () => {
     expect(notices.map(getNioInvoicePaymentId)).toEqual([OTHER_PAYMENT_ID]);
   });
 
+  it('pages through the payer intents to find the reserved charge', async () => {
+    const { oystehr, stripe, transaction, list } = setup({
+      invoice: reservedInvoice(NOW.minus({ minutes: 10 })),
+    });
+    list
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'pi_newer',
+            status: 'succeeded',
+            metadata: {},
+          },
+        ],
+        has_more: true,
+      })
+      .mockResolvedValueOnce({
+        data: [otherIntent('succeeded')],
+        has_more: false,
+      });
+
+    await settle(oystehr, stripe);
+
+    expect(list).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        starting_after: 'pi_newer',
+      }),
+      {
+        stripeAccount: STRIPE_ACCOUNT,
+      }
+    );
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
   it('refuses while the reserved charge is processing', async () => {
     const { oystehr, stripe, patch } = setup({
       invoice: reservedInvoice(NOW.minus({ minutes: 10 })),
