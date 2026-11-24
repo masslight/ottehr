@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -20,6 +20,7 @@ const {
   searchBillingServicesMock,
   checkBillingNioInvoiceMock,
   searchBillingTagsMock,
+  searchBillingProcedureCodesMock,
   mockOystehrZambda,
 } = vi.hoisted(() => ({
   searchBillingClaimsMock: vi.fn(),
@@ -33,6 +34,7 @@ const {
   searchBillingServicesMock: vi.fn().mockResolvedValue({ services: [] }),
   checkBillingNioInvoiceMock: vi.fn(),
   searchBillingTagsMock: vi.fn().mockResolvedValue({ tags: [] }),
+  searchBillingProcedureCodesMock: vi.fn().mockResolvedValue({ codes: [] }),
   mockOystehrZambda: {},
 }));
 
@@ -49,7 +51,7 @@ vi.mock('../../src/api/api', () => ({
   searchBillingServices: searchBillingServicesMock,
   searchBillingTags: searchBillingTagsMock,
   checkBillingNioInvoice: checkBillingNioInvoiceMock,
-  searchBillingProcedureCodes: vi.fn().mockResolvedValue({ codes: [] }),
+  searchBillingProcedureCodes: searchBillingProcedureCodesMock,
 }));
 
 // mockOystehrZambda is a stable reference, like the real store-backed hook returns — a fresh object on
@@ -1116,6 +1118,27 @@ describe('ClaimsList — service line filter', () => {
       )
     );
     expect(linesField).toHaveValue('CPT 99213; Mod 25; POS 11');
+  });
+
+  it('keeps the newest CPT suggestions when an older lookup answers last', async () => {
+    let answerOlder: (value: { codes: { code: string; display: string }[] }) => void = () => undefined;
+    searchBillingProcedureCodesMock
+      .mockImplementationOnce(() => new Promise((resolve) => (answerOlder = resolve)))
+      .mockResolvedValueOnce({ codes: [{ code: '99214', display: 'Office visit, moderate' }] });
+    const user = userEvent.setup();
+    renderList();
+
+    await user.click(await screen.findByLabelText('Service Lines'));
+    const cptInput = await screen.findByLabelText('CPT / HCPCS codes');
+    await user.type(cptInput, '992');
+    await waitFor(() => expect(searchBillingProcedureCodesMock).toHaveBeenCalledWith({}, { query: '992' }));
+    await user.type(cptInput, '14');
+    expect(await screen.findByRole('option', { name: /99214/ })).toBeInTheDocument();
+
+    await act(async () => answerOlder({ codes: [{ code: '99213', display: 'Office visit, low' }] }));
+
+    expect(screen.getByRole('option', { name: /99214/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /99213/ })).not.toBeInTheDocument();
   });
 
   it('restores kept service line filters', async () => {

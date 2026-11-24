@@ -50,28 +50,32 @@ export function ClaimServiceLineFilter({
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [cptOptions, setCptOptions] = useState<BillingCodeOption[]>([]);
   const cptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cptRequest = useRef(0);
   const summary = summarizeServiceLineFilter(value);
 
   useEffect(
     () => (): void => {
       if (cptTimer.current) clearTimeout(cptTimer.current);
+      cptRequest.current += 1;
     },
     []
   );
 
   const searchCpt = (query: string): void => {
     if (cptTimer.current) clearTimeout(cptTimer.current);
+    const request = ++cptRequest.current;
     if (!oystehrZambda || query.trim().length < 2) {
       setCptOptions([]);
       return;
     }
     cptTimer.current = setTimeout(async () => {
+      let codes: BillingCodeOption[] = [];
       try {
-        const res = await searchBillingProcedureCodes(oystehrZambda, { query: query.trim() });
-        setCptOptions(res.codes ?? []);
+        codes = (await searchBillingProcedureCodes(oystehrZambda, { query: query.trim() })).codes ?? [];
       } catch {
-        setCptOptions([]);
+        codes = [];
       }
+      if (request === cptRequest.current) setCptOptions(codes);
     }, 300);
   };
 
@@ -133,7 +137,7 @@ export function ClaimServiceLineFilter({
               (typeof o === 'string' ? o : o.code) === (typeof v === 'string' ? v : v.code)
             }
             onInputChange={(_, query, reason) => {
-              if (reason === 'input') searchCpt(query);
+              if (reason === 'input' || reason === 'clear') searchCpt(query);
             }}
             onChange={(_, next) =>
               onChange({ ...value, cptCode: normalizeCodes(next.map((o) => (typeof o === 'string' ? o : o.code))) })
