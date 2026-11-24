@@ -5,9 +5,10 @@ import { ReactElement } from 'react';
 interface ChatIconButtonProps {
   hasUnread: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }
 
-export function ChatIconButton({ hasUnread, onClick }: ChatIconButtonProps): ReactElement {
+export function ChatIconButton({ hasUnread, onClick, disabled }: ChatIconButtonProps): ReactElement {
   const theme = useTheme();
 
   const icon = (
@@ -35,6 +36,7 @@ export function ChatIconButton({ hasUnread, onClick }: ChatIconButtonProps): Rea
         },
       }}
       onClick={onClick}
+      disabled={disabled}
       aria-label={hasUnread ? 'unread messages chat icon' : 'chat icon, no unread messages'}
     >
       {hasUnread ? (

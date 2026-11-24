@@ -7,7 +7,12 @@ import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName, getSMSNumberForIndividual } from 'utils/lib/fhir/patient';
 import { AppointmentMessaging, SMSRecipient } from 'utils/lib/types/api/messaging.types';
-import { CHAT_MESSAGES_QUERY_KEY, QuickTextsContext, useFetchChatMessagesQuery } from './chat.queries';
+import {
+  CHAT_MESSAGES_QUERY_KEY,
+  PATIENT_CHAT_RECIPIENTS_QUERY_KEY,
+  QuickTextsContext,
+  useFetchChatMessagesQuery,
+} from './chat.queries';
 import { ChatIconButton } from './ChatIconButton';
 import ChatModal from './ChatModal';
 
@@ -36,8 +41,12 @@ export function PatientChatButton({ patient, latestVisitId }: PatientChatButtonP
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: recipients } = useQuery({
-    queryKey: ['patient-chat-recipients', patientId],
+  const {
+    data: recipients,
+    isFetching: isRecipientsFetching,
+    isError: isRecipientsError,
+  } = useQuery({
+    queryKey: [PATIENT_CHAT_RECIPIENTS_QUERY_KEY, patientId],
     queryFn: async (): Promise<SMSRecipient[]> => {
       const resources = (
         await oystehr!.fhir.search<RelatedPerson | Person>({
@@ -115,13 +124,14 @@ export function PatientChatButton({ patient, latestVisitId }: PatientChatButtonP
     [patient, latestVisitId]
   );
 
-  // Like the tracking board, show no chat when no number on the account can receive texts.
+  const recipientsUnreliable = isRecipientsFetching || isRecipientsError;
+
   if (!appointmentMessaging) return null;
 
   return (
     <>
-      <ChatIconButton hasUnread={hasUnread} onClick={() => setOpen(true)} />
-      {open && (
+      <ChatIconButton hasUnread={hasUnread} onClick={() => setOpen(true)} disabled={recipientsUnreliable} />
+      {open && !recipientsUnreliable && (
         <ChatModal
           appointment={appointmentMessaging}
           onClose={onClose}
