@@ -25,8 +25,7 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useEffect, useRef, useState } from 'react';
-import { Control, Controller, useForm } from 'react-hook-form';
-import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
+import { Controller, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
 import { ServiceMode } from 'utils/lib/types/common';
@@ -36,7 +35,7 @@ import { DISPLAY_DATE_AND_TIME_FORMAT } from 'utils/lib/utils/dateUtils';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { listBillingPatientPaymentMethods, postBillingPatientPayment, recordBillingManualPayment } from '../api/api';
 import { useApiClients } from '../hooks/useAppClients';
-import { cardBrandName } from '../utils/format';
+import { CardSelect } from './CardSelect';
 import { DateInput } from './DateInput';
 
 // mirrors the EHR visit-details payment dialog; a card reader payment is keyed in like cash here,
@@ -92,11 +91,6 @@ const visitLabel = (visit: BillingPatientVisit): { primary: string; secondary: s
 const visitSummary = (visit: BillingPatientVisit): string => {
   const { primary, secondary } = visitLabel(visit);
   return [primary, secondary].filter(Boolean).join(' · ');
-};
-
-const cardLabel = (card: BillingCard): string => {
-  const expiry = `${String(card.expMonth).padStart(2, '0')}/${String(card.expYear).slice(-2)}`;
-  return `${cardBrandName(card.brand)} •••• ${card.lastFour} (exp ${expiry})${card.default ? ' — Primary' : ''}`;
 };
 
 // The day is recorded in the practice's timezone; noon there keeps it on that day whatever the
@@ -310,7 +304,14 @@ export function AddPatientPaymentDialog({
             )}
           />
           {isCard ? (
-            <CardSelect control={control} cards={cards} loading={cardsLoading} error={cardsError} />
+            <CardSelect
+              control={control}
+              name="cardId"
+              cards={cards}
+              loading={cardsLoading}
+              error={cardsError}
+              emptyMessage="The patient has no saved cards for this visit. Cards can be added from the visit in the EHR."
+            />
           ) : (
             <>
               {paymentMethod === 'card-reader' && (
@@ -370,64 +371,5 @@ export function AddPatientPaymentDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  );
-}
-
-function CardSelect({
-  control,
-  cards,
-  loading,
-  error,
-}: {
-  control: Control<PaymentForm>;
-  cards: BillingCard[];
-  loading: boolean;
-  error: string;
-}): ReactElement {
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <CircularProgress size={16} />
-        <Typography variant="body2" color="text.secondary">
-          Loading saved cards…
-        </Typography>
-      </Box>
-    );
-  }
-  if (error) return <Alert severity="error">{error}</Alert>;
-  if (cards.length === 0) {
-    return (
-      <Alert severity="info">
-        The patient has no saved cards for this visit. Cards can be added from the visit in the EHR.
-      </Alert>
-    );
-  }
-  return (
-    <Controller
-      name="cardId"
-      control={control}
-      rules={{ required: 'Select a card' }}
-      render={({ field, fieldState: { error: fieldError } }) => (
-        <FormControl size="small" fullWidth error={!!fieldError}>
-          <InputLabel id="payment-card-label">Card *</InputLabel>
-          <Select
-            labelId="payment-card-label"
-            label="Card *"
-            value={field.value}
-            onChange={(e) => field.onChange(e.target.value)}
-          >
-            {cards.map((card) => (
-              <MenuItem key={card.id} value={card.id}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CreditCardBrandIcon brand={card.brand} />
-                  {cardLabel(card)}
-                </Box>
-              </MenuItem>
-            ))}
-          </Select>
-          <FormHelperText>{fieldError?.message ?? 'The card is charged today.'}</FormHelperText>
-        </FormControl>
-      )}
-    />
   );
 }
