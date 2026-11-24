@@ -9,11 +9,13 @@ import InvoiceDetail from '../../src/pages/InvoiceDetail';
 
 const mocks = vi.hoisted(() => ({
   getInvoice: vi.fn(),
+  listCards: vi.fn(),
   downloadUrl: vi.fn(),
   client: {},
 }));
 vi.mock('../../src/api/api', () => ({
   getBillingInvoice: mocks.getInvoice,
+  listBillingNioInvoicePaymentMethods: mocks.listCards,
 }));
 vi.mock('../../src/hooks/useAppClients', () => ({
   useApiClients: () => ({
@@ -164,7 +166,7 @@ describe('InvoiceDetail', () => {
     expect(balanceLabel.parentElement).toHaveTextContent('Balance-');
   });
 
-  it('offers to record a payment on an unpaid invoice, and keeps card payments disabled', async () => {
+  it('offers to record a payment or collect a card payment on an unpaid invoice', async () => {
     mocks.getInvoice.mockResolvedValue(unpaidInvoice);
     renderPage();
 
@@ -172,15 +174,17 @@ describe('InvoiceDetail', () => {
     const recordPayment = screen.getByRole('button', { name: 'Record payment' });
     const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
     expect(recordPayment).toBeEnabled();
-    expect(collectCardPayment).toBeDisabled();
+    expect(collectCardPayment).toBeEnabled();
   });
 
-  it('takes no recorded payment on a partially paid invoice, since only full payments are recorded', async () => {
+  it('takes no payment on a partially paid invoice, since only full payments are taken', async () => {
     renderPage();
 
     await screen.findByRole('heading', { name: 'INV-00042' });
     const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
     expect(recordPayment).toBeDisabled();
+    expect(collectCardPayment).toBeDisabled();
   });
 
   it('takes no payment on a paid invoice', async () => {
@@ -193,7 +197,28 @@ describe('InvoiceDetail', () => {
 
     await screen.findByRole('heading', { name: 'INV-00042' });
     const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
     expect(recordPayment).toBeDisabled();
+    expect(collectCardPayment).toBeDisabled();
+  });
+
+  it('opens the card payment dialog for the balance', async () => {
+    const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
+    mocks.listCards.mockResolvedValue({
+      cards: [],
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+
+    const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
+    await user.click(collectCardPayment);
+
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('320.00');
+    expect(mocks.listCards).toHaveBeenCalledWith(mocks.client, {
+      invoiceId: 'invoice-1',
+    });
   });
 
   it('opens the record payment dialog for the balance', async () => {

@@ -22,6 +22,7 @@ import { CLAIM_STATUS_FIELDS_BY_KEY, getActiveStatusGroup } from 'utils/lib/type
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getBillingInvoice } from '../api/api';
 import { ClaimStatusValueChip } from '../components/ClaimStatusValueChip';
+import { CollectInvoiceCardPaymentDialog } from '../components/CollectInvoiceCardPaymentDialog';
 import { InvoiceStatusChip } from '../components/InvoiceStatusChip';
 import { ReadOnlySection, thSx } from '../components/ReadOnlySection';
 import { RecordInvoicePaymentDialog } from '../components/RecordInvoicePaymentDialog';
@@ -164,6 +165,7 @@ export default function InvoiceDetail(): ReactElement {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [recordingPayment, setRecordingPayment] = useState(false);
+  const [collectingCardPayment, setCollectingCardPayment] = useState(false);
 
   const invoice = useQuery({
     queryKey: ['billing-invoice', invoiceId],
@@ -261,7 +263,7 @@ export default function InvoiceDetail(): ReactElement {
         <Button variant="contained" disabled={!canRecordPayment} onClick={() => setRecordingPayment(true)}>
           Record payment
         </Button>
-        <Button variant="outlined" disabled>
+        <Button variant="outlined" disabled={!canRecordPayment} onClick={() => setCollectingCardPayment(true)}>
           Collect card payment
         </Button>
         <Button
@@ -306,12 +308,20 @@ export default function InvoiceDetail(): ReactElement {
         />
       )}
       {invoice.data && (
-        <RecordInvoicePaymentDialog
-          open={recordingPayment}
-          onClose={() => setRecordingPayment(false)}
-          onRecorded={() => invoice.refetch()}
-          invoice={invoice.data}
-        />
+        <>
+          <RecordInvoicePaymentDialog
+            open={recordingPayment}
+            onClose={() => setRecordingPayment(false)}
+            onRecorded={() => invoice.refetch()}
+            invoice={invoice.data}
+          />
+          <CollectInvoiceCardPaymentDialog
+            open={collectingCardPayment}
+            onClose={() => setCollectingCardPayment(false)}
+            onPaid={() => invoice.refetch()}
+            invoice={invoice.data}
+          />
+        </>
       )}
     </Box>
   );
