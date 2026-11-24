@@ -45,10 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     category: params.category,
     title: params.taskTitle,
     encounterId: params.encounterId,
-    location: {
-      id: params.location.id,
-      name: params.location.name,
-    },
+    location: params.location,
     input: [
       {
         type: MANUAL_TASK.input.title,

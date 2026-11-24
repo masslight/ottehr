@@ -797,7 +797,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     title =
       getInputString(MANUAL_TASK.input.title, task) +
       (patientReference ? ' for ' + formatTaskPatientDisplay(patientReference.display) : '');
-    subtitle = `Manual task by ${providerName} / ${task.location?.display ?? ''}`;
+    subtitle = `Manual task by ${providerName}${task.location?.display ? ` / ${task.location.display}` : ''}`;
     details = getInputString(MANUAL_TASK.input.details, task) ?? '';
     completable = true;
     if (orderId) {
