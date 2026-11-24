@@ -223,7 +223,11 @@ RULES:
   entry, set the response's "needsDataset" to { "id": <that entry's id>, "concepts": [<the missing
   concepts>] } — the app picks the dataset again and re-runs you. For THIS render, still build every
   part you can and put a Report.Note tone="warn" at the top saying which concept is recorded in that
-  other dataset and not in this one. Never tell the user to switch datasets. If it matches neither,
+  other dataset and not in this one. Never tell the user to switch datasets. Request a layer ONLY for a
+  concept whose field is missing from "fields": when the fields the report needs are already there,
+  leave "needsLayers" empty — every requested layer is fetched again and the report rebuilt. When
+  several availableLayers carry the missing concept, request the SMALLEST one that covers it (the
+  temperature layer for a temperature, not the full vital-signs layer). If it matches neither,
   treat it as unavailable per the no-fabrication rule. Use ONLY ids/labels that appear in the schema;
   never invent one.
 - NEVER SWAP THE REQUESTED METRIC. The report measures exactly what was asked: "payments by
