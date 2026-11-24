@@ -1,6 +1,12 @@
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
-import { DoseBasis, ML_MEASURE_STEPS, plainDose, startingMeasureStep } from 'utils/lib/helpers/medications/plain-dose';
+import {
+  DoseBasis,
+  measureOf,
+  ML_MEASURE_STEPS,
+  plainDose,
+  startingMeasureStep,
+} from 'utils/lib/helpers/medications/plain-dose';
 import {
   isCombinationProduct,
   PRESCRIPTION_FREQUENCIES,
@@ -22,7 +28,6 @@ import {
   DoseNote,
   ingredientText,
   lineMaximumOf,
-  measureOf,
   mgPerMeasure,
   NO_DETAILS_MESSAGE,
   numberOrUndefined,

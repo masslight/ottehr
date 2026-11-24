@@ -524,9 +524,6 @@ export const withCalculatorDosing = (
 export const numberOrUndefined = (value: string): number | undefined =>
   value.trim() === '' || !Number.isFinite(Number(value)) ? undefined : Number(value);
 
-// The server checks a quick pick's dosing with the same measure.
-export { measureOf };
-
 /** What a quick pick's row says for a combination product with weight dosing: which ingredient is the provider's
  * pick, in the calculator. */
 export const COMBINATION_MESSAGE = 'Combination product: open the calculator to choose which ingredient to dose by';

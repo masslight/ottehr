@@ -1,3 +1,4 @@
+import { measureOf } from 'utils/lib/helpers/medications/plain-dose';
 import { PrescriptionOrderMetadataSchema } from 'utils/lib/types/api/erx.types';
 import { MedicationIngredient, MedicationStrength } from 'utils/lib/types/api/erx-search.types';
 import { CompoundIngredientInput, CompoundInput, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
@@ -17,7 +18,6 @@ import {
   lineMissingDoseUnit,
   maximumOriginText,
   maximumWarnings,
-  measureOf,
   mgPerMeasure,
   pickedStrength,
   prescriptionAllergies,

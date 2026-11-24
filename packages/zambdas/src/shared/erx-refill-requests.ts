@@ -21,8 +21,6 @@ import { ERX_TASK, getTaskInputValue, MANUAL_TASK } from 'utils/lib/types/data/t
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { makePrescribedMedicationDTO, readPrescriptionMetadata } from './chart-data';
-
-export { readPrescriptionMetadata };
 import { createOwnerReference, createTask } from './tasks';
 
 // The eRx service's renewal or change Task is the pharmacy's request; the Ottehr task, basedOn it, is what the Tasks page shows.

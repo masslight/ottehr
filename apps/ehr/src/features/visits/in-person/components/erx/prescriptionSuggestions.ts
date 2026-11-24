@@ -1,5 +1,5 @@
 import { SentencePicks } from 'src/components/SuggestedSentences';
-import { plainDose, startingMeasureStep } from 'utils/lib/helpers/medications/plain-dose';
+import { measureOf, plainDose, startingMeasureStep } from 'utils/lib/helpers/medications/plain-dose';
 import {
   doseUnitLabel,
   isCombinationProduct,
@@ -34,7 +34,6 @@ import {
   COMBINATION_MESSAGE,
   emptyPrescriptionLine,
   lineMaximumOf,
-  measureOf,
   mgPerMeasure,
   NO_DETAILS_MESSAGE,
   PrescriptionLine,

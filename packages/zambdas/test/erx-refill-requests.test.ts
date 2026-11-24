@@ -10,12 +10,12 @@ import {
 import { ERX_TASK, MANUAL_TASK } from 'utils/lib/types/data/tasks/types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
+import { readPrescriptionMetadata } from '../src/shared/chart-data';
 import {
   getErxRequest,
   makeErxRequestTask,
   readPharmacyChangeRequest,
   readPharmacyRefillRequest,
-  readPrescriptionMetadata,
   refillRequestTaskAction,
   refillRequestTitle,
   syncErxRequestTask,
