@@ -1,6 +1,6 @@
 import { CatalogDataset } from 'utils/lib/types/adhoc/generation/infer.types';
 import { describe, expect, it } from 'vitest';
-import { parseDatasets } from '../src/ehr/infer-adhoc-report-layers/index';
+import { foldIntoForeignLayers, parseDatasets } from '../src/ehr/infer-adhoc-report-layers/index';
 
 // todo: rejection is not a business rule, maybe we can add support for mixed datasets later
 describe('parseDatasets', () => {
@@ -74,5 +74,44 @@ describe('parseDatasets', () => {
     expect(
       parseDatasets([{ id: 'encounters-comprehensive', layerIds: ['vitalsTemperature', 'codes'] }], vitalsCatalog)
     ).toEqual([{ id: 'encounters-comprehensive', layerIds: ['vitalsTemperature', 'codes'] }]);
+  });
+});
+
+describe('foldIntoForeignLayers', () => {
+  const layer = (id: string): CatalogDataset['layers'][number] => ({ id, label: id, fields: [] });
+  const catalog: CatalogDataset[] = [
+    { id: 'patients', label: 'Patients', fields: [], layers: [layer('demographics'), layer('allergies')] },
+    {
+      id: 'billing',
+      label: 'Billing',
+      fields: [],
+      layers: [layer('payments'), layer('patients.demographics'), layer('patients.allergies')],
+    },
+    { id: 'billing-claims', label: 'Claims', fields: [], layers: [layer('codes')] },
+  ];
+
+  it('folds the patients dataset into the visit rows when they offer its layers as foreign layers', () => {
+    expect(
+      foldIntoForeignLayers(
+        [
+          { id: 'billing', layerIds: [] },
+          { id: 'patients', layerIds: ['demographics'] },
+        ],
+        catalog
+      )
+    ).toEqual([{ id: 'billing', layerIds: ['patients.demographics'] }]);
+  });
+
+  it('keeps several datasets when a layer is not offered, or when one is picked for its base fields only', () => {
+    const notOffered = [
+      { id: 'billing', layerIds: [] },
+      { id: 'billing-claims', layerIds: ['codes'] },
+    ];
+    expect(foldIntoForeignLayers(notOffered, catalog)).toEqual(notOffered);
+    const baseOnly = [
+      { id: 'billing', layerIds: ['payments'] },
+      { id: 'patients', layerIds: [] },
+    ];
+    expect(foldIntoForeignLayers(baseOnly, catalog)).toEqual(baseOnly);
   });
 });

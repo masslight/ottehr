@@ -100,6 +100,10 @@ layers, or what can be computed from them (tests 1-3 below). Words like "visits"
 "diagnoses" do not by themselves point to a dataset: several datasets carry visit counts,
 demographics or codes, so judge by the fields. Only when NO single dataset covers the whole request,
 return every dataset the request needs, two or more.
+When the request counts, lists or groups VISITS (by location, provider, date, payer…), one row must be
+one visit: pick the visit-level dataset and add the patient's facts (allergies, language, insurance…)
+through its "patients.<layer>" foreign layer — never the patients dataset, whose row is a patient and
+whose visit columns are only per-patient summaries.
 
 JOB 2 — PICK THE LAYERS. Optional layers add columns (and a heavier fetch) to a dataset. For each
 returned dataset, put in its "layerIds" ONLY the ids of its layers (own or foreign) the request genuinely needs —
@@ -221,6 +225,32 @@ export const parseDatasets = (value: unknown, catalog: CatalogDataset[]): InferA
   }));
 };
 
+export const foldIntoForeignLayers = (
+  picked: InferAdHocLayersOutput['datasets'],
+  catalog: CatalogDataset[]
+): InferAdHocLayersOutput['datasets'] => {
+  if (picked.length < 2) return picked;
+
+  for (const host of picked) {
+    const offered = new Set(catalog.find((d) => d.id === host.id)?.layers.map((l) => l.id) ?? []);
+    const others = picked.filter((d) => d.id !== host.id);
+
+    const folds = others.every(
+      (other) => other.layerIds.length > 0 && other.layerIds.every((layerId) => offered.has(`${other.id}.${layerId}`))
+    );
+
+    if (!folds) continue;
+
+    const layerIds = new Set(host.layerIds);
+
+    for (const other of others) for (const layerId of other.layerIds) layerIds.add(`${other.id}.${layerId}`);
+
+    return [{ id: host.id, layerIds: Array.from(layerIds) }];
+  }
+
+  return picked;
+};
+
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const { datasets, request, feedback, secrets } = validateRequestParameters(input);
 
@@ -240,7 +270,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     hint?: unknown;
   };
 
-  const picked = parseDatasets(parsed?.datasets, datasets);
+  const picked = foldIntoForeignLayers(parseDatasets(parsed?.datasets, datasets), datasets);
 
   const unavailable = Array.isArray(parsed.unavailable)
     ? parsed.unavailable.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
