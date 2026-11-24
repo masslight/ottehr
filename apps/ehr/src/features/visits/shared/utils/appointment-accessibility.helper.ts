@@ -1,8 +1,9 @@
 import { Appointment, Encounter, Location } from 'fhir/r4b';
 import { EvolveUser } from 'src/hooks/useEvolveUser';
 import { EncounterVisitType, getEncounterVisitType } from 'utils/lib/fhir/encounter';
-import { allLicensesForPractitioner, isAppointmentLocked, isEncounterLocked } from 'utils/lib/fhir/helpers';
+import { allLicensesForPractitioner } from 'utils/lib/fhir/helpers';
 import { checkEncounterHasPractitioner } from 'utils/lib/fhir/patient';
+import { isVisitChartLocked } from 'utils/lib/fhir/visit-lock';
 import { PractitionerLicense } from 'utils/lib/types/api/practitioner.types';
 import { StateType } from 'utils/lib/types/common';
 
@@ -39,22 +40,13 @@ export const getAppointmentAccessibilityData = ({
   const isEncounterAssignedToCurrentPractitioner =
     !!user?.profileResource && !!encounter && checkEncounterHasPractitioner(encounter, user.profileResource);
 
-  // Check if the chart is locked via meta tag. Annotation follow-ups have no own Appointment, so their
-  // lock lives on the Encounter; everything else uses the Appointment lock.
-  const visitType = getEncounterVisitType(encounter);
-  const isFollowup = visitType === 'follow-up';
-  const isAppointmentLockedByMetaTag = appointment ? isAppointmentLocked(appointment) : false;
-  const isEncounterLockedByMetaTag = encounter ? isEncounterLocked(encounter) : false;
-
-  const isLocked = isFollowup ? isEncounterLockedByMetaTag : isAppointmentLockedByMetaTag;
-
   return {
     allLicenses,
     licensedPractitionerStates,
     state,
     isPractitionerLicensedInState,
     isEncounterAssignedToCurrentPractitioner,
-    isAppointmentReadOnly: isLocked,
-    visitType,
+    isAppointmentReadOnly: isVisitChartLocked(encounter, appointment),
+    visitType: getEncounterVisitType(encounter),
   };
 };
