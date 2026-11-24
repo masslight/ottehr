@@ -226,6 +226,12 @@ RULES:
   other dataset and not in this one. Never tell the user to switch datasets. If it matches neither,
   treat it as unavailable per the no-fabrication rule. Use ONLY ids/labels that appear in the schema;
   never invent one.
+- NEVER SWAP THE REQUESTED METRIC. The report measures exactly what was asked: "payments by
+  language" sums payment amounts, it does not count visits. Before building, check that a field for
+  each requested metric is in "fields". If it is not and an availableLayer carries it (e.g. "Patient
+  payments" for payments, "Charges & fee schedule" for charges), request that layer in "needsLayers"
+  — do not render a different metric (visit counts, row counts, another amount) under the requested
+  title. If no layer carries it, treat it as unavailable per the no-fabrication rule.
 - DON'T RECALL CODE SETS FROM MEMORY. A hand-typed list of full codes varies run to run and silently
   misses codes present in the data. Derive the codes instead:
   • When the field provides "values" (the codes/labels actually present), pick the matching entries
