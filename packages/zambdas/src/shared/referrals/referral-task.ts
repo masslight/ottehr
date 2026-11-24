@@ -82,20 +82,7 @@ const overdueOperations = (task: Task, anchorIso: string): Operation[] => [
   ...(hasOverdueNotifiedTag(task) ? [getPatchOperationToRemoveMetaTags(task, [OVERDUE_NOTIFIED_TAG])] : []),
 ];
 
-export const setReferralTaskOverdue = async (
-  oystehr: Oystehr,
-  referralId: string,
-  anchorIso: string
-): Promise<void> => {
-  const openTasks = await findOpenReferralTasks(oystehr, referralId);
-  await Promise.all(
-    openTasks.map((task) =>
-      oystehr.fhir.patch<Task>({ resourceType: 'Task', id: task.id!, operations: overdueOperations(task, anchorIso) })
-    )
-  );
-};
-
-/** setReferralTaskOverdue for one task, as a request for the caller's transaction. */
+/** Restarts one open task's overdue clock from `anchorIso`, as a request for the caller's transaction. */
 export const referralTaskOverdueRequest = (task: Task, anchorIso: string): BatchInputPatchRequest<FhirResource> =>
   getPatchBinary({ resourceType: 'Task', resourceId: task.id!, patchOperations: overdueOperations(task, anchorIso) });
 

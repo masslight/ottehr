@@ -833,4 +833,49 @@ describe('PatientReferralsTab', () => {
     expect(form).not.toHaveTextContent('This visit');
     expect(packetPreview.calls.every((call) => !call.enabled)).toBe(true);
   });
+
+  it('opens and closes a referral from the keyboard with its Expand button, which says whether it is open', async () => {
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <PatientReferralsTab patientId="patient-1" />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    const expand = await screen.findByTestId(dataTestIds.referrals.expandButton(referrals[0].id));
+    expect(expand).toHaveAttribute('aria-expanded', 'false');
+
+    expand.focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByTestId(dataTestIds.referrals.form)).toBeInTheDocument();
+    expect(expand).toHaveAttribute('aria-expanded', 'true');
+    expect(expand).toHaveTextContent('Collapse');
+
+    await user.keyboard(' ');
+    expect(screen.queryByTestId(dataTestIds.referrals.form)).not.toBeInTheDocument();
+  });
+
+  it('drops an unsaved new referral when the record switches to another patient, so it cannot be saved to them', async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tabFor = (patientId: string): JSX.Element => (
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <PatientReferralsTab patientId={patientId} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tabFor('patient-1'));
+
+    await user.click(await screen.findByTestId(dataTestIds.referrals.addButton));
+    const form = screen.getByTestId(dataTestIds.referrals.form);
+    await user.type(within(form).getByTestId(dataTestIds.referrals.reason), 'Knee pain');
+
+    rerender(tabFor('patient-2'));
+
+    expect(screen.queryByTestId(dataTestIds.referrals.form)).not.toBeInTheDocument();
+    expect(screen.getByTestId(dataTestIds.referrals.addButton)).toBeEnabled();
+  });
 });

@@ -82,7 +82,7 @@ export const getOrCreateReferralForm = async (
       ),
     ]);
 
-  const sourceVersion = makeOrderFormVersion(
+  const resourceVersion = makeOrderFormVersion(
     REFERRAL_FORM_TEMPLATE_VERSION,
     [
       serviceRequest,
@@ -94,6 +94,14 @@ export const getOrCreateReferralForm = async (
       ...earlierDocuments.map((document) => document.documentReference),
     ].flatMap((resource) => (resource ? [resource] : []))
   );
+  const sourceVersion =
+    resourceVersion &&
+    [
+      resourceVersion,
+      ...earlierDocuments.flatMap(({ documentReference, visitDate }) =>
+        visitDate ? [`visit:DocumentReference/${documentReference.id}=${visitDate}`] : []
+      ),
+    ].join('|');
   const existingUrl = getReusableOrderFormUrl(existing, REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM, sourceVersion);
   if (existing && existingUrl) {
     return { documentReference: existing, z3Url: existingUrl };

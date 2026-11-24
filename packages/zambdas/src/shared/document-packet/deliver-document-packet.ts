@@ -334,6 +334,6 @@ export const markReferralSentIfDelivered = async (
   results: DocumentPacketRecipientResult[],
   oystehr: Oystehr
 ): Promise<void> => {
-  if (!results.some((result) => result.status === 'sent')) return;
+  if (!results.some((result) => result.status === 'sent' && !result.email)) return;
   await markReferralSent(referralId, oystehr);
 };

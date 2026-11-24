@@ -282,13 +282,13 @@ describe('retry-action-log eligibility', () => {
     const send = vi.fn().mockResolvedValue({ communicationResource: { resourceType: 'Communication', id: 'comm-1' } });
     const { oystehr, create } = makeSuccessfulRetryHarness(original, { fax: { send } });
     const harnessGet = oystehr.fhir.get;
-    const update = vi.fn().mockImplementation(async (resource: ServiceRequest) => resource);
+    const transaction = vi.fn().mockResolvedValue({ entry: [] });
     oystehr.fhir = {
       ...oystehr.fhir,
       get: vi.fn(async (params: { resourceType: string }) =>
         params.resourceType === 'ServiceRequest' ? referral : harnessGet(params)
       ),
-      update,
+      transaction,
     };
     stubPresignedUrl();
 
@@ -300,9 +300,9 @@ describe('retry-action-log eligibility', () => {
     );
 
     expect((create.mock.calls[0][0] as Task).basedOn).toEqual([{ reference: 'ServiceRequest/referral-1' }]);
-    const [updated, options] = update.mock.calls[0];
-    expect(getReferralDetails(updated)).toMatchObject({ status: 'sent', sentAt: expect.any(String) });
-    expect(options).toEqual({ optimisticLockingVersionId: '2' });
+    const [put] = transaction.mock.calls[0][0].requests;
+    expect(put).toMatchObject({ method: 'PUT', url: '/ServiceRequest/referral-1', ifMatch: 'W/"2"' });
+    expect(getReferralDetails(put.resource)).toMatchObject({ status: 'sent', sentAt: expect.any(String) });
   });
 
   describe('a fax sent for a referral', () => {
@@ -331,21 +331,21 @@ describe('retry-action-log eligibility', () => {
       );
     const harnessFor = (
       basedOn: ServiceRequest
-    ): { oystehr: any; create: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; update: any } => {
+    ): { oystehr: any; create: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; transaction: any } => {
       const send = vi
         .fn()
         .mockResolvedValue({ communicationResource: { resourceType: 'Communication', id: 'comm-1' } });
       const { oystehr, create } = makeSuccessfulRetryHarness(referralFax, { fax: { send } });
       const harnessGet = oystehr.fhir.get;
-      const update = vi.fn().mockImplementation(async (resource: ServiceRequest) => resource);
+      const transaction = vi.fn().mockResolvedValue({ entry: [] });
       oystehr.fhir = {
         ...oystehr.fhir,
         get: vi.fn(async (params: { resourceType: string }) =>
           params.resourceType === 'ServiceRequest' ? basedOn : harnessGet(params)
         ),
-        update,
+        transaction,
       };
-      return { oystehr, create, send, update };
+      return { oystehr, create, send, transaction };
     };
     const retry = (oystehr: any): Promise<unknown> =>
       performEffect(
@@ -362,7 +362,7 @@ describe('retry-action-log eligibility', () => {
     ] as const)(
       'is not resent once the referral is %s, as the Cancel dialog promises nothing more goes out',
       async (status, label) => {
-        const { oystehr, create, send, update } = harnessFor(serviceRequest(status));
+        const { oystehr, create, send, transaction } = harnessFor(serviceRequest(status));
         stubPresignedUrl();
 
         await expect(retry(oystehr)).rejects.toEqual(
@@ -370,18 +370,18 @@ describe('retry-action-log eligibility', () => {
         );
         expect(create).not.toHaveBeenCalled();
         expect(send).not.toHaveBeenCalled();
-        expect(update).not.toHaveBeenCalled();
+        expect(transaction).not.toHaveBeenCalled();
       }
     );
 
     it('is resent when basedOn names a ServiceRequest that is not a referral, which is left untouched', async () => {
-      const { oystehr, send, update } = harnessFor(serviceRequest('not-sent', false));
+      const { oystehr, send, transaction } = harnessFor(serviceRequest('not-sent', false));
       stubPresignedUrl();
 
       await retry(oystehr);
 
       expect(send).toHaveBeenCalledTimes(1);
-      expect(update).not.toHaveBeenCalled();
+      expect(transaction).not.toHaveBeenCalled();
     });
   });
 

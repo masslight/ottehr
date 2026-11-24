@@ -1,4 +1,15 @@
-import { Box, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  Link,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { FC, Fragment } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -13,7 +24,7 @@ interface PatientReferralsTabProps {
   patientId: string;
 }
 
-const COLUMNS = ['Date', 'Specialty', 'Recipient', 'Urgency', 'Status', 'Visit'];
+const COLUMNS = ['Date', 'Specialty', 'Recipient', 'Urgency', 'Status', 'Visit', ''];
 
 export const PatientReferralsTab: FC<PatientReferralsTabProps> = ({ patientId }) => {
   const theme = useTheme();
@@ -23,6 +34,7 @@ export const PatientReferralsTab: FC<PatientReferralsTabProps> = ({ patientId })
   return (
     <Box sx={{ mt: 2 }} data-testid={dataTestIds.referrals.patientTab}>
       <ReferralsPanel
+        key={patientId}
         dataTestId={dataTestIds.referrals.card}
         referrals={referrals}
         isLoading={isLoading}
@@ -83,6 +95,21 @@ export const PatientReferralsTab: FC<PatientReferralsTabProps> = ({ patientId })
                           No visit
                         </Typography>
                       )}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        variant="text"
+                        aria-expanded={expandedId === referral.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggle(referral.id);
+                        }}
+                        sx={{ textTransform: 'none' }}
+                        data-testid={dataTestIds.referrals.expandButton(referral.id)}
+                      >
+                        {expandedId === referral.id ? 'Collapse' : 'Expand'}
+                      </Button>
                     </TableCell>
                   </TableRow>
                   {expandedId === referral.id && (

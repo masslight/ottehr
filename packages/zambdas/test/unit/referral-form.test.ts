@@ -204,7 +204,7 @@ describe('getOrCreateReferralForm reuse of the stored form', () => {
     ...(version ? { identifier: [{ system: REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM, value: version }] } : {}),
   });
 
-  const serve = (world: World, stored: DocumentReference): void => {
+  const serve = (world: World, stored: DocumentReference, appointments: FhirResource[] = []): void => {
     const byId = new Map(
       [world.patient, world.practice, world.encounter, world.location, world.practitioner].map((resource) => [
         `${resource.resourceType}/${resource.id}`,
@@ -228,6 +228,8 @@ describe('getOrCreateReferralForm reuse of the stored form', () => {
             ? [world.recipient]
             : resourceType === 'List'
             ? [visitNotesFolder]
+            : resourceType === 'Appointment'
+            ? appointments
             : [];
         return { unbundle: () => found };
       }
@@ -282,6 +284,32 @@ describe('getOrCreateReferralForm reuse of the stored form', () => {
 
     expect(form.z3Url).toBe('z3://referrals/new.pdf');
     expect(mockCreateReferralFormPDF).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws the form again when an earlier document's visit moved to another date, which the form prints", async () => {
+    const world = initialWorld();
+    world.earlier = {
+      ...(world.earlier as DocumentReference),
+      context: { related: [{ reference: 'Appointment/earlier-visit' }] },
+    };
+    const visitOn = (start: string): FhirResource => ({
+      resourceType: 'Appointment',
+      id: 'earlier-visit',
+      status: 'fulfilled',
+      participant: [],
+      start,
+    });
+    serve(world, storedForm(undefined), [visitOn('2026-09-01T14:00:00.000Z')]);
+    await runFull();
+    const stamped = mockCreateReferralFormPDF.mock.calls[0][4] as string;
+
+    serve(world, storedForm(stamped), [visitOn('2026-09-01T14:00:00.000Z')]);
+    await runFull();
+    expect(mockCreateReferralFormPDF).toHaveBeenCalledTimes(1);
+
+    serve(world, storedForm(stamped), [visitOn('2026-09-03T14:00:00.000Z')]);
+    await runFull();
+    expect(mockCreateReferralFormPDF).toHaveBeenCalledTimes(2);
   });
 
   it('draws again a form stored before the layout was versioned, which was keyed on the ServiceRequest alone', async () => {

@@ -28,6 +28,7 @@ export const ReferralRow: FC<ReferralRowProps> = ({ referral, expanded, onToggle
       <Button
         size="small"
         variant="text"
+        aria-expanded={expanded}
         onClick={onToggle}
         sx={{ textTransform: 'none' }}
         data-testid={dataTestIds.referrals.expandButton(referral.id)}

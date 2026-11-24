@@ -13,6 +13,7 @@ export const ReferralsCard: FC = () => {
 
   return (
     <ReferralsPanel
+      key={encounterId}
       dataTestId={dataTestIds.referrals.card}
       referrals={referrals}
       isLoading={isLoading}
