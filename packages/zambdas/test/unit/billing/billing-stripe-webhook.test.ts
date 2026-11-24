@@ -5,7 +5,9 @@ import Stripe from 'stripe';
 import {
   buildBillingInvoice,
   getHostedInvoiceUrl,
+  invoiceExtensionsWithCardPaymentReservation,
   isInvoiceUncollectible,
+  NIO_INVOICE_PAYMENT_ID_SYSTEM,
   STRIPE_INVOICE_ID_SYSTEM,
   withInvoiceUncollectible,
   withStripeInvoiceLink,
@@ -1753,5 +1755,181 @@ describe('billing-stripe-webhook billing app invoices', () => {
     expect(update).not.toHaveBeenCalled();
     expect(search).toHaveBeenCalledTimes(1);
     expect(patch).not.toHaveBeenCalled();
+  });
+});
+
+describe('billing-stripe-webhook charges for non-insurance payer invoices', () => {
+  const NIO_INVOICE_ID = 'invoice-1';
+  const NIO_PAYMENT_ID = 'payment-key-1';
+
+  const nioInvoice = (status: Invoice['status'] = 'issued'): Invoice => ({
+    ...buildBillingInvoice({
+      status,
+      date: '2026-11-01T15:00:00.000Z',
+      dueDate: '2026-11-30',
+      issuer: {
+        reference: 'Organization/issuer-1',
+      },
+      recipient: {
+        reference: 'Organization/nio-1',
+      },
+      claims: [
+        {
+          claimId: 'claim-1',
+          amountCents: 600,
+        },
+        {
+          claimId: 'claim-2',
+          amountCents: 400,
+        },
+      ],
+    }),
+    id: NIO_INVOICE_ID,
+    meta: {
+      versionId: '3',
+    },
+  });
+
+  const invoiceCharge = (over: Record<string, unknown> = {}): Stripe.Charge =>
+    makeCharge({
+      metadata: {
+        oystehr_invoice_id: NIO_INVOICE_ID,
+        oystehr_invoice_payment_id: NIO_PAYMENT_ID,
+        oystehr_organization_id: 'nio-1',
+      },
+      ...over,
+    });
+
+  const invoiceOystehr = (
+    invoice: Invoice,
+    notices: PaymentNotice[] = []
+  ): { oystehr: Oystehr; search: Mock; transaction: Mock } => {
+    const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
+      unbundle: () => (resourceType === 'Invoice' ? [invoice] : resourceType === 'PaymentNotice' ? notices : []),
+    }));
+    const transaction = vi.fn().mockResolvedValue({
+      unbundle: () => [],
+    });
+    return {
+      oystehr: {
+        fhir: {
+          search,
+          transaction,
+        },
+      } as unknown as Oystehr,
+      search,
+      transaction,
+    };
+  };
+
+  it("records the charge as a card payment on each of the invoice's claims", async () => {
+    const { oystehr, search, transaction } = invoiceOystehr(nioInvoice());
+
+    await performEffect(oystehr, {
+      event: makeEvent('charge.succeeded', invoiceCharge(), 'acct_1'),
+      secrets,
+    });
+
+    const notices = createdNotices(transaction);
+    expect(notices.map((notice) => [notice.request?.reference, notice.amount.value])).toEqual([
+      ['Claim/claim-1', 6],
+      ['Claim/claim-2', 4],
+    ]);
+    expect(notices[0].contained?.[0]).toMatchObject({
+      paymentIdentifier: {
+        system: STRIPE_PAYMENT_ID_SYSTEM,
+        value: 'pi_1',
+      },
+    });
+    expect(notices[0].extension).toContainEqual(stripeAccountExtension('acct_1'));
+    expect(search).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        resourceType: 'Claim',
+      })
+    );
+  });
+
+  it('writes nothing when the payment is already recorded', async () => {
+    const recorded: PaymentNotice = {
+      resourceType: 'PaymentNotice',
+      status: 'active',
+      created: '2026-11-10',
+      payment: {},
+      recipient: {},
+      amount: {
+        value: 10,
+        currency: 'USD',
+      },
+      identifier: [
+        {
+          system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
+          value: NIO_PAYMENT_ID,
+        },
+      ],
+    };
+    const { oystehr, transaction } = invoiceOystehr(nioInvoice('balanced'), [recorded]);
+
+    await performEffect(oystehr, {
+      event: makeEvent('charge.succeeded', invoiceCharge()),
+      secrets,
+    });
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('records nothing for a charge that has not succeeded', async () => {
+    const { oystehr, transaction } = invoiceOystehr(nioInvoice());
+
+    await performEffect(oystehr, {
+      event: makeEvent(
+        'charge.updated',
+        invoiceCharge({
+          status: 'failed',
+        })
+      ),
+      secrets,
+    });
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('logs rather than fails when the invoice refuses the payment', async () => {
+    const { oystehr, transaction } = invoiceOystehr(nioInvoice('cancelled'));
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(
+      performEffect(oystehr, {
+        event: makeEvent('charge.succeeded', invoiceCharge()),
+        secrets,
+      })
+    ).resolves.toBeUndefined();
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining(`invoice ${NIO_INVOICE_ID} refused the payment`),
+      INVALID_INPUT_ERROR(`Invoice ${NIO_INVOICE_ID} is cancelled, so it can't take a payment`)
+    );
+    consoleError.mockRestore();
+  });
+
+  it('fails for redelivery while another card payment holds the invoice', async () => {
+    const invoice = nioInvoice();
+    const { oystehr, transaction } = invoiceOystehr({
+      ...invoice,
+      extension: invoiceExtensionsWithCardPaymentReservation(invoice, {
+        paymentId: 'other-payment',
+        reservedAt: '2026-11-19T15:00:00.000Z',
+      }),
+    });
+
+    await expect(
+      performEffect(oystehr, {
+        event: makeEvent('charge.succeeded', invoiceCharge()),
+        secrets,
+      })
+    ).rejects.toMatchObject({
+      code: APIErrorCode.BILLING_INVOICE_CONFLICT,
+    });
+    expect(transaction).not.toHaveBeenCalled();
   });
 });

@@ -24,7 +24,7 @@ import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'uti
 import { parsePaymentRefundsFromNotice, staleReservationIds } from 'utils/lib/fhir/paymentRefunds';
 import { getContainedReconciliation, getPaymentNoticeSubmitterRef } from 'utils/lib/fhir/payments';
 import { PaymentRefundDTO } from 'utils/lib/types/api/patient-payment-types';
-import { EHR_PAYMENT_RESERVATION_NOT_FOUND_ERROR } from 'utils/lib/types/errors';
+import { APIErrorCode, EHR_PAYMENT_RESERVATION_NOT_FOUND_ERROR, isApiError } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { shouldUseOttehrBilling } from '../../shared/candid';
 import { isFhirNotFoundError } from '../../shared/errors';
@@ -35,12 +35,14 @@ import {
   ehrPaymentNoticeIdFromStripeMetadata,
   encounterIdFromStripeMetadata,
   getStripeClient,
+  invoicePaymentFromStripeMetadata,
   STRIPE_PAYMENT_ID_SYSTEM,
   stripeRefundToDTO,
 } from '../../shared/stripeIntegration';
 import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
 import { cancelPendingInvoiceOutreach } from '../invoice-outreach';
+import { recordInvoicePayment } from '../invoice-payments';
 import { unionIdentifiers } from '../patient-payments';
 import {
   billingProviderRefForStripeAccount,
@@ -98,6 +100,17 @@ export const performEffect = async (oystehr: Oystehr, params: StripeWebhookParam
     case 'charge.updated': {
       const charge = event.data.object as Stripe.Charge;
       console.log(`Charge event for ${charge.id}, invoice: ${chargeInvoiceId(charge) ?? 'none'}`);
+      const invoicePayment = invoicePaymentFromStripeMetadata(charge.metadata);
+      if (invoicePayment) {
+        await recordInvoiceCharge({
+          oystehr,
+          charge,
+          invoicePayment,
+          stripeAccount,
+          secrets,
+        });
+        break;
+      }
       await upsertPaymentNoticeOnBillingClaimForCharge(oystehr, charge, stripeAccount, secrets, recordsAr);
       break;
     }
@@ -201,6 +214,58 @@ const buildBillingPaymentNotice = (params: {
     payee: billingProviderRef,
     recipient: billingProviderRef,
   };
+};
+
+// charge-billing-nio-invoice-card records it too; the second writer finds it recorded.
+const recordInvoiceCharge = async ({
+  oystehr,
+  charge,
+  invoicePayment,
+  stripeAccount,
+  secrets,
+}: {
+  oystehr: Oystehr;
+  charge: Stripe.Charge;
+  invoicePayment: {
+    invoiceId: string;
+    paymentId: string;
+  };
+  stripeAccount: string | undefined;
+  secrets: ZambdaInput['secrets'];
+}): Promise<void> => {
+  const { invoiceId, paymentId } = invoicePayment;
+  if (charge.status !== 'succeeded') {
+    console.log(`Charge ${charge.id} for invoice ${invoiceId} is ${charge.status}; nothing to record`);
+    return;
+  }
+  const chargedAt = DateTime.fromSeconds(charge.created);
+  const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
+  try {
+    await recordInvoicePayment({
+      oystehr,
+      payment: {
+        invoiceId,
+        paymentId,
+        amountInCents: charge.amount,
+        paymentMethod: 'card',
+        paymentDate: ehrPaymentDate(chargedAt),
+        processorPaymentIdentifier: {
+          system: STRIPE_PAYMENT_ID_SYSTEM,
+          value: paymentIntentId ?? charge.id,
+        },
+        extension: [stripeAccountExtension(stripeAccount)],
+        agent: await resolveClaimActor('system', oystehr, undefined, null),
+        secrets,
+      },
+      createdISO: chargedAt.toUTC().toISO()!,
+    });
+  } catch (error) {
+    // another card payment's reservation settles, so a redelivery can record this one; any other
+    // refusal would repeat
+    const inProgress = (error as { code?: unknown } | undefined)?.code === APIErrorCode.BILLING_INVOICE_CONFLICT;
+    if (!isApiError(error) || inProgress) throw error;
+    console.error(`Charge ${charge.id} went through but invoice ${invoiceId} refused the payment`, error);
+  }
 };
 
 const getPaymentNoticeIfExists = async (oystehr: Oystehr, id: string): Promise<PaymentNotice | undefined> => {

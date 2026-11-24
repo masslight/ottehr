@@ -113,6 +113,19 @@ export const ehrPaymentNoticeIdFromStripeMetadata = (
   metadata: Stripe.Metadata | null | undefined
 ): string | undefined => metadata?.[STRIPE_METADATA_KEYS.ehrPaymentNoticeId] || undefined;
 
+export const invoicePaymentFromStripeMetadata = (
+  metadata: Stripe.Metadata | null | undefined
+): { invoiceId: string; paymentId: string } | undefined => {
+  const invoiceId = metadata?.[STRIPE_METADATA_KEYS.invoiceId];
+  const paymentId = metadata?.[STRIPE_METADATA_KEYS.invoicePaymentId];
+  return invoiceId && paymentId
+    ? {
+        invoiceId,
+        paymentId,
+      }
+    : undefined;
+};
+
 export const stripeEncounterMetadata = (params: { encounterId: string; patientId: string }): Stripe.MetadataParam => ({
   [STRIPE_METADATA_KEYS.patientId]: params.patientId,
   [STRIPE_METADATA_KEYS.encounterId]: params.encounterId,
