@@ -43,7 +43,7 @@ import {
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
 } from 'utils/lib/helpers/rcm/constants';
 import { Secrets } from 'utils/lib/secrets';
-import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
+import { CLAIM_TAG_SYSTEM, MEDICARE_SECONDARY_REASON_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CLAIM_PROVENANCE_ACKNOWLEDGMENT_EXTENSION_URL,
   CLAIM_PROVENANCE_ACTIVITY,
@@ -94,6 +94,7 @@ import {
   ERA_STATUS_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_ITEM_ORDERING_PROVIDER,
+  EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fhirName,
@@ -309,6 +310,14 @@ function projectClaim(claim: Claim): FieldProjection[] {
       field: 'orderingProviders',
       label: 'Ordering Providers',
       value: joinOrderingProviders(claim),
+    },
+    {
+      field: 'medicareSecondaryReason',
+      label: 'Medicare as Non-Primary Insurance Reason',
+      value:
+        MEDICARE_SECONDARY_REASON_OPTIONS[
+          getExtensionValue(claim, EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE, 'valueString') ?? ''
+        ] ?? '',
     }
   );
   return out;
