@@ -472,6 +472,47 @@ describe('Visit Details PDF "Eligibility Check Details" section', () => {
     }
   );
 
+  it('shows "-" for a matching check whose payer reports no subscriber DOB or address', async () => {
+    const {
+      ins_dob: _dob,
+      ins_addr_1: _street,
+      ins_city: _city,
+      ins_state: _state,
+      ins_zip: _zip,
+      ...elig
+    } = RAW_RESPONSE.elig;
+    const info = await pdfEligibility(
+      {
+        responses: [makeResponse('aetna', '2026-11-20T14:30:00.000Z', 'Coverage/cov-aetna', 'eligible', { elig })],
+        coverages: [AETNA_COVERAGE],
+      },
+      { primary: AETNA_COVERAGE }
+    );
+    expect(table(info)).toEqual(
+      FULL_SECTION.map(([group, label, value]) =>
+        group === 'Subscriber/Insured' && ['DOB', 'Address'].includes(label)
+          ? [group, label, '-']
+          : [group, label, value]
+      )
+    );
+  });
+
+  it('prints only the subscriber address parts a matching check reports', async () => {
+    const info = await pdfEligibility(
+      {
+        responses: [
+          makeResponse('aetna', '2026-11-20T14:30:00.000Z', 'Coverage/cov-aetna', 'eligible', {
+            elig: { ...RAW_RESPONSE.elig, ins_addr_1: undefined, ins_zip: undefined },
+          }),
+        ],
+        coverages: [AETNA_COVERAGE],
+      },
+      { primary: AETNA_COVERAGE }
+    );
+    expect(table(info)).toContainEqual(['Subscriber/Insured', 'Address', 'New York, NY']);
+    expect(table(info)).toContainEqual(['Subscriber/Insured', 'DOB', '01/10/1999']);
+  });
+
   it('reports a failed eligibility lookup separately from a missing check', () => {
     const coverages = { primary: AETNA_COVERAGE };
     const info = composeEligibilityData({
