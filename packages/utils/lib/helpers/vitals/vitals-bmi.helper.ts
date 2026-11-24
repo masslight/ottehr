@@ -1,5 +1,8 @@
 import { DateTime } from 'luxon';
+import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants';
+import { VitalsObservationDTO } from '../../types/api/chart-data/chart-data.types';
 import { roundNumberToDecimalPlaces } from '../../utils/convert';
+import { ageInMonthsOnDate } from '../../utils/dateUtils';
 
 export const BMI_DISPLAY_PRECISION = 1;
 export const BMI_UNIT = 'kg/m2';
@@ -22,3 +25,27 @@ export const areVitalsSameDay = (isoA: string | undefined, isoB: string | undefi
   if (!isoA || !isoB) return false;
   return DateTime.fromISO(isoA, { zone: 'utc' }).hasSame(DateTime.fromISO(isoB, { zone: 'utc' }), 'day');
 };
+
+export const BMI_FROM_MONTHS = 24;
+
+export const bmiAppliesAt = (ageMonths: number | undefined): boolean =>
+  ageMonths === undefined || ageMonths >= BMI_FROM_MONTHS;
+
+// The age is counted on the clinic's calendar, so the browser and the server agree on the day of the second birthday.
+export const bmiAppliesOnDate = (
+  birthDate: string | undefined,
+  onDate: string | undefined,
+  timezone: string
+): boolean => bmiAppliesAt(ageInMonthsOnDate(birthDate, onDate, timezone));
+
+// Without a visit date, each BMI is judged by the age at the reading's own date.
+export const withoutBMIUnder24Months = <T extends VitalsObservationDTO>(
+  vitals: T[],
+  birthDate: string | undefined,
+  timezone: string,
+  visitStart?: string
+): T[] =>
+  vitals.filter(
+    (vital) =>
+      vital.field !== VitalFieldNames.VitalBMI || bmiAppliesOnDate(birthDate, visitStart ?? vital.lastUpdated, timezone)
+  );

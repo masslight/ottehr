@@ -1,13 +1,14 @@
 import { Address, ContactPoint, Coverage, HumanName, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getMemberIdFromCoverage } from 'utils/lib/fhir/helpers';
-import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 
 /** Where a Social Security number is recorded on a Patient — see `makeSSNIdentifier`. */
 const SSN_SYSTEM = 'http://hl7.org/fhir/sid/us-ssn';
 import {
   isBloodPressureVitalObservation,
   isBMIVitalObservation,
+  isHeadCircumferenceVitalObservation,
   isHeartbeatVitalObservation,
   isHeightVitalObservation,
   isLastMenstrualPeriodVitalObservation,
@@ -17,9 +18,9 @@ import {
   isWeightVitalObservation,
 } from 'utils/lib/fhir/vitals';
 import { FormTokenKey } from 'utils/lib/form-tokens/token-catalog';
-import { HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
+import { HEIGHT_CM_DISPLAY_PRECISION, HeightMeasurement } from 'utils/lib/helpers/vitals/vitals-height.helper';
 import { celsiusToFahrenheit } from 'utils/lib/helpers/vitals/vitals-temperature.helper';
-import { kgToLbs } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { kgToLbs, roundWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import {
   AllergyDTO,
   VitalsBloodPressureObservationDTO,
@@ -100,15 +101,10 @@ const wholeSsnDigits = (patient: Patient | undefined): string | undefined => {
   return digits?.length === 9 ? digits : undefined;
 };
 
-/** The practitioner attending the visit, preferring the encounter's own participant list. */
 const attendingPractitioner = (ctx: FormFillContext): Practitioner | undefined => {
-  const participantIds = (ctx.encounter?.participant ?? [])
-    .map((p) => p.individual?.reference)
-    .filter((ref): ref is string => !!ref?.startsWith('Practitioner/'))
-    .map((ref) => getIdFromReference(ref, 'Practitioner'));
-
-  const practitioners = ctx.appointmentPackage?.practitioners ?? [];
-  return practitioners.find((p) => p.id && participantIds.includes(p.id)) ?? practitioners[0];
+  const attenderId = ctx.encounter && getAttendingPractitionerId(ctx.encounter);
+  if (!attenderId) return undefined;
+  return ctx.appointmentPackage?.practitioners?.find((p) => p.id === attenderId);
 };
 
 /**
@@ -131,6 +127,11 @@ const latestVital = <T extends VitalsObservationDTO>(
 /** Heights are stored in centimetres however they were entered, so one measurement backs every height token. */
 const latestHeight = (ctx: FormFillContext): HeightMeasurement | undefined => {
   const cm = latestVital(ctx, isHeightVitalObservation)?.value;
+  return cm === undefined ? undefined : HeightMeasurement.fromCm(cm);
+};
+
+const latestHeadCircumference = (ctx: FormFillContext): HeightMeasurement | undefined => {
+  const cm = latestVital(ctx, isHeadCircumferenceVitalObservation)?.value;
   return cm === undefined ? undefined : HeightMeasurement.fromCm(cm);
 };
 
@@ -355,7 +356,12 @@ export const TOKEN_RESOLVERS: Record<FormTokenKey, FormTokenResolver> = {
   'vitals.heightInches': (ctx) => latestHeight(ctx)?.getInches(),
   'vitals.heightFeet': (ctx) => latestHeight(ctx)?.getFeet(),
   'vitals.heightInchesRemainder': (ctx) => latestHeight(ctx)?.getInchRemainder(),
-  'vitals.weightKg': (ctx) => latestWeightKg(ctx),
+  'vitals.headCircumferenceCm': (ctx) => latestHeadCircumference(ctx)?.getCm(HEIGHT_CM_DISPLAY_PRECISION),
+  'vitals.headCircumferenceInches': (ctx) => latestHeadCircumference(ctx)?.getInches(),
+  'vitals.weightKg': (ctx) => {
+    const kg = latestWeightKg(ctx);
+    return kg === undefined ? undefined : roundWeightKg(kg);
+  },
   'vitals.weightLbs': (ctx) => {
     const kg = latestWeightKg(ctx);
     return kg === undefined ? undefined : kgToLbs(kg);

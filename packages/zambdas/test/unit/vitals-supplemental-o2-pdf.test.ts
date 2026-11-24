@@ -90,7 +90,10 @@ afterEach(() => {
 describe('discharge summary PDF — SpO2', () => {
   const renderDischargeVitals = async (vitalsObservations: VitalsObservationDTO[]): Promise<string> => {
     const data: PdfData & { vitals: VitalsDataInDischargeSummary } = {
-      vitals: composeVitalsForDischargeSummary({ allChartData: chartWith(vitalsObservations) }),
+      vitals: composeVitalsForDischargeSummary({
+        allChartData: chartWith(vitalsObservations),
+        timezone: 'America/New_York',
+      }),
     };
     const drawText = vi.spyOn(PDFPage.prototype, 'drawText');
     drawText.mockClear();
@@ -122,6 +125,7 @@ describe('discharge summary PDF — SpO2', () => {
   it('composes the latest reading with its supplemental O2 details', () => {
     const composed = composeVitalsForDischargeSummary({
       allChartData: chartWith([oxygenSat(95, OnRoomAir, undefined, '2024-04-28T15:00:00.000Z'), supplementalReading()]),
+      timezone: 'America/New_York',
     });
     expect(composed.vitals.oxygenSat).toBe('98% (On supplemental O2 - 4.5 L/min - Nasal Cannula)');
   });

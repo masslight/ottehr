@@ -1,22 +1,25 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { Claim, Invoice, Location } from 'fhir/r4b';
+import { Claim, DocumentReference, Invoice, Location, Organization, PaymentNotice } from 'fhir/r4b';
 import {
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
   getHostedInvoiceUrl,
   INVOICE_CLAIM_TAG_SYSTEM,
+  INVOICE_PAYMENT_TAG_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
+import { Secrets } from 'utils/lib/secrets';
 import {
   BILLING_INVOICE_LIST_STATUSES,
   BillingInvoiceListStatus,
 } from 'utils/lib/types/data/billing/billing.constants';
-import { BillingInvoiceSummary } from 'utils/lib/types/data/billing/billing.types';
+import { BillingInvoiceListItem, BillingInvoiceSummary } from 'utils/lib/types/data/billing/billing.types';
 import { getClaimStatusValues, isInvoiceableClaimStatus } from 'utils/lib/types/data/billing/claim-status';
 import { INVALID_INPUT_ERROR, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
+import { invoiceAttachmentOwner, ownedAttachmentLocation, presignAttachment } from './attachments';
 import { copySourceId, fetchById, findById } from './shared';
 
 // The claim points at its own copy of the service facility. The copy records which facility it came from.
@@ -59,6 +62,42 @@ export async function fetchActiveClaimInvoices(oystehr: Oystehr, claimIds: strin
   );
 }
 
+export const invoicePdfParams = (invoiceId: string): SearchParam[] => [
+  {
+    name: 'related',
+    value: `Invoice/${invoiceId}`,
+  },
+  {
+    name: 'status',
+    value: 'current',
+  },
+];
+
+export async function findInvoicePdf(oystehr: Oystehr, invoiceId: string): Promise<DocumentReference | undefined> {
+  const documentReferences = (
+    await oystehr.fhir.search<DocumentReference>({
+      resourceType: 'DocumentReference',
+      params: invoicePdfParams(invoiceId),
+    })
+  ).unbundle();
+  return documentReferences[0];
+}
+
+export async function getInvoicePdfDownloadUrl({
+  oystehr,
+  invoiceId,
+  documentReference,
+  secrets,
+}: {
+  oystehr: Oystehr;
+  invoiceId: string;
+  documentReference: DocumentReference;
+  secrets: Secrets;
+}): Promise<string> {
+  const location = ownedAttachmentLocation(documentReference, invoiceAttachmentOwner(invoiceId, secrets));
+  return presignAttachment(oystehr, location, 'download');
+}
+
 export async function fetchClaimInvoices(oystehr: Oystehr, claimId: string): Promise<Invoice[]> {
   return (
     await oystehr.fhir.search<Invoice>({
@@ -72,7 +111,7 @@ export async function fetchClaimInvoices(oystehr: Oystehr, claimId: string): Pro
   ).unbundle();
 }
 
-export const toBillingInvoiceSummary = (invoice: Invoice): BillingInvoiceSummary => ({
+export const getInvoiceStatusDatesAndAmount = (invoice: Invoice): BillingInvoiceSummary => ({
   id: invoice.id!,
   status: invoice.status as BillingInvoiceListStatus,
   issueDate: invoice.date ?? '',
@@ -80,6 +119,35 @@ export const toBillingInvoiceSummary = (invoice: Invoice): BillingInvoiceSummary
   amount: invoice.totalGross?.value ?? 0,
   hostedInvoiceUrl: getHostedInvoiceUrl(invoice),
 });
+
+// Falls back to the payer name saved on the invoice.
+export function getNioInvoiceRecipient(
+  invoice: Invoice,
+  organization: Organization | undefined
+): BillingInvoiceListItem['recipient'] {
+  const id = organization?.id ?? getIdFromReference(invoice.recipient?.reference, 'Organization');
+  if (!id) return undefined;
+  return {
+    id,
+    name: organization?.name ?? invoice.recipient?.display ?? '',
+  };
+}
+
+export async function fetchInvoicePaymentNotices(oystehr: Oystehr, invoiceIds: string[]): Promise<PaymentNotice[]> {
+  if (invoiceIds.length === 0) return [];
+  return getAllFhirSearchPages<PaymentNotice>(
+    {
+      resourceType: 'PaymentNotice',
+      params: [
+        {
+          name: '_tag',
+          value: invoiceIds.map((invoiceId) => `${INVOICE_PAYMENT_TAG_SYSTEM}|${invoiceId}`).join(','),
+        },
+      ],
+    },
+    oystehr
+  );
+}
 
 // Returns the clinical visit behind a claim that can be invoiced.
 export function getInvoiceableEncounterId(claim: Claim): string {

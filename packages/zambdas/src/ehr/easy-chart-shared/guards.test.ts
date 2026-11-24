@@ -243,6 +243,33 @@ describe('vitals', () => {
     expect(rejected[0].reason).toMatch(/live-birth/);
   });
 
+  it.each([
+    ['vital-head-circumference', '44 cm', '10 month old, head circumference 44 today, weight 8.9 kg'],
+    ['vital-height', '68 cm', '10 month old, height 68 today, weight 8.9 kg'],
+    ['vital-weight', '8.9 kg', 'weight 8.9 today, OFC 44 cm'],
+  ])('asks rather than charting a %s unit the model added (%s)', async (field, display, narrative) => {
+    const { actions, rejected } = await run([{ kind: 'set-vital', field, display }], narrative);
+    expect(actions).toEqual([]);
+    expect(rejected).toEqual([
+      { kind: 'set-vital', field, display, reason: expect.stringMatching(/said with no unit/) },
+    ]);
+  });
+
+  it('charts a reading whose unit was said in the provider-edited narrative', async () => {
+    const { actions, rejected } = await run(
+      [{ kind: 'set-vital', field: 'vital-head-circumference', display: '44 cm' }],
+      'head circumference forty four',
+      { editedNarrative: 'head circumference 44 cm' }
+    );
+    expect(rejected).toEqual([]);
+    expect(actions[0]).toMatchObject({ value: 44, unit: 'cm' });
+  });
+
+  it('names the vital it could not find a reading for', async () => {
+    const { rejected } = await run([{ kind: 'set-vital', field: 'vital-head-circumference' }], 'well child');
+    expect(rejected[0]).toMatchObject({ kind: 'set-vital', field: 'vital-head-circumference' });
+  });
+
   it('reports an unrecognised unit instead of defaulting', async () => {
     const { rejected } = await run(
       [{ kind: 'set-vital', field: 'vital-weight', display: '5 bananas' }],
