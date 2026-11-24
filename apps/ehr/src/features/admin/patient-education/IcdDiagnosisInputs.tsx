@@ -7,9 +7,17 @@ type PrimaryDiagnosisInputProps = {
   onChange: (next: Icd10Option | null) => void;
   required?: boolean;
   errorMessage?: string;
+  /** How a diagnosis reads, where the screen writes it another way (the eRx screens: "Otitis media H66.90"). */
+  optionLabel?: (option: Icd10Option) => string;
 };
 
-export const PrimaryDiagnosisInput: FC<PrimaryDiagnosisInputProps> = ({ value, onChange, required, errorMessage }) => {
+export const PrimaryDiagnosisInput: FC<PrimaryDiagnosisInputProps> = ({
+  value,
+  onChange,
+  required,
+  errorMessage,
+  optionLabel = (o) => `${o.code} — ${o.display}`,
+}) => {
   const { inputValue, setInputValue, options, isFetching } = useIcd10SearchInput();
   return (
     <Autocomplete<Icd10Option, false>
@@ -19,7 +27,7 @@ export const PrimaryDiagnosisInput: FC<PrimaryDiagnosisInputProps> = ({ value, o
       value={value}
       onChange={(_e, next) => onChange(next)}
       isOptionEqualToValue={(a, b) => a.code === b.code}
-      getOptionLabel={(o) => `${o.code} — ${o.display}`}
+      getOptionLabel={optionLabel}
       inputValue={inputValue}
       onInputChange={(_e, next) => setInputValue(next)}
       renderInput={(params) => (

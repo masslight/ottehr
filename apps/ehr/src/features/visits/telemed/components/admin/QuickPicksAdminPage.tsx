@@ -37,6 +37,8 @@ import DmeQuickPicksPage from './DmeQuickPicksPage';
 import ImmunizationQuickPicksPage from './ImmunizationQuickPicksPage';
 import InHouseMedicationQuickPicksPage from './InHouseMedicationQuickPicksPage';
 import InsuranceQuickPickPage from './InsuranceQuickPickPage';
+import PrescriptionQuickPicksPage from './PrescriptionQuickPicksPage';
+import PrescriptionSetsPage from './PrescriptionSetsPage';
 import ProcedureQuickPicksPage from './ProcedureQuickPicksPage';
 import QuickPickEditor from './QuickPickEditor';
 import { QuickTextTemplateField } from './QuickTextTemplateField';
@@ -414,6 +416,12 @@ export default function QuickPicksAdminPage(): ReactElement {
             {FEATURE_FLAGS.DME_ORDERS_ENABLED && <Tab label="DME" value="dme" sx={{ textTransform: 'none' }} />}
             <Tab label="Immunizations" value="immunizations" sx={{ textTransform: 'none' }} />
             <Tab label="In-House Medications" value="in-house-medications" sx={{ textTransform: 'none' }} />
+            {FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED && (
+              <Tab label="Prescriptions" value="prescriptions" sx={{ textTransform: 'none' }} />
+            )}
+            {FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED && (
+              <Tab label="Prescription Sets" value="prescription-sets" sx={{ textTransform: 'none' }} />
+            )}
             <Tab label="Insurance" value="insurance" sx={{ textTransform: 'none' }} />
             <Tab label="Patient Instructions" value="patient-instructions" sx={{ textTransform: 'none' }} />
             <Tab label="Quick Texts" value="quick-texts" sx={{ textTransform: 'none' }} />
@@ -522,6 +530,16 @@ export default function QuickPicksAdminPage(): ReactElement {
         <TabPanel value="in-house-medications" sx={{ px: 0 }}>
           <InHouseMedicationQuickPicksPage />
         </TabPanel>
+        {FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED && (
+          <TabPanel value="prescriptions" sx={{ px: 0 }}>
+            <PrescriptionQuickPicksPage />
+          </TabPanel>
+        )}
+        {FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED && (
+          <TabPanel value="prescription-sets" sx={{ px: 0 }}>
+            <PrescriptionSetsPage />
+          </TabPanel>
+        )}
         <TabPanel value="insurance" sx={{ px: 0 }}>
           <InsuranceQuickPickPage />
         </TabPanel>

@@ -82,6 +82,8 @@ describe('RadiologyPreliminaryReadSuggestions', () => {
     // Both rows now show the added check, announced in place of the "+"; changing a blank re-arms its row.
     expect(screen.queryAllByRole('button', { name: ADD_BTN_LABEL })).toHaveLength(0);
     expect(screen.getAllByRole('img', { name: ADDED_LABEL })).toHaveLength(2);
+    // Not collapsible: no toggle, and the rows stay after use.
+    expect(screen.queryByRole('button', { name: /^(Show|Hide) suggestions$/ })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Bone: medial malleolus' }));
     await user.click(screen.getByRole('option', { name: 'distal tibia' }));
     expect(screen.getAllByRole('button', { name: ADD_BTN_LABEL })).toHaveLength(1);

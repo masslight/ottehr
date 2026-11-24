@@ -1,4 +1,5 @@
 import { Patient } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { DME_TASK } from 'utils/lib/types/api/dme.types';
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
@@ -18,6 +19,7 @@ import { useGetNursingOrders } from '../nursing-orders/components/orders/useNurs
 import { usePatientRadiologyOrders } from '../radiology/components/usePatientRadiologyOrders';
 import { useGetImmunizationOrders } from '../visits/in-person/hooks/useImmunization';
 import { useChartData } from '../visits/shared/hooks/useChartData';
+import { useChartSection } from '../visits/shared/hooks/useChartSection';
 import { useGetMedicationOrders } from '../visits/shared/stores/appointment/appointment.queries';
 
 export const TASK_CATEGORY_LABEL: Record<string, string> = {
@@ -180,6 +182,23 @@ export function useInHouseMedicationsOptions(encounterId: string): {
         label: order.medicationName,
       };
     }),
+  };
+}
+
+/** A visit's eRx prescriptions, for a patient's refill request (a manual eRx task on one of them). */
+export function usePrescriptionsOptions(encounterId: string): {
+  prescriptionsLoading: boolean;
+  prescriptionsOptions: Order[];
+} {
+  const { data, isLoading } = useChartSection('plan', { encounterId });
+  return {
+    prescriptionsLoading: isLoading,
+    prescriptionsOptions: (data?.prescribedMedications ?? []).map((prescription) => ({
+      id: prescription.resourceId ?? '',
+      label: [prescription.name, prescription.sent && DateTime.fromISO(prescription.sent).toFormat('M/d/yyyy')]
+        .filter(Boolean)
+        .join(' · '),
+    })),
   };
 }
 

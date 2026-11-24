@@ -276,6 +276,15 @@
           "resource": [
             "RCM:Payer"
           ]
+        },
+        {
+          "action": [
+            "eRx:SearchPharmacy"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Pharmacy"
+          ]
         }
       ]
     },
@@ -925,6 +934,15 @@
           "resource": [
             "RCM:Payer"
           ]
+        },
+        {
+          "action": [
+            "eRx:SearchPharmacy"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Pharmacy"
+          ]
         }
       ]
     },
@@ -1083,6 +1101,15 @@
           "effect": "Allow",
           "resource": [
             "eRx:Allergen"
+          ]
+        },
+        {
+          "action": [
+            "eRx:SearchPharmacy"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Pharmacy"
           ]
         }
       ]
@@ -1497,6 +1524,15 @@
           "effect": "Allow",
           "resource": [
             "RCM:Payer"
+          ]
+        },
+        {
+          "action": [
+            "eRx:SearchPharmacy"
+          ],
+          "effect": "Allow",
+          "resource": [
+            "eRx:Pharmacy"
           ]
         }
       ]

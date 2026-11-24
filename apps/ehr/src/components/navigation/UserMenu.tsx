@@ -20,6 +20,8 @@ import { CommandPaletteSearchButton } from 'src/components/CommandPaletteSearchB
 import { EmployeeChatButton } from 'src/features/employee-chat/EmployeeChatButton';
 import { UnsolicitedResultsIcon } from 'src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon';
 import { ProviderNotifications } from 'src/features/notifications/ProviderNotifications';
+import { useCheckSurescriptsEnrollment } from 'src/features/visits/shared/hooks/useCheckSurescriptsEnrollment';
+import { useEnrollSurescriptsWithToast } from 'src/features/visits/shared/hooks/useEnrollSurescriptsPractitioner';
 import {
   useCheckPractitionerEnrollment,
   useConnectPractitionerToERX,
@@ -48,13 +50,27 @@ export const UserMenu: FC = () => {
     return practitioner ? getPractitionerMissingFields(practitioner) : [];
   }, [practitioner]);
 
+  // With eRx v4 on, a provider enrolls in it here, as on the eRx (Surescripts) page, so before their first visit.
+  const surescripts = FEATURE_FLAGS.SURESCRIPTS_ERX_ENABLED;
+
   const {
     data: practitionerEnrollmentStatus,
     isFetched: isPractitionerEnrollmentChecked,
     refetch: refetchPractitionerEnrollmentStatus,
   } = useCheckPractitionerEnrollment({
-    enabled: Boolean(practitioner),
+    enabled: Boolean(practitioner) && !surescripts,
   });
+
+  const { data: surescriptsEnrollment } = useCheckSurescriptsEnrollment({
+    enabled: surescripts && Boolean(userIsProvider),
+  });
+  const { enroll: enrollSurescripts, isEnrolling: isEnrollingSurescripts } = useEnrollSurescriptsWithToast();
+  // The old enrollment, while eRx v4 is off.
+  const showOldEnroll =
+    !surescripts &&
+    isPractitionerEnrollmentChecked &&
+    userIsProvider &&
+    !practitionerEnrollmentStatus?.identityVerified;
 
   const { mutateAsync: enrollPractitioner, isPending: isEnrollingPractitioner } = useEnrollPractitionerToERX({
     onError: () => {
@@ -140,7 +156,17 @@ export const UserMenu: FC = () => {
           </Box>
         </MenuItem>
         <Divider />
-        {isPractitionerEnrollmentChecked && userIsProvider && !practitionerEnrollmentStatus?.identityVerified && (
+        {surescripts && userIsProvider && surescriptsEnrollment && !surescriptsEnrollment.registered && (
+          <>
+            <MenuItem disabled={isEnrollingSurescripts} onClick={enrollSurescripts}>
+              <Typography variant="body1" color="primary" sx={{ fontWeight: 'bold' }}>
+                Enroll in eRX
+              </Typography>
+            </MenuItem>
+            <Divider />
+          </>
+        )}
+        {showOldEnroll && (
           <>
             {practitionerMissingFields.length > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', maxWidth: 300, gap: 1, padding: '6px 16px' }}>

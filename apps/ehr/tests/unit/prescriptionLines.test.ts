@@ -1,0 +1,2213 @@
+import { measureOf } from 'utils/lib/helpers/medications/plain-dose';
+import { PrescriptionOrderMetadataSchema } from 'utils/lib/types/api/erx.types';
+import { MedicationIngredient, MedicationStrength } from 'utils/lib/types/api/erx-search.types';
+import { CompoundIngredientInput, CompoundInput, QuantityUnit } from 'utils/lib/types/api/order-prescription.types';
+import { PrescriptionQuickPickData } from 'utils/lib/types/api/quick-picks.types';
+import { describe, expect, it } from 'vitest';
+import {
+  applyPrescriptionQuickPick,
+  compoundCalculatorProduct,
+  compoundIngredientText,
+  compoundLineOf,
+  compoundOrderIngredients,
+  compoundToOrder,
+  CONTROLLED_DRUG_ERROR,
+  controlledDrugErrors,
+  emptyPrescriptionLine,
+  ingredientText,
+  lineMissingDoseUnit,
+  maximumOriginText,
+  maximumWarnings,
+  mgPerMeasure,
+  pickedStrength,
+  prescriptionAllergies,
+  PrescriptionLine,
+  prescriptionLineErrors,
+  prescriptionLineMetadata,
+  prescriptionLineToOrder,
+  prescriptionLineToQuickPick,
+  PRODUCT_NDC_MESSAGE,
+  productDetailsOf,
+  productOf,
+  quickPickDosingText,
+  scheduleLabel,
+  sentSigInWords,
+  withCalculatorDosing,
+  withCompound,
+  withCompoundDose,
+  withDirections,
+  withDrug,
+  withNewKeys,
+  withoutCompound,
+  withPrescriptionMetadata,
+  withProduct,
+  withSuggestion,
+} from '../../src/features/visits/in-person/components/erx/prescriptionLines';
+import { withPrescriptionSet } from '../../src/features/visits/in-person/components/erx/prescriptionSuggestions';
+import {
+  emptyPrescriptionQuickPickForm,
+  prescriptionQuickPickFromForm,
+} from '../../src/features/visits/telemed/components/admin/prescriptionQuickPickForm';
+import { detailed, ERX_PRODUCT_DETAILS } from '../component/helpers/erxProducts';
+
+const complete = (): PrescriptionLine => ({
+  ...emptyPrescriptionLine(),
+  medication: detailed({ ndc: '00093310901', description: 'Amoxicillin 500 MG Oral Capsule' }),
+  route: 'by mouth',
+  quantityValue: '20',
+  quantityUnit: 'Capsule',
+  daysSupply: '10',
+  numberOfRefills: '0',
+  patientInstructions: 'Take 1 capsule by mouth twice daily for 10 days.',
+  diagnosis: { code: 'J02.9', display: 'Acute pharyngitis, unspecified' },
+});
+
+const PHARMACY = {
+  ncpdpId: '0002026',
+  npi: '1234567893',
+  name: 'Sample Pharmacy One',
+  phone: '5125559999',
+  address: '123 Main St, Washington, DC 20001',
+};
+
+/** One drug in every form, as the terminology search returns it, with each strength's dose form and ingredients. */
+const AMOXICILLIN = {
+  name: 'Amoxicillin',
+  strengths: [
+    detailed({ strength: '250 mg Cap', ndcs: ['00093310701'] }),
+    detailed({ strength: '875 mg Tab', ndcs: ['00093226401'] }),
+    detailed({ strength: '250 mg/5ml Susp', ndcs: ['00093415573'] }),
+    detailed({ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }),
+  ],
+};
+const AMOXICILLIN_500_TAB = detailed({ strength: '500 mg Tab', ndcs: ['00093226301'] });
+
+const MUPIROCIN = {
+  name: 'Mupirocin (Topical)',
+  strengths: [detailed({ strength: '2% Ointment', ndcs: ['00093101042'] })],
+};
+
+const ALBUTEROL = {
+  name: 'Albuterol',
+  strengths: [
+    detailed({ strength: '90 mcg/puff MDI', ndcs: ['00054074287'] }),
+    detailed({ strength: '0.083% Neb Soln', ndcs: ['00487950101'] }),
+    detailed({ strength: '108 (90 Base) mcg/act HFA', ndcs: ['59310057922'] }),
+  ],
+};
+
+/** A dose pack (RxNorm's "Pack", rxcui 2587899): its dose form says nothing of a unit or route. */
+const PAXLOVID = {
+  name: 'Paxlovid',
+  strengths: [
+    {
+      strength: '300 mg-100 mg Dose Pack',
+      ndcs: ['00069110104'],
+      rxcui: '2587899',
+      doseForm: 'Pack',
+      ingredients: [
+        { name: 'nirmatrelvir', amount: 150, unit: 'MG', per: 1, perUnit: 'EACH' },
+        { name: 'ritonavir', amount: 100, unit: 'MG', per: 1, perUnit: 'EACH' },
+      ],
+    },
+  ],
+};
+
+describe('prescriptionLineErrors', () => {
+  it('names everything an empty line still needs, in screen order: the directions sit above the dispense line', () => {
+    expect(prescriptionLineErrors(emptyPrescriptionLine())).toEqual([
+      'Pick a medication',
+      'Enter the directions',
+      'Quantity must be greater than 0',
+      'Pick a unit',
+    ]);
+  });
+
+  it('accepts a complete line, with or without a days supply', () => {
+    expect(prescriptionLineErrors(complete())).toEqual([]);
+    expect(prescriptionLineErrors({ ...complete(), daysSupply: '' })).toEqual([]);
+  });
+
+  it('rejects out-of-range refills and days supply', () => {
+    expect(prescriptionLineErrors({ ...complete(), numberOfRefills: '100', daysSupply: '1.5' })).toEqual([
+      'Days supply must be a whole number from 1 to 999',
+      'Refills must be a whole number from 0 to 99',
+    ]);
+  });
+
+  // Surescripts' limits (a name up to 105 characters, an 11-digit NDC): staff can't edit either, so say what to do.
+  it('says what to do about a product name or NDC Surescripts can’t take', () => {
+    const product = complete().medication!;
+    expect(prescriptionLineErrors({ ...complete(), medication: { ...product, description: 'A'.repeat(106) } })).toEqual(
+      ["This product's name is too long for Surescripts. Pick another strength or write it as a compound."]
+    );
+    expect(prescriptionLineErrors({ ...complete(), medication: { ...product, ndc: '1234' } })).toEqual([
+      'This product has no 11-digit NDC, which Surescripts needs. Pick the medication again or write it as a compound.',
+    ]);
+  });
+
+  it('needs at least 2 characters of directions', () => {
+    expect(prescriptionLineErrors({ ...complete(), patientInstructions: ' x ' })).toEqual([
+      'Directions must be at least 2 characters',
+    ]);
+    expect(prescriptionLineErrors({ ...complete(), patientInstructions: 'ud' })).toEqual([]);
+  });
+
+  // Claim audit r7, flag 1: directions the blanks write with no amount ("Take by mouth twice daily for 10 days.").
+  it('asks for the dose while the blanks write the directions, before the dispense line’s problems', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const noDose = withDirections(liquid, { frequency: 'twice daily', durationDays: '10' });
+    expect(noDose.patientInstructions).toBe('Take by mouth twice daily for 10 days.');
+    expect(prescriptionLineErrors({ ...noDose, quantityValue: '100' })).toEqual(['Enter the dose']);
+    expect(prescriptionLineErrors(noDose)).toEqual(['Enter the dose', 'Quantity must be greater than 0']);
+    // Typed directions are the provider's; a dose, or a cream's directions with no unit to count in, need none.
+    const typed = 'Take as directed by your doctor.';
+    expect(prescriptionLineErrors({ ...noDose, patientInstructions: typed, quantityValue: '100' })).toEqual([]);
+    expect(prescriptionLineErrors({ ...withDirections(noDose, { dose: '5' }), quantityValue: '100' })).toEqual([]);
+    const ointment = withDirections(withProduct(emptyPrescriptionLine(), MUPIROCIN, MUPIROCIN.strengths[0]), {
+      frequency: 'twice daily',
+    });
+    expect(prescriptionLineErrors({ ...ointment, quantityValue: '22', quantityUnit: 'Gram' })).toEqual([]);
+    // Decision 188: a powder dosed per packet or capful has no mL to count in. Decision 203 (D9-1): it's dosed in g, so
+    // it needs its dose.
+    const PEG = {
+      name: 'Polyethylene Glycol 3350',
+      strengths: [
+        {
+          strength: '17 GM/SCOOP Powder',
+          ndcs: ['11523723401'],
+          doseForm: 'Powder for Oral Solution',
+          ingredients: [{ name: 'polyethylene glycol 3350', amount: 17000, unit: 'MG', per: 1, perUnit: 'EACH' }],
+        },
+      ],
+    };
+    const peg = withDirections(withProduct(emptyPrescriptionLine(), PEG, PEG.strengths[0]), {
+      frequency: 'once daily',
+      durationDays: '30',
+      instructions: 'mix in 8 oz of water',
+    });
+    expect(peg.patientInstructions).toBe('Take by mouth once daily for 30 days, mix in 8 oz of water.');
+    expect(peg.quantityUnit).toBe('');
+    expect(prescriptionLineErrors({ ...peg, quantityValue: '510', quantityUnit: 'Gram' })).toEqual(['Enter the dose']);
+    const dosed = withDirections(peg, { dose: '17' });
+    expect(dosed.patientInstructions).toBe('Take 17 g by mouth once daily for 30 days, mix in 8 oz of water.');
+    expect(prescriptionLineErrors({ ...dosed, quantityValue: '510', quantityUnit: 'Gram' })).toEqual([]);
+  });
+
+  // Decision 217 (D10-1): granules have a dose unit again, so they need their dose.
+  it('asks for the dose of montelukast granules', () => {
+    const MONTELUKAST = {
+      name: 'Montelukast (Oral Granules)',
+      strengths: [
+        {
+          strength: '4 mg Granules',
+          ndcs: ['00006384130'],
+          doseForm: 'Oral Granules',
+          ingredients: [{ name: 'montelukast', amount: 4, unit: 'MG', per: 1, perUnit: 'EACH' }],
+        },
+      ],
+    };
+    const granules = withDirections(withProduct(emptyPrescriptionLine(), MONTELUKAST, MONTELUKAST.strengths[0]), {
+      frequency: 'once daily',
+      durationDays: '30',
+    });
+    expect(prescriptionLineErrors({ ...granules, quantityValue: '30', quantityUnit: 'Each' })).toEqual([
+      'Enter the dose',
+    ]);
+    const dosed = withDirections(granules, { dose: '1' });
+    expect(dosed.patientInstructions).toBe('Take 1 packet by mouth once daily for 30 days.');
+    expect(prescriptionLineErrors({ ...dosed, quantityValue: '30', quantityUnit: 'Each' })).toEqual([]);
+  });
+
+  // Decision 189 (D8-2): every step the sentence says needs its dose; an empty first step before "then" steps says
+  // nothing, so it needs none.
+  it('asks for the dose of every step the directions say', () => {
+    const tablet = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[1]);
+    const step = (dose: string): { dose: string; frequency: string; durationDays: string } => ({
+      dose,
+      frequency: 'once daily',
+      durationDays: '3',
+    });
+    const missed = withDirections(tablet, { ...step('4'), steps: [step(''), step('1')] });
+    expect(missed.patientInstructions).toBe(
+      'Take 4 tablets by mouth once daily for 3 days, then by mouth once daily for 3 days, then 1 tablet by mouth once daily for 3 days.'
+    );
+    expect(prescriptionLineErrors({ ...missed, quantityValue: '15' })).toEqual(['Enter the dose']);
+    const emptyFirst = withDirections(tablet, { steps: [step('2'), step('1')] });
+    expect(prescriptionLineErrors({ ...emptyFirst, quantityValue: '9' })).toEqual([]);
+    const context = { patientId: 'p', practitionerId: 'pr', encounterId: 'e', pharmacy: PHARMACY };
+    expect(prescriptionLineToOrder({ ...emptyFirst, quantityValue: '9' }, context).patientInstructions).toBe(
+      'Take 2 tablets by mouth once daily for 3 days, then 1 tablet by mouth once daily for 3 days.'
+    );
+  });
+
+  // Decision 190 (D8-3): "as directed" with the amounts written in the instructions blank is complete.
+  it('asks for no dose "as directed" when the instructions say how much', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const asDirected = withDirections(liquid, { frequency: 'as directed' });
+    expect(prescriptionLineErrors({ ...asDirected, quantityValue: '100' })).toEqual(['Enter the dose']);
+    const written = withDirections(asDirected, { instructions: '10 mL daily for 3 days then 5 mL daily for 2 days' });
+    expect(written.patientInstructions).toBe(
+      'Take by mouth as directed, 10 mL daily for 3 days then 5 mL daily for 2 days.'
+    );
+    expect(prescriptionLineErrors({ ...written, quantityValue: '100' })).toEqual([]);
+  });
+
+  // Decision 205 (D9-3): instructions with no amount don't say how much.
+  it('still asks for the dose "as directed" when the instructions hold no number', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const shake = withDirections(liquid, { frequency: 'as directed', instructions: 'shake well' });
+    expect(shake.patientInstructions).toBe('Take by mouth as directed, shake well.');
+    expect(prescriptionLineErrors({ ...shake, quantityValue: '100' })).toEqual(['Enter the dose']);
+  });
+
+  // Decisions 219 and 223 (D10-3): a number counts only as an amount, a number or a number word followed by a dose
+  // word; a time, a volume of water or a number of days isn't one.
+  it('asks for the dose "as directed" unless the instructions give an amount', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const errors = (instructions: string): string[] =>
+      prescriptionLineErrors({
+        ...withDirections(liquid, { frequency: 'as directed', instructions }),
+        quantityValue: '100',
+      });
+    for (const instructions of ['mix in 8 oz of water', 'every 6 hours as needed for pain', 'for 10 days']) {
+      expect(errors(instructions)).toEqual(['Enter the dose']);
+    }
+    for (const instructions of ['10 mL daily', 'one teaspoon with food', 'half tablet at bedtime', '2 packets daily']) {
+      expect(errors(instructions)).toEqual([]);
+    }
+  });
+
+  // Decision 244 (D12-5): the units decisions 212 and 217 added are dose words too.
+  it('takes a lozenge, patch, insert, suppository, tablespoon or scoop as an amount "as directed"', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const errors = (instructions: string): string[] =>
+      prescriptionLineErrors({
+        ...withDirections(liquid, { frequency: 'as directed', instructions }),
+        quantityValue: '100',
+      });
+    for (const instructions of [
+      'dissolve 1 lozenge in the mouth 5 times daily for 14 days',
+      'dissolve 1 troche in the mouth 5 times daily for 14 days',
+      'apply 1 patch to the site 30 minutes before the procedure',
+      'apply 2 patches to the back daily',
+      '1 insert at bedtime for 3 nights',
+      'one suppository at bedtime',
+      '2 suppositories daily',
+      '1 tablespoon daily',
+      '2 tbsp daily',
+      '1 scoop in 8 oz of water daily',
+      // Decision 260 (D14-4): "mls", "teaspoonful(s)", "tablespoonful(s)" and the characters ½, ¼ and ¾.
+      '7.5mls every 6 hours',
+      '1.5 teaspoonfuls every 6 hours',
+      '1 teaspoonful at bedtime',
+      '1 tablespoonful daily',
+      '2 tablespoonfuls daily',
+      '½ tsp every 6 hours',
+      '¼ tablet daily',
+      '¾ teaspoon daily',
+      '1½ tsp every 6 hours',
+    ]) {
+      expect(errors(instructions)).toEqual([]);
+    }
+    // A fraction character alone, with no dose word, is still no amount.
+    expect(errors('½ every 6 hours')).toEqual(['Enter the dose']);
+  });
+
+  // Decision 245 (D12-6): a maximum ("do not exceed 3000 mg per day") or a rate by weight ("40 mg/kg") isn't a dose.
+  it('takes no maximum or mg/kg as an amount "as directed"', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const errors = (instructions: string): string[] =>
+      prescriptionLineErrors({
+        ...withDirections(liquid, { frequency: 'as directed', instructions }),
+        quantityValue: '100',
+      });
+    for (const instructions of [
+      'every 6 hours as needed, do not exceed 3000 mg per day',
+      'every 6 hours as needed for fever, max 40 mg/kg per day',
+      'every 6 hours as needed, do not exceed 3,000 mg per day',
+      'every 6 hours as needed, maximum of 3.5 g a day',
+      'no more than 4 tablets a day',
+      '40 mg per kg per day divided twice daily',
+      // Decision 253: a limit can have a colon or up to 3 words before its amount.
+      'max: 40 mg per dose',
+      'maximum daily dose 3000 mg',
+      'every 6 hours as needed, daily max: 3,000 mg',
+      'no more than a total of 4 tablets a day',
+      // Review D15-1: a dose verb ends the limit only after "more than", so a maximum with a verb is still a limit.
+      'max use 12 puffs per day',
+      'maximum to take 4 tablets per day',
+      'max you can take: 4 tablets per day',
+      'MAXIMUM DAILY DOSE TAKE 6 TABLETS',
+      'Max use: 2 sprays per nostril daily',
+    ]) {
+      expect(errors(instructions)).toEqual(['Enter the dose']);
+    }
+    for (const instructions of [
+      '10 mL daily',
+      '10 mL daily for 3 days, do not exceed 3000 mg per day',
+      'up to 3 patches at once',
+      '1,000 mg twice daily',
+      'max 2 doses a day, 5 mL each',
+      // Decision 259 (D14-3): a dose verb ends the limit, as a comma does.
+      'if fever lasts more than a day give 7.5 mL every 6 hours',
+      'if pain lasts more than a day take 1 tablet',
+      'if wheezing for more than 1 hour inhale 2 puffs',
+      'if itching lasts more than a day apply 1 patch',
+      'if fever lasts more than one day insert 1 suppository',
+      'if more than mild use 2 sprays',
+      'if more than mild put 2 drops in each eye',
+      'if more than mild instill 2 drops in each eye',
+      'IF FEVER LASTS MORE THAN A DAY GIVE 7.5 ML',
+      // Review D15-3: chew, dissolve, swallow and place are dose verbs too.
+      'if fever lasts more than a day chew 1 tablet',
+      'if pain lasts more than a day dissolve 1 tablet',
+      'if pain lasts more than a day swallow 2 tablets',
+      'if more than mild place 1 lozenge in the mouth',
+    ]) {
+      expect(errors(instructions)).toEqual([]);
+    }
+  });
+
+  // Decision 186: a line waiting for a pick hides its sentences, so it isn't asked for what they hold.
+  it('asks only for the pick while the line waits for one', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const noDose = withDirections(liquid, { frequency: 'twice daily', durationDays: '10' });
+    expect(prescriptionLineErrors({ ...noDose, awaitingPick: true })).toEqual(['Pick a suggestion or Write my own']);
+  });
+
+  // Decision 198: nor for anything else its hidden blanks hold; the medication's own problems still show.
+  it('asks for nothing the hidden blanks hold while the line waits for a pick', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+    const waiting = {
+      ...withDirections(liquid, { frequency: 'twice daily', durationDays: '10' }),
+      quantityUnit: '' as const,
+      numberOfRefills: 'x',
+      noteToPharmacy: 'n'.repeat(211),
+      awaitingPick: true,
+    };
+    expect(prescriptionLineErrors(waiting)).toEqual(['Pick a suggestion or Write my own']);
+    expect(prescriptionLineErrors({ ...waiting, medication: { ...waiting.medication!, ndc: '123' } })).toEqual([
+      'Pick a suggestion or Write my own',
+      PRODUCT_NDC_MESSAGE,
+    ]);
+  });
+});
+
+// 21 CFR 1311: no controlled drug goes out from this page until it has EPCS. The search gives each strength RxNorm's
+// DEA schedule: 0 for none, 1 to 5 for Schedules I to V, absent when RxNorm has none.
+describe('a controlled drug', () => {
+  const OXYCODONE = {
+    name: 'Oxycodone',
+    strengths: [
+      { strength: '5 mg Tab', ndcs: ['00406055201'], schedule: 2 },
+      { strength: '10 mg Tab', ndcs: ['00406055301'], schedule: 0 },
+      { strength: '15 mg Tab', ndcs: ['00406055401'] },
+    ],
+  };
+  const onStrength = (index: number): PrescriptionLine => ({
+    ...complete(),
+    drug: OXYCODONE,
+    medication: productOf(OXYCODONE, OXYCODONE.strengths[index]),
+  });
+
+  it('names a schedule from 1 to 5 as C-I to C-V, and none for 0 or no schedule', () => {
+    expect([1, 2, 3, 4, 5].map((schedule) => scheduleLabel({ schedule }))).toEqual([
+      'C-I',
+      'C-II',
+      'C-III',
+      'C-IV',
+      'C-V',
+    ]);
+    expect(scheduleLabel({ schedule: 0 })).toBeUndefined();
+    expect(scheduleLabel({})).toBeUndefined();
+    expect(scheduleLabel(undefined)).toBeUndefined();
+  });
+
+  it('can’t be sent once a controlled strength is picked, its error first as the medication’s', () => {
+    expect(prescriptionLineErrors(onStrength(0))).toEqual([CONTROLLED_DRUG_ERROR]);
+    expect(prescriptionLineErrors({ ...onStrength(0), quantityValue: '' })).toEqual([
+      CONTROLLED_DRUG_ERROR,
+      'Quantity must be greater than 0',
+    ]);
+  });
+
+  it('is not controlled with schedule 0 or no schedule, as before', () => {
+    expect(prescriptionLineErrors(onStrength(1))).toEqual([]);
+    expect(prescriptionLineErrors(onStrength(2))).toEqual([]);
+    // A quick pick or a reorder carries no search hit, so no schedule: nothing is made up for it.
+    expect(prescriptionLineErrors(complete())).toEqual([]);
+  });
+
+  it('can’t be sent as a compound ingredient picked at a controlled strength', () => {
+    const line = withCompound(emptyPrescriptionLine(), { drug: OXYCODONE });
+    const [first] = line.compound!.ingredients;
+    const at = (index: number): PrescriptionLine => ({
+      ...line,
+      compound: {
+        ...line.compound!,
+        ingredients: [{ ...first, product: productOf(OXYCODONE, OXYCODONE.strengths[index]) }],
+      },
+    });
+    expect(prescriptionLineErrors(at(0))[0]).toBe(CONTROLLED_DRUG_ERROR);
+    expect(prescriptionLineErrors(at(1))).not.toContain(CONTROLLED_DRUG_ERROR);
+  });
+
+  // A quick pick keeps its strength's schedule, so one saved from a controlled line is still blocked when used.
+  const METHYLPHENIDATE = {
+    name: 'Methylphenidate',
+    strengths: [
+      { strength: '10 mg Tab', ndcs: ['00406112101'], rxcui: '1091170', doseForm: 'Oral Tablet', schedule: 2 },
+    ],
+  };
+  const saved = (quickPick: Omit<PrescriptionQuickPickData, 'id'>): PrescriptionQuickPickData =>
+    JSON.parse(JSON.stringify({ ...quickPick, id: 'qp-1' }));
+
+  it('stays controlled through a quick pick saved from the line, alone or in a set', () => {
+    const line = withProduct(complete(), METHYLPHENIDATE, METHYLPHENIDATE.strengths[0]);
+    expect(controlledDrugErrors(line)).toEqual([CONTROLLED_DRUG_ERROR]);
+    const quickPick = saved(prescriptionLineToQuickPick(line, 'Methylphenidate 10 mg'));
+    expect(controlledDrugErrors(applyPrescriptionQuickPick(emptyPrescriptionLine(), quickPick))).toEqual([
+      CONTROLLED_DRUG_ERROR,
+    ]);
+    const set = { id: 'set-1', name: 'ADHD', memberIds: ['qp-1'], status: 'Active' as const };
+    const { lines } = withPrescriptionSet(emptyPrescriptionLine(), set, [quickPick], undefined);
+    expect(lines.map(controlledDrugErrors)).toEqual([[CONTROLLED_DRUG_ERROR]]);
+  });
+
+  it('stays controlled through a quick pick made in Admin › Quick Picks from a controlled strength', () => {
+    const product = productOf(METHYLPHENIDATE, METHYLPHENIDATE.strengths[0]);
+    const result = prescriptionQuickPickFromForm({
+      ...emptyPrescriptionQuickPickForm(),
+      name: 'Methylphenidate 10 mg',
+      ndc: product.ndc,
+      medicationDescription: product.description,
+      productDetails: productDetailsOf(product),
+      patientInstructions: 'Take 1 tablet by mouth every morning.',
+      quantityValue: '30',
+      quantityUnit: 'Tablet',
+      daysSupply: '30',
+    });
+    if (result.errors) throw new Error(JSON.stringify(result.errors));
+    const quickPick = saved(result.quickPick);
+    expect(controlledDrugErrors(applyPrescriptionQuickPick(emptyPrescriptionLine(), quickPick))).toEqual([
+      CONTROLLED_DRUG_ERROR,
+    ]);
+  });
+
+  it('stays controlled through a compound quick pick with a controlled ingredient', () => {
+    const line = withCompound(emptyPrescriptionLine(), { drug: METHYLPHENIDATE });
+    const [first] = line.compound!.ingredients;
+    const compound: PrescriptionLine = {
+      ...line,
+      compound: {
+        ...line.compound!,
+        name: 'Methylphenidate 1 mg/mL suspension',
+        dosageForm: 'Suspension',
+        ingredients: [
+          { ...first, product: productOf(METHYLPHENIDATE, METHYLPHENIDATE.strengths[0]), value: '1', unit: 'mg/mL' },
+        ],
+      },
+    };
+    expect(controlledDrugErrors(compound)).toEqual([CONTROLLED_DRUG_ERROR]);
+    const quickPick = saved(prescriptionLineToQuickPick(compound, 'Methylphenidate suspension'));
+    expect(controlledDrugErrors(applyPrescriptionQuickPick(emptyPrescriptionLine(), quickPick))).toEqual([
+      CONTROLLED_DRUG_ERROR,
+    ]);
+  });
+});
+
+describe('withDrug', () => {
+  it('leaves the strength to the provider and drops what was written for the product before', () => {
+    const liquid = withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]), {
+      dose: '5',
+      frequency: 'twice daily',
+    });
+    const picked = withDrug(liquid, MUPIROCIN);
+    expect(picked).toMatchObject({
+      drug: MUPIROCIN,
+      medication: null,
+      dose: '',
+      frequency: '',
+      patientInstructions: '',
+    });
+    expect(pickedStrength(picked)).toBeUndefined();
+    expect(prescriptionLineErrors(picked)).toContain('Pick a strength');
+    expect(prescriptionLineErrors(picked)).not.toContain('Pick a medication');
+    // The strength picked next names the product.
+    expect(withProduct(picked, MUPIROCIN, MUPIROCIN.strengths[0]).medication?.description).toBe(
+      'Mupirocin (Topical) 2% Ointment'
+    );
+  });
+});
+
+describe('withDrug: what the old product implied goes', () => {
+  it('clears a typed quantity, the unit, days supply and route; the new product sets its own', () => {
+    const liquid = withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]), {
+      dose: '5',
+      frequency: 'twice daily',
+      durationDays: '10',
+    });
+    // Typed by hand, so the blanks would never overwrite them.
+    const typed = {
+      ...liquid,
+      quantityValue: '150',
+      daysSupply: '7',
+      numberOfRefills: '2',
+      substitutionAllowed: false,
+      noteToPharmacy: 'Shake well',
+    };
+    const picked = withDrug(typed, MUPIROCIN);
+    expect(picked).toMatchObject({
+      quantityValue: '',
+      quantityUnit: '',
+      daysSupply: '',
+      route: '',
+      dose: '',
+      frequency: '',
+      durationDays: '',
+      patientInstructions: '',
+      // Not the product's: the provider's refills, substitution and note stay.
+      numberOfRefills: '2',
+      substitutionAllowed: false,
+      noteToPharmacy: 'Shake well',
+    });
+    expect(withProduct(picked, MUPIROCIN, MUPIROCIN.strengths[0])).toMatchObject({
+      quantityUnit: 'Gram',
+      route: 'on the skin',
+      quantityValue: '',
+    });
+    // A product that implies no unit or route leaves them empty, not the old drug's.
+    expect(withProduct(withDrug(typed, PAXLOVID), PAXLOVID, PAXLOVID.strengths[0])).toMatchObject({
+      quantityUnit: '',
+      route: '',
+    });
+  });
+});
+
+describe('combination products', () => {
+  const AUGMENTIN = {
+    name: 'Amoxicillin-Clavulanate',
+    strengths: [
+      detailed({ strength: '400-57 mg/5ml Susp', ndcs: ['00093227573'] }),
+      detailed({ strength: '600-42.9 mg/5ml Susp', ndcs: ['00093227873'] }),
+    ],
+  };
+
+  it('never re-measures a dose by the first ingredient: a strength change leaves the dose to enter', () => {
+    const line = withDirections(withProduct(emptyPrescriptionLine(), AUGMENTIN, AUGMENTIN.strengths[0]), {
+      dose: '5',
+      frequency: 'twice daily',
+    });
+    const next = withProduct(line, AUGMENTIN, AUGMENTIN.strengths[1]);
+    expect(next.dose).toBe('');
+    expect(next.doseNotes).toEqual([undefined]);
+  });
+
+  it('checks no maximum until the calculator doses by one ingredient, then checks that one’s', () => {
+    const line: PrescriptionLine = {
+      ...withProduct(emptyPrescriptionLine(), AUGMENTIN, AUGMENTIN.strengths[0]),
+      dose: '20',
+      frequency: 'twice daily',
+      maximum: { maxPerDoseMg: 500, from: 'calculator' },
+    };
+    expect(maximumWarnings(line)).toEqual([]);
+    // 20 mL × 80 mg/mL amoxicillin = 1,600 mg; 20 mL × 11.4 mg/mL clavulanate = 228 mg.
+    expect(maximumWarnings({ ...line, doseBy: 'amoxicillin' })).toEqual([
+      { blank: 'dose', text: '1,600 mg per dose is above the 500 mg maximum.' },
+    ]);
+    expect(maximumWarnings({ ...line, doseBy: 'clavulanate' })).toEqual([]);
+  });
+
+  it('names each ingredient by its mg per measure, and has no mg of its own', () => {
+    const product = withProduct(emptyPrescriptionLine(), AUGMENTIN, AUGMENTIN.strengths[0]).medication;
+    expect(product?.ingredients?.map((ingredient) => ingredientText(product, ingredient))).toEqual([
+      'amoxicillin 80 mg/mL',
+      'clavulanate 11.4 mg/mL',
+    ]);
+    expect(mgPerMeasure(product)).toBeUndefined();
+  });
+});
+
+describe('mgPerMeasure', () => {
+  const product = (ndc: string): (typeof ERX_PRODUCT_DETAILS)[string] => ERX_PRODUCT_DETAILS[ndc];
+
+  it('reads mg per mL of a liquid and per tablet or capsule from the one ingredient', () => {
+    expect(mgPerMeasure(product('00093416173'))).toBe(80);
+    expect(mgPerMeasure(product('00093310701'))).toBe(250);
+    expect(mgPerMeasure(product('00093226401'))).toBe(875);
+    expect(
+      mgPerMeasure({
+        doseForm: 'Oral Tablet',
+        ingredients: [{ ...product('00093226401').ingredients![0], unit: 'GM', amount: 1 }],
+      })
+    ).toBe(1000);
+    expect(
+      mgPerMeasure({
+        doseForm: 'Oral Suspension',
+        ingredients: [{ name: 'x', amount: 400, unit: 'MCG', per: 5, perUnit: 'ML' }],
+      })
+    ).toBe(0.08);
+  });
+
+  it('has none for a form the calculator doesn’t measure, a unit that isn’t mg, or no details', () => {
+    expect(mgPerMeasure(product('00054074287'))).toBeUndefined();
+    expect(mgPerMeasure(product('00093101042'))).toBeUndefined();
+    expect(
+      mgPerMeasure({
+        doseForm: 'Oral Suspension',
+        ingredients: [{ name: 'x', amount: 1, unit: 'UNT', per: 1, perUnit: 'ML' }],
+      })
+    ).toBeUndefined();
+    expect(
+      mgPerMeasure({
+        doseForm: 'Oral Tablet',
+        ingredients: [{ name: 'x', amount: 1, unit: 'MG', per: 1, perUnit: 'ML' }],
+      })
+    ).toBeUndefined();
+    expect(mgPerMeasure({ ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' } as never)).toBeUndefined();
+  });
+});
+
+describe('a product without structured details', () => {
+  it('implies no unit or route, and no dose is re-measured into it', () => {
+    const bare = { name: 'Amoxicillin', strengths: [{ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }] };
+    const line = withProduct({ ...emptyPrescriptionLine(), quantityUnit: 'Each' }, bare, bare.strengths[0]);
+    expect(line).toMatchObject({ quantityUnit: 'Each', route: '' });
+    expect(withDirections(line, { dose: '5', frequency: 'twice daily' }).patientInstructions).toBe(
+      'Take 5 twice daily.'
+    );
+  });
+});
+
+describe('withProduct', () => {
+  it('names the product by drug and strength, with the unit and route from its dose form', () => {
+    const line = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]);
+    expect(line.medication).toEqual({
+      ndc: '00093415573',
+      description: 'Amoxicillin 250 mg/5ml Susp',
+      ...ERX_PRODUCT_DETAILS['00093415573'],
+    });
+    expect(line.quantityUnit).toBe('Milliliter');
+    expect(line.route).toBe('by mouth');
+
+    const ointment = withProduct(emptyPrescriptionLine(), MUPIROCIN, MUPIROCIN.strengths[0]);
+    expect(ointment.quantityUnit).toBe('Gram');
+    expect(ointment.route).toBe('on the skin');
+  });
+
+  it('leaves the unit and route alone when the product does not say', () => {
+    const line = withProduct({ ...emptyPrescriptionLine(), quantityUnit: 'Each' }, PAXLOVID, PAXLOVID.strengths[0]);
+    expect(line.quantityUnit).toBe('Each');
+    expect(line.route).toBe('');
+    // An auto-injector is by injection, in a unit the provider picks.
+    const pen = {
+      name: 'Epinephrine',
+      strengths: [detailed({ strength: '0.3 mg Auto-Injector', ndcs: ['49502010202'] })],
+    };
+    expect(withProduct({ ...emptyPrescriptionLine(), quantityUnit: 'Each' }, pen, pen.strengths[0])).toMatchObject({
+      quantityUnit: 'Each',
+      route: 'by injection',
+    });
+  });
+
+  it('keeps the picks across a strength change and rewrites the directions for the new strength', () => {
+    const liquid = withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]), {
+      dose: '5',
+      frequency: 'twice daily',
+      durationDays: '10',
+    });
+    expect(liquid.patientInstructions).toBe('Take 5 mL by mouth twice daily for 10 days.');
+    // 5 mL of 250/5 is 250 mg: 0.29 of an 875 mg tablet, which isn't split, so at least one whole tablet, with a
+    // note on how far over it is: the provider decides, with no cut-off.
+    const tablet = withProduct(liquid, AMOXICILLIN, AMOXICILLIN.strengths[1]);
+    expect(tablet.quantityUnit).toBe('Tablet');
+    expect(tablet.dose).toBe('1');
+    expect(tablet.doseNotes).toEqual([{ dose: '1', text: '1 tablet = 875 mg, 625 mg (250%) over 250 mg' }]);
+    expect(tablet.patientInstructions).toBe('Take 1 tablet by mouth twice daily for 10 days.');
+    expect(tablet.quantityValue).toBe('20');
+    // A tablet is given whole, as the calculator does: 250 mg is half a 500 mg tablet, rounded to one.
+    const halves = withProduct(liquid, AMOXICILLIN, AMOXICILLIN_500_TAB);
+    expect(halves.dose).toBe('1');
+    expect(halves.doseNotes?.[0]?.text).toBe('1 tablet = 500 mg, 250 mg (100%) over 250 mg');
+  });
+
+  it('keeps the mg per dose across a strength change, to the nearest amount the new product measures', () => {
+    const liquid = withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]), {
+      dose: '9.5',
+      frequency: 'twice daily',
+      durationDays: '10',
+      steps: [{ dose: '4.75', frequency: 'twice daily', durationDays: '2' }],
+    });
+    // 9.5 mL of 400/5 is 760 mg: 15.2 mL of 250/5, to the half mL as the calculator measures; the "then" step
+    // follows, each with its note.
+    const weaker = withProduct(liquid, AMOXICILLIN, AMOXICILLIN.strengths[2]);
+    expect(weaker.dose).toBe('15');
+    expect(weaker.steps[0].dose).toBe('7.5');
+    expect(weaker.doseNotes).toEqual([
+      { dose: '15', text: '15 mL = 750 mg, 10 mg (1%) under 760 mg' },
+      { dose: '7.5', text: '7.5 mL = 375 mg, 5 mg (1%) under 380 mg' },
+    ]);
+    expect(weaker.patientInstructions).toBe(
+      'Take 15 mL by mouth twice daily for 10 days, then 7.5 mL by mouth twice daily for 2 days.'
+    );
+    // 760 mg in 875 mg tablets is 0.87: one whole tablet, 15% over, kept with its note (no cut-off).
+    const tablets = withProduct(liquid, AMOXICILLIN, AMOXICILLIN.strengths[1]);
+    expect(tablets.dose).toBe('1');
+    expect(tablets.doseNotes?.[0]?.text).toBe('1 tablet = 875 mg, 115 mg (15%) over 760 mg');
+    // The same strength again, or another drug, leaves no notes.
+    expect(withProduct(tablets, AMOXICILLIN, AMOXICILLIN.strengths[1]).doseNotes).toBeUndefined();
+
+    const albuterol = ALBUTEROL;
+    const puffs = withDirections(withProduct(emptyPrescriptionLine(), albuterol, albuterol.strengths[0]), {
+      dose: '2',
+    });
+    expect(withProduct(puffs, albuterol, albuterol.strengths[1])).toMatchObject({ dose: '', patientInstructions: '' });
+    // Puffs aren't re-measured: another inhaler keeps the dose as it was.
+    expect(withProduct(puffs, albuterol, albuterol.strengths[2])).toMatchObject({
+      dose: '2',
+      patientInstructions: 'Inhale 2 puffs.',
+    });
+
+    // Audit r5 flag 1: drops aren't re-measured as mL either; a new strength keeps the drop count, with no note.
+    const ketotifen = {
+      name: 'Ketotifen',
+      strengths: [0.25, 0.35].map((amount, i) => ({
+        strength: `${amount} mg/ml Ophth Soln`,
+        ndcs: [`0000000000${i + 1}`],
+        doseForm: 'Ophthalmic Solution',
+        ingredients: [{ name: 'ketotifen', amount, unit: 'MG', per: 1, perUnit: 'ML' }],
+      })),
+    };
+    const drops = withDirections(withProduct(emptyPrescriptionLine(), ketotifen, ketotifen.strengths[0]), {
+      dose: '1',
+    });
+    const stronger = withProduct(drops, ketotifen, ketotifen.strengths[1]);
+    expect(stronger.dose).toBe('1');
+    expect(stronger.doseNotes?.[0]).toBeUndefined();
+  });
+
+  // Decision 222: a product with no dose unit has nothing to count a kept dose in, so it's emptied.
+  it('empties the dose for a new strength with no dose unit', () => {
+    const tobramycin = {
+      name: 'Tobramycin (Ophthalmic)',
+      strengths: [
+        {
+          strength: '0.3% Sol',
+          ndcs: ['00000000011'],
+          doseForm: 'Ophthalmic Solution',
+          ingredients: [{ name: 'tobramycin', amount: 3, unit: 'MG', per: 1, perUnit: 'ML' }],
+        },
+        {
+          strength: '0.3% Ointment',
+          ndcs: ['00000000012'],
+          doseForm: 'Ophthalmic Ointment',
+          ingredients: [{ name: 'tobramycin', amount: 3, unit: 'MG', per: 1, perUnit: 'G' }],
+        },
+      ],
+    };
+    const drops = withDirections(withProduct(emptyPrescriptionLine(), tobramycin, tobramycin.strengths[0]), {
+      dose: '1',
+      frequency: 'every 4 hours',
+      durationDays: '7',
+    });
+    expect(drops.patientInstructions).toBe('Put 1 drop in the eye every 4 hours for 7 days.');
+    const ointment = withProduct(drops, tobramycin, tobramycin.strengths[1]);
+    expect(ointment.dose).toBe('');
+    expect(ointment.patientInstructions).toBe('Put in the eye every 4 hours for 7 days.');
+    expect(lineMissingDoseUnit(ointment)).toBe(false);
+  });
+
+  // Decision 243 (D12-4): a count of packets is a count of the old packet's mg, and a count kept in another unit is
+  // another dose: emptied, as decision 222's is.
+  it('empties a dose in packets for a new mg per packet, and a kept dose for a new dose unit', () => {
+    const powder = (strength: string, ndc: string, name: string, amount: number): MedicationStrength => ({
+      strength,
+      ndcs: [ndc],
+      doseForm: 'Powder for Oral Solution',
+      ingredients: [{ name, amount, unit: 'MG', per: 1, perUnit: 'EACH' }],
+    });
+    const sapropterin = {
+      name: 'Sapropterin (Oral Powder)',
+      strengths: [
+        powder('100 mg Packet', '00000000021', 'sapropterin dihydrochloride', 100),
+        powder('500 mg Packet', '00000000022', 'sapropterin dihydrochloride', 500),
+      ],
+    };
+    const packets = withDirections(withProduct(emptyPrescriptionLine(), sapropterin, sapropterin.strengths[0]), {
+      dose: '3',
+      frequency: 'once daily',
+      durationDays: '30',
+    });
+    expect(packets.patientInstructions).toBe('Take 3 packets by mouth once daily for 30 days.');
+    const stronger = withProduct(packets, sapropterin, sapropterin.strengths[1]);
+    expect(stronger.dose).toBe('');
+    expect(stronger.patientInstructions).toBe('Take by mouth once daily for 30 days.');
+    const sevelamer = {
+      name: 'Sevelamer (Oral Powder)',
+      strengths: [
+        powder('800 mg Packet', '00000000023', 'sevelamer carbonate', 800),
+        powder('2.4 g Packet', '00000000024', 'sevelamer carbonate', 2400),
+      ],
+    };
+    const onePacket = withDirections(withProduct(emptyPrescriptionLine(), sevelamer, sevelamer.strengths[0]), {
+      dose: '1',
+      frequency: 'three times daily',
+    });
+    expect(withProduct(onePacket, sevelamer, sevelamer.strengths[1]).dose).toBe('');
+    const grams = withDirections(withProduct(emptyPrescriptionLine(), sevelamer, sevelamer.strengths[1]), {
+      dose: '2.4',
+      frequency: 'three times daily',
+    });
+    expect(withProduct(grams, sevelamer, sevelamer.strengths[0]).dose).toBe('');
+    // The same mg per packet keeps its count.
+    const again = withProduct(packets, sapropterin, { ...sapropterin.strengths[0], ndcs: ['00000000025'] });
+    expect(again.dose).toBe('3');
+  });
+
+  // Decision 258 (D14-2): a suppository, lozenge or insert is counted like a packet, so a count of another mg each is
+  // another dose. A patch's count is the dose, and a dose in g is a weight: both kept.
+  it('empties a counted dose for suppositories, lozenges or inserts of another mg', () => {
+    const each = (doseForm: string, name: string, amount: number, unit = 'MG'): MedicationStrength => ({
+      strength: `${amount} ${unit.toLowerCase()} ${doseForm}`,
+      ndcs: [String(amount).padStart(11, '0')],
+      doseForm,
+      ingredients: [{ name, amount, unit, per: 1, perUnit: 'EACH' }],
+    });
+    const kept = (name: string, from: MedicationStrength, to: MedicationStrength, dose: string): string => {
+      const drug = { name, strengths: [from, to] };
+      const line = withDirections(withProduct(emptyPrescriptionLine(), drug, from), { dose, frequency: 'once daily' });
+      return withProduct(line, drug, to).dose;
+    };
+    const acetaminophen = (amount: number): MedicationStrength => each('Rectal Suppository', 'acetaminophen', amount);
+    expect(kept('Acetaminophen (Rectal)', acetaminophen(120), acetaminophen(325), '2')).toBe('');
+    expect(kept('Acetaminophen (Rectal)', acetaminophen(120), acetaminophen(120), '2')).toBe('2');
+    const clotrimazole = (amount: number): MedicationStrength => each('Oral Lozenge', 'clotrimazole', amount);
+    expect(kept('Clotrimazole', clotrimazole(10), clotrimazole(20), '1')).toBe('');
+    const miconazole = (amount: number): MedicationStrength => each('Vaginal Insert', 'miconazole nitrate', amount);
+    expect(kept('Miconazole', miconazole(200), miconazole(100), '1')).toBe('');
+    const lidocaine = (amount: number): MedicationStrength => ({
+      ...each('Medicated Patch', 'lidocaine', amount),
+      ingredients: [{ name: 'lidocaine', amount, unit: 'MG', per: 1, perUnit: 'G' }],
+    });
+    expect(kept('Lidocaine (Topical)', lidocaine(40), lidocaine(50), '2')).toBe('2');
+    const lactulose = (amount: number): MedicationStrength => each('Powder for Oral Solution', 'lactulose', amount);
+    expect(kept('Lactulose', lactulose(10000), lactulose(20000), '10')).toBe('10');
+  });
+
+  it('drops the picks, steps, instructions and directions when another drug is picked', () => {
+    const liquid = withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]), {
+      dose: '5',
+      frequency: 'twice daily',
+      durationDays: '1',
+      steps: [{ dose: '2.5', frequency: 'once daily', durationDays: '4' }],
+      instructions: 'with food',
+    });
+    const ointment = withProduct(liquid, MUPIROCIN, MUPIROCIN.strengths[0]);
+    expect(ointment).toMatchObject({
+      dose: '',
+      frequency: '',
+      patientInstructions: '',
+      quantityValue: '',
+      steps: [],
+      instructions: '',
+    });
+  });
+});
+
+describe('withDirections', () => {
+  const tablet = (): PrescriptionLine => withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[1]);
+
+  it('writes the directions, quantity and days supply as the blanks are picked', () => {
+    const line = withDirections(withDirections(tablet(), { dose: '1' }), {
+      frequency: 'three times daily',
+      durationDays: '7',
+    });
+    expect(line.patientInstructions).toBe('Take 1 tablet by mouth three times daily for 7 days.');
+    expect(line.quantityValue).toBe('21');
+    expect(line.daysSupply).toBe('7');
+  });
+
+  it('never overwrites directions or a quantity the provider typed', () => {
+    const typed = {
+      ...withDirections(tablet(), { dose: '1', frequency: 'twice daily', durationDays: '10' }),
+      patientInstructions: 'Take 1 tablet by mouth twice daily with food for 10 days.',
+      quantityValue: '30',
+    };
+    const line = withDirections(typed, { durationDays: '14' });
+    expect(line.patientInstructions).toBe('Take 1 tablet by mouth twice daily with food for 10 days.');
+    expect(line.quantityValue).toBe('30');
+    expect(line.daysSupply).toBe('14');
+  });
+
+  it('adds up "then" steps, drops a removed one, and still leaves typed directions alone', () => {
+    const first = withDirections(tablet(), { dose: '2', frequency: 'once daily', durationDays: '1' });
+    const twoSteps = withDirections(first, { steps: [{ dose: '1', frequency: 'once daily', durationDays: '4' }] });
+    expect(twoSteps.patientInstructions).toBe(
+      'Take 2 tablets by mouth once daily for 1 day, then 1 tablet by mouth once daily for 4 days.'
+    );
+    expect(twoSteps.quantityValue).toBe('6');
+    expect(twoSteps.daysSupply).toBe('5');
+
+    const oneStep = withDirections(twoSteps, { steps: [] });
+    expect(oneStep.patientInstructions).toBe('Take 2 tablets by mouth once daily for 1 day.');
+    expect(oneStep.quantityValue).toBe('2');
+
+    const typed = { ...first, patientInstructions: 'Take 2 tablets today.' };
+    expect(withDirections(typed, { steps: twoSteps.steps }).patientInstructions).toBe('Take 2 tablets today.');
+  });
+
+  it('appends the instructions, and needs no dose for a device', () => {
+    const spacer = { name: 'Spacer', strengths: [{ strength: 'Device', ndcs: ['00000000001'] }] };
+    const line = withDirections(withProduct(emptyPrescriptionLine(), spacer, spacer.strengths[0]), {
+      route: 'inhaled',
+      instructions: 'with albuterol inhaler',
+    });
+    expect(line.patientInstructions).toBe('Inhale with albuterol inhaler.');
+    expect(line.quantityValue).toBe('');
+    expect(prescriptionLineErrors({ ...line, quantityValue: '1', quantityUnit: 'Each' })).toEqual([]);
+  });
+
+  it('fills an inhaler as one unit and leaves a cream’s quantity empty', () => {
+    const albuterol = ALBUTEROL;
+    const inhaler = withDirections(withProduct(emptyPrescriptionLine(), albuterol, albuterol.strengths[0]), {
+      dose: '2',
+      frequency: 'every 4 hours as needed',
+      durationDays: '5',
+    });
+    expect(inhaler.patientInstructions).toBe('Inhale 2 puffs every 4 hours as needed for up to 5 days.');
+    expect(inhaler.quantityValue).toBe('1');
+
+    const cream = withDirections(withProduct(emptyPrescriptionLine(), MUPIROCIN, MUPIROCIN.strengths[0]), {
+      frequency: 'three times daily',
+      durationDays: '7',
+    });
+    expect(cream.patientInstructions).toBe('Apply on the skin three times daily for 7 days.');
+    expect(cream.quantityValue).toBe('');
+    expect(cream.daysSupply).toBe('7');
+  });
+});
+
+describe('prescriptionLineToOrder', () => {
+  it('builds one order with the shared pharmacy, no written date and none of the on-screen-only fields', () => {
+    expect(
+      prescriptionLineToOrder(
+        { ...complete(), dose: '1', frequency: 'twice daily', durationDays: '10', urgent: true },
+        {
+          patientId: 'patient-1',
+          practitionerId: 'practitioner-1',
+          encounterId: 'encounter-1',
+          pharmacy: PHARMACY,
+        }
+      )
+    ).toEqual({
+      patientId: 'patient-1',
+      practitionerId: 'practitioner-1',
+      encounterId: 'encounter-1',
+      ndc: '00093310901',
+      medicationDescription: 'Amoxicillin 500 MG Oral Capsule',
+      quantityValue: 20,
+      quantityUnit: 'Capsule',
+      daysSupply: 10,
+      substitutionAllowed: true,
+      numberOfRefills: 0,
+      patientInstructions: 'Take 1 capsule by mouth twice daily for 10 days.',
+      pharmacyId: '0002026',
+      pharmacyNpi: '1234567893',
+      pharmacyName: 'Sample Pharmacy One',
+      pharmacyPhone: '5125559999',
+      diagnosisCode: 'J02.9',
+      diagnosisDescription: 'Acute pharyngitis, unspecified',
+    });
+  });
+
+  // A half in words on screen and to the pharmacy (ISMP lists "1/2 tablet" as read as 1 or 2 tablets, decision 78);
+  // other parts ASCII to the pharmacy.
+  it('writes a half in words on the line and in the directions sent, and other fractions in ASCII', () => {
+    const line = withDirections(
+      {
+        ...complete(),
+        medication: detailed({ ndc: '00093117401', description: 'Penicillin V Potassium 500 MG Oral Tablet' }),
+        quantityUnit: 'Tablet',
+        patientInstructions: '',
+      },
+      { dose: '0.5', frequency: 'twice daily', durationDays: '10', steps: [] }
+    );
+    const context = {
+      patientId: 'patient-1',
+      practitionerId: 'practitioner-1',
+      encounterId: 'encounter-1',
+      pharmacy: PHARMACY,
+    };
+    expect(line.patientInstructions).toBe('Take half tablet by mouth twice daily for 10 days.');
+    expect(withDirections(line, { dose: '1.5' }).patientInstructions).toBe(
+      'Take 1 and a half tablets by mouth twice daily for 10 days.'
+    );
+    expect(prescriptionLineToOrder(line, context).patientInstructions).toBe(
+      'Take half tablet by mouth twice daily for 10 days.'
+    );
+    const stepped = withDirections(line, { dose: '1.5' });
+    expect(prescriptionLineToOrder(stepped, context).patientInstructions).toBe(
+      'Take 1 and a half tablets by mouth twice daily for 10 days.'
+    );
+    // Directions the provider typed are sent as typed, apart from fractions: a half, "½" or "1/2", in words (review
+    // D2-6), the other parts in ASCII.
+    const typed = { ...line, patientInstructions: 'Take 1/2 tablet twice daily with food.' };
+    expect(prescriptionLineToOrder(typed, context).patientInstructions).toBe('Take half tablet twice daily with food.');
+    const typedQuarter = { ...line, patientInstructions: 'Take 1 1/2 tablets, then 1 1/4 tablets' };
+    expect(prescriptionLineToOrder(typedQuarter, context).patientInstructions).toBe(
+      'Take 1 and a half tablets, then 1 1/4 tablets'
+    );
+    // Review D3-4: "1-1/2" is 1 and a half, and a half before "to" is in words too, as ISMP asks for every half.
+    const typedHyphen = { ...line, patientInstructions: 'Take 1-1/2 tablets by mouth daily' };
+    expect(prescriptionLineToOrder(typedHyphen, context).patientInstructions).toBe(
+      'Take 1 and a half tablets by mouth daily'
+    );
+    const typedRange = { ...line, patientInstructions: 'Take 1/2 to 1 tablet by mouth, then 1-1/2 to 2 tablets' };
+    expect(prescriptionLineToOrder(typedRange, context).patientInstructions).toBe(
+      'Take half to 1 tablet by mouth, then 1 and a half to 2 tablets'
+    );
+    const typedUnicode = { ...line, patientInstructions: 'Take 1½ tablets, then ½ tablet' };
+    expect(prescriptionLineToOrder(typedUnicode, context).patientInstructions).toBe(
+      'Take 1 and a half tablets, then half tablet'
+    );
+    expect(typedUnicode.patientInstructions).toBe('Take 1½ tablets, then ½ tablet');
+    // Edited after the blanks wrote them, and a quick pick's directions, the same.
+    const edited = { ...line, patientInstructions: `${line.patientInstructions} With food.` };
+    expect(prescriptionLineToOrder(edited, context).patientInstructions).toBe(
+      'Take half tablet by mouth twice daily for 10 days. With food.'
+    );
+    const picked = applyPrescriptionQuickPick(line, {
+      id: 'qp',
+      name: 'Pen VK',
+      patientInstructions: 'Take ¾ tablet daily',
+    });
+    expect(
+      prescriptionLineToOrder({ ...picked, quantityUnit: 'Tablet', quantityValue: '20' }, context).patientInstructions
+    ).toBe('Take 3/4 tablet daily');
+  });
+
+  // Review D4-1 and D4-5: a half in any case, "1/2 tab", and a range with "-", "to" or "or", each half in words.
+  it('puts a half in words in any case, after "tab", and on both ends of a range', () => {
+    const cases: [string, string][] = [
+      ['TAKE 1/2 TABLET BY MOUTH DAILY', 'TAKE half TABLET BY MOUTH DAILY'],
+      ['TAKE 1 1/2 TABLETS BY MOUTH DAILY', 'TAKE 1 and a half TABLETS BY MOUTH DAILY'],
+      ['Take 1/2 tab by mouth', 'Take half tab by mouth'],
+      ['Take 1/2-1 tablet by mouth at bedtime', 'Take half to 1 tablet by mouth at bedtime'],
+      ['Take 1/2 - 1 tablet at bedtime', 'Take half to 1 tablet at bedtime'],
+      ['Take 1/2 or 1 tablet at bedtime', 'Take half or 1 tablet at bedtime'],
+      ['Take 1/2 to 1 1/2 tablets', 'Take half to 1 and a half tablets'],
+      // Unchanged: a quarter, and no half.
+      ['Take 1/4 tablet', 'Take 1/4 tablet'],
+      ['Take 11/2 tablets', 'Take 11/2 tablets'],
+    ];
+    for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
+  });
+
+  // Review D5-1: a number ending a day or week range, or after "day" or "week", isn't the whole part of the half.
+  it('reads a taper step "days 6-10 1/2 tablet" as half a tablet', () => {
+    const cases: [string, string][] = [
+      [
+        'Take 1 tablet daily for days 1-5, then days 6-10 1/2 tablet daily',
+        'Take 1 tablet daily for days 1-5, then days 6-10 half tablet daily',
+      ],
+      ['Days 1-3 1 tablet daily, days 4-7 1/2 tablet daily', 'Days 1-3 1 tablet daily, days 4-7 half tablet daily'],
+      ['Week 2 1/2 tablet daily', 'Week 2 half tablet daily'],
+      ['Day 3 1/2 tablet daily', 'Day 3 half tablet daily'],
+      // Unchanged: a whole number of tablets, joined by a space or "-".
+      ['Take 1 1/2 tablets', 'Take 1 and a half tablets'],
+      ['Take 2-1/2 tablets', 'Take 2 and a half tablets'],
+      ['Take 10-1/2 tablets', 'Take 10 and a half tablets'],
+      ['Take 1 tablet daily for 5 days then 1/2 tablet daily', 'Take 1 tablet daily for 5 days then half tablet daily'],
+      ['Take 2 tablets twice daily x 2 1/2 days', 'Take 2 tablets twice daily x 2 1/2 days'],
+    ];
+    for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
+  });
+
+  // Review D6-1: only a day or week word makes a range a taper step; a dose range "1-1 1/2 tablets" keeps its whole.
+  it('reads a range as a taper step only after a day or week word', () => {
+    const cases: [string, string][] = [
+      ['Days 6 to 10 1/2 tablet daily', 'Days 6 to 10 half tablet daily'],
+      ['Days 6 through 10 1/2 tablet daily', 'Days 6 through 10 half tablet daily'],
+      ['Days 6 thru 10 1/2 tablet daily', 'Days 6 thru 10 half tablet daily'],
+      ['Days 6–10 1/2 tablet daily', 'Days 6–10 half tablet daily'],
+      ['Wk 2 1/2 tab daily', 'Wk 2 half tab daily'],
+      ['D6-10 1/2 tab daily', 'D6-10 half tab daily'],
+      ['Days 4-6 1 1/2 tablets daily', 'Days 4-6 1 and a half tablets daily'],
+      // A dose range: the whole stays.
+      [
+        'Take 1-1 1/2 tablets by mouth every 6 hours as needed',
+        'Take 1-1 and a half tablets by mouth every 6 hours as needed',
+      ],
+      ['Take 2-2 1/2 tablets by mouth', 'Take 2-2 and a half tablets by mouth'],
+      ['Take 1 to 1 1/2 tablets by mouth', 'Take 1 to 1 and a half tablets by mouth'],
+    ];
+    for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
+  });
+
+  // Review D7-1: a day or week word after a number is a duration ("for 3 days"), so the next step keeps its whole.
+  it('reads a duration before the next taper step as a duration, not a day', () => {
+    const cases: [string, string][] = [
+      [
+        'Take 2 tablets daily for 3 days\n1 1/2 tablets daily for 3 days\n1 tablet daily for 3 days',
+        'Take 2 tablets daily for 3 days\n1 and a half tablets daily for 3 days\n1 tablet daily for 3 days',
+      ],
+      [
+        'Take 2 tabs daily x 2 wks 1 1/2 tabs daily x 2 wks',
+        'Take 2 tabs daily x 2 wks 1 and a half tabs daily x 2 wks',
+      ],
+      ['Take 2 tablets daily x3 days 1 1/2 tablets daily', 'Take 2 tablets daily x3 days 1 and a half tablets daily'],
+      ['Take 2 tabs x 3 d 1 1/2 tabs daily', 'Take 2 tabs x 3 d 1 and a half tabs daily'],
+      // Still a day label: no number before it.
+      ['day 2 1 1/2 tabs daily', 'day 2 1 and a half tabs daily'],
+      ['then days 6-10 1/2 tablet daily', 'then days 6-10 half tablet daily'],
+    ];
+    for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
+  });
+
+  // Decision 78 review: the asked edge cases, and a half written with no space, a hyphen or "of a" before "tablet".
+  it('puts a half in words in the edge cases, and leaves a half mL and "11/2" as typed', () => {
+    const cases: [string, string][] = [
+      ['Take 1 1/2 tablets', 'Take 1 and a half tablets'],
+      ['Take 1/2-1 tablet', 'Take half to 1 tablet'],
+      ['take 1/2 tab', 'take half tab'],
+      ['Take 1/2 to 1 tablet', 'Take half to 1 tablet'],
+      ['Take 1 tablet for 1-2 days 1/2 tablet daily', 'Take 1 tablet for 1-2 days half tablet daily'],
+      ['Take 1 tablet for 1-2 days 1 1/2 tablets daily', 'Take 1 tablet for 1-2 days 1 and a half tablets daily'],
+      ['Take 1/2tab daily', 'Take half tab daily'],
+      ['Take 1 1/2tabs daily', 'Take 1 and a half tabs daily'],
+      ['Take 1/2-tablet daily', 'Take half tablet daily'],
+      ['Take 1/2 of a tablet daily', 'Take half of a tablet daily'],
+      // Unchanged: no tablet, or no half.
+      ['Take 1/2 mL daily', 'Take 1/2 mL daily'],
+      ['Take 2 1/2 mL daily', 'Take 2 1/2 mL daily'],
+      ['Take 11/2 tablets', 'Take 11/2 tablets'],
+      ['Take 1/2 capsule', 'Take 1/2 capsule'],
+    ];
+    for (const [typed, sent] of cases) expect(sentSigInWords(typed)).toBe(sent);
+  });
+
+  it('sends the allergies given, and none when there are none', () => {
+    const context = { patientId: 'p', practitionerId: 'pr', encounterId: 'e', pharmacy: PHARMACY };
+    const allergies = [{ name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' }] as const;
+    expect(prescriptionLineToOrder(complete(), { ...context, allergies: [...allergies] })).toMatchObject({ allergies });
+    expect(prescriptionLineToOrder(complete(), context)).not.toHaveProperty('allergies');
+  });
+});
+
+describe('prescriptionAllergies', () => {
+  it('sends the active allergies by name only, as the clinician’s, cut to 105 characters', () => {
+    expect(
+      prescriptionAllergies([
+        { id: '1234', name: ' Penicillins ', current: true },
+        { name: 'Latex', current: false },
+        { name: 'x'.repeat(120), current: true },
+        { name: '  ', current: true },
+        { id: '99', current: true },
+      ])
+    ).toStrictEqual([
+      { name: 'Penicillins', adverseEvent: 'Allergy to substance', source: 'Clinician' },
+      { name: 'x'.repeat(105), adverseEvent: 'Allergy to substance', source: 'Clinician' },
+    ]);
+  });
+
+  // An empty list would tell the pharmacy the patient has no known allergies, which Ottehr doesn't record.
+  it('is undefined, never empty, when no allergy is active', () => {
+    expect(prescriptionAllergies(undefined)).toBeUndefined();
+    expect(prescriptionAllergies([])).toBeUndefined();
+    expect(prescriptionAllergies([{ name: 'Latex', current: false }])).toBeUndefined();
+  });
+});
+
+describe('prescription quick picks', () => {
+  it('round-trips a line with its diagnosis, which replaces the line’s', () => {
+    const line = { ...complete(), substitutionAllowed: false };
+    const quickPick = prescriptionLineToQuickPick(line, '  Amoxicillin 10 days  ');
+    expect(quickPick.name).toBe('Amoxicillin 10 days');
+    expect(quickPick.diagnosis).toEqual({ code: 'J02.9', display: 'Acute pharyngitis, unspecified' });
+
+    const target = { ...emptyPrescriptionLine(), diagnosis: { code: 'R50.9', display: 'Fever, unspecified' } };
+    const applied = applyPrescriptionQuickPick(target, { id: 'qp-1', ...quickPick });
+    expect(applied).toEqual({
+      ...line,
+      key: target.key,
+      quickPicked: { quantityValue: '20', daysSupply: '10', numberOfRefills: '0', noteToPharmacy: '' },
+      pickedSuggestion: 'quick-pick-qp-1',
+    });
+  });
+
+  it('saves no diagnosis from a line without one, and one without leaves the line’s diagnosis', () => {
+    const quickPick = prescriptionLineToQuickPick({ ...complete(), diagnosis: null }, 'Amoxicillin');
+    expect(quickPick).not.toHaveProperty('diagnosis');
+
+    const fever = { code: 'R50.9', display: 'Fever, unspecified' };
+    expect(applyPrescriptionQuickPick({ ...emptyPrescriptionLine(), diagnosis: fever }, quickPick).diagnosis).toEqual(
+      fever
+    );
+    expect(applyPrescriptionQuickPick(emptyPrescriptionLine(), quickPick).diagnosis).toBeNull();
+  });
+
+  it('starts the blanks empty, so they never overwrite the quick pick’s directions', () => {
+    const applied = applyPrescriptionQuickPick(emptyPrescriptionLine(), {
+      id: 'qp-1',
+      ...prescriptionLineToQuickPick(complete(), 'Amoxicillin'),
+    });
+    expect(applied).toMatchObject({ route: 'by mouth', dose: '', frequency: '', durationDays: '' });
+    expect(withDirections(applied, { dose: '2' }).patientInstructions).toBe(
+      'Take 1 capsule by mouth twice daily for 10 days.'
+    );
+  });
+});
+
+describe('withSuggestion', () => {
+  const fields = {
+    dose: '',
+    route: 'by mouth' as const,
+    frequency: 'twice daily',
+    durationDays: '10',
+    steps: [],
+    instructions: '',
+    quantityValue: '',
+    quantityUnit: '' as const,
+    daysSupply: '10',
+    numberOfRefills: '0',
+    patientInstructions: 'Take by mouth twice daily for 10 days.',
+  };
+  const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[3]);
+
+  it('fills the blanks as generated and keeps the unit when the suggestion has none', () => {
+    const line = withSuggestion(liquid, { ...fields, dose: '4.5' });
+    expect(line).toMatchObject({
+      ...fields,
+      dose: '4.5',
+      quantityUnit: 'Milliliter',
+      generated: { patientInstructions: fields.patientInstructions, quantityValue: '', daysSupply: '10' },
+    });
+    // The calculator then writes the dose into the blank, and the directions follow.
+    expect(withDirections(line, { dose: '5.75' }).patientInstructions).toBe(
+      'Take 5.75 mL by mouth twice daily for 10 days.'
+    );
+  });
+
+  it('leaves the line’s diagnosis', () => {
+    const fever = { code: 'R50.9', display: 'Fever, unspecified' };
+    expect(withSuggestion({ ...liquid, diagnosis: fever }, fields).diagnosis).toEqual(fever);
+    expect(withSuggestion(liquid, fields).diagnosis).toBeNull();
+  });
+});
+
+describe('product changes and suggestions', () => {
+  it('picking another drug after a quick pick clears the quick pick’s quantity, days supply, refills and note', () => {
+    const applied = applyPrescriptionQuickPick(emptyPrescriptionLine(), {
+      id: 'qp-1',
+      ...prescriptionLineToQuickPick(
+        { ...complete(), numberOfRefills: '2', noteToPharmacy: 'Dispense in original bottle' },
+        'Amoxicillin'
+      ),
+    });
+    expect(applied).toMatchObject({ quantityValue: '20', daysSupply: '10', numberOfRefills: '2' });
+    const other = withProduct(applied, MUPIROCIN, MUPIROCIN.strengths[0]);
+    expect(other).toMatchObject({ quantityValue: '', daysSupply: '', numberOfRefills: '0', noteToPharmacy: '' });
+    // What the provider changed after the quick pick stays theirs.
+    const edited = withProduct({ ...applied, numberOfRefills: '1' }, MUPIROCIN, MUPIROCIN.strengths[0]);
+    expect(edited.numberOfRefills).toBe('1');
+  });
+
+  it('re-measures to the calculator’s steps: a whole tablet, mL to the half', () => {
+    const liquid = (strength: number, dose: string): PrescriptionLine =>
+      withDirections(withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[strength]), {
+        dose,
+        frequency: 'twice daily',
+      });
+    // 8.75 mL of 250/5 is 437.5 mg: half an 875 mg tablet, which is given whole: one, 100% over, with its note.
+    expect(withProduct(liquid(2, '8.75'), AMOXICILLIN, AMOXICILLIN.strengths[1])).toMatchObject({
+      dose: '1',
+      doseNotes: [{ dose: '1', text: '1 tablet = 875 mg, 437.5 mg (100%) over 437.5 mg' }],
+    });
+    // 5 mL of 250/5 is 250 mg: a 500 mg tablet is given whole, one.
+    expect(withProduct(liquid(2, '5'), AMOXICILLIN, AMOXICILLIN_500_TAB).dose).toBe('1');
+    // 9.5 mL of 400/5 is 760 mg: 15.2 mL of 250/5, measured to the half mL (98.7%).
+    expect(withProduct(liquid(3, '9.5'), AMOXICILLIN, AMOXICILLIN.strengths[2]).dose).toBe('15');
+  });
+
+  it('does not require a route, which the order does not send', () => {
+    expect(prescriptionLineErrors({ ...complete(), route: '' })).toEqual([]);
+  });
+
+  it('a suggestion keeps the provider’s refills', () => {
+    const line = withProduct(
+      { ...emptyPrescriptionLine(), numberOfRefills: '2' },
+      AMOXICILLIN,
+      AMOXICILLIN.strengths[3]
+    );
+    const suggested = withSuggestion(line, {
+      dose: '4.5',
+      route: 'by mouth',
+      frequency: 'twice daily',
+      durationDays: '10',
+      steps: [],
+      instructions: '',
+      quantityValue: '',
+      quantityUnit: '',
+      daysSupply: '10',
+      numberOfRefills: '0',
+      patientInstructions: 'Take 4.5 mL by mouth twice daily for 10 days.',
+    });
+    expect(suggested.numberOfRefills).toBe('2');
+  });
+});
+
+describe('withCalculatorDosing', () => {
+  // Nothing typed into the directions or dispense blanks, so they follow.
+  const dosed: PrescriptionLine = {
+    ...complete(),
+    patientInstructions: '',
+    quantityValue: '',
+    daysSupply: '',
+    dose: '3',
+    frequency: 'twice daily',
+    dosing: { rate: 25, basis: 'mg/kg/dose' },
+  };
+  /** A blank changed on the line, as the dose and frequency blanks do it. */
+  const changed = (line: PrescriptionLine, patch: Partial<PrescriptionLine>, kg?: number): PrescriptionLine =>
+    withDirections(withCalculatorDosing(line, patch, kg), patch);
+  // 400 mg/5 mL = 80 mg/mL; 20 kg × 80 mg/kg/day ÷ 2 = 800 mg = 10 mL.
+  const perDay: PrescriptionLine = {
+    ...complete(),
+    patientInstructions: '',
+    quantityValue: '',
+    daysSupply: '',
+    medication: detailed({ ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' }),
+    quantityUnit: 'Milliliter',
+    dose: '10',
+    frequency: 'twice daily',
+    durationDays: '10',
+    dosing: { rate: 80, basis: 'mg/kg/day' },
+  };
+
+  it('keeps the settings while the dose and the doses a day stay the calculator’s', () => {
+    expect(withCalculatorDosing(dosed, { durationDays: '10' }, 20)).toBe(dosed);
+    expect(withCalculatorDosing(dosed, { frequency: 'every 12 hours' }, 20)).toBe(dosed);
+    expect(withCalculatorDosing(dosed, { dose: '3' }, 20)).toBe(dosed);
+    // A frequency with no doses a day says nothing new to work from.
+    expect(withCalculatorDosing(dosed, { frequency: 'as needed' }, 20)).toBe(dosed);
+  });
+
+  it('drops them for a typed dose', () => {
+    expect(withCalculatorDosing(dosed, { dose: '4' }, 20).dosing).toBeUndefined();
+  });
+
+  it('mg/kg/dose: keeps the rate and the per-dose amount for a frequency of other doses a day; a quick pick saves it', () => {
+    const next = changed(dosed, { frequency: 'three times daily' }, 20);
+    expect(next).toMatchObject({
+      dose: '3',
+      frequency: 'three times daily',
+      dosing: { rate: 25, basis: 'mg/kg/dose' },
+      patientInstructions: 'Take 3 capsules by mouth three times daily.',
+    });
+    expect(next.doseNotes).toBeUndefined();
+    expect(prescriptionLineToQuickPick(next, 'Dosed').dosing).toEqual({
+      rate: 25,
+      basis: 'mg/kg/dose',
+      frequency: 'three times daily',
+    });
+  });
+
+  it('mg/kg/day: works the per-dose amount out again for the new doses a day, with the working behind the ⓘ', () => {
+    const next = changed(perDay, { frequency: 'three times daily' }, 20);
+    expect(next).toMatchObject({
+      dose: '6.5',
+      frequency: 'three times daily',
+      dosing: { rate: 80, basis: 'mg/kg/day' },
+      patientInstructions: 'Take 6.5 mL by mouth three times daily for 10 days.',
+      quantityValue: '195',
+    });
+    expect(next.doseNotes).toEqual([
+      {
+        dose: '6.5',
+        working: '20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg',
+        text: '6.5 mL = 520 mg, 13.3 mg (2%) under 533.33 mg',
+      },
+    ]);
+    expect(prescriptionLineToQuickPick(next, 'Per day').dosing).toEqual({
+      rate: 80,
+      basis: 'mg/kg/day',
+      frequency: 'three times daily',
+      durationDays: 10,
+    });
+    // Back to twice daily: 10 mL again, measured exactly, so no rounding note.
+    expect(changed(next, { frequency: 'twice daily' }, 20)).toMatchObject({
+      dose: '10',
+      doseNotes: [{ dose: '10', working: '20 kg × 80 mg/kg/day ÷ 2 = 800 mg → 10 mL = 800 mg', text: '' }],
+    });
+  });
+
+  // Review D6: a single dose is the whole day's: 20 kg × 80 mg/kg/day ÷ 1 = 1,600 mg = 20 mL, once.
+  it('mg/kg/day: a single dose is the day’s amount, read "once" and dispensed once', () => {
+    const next = changed(perDay, { frequency: 'once' }, 20);
+    expect(next).toMatchObject({
+      dose: '20',
+      frequency: 'once',
+      patientInstructions: 'Take 20 mL by mouth once.',
+      quantityValue: '20',
+      daysSupply: '1',
+    });
+    expect(next.doseNotes?.[0]?.working).toBe('20 kg × 80 mg/kg/day ÷ 1 = 1600 mg → 20 mL = 1600 mg');
+  });
+
+  it('mg/kg/day: keeps to the maximum, measuring down, and leaves the dose blank without a weight', () => {
+    const capped = { ...perDay, dosing: { ...perDay.dosing!, maxPerDoseMg: 500 } };
+    const next = changed(capped, { frequency: 'three times daily' }, 20);
+    expect(next.dose).toBe('6');
+    expect(next.doseNotes?.[0]?.working).toBe('20 kg × 80 mg/kg/day ÷ 3 = 533.33 mg → capped at 500 mg per dose');
+    expect(next.dosing).toEqual({ rate: 80, basis: 'mg/kg/day', maxPerDoseMg: 500 });
+    const noWeight = changed(perDay, { frequency: 'three times daily' });
+    expect(noWeight).toMatchObject({ dose: '', dosing: { rate: 80, basis: 'mg/kg/day' } });
+  });
+
+  it('mg/kg/day: measures to 0.1 mL under 1 mL, as the calculator starts', () => {
+    // Famotidine 40 mg/5 mL (8 mg/mL), 1 mg/kg/day for 3 kg ÷ 2 = 1.5 mg = 0.19 mL.
+    const famotidine: PrescriptionLine = {
+      ...perDay,
+      medication: {
+        ndc: '00000000040',
+        description: 'Famotidine 40 mg/5ml Susp',
+        doseForm: 'Oral Suspension',
+        ingredients: [{ name: 'famotidine', amount: 8, unit: 'MG', per: 1, perUnit: 'ML' }],
+      },
+      dose: '0.4',
+      frequency: 'once daily',
+      dosing: { rate: 1, basis: 'mg/kg/day' },
+    };
+    expect(changed(famotidine, { frequency: 'twice daily' }, 3).dose).toBe('0.2');
+  });
+
+  it('drops them on a new product and saves none for a course', () => {
+    expect(withDrug(dosed, { name: 'Cefdinir', strengths: [] }).dosing).toBeUndefined();
+    const course = { ...dosed, steps: [{ dose: '1', frequency: 'once daily', durationDays: '2' }] };
+    expect(prescriptionLineToQuickPick(course, 'Course')).not.toHaveProperty('dosing');
+    expect(prescriptionLineToQuickPick(dosed, 'Dosed').dosing).toEqual({ ...dosed.dosing, frequency: 'twice daily' });
+  });
+});
+
+describe('maximumWarnings', () => {
+  const liquid = (patch: Partial<PrescriptionLine>): PrescriptionLine => ({
+    ...emptyPrescriptionLine(),
+    medication: detailed({ ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' }),
+    maximum: { maxPerDoseMg: 500, maxPerDayMg: 1000, from: 'calculator' },
+    ...patch,
+  });
+
+  it('warns per dose and per day from the dose in mg and the frequency’s doses a day', () => {
+    expect(maximumWarnings(liquid({ dose: '10', frequency: 'twice daily' }))).toEqual([
+      { blank: 'dose', text: '800 mg per dose is above the 500 mg maximum.' },
+      { blank: 'frequency', text: '1,600 mg a day is above the 1,000 mg a day maximum.' },
+    ]);
+    // At the maximum is not above it.
+    expect(maximumWarnings(liquid({ dose: '6.25', frequency: 'twice daily' }))).toEqual([]);
+    // An as-needed frequency with a count still counts its doses.
+    expect(maximumWarnings(liquid({ dose: '6', frequency: 'every 6 hours as needed' }))).toEqual([
+      { blank: 'frequency', text: '1,920 mg a day is above the 1,000 mg a day maximum.' },
+    ]);
+  });
+
+  // Review D2-3: every other day, a day's amount is the one dose given that day.
+  it('takes every other day’s dose as its day’s amount', () => {
+    expect(
+      maximumWarnings(
+        liquid({ dose: '10', frequency: 'every other day', maximum: { maxPerDayMg: 600, from: 'calculator' } })
+      )
+    ).toEqual([{ blank: 'frequency', text: '800 mg a day is above the 600 mg a day maximum.' }]);
+  });
+
+  it('has nothing to say without a maximum, a dose, a count of doses, or a form measured in mg', () => {
+    expect(maximumWarnings(liquid({ dose: '10', maximum: undefined }))).toEqual([]);
+    expect(maximumWarnings(liquid({ dose: '' }))).toEqual([]);
+    expect(maximumWarnings(liquid({ dose: '6', frequency: 'as needed' }))).toEqual([]);
+    expect(
+      maximumWarnings(
+        liquid({ dose: '20', medication: detailed({ ndc: '00054074287', description: 'Albuterol 90 mcg/puff MDI' }) })
+      )
+    ).toEqual([]);
+  });
+
+  it('goes with a new drug or strength', () => {
+    const line = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[0]);
+    const maxed = { ...line, maximum: { maxPerDoseMg: 500, from: 'calculator' as const } };
+    expect(withProduct(maxed, AMOXICILLIN, AMOXICILLIN.strengths[1]).maximum).toBeUndefined();
+    expect(withDrug(maxed, AMOXICILLIN).maximum).toBeUndefined();
+    // The same strength again keeps it.
+    expect(withProduct(maxed, AMOXICILLIN, AMOXICILLIN.strengths[0]).maximum).toEqual(maxed.maximum);
+  });
+
+  it('outlives a dose typed over the calculator’s, which drops the settings', () => {
+    const line = {
+      ...emptyPrescriptionLine(),
+      dose: '6',
+      dosing: { rate: 25, basis: 'mg/kg/dose' as const, maxPerDoseMg: 500 },
+      maximum: { maxPerDoseMg: 500, from: 'calculator' as const },
+    };
+    const typed = withCalculatorDosing(line, { dose: '10' }, 28.12);
+    expect(typed.dosing).toBeUndefined();
+    expect(typed.maximum).toEqual(line.maximum);
+  });
+});
+
+// Review R6b: drops are a liquid, but counted in drops: never read as mL, as puffs aren't.
+describe('drops: counted in drops, never as mL', () => {
+  const inMgPerMl = (doseForm: string): { doseForm: string; ingredients: MedicationIngredient[] } => ({
+    doseForm,
+    ingredients: [{ name: 'ketotifen', amount: 0.25, unit: 'MG', per: 1, perUnit: 'ML' }],
+  });
+  const DROPS = ['Ophthalmic Solution', 'Ophthalmic Suspension', 'Otic Solution', 'Otic Suspension', 'Nasal Solution'];
+
+  it('has no measure or mg per measure for drops; oral liquids are still measured in mL', () => {
+    for (const doseForm of DROPS) {
+      expect(measureOf(inMgPerMl(doseForm))).toBeUndefined();
+      expect(mgPerMeasure(inMgPerMl(doseForm))).toBeUndefined();
+    }
+    for (const doseForm of ['Oral Solution', 'Oral Suspension', 'Powder for Oral Suspension']) {
+      expect(measureOf(inMgPerMl(doseForm))).toBe('mL');
+      expect(mgPerMeasure(inMgPerMl(doseForm))).toBe(0.25);
+    }
+  });
+
+  it('warns of no maximum for a dose in drops', () => {
+    const line = {
+      ...emptyPrescriptionLine(),
+      medication: { ndc: '1', description: 'Ketotifen 0.25 mg/ml Ophth Soln', ...inMgPerMl('Ophthalmic Solution') },
+      dose: '2',
+      frequency: 'twice daily',
+      maximum: { maxPerDoseMg: 0.1, maxPerDayMg: 0.2, from: 'calculator' as const },
+    };
+    expect(maximumWarnings(line)).toEqual([]);
+  });
+
+  it('works out no dose in mL for drops on a new frequency, as for puffs', () => {
+    const line: PrescriptionLine = {
+      ...emptyPrescriptionLine(),
+      medication: { ndc: '1', description: 'Ketotifen 0.25 mg/ml Ophth Soln', ...inMgPerMl('Ophthalmic Solution') },
+      dose: '2',
+      frequency: 'twice daily',
+      dosing: { rate: 0.02, basis: 'mg/kg/day' },
+    };
+    const puffs: PrescriptionLine = {
+      ...line,
+      medication: detailed({ ndc: '00054074287', description: 'Albuterol 90 mcg/puff MDI' }),
+    };
+    expect(withCalculatorDosing(puffs, { frequency: 'three times daily' }, 20).dose).toBe('');
+    expect(withCalculatorDosing(line, { frequency: 'three times daily' }, 20).dose).toBe('');
+  });
+});
+
+describe('lineMissingDoseUnit', () => {
+  // A product the search gave no dose form for: no unit for the directions to write the dose in.
+  const bare = { name: 'Amoxicillin', strengths: [{ strength: '400 mg/5ml Susp', ndcs: ['00093416173'] }] };
+  const bareLine = (): PrescriptionLine => withProduct(emptyPrescriptionLine(), bare, bare.strengths[0]);
+
+  it('is true for a dose on a product without a dose unit while the directions are the blanks’ own', () => {
+    const line = withDirections(bareLine(), { dose: '5', frequency: 'twice daily' });
+    expect(line.patientInstructions).toBe('Take 5 twice daily.');
+    expect(lineMissingDoseUnit(line)).toBe(true);
+  });
+
+  it('is true for a taper whose dose is only in a later step', () => {
+    const line = withDirections(bareLine(), {
+      frequency: 'twice daily',
+      durationDays: '3',
+      steps: [{ dose: '5', frequency: 'twice daily', durationDays: '3' }],
+    });
+    expect(line.patientInstructions).toMatch(/then 5 twice daily/);
+    expect(lineMissingDoseUnit(line)).toBe(true);
+  });
+
+  it('is false with a dose unit, typed directions, a compound or no dose', () => {
+    const liquid = withProduct(emptyPrescriptionLine(), AMOXICILLIN, AMOXICILLIN.strengths[2]);
+    expect(lineMissingDoseUnit(withDirections(liquid, { dose: '5', frequency: 'twice daily' }))).toBe(false);
+    const typed = withDirections(bareLine(), { dose: '5', frequency: 'twice daily' });
+    expect(lineMissingDoseUnit({ ...typed, patientInstructions: 'Take 5 mL twice daily.' })).toBe(false);
+    expect(lineMissingDoseUnit({ ...withCompound(emptyPrescriptionLine(), {}), dose: '5' })).toBe(false);
+    expect(lineMissingDoseUnit(bareLine())).toBe(false);
+  });
+});
+
+describe('compound helpers', () => {
+  // Test codes are made up.
+  const CREAM: CompoundInput = {
+    description: 'Ketoprofen cream',
+    ingredients: [
+      { description: 'Ketoprofen Powder', ndc: '00000000001', rxcui: '1001', strength: { value: 10, unit: '%' } },
+      { description: 'Omeprazole', typedNotControlled: true, strength: { value: 2.5, unit: 'mg/mL' } },
+      { description: 'Gabapentin Powder', ndc: '00000000002', amount: { value: 1, unit: 'Gram' } },
+      { description: 'Cream base', typedNotControlled: true, base: true },
+    ],
+  };
+
+  it('turns a saved or sent compound into the line’s rows and back unchanged', () => {
+    expect(compoundToOrder(compoundLineOf(CREAM))).toEqual(CREAM);
+  });
+
+  it('reads each ingredient with its strength, amount or base', () => {
+    expect(CREAM.ingredients.map(compoundIngredientText)).toEqual([
+      'Ketoprofen Powder 10%',
+      'Omeprazole 2.5 mg/mL',
+      'Gabapentin Powder 1 gram',
+      'Cream base base',
+    ]);
+    expect(compoundIngredientText({ description: 'Lidocaine' })).toBe('Lidocaine');
+  });
+
+  it('doses a compound as a liquid of its one mg/mL ingredient, and none with no or several', () => {
+    const line = compoundLineOf(CREAM);
+    expect(compoundCalculatorProduct(line)).toEqual({
+      ndc: '',
+      description: 'Ketoprofen cream',
+      doseForm: 'Oral Solution',
+      ingredients: [{ name: 'Omeprazole', amount: 2.5, unit: 'MG', per: 1, perUnit: 'ML' }],
+    });
+    expect(mgPerMeasure(compoundCalculatorProduct(line))).toBe(2.5);
+    const [first, mgPerMl] = line.ingredients;
+    expect(compoundCalculatorProduct({ ...line, ingredients: [first] })).toBeUndefined();
+    expect(compoundCalculatorProduct({ ...line, ingredients: [mgPerMl, { ...mgPerMl, key: -1 }] })).toBeUndefined();
+  });
+
+  it('puts the calculator’s sentence first in the directions, replacing its last one and keeping the rest', () => {
+    const line = { ...withCompound(emptyPrescriptionLine(), {}), compound: compoundLineOf(CREAM) };
+    const dosed = (sentence: string): PrescriptionLine => ({
+      ...line,
+      generated: { ...line.generated, patientInstructions: sentence },
+    });
+    const once = withCompoundDose({ ...line, patientInstructions: 'Shake well.' }, dosed('Take 5 mL twice daily.'));
+    expect(once.patientInstructions).toBe('Take 5 mL twice daily. Shake well.');
+    const twice = withCompoundDose(once, dosed('Take 4 mL twice daily.'));
+    expect(twice.patientInstructions).toBe('Take 4 mL twice daily. Shake well.');
+    expect(twice.compound).toBe(line.compound);
+  });
+
+  it('goes back to an empty prescription keeping the refills, note, diagnosis and urgent flag', () => {
+    const line = {
+      ...withCompound(emptyPrescriptionLine(), {}),
+      numberOfRefills: '3',
+      noteToPharmacy: 'Call',
+      urgent: true,
+      diagnosis: { code: 'M25.50', display: 'Pain in unspecified joint' },
+      patientInstructions: 'Apply.',
+    };
+    const back = withoutCompound(line);
+    expect(back.compound).toBeUndefined();
+    expect(back).toMatchObject({ key: line.key, numberOfRefills: '3', noteToPharmacy: 'Call', urgent: true });
+    expect(back.diagnosis).toEqual(line.diagnosis);
+    expect(back.patientInstructions).toBe('');
+  });
+});
+
+// Review #2: a line never holds both a product and a compound; the compound would be what's sent.
+describe('a product and a compound on one line', () => {
+  const COMPOUND_PICK = {
+    id: 'qp-cream',
+    name: 'Pain cream',
+    compound: {
+      description: 'Ketoprofen cream',
+      ingredients: [
+        { description: 'Ketoprofen Powder', ndc: '00000000001', strength: { value: 10, unit: '%' as const } },
+      ],
+    },
+    quantityValue: 60,
+    quantityUnit: 'Gram' as const,
+    patientInstructions: 'Apply twice daily.',
+  };
+
+  it('a compound quick pick applied while a drug waits for its strength clears the drug', () => {
+    const applied = applyPrescriptionQuickPick(withDrug(emptyPrescriptionLine(), AMOXICILLIN), COMPOUND_PICK);
+    expect(applied.drug).toBeNull();
+    expect(applied.medication).toBeNull();
+    expect(applied.compound?.name).toBe('Ketoprofen cream');
+  });
+
+  it('a product picked on a compound line ends the compound', () => {
+    const compoundLine = applyPrescriptionQuickPick(emptyPrescriptionLine(), COMPOUND_PICK);
+    const withStrength = withProduct(compoundLine, AMOXICILLIN, AMOXICILLIN.strengths[0]);
+    expect(withStrength.compound).toBeUndefined();
+    expect(withDrug(compoundLine, AMOXICILLIN).compound).toBeUndefined();
+    const order = prescriptionLineToOrder(
+      { ...withStrength, numberOfRefills: '0' },
+      {
+        patientId: 'patient-1',
+        practitionerId: 'practitioner-1',
+        encounterId: 'encounter-1',
+        pharmacy: PHARMACY,
+      }
+    );
+    expect(order).toMatchObject({ ndc: '00093310701' });
+    expect(order).not.toHaveProperty('compound');
+  });
+});
+
+// Review #5: an empty or zero mg/mL concentration is nothing to dose by.
+describe('the compound calculator’s concentration', () => {
+  const withMgPerMl = (value: string): ReturnType<typeof compoundLineOf> => {
+    const line = compoundLineOf({
+      description: 'Omeprazole suspension',
+      ingredients: [{ description: 'Omeprazole', typedNotControlled: true, strength: { value: 2, unit: 'mg/mL' } }],
+    });
+    return { ...line, ingredients: [{ ...line.ingredients[0], value }] };
+  };
+
+  it('is offered only for a positive number', () => {
+    for (const value of ['', '0', '-1', 'abc']) expect(compoundCalculatorProduct(withMgPerMl(value))).toBeUndefined();
+    expect(compoundCalculatorProduct(withMgPerMl('2'))?.ingredients?.[0].amount).toBe(2);
+  });
+});
+
+describe('compoundOrderIngredients: each ingredient as the amount that goes in', () => {
+  const compound = (...ingredients: CompoundIngredientInput[]): CompoundInput => ({
+    description: 'Test compound',
+    dosageForm: 'Cream',
+    ingredients,
+  });
+  const convert = (
+    ingredients: CompoundIngredientInput[],
+    value: number,
+    unit: QuantityUnit
+  ): ReturnType<typeof compoundOrderIngredients> => compoundOrderIngredients(compound(...ingredients), { value, unit });
+  const amounts = (result: ReturnType<typeof compoundOrderIngredients>): [number, QuantityUnit][] =>
+    'ingredients' in result
+      ? result.ingredients.map((ingredient) => [ingredient.quantityValue, ingredient.quantityUnit])
+      : [];
+
+  it('sends an amount as is, with its NDC, and never an RxCUI or the not-controlled confirmation', () => {
+    expect(
+      convert(
+        [
+          { description: 'Ketoprofen Powder', ndc: '00000000001', rxcui: '1001', amount: { value: 6, unit: 'Gram' } },
+          { description: 'Typed', typedNotControlled: true, amount: { value: 2, unit: 'Capsule' } },
+        ],
+        30,
+        'Gram'
+      )
+    ).toEqual({
+      ingredients: [
+        { description: 'Ketoprofen Powder', ndc: '00000000001', quantityValue: 6, quantityUnit: 'Gram' },
+        { description: 'Typed', quantityValue: 2, quantityUnit: 'Capsule' },
+      ],
+    });
+  });
+
+  it('works out a % of a total in grams, in grams, sending the strength as a Percentage', () => {
+    expect(convert([{ description: 'K', strength: { value: 10, unit: '%' } }], 30, 'Gram')).toEqual({
+      ingredients: [
+        { description: 'K', strength: { value: '10', unit: 'Percentage' }, quantityValue: 3, quantityUnit: 'Gram' },
+      ],
+    });
+  });
+
+  it('works out mg/mL of a total in mL, in milligrams, sending the strength as mg/ml', () => {
+    expect(convert([{ description: 'O', strength: { value: 2, unit: 'mg/mL' } }], 150, 'Milliliter')).toEqual({
+      ingredients: [
+        { description: 'O', strength: { value: '2', unit: 'mg/ml' }, quantityValue: 300, quantityUnit: 'Milligram' },
+      ],
+    });
+  });
+
+  it('works out mg/g of a total in grams, in milligrams, sending no strength', () => {
+    expect(convert([{ description: 'L', strength: { value: 50, unit: 'mg/g' } }], 30, 'Gram')).toEqual({
+      ingredients: [{ description: 'L', quantityValue: 1500, quantityUnit: 'Milligram' }],
+    });
+  });
+
+  it.each(['Capsule', 'Tablet', 'Troche', 'Suppository', 'Lozenge', 'Each'] as const)(
+    'works out mg each of a count in %s, in milligrams, sending the strength in Milligram',
+    (unit) => {
+      expect(convert([{ description: 'P', strength: { value: 75, unit: 'mg each' } }], 30, unit)).toEqual({
+        ingredients: [
+          {
+            description: 'P',
+            strength: { value: '75', unit: 'Milligram' },
+            quantityValue: 2250,
+            quantityUnit: 'Milligram',
+          },
+        ],
+      });
+    }
+  );
+
+  it('works out the base as the total in grams less the others, counting milligrams as thousandths', () => {
+    const result = convert(
+      [
+        { description: 'K', strength: { value: 10, unit: '%' } },
+        { description: 'L', strength: { value: 50, unit: 'mg/g' } },
+        { description: 'G', amount: { value: 600, unit: 'Milligram' } },
+        { description: 'Base', base: true },
+      ],
+      30,
+      'Gram'
+    );
+    expect(amounts(result)).toEqual([
+      [3, 'Gram'],
+      [1500, 'Milligram'],
+      [600, 'Milligram'],
+      [24.9, 'Gram'],
+    ]);
+    expect('ingredients' in result && result.ingredients[3]).toEqual({
+      description: 'Base',
+      quantityValue: 24.9,
+      quantityUnit: 'Gram',
+    });
+  });
+
+  it('works out the base as the total in mL less the others in mL', () => {
+    expect(
+      amounts(
+        convert(
+          [
+            { description: 'A', amount: { value: 12.5, unit: 'Milliliter' } },
+            { description: 'Base', base: true },
+          ],
+          100,
+          'Milliliter'
+        )
+      )
+    ).toEqual([
+      [12.5, 'Milliliter'],
+      [87.5, 'Milliliter'],
+    ]);
+  });
+
+  it('rounds away float noise', () => {
+    expect(
+      amounts(
+        convert(
+          [
+            { description: 'A', strength: { value: 0.1, unit: '%' } },
+            { description: 'B', strength: { value: 7, unit: '%' } },
+            { description: 'Base', base: true },
+          ],
+          30,
+          'Gram'
+        )
+      )
+    ).toEqual([
+      [30, 'Milligram'],
+      [2.1, 'Gram'],
+      [27.87, 'Gram'],
+    ]);
+  });
+
+  it('works out amounts to 3 decimal places, a small one in milligrams', () => {
+    expect(
+      amounts(
+        convert(
+          [
+            { description: 'A', strength: { value: 0.0125, unit: '%' } },
+            { description: 'Base', base: true },
+          ],
+          10,
+          'Gram'
+        )
+      )
+    ).toEqual([
+      [1.25, 'Milligram'],
+      [9.999, 'Gram'],
+    ]);
+  });
+
+  it('sends an amount under 1 g in milligrams, so a small % isn’t rounded away', () => {
+    expect(
+      amounts(
+        convert(
+          [
+            { description: 'A', strength: { value: 0.001, unit: '%' } },
+            { description: 'B', amount: { value: 0.5, unit: 'Gram' } },
+          ],
+          30,
+          'Gram'
+        )
+      )
+    ).toEqual([
+      [0.3, 'Milligram'],
+      [500, 'Milligram'],
+    ]);
+  });
+
+  it('refuses an amount that still rounds to 0', () => {
+    expect(convert([{ description: 'A', strength: { value: 0.000001, unit: '%' } }], 30, 'Gram')).toEqual({
+      errors: ["Ingredient 1's amount is too small to send — enter a larger amount"],
+    });
+  });
+
+  it.each([
+    ['%', 'Milliliter', "Enter an amount for ingredient 1 — a % can't be worked out from a total in mL"],
+    ['mg/mL', 'Gram', "Enter an amount for ingredient 1 — mg/mL can't be worked out from a total in g"],
+    ['mg/g', 'Milliliter', "Enter an amount for ingredient 1 — mg/g can't be worked out from a total in mL"],
+    ['mg each', 'Gram', "Enter an amount for ingredient 1 — mg each can't be worked out from a total in g"],
+    ['%', 'Capsule', "Enter an amount for ingredient 1 — a % can't be worked out from a total in capsules"],
+  ] as const)('refuses a strength in %s of a total in %s', (unit, totalUnit, error) => {
+    expect(convert([{ description: 'X', strength: { value: 2, unit } }], 30, totalUnit)).toEqual({ errors: [error] });
+  });
+
+  it('refuses the base of a total that isn’t in grams or mL', () => {
+    expect(
+      convert(
+        [
+          { description: 'P', strength: { value: 75, unit: 'mg each' } },
+          { description: 'Base', base: true },
+        ],
+        30,
+        'Capsule'
+      )
+    ).toEqual({
+      errors: ["Enter an amount for ingredient 2 — the base can't be worked out from a total in capsules"],
+    });
+  });
+
+  it('refuses the base when another ingredient isn’t in the total’s unit', () => {
+    const error = "Enter an amount for ingredient 1 — the base can't be worked out when another ingredient isn't in mL";
+    // Milligrams count toward grams only; mL only with mL.
+    for (const amount of [
+      { value: 5, unit: 'Gram' },
+      { value: 5, unit: 'Milligram' },
+    ] as const) {
+      expect(
+        convert(
+          [
+            { description: 'Base', base: true },
+            { description: 'A', amount },
+          ],
+          100,
+          'Milliliter'
+        )
+      ).toEqual({ errors: [error] });
+    }
+    expect(
+      convert(
+        [
+          { description: 'A', amount: { value: 1, unit: 'Capsule' } },
+          { description: 'Base', base: true },
+        ],
+        30,
+        'Gram'
+      )
+    ).toEqual({
+      errors: ["Enter an amount for ingredient 2 — the base can't be worked out when another ingredient isn't in g"],
+    });
+  });
+
+  it('names only the ingredient that can’t be worked out, not the base it leaves unknown', () => {
+    expect(
+      convert(
+        [
+          { description: 'K', strength: { value: 10, unit: '%' } },
+          { description: 'Base', base: true },
+        ],
+        100,
+        'Milliliter'
+      )
+    ).toEqual({ errors: ["Enter an amount for ingredient 1 — a % can't be worked out from a total in mL"] });
+  });
+
+  it('refuses a base the other ingredients leave nothing for', () => {
+    for (const value of [30, 31]) {
+      expect(
+        convert(
+          [
+            { description: 'A', amount: { value, unit: 'Gram' } },
+            { description: 'Base', base: true },
+          ],
+          30,
+          'Gram'
+        )
+      ).toEqual({ errors: ['Ingredient 2 is the base, but the other ingredients already make up the total'] });
+    }
+  });
+});
+
+describe('the blanks kept on the prescription for a re-fill (metadata)', () => {
+  const context = {
+    patientId: 'patient-1',
+    practitionerId: 'practitioner-1',
+    encounterId: 'encounter-1',
+    pharmacy: PHARMACY,
+  };
+  const dosing = { rate: 25, basis: 'mg/kg/dose' as const, maxPerDoseMg: 500 };
+  // The blanks wrote the directions, with the calculator's dose and a note after the sentence.
+  const written = withDirections(
+    { ...complete(), patientInstructions: '', dosing, maximum: { maxPerDoseMg: 500, from: 'calculator' } },
+    { dose: '1', frequency: 'twice daily', durationDays: '10', steps: [], additionalInstructions: 'Take with food.' }
+  );
+
+  it('sends the blanks, with the product details they were read with, while the directions are theirs', () => {
+    expect(written.patientInstructions).toBe('Take 1 capsule by mouth twice daily for 10 days. Take with food.');
+    expect(prescriptionLineToOrder(written, context).metadata).toEqual({
+      version: 1,
+      product: ERX_PRODUCT_DETAILS['00093310901'],
+      route: 'by mouth',
+      dose: '1',
+      frequency: 'twice daily',
+      durationDays: '10',
+      additionalInstructions: 'Take with food.',
+      dosing,
+    });
+    const tapered = withDirections(written, { steps: [{ dose: '0.5', frequency: 'once daily', durationDays: '3' }] });
+    expect(prescriptionLineToOrder(tapered, context).metadata?.steps).toEqual([
+      { dose: '0.5', frequency: 'once daily', durationDays: '3' },
+    ]);
+  });
+
+  it('sends them for directions typed over the blanks, and none for a quick pick’s written ones or a compound', () => {
+    const typed = { ...written, patientInstructions: `${written.patientInstructions} Finish the course.` };
+    expect(prescriptionLineToOrder(typed, context).metadata).toEqual(prescriptionLineMetadata(written));
+    const picked = applyPrescriptionQuickPick(written, { id: 'qp', name: 'Amox', patientInstructions: 'Take 1 daily' });
+    expect(prescriptionLineToOrder({ ...picked, quantityUnit: 'Capsule' }, context)).not.toHaveProperty('metadata');
+    const compound = applyPrescriptionQuickPick(emptyPrescriptionLine(), {
+      id: 'qp-cream',
+      name: 'Pain cream',
+      compound: {
+        description: 'Ketoprofen cream',
+        dosageForm: 'Cream',
+        ingredients: [{ description: 'Ketoprofen Powder', ndc: '00000000001', strength: { value: 10, unit: '%' } }],
+      },
+      quantityValue: 60,
+      quantityUnit: 'Gram',
+      patientInstructions: 'Apply twice daily.',
+    });
+    expect(prescriptionLineToOrder(compound, context)).not.toHaveProperty('metadata');
+  });
+
+  it('fills the blanks back, writing the directions again so they follow the blanks from there', () => {
+    const metadata = prescriptionLineMetadata(written);
+    // As a re-fill starts: the stored order's product, quantity and sig, without blanks.
+    const stored: PrescriptionLine = {
+      ...emptyPrescriptionLine(),
+      medication: { ndc: '00093310901', description: 'Amoxicillin 500 MG Oral Capsule', ...metadata.product },
+      quantityValue: '20',
+      quantityUnit: 'Capsule',
+      daysSupply: '10',
+      numberOfRefills: '1',
+      patientInstructions: 'Take 1 capsule by mouth twice daily for 10 days. Take with food.',
+    };
+    const refilled = withPrescriptionMetadata(stored, metadata);
+    expect(refilled).toMatchObject({
+      route: 'by mouth',
+      dose: '1',
+      frequency: 'twice daily',
+      durationDays: '10',
+      additionalInstructions: 'Take with food.',
+      patientInstructions: 'Take 1 capsule by mouth twice daily for 10 days. Take with food.',
+      quantityValue: '20',
+      daysSupply: '10',
+      numberOfRefills: '1',
+      dosing,
+      maximum: { maxPerDoseMg: 500, from: 'calculator' },
+    });
+    // Sent again, the same blanks go with it.
+    expect(prescriptionLineToOrder(refilled, context).metadata).toEqual(metadata);
+    // A half sent before it went in words ("1/2 tablet") still reads as the blanks' directions.
+    const tablet = detailed({ ndc: '00093117401', description: 'Penicillin V Potassium 500 MG Oral Tablet' });
+    const halfRefilled = withPrescriptionMetadata(
+      { ...stored, medication: tablet, patientInstructions: 'Take 1/2 tablet by mouth twice daily for 10 days.' },
+      { ...metadata, product: undefined, dose: '0.5', additionalInstructions: undefined }
+    );
+    expect(halfRefilled.patientInstructions).toBe('Take half tablet by mouth twice daily for 10 days.');
+    // A changed blank rewrites the directions and the quantity, as after a suggestion.
+    const changed = withDirections(refilled, { dose: '2' });
+    expect(changed.patientInstructions).toBe('Take 2 capsules by mouth twice daily for 10 days. Take with food.');
+    expect(changed.quantityValue).toBe('40');
+  });
+
+  // Decision 213: a quick pick's dosing, reordered, still says it's the quick pick's, by name only.
+  it('keeps the quick pick a maximum came from', () => {
+    const picked = {
+      ...written,
+      maximum: {
+        maxPerDoseMg: 500,
+        from: { quickPick: 'Augmentin ES AOM', source: { label: 'AAP', url: 'https://example.org' } },
+      },
+    };
+    const metadata = prescriptionLineMetadata(picked);
+    expect(PrescriptionOrderMetadataSchema.parse(metadata)).toEqual(metadata);
+    const reordered = withPrescriptionMetadata(
+      { ...emptyPrescriptionLine(), medication: written.medication },
+      metadata
+    );
+    expect(reordered.maximum).toEqual({ maxPerDoseMg: 500, from: { quickPick: 'Augmentin ES AOM' } });
+    expect(maximumOriginText(reordered.maximum!.from)).toBe('From the quick pick: Augmentin ES AOM');
+    expect(quickPickDosingText(prescriptionLineToQuickPick(reordered, 'Again').dosing!, reordered)).toMatch(
+      /\(from the quick pick\)$/
+    );
+    expect(prescriptionLineMetadata(written)).not.toHaveProperty('dosingQuickPick');
+  });
+
+  // Decision 227: a quick pick's dosing with no maximum keeps its quick pick's name too.
+  it('keeps the quick pick a dosing with no maximum came from', () => {
+    const picked: PrescriptionLine = {
+      ...written,
+      dosing: { rate: 45, basis: 'mg/kg/day' },
+      maximum: undefined,
+      doseNotes: [{ dose: '1', text: '', working: '18 kg × 45 mg/kg/day', quickPick: { name: 'Amox AOM' } }],
+    };
+    const metadata = prescriptionLineMetadata(picked);
+    expect(metadata.dosingQuickPick).toBe('Amox AOM');
+    const reordered = withPrescriptionMetadata(
+      { ...emptyPrescriptionLine(), medication: written.medication },
+      metadata
+    );
+    expect(reordered.maximum).toBeUndefined();
+    expect(quickPickDosingText(prescriptionLineToQuickPick(reordered, 'Again').dosing!, reordered)).toBe(
+      'Saved by weight: 45 mg/kg per day, twice daily, 10 days (from the quick pick)'
+    );
+    // Sent again, it still says so.
+    expect(prescriptionLineMetadata(reordered).dosingQuickPick).toBe('Amox AOM');
+    // The calculator's own dose is the calculator's.
+    const calculated: PrescriptionLine = { ...picked, doseNotes: [{ dose: '1', text: '', working: '18 kg' }] };
+    expect(prescriptionLineMetadata(calculated)).not.toHaveProperty('dosingQuickPick');
+  });
+
+  // Decision 236: a reordered quick pick's dosing, dosed again for another frequency, is still the quick pick's.
+  it('keeps the quick pick a reordered dosing came from when its frequency changes', () => {
+    const suspension = detailed({ ndc: '00093416173', description: 'Amoxicillin 400 mg/5ml Susp' });
+    const picked: PrescriptionLine = {
+      ...written,
+      medication: suspension,
+      quantityUnit: 'Milliliter',
+      dose: '10',
+      dosing: { rate: 80, basis: 'mg/kg/day' },
+      maximum: undefined,
+      doseNotes: [{ dose: '10', text: '', working: '20 kg × 80 mg/kg/day', quickPick: { name: 'Amox AOM' } }],
+    };
+    const reordered = withPrescriptionMetadata(
+      { ...emptyPrescriptionLine(), medication: suspension },
+      prescriptionLineMetadata(picked)
+    );
+    const patch = { frequency: 'three times daily' };
+    const refrequenced = withDirections(withCalculatorDosing(reordered, patch, 20), patch);
+    expect(refrequenced.dose).not.toBe('10');
+    expect(quickPickDosingText(prescriptionLineToQuickPick(refrequenced, 'Again').dosing!, refrequenced)).toMatch(
+      /\(from the quick pick\)$/
+    );
+    expect(prescriptionLineMetadata(refrequenced).dosingQuickPick).toBe('Amox AOM');
+  });
+});
+
+// A saved form's lines come back with the keys of the page that saved them (requirement 53b).
+describe('withNewKeys', () => {
+  it("gives a saved line and its compound's ingredients keys no line added after them will share", () => {
+    const compound = compoundLineOf({
+      description: 'Magic mouthwash',
+      dosageForm: 'Suspension',
+      ingredients: [
+        { description: 'Lidocaine', amount: 10, unit: 'Milliliter' },
+        { description: 'Diphenhydramine', amount: 10, unit: 'Milliliter' },
+      ],
+    } as unknown as CompoundInput);
+    const saved = { ...emptyPrescriptionLine(), key: 1_000_000, compound };
+    const loaded = withNewKeys(saved);
+    const added = emptyPrescriptionLine();
+    const keys = [loaded.key, ...loaded.compound!.ingredients.map((ingredient) => ingredient.key), added.key];
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(loaded.key).not.toBe(saved.key);
+    expect(loaded.compound!.ingredients.map((ingredient) => ingredient.typed)).toEqual([
+      'Lidocaine',
+      'Diphenhydramine',
+    ]);
+  });
+});

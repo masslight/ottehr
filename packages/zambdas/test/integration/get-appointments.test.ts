@@ -101,6 +101,7 @@ describe('get-appointments integration — happy path', () => {
       [
         'dmeOrdersByEncounterId',
         'erxOrdersByEncounterId',
+        'erxSavedFormByEncounterId',
         'externalLabOrdersByAppointmentId',
         'immunizationOrdersByEncounterId',
         'inHouseLabOrdersByAppointmentId',

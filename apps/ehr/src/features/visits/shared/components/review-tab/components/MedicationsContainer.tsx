@@ -12,9 +12,10 @@ import { useVisitNote } from '../../../hooks/useVisitNote';
 import { AiAddedMark } from '../../scribe-recommendations/AiAddedMark';
 import { findAiAddedFor, useAiAddedRecommendations } from '../../scribe-recommendations/aiAddedMarks';
 
-export const MedicationsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
+// `encounterId`: another visit's, in place of the page's (the eRx order form outside a visit).
+export const MedicationsContainer: FC<{ notes?: NoteDTO[]; encounterId?: string }> = ({ notes, encounterId }) => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
-  const { data: note } = useVisitNote();
+  const { data: note, isLoading, error } = useVisitNote(encounterId ? { encounterId } : {});
   const theme = useTheme();
   const aiAdded = useAiAddedRecommendations();
 
@@ -55,7 +56,10 @@ export const MedicationsContainer: FC<{ notes?: NoteDTO[] }> = ({ notes }) => {
           );
         })
       ) : (
-        <Typography color={theme.palette.text.secondary}>No current medications</Typography>
+        // "None" only once the note says so, not while it loads or after it failed.
+        <Typography color={theme.palette.text.secondary}>
+          {isLoading ? 'Loading…' : error && !note ? "Couldn't load medications" : 'No current medications'}
+        </Typography>
       )}
 
       {notes && notes.length > 0 && (

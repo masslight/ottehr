@@ -1,6 +1,9 @@
+import { ErxGetPharmacyResponse } from '@oystehr/sdk';
 import { Organization } from 'fhir/r4b';
+import { PrescribedMedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PHONE_NOT_ON_FILE } from 'utils/lib/types/constants';
 import { describe, expect, it, vi } from 'vitest';
+import { groupPrescriptionsByPharmacy } from '../src/shared/pdf/helpers/pharmacy';
 import { composePharmacyData, createPharmacyFormsSection } from '../src/shared/pdf/sections/pharmacyInfo';
 import { PdfAssets, PdfClient, PdfStyles, pharmacyInfo } from '../src/shared/pdf/types';
 
@@ -120,5 +123,36 @@ describe('createPharmacyFormsSection', () => {
     expect(label).toBe('Pharmacy phone');
     expect(value).toBe('');
     expect(options.defaultValue).toBe(PHONE_NOT_ON_FILE);
+  });
+});
+
+describe('groupPrescriptionsByPharmacy', () => {
+  const sent = (id: string, pharmacyName?: string): PrescribedMedicationDTO => ({
+    resourceId: id,
+    name: `Medication ${id}`,
+    pharmacyId: '1234567',
+    pharmacyName,
+  });
+
+  it('falls back to the pharmacy name stored on the prescription when the eRx lookup gave none', () => {
+    expect(groupPrescriptionsByPharmacy([sent('a'), sent('b', 'Sample Pharmacy Two')], {})).toEqual([
+      {
+        pharmacy: { name: 'Sample Pharmacy Two', address: '', phone: '' },
+        meds: [sent('a'), sent('b', 'Sample Pharmacy Two')],
+      },
+    ]);
+  });
+
+  it('keeps the looked-up pharmacy when the lookup worked', () => {
+    const looked = { name: 'Looked Up', address1: '1 Main St', city: 'Austin', state: 'TX', phone: '5125550123' };
+    const [group] = groupPrescriptionsByPharmacy([sent('a', 'Stored Name')], {
+      '1234567': looked as ErxGetPharmacyResponse,
+    });
+    expect(group.pharmacy?.name).toBe('Looked Up');
+    expect(group.pharmacy?.address).toBe('1 Main St, Austin, TX');
+  });
+
+  it('shows no pharmacy line when neither the lookup nor the prescription has a name', () => {
+    expect(groupPrescriptionsByPharmacy([sent('a')], {})[0].pharmacy).toBeUndefined();
   });
 });

@@ -2,6 +2,10 @@ export interface SentenceBlank {
   title: string;
   options: string[];
   initial: string | undefined;
+  /** May stay unpicked: shown as still to pick, but the sentence can be added without it. */
+  optional?: boolean;
+  /** Shown while unpicked in place of the title ("(enter weight)"). */
+  placeholder?: string;
 }
 
 export interface SentenceNumber {
@@ -21,7 +25,7 @@ export const findUnpickedBlank = <S extends SentenceSegment>(
 ): Extract<S, SentenceBlank> | undefined =>
   segments.find(
     (segment, i): segment is Extract<S, SentenceBlank> =>
-      isSentenceBlank(segment) && segment.initial === undefined && values[i] === undefined
+      isSentenceBlank(segment) && !segment.optional && segment.initial === undefined && values[i] === undefined
   );
 
 export const assembleSentence = (segments: SentenceSegment[], values: (string | undefined)[]): string =>

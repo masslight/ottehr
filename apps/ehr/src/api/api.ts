@@ -107,6 +107,22 @@ import {
   OpenEmployeeChatInput,
   OpenEmployeeChatResponse,
 } from 'utils/lib/types/api/employee-chat.types';
+import {
+  ChangeResponseInput,
+  CompleteErxTaskInput,
+  ErxSavedFormInput,
+  ErxSavedFormResponse,
+  GetErxRequestInput,
+  GetErxRequestResponse,
+  RenewalResponseInput,
+  RenewalResponseOutput,
+} from 'utils/lib/types/api/erx.types';
+import {
+  ErxDirectoryPharmacy,
+  ErxDirectoryQuery,
+  MedicationSearchDrug,
+  MedicationSearchResponse,
+} from 'utils/lib/types/api/erx-search.types';
 import { ExtractCardInput, ExtractCardResponse } from 'utils/lib/types/api/extract-card.types';
 import {
   DeleteFreeFormEncounterInput,
@@ -149,6 +165,12 @@ import {
   SyncMailedStatementStatusesOutput,
 } from 'utils/lib/types/api/mailed-statements-report.types';
 import {
+  CancelPrescriptionInput,
+  CancelPrescriptionOutput,
+  OrderPrescriptionInput,
+  OrderPrescriptionOutput,
+} from 'utils/lib/types/api/order-prescription.types';
+import {
   GetPatientLoginPhoneNumbersInput,
   GetPatientLoginPhoneNumbersOutput,
   UpdatePatientLoginPhoneNumbersInput,
@@ -167,6 +189,7 @@ import {
   PracticeKpisReportZambdaInput,
   PracticeKpisReportZambdaOutput,
 } from 'utils/lib/types/api/practice-kpis-report.types';
+import { CheckPractitionerEnrollmentOutput } from 'utils/lib/types/api/practitioner-enrollment.types';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
@@ -206,6 +229,10 @@ import {
   CreateMedicationHistoryQuickPickResponse,
   CreatePatientInstructionQuickPickInput,
   CreatePatientInstructionQuickPickResponse,
+  CreatePrescriptionQuickPickInput,
+  CreatePrescriptionQuickPickResponse,
+  CreatePrescriptionSetQuickPickInput,
+  CreatePrescriptionSetQuickPickResponse,
   CreateProcedureQuickPickInput,
   CreateProcedureQuickPickResponse,
   CreateQuickTextQuickPickInput,
@@ -221,6 +248,8 @@ import {
   GetMedicalConditionQuickPicksResponse,
   GetMedicationHistoryQuickPicksResponse,
   GetPatientInstructionQuickPicksResponse,
+  GetPrescriptionQuickPicksResponse,
+  GetPrescriptionSetQuickPicksResponse,
   GetProcedureQuickPicksResponse,
   GetQuickTextQuickPicksResponse,
   GetRadiologyQuickPicksResponse,
@@ -230,6 +259,8 @@ import {
   MedicalConditionQuickPickData,
   MedicationHistoryQuickPickData,
   PatientInstructionQuickPickData,
+  PrescriptionQuickPickData,
+  PrescriptionSetQuickPickData,
   ProcedureQuickPickData,
   QuickPickRemoveResponse,
   QuickTextQuickPickData,
@@ -242,6 +273,8 @@ import {
   UpdateMedicalConditionQuickPickResponse,
   UpdateMedicationHistoryQuickPickResponse,
   UpdatePatientInstructionQuickPickResponse,
+  UpdatePrescriptionQuickPickResponse,
+  UpdatePrescriptionSetQuickPickResponse,
   UpdateProcedureQuickPickResponse,
   UpdateQuickTextQuickPickResponse,
   UpdateRadiologyQuickPickResponse,
@@ -621,6 +654,212 @@ const DELETE_INBOUND_FAX_ZAMBDA_ID = 'delete-inbound-fax';
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = createClinicalOystehrClient(token);
   return oystehr.user.me();
+};
+
+const ERX_API_URL = import.meta.env.VITE_APP_ERX_API_URL ?? 'https://erx-api.zapehr.com';
+
+/** The eRx service's messages Ottehr knows, in plain words for staff. */
+const ERX_SERVICE_MESSAGES: [RegExp, string][] = [
+  [/is not registered with Surescripts/i, 'You are not enrolled in Surescripts e-prescribing.'],
+  [/must have an NPI identifier/i, 'Your profile has no NPI. Ask an administrator to add it.'],
+  [/must have a first and last name/i, 'Your profile is missing a first or last name. Ask an administrator to add it.'],
+  [/must have a status of active/i, 'This prescription is no longer active.'],
+  [/^forbidden$/i, "You don't have permission to do this in e-prescribing."],
+  [/must have a location/i, 'This visit has no location. Add one to the visit and try again.'],
+  [/^MedicationRequest not found/i, "This prescription can't be found."],
+  [/is not a renewal request/i, "This task isn't a refill request."],
+  [/^Location not found/i, "This visit's location can't be found."],
+  [/renewal request has expired/i, 'This refill request has expired. The pharmacy needs to send a new one.'],
+  [/change request has expired/i, 'This change request has expired. The pharmacy needs to send a new one.'],
+];
+
+/** A record id in a message staff can't act on. */
+const RECORD_ID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/** An eRx service error for staff: its message, in plain words where it's one Ottehr knows, else `fallback`, which also
+ * stands in for any other message naming a record id. The HTTP status and the message go to the console. */
+const erxServiceError = (body: { message?: unknown } | undefined, status: number, fallback: string): Error => {
+  console.error(`eRx service error (${status}): ${body?.message ?? 'no message'}`);
+  const message = typeof body?.message === 'string' ? body.message : undefined;
+  const known = message && ERX_SERVICE_MESSAGES.find(([pattern]) => pattern.test(message));
+  return new Error(known ? known[1] : message && !RECORD_ID.test(message) ? message : fallback);
+};
+
+export const orderPrescription = async (
+  token: string,
+  parameters: OrderPrescriptionInput
+): Promise<OrderPrescriptionOutput> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${ERX_API_URL}/v4/order-prescription`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+    body: JSON.stringify(parameters),
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw erxServiceError(body, response.status, "The prescription couldn't be sent. Please try again.");
+  }
+  return body as OrderPrescriptionOutput;
+};
+
+export const cancelPrescription = async (
+  token: string,
+  parameters: CancelPrescriptionInput
+): Promise<CancelPrescriptionOutput> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${ERX_API_URL}/v4/cancel-prescription`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+    body: JSON.stringify(parameters),
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw erxServiceError(body, response.status, "The cancellation couldn't be sent. Please try again.");
+  }
+  return body as CancelPrescriptionOutput;
+};
+
+export const checkPractitionerEnrollment = async (
+  token: string,
+  practitionerId: string
+): Promise<CheckPractitionerEnrollmentOutput> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${ERX_API_URL}/v4/practitioner/${practitionerId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+  });
+  const body = await response.json().catch(() => undefined);
+  // eRx v4 answers 403 to a role it gives no eRx access: that user isn't an enrolled prescriber.
+  if (response.status === 403) return { registered: false };
+  if (!response.ok) {
+    throw new Error(body?.message ?? `Failed to check Surescripts registration (${response.status})`);
+  }
+  return body as CheckPractitionerEnrollmentOutput;
+};
+
+export const enrollPractitioner = async (
+  token: string,
+  practitionerId: string,
+  locationId: string
+): Promise<CheckPractitionerEnrollmentOutput> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${ERX_API_URL}/v4/practitioner/${practitionerId}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+    body: JSON.stringify({ locationId }),
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw erxServiceError(body, response.status, 'An error occurred while enrolling in Surescripts. Please try again.');
+  }
+  return body as CheckPractitionerEnrollmentOutput;
+};
+
+/** The Surescripts directory's pharmacies that take new prescriptions, by the query's filters (at most 50, by name). */
+export const searchPharmacyDirectory = async (
+  token: string,
+  query: ErxDirectoryQuery
+): Promise<ErxDirectoryPharmacy[]> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const params = new URLSearchParams(
+    Object.entries(query).filter((entry): entry is [string, string] => Boolean(entry[1]))
+  );
+  const response = await fetch(`${ERX_API_URL}/v4/pharmacy?${params}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw new Error(body?.message ?? `Failed to search pharmacies (${response.status})`);
+  }
+  return (body as { data: ErxDirectoryPharmacy[] }).data;
+};
+
+/** Answers a pharmacy's refill or change request: approve (with any changes), deny or pending. */
+const respondToRequest = async (
+  token: string,
+  path: 'renewal-response' | 'change-response',
+  parameters: RenewalResponseInput | ChangeResponseInput,
+  kind: 'refill' | 'change'
+): Promise<RenewalResponseOutput> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${ERX_API_URL}/v4/${path}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+    body: JSON.stringify(parameters),
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw erxServiceError(
+      body,
+      response.status,
+      `The answer to the ${kind} request couldn't be sent. Please try again.`
+    );
+  }
+  return body as RenewalResponseOutput;
+};
+
+export const respondToRenewal = (token: string, parameters: RenewalResponseInput): Promise<RenewalResponseOutput> =>
+  respondToRequest(token, 'renewal-response', parameters, 'refill');
+
+export const respondToChange = (token: string, parameters: ChangeResponseInput): Promise<RenewalResponseOutput> =>
+  respondToRequest(token, 'change-response', parameters, 'change');
+
+/** Completes an eRx task (a refill request answered in its dialog). */
+export const completeErxTask = async (oystehr: Oystehr, parameters: CompleteErxTaskInput): Promise<void> => {
+  await oystehr.zambda.execute({ id: 'complete-erx-task', ...parameters });
+};
+
+/** Loads or saves the visit's eRx order form saved for a provider to send; saving an empty form removes it. */
+export const erxSavedForm = async (oystehr: Oystehr, parameters: ErxSavedFormInput): Promise<ErxSavedFormResponse> => {
+  const response = await oystehr.zambda.execute({ id: 'erx-saved-form', ...parameters });
+  return chooseJson(response);
+};
+
+/** The request a refill request task is about: the pharmacy's or the patient's, with its prescription and patient. */
+export const getErxRequest = async (
+  oystehr: Oystehr,
+  parameters: GetErxRequestInput
+): Promise<GetErxRequestResponse> => {
+  const response = await oystehr.zambda.execute({ id: 'get-erx-request', ...parameters });
+  return chooseJson(response);
+};
+
+const TERMINOLOGY_API_URL = import.meta.env.VITE_APP_TERMINOLOGY_API_URL ?? 'https://terminology-api.zapehr.com/v1';
+
+export const searchMedications = async (token: string, query: string): Promise<MedicationSearchDrug[]> => {
+  const projectId = import.meta.env.VITE_APP_PROJECT_ID;
+  const response = await fetch(`${TERMINOLOGY_API_URL}/medication/search?${new URLSearchParams({ query })}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-zapehr-project-id': projectId,
+    },
+  });
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw new Error(body?.message ?? `Failed to search medications (${response.status})`);
+  }
+  // An order needs an NDC, so a strength without one can't be picked, and a drug with no such strength is left out.
+  return (body as MedicationSearchResponse).medications
+    .map(({ name, strengths }) => ({ name, strengths: strengths.filter(({ ndcs }) => ndcs.length > 0) }))
+    .filter(({ strengths }) => strengths.length > 0);
 };
 
 if (!VITE_APP_IS_LOCAL) {
@@ -3410,6 +3649,108 @@ export const updateRadiologyQuickPick = async (
     const response = await oystehr.zambda.execute({
       id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
       category: 'radiology-quick-pick',
+      quickPickId,
+      quickPick,
+    } as any);
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+// ── Prescription (eRx) Quick Picks ──
+
+export const getPrescriptionQuickPicks = async (oystehr: Oystehr): Promise<GetPrescriptionQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'prescription-quick-pick',
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createPrescriptionQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreatePrescriptionQuickPickInput
+): Promise<CreatePrescriptionQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'prescription-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updatePrescriptionQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<PrescriptionQuickPickData, 'id'>
+): Promise<UpdatePrescriptionQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'prescription-quick-pick',
+      quickPickId,
+      quickPick,
+    } as any);
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+// ── Prescription Sets ──
+
+export const getPrescriptionSetQuickPicks = async (oystehr: Oystehr): Promise<GetPrescriptionSetQuickPicksResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_GET_QUICK_PICKS_ZAMBDA_ID,
+      category: 'prescription-set-quick-pick',
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createPrescriptionSetQuickPick = async (
+  oystehr: Oystehr,
+  parameters: CreatePrescriptionSetQuickPickInput
+): Promise<CreatePrescriptionSetQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_CREATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'prescription-set-quick-pick',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updatePrescriptionSetQuickPick = async (
+  oystehr: Oystehr,
+  quickPickId: string,
+  quickPick: Omit<PrescriptionSetQuickPickData, 'id'>
+): Promise<UpdatePrescriptionSetQuickPickResponse> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: ADMIN_UPDATE_QUICK_PICK_ZAMBDA_ID,
+      category: 'prescription-set-quick-pick',
       quickPickId,
       quickPick,
     } as any);

@@ -1,14 +1,25 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ActivityDefinition } from 'fhir/r4b';
+import { DOSE_BASES, measureOf } from 'utils/lib/helpers/medications/plain-dose';
+import { prescriptionFrequency } from 'utils/lib/helpers/medications/prescription-suggestions';
 import { isRepairDepthSelection, REPAIR_DEPTH_OPTIONS } from 'utils/lib/procedure-coding/format';
 import { isStructuredFacts, StructuredFacts } from 'utils/lib/procedure-coding/structured-fields';
 import { isPlausibleLengthCm, MAX_PLAUSIBLE_LENGTH_CM } from 'utils/lib/procedure-coding/validation';
 import { Secrets } from 'utils/lib/secrets';
 import { DmeOrderFieldsSchema } from 'utils/lib/types/api/dme.types';
+import {
+  COMPOUND_DOSAGE_FORMS,
+  COMPOUND_STRENGTH_UNITS,
+  QUANTITY_UNITS,
+} from 'utils/lib/types/api/order-prescription.types';
+import {
+  PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX,
+  PRESCRIPTION_SET_STATUSES,
+} from 'utils/lib/types/api/quick-picks.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken, requireAdminTierUser } from '../../shared/auth';
 import { assertDefined, createClinicalOystehrClient, validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -22,6 +33,8 @@ import {
   MEDICAL_CONDITION_QUICK_PICK_CATEGORY,
   MEDICATION_HISTORY_QUICK_PICK_CATEGORY,
   PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY,
+  PRESCRIPTION_QUICK_PICK_CATEGORY,
+  PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
   PROCEDURE_QUICK_PICK_CATEGORY,
   QUICK_TEXT_QUICK_PICK_CATEGORY,
   RADIOLOGY_QUICK_PICK_CATEGORY,
@@ -74,6 +87,182 @@ const procedureQuickPickSchema = z
   })
   .passthrough();
 
+// The calculator's settings, so the pick can be re-dosed by weight; a per-day rate and a per-day maximum need a count
+// of doses a day: a scheduled frequency's, or an older quick pick's own doses a day (no longer saved).
+const prescriptionDosingSchema = z
+  .object({
+    rate: z.number().positive(),
+    basis: z.enum(DOSE_BASES),
+    dosesPerDay: z.number().positive().optional(),
+    frequency: z
+      .string()
+      .refine(
+        (frequency) => prescriptionFrequency(frequency) !== undefined,
+        'must be one of the order form frequencies'
+      )
+      .optional(),
+    durationDays: z.number().int().min(1).max(999).optional(),
+    maxPerDoseMg: z.number().positive().optional(),
+    maxPerDayMg: z.number().positive().optional(),
+  })
+  .refine(
+    (dosing) =>
+      dosing.basis !== 'mg/kg/day' ||
+      dosing.dosesPerDay !== undefined ||
+      prescriptionFrequency(dosing.frequency)?.dosesPerDay !== undefined,
+    { message: 'a mg/kg/day rate needs a frequency with a count of doses a day', path: ['frequency'] }
+  )
+  .refine(
+    (dosing) =>
+      dosing.maxPerDayMg === undefined ||
+      dosing.dosesPerDay !== undefined ||
+      prescriptionFrequency(dosing.frequency)?.dosesPerDay !== undefined,
+    { message: 'maxPerDayMg needs dosesPerDay or a frequency with a count of doses a day', path: ['maxPerDayMg'] }
+  );
+
+// Where the pick's dosing is from, shown as a link: https only, so a saved link never opens anything else.
+const prescriptionSourceSchema = z.object({
+  label: z.string().trim().min(1).max(200),
+  url: z
+    .string()
+    .url()
+    .refine((url) => url.startsWith('https://'), 'must be an https link')
+    .optional(),
+});
+
+// One ingredient of the product, as the medication search gives it: amoxicillin 80 MG per 1 ML.
+const prescriptionIngredientSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  amount: z.number().nonnegative(),
+  unit: z.string().trim().min(1).max(20),
+  per: z.number().positive(),
+  perUnit: z.string().trim().min(1).max(20),
+});
+
+// One compound ingredient, as the order form sends it: a product or a typed name, with an amount, a strength or base.
+const compoundIngredientSchema = z
+  .object({
+    description: z.string().trim().min(1).max(105),
+    ndc: z
+      .string()
+      .regex(/^\d{11}$/, 'must be an 11-digit NDC')
+      .optional(),
+    rxcui: z.string().regex(/^\d+$/, 'must be digits').optional(),
+    schedule: z.number().int().min(0).max(5).optional(),
+    typedNotControlled: z.literal(true).optional(),
+    amount: z.object({ value: z.number().positive(), unit: z.enum(QUANTITY_UNITS) }).optional(),
+    strength: z.object({ value: z.number().positive(), unit: z.enum(COMPOUND_STRENGTH_UNITS) }).optional(),
+    base: z.literal(true).optional(),
+  })
+  .refine((i) => [i.amount, i.strength, i.base].filter(Boolean).length === 1, 'needs one of amount, strength or base')
+  .refine((i) => i.ndc || i.typedNotControlled, 'needs an NDC or typedNotControlled');
+
+const compoundSchema = z.object({
+  description: z.string().trim().min(1).max(105),
+  // Absent only on a compound quick pick saved before the dosage form was asked for.
+  dosageForm: z.enum(COMPOUND_DOSAGE_FORMS).optional(),
+  ingredients: z
+    .array(compoundIngredientSchema)
+    .min(1)
+    .max(20)
+    .refine((list) => list.filter((i) => i.base).length <= 1, 'only one ingredient can be the base'),
+});
+
+// Same limits as the eRx order form, so a saved pick always fits the order endpoint.
+const prescriptionQuickPickSchema = z
+  .object({
+    ndc: z
+      .string()
+      .regex(/^\d{11}$/, 'must be an 11-digit NDC')
+      .optional(),
+    medicationDescription: z.string().max(105).optional(),
+    // The product's details from the medication search, kept so the order form needn't read its name.
+    rxcui: z.string().regex(/^\d+$/, 'must be digits').optional(),
+    doseForm: z.string().trim().min(1).max(100).optional(),
+    ingredients: z.array(prescriptionIngredientSchema).min(1).max(20).optional(),
+    // The DEA schedule (0 to 5), kept so a controlled drug's quick pick is still blocked from sending.
+    schedule: z.number().int().min(0).max(5).optional(),
+    quantityValue: z.number().positive().optional(),
+    quantityUnit: z.enum(QUANTITY_UNITS).optional(),
+    daysSupply: z.number().int().min(1).max(999).optional(),
+    numberOfRefills: z.number().int().min(0).max(99).optional(),
+    substitutionAllowed: z.boolean().optional(),
+    patientInstructions: z.string().max(1000).optional(),
+    noteToPharmacy: z.string().max(210).optional(),
+    diagnosis: z.object({ code: z.string().min(1), display: z.string() }).optional(),
+    dosing: prescriptionDosingSchema.optional(),
+    additionalInstructions: z.string().max(PRESCRIPTION_ADDITIONAL_INSTRUCTIONS_MAX).optional(),
+    source: prescriptionSourceSchema.optional(),
+    compound: compoundSchema.optional(),
+  })
+  .passthrough()
+  // A quick pick orders either a product or a compound.
+  .superRefine((pick, ctx) => {
+    if (pick.compound) {
+      // A product's fields: its NDC and description, its calculator settings and substitution.
+      for (const field of ['ndc', 'medicationDescription', 'dosing', 'substitutionAllowed'] as const) {
+        if (pick[field] !== undefined)
+          ctx.addIssue({ code: 'custom', path: [field], message: 'is not for a compound quick pick' });
+      }
+      return;
+    }
+    for (const field of ['ndc', 'medicationDescription'] as const) {
+      if (!pick[field]) ctx.addIssue({ code: 'custom', path: [field], message: 'is required' });
+    }
+    // The order form's calculator doses liquids, tablets and capsules only, by the dose form saved with the pick (the
+    // medication search's; one saved before it has none to tell by).
+    if (pick.dosing && pick.doseForm && !measureOf(pick)) {
+      ctx.addIssue({ code: 'custom', path: ['dosing'], message: 'is for liquids, tablets and capsules only' });
+    }
+  });
+
+// A set is its prescription quick picks in order; their dosing stays on them.
+export const prescriptionSetQuickPickSchema = z
+  .object({
+    status: z.enum(PRESCRIPTION_SET_STATUSES),
+    memberIds: z.array(z.string().trim().min(1)).min(1, 'must have at least one prescription quick pick'),
+    removedMembers: z.array(z.object({ name: z.string(), removedAt: z.string().datetime() })).optional(),
+  })
+  .passthrough();
+
+/** Names are unique within a category, trimmed and in any case; the quick pick being edited keeps its own. Existing
+ * duplicates still load: only a create or an update is checked. */
+const assertNameUnused = async <T extends { id?: string; name: string }>(
+  oystehr: Oystehr,
+  category: QuickPickCategory<T>,
+  quickPick: Record<string, unknown>,
+  quickPickId: string | undefined,
+  label: string
+): Promise<void> => {
+  const name = String(quickPick.name).trim();
+  const existing = await searchQuickPicks(oystehr, category);
+  if (
+    existing.some(
+      (p) => p.name.trim().toLowerCase() === name.toLowerCase() && (quickPickId ? p.id !== quickPickId : true)
+    )
+  ) {
+    throw INVALID_INPUT_ERROR(`${label} named "${name}" already exists`);
+  }
+};
+
+/** A set lists only prescription quick picks that exist: a dialog opened before one was removed would save it back,
+ * and the set Active again. The search is the practice's prescription quick picks, never built from the ids sent. */
+const assertMembersExist = async (oystehr: Oystehr, memberIds: string[]): Promise<void> => {
+  const existing = new Set(
+    (await searchQuickPicks(oystehr, PRESCRIPTION_QUICK_PICK_CATEGORY)).map((quickPick) => quickPick.id)
+  );
+  const missing = memberIds.filter((memberId) => !existing.has(memberId)).length;
+  if (missing) {
+    throw INVALID_INPUT_ERROR(
+      `${
+        missing === 1
+          ? '1 prescription in this set no longer exists'
+          : `${missing} prescriptions in this set no longer exist`
+      }. Reopen the set and save again.`
+    );
+  }
+};
+
 // Same limits as the DME order endpoint, so a saved pick can always be ordered as is.
 const dmeQuickPickSchema = DmeOrderFieldsSchema.pick({
   billingCodes: true,
@@ -123,16 +312,39 @@ const CATEGORIES: CategoryConfig[] = [
 
       // A quick pick's name is now an arbitrary label (multiple picks may reference the same payer),
       // so enforce uniqueness on the name rather than the payer reference.
-      const name = String(quickPick.name).trim().toLowerCase();
-      const existing = await searchQuickPicks(oystehr, INSURANCE_QUICK_PICK_CATEGORY);
-      if (existing.some((p) => p.name.trim().toLowerCase() === name && (quickPickId ? p.id !== quickPickId : true))) {
-        throw INVALID_INPUT_ERROR(`An insurance quick pick named "${quickPick.name}" already exists`);
-      }
+      await assertNameUnused(oystehr, INSURANCE_QUICK_PICK_CATEGORY, quickPick, quickPickId, 'An insurance quick pick');
     },
   },
   { category: MEDICAL_CONDITION_QUICK_PICK_CATEGORY, requiredStringFields: ['display'] },
   { category: MEDICATION_HISTORY_QUICK_PICK_CATEGORY, requiredStringFields: ['name'] },
   { category: PATIENT_INSTRUCTION_QUICK_PICK_CATEGORY, requiredStringFields: ['name', 'text'] },
+  {
+    category: PRESCRIPTION_QUICK_PICK_CATEGORY,
+    // A product's NDC and description, or a compound, are checked by the schema.
+    requiredStringFields: ['name'],
+    validator: async (oystehr, quickPick, quickPickId) => {
+      safeValidate(prescriptionQuickPickSchema, quickPick);
+      await assertNameUnused(oystehr, PRESCRIPTION_QUICK_PICK_CATEGORY, quickPick, quickPickId, 'A quick pick');
+    },
+  },
+  {
+    category: PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
+    requiredStringFields: ['name'],
+    validator: async (oystehr, quickPick, quickPickId) => {
+      const { memberIds } = safeValidate(prescriptionSetQuickPickSchema, quickPick);
+      if (new Set(memberIds).size !== memberIds.length) {
+        throw INVALID_INPUT_ERROR('This set lists the same quick pick more than once. Remove one and save again.');
+      }
+      await assertMembersExist(oystehr, memberIds);
+      await assertNameUnused(
+        oystehr,
+        PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
+        quickPick,
+        quickPickId,
+        'A prescription set'
+      );
+    },
+  },
   {
     category: PROCEDURE_QUICK_PICK_CATEGORY,
     requiredStringFields: ['name'],
@@ -162,6 +374,8 @@ export const index = wrapHandler(
   'admin-create-quick-pick',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { secrets, quickPick, category } = validateInput(input);
+    // Quick picks are the practice's settings; every staff role can call any zambda, so the role is checked here.
+    await requireAdminTierUser(getUserToken(input), secrets);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);

@@ -4,11 +4,15 @@ import { ActivityDefinition } from 'fhir/r4b';
 import { validateDefined } from 'utils/lib/helpers/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { QuickPickRemoveInput } from 'utils/lib/types/api/quick-picks.types';
-import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { checkOrCreateM2MClientToken, getUserToken, requireAdminTierUser } from '../../shared/auth';
 import { createClinicalOystehrClient, validateJsonBody, validateString } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { QUICK_PICK_TAG_SYSTEM } from '../shared/quick-pick-helpers';
+import {
+  PRESCRIPTION_QUICK_PICK_CATEGORY,
+  PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
+} from '../shared/quick-pick-categories';
+import { QUICK_PICK_TAG_SYSTEM, quickPickToActivityDefinition, searchQuickPicks } from '../shared/quick-pick-helpers';
 
 interface QuickPickRemoveInputValidated extends QuickPickRemoveInput {
   secrets: Secrets;
@@ -20,6 +24,8 @@ export const index = wrapHandler(
   'admin-remove-quick-pick',
   async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
     const { secrets, quickPickId } = validateRequestParameters(input);
+    // Quick picks are the practice's settings; every staff role can call any zambda, so the role is checked here.
+    await requireAdminTierUser(getUserToken(input), secrets);
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
     await removeQuickPick(quickPickId, oystehr);
@@ -30,7 +36,7 @@ export const index = wrapHandler(
   }
 );
 
-async function removeQuickPick(quickPickId: string, oystehr: Oystehr): Promise<void> {
+export async function removeQuickPick(quickPickId: string, oystehr: Oystehr): Promise<void> {
   let existing: ActivityDefinition;
   try {
     existing = await oystehr.fhir.get<ActivityDefinition>({
@@ -45,8 +51,41 @@ async function removeQuickPick(quickPickId: string, oystehr: Oystehr): Promise<v
   if (!hasQuickPickTag) {
     throw new Error(`ActivityDefinition ${quickPickId} is not a quick pick resource`);
   }
+  // Its sets first: if one fails to update, the quick pick stays, and no set is left Active with a missing member.
+  if (tags.some((t) => t.system === QUICK_PICK_TAG_SYSTEM && t.code === PRESCRIPTION_QUICK_PICK_CATEGORY.tagCode)) {
+    await takeOutOfPrescriptionSets(oystehr, quickPickId, existing.title ?? existing.name ?? '');
+  }
   existing.status = 'retired';
   await oystehr.fhir.update(existing);
+}
+
+/** A removed prescription quick pick leaves every set that has it; those sets turn Inactive, noting the removal,
+ * until someone reviews and saves them. A set whose last member it was is left with none, Inactive with the note. */
+export async function takeOutOfPrescriptionSets(
+  oystehr: Oystehr,
+  quickPickId: string,
+  name: string,
+  removedAt = new Date().toISOString()
+): Promise<void> {
+  const sets = await searchQuickPicks(oystehr, PRESCRIPTION_SET_QUICK_PICK_CATEGORY);
+  await Promise.all(
+    sets
+      .filter((set) => set.memberIds.includes(quickPickId))
+      .map(({ id, ...set }) =>
+        oystehr.fhir.update(
+          quickPickToActivityDefinition(
+            {
+              ...set,
+              status: 'Inactive',
+              memberIds: set.memberIds.filter((memberId) => memberId !== quickPickId),
+              removedMembers: [...(set.removedMembers ?? []), { name, removedAt }],
+            },
+            PRESCRIPTION_SET_QUICK_PICK_CATEGORY,
+            id
+          )
+        )
+      )
+  );
 }
 
 export function validateRequestParameters(input: ZambdaInput): QuickPickRemoveInputValidated {

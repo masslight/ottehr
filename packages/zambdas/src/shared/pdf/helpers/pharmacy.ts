@@ -27,8 +27,14 @@ export const groupPrescriptionsByPharmacy = (
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(med);
   }
-  return Array.from(groups.entries()).map(([pharmacyId, groupMeds]) => ({
-    pharmacy: pharmacyId && erxPharmacies?.[pharmacyId] ? toPharmacyInfo(erxPharmacies[pharmacyId]) : undefined,
-    meds: groupMeds,
-  }));
+  return Array.from(groups.entries()).map(([pharmacyId, groupMeds]) => {
+    const looked = pharmacyId ? erxPharmacies?.[pharmacyId] : undefined;
+    // The eRx lookup can fail (fetchErxPharmacies logs it); the name stored on the prescription still says where it went.
+    const storedName = groupMeds.find((med) => med.pharmacyName)?.pharmacyName;
+    const stored = pharmacyId && storedName ? { name: storedName, address: '', phone: '' } : undefined;
+    return {
+      pharmacy: looked ? toPharmacyInfo(looked) : stored,
+      meds: groupMeds,
+    };
+  });
 };

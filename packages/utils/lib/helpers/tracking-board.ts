@@ -59,6 +59,7 @@ export const emptyOrdersForTrackingBoardTable = (): OrdersForTrackingBoardTable 
   inHouseMedicationsByEncounterId: {},
   radiologyOrdersByAppointmentId: {},
   erxOrdersByEncounterId: {},
+  erxSavedFormByEncounterId: {},
   proceduresByEncounterId: {},
   immunizationOrdersByEncounterId: {},
   dmeOrdersByEncounterId: {},

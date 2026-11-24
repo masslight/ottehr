@@ -30,6 +30,7 @@ let visitStatus: VisitStatusLabel = 'discharged';
 let isAssignedProviderEligible = true;
 let note: VisitNoteResponse | undefined;
 let supervisorApprovalEnabled = true;
+let erxSaved: { encounterId: string; saved: unknown } | undefined;
 
 vi.mock('src/hooks/useEvolveUser', () => ({
   default: () => ({
@@ -68,6 +69,13 @@ vi.mock('src/features/visits/shared/hooks/useGetAppointmentAccessibility', () =>
 
 vi.mock('src/features/visits/shared/hooks/useOystehrAPIClient', () => ({
   useOystehrAPIClient: () => ({}),
+}));
+
+// The eRx page's own query for the visit's saved form (requirement 53h).
+vi.mock('src/features/visits/shared/hooks/useErxSavedForm', () => ({
+  useErxSavedForm: (encounterId: string) => ({
+    data: erxSaved?.encounterId === encounterId ? { saved: erxSaved.saved } : { saved: null },
+  }),
 }));
 
 vi.mock('src/features/visits/shared/hooks/useAssignedProvider', () => ({
@@ -125,6 +133,7 @@ describe('useProgressNoteSigning', () => {
     supervisorApprovalEnabled = true;
     note = signableNote();
     draftEncounterIds.clear();
+    erxSaved = undefined;
   });
 
   it('reports nothing blocking a complete, discharged note', () => {
@@ -143,6 +152,17 @@ describe('useProgressNoteSigning', () => {
     expect(result.current.readinessMessages).toContain('Complete or clear the in-progress DME order to sign');
 
     draftEncounterIds.delete('encounter-1');
+    rerender();
+    expect(result.current.readinessMessages).toEqual([]);
+  });
+
+  it('blocks signing while the visit has a saved eRx form, as for an order in progress (53h)', () => {
+    erxSaved = { encounterId: 'encounter-1', saved: { form: { pharmacy: null, lines: [] } } };
+    const { result, rerender } = renderHook(() => useProgressNoteSigning());
+    expect(result.current.readinessMessages).toEqual(['Complete or clear the in-progress eRx prescription to sign']);
+    expect(result.current.errorMessages).toEqual(result.current.readinessMessages);
+
+    erxSaved = undefined;
     rerender();
     expect(result.current.readinessMessages).toEqual([]);
   });

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { CLINICIAN_RULES, PROVIDER_RULES } from '../../src/shared/accessPolicies';
+import {
+  ADMINISTRATOR_RULES,
+  CLINICIAN_RULES,
+  CUSTOMER_SUPPORT_RULES,
+  MANAGER_RULES,
+  PROVIDER_RULES,
+  STAFF_RULES,
+} from '../../src/shared/accessPolicies';
 
 // The Clinician role has Provider-level access except the two NPI-gated capabilities enforced at the
 // access-policy layer: client-side e-prescribing (eRx) and writing Claims under a provider NPI. eRx is
@@ -46,11 +53,18 @@ describe('CLINICIAN_RULES', () => {
     expect(grantsAction(CLINICIAN_RULES, 'eRx:Patient', 'eRx:AddPatientPharmacy')).toBe(false);
   });
 
-  it('does not grant prescribing, practitioner enrollment, interaction checks, or pharmacy access', () => {
+  it('does not grant prescribing, practitioner enrollment, interaction checks, or pharmacy lookups by id', () => {
     expect(grantsResource(CLINICIAN_RULES, 'eRx:Prescription')).toBe(false);
     expect(grantsResource(CLINICIAN_RULES, 'eRx:Practitioner')).toBe(false);
     expect(grantsResource(CLINICIAN_RULES, 'eRx:Interaction')).toBe(false);
-    expect(grantsResource(CLINICIAN_RULES, 'eRx:Pharmacy')).toBe(false);
+    expect(grantsAction(CLINICIAN_RULES, 'eRx:Pharmacy', 'eRx:GetPharmacy')).toBe(false);
+  });
+
+  // eRx requirement 53f: every role that may save the eRx order form for a provider can pick its pharmacy.
+  it("grants eRx v4's pharmacy search, as to every role that saves the eRx order form", () => {
+    for (const policy of [CLINICIAN_RULES, STAFF_RULES, MANAGER_RULES, ADMINISTRATOR_RULES, CUSTOMER_SUPPORT_RULES]) {
+      expect(grantsAction(policy, 'eRx:Pharmacy', 'eRx:SearchPharmacy')).toBe(true);
+    }
   });
 
   it('does not grant Claim access', () => {

@@ -24,6 +24,7 @@ import { PageTitle } from 'src/features/visits/shared/components/PageTitle';
 import { useGetErxConfigQuery } from 'src/features/visits/telemed/hooks/useGetErxConfig';
 import { useApiClients } from 'src/hooks/useAppClients';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { formatDateToMDYWithTime } from 'utils/lib/utils/date';
 import { RoundedButton } from '../../../../../components/RoundedButton';
@@ -33,14 +34,9 @@ import { useAppointmentData } from '../../stores/appointment/appointment.store';
 import { ERX, ERXStatus } from '../ERX';
 import { PreferredPharmacy } from '../PreferredPharmacy';
 
-const getPractitionerName = (practitioner?: Practitioner): string | undefined => {
-  if (!practitioner) {
-    return;
-  }
-  const givenName = practitioner?.name?.[0]?.given?.at(0) ?? '';
-  const familyName = practitioner?.name?.[0]?.family ?? '';
-  return `${familyName}, ${givenName}`.trim();
-};
+// "Last, First", or the one name on file without a stray comma.
+const getPractitionerName = (practitioner?: Practitioner): string | undefined =>
+  practitioner && getFullestAvailableName(practitioner, true);
 
 export const medicationStatusMapper = {
   loading: {
@@ -110,6 +106,15 @@ export const medicationStatusMapper = {
   unknown: {
     background: {
       primary: '#FFFFFF',
+    },
+    color: {
+      primary: '#616161',
+    },
+  },
+  // A line of the eRx form saved for a provider to send: not a prescription yet.
+  saved: {
+    background: {
+      primary: '#F1F2F6',
     },
     color: {
       primary: '#616161',
