@@ -673,9 +673,15 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       };
     }
 
+    // solicited preliminary results are excluded from the board but we need unsolicited preliminary results to show up here
+    // if the result has been matched to a visit it now carries a service request with it and thus follows this decision tree
+    const isUnsolicitedPreliminaryResult =
+      code === LAB_ORDER_TASK.code.reviewPreliminaryResult && labTypeString === LabType.unsolicited;
     if (
       serviceRequestId &&
-      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
+      (code === LAB_ORDER_TASK.code.reviewFinalResult ||
+        code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
+        isUnsolicitedPreliminaryResult)
     ) {
       title = `Review results for “${fullTestName}” for ${patientName}`;
       subtitle = `Ordered by ${providerName} on ${orderDate ? formatDate(orderDate) : ''}`;
