@@ -63,6 +63,7 @@ export const dataTestIds = {
     groupSelect: 'group-select',
     dischargedTab: 'discharged-tab',
     cancelledTab: 'cancelled-tab',
+    stickyHeader: 'tracking-board-sticky-header',
     arrivedButton: 'arrived-button',
     appointmentStatus: 'appointment-status',
     chatButton: 'Chat-outlined-icon',
