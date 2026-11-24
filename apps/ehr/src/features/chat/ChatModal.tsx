@@ -34,6 +34,7 @@ import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../hooks/useEvolveUser';
 import {
   buildQuickTextVariables,
+  hasUnresolvedTokens,
   QuickTextsContext,
   resolveQuickText,
   useFetchChatMessagesQuery,
@@ -225,7 +226,10 @@ const ChatModal = memo(
       return rawQuickTexts.map((quickPick) => resolveQuickText(quickPick, vars));
     }, [rawQuickTexts, quickTextsContext]);
     const visibleQuickTexts = useMemo(
-      () => quickTexts.filter((text) => (text[language] ?? '').trim().length > 0),
+      // Templates whose tokens have no value here (e.g. {{office-phone}} with no known office) are hidden rather
+      // than offered with a literal placeholder the user could send to the patient.
+      () =>
+        quickTexts.filter((text) => (text[language] ?? '').trim().length > 0 && !hasUnresolvedTokens(text[language])),
       [quickTexts, language]
     );
     const searchedQuickTexts = useMemo(() => {

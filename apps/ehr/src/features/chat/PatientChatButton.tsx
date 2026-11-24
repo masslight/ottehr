@@ -1,13 +1,16 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Patient, Person, RelatedPerson } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useMemo, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { TRACKING_BOARD_REFRESH_MS } from 'src/hooks/useGetTrackingBoard';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { useSupportPhonesMap } from 'src/hooks/useLocationSupportPhones';
+import { LOCATION_REVIEW_LINK_EXTENSION_URL, PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName, getSMSNumberForIndividual } from 'utils/lib/fhir/patient';
+import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { AppointmentMessaging, SMSRecipient } from 'utils/lib/types/api/messaging.types';
+import { getSupportPhoneFor } from 'utils/lib/utils/support-dialog';
 import {
   CHAT_MESSAGES_QUERY_KEY,
   PATIENT_CHAT_RECIPIENTS_QUERY_KEY,
@@ -28,6 +31,7 @@ const getPersonPhone = (person: Person): string | undefined =>
 interface PatientChatButtonProps {
   patient: Patient | undefined;
   latestVisitId?: string;
+  latestEncounterId?: string;
 }
 
 /**
@@ -35,8 +39,13 @@ interface PatientChatButtonProps {
  * Recipients are built the way the tracking board builds them: every user RelatedPerson of the patient
  * with an SMS number, plus the phone of any Person linked to those RelatedPersons.
  */
-export function PatientChatButton({ patient, latestVisitId }: PatientChatButtonProps): ReactElement | null {
+export function PatientChatButton({
+  patient,
+  latestVisitId,
+  latestEncounterId,
+}: PatientChatButtonProps): ReactElement | null {
   const { oystehr } = useApiClients();
+  const { phonesByLocationName } = useSupportPhonesMap();
   const patientId = patient?.id;
   const timezone = DateTime.now().zoneName;
   const [open, setOpen] = useState(false);
@@ -121,15 +130,44 @@ export function PatientChatButton({ patient, latestVisitId }: PatientChatButtonP
     };
   }, [patient, recipients, hasUnread]);
 
-  const quickTextsContext: QuickTextsContext = useMemo(
-    () => ({
+  const { data: visitContext } = useQuery({
+    queryKey: ['patient-chat-visit-context', latestEncounterId],
+    queryFn: async (): Promise<{ location?: Location; start?: string }> => {
+      const resources = (
+        await oystehr!.fhir.search<Encounter | Appointment | Location>({
+          resourceType: 'Encounter',
+          params: [
+            { name: '_id', value: latestEncounterId! },
+            { name: '_include', value: 'Encounter:location' },
+            { name: '_include', value: 'Encounter:appointment' },
+          ],
+        })
+      ).unbundle();
+      return {
+        location: resources.find((r): r is Location => r.resourceType === 'Location'),
+        start: resources.find((r): r is Appointment => r.resourceType === 'Appointment')?.start,
+      };
+    },
+    enabled: Boolean(oystehr && latestEncounterId),
+    staleTime: 5 * 60_000,
+  });
+
+  const quickTextsContext: QuickTextsContext = useMemo(() => {
+    const location = visitContext?.location;
+    const start = visitContext?.start ? DateTime.fromISO(visitContext.start) : undefined;
+    return {
       patientAppUrl: VITE_APP_PATIENT_APP_URL,
       patientFirstName: patient ? getFirstName(patient) : undefined,
       patientLastName: patient ? getLastName(patient) : undefined,
+      // No visit means no visit link: the paperwork/AI-interview templates are then hidden by the modal.
       visitId: latestVisitId,
-    }),
-    [patient, latestVisitId]
-  );
+      locationName: location?.name,
+      locationReviewLink: location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)?.valueUrl,
+      bookingTime: start?.isValid ? start.toFormat('h:mm a') : undefined,
+      officePhone: standardizePhoneNumber(location?.telecom?.find((t) => t.system === 'phone')?.value),
+      supportPhone: getSupportPhoneFor(location?.name, phonesByLocationName) || undefined,
+    };
+  }, [patient, latestVisitId, visitContext, phonesByLocationName]);
 
   const recipientsUnreliable = isRecipientsFetching || isRecipientsError;
 

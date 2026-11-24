@@ -324,7 +324,11 @@ export default function PatientPage(): JSX.Element {
                 <FullNameDisplay patient={patient} loading={loading} />
                 <PatientNotesButton patientId={patient?.id} />
                 {!isMergedPatient && (
-                  <PatientChatButton patient={patient} latestVisitId={latestAppointment?.appointmentId} />
+                  <PatientChatButton
+                    patient={patient}
+                    latestVisitId={latestAppointment?.appointmentId}
+                    latestEncounterId={latestEncounterId}
+                  />
                 )}
               </Box>
               <Summary patient={patient} loading={loading} />

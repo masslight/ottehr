@@ -138,6 +138,9 @@ export const buildQuickTextVariables = (ctx: QuickTextsContext): Record<string, 
   'support-phone': ctx.supportPhone ?? '',
 });
 
+// replaceTemplateVariablesHandlebars leaves a {{token}} in place when it has no value; such text must not be sent.
+export const hasUnresolvedTokens = (text: string | undefined): boolean => /\{\{[\w-]+\}\}/.test(text ?? '');
+
 export const resolveQuickText = (
   quickPick: QuickTextQuickPickData,
   vars: Record<string, string>
