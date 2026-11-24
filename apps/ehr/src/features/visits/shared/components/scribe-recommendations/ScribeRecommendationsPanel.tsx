@@ -116,8 +116,37 @@ export const ScribeRecommendationsPanel: FC<ScribeRecommendationsPanelProps> = (
   );
 };
 
+/** The visit's transcripts, oldest first, from the aiChat section the layout's recording poll keeps fresh. */
+const useVisitTranscripts = (): DocumentReference[] => {
+  const { encounter } = useAppointmentData();
+  const { chartData } = useChartData({ encounterId: encounter?.id, enabled: Boolean(encounter?.id) });
+  return useMemo(
+    () =>
+      (chartData?.aiChat?.documents ?? [])
+        .filter(isTranscriptDocument)
+        .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '')),
+    [chartData?.aiChat?.documents]
+  );
+};
+
 /**
- * Transcript picker and editor, narrative editor and the "Plan note" button. Without a transcript the provider
+ * Loads all of the visit's transcripts into AutoChart as soon as the visit opens, and again when one arrives or
+ * changes. Called by the drawer, which is mounted even while the panel is collapsed.
+ */
+export const useLoadVisitTranscripts = (): void => {
+  const documents = useVisitTranscripts();
+  const loadTranscripts = useScribeRecommendationsStore((state) => state.loadTranscripts);
+  const generate = useNarrativeGenerator();
+  const analyzer = useScribeAnalyzer();
+  // A signed visit starts no model call.
+  const { locked } = useAutochartLock();
+  useEffect(() => {
+    if (!locked) void loadTranscripts(documents, generate, analyzer);
+  }, [documents, locked, loadTranscripts, generate, analyzer]);
+};
+
+/**
+ * The visit's transcripts and editor, narrative editor and the "Plan note" button. Without a transcript the provider
  * types or dictates the narrative directly.
  */
 const NarrativeStep: FC = () => {
@@ -129,9 +158,7 @@ const NarrativeStep: FC = () => {
   const analysisError = useScribeRecommendationsStore((state) => state.analysisError);
   // Planning again mid-apply would replace rows the executor is still reporting on.
   const isApplying = useScribeRecommendationsStore((state) => state.isApplying);
-  const selectTranscriptDocument = useScribeRecommendationsStore((state) => state.selectTranscriptDocument);
-  const reloadTranscriptDocument = useScribeRecommendationsStore((state) => state.reloadTranscriptDocument);
-  const clearTranscriptSelection = useScribeRecommendationsStore((state) => state.clearTranscriptSelection);
+  const loadTranscripts = useScribeRecommendationsStore((state) => state.loadTranscripts);
   const analyze = useScribeRecommendationsStore((state) => state.analyze);
   const markVisitLocked = useScribeRecommendationsStore((state) => state.markVisitLocked);
   const generate = useNarrativeGenerator();
@@ -143,13 +170,7 @@ const NarrativeStep: FC = () => {
   const { encounter } = useAppointmentData();
   const { chartData } = useChartData({ encounterId: encounter?.id, enabled: Boolean(encounter?.id) });
   const { oystehr } = useApiClients();
-  const documents = useMemo(
-    () =>
-      (chartData?.aiChat?.documents ?? [])
-        .filter(isTranscriptDocument)
-        .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '')),
-    [chartData?.aiChat?.documents]
-  );
+  const documents = useVisitTranscripts();
   const hasPendingRecording = Boolean(chartData?.aiChat?.hasPendingRecording);
 
   const isAnalyzing = phase === 'analyzing';
@@ -157,20 +178,11 @@ const NarrativeStep: FC = () => {
   const isBusy = isAnalyzing || isGenerating;
   const narrative = narrativeText(narrativeDraft);
 
-  // Clicking the selected chip again unselects it. The analyzer lets the store read the plan ahead.
-  const pick = (doc: DocumentReference): void => {
-    if (doc.id === sourceDocumentId) {
-      clearTranscriptSelection();
-      return;
-    }
-    void selectTranscriptDocument(doc, generate, analyzer);
-  };
-
-  // Saving overwrites the selected document or adds a new one. Once the refetched chart data carries the saved
-  // text, the document is (re)selected so its new narrative replaces the draft.
+  // Saving overwrites the visit's one transcript or adds a new one. Once the refetched chart data carries the
+  // saved text, the transcripts are loaded again and their new narrative replaces the draft, edited or not.
   const apiClient = useOystehrAPIClient();
   const queryClient = useQueryClient();
-  const [savedTranscript, setSavedTranscript] = useState<{ documentId: string; text: string; edited: boolean }>();
+  const [savedTranscript, setSavedTranscript] = useState<{ documentId: string; text: string }>();
   const saveTranscript = async (text: string): Promise<void> => {
     if (!apiClient || !encounter?.id) throw new Error('The visit is still loading. Please try again.');
     let documentId: string;
@@ -187,7 +199,7 @@ const NarrativeStep: FC = () => {
     }
     // Only the aiChat section changed; refetching it brings in the saved document.
     await invalidateChartSections(queryClient, encounter.id, ['aiChat']);
-    setSavedTranscript({ documentId, text: text.trim(), edited: Boolean(sourceDocumentId) });
+    setSavedTranscript({ documentId, text: text.trim() });
   };
   // Handle each save once: selecting re-renders this before the cleared state lands.
   const handledSave = useRef<typeof savedTranscript>();
@@ -197,8 +209,8 @@ const NarrativeStep: FC = () => {
     if (!doc || transcriptTextOf(doc)?.trim() !== savedTranscript.text) return;
     handledSave.current = savedTranscript;
     setSavedTranscript(undefined);
-    void (savedTranscript.edited ? reloadTranscriptDocument : selectTranscriptDocument)(doc, generate, analyzer);
-  }, [savedTranscript, documents, selectTranscriptDocument, reloadTranscriptDocument, generate, analyzer]);
+    void loadTranscripts(documents, generate, analyzer, { replaceEdits: true });
+  }, [savedTranscript, documents, loadTranscripts, generate, analyzer]);
 
   // Planning again discards unapplied ticks and edits, so it asks first.
   const [replanOpen, setReplanOpen] = useState(false);
@@ -215,7 +227,7 @@ const NarrativeStep: FC = () => {
         </Alert>
       )}
       <Typography variant="body2" color="text.secondary">
-        Select a transcript or type/dictate a narrative.
+        The narrative is written from all of the visit’s transcripts, or type/dictate one.
       </Typography>
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
@@ -230,22 +242,13 @@ const NarrativeStep: FC = () => {
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
             {documents.map((doc) => {
               const source = getDocumentReferenceSource(doc);
-              const selected = doc.id === sourceDocumentId;
               return (
-                <LockedHint key={doc.id} locked={locked}>
-                  <Chip
-                    label={`${source === 'audio' ? '🎤' : '💬'} ${getSource(
-                      doc,
-                      oystehr,
-                      chartData?.aiChat?.providers
-                    )}`}
-                    variant={selected ? 'filled' : 'outlined'}
-                    color={selected ? 'primary' : 'default'}
-                    onClick={() => pick(doc)}
-                    disabled={isBusy || locked}
-                    data-testid={testIds.transcriptChip(doc.id ?? '')}
-                  />
-                </LockedHint>
+                <Chip
+                  key={doc.id}
+                  label={`${source === 'audio' ? '🎤' : '💬'} ${getSource(doc, oystehr, chartData?.aiChat?.providers)}`}
+                  variant="outlined"
+                  data-testid={testIds.transcriptChip(doc.id ?? '')}
+                />
               );
             })}
             {hasPendingRecording && (
@@ -255,10 +258,12 @@ const NarrativeStep: FC = () => {
         )}
       </Box>
 
-      {/* Collapsed transcript; opened, it edits the selected one or takes a new one. */}
+      {/* Collapsed transcript; opened, it edits the visit's one transcript or takes a new one. Joined transcripts
+          are read-only: an edit would have no one document to go back to. */}
       <TranscriptEvidence
         transcript={transcript}
         documentId={sourceDocumentId}
+        readOnly={documents.length > 1}
         disabled={isBusy || isApplying || locked}
         onSave={saveTranscript}
       />

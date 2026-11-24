@@ -15,6 +15,8 @@ interface TranscriptEvidenceProps {
   transcript: string;
   /** The selected transcript document; absent when none is, and a save then adds a new one. */
   documentId?: string;
+  /** Shown, not edited: the visit's transcripts joined, which an edit could not be saved back to. */
+  readOnly?: boolean;
   disabled: boolean;
   /** Saves the text: over the selected document, or as a new one. Rejects with the server's error. */
   onSave: (text: string) => Promise<void>;
@@ -24,7 +26,13 @@ interface TranscriptEvidenceProps {
  * Collapsible transcript editor. Edits are saved over the selected document, or added as a new transcript when
  * none is selected; either way the server reprocesses it and its narrative replaces the draft.
  */
-export const TranscriptEvidence: FC<TranscriptEvidenceProps> = ({ transcript, documentId, disabled, onSave }) => {
+export const TranscriptEvidence: FC<TranscriptEvidenceProps> = ({
+  transcript,
+  documentId,
+  readOnly,
+  disabled,
+  onSave,
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [draft, setDraft] = useState(transcript);
   const [isSaving, setIsSaving] = useState(false);
@@ -74,7 +82,7 @@ export const TranscriptEvidence: FC<TranscriptEvidenceProps> = ({ transcript, do
             fullWidth
             placeholder={'Paste or type the visit dialogue, e.g.\nProvider: What brings you in today?\nPatient: …'}
             disabled={disabled || isSaving}
-            inputProps={{ 'data-testid': testIds.transcriptPreview, 'aria-label': 'Transcript' }}
+            inputProps={{ 'data-testid': testIds.transcriptPreview, 'aria-label': 'Transcript', readOnly }}
             sx={{ '& .MuiInputBase-input': { fontSize: scaled(13), lineHeight: 1.6 } }}
           />
           {error && (

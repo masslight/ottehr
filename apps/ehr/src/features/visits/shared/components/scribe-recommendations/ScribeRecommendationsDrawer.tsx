@@ -9,7 +9,7 @@ import {
   SCRIBE_RAIL_WIDTH,
   useScribeRecommendationsStore,
 } from './scribeRecommendations.store';
-import { ScribeRecommendationsPanel } from './ScribeRecommendationsPanel';
+import { ScribeRecommendationsPanel, useLoadVisitTranscripts } from './ScribeRecommendationsPanel';
 import { scaleScribeTheme } from './scribeTheme';
 
 const testIds = dataTestIds.scribeRecommendations;
@@ -52,6 +52,8 @@ const DrawerBody: FC = () => {
   useEffect(() => {
     startSession(encounter?.id);
   }, [encounter?.id, startSession]);
+  // After the session starts, so a new visit's transcripts load into a clean session.
+  useLoadVisitTranscripts();
 
   // Width while dragging lives here so the store (and localStorage) is only written on release.
   const [dragWidth, setDragWidth] = useState<number | null>(null);
