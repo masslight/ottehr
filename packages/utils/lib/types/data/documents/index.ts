@@ -138,7 +138,7 @@ export interface PhotoIdExtraction {
 export const INSURANCE_CARD_ROTATION_DEGREES = [90, 180, 270] as const;
 export type InsuranceCardRotationDegrees = (typeof INSURANCE_CARD_ROTATION_DEGREES)[number];
 
-/** Input for the staff-triggered rotate-insurance-card-image zambda. */
+/** Input for the staff-triggered rotate-insurance-card-image zambda (insurance-card and photo-ID images). */
 export interface RotateInsuranceCardImageInput {
   documentReferenceId: string;
   /** CLOCKWISE rotation to bake into the stored card image. */
