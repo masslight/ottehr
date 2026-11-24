@@ -11,7 +11,7 @@ import { useApiClients } from '../../hooks/useAppClients';
 import { MessageModel } from './ChatModal';
 
 export const CHAT_MESSAGES_QUERY_KEY = 'chat-messages';
-export const PATIENT_CHAT_RECIPIENTS_QUERY_KEY = 'patient-chat-recipients';
+export const PATIENT_CHAT_DATA_QUERY_KEY = 'patient-chat-data';
 
 export const useFetchChatMessagesQuery = (
   timezone: string,

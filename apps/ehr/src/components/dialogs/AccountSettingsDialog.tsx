@@ -7,7 +7,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { getPatientLoginPhoneNumbers, updatePatientLoginPhoneNumbers } from 'src/api/api';
-import { PATIENT_CHAT_RECIPIENTS_QUERY_KEY } from 'src/features/chat/chat.queries';
+import { PATIENT_CHAT_DATA_QUERY_KEY } from 'src/features/chat/chat.queries';
 import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { normalizePhoneNumber } from 'utils/lib/fhir/resourcePatch';
@@ -39,7 +39,7 @@ export const AccountSettingsDialog: React.FC<Props> = ({ patientId, handleClose 
             patientId,
             phoneNumbers: formValue.phones.map((phone: { value: string }) => normalizePhoneNumber(phone.value)),
           });
-          void queryClient.invalidateQueries({ queryKey: [PATIENT_CHAT_RECIPIENTS_QUERY_KEY, patientId] });
+          void queryClient.invalidateQueries({ queryKey: [PATIENT_CHAT_DATA_QUERY_KEY, patientId] });
           enqueueSnackbar('Login phone numbers successfully updated', { variant: 'success' });
         }
       } catch {
