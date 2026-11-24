@@ -1,6 +1,5 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import OpenInFullIcon from '@mui/icons-material/OpenInFull';
-import { Box, ButtonBase, IconButton, Tooltip } from '@mui/material';
+import { Box, ButtonBase, IconButton, Tooltip, Typography } from '@mui/material';
 import { UseMutationResult } from '@tanstack/react-query';
 import { Attachment } from 'fhir/r4b';
 import React, { ReactNode, useState } from 'react';
@@ -12,10 +11,8 @@ import ImageUploader from './ImageUploader';
 
 /** Standard aspect ratio for ID and insurance cards. */
 const ASPECT_RATIO = 1.57;
-/** Width of the clean inline thumbnail image. */
-const THUMBNAIL_WIDTH = 100;
-/** Width of the compact Upload/Scan affordance (needs room for the two buttons). */
-const UPLOADER_WIDTH = 180;
+/** Width of each face's thumbnail / upload placeholder (wraps to stacked when there isn't room). */
+const FACE_WIDTH = 220;
 
 export interface CardThumbnailProps {
   /** The saved card images (front/back) for one card (a coverage's insurance card or the photo ID). */
@@ -76,18 +73,12 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
   deletingFileId,
 }) => {
   const [previewOpen, setPreviewOpen] = useState<boolean>(false);
+  const [previewFace, setPreviewFace] = useState<CardPreviewFace>('front');
   const [confirmDeleteFace, setConfirmDeleteFace] = useState<CardPreviewFace | null>(null);
 
   const faceFileType = (face: CardPreviewFace): UpdateVisitFilesInput['fileType'] =>
     face === 'front' ? frontFileType : backFileType;
   const faceDocRefId = (face: CardPreviewFace): string | null => (face === 'front' ? item.frontId : item.backId);
-
-  // Prefer the front image; fall back to the back so a back-only card is still reachable.
-  const displayFace: CardPreviewFace | null = item.front?.presignedUrl
-    ? 'front'
-    : item.back?.presignedUrl
-    ? 'back'
-    : null;
 
   // Reusable Upload/Scan affordance for one face's fileType — used both for the collapsed
   // no-image-at-all state and, once delete is wired, as the in-preview reload slot for a face
@@ -112,16 +103,6 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
       />
     );
   };
-
-  if (displayFace === null) {
-    // No card image at all yet: compact Upload/Scan affordance into the card's front slot.
-    if (!appointmentID) {
-      return null;
-    }
-    return <Box sx={{ width: UPLOADER_WIDTH }}>{uploaderFor(frontFileType)}</Box>;
-  }
-
-  const displayUrl = displayFace === 'front' ? item.front?.presignedUrl : item.back?.presignedUrl;
 
   const combinedHeaderActions = (face: CardPreviewFace): ReactNode => {
     const docRefId = faceDocRefId(face);
@@ -153,54 +134,76 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
     ? (face) => uploaderFor(faceFileType(face))
     : undefined;
 
+  const renderFace = (face: CardPreviewFace): ReactNode => {
+    const url = face === 'front' ? item.front?.presignedUrl : item.back?.presignedUrl;
+    const label = face === 'front' ? 'Front' : 'Back';
+    return (
+      <Box key={face} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <Typography variant="body2" color="primary.dark">
+          {label}
+        </Typography>
+        {url ? (
+          <ButtonBase
+            focusRipple
+            aria-label={`Enlarge ${title} ${face}`}
+            onClick={() => {
+              setPreviewFace(face);
+              setPreviewOpen(true);
+            }}
+            sx={{
+              position: 'relative',
+              display: 'block',
+              width: FACE_WIDTH,
+              aspectRatio: String(ASPECT_RATIO),
+              borderRadius: 1,
+              overflow: 'hidden',
+              border: '1px solid',
+              borderColor: 'divider',
+              backgroundColor: 'grey.50',
+              cursor: 'pointer',
+              '&:hover, &:focus-visible': { borderColor: 'primary.main', boxShadow: 2 },
+            }}
+          >
+            <img
+              src={url}
+              alt={`${title} ${face}`}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+            />
+          </ButtonBase>
+        ) : (
+          <Box
+            sx={{
+              width: FACE_WIDTH,
+              aspectRatio: String(ASPECT_RATIO),
+              boxSizing: 'border-box',
+              border: '2px dashed',
+              borderColor: 'primary.main',
+              borderRadius: 1,
+              backgroundColor: 'action.hover',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: 1,
+            }}
+          >
+            <Box sx={{ width: '100%', maxWidth: 160 }}>{uploaderFor(faceFileType(face))}</Box>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
   return (
     <>
-      <ButtonBase
-        focusRipple
-        aria-label={`Enlarge ${title}`}
-        onClick={() => setPreviewOpen(true)}
-        sx={{
-          position: 'relative',
-          display: 'block',
-          width: THUMBNAIL_WIDTH,
-          aspectRatio: String(ASPECT_RATIO),
-          borderRadius: 1,
-          overflow: 'hidden',
-          border: '1px solid',
-          borderColor: 'primary.main',
-          backgroundColor: 'grey.50',
-          cursor: 'pointer',
-          '&:hover, &:focus-visible': {
-            borderColor: 'primary.dark',
-            boxShadow: 2,
-          },
-        }}
-      >
-        <img
-          src={displayUrl}
-          alt={`${title} ${displayFace}`}
-          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-        />
-        {/* Click-to-enlarge affordance; pointer-events none so the click lands on the ButtonBase. */}
-        <Box
-          aria-hidden
-          sx={{
-            position: 'absolute',
-            top: 2,
-            right: 2,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(255, 255, 255, 0.85)',
-            borderRadius: '4px',
-            padding: '2px',
-            color: 'primary.main',
-            pointerEvents: 'none',
-          }}
-        >
-          <OpenInFullIcon sx={{ fontSize: 14 }} />
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
+        <Typography variant="h5" color="primary.dark" fontWeight={700}>
+          {title}
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+          {renderFace('front')}
+          {renderFace('back')}
         </Box>
-      </ButtonBase>
+      </Box>
       {/* Non-modal enlarged preview: hosts the front/back toggle, the rotate control (headerActions),
           and — when delete is wired — the remove button + reload uploader per face. */}
       <FloatingCardPreview
@@ -209,7 +212,7 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
         frontUrl={item.front?.presignedUrl}
         backUrl={item.back?.presignedUrl}
         title={title}
-        defaultFace={displayFace}
+        defaultFace={previewFace}
         headerActions={combinedHeaderActions}
         emptyStateSlot={emptyStateSlot}
       />

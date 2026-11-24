@@ -735,11 +735,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
       {/* Compact card thumbnail for THIS coverage (visit page only), rendered unconditionally just
           above the coverage form fields, right-aligned; it enlarges into the floating preview or,
           with no card image yet, offers a compact upload/scan affordance. */}
-      {renderInsuranceCardThumbnail && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-          {renderInsuranceCardThumbnail(ordinal - 1)}
-        </Box>
-      )}
+      {renderInsuranceCardThumbnail && <Box sx={{ mt: 1 }}>{renderInsuranceCardThumbnail(ordinal - 1)}</Box>}
       <PatientRecordFormField
         item={FormFields.insurancePriority}
         isLoading={false}
