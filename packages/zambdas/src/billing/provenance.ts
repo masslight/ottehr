@@ -86,6 +86,7 @@ import { patientNameText } from './manual-era';
 import { getCLIA, getPlaceOfServiceCode } from './service-facility.helpers';
 import {
   buildUpdatedClaimStatusTags,
+  coverageGroupNumber,
   ERA_ICN_EXTENSION,
   ERA_ITEM_PROCEDURE_CODE_EXTENSION,
   ERA_ITEM_REMARK_CODE_EXTENSION,
@@ -316,6 +317,7 @@ function projectClaim(claim: Claim): FieldProjection[] {
 function projectCoverage(c: Coverage): FieldProjection[] {
   return [
     { field: 'memberId', label: 'Member ID', value: c.subscriberId ?? '' },
+    { field: 'groupNumber', label: 'Group Number', value: coverageGroupNumber(c) ?? '' },
     { field: 'payer', label: 'Payer', value: refValue(c.payor?.[0]), ref: c.payor?.[0]?.reference },
     {
       field: 'relationship',
