@@ -61,7 +61,12 @@ import { MAXIMUM_CHARACTER_LIMIT } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { findDuplicatePatients } from './findDuplicatePatients';
+import {
+  DuplicateCandidate,
+  findDuplicatePatients,
+  getCandidateBlockedReason,
+  resolveDuplicateCandidates,
+} from './findDuplicatePatients';
 
 type SlotLoadingState =
   | { status: 'initial'; input: undefined }
@@ -219,9 +224,18 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
   const [validDate, setValidDate] = useState<boolean>(true);
   const [selectSlotDialogOpen, setSelectSlotDialogOpen] = useState<boolean>(false);
   const [validReasonForVisit, setValidReasonForVisit] = useState<boolean>(true);
-  const [duplicatePatients, setDuplicatePatients] = useState<Patient[]>([]);
+  const [duplicatePatients, setDuplicatePatients] = useState<DuplicateCandidate[]>([]);
   const [selectedDuplicateId, setSelectedDuplicateId] = useState<string>('');
-  const selectedDuplicate = duplicatePatients.find((p) => p.id === selectedDuplicateId);
+  const selectedDuplicate = duplicatePatients.find((c) => c.patient.id === selectedDuplicateId);
+  // Add Visit books against the linked account's verified phone, so candidates without one are not selectable.
+  const getCandidateBlock = (candidate: DuplicateCandidate): string | undefined =>
+    patientOnly ? undefined : getCandidateBlockedReason(candidate);
+  const candidateToPatientInfo = (candidate: DuplicateCandidate): AddVisitPatientInfo => ({
+    ...fhirPatientToAddVisitInfo(candidate.patient),
+    // Show and reuse the number booking would use, not Patient.telecom.
+    phoneNumber:
+      !patientOnly && candidate.phone.status === 'verified' ? getPhoneNumberDigits(candidate.phone.phone) : undefined,
+  });
   const [showFields, setShowFields] = useState<AddVisitFormState>(
     isScheduledFollowUp || !!patientIdFromUrl ? 'existingPatientSelected' : 'initialPatientSearch'
   );
@@ -535,11 +549,15 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
     const checkedKey = getIdentityKey(patientInfo, birthDate);
     setLoading(true);
     try {
-      const matches = await findDuplicatePatients(oystehr, {
+      const found = await findDuplicatePatients(oystehr, {
         firstName: patientInfo.firstName,
         lastName: patientInfo.lastName,
         dateOfBirth: patientInfo.dateOfBirth || birthDate?.toISODate() || undefined,
       });
+      // Opening a record needs no account; booking a visit does.
+      const matches: DuplicateCandidate[] = patientOnly
+        ? found.map((patient) => ({ patient, phone: { status: 'no-account' } }))
+        : await resolveDuplicateCandidates(oystehr, found);
       if (latestIdentityKeyRef.current !== checkedKey) {
         enqueueSnackbar('Patient details changed while checking for duplicates. Please submit again.', {
           variant: 'warning',
@@ -549,7 +567,9 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       if (matches.length > 0) {
         setDuplicateCheckedKey(checkedKey);
         setDuplicatePatients(matches);
-        setSelectedDuplicateId(matches.length === 1 ? matches[0].id ?? '' : '');
+        setSelectedDuplicateId(
+          matches.length === 1 && !getCandidateBlock(matches[0]) ? matches[0].patient.id ?? '' : ''
+        );
         return false;
       }
     } catch (error) {
@@ -560,13 +580,15 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
     return true;
   };
 
-  const handleUseExistingDuplicate = (existing: Patient): void => {
+  const handleUseExistingDuplicate = (candidate: DuplicateCandidate): void => {
+    const existing = candidate.patient;
+    if (getCandidateBlock(candidate)) return;
     setDuplicatePatients([]);
     if (patientOnly) {
       navigate(`/patient/${existing.id}`);
       return;
     }
-    setPatientInfo(fhirPatientToAddVisitInfo(existing));
+    setPatientInfo(candidateToPatientInfo(candidate));
     setBirthDate(existing.birthDate ? DateTime.fromISO(existing.birthDate) : null);
     setShowFields('existingPatientSelected');
   };
@@ -1130,7 +1152,12 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                 </DialogContentText>
                 <Box marginTop={1}>
                   <PatientCandidateRadioGroup
-                    patients={duplicatePatients.map(fhirPatientToAddVisitInfo)}
+                    patients={duplicatePatients.map(candidateToPatientInfo)}
+                    getOptionState={(info) => {
+                      const candidate = duplicatePatients.find((c) => c.patient.id === info.id);
+                      const note = candidate ? getCandidateBlock(candidate) : undefined;
+                      return { disabled: !!note, note };
+                    }}
                     value={selectedDuplicateId}
                     onChange={setSelectedDuplicateId}
                   />

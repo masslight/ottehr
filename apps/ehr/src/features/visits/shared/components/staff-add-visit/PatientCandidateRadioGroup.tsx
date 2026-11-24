@@ -10,11 +10,15 @@ interface PatientCandidateRadioGroupProps {
   patients: AddVisitPatientInfo[];
   value: string;
   onChange: (patientId: string) => void;
+  getOptionState?: (patient: AddVisitPatientInfo) => { disabled?: boolean; note?: string };
 }
 
-// Lists patients as radio options with enough detail (full name, DOB, sex, phone) to tell
-// same-named patients apart. Shared by the patient search dialog and the duplicate warning.
-export const PatientCandidateRadioGroup: FC<PatientCandidateRadioGroupProps> = ({ patients, value, onChange }) => (
+export const PatientCandidateRadioGroup: FC<PatientCandidateRadioGroupProps> = ({
+  patients,
+  value,
+  onChange,
+  getOptionState,
+}) => (
   <RadioGroup value={value} onChange={(e) => onChange(e.target.value)}>
     {patients.map((patient) => {
       const details = [
@@ -22,11 +26,13 @@ export const PatientCandidateRadioGroup: FC<PatientCandidateRadioGroupProps> = (
         patient.sex ? `Sex: ${patient.sex}` : undefined,
         patient.phoneNumber ? `Phone: ${patient.phoneNumber}` : undefined,
       ].filter(Boolean);
+      const { disabled, note } = getOptionState?.(patient) ?? {};
       return (
         <FormControlLabel
           key={patient.id}
           value={patient.id ?? ''}
           control={<Radio />}
+          disabled={disabled}
           sx={{ alignItems: 'flex-start', marginY: 0.5 }}
           label={
             <Box>
@@ -36,6 +42,11 @@ export const PatientCandidateRadioGroup: FC<PatientCandidateRadioGroupProps> = (
               <Typography variant="body2" color="text.secondary">
                 {details.join(' · ')}
               </Typography>
+              {note && (
+                <Typography variant="body2" color="error">
+                  {note}
+                </Typography>
+              )}
             </Box>
           }
         />
