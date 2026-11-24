@@ -4,6 +4,7 @@ import { FC, useEffect, useRef } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPatientName } from 'src/shared/utils/getPatientName';
+import { buildAppointmentStartMap, getEncounterDateTime } from 'utils/lib/fhir/encounter';
 import { getAllPractitionerCredentials } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
@@ -37,7 +38,9 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
   const fields = mapExcuseTypeToFields[type];
   const isSchool = ['schoolTemplate', 'schoolFree'].includes(type);
   const isTemplate = ['schoolTemplate', 'workTemplate'].includes(type);
-  const { patient, questionnaireResponse, encounter, practitioners } = useAppointmentData();
+  const { patient, questionnaireResponse, encounter, practitioners, appointment } = useAppointmentData();
+  const visitStart =
+    encounter && getEncounterDateTime(encounter, buildAppointmentStartMap(appointment ? [appointment] : []));
   const { setPartialChartData, chartData } = useChartData();
   const user = useEvolveUser();
 
@@ -72,6 +75,7 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       providerName: signingProviderName,
       phoneNumber: supportPhoneNumber,
       patientOrRelatedPerson: 'patient',
+      visitStart,
     }),
   });
   const { handleSubmit, getValues, setValue, control } = methods;
@@ -92,9 +96,19 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
         isSchool,
         isTemplate,
         phoneNumber: supportPhoneNumber,
+        visitStart,
       })
     );
-  }, [patientOrRelatedPerson, patientName, fullParentName, isSchool, isTemplate, supportPhoneNumber, setValue]);
+  }, [
+    patientOrRelatedPerson,
+    patientName,
+    fullParentName,
+    isSchool,
+    isTemplate,
+    supportPhoneNumber,
+    visitStart,
+    setValue,
+  ]);
 
   const onSubmit = (values: ExcuseFormValues): void => {
     const excuse = mapValuesToExcuse(values, {

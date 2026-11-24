@@ -72,6 +72,7 @@ const makeLookups = (
   claimResponsesByClaimId,
   patientPaidByClaimId,
   writeOffs: new Map([]),
+  nioPaidByClaimId: new Map(),
 });
 
 describe('buildClaimFilterParams: non-insurance payer', () => {
@@ -254,6 +255,15 @@ describe('mapClaimToItem: patient payments', () => {
     const item = mapClaimToItem(makeClaim('claim-2', 100), makeLookups(new Map()));
     expect(item.patientPaid).toBe(0);
     expect(item.claimBalance).toBe(100);
+  });
+
+  it("nets the claim's NIO invoice payments from the balance without counting them as patient paid", () => {
+    const item = mapClaimToItem(makeClaim('claim-1', 100), {
+      ...makeLookups(new Map()),
+      nioPaidByClaimId: new Map([['claim-1', 100]]),
+    });
+    expect(item.patientPaid).toBe(0);
+    expect(item.claimBalance).toBe(0);
   });
 });
 
@@ -543,6 +553,7 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     claimResponsesByClaimId: new Map(),
     patientPaidByClaimId: new Map([['claim-1', 25]]),
     writeOffs: new Map([]),
+    nioPaidByClaimId: new Map(),
   });
 
   // Every field each fixture carries that the list is meant to strip. The accounting test below

@@ -48,7 +48,7 @@ export const CreateManualTaskRequestSchema = z
     taskTitle: requiredTextSchema,
     taskDetails: optionalTextSchema,
     assignee: optionalNamedReference,
-    location: namedReference,
+    location: optionalNamedReference,
     patient: optionalNamedReference,
     createdBy: optionalTextSchema,
   })

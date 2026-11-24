@@ -11,7 +11,7 @@ import {
   PATIENT_REQUEST_TASK,
   RADIOLOGY_TASK,
 } from 'utils/lib/types/data/tasks/types';
-import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { useDmeOrders } from '../dme/dme.queries';
 import { usePatientLabOrders } from '../external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from '../in-house-labs/components/orders/useInHouseLabOrders';
@@ -237,8 +237,6 @@ export function useDmeOrdersOptions(encounterId: string): {
 }
 
 export function getPatientLabel(patient: Patient): string {
-  return (
-    getFullName(patient) +
-    (patient.birthDate ? ` (${DateTime.fromISO(patient.birthDate).toFormat(DOB_DATE_FORMAT)})` : '')
-  );
+  const birthDate = formatDateForDisplay(patient.birthDate);
+  return getFullName(patient) + (birthDate ? ` (${birthDate})` : '');
 }

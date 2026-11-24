@@ -5,6 +5,7 @@ import {
   INVOICE_NUMBER_IDENTIFIER_SYSTEM,
   invoicePaymentExtension,
   invoicePaymentTag,
+  NIO_INVOICE_PAYMENT_ID_SYSTEM,
   PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
@@ -12,6 +13,7 @@ import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing
 import { FHIR_RESOURCE_NOT_FOUND, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/get-billing-invoice';
+import { buildInvoicePaymentAttachment } from '../../../src/billing/invoices';
 
 vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -166,29 +168,35 @@ const setup = ({
   claims = [claim],
   notices = [],
   pdfs = [invoicePdf],
+  paymentAttachments = [],
 }: {
   invoices?: Invoice[];
   organizations?: Organization[];
   claims?: Claim[];
   notices?: PaymentNotice[];
   pdfs?: DocumentReference[];
+  paymentAttachments?: DocumentReference[];
 } = {}): { oystehr: Oystehr; search: ReturnType<typeof vi.fn> } => {
   const resultsByType: Record<string, unknown[]> = {
     Invoice: [...invoices, ...organizations],
     Claim: [...claims, patient],
     PaymentNotice: notices,
-    DocumentReference: pdfs,
   };
-  const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
-    unbundle: () => resultsByType[resourceType],
-  }));
+  const search = vi.fn(
+    async ({ resourceType, params }: { resourceType: string; params: { name: string; value: string }[] }) => ({
+      unbundle: () => {
+        if (resourceType !== 'DocumentReference') return resultsByType[resourceType];
+        return params.some((param) => param.name === 'identifier') ? paymentAttachments : pdfs;
+      },
+    })
+  );
   const oystehr = {
     fhir: {
       search,
     },
     z3: {
-      getPresignedUrl: vi.fn(async ({ action }: { action: string }) => ({
-        signedUrl: `https://z3.test/${action}`,
+      getPresignedUrl: vi.fn(async ({ action, 'objectPath+': path }: { action: string; 'objectPath+': string }) => ({
+        signedUrl: `https://z3.test/${action}/${path}`,
       })),
     },
   } as unknown as Oystehr;
@@ -239,14 +247,14 @@ describe('get-billing-invoice', () => {
       ],
       payments: [
         {
-          paymentNoticeId: 'notice-active',
+          paymentId: 'notice-active',
           paymentDate: '2026-10-15',
           amount: 50,
           method: 'check',
           reference: '88123',
         },
       ],
-      pdfUrl: 'https://z3.test/download',
+      pdfUrl: `https://z3.test/download/invoice-attachments/${INVOICE_ID}/abc-INV-00042.pdf`,
     });
   });
 
@@ -288,6 +296,141 @@ describe('get-billing-invoice', () => {
         },
       ]),
     });
+  });
+
+  it("shows one payment once, summed over its claims' notices, with its attachment", async () => {
+    const claimShare = (id: string, amount: number): PaymentNotice => ({
+      ...payment('active'),
+      id,
+      amount: {
+        value: amount,
+        currency: 'USD',
+      },
+      identifier: [
+        {
+          system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
+          value: 'payment-1',
+        },
+      ],
+    });
+    const paymentAttachment = buildInvoicePaymentAttachment({
+      invoiceId: INVOICE_ID,
+      paymentId: 'payment-1',
+      paymentNoticeReference: 'PaymentNotice/notice-1',
+      path: `invoice-attachments/${INVOICE_ID}/abc-check.pdf`,
+      fileName: 'check.pdf',
+      secrets,
+    });
+    const { oystehr } = setup({
+      notices: [claimShare('notice-1', 100.1), claimShare('notice-2', 79.9)],
+      paymentAttachments: [paymentAttachment],
+    });
+
+    const result = await performEffect({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      secrets,
+      today: TODAY,
+    });
+
+    expect(result.payments).toEqual([
+      {
+        paymentId: 'payment-1',
+        paymentDate: '2026-10-15',
+        amount: 180,
+        method: 'check',
+        reference: '88123',
+        attachment: {
+          fileName: 'check.pdf',
+          url: `https://z3.test/download/invoice-attachments/${INVOICE_ID}/abc-check.pdf`,
+        },
+      },
+    ]);
+    expect(result.pdfUrl).toBe(`https://z3.test/download/invoice-attachments/${INVOICE_ID}/abc-INV-00042.pdf`);
+  });
+
+  it("picks the payment's own attachment when another invoice's payment shares its key", async () => {
+    const { oystehr } = setup({
+      paymentAttachments: [
+        buildInvoicePaymentAttachment({
+          invoiceId: 'other-invoice',
+          paymentId: 'payment-1',
+          paymentNoticeReference: 'PaymentNotice/other-notice',
+          path: 'invoice-attachments/other-invoice/abc-wire.pdf',
+          fileName: 'wire.pdf',
+          secrets,
+        }),
+        buildInvoicePaymentAttachment({
+          invoiceId: INVOICE_ID,
+          paymentId: 'payment-1',
+          paymentNoticeReference: 'PaymentNotice/notice-1',
+          path: `invoice-attachments/${INVOICE_ID}/abc-check.pdf`,
+          fileName: 'check.pdf',
+          secrets,
+        }),
+      ],
+      notices: [
+        {
+          ...payment('active'),
+          id: 'notice-1',
+          identifier: [
+            {
+              system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
+              value: 'payment-1',
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await performEffect({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      secrets,
+      today: TODAY,
+    });
+
+    expect(result.payments[0].attachment).toEqual({
+      fileName: 'check.pdf',
+      url: `https://z3.test/download/invoice-attachments/${INVOICE_ID}/abc-check.pdf`,
+    });
+  });
+
+  it("still shows the invoice and payment when a payment's attachment isn't related to its notices", async () => {
+    const { oystehr } = setup({
+      paymentAttachments: [
+        buildInvoicePaymentAttachment({
+          invoiceId: INVOICE_ID,
+          paymentId: 'payment-1',
+          paymentNoticeReference: 'PaymentNotice/other-notice',
+          path: `invoice-attachments/${INVOICE_ID}/abc-check.pdf`,
+          fileName: 'check.pdf',
+          secrets,
+        }),
+      ],
+      notices: [
+        {
+          ...payment('active'),
+          id: 'notice-1',
+          identifier: [
+            {
+              system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
+              value: 'payment-1',
+            },
+          ],
+        },
+      ],
+    });
+
+    const result = await performEffect({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      secrets,
+      today: TODAY,
+    });
+
+    expect(result.payments).toHaveLength(1);
+    expect(result.payments[0].attachment).toBeUndefined();
   });
 
   it('leaves the PDF link out when the invoice has no PDF', async () => {

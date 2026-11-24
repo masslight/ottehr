@@ -16,6 +16,7 @@ import { Stripe } from 'stripe';
 import { InvoiceIssuerSource } from '../types/constants';
 import { INVALID_INPUT_ERROR } from '../types/errors';
 import { ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT } from './constants';
+import { getIdFromReference } from './reference';
 import { ottehrIdentifierSystem } from './systemUrls';
 
 export const INVOICE_CLAIM_EXTENSION_URL = 'https://fhir.ottehr.com/billing/invoice-claim';
@@ -30,6 +31,8 @@ export const INVOICE_PAYMENT_EXTENSION_URL = 'https://fhir.ottehr.com/billing/in
 export const INVOICE_PAYMENT_TAG_SYSTEM = 'https://fhir.ottehr.com/billing/invoice-payment-id';
 // On the contained PaymentReconciliation of an invoice payment, for every payment method.
 export const PAYMENT_REFERENCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('payment-reference');
+// Shared by a payment's per-claim notices and attachment. Patient payment readers skip it.
+export const NIO_INVOICE_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('nio-invoice-payment-id');
 export const STRIPE_INVOICE_ID_SYSTEM = 'https://api.stripe.com/v1/invoices';
 
 export interface BillingInvoiceClaim {
@@ -183,11 +186,14 @@ export const invoicePaymentExtension = (invoiceId: string): Extension => ({
   },
 });
 
-export function getPaymentNoticeInvoiceId(notice: PaymentNotice): string | undefined {
-  const reference = notice.extension?.find((ext) => ext.url === INVOICE_PAYMENT_EXTENSION_URL)?.valueReference
-    ?.reference;
-  return reference?.startsWith('Invoice/') ? reference.slice('Invoice/'.length) : undefined;
-}
+export const getNioInvoicePaymentId = (resource: { identifier?: Identifier[] }): string | undefined =>
+  resource.identifier?.find((identifier) => identifier.system === NIO_INVOICE_PAYMENT_ID_SYSTEM)?.value;
+
+export const getPaymentNoticeInvoiceId = (notice: PaymentNotice): string | undefined =>
+  getIdFromReference(
+    notice.extension?.find((ext) => ext.url === INVOICE_PAYMENT_EXTENSION_URL)?.valueReference?.reference,
+    'Invoice'
+  );
 
 export const BILLING_INVOICE_KINDS = ['patient', 'nio'] as const;
 export type BillingInvoiceKind = (typeof BILLING_INVOICE_KINDS)[number];

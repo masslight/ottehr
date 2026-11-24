@@ -1,8 +1,8 @@
 import { ChangeEvent, useCallback, useState } from 'react';
-import { LBS_IN_KG } from 'utils/lib/helpers/vitals/vitals-weight.helper';
+import { lbsToKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsWeightObservationDTO, VitalsWeightOption } from 'utils/lib/types/api/chart-data/chart-data.types';
-import { roundNumberToDecimalPlaces, textToNumericValue } from 'utils/lib/utils/convert';
+import { textToNumericValue } from 'utils/lib/utils/convert';
 import { WeightLocalState } from '../types';
 
 export function useWeightLocalState(): WeightLocalState {
@@ -18,7 +18,7 @@ export function useWeightLocalState(): WeightLocalState {
   const handleLbsInput = useCallback((e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {
     const numericValue = textToNumericValue(e.target.value);
     if (numericValue !== undefined) {
-      setWeightKg(roundNumberToDecimalPlaces(numericValue / LBS_IN_KG, 2));
+      setWeightKg(lbsToKg(numericValue));
     } else {
       setWeightKg(undefined);
     }

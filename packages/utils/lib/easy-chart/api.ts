@@ -119,6 +119,7 @@ export interface PlannedAction extends RawAction {
 /** An action a guard refused, with a reason the provider reads. */
 export interface RejectedAction {
   kind: string;
+  field?: string;
   display?: string;
   reason: string;
 }

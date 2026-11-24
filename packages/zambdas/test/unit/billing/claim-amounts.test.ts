@@ -459,6 +459,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 0,
       patientResp: null,
       patientPaid: 0,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 150,
       adjudicated: false,
@@ -471,6 +472,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 60,
       patientResp: 20,
       patientPaid: 0,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 20,
       adjudicated: true,
@@ -488,6 +490,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 75,
       patientResp: 5,
       patientPaid: 0,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 5,
       adjudicated: true,
@@ -505,6 +508,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 75,
       patientResp: 5,
       patientPaid: 0,
+      nioPaid: 0,
       writeOffsTotal: 5,
       balance: 0,
       adjudicated: true,
@@ -591,6 +595,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 110,
       patientResp: 60,
       patientPaid: 0,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 60,
       adjudicated: true,
@@ -636,6 +641,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 0,
       patientResp: null,
       patientPaid: 0,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 150,
       adjudicated: true,
@@ -705,9 +711,21 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 0,
       patientResp: null,
       patientPaid: 40,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 110,
       adjudicated: false,
+    });
+  });
+
+  it("subtracts what the claim's non-insurance payer paid, with or without a remit", () => {
+    expect(summarizeClaimPayments([], 150, 40, 10, 100)).toMatchObject({
+      nioPaid: 100,
+      balance: 0,
+    });
+    expect(summarizeClaimPayments([claimMdClaimResponse()], 100, 5, 0, 15)).toMatchObject({
+      nioPaid: 15,
+      balance: 0,
     });
   });
 
@@ -717,6 +735,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 60,
       patientResp: 20,
       patientPaid: 15,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 5,
       adjudicated: true,
@@ -872,6 +891,7 @@ const summary = (over: Partial<ClaimPaymentSummary>): ClaimPaymentSummary => ({
   // a remit reporting PR is what an adjudicated summary means in these tests
   patientResp: over.adjudicated ? 0 : null,
   patientPaid: 0,
+  nioPaid: 0,
   writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,

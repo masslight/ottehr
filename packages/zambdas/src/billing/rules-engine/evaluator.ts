@@ -23,6 +23,7 @@ import { getChargeMasterPrice, selectBestChargeMaster } from '../charge-master.h
 import { getChargeItemDefinitionDefault, pruneUnreferencedOrderingProviders } from '../shared';
 import {
   ClaimServiceLine,
+  copyMemberIdToGroupNumber,
   readField,
   readServiceLineProperty,
   recomputeClaimTotal,
@@ -451,6 +452,10 @@ export const applyAction = (action: RuleAction, model: RulesEngineClaimModel): s
       return applyServiceLineRemoval(action, model);
     case RULE_ACTION_TYPE.applyChargeMasterPrices:
       return applyChargeMasterPricing(action, model);
+    case RULE_ACTION_TYPE.copyMemberIdToGroupNumber: {
+      const error = copyMemberIdToGroupNumber(model, action.insurance);
+      return error ? `could not copy member ID to group number — ${error}` : undefined;
+    }
     case RULE_ACTION_TYPE.applyTag: {
       const { claim } = model;
       if (resourceHasTag(claim, { system: CLAIM_TAG_SYSTEM, code: action.tag })) return undefined;

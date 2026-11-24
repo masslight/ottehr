@@ -1,5 +1,15 @@
-import { describe, expect, it } from 'vitest';
-import { areVitalsSameDay, BMI_DISPLAY_PRECISION, calculateBMI, formatBMI } from './vitals-bmi.helper';
+import { Settings } from 'luxon';
+import { afterEach, describe, expect, it } from 'vitest';
+import { VitalFieldNames } from '../../types/api/chart-data/chart-data.constants';
+import { VitalsObservationDTO } from '../../types/api/chart-data/chart-data.types';
+import {
+  areVitalsSameDay,
+  BMI_DISPLAY_PRECISION,
+  bmiAppliesOnDate,
+  calculateBMI,
+  formatBMI,
+  withoutBMIUnder24Months,
+} from './vitals-bmi.helper';
 
 describe('vitals-bmi.helper', () => {
   describe('BMI_DISPLAY_PRECISION', () => {
@@ -135,5 +145,50 @@ describe('vitals-bmi.helper', () => {
     it('returns 0.0 for zero weight — illustrating why the caller must guard against undefined/0 weight', () => {
       expect(calculateBMI(0, 175)).toBe(0);
     });
+  });
+});
+
+describe('BMI under 24 months', () => {
+  const reading = (field: VitalFieldNames, lastUpdated: string): VitalsObservationDTO =>
+    ({ field, value: 17.7, lastUpdated }) as VitalsObservationDTO;
+
+  const clinicZone = 'America/New_York';
+  const runtimeZone = Settings.defaultZone;
+  afterEach(() => {
+    Settings.defaultZone = runtimeZone;
+  });
+
+  it('applies from the second birthday at the visit, and when the age is unknown', () => {
+    expect(bmiAppliesOnDate('2024-11-21', '2026-11-20T15:00:00Z', clinicZone)).toBe(false);
+    expect(bmiAppliesOnDate('2024-11-20', '2026-11-20T15:00:00Z', clinicZone)).toBe(true);
+    expect(bmiAppliesOnDate(undefined, '2026-11-20T15:00:00Z', clinicZone)).toBe(true);
+  });
+
+  it.each(['utc', 'America/New_York', 'Asia/Tokyo'])(
+    'counts the second birthday on the clinic calendar when the code runs in %s',
+    (zone) => {
+      Settings.defaultZone = zone;
+      const halfPastMidnightUtc = '2026-11-21T00:30:00Z';
+
+      expect(bmiAppliesOnDate('2024-11-21', halfPastMidnightUtc, 'America/New_York')).toBe(false);
+      expect(bmiAppliesOnDate('2024-11-21', halfPastMidnightUtc, 'Europe/London')).toBe(true);
+    }
+  );
+
+  it('drops every BMI of a visit when the patient was under 24 months, keeping the other vitals', () => {
+    const vitals = [
+      reading(VitalFieldNames.VitalBMI, '2026-11-20T15:00:00Z'),
+      reading(VitalFieldNames.VitalWeight, '2026-11-20T15:00:00Z'),
+    ];
+
+    expect(withoutBMIUnder24Months(vitals, '2025-01-01', clinicZone, '2026-11-20T15:00:00Z')).toEqual([vitals[1]]);
+    expect(withoutBMIUnder24Months(vitals, '2020-01-01', clinicZone, '2026-11-20T15:00:00Z')).toEqual(vitals);
+  });
+
+  it('judges each reading by its own date when no visit date is given', () => {
+    const infantBMI = reading(VitalFieldNames.VitalBMI, '2025-06-01T15:00:00Z');
+    const toddlerBMI = reading(VitalFieldNames.VitalBMI, '2026-11-01T15:00:00Z');
+
+    expect(withoutBMIUnder24Months([infantBMI, toddlerBMI], '2024-06-01', clinicZone)).toEqual([toddlerBMI]);
   });
 });
