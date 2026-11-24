@@ -33,6 +33,7 @@ import type { FollowupPrefill } from 'src/features/visits/shared/components/pati
 import { useCopyChartDataToFollowup } from 'src/features/visits/shared/components/patient/useCopyChartDataToFollowup';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
 import { fhirPatientToAddVisitInfo } from 'src/features/visits/shared/components/staff-add-visit/fhirPatientToAddVisitInfo';
+import { OpenPatientProfileButton } from 'src/features/visits/shared/components/staff-add-visit/OpenPatientProfileButton';
 import { PatientCandidateRadioGroup } from 'src/features/visits/shared/components/staff-add-visit/PatientCandidateRadioGroup';
 import { useReasonForVisitOptions } from 'src/features/visits/shared/hooks/useReasonForVisitOptions';
 import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking';
@@ -105,8 +106,6 @@ export type AddVisitPatientInfo = Pick<
 export interface LocationWithWalkinSchedule extends Location {
   walkinSchedule: Schedule | undefined;
 }
-
-const normalizeIdentityPart = (value: string | undefined): string => (value ?? '').trim().toLowerCase();
 
 const defaultServiceCategory =
   BOOKING_CONFIG.serviceCategories.length === 1 ? BOOKING_CONFIG.serviceCategories[0]?.category.code : '';
@@ -540,17 +539,25 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
 
   // handle functions
 
+  // Every patient detail the submission sends (raw, not normalized): an edit to any of them while the
+  // lookup runs must invalidate it, because the submit carries the values captured when it started.
   const getIdentityKey = (info: AddVisitPatientInfo | undefined, dob: DateTime | null): string =>
     JSON.stringify([
       info?.id ?? null,
       info?.newPatient ?? null,
-      normalizeIdentityPart(info?.firstName),
-      normalizeIdentityPart(info?.lastName),
+      info?.firstName ?? null,
+      info?.middleName ?? null,
+      info?.lastName ?? null,
       info?.dateOfBirth || dob?.toISODate() || null,
+      info?.sex ?? null,
+      info?.phoneNumber ?? null,
     ]);
   const latestIdentityKeyRef = useRef('');
   latestIdentityKeyRef.current = getIdentityKey(patientInfo, birthDate);
   const [duplicateCheckedKey, setDuplicateCheckedKey] = useState('');
+  // A lookup that errors must not silently let a possible duplicate through: staff retry or knowingly continue.
+  const [duplicateLookupFailed, setDuplicateLookupFailed] = useState(false);
+  const lookupInFlightRef = useRef(false);
 
   const confirmNoDuplicate = async (): Promise<boolean> => {
     const dateOfBirth = patientInfo?.dateOfBirth || birthDate?.toISODate() || undefined;
@@ -558,31 +565,44 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       return true;
     }
     const checkedKey = getIdentityKey(patientInfo, birthDate);
+    // One lookup at a time, so a second submit can't race past the check.
+    if (lookupInFlightRef.current) return false;
+    lookupInFlightRef.current = true;
     setLoading(true);
+    let matches: DuplicatePatientCandidate[] = [];
+    let lookupFailed = false;
     try {
       // Opening a record needs no account; booking a visit does.
-      const { candidates: matches } = await checkDuplicatePatients(oystehrZambda, {
+      ({ candidates: matches } = await checkDuplicatePatients(oystehrZambda, {
         firstName: patientInfo.firstName,
         lastName: patientInfo.lastName,
         dateOfBirth,
         includeAccountPhone: !patientOnly,
-      });
-      if (latestIdentityKeyRef.current !== checkedKey) {
-        enqueueSnackbar('Patient details changed while checking for duplicates. Please submit again.', {
-          variant: 'warning',
-        });
-        return false;
-      }
-      if (matches.length > 0) {
-        setDuplicateCheckedKey(checkedKey);
-        setDuplicatePatients(matches);
-        setSelectedDuplicateId(matches.length === 1 && !getCandidateBlock(matches[0]) ? matches[0].patientId : '');
-        return false;
-      }
+      }));
     } catch (error) {
       console.error('Failed to check for duplicate patients', error);
+      lookupFailed = true;
     } finally {
+      lookupInFlightRef.current = false;
       setLoading(false);
+    }
+    // Whether the lookup succeeded or failed, never carry on with details that no longer match the form.
+    if (latestIdentityKeyRef.current !== checkedKey) {
+      enqueueSnackbar('Patient details changed while checking for duplicates. Please submit again.', {
+        variant: 'warning',
+      });
+      return false;
+    }
+    if (lookupFailed) {
+      setDuplicateCheckedKey(checkedKey);
+      setDuplicateLookupFailed(true);
+      return false;
+    }
+    if (matches.length > 0) {
+      setDuplicateCheckedKey(checkedKey);
+      setDuplicatePatients(matches);
+      setSelectedDuplicateId(matches.length === 1 && !getCandidateBlock(matches[0]) ? matches[0].patientId : '');
+      return false;
     }
     return true;
   };
@@ -1159,6 +1179,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                 <Box marginTop={1}>
                   <PatientCandidateRadioGroup
                     patients={duplicatePatients.map(candidateToPatientInfo)}
+                    renderAction={(info) => <OpenPatientProfileButton patientId={info.id} />}
                     getOptionState={(info) => {
                       const candidate = duplicatePatients.find((c) => c.patientId === info.id);
                       const note = candidate ? getCandidateBlock(candidate) : undefined;
@@ -1197,6 +1218,49 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                   sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 100 }}
                 >
                   Use existing patient
+                </Button>
+              </DialogActions>
+            </Dialog>
+            <Dialog
+              open={duplicateLookupFailed}
+              onClose={() => setDuplicateLookupFailed(false)}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle>Couldn't check for existing patients</DialogTitle>
+              <DialogContent>
+                <DialogContentText>
+                  The check for a patient with the same name and date of birth failed. Try again, or continue without
+                  checking if you are sure this patient is new.
+                </DialogContentText>
+              </DialogContent>
+              <DialogActions sx={{ px: 3, pb: 2, flexWrap: 'wrap', gap: 1 }}>
+                <Button
+                  onClick={() => setDuplicateLookupFailed(false)}
+                  sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 100 }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setDuplicateLookupFailed(false);
+                    // Only skip the check for the details that were attempted.
+                    void submitForm(latestIdentityKeyRef.current === duplicateCheckedKey);
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 100 }}
+                >
+                  Continue without checking
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    setDuplicateLookupFailed(false);
+                    void submitForm(false);
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 100 }}
+                >
+                  Try again
                 </Button>
               </DialogActions>
             </Dialog>

@@ -1,6 +1,6 @@
 import { Box, FormControlLabel, Radio, RadioGroup, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC } from 'react';
+import { FC, ReactNode } from 'react';
 import { AddVisitPatientInfo } from 'src/pages/AddPatient';
 
 export const getFullNameFromPatientInfo = (patient: AddVisitPatientInfo): string =>
@@ -11,6 +11,8 @@ interface PatientCandidateRadioGroupProps {
   value: string;
   onChange: (patientId: string) => void;
   getOptionState?: (patient: AddVisitPatientInfo) => { disabled?: boolean; note?: string };
+  // Optional per-candidate action shown beside the option (e.g. a link to the patient's profile).
+  renderAction?: (patient: AddVisitPatientInfo) => ReactNode;
 }
 
 export const PatientCandidateRadioGroup: FC<PatientCandidateRadioGroupProps> = ({
@@ -18,6 +20,7 @@ export const PatientCandidateRadioGroup: FC<PatientCandidateRadioGroupProps> = (
   value,
   onChange,
   getOptionState,
+  renderAction,
 }) => (
   <RadioGroup value={value} onChange={(e) => onChange(e.target.value)}>
     {patients.map((patient) => {
@@ -28,28 +31,30 @@ export const PatientCandidateRadioGroup: FC<PatientCandidateRadioGroupProps> = (
       ].filter(Boolean);
       const { disabled, note } = getOptionState?.(patient) ?? {};
       return (
-        <FormControlLabel
-          key={patient.id}
-          value={patient.id ?? ''}
-          control={<Radio />}
-          disabled={disabled}
-          sx={{ alignItems: 'flex-start', marginY: 0.5 }}
-          label={
-            <Box>
-              <Typography variant="body1" fontWeight={600}>
-                {getFullNameFromPatientInfo(patient)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {details.join(' · ')}
-              </Typography>
-              {note && (
-                <Typography variant="body2" color="error">
-                  {note}
+        <Box key={patient.id} sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <FormControlLabel
+            value={patient.id ?? ''}
+            control={<Radio />}
+            disabled={disabled}
+            sx={{ alignItems: 'flex-start', marginY: 0.5 }}
+            label={
+              <Box>
+                <Typography variant="body1" fontWeight={600}>
+                  {getFullNameFromPatientInfo(patient)}
                 </Typography>
-              )}
-            </Box>
-          }
-        />
+                <Typography variant="body2" color="text.secondary">
+                  {details.join(' · ')}
+                </Typography>
+                {note && (
+                  <Typography variant="body2" color="error">
+                    {note}
+                  </Typography>
+                )}
+              </Box>
+            }
+          />
+          {renderAction?.(patient)}
+        </Box>
       );
     })}
   </RadioGroup>
