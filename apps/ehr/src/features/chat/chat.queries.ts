@@ -10,6 +10,8 @@ import { getConversation, getQuickTextQuickPicks } from '../../api/api';
 import { useApiClients } from '../../hooks/useAppClients';
 import { MessageModel } from './ChatModal';
 
+export const CHAT_MESSAGES_QUERY_KEY = 'chat-messages';
+
 export const useFetchChatMessagesQuery = (
   timezone: string,
   patientId: string,
@@ -19,7 +21,7 @@ export const useFetchChatMessagesQuery = (
   const { oystehrZambda } = useApiClients();
 
   const queryResult = useQuery({
-    queryKey: ['chat-messages', numbersToSendTo, timezone],
+    queryKey: [CHAT_MESSAGES_QUERY_KEY, patientId, numbersToSendTo, timezone],
 
     queryFn: async () => {
       const data = await getConversation(oystehrZambda!, { patientId, timezone });

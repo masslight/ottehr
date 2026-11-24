@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Patient, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useMemo, useState } from 'react';
@@ -7,7 +7,7 @@ import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName, getSMSNumberForIndividual } from 'utils/lib/fhir/patient';
 import { AppointmentMessaging, SMSRecipient } from 'utils/lib/types/api/messaging.types';
-import { QuickTextsContext, useFetchChatMessagesQuery } from './chat.queries';
+import { CHAT_MESSAGES_QUERY_KEY, QuickTextsContext, useFetchChatMessagesQuery } from './chat.queries';
 import { ChatIconButton } from './ChatIconButton';
 import ChatModal from './ChatModal';
 
@@ -34,7 +34,7 @@ export function PatientChatButton({ patient, latestVisitId }: PatientChatButtonP
   const patientId = patient?.id;
   const timezone = DateTime.now().zoneName;
   const [open, setOpen] = useState(false);
-  const [markedRead, setMarkedRead] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: recipients } = useQuery({
     queryKey: ['patient-chat-recipients', patientId],
@@ -82,12 +82,13 @@ export function PatientChatButton({ patient, latestVisitId }: PatientChatButtonP
     return unique.length > 0 ? unique : undefined;
   }, [recipients]);
 
-  // Same query the chat modal runs, so the unread dot and the modal's messages come from one source.
   const { data: messages } = useFetchChatMessagesQuery(timezone, patientId ?? '', numbersToSendTo);
-  const hasUnread = !markedRead && (messages ?? []).some((m) => !m.isRead);
+  const hasUnread = (messages ?? []).some((m) => !m.isRead);
 
   const onClose = useCallback(() => setOpen(false), []);
-  const onMarkAllRead = useCallback(() => setMarkedRead(true), []);
+  const onMarkAllRead = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: [CHAT_MESSAGES_QUERY_KEY, patientId] });
+  }, [queryClient, patientId]);
 
   const appointmentMessaging: AppointmentMessaging | undefined = useMemo(() => {
     if (!patient?.id || !recipients?.length) return undefined;
