@@ -47,7 +47,7 @@ const card = (id: string, lastFour: string, isDefault = false): BillingCard => (
   default: isDefault,
 });
 
-const renderDialog = (): void => {
+const renderDialog = (balance = 320): ((nextBalance: number) => void) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -55,7 +55,7 @@ const renderDialog = (): void => {
       },
     },
   });
-  render(
+  const dialog = (invoiceBalance: number): JSX.Element => (
     <QueryClientProvider client={queryClient}>
       <CollectInvoiceCardPaymentDialog
         open
@@ -63,11 +63,13 @@ const renderDialog = (): void => {
         onPaid={mocks.onPaid}
         invoice={{
           id: 'invoice-1',
-          balance: 320,
+          balance: invoiceBalance,
         }}
       />
     </QueryClientProvider>
   );
+  const { rerender } = render(dialog(balance));
+  return (nextBalance) => rerender(dialog(nextBalance));
 };
 
 const chargeButton = (): HTMLElement =>
@@ -124,6 +126,22 @@ describe('CollectInvoiceCardPaymentDialog', () => {
     await waitFor(() => expect(mocks.onPaid).toHaveBeenCalled());
     const [[, first], [, second]] = mocks.charge.mock.calls;
     expect(second.idempotencyKey).toBe(first.idempotencyKey);
+  });
+
+  it('resends the amount it first charged after the balance reloads', async () => {
+    const user = userEvent.setup();
+    mocks.charge.mockRejectedValueOnce(new Error('Network error'));
+    const setBalance = renderDialog();
+    await screen.findByText(/4242/);
+
+    await user.click(chargeButton());
+    await screen.findByText('Network error');
+    setBalance(0);
+    await user.click(chargeButton());
+
+    await waitFor(() => expect(mocks.onPaid).toHaveBeenCalled());
+    const [, [, retry]] = mocks.charge.mock.calls;
+    expect(retry.amountInCents).toBe(32000);
   });
 
   it('selects a newly added card once the saved cards reload', async () => {

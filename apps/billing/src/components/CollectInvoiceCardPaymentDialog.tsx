@@ -109,10 +109,11 @@ export function CollectInvoiceCardPaymentDialog({
   const balance = invoice.balance ?? 0;
   const cardId = watch('cardId');
 
-  // A resent charge for the same card reuses its key, so the card is charged once.
+  // A resent charge for the same card reuses its key and amount, so the card is charged once.
   const lastAttempt = useRef<{
     idempotencyKey: string;
     cardId: string;
+    amountInCents: number;
   } | null>(null);
 
   const cards = useQuery({
@@ -153,6 +154,7 @@ export function CollectInvoiceCardPaymentDialog({
       lastAttempt.current = {
         idempotencyKey: crypto.randomUUID(),
         cardId: form.cardId,
+        amountInCents: Math.round(balance * 100),
       };
     }
     setSubmitting(true);
@@ -160,7 +162,7 @@ export function CollectInvoiceCardPaymentDialog({
     try {
       await chargeBillingNioInvoiceCard(oystehrZambda, {
         invoiceId: invoice.id,
-        amountInCents: Math.round(balance * 100),
+        amountInCents: lastAttempt.current.amountInCents,
         paymentMethodId: form.cardId,
         idempotencyKey: lastAttempt.current.idempotencyKey,
       });
