@@ -73,6 +73,7 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
   deletingFileId,
 }) => {
   const [previewOpen, setPreviewOpen] = useState<boolean>(false);
+  const [faceRequestId, setFaceRequestId] = useState<number>(0);
   const [previewFace, setPreviewFace] = useState<CardPreviewFace>('front');
   const [confirmDeleteFace, setConfirmDeleteFace] = useState<CardPreviewFace | null>(null);
 
@@ -148,6 +149,7 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
             aria-label={`Enlarge ${title} ${face}`}
             onClick={() => {
               setPreviewFace(face);
+              setFaceRequestId((id) => id + 1);
               setPreviewOpen(true);
             }}
             sx={{
@@ -213,6 +215,7 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
         backUrl={item.back?.presignedUrl}
         title={title}
         defaultFace={previewFace}
+        faceRequestId={faceRequestId}
         headerActions={combinedHeaderActions}
         emptyStateSlot={emptyStateSlot}
       />
