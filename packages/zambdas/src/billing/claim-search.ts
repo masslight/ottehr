@@ -571,19 +571,21 @@ export async function filterClaimsByPrimaryPlanType<T extends Pick<Claim, 'insur
     chunks.push(coverageIds.slice(start, start + PLAN_TYPE_COVERAGE_CHUNK_SIZE));
   }
   // The plan type lives in an extension or a Coverage.type coding (see getCoveragePlanType), and an
-  // extension can't be searched, so read both and decide here.
+  // extension can't be searched, so read both and decide here. Page through each chunk: _count is
+  // only the page size asked for, so a server returning a smaller page would otherwise drop the rest.
   const coverages = (
-    await mapWithConcurrency(chunks, PLAN_TYPE_COVERAGE_CONCURRENCY, async (ids) =>
-      (
-        await oystehr.fhir.search<Coverage>({
+    await mapWithConcurrency(chunks, PLAN_TYPE_COVERAGE_CONCURRENCY, (ids) =>
+      getAllFhirSearchPages<Coverage>(
+        {
           resourceType: 'Coverage',
           params: [
             { name: '_id', value: ids.join(',') },
             { name: '_elements', value: 'id,type,extension' },
-            { name: '_count', value: String(ids.length) },
           ],
-        })
-      ).unbundle()
+        },
+        oystehr,
+        ids.length
+      )
     )
   ).flat();
 

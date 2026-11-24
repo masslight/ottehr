@@ -687,14 +687,25 @@ describe('filterClaimsByPrimaryPlanType', () => {
         : {}),
     }) as unknown as Coverage;
 
+  const coverageBundle = (coverages: Coverage[], total: number): unknown => ({
+    total,
+    entry: coverages.map((resource) => ({ resource, search: { mode: 'match' } })),
+    unbundle: () => coverages,
+  });
+
   it('keeps claims whose primary coverage has one of the plan types, read from the extension or Coverage.type', async () => {
-    const search = vi.fn().mockResolvedValue({
-      unbundle: () => [
-        coverage('cov-ppo', { extension: '12' }),
-        coverage('cov-mc', { typeCoding: 'MC' }),
-        coverage('cov-hmo', { extension: 'HM' }),
-      ],
-    });
+    const search = vi
+      .fn()
+      .mockResolvedValue(
+        coverageBundle(
+          [
+            coverage('cov-ppo', { extension: '12' }),
+            coverage('cov-mc', { typeCoding: 'MC' }),
+            coverage('cov-hmo', { extension: 'HM' }),
+          ],
+          3
+        )
+      );
     const oystehr = { fhir: { search } } as unknown as Oystehr;
     const claims = [
       claimWithCoverages('ppo', [{ ref: 'Coverage/cov-ppo', sequence: 1 }]),
@@ -712,6 +723,24 @@ describe('filterClaimsByPrimaryPlanType', () => {
     expect(kept.map((c) => c.id)).toEqual(['ppo', 'medicaid']);
     expect(search).toHaveBeenCalledTimes(1);
     expect(search.mock.calls[0][0].params).toContainEqual({ name: '_id', value: 'cov-ppo,cov-hmo,cov-mc' });
+  });
+
+  it('pages past a short page, so a coverage the server held back still counts', async () => {
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce(coverageBundle([coverage('cov-a', { extension: '12' })], 2))
+      .mockResolvedValueOnce(coverageBundle([coverage('cov-b', { extension: '12' })], 2));
+    const oystehr = { fhir: { search } } as unknown as Oystehr;
+    const claims = [
+      claimWithCoverages('a', [{ ref: 'Coverage/cov-a', sequence: 1 }]),
+      claimWithCoverages('b', [{ ref: 'Coverage/cov-b', sequence: 1 }]),
+    ];
+
+    const kept = await filterClaimsByPrimaryPlanType({ oystehr, claims, planTypes: ['12'] });
+
+    expect(kept.map((c) => c.id)).toEqual(['a', 'b']);
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(search.mock.calls[1][0].params).toContainEqual({ name: '_offset', value: '1' });
   });
 
   it('reads no coverages when no claim has one', async () => {
