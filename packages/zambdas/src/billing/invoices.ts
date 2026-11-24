@@ -71,12 +71,6 @@ export async function fetchActiveClaimInvoices(oystehr: Oystehr, claimIds: strin
   );
 }
 
-export async function findActiveNioInvoice(oystehr: Oystehr, claimId: string): Promise<Invoice | undefined> {
-  return (await fetchActiveClaimInvoices(oystehr, [claimId])).find(
-    (invoice) => getBillingInvoiceKind(invoice) === 'nio'
-  );
-}
-
 export const invoicePdfParams = (invoiceId: string): SearchParam[] => [
   {
     name: 'related',

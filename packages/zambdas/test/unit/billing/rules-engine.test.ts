@@ -10,7 +10,6 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { getCoveragePlanType } from 'utils/lib/fhir/billing';
-import { INVOICE_NUMBER_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/billing-invoice';
 import { CPT_CODE_SYSTEM, FHIR_IDENTIFIER_NPI } from 'utils/lib/fhir/constants';
 import { getPayerUrl } from 'utils/lib/helpers/helpers';
 import {
@@ -830,43 +829,6 @@ describe('service line actions', () => {
     );
     expect(error).toBeUndefined();
     expect(JSON.stringify(m.claim)).toBe(before);
-  });
-
-  it('holds a claim on an open NIO invoice instead of moving it into Patient AR, naming the invoice', () => {
-    const m = makeModel();
-    m.activeNioInvoice = {
-      resourceType: 'Invoice',
-      id: 'invoice-1',
-      status: 'issued',
-      identifier: [
-        {
-          system: INVOICE_NUMBER_IDENTIFIER_SYSTEM,
-          value: 'INV-00042',
-        },
-      ],
-    };
-
-    expect(
-      applyAction(
-        {
-          type: 'setField',
-          field: 'status.arStage',
-          value: 'patient-ar',
-        },
-        m
-      )
-    ).toBe("This claim is on non-insurance payer invoice INV-00042, so it can't move to Patient AR");
-    expect(readField(m, 'status.arStage')).toBeUndefined();
-    expect(
-      applyAction(
-        {
-          type: 'setField',
-          field: 'status.arStage',
-          value: 'insurance-payer-ar',
-        },
-        m
-      )
-    ).toBeUndefined();
   });
 
   it('recomputes the billed total when line charges change', () => {

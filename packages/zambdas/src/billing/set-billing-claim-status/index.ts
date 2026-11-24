@@ -1,19 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, ProvenanceAgent } from 'fhir/r4b';
-import { patientArBlockedByNioInvoiceMessage } from 'utils/lib/fhir/billing-invoice';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
-import {
-  AR_STAGE,
-  CLAIM_STATUS_FIELDS_BY_KEY,
-  getClaimStatusFieldValue,
-} from 'utils/lib/types/data/billing/claim-status';
+import { CLAIM_STATUS_FIELDS_BY_KEY, getClaimStatusFieldValue } from 'utils/lib/types/data/billing/claim-status';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
-import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
-import { findActiveNioInvoice } from '../invoices';
 import { applyClaimStatusField, commitClaimMetaTagsWithProvenance, resolveClaimActor } from '../provenance';
 import { assertValidClaimStatusField, buildUpdatedClaimStatusTags, createBillingClient, fetchById } from '../shared';
 import { SetClaimStatusParams, validateRequestParameters } from './validateRequestParameters';
@@ -38,10 +31,6 @@ export async function performEffect(
 ): Promise<{ ok: true }> {
   const value = assertValidClaimStatusField(params.field, params.value ?? null);
   const claim = await fetchById<Claim>(oystehr, 'Claim', params.claimId);
-  if (params.field === 'arStage' && value === AR_STAGE.patient) {
-    const nioInvoice = await findActiveNioInvoice(oystehr, params.claimId);
-    if (nioInvoice) throw INVALID_INPUT_ERROR(patientArBlockedByNioInvoiceMessage(nioInvoice));
-  }
 
   const enteringNewStage =
     params.field === 'arStage' &&

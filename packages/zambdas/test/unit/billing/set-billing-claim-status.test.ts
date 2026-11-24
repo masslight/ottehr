@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Claim, Invoice, ProvenanceAgent } from 'fhir/r4b';
-import { buildBillingInvoice, INVOICE_NUMBER_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/billing-invoice';
+import { Claim, ProvenanceAgent } from 'fhir/r4b';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { AR_STAGE, CLAIM_STATUS_TAG_SYSTEMS } from 'utils/lib/types/data/billing/claim-status';
 import { HOLD_TAG_NAME } from 'utils/lib/types/data/billing/system-tags';
@@ -16,8 +15,7 @@ const makeClaim = (tag: { system: string; code: string }[] = []): Claim =>
   ({ resourceType: 'Claim', id: 'claim-1', meta: { versionId: 'v1', tag } }) as Claim;
 
 const makeOystehr = (
-  claim: Claim,
-  invoices: Invoice[] = []
+  claim: Claim
 ): {
   oystehr: Oystehr;
   transaction: ReturnType<typeof vi.fn>;
@@ -25,9 +23,7 @@ const makeOystehr = (
   create: ReturnType<typeof vi.fn>;
 } => {
   const transaction = vi.fn().mockResolvedValue({ entry: [] });
-  const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
-    unbundle: () => (resourceType === 'Invoice' ? invoices : [claim]),
-  }));
+  const search = vi.fn().mockResolvedValue({ unbundle: () => [claim] });
   const create = vi.fn();
   return { oystehr: { fhir: { search, transaction, create } } as unknown as Oystehr, transaction, search, create };
 };
@@ -41,58 +37,6 @@ const patchedTags = (transaction: ReturnType<typeof vi.fn>): { system: string; c
   const ops = patchRequest(transaction).operations;
   return ops[0].value;
 };
-
-describe('set-billing-claim-status: claims on an NIO invoice', () => {
-  const invoice = (recipient: string): Invoice => ({
-    ...buildBillingInvoice({
-      status: 'issued',
-      date: '2026-11-01T15:00:00.000Z',
-      dueDate: '2026-11-30',
-      recipient: {
-        reference: recipient,
-      },
-      claims: [
-        {
-          claimId: 'claim-1',
-          amountCents: 18000,
-        },
-      ],
-    }),
-    id: 'invoice-1',
-    identifier: [
-      {
-        system: INVOICE_NUMBER_IDENTIFIER_SYSTEM,
-        value: 'INV-00042',
-      },
-    ],
-  });
-  const toPatientAr = {
-    claimId: 'claim-1',
-    field: 'arStage' as const,
-    value: AR_STAGE.patient,
-    secrets,
-  };
-
-  it('refuses to move a claim on an open NIO invoice into Patient AR', async () => {
-    const { oystehr, transaction } = makeOystehr(makeClaim(), [invoice('Organization/nio-1')]);
-
-    await expect(performEffect(oystehr, toPatientAr, agent)).rejects.toMatchObject({
-      message: "This claim is on non-insurance payer invoice INV-00042, so it can't move to Patient AR",
-    });
-    expect(transaction).not.toHaveBeenCalled();
-  });
-
-  it('moves a claim on an open patient invoice into Patient AR', async () => {
-    const { oystehr, transaction } = makeOystehr(makeClaim(), [invoice('Patient/pat-1')]);
-
-    await performEffect(oystehr, toPatientAr, agent);
-
-    expect(patchedTags(transaction)).toContainEqual({
-      system: CLAIM_STATUS_TAG_SYSTEMS.arStage,
-      code: AR_STAGE.patient,
-    });
-  });
-});
 
 describe('set-billing-claim-status performEffect', () => {
   it('sets AR Stage and auto-initializes the stage progress status', async () => {

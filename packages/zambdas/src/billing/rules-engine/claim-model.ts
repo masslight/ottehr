@@ -5,7 +5,6 @@ import {
   Claim,
   Coverage,
   HumanName,
-  Invoice,
   Location,
   Organization,
   Patient,
@@ -131,8 +130,6 @@ export interface RulesEngineClaimModel {
   // with the payer's name. Read-only reference data like referenceResources — claims reference
   // these masters directly, so no working copy is made.
   nioOrganizations?: Map<string, Organization>;
-  // Prefetched only when the rule set can move claims into Patient AR.
-  activeNioInvoice?: Invoice;
   // The billing-app custom insurance organizations (plain FHIR Organizations, not RCM payers) named
   // as a literal value by the rule set's payer-field setField actions, keyed by id, prefetched by the
   // engine so the synchronous payerId writer can tell them apart from an RCM payer id and stamp the

@@ -1472,17 +1472,6 @@ export function collectSetServiceValues(rule: { conditional: RuleConditional }):
 
 export const NON_INSURANCE_PAYER_FIELD_ID = 'nonInsurancePayerId';
 
-export const ruleActionMovesClaimToArStage = (action: RuleAction, arStage: string): boolean =>
-  action.type === 'setField' && action.field === 'status.arStage' && action.value?.trim() === arStage;
-
-export function ruleMovesClaimToArStage(rule: { conditional: RuleConditional }, arStage: string): boolean {
-  let moves = false;
-  forEachRuleAction(rule, (action) => {
-    if (ruleActionMovesClaimToArStage(action, arStage)) moves = true;
-  });
-  return moves;
-}
-
 // The NIO organization ids a rule's setField actions assign as the claim's non-insurance payer
 // (deduped, in tree order) — save-billing-rules verifies each names a non-insurance organization,
 // and the engine prefetches them so the synchronous writer can stamp the claim with the payer's name.
