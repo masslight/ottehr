@@ -1,8 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
-import { MemoryRouter, useLocation } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // AppointmentTable pulls in heavy stores and FHIR helpers; we don't exercise
 // the inner table here — just the tab selection persistence.
@@ -22,6 +22,11 @@ const LocationProbe = (): ReactNode => {
   return <div data-testid="location-probe">{`${location.pathname}${location.search}`}</div>;
 };
 
+const DischargedLink = (): ReactNode => {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate('/visits?tab=completed')}>open discharged</button>;
+};
+
 const renderTabs = (initialEntries: Parameters<typeof MemoryRouter>[0]['initialEntries'] = ['/visits']): void => {
   const wrapper = ({ children }: { children: ReactNode }): ReactNode => (
     <MemoryRouter initialEntries={initialEntries}>{children}</MemoryRouter>
@@ -29,7 +34,9 @@ const renderTabs = (initialEntries: Parameters<typeof MemoryRouter>[0]['initialE
   render(
     <>
       <LocationProbe />
+      <DischargedLink />
       <AppointmentTabs
+        header={<div data-testid="filters" />}
         showSelectFiltersMessage={false}
         preBookedAppointments={[]}
         completedAppointments={[]}
@@ -96,5 +103,61 @@ describe('AppointmentTabs persistence', () => {
     localStorage.setItem(SELECTED_TAB_STORAGE_KEY, JSON.stringify(ApptTab.prebooked));
     renderTabs([{ pathname: '/visits', state: { tab: ApptTab.completed } }]);
     expect(getTabSelected(dataTestIds.dashboard.dischargedTab)).toBe('true');
+  });
+});
+
+describe('AppointmentTabs pinned header', () => {
+  const placeStickyHeader = (headerTop: number, containerTop: number): void => {
+    const stickyHeader = screen.getByTestId(dataTestIds.dashboard.stickyHeader);
+    vi.spyOn(stickyHeader, 'getBoundingClientRect').mockReturnValue({ top: headerTop } as DOMRect);
+    vi.spyOn(stickyHeader.parentElement!, 'getBoundingClientRect').mockReturnValue({ top: containerTop } as DOMRect);
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('pins the filters and the tab list together', () => {
+    renderTabs();
+
+    const stickyHeader = screen.getByTestId(dataTestIds.dashboard.stickyHeader);
+    expect(within(stickyHeader).getByTestId('filters')).toBeInTheDocument();
+    expect(within(stickyHeader).getByRole('tablist')).toBeInTheDocument();
+  });
+
+  it('brings the next tab to the start of its list when the list was scrolled under the pinned header', async () => {
+    const user = userEvent.setup();
+    renderTabs();
+    placeStickyHeader(140, -860);
+
+    await user.click(screen.getByTestId(dataTestIds.dashboard.dischargedTab));
+
+    expect(window.scrollBy).toHaveBeenCalledWith({ top: -1000 });
+  });
+
+  it('brings the list to its start when the tab changes through the URL', async () => {
+    const user = userEvent.setup();
+    renderTabs();
+    placeStickyHeader(140, -860);
+
+    await user.click(screen.getByRole('button', { name: 'open discharged' }));
+
+    expect(getTabSelected(dataTestIds.dashboard.dischargedTab)).toBe('true');
+    expect(window.scrollBy).toHaveBeenCalledWith({ top: -1000 });
+  });
+
+  it('keeps the scroll position when the start of the list is still in view', async () => {
+    const user = userEvent.setup();
+    renderTabs();
+    placeStickyHeader(300, 300);
+
+    await user.click(screen.getByTestId(dataTestIds.dashboard.dischargedTab));
+
+    expect(window.scrollBy).not.toHaveBeenCalled();
   });
 });
