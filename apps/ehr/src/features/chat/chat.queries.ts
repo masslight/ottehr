@@ -17,7 +17,8 @@ export const useFetchChatMessagesQuery = (
   timezone: string,
   patientId: string,
   numbersToSendTo?: string[],
-  onSuccess?: (data: ConversationMessage[] | null) => void
+  onSuccess?: (data: ConversationMessage[] | null) => void,
+  refetchInterval?: number | false
 ): UseQueryResult<ConversationMessage[] | null, Error> => {
   const { oystehrZambda } = useApiClients();
 
@@ -30,6 +31,8 @@ export const useFetchChatMessagesQuery = (
     },
 
     enabled: Boolean(oystehrZambda && numbersToSendTo?.length && timezone),
+    refetchInterval,
+    refetchIntervalInBackground: false,
   });
 
   useSuccessQuery(queryResult.data, onSuccess);

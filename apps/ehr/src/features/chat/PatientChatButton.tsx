@@ -3,6 +3,7 @@ import { Patient, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useMemo, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { TRACKING_BOARD_REFRESH_MS } from 'src/hooks/useGetTrackingBoard';
 import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { getFirstName, getLastName, getSMSNumberForIndividual } from 'utils/lib/fhir/patient';
@@ -91,7 +92,13 @@ export function PatientChatButton({ patient, latestVisitId }: PatientChatButtonP
     return unique.length > 0 ? unique : undefined;
   }, [recipients]);
 
-  const { data: messages } = useFetchChatMessagesQuery(timezone, patientId ?? '', numbersToSendTo);
+  const { data: messages } = useFetchChatMessagesQuery(
+    timezone,
+    patientId ?? '',
+    numbersToSendTo,
+    undefined,
+    open ? false : TRACKING_BOARD_REFRESH_MS
+  );
   const hasUnread = (messages ?? []).some((m) => !m.isRead);
 
   const onClose = useCallback(() => setOpen(false), []);
