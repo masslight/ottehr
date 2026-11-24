@@ -47,16 +47,21 @@ beforeEach(() => {
 });
 
 describe('get-chat-data recipients', () => {
-  it("returns the patient's user RelatedPersons' SMS numbers and linked Person phones", async () => {
+  it("returns one recipient per user RelatedPerson, using the RelatedPerson's own SMS number", async () => {
     mockSearches({ RelatedPerson: [relatedPerson('rp1', PATIENT_ID, '+15550000001'), person('+15550000002', 'rp1')] });
 
     const result = await performEffect(oystehr, { patientId: PATIENT_ID, secrets });
 
-    expect(result.recipients).toEqual([
-      { recipientResourceUri: 'RelatedPerson/rp1', smsNumber: '+15550000001' },
-      { recipientResourceUri: 'RelatedPerson/rp1', smsNumber: '+15550000002' },
-    ]);
-    expect(result.visit).toBeUndefined();
+    // the send reaches the RelatedPerson's own number, so the linked Person's different phone is not a second send
+    expect(result.recipients).toEqual([{ recipientResourceUri: 'RelatedPerson/rp1', smsNumber: '+15550000001' }]);
+  });
+
+  it("uses a linked Person's phone when the RelatedPerson has no SMS number of its own", async () => {
+    mockSearches({ RelatedPerson: [relatedPerson('rp1', PATIENT_ID), person('+15550000002', 'rp1')] });
+
+    const result = await performEffect(oystehr, { patientId: PATIENT_ID, secrets });
+
+    expect(result.recipients).toEqual([{ recipientResourceUri: 'RelatedPerson/rp1', smsNumber: '+15550000002' }]);
   });
 
   it("ignores a Person's links to a sibling's RelatedPerson that share the same login phone", async () => {

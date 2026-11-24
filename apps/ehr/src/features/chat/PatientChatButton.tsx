@@ -1,7 +1,7 @@
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ReactElement, useCallback, useMemo, useState } from 'react';
+import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { getChatData } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { TRACKING_BOARD_REFRESH_MS } from 'src/hooks/useGetTrackingBoard';
@@ -40,15 +40,19 @@ export function PatientChatButton({
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
 
+  useEffect(() => setOpen(false), [patientId]);
+
   const {
     data: chatData,
     isFetching: isChatDataFetching,
+    isPlaceholderData: isChatDataPlaceholder,
     isError: isChatDataError,
   } = useQuery({
     queryKey: [PATIENT_CHAT_DATA_QUERY_KEY, patientId, latestEncounterId],
     queryFn: () => getChatData(oystehrZambda!, { patientId: patientId!, encounterId: latestEncounterId }),
     enabled: Boolean(oystehrZambda && patientId),
-    placeholderData: keepPreviousData,
+    placeholderData: (previousData, previousQuery) =>
+      previousQuery?.queryKey[1] === patientId ? previousData : undefined,
   });
   const recipients = chatData?.recipients;
 
@@ -62,7 +66,7 @@ export function PatientChatButton({
     patientId ?? '',
     numbersToSendTo,
     undefined,
-    open ? false : TRACKING_BOARD_REFRESH_MS
+    TRACKING_BOARD_REFRESH_MS
   );
   const hasUnread = (messages ?? []).some((m) => !m.isRead);
 
@@ -101,19 +105,21 @@ export function PatientChatButton({
     };
   }, [patient, latestVisitId, chatData]);
 
-  const recipientsUnreliable = isChatDataFetching || isChatDataError;
+  // A paused request (offline) is neither fetching nor errored, so placeholder data is unreliable too.
+  const recipientsUnreliable = isChatDataFetching || isChatDataError || isChatDataPlaceholder;
 
   if (!appointmentMessaging) return null;
 
   return (
     <>
       <ChatIconButton hasUnread={hasUnread} onClick={() => setOpen(true)} disabled={recipientsUnreliable} />
-      {open && !recipientsUnreliable && (
+      {open && (
         <ChatModal
           appointment={appointmentMessaging}
           onClose={onClose}
           onMarkAllRead={onMarkAllRead}
           quickTextsContext={quickTextsContext}
+          sendDisabled={recipientsUnreliable}
         />
       )}
     </>

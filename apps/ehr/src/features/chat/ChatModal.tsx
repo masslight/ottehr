@@ -86,6 +86,7 @@ const ChatModal = memo(
     onClose,
     onMarkAllRead,
     quickTextsContext,
+    sendDisabled = false,
   }: {
     appointment: AppointmentMessaging;
     patient?: Patient;
@@ -93,6 +94,7 @@ const ChatModal = memo(
     onClose: () => void;
     onMarkAllRead: () => void;
     quickTextsContext: QuickTextsContext;
+    sendDisabled?: boolean;
   }): ReactElement => {
     const theme = useTheme();
     const { oystehr } = useApiClients();
@@ -197,7 +199,7 @@ const ChatModal = memo(
     const handleSendMessage = async (event: UIEvent, message: string): Promise<void> => {
       event.preventDefault();
 
-      if (message.trim() === '') {
+      if (message.trim() === '' || sendDisabled) {
         return;
       }
       if (!currentUser) {
@@ -391,6 +393,7 @@ const ChatModal = memo(
                 startIcon={<SendIcon />}
                 onClick={(event) => handleSendMessage(event, messageText)}
                 loading={pendingMessageSend !== undefined}
+                disabled={sendDisabled}
                 type="submit"
               >
                 Send
