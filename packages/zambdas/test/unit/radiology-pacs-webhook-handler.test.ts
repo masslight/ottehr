@@ -5,13 +5,14 @@ import type { ZambdaInput } from '../../src/shared/types/common';
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-const { mockOystehr } = vi.hoisted(() => ({
+const { mockOystehr, mockAdvaPacsFetch } = vi.hoisted(() => ({
   mockOystehr: {
     fhir: {
       search: vi.fn(),
       transaction: vi.fn(),
     },
   },
+  mockAdvaPacsFetch: vi.fn(),
 }));
 
 vi.mock('../../src/shared/helpers', async (importOriginal) => {
@@ -30,6 +31,10 @@ vi.mock('../../src/shared/auth', async (importOriginal) => {
   };
 });
 
+vi.mock('../../src/ehr/radiology/shared/advapacs', () => ({
+  advaPacsFetch: mockAdvaPacsFetch,
+}));
+
 vi.mock('@sentry/node-core/light', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
@@ -43,7 +48,8 @@ vi.mock('@sentry/node-core/light', async (importOriginal) => {
   };
 });
 
-import { ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import { ACCESSION_NUMBER_CODE_SYSTEM, ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM } from 'utils/lib/fhir/radiology';
+import { APIErrorCode } from 'utils/lib/types/errors';
 import { index as pacsWebhookRaw } from '../../src/ehr/radiology/pacs-webhook/index';
 
 const pacsWebhook = pacsWebhookRaw as unknown as ZambdaHandler;
@@ -139,5 +145,42 @@ describe('radiology-pacs-webhook - DiagnosticReport callback', () => {
       path: '/status',
       value: 'preliminary',
     });
+  });
+});
+
+describe('radiology-pacs-webhook - ImagingStudy callback', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const imagingStudyInput = (accessionNumber: string): ZambdaInput => ({
+    headers: { Authorization: `Bearer ${WEBHOOK_SECRET}` },
+    body: JSON.stringify({
+      resourceType: 'ImagingStudy',
+      id: 'imaging-study-1',
+      status: 'available',
+      identifier: [
+        {
+          type: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v2-0203', code: 'ACSN' }] },
+          system: ACCESSION_NUMBER_CODE_SYSTEM,
+          value: accessionNumber,
+        },
+      ],
+    }),
+    secrets,
+  });
+
+  it('returns 400 when AdvaPACS has no ServiceRequest for the accession number', async () => {
+    mockAdvaPacsFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ resourceType: 'Bundle', total: 0 }),
+    });
+
+    const response = await pacsWebhook(imagingStudyInput('999999'));
+
+    expect(response.statusCode).toBe(400);
+    const body = JSON.parse(response.body);
+    expect(body.code).toBe(APIErrorCode.RADIOLOGY_GENERAL);
+    expect(body.message).toContain('No service request found in AdvaPACS');
   });
 });
