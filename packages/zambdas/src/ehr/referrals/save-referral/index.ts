@@ -1,8 +1,10 @@
 import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Location, Patient, ServiceRequest } from 'fhir/r4b';
+import { randomUUID } from 'crypto';
+import { Encounter, FhirResource, Location, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getReferralDetails, getReferralStatus, makeReferralServiceRequest } from 'utils/lib/fhir/referral';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -23,10 +25,11 @@ import { userPractitionerRef } from '../../../shared/practitioners';
 import { loadReferral } from '../../../shared/referrals/load-referral';
 import { loadRecipientContact, withReferralFax } from '../../../shared/referrals/recipient';
 import { loadReferralDocuments, toReferralEarlierDocument } from '../../../shared/referrals/referral-documents';
+import { findOpenReferralTasks } from '../../../shared/referrals/referral-task';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
-import { buildReferralDTOs, syncReferralTask, toReferralDTO } from '../shared';
+import { buildReferralDTOs, referralTaskRequests, toReferralDTO } from '../shared';
 
 const ZAMBDA_NAME = 'save-referral';
 
@@ -65,30 +68,44 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       existing: existing && assertEditable(existing),
       now: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
     });
-    const saved = existing
-      ? await oystehr.fhir
-          .update<ServiceRequest>(resource, { optimisticLockingVersionId: existing.meta?.versionId })
-          .catch((error: unknown) => {
-            if (isFhirVersionConflictError(error)) {
-              throw PRECONDITION_FAILED('This referral was changed by someone else; reload it and try again');
-            }
-            throw error;
-          })
-      : await oystehr.fhir.create<ServiceRequest>(resource);
-    const referralId = saved.id!;
-
-    try {
-      await syncReferralTask({
-        oystehr,
-        serviceRequest: saved,
-        patient,
-        recipient,
-        owner: saved.requester ?? requester,
-        location: getReferralDetails(saved)?.responseRequested ? await getTaskLocation(oystehr, encounter) : undefined,
+    const referralReference = existing ? `ServiceRequest/${existing.id}` : `urn:uuid:${randomUUID()}`;
+    const [openTasks, location] = await Promise.all([
+      existing ? findOpenReferralTasks(oystehr, existing.id!) : [],
+      getReferralDetails(resource)?.responseRequested ? getTaskLocation(oystehr, encounter) : undefined,
+    ]);
+    const transactionResult = await oystehr.fhir
+      .transaction<FhirResource>({
+        requests: [
+          existing
+            ? {
+                method: 'PUT',
+                url: `/ServiceRequest/${existing.id}`,
+                resource,
+                ifMatch: makeOptimisticLockIfMatchHeader(existing),
+              }
+            : { method: 'POST', url: '/ServiceRequest', resource, fullUrl: referralReference },
+          ...referralTaskRequests({
+            serviceRequest: resource,
+            referralReference,
+            openTasks,
+            patient,
+            recipient,
+            owner: resource.requester ?? requester,
+            location,
+          }),
+        ],
+      })
+      .catch((error: unknown) => {
+        if (isFhirVersionConflictError(error)) {
+          throw PRECONDITION_FAILED('This referral was changed by someone else; reload it and try again');
+        }
+        throw error;
       });
-    } catch (error) {
-      logFailureAfterSave('sync the task', referralId, error);
-    }
+    const saved = transactionResult.entry
+      ?.map((entry) => entry.resource)
+      .find((entryResource): entryResource is ServiceRequest => entryResource?.resourceType === 'ServiceRequest');
+    if (!saved?.id) throw new Error('The referral transaction returned no ServiceRequest');
+    const referralId = saved.id;
 
     let referral: ReferralDTO;
     try {

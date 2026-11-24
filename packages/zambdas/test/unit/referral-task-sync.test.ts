@@ -7,8 +7,8 @@ import {
   REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM,
 } from 'utils/lib/types/api/provider-notifications';
 import { REFERRAL_TASK, SaveReferralInput } from 'utils/lib/types/api/referrals/referrals.types';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { syncReferralTask } from '../../src/ehr/referrals/shared';
+import { describe, expect, it, vi } from 'vitest';
+import { referralTaskRequests } from '../../src/ehr/referrals/shared';
 import { buildReferralTask, findOpenReferralTask } from '../../src/shared/referrals/referral-task';
 
 const PATIENT_ID = '11111111-1111-4111-8111-111111111111';
@@ -53,6 +53,7 @@ const patient: Patient = { resourceType: 'Patient', id: PATIENT_ID, name: [{ giv
 const openTask = (urgency: string, end = '2026-10-27T12:00:00.000Z'): Task => ({
   resourceType: 'Task',
   id: 'task-1',
+  meta: { versionId: '4' },
   status: 'in-progress',
   intent: 'order',
   authoredOn: NOW,
@@ -65,33 +66,27 @@ const openTask = (urgency: string, end = '2026-10-27T12:00:00.000Z'): Task => ({
   ],
 });
 
-describe('syncReferralTask', () => {
-  const search = vi.fn();
-  const create = vi.fn();
-  const update = vi.fn();
-  const patch = vi.fn();
-  const oystehr = { fhir: { search, create, update, patch } } as unknown as Oystehr;
+describe('referralTaskRequests', () => {
   const owner = { reference: 'Practitioner/prac-1', display: 'Jordan Rivera, MD' };
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    create.mockImplementation(async (task: Task) => ({ ...task, id: 'task-new' }));
-    update.mockImplementation(async (task: Task) => task);
-    patch.mockResolvedValue({});
-  });
+  // Typed loosely: each request's resource is read per method below.
+  const requestsFor = (serviceRequest: ServiceRequest, openTasks: Task[] = [], referralReference?: string): any[] =>
+    referralTaskRequests({
+      serviceRequest,
+      referralReference: referralReference ?? `ServiceRequest/${REFERRAL_ID}`,
+      openTasks,
+      patient,
+      owner,
+    });
+  const patchOperations = (request: { resource: { data: string } }): unknown =>
+    JSON.parse(Buffer.from(request.resource.data, 'base64').toString());
 
-  const withTasks = (tasks: Task[]): void => {
-    search.mockResolvedValue({ unbundle: () => tasks });
-  };
+  it('creates an owned task whose overdue clock counts from the send, when a response is requested', () => {
+    const [request, ...rest] = requestsFor(referral({}, SENT_AT));
 
-  it('creates an owned task whose overdue clock counts from the send, when a response is requested', async () => {
-    withTasks([]);
-
-    await syncReferralTask({ oystehr, serviceRequest: referral({}, SENT_AT), patient, owner });
-
-    expect(create).toHaveBeenCalledTimes(1);
-    const [task] = create.mock.calls[0];
-    expect(task).toMatchObject({
+    expect(rest).toHaveLength(0);
+    expect(request).toMatchObject({ method: 'POST', url: '/Task' });
+    expect(request.resource).toMatchObject({
       status: 'in-progress',
       description: 'Referral: Orthopedics',
       groupIdentifier: { value: REFERRAL_TASK.category },
@@ -101,103 +96,90 @@ describe('syncReferralTask', () => {
       // urgent = 7 days after it was sent
       restriction: { period: { end: new Date(Date.parse(SENT_AT) + 7 * DAY_MS).toISOString() } },
     });
-    expect(update).not.toHaveBeenCalled();
   });
 
-  it('counts the clock from now for a referral that has not gone out yet', async () => {
-    withTasks([]);
+  it('points the task of a referral created in the same transaction at its fullUrl, which the server resolves', () => {
+    const [request] = requestsFor({ ...referral(), id: undefined }, [], 'urn:uuid:new-referral');
+
+    expect(request.resource.basedOn).toEqual([{ reference: 'urn:uuid:new-referral' }]);
+    expect(
+      request.resource.input.find((input: any) => input.type.coding[0].code === REFERRAL_TASK.input.referralId)
+    ).toMatchObject({ valueReference: { reference: 'urn:uuid:new-referral' } });
+  });
+
+  it('counts the clock from now for a referral that has not gone out yet', () => {
     const before = Date.now();
 
-    await syncReferralTask({ oystehr, serviceRequest: referral(), patient, owner });
+    const [request] = requestsFor(referral());
 
-    const end = Date.parse(create.mock.calls[0][0].restriction.period.end);
+    const end = Date.parse(request.resource.restriction.period.end);
     expect(end).toBeGreaterThanOrEqual(before + 7 * DAY_MS);
     expect(end).toBeLessThanOrEqual(Date.now() + 7 * DAY_MS);
   });
 
-  it('refreshes the open task without moving its due date when the urgency is unchanged', async () => {
-    withTasks([openTask('urgent')]);
+  it('refreshes the open task against the version it read, without moving its due date when the urgency is unchanged', () => {
+    const [request, ...rest] = requestsFor(referral({ specialty: 'Hand surgery' }, SENT_AT), [openTask('urgent')]);
 
-    await syncReferralTask({
-      oystehr,
-      serviceRequest: referral({ specialty: 'Hand surgery' }, SENT_AT),
-      patient,
-      owner,
-    });
-
-    expect(create).not.toHaveBeenCalled();
-    const [updated] = update.mock.calls[0];
-    expect(updated).toMatchObject({
+    expect(rest).toHaveLength(0);
+    expect(request).toMatchObject({ method: 'PUT', url: '/Task/task-1', ifMatch: 'W/"4"' });
+    expect(request.resource).toMatchObject({
       id: 'task-1',
       description: 'Referral: Hand surgery',
       restriction: { period: { end: '2026-10-27T12:00:00.000Z' } },
     });
   });
 
-  it('moves the due date, still anchored on the send, when the urgency changed', async () => {
-    withTasks([openTask('urgent')]);
+  it('moves the due date, still anchored on the send, when the urgency changed', () => {
+    const [request] = requestsFor(referral({ urgency: 'routine' }, SENT_AT), [openTask('urgent')]);
 
-    await syncReferralTask({ oystehr, serviceRequest: referral({ urgency: 'routine' }, SENT_AT), patient, owner });
-
-    const [updated] = update.mock.calls[0];
     // routine = 14 days after it was sent
-    expect(updated.restriction).toEqual({ period: { end: new Date(Date.parse(SENT_AT) + 14 * DAY_MS).toISOString() } });
+    expect(request.resource.restriction).toEqual({
+      period: { end: new Date(Date.parse(SENT_AT) + 14 * DAY_MS).toISOString() },
+    });
   });
 
-  it('anchors a task created after the hand-over on when the patient was given the form, not on the save', async () => {
-    withTasks([]);
+  it('anchors a task created after the hand-over on when the patient was given the form, not on the save', () => {
     const givenToPatient = withReferralDetails(referral(), { status: 'given-to-patient', givenToPatientAt: GIVEN_AT });
 
-    await syncReferralTask({ oystehr, serviceRequest: givenToPatient, patient, owner });
+    const [request] = requestsFor(givenToPatient);
 
     // urgent = 7 days after the hand-over
-    expect(create.mock.calls[0][0].restriction).toEqual({
+    expect(request.resource.restriction).toEqual({
       period: { end: new Date(Date.parse(GIVEN_AT) + 7 * DAY_MS).toISOString() },
     });
   });
 
-  it('clears the overdue-notified mark when an urgency change moves the due date, so the new date is notified', async () => {
-    withTasks([{ ...openTask('urgent'), meta: { tag: [{ code: 'task' }, OVERDUE_NOTIFIED_TAG] } }]);
+  it('clears the overdue-notified mark when an urgency change moves the due date, so the new date is notified', () => {
+    const notified = { ...openTask('urgent'), meta: { versionId: '4', tag: [{ code: 'task' }, OVERDUE_NOTIFIED_TAG] } };
 
-    await syncReferralTask({ oystehr, serviceRequest: referral({ urgency: 'routine' }, SENT_AT), patient, owner });
+    const [request] = requestsFor(referral({ urgency: 'routine' }, SENT_AT), [notified]);
 
-    expect(update.mock.calls[0][0].meta.tag).toEqual([{ code: 'task' }]);
+    expect(request.resource.meta.tag).toEqual([{ code: 'task' }]);
   });
 
-  it('keeps the overdue-notified mark when an edit leaves the due date where it was', async () => {
-    withTasks([{ ...openTask('urgent'), meta: { tag: [{ code: 'task' }, OVERDUE_NOTIFIED_TAG] } }]);
+  it('keeps the overdue-notified mark when an edit leaves the due date where it was', () => {
+    const notified = { ...openTask('urgent'), meta: { versionId: '4', tag: [{ code: 'task' }, OVERDUE_NOTIFIED_TAG] } };
 
-    await syncReferralTask({
-      oystehr,
-      serviceRequest: referral({ specialty: 'Hand surgery' }, SENT_AT),
-      patient,
-      owner,
-    });
+    const [request] = requestsFor(referral({ specialty: 'Hand surgery' }, SENT_AT), [notified]);
 
-    expect(update.mock.calls[0][0].meta.tag).toEqual([{ code: 'task' }, OVERDUE_NOTIFIED_TAG]);
+    expect(request.resource.meta.tag).toEqual([{ code: 'task' }, OVERDUE_NOTIFIED_TAG]);
   });
 
-  it('cancels the open task when the response request is withdrawn, and creates nothing', async () => {
-    withTasks([openTask('urgent')]);
+  it('cancels every open task when the response request is withdrawn, and creates nothing', () => {
+    const requests = requestsFor(referral({ responseRequested: false }), [
+      openTask('urgent'),
+      { ...openTask('urgent'), id: 'task-2' },
+    ]);
 
-    await syncReferralTask({ oystehr, serviceRequest: referral({ responseRequested: false }), patient, owner });
-
-    expect(patch).toHaveBeenCalledWith({
-      resourceType: 'Task',
-      id: 'task-1',
-      operations: [{ op: 'replace', path: '/status', value: 'cancelled' }],
-    });
-    expect(create).not.toHaveBeenCalled();
-    expect(update).not.toHaveBeenCalled();
+    expect(requests.map(({ method, url }) => ({ method, url }))).toEqual([
+      { method: 'PATCH', url: '/Task/task-1' },
+      { method: 'PATCH', url: '/Task/task-2' },
+    ]);
+    expect(patchOperations(requests[0])).toEqual([{ op: 'replace', path: '/status', value: 'cancelled' }]);
   });
 
-  it('does nothing for a referral without a response request and without a task', async () => {
-    withTasks([]);
-
-    await syncReferralTask({ oystehr, serviceRequest: referral({ responseRequested: false }), patient, owner });
-
-    expect(patch).not.toHaveBeenCalled();
-    expect(create).not.toHaveBeenCalled();
+  it('does nothing for a referral without a response request and without a task', () => {
+    expect(requestsFor(referral({ responseRequested: false }))).toEqual([]);
   });
 });
 
@@ -218,6 +200,8 @@ describe('buildReferralTask', () => {
       basedOn: [{ reference: `ServiceRequest/${REFERRAL_ID}` }],
     });
     expect(task.owner).toBeUndefined();
+    const referralInput = task.input?.find((input) => input.type.coding?.[0]?.code === REFERRAL_TASK.input.referralId);
+    expect(referralInput?.valueReference).toEqual({ reference: `ServiceRequest/${REFERRAL_ID}` });
     const patientInput = task.input?.find((input) => input.type.coding?.[0]?.code === REFERRAL_TASK.input.patient);
     expect(patientInput?.valueReference).toEqual({ reference: `Patient/${PATIENT_ID}`, display: 'Maya Example' });
     expect(task.input?.find((input) => input.type.coding?.[0]?.code === REFERRAL_TASK.input.urgency)?.valueString).toBe(

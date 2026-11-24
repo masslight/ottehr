@@ -256,7 +256,7 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
  * Only documents a fax can actually carry get the action — offering it for a medical-record archive
  * or another unsupported format would fail later with "nothing faxable".
  */
-const isDocumentSendable = (docInfo: PatientDocumentInfo): boolean => {
+export const isDocumentSendable = (docInfo: PatientDocumentInfo): boolean => {
   if (docInfo.typeCodes?.some((code) => code === FAX_PACKET_CODE || code === MEDICAL_RECORD_EXPORT_CODE)) return false;
   // Judged on the stored attachment, exactly as the server judges it when the fax is built — a
   // display title is not a MIME type, and offering an action the server will drop is worse than

@@ -13,15 +13,27 @@ const doc = (id: string, encounterId: string, over: Partial<PatientDocumentInfo>
   docName: `${id}.pdf`,
   whenAddedDate: '2026-11-02T12:00:00.000Z',
   encounterId,
+  attachments: [{ title: `${id}.pdf`, z3Url: `z3://docs/${id}.pdf`, contentType: 'application/pdf' }],
   ...over,
 });
 // Visit 1 is the newest. Its Labs folder holds a result and an order form; Consent Forms is not offered.
+// Visit 2's Word upload sits in Visit Notes but is not offered: a fax could not carry it.
 const DOCUMENTS = [
   doc('note-1', 'encounter-1'),
   doc('lab-result-1', 'encounter-1', { isLabResult: true }),
   doc('lab-order-1', 'encounter-1', { isLabResult: false }),
   doc('consent-1', 'encounter-1'),
   doc('note-2', 'encounter-2'),
+  doc('word-2', 'encounter-2', {
+    docName: 'word-2.docx',
+    attachments: [
+      {
+        title: 'word-2.docx',
+        z3Url: 'z3://docs/word-2.docx',
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      },
+    ],
+  }),
   doc('note-3', 'encounter-3'),
 ];
 const folder = (internalName: string, folderName: string, ids: string[]): PatientDocumentsFolder => ({
@@ -33,7 +45,7 @@ const folder = (internalName: string, folderName: string, ids: string[]): Patien
   isCustom: false,
 });
 const FOLDERS = [
-  folder(BUCKET_NAMES.VISIT_NOTES, 'Visit Notes', ['note-1', 'note-2', 'note-3']),
+  folder(BUCKET_NAMES.VISIT_NOTES, 'Visit Notes', ['note-1', 'note-2', 'word-2', 'note-3']),
   folder(BUCKET_NAMES.LABS, 'Labs', ['lab-result-1', 'lab-order-1']),
   folder(BUCKET_NAMES.CONSENT_FORMS, 'Consent Forms', ['consent-1']),
 ];
@@ -136,7 +148,7 @@ describe('ReferralDocumentsPickerDialog', () => {
     visitOptions = VISITS;
   });
 
-  it("on a visit referral lists only other visits' visit notes and lab results, with nothing preset", async () => {
+  it("on a visit referral lists only other visits' faxable visit notes and lab results, with nothing preset", async () => {
     render(
       <ReferralDocumentsPickerDialog
         patientId={PATIENT_ID}

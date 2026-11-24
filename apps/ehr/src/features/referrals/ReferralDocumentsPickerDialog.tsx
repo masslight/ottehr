@@ -4,14 +4,17 @@ import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
-import { resolveDocumentVisit } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
+import {
+  isDocumentSendable,
+  resolveDocumentVisit,
+} from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
 import { PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
 import { usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
 import { isReferralDocumentFolderAllowed, REFERRAL_DOCUMENT_FOLDERS } from 'utils/lib/fhir/referral';
 import { ReferralEarlierDocument } from 'utils/lib/types/api/referrals/referrals.types';
 
 const isDocumentAllowed = (folderName: string, document: PatientDocumentInfo): boolean =>
-  isReferralDocumentFolderAllowed(folderName, !!document.isLabResult);
+  isReferralDocumentFolderAllowed(folderName, !!document.isLabResult) && isDocumentSendable(document);
 
 interface ReferralDocumentsPickerDialogProps {
   patientId: string;

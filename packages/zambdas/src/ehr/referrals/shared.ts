@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import {
   Communication,
   DocumentReference,
@@ -13,6 +13,7 @@ import {
 import { DateTime } from 'luxon';
 import { TASK_CATEGORY_IDENTIFIER } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
@@ -46,10 +47,10 @@ import { loadRecipientsFor } from '../../shared/referrals/recipient';
 import { findReferralDocuments, toReferralEarlierDocument } from '../../shared/referrals/referral-documents';
 import {
   buildReferralTask,
-  findOpenReferralTask,
   isOpenTask,
+  newestTask,
   referralOverdueAt,
-  settleReferralTasks,
+  referralTaskSettleRequest,
   withoutOverdueNotifiedTag,
 } from '../../shared/referrals/referral-task';
 
@@ -315,40 +316,50 @@ export const buildReferralDTOs = async (
   );
 };
 
-export const syncReferralTask = async (args: {
-  oystehr: Oystehr;
+export const referralTaskRequests = (args: {
   serviceRequest: ServiceRequest;
+  referralReference: string;
+  openTasks: Task[];
   patient: Patient;
   recipient?: ReferralRecipient;
   owner: Reference;
   location?: { id: string; name?: string };
-}): Promise<void> => {
-  const { oystehr, serviceRequest, patient, recipient, owner, location } = args;
-  const referralId = serviceRequest.id!;
+}): BatchInputRequest<FhirResource>[] => {
+  const { serviceRequest, referralReference, openTasks, patient, recipient, owner, location } = args;
   const details = getReferralDetails(serviceRequest);
-  const openTask = await findOpenReferralTask(oystehr, referralId);
 
-  if (!details?.responseRequested) {
-    if (openTask) await settleReferralTasks(oystehr, referralId, 'cancelled');
-    return;
-  }
+  if (!details?.responseRequested) return openTasks.map((task) => referralTaskSettleRequest(task, 'cancelled'));
 
   const urgency = getReferralUrgency(serviceRequest);
-  const task = buildReferralTask({ serviceRequest, patient, recipientName: recipient?.name, owner, location });
+  const task = buildReferralTask({
+    serviceRequest,
+    referralReference,
+    patient,
+    recipientName: recipient?.name,
+    owner,
+    location,
+  });
   const anchor =
     details.sentAt ?? details.givenToPatientAt ?? DateTime.now().toUTC().toISO() ?? new Date().toISOString();
   const restriction: Task['restriction'] = { period: { end: referralOverdueAt(urgency, anchor) } };
 
+  const openTask = newestTask(openTasks);
   if (openTask) {
     const urgencyChanged = getTaskInputValue(openTask, REFERRAL_TASK.input.urgency) !== urgency;
-    await oystehr.fhir.update<Task>({
-      ...(urgencyChanged ? withoutOverdueNotifiedTag(openTask) : openTask),
-      description: task.description,
-      input: task.input,
-      ...(urgencyChanged ? { restriction } : {}),
-    });
-    return;
+    return [
+      {
+        method: 'PUT',
+        url: `/Task/${openTask.id}`,
+        resource: {
+          ...(urgencyChanged ? withoutOverdueNotifiedTag(openTask) : openTask),
+          description: task.description,
+          input: task.input,
+          ...(urgencyChanged ? { restriction } : {}),
+        },
+        ifMatch: makeOptimisticLockIfMatchHeader(openTask),
+      },
+    ];
   }
 
-  await oystehr.fhir.create<Task>({ ...task, restriction });
+  return [{ method: 'POST', url: '/Task', resource: { ...task, restriction } }];
 };

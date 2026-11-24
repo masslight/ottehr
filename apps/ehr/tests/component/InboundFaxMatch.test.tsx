@@ -802,6 +802,37 @@ describe('InboundFaxMatch page', () => {
       expect(mockFileInboundFax.mock.calls[0][1]).not.toHaveProperty('referralId');
     });
 
+    it('keeps a chosen referral that was closed meanwhile on screen, holding filing until it is cleared', async () => {
+      mockUseReferralsQuery.mockReturnValue({ isLoading: false, data: { referrals: [openReferral({})] } });
+      const user = userEvent.setup();
+      renderPage();
+
+      await selectPatientAndFolder(user);
+      await chooseOption(user, 'inbound-fax-referral-select', /Orthopedics/);
+      // Someone else closes it: filing is refused, and the refetched list has no open referral left.
+      mockUseReferralsQuery.mockReturnValue({
+        isLoading: false,
+        data: { referrals: [openReferral({ status: 'closed' })] },
+      });
+      mockFileInboundFax.mockRejectedValueOnce(
+        new Error('Referral referral-1 is not an open referral of this patient')
+      );
+      await save(user);
+
+      expect(await screen.findByText('This referral is no longer open. Clear it to file the fax.')).toBeInTheDocument();
+      expect(screen.getByDisplayValue(/^Orthopedics, Riverside Orthopedic Associates, Closed/)).toBeInTheDocument();
+      expect(screen.getByText('Save').closest('button')?.disabled).toBe(true);
+
+      mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-1' });
+      await user.click(within(screen.getByTestId('inbound-fax-referral-select')).getByTitle('Clear'));
+      await save(user);
+
+      await waitFor(() => {
+        expect(mockFileInboundFax).toHaveBeenCalledTimes(2);
+      });
+      expect(mockFileInboundFax.mock.calls[1][1]).not.toHaveProperty('referralId');
+    });
+
     it('requires an assignee before filing with a review task, then sends it along', async () => {
       mockFileInboundFax.mockResolvedValue({ documentRefId: 'doc-1', folderId: 'folder-1' });
       const user = userEvent.setup();

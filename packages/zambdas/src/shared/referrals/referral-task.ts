@@ -48,11 +48,13 @@ export const findReferralTasks = async (oystehr: Oystehr, referralId: string): P
 
 const newestTaskFirst = (a: Task, b: Task): number => compareDates(a.authoredOn, b.authoredOn);
 
-export const findOpenReferralTask = async (oystehr: Oystehr, referralId: string): Promise<Task | undefined> =>
-  (await findReferralTasks(oystehr, referralId)).filter(isOpenTask).sort(newestTaskFirst)[0];
+export const newestTask = (tasks: Task[]): Task | undefined => [...tasks].sort(newestTaskFirst)[0];
 
 export const findOpenReferralTasks = async (oystehr: Oystehr, referralId: string): Promise<Task[]> =>
   (await findReferralTasks(oystehr, referralId)).filter(isOpenTask);
+
+export const findOpenReferralTask = async (oystehr: Oystehr, referralId: string): Promise<Task | undefined> =>
+  newestTask(await findOpenReferralTasks(oystehr, referralId));
 
 export const referralOverdueAt = (urgency: ReferralUrgency, anchorIso: string): string =>
   DateTime.fromISO(anchorIso, { zone: 'utc' }).plus({ days: REFERRAL_OVERDUE_DAYS[urgency] }).toISO() ?? '';
@@ -92,20 +94,7 @@ const settleOperations = (status: SettledReferralTaskStatus): Operation[] => [
   { op: 'replace', path: '/status', value: status },
 ];
 
-export const settleReferralTasks = async (
-  oystehr: Oystehr,
-  referralId: string,
-  status: SettledReferralTaskStatus
-): Promise<void> => {
-  const openTasks = await findOpenReferralTasks(oystehr, referralId);
-  await Promise.all(
-    openTasks.map((task) =>
-      oystehr.fhir.patch<Task>({ resourceType: 'Task', id: task.id!, operations: settleOperations(status) })
-    )
-  );
-};
-
-/** settleReferralTasks for one task, as a request for the caller's transaction. */
+/** Completes or cancels one open task, as a request for the caller's transaction. */
 export const referralTaskSettleRequest = (
   task: Task,
   status: SettledReferralTaskStatus
@@ -114,10 +103,12 @@ export const referralTaskSettleRequest = (
 
 /**
  * A referral's task: awaiting the response, or, given the filed response document, reviewing it.
- * Owned (and so in progress) when `owner` names a Practitioner.
+ * Owned (and so in progress) when `owner` names a Practitioner. `referralReference` is the referral's fullUrl
+ * when the task is created in the same transaction as the referral.
  */
 export const buildReferralTask = (args: {
   serviceRequest: ServiceRequest;
+  referralReference?: string;
   patient: Patient;
   recipientName?: string;
   owner?: Reference;
@@ -125,7 +116,7 @@ export const buildReferralTask = (args: {
   responseDocument?: Reference;
 }): Task => {
   const { serviceRequest, patient, recipientName, owner, location, responseDocument } = args;
-  const referralId = serviceRequest.id!;
+  const referralReference = args.referralReference ?? `ServiceRequest/${serviceRequest.id}`;
   const specialty = getReferralSpecialty(serviceRequest);
   const task = createTask({
     category: REFERRAL_TASK.category,
@@ -139,7 +130,7 @@ export const buildReferralTask = (args: {
     encounterId: getIdFromReference(serviceRequest.encounter?.reference, 'Encounter'),
     location,
     input: [
-      { type: REFERRAL_TASK.input.referralId, valueString: referralId },
+      { type: REFERRAL_TASK.input.referralId, valueReference: { reference: referralReference } },
       {
         type: REFERRAL_TASK.input.patient,
         valueReference: { reference: `Patient/${patient.id}`, display: getFullestAvailableName(patient) },
@@ -150,7 +141,7 @@ export const buildReferralTask = (args: {
         ? { type: REFERRAL_TASK.input.responseDocumentReferenceId, valueReference: responseDocument }
         : { type: REFERRAL_TASK.input.urgency, valueString: getReferralUrgency(serviceRequest) },
     ],
-    basedOn: [`ServiceRequest/${referralId}`, ...(responseDocument?.reference ? [responseDocument.reference] : [])],
+    basedOn: [referralReference, ...(responseDocument?.reference ? [responseDocument.reference] : [])],
   });
   const ownerId = getIdFromReference(owner?.reference, 'Practitioner');
   return ownerId

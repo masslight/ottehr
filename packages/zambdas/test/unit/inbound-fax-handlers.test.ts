@@ -473,7 +473,9 @@ describe('file-inbound-fax handler', () => {
       groupIdentifier: { system: TASK_CATEGORY_IDENTIFIER, value: 'referral' },
       basedOn: [{ reference: `ServiceRequest/${REFERRAL_ID}` }],
       restriction: { period: { end: '2026-11-10T00:00:00.000Z' } },
-      input: [{ type: { coding: [{ code: 'referral-id' }] }, valueString: REFERRAL_ID }],
+      input: [
+        { type: { coding: [{ code: 'referral-id' }] }, valueReference: { reference: `ServiceRequest/${REFERRAL_ID}` } },
+      ],
     });
 
     const transactionRequests = (): any[] => mockOystehr.fhir.transaction.mock.calls[0][0].requests;
@@ -533,7 +535,10 @@ describe('file-inbound-fax handler', () => {
         status: 'in-progress',
         meta: { versionId: '4', tag: [{ code: 'task' }] },
         input: [
-          { type: { coding: [{ code: 'referral-id' }] }, valueString: REFERRAL_ID },
+          {
+            type: { coding: [{ code: 'referral-id' }] },
+            valueReference: { reference: `ServiceRequest/${REFERRAL_ID}` },
+          },
           {
             type: { coding: [expect.objectContaining({ code: 'response-document-reference-id' })] },
             valueReference: { reference: docRefPost.fullUrl },
@@ -589,7 +594,7 @@ describe('file-inbound-fax handler', () => {
         ])
       );
       expect(inputs).toEqual({
-        'referral-id': REFERRAL_ID,
+        'referral-id': { reference: `ServiceRequest/${REFERRAL_ID}` },
         patient: { reference: 'Patient/patient-789', display: 'Maya Example' },
         specialty: 'Orthopedics',
         'recipient-name': 'Riverside Orthopedic Associates',

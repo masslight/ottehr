@@ -70,6 +70,16 @@ const recordExport = doc('record-export', { type: { coding: [{ code: MEDICAL_REC
 const supersededNote = doc('superseded-note', { status: 'superseded' });
 const otherPatientsNote = doc('other-patient-note', { subject: { reference: 'Patient/patient-2' } });
 const customFolderDoc = doc('custom-doc');
+const wordNote = doc('word-note', {
+  content: [
+    {
+      attachment: {
+        url: 'https://z3.example/word-note.docx',
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      },
+    },
+  ],
+});
 const intakeDoc = doc('intake-doc', {
   context: {
     related: [{ reference: 'ServiceRequest/appointment-1' }, { reference: 'Appointment/appointment-1' }],
@@ -104,7 +114,15 @@ const oystehr = fakeOystehr([
   otherPatientsNote,
   customFolderDoc,
   intakeDoc,
-  folder(BUCKET_NAMES.VISIT_NOTES, ['visit-note', 'superseded-note', 'other-patient-note', 'fax-packet', 'intake-doc']),
+  wordNote,
+  folder(BUCKET_NAMES.VISIT_NOTES, [
+    'visit-note',
+    'superseded-note',
+    'other-patient-note',
+    'fax-packet',
+    'intake-doc',
+    'word-note',
+  ]),
   folder(BUCKET_NAMES.LABS, ['lab-result', 'lab-generated', 'lab-order', 'record-export']),
   folder(BUCKET_NAMES.CONSENT_FORMS, ['consent']),
   // A custom folder that happens to carry a system folder's name is still not one referrals send from.
@@ -144,6 +162,7 @@ describe('referral documents', () => {
     ['a Labs document that is not a result', 'lab-order'],
     ['a superseded version', 'superseded-note'],
     ['a custom folder', 'custom-doc'],
+    ['a file a fax cannot carry, which the fax would otherwise drop while the form still listed it', 'word-note'],
   ])('SECURITY: refuses %s with the one generic message', async (_case, id) => {
     await expect(loadReferralDocuments(oystehr, PATIENT_ID, ['visit-note', id])).rejects.toEqual(rejected);
   });

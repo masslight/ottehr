@@ -242,6 +242,7 @@ export const InboundFaxMatch: React.FC = () => {
     [referralsData]
   );
   const selectedReferral = openReferrals.find((referral) => referral.id === referralId);
+  const selectedReferralClosed = !!referralId && !referralsLoading && !selectedReferral;
 
   const { data: visitHistory, isLoading: visitsLoading } = useGetPatientVisitHistory(confirmedSelectedPatient?.id);
   // Follow-ups, scheduled ones included, are only listed under their original visit.
@@ -312,6 +313,7 @@ export const InboundFaxMatch: React.FC = () => {
       navigate('/tasks');
     } catch (e) {
       console.error('Failed to file fax:', e);
+      void queryClient.invalidateQueries({ queryKey: [REFERRALS_QUERY_KEY] });
       if (isStaleFaxError(e)) {
         enqueueSnackbar(STALE_FAX_MESSAGE, { variant: 'error' });
         setReloadCount((count) => count + 1);
@@ -360,6 +362,7 @@ export const InboundFaxMatch: React.FC = () => {
     // Staff must be able to see the document before filing it against a patient chart.
     !!presignedPdfUrl &&
     !deletionPending &&
+    !selectedReferralClosed &&
     (!createReviewTask || !!reviewAssignee);
 
   if (error) {
@@ -509,15 +512,22 @@ export const InboundFaxMatch: React.FC = () => {
                       )}
 
                       {/* Response to one of the patient's open referrals */}
-                      {confirmedSelectedPatient && (referralsLoading || openReferrals.length > 0) && (
+                      {confirmedSelectedPatient && (referralsLoading || openReferrals.length > 0 || !!referralId) && (
                         <Box>
                           <SelectInput
                             name="referralId"
                             label="Response to referral (optional)"
-                            options={referralsLoading ? [] : openReferrals.map((referral) => referral.id)}
+                            options={
+                              referralsLoading
+                                ? []
+                                : [
+                                    ...openReferrals.map((referral) => referral.id),
+                                    ...(selectedReferralClosed && referralId ? [referralId] : []),
+                                  ]
+                            }
                             getOptionLabel={(option) => {
-                              const referral = openReferrals.find((candidate) => candidate.id === option);
-                              return referral ? referralOptionLabel(referral) : option;
+                              const referral = referralsData?.referrals.find((candidate) => candidate.id === option);
+                              return referral ? referralOptionLabel(referral) : 'Referral no longer open';
                             }}
                             loading={referralsLoading}
                             size="medium"
@@ -527,6 +537,11 @@ export const InboundFaxMatch: React.FC = () => {
                             <FormHelperText>
                               Sets the referral to Response received and routes a review task to{' '}
                               {selectedReferral.referringProvider.name}
+                            </FormHelperText>
+                          )}
+                          {selectedReferralClosed && (
+                            <FormHelperText error>
+                              This referral is no longer open. Clear it to file the fax.
                             </FormHelperText>
                           )}
                         </Box>

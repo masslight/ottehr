@@ -6,12 +6,14 @@ import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isReferralDocumentFolderAllowed, isReferralLabResult } from 'utils/lib/fhir/referral';
 import { ReferralEarlierDocument } from 'utils/lib/types/api/referrals/referrals.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
-import { isFaxPacket, isMedicalRecordExport } from '../patient-documents';
+import { isFaxableAttachment } from 'utils/lib/utils/file';
+import { collectPatientRecordAttachments, isFaxPacket, isMedicalRecordExport } from '../patient-documents';
 import { getPatientFolders } from '../patient-folders';
 
 /**
  * One message for every document that cannot go out with a referral, whether it does not exist, is another
- * patient's, or sits in a folder referrals do not send, so the response never says which documents exist.
+ * patient's, sits in a folder referrals do not send, or has no file a fax can carry, so the response never
+ * says which documents exist.
  */
 export const REFERRAL_DOCUMENT_REJECTED_MESSAGE =
   'One or more of the chosen documents cannot be sent with this referral';
@@ -104,6 +106,7 @@ const isSendableWithReferral = (document: DocumentReference, patientId: string, 
   document.status !== 'entered-in-error' &&
   !isFaxPacket(document) &&
   !isMedicalRecordExport(document) &&
+  collectPatientRecordAttachments([document]).some((attachment) => isFaxableAttachment(attachment)) &&
   folderNames.some((folderName) => isReferralDocumentFolderAllowed(folderName, isReferralLabResult(document)));
 
 export const findReferralDocuments = async (

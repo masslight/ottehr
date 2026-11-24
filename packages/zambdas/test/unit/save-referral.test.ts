@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference, Encounter, List, Organization, Patient, ServiceRequest, Task } from 'fhir/r4b';
-import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
+import { BUCKET_NAMES, TASK_CATEGORY_IDENTIFIER } from 'utils/lib/fhir/constants';
 import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { makeReferralServiceRequest } from 'utils/lib/fhir/referral';
 import { REFERRAL_TASK, SaveReferralInput } from 'utils/lib/types/api/referrals/referrals.types';
@@ -15,7 +15,9 @@ import { createMockSecrets, createMockZambdaInput } from './validate-request-par
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 const { mockOystehr, mockGetOrCreateReferralForm, mockCaptureException, mockBuildReferralDTOs } = vi.hoisted(() => ({
-  mockOystehr: { fhir: { get: vi.fn(), search: vi.fn(), create: vi.fn(), update: vi.fn(), patch: vi.fn() } },
+  mockOystehr: {
+    fhir: { get: vi.fn(), search: vi.fn(), create: vi.fn(), update: vi.fn(), patch: vi.fn(), transaction: vi.fn() },
+  },
   mockGetOrCreateReferralForm: vi.fn(),
   mockCaptureException: vi.fn(),
   mockBuildReferralDTOs: vi.fn(),
@@ -102,16 +104,39 @@ const existingReferral = (patientId: string, encounterId?: string): ServiceReque
 const run = async (input: Partial<SaveReferralInput>): Promise<APIGatewayProxyResult> =>
   saveReferral(createMockZambdaInput({ ...body, ...input }, { secrets: createMockSecrets() }));
 
+interface TransactionRequest {
+  method: string;
+  url: string;
+  resource: any;
+  ifMatch?: string;
+  fullUrl?: string;
+}
+const transactionRequests = (): TransactionRequest[] => mockOystehr.fhir.transaction.mock.calls[0][0].requests;
+const writtenReferral = (): ServiceRequest => transactionRequests()[0].resource;
+const writtenTask = (): TransactionRequest | undefined =>
+  transactionRequests().find((request) => request.url.startsWith('/Task'));
+const expectNothingWrittenOutsideTheTransaction = (): void => {
+  expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+  expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+  expect(mockOystehr.fhir.patch).not.toHaveBeenCalled();
+};
+
 describe('save-referral', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockOystehr.fhir.search.mockResolvedValue({ unbundle: () => [] });
-    mockOystehr.fhir.create.mockImplementation(async (resource: ServiceRequest) => ({
-      ...resource,
-      id: REFERRAL_ID,
-      meta: { ...resource.meta, versionId: '1' },
+    mockOystehr.fhir.transaction.mockImplementation(async ({ requests }: { requests: TransactionRequest[] }) => ({
+      entry: requests.map((request) => ({
+        resource:
+          request.method === 'PATCH'
+            ? undefined
+            : {
+                ...request.resource,
+                id: request.resource.id ?? (request.url === '/ServiceRequest' ? REFERRAL_ID : 'task-new'),
+                meta: { ...request.resource.meta, versionId: '3' },
+              },
+      })),
     }));
-    mockOystehr.fhir.update.mockImplementation(async (resource: ServiceRequest) => resource);
     mockGetOrCreateReferralForm.mockResolvedValue({
       documentReference: { resourceType: 'DocumentReference', id: 'form-1' },
       z3Url: 'z3://referrals/form.pdf',
@@ -145,7 +170,7 @@ describe('save-referral', () => {
     expect(JSON.parse(result.body)).toMatchObject({ code: APIErrorCode.INVALID_INPUT });
     expect(JSON.parse(result.body).message).toContain('recipientFax');
     expect(mockOystehr.fhir.get).not.toHaveBeenCalled();
-    expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
   it('SECURITY: refuses a visit that belongs to another patient before writing anything', async () => {
@@ -158,8 +183,7 @@ describe('save-referral', () => {
       code: APIErrorCode.INVALID_INPUT,
       message: 'Visit does not belong to this patient',
     });
-    expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
-    expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
   it("SECURITY: reports another patient's referral as not found rather than editing it", async () => {
@@ -172,7 +196,7 @@ describe('save-referral', () => {
       code: APIErrorCode.FHIR_RESOURCE_NOT_FOUND,
       message: `Referral ${REFERRAL_ID} not found`,
     });
-    expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
   it('refuses to move a referral to another visit', async () => {
@@ -182,7 +206,7 @@ describe('save-referral', () => {
 
     expect(result.statusCode).toBe(400);
     expect(JSON.parse(result.body).message).toBe('The visit of a referral cannot change');
-    expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
   it('updates an existing referral against the version it read', async () => {
@@ -191,11 +215,10 @@ describe('save-referral', () => {
     const result = await run({ referralId: REFERRAL_ID, reason: 'Fracture, follow-up imaging' });
 
     expect(result.statusCode).toBe(200);
-    const [updated, options] = mockOystehr.fhir.update.mock.calls[0];
-    expect(updated.id).toBe(REFERRAL_ID);
-    expect(updated.reasonCode[0].text).toBe('Fracture, follow-up imaging');
-    expect(options).toEqual({ optimisticLockingVersionId: '2' });
-    expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+    const [put] = transactionRequests();
+    expect(put).toMatchObject({ method: 'PUT', url: `/ServiceRequest/${REFERRAL_ID}`, ifMatch: 'W/"2"' });
+    expect(put.resource.reasonCode[0].text).toBe('Fracture, follow-up imaging');
+    expectNothingWrittenOutsideTheTransaction();
   });
 
   it('assigns a task created by an edit to the referring provider, not to whoever saved the edit', async () => {
@@ -208,15 +231,13 @@ describe('save-referral', () => {
     const result = await run({ referralId: REFERRAL_ID, recipientContactId: CONTACT_ID, responseRequested: true });
 
     expect(result.statusCode).toBe(200);
-    const task: Task | undefined = mockOystehr.fhir.create.mock.calls
-      .map(([resource]) => resource)
-      .find((resource) => resource.resourceType === 'Task');
+    const task: Task | undefined = writtenTask()?.resource;
     expect(task?.owner).toMatchObject({ reference: 'Practitioner/prac-1' });
   });
 
   it('reports a concurrent edit as a precondition failure', async () => {
     reads({ encounter: encounterOf(PATIENT_ID), referral: existingReferral(PATIENT_ID, ENCOUNTER_ID) });
-    mockOystehr.fhir.update.mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
+    mockOystehr.fhir.transaction.mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
 
     const result = await run({ referralId: REFERRAL_ID });
 
@@ -259,7 +280,7 @@ describe('save-referral', () => {
 
     expect(result.statusCode).toBe(200);
     expect(JSON.parse(result.body).referral.responseRequested).toBe(false);
-    expect(mockOystehr.fhir.create.mock.calls.map(([resource]) => resource.resourceType)).toEqual(['ServiceRequest']);
+    expect(transactionRequests().map(({ method, url }) => `${method} ${url}`)).toEqual(['POST /ServiceRequest']);
   });
 
   it('stores no visit documents for a referral without a visit', async () => {
@@ -271,19 +292,77 @@ describe('save-referral', () => {
     expect(JSON.parse(result.body).referral.includeDocuments).toEqual([]);
   });
 
-  it('still returns the saved referral when its task cannot be synced, so a retry never duplicates it', async () => {
+  it('creates a new referral and its awaiting task in one transaction, the task pointing at the new referral', async () => {
     reads({ encounter: encounterOf(PATIENT_ID) });
-    const failure = new Error('Task create failed');
-    mockOystehr.fhir.create.mockImplementation(async (resource: ServiceRequest | Task) => {
-      if (resource.resourceType === 'Task') throw failure;
-      return { ...resource, id: REFERRAL_ID, meta: { ...resource.meta, versionId: '1' } };
-    });
 
     const result = await run({ recipientContactId: CONTACT_ID, responseRequested: true });
 
     expect(result.statusCode).toBe(200);
+    const [post, taskPost, ...rest] = transactionRequests();
+    expect(rest).toHaveLength(0);
+    expect(post).toMatchObject({
+      method: 'POST',
+      url: '/ServiceRequest',
+      fullUrl: expect.stringMatching(/^urn:uuid:/),
+    });
+    expect(taskPost).toMatchObject({ method: 'POST', url: '/Task' });
+    expect(taskPost.resource.basedOn).toEqual([{ reference: post.fullUrl }]);
     expect(JSON.parse(result.body).referral).toMatchObject({ id: REFERRAL_ID, status: 'not-sent' });
-    expect(mockCaptureException).toHaveBeenCalledWith(failure);
+    expectNothingWrittenOutsideTheTransaction();
+  });
+
+  it('fails the save and leaves nothing behind when the referral or its task cannot be written, so a retry is safe', async () => {
+    reads({ encounter: encounterOf(PATIENT_ID) });
+    mockOystehr.fhir.transaction.mockRejectedValue(new Error('Task create failed'));
+
+    const result = await run({ recipientContactId: CONTACT_ID, responseRequested: true });
+
+    expect(result.statusCode).toBe(500);
+    expectNothingWrittenOutsideTheTransaction();
+  });
+
+  describe('an edited referral with an open task', () => {
+    const openTask: Task = {
+      resourceType: 'Task',
+      id: 'task-1',
+      meta: { versionId: '5' },
+      status: 'in-progress',
+      intent: 'order',
+      authoredOn: NOW,
+      groupIdentifier: { system: TASK_CATEGORY_IDENTIFIER, value: REFERRAL_TASK.category },
+      basedOn: [{ reference: `ServiceRequest/${REFERRAL_ID}` }],
+    };
+
+    beforeEach(() => {
+      reads({ encounter: encounterOf(PATIENT_ID), referral: existingReferral(PATIENT_ID, ENCOUNTER_ID) });
+      mockOystehr.fhir.search.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+        unbundle: () => (resourceType === 'Task' ? [openTask] : []),
+      }));
+    });
+
+    // A close landing between the reads and this transaction changes the referral's version, so the whole
+    // save fails instead of reopening or recreating the task the close settled.
+    it("refreshes the task in the referral's transaction, against the version of each", async () => {
+      const result = await run({ referralId: REFERRAL_ID, recipientContactId: CONTACT_ID, responseRequested: true });
+
+      expect(result.statusCode).toBe(200);
+      expect(transactionRequests().map(({ method, url, ifMatch }) => ({ method, url, ifMatch }))).toEqual([
+        { method: 'PUT', url: `/ServiceRequest/${REFERRAL_ID}`, ifMatch: 'W/"2"' },
+        { method: 'PUT', url: '/Task/task-1', ifMatch: 'W/"5"' },
+      ]);
+      expectNothingWrittenOutsideTheTransaction();
+    });
+
+    it("cancels the task in the referral's transaction when a response is no longer requested", async () => {
+      const result = await run({ referralId: REFERRAL_ID, responseRequested: false });
+
+      expect(result.statusCode).toBe(200);
+      expect(transactionRequests().map(({ method, url }) => `${method} ${url}`)).toEqual([
+        `PUT /ServiceRequest/${REFERRAL_ID}`,
+        'PATCH /Task/task-1',
+      ]);
+      expectNothingWrittenOutsideTheTransaction();
+    });
   });
 
   it('falls back to the saved ServiceRequest alone when the full response cannot be built', async () => {
@@ -299,7 +378,7 @@ describe('save-referral', () => {
       status: 'not-sent',
       reason: 'Distal radius fracture',
     });
-    expect(mockOystehr.fhir.create).toHaveBeenCalledTimes(1);
+    expect(mockOystehr.fhir.transaction).toHaveBeenCalledTimes(1);
     expect(mockCaptureException).toHaveBeenCalledWith(failure);
   });
 
@@ -318,9 +397,7 @@ describe('save-referral', () => {
     const result = await run({ recipientContactId: CONTACT_ID, responseRequested: true });
 
     expect(result.statusCode).toBe(200);
-    const task: Task | undefined = mockOystehr.fhir.create.mock.calls
-      .map(([resource]) => resource)
-      .find((resource) => resource.resourceType === 'Task');
+    const task: Task | undefined = writtenTask()?.resource;
     expect(task).toMatchObject({
       code: { coding: [{ code: REFERRAL_TASK.code.awaitResponse }] },
       location: { reference: 'Location/loc-1', display: 'Main Street' },
@@ -371,9 +448,7 @@ describe('save-referral', () => {
       const result = await run({ earlierDocumentIds: [DOCUMENT_ID, DOCUMENT_ID] });
 
       expect(result.statusCode).toBe(200);
-      expect(mockOystehr.fhir.create.mock.calls[0][0].supportingInfo).toEqual([
-        { reference: `DocumentReference/${DOCUMENT_ID}` },
-      ]);
+      expect(writtenReferral().supportingInfo).toEqual([{ reference: `DocumentReference/${DOCUMENT_ID}` }]);
       expect(JSON.parse(result.body).referral.earlierDocuments).toEqual([{ id: DOCUMENT_ID, title: 'VisitNote.pdf' }]);
     });
 
@@ -397,7 +472,7 @@ describe('save-referral', () => {
         code: APIErrorCode.INVALID_INPUT,
         message: REFERRAL_DOCUMENT_REJECTED_MESSAGE,
       });
-      expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+      expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
     });
 
     it('refuses more than 50 documents at validation', async () => {
@@ -407,7 +482,7 @@ describe('save-referral', () => {
       const result = await run({ earlierDocumentIds: ids });
 
       expect(result.statusCode).toBe(400);
-      expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+      expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
     });
   });
 });
