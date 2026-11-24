@@ -106,13 +106,6 @@ const EXTRACTION_FIELD_KEYS: (keyof InsuranceCardExtractionFields)[] = [
 
 const TRICARE_BENEFITS_NUMBER_LENGTH = 11;
 
-/**
- * Safety net for the TRICARE rules in EXTRACTION_PROMPT. A TRICARE member ID is the 11-digit DoD
- * Benefits Number on the back of the ID card, printed like "123456789-02"; claims must use it
- * digits-only. The 10-digit DoD ID on the front is not a benefits number, and since the EHR merges
- * front over back (see mergeFrontBack), a DoD ID leaking into memberId would beat the real number
- * from the back — so any TRICARE memberId that isn't 11 digits once cleaned is dropped.
- */
 function normalizeTricareMemberId(fields: InsuranceCardExtractionFields | null): InsuranceCardExtractionFields | null {
   if (!fields?.memberId) {
     return fields;
