@@ -280,7 +280,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
       open={open}
       handleClose={handleClose}
       handleConfirm={handleConfirm}
-      disabled={!formValue.category || !formValue.taskTitle?.trim() || !formValue.location}
+      disabled={!formValue.category || !formValue.taskTitle?.trim()}
       description={''}
       title={'New Task'}
       confirmText={'Create new task'}
@@ -326,7 +326,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
             <TextInput name="taskDetails" label="Task details" />
             <Stack direction="row" spacing={1}>
               <EmployeeSelectInput name="assignee" label="Assign task to" />
-              <LocationSelectInput name="location" label="Location" type="in-person" required />
+              <LocationSelectInput name="location" label="Location" type="in-person" />
             </Stack>
           </Stack>
         </FormProvider>
