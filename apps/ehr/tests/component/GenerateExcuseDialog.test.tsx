@@ -6,6 +6,7 @@ import { GenerateExcuseDialog } from 'src/features/visits/shared/components/plan
 import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { SchoolWorkNoteExcuseDocDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -151,35 +152,60 @@ describe('GenerateExcuseDialog', () => {
       Settings.defaultZone = originalZone;
     });
 
-    it('dates a note generated after the visit to the visit, also after switching to the related person', async () => {
-      const appointment: Appointment = {
-        resourceType: 'Appointment',
-        id: 'appointment-1',
-        status: 'fulfilled',
-        start: '2026-11-10T15:00:00.000Z',
-        participant: [],
-      };
+    const appointment: Appointment = {
+      resourceType: 'Appointment',
+      id: 'appointment-1',
+      status: 'fulfilled',
+      start: '2026-11-10T15:00:00.000Z',
+      participant: [],
+    };
+
+    const generateForEncounter = async (encounter: Encounter, asRelatedPerson = false): Promise<void> => {
       vi.mocked(useAppointmentData).mockReturnValue({
         patient: { resourceType: 'Patient', id: 'patient-1', name: [{ given: ['Kid'], family: 'Patient' }] },
         questionnaireResponse: undefined,
-        encounter: encounterWith(assignedProvider.id),
+        encounter: { ...encounter, appointment: [{ reference: `Appointment/${appointment.id}` }] },
         practitioners: [admitter, assignedProvider],
         appointment,
       } as any);
 
       render(<GenerateExcuseDialog type="schoolTemplate" open={true} onClose={vi.fn()} generate={generate as any} />);
 
-      await userEvent.click(screen.getByRole('combobox'));
-      await userEvent.click(screen.getByRole('option', { name: 'Related Person' }));
+      if (asRelatedPerson) {
+        await userEvent.click(screen.getByRole('combobox'));
+        await userEvent.click(screen.getByRole('option', { name: 'Related Person' }));
+      }
       await userEvent.click(screen.getByRole('checkbox', { name: 'excused from school on' }));
       await userEvent.click(screen.getByRole('checkbox', { name: 'may return to school on' }));
       await userEvent.click(screen.getByRole('button', { name: 'Generate note' }));
+    };
 
-      const excuse = generate.mock.calls[0][0].newSchoolWorkNote as SchoolWorkNoteExcuseDocDTO;
-      expect(excuse.headerNote).toContain('the child of {Parent/Guardian name}, was treated by Ottehr on 11/10/2026.');
-      expect(excuse.bulletItems).toEqual([
+    const generatedNote = (): SchoolWorkNoteExcuseDocDTO =>
+      generate.mock.calls[0][0].newSchoolWorkNote as SchoolWorkNoteExcuseDocDTO;
+
+    it('dates a note generated after the visit to the visit, also after switching to the related person', async () => {
+      await generateForEncounter(encounterWith(assignedProvider.id), true);
+
+      expect(generatedNote().headerNote).toContain(
+        'the child of {Parent/Guardian name}, was treated by Ottehr on 11/10/2026.'
+      );
+      expect(generatedNote().bulletItems).toEqual([
         { text: 'excused from school on 11/10/2026' },
         { text: 'may return to school on 11/11/2026' },
+      ]);
+    });
+
+    it('dates a note on an annotation follow-up to the follow-up, not the parent visit', async () => {
+      await generateForEncounter({
+        ...encounterWith(assignedProvider.id),
+        type: buildFollowupEncounterType('annotation'),
+        period: { start: '2026-11-12T15:00:00.000Z' },
+      });
+
+      expect(generatedNote().headerNote).toContain('Kid Patient, was treated by Ottehr on 11/12/2026.');
+      expect(generatedNote().bulletItems).toEqual([
+        { text: 'excused from school on 11/12/2026' },
+        { text: 'may return to school on 11/13/2026' },
       ]);
     });
   });
