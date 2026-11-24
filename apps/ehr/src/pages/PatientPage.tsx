@@ -86,7 +86,7 @@ export default function PatientPage(): JSX.Element {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const defaultTab = location.state?.defaultTab;
+  const defaultTab = location.state?.defaultTab ?? new URLSearchParams(location.search).get('tab') ?? undefined;
   const isLegacyPatientFollowupsEnabled = FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED;
   const sendMedicalRecordLabel = FEATURE_FLAGS.SENDGRID_ENABLED ? 'Send by Fax or Email' : 'Send as Fax';
   const [tab, setTab] = useState(

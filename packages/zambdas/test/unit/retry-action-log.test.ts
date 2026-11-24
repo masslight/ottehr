@@ -1,4 +1,4 @@
-import { Communication, DocumentReference, Task } from 'fhir/r4b';
+import { Communication, DocumentReference, ServiceRequest, Task } from 'fhir/r4b';
 import {
   OUTBOUND_DELIVERY_INPUT_CODES,
   OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM,
@@ -10,6 +10,7 @@ import {
   getOutboundDeliveryRecipientSnapshot,
   makeOutboundDeliveryAttempt,
 } from 'utils/lib/fhir/outbound-delivery';
+import { getReferralDetails, REFERRAL_ORDER_TYPE_TAG, withReferralDetails } from 'utils/lib/fhir/referral';
 import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -248,6 +249,59 @@ describe('retry-action-log eligibility', () => {
     expect(retryTask.partOf).toEqual([{ reference: 'Task/attempt-1' }]);
     expect(retryTask.requester?.reference).toBe('Practitioner/practitioner-1');
     expect(getOutboundDeliveryInput(retryTask, OUTBOUND_DELIVERY_INPUT_CODES.senderId)?.valueString).toBe('user-1');
+    expect(retryTask.basedOn).toBeUndefined();
+    expect(oystehr.fhir.get).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'ServiceRequest' }));
+  });
+
+  it('keeps a retried referral fax on its referral and moves a referral that never went out to Sent', async () => {
+    // Without the link the referral keeps showing the failed original, and a first attempt the fax service refused
+    // would leave the referral Not sent after a retry that went out.
+    const original: Task = {
+      ...makeOutboundDeliveryAttempt({
+        channel: 'fax',
+        patientId: 'patient-1',
+        recipientAddress: '+12125551234',
+        documentReferenceId: 'doc-1',
+        basedOnReference: 'ServiceRequest/referral-1',
+      }),
+      id: 'attempt-1',
+      status: 'failed',
+    };
+    const referral = withReferralDetails(
+      {
+        resourceType: 'ServiceRequest',
+        id: 'referral-1',
+        status: 'draft',
+        intent: 'order',
+        meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }], versionId: '2' },
+        subject: { reference: 'Patient/patient-1' },
+      },
+      { status: 'not-sent' }
+    );
+    const send = vi.fn().mockResolvedValue({ communicationResource: { resourceType: 'Communication', id: 'comm-1' } });
+    const { oystehr, create } = makeSuccessfulRetryHarness(original, { fax: { send } });
+    const harnessGet = oystehr.fhir.get;
+    const update = vi.fn().mockImplementation(async (resource: ServiceRequest) => resource);
+    oystehr.fhir = {
+      ...oystehr.fhir,
+      get: vi.fn(async (params: { resourceType: string }) =>
+        params.resourceType === 'ServiceRequest' ? referral : harnessGet(params)
+      ),
+      update,
+    };
+    stubPresignedUrl();
+
+    await performEffect(
+      { attemptId: 'attempt-1', secrets: createMockSecrets() },
+      oystehr,
+      { id: 'user-1', profile: 'Practitioner/practitioner-1' } as any,
+      'token'
+    );
+
+    expect((create.mock.calls[0][0] as Task).basedOn).toEqual([{ reference: 'ServiceRequest/referral-1' }]);
+    const [updated, options] = update.mock.calls[0];
+    expect(getReferralDetails(updated)).toMatchObject({ status: 'sent', sentAt: expect.any(String) });
+    expect(options).toEqual({ optimisticLockingVersionId: '2' });
   });
 
   it('retries a patient-level fax and preserves its packet and recipient metadata', async () => {

@@ -179,6 +179,25 @@ describe('update-referral-status', () => {
     }
   );
 
+  it.each([
+    { action: 'close', reason: 'patient-seen', from: 'sent', recorded: 'closedBy' },
+    { action: 'cancel', from: 'not-sent', recorded: 'closedBy' },
+    { action: 'given-to-patient', from: 'not-sent', recorded: 'givenToPatientBy' },
+    { action: 'given-to-patient', from: 'sent', recorded: 'givenToPatientBy' },
+  ] as const)('records who made the change: $action from $from', async ({ from, recorded, ...body }) => {
+    // Spec: every status change made by staff or a provider records who made it and when.
+    const practitioner = { resourceType: 'Practitioner', id: 'prac-1', name: [{ given: ['Sam'], family: 'Staff' }] };
+    mockOystehr.fhir.get.mockImplementation(async ({ resourceType }: { resourceType: string }) =>
+      resourceType === 'Practitioner' ? practitioner : referralIn(from)
+    );
+
+    const result = await run(body);
+
+    expect(result.statusCode).toBe(200);
+    expect(getReferralDetails(savedReferral())?.[recorded]).toEqual({ id: 'prac-1', name: 'Sam Staff' });
+    expect(JSON.parse(result.body).referral[recorded]).toEqual({ id: 'prac-1', name: 'Sam Staff' });
+  });
+
   it('writes against the version it read and reports a concurrent edit as a precondition failure', async () => {
     mockOystehr.fhir.get.mockResolvedValue(referralIn('sent'));
     mockOystehr.fhir.update.mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));

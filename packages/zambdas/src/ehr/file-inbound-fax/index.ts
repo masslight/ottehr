@@ -382,6 +382,7 @@ const buildReferralResponseRequests = async (args: {
     const routed: Task = {
       ...taskWithoutRestriction,
       description: title,
+      code: { coding: [{ system: REFERRAL_TASK.system, code: REFERRAL_TASK.code.reviewResponse }] },
       ...(owner ? { owner, status: 'in-progress' } : {}),
       ...(openTask.meta
         ? { meta: remainingTags.length ? { ...metaWithoutTags, tag: remainingTags } : metaWithoutTags }

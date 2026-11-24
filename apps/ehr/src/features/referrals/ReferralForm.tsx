@@ -31,6 +31,7 @@ import { OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
 import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
 import { PACKET_DOCUMENT_LABELS, PACKET_DOCUMENT_ORDER } from 'utils/lib/types/api/document-packet.types';
 import {
+  isReferralEditable,
   isReferralOpen,
   REFERRAL_ASK_LABELS,
   REFERRAL_ASKS,
@@ -154,8 +155,9 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
   }, [recipientName, recipientContactId, setValue]);
 
   const finished = !!referral && !isReferralOpen(referral.status);
+  const editable = !referral || isReferralEditable(referral.status);
   const busy = saveMutation.isPending || statusMutation.isPending;
-  const disabled = finished || busy;
+  const disabled = !editable || busy;
   const hasRecipient = !!recipientContactId;
   // A referral made from the patient record has no visit documents to include.
   const hasVisit = !!(encounterId ?? referral?.encounterId);
@@ -293,7 +295,7 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
             />
           )}
           <Box sx={{ flexGrow: 1, minWidth: 260 }}>
-            {finished ? (
+            {!editable ? (
               <TextField
                 size="small"
                 fullWidth
@@ -474,7 +476,7 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
           </Box>
         )}
 
-        {(!finished || earlierDocuments.length > 0) && (
+        {(editable || earlierDocuments.length > 0) && (
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
             <UppercaseCaptionTypography sx={{ width: 120, flexShrink: 0, pt: 0.75 }}>
               {hasVisit ? 'Earlier visits' : 'Documents'}
@@ -552,51 +554,58 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
                 {lastFaxText}
               </Typography>
             )}
+            {referral?.givenToPatientAt && (
+              <Typography variant="body2" color="text.secondary">
+                Given to patient {formatLocalDate(referral.givenToPatientAt)}
+                {referral.givenToPatientBy?.name ? ` by ${referral.givenToPatientBy.name}` : ''}
+              </Typography>
+            )}
             {finished && referral && (
               <Typography variant="body2" color="text.secondary">
                 {REFERRAL_STATUS_LABELS[referral.status]}
                 {referral.closedAt ? ` ${formatLocalDate(referral.closedAt)}` : ''}
+                {referral.closedBy?.name ? ` by ${referral.closedBy.name}` : ''}
                 {referral.closeReason ? `: ${REFERRAL_CLOSE_REASON_LABELS[referral.closeReason]}` : ''}
                 {referral.outcome ? ` — ${referral.outcome}` : ''}
               </Typography>
             )}
           </Stack>
 
-          {finished && savedId ? (
+          {savedId && !finished && (
+            <>
+              <RoundedButton
+                color="error"
+                disabled={busy}
+                onClick={() => setClosing(true)}
+                data-testid={dataTestIds.referrals.closeButton}
+              >
+                Close
+              </RoundedButton>
+              <ConfirmationDialog
+                title="Cancel this referral?"
+                description="The referral is taken off the list and nothing is sent."
+                response={onCancelReferral}
+                actionButtons={{ proceed: { text: 'Cancel referral', color: 'error', loading: busy } }}
+              >
+                {(showDialog) => (
+                  <RoundedButton
+                    color="error"
+                    disabled={busy}
+                    onClick={showDialog}
+                    data-testid={dataTestIds.referrals.cancelButton}
+                  >
+                    Cancel
+                  </RoundedButton>
+                )}
+              </ConfirmationDialog>
+            </>
+          )}
+          {!editable && savedId ? (
             <RoundedButton onClick={onPrint} data-testid={dataTestIds.referrals.printLink}>
               Print form
             </RoundedButton>
           ) : (
             <>
-              {savedId && (
-                <>
-                  <RoundedButton
-                    color="error"
-                    disabled={busy}
-                    onClick={() => setClosing(true)}
-                    data-testid={dataTestIds.referrals.closeButton}
-                  >
-                    Close
-                  </RoundedButton>
-                  <ConfirmationDialog
-                    title="Cancel this referral?"
-                    description="The referral is taken off the list and nothing is sent."
-                    response={onCancelReferral}
-                    actionButtons={{ proceed: { text: 'Cancel referral', color: 'error', loading: busy } }}
-                  >
-                    {(showDialog) => (
-                      <RoundedButton
-                        color="error"
-                        disabled={busy}
-                        onClick={showDialog}
-                        data-testid={dataTestIds.referrals.cancelButton}
-                      >
-                        Cancel
-                      </RoundedButton>
-                    )}
-                  </ConfirmationDialog>
-                </>
-              )}
               {!savedId && onDiscard && (
                 <RoundedButton disabled={busy} onClick={onDiscard}>
                   Discard

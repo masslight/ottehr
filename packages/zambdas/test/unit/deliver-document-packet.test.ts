@@ -1,6 +1,10 @@
 import { Appointment, Encounter, Organization, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
 import { getReferralDetails, REFERRAL_ORDER_TYPE_TAG, withReferralDetails } from 'utils/lib/fhir/referral';
 import { DOCUMENT_PACKET_MAX_PAGES } from 'utils/lib/types/api/document-packet.types';
+import {
+  REFERRAL_OVERDUE_NOTIFIED_TAG_CODE,
+  REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM,
+} from 'utils/lib/types/api/provider-notifications';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockBuildPacketForRecipient = vi.fn();
@@ -573,6 +577,28 @@ describe('markReferralSentIfDelivered', () => {
         },
       ],
     });
+  });
+
+  it('clears the overdue-notified mark when the send restarts the clock, so the new due date is notified', async () => {
+    const { search, patch, oystehr } = oystehrFor(referral('given-to-patient'));
+    const notifiedTask = {
+      ...awaitingTask,
+      restriction: { period: { end: '2026-10-01T00:00:00.000Z' } },
+      meta: {
+        tag: [
+          { code: 'task' },
+          { system: REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM, code: REFERRAL_OVERDUE_NOTIFIED_TAG_CODE },
+        ],
+      },
+    };
+    search.mockResolvedValue({ unbundle: () => [notifiedTask] });
+
+    await markReferralSentIfDelivered('referral-1', sent, oystehr);
+
+    const [{ operations }] = patch.mock.calls[0];
+    expect(operations).toHaveLength(2);
+    expect(operations[0]).toMatchObject({ op: 'replace', path: '/restriction' });
+    expect(operations[1]).toEqual({ op: 'replace', path: '/meta/tag', value: [{ code: 'task' }] });
   });
 
   it('leaves the referral alone when nobody received the fax', async () => {

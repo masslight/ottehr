@@ -1,7 +1,12 @@
 import Oystehr from '@oystehr/sdk';
-import { Task } from 'fhir/r4b';
+import { Coding, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_CATEGORY_IDENTIFIER } from 'utils/lib/fhir/constants';
+import { getPatchOperationToRemoveMetaTags } from 'utils/lib/fhir/resourcePatch';
+import {
+  REFERRAL_OVERDUE_NOTIFIED_TAG_CODE,
+  REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM,
+} from 'utils/lib/types/api/provider-notifications';
 import {
   REFERRAL_DEFAULTS,
   REFERRAL_OVERDUE_DAYS,
@@ -33,6 +38,22 @@ export const referralOverdueAt = (urgency: ReferralUrgency, anchorIso: string): 
 const taskUrgency = (task: Task): ReferralUrgency =>
   (getTaskInputValue(task, REFERRAL_TASK.input.urgency) as ReferralUrgency | undefined) ?? REFERRAL_DEFAULTS.urgency;
 
+const OVERDUE_NOTIFIED_TAG: Coding = {
+  system: REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM,
+  code: REFERRAL_OVERDUE_NOTIFIED_TAG_CODE,
+};
+
+const isOverdueNotifiedTag = (tag: Coding): boolean =>
+  tag.system === OVERDUE_NOTIFIED_TAG.system && tag.code === OVERDUE_NOTIFIED_TAG.code;
+
+const hasOverdueNotifiedTag = (task: Task): boolean => !!task.meta?.tag?.some(isOverdueNotifiedTag);
+
+/** The task without its overdue-notified mark, so a due date that moved is notified again when it passes. */
+export const withoutOverdueNotifiedTag = (task: Task): Task =>
+  hasOverdueNotifiedTag(task)
+    ? { ...task, meta: { ...task.meta, tag: task.meta?.tag?.filter((tag) => !isOverdueNotifiedTag(tag)) } }
+    : task;
+
 /**
  * Starts the overdue clock on a referral's open "awaiting response" task from `anchorIso` (when it was faxed or
  * handed to the patient). A referral without an open task has nothing to time.
@@ -54,6 +75,7 @@ export const setReferralTaskOverdue = async (
             path: '/restriction',
             value: { period: { end: referralOverdueAt(taskUrgency(task), anchorIso) } },
           },
+          ...(hasOverdueNotifiedTag(task) ? [getPatchOperationToRemoveMetaTags(task, [OVERDUE_NOTIFIED_TAG])] : []),
         ],
       })
     )

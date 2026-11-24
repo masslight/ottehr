@@ -33,6 +33,7 @@ import {
   requireOutboundDeliveryValue,
 } from '../../shared/outbound-delivery';
 import { getAppointmentAndRelatedResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { markReferralSent } from '../../shared/referrals/mark-referral-sent';
 import { deliverFaxAttempt, SendFaxAttemptInput } from '../../shared/send-fax-attempt';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
@@ -98,6 +99,7 @@ export async function performEffect(
 
   let retried: Task;
   if (channel === 'fax') {
+    const basedOnReference = original.basedOn?.[0]?.reference;
     const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, parameters.secrets);
     const faxInput: SendFaxAttemptInput = {
       appointmentId,
@@ -131,6 +133,7 @@ export async function performEffect(
         requesterReference,
         senderOrganizationReference: `Organization/${organizationId}`,
         parentAttemptId: originalId,
+        basedOnReference,
         senderId: user.id,
         senderDisplay,
       }),
@@ -138,6 +141,8 @@ export async function performEffect(
     );
     if (claim.status === 'existing') throw new Error('This delivery attempt has already been retried');
     retried = await deliverFaxAttempt(faxInput, oystehr, claim.attempt);
+    const referralId = getIdFromReference(basedOnReference, 'ServiceRequest');
+    if (referralId) await markReferralSent(referralId, oystehr);
   } else {
     if (!emailClient) throw new Error('Visit note email client was not initialized');
     const emailAppointmentId = requireOutboundDeliveryValue(appointmentId, 'appointment reference');

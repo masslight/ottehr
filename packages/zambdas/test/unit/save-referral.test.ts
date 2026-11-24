@@ -52,6 +52,7 @@ vi.mock('@sentry/node-core/light', async (importOriginal) => ({
 }));
 
 import { index as rawIndex } from '../../src/ehr/referrals/save-referral';
+import { resolveCallerPractitionerRef } from '../../src/shared/practitioners';
 
 const saveReferral = rawIndex as unknown as ZambdaHandler;
 
@@ -181,6 +182,22 @@ describe('save-referral', () => {
     expect(updated.reasonCode[0].text).toBe('Fracture, follow-up imaging');
     expect(options).toEqual({ optimisticLockingVersionId: '2' });
     expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+  });
+
+  it('assigns a task created by an edit to the referring provider, not to whoever saved the edit', async () => {
+    reads({ encounter: encounterOf(PATIENT_ID), referral: existingReferral(PATIENT_ID, ENCOUNTER_ID) });
+    vi.mocked(resolveCallerPractitionerRef).mockResolvedValueOnce({
+      reference: 'Practitioner/staff-1',
+      display: 'Sam Staff',
+    });
+
+    const result = await run({ referralId: REFERRAL_ID, responseRequested: true });
+
+    expect(result.statusCode).toBe(200);
+    const task = mockOystehr.fhir.create.mock.calls
+      .map(([resource]: [{ resourceType: string }]) => resource)
+      .find((resource: { resourceType: string }) => resource.resourceType === 'Task');
+    expect(task.owner).toMatchObject({ reference: 'Practitioner/prac-1' });
   });
 
   it('reports a concurrent edit as a precondition failure', async () => {

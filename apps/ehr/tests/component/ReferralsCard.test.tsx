@@ -140,6 +140,61 @@ describe('ReferralsCard', () => {
     expect(form).toHaveTextContent('Created 11/01/2026 by J. Rivera, MD');
   });
 
+  it('keeps a referral with a filed response read-only, offering only Close, Cancel and Print form', async () => {
+    // The server refuses to edit, fax or hand over a referral once a response is filed, and every one of those
+    // actions saves the form first, so offering them would only end in "Failed to save the referral".
+    const answered: ReferralDTO = {
+      ...referrals[0],
+      status: 'response-received',
+      responseDocumentReferenceIds: ['d1'],
+    };
+    api.listReferrals.mockResolvedValue({ referrals: [answered] });
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await screen.findByTestId(dataTestIds.referrals.expandButton(answered.id)));
+
+    const form = within(screen.getByTestId(dataTestIds.referrals.row(answered.id))).getByTestId(
+      dataTestIds.referrals.form
+    );
+    expect(within(form).getByTestId(dataTestIds.referrals.reason)).toBeDisabled();
+    expect(within(form).getByTestId(dataTestIds.referrals.closeButton)).toBeEnabled();
+    expect(within(form).getByTestId(dataTestIds.referrals.cancelButton)).toBeEnabled();
+    expect(within(form).getByTestId(dataTestIds.referrals.printLink)).toBeEnabled();
+    for (const testId of [
+      dataTestIds.referrals.saveButton,
+      dataTestIds.referrals.previewButton,
+      dataTestIds.referrals.sendFaxButton,
+      dataTestIds.referrals.sendMenuButton,
+      dataTestIds.referrals.addEarlierDocumentsButton,
+    ]) {
+      expect(within(form).queryByTestId(testId)).toBeNull();
+    }
+  });
+
+  it('shows who gave the referral to the patient and who closed it', async () => {
+    const closed: ReferralDTO = {
+      ...referrals[1],
+      status: 'closed',
+      givenToPatientAt: '2026-11-02T15:00:00.000Z',
+      givenToPatientBy: { id: 'p2', name: 'Sam Staff' },
+      closedAt: '2026-11-20T15:00:00.000Z',
+      closedBy: { id: 'p1', name: 'J. Rivera, MD' },
+      closeReason: 'patient-seen',
+    };
+    api.listReferrals.mockResolvedValue({ referrals: [closed] });
+    const user = userEvent.setup();
+    renderCard();
+
+    await user.click(await screen.findByTestId(dataTestIds.referrals.expandButton(closed.id)));
+
+    const form = within(screen.getByTestId(dataTestIds.referrals.row(closed.id))).getByTestId(
+      dataTestIds.referrals.form
+    );
+    expect(form).toHaveTextContent('Given to patient 11/02/2026 by Sam Staff');
+    expect(form).toHaveTextContent('Closed 11/20/2026 by J. Rivera, MD: Patient seen (confirmed by phone)');
+  });
+
   it('disables Send fax as soon as the Fax field is emptied, even to whitespace', async () => {
     const user = userEvent.setup();
     renderCard();

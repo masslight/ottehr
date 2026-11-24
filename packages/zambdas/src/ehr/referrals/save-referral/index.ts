@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { getReferralStatus, makeReferralServiceRequest } from 'utils/lib/fhir/referral';
 import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { REFERRAL_ROLES, ReferralStatus, SaveReferralOutput } from 'utils/lib/types/api/referrals/referrals.types';
+import { isReferralEditable, REFERRAL_ROLES, SaveReferralOutput } from 'utils/lib/types/api/referrals/referrals.types';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR, PRECONDITION_FAILED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../shared/auth';
 import { isFhirNotFoundError, isFhirVersionConflictError } from '../../../shared/errors';
@@ -22,9 +22,6 @@ import { buildReferralDTOs, syncReferralTask } from '../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'save-referral';
-
-/** Closed and cancelled referrals are read-only. */
-const EDITABLE_STATUSES: ReferralStatus[] = ['not-sent', 'sent', 'given-to-patient'];
 
 let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -88,7 +85,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       serviceRequest: saved,
       patient,
       recipient,
-      owner: requester,
+      owner: saved.requester ?? requester,
       location: await getTaskLocation(oystehr, encounter),
     });
 
@@ -117,7 +114,7 @@ const getOrNotFound = async <T extends Patient | Encounter>(
 
 const assertEditable = (existing: ServiceRequest): ServiceRequest => {
   const status = getReferralStatus(existing);
-  if (!EDITABLE_STATUSES.includes(status)) {
+  if (!isReferralEditable(status)) {
     throw INVALID_INPUT_ERROR(`A ${status} referral cannot be edited`);
   }
   return existing;

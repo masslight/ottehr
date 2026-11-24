@@ -2,6 +2,7 @@ import { DocumentReference, Reference, ServiceRequest } from 'fhir/r4b';
 import { docRefIsLabGeneratedResult, docRefIsOttehrGeneratedResultAndCurrent } from '../helpers/labs/helpers';
 import { PacketDocumentKind } from '../types/api/document-packet.types';
 import {
+  ReferralActor,
   ReferralAsk,
   ReferralCloseReason,
   ReferralScheduler,
@@ -92,7 +93,9 @@ export interface ReferralDetails {
   sentAt?: string;
   /** When the patient was given a printed copy; a fax still sets the status, so this outlives `given-to-patient`. */
   givenToPatientAt?: string;
+  givenToPatientBy?: ReferralActor;
   closedAt?: string;
+  closedBy?: ReferralActor;
   closeReason?: ReferralCloseReason;
   outcome?: string;
 }

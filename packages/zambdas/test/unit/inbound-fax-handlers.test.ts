@@ -520,13 +520,15 @@ describe('file-inbound-fax handler', () => {
       expect(getReferralDetails(referralPut.resource)).toMatchObject({ status: 'response-received' });
       expect(referralPut.resource.status).toBe('active');
 
-      // The referral's own task is retitled, handed to the referring provider, told which document to read (by the
-      // transaction-local id the server rewrites), stops being overdue, and loses its notified markers.
+      // The referral's own task becomes a review task: retitled and recoded, handed to the referring provider, told
+      // which document to read (by the transaction-local id the server rewrites), stops being overdue, and loses its
+      // notified markers.
       const taskPut = requests.find((r: any) => r.method === 'PUT' && r.url === '/Task/referral-task-1');
       expect(taskPut.ifMatch).toBe('W/"4"');
       expect(taskPut.resource).toMatchObject({
         id: 'referral-task-1',
         description: 'Review response: Orthopedics, Riverside Orthopedic Associates referral',
+        code: { coding: [{ system: 'referral-task', code: 'review-referral-response' }] },
         owner: expect.objectContaining({ reference: 'Practitioner/prac-1', display: 'J. Rivera, MD' }),
         status: 'in-progress',
         meta: { versionId: '4', tag: [{ code: 'task' }] },

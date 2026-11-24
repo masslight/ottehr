@@ -937,9 +937,9 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     const appointmentId = encounter?.appointment?.[0]?.reference?.split('/')?.[1];
     const patientId = patientReference?.reference?.split('/')?.[1];
     if (appointmentId) {
-      action = { name: GO_TO_TASK, link: addEncounterIdToLink(`/in-person/${appointmentId}`) };
+      action = { name: GO_TO_TASK, link: addEncounterIdToLink(`/in-person/${appointmentId}/plan`) };
     } else if (patientId) {
-      action = { name: GO_TO_TASK, link: `/patient/${patientId}` };
+      action = { name: GO_TO_TASK, link: `/patient/${patientId}?tab=referrals` };
     }
   }
 

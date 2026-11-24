@@ -30,7 +30,7 @@ const pathForTarget = (target: ProviderNotificationTarget | undefined): string |
     case 'inboundFax':
       return inboundFaxMatchPath(target.faxCommunicationId);
     case 'patient':
-      return `/patient/${target.patientId}`;
+      return `/patient/${target.patientId}?tab=referrals`;
   }
 };
 

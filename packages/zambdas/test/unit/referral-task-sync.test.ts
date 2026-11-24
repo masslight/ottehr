@@ -2,6 +2,10 @@ import type Oystehr from '@oystehr/sdk';
 import { Patient, ServiceRequest, Task } from 'fhir/r4b';
 import { TASK_CATEGORY_IDENTIFIER, TASK_INPUT_SYSTEM } from 'utils/lib/fhir/constants';
 import { makeReferralServiceRequest, withReferralDetails } from 'utils/lib/fhir/referral';
+import {
+  REFERRAL_OVERDUE_NOTIFIED_TAG_CODE,
+  REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM,
+} from 'utils/lib/types/api/provider-notifications';
 import { REFERRAL_TASK, SaveReferralInput } from 'utils/lib/types/api/referrals/referrals.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { syncReferralTask } from '../../src/ehr/referrals/shared';
@@ -10,7 +14,9 @@ const PATIENT_ID = '11111111-1111-4111-8111-111111111111';
 const REFERRAL_ID = '44444444-4444-4444-8444-444444444444';
 const NOW = '2026-11-01T15:00:00.000Z';
 const SENT_AT = '2026-10-20T12:00:00.000Z';
+const GIVEN_AT = '2026-10-25T09:00:00.000Z';
 const DAY_MS = 24 * 60 * 60 * 1000;
+const OVERDUE_NOTIFIED_TAG = { system: REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM, code: REFERRAL_OVERDUE_NOTIFIED_TAG_CODE };
 
 const input: SaveReferralInput = {
   patientId: PATIENT_ID,
@@ -133,6 +139,39 @@ describe('syncReferralTask', () => {
     const [updated] = update.mock.calls[0];
     // routine = 14 days after it was sent
     expect(updated.restriction).toEqual({ period: { end: new Date(Date.parse(SENT_AT) + 14 * DAY_MS).toISOString() } });
+  });
+
+  it('anchors a task created after the hand-over on when the patient was given the form, not on the save', async () => {
+    withTasks([]);
+    const givenToPatient = withReferralDetails(referral(), { status: 'given-to-patient', givenToPatientAt: GIVEN_AT });
+
+    await syncReferralTask({ oystehr, serviceRequest: givenToPatient, patient, owner });
+
+    // urgent = 7 days after the hand-over
+    expect(create.mock.calls[0][0].restriction).toEqual({
+      period: { end: new Date(Date.parse(GIVEN_AT) + 7 * DAY_MS).toISOString() },
+    });
+  });
+
+  it('clears the overdue-notified mark when an urgency change moves the due date, so the new date is notified', async () => {
+    withTasks([{ ...openTask('urgent'), meta: { tag: [{ code: 'task' }, OVERDUE_NOTIFIED_TAG] } }]);
+
+    await syncReferralTask({ oystehr, serviceRequest: referral({ urgency: 'routine' }, SENT_AT), patient, owner });
+
+    expect(update.mock.calls[0][0].meta.tag).toEqual([{ code: 'task' }]);
+  });
+
+  it('keeps the overdue-notified mark when an edit leaves the due date where it was', async () => {
+    withTasks([{ ...openTask('urgent'), meta: { tag: [{ code: 'task' }, OVERDUE_NOTIFIED_TAG] } }]);
+
+    await syncReferralTask({
+      oystehr,
+      serviceRequest: referral({ specialty: 'Hand surgery' }, SENT_AT),
+      patient,
+      owner,
+    });
+
+    expect(update.mock.calls[0][0].meta.tag).toEqual([{ code: 'task' }, OVERDUE_NOTIFIED_TAG]);
   });
 
   it('cancels the open task when the response request is withdrawn, and creates nothing', async () => {

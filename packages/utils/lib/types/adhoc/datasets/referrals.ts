@@ -42,7 +42,12 @@ export const ReferralBaseRowSchema = z.object({
       'not-sent / sent / given-to-patient / response-received / closed / cancelled. Open = not closed and not cancelled.'
     ),
   createdAt: z.string().describe('Full ISO instant the referral was created.'),
-  sentAt: z.string().nullable().describe('Full ISO instant the fax was delivered or the form given to the patient.'),
+  sentAt: z
+    .string()
+    .nullable()
+    .describe(
+      'Full ISO instant the referral was first faxed. Null when it was never faxed, e.g. only given to the patient.'
+    ),
   responseReceivedAt: z
     .string()
     .nullable()

@@ -1,12 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getReferralStatus, ReferralDetails, withReferralDetails } from 'utils/lib/fhir/referral';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   isReferralOpen,
   REFERRAL_ROLES,
   REFERRAL_STATUS_LABELS,
+  ReferralActor,
   UpdateReferralStatusInput,
   UpdateReferralStatusOutput,
 } from 'utils/lib/types/api/referrals/referrals.types';
@@ -15,6 +17,7 @@ import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '
 import { isFhirVersionConflictError } from '../../../shared/errors';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
+import { practitionerRefForUser } from '../../../shared/practitioners';
 import { loadReferral } from '../../../shared/referrals/load-referral';
 import { setReferralTaskOverdue } from '../../../shared/referrals/referral-task';
 import { wrapHandler } from '../../../shared/sentry';
@@ -28,13 +31,19 @@ let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const params = validateRequestParameters(input);
-    await requireUserWithRole(getUserToken(input), params.secrets, REFERRAL_ROLES);
+    const user = await requireUserWithRole(getUserToken(input), params.secrets, REFERRAL_ROLES);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, params.secrets);
 
-    const referral = await loadReferral(oystehr, params.referralId);
-    const { patch, taskStatus, taskClockStart } = transition(referral, params);
+    const [referral, actor] = await Promise.all([
+      loadReferral(oystehr, params.referralId),
+      practitionerRefForUser(user, oystehr),
+    ]);
+    const { patch, taskStatus, taskClockStart } = transition(referral, params, {
+      id: getIdFromReference(actor.reference, 'Practitioner'),
+      name: actor.display ?? '',
+    });
     const saved = await oystehr.fhir
       .update<ServiceRequest>(withReferralDetails(referral, patch), {
         optimisticLockingVersionId: referral.meta?.versionId,
@@ -63,7 +72,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
  */
 export const transition = (
   referral: ServiceRequest,
-  params: UpdateReferralStatusInput
+  params: UpdateReferralStatusInput,
+  actor: ReferralActor
 ): { patch: Partial<ReferralDetails>; taskStatus?: 'completed' | 'cancelled'; taskClockStart?: string } => {
   const status = getReferralStatus(referral);
   const now = DateTime.now().toUTC().toISO() ?? new Date().toISOString();
@@ -75,16 +85,27 @@ export const transition = (
     case 'close':
       if (!isReferralOpen(status)) refuse();
       return {
-        patch: { status: 'closed', closedAt: now, closeReason: params.reason, outcome: params.outcome },
+        patch: {
+          status: 'closed',
+          closedAt: now,
+          closedBy: actor,
+          closeReason: params.reason,
+          outcome: params.outcome,
+        },
         taskStatus: 'completed',
       };
     case 'cancel':
       if (!isReferralOpen(status)) refuse();
-      return { patch: { status: 'cancelled', closedAt: now }, taskStatus: 'cancelled' };
+      return { patch: { status: 'cancelled', closedAt: now, closedBy: actor }, taskStatus: 'cancelled' };
     case 'given-to-patient':
       // A fax to the provider wins the status: once sent, the copy is only recorded and the clock keeps running.
-      if (status === 'sent' || status === 'given-to-patient') return { patch: { givenToPatientAt: now } };
+      if (status === 'sent' || status === 'given-to-patient') {
+        return { patch: { givenToPatientAt: now, givenToPatientBy: actor } };
+      }
       if (status !== 'not-sent') refuse();
-      return { patch: { status: 'given-to-patient', givenToPatientAt: now }, taskClockStart: now };
+      return {
+        patch: { status: 'given-to-patient', givenToPatientAt: now, givenToPatientBy: actor },
+        taskClockStart: now,
+      };
   }
 };

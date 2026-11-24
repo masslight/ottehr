@@ -53,14 +53,14 @@ describe('referral task rows', () => {
     expect(TASK_CATEGORY_LABEL[REFERRAL_TASK.category]).toBe('Referrals');
   });
 
-  it('shows the overdue subtitle and links to the visit', () => {
+  it("shows the overdue subtitle and links to the visit's Plan tab, where its Referrals card is", () => {
     const row = fhirTaskToTask(makeReferralTask(), encounters);
     expect(row.title).toBe('Referral: Orthopedics, Riverside Orthopedic Associates');
     expect(row.subtitle).toBe('Urgent: no response after 7 days');
     expect(row.overdue).toBe(true);
     // Closing the referral completes the task; the Tasks page only links to where Close lives.
     expect(row.completable).toBe(false);
-    expect(row.action).toEqual({ name: 'Go to task', link: '/in-person/appt-1' });
+    expect(row.action).toEqual({ name: 'Go to task', link: '/in-person/appt-1/plan' });
   });
 
   it('shows the urgency alone while waiting, and "Response received" once a response is filed', () => {
@@ -93,9 +93,10 @@ describe('referral task rows', () => {
     expect(answeredByString.subtitle).toBe('Urgent: Response received');
   });
 
-  it('links to the patient record when the referral has no visit', () => {
+  it("links to the patient record's Referrals tab when the referral has no visit", () => {
+    // The link opens in a new browser tab, so the tab is named in the URL rather than in router state.
     const row = fhirTaskToTask(makeReferralTask({ encounter: undefined }));
-    expect(row.action).toEqual({ name: 'Go to task', link: '/patient/pat-1' });
+    expect(row.action).toEqual({ name: 'Go to task', link: '/patient/pat-1?tab=referrals' });
   });
 
   it('is never overdue once completed or cancelled, or without a period end', () => {

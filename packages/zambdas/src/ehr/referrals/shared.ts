@@ -45,7 +45,12 @@ import {
 import { getTaskInputValue } from 'utils/lib/types/data/tasks/types';
 import { mapReferralRecipient, withReferralFax } from '../../shared/referrals/recipient';
 import { findReferralDocuments, toReferralEarlierDocument } from '../../shared/referrals/referral-documents';
-import { findReferralTasks, isOpenTask, referralOverdueAt } from '../../shared/referrals/referral-task';
+import {
+  findReferralTasks,
+  isOpenTask,
+  referralOverdueAt,
+  withoutOverdueNotifiedTag,
+} from '../../shared/referrals/referral-task';
 import { createOwnerReference, createTask } from '../../shared/tasks';
 
 /** Ids per `_id` / `based-on` / `related` search, so the query string stays well under URL limits. */
@@ -148,7 +153,9 @@ export const toReferralDTO = (serviceRequest: ServiceRequest, context: ReferralD
     createdAt: serviceRequest.authoredOn ?? '',
     sentAt: details?.sentAt,
     givenToPatientAt: details?.givenToPatientAt,
+    givenToPatientBy: details?.givenToPatientBy,
     closedAt: details?.closedAt,
+    closedBy: details?.closedBy,
     closeReason: details?.closeReason,
     outcome: details?.outcome,
     taskId: context.task?.id,
@@ -346,8 +353,8 @@ export const settleReferralTasks = async (
 /**
  * Keeps the "awaiting response" task in step with a saved referral: created when a response is now
  * requested and none is open, refreshed when one is, cancelled when the request was withdrawn. The overdue
- * clock counts from when the referral went out (`sentAt`, else now) and an edit only moves it when the
- * urgency changed.
+ * clock counts from when the referral went out (`sentAt`, else `givenToPatientAt`, else now) and an edit only
+ * moves it when the urgency changed.
  */
 export const syncReferralTask = async (args: {
   oystehr: Oystehr;
@@ -387,13 +394,14 @@ export const syncReferralTask = async (args: {
     ],
     basedOn: [`ServiceRequest/${referralId}`],
   });
-  const anchor = details.sentAt ?? DateTime.now().toUTC().toISO() ?? new Date().toISOString();
+  const anchor =
+    details.sentAt ?? details.givenToPatientAt ?? DateTime.now().toUTC().toISO() ?? new Date().toISOString();
   const restriction: Task['restriction'] = { period: { end: referralOverdueAt(urgency, anchor) } };
 
   if (openTask) {
     const urgencyChanged = getTaskInputValue(openTask, REFERRAL_TASK.input.urgency) !== urgency;
     await oystehr.fhir.update<Task>({
-      ...openTask,
+      ...(urgencyChanged ? withoutOverdueNotifiedTag(openTask) : openTask),
       description: task.description,
       input: task.input,
       ...(urgencyChanged ? { restriction } : {}),

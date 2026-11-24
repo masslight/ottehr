@@ -36,6 +36,14 @@ export const REFERRAL_STATUS_LABELS: Record<ReferralStatus, string> = {
 export const REFERRAL_OPEN_STATUSES: ReferralStatus[] = ['not-sent', 'sent', 'given-to-patient', 'response-received'];
 export const isReferralOpen = (status: ReferralStatus): boolean => REFERRAL_OPEN_STATUSES.includes(status);
 
+export const REFERRAL_EDITABLE_STATUSES: ReferralStatus[] = ['not-sent', 'sent', 'given-to-patient'];
+export const isReferralEditable = (status: ReferralStatus): boolean => REFERRAL_EDITABLE_STATUSES.includes(status);
+
+export interface ReferralActor {
+  id?: string;
+  name: string;
+}
+
 /** Values double as FHIR `ServiceRequest.priority` codes. */
 export const REFERRAL_URGENCIES = ['routine', 'urgent', 'asap'] as const;
 export const ReferralUrgencySchema = z.enum(REFERRAL_URGENCIES);
@@ -239,7 +247,9 @@ export interface ReferralDTO {
   createdAt: string;
   sentAt?: string;
   givenToPatientAt?: string;
+  givenToPatientBy?: ReferralActor;
   closedAt?: string;
+  closedBy?: ReferralActor;
   closeReason?: ReferralCloseReason;
   outcome?: string;
   /** The Referrals-category Task, when a response was requested or a response is being reviewed. */
