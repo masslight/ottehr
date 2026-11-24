@@ -673,15 +673,9 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
       };
     }
 
-    // solicited preliminary results are excluded from the board but we need unsolicited preliminary results to show up here
-    // if the result has been matched to a visit it now carries a service request with it and thus follows this decision tree
-    const isUnsolicitedPreliminaryResult =
-      code === LAB_ORDER_TASK.code.reviewPreliminaryResult && labTypeString === LabType.unsolicited;
     if (
       serviceRequestId &&
-      (code === LAB_ORDER_TASK.code.reviewFinalResult ||
-        code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
-        isUnsolicitedPreliminaryResult)
+      (code === LAB_ORDER_TASK.code.reviewFinalResult || code === LAB_ORDER_TASK.code.reviewCorrectedResult)
     ) {
       title = `Review results for “${fullTestName}” for ${patientName}`;
       subtitle = `Ordered by ${providerName} on ${orderDate ? formatDate(orderDate) : ''}`;
@@ -709,7 +703,13 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
         code === LAB_ORDER_TASK.code.reviewCorrectedResult ||
         code === LAB_ORDER_TASK.code.reviewPreliminaryResult)
     ) {
-      if (labTypeString === LabType.unsolicited && !serviceRequestId) {
+      // Solicited preliminary results are kept off the board, but unsolicited ones are shown. Even when matched to an order
+      // they go to their own report: the order page drops a preliminary result once that order has a final/corrected
+      // result for the same code (get-lab-orders), which would leave this task with nothing to review.
+      if (
+        labTypeString === LabType.unsolicited &&
+        (!serviceRequestId || code === LAB_ORDER_TASK.code.reviewPreliminaryResult)
+      ) {
         const receivedDate = getInputString(LAB_ORDER_TASK.input.receivedDate, task);
         title = `Review unsolicited test results for “${fullTestName}” for ${patientName}`;
         subtitle = `Received on ${receivedDate ? formatDate(receivedDate) : ''}`;

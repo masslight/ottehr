@@ -227,13 +227,6 @@ export async function getExternalLabOrderResourcesViaDiagnosticReport(
   const schedule = schedules.length ? schedules[0] : undefined;
 
   if (type === 'unsolicited') {
-    serviceRequests.push(
-      ...resourceSearch.filter(
-        (resource): resource is ServiceRequest =>
-          resource.resourceType === 'ServiceRequest' && isExternalLabServiceRequest(resource)
-      )
-    );
-
     if (serviceRequests.length > 1)
       throw EXTERNAL_LAB_ERROR('found more than one ServiceRequest for a matched unsolicited result. Expected 0 or 1');
   } else if (type === 'reflex') {
