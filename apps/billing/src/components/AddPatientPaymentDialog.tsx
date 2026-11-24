@@ -31,7 +31,7 @@ import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
 import { ServiceMode } from 'utils/lib/types/common';
 import { TIMEZONES } from 'utils/lib/types/constants';
-import { BillingPatientCard, BillingPatientVisit } from 'utils/lib/types/data/billing/billing.types';
+import { BillingCard, BillingPatientVisit } from 'utils/lib/types/data/billing/billing.types';
 import { DISPLAY_DATE_AND_TIME_FORMAT } from 'utils/lib/utils/dateUtils';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
 import { listBillingPatientPaymentMethods, postBillingPatientPayment, recordBillingManualPayment } from '../api/api';
@@ -94,7 +94,7 @@ const visitSummary = (visit: BillingPatientVisit): string => {
   return [primary, secondary].filter(Boolean).join(' · ');
 };
 
-const cardLabel = (card: BillingPatientCard): string => {
+const cardLabel = (card: BillingCard): string => {
   const expiry = `${String(card.expMonth).padStart(2, '0')}/${String(card.expYear).slice(-2)}`;
   return `${cardBrandName(card.brand)} •••• ${card.lastFour} (exp ${expiry})${card.default ? ' — Primary' : ''}`;
 };
@@ -126,7 +126,7 @@ export function AddPatientPaymentDialog({
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [cards, setCards] = useState<BillingPatientCard[]>([]);
+  const [cards, setCards] = useState<BillingCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(false);
   const [cardsError, setCardsError] = useState('');
 
@@ -380,7 +380,7 @@ function CardSelect({
   error,
 }: {
   control: Control<PaymentForm>;
-  cards: BillingPatientCard[];
+  cards: BillingCard[];
   loading: boolean;
   error: string;
 }): ReactElement {

@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { customerForScheduleOwner, listCustomerCards } from '../../../src/billing/list-billing-patient-payment-methods';
+import { customerForScheduleOwner } from '../../../src/billing/list-billing-patient-payment-methods';
+import { listCustomerCards } from '../../../src/billing/stripe-cards';
 
 const card = (id: string, expYear: number, expMonth: number, last4 = '4242'): Stripe.PaymentMethod =>
   ({
