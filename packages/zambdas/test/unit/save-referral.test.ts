@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DocumentReference, Encounter, List, Patient, ServiceRequest } from 'fhir/r4b';
+import { DocumentReference, Encounter, List, Patient, ServiceRequest, Task } from 'fhir/r4b';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
 import { makeReferralServiceRequest } from 'utils/lib/fhir/referral';
@@ -194,10 +194,10 @@ describe('save-referral', () => {
     const result = await run({ referralId: REFERRAL_ID, responseRequested: true });
 
     expect(result.statusCode).toBe(200);
-    const task = mockOystehr.fhir.create.mock.calls
-      .map(([resource]: [{ resourceType: string }]) => resource)
-      .find((resource: { resourceType: string }) => resource.resourceType === 'Task');
-    expect(task.owner).toMatchObject({ reference: 'Practitioner/prac-1' });
+    const task: Task | undefined = mockOystehr.fhir.create.mock.calls
+      .map(([resource]) => resource)
+      .find((resource) => resource.resourceType === 'Task');
+    expect(task?.owner).toMatchObject({ reference: 'Practitioner/prac-1' });
   });
 
   it('reports a concurrent edit as a precondition failure', async () => {
