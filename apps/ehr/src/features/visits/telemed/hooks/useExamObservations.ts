@@ -98,8 +98,7 @@ export function useExamObservations(param?: string | string[]): {
   const { mutateAsync: deleteChartData, isPending: isDeleteLoading } = useDeleteChartData();
   const { isFieldPending, hasPendingFields } = usePendingObservationFields();
   const hasPendingApiRequestsRef = useRef(false);
-  const updateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const queuedNoteReleaseRef = useRef<() => void>();
+  const queuedNoteWritesRef = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; release: () => void }>());
 
   // A write fired by any other component counts too: while a bulk write ("Select all",
   // "Clear Exam") is rewriting these fields, the components rendering them must not accept edits
@@ -114,7 +113,21 @@ export function useExamObservations(param?: string | string[]): {
   // queued note. Release it on unmount as well: routing the release through that timer alone would
   // leave the field reading as busy for the rest of the session if it ever stopped firing. The
   // timeout itself is deliberately left running, so the queued note still saves.
-  useEffect(() => () => queuedNoteReleaseRef.current?.(), []);
+  useEffect(() => {
+    const queuedNoteWrites = queuedNoteWritesRef.current;
+    return () => queuedNoteWrites.forEach(({ release }) => release());
+  }, []);
+
+  const cancelQueuedNoteWrite = (field: string): void => {
+    const queued = queuedNoteWritesRef.current.get(field);
+    if (!queued) {
+      return;
+    }
+
+    clearTimeout(queued.timer);
+    queued.release();
+    queuedNoteWritesRef.current.delete(field);
+  };
 
   const getPrevStateAndValues = useCallback(
     (
@@ -153,28 +166,23 @@ export function useExamObservations(param?: string | string[]): {
     const isNoteUpdate = Object.prototype.hasOwnProperty.call(options, 'note');
 
     if (isNoteUpdate) {
+      const { field } = options as ExamObservationDTO;
       const shouldAwaitResourceId =
-        !(options as ExamObservationDTO).resourceId &&
-        useExamObservationsStore.getState()[(options as ExamObservationDTO).field]?.resourceId;
+        !(options as ExamObservationDTO).resourceId && useExamObservationsStore.getState()[field]?.resourceId;
+
+      cancelQueuedNoteWrite(field);
 
       if (hasPendingApiRequestsRef.current || shouldAwaitResourceId) {
-        clearTimeout(updateTimeoutRef.current);
-
         // The write is only queued, but it is still going to land, so the field reads as busy until
         // it does: a "Clear Exam" fired in this window would delete the note's Observation and then
         // watch the requeued save write it straight back — against the id it has just deleted.
-        // The hold replaces the one the timer being cancelled was carrying.
-        queuedNoteReleaseRef.current?.();
-        queuedNoteReleaseRef.current = holdPendingObservationFields([(options as ExamObservationDTO).field]);
+        const release = holdPendingObservationFields([field]);
 
         // delay next update until we have resourceId from the first update
-        updateTimeoutRef.current = setTimeout(() => {
-          // Released only after the requeued update has taken its own hold, so the field never
-          // reads as free in between.
-          const release = queuedNoteReleaseRef.current;
-          queuedNoteReleaseRef.current = undefined;
+        const timer = setTimeout(() => {
+          queuedNoteWritesRef.current.delete(field);
 
-          const resourceId = useExamObservationsStore.getState()[(options as ExamObservationDTO).field]?.resourceId;
+          const resourceId = useExamObservationsStore.getState()[field]?.resourceId;
           update(
             {
               ...options,
@@ -183,8 +191,11 @@ export function useExamObservations(param?: string | string[]): {
             noFetch
           );
 
-          release?.();
+          // Released only after the requeued update has taken its own hold, so the field never
+          // reads as free in between.
+          release();
         }, 1000);
+        queuedNoteWritesRef.current.set(field, { timer, release });
 
         return;
       }
@@ -271,6 +282,8 @@ export function useExamObservations(param?: string | string[]): {
       : Object.prototype.hasOwnProperty.call(param, 'field')
       ? [param as ExamObservationDTO]
       : objectToArray(param as ExamRecord);
+
+    examObservations.forEach(({ field }) => cancelQueuedNoteWrite(field));
 
     // Every deleted field is left as a blank entry with no resourceId, whether it was deleted one
     // checkbox at a time or in bulk: the Observation is gone, so the next save on that field has to

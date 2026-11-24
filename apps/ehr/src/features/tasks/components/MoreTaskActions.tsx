@@ -3,9 +3,16 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import PersonAddIcon from '@mui/icons-material/PersonAddOutlined';
 import ShortcutIcon from '@mui/icons-material/Shortcut';
 import { IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Popover } from '@mui/material';
-import React, { useState } from 'react';
-import { useAssignTask, useUnassignTask } from 'src/features/visits/in-person/hooks/useTasks';
+import { enqueueSnackbar } from 'notistack';
+import React, { useRef, useState } from 'react';
+import {
+  ReopenTaskRequest,
+  useAssignTask,
+  useReopenTask,
+  useUnassignTask,
+} from 'src/features/visits/in-person/hooks/useTasks';
 import { EvolveUser } from 'src/hooks/useEvolveUser';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Task } from 'utils/lib/types/data/tasks/types';
 import { AssignTaskDialog } from './AssignTaskDialog';
 
@@ -24,13 +31,30 @@ export const MoreTaskActions: React.FC<MoreTaskActionsProps> = ({ task, currentU
 
   const { mutateAsync: assignTask } = useAssignTask();
   const { mutateAsync: unassignTask } = useUnassignTask();
-  const currentUserProviderId = currentUser?.profile?.split('/')[1];
+  const { mutateAsync: reopenTask, isPending: isReopening } = useReopenTask();
+  const reopeningRef = useRef(false);
+  const currentUserProviderId = getIdFromReference(currentUser?.profile);
 
   const closeMoreActionsPopover = (): void => {
     setMoreActionsPopoverData(null);
   };
 
-  if (task.status === 'completed') {
+  const reopen = async (status: ReopenTaskRequest['status']): Promise<void> => {
+    if (reopeningRef.current) return;
+    reopeningRef.current = true;
+    try {
+      await reopenTask({ taskId: task.id, status });
+      closeMoreActionsPopover();
+      if (refetchData) refetchData();
+    } catch (error) {
+      closeMoreActionsPopover();
+      enqueueSnackbar(error instanceof Error ? error.message : 'Failed to reopen the task.', { variant: 'error' });
+    } finally {
+      reopeningRef.current = false;
+    }
+  };
+
+  if (task.status === 'completed' && !task.reopenable) {
     return null;
   }
 
@@ -50,60 +74,85 @@ export const MoreTaskActions: React.FC<MoreTaskActionsProps> = ({ task, currentU
           }}
         >
           <List>
-            {moreActionsPopoverData.task?.assignee?.id ? (
-              <ListItem disablePadding>
-                <ListItemButton
-                  onClick={async () => {
-                    await unassignTask({
-                      taskId: moreActionsPopoverData.task.id,
-                    });
-                    closeMoreActionsPopover();
-                    if (refetchData) refetchData();
-                  }}
-                >
-                  <ListItemIcon>
-                    <ShortcutIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
-                  </ListItemIcon>
-                  <ListItemText primary="Unassign" />
-                </ListItemButton>
-              </ListItem>
+            {moreActionsPopoverData.task.status === 'completed' ? (
+              <>
+                <ListItem disablePadding>
+                  <ListItemButton disabled={isReopening} onClick={() => reopen('ready')}>
+                    <ListItemIcon>
+                      <ShortcutIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                    </ListItemIcon>
+                    <ListItemText primary="Return to “Pending”" />
+                  </ListItemButton>
+                </ListItem>
+                {moreActionsPopoverData.task.assignee?.id ? (
+                  <ListItem disablePadding>
+                    <ListItemButton disabled={isReopening} onClick={() => reopen('in-progress')}>
+                      <ListItemIcon>
+                        <ShortcutIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                      </ListItemIcon>
+                      <ListItemText primary="Return to “In Progress”" />
+                    </ListItemButton>
+                  </ListItem>
+                ) : null}
+              </>
             ) : (
-              <ListItem disablePadding>
-                <ListItemButton
-                  onClick={async () => {
-                    if (currentUserProviderId && currentUser?.name) {
-                      await assignTask({
-                        taskId: moreActionsPopoverData.task.id,
-                        assignee: {
-                          id: currentUserProviderId,
-                          name: currentUser.userName,
-                        },
-                      });
+              <>
+                {moreActionsPopoverData.task?.assignee?.id ? (
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      onClick={async () => {
+                        await unassignTask({
+                          taskId: moreActionsPopoverData.task.id,
+                        });
+                        closeMoreActionsPopover();
+                        if (refetchData) refetchData();
+                      }}
+                    >
+                      <ListItemIcon>
+                        <ShortcutIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                      </ListItemIcon>
+                      <ListItemText primary="Unassign" />
+                    </ListItemButton>
+                  </ListItem>
+                ) : (
+                  <ListItem disablePadding>
+                    <ListItemButton
+                      onClick={async () => {
+                        if (currentUserProviderId && currentUser?.name) {
+                          await assignTask({
+                            taskId: moreActionsPopoverData.task.id,
+                            assignee: {
+                              id: currentUserProviderId,
+                              name: currentUser.userName,
+                            },
+                          });
+                          closeMoreActionsPopover();
+                          if (refetchData) refetchData();
+                        }
+                      }}
+                    >
+                      <ListItemIcon>
+                        <HowToRegOutlinedIcon color="primary" />
+                      </ListItemIcon>
+                      <ListItemText primary="Assign me" />
+                    </ListItemButton>
+                  </ListItem>
+                )}
+                <ListItem disablePadding>
+                  <ListItemButton
+                    onClick={() => {
+                      setTaskToAssign(moreActionsPopoverData.task);
                       closeMoreActionsPopover();
-                      if (refetchData) refetchData();
-                    }
-                  }}
-                >
-                  <ListItemIcon>
-                    <HowToRegOutlinedIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText primary="Assign me" />
-                </ListItemButton>
-              </ListItem>
+                    }}
+                  >
+                    <ListItemIcon>
+                      <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
+                    </ListItemIcon>
+                    <ListItemText primary="Assign to someone else" />
+                  </ListItemButton>
+                </ListItem>
+              </>
             )}
-            <ListItem disablePadding>
-              <ListItemButton
-                onClick={() => {
-                  setTaskToAssign(moreActionsPopoverData.task);
-                  closeMoreActionsPopover();
-                }}
-              >
-                <ListItemIcon>
-                  <PersonAddIcon color="primary" style={{ transform: 'scaleX(-1)' }} />
-                </ListItemIcon>
-                <ListItemText primary="Assign to someone else" />
-              </ListItemButton>
-            </ListItem>
           </List>
         </Popover>
       ) : null}

@@ -32,6 +32,7 @@ import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking
 import { SERVICE_CATEGORY_SYSTEM, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { SCHEDULED_FOLLOWUP_OTHER_REASON, SCHEDULED_FOLLOWUP_REASONS } from 'utils/lib/fhir/encounter';
 import { getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPhoneNumberDigits } from 'utils/lib/helpers/helpers';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import {
@@ -527,8 +528,8 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
 
     const validations: Array<{ invalid: boolean; field: keyof AddVisitErrorState }> = [
       // first name, last name, and phone are empty strings when untouched
-      { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.length === 0 },
-      { field: 'lastName', invalid: patientInfo.lastName != null && patientInfo.lastName.length === 0 },
+      { field: 'firstName', invalid: patientInfo.firstName != null && patientInfo.firstName.trim().length === 0 },
+      { field: 'lastName', invalid: patientInfo.lastName != null && patientInfo.lastName.trim().length === 0 },
       {
         field: 'phone',
         invalid: patientInfo.phoneNumber != null && getPhoneNumberDigits(patientInfo.phoneNumber) == null,
@@ -620,7 +621,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
           timezone = getTimezone(selectedBookable.walkinSchedule ?? selectedBookable.rawLocation);
         } else {
           const candidate = locationWithSlotData?.available?.[0] ?? locationWithSlotData?.telemedAvailable?.[0];
-          walkinScheduleId = candidate?.slot.schedule?.reference?.split('/')[1];
+          walkinScheduleId = getIdFromReference(candidate?.slot.schedule?.reference);
           timezone = locationWithSlotData?.location?.timezone ?? 'UTC';
         }
         if (!walkinScheduleId) {

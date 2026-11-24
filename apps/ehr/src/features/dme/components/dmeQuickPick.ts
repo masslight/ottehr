@@ -1,4 +1,5 @@
 import type { RadiologyDiagnosis } from 'src/features/radiology/components/RadiologyDiagnosisField';
+import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { DmeDurationUnit, DmeLaterality, DmeModifier, DmeThirdParty } from 'utils/lib/types/api/dme.types';
 import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
@@ -57,6 +58,13 @@ export function applyDmeQuickPick(quickPick: DmeQuickPickData): DmeQuickPickPatc
 
 const THIRD_PARTY_KEYS = ['name', 'address', 'phone', 'fax'] as const;
 
+/** A valid number (10 digits, or 11 with a leading 1) as "(xxx) xxx-xxxx"; anything else is kept as typed. */
+export const normalizePhone = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  const valid = digits.length === 10 || (digits.length === 11 && digits.startsWith('1'));
+  return valid ? formatPhoneNumberDisplay(digits) : value;
+};
+
 const trimmed = (value: string | undefined): string | undefined => value?.trim() || undefined;
 
 export function buildDmeQuickPick(values: DmeOrderFormValues, name: string): Omit<DmeQuickPickData, 'id'> {
@@ -84,7 +92,8 @@ export function buildDmeQuickPick(values: DmeOrderFormValues, name: string): Omi
   if (values.external) {
     const thirdParty: DmeThirdParty = {};
     THIRD_PARTY_KEYS.forEach((key) => {
-      const value = trimmed(values.thirdParty[key]);
+      const raw = values.thirdParty[key];
+      const value = trimmed(key === 'phone' || key === 'fax' ? normalizePhone(raw) : raw);
       if (value) thirdParty[key] = value;
     });
     if (Object.keys(thirdParty).length) quickPick.thirdParty = thirdParty;

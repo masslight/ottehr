@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
+import type { DmeOrderFormValues } from 'src/features/dme/components/dmeQuickPick';
 import { LateralityValue } from 'utils/lib/fhir/radiology';
 import {
   CPTCodeDTO,
   DiagnosisDTO,
   VitalsBloodPressureObservationDTO,
+  VitalsHeadCircumferenceObservationDTO,
   VitalsHeartbeatObservationDTO,
   VitalsHeightObservationDTO,
   VitalsLastMenstrualPeriodObservationDTO,
@@ -35,7 +37,8 @@ type StoreKey =
   | 'nursing-order'
   | 'immunization'
   | 'in-house-med'
-  | 'vitals';
+  | 'vitals'
+  | 'dme';
 
 const DRAFT_STORE_NAME_BY_KEY: Record<StoreKey, string> = {
   'external-lab': 'create-external-lab-order-draft',
@@ -46,6 +49,7 @@ const DRAFT_STORE_NAME_BY_KEY: Record<StoreKey, string> = {
   immunization: 'immunization-order-draft',
   'in-house-med': 'in-house-med-order-draft',
   vitals: 'vitals-draft',
+  dme: 'create-dme-order-draft',
 };
 
 type GenericStateDraft = {
@@ -77,6 +81,7 @@ type CreateImmunizationOrderDraft = Partial<
     GenericStateDraft & { administrationDetails: InputImmunizationOrderAdministrationDetails }
 >;
 type CreateInHouseMedicationOrderDraft = Partial<MedicationData & GenericStateDraft>;
+export type CreateDmeOrderDraft = Partial<DmeOrderFormValues & GenericStateDraft>;
 type VitalsDraft = Partial<
   {
     // Partial<> on these four allows omitting numeric fields when the value is NaN
@@ -88,6 +93,7 @@ type VitalsDraft = Partial<
     respirationRate: VitalsRespirationRateObservationDTO;
     weight: VitalsWeightObservationDTO;
     height: VitalsHeightObservationDTO;
+    headCircumference: VitalsHeadCircumferenceObservationDTO;
     vision: VitalsVisionObservationDTO;
     lmp: VitalsLastMenstrualPeriodObservationDTO;
   } & GenericStateDraft
@@ -143,6 +149,7 @@ export const useNursingOrderStore = createGenericStore<CreateNursingOrderDraft>(
 export const useImmunizationOrderStore = createGenericStore<CreateImmunizationOrderDraft>('immunization');
 export const useInHouseMedicationOrderStore = createGenericStore<CreateInHouseMedicationOrderDraft>('in-house-med');
 export const useVitalsDraftStore = createGenericStore<VitalsDraft>('vitals');
+export const useDmeOrderStore = createGenericStore<CreateDmeOrderDraft>('dme');
 
 /**
  * Adds listeners to track if a user navigates away from the page and marks the draft as navigated away.

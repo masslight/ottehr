@@ -4,6 +4,7 @@ import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { RoleType } from 'utils/lib/types/api/user.types';
 import { DEFAULT_RULES_ENGINE } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { Layout } from './components/Layout';
@@ -13,6 +14,7 @@ import { UnauthorizedPage } from './components/UnauthorizedPage';
 import { ChargeItemDefinitionLabels } from './constants/chargeItemDefinition';
 import { useApiClients } from './hooks/useAppClients';
 import { useEvolveUser } from './hooks/useEvolveUser';
+import { useInvoicingInBillingApp } from './hooks/useInvoicingInBillingApp';
 import { BillingProviderDetail, BillingProvidersList } from './pages/BillingProviders';
 import CardsOnFileReport from './pages/CardsOnFileReport';
 import { ChargeItemDefinitionDetail, ChargeItemDefinitionList } from './pages/ChargeItemDefinitionsList';
@@ -24,12 +26,16 @@ import EraClaimDetail from './pages/EraClaimDetail';
 import ERADetail from './pages/ERADetail';
 import ERAList from './pages/ERAList';
 import { CustomInsuranceOrganizationDetail, InsuranceOrganizationsList } from './pages/InsuranceOrganizations';
+import InvoiceDetail from './pages/InvoiceDetail';
 import InvoiceReport from './pages/InvoiceReport';
+import InvoicesList from './pages/InvoicesList';
 import InvoicingConfiguration from './pages/InvoicingConfiguration';
 import ManualRemit from './pages/ManualRemit';
 import NetCollectionsReport from './pages/NetCollectionsReport';
 import { NonInsuranceOrganizationDetail, NonInsuranceOrganizationsList } from './pages/NonInsuranceOrganizations';
+import OutreachConfiguration from './pages/OutreachConfiguration';
 import PatientDetail from './pages/PatientDetail';
+import PatientPaymentDetail from './pages/PatientPaymentDetail';
 import PatientsList from './pages/PatientsList';
 import { PayerDetail } from './pages/PayerDetail';
 import PaymentsReport from './pages/PaymentsReport';
@@ -52,6 +58,8 @@ export default function App(): ReactElement {
   useApiClients();
   const { logout } = useAuth0();
   const { currentUser, isLoadingUser } = useEvolveUser();
+  const invoicingInBillingApp = useInvoicingInBillingApp();
+  const outreachInBillingApp = invoicingInBillingApp && FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled;
 
   const handleLogout = (): void => {
     void logout({ logoutParams: { returnTo: window.location.origin } });
@@ -91,8 +99,14 @@ export default function App(): ReactElement {
               <Route path="/work-queues/:id" element={<WorkQueueDetail />} />
               <Route path="/claims/new" element={<CreateClaim />} />
               <Route path="/claims/:id" element={<ClaimDetail />} />
+              {invoicingInBillingApp && <Route path="/invoices" element={<InvoicesList />} />}
+              {invoicingInBillingApp && <Route path="/invoices/:id" element={<InvoiceDetail />} />}
               <Route path="/patients" element={<PatientsList />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
+              <Route
+                path="/patients/:id/encounters/:encounterId/payments/:paymentId"
+                element={<PatientPaymentDetail />}
+              />
               <Route path="/insurance-organizations" element={<InsuranceOrganizationsList />} />
               <Route path="/insurance-organizations/rcm/:payerId" element={<PayerDetail />} />
               <Route path="/insurance-organizations/:id" element={<CustomInsuranceOrganizationDetail />} />
@@ -118,7 +132,8 @@ export default function App(): ReactElement {
               <Route path="/eras/:id/edit" element={<ManualRemit />} />
               <Route path="/eras/:eraId/claims/:claimId" element={<EraClaimDetail />} />
               <Route path="/tags" element={<Tags />} />
-              <Route path="/invoicing-configuration" element={<InvoicingConfiguration />} />
+              {invoicingInBillingApp && <Route path="/invoicing-configuration" element={<InvoicingConfiguration />} />}
+              {outreachInBillingApp && <Route path="/outreach-configuration" element={<OutreachConfiguration />} />}
               <Route path="/reports" element={<Reports />} />
               <Route path="/reports/payments" element={<PaymentsReport />} />
               <Route path="/reports/cards-on-file" element={<CardsOnFileReport />} />
@@ -130,7 +145,7 @@ export default function App(): ReactElement {
               <Route path="/rules" element={<Navigate to={`/rules/${DEFAULT_RULES_ENGINE}`} replace />} />
               <Route path="/rules/:engine" element={<Rules />} />
               <Route path="/rules/:engine/:id" element={<RuleDetail />} />
-              <Route path="*" element={<Navigate to="/" />} />
+              <Route path="*" element={invoicingInBillingApp === undefined ? <LoadingScreen /> : <Navigate to="/" />} />
             </Route>
           )}
         </Routes>

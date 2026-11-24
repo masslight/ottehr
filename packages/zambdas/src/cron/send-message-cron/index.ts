@@ -15,6 +15,7 @@ import { DateTime } from 'luxon';
 import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
 import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
 import { getPatientContactEmail } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isNonPaperworkQuestionnaireResponse } from 'utils/lib/helpers/paperwork/paperwork';
 import { InPersonReminderTemplateData } from 'utils/lib/ottehr-config/sendgrid';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -155,9 +156,11 @@ export const index = wrapHandler('send-message-cron', async (input: ZambdaInput)
       console.log(
         'send reminder for appointment with incomplete paperwork scheduled within the next 90 minutes and created 2 hours before visit time'
       );
-      const patientID = fhirAppointment.participant
-        .find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))
-        ?.actor?.reference?.split('/')[1];
+      const patientID = getIdFromReference(
+        fhirAppointment.participant.find((participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/'))
+          ?.actor?.reference,
+        'Patient'
+      );
       const fhirPatient = allResources.find((resourceTemp) => resourceTemp.id === patientID) as Patient;
       const patientEmail = getPatientContactEmail(fhirPatient);
 
@@ -248,13 +251,13 @@ const getScheduleForAppointment = (
   appointment: Appointment,
   resourceBundle: FhirResource[]
 ): { schedule?: Schedule; scheduleOwner?: Location | Practitioner } => {
-  const appointmentSlotId = appointment.slot?.[0].reference?.split('/')[1];
+  const appointmentSlotId = getIdFromReference(appointment.slot?.[0].reference);
   if (appointmentSlotId) {
     const slot = resourceBundle.find((res) => res.resourceType === 'Slot' && res.id === appointmentSlotId) as
       | Slot
       | undefined;
     if (slot) {
-      const scheduleId = slot.schedule?.reference?.split('/')[1];
+      const scheduleId = getIdFromReference(slot.schedule?.reference);
       const schedule = resourceBundle.find((res) => res.resourceType === 'Schedule' && res.id === scheduleId) as
         | Schedule
         | undefined;
@@ -262,7 +265,7 @@ const getScheduleForAppointment = (
       let scheduleOwner: Location | Practitioner | undefined;
       if (scheduleOwnerRef) {
         const scheduleOwnerType = scheduleOwnerRef.split('/')[0];
-        const scheduleOwnerId = scheduleOwnerRef.split('/')[1];
+        const scheduleOwnerId = getIdFromReference(scheduleOwnerRef);
         scheduleOwner = resourceBundle.find(
           (res) =>
             res.resourceType === scheduleOwnerType &&

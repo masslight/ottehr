@@ -53,6 +53,7 @@ export class DocumentProcedurePage {
   }
 
   async selectCptCode(cptCode: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.documentProcedurePage.addCptCode).click();
     await this.#page.getByTestId(dataTestIds.documentProcedurePage.cptCodeInput).locator('input').fill(cptCode);
     await this.#page.locator('li').getByText(cptCode, { exact: false }).click();
   }

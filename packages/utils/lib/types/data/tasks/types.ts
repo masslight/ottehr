@@ -1,4 +1,7 @@
 import { Task as FhirTask } from 'fhir/r4b';
+import { z } from 'zod';
+import { optionalTextSchema, requiredTextSchema } from '../../text-schemas';
+import { TASK_PROGRESS_NOTE_SECTION_KEYS } from './progress-note-sections';
 
 export interface Task {
   id: string;
@@ -20,32 +23,42 @@ export interface Task {
   createdById?: string;
   alert?: TaskAlertCode;
   completable: boolean;
+  reopenable?: boolean;
+  chat?: {
+    hasUnread: boolean;
+  };
 }
-export interface CreateManualTaskRequest {
-  category: string;
-  appointmentId?: string;
-  orderId?: string;
-  encounterId?: string;
-  taskTitle: string;
-  taskDetails?: string;
-  assignee?: {
-    id: string;
-    name: string;
-  };
-  location: {
-    id: string;
-    name: string;
-  };
-  patient?: {
-    id: string;
-    name: string;
-  };
-  createdBy?: string;
-}
+const namedReference = z.object({ id: requiredTextSchema, name: requiredTextSchema });
+const optionalNamedReference = namedReference.nullish().transform((value) => value ?? undefined);
+
+export const CreateManualTaskRequestSchema = z
+  .object({
+    category: requiredTextSchema,
+    appointmentId: optionalTextSchema,
+    orderId: optionalTextSchema,
+    progressNoteSection: z
+      .enum(TASK_PROGRESS_NOTE_SECTION_KEYS)
+      .nullish()
+      .transform((value) => value ?? undefined),
+    encounterId: optionalTextSchema,
+    taskTitle: requiredTextSchema,
+    taskDetails: optionalTextSchema,
+    assignee: optionalNamedReference,
+    location: optionalNamedReference,
+    patient: optionalNamedReference,
+    createdBy: optionalTextSchema,
+  })
+  .refine((request) => !request.progressNoteSection || (!!request.appointmentId && !request.orderId), {
+    message: 'A progress note section can only be linked to a visit, not to an order',
+    path: ['progressNoteSection'],
+  });
+export type CreateManualTaskRequest = z.input<typeof CreateManualTaskRequestSchema>;
 
 export const MANUAL_TASK = {
   category: {
+    dme: 'manual-dme',
     externalLab: 'manual-external-lab',
+    immunization: 'manual-immunization',
     inHouseLab: 'manual-in-house-lab',
     inHouseMedications: 'manual-in-house-medications',
     nursingOrders: 'manual-nursing-orders',
@@ -64,6 +77,7 @@ export const MANUAL_TASK = {
     providerName: 'provider-name',
     appointmentId: 'appointment-id',
     orderId: 'order-id',
+    progressNoteSection: 'progress-note-section',
     encounterId: 'encounter-id',
     patient: 'patient',
     documentReferenceId: 'document-reference-id',
@@ -82,6 +96,7 @@ export const FAX_TASK = {
   system: 'inbound-fax-task',
   code: {
     matchInboundFax: 'match-inbound-fax',
+    reviewInboundFax: 'review-inbound-fax',
   },
   input: {
     senderFaxNumber: 'sender-fax-number',
@@ -89,6 +104,9 @@ export const FAX_TASK = {
     communicationId: 'communication-id',
     pdfUrl: 'pdf-url',
     receivedDate: 'received-date',
+    patientId: 'patient-id',
+    folderId: 'folder-id',
+    appointmentId: 'appointment-id',
   },
   businessStatus: {
     filed: 'filed',
@@ -144,5 +162,16 @@ export const ERX_TASK = {
   },
   input: {
     providerName: 'provider-name',
+  },
+} as const;
+
+export const PATIENT_REQUEST_TASK = {
+  category: 'patient-request',
+  system: 'patient-request-task',
+  code: {
+    prescriptionRefill: 'prescription-refill',
+    schoolWorkNote: 'school-work-note',
+    medicalRecord: 'medical-record',
+    followUp: 'follow-up',
   },
 } as const;

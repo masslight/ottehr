@@ -33,4 +33,24 @@ describe('patient Header', () => {
 
     expect(screen.getByTestId(dataTestIds.patientHeader.patientName)).toHaveTextContent('Baggins, Lulu');
   });
+
+  it("links the patient name to the patient's record when the page asks for it", () => {
+    render(
+      <MemoryRouter>
+        <Header handleDiscard={() => undefined} id="patient-1" fallbackPatient={patient} linkNameToPatientRecord />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('link', { name: 'Baggins, Lulu' })).toHaveAttribute('href', '/patient/patient-1');
+  });
+
+  it('keeps the patient name as plain text by default', () => {
+    render(
+      <MemoryRouter>
+        <Header handleDiscard={() => undefined} id="patient-1" fallbackPatient={patient} />
+      </MemoryRouter>
+    );
+
+    expect(screen.queryByRole('link', { name: 'Baggins, Lulu' })).not.toBeInTheDocument();
+  });
 });

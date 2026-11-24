@@ -25,4 +25,6 @@ export type SaveInvoiceConfigInput = z.infer<typeof SaveInvoiceConfigBodySchema>
 export interface InvoiceConfigResponse {
   questionnaire: Questionnaire;
   questionnaireResponse: QuestionnaireResponse;
+  // Set by the get endpoints from the INVOICING_IN_BILLING_APP secret, so both apps follow it without a rebuild.
+  invoicingInBillingApp?: boolean;
 }

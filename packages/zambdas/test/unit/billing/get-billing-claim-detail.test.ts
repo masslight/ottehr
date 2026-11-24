@@ -1,5 +1,11 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Claim, Organization, Patient, PaymentNotice, PaymentReconciliation } from 'fhir/r4b';
+import {
+  buildBillingInvoice,
+  invoicePaymentExtension,
+  NIO_INVOICE_PAYMENT_ID_SYSTEM,
+  PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
+} from 'utils/lib/fhir/billing-invoice';
 import { PAYMENT_METHOD_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import {
@@ -129,15 +135,18 @@ const paymentNotice = (opts: {
   } as PaymentNotice;
 };
 
-const makeBillingClient = (notices: PaymentNotice[]): Oystehr => {
+const makeBillingClient = (notices: PaymentNotice[], nioNotices: PaymentNotice[] = []): Oystehr => {
   const search = vi
     .fn()
     .mockImplementation(({ resourceType, params }: { resourceType: string; params: SearchParam[] }) => {
-      const isPatientPaymentNoticeSearch =
-        resourceType === 'PaymentNotice' &&
-        !params.some((p) => p.name === 'identifier' && String(p.value).startsWith(WRITE_OFF_SYSTEM));
+      const searchesSystem = (system: string): boolean =>
+        params.some((p) => p.name === 'identifier' && String(p.value).startsWith(system));
+      const results = (): PaymentNotice[] => {
+        if (resourceType !== 'PaymentNotice' || searchesSystem(WRITE_OFF_SYSTEM)) return [];
+        return searchesSystem(NIO_INVOICE_PAYMENT_ID_SYSTEM) ? nioNotices : notices;
+      };
       return Promise.resolve({
-        unbundle: () => (isPatientPaymentNoticeSearch ? notices : []),
+        unbundle: results,
         link: [],
       });
     });
@@ -230,6 +239,75 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
     expect(response.patientPayments).toEqual([]);
   });
 
+  it('skips the invoice lookup while invoicing is not in the billing app', async () => {
+    const oystehr = makeBillingClient([]);
+
+    const response = await performEffect(
+      oystehr,
+      {} as unknown as Oystehr,
+      { claimId: 'claim-1', secrets: {} } as never
+    );
+
+    expect(response.invoices).toEqual([]);
+    expect(oystehr.fhir.search).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'Invoice' }));
+  });
+
+  it("shows the claim's own amount on an overdue NIO invoice that covers several claims", async () => {
+    const nioInvoice = {
+      ...buildBillingInvoice({
+        status: 'issued',
+        date: '2026-01-10T15:00:00.000Z',
+        dueDate: '2026-01-17',
+        recipient: {
+          reference: 'Organization/nio-1',
+        },
+        claims: [
+          {
+            claimId: 'claim-1',
+            amountCents: 15000,
+          },
+          {
+            claimId: 'claim-2',
+            amountCents: 15000,
+          },
+        ],
+      }),
+      id: 'invoice-1',
+    };
+    const oystehr = makeBillingClient([]);
+    (oystehr.fhir.search as Mock).mockImplementation(({ resourceType }: { resourceType: string }) =>
+      Promise.resolve({
+        unbundle: () => (resourceType === 'Invoice' ? [nioInvoice] : []),
+        link: [],
+      })
+    );
+
+    const response = await performEffect(
+      oystehr,
+      {} as unknown as Oystehr,
+      {
+        claimId: 'claim-1',
+        secrets: {
+          BILLING_INTEGRATION: 'ottehr',
+          INVOICING_IN_BILLING_APP: 'true',
+        },
+      } as never
+    );
+
+    expect(response.invoices).toEqual([
+      {
+        id: 'invoice-1',
+        status: 'issued',
+        issueDate: '2026-01-10T15:00:00.000Z',
+        dueDate: '2026-01-17',
+        amount: 150,
+        hostedInvoiceUrl: undefined,
+        kind: 'nio',
+        pastDue: true,
+      },
+    ]);
+  });
+
   it('lists a cancelled refund for the audit trail but keeps it out of patientPaid and the balance', async () => {
     const notices = [
       paymentNotice({
@@ -261,6 +339,87 @@ describe('get-billing-claim-detail performEffect: patient payments', () => {
     expect(response.balance).toBe(100);
     expect(response.patientPayments.map((p) => p.paymentNoticeId)).toEqual(['pn-refund-failed', 'pn-charge']);
     expect(response.patientPayments[0].status).toBe('cancelled');
+  });
+
+  it("settles the balance with the claim's NIO invoice payments, listed apart from patient payments", async () => {
+    const nioPayment: PaymentNotice = {
+      ...paymentNotice({
+        id: 'pn-nio',
+        amount: 150,
+        paymentDate: '2026-07-20',
+        method: 'wire',
+      }),
+      identifier: [
+        {
+          system: NIO_INVOICE_PAYMENT_ID_SYSTEM,
+          value: 'payment-1',
+        },
+      ],
+      request: {
+        reference: 'Claim/claim-1',
+      },
+      extension: [
+        {
+          url: PAYMENT_METHOD_EXTENSION_URL,
+          valueString: 'wire',
+        },
+        invoicePaymentExtension('invoice-1'),
+      ],
+      contained: [
+        {
+          resourceType: 'PaymentReconciliation',
+          id: 'contained-reconciliation',
+          status: 'active',
+          created: '2026-07-20T12:00:00Z',
+          paymentDate: '2026-07-20',
+          paymentAmount: {
+            value: 150,
+            currency: 'USD',
+          },
+          identifier: [
+            {
+              system: PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
+              value: 'WIRE-88',
+            },
+          ],
+        },
+      ],
+    };
+    const oystehr = makeBillingClient(
+      [
+        paymentNotice({
+          id: 'pn-patient',
+          amount: 50,
+          paymentDate: '2026-07-01',
+        }),
+      ],
+      [nioPayment]
+    );
+
+    const response = await performEffect(
+      oystehr,
+      {} as unknown as Oystehr,
+      {
+        claimId: 'claim-1',
+        secrets: {},
+      } as never
+    );
+
+    expect(response.patientPaid).toBe(50);
+    expect(response.nioPaid).toBe(150);
+    expect(response.balance).toBe(0);
+    expect(response.patientPayments.map((p) => p.paymentNoticeId)).toEqual(['pn-patient']);
+    expect(response.nioPayments).toEqual([
+      {
+        paymentNoticeId: 'pn-nio',
+        invoiceId: 'invoice-1',
+        paymentDate: '2026-07-20',
+        amount: 150,
+        method: 'wire',
+        reference: 'WIRE-88',
+        status: 'active',
+      },
+    ]);
   });
 });
 
@@ -507,6 +666,17 @@ describe('get-billing-claim-detail performEffect: remits and insurance payments'
 
     expect(response.firstSubmittedDate).toBe('2026-07-02T12:00:00Z');
     expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(expect.anything(), 'claim-1');
+  });
+
+  it('reads the ERA remits through the billing client and only the untagged submissions without it', async () => {
+    const billingClient = makeBillingClient([]);
+    const untaggedClient = {} as unknown as Oystehr;
+
+    await performEffect(billingClient, untaggedClient, { claimId: 'claim-1', secrets: {} } as never);
+
+    expect(fetchClaimResponsesByClaimIds).toHaveBeenCalledWith(billingClient, ['claim-1']);
+    expect(fetchClaimEraLinks).toHaveBeenCalledWith(billingClient, expect.anything());
+    expect(fetchClaimFirstSubmittedDate).toHaveBeenCalledWith(untaggedClient, 'claim-1');
   });
 
   it('has a payer claim control number', async () => {

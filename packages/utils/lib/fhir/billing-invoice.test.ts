@@ -1,22 +1,29 @@
 import { Location, Organization, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
+  BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM,
   buildBillingInvoice,
   BuildBillingInvoiceInput,
   formatInvoiceNumber,
   getBillingInvoiceClaims,
   getBillingInvoiceDueDate,
+  getBillingInvoiceIdempotencyKey,
   getBillingInvoiceKind,
+  getHostedInvoiceUrl,
   getInvoiceNumber,
   getPaymentNoticeInvoiceId,
   getStripeInvoiceLink,
   INVOICE_NUMBER_IDENTIFIER_SYSTEM,
+  INVOICE_UNCOLLECTIBLE_EXTENSION_URL,
   invoiceClaimTag,
   invoicePaymentExtension,
   invoiceStatusFromStripe,
   isInvoicePastDue,
+  isInvoiceUncollectible,
   isSameInvoiceIssuer,
   resolveInvoiceIssuer,
+  withHostedInvoiceUrl,
+  withInvoiceUncollectible,
   withStripeInvoiceLink,
 } from './billing-invoice';
 
@@ -248,6 +255,40 @@ describe('formatInvoiceNumber', () => {
   });
 });
 
+describe('getBillingInvoiceIdempotencyKey', () => {
+  it('reads the key the creating request stored, ignoring other identifiers', () => {
+    const invoice = buildBillingInvoice({
+      ...base,
+      recipient: {
+        reference: 'Organization/fedex',
+      },
+      claims: [
+        {
+          claimId: 'claim-1',
+          amountCents: 5000,
+        },
+      ],
+    });
+
+    expect(getBillingInvoiceIdempotencyKey(invoice)).toBeUndefined();
+    expect(
+      getBillingInvoiceIdempotencyKey({
+        ...invoice,
+        identifier: [
+          {
+            system: INVOICE_NUMBER_IDENTIFIER_SYSTEM,
+            value: 'INV-00042',
+          },
+          {
+            system: BILLING_INVOICE_IDEMPOTENCY_KEY_SYSTEM,
+            value: 'key-1',
+          },
+        ],
+      })
+    ).toBe('key-1');
+  });
+});
+
 describe('getPaymentNoticeInvoiceId', () => {
   const notice: PaymentNotice = {
     resourceType: 'PaymentNotice',
@@ -277,6 +318,22 @@ describe('getPaymentNoticeInvoiceId', () => {
   it('is undefined for a notice without an invoice', () => {
     expect(getPaymentNoticeInvoiceId(notice)).toBeUndefined();
   });
+
+  it('is undefined when the extension references another resource type', () => {
+    expect(
+      getPaymentNoticeInvoiceId({
+        ...notice,
+        extension: [
+          {
+            url: invoicePaymentExtension('invoice-1').url,
+            valueReference: {
+              reference: 'Claim/claim-1',
+            },
+          },
+        ],
+      })
+    ).toBeUndefined();
+  });
 });
 
 describe('withStripeInvoiceLink', () => {
@@ -302,6 +359,47 @@ describe('withStripeInvoiceLink', () => {
     expect(withStripeInvoiceLink(linked, { stripeInvoiceId: 'in_1', stripeAccount: 'acct_1' })).toBe(linked);
     expect(() => withStripeInvoiceLink(linked, { stripeInvoiceId: 'in_2', stripeAccount: 'acct_1' })).toThrow();
     expect(() => withStripeInvoiceLink(linked, { stripeInvoiceId: 'in_1', stripeAccount: 'acct_2' })).toThrow();
+  });
+});
+
+describe('withHostedInvoiceUrl', () => {
+  it('keeps one hosted URL next to the due date', () => {
+    const invoice = buildBillingInvoice({
+      ...base,
+      recipient: { reference: 'Patient/jane' },
+      claims: [{ claimId: 'claim-1', amountCents: 5000 }],
+    });
+
+    const hosted = withHostedInvoiceUrl(withHostedInvoiceUrl(invoice, 'https://pay.test/old'), 'https://pay.test/new');
+
+    expect(getHostedInvoiceUrl(hosted)).toBe('https://pay.test/new');
+    expect(getBillingInvoiceDueDate(hosted)).toBe('2026-11-08');
+    expect(hosted.extension).toHaveLength(2);
+  });
+});
+
+describe('withInvoiceUncollectible', () => {
+  const invoice = withHostedInvoiceUrl(
+    buildBillingInvoice({
+      ...base,
+      recipient: { reference: 'Patient/jane' },
+      claims: [{ claimId: 'claim-1', amountCents: 5000 }],
+    }),
+    'https://pay.test/in_1'
+  );
+
+  it('is not uncollectible until marked', () => {
+    expect(isInvoiceUncollectible(invoice)).toBe(false);
+    expect(isInvoiceUncollectible(withInvoiceUncollectible(invoice))).toBe(true);
+  });
+
+  it('keeps one marker next to the due date and hosted URL', () => {
+    const marked = withInvoiceUncollectible(withInvoiceUncollectible(invoice));
+
+    expect(marked.extension?.filter((ext) => ext.url === INVOICE_UNCOLLECTIBLE_EXTENSION_URL)).toHaveLength(1);
+    expect(getBillingInvoiceDueDate(marked)).toBe('2026-11-08');
+    expect(getHostedInvoiceUrl(marked)).toBe('https://pay.test/in_1');
+    expect(isInvoiceUncollectible(invoice)).toBe(false);
   });
 });
 

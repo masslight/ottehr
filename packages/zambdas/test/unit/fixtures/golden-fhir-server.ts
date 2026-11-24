@@ -58,6 +58,7 @@ const leg = (name: string, url: string): { type: string; follow: (resource: AnyR
 /** The date a `_sort` key reads, per key. */
 const SORT_KEYS: Record<string, (resource: AnyResource) => string | undefined> = {
   _lastUpdated: (r) => r.meta?.lastUpdated,
+  date: (r) => r.start,
   effective: (r) => r.effectiveDateTime ?? r.effectivePeriod?.start,
   sent: (r) => r.sent,
 };
@@ -111,7 +112,22 @@ export function createGoldenFhirServer(store: FhirResource[]): GoldenFhirServer 
         case 'patient:Patient._has:Encounter:subject:_id': {
           const field = name.startsWith('subject') ? 'subject' : 'patient';
           const patients = subjectsOfEncounters(values);
-          matches = matches.filter((r) => patients.includes(r[field]?.reference));
+
+          const patientRefs = (r: AnyResource): (string | undefined)[] =>
+            r.resourceType === 'Appointment'
+              ? (r.participant ?? []).map((p: { actor?: { reference?: string } }) => p.actor?.reference)
+              : [r[field]?.reference];
+
+          matches = matches.filter((r) => patientRefs(r).some((ref) => ref !== undefined && patients.includes(ref)));
+          break;
+        }
+        case '_has:Encounter:appointment:_id': {
+          if (resourceType !== 'Appointment')
+            throw new Error(`golden FHIR server: ${name} is only for Appointment (${url})`);
+          const appointments = encountersById(values).flatMap((encounter) =>
+            (encounter.appointment ?? []).flatMap((ref) => (ref.reference ? [ref.reference] : []))
+          );
+          matches = matches.filter((r) => appointments.includes(`Appointment/${r.id}`));
           break;
         }
         case '_has:Encounter:subject:_id': {
@@ -144,6 +160,8 @@ export function createGoldenFhirServer(store: FhirResource[]): GoldenFhirServer 
           break;
         case '_sort':
           sort = value;
+          break;
+        case '_elements':
           break;
         case '_count':
           count = Number(value);

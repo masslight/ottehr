@@ -65,6 +65,9 @@ export interface CardPaymentDTO {
   takenBy?: string; // display name of the logged-in user who took the payment
   refundedAmountInCents?: number; // settled (non-failed) refund total
   refunds?: PaymentRefundDTO[];
+  // Stripe could not be reached for this payment's refunds, so these are the ones recorded on it and may
+  // miss some: the refunded total is unconfirmed until a lookup succeeds
+  refundsUnconfirmed?: boolean;
   voided?: boolean;
   voidReason?: string;
   voidNotes?: string;
@@ -87,6 +90,9 @@ export interface CashPaymentDTO {
   takenBy?: string; // display name of the logged-in user who took the payment
   refundedAmountInCents?: number; // settled (non-failed) refund total
   refunds?: PaymentRefundDTO[];
+  // Stripe could not be reached for this payment's refunds, so these are the ones recorded on it and may
+  // miss some: the refunded total is unconfirmed until a lookup succeeds
+  refundsUnconfirmed?: boolean;
   voided?: boolean;
   voidReason?: string;
   voidNotes?: string;

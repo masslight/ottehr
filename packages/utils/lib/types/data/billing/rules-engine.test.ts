@@ -23,6 +23,7 @@ import {
   BillingRule,
   effectiveDiagnosisMode,
   RuleActionSchema,
+  RunBillingRulesEngineInputSchema,
   SaveBillingRulesInputSchema,
 } from './rules-engine.schemas';
 import { HOLD_TAG_NAME } from './system-tags';
@@ -38,6 +39,17 @@ describe('applyTag canonicalization', () => {
     });
     expect(RuleActionSchema.parse({ type: 'applyTag', tag: 'HOLD' })).toEqual({ type: 'applyTag', tag: HOLD_TAG_NAME });
     expect(RuleActionSchema.parse({ type: 'applyTag', tag: ' VIP ' })).toEqual({ type: 'applyTag', tag: 'VIP' });
+  });
+});
+
+describe('copyMemberIdToGroupNumber action schema', () => {
+  it('parses the action for every insurance position and rejects a missing or unknown one', () => {
+    for (const insurance of ['primary', 'secondary', 'tertiary', 'quaternary']) {
+      const action = { type: 'copyMemberIdToGroupNumber', insurance };
+      expect(RuleActionSchema.parse(action)).toEqual(action);
+    }
+    expect(RuleActionSchema.safeParse({ type: 'copyMemberIdToGroupNumber' }).success).toBe(false);
+    expect(RuleActionSchema.safeParse({ type: 'copyMemberIdToGroupNumber', insurance: 'fifth' }).success).toBe(false);
   });
 });
 
@@ -214,6 +226,39 @@ describe('SaveBillingRulesInputSchema', () => {
       rules: [newRuleA, newRuleB, rule('c')],
     });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe('RunBillingRulesEngineInputSchema payerClaimControlNumber', () => {
+  const correction = (payerClaimControlNumber?: string): unknown => ({
+    claimIds: ['claim-1'],
+    submissionType: 'correction',
+    submissionInsurance: 'primary',
+    payerClaimControlNumber,
+  });
+
+  it('rejects a whitespace-only payer claim control number on a correction', () => {
+    expect(RunBillingRulesEngineInputSchema.safeParse(correction('   ')).success).toBe(false);
+  });
+
+  it('rejects a whitespace-only payer claim control number on a void', () => {
+    expect(
+      RunBillingRulesEngineInputSchema.safeParse({ ...(correction('  ') as object), submissionType: 'void' }).success
+    ).toBe(false);
+  });
+
+  it('trims surrounding whitespace from the payer claim control number', () => {
+    expect(RunBillingRulesEngineInputSchema.parse(correction(' PCCN-1 ')).payerClaimControlNumber).toBe('PCCN-1');
+  });
+
+  it('still accepts a new submission without a payer claim control number', () => {
+    expect(
+      RunBillingRulesEngineInputSchema.safeParse({
+        claimIds: ['claim-1'],
+        submissionType: 'new',
+        submissionInsurance: 'primary',
+      }).success
+    ).toBe(true);
   });
 });
 

@@ -4,11 +4,15 @@ import {
   Box,
   Button,
   FormControl,
+  FormControlLabel,
   FormHelperText,
+  FormLabel,
   IconButton,
   InputLabel,
   ListSubheader,
   MenuItem,
+  Radio,
+  RadioGroup,
   Select,
   TextField,
   Typography,
@@ -16,6 +20,12 @@ import {
 import { ReactElement, ReactNode, Ref } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { otherColors } from 'utils/lib/theme/billing-palette';
+import {
+  RULES_ENGINE_INSURANCES,
+  RulesEngineInsurance,
+  RulesEngineSubmissionType,
+  RulesEngineType,
+} from 'utils/lib/types/data/billing/rules-engine.constants';
 import {
   ADD_SERVICE_LINE_FIELDS,
   addServiceLineFieldProblem,
@@ -1156,15 +1166,89 @@ function ServiceLineSetEditor({ name }: { name: string }): ReactElement | null {
   );
 }
 
+function SubmitClaimEditor({ name }: { name: string }): ReactElement | null {
+  const { control } = useFormContext();
+  const { value } = useNode<{
+    submissionType: RulesEngineSubmissionType;
+    submissionInsurance: RulesEngineInsurance;
+    payerClaimControlNumber?: string;
+  }>(name);
+  if (!value) return null;
+  return (
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
+        <Controller
+          name={`${name}.submissionInsurance`}
+          control={control}
+          render={({ field }) => (
+            <FormControl>
+              <FormLabel id="submission-type-label">Select Insurance</FormLabel>
+              <RadioGroup
+                aria-labelledby="submission-type-label"
+                name="submission-type-group"
+                value={field.value}
+                onChange={(event) => {
+                  field.onChange(event.target.value as RulesEngineInsurance);
+                }}
+              >
+                <FormControlLabel value="primary" control={<Radio />} label="Primary" />
+                <FormControlLabel value="secondary" control={<Radio />} label="Secondary" />
+                <FormControlLabel value="tertiary" control={<Radio />} label="Tertiary" />
+                <FormControlLabel value="quaternary" control={<Radio />} label="Quaternary" />
+              </RadioGroup>
+            </FormControl>
+          )}
+        />
+        <Controller
+          name={`${name}.submissionType`}
+          control={control}
+          render={({ field }) => (
+            <FormControl>
+              <FormLabel id="submission-type-label">Select Submission Type</FormLabel>
+              <RadioGroup
+                aria-labelledby="submission-type-label"
+                name="submission-type-group"
+                value={field.value}
+                onChange={(event) => {
+                  field.onChange(event.target.value as RulesEngineSubmissionType);
+                }}
+              >
+                <FormControlLabel value="new" control={<Radio />} label="New Submission" />
+                <FormControlLabel value="correction" control={<Radio />} label="Correction" />
+                <FormControlLabel value="void" control={<Radio />} label="Void Claim" />
+              </RadioGroup>
+            </FormControl>
+          )}
+        />
+        {value.submissionType !== 'new' ? (
+          <Typography variant="body1">
+            For corrections and voids, the payer claim control number will be taken from the claim.
+          </Typography>
+        ) : (
+          <></>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
 // --- Action ---
 
-function ActionEditor({ name }: { name: string }): ReactElement | null {
+function ActionEditor({ name, engine }: { name: string; engine: RulesEngineType }): ReactElement | null {
   const { control, clearErrors } = useFormContext();
   const { value, replace } = useNode<RuleAction>(name);
   if (!value) return null;
   const setFieldDef = value.type === RULE_ACTION_TYPE.setField ? getRuleFieldDef(value.field) : undefined;
   return (
-    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        gap: 1,
+        flexWrap: 'wrap',
+        flexDirection: value.type === RULE_ACTION_TYPE.submitClaim ? 'column' : 'initial',
+        alignItems: 'flex-start',
+      }}
+    >
       <FormControl size="small" sx={{ minWidth: 150 }}>
         <InputLabel>Action</InputLabel>
         <Select
@@ -1172,25 +1256,49 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           value={value.type}
           onChange={(e) => {
             const next = e.target.value as RuleAction['type'];
-            if (next === RULE_ACTION_TYPE.setField) replace(newAction());
-            else if (next === RULE_ACTION_TYPE.applyTag) replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
-            else if (next === RULE_ACTION_TYPE.addServiceLine)
-              replace({
-                type: RULE_ACTION_TYPE.addServiceLine,
-                line: { cptCode: '', charges: '', diagnosisMode: 'primary' },
-              });
-            else if (next === RULE_ACTION_TYPE.updateServiceLines)
-              replace({
-                type: RULE_ACTION_TYPE.updateServiceLines,
-                match: newServiceLineMatch(),
-                set: { property: SETTABLE_LINE_PROPERTIES[0].id, value: '' },
-              });
-            else if (next === RULE_ACTION_TYPE.removeServiceLines)
-              replace({ type: RULE_ACTION_TYPE.removeServiceLines, match: newServiceLineMatch() });
-            else if (next === RULE_ACTION_TYPE.applyChargeMasterPrices)
-              // Default to all lines: re-pricing the whole claim is the common case.
-              replace({ type: RULE_ACTION_TYPE.applyChargeMasterPrices, match: { type: SERVICE_LINE_MATCH_TYPE.all } });
-            else replace({ type: RULE_ACTION_TYPE.noop });
+            switch (next) {
+              case RULE_ACTION_TYPE.setField:
+                replace(newAction());
+                break;
+              case RULE_ACTION_TYPE.applyTag:
+                replace({ type: RULE_ACTION_TYPE.applyTag, tag: '' });
+                break;
+              case RULE_ACTION_TYPE.addServiceLine:
+                replace({
+                  type: RULE_ACTION_TYPE.addServiceLine,
+                  line: { cptCode: '', charges: '', diagnosisMode: 'primary' },
+                });
+                break;
+              case RULE_ACTION_TYPE.updateServiceLines:
+                replace({
+                  type: RULE_ACTION_TYPE.updateServiceLines,
+                  match: newServiceLineMatch(),
+                  set: { property: SETTABLE_LINE_PROPERTIES[0].id, value: '' },
+                });
+                break;
+              case RULE_ACTION_TYPE.removeServiceLines:
+                replace({ type: RULE_ACTION_TYPE.removeServiceLines, match: newServiceLineMatch() });
+                break;
+              case RULE_ACTION_TYPE.applyChargeMasterPrices:
+                // Default to all lines: re-pricing the whole claim is the common case.
+                replace({
+                  type: RULE_ACTION_TYPE.applyChargeMasterPrices,
+                  match: { type: SERVICE_LINE_MATCH_TYPE.all },
+                });
+                break;
+              case RULE_ACTION_TYPE.copyMemberIdToGroupNumber:
+                replace({ type: RULE_ACTION_TYPE.copyMemberIdToGroupNumber, insurance: 'primary' });
+                break;
+              case RULE_ACTION_TYPE.submitClaim:
+                replace({ type: RULE_ACTION_TYPE.submitClaim, submissionType: 'new', submissionInsurance: 'primary' });
+                break;
+              case RULE_ACTION_TYPE.noop:
+                replace({ type: RULE_ACTION_TYPE.noop });
+                break;
+              default:
+                // Exhaustive switch check
+                throw next satisfies never;
+            }
             clearErrors(name);
           }}
         >
@@ -1200,6 +1308,8 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           <MenuItem value={RULE_ACTION_TYPE.updateServiceLines}>Update service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.removeServiceLines}>Remove service lines</MenuItem>
           <MenuItem value={RULE_ACTION_TYPE.applyChargeMasterPrices}>Apply charge master prices</MenuItem>
+          <MenuItem value={RULE_ACTION_TYPE.copyMemberIdToGroupNumber}>Copy member ID to group number</MenuItem>
+          {engine === 'post-adjudication' && <MenuItem value={RULE_ACTION_TYPE.submitClaim}>Submit claim</MenuItem>}
           <MenuItem value={RULE_ACTION_TYPE.noop}>Do nothing</MenuItem>
         </Select>
       </FormControl>
@@ -1271,6 +1381,35 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           </FormHelperText>
         </Box>
       )}
+      {value.type === RULE_ACTION_TYPE.copyMemberIdToGroupNumber && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Controller
+            name={`${name}.insurance`}
+            control={control}
+            render={({ field }) => (
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <InputLabel id={`${name}-insurance-label`}>Insurance</InputLabel>
+                <Select
+                  labelId={`${name}-insurance-label`}
+                  label="Insurance"
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.target.value as RulesEngineInsurance)}
+                >
+                  {RULES_ENGINE_INSURANCES.map((insurance) => (
+                    <MenuItem key={insurance} value={insurance}>
+                      {insurance.charAt(0).toUpperCase() + insurance.slice(1)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+          />
+          <FormHelperText>
+            Replaces the coverage's group number with its member ID (e.g. a worker's comp claim number recorded as the
+            member ID). Fails and holds the claim when the coverage or its member ID is missing.
+          </FormHelperText>
+        </Box>
+      )}
       {value.type === RULE_ACTION_TYPE.applyTag && (
         <Controller
           name={`${name}.tag`}
@@ -1289,13 +1428,14 @@ function ActionEditor({ name }: { name: string }): ReactElement | null {
           )}
         />
       )}
+      {value.type === RULE_ACTION_TYPE.submitClaim && <SubmitClaimEditor name={name} />}
     </Box>
   );
 }
 
 // --- Outcome ---
 
-function OutcomeEditor({ name }: { name: string }): ReactElement | null {
+function OutcomeEditor({ name, engine }: { name: string; engine: RulesEngineType }): ReactElement | null {
   const { clearErrors } = useFormContext();
   const { value, replace } = useNode<RuleOutcome>(name);
   if (!value) return null;
@@ -1326,7 +1466,7 @@ function OutcomeEditor({ name }: { name: string }): ReactElement | null {
           {actions.map((_, index) => (
             <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
               <Box sx={{ flex: 1 }}>
-                <ActionEditor name={`${name}.actions.${index}`} />
+                <ActionEditor name={`${name}.actions.${index}`} engine={engine} />
               </Box>
               <IconButton
                 size="small"
@@ -1352,7 +1492,7 @@ function OutcomeEditor({ name }: { name: string }): ReactElement | null {
       )}
       {value.type === RULE_OUTCOME_TYPE.conditional && (
         <Box sx={{ mt: 1, ...indentSx }}>
-          <ConditionalEditor name={`${name}.conditional`} />
+          <ConditionalEditor name={`${name}.conditional`} engine={engine} />
         </Box>
       )}
     </Box>
@@ -1361,7 +1501,7 @@ function OutcomeEditor({ name }: { name: string }): ReactElement | null {
 
 // --- Conditional (top-level entry point) ---
 
-export function ConditionalEditor({ name }: { name: string }): ReactElement | null {
+export function ConditionalEditor({ name, engine }: { name: string; engine: RulesEngineType }): ReactElement | null {
   const { clearErrors } = useFormContext();
   const { value, replace } = useNode<RuleConditional>(name);
   if (!value) return null;
@@ -1399,7 +1539,7 @@ export function ConditionalEditor({ name }: { name: string }): ReactElement | nu
           <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1.5, mb: 0.5 }}>
             THEN
           </Typography>
-          <OutcomeEditor name={`${name}.branches.${index}.outcome`} />
+          <OutcomeEditor name={`${name}.branches.${index}.outcome`} engine={engine} />
         </Box>
       ))}
 
@@ -1440,7 +1580,7 @@ export function ConditionalEditor({ name }: { name: string }): ReactElement | nu
                 <DeleteIcon fontSize="small" />
               </IconButton>
             </Box>
-            <OutcomeEditor name={`${name}.otherwise`} />
+            <OutcomeEditor name={`${name}.otherwise`} engine={engine} />
           </Box>
         )}
       </Box>

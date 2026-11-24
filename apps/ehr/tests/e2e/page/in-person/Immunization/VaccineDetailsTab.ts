@@ -95,26 +95,6 @@ export class VaccineDetailsTab {
     await locator.pressSequentially(visGivenDate);
   }
 
-  async selectRelationship(relationship: string): Promise<void> {
-    await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.relationship).click();
-    await this.#page.getByText(relationship, { exact: true }).click();
-  }
-
-  async enterFullName(fullName: string): Promise<void> {
-    await this.#root
-      .getByTestId(dataTestIds.vaccineDetailsPage.fullName)
-      .locator('input')
-      .locator('visible=true')
-      .fill(fullName);
-  }
-  async enterMobile(mobile: string): Promise<void> {
-    await this.#root
-      .getByTestId(dataTestIds.vaccineDetailsPage.mobile)
-      .locator('input')
-      .locator('visible=true')
-      .fill(mobile);
-  }
-
   async clickAdministeredButton(): Promise<AdministeredDialogue> {
     await this.#root.getByTestId(dataTestIds.vaccineDetailsPage.administeredButton).click();
     return expectAdministrationConfirmationDialogue(this.#page);

@@ -6,6 +6,7 @@ import {
   createOutboundDeliveryAttempt,
   failOutboundDeliveryAttempt,
 } from './outbound-delivery';
+import { sendLetterFax } from './send-letter-fax';
 
 export interface SendFaxAttemptInput {
   /** Absent when the packet does not belong to a single visit (a medical record, or one document). */
@@ -17,14 +18,14 @@ export interface SendFaxAttemptInput {
   documentReferenceId: string;
   userPractitioner: Practitioner;
   recipientName?: string;
-  /** Practice or facility the recipient belongs to. Fax packet sends only. */
+  /** Practice or facility the recipient belongs to. Document packet sends only. */
   recipientOrganization?: string;
   /** Follow-up voice number for the recipient. Recorded on the attempt; never dialled. */
   recipientPhone?: string;
   /** Page count of the packet that is being transmitted, cover sheet included. */
-  faxPacketPageCount?: number;
+  packetPageCount?: number;
   /** Titles of the documents merged into the packet, in merge order. */
-  faxPacketParts?: string[];
+  packetParts?: string[];
   parentAttemptId?: string;
   senderId: string;
 }
@@ -41,8 +42,8 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     recipientName,
     recipientOrganization,
     recipientPhone,
-    faxPacketPageCount,
-    faxPacketParts,
+    packetPageCount,
+    packetParts,
     parentAttemptId,
     senderId,
   } = input;
@@ -55,8 +56,8 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     recipientName,
     recipientOrganization,
     recipientPhone,
-    faxPacketPageCount,
-    faxPacketParts,
+    packetPageCount,
+    packetParts,
     documentReferenceId,
     requesterReference: userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined,
     senderOrganizationReference: `Organization/${organizationId}`,
@@ -78,12 +79,12 @@ export async function deliverFaxAttempt(input: SendFaxAttemptInput, oystehr: Oys
   let communicationId: string;
   try {
     console.log('Sending fax to', faxNumber);
-    const { communicationResource } = await oystehr.fax.send({
+    const communicationResource = await sendLetterFax({
+      oystehr,
       media,
-      quality: 'standard',
-      patient: `Patient/${patientId}`,
-      recipientNumber: faxNumber,
-      sender: `Organization/${organizationId}`,
+      patientId,
+      faxNumber,
+      organizationId,
     });
     if (!communicationResource.id) throw new Error('Fax service returned a Communication without an id');
     communicationId = communicationResource.id;

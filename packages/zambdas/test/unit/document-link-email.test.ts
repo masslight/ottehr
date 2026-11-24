@@ -1,0 +1,241 @@
+import { Task } from 'fhir/r4b';
+import { decodeJwt, jwtVerify } from 'jose';
+import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
+import { getOutboundDeliveryInput, getOutboundDeliveryPacketSnapshot } from 'utils/lib/fhir/outbound-delivery';
+import { BRANDING_CONFIG, PROJECT_WEBSITE } from 'utils/lib/ottehr-config/branding';
+import { DOCUMENT_LINK_AUDIENCE } from 'utils/lib/types/api/document-link.types';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const { mockSendEmail, mockGetFeatureFlag, mockGetEmailClient, genericOutreachTemplate } = vi.hoisted(() => {
+  const sendEmail = vi.fn();
+  const getFeatureFlag = vi.fn(() => true);
+  return {
+    mockSendEmail: sendEmail,
+    mockGetFeatureFlag: getFeatureFlag,
+    mockGetEmailClient: vi.fn(() => ({ getFeatureFlag, sendGenericOutreachEmail: sendEmail })),
+    genericOutreachTemplate: { disabled: false },
+  };
+});
+vi.mock('../../src/shared/communication', () => ({ getEmailClient: mockGetEmailClient }));
+vi.mock('utils/lib/ottehr-config/sendgrid', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('utils/lib/ottehr-config/sendgrid')>()),
+  SENDGRID_CONFIG: { templates: { genericOutreach: genericOutreachTemplate } },
+}));
+
+import {
+  buildDocumentLinkEmail,
+  DocumentLinkEmailInput,
+  sendDocumentLinkEmailAttempt,
+} from '../../src/shared/document-link-email';
+import { makeDocumentLinkUrl, mintDocumentLinkToken } from '../../src/shared/document-link-token';
+
+const secrets = {
+  DOCUMENT_LINK_SECRET: 'test-document-link-secret-with-enough-length',
+  WEBSITE_URL: 'https://patient.example.test',
+};
+
+const baseInput = (): DocumentLinkEmailInput => ({
+  oystehr,
+  secrets,
+  patientId: 'patient-1',
+  appointmentId: 'appointment-1',
+  email: 'olivia@example.com',
+  recipientName: 'Olivia Green',
+  recipientOrganization: 'Green FP',
+  recipientPhone: '(212) 555-9999',
+  documentReferenceId: 'packet-1',
+  organizationId: 'org-1',
+  senderDisplay: 'Sam Stone',
+  requesterReference: 'Practitioner/prac-1',
+  senderId: 'user-1',
+});
+
+const create = vi.fn();
+const patch = vi.fn();
+const oystehr = { fhir: { create, patch } } as any;
+
+describe('document link email attempt', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    create.mockImplementation((task: Task) => Promise.resolve({ ...task, id: 'attempt-1' }));
+    patch.mockImplementation(({ operations }: any) =>
+      Promise.resolve({ resourceType: 'Task', id: 'attempt-1', status: operations[0].value, intent: 'order' })
+    );
+    mockSendEmail.mockResolvedValue(undefined);
+    mockGetFeatureFlag.mockReturnValue(true);
+    genericOutreachTemplate.disabled = false;
+  });
+
+  it('creates the attempt, mints a token for it, emails the link and completes the attempt', async () => {
+    await sendDocumentLinkEmailAttempt(baseInput());
+
+    expect(create.mock.invocationCallOrder[0]).toBeLessThan(mockSendEmail.mock.invocationCallOrder[0]);
+    const task = create.mock.calls[0][0] as Task;
+    expect(getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientAddress)?.valueString).toBe(
+      'olivia@example.com'
+    );
+    expect(getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.recipientOrganization)?.valueString).toBe(
+      'Green FP'
+    );
+    expect(
+      getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.documentReference)?.valueReference?.reference
+    ).toBe('DocumentReference/packet-1');
+    expect(
+      getOutboundDeliveryInput(task, OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization)?.valueReference?.reference
+    ).toBe('Organization/org-1');
+    expect(task.requester?.reference).toBe('Practitioner/prac-1');
+
+    const [to, templateData, options] = mockSendEmail.mock.calls[0];
+    expect(options).toEqual({ disableClickTracking: true });
+    expect(to).toBe('olivia@example.com');
+    expect(templateData['subject-text']).toBe(`Documents from ${BRANDING_CONFIG.projectName}`);
+    const href = /href="([^"]+)"/.exec(templateData.content)?.[1];
+    expect(href?.startsWith('https://patient.example.test/documents#')).toBe(true);
+    // The token's subject is the attempt that was just created.
+    const token = href!.split('/documents#')[1];
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secrets.DOCUMENT_LINK_SECRET), {
+      issuer: PROJECT_WEBSITE,
+      audience: DOCUMENT_LINK_AUDIENCE,
+    });
+    expect(payload.sub).toBe('attempt-1');
+    expect(templateData.content).toContain('expires in 60 minutes');
+
+    expect(patch).toHaveBeenCalledWith(
+      expect.objectContaining({ operations: expect.arrayContaining([expect.objectContaining({ value: 'completed' })]) })
+    );
+  });
+
+  it('marks the attempt failed and re-throws when the email is rejected', async () => {
+    mockSendEmail.mockRejectedValue(new Error('sendgrid rejected'));
+
+    await expect(sendDocumentLinkEmailAttempt(baseInput())).rejects.toThrow('sendgrid rejected');
+    expect(patch).toHaveBeenCalledWith(
+      expect.objectContaining({ operations: expect.arrayContaining([expect.objectContaining({ value: 'failed' })]) })
+    );
+  });
+
+  it('throws before creating an attempt when email delivery is disabled', async () => {
+    mockGetFeatureFlag.mockReturnValue(false);
+
+    await expect(sendDocumentLinkEmailAttempt(baseInput())).rejects.toThrow('delivery is disabled');
+    expect(create).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  // With the template disabled the email client returns without sending and logs the whole email, live link
+  // included, so the attempt would be marked sent while the link sat in the logs.
+  it('throws before creating an attempt when the generic outreach template is disabled', async () => {
+    genericOutreachTemplate.disabled = true;
+
+    await expect(sendDocumentLinkEmailAttempt(baseInput())).rejects.toThrow('delivery is disabled');
+    expect(create).not.toHaveBeenCalled();
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it.each(['#{var/DOCUMENT_LINK_SECRET}', 'DOCUMENT_LINK_SECRET'])(
+    'throws before creating an attempt when DOCUMENT_LINK_SECRET is the placeholder %s',
+    async (placeholder) => {
+      const input = { ...baseInput(), secrets: { ...secrets, DOCUMENT_LINK_SECRET: placeholder } };
+
+      await expect(sendDocumentLinkEmailAttempt(input)).rejects.toThrow('DOCUMENT_LINK_SECRET must be');
+      expect(create).not.toHaveBeenCalled();
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    }
+  );
+
+  it('records the parent attempt on a resend, claiming it as the one successor of that parent', async () => {
+    await sendDocumentLinkEmailAttempt({ ...baseInput(), parentAttemptId: 'attempt-0' });
+
+    expect((create.mock.calls[0][0] as Task).partOf).toEqual([{ reference: 'Task/attempt-0' }]);
+    expect(create.mock.calls[0][1]).toEqual({
+      ifNoneExist: [{ name: 'identifier', value: `${OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM}|Task/attempt-0` }],
+    });
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends nothing when a concurrent re-send of the same link already holds the claim', async () => {
+    const existing = { resourceType: 'Task', id: 'attempt-other', status: 'in-progress', identifier: [] };
+    create.mockResolvedValue(existing);
+
+    const result = await sendDocumentLinkEmailAttempt({ ...baseInput(), parentAttemptId: 'attempt-0' });
+
+    expect(result).toBe(existing);
+    expect(mockSendEmail).not.toHaveBeenCalled();
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('records what went into the packet, so Action Logs can name it', async () => {
+    await sendDocumentLinkEmailAttempt({
+      ...baseInput(),
+      packetPageCount: 7,
+      packetParts: ['Medical Record'],
+    });
+
+    expect(getOutboundDeliveryPacketSnapshot(create.mock.calls[0][0] as Task)).toEqual({
+      pageCount: 7,
+      parts: ['Medical Record'],
+    });
+  });
+
+  it('reuses a supplied email client instead of initializing another one', async () => {
+    await sendDocumentLinkEmailAttempt(baseInput(), {
+      getFeatureFlag: mockGetFeatureFlag,
+      sendGenericOutreachEmail: mockSendEmail,
+    });
+
+    expect(mockGetEmailClient).not.toHaveBeenCalled();
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('document link token and email body', () => {
+  it('mints a one-hour HS256 token whose subject is the attempt', async () => {
+    const token = await mintDocumentLinkToken('attempt-9', secrets);
+    const claims = decodeJwt(token);
+
+    expect(claims.sub).toBe('attempt-9');
+    expect(claims.iss).toBe(PROJECT_WEBSITE);
+    expect(claims.aud).toBe(DOCUMENT_LINK_AUDIENCE);
+    expect(claims.exp! - claims.iat!).toBe(60 * 60);
+  });
+
+  it('puts the token in the path, never in a query parameter', () => {
+    expect(makeDocumentLinkUrl('abc.def.ghi', secrets)).toBe('https://patient.example.test/documents#abc.def.ghi');
+  });
+
+  it('names the sender and practice brand, escaped, and links the documents', () => {
+    const { content, 'subject-text': subject } = buildDocumentLinkEmail({
+      senderDisplay: 'Sam "Doc" Stone',
+      url: 'https://patient.example.test/documents#t',
+    });
+
+    expect(subject).toBe(`Documents from ${BRANDING_CONFIG.projectName}`);
+    expect(content).toContain(
+      `Sam &quot;Doc&quot; Stone at ${BRANDING_CONFIG.projectName} sent you information from their Electronic Health Record system.`
+    );
+    expect(content).toContain('<a href="https://patient.example.test/documents#t">Open documents</a>');
+  });
+
+  it('ends with the do-not-share, origin and confidentiality notices, and no portal footer', () => {
+    const templateData = buildDocumentLinkEmail({
+      senderDisplay: 'Sam Stone',
+      contactPhone: '+12125551111',
+      url: 'https://patient.example.test/documents#t',
+    });
+
+    const { content } = templateData;
+    expect(content).toContain('<strong>Do Not Share This Email</strong>');
+    expect(templateData['hide-copyright']).toBe(true);
+    expect(content).toContain(
+      "This is not an automated email. Sam Stone sent you these documents from within the practice's EHR."
+    );
+    expect(content).toContain(`please delete it and contact ${BRANDING_CONFIG.projectName} at (212) 555-1111.`);
+  });
+
+  it('points the recipient at the sender when no contact phone is known', () => {
+    const { content } = buildDocumentLinkEmail({ url: 'https://patient.example.test/documents#t' });
+
+    expect(content).toContain('A staff member sent you these documents');
+    expect(content).toContain('please delete it and contact the sender.');
+  });
+});

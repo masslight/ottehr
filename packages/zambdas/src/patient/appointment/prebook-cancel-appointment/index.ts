@@ -8,12 +8,15 @@ import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
 import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
 import { FHIR_ZAPEHR_URL } from 'utils/lib/fhir/constants';
 import {
+  CriticalUpdateBy,
   getAddressStringForScheduleResource,
   getAppointmentMetaTagOpForStatusUpdate,
+  getStaffCriticalUpdateBy,
   isPostTelemedAppointment,
 } from 'utils/lib/fhir/helpers';
 import { isTelemedAppointment } from 'utils/lib/fhir/moduleIdentification';
 import { getPatientContactEmail, getPatientFirstName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { formatPhoneNumberDisplay, getNameFromScheduleResource } from 'utils/lib/helpers/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
@@ -131,10 +134,10 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
 
   // stamp critical update tag so this event can be surfaced in activity logs
   const formattedUserNumber = formatPhoneNumberDisplay(user?.name?.replace('+1', ''));
-  const cancelledBy = m2m
+  const cancelledBy: string | CriticalUpdateBy = m2m
     ? `M2M Client ${m2m.id}`
     : user && isEHRUser
-    ? `Staff ${user?.email}`
+    ? getStaffCriticalUpdateBy(user)
     : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
   const fhirCancellationReason: Coding = {
@@ -217,7 +220,7 @@ export const index = wrapHandler('cancel-appointment', async (input: ZambdaInput
     patchOperations: encounterPatchOperations,
   });
 
-  const slotId = appointment.slot?.[0]?.reference?.split('/')[1];
+  const slotId = getIdFromReference(appointment.slot?.[0]?.reference);
   const deleteSlotRequests: BatchInputDeleteRequest[] = [];
 
   if (slotId) {

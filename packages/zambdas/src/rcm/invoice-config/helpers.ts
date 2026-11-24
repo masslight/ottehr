@@ -195,6 +195,29 @@ export function parseInvoicingConfig(qr: QuestionnaireResponse): ParsedInvoicing
   return parseInvoiceConfigFromQR(qr);
 }
 
+// Search for existing QuestionnaireResponse linked to *any* invoicing config
+// Questionnaire (search by tag, not by specific ID, so that even if the QR
+// outlives a deleted Questionnaire it is still found and re-linked).
+async function searchInvoicingConfigResponses(oystehr: Oystehr): Promise<QuestionnaireResponse[]> {
+  const responseBundle = await oystehr.fhir.search<QuestionnaireResponse>({
+    resourceType: 'QuestionnaireResponse',
+    params: [{ name: '_tag', value: `${RCM_TAG_SYSTEM}|invoice-config` }],
+  });
+  const responses = responseBundle.unbundle();
+  if (responses.length > 1) {
+    const ids = responses.map((r) => r.id).join(', ');
+    console.warn(
+      `Found ${responses.length} invoicing config QuestionnaireResponses (expected 1). Using the first. IDs: ${ids}`
+    );
+  }
+  return responses;
+}
+
+export async function readInvoicingConfig(oystehr: Oystehr): Promise<ParsedInvoicingConfig> {
+  const [questionnaireResponse] = await searchInvoicingConfigResponses(oystehr);
+  return parseInvoiceConfigFromQR(questionnaireResponse);
+}
+
 /**
  * Finds the existing invoicing config Questionnaire + QuestionnaireResponse pair.
  * If either doesn't exist, creates them with defaults.
@@ -228,21 +251,7 @@ export async function getOrCreateInvoicingConfig(oystehr: Oystehr): Promise<Invo
     questionnaire = await oystehr.fhir.create<Questionnaire>(buildDefaultQuestionnaire());
   }
 
-  // Search for existing QuestionnaireResponse linked to *any* invoicing config
-  // Questionnaire (search by tag, not by specific ID, so that even if the QR
-  // outlives a deleted Questionnaire it is still found and re-linked).
-  const responseBundle = await oystehr.fhir.search<QuestionnaireResponse>({
-    resourceType: 'QuestionnaireResponse',
-    params: [{ name: '_tag', value: `${RCM_TAG_SYSTEM}|invoice-config` }],
-  });
-  const responses = responseBundle.unbundle();
-
-  if (responses.length > 1) {
-    const ids = responses.map((r) => r.id).join(', ');
-    console.warn(
-      `Found ${responses.length} invoicing config QuestionnaireResponses (expected 1). Using the first. IDs: ${ids}`
-    );
-  }
+  const responses = await searchInvoicingConfigResponses(oystehr);
 
   let questionnaireResponse: QuestionnaireResponse;
 

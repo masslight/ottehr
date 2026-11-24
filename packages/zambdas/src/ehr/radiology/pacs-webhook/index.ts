@@ -13,6 +13,7 @@ import {
 } from 'fhir/r4b';
 import { ImagingStudy as ImagingStudyR5 } from 'fhir/r5';
 import { DateTime } from 'luxon';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
@@ -23,10 +24,11 @@ import {
   ORDER_TYPE_CODE_SYSTEM,
   SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
 } from 'utils/lib/fhir/radiology';
+import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
-import { buildPreliminaryReportSnapshot } from '../../../shared/radiology';
+import { buildPreliminaryReportSnapshot, isFinalizedRadiologyReport } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import {
@@ -254,6 +256,7 @@ const handleDiagnosticReport = async (
     const drToUpdate = diagnosticReports[0];
 
     const requests = handleUpdateDiagnosticReportRequests(drToUpdate, advaPacsDiagnosticReport, additionalResources);
+    if (requests.length === 0) return;
 
     console.log('making transaction request for handleUpdateDiagnosticReport');
     await oystehr.fhir.transaction({ requests });
@@ -294,6 +297,9 @@ const handleCreateDiagnosticReport = async (
   await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, undefined, oystehr);
 };
 
+const isPreFinalReport = (report: DiagnosticReport): boolean =>
+  ['registered', 'partial', 'preliminary'].includes(report.status);
+
 /** returns requests to update our diagnostic report and potentially also a request to post review task */
 const handleUpdateDiagnosticReportRequests = (
   drToUpdate: DiagnosticReport,
@@ -301,6 +307,14 @@ const handleUpdateDiagnosticReportRequests = (
   additionalResources: Omit<AllRadTaskResources, 'diagnosticReports'>
 ): BatchInputRequest<FhirResource>[] => {
   if (drToUpdate.id == null) throw new Error('DiagnosticReport ID is required');
+
+  // A read finalized here leaves AdvaPACS holding the preliminary copy, whose callback can arrive afterwards.
+  if (isFinalizedRadiologyReport(drToUpdate) && isPreFinalReport(advaPacsDiagnosticReport)) {
+    console.log(
+      `Ignoring a ${advaPacsDiagnosticReport.status} callback for DiagnosticReport/${drToUpdate.id}, which is already ${drToUpdate.status}`
+    );
+    return [];
+  }
 
   const resourcesForTask = validateResourcesAgainstDR({ ...additionalResources, diagnosticReport: drToUpdate });
   const requests = buildUpdateDiagnosticReportRequests(advaPacsDiagnosticReport, drToUpdate, resourcesForTask);
@@ -383,11 +397,15 @@ const buildUpdateDiagnosticReportRequests = (
 
   console.log('Updating our DiagnosticReport with operations: ', JSON.stringify(diagnosticReportPathOps, null, 2));
 
-  requests.push({
-    method: 'PATCH',
-    url: `DiagnosticReport/${ourDiagnosticReport.id}`,
-    operations: diagnosticReportPathOps,
-  });
+  // Binary so the version lock survives the transaction, which drops ifMatch from a JSON patch.
+  requests.push(
+    getPatchBinary({
+      resourceType: 'DiagnosticReport',
+      resourceId: ourDiagnosticReport.id!,
+      patchOperations: diagnosticReportPathOps,
+      ifMatch: makeOptimisticLockIfMatchHeader(ourDiagnosticReport),
+    })
+  );
 
   return requests;
 };

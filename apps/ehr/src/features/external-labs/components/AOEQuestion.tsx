@@ -57,6 +57,9 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
         name={linkId}
         control={control}
         defaultValue={defaultValue}
+        rules={{
+          validate: (value) => !(required && type === 'text' && typeof value === 'string' && !value.trim()),
+        }}
         render={({ field }) => (
           <>
             <FormControl fullWidth required={required} error={!!errors[linkId]}>

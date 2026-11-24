@@ -53,5 +53,7 @@ export function validateRequestParameters(
     throw new Error('Notes optional field, but if provided must be a string');
   }
 
-  return { userToken, secrets, ...params };
+  const notes = typeof params.notes === 'string' && params.notes.trim() ? params.notes : undefined;
+
+  return { userToken, secrets, ...params, notes };
 }

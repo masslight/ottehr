@@ -55,6 +55,9 @@ export interface GetEligibilityParameters {
   appointmentId?: string;
   coveragePrevalidationInput?: InsuranceEligibilityPrevalidationInput;
   billingProvider?: string;
+  coverageToCheck?: 'primary' | 'secondary';
+  /** Date of service (yyyy-MM-dd) to check benefits for; defaults to the appointment's date, else today. */
+  servicedDate?: string;
 }
 
 /*
@@ -293,6 +296,8 @@ export interface FinancialDetails {
 export interface InsuranceCheckStatusWithDate {
   status: InsuranceEligibilityCheckStatus;
   dateISO: string;
+  /** The date of service (yyyy-MM-dd) the check was run for; absent on checks made before it was recorded. */
+  servicedDate?: string;
   coverageDetails?: InsuranceDetails;
   financialDetails?: FinancialDetails[];
   copay?: PatientPaymentBenefit[];
@@ -312,6 +317,7 @@ export const mapEligibilityCheckResultToSimpleStatus = (
 ): {
   status: EligibilityCheckSimpleStatus;
   dateISO: string;
+  servicedDate?: string;
   copay?: PatientPaymentBenefit[];
   coverageDetails?: InsuranceDetails;
 } => {
@@ -320,12 +326,13 @@ export const mapEligibilityCheckResultToSimpleStatus = (
       return {
         status: 'ELIGIBLE',
         dateISO: result.dateISO,
+        servicedDate: result.servicedDate,
         copay: result.copay,
         coverageDetails: result.coverageDetails,
       };
     case InsuranceEligibilityCheckStatus.eligibilityNotConfirmed:
-      return { status: 'NOT ELIGIBLE', dateISO: result.dateISO };
+      return { status: 'NOT ELIGIBLE', dateISO: result.dateISO, servicedDate: result.servicedDate };
     default:
-      return { status: 'UNKNOWN', dateISO: result.dateISO };
+      return { status: 'UNKNOWN', dateISO: result.dateISO, servicedDate: result.servicedDate };
   }
 };

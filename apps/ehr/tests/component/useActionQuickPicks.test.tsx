@@ -1,13 +1,21 @@
 import { renderHook } from '@testing-library/react';
-import { Encounter, Patient } from 'fhir/r4b';
+import { Appointment, Encounter, Patient } from 'fhir/r4b';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigate = vi.fn();
-let appointmentData: { patient?: Patient; encounter?: Encounter } = {};
+let appointmentData: {
+  patient?: Patient;
+  encounter?: Encounter;
+  followUpOriginEncounter?: Encounter;
+  appointment?: Appointment;
+  rawResources?: Appointment[];
+  selectedEncounterId?: string;
+} = {};
 const useAppointmentData = vi.fn((_appointmentId?: string) => appointmentData);
 let hasStaffRole = true;
+let visitIsLocked = false;
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
@@ -16,6 +24,14 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('../../src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: (appointmentId?: string) => useAppointmentData(appointmentId),
+}));
+
+const getAppointmentAccessibilityData = vi.fn((_props: { encounter?: Encounter; appointment?: Appointment }) => ({
+  isAppointmentReadOnly: visitIsLocked,
+}));
+vi.mock('../../src/features/visits/shared/utils/appointment-accessibility.helper', () => ({
+  getAppointmentAccessibilityData: (props: { encounter?: Encounter; appointment?: Appointment }) =>
+    getAppointmentAccessibilityData(props),
 }));
 
 vi.mock('../../src/hooks/useEvolveUser', () => ({
@@ -121,5 +137,77 @@ describe('useActionQuickPicks — Add Follow-up Visit', () => {
   it('is hidden for users without primary EHR staff roles', () => {
     hasStaffRole = false;
     expect(renderAt('/visits')).toBeUndefined();
+  });
+});
+
+describe('useActionQuickPicks — Upload and Scan', () => {
+  const documentItems = (pathname: string): string[] => {
+    renderAt(pathname);
+    return (useCommandPaletteStore.getState().sources.actions?.items ?? [])
+      .map((item) => item.id)
+      .filter((id) => id === 'action-upload-document' || id === 'action-scan-document');
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useCommandPaletteStore.setState({ sources: {}, uploadDocumentMode: null });
+    appointmentData = { patient: { resourceType: 'Patient', id: 'patient-1' } };
+    hasStaffRole = true;
+    visitIsLocked = false;
+  });
+
+  it.each(['/in-person/appt-1/progress-note', '/visit/appt-1', '/patient/patient-1/docs'])(
+    'offers Upload and Scan with a visit or patient on screen (%s), opening the matching dialog',
+    (pathname) => {
+      expect(documentItems(pathname)).toEqual(['action-upload-document', 'action-scan-document']);
+
+      const items = useCommandPaletteStore.getState().sources.actions!.items;
+      items.find((item) => item.id === 'action-scan-document')!.onSelect();
+      expect(useCommandPaletteStore.getState().uploadDocumentMode).toBe('scan');
+    }
+  );
+
+  it('hides them on a locked visit, like the visit Documents page', () => {
+    visitIsLocked = true;
+    expect(documentItems('/in-person/appt-1/progress-note')).toEqual([]);
+  });
+
+  it('hides them with no patient in context', () => {
+    appointmentData = {};
+    expect(documentItems('/tasks')).toEqual([]);
+  });
+
+  it('withholds them on the chart while a just-picked follow-up is still loading', () => {
+    appointmentData = {
+      patient: { resourceType: 'Patient', id: 'patient-1' },
+      encounter: { resourceType: 'Encounter', id: 'visit-encounter', status: 'in-progress', class: {} },
+      selectedEncounterId: 'new-follow-up',
+    };
+    expect(documentItems('/in-person/appt-1/progress-note?encounterId=new-follow-up')).toEqual([]);
+  });
+
+  it("checks Visit Details' own encounter and appointment, not a follow-up still selected from the chart", () => {
+    const visitAppointment: Appointment = {
+      resourceType: 'Appointment',
+      id: 'appt-1',
+      status: 'fulfilled',
+      participant: [],
+    };
+    appointmentData = {
+      patient: { resourceType: 'Patient', id: 'patient-1' },
+      encounter: { resourceType: 'Encounter', id: 'follow-up', status: 'in-progress', class: {} },
+      followUpOriginEncounter: { resourceType: 'Encounter', id: 'visit-encounter', status: 'in-progress', class: {} },
+      appointment: { ...visitAppointment, id: 'follow-up-appt' },
+      rawResources: [visitAppointment],
+    };
+
+    documentItems('/visit/appt-1');
+
+    expect(getAppointmentAccessibilityData).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        encounter: expect.objectContaining({ id: 'visit-encounter' }),
+        appointment: expect.objectContaining({ id: 'appt-1' }),
+      })
+    );
   });
 });

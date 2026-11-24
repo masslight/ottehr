@@ -25,12 +25,17 @@ import {
   getMiddleName,
   getNameSuffix,
   getPatientFirstName,
+  getPatientFriendlyId,
   getPatientLastName,
   getPhoneNumberForIndividual,
   getPronounsFromExtension,
   mapGenderToLabel,
 } from 'utils/lib/fhir/patient';
 import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
+import {
+  isWithinNewPatientLookback,
+  SEEN_VISIT_APPOINTMENT_STATUS,
+} from 'utils/lib/helpers/screening-questions/new-patient.helper';
 import { isNoteEdited } from 'utils/lib/helpers/visit-note/note-edit-detection.helper';
 import { AdHocPatientRow, AdHocPatientsInput } from 'utils/lib/types/adhoc/datasets/patients';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
@@ -51,6 +56,7 @@ import {
   REPORT_ATTENDED_APPOINTMENT_STATUSES,
 } from '../adhoc-report';
 import { mapResourceToChartDataResponse } from '../chart-data';
+import { resolveNewPatients } from '../new-patient';
 import { getOccupationalMedicineEmployerName } from '../occupational-medicine-employer';
 import { composeAttorneyData } from '../pdf/sections/attorneyInfo';
 import { composeEmergencyContactData } from '../pdf/sections/emergencyContactInfo';
@@ -90,6 +96,7 @@ const oneLineAddress = (parts: {
 interface PatientAgg {
   patient: Patient;
   visitDates: string[]; // ISO start of each visit in range
+  visits: { appointment: Appointment; encounterId?: string }[]; // each visit in range
   lastVisitStart: string;
   lastVisitStatus: string;
   visitTypes: Set<'In-Person' | 'Telemed'>;
@@ -274,6 +281,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       agg = {
         patient,
         visitDates: [],
+        visits: [],
         lastVisitStart: start,
         lastVisitStatus: status,
         visitTypes: new Set(),
@@ -285,6 +293,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     }
 
     agg.visitDates.push(start);
+    agg.visits.push({ appointment, encounterId: encounter?.id });
 
     if (DateTime.fromISO(start) >= DateTime.fromISO(agg.lastVisitStart)) {
       agg.lastVisitStart = start;
@@ -297,9 +306,9 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
     if (serviceCategory) agg.serviceCategories.add(serviceCategory);
   }
 
-  // The Recent Patients report's new-vs-existing check: any Appointment of the patient before the range
-  // start, whatever its status or type, makes the patient existing.
   const lastAppointmentBeforeRange = new Map<string, string>();
+  const seenBeforeRange = new Set<string>();
+  let newPatients = new Map<string, boolean>();
   if (includeVisitHistory && aggByPatient.size) {
     const priorAppointments = await fetchScopedResources<Appointment>(
       oystehr,
@@ -308,7 +317,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       Array.from(aggByPatient.keys()),
       [
         { name: 'date', value: `lt${dateRange.start}` },
-        { name: '_elements', value: 'id,start,participant' },
+        { name: '_elements', value: 'id,start,status,participant' },
       ]
     );
 
@@ -316,6 +325,17 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
       const patientRef = prior.participant?.find((p) => p.actor?.reference?.startsWith('Patient/'))?.actor?.reference;
 
       if (!patientRef) continue;
+
+      const firstVisitInRange = [...(aggByPatient.get(patientRef)?.visitDates ?? [])].sort(
+        (a, b) => DateTime.fromISO(a).toMillis() - DateTime.fromISO(b).toMillis()
+      )[0];
+
+      if (
+        prior.status === SEEN_VISIT_APPOINTMENT_STATUS &&
+        isWithinNewPatientLookback(prior.start, firstVisitInRange)
+      ) {
+        seenBeforeRange.add(patientRef);
+      }
 
       const latest = lastAppointmentBeforeRange.get(patientRef);
       const start = prior.start ?? '';
@@ -325,6 +345,16 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
         lastAppointmentBeforeRange.set(patientRef, start);
       }
     }
+
+    newPatients = await resolveNewPatients(
+      oystehr,
+      new Map(
+        Array.from(aggByPatient.entries()).map(([patientRef, agg]) => [
+          patientRef,
+          { hasPriorVisit: seenBeforeRange.has(patientRef), visits: agg.visits },
+        ])
+      )
+    );
   }
 
   // The patient-account page's account / coverage picture, for the contacts, insurance and employer layers.
@@ -390,6 +420,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
 
     const row: AdHocPatientRow = {
       patientId: patient.id || '',
+      friendlyPatientId: getPatientFriendlyId(patient),
       firstName: getPatientFirstName(patient) || '',
       lastName: getPatientLastName(patient) || '',
       patientName: [getPatientFirstName(patient), getPatientLastName(patient)].filter(Boolean).join(' '),
@@ -483,7 +514,7 @@ export async function fetchAdHocPatientRows(oystehr: Oystehr, params: AdHocPatie
 
     if (includeVisitHistory) {
       const lastBefore = lastAppointmentBeforeRange.get(patientRef);
-      row.patientStatus = lastBefore === undefined ? 'new' : 'existing';
+      row.patientStatus = newPatients.get(patientRef) ? 'new' : 'existing';
       row.lastAppointmentBeforeRange = lastBefore || null;
     }
 

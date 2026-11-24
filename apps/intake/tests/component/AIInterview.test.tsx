@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { QuestionnaireResponse } from 'fhir/r4b';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -41,11 +42,13 @@ const questionnaireResponseWithFirstQuestion: QuestionnaireResponse = {
 
 const renderInterview = (): void => {
   render(
-    <MemoryRouter initialEntries={['/visit/appointment-id/ai-interview']}>
-      <Routes>
-        <Route path="/visit/:id/ai-interview" element={<AIInterview />} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={['/visit/appointment-id/ai-interview']}>
+        <Routes>
+          <Route path="/visit/:id/ai-interview" element={<AIInterview />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 };
 

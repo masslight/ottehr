@@ -25,7 +25,7 @@ import { CLAIM_PROVENANCE_AGENT_TYPE } from 'utils/lib/types/data/billing/claim-
 import { ClaimHistoryRuleRef } from 'utils/lib/types/data/billing/claim-history';
 import {
   RULES_ENGINES,
-  RulesEngineSubmissionInsurance,
+  RulesEngineInsurance,
   RulesEngineSubmissionType,
   RulesEngineType,
 } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -91,91 +91,107 @@ import { ClaimSubmissionRejectedError } from './submit-claim';
 
 let m2mToken: string;
 
-export const index = wrapTaskHandler('sub-rules-engine', async (input, _oystehr) => {
-  const { task, secrets } = input;
-  const claimId = extractClaimId(task);
-  const engine = extractEngine(task);
-  const skipRules = extractInput<boolean>(
-    task,
-    RULES_ENGINE_INPUT_SYSTEM,
-    RULES_ENGINE_INPUT_SKIP_RULES_CODE,
-    'valueBoolean'
-  );
-  const submissionType = extractInput<string>(
-    task,
-    RULES_ENGINE_INPUT_SYSTEM,
-    RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
-    'valueString'
-  );
-  const submissionInsurance = extractInput<string>(
-    task,
-    RULES_ENGINE_INPUT_SYSTEM,
-    RULES_ENGINE_INPUT_SUBMISSION_INSURANCE_CODE,
-    'valueString'
-  );
-  const payerClaimControlNumber = extractInput<string>(
-    task,
-    RULES_ENGINE_INPUT_SYSTEM,
-    RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
-    'valueString'
-  );
+const MAX_RUN_ATTEMPTS = 3;
 
-  // Use the billing client (same as every other billing zambda) so reads/writes are scoped to the
-  // billing workspace where the claim, its working copies, and the rules Lists live.
-  m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
-  const oystehr = createBillingClient(m2mToken, secrets);
-  // No auth header on a subscription invocation, so this resolves to the rules-engine Device — every
-  // change the engine writes lands in the claim history attributed to it.
-  const agent = [await resolveClaimActor('rules', oystehr, undefined, secrets)];
-  if (task.requester?.reference) {
-    const requesterType = task.requester.reference.startsWith('Practitioner/')
-      ? CLAIM_PROVENANCE_AGENT_TYPE.human
-      : CLAIM_PROVENANCE_AGENT_TYPE.system;
-    agent.push({
-      type: { coding: [requesterType] },
-      who: task.requester,
-    });
-  }
-  const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-
-  try {
-    const validated = await complexValidation(
-      oystehr,
-      engine,
-      claimId,
-      env,
-      skipRules,
-      submissionType,
-      submissionInsurance,
-      payerClaimControlNumber
+export const index = wrapTaskHandler(
+  'sub-rules-engine',
+  async (input, _oystehr) => {
+    const { task, secrets } = input;
+    const claimId = extractClaimId(task);
+    const engine = extractEngine(task);
+    const skipRules = extractInput<boolean>(
+      task,
+      RULES_ENGINE_INPUT_SYSTEM,
+      RULES_ENGINE_INPUT_SKIP_RULES_CODE,
+      'valueBoolean'
     );
-    return await performEffect(oystehr, validated, agent);
-  } catch (error) {
+    const submissionType = extractInput<string>(
+      task,
+      RULES_ENGINE_INPUT_SYSTEM,
+      RULES_ENGINE_INPUT_SUBMISSION_TYPE_CODE,
+      'valueString'
+    );
+    const submissionInsurance = extractInput<string>(
+      task,
+      RULES_ENGINE_INPUT_SYSTEM,
+      RULES_ENGINE_INPUT_SUBMISSION_INSURANCE_CODE,
+      'valueString'
+    );
+    const payerClaimControlNumber = extractInput<string>(
+      task,
+      RULES_ENGINE_INPUT_SYSTEM,
+      RULES_ENGINE_INPUT_PAYER_CLAIM_CONTROL_NUMBER_CODE,
+      'valueString'
+    );
+
+    // Use the billing client (same as every other billing zambda) so reads/writes are scoped to the
+    // billing workspace where the claim, its working copies, and the rules Lists live.
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createBillingClient(m2mToken, secrets);
+    // No auth header on a subscription invocation, so this resolves to the rules-engine Device — every
+    // change the engine writes lands in the claim history attributed to it.
+    const agent = [await resolveClaimActor('rules', oystehr, undefined, secrets)];
+    if (task.requester?.reference) {
+      const requesterType = task.requester.reference.startsWith('Practitioner/')
+        ? CLAIM_PROVENANCE_AGENT_TYPE.human
+        : CLAIM_PROVENANCE_AGENT_TYPE.system;
+      agent.push({
+        type: { coding: [requesterType] },
+        who: task.requester,
+      });
+    }
+    const env = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+
     try {
-      // wrapTaskHandler marks the Task failed and reports to Sentry; log here so the failure carries
-      // the claim context, and make sure the claim ends up held — a failed run must never leave the
-      // claim looking ready to proceed.
-      console.error(`[rules-engine] ${engine} failed for Claim/${claimId}:`, error);
-      const claim = await fetchById<Claim>(oystehr, 'Claim', claimId);
-      const failedRule = error instanceof RuleFailureError ? error.rule : undefined;
-      await addErrorProvenanceForClaimSubmission(oystehr, claim, error as Error, agent, failedRule);
-      await ensureClaimHeld(oystehr, claim, agent);
-    } catch (handleErrorError) {
-      console.error(
-        `[rules-engine] could not add error or apply Hold tag to Claim/${claimId} after failure:`,
-        handleErrorError
-      );
+      // Something else may write the claim while the engine runs (seen in production ~1s after
+      // creation). Only a ClaimChangedDuringRunError is retried: it is thrown by the atomic write-back
+      // that precedes any submission, so re-running from a fresh load can never submit twice.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          const validated = await complexValidation(
+            oystehr,
+            engine,
+            claimId,
+            env,
+            skipRules,
+            submissionType,
+            submissionInsurance,
+            payerClaimControlNumber
+          );
+          return await performEffect(oystehr, validated, agent);
+        } catch (error) {
+          if (!(error instanceof ClaimChangedDuringRunError) || attempt >= MAX_RUN_ATTEMPTS) throw error;
+          console.warn(`[rules-engine] ${error.message}; re-running (attempt ${attempt + 1}/${MAX_RUN_ATTEMPTS})`);
+        }
+      }
+    } catch (error) {
+      try {
+        // wrapTaskHandler marks the Task failed and reports to Sentry; log here so the failure carries
+        // the claim context, and make sure the claim ends up held — a failed run must never leave the
+        // claim looking ready to proceed.
+        console.error(`[rules-engine] ${engine} failed for Claim/${claimId}:`, error);
+        const claim = await fetchById<Claim>(oystehr, 'Claim', claimId);
+        const failedRule = error instanceof RuleFailureError ? error.rule : undefined;
+        await addErrorProvenanceForClaimSubmission(oystehr, claim, error as Error, agent, failedRule);
+        await ensureClaimHeld(oystehr, claim, agent);
+      } catch (handleErrorError) {
+        console.error(
+          `[rules-engine] could not add error or apply Hold tag to Claim/${claimId} after failure:`,
+          handleErrorError
+        );
+      }
+      if (error instanceof ClaimSubmissionRejectedError) {
+        // Oystehr rejected the submission for a request-level reason (e.g. a duplicate diagnosis
+        // code) — an expected business outcome, not an engine bug. Complete the Task as "failed"
+        // instead of rethrowing, so wrapTaskHandler doesn't report it to Sentry as a crash; the
+        // rejection is already recorded on the claim history above.
+        return { taskStatus: 'failed', statusReason: error.message };
+      }
+      throw error;
     }
-    if (error instanceof ClaimSubmissionRejectedError) {
-      // Oystehr rejected the submission for a request-level reason (e.g. a duplicate diagnosis
-      // code) — an expected business outcome, not an engine bug. Complete the Task as "failed"
-      // instead of rethrowing, so wrapTaskHandler doesn't report it to Sentry as a crash; the
-      // rejection is already recorded on the claim history above.
-      return { taskStatus: 'failed', statusReason: error.message };
-    }
-    throw error;
-  }
-});
+  },
+  { createClient: createBillingClient }
+);
 
 export interface ValidatedRulesRun {
   engine: RulesEngineType;
@@ -184,7 +200,7 @@ export interface ValidatedRulesRun {
   model: RulesEngineClaimModel;
   skipRules: boolean;
   submissionType: RulesEngineSubmissionType | null;
-  submissionInsurance: RulesEngineSubmissionInsurance | null;
+  submissionInsurance: RulesEngineInsurance | null;
   payerClaimControlNumber: string | null;
 }
 
@@ -243,7 +259,7 @@ export async function complexValidation(
     model,
     skipRules: skipRules ?? false,
     submissionType: submissionType as RulesEngineSubmissionType | null,
-    submissionInsurance: submissionInsurance as RulesEngineSubmissionInsurance | null,
+    submissionInsurance: submissionInsurance as RulesEngineInsurance | null,
     payerClaimControlNumber,
   };
 }
@@ -441,10 +457,11 @@ export async function performEffect(
   let preRule = unchanged;
 
   let heldBy: BillingRule | undefined;
+  let shouldSubmit = engine === 'claim-submission';
   let failure: { rule: BillingRule; error: string } | undefined;
   if (!skipRules) {
     for (const rule of rules) {
-      const { held, appliedActions, error } = executeRule(rule, model);
+      const { held, appliedActions, submit, error } = executeRule(rule, model);
       console.log(
         `[rules-engine] rule "${rule.name}" (enabled=${rule.enabled}) applied ${appliedActions.length} action(s)` +
           `${held ? ' — applied Hold, stopping' : ''}${error ? ` — failed: ${error}` : ''}`
@@ -460,6 +477,9 @@ export async function performEffect(
         recordRuleAttribution(attribution, preRule, model, toRuleRef(engine, rule));
       }
       if (error) break;
+      if (submit) {
+        shouldSubmit = true;
+      }
       if (held) {
         heldBy = rule;
         break;
@@ -533,6 +553,7 @@ export async function performEffect(
     oystehr,
     model,
     agent,
+    shouldSubmit,
     submissionType,
     submissionInsurance,
     payerClaimControlNumber,
@@ -704,6 +725,34 @@ export async function persistModel(
     );
     written += 1;
   }
-  if (requests.length) await oystehr.fhir.transaction({ requests });
+  if (requests.length) {
+    try {
+      await oystehr.fhir.transaction({ requests });
+    } catch (error) {
+      if (isPersistConflict(error)) throw new ClaimChangedDuringRunError(model.claim.id, error);
+      throw error;
+    }
+  }
   return written;
+}
+
+// The claim (or a working copy) changed between the engine loading it and writing its changes back,
+// so the If-Match-guarded transaction was rejected. The transaction is atomic and runs before any
+// submission, so nothing was written and the whole run can safely start over from a fresh load.
+export class ClaimChangedDuringRunError extends Error {
+  constructor(claimId: string | undefined, cause: unknown) {
+    const detail = cause instanceof Error ? cause.message : JSON.stringify(cause);
+    super(`Claim/${claimId} changed while the rules engine was running: ${detail}`, { cause });
+    this.name = 'ClaimChangedDuringRunError';
+  }
+}
+
+// Oystehr reports a failed If-Match inside a transaction as "Pre condition Failed! - PUT <Type>/<id>".
+// The SDK takes `code` from the response body when it has one, which need not be 412, so the message
+// is checked as well — for the precondition phrase only, never a bare "412", which also appears in
+// resource ids (e.g. "PUT Claim/ab412123-…") on unrelated failures.
+function isPersistConflict(error: unknown): boolean {
+  const err = error as { code?: unknown; statusCode?: unknown; message?: unknown } | null | undefined;
+  if (err?.code === 412 || err?.statusCode === 412) return true;
+  return typeof err?.message === 'string' && /pre\s*-?\s*condition\s+failed/i.test(err.message);
 }

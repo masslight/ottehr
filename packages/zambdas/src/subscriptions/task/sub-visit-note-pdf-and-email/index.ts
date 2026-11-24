@@ -6,7 +6,7 @@ import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getFullestAvailableName, getPatientContactEmail } from 'utils/lib/fhir/patient';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { Secrets } from 'utils/lib/secrets';
 import { TASK_INPUT_TYPE_CODES, TASK_INPUT_TYPE_SYSTEM } from 'utils/lib/types/common';
@@ -66,7 +66,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
     console.log('getting appointment Id from the task');
-    const appointmentId = removePrefix('Appointment/', task.focus?.reference ?? '');
+    const appointmentId = getIdFromReference(task.focus?.reference, 'Appointment');
     console.log('appointment ID parsed: ', appointmentId);
 
     if (!appointmentId) {
@@ -78,7 +78,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       oystehr,
       appointmentId,
       true,
-      removePrefix('Encounter/', task.encounter?.reference ?? '')
+      getIdFromReference(task.encounter?.reference, 'Encounter')
     );
     if (!visitResources) {
       throw new Error(`Visit resources are not properly defined for appointment ${appointmentId}`);

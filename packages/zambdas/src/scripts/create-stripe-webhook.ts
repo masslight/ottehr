@@ -9,7 +9,16 @@ import Stripe from 'stripe';
 const TARGETS = {
   billing: {
     envKey: 'STRIPE_WEBHOOK_SECRET',
-    events: ['charge.succeeded', 'charge.updated', 'refund.created', 'refund.updated', 'refund.failed', 'invoice.paid'],
+    events: [
+      'charge.succeeded',
+      'charge.updated',
+      'refund.created',
+      'refund.updated',
+      'refund.failed',
+      'invoice.paid',
+      'invoice.voided',
+      'invoice.marked_uncollectible',
+    ],
   },
   clinical: {
     envKey: 'STRIPE_CLINICAL_WEBHOOK_SECRET',

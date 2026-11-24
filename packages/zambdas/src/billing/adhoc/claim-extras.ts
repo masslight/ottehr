@@ -37,8 +37,8 @@ import {
 import { parseStoredAcknowledgment, parseStoredTransmit } from '../claim-acknowledgments';
 import { ClaimEraLinks, fetchClaimEraLinks } from '../claim-amounts';
 import { ClaimLookups } from '../claim-search';
+import { getCLIA } from '../service-facility.helpers';
 import {
-  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
   CODE_SYSTEM_NUBC_REVENUE,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
@@ -50,6 +50,8 @@ import {
   getClaimSupportingInfo,
   getEraCheckNumber,
   getEraSource,
+  getPayerClaimControlNumber,
+  getTaxonomy,
   isInstitutionalClaim,
   readClaimItemDrug,
   sortClaimInsurance,
@@ -191,8 +193,11 @@ export function claimDetailsLayer(
   AdHocBillingClaimsRow,
   | 'billingProvider'
   | 'billingProviderNpi'
+  | 'billingProviderTaxonomy'
   | 'renderingProviderNpi'
+  | 'renderingProviderTaxonomy'
   | 'facilityNpi'
+  | 'facilityClia'
   | 'placeOfService'
   | 'patientControlNumber'
   | 'payerClaimControlNumber'
@@ -230,13 +235,14 @@ export function claimDetailsLayer(
         : billingProvider.name ?? ''
       : '',
     billingProviderNpi: (billingProvider && getNPI(billingProvider)) ?? '',
+    billingProviderTaxonomy: billingProvider ? getTaxonomy(billingProvider) : '',
     renderingProviderNpi: (renderingProvider && getNPI(renderingProvider)) ?? '',
+    renderingProviderTaxonomy: renderingProvider ? getTaxonomy(renderingProvider) : '',
     facilityNpi: (facility && getNPI(facility)) ?? '',
+    facilityClia: (facility && getCLIA(facility)) ?? '',
     placeOfService: claim.item?.[0]?.locationCodeableConcept?.coding?.[0]?.code ?? '',
     patientControlNumber: getClaimPcn(claim) ?? '',
-    payerClaimControlNumber:
-      claim.identifier?.find((identifier) => identifier.system === CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM)
-        ?.value ?? '',
+    payerClaimControlNumber: getPayerClaimControlNumber(claim, 'primary') ?? '',
     billType: getClaimBillType(claim),
     // A professional claim's billablePeriod is the visit, not an admission.
     admissionDate: institutional ? claim.billablePeriod?.start || null : null,

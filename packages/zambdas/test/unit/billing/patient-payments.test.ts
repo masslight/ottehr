@@ -101,6 +101,34 @@ describe('mergeBillingAndLegacyPaymentNotices', () => {
     expect(getPaymentNoticeSubmitterRef(webhookCopy)).toBeUndefined();
   });
 
+  it("names a bridge copy's submitter from the legacy notice the EHR named", () => {
+    const legacy = legacyNotice('clinical-1', { method: 'cash', submitter: 'Practitioner/fd' });
+    const unnamedDetail = { type: {}, submitter: { reference: 'Practitioner/fd' } };
+    const withSubmitter = (notice: PaymentNotice, detail: typeof unnamedDetail): PaymentNotice => ({
+      ...notice,
+      contained: notice.contained?.map((resource) => ({ ...resource, detail: [detail] })) as PaymentNotice['contained'],
+    });
+    const bridgeCopy = (detail: typeof unnamedDetail): PaymentNotice =>
+      withSubmitter(
+        billingNotice('billing-1', {
+          method: 'cash',
+          identifiers: [{ system: CLINICAL_PAYMENT_NOTICE_ID_SYSTEM, value: 'clinical-1' }],
+        }),
+        detail
+      );
+
+    const [named] = mergeBillingAndLegacyPaymentNotices([bridgeCopy(unnamedDetail)], [legacy]);
+    expect(getPaymentNoticeSubmitterRef(named)).toEqual({ reference: 'Practitioner/fd', display: 'Front Desk' });
+
+    // a billing submitter that is someone else, or already named, is kept
+    const otherPerson = { type: {}, submitter: { reference: 'Practitioner/other' } };
+    const [kept] = mergeBillingAndLegacyPaymentNotices([bridgeCopy(otherPerson)], [legacy]);
+    expect(getPaymentNoticeSubmitterRef(kept)).toEqual({ reference: 'Practitioner/other' });
+    const alreadyNamed = { type: {}, submitter: { reference: 'Practitioner/fd', display: 'F. Desk' } };
+    const [unchanged] = mergeBillingAndLegacyPaymentNotices([bridgeCopy(alreadyNamed)], [legacy]);
+    expect(getPaymentNoticeSubmitterRef(unchanged)?.display).toBe('F. Desk');
+  });
+
   it('carries refunds and a void that only the legacy notice recorded', () => {
     const legacyRefund = {
       stripeRefundId: 'manual_legacy',

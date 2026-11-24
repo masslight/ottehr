@@ -17,6 +17,8 @@ export const RULES_ENGINE_TYPES = [
   // Created in Non-insurance Payer AR / "Prepare for invoice"; moves the Non-insurance AR Status to
   // Ready to invoice when every rule passes.
   'non-insurance-payer-pre-invoice',
+  // Runs on ERA->claim match; takes no automatic action when every rule passes.
+  'post-adjudication',
   // Created in Patient AR / "Prepare for invoice"; moves the Patient AR
   // Status to Ready to invoice when every rule passes.
   'patient-ar-pre-invoice',
@@ -39,6 +41,8 @@ export interface RulesEngineDef {
   onPass: string;
   // Label of the claim-detail button that runs this engine manually.
   runButtonLabel: string;
+  // Whether to show a hint to set up a hold rule.
+  showHoldRuleHint: boolean;
 }
 
 export const RULES_ENGINES: Record<RulesEngineType, RulesEngineDef> = {
@@ -48,6 +52,7 @@ export const RULES_ENGINES: Record<RulesEngineType, RulesEngineDef> = {
     runsWhen: 'when an Insurance Payer AR claim is submitted',
     onPass: 'the claim is submitted to the payer',
     runButtonLabel: 'Submit Claim',
+    showHoldRuleHint: true,
   },
   'non-insurance-payer-pre-invoice': {
     type: 'non-insurance-payer-pre-invoice',
@@ -55,6 +60,15 @@ export const RULES_ENGINES: Record<RulesEngineType, RulesEngineDef> = {
     runsWhen: 'when a claim is created in Non-insurance Payer AR',
     onPass: 'the Non-insurance AR Status moves to Ready to invoice',
     runButtonLabel: 'Prepare for Invoice',
+    showHoldRuleHint: true,
+  },
+  'post-adjudication': {
+    type: 'post-adjudication',
+    label: 'Post-Adjudication Rules',
+    runsWhen: 'when an ERA matches to an Insurance Payer AR claim',
+    onPass: 'the claim is not modified further',
+    runButtonLabel: 'Run Rules',
+    showHoldRuleHint: false,
   },
   'patient-ar-pre-invoice': {
     type: 'patient-ar-pre-invoice',
@@ -62,11 +76,12 @@ export const RULES_ENGINES: Record<RulesEngineType, RulesEngineDef> = {
     runsWhen: 'when a claim is created in Patient AR',
     onPass: 'the Patient AR Status moves to Ready to invoice',
     runButtonLabel: 'Prepare for Invoice',
+    showHoldRuleHint: true,
   },
 };
 
 export const RULES_ENGINE_SUBMISSION_TYPES = ['new', 'correction', 'void'] as const;
 export type RulesEngineSubmissionType = (typeof RULES_ENGINE_SUBMISSION_TYPES)[number];
 
-export const RULES_ENGINE_SUBMISSION_INSURANCES = ['primary', 'secondary', 'tertiary', 'quaternary'] as const;
-export type RulesEngineSubmissionInsurance = (typeof RULES_ENGINE_SUBMISSION_INSURANCES)[number];
+export const RULES_ENGINE_INSURANCES = ['primary', 'secondary', 'tertiary', 'quaternary'] as const;
+export type RulesEngineInsurance = (typeof RULES_ENGINE_INSURANCES)[number];

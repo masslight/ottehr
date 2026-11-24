@@ -154,10 +154,7 @@ const primary: Coverage = {
   subscriberId: 'W123456789',
   relationship: { coding: [{ code: 'self' }] },
   payor: [{ reference: PRIMARY_PAYER }],
-  class: [
-    { type: { coding: [{ code: 'plan' }] }, value: '60054', name: 'Aetna' },
-    { type: { coding: [{ code: 'group' }] }, value: 'GRP-100' },
-  ],
+  class: [{ type: { coding: [{ code: 'plan' }] }, value: 'GRP-100', name: 'Aetna' }],
   extension: [{ url: EXTENSION_CLAIM_INSURANCE_TYPE, valueString: '12' }],
 };
 
@@ -168,6 +165,7 @@ const secondary: Coverage = {
   beneficiary: { reference: 'Patient/patient-1' },
   subscriber: { reference: 'RelatedPerson/spouse-1' },
   subscriberId: 'XYZ987',
+  class: [{ type: { coding: [{ code: 'plan' }] }, value: 'SECGRP', name: 'Blue Cross Blue Shield' }],
   relationship: { coding: [{ code: 'spouse' }] },
   payor: [{ reference: SECONDARY_PAYER }],
 };

@@ -1,19 +1,28 @@
 import { Box } from '@mui/material';
 import { FC } from 'react';
-import { useIntakeCommonStore } from 'src/telemed/features/common/intake-common.store';
+import { SupportChatEntry } from 'src/features/support-chat/components/SupportChatEntry';
+import { useSupportChatStatus } from 'src/features/support-chat/hooks/useSupportChatStatus';
+import {
+  closeSupportDialog,
+  openSupportDialog,
+  useIntakeCommonStore,
+} from 'src/telemed/features/common/intake-common.store';
 import { ContactSupportDialog } from '../../components/ContactSupportDialog';
+import QuestionMarkButton from '../../components/QuestionMarkButton';
 import { ContactSupportButton } from './ContactSupportButton';
 
 const Footer: FC = () => {
   const supportDialogOpen = useIntakeCommonStore((state) => state.supportDialogOpen);
+  const { isLoading, isEnabled: isSupportChatEnabled } = useSupportChatStatus();
+
   return (
     <Box sx={{ position: 'sticky', bottom: 0, pointerEvents: 'none' }}>
-      {supportDialogOpen && (
-        <ContactSupportDialog onClose={() => useIntakeCommonStore.setState({ supportDialogOpen: false })} />
-      )}
+      {supportDialogOpen && <ContactSupportDialog onClose={closeSupportDialog} />}
       <Box
         sx={{
           display: 'flex',
+          alignItems: 'center',
+          gap: 2,
           justifyContent: 'flex-end',
           padding: '16px',
           pointerEvents: 'all',
@@ -21,7 +30,15 @@ const Footer: FC = () => {
           width: 'fit-content',
         }}
       >
-        <ContactSupportButton onClick={() => useIntakeCommonStore.setState({ supportDialogOpen: true })} />
+        {!isLoading &&
+          (isSupportChatEnabled ? (
+            <>
+              <SupportChatEntry />
+              <QuestionMarkButton onClick={openSupportDialog} />
+            </>
+          ) : (
+            <ContactSupportButton onClick={openSupportDialog} />
+          ))}
       </Box>
     </Box>
   );

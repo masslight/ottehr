@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Organization, OrganizationAffiliation } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getNioReferenceUrl } from 'utils/lib/helpers/helpers';
 import {
   BillingPayerOption,
@@ -67,7 +68,7 @@ describe('non-insurance-org CRUD', () => {
           )
         );
         const coverageOrgIds = affiliations
-          .map((affiliation) => affiliation.participatingOrganization?.reference?.split('/')[1])
+          .map((affiliation) => getIdFromReference(affiliation.participatingOrganization?.reference))
           .filter((id): id is string => !!id);
         await Promise.all(
           [...new Set(coverageOrgIds)].map((id) =>

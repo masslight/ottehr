@@ -22,6 +22,7 @@ import {
   withVersionConflictRetries,
 } from 'utils/lib/fhir/helpers';
 import { isInHouseMedicationOrder } from 'utils/lib/fhir/medication-administration';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isExternalLabServiceRequest, isPSCOrder } from 'utils/lib/helpers/labs/helpers';
 import { CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { examConfig } from 'utils/lib/ottehr-config/examination';
@@ -221,7 +222,7 @@ const performEffect = async (
     const text = resource.payload?.[0]?.contentString;
     if (!text) continue;
     for (const basedOn of resource.basedOn ?? []) {
-      const srId = basedOn.reference?.startsWith('ServiceRequest/') ? basedOn.reference.split('/')[1] : undefined;
+      const srId = getIdFromReference(basedOn.reference, 'ServiceRequest');
       if (srId) clinicalInfoNoteBySrId.set(srId, text);
     }
   }

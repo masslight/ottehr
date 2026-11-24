@@ -123,6 +123,9 @@ const TELERADIOLOGY_FINAL_READ_BTN_LABEL = 'Teleradiology Final Read';
 const FINAL_REPORT_TEXTBOX_LABEL = 'Internal final read report';
 const FINAL_REPORT_REQUIRED_MESSAGE = 'Final report is required';
 const SAVE_PRELIMINARY_REPORT_BTN_LABEL = 'Save Preliminary Report';
+const SAVE_AS_FINAL_BTN_LABEL = 'Save as Final';
+const MARK_AS_FINAL_CHECKBOX_LABEL = 'Mark as final reading';
+const SAME_AS_PRELIMINARY_CHECKBOX_LABEL = 'Same as Preliminary';
 const PRELIMINARY_REPORT_TEXTBOX_LABEL = 'Preliminary Read';
 const DIAGNOSIS_REQUIRED_MESSAGE = 'Please enter a diagnosis to continue';
 const ADD_DX_BTN_LABEL = 'mock-add-dx';
@@ -285,6 +288,27 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       expect(screen.getByRole('button', { name: disabledBtn })).toBeDisabled();
     });
 
+    it('disables "Teleradiology Final Read" with a tooltip while the internal final read has text', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      const textbox = screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL });
+      const teleradiologyBtn = (): HTMLElement =>
+        screen.getByRole('button', { name: TELERADIOLOGY_FINAL_READ_BTN_LABEL });
+
+      await user.type(textbox, '   ');
+      expect(teleradiologyBtn()).toBeEnabled();
+
+      await user.type(textbox, 'Normal');
+      expect(teleradiologyBtn()).toBeDisabled();
+      await user.hover(teleradiologyBtn().parentElement!);
+      expect(
+        await screen.findByRole('tooltip', { name: 'Clear the internal final read report to send to teleradiology.' })
+      ).toBeInTheDocument();
+
+      await user.clear(textbox);
+      expect(teleradiologyBtn()).toBeEnabled();
+    });
+
     it('does not carry an unsaved internal final read over to the next order', async () => {
       const user = userEvent.setup();
       const otherId = 'sr-002';
@@ -318,6 +342,76 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       expect(screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL })).toBeDisabled();
       expect(screen.getByRole('button', { name: INTERNAL_FINAL_READ_BTN_LABEL })).toBeDisabled();
       expect(screen.getByRole('button', { name: TELERADIOLOGY_FINAL_READ_BTN_LABEL })).toBeDisabled();
+    });
+
+    describe('"Same as Preliminary"', () => {
+      const sameAsPreliminary = (): HTMLElement =>
+        screen.getByRole('checkbox', { name: SAME_AS_PRELIMINARY_CHECKBOX_LABEL });
+      const finalReportField = (): HTMLElement => screen.getByRole('textbox', { name: FINAL_REPORT_TEXTBOX_LABEL });
+
+      beforeEach(() => {
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({
+            orders: [makeMockOrder({ preliminaryReport: btoa('No acute fracture.<br>Ankle mortise intact.') })],
+          })
+        );
+      });
+
+      it('copies the preliminary read into the internal final read, which then saves as final', async () => {
+        const user = userEvent.setup();
+        const mockHandleSaveReport = vi.fn();
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({
+            orders: [makeMockOrder({ preliminaryReport: btoa('No acute fracture.<br>Ankle mortise intact.') })],
+            handleSaveReport: mockHandleSaveReport,
+          })
+        );
+        renderPage();
+
+        await user.click(sameAsPreliminary());
+        expect(finalReportField()).toHaveValue('No acute fracture.\nAnkle mortise intact.');
+
+        await user.click(screen.getByRole('button', { name: INTERNAL_FINAL_READ_BTN_LABEL }));
+        expect(mockHandleSaveReport).toHaveBeenCalledWith(
+          SERVICE_REQUEST_ID,
+          'No acute fracture.\nAnkle mortise intact.',
+          'final'
+        );
+      });
+
+      it('leaves the copied read editable and unchecks once it differs from the preliminary read', async () => {
+        const user = userEvent.setup();
+        renderPage();
+
+        await user.click(sameAsPreliminary());
+        await user.type(finalReportField(), ' Soft tissue swelling.');
+
+        expect(finalReportField()).toHaveValue('No acute fracture.\nAnkle mortise intact. Soft tissue swelling.');
+        expect(sameAsPreliminary()).not.toBeChecked();
+      });
+
+      it('clears the copied read when unchecked', async () => {
+        const user = userEvent.setup();
+        renderPage();
+
+        await user.click(sameAsPreliminary());
+        expect(sameAsPreliminary()).toBeChecked();
+        await user.click(sameAsPreliminary());
+
+        expect(finalReportField()).toHaveValue('');
+      });
+
+      it('is disabled when the visit is read-only', () => {
+        mockUseGetAppointmentAccessibility.mockReturnValue({
+          isAppointmentReadOnly: true,
+          isPractitionerLicensedInState: true,
+          isEncounterAssignedToCurrentPractitioner: true,
+          visitType: 'main',
+        });
+        renderPage();
+
+        expect(sameAsPreliminary()).toBeDisabled();
+      });
     });
   });
 
@@ -362,9 +456,73 @@ describe('RadiologyOrderDetailsPage - final report', () => {
           'preliminary',
           ['A00'],
           // The performer select defaults to the current user, so a save always carries one.
-          CURRENT_USER_ID
+          CURRENT_USER_ID,
+          false
         )
       );
+    });
+
+    describe('"Mark as final reading"', () => {
+      it('is unchecked by default, leaving the button to save a preliminary read', () => {
+        mockUsePatientRadiologyOrders.mockReturnValue(performedHookResult());
+        renderPage();
+
+        expect(screen.getByRole('checkbox', { name: MARK_AS_FINAL_CHECKBOX_LABEL })).not.toBeChecked();
+        expect(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL })).toBeInTheDocument();
+      });
+
+      it('turns the button into "Save as Final", which saves the trimmed read as the final read', async () => {
+        const user = userEvent.setup();
+        const mockHandleSaveReport = vi.fn();
+        mockUsePatientRadiologyOrders.mockReturnValue(performedHookResult({ handleSaveReport: mockHandleSaveReport }));
+        renderPage();
+
+        await user.click(screen.getByRole('button', { name: ADD_DX_BTN_LABEL }));
+        await user.type(screen.getByRole('textbox', { name: PRELIMINARY_REPORT_TEXTBOX_LABEL }), '  Prelim findings  ');
+        await user.click(screen.getByRole('checkbox', { name: MARK_AS_FINAL_CHECKBOX_LABEL }));
+
+        expect(screen.queryByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL })).not.toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: SAVE_AS_FINAL_BTN_LABEL }));
+
+        await waitFor(() =>
+          expect(mockHandleSaveReport).toHaveBeenCalledWith(
+            SERVICE_REQUEST_ID,
+            'Prelim findings',
+            'preliminary',
+            ['A00'],
+            CURRENT_USER_ID,
+            true
+          )
+        );
+      });
+
+      it('is not carried over to the next order', async () => {
+        const user = userEvent.setup();
+        const otherId = 'sr-002';
+        mockUsePatientRadiologyOrders.mockReturnValue(
+          makeHookResult({
+            orders: [
+              makeMockOrder({ status: RadiologyOrderStatus.performed }),
+              makeMockOrder({ serviceRequestId: otherId, status: RadiologyOrderStatus.performed }),
+            ],
+          })
+        );
+
+        const { rerender } = render(
+          <BrowserRouter>
+            <RadiologyOrderDetailsPage serviceRequestId={SERVICE_REQUEST_ID} />
+          </BrowserRouter>
+        );
+        await user.click(screen.getByRole('checkbox', { name: MARK_AS_FINAL_CHECKBOX_LABEL }));
+        rerender(
+          <BrowserRouter>
+            <RadiologyOrderDetailsPage serviceRequestId={otherId} />
+          </BrowserRouter>
+        );
+
+        expect(screen.getByRole('checkbox', { name: MARK_AS_FINAL_CHECKBOX_LABEL })).not.toBeChecked();
+        expect(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL })).toBeInTheDocument();
+      });
     });
 
     it('offers suggested reads for a mapped study and appends the chosen one to the preliminary read', async () => {
@@ -470,7 +628,8 @@ describe('RadiologyOrderDetailsPage - final report', () => {
           expected,
           'preliminary',
           ['A00'],
-          CURRENT_USER_ID
+          CURRENT_USER_ID,
+          false
         )
       );
     });
@@ -616,7 +775,8 @@ describe('RadiologyOrderDetailsPage - final report', () => {
             'No acute findings',
             'preliminary',
             ['A00'],
-            ORDERING_PROVIDER_ID
+            ORDERING_PROVIDER_ID,
+            false
           )
         );
       });

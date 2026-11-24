@@ -2,11 +2,9 @@ import CloseIcon from '@mui/icons-material/Close';
 import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Alert,
-  alpha,
   Box,
   Button,
   capitalize,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -30,6 +28,7 @@ import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
+import { getRefundState, RefundChip } from 'ui-components/lib/components/PaymentRefundChip';
 import {
   PatientPaymentDTO,
   PAYMENT_REFUND_MEDIUMS,
@@ -58,39 +57,6 @@ const buttonSx = {
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const formatCents = (cents: number): string => usdFormatter.format(cents / 100);
 const formatDate = (iso: string): string => DateTime.fromISO(iso).toLocaleString(DateTime.DATETIME_SHORT);
-
-export type PaymentRefundState = 'none' | 'partial' | 'full' | 'voided';
-
-export const getRefundState = (payment: PatientPaymentDTO): PaymentRefundState => {
-  if (payment.voided) return 'voided';
-  const refunded = payment.refundedAmountInCents ?? 0;
-  if (refunded <= 0) return 'none';
-  return refunded >= payment.amountInCents ? 'full' : 'partial';
-};
-
-export const RefundChip = ({
-  state,
-  size = 'small',
-}: {
-  state: PaymentRefundState;
-  size?: 'small' | 'medium';
-}): ReactElement | null => {
-  if (state === 'none') return null;
-  return (
-    <Chip
-      label={state === 'voided' ? 'VOIDED' : state === 'full' ? 'REFUNDED' : 'PARTIALLY REFUNDED'}
-      size={size}
-      sx={{
-        fontSize: '0.65rem',
-        fontWeight: 700,
-        letterSpacing: '0.4px',
-        height: 20,
-        color: 'error.dark',
-        backgroundColor: (theme) => alpha(theme.palette.error.light, 0.12),
-      }}
-    />
-  );
-};
 
 const methodLabel = (payment: PatientPaymentDTO): string => {
   if (payment.cardLast4) {

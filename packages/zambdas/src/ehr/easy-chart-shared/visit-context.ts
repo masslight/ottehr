@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import { PatientStatus } from 'utils/lib/easy-chart/api';
 import { wholeChartFromVisitNote } from 'utils/lib/easy-chart/visit-note-chart';
 import { getEmCodes } from 'utils/lib/helpers/em-codes';
+import { isNewPatient } from 'utils/lib/helpers/screening-questions/new-patient.helper';
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { TemplateDiagnosis } from 'utils/lib/types/data/list-template.types';
 import { buildVisitNote } from '../../shared/chart-sections/visit-note';
@@ -15,11 +16,11 @@ type ClinicalOystehrClient = ReturnType<typeof createClinicalOystehrClient>;
 
 export interface VisitContext {
   patientLine: string;
-  patientStatus?: PatientStatus;
+  appointment?: Appointment;
 }
 
 /**
- * Age and sex, plus the new/established status that decides the E&M code family. Read from the chart:
+ * Age and sex, plus the visit's appointment for the new/established status. Read from the chart:
  * an ambient recording can contain cross-talk about other patients.
  */
 export async function readVisitContext(
@@ -28,11 +29,12 @@ export async function readVisitContext(
   zambdaName: string
 ): Promise<VisitContext | undefined> {
   const resources = (
-    await oystehr.fhir.search<Encounter | Patient>({
+    await oystehr.fhir.search<Encounter | Patient | Appointment>({
       resourceType: 'Encounter',
       params: [
         { name: '_id', value: encounterId },
         { name: '_include', value: 'Encounter:subject' },
+        { name: '_include', value: 'Encounter:appointment' },
       ],
     })
   ).unbundle();
@@ -43,25 +45,14 @@ export async function readVisitContext(
     return undefined;
   }
 
-  // "New" means no professional services in the past 3 years; the current visit is one of the count.
-  let patientStatus: PatientStatus | undefined;
-  try {
-    const cutoff = DateTime.now().minus({ years: 3 }).toISODate();
-    const priorVisits = await oystehr.fhir.search<Appointment>({
-      resourceType: 'Appointment',
-      params: [
-        { name: 'patient._id', value: patient.id },
-        { name: 'date', value: `ge${cutoff}` },
-        { name: '_summary', value: 'count' },
-      ],
-    });
-    patientStatus = (priorVisits.total ?? 0) > 1 ? 'established' : 'new';
-  } catch {
-    // Unknown is a legitimate answer: the prompt then falls back to the established family.
-    console.log(`[${zambdaName}] could not determine patient status`);
-  }
+  const appointment = resources.find((r): r is Appointment => r.resourceType === 'Appointment');
+  return { patientLine: describePatient(patient), appointment };
+}
 
-  return { patientLine: describePatient(patient), patientStatus };
+export function readPatientStatus(chart: GetChartDataResponse, appointment: Appointment | undefined): PatientStatus {
+  return isNewPatient(chart.patientHasPreviousVisits ?? false, [{ observations: chart.observations, appointment }])
+    ? 'new'
+    : 'established';
 }
 
 /** Age and sex only; nothing else about the patient is needed to chart or code. */

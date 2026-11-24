@@ -90,16 +90,21 @@ vi.mock('src/features/visits/shared/hooks/usePractitioner', () => ({
   usePractitionerActions: () => ({ isEncounterUpdatePending: false }),
 }));
 
-const noDrafts = { hasDraft: () => false };
+const { draftEncounterIds, draftStore } = vi.hoisted(() => {
+  const draftEncounterIds = new Set<string>();
+  const drafts = { hasDraft: (encounterId: string) => draftEncounterIds.has(encounterId) };
+  return { draftEncounterIds, draftStore: (selector: (state: typeof drafts) => unknown): unknown => selector(drafts) };
+});
 vi.mock('src/state/draft-data.store', () => ({
-  useCreateExternalLabStore: () => noDrafts,
-  useCreateInHouseLabStore: () => noDrafts,
-  useCreateRadiologyOrderStore: () => noDrafts,
-  useImmunizationOrderStore: () => noDrafts,
-  useInHouseMedicationOrderStore: () => noDrafts,
-  useNursingOrderStore: () => noDrafts,
-  useProcedureStore: () => noDrafts,
-  useVitalsDraftStore: () => noDrafts,
+  useCreateExternalLabStore: draftStore,
+  useCreateInHouseLabStore: draftStore,
+  useCreateRadiologyOrderStore: draftStore,
+  useImmunizationOrderStore: draftStore,
+  useInHouseMedicationOrderStore: draftStore,
+  useNursingOrderStore: draftStore,
+  useProcedureStore: draftStore,
+  useVitalsDraftStore: draftStore,
+  useDmeOrderStore: draftStore,
 }));
 
 import { useProgressNoteSigning } from '../../src/features/visits/shared/hooks/useProgressNoteSigning';
@@ -119,6 +124,7 @@ describe('useProgressNoteSigning', () => {
     isAssignedProviderEligible = true;
     supervisorApprovalEnabled = true;
     note = signableNote();
+    draftEncounterIds.clear();
   });
 
   it('reports nothing blocking a complete, discharged note', () => {
@@ -126,6 +132,18 @@ describe('useProgressNoteSigning', () => {
 
     expect(result.current.errorMessages).toEqual([]);
     expect(result.current.permissionMessages).toEqual([]);
+    expect(result.current.readinessMessages).toEqual([]);
+  });
+
+  it('blocks signing while an order draft exists and unblocks once it is cleared, without remounting', () => {
+    const { result, rerender } = renderHook(() => useProgressNoteSigning());
+
+    draftEncounterIds.add('encounter-1');
+    rerender();
+    expect(result.current.readinessMessages).toContain('Complete or clear the in-progress DME order to sign');
+
+    draftEncounterIds.delete('encounter-1');
+    rerender();
     expect(result.current.readinessMessages).toEqual([]);
   });
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ServiceMode } from '../types/common';
 import { isValidSlug, PUBLIC_EXTENSION_BASE_URL, slugFromName } from './constants';
 import {
+  getLocationLabel,
   isLocationBookable,
   isLocationFacilityGroup,
   isLocationInPerson,
@@ -174,5 +175,21 @@ describe('slugFromName', () => {
   it('returns an empty string (invalid slug) for a name with no url-safe characters', () => {
     expect(slugFromName('Москва')).toBe('');
     expect(isValidSlug(slugFromName('Москва'))).toBe(false);
+  });
+});
+
+describe('getLocationLabel', () => {
+  it('prefixes the name with the upper-cased state', () => {
+    expect(getLocationLabel({ resourceType: 'Location', name: 'Pasadena', address: { state: 'ca' } })).toBe(
+      'CA - Pasadena'
+    );
+  });
+
+  it('shows the name alone when the location has no state', () => {
+    expect(getLocationLabel({ resourceType: 'Location', name: 'Telemed' })).toBe('Telemed');
+  });
+
+  it('labels a location without a name as unknown', () => {
+    expect(getLocationLabel({ resourceType: 'Location', address: { state: 'CA' } })).toBe('Unknown Location');
   });
 });

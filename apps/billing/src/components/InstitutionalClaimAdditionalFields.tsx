@@ -1,4 +1,5 @@
 import { Box, TextField } from '@mui/material';
+import { DateTime } from 'luxon';
 import { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
@@ -14,7 +15,7 @@ export interface InstitutionalClaimAdditionalFieldsData {
 }
 
 export function InstitutionalClaimAdditionalFields(): ReactElement {
-  const { control } = useFormContext();
+  const { control, getValues } = useFormContext();
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
       <Controller
@@ -90,7 +91,8 @@ export function InstitutionalClaimAdditionalFields(): ReactElement {
       <Controller
         name="admissionDate"
         control={control}
-        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+        // Re-check the discharge date when admission changes, since the ordering rule lives there.
+        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE, deps: ['dischargeDate'] }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <DateTimeInput
             label="Admission Date"
@@ -106,7 +108,19 @@ export function InstitutionalClaimAdditionalFields(): ReactElement {
       <Controller
         name="dischargeDate"
         control={control}
-        rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+        rules={{
+          required: REQUIRED_FIELD_ERROR_MESSAGE,
+          validate: (value) => {
+            const admission = DateTime.fromISO(getValues('admissionDate') ?? '');
+            const discharge = DateTime.fromISO(value ?? '');
+            return (
+              !admission.isValid ||
+              !discharge.isValid ||
+              discharge >= admission ||
+              'Discharge date must be on or after admission date'
+            );
+          },
+        }}
         render={({ field, fieldState: { error: fieldError } }) => (
           <DateTimeInput
             label="Discharge Date"

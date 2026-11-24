@@ -87,10 +87,10 @@ export const mapExcuseFieldsToLabels = {
   schoolExcusedFromWorkOn: 'excused from work on',
   workExcusedFromWorkFromTo: 'are excused from work from - to',
   workExcusedFromWorkOn: 'are excused from work on',
-  workMayReturnToWorkOn: 'may return to work from',
+  workMayReturnToWorkOn: 'may return to work on',
   excusedFromSchoolFromTo: 'excused from school from - to',
   excusedFromSchoolOn: 'excused from school on',
-  schoolMayReturnToSchoolOn: 'may return to school from',
+  schoolMayReturnToSchoolOn: 'may return to school on',
   excusedFromSchoolUntilFeverFreeFor24Hours: 'excused from school until fever free for 24 hours',
   excusedFromSchoolUntilOnAntibioticsFor24Hours: 'excused from school until on antibiotics for 24 hours',
   ableToReturnToSchoolWithoutRestriction: 'able to return to school without restriction',
@@ -127,7 +127,7 @@ const mapCompositeExcuseFieldsToLabels: {
   workExcusedFromWorkOn: (values: ExcuseFormValues) =>
     `excused from work on ${values.workExcusedFromWorkOnDate!.toFormat('MM/dd/yyyy')}`,
   workMayReturnToWorkOn: (values: ExcuseFormValues) =>
-    `may return to work from ${values.workMayReturnToWorkOnDate!.toFormat('MM/dd/yyyy')}`,
+    `may return to work on ${values.workMayReturnToWorkOnDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromSchoolFromTo: (values: ExcuseFormValues) =>
     `excused from school from ${values.excusedFromSchoolFromDate!.toFormat(
       'MM/dd/yyyy'
@@ -135,13 +135,18 @@ const mapCompositeExcuseFieldsToLabels: {
   excusedFromSchoolOn: (values: ExcuseFormValues) =>
     `excused from school on ${values.excusedFromSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
   schoolMayReturnToSchoolOn: (values: ExcuseFormValues) =>
-    `may return to school from ${values.schoolMayReturnToSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
+    `may return to school on ${values.schoolMayReturnToSchoolOnDate!.toFormat('MM/dd/yyyy')}`,
   excusedFromGymActivitiesFromTo: (values: ExcuseFormValues) =>
     `excused from gym/activities from ${values.excusedFromGymActivitiesFromDate!.toFormat(
       'MM/dd/yyyy'
     )} to ${values.excusedFromGymActivitiesToDate!.toFormat('MM/dd/yyyy')}`,
   otherRestrictions: (values: ExcuseFormValues) => values.otherRestrictionsNote,
   other: (values: ExcuseFormValues) => values.otherNote,
+};
+
+const getVisitDate = (visitStart?: string): DateTime => {
+  const start = visitStart ? DateTime.fromISO(visitStart) : undefined;
+  return start?.isValid ? start : DateTime.now();
 };
 
 export const buildHeaderNote = (params: {
@@ -151,14 +156,15 @@ export const buildHeaderNote = (params: {
   isSchool: boolean;
   isTemplate: boolean;
   phoneNumber?: string;
+  visitStart?: string;
 }): string => {
-  const currentDate = DateTime.now().toFormat('MM/dd/yyyy');
+  const visitDate = getVisitDate(params.visitStart).toFormat('MM/dd/yyyy');
   const headerNoteName =
     params.patientOrRelatedPerson === 'related-person'
       ? `${params.patientName || '{Patient name}'}, the child of ${params.parentName || '{Parent/Guardian name}'},`
       : `${params.patientName || '{Patient name}'},`;
   const headerNoteEnding = params.isSchool ? 'They are:' : 'They:';
-  let headerNote = `To whom it may concern:\n${headerNoteName} was treated by ${BRANDING_CONFIG.projectName} on ${currentDate}. ${headerNoteEnding}`;
+  let headerNote = `To whom it may concern:\n${headerNoteName} was treated by ${BRANDING_CONFIG.projectName} on ${visitDate}. ${headerNoteEnding}`;
   if (!params.isTemplate && params.phoneNumber) {
     headerNote += `\n\n\nFor any questions, please do not hesitate to call ${params.phoneNumber}.`;
   }
@@ -173,21 +179,23 @@ export const getDefaultExcuseFormValues = (params: {
   isTemplate: boolean;
   providerName?: string;
   phoneNumber?: string;
+  visitStart?: string;
 }): ExcuseFormValues => {
+  const visitDate = getVisitDate(params.visitStart);
   const defaultFormValues = {
     ...noteExcuseFields.reduce((prev, curr) => ({ ...prev, [curr]: '' }), {}),
     ...dateExcuseFields.reduce((prev, curr) => ({ ...prev, [curr]: null }), {}),
     ...schoolExcuseFields.reduce((prev, curr) => ({ ...prev, [curr]: false }), {}),
     ...workExcuseFields.reduce((prev, curr) => ({ ...prev, [curr]: false }), {}),
-    schoolExcusedFromWorkFromDate: DateTime.now(),
-    schoolExcusedFromWorkOnDate: DateTime.now(),
-    workExcusedFromWorkFromDate: DateTime.now(),
-    workExcusedFromWorkOnDate: DateTime.now(),
-    workMayReturnToWorkOnDate: DateTime.now().plus({ days: 1 }),
-    excusedFromSchoolFromDate: DateTime.now(),
-    excusedFromSchoolOnDate: DateTime.now(),
-    schoolMayReturnToSchoolOnDate: DateTime.now().plus({ days: 1 }),
-    excusedFromGymActivitiesFromDate: DateTime.now(),
+    schoolExcusedFromWorkFromDate: visitDate,
+    schoolExcusedFromWorkOnDate: visitDate,
+    workExcusedFromWorkFromDate: visitDate,
+    workExcusedFromWorkOnDate: visitDate,
+    workMayReturnToWorkOnDate: visitDate.plus({ days: 1 }),
+    excusedFromSchoolFromDate: visitDate,
+    excusedFromSchoolOnDate: visitDate,
+    schoolMayReturnToSchoolOnDate: visitDate.plus({ days: 1 }),
+    excusedFromGymActivitiesFromDate: visitDate,
   } as ExcuseFormValues;
 
   if (params.parentName) {
@@ -203,6 +211,7 @@ export const getDefaultExcuseFormValues = (params: {
     isSchool: params.isSchool,
     isTemplate: params.isTemplate,
     phoneNumber: params.phoneNumber,
+    visitStart: params.visitStart,
   });
 
   if (params.isTemplate) {

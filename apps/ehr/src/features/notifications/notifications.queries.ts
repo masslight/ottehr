@@ -1,6 +1,7 @@
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { getProviderNotificationPreferencesV2 } from 'utils/lib/fhir/patient';
 import { useSuccessQuery } from 'utils/lib/frontend/hooks/useSuccessQuery';
+import { ListActiveLocationsInput } from 'utils/lib/types/api/locations';
 import { ProviderNotificationMethod } from 'utils/lib/types/api/practitioner.types';
 import {
   getAllNotificationRows,
@@ -68,12 +69,14 @@ export const useGetProviderNotifications = (
   return queryResult;
 };
 
-export const useGetAllLocations = (): UseQueryResult<{ id: string; name: string }[], Error> => {
+export const useGetAllLocations = (
+  params: ListActiveLocationsInput = {}
+): UseQueryResult<{ id: string; name: string }[], Error> => {
   const { oystehrZambda } = useApiClients();
   return useQuery({
-    queryKey: ['ehr-active-locations'],
+    queryKey: ['ehr-active-locations', params],
     queryFn: async (): Promise<{ id: string; name: string }[]> => {
-      const { locations } = await listActiveLocations(oystehrZambda!);
+      const { locations } = await listActiveLocations(oystehrZambda!, params);
       return locations;
     },
     enabled: !!oystehrZambda,

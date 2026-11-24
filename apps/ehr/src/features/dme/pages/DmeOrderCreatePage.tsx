@@ -5,6 +5,7 @@ import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { getDmeOrdersUrl, withEncounterIdParam } from 'src/features/visits/in-person/routing/helpers';
+import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import { DmeBreadcrumbs } from '../components/DmeBreadcrumbs';
 import { DmeOrderForm } from '../components/DmeOrderForm';
 
@@ -18,11 +19,13 @@ export const DmeOrderCreatePage: React.FC<DmeOrderCreatePageProps> = ({ onFinish
   const isInlineFlow = useIsInlineFlow();
   const { id: appointmentId } = useParams();
   const [searchParams] = useSearchParams();
+  const { encounter } = useAppointmentData();
   const exit =
     onFinished ??
     ((): void => navigate(withEncounterIdParam(getDmeOrdersUrl(appointmentId ?? ''), searchParams.get('encounterId'))));
 
-  const form = <DmeOrderForm onFinished={() => exit()} onCancel={onCancel ?? exit} />;
+  // The form reads its saved draft once, so it remounts when the encounter loads or changes.
+  const form = <DmeOrderForm key={encounter?.id} onFinished={() => exit()} onCancel={onCancel ?? exit} />;
 
   if (isInlineFlow) return form;
 

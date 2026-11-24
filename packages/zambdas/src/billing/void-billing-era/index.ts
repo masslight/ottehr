@@ -18,13 +18,7 @@ import {
   fetchEraProcessingProvenances,
 } from '../claim-amounts';
 import { getEraActor } from '../era-write';
-import {
-  createBillingClient,
-  createEraReadClient,
-  ERA_VOID_ACTIVITY_CODE,
-  fetchById,
-  PROVENANCE_ACTIVITY_TYPE_SYSTEM,
-} from '../shared';
+import { createBillingClient, ERA_VOID_ACTIVITY_CODE, fetchById, PROVENANCE_ACTIVITY_TYPE_SYSTEM } from '../shared';
 
 type VoidEraParams = ValidatedZambdaInput<typeof VoidEraInputSchema>;
 
@@ -37,24 +31,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
-  const eraReadClient = createEraReadClient(m2mToken, params.secrets);
-  const result = await performEffect(oystehr, eraReadClient, params, actor, DateTime.now().toISO());
+  const result = await performEffect(oystehr, params, actor, DateTime.now().toISO());
   return { statusCode: 200, body: JSON.stringify(result) };
 });
 
 // Voids the ERA and its ClaimResponses, so claim balances leave them out with a plain status filter.
 export async function performEffect(
   oystehr: Oystehr,
-  eraReadClient: Oystehr,
   params: VoidEraParams,
   actor: Reference,
   now: string
 ): Promise<OkResponse> {
-  const era = await fetchById<PaymentReconciliation>(eraReadClient, 'PaymentReconciliation', params.eraId);
+  const era = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', params.eraId);
   if (era.status === ERA_VOID_STATUS) return { ok: true };
-  const provenances = await fetchEraProcessingProvenances(eraReadClient, [`PaymentReconciliation/${params.eraId}`]);
+  const provenances = await fetchEraProcessingProvenances(oystehr, [`PaymentReconciliation/${params.eraId}`]);
   const claimResponseIds = [...new Set(provenances.flatMap((p) => eraProvenanceTargetIds(p, 'ClaimResponse')))];
-  const responses = (await fetchClaimResponsesFromEraProvenances(eraReadClient, provenances)).get(params.eraId) ?? [];
+  const responses = (await fetchClaimResponsesFromEraProvenances(oystehr, provenances)).get(params.eraId) ?? [];
   const foundIds = new Set(responses.map((response) => response.id));
   if (provenances.length === 0 || claimResponseIds.some((id) => !foundIds.has(id))) throw ERA_VOID_INCOMPLETE_ERROR;
 
@@ -93,7 +85,7 @@ export async function performEffect(
     });
   } catch (error) {
     if (!isVersionConflictError(error)) throw error;
-    const current = await fetchById<PaymentReconciliation>(eraReadClient, 'PaymentReconciliation', params.eraId);
+    const current = await fetchById<PaymentReconciliation>(oystehr, 'PaymentReconciliation', params.eraId);
     if (current.status !== ERA_VOID_STATUS) throw ERA_VOID_CONFLICT_ERROR;
   }
   return { ok: true };

@@ -29,6 +29,7 @@ import {
 } from 'fhir/r4b';
 import { chunkThings } from 'utils/lib/fhir/chat';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   docRefIsAbnAndCurrent,
   docRefIsOrderPDFAndCurrent,
@@ -1208,9 +1209,10 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
  */
 export const filterFinalAndPrelimAndCorrectedTasks = (tasksResponse: Task[]): Task[] => {
   const getDrIdFromTask = (task: Task): string | undefined => {
-    return task.basedOn
-      ?.find((ref): ref is Reference => ref.reference?.startsWith('DiagnosticReport/') ?? false)
-      ?.reference?.split('/')[1];
+    return getIdFromReference(
+      task.basedOn?.find((ref): ref is Reference => ref.reference?.startsWith('DiagnosticReport/') ?? false)?.reference,
+      'DiagnosticReport'
+    );
   };
 
   // actually have to find whether or not there is a corrected result for a given DR.id.

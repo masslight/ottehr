@@ -5,6 +5,7 @@ import { Navigate, useLocation, useParams } from 'react-router-dom';
 import { resolveAccessibleAdminNavGroups, resolveActiveAdminItem } from 'src/features/admin/adminNav';
 import { AdminHeaderSlotProvider } from 'src/features/admin/AdminPageHeader';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { useOttehrBillingInvoicingInEhr } from 'src/rcm/state/invoice-config/invoice-config.queries';
 import { DEFAULT_TAB_TITLE } from 'src/shared/utils/patientTabTitle';
 
 const { VITE_APP_ORGANIZATION_NAME_LONG: ORGANIZATION_NAME_LONG } = import.meta.env;
@@ -13,11 +14,14 @@ export function AdminPage(): ReactElement | null {
   const { adminTab, billingTab, outreachSubTab, outreachDetailTab, insuranceTab } = useParams();
   const location = useLocation();
   const user = useEvolveUser();
+  const ottehrBillingInvoicingInEhr = useOttehrBillingInvoicingInEhr();
   // Portal target for each page's primary CTA, kept on the same row as the title.
   const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null);
 
   const resolvedItem = resolveActiveAdminItem({ adminTab, billingTab, outreachSubTab });
-  const accessibleItems = user ? resolveAccessibleAdminNavGroups(user.hasRole).flatMap((group) => group.items) : [];
+  const accessibleItems = user
+    ? resolveAccessibleAdminNavGroups(user.hasRole, ottehrBillingInvoicingInEhr).flatMap((group) => group.items)
+    : [];
   const activeItem = accessibleItems.find((item) => item.path === resolvedItem?.path);
   const adminTitle =
     activeItem && ORGANIZATION_NAME_LONG

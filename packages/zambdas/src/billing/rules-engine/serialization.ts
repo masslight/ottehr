@@ -1,7 +1,7 @@
 import { Basic, Extension, List, Reference, Task } from 'fhir/r4b';
 import { ottehrCodeSystemUrl } from 'utils/lib/fhir/systemUrls';
 import {
-  RulesEngineSubmissionInsurance,
+  RulesEngineInsurance,
   RulesEngineSubmissionType,
   RulesEngineType,
 } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -126,7 +126,7 @@ export function buildRulesEngineKickoffTask(
   skipRules: boolean,
   requester: Reference,
   submissionType: RulesEngineSubmissionType = 'new',
-  submissionInsurance: RulesEngineSubmissionInsurance = 'primary',
+  submissionInsurance: RulesEngineInsurance = 'primary',
   payerClaimControlNumber?: string
 ): Task {
   return {

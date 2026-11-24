@@ -173,7 +173,18 @@ export const EncounterBaseRowSchema = z.object({
         'visit\'s note. "" when none.'
     ),
   // --- Patient ---
-  patientId: z.string().describe('Patient id; rows are per-encounter, so count UNIQUE patientId for a patient count.'),
+  patientId: z
+    .string()
+    .describe(
+      'Patient id (internal UUID); rows are per-encounter, so count UNIQUE patientId for a patient count. Display ' +
+        'friendlyPatientId instead unless asked for the UUID.'
+    ),
+  friendlyPatientId: z
+    .string()
+    .describe(
+      'Human-readable patient id (PID) shown in the EHR patient header — the "friendly" / short patient id. Use ' +
+        'it whenever the user asks to display a patient id / PID. "" when the patient has none.'
+    ),
   firstName: z.string().describe('Patient first name.'),
   lastName: z.string().describe('Patient last name.'),
   patientName: z.string().describe('Patient full name.'),
@@ -306,6 +317,8 @@ export const ENCOUNTER_DOMAIN_FIELDS: readonly (keyof AdHocEncounterRow)[] = [
   'followUpReason',
   'procedureTypes',
   'occupationalMedicineEmployer',
+  'workersCompEmployer',
+  'workersCompCarrier',
   'examAbnormalSystems',
 ];
 
@@ -461,8 +474,8 @@ export const ENCOUNTER_LAYERS = {
     label: 'Vital signs',
     description:
       'Temperature (°F and °C), heart rate, blood pressure, SpO₂, respiration, weight (kg and lbs), height (cm, ' +
-      'inches, feet/inches), BMI, how each was taken (route / position / room air or supplemental O₂ with its ' +
-      'flow rate and delivery type), weight refused, vision ' +
+      'inches, feet/inches), head circumference (cm and inches), BMI, how each was taken (route / position / ' +
+      'room air or supplemental O₂ with its flow rate and delivery type), weight refused, vision ' +
       '(visual acuity, DOT vision screening), last menstrual period, and who recorded the vitals and when.',
     schema: z.object({
       temperatureF: z
@@ -491,7 +504,17 @@ export const ENCOUNTER_LAYERS = {
         .describe('Diastolic BP mmHg, MOST RECENT only — for the initial one use bloodPressureReadings[0].diastolic.'),
       weightKg: z.number().nullable().describe('Weight kg (most recent, normalized). Null if not taken.'),
       heightCm: z.number().nullable().describe('Height cm (most recent, normalized). Null if not taken.'),
-      bmi: z.number().nullable().describe('BMI from weightKg/heightCm when both present. Null otherwise.'),
+      headCircumferenceCm: z
+        .number()
+        .nullable()
+        .describe('Head circumference cm (most recent, 1 decimal). Null if not taken.'),
+      bmi: z
+        .number()
+        .nullable()
+        .describe(
+          'BMI from weightKg/heightCm when both present and the patient was 24 months or older at the visit. ' +
+            'Null otherwise (BMI is not used under 2 years).'
+        ),
       temperatureFReadings: z
         .array(z.number())
         .describe(
@@ -525,7 +548,8 @@ export const ENCOUNTER_LAYERS = {
           'Vitals that were out of range on ANY reading of the visit, by the age-banded thresholds the ' +
             'practice has configured. Applied at charting time, so the age band is the age on the visit ' +
             'date. Includes the critical ones. Values: temperatureF, heartRate, respirationRate, ' +
-            'oxygenSaturation, bloodPressure, weightKg, heightCm. Empty if all readings were in range. ' +
+            'oxygenSaturation, bloodPressure, weightKg, heightCm, headCircumferenceCm. Empty if all readings ' +
+            'were in range. ' +
             'USE THIS instead of comparing readings to thresholds of your own.'
         ),
       criticalVitals: z
@@ -550,6 +574,12 @@ export const ENCOUNTER_LAYERS = {
       heightFeetInches: z
         .string()
         .describe('Height as feet and inches, e.g. 5\'7.5" (most recent) — same reading as heightCm. "" if not taken.'),
+      headCircumferenceInches: z
+        .number()
+        .nullable()
+        .describe(
+          'Head circumference in inches (most recent, 2 decimals) — same reading as headCircumferenceCm. Null if not taken.'
+        ),
       // --- How the most recent reading was taken ---
       temperatureMethod: z
         .enum(TEMPERATURE_METHOD_VALUES)
@@ -943,8 +973,10 @@ export const ENCOUNTER_LAYERS = {
     }),
   },
   employer: {
-    label: 'Occupational medicine employer',
-    description: 'The occupational-medicine employer of the visit, as printed on the visit details face sheet.',
+    label: 'Employers',
+    description:
+      "The visit's employers as printed on the visit details face sheet: the occupational-medicine employer and " +
+      'the workers\' comp employer / carrier. Use for questions like "workers\' comp visits of employer X".',
     schema: z.object({
       occupationalMedicineEmployer: z
         .string()
@@ -952,6 +984,19 @@ export const ENCOUNTER_LAYERS = {
           'Employer name: for pre-op visits the employer picked for THIS visit; otherwise the occupational-' +
             "medicine employer on the patient's account (it may be set on any visit — filter by serviceCategory " +
             'for occupational-medicine visits). "" when none.'
+        ),
+      workersCompEmployer: z
+        .string()
+        .describe(
+          "Workers' comp employer on the patient's account (entered in paperwork), i.e. the employer of a " +
+            "workers' comp visit. Patient-level: it is the CURRENT value, so an older visit shows the patient's " +
+            "latest employer. Set on any visit of such a patient — filter by serviceCategory for workers' comp " +
+            'visits. "" when none.'
+        ),
+      workersCompCarrier: z
+        .string()
+        .describe(
+          'Workers\' comp insurance carrier on the patient\'s account (patient-level, current value). "" when none.'
         ),
     }),
   },

@@ -9,8 +9,8 @@ import {
   Provenance,
   Timing,
 } from 'fhir/r4b';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { ottehrExtensionUrl } from 'utils/lib/fhir/systemUrls';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CPT, CODE_SYSTEM_CPT_MODIFIER, CODE_SYSTEM_ICD_10 } from 'utils/lib/helpers/rcm/constants';
 import { CPTCodeDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import {
@@ -216,7 +216,7 @@ export const isDmeBillingProcedure = (resource: { extension?: Extension[] }): bo
 export const getDmeBillingProcedureIds = (deviceRequest: DeviceRequest): string[] =>
   (deviceRequest.extension ?? [])
     .filter((e) => e.url === DME_BILLING_PROCEDURE_EXTENSION_URL)
-    .map((e) => removePrefix('Procedure/', e.valueReference?.reference ?? ''))
+    .map((e) => getIdFromReference(e.valueReference?.reference, 'Procedure'))
     .filter((id): id is string => !!id);
 
 export const isDmeBillingProcedureOf = (procedure: Procedure, deviceRequest: DeviceRequest): boolean =>

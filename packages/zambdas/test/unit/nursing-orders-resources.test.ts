@@ -95,6 +95,16 @@ describe('makeNursingOrderTransactionRequests', () => {
     expect(provenance.location).toBeUndefined();
   });
 
+  test.each(['', '   ', '\n\t'])('omits ServiceRequest.note when notes is blank (%j)', (notes) => {
+    const { serviceRequest } = build({ notes });
+    expect(serviceRequest.note).toBeUndefined();
+  });
+
+  test('keeps a note with surrounding spaces as typed', () => {
+    const { serviceRequest } = build({ notes: '  Check vitals ' });
+    expect(serviceRequest.note).toEqual([{ text: '  Check vitals ' }]);
+  });
+
   test('records supportingInfo, the marker that makes the automatic re-check order idempotent', () => {
     const { serviceRequest } = build({ supportingInfoReferences: ['MedicationAdministration/ma-1'] });
     expect(serviceRequest.supportingInfo).toEqual([{ reference: 'MedicationAdministration/ma-1' }]);

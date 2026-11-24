@@ -39,6 +39,7 @@ import {
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CLAIM_TYPE_CODES,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
+  CODE_SYSTEM_COVERAGE_CLASS,
   CODE_SYSTEM_HL7_HCPCS,
   CODE_SYSTEM_OYSTEHR_CLAIM_PROCEDURE_MODIFIER,
   CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM,
@@ -59,6 +60,7 @@ import {
   isValidClaimStatusValue,
 } from 'utils/lib/types/data/billing/claim-status';
 import { CLAIM_NON_INSURANCE_PAYER_EXTENSION_URL } from 'utils/lib/types/data/billing/non-insurance-org.types';
+import { RULES_ENGINE_INSURANCES, RulesEngineInsurance } from 'utils/lib/types/data/billing/rules-engine.constants';
 import { getServiceLinePropertyDef } from 'utils/lib/types/data/billing/rules-engine.field-catalog';
 import { ServiceLineSetOperation, ServiceLineSetValue } from 'utils/lib/types/data/billing/rules-engine.schemas';
 import { isoDateRegex, taxIdRegex, zipRegex } from 'utils/lib/validation/regex';
@@ -81,6 +83,7 @@ import {
   getClaimSupportingInfo,
   getClaimType,
   getClaimTypeCoding,
+  getPayerClaimControlNumber,
   getProviderLicense,
   getTaxonomy,
   prepareWorkingCopy,
@@ -308,7 +311,7 @@ export const writeServiceLineProperty = (
   const writer = SERVICE_LINE_WRITERS[propertyId];
   if (!writer) return false;
   if (operation !== 'set' && getServiceLinePropertyDef(propertyId)?.valueType !== 'list') return false;
-  return writer(line, value, operation);
+  return writer(line, value.trim(), operation);
 };
 
 export type DateValueResolution = { value: string } | { error: string };
@@ -513,15 +516,19 @@ const READERS: Record<string, FieldReader> = {
 
   ...coverageReaders('insurance', primaryCoverage),
   ...personReaders('policyHolder', policyHolder(primaryCoverage)),
+  'insurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'primary'),
 
   ...coverageReaders('secondaryInsurance', secondaryCoverage),
   ...personReaders('secondaryPolicyHolder', policyHolder(secondaryCoverage)),
+  'secondaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'secondary'),
 
   ...coverageReaders('tertiaryInsurance', tertiaryCoverage),
   ...personReaders('tertiaryPolicyHolder', policyHolder(tertiaryCoverage)),
+  'tertiaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'tertiary'),
 
   ...coverageReaders('quaternaryInsurance', quaternaryCoverage),
   ...personReaders('quaternaryPolicyHolder', policyHolder(quaternaryCoverage)),
+  'quaternaryInsurance.pccn': (m) => getPayerClaimControlNumber(m.claim, 'quaternary'),
 
   'renderingProvider.ref': (m) => copySourceRef(m.renderingProvider),
   ...providerReaders('renderingProvider', (m) => m.renderingProvider),
@@ -756,7 +763,7 @@ const setCoverageFromPatient = (
 
   const payorRef = copy.payor?.[0]?.reference;
   const payerLabel = coveragePayerDisplay(copy) ?? extractPayerIdFromUrl(payorRef);
-  attachCoverageToClaim({
+  const attachedIsFocal = attachCoverageToClaim({
     claim: model.claim,
     coverageReference: reference,
     type: coverageType,
@@ -766,8 +773,9 @@ const setCoverageFromPatient = (
     display: payerLabel ?? `Coverage/${entry.coverage.id}`,
     payerReference: payorRef,
   });
-  // The insurer carries the payer label alone — never the coverage-reference fallback.
-  if (payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
+  // The insurer carries the payer label alone — never the coverage-reference fallback — and names
+  // the focal payer only, so a coverage attached behind an existing primary leaves it alone.
+  if (attachedIsFocal && payorRef) model.claim.insurer = { reference: payorRef, display: payerLabel };
   return true;
 };
 
@@ -1003,6 +1011,31 @@ const coverageWriters = (
   [`${prefix}.relationship`]: (m, v) => setRelationshipSelf(m, v, resolve),
 });
 
+// Copy a coverage's member ID (subscriberId) into its group number — the value of the coverage's
+// first class entry, which is where the billing app stores the group number and the CMS-1500 / claim
+// submission read it from (see setCoveragePayer). Used for worker's comp claims, where front desk
+// records the WC claim number as the member ID but payers expect it as the group number. When the
+// coverage carries no class entry yet, a plan class entry is created to hold the value. Returns an
+// error (failing the rule) when the claim has no coverage at that position or the coverage has no
+// member ID to copy — a WC claim must not go out without its claim number.
+export const copyMemberIdToGroupNumber = (
+  model: RulesEngineClaimModel,
+  insurance: RulesEngineInsurance
+): string | undefined => {
+  const coverage = model.coverages[RULES_ENGINE_INSURANCES.indexOf(insurance)];
+  if (!coverage) return `the claim has no ${insurance} insurance coverage`;
+  const memberId = coverage.subscriberId?.trim();
+  if (!memberId) return `the ${insurance} insurance coverage has no member ID`;
+  const [first, ...rest] = coverage.class ?? [];
+  coverage.class = [
+    first
+      ? { ...first, value: memberId }
+      : { type: { coding: [{ system: CODE_SYSTEM_COVERAGE_CLASS, code: 'plan' }] }, value: memberId },
+    ...rest,
+  ];
+  return undefined;
+};
+
 // Writers for a provider (rendering or billing), paired with providerReaders.
 const providerWriters = (
   prefix: string,
@@ -1191,5 +1224,5 @@ export const WRITABLE_FIELD_IDS: string[] = Object.keys(WRITERS);
 export const writeField = (model: RulesEngineClaimModel, fieldId: string, value: string | null): boolean => {
   const writer = WRITERS[fieldId];
   if (!writer) return false;
-  return writer(model, value);
+  return writer(model, value?.trim() ?? null);
 };

@@ -6,6 +6,7 @@ import {
   MIN_PLAUSIBLE_HEIGHT_IN,
   parseVitalDisplay,
   recoverVitalReading,
+  unitNotSaid,
 } from './vitals';
 
 describe('canonicalizeVitalUnit', () => {
@@ -137,6 +138,87 @@ describe('parseVitalDisplay', () => {
   });
 });
 
+describe('head circumference', () => {
+  it('converts cm, mm and inches, and nothing larger', () => {
+    expect(canonicalizeVitalUnit('vital-head-circumference', 438, 'mm')).toEqual({ value: 43.8, unit: 'cm' });
+    expect(canonicalizeVitalUnit('vital-head-circumference', 43.8, 'cm')).toEqual({ value: 43.8, unit: 'cm' });
+    expect(canonicalizeVitalUnit('vital-head-circumference', 17.2, 'inches')).toEqual({ value: 17.2, unit: 'in' });
+    expect(canonicalizeVitalUnit('vital-head-circumference', 17.2, '"')).toEqual({ value: 17.2, unit: 'in' });
+    expect(canonicalizeVitalUnit('vital-head-circumference', 0.44, 'm')).toBeUndefined();
+    expect(canonicalizeVitalUnit('vital-head-circumference', 1, 'ft')).toBeUndefined();
+  });
+
+  it('charts a reading with its unit', () => {
+    expect(parseVitalDisplay('vital-head-circumference', '43.8 cm')).toEqual({ status: 'ok', value: 43.8, unit: 'cm' });
+    expect(parseVitalDisplay('vital-head-circumference', '438 mm')).toEqual({ status: 'ok', value: 43.8, unit: 'cm' });
+    expect(parseVitalDisplay('vital-head-circumference', '17.24 in')).toEqual({
+      status: 'ok',
+      value: 17.24,
+      unit: 'in',
+    });
+  });
+
+  it('lets a newborn head circumference through, well under the live-birth length floor', () => {
+    expect(parseVitalDisplay('vital-head-circumference', '33 cm')).toEqual({ status: 'ok', value: 33, unit: 'cm' });
+  });
+
+  it('asks rather than charting a reading with no unit', () => {
+    expect(parseVitalDisplay('vital-head-circumference', '43.8')).toMatchObject({
+      status: 'missing-unit',
+      value: 43.8,
+    });
+  });
+
+  it('asks about a unit it does not convert', () => {
+    expect(parseVitalDisplay('vital-head-circumference', '0.44 m')).toMatchObject({
+      status: 'unrecognized-unit',
+      writtenUnit: 'm',
+    });
+  });
+
+  it('asks about a reading no head could measure, almost always a mis-stated unit', () => {
+    expect(parseVitalDisplay('vital-head-circumference', '0 cm')).toMatchObject({ status: 'implausible' });
+    expect(parseVitalDisplay('vital-head-circumference', '45 in')).toMatchObject({ status: 'implausible' });
+    expect(parseVitalDisplay('vital-head-circumference', '4.38 cm')).toMatchObject({ status: 'implausible' });
+    expect(parseVitalDisplay('vital-head-circumference', '13 in')).toEqual({ status: 'ok', value: 13, unit: 'in' });
+    expect(parseVitalDisplay('vital-head-circumference', '58 cm')).toEqual({ status: 'ok', value: 58, unit: 'cm' });
+  });
+
+  it('does not take a length that merely follows a head circumference keyword', () => {
+    expect(recoverVitalReading('vital-head-circumference', 'OFC nl; length 68 cm')).toBeUndefined();
+    expect(recoverVitalReading('vital-height', 'OFC nl; length 68 cm')).toBe('68 cm');
+    expect(recoverVitalReading('vital-head-circumference', 'HC: 43.8 cm')).toBe('43.8 cm');
+    expect(recoverVitalReading('vital-head-circumference', 'head circumference was 17.2 in')).toBe('17.2 in');
+    expect(recoverVitalReading('vital-head-circumference', 'head circumference at 44.5 cm')).toBe('44.5 cm');
+    expect(recoverVitalReading('vital-head-circumference', 'OFC approx. 44 cm')).toBe('44 cm');
+    expect(recoverVitalReading('vital-height', 'head circumference at 45 cm')).toBeUndefined();
+  });
+
+  it('never recovers the other-unit value written next to a head circumference as a dropped height', () => {
+    expect(recoverVitalReading('vital-height', 'OFC 52 cm ≈ 20.47 in')).toBeUndefined();
+    expect(recoverVitalReading('vital-height', 'Head circumference 52 cm (20.47 in)')).toBeUndefined();
+    expect(recoverVitalReading('vital-height', 'OFC 52 cm ≈ 20.47 in, length 88 cm')).toBe('88 cm');
+    expect(recoverVitalReading('vital-height', 'HC 20.5 in / 52 cm. Length 34 in')).toBe('34 in');
+  });
+
+  it('never recovers a head circumference as a dropped height', () => {
+    expect(recoverVitalReading('vital-height', 'OFC 52 cm, length 88 cm')).toBe('88 cm');
+    expect(recoverVitalReading('vital-height', 'head circumference 45 cm')).toBeUndefined();
+  });
+
+  it('recovers a dropped reading named as head circumference, OFC or HC', () => {
+    expect(recoverVitalReading('vital-head-circumference', 'head circumference today 43.8 cm')).toBe('43.8 cm');
+    expect(recoverVitalReading('vital-head-circumference', 'OFC 438 mm, tracking well')).toBe('438 mm');
+    expect(recoverVitalReading('vital-head-circumference', 'HC 17.2 in')).toBe('17.2 in');
+  });
+
+  it('does not take a length that is not named as a head circumference', () => {
+    expect(recoverVitalReading('vital-head-circumference', 'length 68 cm, laceration 2 cm')).toBeUndefined();
+    expect(recoverVitalReading('vital-head-circumference', 'apply HC 2.5% cream twice daily')).toBeUndefined();
+    expect(recoverVitalReading('vital-head-circumference', 'head circumference 43.8')).toBeUndefined();
+  });
+});
+
 describe('isImplausibleHeight', () => {
   it('uses the documented thresholds', () => {
     expect(isImplausibleHeight(MIN_PLAUSIBLE_HEIGHT_IN, 'in')).toBe(false);
@@ -172,5 +254,74 @@ describe('recoverVitalReading', () => {
     expect(recoverVitalReading('vital-weight', 'cough for 5 days')).toBeUndefined();
     expect(recoverVitalReading('vital-height', 'sick for 3 days')).toBeUndefined();
     expect(recoverVitalReading('vital-respiration-rate', 'seen 2 times this month')).toBeUndefined();
+  });
+});
+
+describe('unitNotSaid', () => {
+  it('flags a unit the narrative never gave after the number', () => {
+    expect(
+      unitNotSaid('vital-head-circumference', '44 cm', ['Head circumference 44 today. Weight 8.9 kg.'])
+    ).toMatchObject({ status: 'missing-unit', value: 44, reason: expect.stringMatching(/centimetres or inches/) });
+    expect(unitNotSaid('vital-height', '68 cm', ['Height 68 today.'])).toMatchObject({ status: 'missing-unit' });
+    expect(unitNotSaid('vital-weight', '20 lb', ['weight 20, OFC 44 cm'])).toMatchObject({ status: 'missing-unit' });
+  });
+
+  it('accepts a reading whose unit was said, however it was written', () => {
+    expect(unitNotSaid('vital-head-circumference', '441 mm', ['OFC 441 mm today'])).toBeUndefined();
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['HC 44-cm'])).toBeUndefined();
+    expect(unitNotSaid('vital-height', `5'8"`, [`patient is 5'8", weighs 130lb`])).toBeUndefined();
+    expect(unitNotSaid('vital-height', '1.73 m', ['patient is 1.73m'])).toBeUndefined();
+    expect(unitNotSaid('vital-weight', '130lb', [`patient is 5'8", weighs 130lb`])).toBeUndefined();
+    expect(unitNotSaid('vital-weight', '9 lb 4 oz', ['weighs 9 lb 4 oz'])).toBeUndefined();
+    expect(unitNotSaid('vital-weight', '130 lb', ['Weight: 130 (lbs)'])).toBeUndefined();
+  });
+
+  it('judges each number on its own, not by another vital that shares it', () => {
+    const narrative = 'weighs 44 lb, head circumference 44';
+    expect(unitNotSaid('vital-weight', '44 lb', [narrative])).toBeUndefined();
+    expect(unitNotSaid('vital-head-circumference', '44 cm', [narrative])).toMatchObject({ status: 'missing-unit' });
+  });
+
+  it('compares the numbers by value, however the decimals are written', () => {
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['Head circumference 44.0 today'])).toMatchObject({
+      status: 'missing-unit',
+    });
+    expect(unitNotSaid('vital-height', '68.0 cm', ['Height 68 today'])).toMatchObject({ status: 'missing-unit' });
+    expect(unitNotSaid('vital-weight', '9 kg', ['weighs 9.00 kg'])).toBeUndefined();
+  });
+
+  it("only looks at the number said for this vital, not another vital's or an age", () => {
+    expect(
+      unitNotSaid('vital-head-circumference', '52 cm', ['Head circumference 52 today. Height 52 inches.'])
+    ).toMatchObject({ status: 'missing-unit' });
+    expect(unitNotSaid('vital-height', '52 in', ['Head circumference 52 today. Height 52 inches.'])).toBeUndefined();
+    expect(
+      unitNotSaid('vital-head-circumference', '17 in', ['17 months old. Head circumference seventeen inches.'])
+    ).toBeUndefined();
+  });
+
+  it('checks a unit-less recheck that follows a reading with a unit', () => {
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['HC 43 cm. HC 44 today'])).toMatchObject({
+      status: 'missing-unit',
+    });
+    expect(unitNotSaid('vital-head-circumference', '43 cm', ['HC 43 cm. HC 44 today'])).toBeUndefined();
+  });
+
+  it('does not read a longer number as the reading', () => {
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['HC 44.5 cm, 144 days old'])).toBeUndefined();
+  });
+
+  it('leaves the reading alone when its number is not in the narrative at all', () => {
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['head circumference forty four'])).toBeUndefined();
+    expect(unitNotSaid('vital-head-circumference', '44 cm', [undefined])).toBeUndefined();
+  });
+
+  it('takes the unit from any of the narratives', () => {
+    expect(unitNotSaid('vital-head-circumference', '44 cm', ['HC 44', 'HC 44 cm'])).toBeUndefined();
+  });
+
+  it('does not judge vitals whose unit is fixed', () => {
+    expect(unitNotSaid('vital-heartbeat', '88 bpm', ['pulse 88'])).toBeUndefined();
+    expect(unitNotSaid('vital-temperature', '38.2 C', ['temp 38.2'])).toBeUndefined();
   });
 });

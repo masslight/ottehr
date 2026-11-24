@@ -1,4 +1,5 @@
 import { MISSING_REQUEST_BODY } from 'utils/lib/types/errors';
+import { optionalTextSchema, requiredTextSchema } from 'utils/lib/types/text-schemas';
 import { z } from 'zod';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse, safeValidate } from '../../../shared/validation';
@@ -11,9 +12,9 @@ export interface CreateChargeMasterParams {
 }
 
 const CreateChargeMasterBodySchema = z.object({
-  name: z.string().min(1),
+  name: requiredTextSchema,
   effectiveDate: z.string().date(),
-  description: z.string().default(''),
+  description: optionalTextSchema,
 });
 
 export function validateRequestParameters(input: ZambdaInput): CreateChargeMasterParams {
