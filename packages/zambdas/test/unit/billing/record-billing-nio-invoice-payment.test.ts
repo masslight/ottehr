@@ -146,6 +146,7 @@ const setup = ({
   oystehr: Oystehr;
   search: ReturnType<typeof vi.fn>;
   transaction: ReturnType<typeof vi.fn>;
+  resultsByType: Record<string, unknown[]>;
 } => {
   const resultsByType: Record<string, unknown[]> = {
     Invoice: [invoice],
@@ -166,7 +167,12 @@ const setup = ({
     } as unknown as Oystehr,
     search,
     transaction,
+    resultsByType,
   };
+};
+
+const VERSION_CONFLICT = {
+  code: 412,
 };
 
 const params = {
@@ -415,5 +421,71 @@ describe('record-billing-nio-invoice-payment', () => {
         now: NOW,
       })
     ).rejects.toEqual(INVALID_INPUT_ERROR('Only non-insurance payer invoices take recorded payments'));
+  });
+
+  it('returns without writing again when another writer records the same payment first', async () => {
+    const { oystehr, transaction, resultsByType } = setup();
+    transaction.mockImplementationOnce(async () => {
+      resultsByType.PaymentNotice = [existingPayment(PAYMENT_ID, 180), existingPayment(PAYMENT_ID, 140)];
+      throw VERSION_CONFLICT;
+    });
+
+    const result = await performEffect({
+      oystehr,
+      params,
+      now: NOW,
+    });
+
+    expect(result).toEqual({
+      paymentId: PAYMENT_ID,
+    });
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes against the current invoice version when the invoice changed under it', async () => {
+    const { oystehr, transaction, resultsByType } = setup();
+    transaction.mockImplementationOnce(async () => {
+      resultsByType.Invoice = [
+        nioInvoice({
+          meta: {
+            versionId: '4',
+          },
+        }),
+      ];
+      throw VERSION_CONFLICT;
+    });
+
+    await performEffect({
+      oystehr,
+      params,
+      now: NOW,
+    });
+
+    expect(transaction).toHaveBeenCalledTimes(2);
+    expect(transaction.mock.calls[1][0].requests[0]).toMatchObject({
+      ifMatch: 'W/"4"',
+    });
+  });
+
+  it('refuses when a different payment balanced the invoice first', async () => {
+    const { oystehr, transaction, resultsByType } = setup();
+    transaction.mockImplementationOnce(async () => {
+      resultsByType.Invoice = [
+        nioInvoice({
+          status: 'balanced',
+        }),
+      ];
+      resultsByType.PaymentNotice = [existingPayment('other-payment', 320)];
+      throw VERSION_CONFLICT;
+    });
+
+    await expect(
+      performEffect({
+        oystehr,
+        params,
+        now: NOW,
+      })
+    ).rejects.toEqual(INVALID_INPUT_ERROR("Invoice INV-00042 is balanced, so it can't take a payment"));
+    expect(transaction).toHaveBeenCalledTimes(1);
   });
 });
