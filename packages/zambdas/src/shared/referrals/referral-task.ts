@@ -15,11 +15,9 @@ import {
 } from 'utils/lib/types/api/referrals/referrals.types';
 import { getTaskInputValue } from 'utils/lib/types/data/tasks/types';
 
-/** Task statuses that still count as "open" for the referral worklist. */
 const CLOSED_TASK_STATUSES: Task['status'][] = ['completed', 'cancelled', 'failed', 'rejected', 'entered-in-error'];
 export const isOpenTask = (task: Task): boolean => !CLOSED_TASK_STATUSES.includes(task.status);
 
-/** Every referral-category task of a referral, open or not. */
 export const findReferralTasks = async (oystehr: Oystehr, referralId: string): Promise<Task[]> =>
   (
     await oystehr.fhir.search<Task>({
@@ -31,7 +29,6 @@ export const findReferralTasks = async (oystehr: Oystehr, referralId: string): P
     })
   ).unbundle();
 
-/** When a response becomes overdue: the urgency's window counted from when the referral went out (in UTC, so the result does not depend on the machine's zone). */
 export const referralOverdueAt = (urgency: ReferralUrgency, anchorIso: string): string =>
   DateTime.fromISO(anchorIso, { zone: 'utc' }).plus({ days: REFERRAL_OVERDUE_DAYS[urgency] }).toISO() ?? '';
 
@@ -48,16 +45,11 @@ const isOverdueNotifiedTag = (tag: Coding): boolean =>
 
 const hasOverdueNotifiedTag = (task: Task): boolean => !!task.meta?.tag?.some(isOverdueNotifiedTag);
 
-/** The task without its overdue-notified mark, so a due date that moved is notified again when it passes. */
 export const withoutOverdueNotifiedTag = (task: Task): Task =>
   hasOverdueNotifiedTag(task)
     ? { ...task, meta: { ...task.meta, tag: task.meta?.tag?.filter((tag) => !isOverdueNotifiedTag(tag)) } }
     : task;
 
-/**
- * Starts the overdue clock on a referral's open "awaiting response" task from `anchorIso` (when it was faxed or
- * handed to the patient). A referral without an open task has nothing to time.
- */
 export const setReferralTaskOverdue = async (
   oystehr: Oystehr,
   referralId: string,

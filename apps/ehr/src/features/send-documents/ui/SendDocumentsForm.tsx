@@ -70,7 +70,6 @@ export const SendDocumentsForm: FC<SendDocumentsFormProps> = ({
   const tooManyVisits = selectedAppointmentIds.length > DOCUMENT_PACKET_MAX_VISITS;
   const { included, excluded } = documentLabelGroups(preview?.documents ?? []);
   const isReferral = sourceType === 'referral';
-  // PCP management belongs to the single-visit flow alone; a referral's recipient is its own contact.
   const managesPcp = Boolean(preview) && !isReferral;
   const sendEnabled =
     canSend(recipients, preview ? included.length > 0 : true) && visitSelectionValid && !tooManyVisits;

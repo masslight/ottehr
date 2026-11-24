@@ -11,18 +11,14 @@ import {
 } from 'utils/lib/types/api/referrals/referrals.types';
 import { normalizeAddressBookTag } from 'utils/lib/types/data/address-book';
 
-/** The disposition's default specialty list, which has no "Other"; "Other" is a free-text entry on the referral form. */
 export const REFERRAL_SPECIALTY_OPTIONS = DEFAULT_SPECIALTY_TRANSFER_OPTIONS;
 
-/** The directory tag a specialty filters by, normalized the way tags are stored. */
 export const specialtyTag = (specialty: string): string | undefined =>
   specialty && specialty !== OTHER_SPECIALTY_TRANSFER_OPTION ? normalizeAddressBookTag(specialty) : undefined;
 
 export interface ReferralFormValues {
   specialty: string;
-  /** Free text when `specialty` is "Other". */
   specialtyOther: string;
-  /** The picker's text; `recipientContactId` says which directory contact it came from. */
   recipientName: string;
   recipientContactId: string;
   recipientFax: string;
@@ -33,12 +29,10 @@ export interface ReferralFormValues {
   whoSchedules: ReferralScheduler;
   responseRequested: boolean;
   includeDocuments: PacketDocumentKind[];
-  /** Documents from earlier visits, shown as chips in the order they were chosen. */
   earlierDocuments: ReferralEarlierDocument[];
   notesToRecipient: string;
 }
 
-/** `hasVisit` false (a referral made from the patient record) starts with no visit documents to include. */
 export const toReferralFormValues = (referral?: ReferralDTO, hasVisit = true): ReferralFormValues => {
   const listed = !referral || REFERRAL_SPECIALTY_OPTIONS.includes(referral.specialty);
   return {
@@ -73,19 +67,14 @@ export const toSaveReferralInput = (
   urgency: values.urgency,
   whatIsAsked: values.whatIsAsked,
   whoSchedules: values.whoSchedules,
-  // Nobody is asked to return a response when there is no recipient.
   responseRequested: values.recipientContactId ? values.responseRequested : false,
-  // Visit documents only exist for a referral made on a visit.
   includeDocuments: ids.encounterId ? values.includeDocuments : [],
   earlierDocumentIds: values.earlierDocuments.map((document) => document.id),
   notesToRecipient: values.notesToRecipient.trim() || undefined,
 });
 
-/** What the row and the discharge dialog print when the patient picks the specialist. */
 export const NO_RECIPIENT_TEXT = 'No recipient: patient chooses a provider their insurance covers';
 
-/** Hover text on the disabled Send fax button when the recipient has no fax number. */
 export const NO_FAX_SEND_TEXT =
   'No fax number. Enter one in the Fax field, or add it to the contact in the Directory for future referrals.';
-/** Hover text on the disabled Send fax button when no recipient was picked. */
 export const NO_RECIPIENT_SEND_TEXT = 'Pick a recipient with a fax number to send by fax.';

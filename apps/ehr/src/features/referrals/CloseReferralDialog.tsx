@@ -16,7 +16,6 @@ interface CloseReferralDialogProps {
   onClose: () => void;
 }
 
-/** Closes a referral with a reason and an optional one-line outcome (requirements item 14). */
 export const CloseReferralDialog: FC<CloseReferralDialogProps> = ({ referralId, onClose }) => {
   const [reason, setReason] = useState<ReferralCloseReason | ''>('');
   const [outcome, setOutcome] = useState('');

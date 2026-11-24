@@ -50,7 +50,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         throw INVALID_INPUT_ERROR('The visit of a referral cannot change');
       }
     }
-    // Every earlier document must be this patient's and one a referral may send; the fax checks again at send time.
     await loadReferralDocuments(oystehr, params.patientId, params.earlierDocumentIds ?? []);
 
     const resource = makeReferralServiceRequest(params, {
@@ -98,7 +97,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-/** A patient or visit named by the client that does not exist is a client error, not a 500. */
 const getOrNotFound = async <T extends Patient | Encounter>(
   oystehr: ReturnType<typeof createClinicalOystehrClient>,
   resourceType: T['resourceType'],
@@ -120,7 +118,6 @@ const assertEditable = (existing: ServiceRequest): ServiceRequest => {
   return existing;
 };
 
-/** The visit's office, named the way the task board files tasks by location. */
 const getTaskLocation = async (
   oystehr: ReturnType<typeof createClinicalOystehrClient>,
   encounter: Encounter | undefined

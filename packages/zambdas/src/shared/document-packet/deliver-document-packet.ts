@@ -32,7 +32,6 @@ import {
 } from './build-document-packet';
 import { DocumentPacketPlan } from './resolve-packet-source';
 
-/** When neither the visit's office nor the practice names a timezone. */
 export const DEFAULT_TIMEZONE = 'America/New_York';
 const DEFAULT_VISIT_TYPE_LABEL = 'Visit';
 
@@ -330,7 +329,6 @@ export const savePcpIfRequested = async (
   }
 };
 
-/** Moves a referral to Sent once its packet reached at least one recipient (see `markReferralSent`). Never throws. */
 export const markReferralSentIfDelivered = async (
   referralId: string,
   results: DocumentPacketRecipientResult[],

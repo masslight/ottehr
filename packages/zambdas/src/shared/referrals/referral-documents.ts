@@ -15,7 +15,6 @@ import { isFaxPacket, isMedicalRecordExport } from '../patient-documents';
 export const REFERRAL_DOCUMENT_REJECTED_MESSAGE =
   'One or more of the chosen documents cannot be sent with this referral';
 
-/** A document from an earlier visit that passed the referral checks, with the start of its visit. */
 export interface ReferralDocument {
   documentReference: DocumentReference;
   visitDate?: string;
@@ -49,7 +48,6 @@ const referencedIds = (references: { reference?: string }[] | undefined, prefix:
     .map((reference) => removePrefix(prefix, reference.reference ?? ''))
     .filter((id): id is string => !!id);
 
-/** The system folders (internal names) each of the patient's documents is filed in. */
 const loadFolderNamesByDocument = async (oystehr: Oystehr, patientId: string): Promise<Map<string, string[]>> => {
   const folders = (
     await oystehr.fhir.search<List>({
@@ -74,7 +72,6 @@ const loadFolderNamesByDocument = async (oystehr: Oystehr, patientId: string): P
   return byDocument;
 };
 
-/** Start of each document's visit: the encounter's appointment first, as the Docs table's Visit column resolves it. */
 const loadVisitDates = async (
   oystehr: Oystehr,
   documents: DocumentReference[]
@@ -108,7 +105,6 @@ const loadVisitDates = async (
   );
 };
 
-/** Whether a document of this patient may go out with a referral. The one rule save and fax both apply. */
 const isSendableWithReferral = (document: DocumentReference, patientId: string, folderNames: string[]): boolean =>
   document.subject?.reference === `Patient/${patientId}` &&
   document.status !== 'superseded' &&
@@ -117,10 +113,6 @@ const isSendableWithReferral = (document: DocumentReference, patientId: string, 
   !isMedicalRecordExport(document) &&
   folderNames.some((folderName) => isReferralDocumentFolderAllowed(folderName, isReferralLabResult(document)));
 
-/**
- * The given documents that may still go out with a referral for this patient, by id. The search is scoped to
- * the patient server-side, so another patient's document is simply not found.
- */
 export const findReferralDocuments = async (
   oystehr: Oystehr,
   patientId: string,
@@ -142,7 +134,6 @@ export const findReferralDocuments = async (
   );
 };
 
-/** Every given document, in the given order, or a client error naming none of them when any one fails the checks. */
 export const loadReferralDocuments = async (
   oystehr: Oystehr,
   patientId: string,
@@ -156,11 +147,9 @@ export const loadReferralDocuments = async (
   });
 };
 
-/** Oldest first by visit, falling back to when the document was added: the order the packet sends them in. */
 export const byVisitDateAscending = (a: ReferralDocument, b: ReferralDocument): number =>
   (a.visitDate ?? a.documentReference.date ?? '').localeCompare(b.visitDate ?? b.documentReference.date ?? '');
 
-/** The name the Docs table shows: each attachment's title, joined. */
 export const referralDocumentTitle = (document: DocumentReference): string =>
   (document.content ?? [])
     .map((content) => content.attachment?.title)

@@ -10,7 +10,6 @@ import { drawRegularText } from '../../helpers/render/regularText';
 import { createConfiguredSection, DataComposer } from '../../pdf-common';
 import { PdfSection, ReferralsData } from '../../types';
 
-// The patient's own copy (requirements item 15): where to go, why, how soon, and who is expected to book it.
 export const composeReferralsForDischargeSummary: DataComposer<
   { referrals?: EncounterReferral[]; timezone?: string },
   ReferralsData
@@ -23,7 +22,6 @@ export const composeReferralsForDischargeSummary: DataComposer<
           referral.recipient.phone && `Phone: ${referral.recipient.phone}`,
         ]
       : [`Choose a ${referral.specialty} your insurance covers and bring this summary.`];
-    // The window counts from when the referral went out; before that, from when it was written.
     const scheduleAnchor = referral.sentAt ?? referral.authoredOn;
     const scheduleBy =
       referral.whoSchedules === 'patient' && scheduleAnchor

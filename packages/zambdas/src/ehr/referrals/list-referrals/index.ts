@@ -39,7 +39,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       return bundle;
     }, 1000);
 
-    // A cancelled referral stays on the FHIR record but is off every list.
     const listed = serviceRequests.filter((serviceRequest) => getReferralStatus(serviceRequest) !== 'cancelled');
     const output: ListReferralsOutput = { referrals: await buildReferralDTOs(oystehr, listed) };
     return { statusCode: 200, body: JSON.stringify(output) };

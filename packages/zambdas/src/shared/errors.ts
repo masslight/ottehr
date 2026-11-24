@@ -71,7 +71,6 @@ export const isFhirNotFoundError = (error: unknown): boolean => {
   );
 };
 
-/** Whether a write was refused because the resource changed since it was read (optimistic lock / If-Match). */
 export const isFhirVersionConflictError = (error: unknown): boolean => {
   const candidate = error as { code?: unknown; statusCode?: unknown } | null;
   return candidate?.code === 412 || candidate?.statusCode === 412;

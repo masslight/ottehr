@@ -70,7 +70,6 @@ export const composePlanData: DataComposer<
       return [`${display} ${note}`];
     }) ?? [];
 
-  // Requirements item 17: specialty, recipient, reason, urgency and what is asked, beside the disposition.
   const referrals = (encounterReferrals ?? []).map((referral) => ({
     title: referral.specialty,
     lines: [

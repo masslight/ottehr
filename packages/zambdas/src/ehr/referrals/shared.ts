@@ -56,7 +56,6 @@ import { createOwnerReference, createTask } from '../../shared/tasks';
 /** Ids per `_id` / `based-on` / `related` search, so the query string stays well under URL limits. */
 const ID_SEARCH_CHUNK = 50;
 
-/** One paged search per chunk of values for `paramName`, so a long patient history never builds an oversized URL. */
 const searchByValues = async <T extends FhirResource>(
   oystehr: Oystehr,
   resourceType: T['resourceType'],
@@ -95,29 +94,24 @@ const newestFirst = <T extends { authoredOn?: string; date?: string }>(a: T, b: 
 
 const oldestFirst = <T extends { authoredOn?: string; date?: string }>(a: T, b: T): number => newestFirst(b, a);
 
-/** The task that represents the referral: an open one when there is one, else the most recent. */
 export const pickReferralTask = (tasks: Task[]): Task | undefined => {
   const sorted = [...tasks].sort(newestFirst);
   return sorted.find(isOpenTask) ?? sorted[0];
 };
 
-/** Open statuses first, then newest first. */
 export const sortReferrals = (referrals: ReferralDTO[]): ReferralDTO[] =>
   [...referrals].sort((a, b) => {
     const openDiff = Number(isReferralOpen(b.status)) - Number(isReferralOpen(a.status));
     return openDiff !== 0 ? openDiff : b.createdAt.localeCompare(a.createdAt);
   });
 
-/** Everything about a referral that lives outside its ServiceRequest. */
 export interface ReferralDTOContext {
   recipient?: ReferralRecipient;
   referringProviderName?: string;
   appointmentId?: string;
   task?: Task;
   formDocumentReference?: DocumentReference;
-  /** Filed responses, oldest first. */
   responseDocumentReferences?: DocumentReference[];
-  /** The chosen earlier-visit documents that still qualify, in the order they were chosen. */
   earlierDocuments?: ReferralEarlierDocument[];
   lastFax?: ReferralDTO['lastFax'];
 }
@@ -169,7 +163,6 @@ export const toReferralDTO = (serviceRequest: ServiceRequest, context: ReferralD
   };
 };
 
-/** Recipients by ServiceRequest id. A contact deleted from the directory simply has no entry. */
 export const loadRecipientsFor = async (
   oystehr: Oystehr,
   serviceRequests: ServiceRequest[]
@@ -226,10 +219,6 @@ const groupBy = <T>(items: T[], key: (item: T) => string | undefined): Map<strin
   return groups;
 };
 
-/**
- * The earlier-visit documents of each referral, by ServiceRequest id. One lookup per patient (a list is almost
- * always one patient's); a document that no longer qualifies (deleted, superseded) is left out.
- */
 const loadEarlierDocumentsFor = async (
   oystehr: Oystehr,
   serviceRequests: ServiceRequest[]
@@ -264,7 +253,6 @@ const basedOnReferralId = (task: Task): string | undefined =>
 const relatedReferralId = (docRef: DocumentReference): string | undefined =>
   docRef.context?.related?.map((ref) => referenceId(ref, 'ServiceRequest/')).find((id) => !!id);
 
-/** Maps referral ServiceRequests to DTOs, loading what each needs in batches. Sorted open first, newest first. */
 export const buildReferralDTOs = async (
   oystehr: Oystehr,
   serviceRequests: ServiceRequest[]
@@ -284,9 +272,7 @@ export const buildReferralDTOs = async (
 
   const [recipients, tasks, docRefs, encounters, practitioners, earlierDocuments] = await Promise.all([
     loadRecipientsFor(oystehr, referrals),
-    // Referral-category tasks and outbound fax attempts both hang off the ServiceRequest; one search, split below.
     searchByValues<Task>(oystehr, 'Task', 'based-on', referralRefs),
-    // The form and the filed responses both relate to the ServiceRequest; one search, split by type below.
     searchByValues<DocumentReference>(oystehr, 'DocumentReference', 'related', referralRefs, [
       { name: 'status', value: 'current' },
     ]),
@@ -330,9 +316,6 @@ export const buildReferralDTOs = async (
   );
 };
 
-// ---- referral task ----
-
-/** Sets every open referral-category task of a referral to `status`. */
 export const settleReferralTasks = async (
   oystehr: Oystehr,
   referralId: string,
@@ -350,12 +333,6 @@ export const settleReferralTasks = async (
   );
 };
 
-/**
- * Keeps the "awaiting response" task in step with a saved referral: created when a response is now
- * requested and none is open, refreshed when one is, cancelled when the request was withdrawn. The overdue
- * clock counts from when the referral went out (`sentAt`, else `givenToPatientAt`, else now) and an edit only
- * moves it when the urgency changed.
- */
 export const syncReferralTask = async (args: {
   oystehr: Oystehr;
   serviceRequest: ServiceRequest;

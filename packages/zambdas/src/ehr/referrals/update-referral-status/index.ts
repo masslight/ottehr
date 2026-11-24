@@ -66,10 +66,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-/**
- * The details patch for the requested action, and what happens to the referral's open task: settled to
- * `taskStatus`, or its overdue clock started from `taskClockStart`.
- */
 export const transition = (
   referral: ServiceRequest,
   params: UpdateReferralStatusInput,

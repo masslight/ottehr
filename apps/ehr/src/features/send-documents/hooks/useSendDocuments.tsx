@@ -39,7 +39,6 @@ export interface UseSendDocumentsResult {
   send: (values: SendDocumentsFormValues) => Promise<void>;
 }
 
-/** Only a single visit and a referral have a document list to preview; the other sources send a fixed set. */
 const previewInputFor = (source: DocumentPacketSource | undefined): DocumentPacketPreviewInput | undefined => {
   if (source?.type === 'visit') return { appointmentId: source.appointmentId };
   if (source?.type === 'referral') return { referralId: source.referralId };
@@ -78,7 +77,6 @@ export const useSendDocuments = (source: DocumentPacketSource | undefined): UseS
       const taskSource = taskSources.current.get(taskId);
       taskSources.current.delete(taskId);
       if (taskSource) void queryClient.invalidateQueries({ queryKey: faxHistoryQueryKey(taskSource) });
-      // A delivered referral fax moves the referral to Sent, so its lists are refreshed too.
       if (taskSource?.type === 'referral') void queryClient.invalidateQueries({ queryKey: [REFERRALS_QUERY_KEY] });
     },
     [queryClient]

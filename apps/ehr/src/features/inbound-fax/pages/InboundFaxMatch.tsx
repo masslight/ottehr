@@ -63,7 +63,6 @@ const isStaleFaxError = (e: unknown): boolean => {
 };
 const STALE_FAX_MESSAGE = 'This fax was changed by someone else. The page has been refreshed.';
 
-/** "Orthopedics, Riverside Orthopedic Associates, Sent, created 11/01/2026" — the date in the browser's zone. */
 const referralOptionLabel = (referral: ReferralDTO): string =>
   [
     referral.specialty,
@@ -228,7 +227,6 @@ export const InboundFaxMatch: React.FC = () => {
     [foldersData, confirmedPatientId]
   );
 
-  // The patient's referrals still waiting on something: a fax may be the answer to one of them.
   const { data: referralsData, isLoading: referralsLoading } = useReferralsQuery(
     confirmedPatientId ? { patientId: confirmedPatientId } : undefined
   );

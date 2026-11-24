@@ -8,8 +8,6 @@ export type SaveReferralParams = SaveReferralInput & { secrets: ZambdaInput['sec
 
 export function validateRequestParameters(input: ZambdaInput): SaveReferralParams {
   const params = safeValidate(SaveReferralInputSchema, safeJsonParse(input.body ?? ''));
-  // The typed fax is printed on the form and dialled by the fax packet. The form checks it in the browser;
-  // this is the same check send-document-packet applies, so a direct call cannot store junk.
   if (params.recipientFax && !isPhoneNumberValid(params.recipientFax)) {
     throw INVALID_INPUT_ERROR(`"${params.recipientFax}" is not a valid fax number`);
   }

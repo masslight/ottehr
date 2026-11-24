@@ -12,7 +12,6 @@ import { getReferralPdf, listReferrals, saveReferral, updateReferralStatus } fro
 
 export const REFERRALS_QUERY_KEY = 'referrals';
 
-/** Referrals for a patient (`{ patientId }`) or one visit (`{ encounterId }`), open ones first. */
 export const useReferralsQuery = (
   input: ListReferralsInput | undefined
 ): UseQueryResult<ListReferralsOutput, Error> => {
@@ -53,7 +52,6 @@ export const useUpdateReferralStatusMutation = (): UseMutationResult<
   UpdateReferralStatusInput
 > => useReferralMutation('update-referral-status', updateReferralStatus);
 
-/** Opens the referral form PDF in a new tab, the way generateAndOpenRadiologyOrderForm does. */
 export const openReferralPdf = async (
   oystehr: NonNullable<ReturnType<typeof useApiClients>['oystehrZambda']>,
   referralId: string

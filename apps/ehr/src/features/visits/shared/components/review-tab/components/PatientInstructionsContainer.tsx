@@ -29,7 +29,6 @@ export const PatientInstructionsContainer: FC = () => {
   const titleInCardHeader = useNoteSectionTitleInCardHeader();
   const { data: note, encounterId } = useVisitNote();
   const { data: referralsData } = useReferralsQuery(encounterId ? { encounterId } : undefined);
-  // Cancelled referrals are not part of the plan.
   const referrals = (referralsData?.referrals ?? []).filter((referral) => referral.status !== 'cancelled');
 
   const instructions = note?.plan.instructions;

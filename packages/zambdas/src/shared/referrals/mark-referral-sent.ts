@@ -8,11 +8,6 @@ import { setReferralTaskOverdue } from './referral-task';
 
 const MARK_REFERRAL_SENT_RETRIES = 3;
 
-/**
- * Moves a referral to Sent after its fax went out, and starts the overdue clock on its "awaiting response" task
- * from that moment. Only a referral still waiting to go out changes: one already answered keeps Response received.
- * Never throws — the fax has gone out, so a failure here is captured rather than failing the caller.
- */
 export const markReferralSent = async (referralId: string, oystehr: Oystehr): Promise<void> => {
   try {
     for (let attempt = 1; attempt <= MARK_REFERRAL_SENT_RETRIES; attempt++) {

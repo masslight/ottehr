@@ -16,7 +16,6 @@ import { createReferralFormPDF } from '../pdf/referral-form-pdf';
 import { loadReferralRecipient } from './recipient';
 import { findReferralDocuments } from './referral-documents';
 
-/** `ServiceRequest/<id>@<versionId>`: the form is reused only while the referral has not changed. */
 export const makeReferralFormSourceVersion = (serviceRequest: ServiceRequest): string | undefined =>
   serviceRequest.id && serviceRequest.meta?.versionId
     ? `ServiceRequest/${serviceRequest.id}@${serviceRequest.meta.versionId}`
@@ -25,7 +24,6 @@ export const makeReferralFormSourceVersion = (serviceRequest: ServiceRequest): s
 export const getStoredReferralFormSourceVersion = (docRef: DocumentReference): string | undefined =>
   docRef.identifier?.find((identifier) => identifier.system === REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM)?.value;
 
-/** The referral's current form: the one lookup every reader of the form goes through. */
 const findCurrentReferralFormDocRef = async (
   oystehr: Oystehr,
   referralId: string
@@ -50,13 +48,10 @@ const referenceId = (reference: string | undefined, prefix: string): string | un
 
 export interface ReferralFormDocument {
   documentReference: DocumentReference;
-  /** Z3 URL, what the fax service takes as its media. */
   z3Url: string;
-  /** Set only when the PDF was just generated. */
   presignedURL?: string;
 }
 
-/** The referral form on file, re-rendered when the referral has changed since it was made. */
 export const getOrCreateReferralForm = async (
   serviceRequest: ServiceRequest,
   args: { oystehr: Oystehr; secrets: Secrets | null; token: string }
@@ -78,9 +73,6 @@ export const getOrCreateReferralForm = async (
   const earlierDocumentIds = getReferralEarlierDocumentIds(serviceRequest);
   const [patient, practice, encounter, practitioner, recipient, earlierDocuments] = await Promise.all([
     oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
-    // The practice fills the From block; when ORGANIZATION_ID names no Organization the form still renders from
-    // the visit's office, the way the fax packet preview tolerates a missing sending organization. That is a
-    // misconfiguration worth seeing in Sentry, and any other failure (auth, outage) fails the form as usual.
     oystehr.fhir
       .get<Organization>({ resourceType: 'Organization', id: getSecret(SecretsKeys.ORGANIZATION_ID, secrets) })
       .catch((error: unknown) => {
@@ -92,7 +84,6 @@ export const getOrCreateReferralForm = async (
     encounterId ? oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId }) : undefined,
     practitionerId ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId }) : undefined,
     loadReferralRecipient(oystehr, serviceRequest),
-    // The form lists what still qualifies; the fax packet refuses to send when a chosen document no longer does.
     findReferralDocuments(oystehr, patientId, earlierDocumentIds).then((found) =>
       earlierDocumentIds.flatMap((id) => found.get(id) ?? [])
     ),
@@ -124,7 +115,6 @@ export const getOrCreateReferralForm = async (
   return { documentReference, z3Url, presignedURL };
 };
 
-/** A reused form has to be signed for this view; a freshly generated one already is. */
 export const presignReferralForm = async (form: ReferralFormDocument, token: string): Promise<string> => {
   const url = form.presignedURL ?? (await getPresignedURL(form.z3Url, token));
   if (!url) throw new Error('Failed to get presigned URL for referral form PDF');

@@ -44,35 +44,26 @@ export const REFERRAL_SERVICE_REQUEST_CODE = {
 
 export const REFERRAL_DETAILS_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/referral-details';
 
-/** DocumentReference type for the one-page referral form (mirrors RADIOLOGY_ORDER_FORM_DOC_REF_DOCTYPE). */
 export const REFERRAL_FORM_DOC_REF_DOCTYPE = {
   system: 'http://ottehr.org/fhir/StructureDefinition/referral-form',
   code: 'referral-form',
   display: 'Referral Form',
 } as const;
-/** Identifier stamped on the form DocumentReference with the ServiceRequest version it was rendered from. */
 export const REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM =
   'https://fhir.ottehr.com/Identifier/referral-form-source-version';
 
-/**
- * Patient Docs folders (internal names) whose documents can go out with a referral. The picker offers only
- * these, and save-referral and the fax packet check every chosen document against them.
- */
 export const REFERRAL_DOCUMENT_FOLDERS: readonly string[] = [
   BUCKET_NAMES.VISIT_NOTES,
   BUCKET_NAMES.LABS,
   BUCKET_NAMES.RADIOLOGY_REPORTS,
 ];
 
-/** A lab result report, as opposed to the order forms, eReqs, specimen labels and ABNs the Labs folder also holds. */
 export const isReferralLabResult = (docRef: DocumentReference): boolean =>
   docRefIsOttehrGeneratedResultAndCurrent(docRef) || docRefIsLabGeneratedResult(docRef);
 
-/** Whether a document filed in `folderName` can go out with a referral: from the Labs folder, results only. */
 export const isReferralDocumentFolderAllowed = (folderName: string, isLabResult: boolean): boolean =>
   REFERRAL_DOCUMENT_FOLDERS.includes(folderName) && (folderName !== BUCKET_NAMES.LABS || isLabResult);
 
-/** Ids of the earlier-visit documents chosen for the referral, in the order they were chosen. */
 export const getReferralEarlierDocumentIds = (serviceRequest: ServiceRequest): string[] =>
   (serviceRequest.supportingInfo ?? [])
     .map((reference) => reference.reference ?? '')
@@ -85,13 +76,8 @@ export interface ReferralDetails {
   whoSchedules: ReferralScheduler;
   responseRequested: boolean;
   includeDocuments: PacketDocumentKind[];
-  /**
-   * The number in the form's Fax field at save, whether the picker copied it from the contact or staff typed it.
-   * The referral faxes to this number; later edits to the directory contact do not change it.
-   */
   recipientFax?: string;
   sentAt?: string;
-  /** When the patient was given a printed copy; a fax still sets the status, so this outlives `given-to-patient`. */
   givenToPatientAt?: string;
   givenToPatientBy?: ReferralActor;
   closedAt?: string;
@@ -128,27 +114,18 @@ export const getReferralRecipientContactId = (serviceRequest: ServiceRequest): s
   serviceRequest.performer?.[0]?.reference?.replace('Organization/', '');
 export const getReferralStatus = (serviceRequest: ServiceRequest): ReferralStatus =>
   getReferralDetails(serviceRequest)?.status ?? 'not-sent';
-/** The fax number saved on the referral, when one was. */
 export const getReferralRecipientFax = (serviceRequest: ServiceRequest): string | undefined =>
   getReferralDetails(serviceRequest)?.recipientFax || undefined;
 
 export interface MakeReferralServiceRequestOptions {
   patientId: string;
   encounterId?: string;
-  /** `{ reference: 'Practitioner/<id>', display }` from resolveCallerPractitionerRef. */
   requester: Reference;
-  /** Display for `performer[0]`; the reference is built from `input.recipientContactId`. */
   recipientDisplay?: string;
-  /** The stored resource when editing: id, meta, authoredOn and details not in the input are kept. */
   existing?: ServiceRequest;
   now: string;
 }
 
-/**
- * Builds the ServiceRequest for a new or edited referral. Status is kept from `existing`; a new referral
- * starts as `not-sent`. Sending, giving to the patient, responses and closing go through
- * `withReferralDetails`, not through this function.
- */
 export const makeReferralServiceRequest = (
   input: SaveReferralInput,
   options: MakeReferralServiceRequestOptions
@@ -203,7 +180,6 @@ export const makeReferralServiceRequest = (
   return { ...base, extension: withExtensionJson(existing ?? base, REFERRAL_DETAILS_EXTENSION_URL, details) };
 };
 
-/** The ServiceRequest with its details patched and `status` kept in step with the referral status. */
 export const withReferralDetails = (
   serviceRequest: ServiceRequest,
   patch: Partial<ReferralDetails>

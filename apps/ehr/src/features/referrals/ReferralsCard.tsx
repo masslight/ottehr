@@ -10,10 +10,6 @@ import { ReferralForm } from './ReferralForm';
 import { ReferralRow } from './ReferralRow';
 import { useReferralsQuery } from './referrals.queries';
 
-/**
- * The visit's referrals on the Plan tab, beside the disposition (requirements items 1 and 3).
- * Like faxes and tasks, they stay open after the note is signed; only a finished referral locks.
- */
 export const ReferralsCard: FC = () => {
   const theme = useTheme();
   const { encounter, resources } = useAppointmentData();
@@ -24,7 +20,6 @@ export const ReferralsCard: FC = () => {
 
   const [adding, setAdding] = useState(false);
   const [expandedId, setExpandedId] = useState<string>();
-  // One fax dialog for the card: a new referral's form is replaced by its row the moment it is saved.
   const [faxReferralId, setFaxReferralId] = useState<string>();
   const fax = useSendDocuments(faxReferralId ? { type: 'referral', referralId: faxReferralId } : undefined);
   const sendFax = (referralId: string): void => {

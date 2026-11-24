@@ -137,7 +137,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         : encounter;
       appointmentId = getIdFromReference(visitEncounter?.appointment?.[0]?.reference, 'Appointment');
     }
-    // A referral the fax answers must be this patient's and still open.
     const referral = referralId ? await getOpenReferralOrThrow(oystehr, referralId, patientId) : undefined;
     const reviewTaskContext = reviewTaskAssignee
       ? await Promise.all([
@@ -308,7 +307,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 });
 
-/** The referral a filed response is attached to: tagged `referral`, this patient's, and not yet closed. */
 const getOpenReferralOrThrow = async (
   oystehr: Oystehr,
   referralId: string,
@@ -329,12 +327,6 @@ const taskInput = (
   ...value,
 });
 
-/**
- * The transaction entries that record the response on the referral and route its review to the referring
- * provider: the referral's open task is retitled, assigned and told which document to read, or a review task is
- * created when it has none. A specialist's note is never filed unread. The new DocumentReference is named by its
- * transaction-local `urn:uuid`, which the server rewrites when the transaction commits.
- */
 const buildReferralResponseRequests = async (args: {
   oystehr: Oystehr;
   referral: ServiceRequest;
@@ -348,8 +340,6 @@ const buildReferralResponseRequests = async (args: {
     method: 'PUT',
     url: `/ServiceRequest/${referralId}`,
     resource: withReferralDetails(referral, { status: 'response-received' }),
-    // Optimistic lock: a referral closed or edited since it was checked above fails the filing instead of
-    // silently reverting that change.
     ifMatch: makeOptimisticLockIfMatchHeader(referral),
   };
 

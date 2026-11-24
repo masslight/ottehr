@@ -14,14 +14,12 @@ const isDocumentAllowed = (folderName: string, document: PatientDocumentInfo): b
 
 interface ReferralDocumentsPickerDialogProps {
   patientId: string;
-  /** The referral's own visit: its documents are the "This visit" checkboxes, so the picker leaves them out. */
   encounterId?: string;
   selected: ReferralEarlierDocument[];
   onClose: () => void;
   onAdd: (documents: ReferralEarlierDocument[]) => void;
 }
 
-/** The Patient Docs view as a picker, limited to the folders a referral sends from. Mounted only while open. */
 export const ReferralDocumentsPickerDialog: FC<ReferralDocumentsPickerDialogProps> = ({
   patientId,
   encounterId,
@@ -45,7 +43,6 @@ export const ReferralDocumentsPickerDialog: FC<ReferralDocumentsPickerDialogProp
       isDocumentAllowed,
       excludeEncounterId: encounterId,
       initialSelectedIds: selected.map((document) => document.id),
-      // A referral from the patient record starts from the latest visit; a visit referral starts empty.
       preselectLatestVisit: !encounterId && selected.length === 0,
       onSelectionChange,
     }),
@@ -62,7 +59,6 @@ export const ReferralDocumentsPickerDialog: FC<ReferralDocumentsPickerDialogProp
         (document.appointmentId ? visitsByAppointmentId.get(document.appointmentId) : undefined);
       return { id, title: document.docName, date: document.whenAddedDate, visitDate: visit?.dateTime };
     };
-    // Chips keep the order they were chosen in: the ones already on the form first, then the new ones.
     const kept = selected.map((chip) => chip.id).filter((id) => selectedIds.includes(id));
     const added = selectedIds.filter((id) => !kept.includes(id));
     onAdd([...kept, ...added].map(toChip).filter((chip): chip is ReferralEarlierDocument => !!chip));

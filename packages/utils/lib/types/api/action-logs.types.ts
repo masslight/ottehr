@@ -117,7 +117,6 @@ export interface OutboundDeliveryAttemptData {
   senderId?: string;
   senderDisplay?: string;
   parentAttemptId?: string;
-  /** What the delivery fulfils, e.g. `ServiceRequest/<id>` for a referral fax; becomes `Task.basedOn`. */
   basedOnReference?: string;
   authoredOn?: string;
   sourceIdentifier?: string;

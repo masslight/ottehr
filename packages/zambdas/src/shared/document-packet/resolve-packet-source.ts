@@ -35,7 +35,6 @@ import {
 import { collectVisitPacketParts, DocumentPacketPart } from './collect-visit-documents';
 import { resolvePatientDisplayId, resolveVisitTypeLabel } from './deliver-document-packet';
 
-/** A referral can be faxed until it is answered or finished; re-sending a sent one is allowed. */
 const FAXABLE_REFERRAL_STATUSES: ReferralStatus[] = ['not-sent', 'sent', 'given-to-patient'];
 
 /**
@@ -112,7 +111,6 @@ export const resolveDocumentPacketPlan = async (args: {
   }
 };
 
-/** A referral as the fax pipeline needs it: the ServiceRequest, its patient and its visit (when it has one). */
 export interface ReferralFaxContext {
   serviceRequest: ServiceRequest;
   patientId: string;
@@ -120,10 +118,6 @@ export interface ReferralFaxContext {
   appointmentId?: string;
 }
 
-/**
- * Loads a referral for faxing and checks it is one: tagged `referral`, in a status that can still be sent,
- * and (when it names a visit) a visit of its own patient. Every referral fax entry point goes through this.
- */
 export const resolveReferralFaxContext = async (oystehr: Oystehr, referralId: string): Promise<ReferralFaxContext> => {
   const serviceRequest = await loadReferral(oystehr, referralId);
   const status = getReferralStatus(serviceRequest);
@@ -144,11 +138,6 @@ export const resolveReferralFaxContext = async (oystehr: Oystehr, referralId: st
   return { serviceRequest, patientId, encounterId, appointmentId };
 };
 
-/**
- * The referral form first, then whichever of the referral's chosen visit documents exist, then its documents
- * from earlier visits, oldest first. One section:
- * the existing cover sheet stays page 1 and the form is the first document after it.
- */
 const resolveReferral = async (args: {
   oystehr: Oystehr;
   token: string;
@@ -213,7 +202,6 @@ const resolveReferral = async (args: {
   };
 };
 
-/** The referral's form as it stands now: the one on file, or a fresh render when the referral changed since. */
 const resolveReferralFormPart = async (
   serviceRequest: ServiceRequest,
   args: { oystehr: Oystehr; secrets: Secrets | null; token: string }
@@ -401,7 +389,7 @@ const buildVisitSubject = (visitResources: {
   };
 };
 
-/** The patient's document folders, so a packet (or a referral form) lands in the Docs UI like any other document. */
+/** The patient's document folders, so a packet lands in the Docs UI like any other document. */
 export const getPatientFolders = async (oystehr: Oystehr, patientId: string): Promise<List[]> =>
   (
     await oystehr.fhir.search<List>({

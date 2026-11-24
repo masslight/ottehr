@@ -363,7 +363,6 @@ describe('ReferralsCard', () => {
       earlierDocumentIds: [],
       notesToRecipient: undefined,
     });
-    // The new form is gone once the referral is saved.
     await waitFor(() => expect(screen.queryByTestId(dataTestIds.referrals.form)).toBeNull());
   });
 

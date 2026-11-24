@@ -24,7 +24,6 @@ export interface Task {
   alert?: TaskAlertCode;
   completable: boolean;
   reopenable?: boolean;
-  /** Past its `restriction.period.end` and still open (referral tasks waiting on a response). */
   overdue?: boolean;
   chat?: {
     hasUnread: boolean;

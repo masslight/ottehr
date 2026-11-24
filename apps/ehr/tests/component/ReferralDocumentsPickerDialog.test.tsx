@@ -144,11 +144,9 @@ describe('ReferralDocumentsPickerDialog', () => {
     expect(screen.getByText('Add documents to referral')).toBeInTheDocument();
     expect(screen.getByText('0 documents selected')).toBeInTheDocument();
     expect(screen.getByTestId('table')).toHaveAttribute('data-picker', 'true');
-    // Only the offered folders, counting what the picker lists.
     expect(screen.getByTestId('folders')).toHaveTextContent('Visit Notes - 2');
     expect(screen.getByTestId('folders')).toHaveTextContent('Labs - 0');
     expect(screen.getByTestId('folders')).not.toHaveTextContent('Consent Forms');
-    // Picker mode drops the Docs page's own actions.
     expect(screen.queryByText('Upload')).toBeNull();
     expect(screen.queryByText('Scan')).toBeNull();
     expect(screen.queryByTestId(dataTestIds.patientDocsPage.downloadSelectedDocumentsButton)).toBeNull();

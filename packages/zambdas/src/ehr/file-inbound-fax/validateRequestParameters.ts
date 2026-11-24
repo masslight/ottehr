@@ -19,8 +19,6 @@ export interface FileInboundFaxInput {
   encounterId?: string;
   // When present, a task to review the filed fax is created and assigned to this person.
   reviewTaskAssignee?: { id: string; name: string };
-  // The patient's referral this fax answers. Filing then sets the referral to Response received and
-  // routes a review task to the referring provider.
   referralId?: string;
 }
 

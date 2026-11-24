@@ -16,7 +16,6 @@ export interface DocumentPacketApiClient {
   getDocumentPacketStatus: (input: GetDocumentPacketStatusInput) => Promise<GetDocumentPacketStatusOutput>;
 }
 
-/** What the preview is keyed on: the visit whose documents are listed, or the referral being sent. */
 export type DocumentPacketPreviewInput = Pick<GetDocumentPacketPreviewInput, 'appointmentId' | 'referralId'>;
 
 export const fetchDocumentPacketPreview = async (

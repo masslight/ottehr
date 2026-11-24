@@ -125,11 +125,6 @@ export const DocumentPacketSourceSchema = z.discriminatedUnion('type', [
     dateRange: MedicalRecordDateRangeSchema,
   }),
   z.object({ type: z.literal('document'), patientId: z.string().uuid(), documentReferenceId: z.string().uuid() }),
-  /**
-   * `referral`: a referral's "Send fax". The packet is the referral form followed by the referral's chosen
-   * visit documents (its `includeDocuments`) when it has a visit. The recipient is prefilled from the
-   * referral's contact. A finished job marks the referral Sent.
-   */
   z.object({ type: z.literal('referral'), referralId: z.string().uuid() }),
 ]);
 export type DocumentPacketSource = z.infer<typeof DocumentPacketSourceSchema>;
@@ -208,9 +203,7 @@ export const GetDocumentPacketPreviewInputSchema = z.object({
 
 export type GetDocumentPacketPreviewInput = z.infer<typeof GetDocumentPacketPreviewInputSchema>;
 
-/** The referral form heads a referral packet; it is not one of the selectable visit document kinds. */
 export const REFERRAL_FORM_PACKET_DOCUMENT_KIND = 'referral-form';
-/** A document from an earlier visit that a referral carries after its own visit's documents. */
 export const REFERRAL_EARLIER_DOCUMENT_PACKET_DOCUMENT_KIND = 'earlier-visit-document';
 export type DocumentPacketDocumentKind =
   | PacketDocumentKind

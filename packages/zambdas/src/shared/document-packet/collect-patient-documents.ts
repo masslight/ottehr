@@ -65,11 +65,6 @@ export const getPacketSourceDocument = async (
 
 export const collectDocumentParts = (document: DocumentReference): DocumentPacketPart[] => toParts([document]);
 
-/**
- * A referral's documents from earlier visits, oldest visit first, after checking again that each one is the
- * patient's and still one a referral may send (it may have changed since the referral was saved). The packet
- * builder presigns each URL with the M2M token, so every one must be a Z3 object of this project.
- */
 export const collectReferralDocumentParts = async (
   oystehr: Oystehr,
   patientId: string,

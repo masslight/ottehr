@@ -63,10 +63,8 @@ export const ReferralBaseRowSchema = z.object({
     .describe('Days from sentAt to responseReceivedAt. Null unless both are known.'),
 });
 
-/** Internal fields not to show the model (none; ids are useful for joins). */
 export const REFERRAL_INTERNAL_FIELDS: readonly (keyof AdHocReferralRow)[] = [];
 
-/** Fields the planner treats as domain (grouping) fields. */
 export const REFERRAL_DOMAIN_FIELDS: readonly (keyof AdHocReferralRow)[] = [
   'specialty',
   'recipientName',

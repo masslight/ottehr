@@ -33,7 +33,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const { source, recipients, secrets } = validatedInput;
   console.log(`send-document-packet queue: source=${source.type} recipients=${recipients.length}`);
 
-  // Sending a referral reads it, so the caller needs a referral role; the other sources keep their gate.
   const user =
     source.type === 'referral'
       ? await requireUserWithRole(getUserToken(input), secrets, REFERRAL_ROLES)

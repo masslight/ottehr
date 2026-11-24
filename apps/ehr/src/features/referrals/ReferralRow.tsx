@@ -13,7 +13,6 @@ interface ReferralRowProps {
   onSendFax: (referralId: string) => void;
 }
 
-/** One referral on the Plan tab: a summary line, and the form underneath when expanded. */
 export const ReferralRow: FC<ReferralRowProps> = ({ referral, expanded, onToggle, onSendFax }) => (
   <Box
     sx={{ border: 1, borderColor: expanded ? 'primary.main' : 'divider', borderRadius: 1 }}

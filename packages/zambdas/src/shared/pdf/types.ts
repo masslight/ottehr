@@ -588,7 +588,6 @@ export interface PlanData extends PdfData {
     specialty?: string;
   };
   subSpecialtyFollowup?: string[];
-  /** The visit's referrals, beside the disposition (requirements item 17). */
   referrals?: ReferralsData['referrals'];
   workSchoolExcuse?: string[];
   addendumNote?: string;

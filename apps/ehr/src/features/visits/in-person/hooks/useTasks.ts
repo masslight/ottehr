@@ -985,8 +985,6 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     }
   }
   if (category === REFERRAL_TASK.category) {
-    // The referral zambdas write the title (`referralTaskTitle` / `referralReviewTaskTitle`) into the description;
-    // the patient input carries the name, shown the way the lab and radiology rows show it.
     const patientReference = getInputReference(REFERRAL_TASK.input.patient, task);
     title = `${task.description ?? ''}${patientReference?.display ? ` for ${patientReference.display}` : ''}`;
     overdue = isTaskOverdue(task);
@@ -1043,7 +1041,6 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
   };
 }
 
-/** Exported for tests. Past `restriction.period.end` while still open. */
 export function isTaskOverdue(task: FhirTask, now: DateTime = DateTime.now()): boolean {
   const end = task.restriction?.period?.end;
   if (!end || task.status === 'completed' || task.status === 'cancelled') return false;

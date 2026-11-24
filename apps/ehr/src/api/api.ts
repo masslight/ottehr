@@ -3291,7 +3291,6 @@ export interface FileInboundFaxInput {
   folderId: string;
   internalName?: string;
   documentName: string;
-  /** The patient's open referral this fax answers; sets it to Response received and routes its review. */
   referralId?: string;
   encounterId?: string;
   reviewTaskAssignee?: { id: string; name: string };

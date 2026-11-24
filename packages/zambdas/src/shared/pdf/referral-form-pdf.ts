@@ -36,7 +36,6 @@ import { rgbNormalized } from './pdf-utils';
 import { AssetPaths, PdfData, PdfSection } from './types';
 
 interface OrganizationBlock {
-  /** Organization and person lines, in that order; "Any <specialty>" when the patient will choose. */
   nameLines: string[];
   address?: string;
   phone?: string;
@@ -47,13 +46,9 @@ export interface ReferralFormInput {
   serviceRequest: ServiceRequest;
   patient: Patient;
   practitioner?: Practitioner;
-  /** The practice (the Organization behind ORGANIZATION_ID), the From block like the fax cover sheet. Absent when
-   * that Organization cannot be loaded; the block then falls back to the visit's office alone. */
   practice?: Organization;
-  /** The visit's office, when the referral belongs to a visit; its address and numbers win over the practice's. */
   location?: Location;
   recipient?: ReferralRecipient;
-  /** The referral's documents from earlier visits that still qualify; listed after this visit's documents. */
   earlierDocuments?: ReferralDocument[];
   timezone: string;
   oystehr: Oystehr;
@@ -130,7 +125,6 @@ const composeReferralFormData: DataComposer<ReferralFormInput, ReferralFormData>
       documents:
         [
           ...(details?.includeDocuments ?? []).map((kind) => PACKET_DOCUMENT_LABELS[kind]),
-          // Oldest first, the order the fax packet sends them in, each named the way its chip shows it.
           ...[...(earlierDocuments ?? [])].sort(byVisitDateAscending).map((document) => {
             const date = document.visitDate ?? document.documentReference.date;
             const title = referralDocumentTitle(document.documentReference);
@@ -155,7 +149,6 @@ const createReferralFormStyles: StyleFactory = (assets) => {
   const bodyLine = { fontSize: 11, font: assets.fonts.regular, spacing: 2, newLineAfter: true };
   return {
     textStyles: {
-      // `header` is the title style (rendered as a full-width banner)
       header: { fontSize: 16, font: assets.fonts.bold, spacing: 8, newLineAfter: true },
       sectionLabel: { fontSize: 12, font: assets.fonts.bold, spacing: 4, newLineAfter: true },
       orgName: { fontSize: 13, font: assets.fonts.bold, spacing: 3, newLineAfter: true },
@@ -285,11 +278,6 @@ const referralFormRenderConfig: PdfRenderConfig<ReferralFormData> = {
   sections: [fromColumn, toColumn, patientSection, referralSection, signatureSection, confidentialitySection],
 };
 
-/**
- * Generates the one-page referral form (via the shared pdf-common engine), uploads it to the referrals
- * bucket, files it in the patient's Referrals folder through a DocumentReference (context.related →
- * ServiceRequest) and returns a presigned URL to print. Prior forms for the referral are superseded.
- */
 export async function createReferralFormPDF(
   input: ReferralFormInput,
   refs: { patientId: string; encounterId?: string; referralId: string },

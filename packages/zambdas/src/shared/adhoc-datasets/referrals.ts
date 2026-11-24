@@ -36,8 +36,6 @@ export async function fetchAdHocReferralRows(
 ): Promise<AdHocReferralRow[]> {
   const { dateRange, includeTask } = params;
 
-  // Anchored on the referral's own `authoredOn` (created date), not on a visit: a referral made from the
-  // patient record has no appointment to anchor on.
   const serviceRequests = (
     await getAllFhirSearchPages<ServiceRequest>(
       {
@@ -67,7 +65,6 @@ export async function fetchAdHocReferralRows(
     fetchScopedResources<Practitioner>(oystehr, 'Practitioner', '_id', practitionerIds, [
       { name: '_elements', value: 'id,name' },
     ]),
-    // The form and the filed responses both relate to the ServiceRequest; the form is told apart by its type.
     fetchScopedResources<DocumentReference>(oystehr, 'DocumentReference', 'related', referralRefs, [
       { name: 'status', value: 'current' },
       { name: '_elements', value: 'id,date,type,context' },
@@ -82,7 +79,6 @@ export async function fetchAdHocReferralRows(
   const encounterById = new Map(encounters.map((encounter) => [encounter.id ?? '', encounter]));
   const organizationById = new Map(organizations.map((organization) => [organization.id ?? '', organization]));
   const practitionerById = new Map(practitioners.map((practitioner) => [practitioner.id ?? '', practitioner]));
-  // The first filed response per referral, by the document's own date.
   const firstResponseAtByReferralRef = new Map<string, string>();
   for (const document of relatedDocuments) {
     if (isReferralForm(document) || !document.date) continue;
@@ -92,7 +88,6 @@ export async function fetchAdHocReferralRows(
       if (!earliest || document.date < earliest) firstResponseAtByReferralRef.set(ref.reference, document.date);
     }
   }
-  // The newest task per referral: a review task may follow the await-response task.
   const taskByReferralRef = new Map<string, Task>();
   for (const task of [...tasks].sort((a, b) => (a.authoredOn ?? '').localeCompare(b.authoredOn ?? ''))) {
     const ref = task.basedOn?.find((basedOn) => basedOn.reference?.startsWith('ServiceRequest/'))?.reference;

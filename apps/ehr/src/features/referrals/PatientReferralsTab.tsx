@@ -31,14 +31,12 @@ interface PatientReferralsTabProps {
 
 const COLUMNS = ['Date', 'Specialty', 'Recipient', 'Urgency', 'Status', 'Visit'];
 
-/** The patient record's Referrals tab: every referral, open ones first, and a new one without a visit. */
 export const PatientReferralsTab: FC<PatientReferralsTabProps> = ({ patientId }) => {
   const theme = useTheme();
   const { data, isLoading } = useReferralsQuery(patientId ? { patientId } : undefined);
   const referrals = data?.referrals ?? [];
   const [adding, setAdding] = useState(false);
   const [expandedId, setExpandedId] = useState<string>();
-  // One fax dialog for the tab: a new referral's form is replaced by its row the moment it is saved.
   const [faxReferralId, setFaxReferralId] = useState<string>();
   const fax = useSendDocuments(faxReferralId ? { type: 'referral', referralId: faxReferralId } : undefined);
   const sendFax = (referralId: string): void => {

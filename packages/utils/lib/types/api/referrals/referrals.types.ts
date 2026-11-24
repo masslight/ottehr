@@ -3,15 +3,6 @@ import { ActionLogStatus } from '../action-logs.types';
 import { PacketDocumentKind, PacketDocumentKindSchema } from '../document-packet.types';
 import { RoleType } from '../user.types';
 
-/**
- * Outbound referral contract.
- *
- * A referral is a request from a provider at this practice for a clinician or facility outside the practice
- * to see the patient. It belongs to a patient, usually to a visit, and has its own status. It is stored as a
- * ServiceRequest (see `utils/lib/fhir/referral.ts`); when a response is requested it also has a Task in the
- * Referrals category, which carries the owner and the worklist.
- */
-
 export const REFERRAL_STATUSES = [
   'not-sent',
   'sent',
@@ -32,7 +23,6 @@ export const REFERRAL_STATUS_LABELS: Record<ReferralStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-/** Statuses still waiting on something; everything else is finished. */
 export const REFERRAL_OPEN_STATUSES: ReferralStatus[] = ['not-sent', 'sent', 'given-to-patient', 'response-received'];
 export const isReferralOpen = (status: ReferralStatus): boolean => REFERRAL_OPEN_STATUSES.includes(status);
 
@@ -92,9 +82,6 @@ export const REFERRAL_CLOSE_REASON_LABELS: Record<ReferralCloseReason, string> =
   'sent-elsewhere': 'Sent elsewhere',
 };
 
-/**
- * First-build fixed defaults (requirements item 19). Not practice settings yet.
- */
 export const REFERRAL_DEFAULTS = {
   responseRequested: false,
   urgency: 'routine' as ReferralUrgency,
@@ -102,13 +89,10 @@ export const REFERRAL_DEFAULTS = {
   whoSchedules: 'patient' as ReferralScheduler,
   includeDocuments: ['progress-note', 'lab-results', 'radiology-results'] as PacketDocumentKind[],
 };
-/** Days without a response before a referral task is flagged overdue, by urgency. */
 export const REFERRAL_OVERDUE_DAYS: Record<ReferralUrgency, number> = { routine: 14, urgent: 7, asap: 2 };
-/** The response-request line on the referral form (the sentence from OTR-3551). */
 export const REFERRAL_RESPONSE_REQUEST_TEXT =
   'Please confirm patient appointment and return results / consultation notes to the referring provider at the fax number above.';
 
-/** Roles that may create, send, close and list referrals. */
 export const REFERRAL_ROLES: RoleType[] = [
   RoleType.Administrator,
   RoleType.Manager,
@@ -118,11 +102,6 @@ export const REFERRAL_ROLES: RoleType[] = [
   RoleType.CustomerSupport,
 ];
 
-/**
- * Task constants for the Referrals category, in the shape of FAX_TASK / RADIOLOGY_TASK in
- * `utils/lib/types/data/tasks/types.ts`. One category covers both the "waiting for a response" task created
- * with the referral and the "review the response" task created when a response is filed.
- */
 export const REFERRAL_TASK = {
   category: 'referral',
   system: 'referral-task',
@@ -140,23 +119,16 @@ export const REFERRAL_TASK = {
   },
 } as const;
 
-/** Most earlier-visit documents one referral can carry; the fax page limit still applies on top. */
 export const REFERRAL_MAX_EARLIER_DOCUMENTS = 50;
-
-// ---- zambda inputs and outputs ----
 
 const trimmedRequired = z.string().trim().min(1);
 
 export const SaveReferralInputSchema = z.object({
-  /** Present when editing an existing referral. */
   referralId: z.string().uuid().optional(),
   patientId: z.string().uuid(),
-  /** Omitted when the referral is created from the patient record without a visit. Cannot change on edit. */
   encounterId: z.string().uuid().optional(),
   specialty: trimmedRequired,
-  /** Address-book Organization id. Omitted when the patient will choose the specialist. */
   recipientContactId: z.string().uuid().optional(),
-  /** The form's Fax field (copied from the contact or typed); saved on the referral only, the directory contact is not changed. */
   recipientFax: z.string().trim().optional(),
   reason: trimmedRequired,
   urgency: ReferralUrgencySchema,
@@ -164,7 +136,6 @@ export const SaveReferralInputSchema = z.object({
   whoSchedules: ReferralSchedulerSchema,
   responseRequested: z.boolean(),
   includeDocuments: z.array(PacketDocumentKindSchema),
-  /** DocumentReference ids from the patient's earlier visits, sent after this visit's documents. Duplicates are dropped. */
   earlierDocumentIds: z
     .array(z.string().uuid())
     .max(REFERRAL_MAX_EARLIER_DOCUMENTS)
@@ -190,7 +161,6 @@ export const UpdateReferralStatusInputSchema = z.discriminatedUnion('action', [
     outcome: z.string().trim().max(500).optional(),
   }),
   z.object({ action: z.literal('cancel'), referralId: z.string().uuid() }),
-  /** Staff handed the printed form to the patient (no recipient, or recipient without a fax). */
   z.object({ action: z.literal('given-to-patient'), referralId: z.string().uuid() }),
 ]);
 export type UpdateReferralStatusInput = z.infer<typeof UpdateReferralStatusInputSchema>;
@@ -204,24 +174,18 @@ export interface GetReferralPdfOutput {
 
 export interface ReferralRecipient {
   contactId: string;
-  /** Organization, or the person when there is no organization (addressBookContactLabel). */
   name: string;
   organizationName?: string;
   personName?: string;
-  /** The number saved on the referral when there is one, else the contact's current number. */
   fax?: string;
   phone?: string;
-  /** One line, as the discharge summary and form print it. */
   address?: string;
 }
 
-/** A document from an earlier visit chosen for the referral, as its chip shows it. */
 export interface ReferralEarlierDocument {
   id: string;
   title: string;
-  /** ISO; when the document was added. */
   date?: string;
-  /** ISO; start of the visit the document belongs to, when it belongs to one. */
   visitDate?: string;
 }
 
@@ -238,12 +202,10 @@ export interface ReferralDTO {
   whoSchedules: ReferralScheduler;
   responseRequested: boolean;
   includeDocuments: PacketDocumentKind[];
-  /** In the order they were chosen; documents that no longer qualify are left out. */
   earlierDocuments: ReferralEarlierDocument[];
   notesToRecipient?: string;
   referringProvider: { id?: string; name: string };
   status: ReferralStatus;
-  /** ISO timestamps. */
   createdAt: string;
   sentAt?: string;
   givenToPatientAt?: string;
@@ -252,14 +214,11 @@ export interface ReferralDTO {
   closedBy?: ReferralActor;
   closeReason?: ReferralCloseReason;
   outcome?: string;
-  /** The Referrals-category Task, when a response was requested or a response is being reviewed. */
   taskId?: string;
   taskStatus?: string;
-  /** When the task is flagged overdue (ISO); set from the urgency when the referral is sent. */
   overdueAt?: string;
   formDocumentReferenceId?: string;
   responseDocumentReferenceIds: string[];
-  /** The most recent outbound fax attempt for this referral, as the Fax Logs show it. */
   lastFax?: { attemptId: string; status: ActionLogStatus; sentAt?: string };
 }
 
@@ -271,7 +230,6 @@ export interface SaveReferralOutput {
 }
 export type UpdateReferralStatusOutput = SaveReferralOutput;
 
-/** Title for the Referrals-category task and the worklist row. */
 export const referralTaskTitle = (specialty: string, recipientName?: string): string =>
   `Referral: ${specialty}${recipientName ? `, ${recipientName}` : ''}`;
 export const referralReviewTaskTitle = (specialty: string, recipientName?: string): string =>

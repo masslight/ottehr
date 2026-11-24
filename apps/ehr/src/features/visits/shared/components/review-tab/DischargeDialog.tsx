@@ -140,10 +140,8 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   const [selections, setSelections] = useState<DischargeSelections>(DEFAULT_SELECTIONS);
   const [isDischarging, setIsDischarging] = useState(false);
 
-  // The visit's unsent referrals, so the fax and the printed copy for the patient happen together.
   const { data: referralsData } = useReferralsQuery({ encounterId });
   const unsentReferrals = (referralsData?.referrals ?? []).filter((referral) => referral.status === 'not-sent');
-  // Referrals the patient takes along: their forms print with the other documents, each ticked unless cleared.
   const givenReferrals = useMemo(
     () =>
       (referralsData?.referrals ?? []).filter(
@@ -493,7 +491,6 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
                         </Link>
                       </Typography>
                     )}
-                    {/* Always shown; disabled until the referral has a fax number, the hover says where to put one. */}
                     <Tooltip
                       title={
                         referral.recipient?.fax ? '' : referral.recipient ? NO_FAX_SEND_TEXT : NO_RECIPIENT_SEND_TEXT

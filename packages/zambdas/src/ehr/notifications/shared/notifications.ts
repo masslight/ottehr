@@ -64,7 +64,6 @@ export const resolveNotificationTarget = (
     ?.flatMap((concept) => concept.coding ?? [])
     .find((coding) => coding.system === PROVIDER_NOTIFICATION_CATEGORY_SYSTEM)?.code;
 
-  // A referral task made from the patient record has no visit; the cron stamps the patient on `about`.
   if (categoryCode === referralsCategory) {
     const patientId = communication.about
       ?.map((about) => removePrefix(PATIENT_REFERENCE_PREFIX, about.reference ?? ''))

@@ -48,7 +48,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       : `appointment ${validatedInput.appointmentId ?? '(none)'}`
   );
 
-  // A referral preview reads the referral, so the caller needs a referral role; the other sources keep their gate.
   if (validatedInput.referralId) {
     await requireUserWithRole(getUserToken(input), validatedInput.secrets, REFERRAL_ROLES);
   } else {
@@ -87,11 +86,6 @@ export const mapPcpToRecipient = (pcp: Practitioner | undefined): DocumentPacket
   };
 };
 
-/**
- * A referral's recipient as a fax recipient. Unlike the PCP, a recipient without a fax number is still
- * prefilled (name and phone) so only the number has to be typed in the dialog. The person name carries the
- * credential ("Jane Doe, MD"), which is what the cover sheet prints either way.
- */
 export const mapReferralRecipientToFax = (
   recipient: ReferralRecipient | undefined
 ): DocumentPacketRecipient | undefined => {
@@ -105,9 +99,6 @@ export const mapReferralRecipientToFax = (
 };
 
 /**
- * A referral packet: the form always, then the referral's chosen visit documents as the visit has them, then its
- * earlier-visit documents oldest first (checked the way the packet checks them, so a preview never promises one
- * the send would refuse).
  * The dialog does not manage the PCP for a referral, so `hasSavedPcp` is reported as true to keep the
  * "save as PCP" default off.
  */
@@ -123,7 +114,6 @@ const previewReferral = async (
   const includeDocuments = getReferralDetails(serviceRequest)?.includeDocuments ?? [];
 
   const [recipient, visitDocuments, earlierDocuments] = await Promise.all([
-    // A contact deleted since the referral was saved prefills nothing.
     loadReferralRecipient(oystehr, serviceRequest).then(mapReferralRecipientToFax),
     appointmentId && encounterId && includeDocuments.length
       ? resolvePacketDocumentAvailability({ oystehr, appointmentId, encounterId })

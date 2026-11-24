@@ -46,11 +46,9 @@ const DOWNLOAD_ERROR_MESSAGES = {
   },
 };
 
-/** Turns the explorer into a document picker (the referral form's "Add documents" dialog). */
 export type PatientDocumentsPickerOptions = {
   /** Internal names of the folders offered; documents filed only elsewhere are not listed. */
   folderNames: readonly string[];
-  /** Whether a document filed in `folderName` can be chosen, e.g. only results from Labs. */
   isDocumentAllowed: (folderName: string, document: PatientDocumentInfo) => boolean;
   /** Leaves this visit's documents and the visit itself out of the picker. */
   excludeEncounterId?: string;
@@ -131,7 +129,6 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
   );
   const { downloadDocumentsZip, isDownloading: isDownloadingDocuments } = useDownloadDocumentsZip();
 
-  // Picker mode narrows what the explorer lists; without a picker every value below is the hook's own.
   const [seenDocuments, setSeenDocuments] = useState<ReadonlyMap<string, PatientDocumentInfo>>(new Map());
   const [hasPreselected, setHasPreselected] = useState(false);
   const isPicker = !!picker;
@@ -160,7 +157,6 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     [allVisitOptions, excludedVisit]
   );
 
-  /** Offered folders, counting only the documents the picker can list. */
   const documentsFolders = useMemo(() => {
     if (!picker) return allDocumentsFolders;
     return allDocumentsFolders
@@ -188,8 +184,6 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     return allDocuments.filter((document) => offeredIds.has(document.id));
   }, [picker, allDocuments, documentsFolders]);
 
-  // Preselect once everything has loaded: the unfiltered list is still showing, so the latest visit's offered
-  // documents are all in it.
   useEffect(() => {
     if (!picker?.preselectLatestVisit || hasPreselected) return;
     // Folders always include the system ones once loaded, so an empty list means they have not arrived yet.

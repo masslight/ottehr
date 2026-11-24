@@ -20,7 +20,6 @@ import {
 } from 'utils/lib/types/api/referrals/referrals.types';
 import { mapReferralRecipient } from './recipient';
 
-/** A visit's referral as the discharge summary and progress note print it. */
 export interface EncounterReferral {
   id: string;
   specialty: string;
@@ -30,11 +29,8 @@ export interface EncounterReferral {
   whoSchedules: ReferralScheduler;
   responseRequested: boolean;
   status: ReferralStatus;
-  /** ISO; when the referral was written. */
   authoredOn?: string;
-  /** ISO; when it went out. The overdue window for the patient counts from here, else from `authoredOn`. */
   sentAt?: string;
-  /** Absent when the patient will choose the specialist. */
   recipient?: { name: string; address?: string; phone?: string };
 }
 
@@ -67,7 +63,6 @@ export const mapEncounterReferral = (
   };
 };
 
-/** The visit's referrals (cancelled ones left out) with their address-book recipients, oldest first. */
 export const loadEncounterReferrals = async (oystehr: Oystehr, encounterId: string): Promise<EncounterReferral[]> => {
   const resources = await getAllFhirSearchPages<ServiceRequest | Organization>(
     {

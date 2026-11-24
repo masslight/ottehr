@@ -515,8 +515,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     }
   });
 
-  // Referral tasks past their response window: tell the owner once (requirements item 12). Same shape as
-  // the category engine: mark on scan with a dedicated tag, then deliver through the owner's Referrals row.
   overdueReferralTasks.forEach(({ task, owner }) => {
     try {
       queueTaskMetaTag(task, {
@@ -556,8 +554,6 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           sent: DateTime.utc().toISO()!,
           status: status,
           basedOn: [{ reference: `Task/${task.id}` }],
-          // The bell lands on the visit when there is one (resolved through `Communication:encounter`), else on
-          // the patient named on `about`.
           encounter: task.encounter,
           about: buildTaskNotificationAbout(task),
           recipient: [{ reference: `Practitioner/${owner.id}` }],
@@ -896,10 +892,7 @@ export async function getRecentTaskResources(oystehr: Oystehr, fromDate: DateTim
   );
 }
 
-/**
- * Every open Referrals-category task plus its owner. Not windowed: a task goes overdue by the clock, not by an
- * edit, so `_lastUpdated` would miss it. The overdue-notified tag keeps the set from being re-notified.
- */
+/** Not windowed: a task goes overdue by the clock, not by an edit, so `_lastUpdated` would miss it. */
 export async function getOpenReferralTaskResources(oystehr: Oystehr): Promise<(Task | Practitioner)[]> {
   return getAllFhirSearchPages<Task | Practitioner>(
     {
@@ -914,11 +907,6 @@ export async function getOpenReferralTaskResources(oystehr: Oystehr): Promise<(T
   );
 }
 
-/**
- * Open referral tasks past `restriction.period.end` that have not been flagged overdue yet, with their owner.
- * A task nobody owns is left out, and so stays untagged: it is picked up on the first run after someone
- * takes it, instead of being marked notified with nobody told.
- */
 export function findOverdueReferralTasks(
   bundle: (Task | Practitioner)[],
   now: DateTime
@@ -942,7 +930,6 @@ export function findOverdueReferralTasks(
     });
 }
 
-/** Whether the overdue pass has already notified about this referral task (in an earlier run). */
 export function hasReferralOverdueNotifiedTag(task: Task): boolean {
   return !!task.meta?.tag?.some(
     (tag) => tag.system === REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM && tag.code === REFERRAL_OVERDUE_NOTIFIED_TAG_CODE
@@ -1196,7 +1183,6 @@ export function buildCategoryNotificationMessage(uiCategory: UiTaskCategoryId, t
  */
 export function buildTaskNotificationAbout(task: Task): Reference[] | undefined {
   if (task.groupIdentifier?.value === REFERRAL_TASK.category) {
-    // A referral task made from the patient record has no visit, so the patient is the destination.
     const patientReference = task.input?.find(
       (input) => input.type?.coding?.some((coding) => coding.code === REFERRAL_TASK.input.patient)
     )?.valueReference?.reference;

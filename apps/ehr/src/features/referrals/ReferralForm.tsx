@@ -63,7 +63,6 @@ const RECIPIENT_ERROR = 'Pick a directory contact or add a new one, or clear the
 
 const formatLocalDate = (iso: string): string => DateTime.fromISO(iso).toLocal().toFormat(DATE_FORMAT);
 
-/** "MM/DD/YYYY · name": the document's visit date, or when it was added when it has no visit. */
 const earlierDocumentLabel = (document: ReferralEarlierDocument): string => {
   const date = document.visitDate ?? document.date;
   return date ? `${formatLocalDate(date)} · ${document.title}` : document.title;
@@ -71,13 +70,9 @@ const earlierDocumentLabel = (document: ReferralEarlierDocument): string => {
 
 interface ReferralFormProps {
   patientId: string;
-  /** Omitted when the referral is created from the patient record without a visit. */
   encounterId?: string;
-  /** Omitted for a new referral. */
   referral?: ReferralDTO;
-  /** A new referral was saved or an existing one changed; the parent decides what to show next. */
   onSaved?: (referral: ReferralDTO) => void;
-  /** Discard a new, unsaved referral. */
   onDiscard?: () => void;
   /** Open the parent's fax dialog for this referral; the parent owns the fax so it outlives this form. */
   onSendFax?: (referralId: string) => void;
@@ -87,7 +82,6 @@ export const ReferralForm: FC<ReferralFormProps> = (props) => {
   const methods = useForm<ReferralFormValues>({
     defaultValues: toReferralFormValues(props.referral, !!(props.encounterId ?? props.referral?.encounterId)),
   });
-  // The directory picker and useContactFields read the form from context, so the fields sit under the provider.
   return (
     <FormProvider {...methods}>
       <ReferralFormFields {...props} />
@@ -106,14 +100,12 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
   const { oystehrZambda } = useApiClients();
   const { control, handleSubmit, setValue, setError, reset } = useFormContext<ReferralFormValues>();
 
-  // The id the actions work on: the referral's, or the one a first save of a new referral returns.
   const [savedId, setSavedId] = useState(referral?.id);
   const [closing, setClosing] = useState(false);
   const [pickingDocuments, setPickingDocuments] = useState(false);
   const [sendMenuAnchor, setSendMenuAnchor] = useState<HTMLElement | null>(null);
   const saveMutation = useSaveReferralMutation();
   const statusMutation = useUpdateReferralStatusMutation();
-  // The name the picked contact filled in: typing anything else means the text is no longer that contact.
   const pickedName = useRef(referral?.recipient?.name ?? '');
 
   useEffect(() => {
@@ -139,7 +131,6 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
   });
   const handleSelect = (contact: AddressBookContact): void => {
     contactFields.onSelect(contact);
-    // The picker writes the organization; a contact without one would leave the field blank.
     const name = contact.organizationName || addressBookContactLabel(contact);
     pickedName.current = name;
     setValue('recipientName', name, { shouldDirty: true });
@@ -159,7 +150,6 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
   const busy = saveMutation.isPending || statusMutation.isPending;
   const disabled = !editable || busy;
   const hasRecipient = !!recipientContactId;
-  // A referral made from the patient record has no visit documents to include.
   const hasVisit = !!(encounterId ?? referral?.encounterId);
   const canFax = hasRecipient && !!recipientFax.trim();
 
@@ -623,7 +613,6 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
                 Save
               </RoundedButton>
               <ButtonGroup variant="contained" sx={{ boxShadow: 'none' }}>
-                {/* Always shown; disabled until the referral has a fax number, the hover says where to put one. */}
                 <Tooltip title={canFax ? '' : hasRecipient ? NO_FAX_SEND_TEXT : NO_RECIPIENT_SEND_TEXT}>
                   <span>
                     <Button
@@ -659,7 +648,6 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
                   Add to discharge paperwork
                 </MenuItem>
               </Menu>
-              {/* Preview covers printing a referral that can be faxed; one that can't gets a plain print link. */}
               {savedId && !canFax && (
                 <Link
                   component="button"
