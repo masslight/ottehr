@@ -196,8 +196,10 @@ export const TemplateStage: FC<TemplateStageProps> = ({
   );
 
   // As in RecommendationRow: an empty title closes the tooltip while editing, and keeping the wrapper avoids
-  // remounting the stage.
-  const title = !hasProvenance(provenance) || isEditing ? '' : <ProvenanceContent {...provenance} />;
+  // remounting the stage. An empty title also closes the tooltip while the preview dialog is open, since the
+  // pointer stays on the row that opened it and the modal otherwise leaves the tooltip hanging over it.
+  const title =
+    !hasProvenance(provenance) || isEditing || isPreviewOpen ? '' : <ProvenanceContent {...provenance} />;
   return (
     <Tooltip title={title} placement="left" enterDelay={300}>
       {stage}
