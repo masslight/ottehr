@@ -472,7 +472,7 @@ describe('record-billing-nio-invoice-payment', () => {
   it('returns without writing again when another writer records the same payment first', async () => {
     const { oystehr, transaction, resultsByType } = setup();
     transaction.mockImplementationOnce(async () => {
-      resultsByType.PaymentNotice = [existingPayment(PAYMENT_ID, 180), existingPayment(PAYMENT_ID, 140)];
+      resultsByType.PaymentNotice = recordedPayment();
       throw VERSION_CONFLICT;
     });
 
@@ -486,6 +486,27 @@ describe('record-billing-nio-invoice-payment', () => {
     expect(result).toEqual({
       paymentId: PAYMENT_ID,
     });
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses when another writer records different details under the same key first', async () => {
+    const { oystehr, transaction, resultsByType } = setup();
+    transaction.mockImplementationOnce(async () => {
+      resultsByType.PaymentNotice = recordedPayment();
+      throw VERSION_CONFLICT;
+    });
+
+    await expect(
+      performEffect({
+        oystehr,
+        getStripe,
+        params: {
+          ...params,
+          paymentMethod: 'wire',
+        },
+        now: NOW,
+      })
+    ).rejects.toEqual(MANUAL_PAYMENT_CONFLICT_ERROR(PAYMENT_ID));
     expect(transaction).toHaveBeenCalledTimes(1);
   });
 

@@ -66,17 +66,12 @@ export async function performEffect({
   now?: DateTime;
 }): Promise<RecordBillingNioInvoicePaymentResponse> {
   const { idempotencyKey: paymentId, ...payment } = params;
-  const recorded = (await fetchInvoicePaymentNotices(oystehr, [payment.invoiceId])).filter(
-    (notice) => getNioInvoicePaymentId(notice) === paymentId
-  );
-  if (recorded.length > 0) {
-    const { paymentDate: recordedDate, method: recordedMethod } = toClaimPatientPayment(recorded[0]);
-    const samePayment =
-      Math.round(sumPatientPayments(recorded) * 100) === payment.amountInCents &&
-      recordedMethod === payment.paymentMethod &&
-      recordedDate === payment.paymentDate &&
-      getInvoicePaymentReference(recorded[0]) === payment.reference;
-    if (!samePayment) throw MANUAL_PAYMENT_CONFLICT_ERROR(paymentId);
+  if (
+    await isSamePaymentRecorded({
+      oystehr,
+      params,
+    })
+  ) {
     return {
       paymentId,
     };
@@ -98,7 +93,34 @@ export async function performEffect({
     },
     createdISO: now.toUTC().toISO()!,
   });
+  // a concurrent request with this key may have recorded different details first
+  await isSamePaymentRecorded({
+    oystehr,
+    params,
+  });
   return {
     paymentId,
   };
+}
+
+async function isSamePaymentRecorded({
+  oystehr,
+  params,
+}: {
+  oystehr: Oystehr;
+  params: RecordNioInvoicePaymentParams;
+}): Promise<boolean> {
+  const { idempotencyKey: paymentId, invoiceId, amountInCents, paymentMethod, paymentDate, reference } = params;
+  const recorded = (await fetchInvoicePaymentNotices(oystehr, [invoiceId])).filter(
+    (notice) => getNioInvoicePaymentId(notice) === paymentId
+  );
+  if (recorded.length === 0) return false;
+  const { paymentDate: recordedDate, method: recordedMethod } = toClaimPatientPayment(recorded[0]);
+  const samePayment =
+    Math.round(sumPatientPayments(recorded) * 100) === amountInCents &&
+    recordedMethod === paymentMethod &&
+    recordedDate === paymentDate &&
+    getInvoicePaymentReference(recorded[0]) === reference;
+  if (!samePayment) throw MANUAL_PAYMENT_CONFLICT_ERROR(paymentId);
+  return true;
 }
