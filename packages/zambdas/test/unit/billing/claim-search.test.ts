@@ -72,6 +72,7 @@ const makeLookups = (
   claimResponsesByClaimId,
   patientPaidByClaimId,
   writeOffs: new Map([]),
+  nioPaidByClaimId: new Map(),
 });
 
 describe('buildClaimFilterParams: non-insurance payer', () => {
@@ -139,6 +140,23 @@ describe('buildClaimFilterParams: multi-value filters', () => {
       name: '_tag',
       value: `${CODE_SYSTEM_CLAIM_TYPE}|professional,${CODE_SYSTEM_CLAIM_TYPE}|institutional`,
     });
+  });
+
+  it('ANDs the tags into one _tag param each when every tag must match', async () => {
+    const params = await buildClaimFilterParams({ oystehr, params: { tag: ['a', 'b'], tagMatch: 'all' } });
+    expect(params.filter((p) => p.name === '_tag')).toEqual([
+      { name: '_tag', value: `${CLAIM_TAG_SYSTEM}|a` },
+      { name: '_tag', value: `${CLAIM_TAG_SYSTEM}|b` },
+    ]);
+  });
+
+  it('leaves out claims with any excluded tag, alongside the included ones', async () => {
+    const params = await buildClaimFilterParams({ oystehr, params: { tag: ['a'], excludeTag: ['x', 'y'] } });
+    expect(params).toContainEqual({ name: '_tag', value: `${CLAIM_TAG_SYSTEM}|a` });
+    expect(params.filter((p) => p.name === '_tag:not')).toEqual([
+      { name: '_tag:not', value: `${CLAIM_TAG_SYSTEM}|x` },
+      { name: '_tag:not', value: `${CLAIM_TAG_SYSTEM}|y` },
+    ]);
   });
 
   it('adds no param for an empty list', async () => {
@@ -237,6 +255,15 @@ describe('mapClaimToItem: patient payments', () => {
     const item = mapClaimToItem(makeClaim('claim-2', 100), makeLookups(new Map()));
     expect(item.patientPaid).toBe(0);
     expect(item.claimBalance).toBe(100);
+  });
+
+  it("nets the claim's NIO invoice payments from the balance without counting them as patient paid", () => {
+    const item = mapClaimToItem(makeClaim('claim-1', 100), {
+      ...makeLookups(new Map()),
+      nioPaidByClaimId: new Map([['claim-1', 100]]),
+    });
+    expect(item.patientPaid).toBe(0);
+    expect(item.claimBalance).toBe(0);
   });
 });
 
@@ -526,6 +553,7 @@ describe('CLAIM_LIST_ELEMENTS', () => {
     claimResponsesByClaimId: new Map(),
     patientPaidByClaimId: new Map([['claim-1', 25]]),
     writeOffs: new Map([]),
+    nioPaidByClaimId: new Map(),
   });
 
   // Every field each fixture carries that the list is meant to strip. The accounting test below

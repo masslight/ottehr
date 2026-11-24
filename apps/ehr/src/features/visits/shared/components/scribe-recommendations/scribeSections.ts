@@ -2,6 +2,7 @@ import { toStoredVitalValue } from 'src/features/easy-chart/executor/handlers';
 import { ExamLeaf } from 'utils/lib/config-helpers/exam-leaves';
 import { NoteTextField } from 'utils/lib/easy-chart/actions';
 import { NOTE_FIELD_LABELS } from 'utils/lib/easy-chart/note-fields';
+import { formatWeightKg } from 'utils/lib/helpers/vitals/vitals-weight.helper';
 import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
 import { ExamRecommendation, ScribeRecommendation, ScribeSectionKey } from './types';
 
@@ -122,7 +123,7 @@ export const describeRecommendation = (rec: ScribeRecommendation): Recommendatio
       return { primary: rec.display, secondary: describeExamResolution(rec), detail: detailOf(rec) };
     case 'vital-weight':
       return {
-        primary: `Weight ${rec.weightLbs} lbs (${toStoredVitalValue(rec.weightLbs, 'lb')} kg)`,
+        primary: `Weight ${rec.weightLbs} lbs (${formatWeightKg(toStoredVitalValue(rec.weightLbs, 'lb'))} kg)`,
         detail: detailOf(rec),
       };
     case 'allergy':

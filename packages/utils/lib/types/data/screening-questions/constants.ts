@@ -2,6 +2,8 @@ export const HISTORY_OBTAINED_FROM_FIELD = 'history-obtained-from';
 
 export const SEEN_IN_LAST_THREE_YEARS_FIELD = 'seen-in-last-three-years'; // todo: move to config
 
+export const PATIENT_SEEN_IN_LAST_THREE_YEARS_FIELD = 'seen-in-last-3-years';
+
 export const PATIENT_VACCINATION_STATUS = 'patient-vaccination-status';
 
 export enum PatientVaccinationKeys {

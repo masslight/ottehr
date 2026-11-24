@@ -3,12 +3,13 @@ import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, GridLegacy as Grid, Tab, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import React, { ReactElement, useCallback, useEffect, useState } from 'react';
+import React, { ReactElement, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { GetVitalsForListOfEncountersResponseData } from 'utils/lib/types/api/chart-data/get-vitals.types';
 import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
 import { OrdersForTrackingBoardTable } from 'utils/lib/types/data/orders/types';
 import { dataTestIds } from '../constants/data-test-ids';
+import { adjustTopForBannerHeight } from '../helpers/misc.helper';
 import AppointmentTable from './AppointmentTable';
 import Loading from './Loading';
 
@@ -36,6 +37,7 @@ const getStoredTab = (): ApptTab | undefined => {
 };
 
 interface AppointmentsTabProps {
+  header: ReactNode;
   showSelectFiltersMessage: boolean;
   preBookedAppointments: InPersonAppointmentInformation[];
   completedAppointments: InPersonAppointmentInformation[];
@@ -49,6 +51,7 @@ interface AppointmentsTabProps {
 }
 
 export default function AppointmentTabs({
+  header,
   showSelectFiltersMessage,
   preBookedAppointments,
   completedAppointments,
@@ -81,6 +84,18 @@ export default function AppointmentTabs({
 
   const [value, setValue] = useState<ApptTab>(resolvedTab);
   const [now, setNow] = useState<DateTime>(DateTime.now());
+  const containerRef = useRef<HTMLDivElement>(null);
+  const stickyHeaderRef = useRef<HTMLDivElement>(null);
+
+  const scrollToListStart = useCallback((): void => {
+    const container = containerRef.current;
+    const stickyHeader = stickyHeaderRef.current;
+    if (!container || !stickyHeader) return;
+    const scrolledPastListStart = stickyHeader.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    if (scrolledPastListStart > 0) {
+      window.scrollBy({ top: -scrolledPastListStart });
+    }
+  }, []);
 
   // Sync local state when the URL tab changes from outside this component
   // (e.g. command-palette navigation, browser back/forward). This also resets
@@ -88,8 +103,9 @@ export default function AppointmentTabs({
   useEffect(() => {
     if (resolvedTab !== value) {
       setValue(resolvedTab);
+      scrollToListStart();
     }
-  }, [resolvedTab, value]);
+  }, [resolvedTab, value, scrollToListStart]);
 
   useEffect(() => {
     if (!isApptTab(tabFromUrl)) {
@@ -107,6 +123,7 @@ export default function AppointmentTabs({
   const handleChange = useCallback(
     (_event: any, newValue: ApptTab): void => {
       setValue(newValue);
+      scrollToListStart();
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -119,7 +136,7 @@ export default function AppointmentTabs({
       // fallback when the user returns without one.
       localStorage.setItem(SELECTED_TAB_STORAGE_KEY, JSON.stringify(newValue));
     },
-    [setSearchParams]
+    [setSearchParams, scrollToListStart]
   );
 
   React.useEffect(() => {
@@ -181,41 +198,54 @@ export default function AppointmentTabs({
   );
 
   return (
-    <Box sx={{ width: '100%', marginTop: 3 }}>
+    <Box ref={containerRef} sx={{ width: '100%' }}>
       <TabContext value={value}>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <TabList
-            variant="scrollable"
-            allowScrollButtonsMobile={true}
-            onChange={handleChange}
-            aria-label="appointment tabs"
-          >
-            <Tab
-              data-testid={dataTestIds.dashboard.prebookedTab}
-              label={`Pre-booked${preBookedAppointments ? ` – ${preBookedAppointments?.length}` : ''}`}
-              value={ApptTab.prebooked}
-              sx={{ textTransform: 'none', fontWeight: 500 }}
-            />
-            <Tab
-              data-testid={dataTestIds.dashboard.inOfficeTab}
-              label={`Active${inOfficeAppointments ? ` – ${inOfficeAppointments?.length}` : ''}`}
-              value={ApptTab['in-office']}
-              sx={{ textTransform: 'none', fontWeight: 500 }}
-            />
-            <Tab
-              data-testid={dataTestIds.dashboard.dischargedTab}
-              label={`Discharged${completedAppointments ? ` – ${completedAppointments?.length}` : ''}`}
-              value={ApptTab.completed}
-              sx={{ textTransform: 'none', fontWeight: 500 }}
-            />
-            <Tab
-              data-testid={dataTestIds.dashboard.cancelledTab}
-              label={`Cancelled${cancelledAppointments ? ` – ${cancelledAppointments?.length}` : ''}`}
-              value={ApptTab.cancelled}
-              sx={{ textTransform: 'none', fontWeight: 500 }}
-            />
-            {loading && <Loading />}
-          </TabList>
+        <Box
+          ref={stickyHeaderRef}
+          data-testid={dataTestIds.dashboard.stickyHeader}
+          sx={{
+            position: { xs: 'static', sm: 'sticky' },
+            top: adjustTopForBannerHeight(80),
+            zIndex: 1000,
+            backgroundColor: '#F9FAFB',
+            width: '100%',
+          }}
+        >
+          {header}
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', marginTop: 3 }}>
+            <TabList
+              variant="scrollable"
+              allowScrollButtonsMobile={true}
+              onChange={handleChange}
+              aria-label="appointment tabs"
+            >
+              <Tab
+                data-testid={dataTestIds.dashboard.prebookedTab}
+                label={`Pre-booked${preBookedAppointments ? ` – ${preBookedAppointments?.length}` : ''}`}
+                value={ApptTab.prebooked}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
+              />
+              <Tab
+                data-testid={dataTestIds.dashboard.inOfficeTab}
+                label={`Active${inOfficeAppointments ? ` – ${inOfficeAppointments?.length}` : ''}`}
+                value={ApptTab['in-office']}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
+              />
+              <Tab
+                data-testid={dataTestIds.dashboard.dischargedTab}
+                label={`Discharged${completedAppointments ? ` – ${completedAppointments?.length}` : ''}`}
+                value={ApptTab.completed}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
+              />
+              <Tab
+                data-testid={dataTestIds.dashboard.cancelledTab}
+                label={`Cancelled${cancelledAppointments ? ` – ${cancelledAppointments?.length}` : ''}`}
+                value={ApptTab.cancelled}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
+              />
+              {loading && <Loading />}
+            </TabList>
+          </Box>
         </Box>
         <TabPanel value={ApptTab.prebooked} sx={{ padding: 0 }}>
           {selectLocationMsg || renderAppointmentTable(preBookedAppointments)}

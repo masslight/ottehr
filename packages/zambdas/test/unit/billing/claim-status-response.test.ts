@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { applyPatch, Operation } from 'fast-json-patch';
-import { Claim, ClaimResponse, FhirResource, Provenance } from 'fhir/r4b';
+import { Claim, ClaimResponse, Coverage, FhirResource, Identifier, Provenance } from 'fhir/r4b';
 import {
   BILLING_RESOURCE_TAG,
   CLAIM_STATUS_RESPONSE_EVENT_SYSTEM,
@@ -16,13 +16,21 @@ import {
 import { AR_STAGE, claimStatusValuesToTags, getClaimStatusValues } from 'utils/lib/types/data/billing/claim-status';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
+  getPayerClaimControlNumber,
+} from '../../../src/billing/shared';
+import {
   claimAcknowledgmentRequests,
+  claimPayerClaimControlNumberRequests,
   claimRejectionHistoryChanges,
   claimRejectionRequests,
   claimStatusCompletionRequest,
   claimStatusRequests,
   classifyClaimStatusResponse,
   complexValidation,
+  resolveStatusPayerClaimControlNumber,
+  StatusPayerClaimControlNumber,
 } from '../../../src/subscriptions/claim-response/sub-claim-status-response';
 
 const response = (valueString: string): ClaimResponse => ({
@@ -51,6 +59,13 @@ const claim: Claim = {
   priority: { coding: [{ code: 'normal' }] },
   insurance: [{ sequence: 1, focal: true, coverage: { reference: 'Coverage/coverage-1' } }],
   meta: { versionId: '3', tag: [BILLING_RESOURCE_TAG] },
+};
+const coverage: Coverage = {
+  resourceType: 'Coverage',
+  id: 'coverage-1',
+  status: 'active',
+  beneficiary: { reference: 'Patient/patient-1' },
+  payor: [{ reference: 'Organization/payer-1' }],
 };
 
 describe('claim status subscription', () => {
@@ -513,7 +528,8 @@ describe('claim status acknowledgments', () => {
             ],
           },
         ],
-      });
+      })
+      .mockResolvedValueOnce({ unbundle: () => [coverage] });
     const context = await complexValidation(
       {
         fhir: {
@@ -523,6 +539,149 @@ describe('claim status acknowledgments', () => {
       fixture.id!
     );
     expect(context?.recordedFields).toEqual(new Set([field]));
-    expect(search.mock.calls.map(([input]) => input.resourceType)).toEqual(['ClaimResponse', 'Claim', 'Provenance']);
+    expect(context?.payerClaimControlNumber).toEqual({ value: '762839104822', insurance: 'primary' });
+    expect(search.mock.calls.map(([input]) => input.resourceType)).toEqual([
+      'ClaimResponse',
+      'Claim',
+      'Provenance',
+      'Coverage',
+    ]);
+  });
+});
+
+describe('claim status payer claim control number', () => {
+  const agent = { who: { reference: 'Device/system' } };
+  const statusResponse = (raw: Record<string, unknown>): ClaimResponse =>
+    response(JSON.stringify({ status: 'A', sender_name: 'CIGNA', sender_icn: '762839104822', ...raw }));
+  const twoInsuranceClaim: Claim = {
+    ...claim,
+    insurance: [
+      { sequence: 1, focal: true, coverage: { reference: 'Coverage/coverage-1' } },
+      { sequence: 2, focal: false, coverage: { reference: 'Coverage/coverage-2' } },
+    ],
+  };
+  const secondaryCoverage: Coverage = { ...coverage, id: 'coverage-2', payor: [{ reference: 'Organization/payer-2' }] };
+  const coverageClient = (): Oystehr =>
+    ({
+      fhir: { search: vi.fn().mockResolvedValue({ unbundle: () => [coverage, secondaryCoverage] }) },
+    }) as unknown as Oystehr;
+  const resolve = (
+    claimResponse: ClaimResponse,
+    billingClaim: Claim = twoInsuranceClaim
+  ): Promise<StatusPayerClaimControlNumber | undefined> =>
+    resolveStatusPayerClaimControlNumber(
+      coverageClient(),
+      billingClaim,
+      claimResponse,
+      classifyClaimStatusResponse(claimResponse)!
+    );
+  const pccn = (value: string, insurance?: string): Identifier => ({
+    system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+    value,
+    ...(insurance
+      ? { type: { coding: [{ system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM, code: insurance }] } }
+      : {}),
+  });
+
+  it('takes the ICN for the payer that sent it', async () => {
+    await expect(resolve(statusResponse({}))).resolves.toEqual({ value: '762839104822', insurance: 'primary' });
+    const fromSecondary = { ...statusResponse({}), insurer: { reference: 'Organization/payer-2' } };
+    await expect(resolve(fromSecondary)).resolves.toEqual({ value: '762839104822', insurance: 'secondary' });
+  });
+
+  it('leaves a PCCN the claim already has for that payer', async () => {
+    await expect(
+      resolve(statusResponse({}), { ...twoInsuranceClaim, identifier: [pccn('existing', 'primary')] })
+    ).resolves.toBeUndefined();
+    // a type-less PCCN is the primary payer's
+    await expect(
+      resolve(statusResponse({}), { ...twoInsuranceClaim, identifier: [pccn('existing')] })
+    ).resolves.toBeUndefined();
+    // another payer's PCCN does not count
+    await expect(
+      resolve(statusResponse({}), { ...twoInsuranceClaim, identifier: [pccn('existing', 'secondary')] })
+    ).resolves.toEqual({ value: '762839104822', insurance: 'primary' });
+  });
+
+  it.each([
+    ['no ICN', { sender_icn: null }],
+    ['a blank ICN', { sender_icn: ' ' }],
+    ['a rejection', { status: 'R' }],
+    ['the clearinghouse', { sender_name: 'Claim.MD' }],
+  ])('ignores %s', async (_, raw) => {
+    await expect(resolve(statusResponse(raw))).resolves.toBeUndefined();
+  });
+
+  it('ignores a payer that is not among the claim insurances', async () => {
+    const stranger = { ...statusResponse({}), insurer: { reference: 'Organization/elsewhere' } };
+    await expect(resolve(stranger)).resolves.toBeUndefined();
+  });
+
+  it('adds the PCCN beside the claim identifiers and records it in history', () => {
+    const claimResponse = statusResponse({});
+    const billingClaim: Claim = {
+      ...twoInsuranceClaim,
+      identifier: [{ system: 'other', value: 'keep' }, pccn('secondary-pccn', 'secondary')],
+    };
+    const requests = claimStatusRequests(
+      {
+        claim: billingClaim,
+        claimResponse,
+        classification: classifyClaimStatusResponse(claimResponse)!,
+        recordedFields: new Set(),
+        payerClaimControlNumber: { value: '762839104822', insurance: 'primary' },
+      },
+      agent
+    );
+    const patch = requests.find((request) => request.method === 'PATCH');
+    if (!patch || !('operations' in patch)) throw new Error('Expected a JSON patch');
+    expect(patch.url).toBe('/Claim/claim-1');
+    const patched = applyPatch(billingClaim, patch.operations, true, false).newDocument;
+    expect(patched.identifier).toEqual([...billingClaim.identifier!, pccn('762839104822', 'primary')]);
+    const history = requests.find(
+      (request) =>
+        'resource' in request &&
+        (request.resource as Provenance).target?.some((target) => target.reference === 'Claim/claim-1') &&
+        (request.resource as Provenance).target?.length === 1
+    );
+    if (!history || !('resource' in history)) throw new Error('Expected a Provenance');
+    expect((history.resource as Provenance).entity).toContainEqual({
+      role: 'source',
+      what: { reference: 'ClaimResponse/response-1' },
+    });
+  });
+
+  it('writes nothing for a claim outside the billing app', () => {
+    expect(
+      claimPayerClaimControlNumberRequests(
+        {
+          claim: { ...claim, meta: { versionId: '3' } },
+          claimResponse: statusResponse({}),
+          payerClaimControlNumber: { value: '762839104822', insurance: 'primary' },
+        },
+        agent
+      )
+    ).toEqual([]);
+  });
+
+  it('replaces an empty PCCN identifier for that payer with the ICN', async () => {
+    const emptyPrimary: Identifier = { ...pccn('primary', 'primary'), value: undefined };
+    const emptyLegacy: Identifier = { system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM };
+    const billingClaim: Claim = {
+      ...twoInsuranceClaim,
+      identifier: [emptyLegacy, pccn('SECONDARY', 'secondary'), emptyPrimary],
+    };
+    const claimResponse = statusResponse({});
+    const payerClaimControlNumber = await resolve(claimResponse, billingClaim);
+    expect(payerClaimControlNumber).toEqual({ value: '762839104822', insurance: 'primary' });
+
+    const [patch] = claimPayerClaimControlNumberRequests(
+      { claim: billingClaim, claimResponse, payerClaimControlNumber },
+      agent
+    );
+    if (!('operations' in patch)) throw new Error('Expected a JSON patch');
+    const patched: Claim = applyPatch(billingClaim, patch.operations, true, false).newDocument;
+    expect(patched.identifier).toEqual([pccn('SECONDARY', 'secondary'), pccn('762839104822', 'primary')]);
+    expect(getPayerClaimControlNumber(patched, 'primary')).toBe('762839104822');
   });
 });

@@ -37,7 +37,7 @@ import { CoverageFields } from '../components/CoverageFields';
 import { DemographicFields } from '../components/DemographicFields';
 import { PatientPaymentsTab } from '../components/PatientPaymentsTab';
 import { Row } from '../components/Row';
-import { CLAIM_STATUS_COLORS } from '../constants/claimStatus';
+import { CLAIM_STATUS_COLORS, formatPatientResp } from '../constants/claimStatus';
 import { CoverageForm, coverageToUpdateInput, defaultCoverageFormValues } from '../constants/coverage';
 import { defaultPatientFormValues, PatientForm, patientToUpdateInput } from '../constants/patient';
 import { useApiClients } from '../hooks/useAppClients';
@@ -100,7 +100,7 @@ const claimColumns: GridColDef[] = [
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: (value: number) => formatCurrency(value),
+    valueFormatter: (value: number | null) => formatPatientResp(value),
   },
   {
     field: 'patientPaid',
@@ -241,7 +241,12 @@ export default function PatientDetail(): ReactElement {
           </TabPanel>
 
           <TabPanel value="payments" sx={{ px: 0, pt: 2 }}>
-            <PatientPaymentsTab key={patient.id} patientId={patient.id} />
+            <PatientPaymentsTab
+              key={patient.id}
+              patientId={patient.id}
+              clinicalPatientId={patient.clinicalId || undefined}
+              onPaymentAdded={refetch}
+            />
           </TabPanel>
         </TabContext>
       </Box>

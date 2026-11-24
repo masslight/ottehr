@@ -28,10 +28,15 @@ export const ChatMessageList: FC<ChatMessageListProps> = ({
 }) => {
   const theme = useTheme();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const dividerRef = useRef<HTMLHRElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [messages.length, isPending]);
+
+  useEffect(() => {
+    if (firstUnreadId) dividerRef.current?.scrollIntoView({ block: 'start' });
+  }, [firstUnreadId]);
 
   return (
     <Stack spacing={3} sx={{ minHeight: '100%', justifyContent: 'flex-end', py: 2 }}>
@@ -43,6 +48,7 @@ export const ChatMessageList: FC<ChatMessageListProps> = ({
           <Fragment key={message.id}>
             {message.id === firstUnreadId && (
               <Divider
+                ref={dividerRef}
                 sx={{
                   color: theme.palette.warning.main,
                   fontWeight: 500,

@@ -1,13 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Encounter, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, Practitioner } from 'fhir/r4b';
+import { Settings } from 'luxon';
 import { GenerateExcuseDialog } from 'src/features/visits/shared/components/plan-tab/components/GenerateExcuseDialog';
 import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { SchoolWorkNoteExcuseDocDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { PRACTITIONER_CODINGS } from 'utils/lib/types/data/appointments/appointments.types';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('src/features/visits/shared/stores/appointment/appointment.store', () => ({
   useAppointmentData: vi.fn(),
@@ -134,5 +136,77 @@ describe('GenerateExcuseDialog', () => {
 
     expect(excuse.providerDetails).toEqual({ name: 'Ottehr team', credentials: '' });
     expect(excuse.footerNote).not.toContain('{Provider name}');
+  });
+
+  describe('dates', () => {
+    const originalZone = Settings.defaultZone;
+
+    beforeEach(() => {
+      Settings.defaultZone = 'America/New_York';
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-11-13T15:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      Settings.defaultZone = originalZone;
+    });
+
+    const appointment: Appointment = {
+      resourceType: 'Appointment',
+      id: 'appointment-1',
+      status: 'fulfilled',
+      start: '2026-11-10T15:00:00.000Z',
+      participant: [],
+    };
+
+    const generateForEncounter = async (encounter: Encounter, asRelatedPerson = false): Promise<void> => {
+      vi.mocked(useAppointmentData).mockReturnValue({
+        patient: { resourceType: 'Patient', id: 'patient-1', name: [{ given: ['Kid'], family: 'Patient' }] },
+        questionnaireResponse: undefined,
+        encounter: { ...encounter, appointment: [{ reference: `Appointment/${appointment.id}` }] },
+        practitioners: [admitter, assignedProvider],
+        appointment,
+      } as any);
+
+      render(<GenerateExcuseDialog type="schoolTemplate" open={true} onClose={vi.fn()} generate={generate as any} />);
+
+      if (asRelatedPerson) {
+        await userEvent.click(screen.getByRole('combobox'));
+        await userEvent.click(screen.getByRole('option', { name: 'Related Person' }));
+      }
+      await userEvent.click(screen.getByRole('checkbox', { name: 'excused from school on' }));
+      await userEvent.click(screen.getByRole('checkbox', { name: 'may return to school on' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Generate note' }));
+    };
+
+    const generatedNote = (): SchoolWorkNoteExcuseDocDTO =>
+      generate.mock.calls[0][0].newSchoolWorkNote as SchoolWorkNoteExcuseDocDTO;
+
+    it('dates a note generated after the visit to the visit, also after switching to the related person', async () => {
+      await generateForEncounter(encounterWith(assignedProvider.id), true);
+
+      expect(generatedNote().headerNote).toContain(
+        'the child of {Parent/Guardian name}, was treated by Ottehr on 11/10/2026.'
+      );
+      expect(generatedNote().bulletItems).toEqual([
+        { text: 'excused from school on 11/10/2026' },
+        { text: 'may return to school on 11/11/2026' },
+      ]);
+    });
+
+    it('dates a note on an annotation follow-up to the follow-up, not the parent visit', async () => {
+      await generateForEncounter({
+        ...encounterWith(assignedProvider.id),
+        type: buildFollowupEncounterType('annotation'),
+        period: { start: '2026-11-12T15:00:00.000Z' },
+      });
+
+      expect(generatedNote().headerNote).toContain('Kid Patient, was treated by Ottehr on 11/12/2026.');
+      expect(generatedNote().bulletItems).toEqual([
+        { text: 'excused from school on 11/12/2026' },
+        { text: 'may return to school on 11/13/2026' },
+      ]);
+    });
   });
 });

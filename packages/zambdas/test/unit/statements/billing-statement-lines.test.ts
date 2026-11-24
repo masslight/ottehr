@@ -214,6 +214,55 @@ describe('computeBillingStatementAmounts', () => {
     expect(lines.map((line) => line.patientOwesCents)).toEqual([2234, 7566]);
   });
 
+  it("owes nothing once the claim's non-insurance payer paid it, without showing a patient payment", () => {
+    const amounts = (nioPaid: number): ReturnType<typeof computeBillingStatementAmounts> =>
+      computeBillingStatementAmounts({
+        claim: billingClaim(),
+        claimResponses: [fullyAdjudicatedRemit()],
+        patientPaid: 0,
+        writeOffsTotal: 0,
+        nioPaid,
+      });
+    const owed = amounts(0).totals.balanceDueCents;
+    expect(owed).toBeGreaterThan(0);
+
+    const { lines, totals } = amounts(owed / 100);
+
+    expect(totals.balanceDueCents).toBe(0);
+    expect(totals.patientPaidCents).toBe(0);
+    expect(lines.map((line) => line.patientOwesCents)).toEqual(lines.map(() => 0));
+  });
+
+  it('shows no patient credit for an NIO payment while the patient owes nothing yet', () => {
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim({
+        arStage: AR_STAGE.nonInsurancePayer,
+      }),
+      claimResponses: [],
+      patientPaid: 0,
+      writeOffsTotal: 0,
+      nioPaid: 100,
+    });
+
+    expect(totals.balanceDueCents).toBe(0);
+    expect(lines.map((line) => line.patientOwesCents)).toEqual([0, 0]);
+  });
+
+  it('settles each line once when patient payments, write-offs and the NIO payment cover the claim together', () => {
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [fullyAdjudicatedRemit()],
+      patientPaid: 20,
+      writeOffsTotal: 30,
+      nioPaid: 38,
+    });
+
+    expect(totals.balanceDueCents).toBe(0);
+    expect(lines.map((line) => line.patientPaidCents)).toEqual([2000, 0]);
+    expect(lines.map((line) => line.writeOffsCents)).toEqual([0, 3000]);
+    expect(lines.map((line) => line.patientOwesCents)).toEqual([0, 0]);
+  });
+
   it('sums insurance payments across remits but takes responsibility from the latest', () => {
     const secondary = claimResponse({
       id: 'cr-2',
@@ -355,6 +404,41 @@ describe('computeBillingStatementAmounts', () => {
     expect(totals.balanceDueCents).toBe(10_400);
   });
 
+  it('keeps the deductible on its procedure when a later denial leaves patient responsibility as it was', () => {
+    const applied = claimResponse({
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('PR', 104, '1')],
+        }),
+      ],
+    });
+    // nothing paid and no PR: says nothing about what the patient owes
+    const denial = claimResponse({
+      id: 'cr-2',
+      created: '2026-08-20',
+      item: [
+        eraItem({
+          sequence: 2,
+          procedureCode: '99203',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 339, 'B16')],
+        }),
+      ],
+    });
+
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [applied, denial],
+      patientPaid: 0,
+      writeOffsTotal: 0,
+    });
+
+    expect(totals.deductibleCents).toBe(10_400);
+    expect(totals.balanceDueCents).toBe(10_400);
+    expect(lines.map((line) => line.patientOwesCents)).toEqual([10_400, 0]);
+  });
+
   it('drops the deductible back to zero when the payer reverses the one it applied', () => {
     const applied = claimResponse({
       item: [
@@ -405,6 +489,98 @@ describe('computeBillingStatementAmounts', () => {
       deductibleCents: 0,
     });
     expect(lines.map((line) => line.patientOwesCents)).toEqual([10_400, 33_900]);
+  });
+
+  it('adds the lines up to the balance when a reversal leaves insurance paid negative', () => {
+    // the payer pays 50 and later takes back 70 under a procedure the claim never carried; neither
+    // remit reports PR, so the payer assigned the patient nothing
+    const payment = claimResponse({
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 50), casAdjustment('CO', 54, '45')],
+        }),
+      ],
+    });
+    const takeBack = claimResponse({
+      id: 'cr-2',
+      created: '2026-08-20',
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '99999',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, -70), casAdjustment('CO', 70, '45')],
+        }),
+      ],
+    });
+
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [payment, takeBack],
+      patientPaid: 0,
+      writeOffsTotal: 0,
+    });
+
+    expect(totals.balanceDueCents).toBe(0);
+    expect(sumOf(lines, 'patientOwesCents')).toBe(totals.balanceDueCents);
+  });
+
+  it('does not bill the patient for a contractual write-off when the payment reports no PR', () => {
+    // 104 = 84 paid + 20 CO-45, 339 = 300 paid + 39 CO-45, no PR
+    const payment = claimResponse({
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 84), casAdjustment('CO', 20, '45')],
+        }),
+        eraItem({
+          sequence: 2,
+          procedureCode: '99203',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 300), casAdjustment('CO', 39, '45')],
+        }),
+      ],
+    });
+
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [payment],
+      patientPaid: 0,
+      writeOffsTotal: 0,
+    });
+
+    expect(totals.balanceDueCents).toBe(0);
+    expect(sumOf(lines, 'patientOwesCents')).toBe(0);
+  });
+
+  it('bills what is still open once a denied claim is moved to patient AR', () => {
+    // CO-B16 on the whole claim: nothing paid, no PR, so nobody has said what the patient owes until
+    // a biller moves the claim to the patient
+    const denial = claimResponse({
+      item: [
+        eraItem({
+          sequence: 1,
+          procedureCode: '73100',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 104, 'B16')],
+        }),
+        eraItem({
+          sequence: 2,
+          procedureCode: '99203',
+          adjudication: [adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 339, 'B16')],
+        }),
+      ],
+    });
+
+    const { lines, totals } = computeBillingStatementAmounts({
+      claim: billingClaim(),
+      claimResponses: [denial],
+      patientPaid: 0,
+      writeOffsTotal: 0,
+    });
+
+    expect(totals.balanceDueCents).toBe(44_300);
+    expect(sumOf(lines, 'patientOwesCents')).toBe(totals.balanceDueCents);
   });
 
   it('owes the patient nothing while an insured claim is still waiting on its payer', () => {

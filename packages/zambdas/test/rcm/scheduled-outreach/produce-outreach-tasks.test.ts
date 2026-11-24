@@ -1,5 +1,7 @@
+import Oystehr from '@oystehr/sdk';
 import { PlanDefinition } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import type { OutreachAction } from 'utils/lib/types/api/scheduled-outreach.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildOutreachTaskIdentityQuery,
@@ -9,13 +11,15 @@ import {
   reconcileDraftTasksWithConfig,
   resolveOutreachTaskStripeAccount,
 } from '../../../src/rcm/scheduled-outreach/producers/shared/produce-outreach-tasks';
-import type { OutreachAction } from '../../../src/rcm/scheduled-outreach-config/helpers';
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
 const mockCreate = vi.fn();
 const mockSearch = vi.fn();
 const mockGet = vi.fn();
+const mockTransaction = vi.fn(async ({ requests }: any) => ({
+  entry: [{ resource: await mockCreate(requests[0].resource), response: { status: '201 Created' } }],
+}));
 
 const mockOystehrClient = {
   fhir: {
@@ -24,7 +28,7 @@ const mockOystehrClient = {
     get: mockGet,
     update: vi.fn(),
     patch: vi.fn(),
-    transaction: vi.fn(),
+    transaction: mockTransaction,
   },
 };
 
@@ -170,7 +174,6 @@ function mockBundle(resources: any[]): { unbundle: () => any[]; total: number; l
 describe('produce-outreach-tasks', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.unstubAllGlobals();
     mockGet.mockResolvedValue(mockPatientWithValidContacts);
   });
 
@@ -374,6 +377,35 @@ describe('produce-outreach-tasks', () => {
         ])
       );
     });
+
+    it('uses the given task code system in the /code patch when the action type changes', async () => {
+      const oldAction = makeAction();
+      const newAction = makeAction({ actionType: 'log', sendNotificationConfig: undefined });
+      const draftTask = {
+        resourceType: 'Task',
+        id: 'task-1',
+        status: 'draft',
+        meta: {
+          tag: [
+            { system: 'https://fhir.zapehr.com/r4/StructureDefinitions/outreach-task/action-id', code: 'action-1' },
+          ],
+        },
+        input: [...buildTaskInput(oldAction)!],
+      };
+      mockSearch.mockResolvedValueOnce(mockBundle([draftTask]));
+
+      const { requests, updated } = await reconcileDraftTasksWithConfig(
+        mockOystehrClient as any,
+        [oldAction],
+        [newAction],
+        'https://example.com/task-code'
+      );
+
+      expect(updated).toBe(1);
+      const patchOps = JSON.parse(((requests[0] as any).resource as any).data);
+      const codeOp = patchOps.find((op: any) => op.path === '/code');
+      expect(codeOp.value.coding[0].system).toBe('https://example.com/task-code');
+    });
   });
 
   describe('produceOutreachTasks', () => {
@@ -405,6 +437,52 @@ describe('produce-outreach-tasks', () => {
       expect(createdTask.status).toBe('draft');
       expect(createdTask.for).toEqual({ reference: 'Patient/pat-1' });
       expect(createdTask.focus).toEqual({ reference: 'Encounter/enc-1' });
+      expect(createdTask.code.coding[0].system).toBe('https://ottehr.com/CodeSystem/outreach-action-type');
+      expect(mockTransaction.mock.calls[0][0].requests[0]).toMatchObject({
+        method: 'POST',
+        url: '/Task',
+        ifNoneExist: buildOutreachTaskIdentityQuery({ reference: 'Encounter/enc-1' }, 'invoice-due', 'action-1'),
+      });
+    });
+
+    it('skips an action when the conditional create matches an existing task', async () => {
+      mockSearch.mockResolvedValueOnce(mockBundle([makePlanDefinition([makeAction()])]));
+      mockSearch.mockResolvedValueOnce(mockBundle([]));
+      mockTransaction.mockResolvedValueOnce({
+        entry: [{ resource: { resourceType: 'Task', id: 'existing-1' }, response: { status: '200 OK' } }],
+      });
+
+      const result = await produceOutreachTasks({
+        triggerEvent: 'invoice-due',
+        patient: { reference: 'Patient/pat-1' },
+        focus: { reference: 'Encounter/enc-1' },
+        eventTimestamp: '2025-01-15T10:00:00.000Z',
+        oystehr: mockOystehrClient as any,
+      });
+
+      expect(result.created).toHaveLength(0);
+      expect(result.skipped[0].reason).toBe('Duplicate prevented (conditional create matched an existing task)');
+    });
+
+    it('uses the given taskCodeSystem for the created task code', async () => {
+      const actions = [makeAction()];
+      const planDef = makePlanDefinition(actions);
+
+      mockSearch.mockResolvedValueOnce(mockBundle([planDef]));
+      mockSearch.mockResolvedValueOnce(mockBundle([]));
+      mockCreate.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'draft' });
+
+      await produceOutreachTasks({
+        triggerEvent: 'invoice-due',
+        patient: { reference: 'Patient/pat-1' },
+        focus: { reference: 'Encounter/enc-1' },
+        eventTimestamp: '2025-01-15T10:00:00.000Z',
+        oystehr: mockOystehrClient as any,
+        taskCodeSystem: 'https://example.com/task-code',
+      });
+
+      const createdTask = mockCreate.mock.calls[0][0];
+      expect(createdTask.code.coding[0].system).toBe('https://example.com/task-code');
     });
 
     it('skips actions when tasks already exist', async () => {
@@ -602,6 +680,33 @@ describe('produce-outreach-tasks', () => {
       const createdTask = mockCreate.mock.calls[0][0];
       expect(createdTask.status).toBe('cancelled');
       expect(createdTask.statusReason?.text).toContain('no valid phone number');
+      expect(mockTransaction).not.toHaveBeenCalled();
+    });
+
+    it('creates draft task without reading the patient when skipContactValidation is set', async () => {
+      const actions = [
+        makeAction({ sendNotificationConfig: { mediums: ['sms'], smsTemplate: 'Pay!', emailTemplate: '' } }),
+      ];
+      const planDef = makePlanDefinition(actions);
+
+      mockSearch.mockResolvedValueOnce(mockBundle([planDef]));
+      mockSearch.mockResolvedValueOnce(mockBundle([]));
+      mockGet.mockResolvedValue({ resourceType: 'Patient', id: 'pat-1', telecom: [] });
+      mockCreate.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'draft' });
+
+      const result = await produceOutreachTasks({
+        triggerEvent: 'invoice-due',
+        patient: { reference: 'Patient/pat-1' },
+        focus: { reference: 'Encounter/enc-1' },
+        eventTimestamp: '2025-01-15T10:00:00.000Z',
+        oystehr: mockOystehrClient as any,
+        skipContactValidation: true,
+      });
+
+      expect(result.created).toHaveLength(1);
+      const createdTask = mockCreate.mock.calls[0][0];
+      expect(createdTask.status).toBe('draft');
+      expect(mockGet).not.toHaveBeenCalled();
     });
 
     it('creates cancelled task when patient has invalid phone and no email for sms+email notification', async () => {
@@ -721,10 +826,10 @@ describe('produce-outreach-tasks', () => {
   describe('createOutreachTaskIdempotent', () => {
     const taskDraft = { resourceType: 'Task', status: 'draft' } as any;
 
-    it('falls back to a plain create when no raw FHIR connection is available', async () => {
-      mockCreate.mockResolvedValue({ resourceType: 'Task', id: 'task-1', status: 'draft' });
-      const fetchSpy = vi.fn();
-      vi.stubGlobal('fetch', fetchSpy);
+    it('issues a conditional-create transaction and reports created on 201', async () => {
+      mockTransaction.mockResolvedValueOnce({
+        entry: [{ resource: { resourceType: 'Task', id: 'task-9' }, response: { status: '201 Created' } }],
+      });
 
       const outcome = await createOutreachTaskIdempotent(
         mockOystehrClient as any,
@@ -732,80 +837,47 @@ describe('produce-outreach-tasks', () => {
         'focus=Encounter%2Fenc-1'
       );
 
-      expect(outcome).toEqual({ status: 'created', resource: { resourceType: 'Task', id: 'task-1', status: 'draft' } });
-      expect(mockCreate).toHaveBeenCalledTimes(1);
-      expect(fetchSpy).not.toHaveBeenCalled();
-    });
-
-    it('issues a conditional-create transaction and reports created on 201', async () => {
-      const fetchSpy = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          entry: [{ resource: { resourceType: 'Task', id: 'task-9' }, response: { status: '201 Created' } }],
-        }),
-        text: async () => '',
-      });
-      vi.stubGlobal('fetch', fetchSpy);
-
-      const oystehrWithConn = {
-        ...mockOystehrClient,
-        config: { accessToken: 'tok', projectId: 'proj', services: { fhirApiUrl: 'https://fhir.example.com' } },
-      };
-
-      const outcome = await createOutreachTaskIdempotent(oystehrWithConn as any, taskDraft, 'focus=Encounter%2Fenc-1');
-
       expect(outcome).toEqual({ status: 'created', resource: { resourceType: 'Task', id: 'task-9' } });
-      expect(mockCreate).not.toHaveBeenCalled();
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      const [url, init] = fetchSpy.mock.calls[0];
-      expect(url).toBe('https://fhir.example.com/');
-      expect(init.method).toBe('POST');
-      const body = JSON.parse(init.body);
-      expect(body.type).toBe('transaction');
-      expect(body.entry[0].request).toEqual({ method: 'POST', url: 'Task', ifNoneExist: 'focus=Encounter%2Fenc-1' });
-      expect(init.headers.Authorization).toBe('Bearer tok');
-      expect(init.headers['x-zapehr-project-id']).toBe('proj');
+      expect(mockTransaction).toHaveBeenCalledWith({
+        requests: [{ method: 'POST', url: '/Task', resource: taskDraft, ifNoneExist: 'focus=Encounter%2Fenc-1' }],
+      });
     });
 
     it('reports duplicate when the conditional create matches an existing task (200)', async () => {
-      const fetchSpy = vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          entry: [{ resource: { resourceType: 'Task', id: 'existing-1' }, response: { status: '200 OK' } }],
-        }),
-        text: async () => '',
+      mockTransaction.mockResolvedValueOnce({
+        entry: [{ resource: { resourceType: 'Task', id: 'existing-1' }, response: { status: '200 OK' } }],
       });
-      vi.stubGlobal('fetch', fetchSpy);
 
-      const oystehrWithConn = {
-        ...mockOystehrClient,
-        config: { accessToken: 'tok', services: { fhirApiUrl: 'https://fhir.example.com' } },
-      };
-
-      const outcome = await createOutreachTaskIdempotent(oystehrWithConn as any, taskDraft, 'focus=Encounter%2Fenc-1');
+      const outcome = await createOutreachTaskIdempotent(
+        mockOystehrClient as any,
+        taskDraft,
+        'focus=Encounter%2Fenc-1'
+      );
 
       expect(outcome).toEqual({ status: 'duplicate' });
     });
 
     it('reports duplicate when the server returns 412 (multiple matches)', async () => {
-      const fetchSpy = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 412,
-        json: async () => ({}),
-        text: async () => 'Precondition Failed',
-      });
-      vi.stubGlobal('fetch', fetchSpy);
+      mockTransaction.mockRejectedValueOnce(
+        new Oystehr.OystehrFHIRError({ code: 412, error: { resourceType: 'OperationOutcome', issue: [] } })
+      );
 
-      const oystehrWithConn = {
-        ...mockOystehrClient,
-        config: { accessToken: 'tok', services: { fhirApiUrl: 'https://fhir.example.com' } },
-      };
-
-      const outcome = await createOutreachTaskIdempotent(oystehrWithConn as any, taskDraft, 'focus=Encounter%2Fenc-1');
+      const outcome = await createOutreachTaskIdempotent(
+        mockOystehrClient as any,
+        taskDraft,
+        'focus=Encounter%2Fenc-1'
+      );
 
       expect(outcome).toEqual({ status: 'duplicate' });
+    });
+
+    it('rethrows errors other than 412', async () => {
+      const error = new Error('boom');
+      mockTransaction.mockRejectedValueOnce(error);
+
+      await expect(
+        createOutreachTaskIdempotent(mockOystehrClient as any, taskDraft, 'focus=Encounter%2Fenc-1')
+      ).rejects.toBe(error);
     });
   });
 });

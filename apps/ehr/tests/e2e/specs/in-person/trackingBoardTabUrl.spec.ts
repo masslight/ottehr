@@ -5,7 +5,7 @@ import { openVisitsPage } from '../../page/VisitsPage';
 
 // Regression coverage for OTR-2634. Component tests in tests/component/ exercise
 // AppointmentTabs and AppointmentsFilters in isolation; this spec exercises the
-// real interaction between the two siblings — which is where the original bug
+// real interaction between the two components — which is where the original bug
 // (and the most likely future regression) lives.
 
 const SELECTED_TAB_STORAGE_KEY = 'selectedAppointmentTab';

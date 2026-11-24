@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReactNode } from 'react';
@@ -17,6 +18,8 @@ const {
   downloadTextFileMock,
   searchBillingPatientsMock,
   searchBillingServicesMock,
+  checkBillingNioInvoiceMock,
+  searchBillingTagsMock,
   mockOystehrZambda,
 } = vi.hoisted(() => ({
   searchBillingClaimsMock: vi.fn(),
@@ -28,6 +31,8 @@ const {
   downloadTextFileMock: vi.fn(),
   searchBillingPatientsMock: vi.fn().mockResolvedValue({ patients: [] }),
   searchBillingServicesMock: vi.fn().mockResolvedValue({ services: [] }),
+  checkBillingNioInvoiceMock: vi.fn(),
+  searchBillingTagsMock: vi.fn().mockResolvedValue({ tags: [] }),
   mockOystehrZambda: {},
 }));
 
@@ -42,7 +47,8 @@ vi.mock('../../src/api/api', () => ({
   searchBillingCustomInsuranceOrgs: vi.fn().mockResolvedValue({ organizations: [] }),
   // Preloaded on mount — without this export the load explodes after the test body has finished.
   searchBillingServices: searchBillingServicesMock,
-  searchBillingTags: vi.fn().mockResolvedValue({ tags: [] }),
+  searchBillingTags: searchBillingTagsMock,
+  checkBillingNioInvoice: checkBillingNioInvoiceMock,
 }));
 
 // mockOystehrZambda is a stable reference, like the real store-backed hook returns — a fresh object on
@@ -66,7 +72,13 @@ vi.mock('../../src/components/BillingDataGrid', () => ({
   dataGridSx: {},
 }));
 
-vi.mock('../../src/hooks/useInvoicingInBillingApp', () => ({ useInvoicingInBillingApp: () => true }));
+const { useInvoicingInBillingAppMock } = vi.hoisted(() => ({
+  useInvoicingInBillingAppMock: vi.fn(() => true),
+}));
+
+vi.mock('../../src/hooks/useInvoicingInBillingApp', () => ({
+  useInvoicingInBillingApp: useInvoicingInBillingAppMock,
+}));
 
 vi.mock('../../src/components/SendInvoiceDialog', () => ({
   SendInvoiceDialog: ({ claim, onSent }: { claim: BillingClaimItem; onSent: () => void }) => (
@@ -74,6 +86,17 @@ vi.mock('../../src/components/SendInvoiceDialog', () => ({
       {claim.id}
       <button type="button" onClick={onSent}>
         Sent
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock('../../src/components/NioInvoiceDialog', () => ({
+  NioInvoiceDialog: ({ claimIds, onCreated }: { claimIds: string[]; onCreated: () => void }) => (
+    <div role="dialog" aria-label="Create NIO Invoice">
+      {claimIds.join(',')}
+      <button type="button" onClick={onCreated}>
+        Created
       </button>
     </div>
   ),
@@ -187,10 +210,19 @@ const makeRow = (
 });
 
 function renderList(): void {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
   render(
-    <MemoryRouter>
-      <ClaimsList />
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <ClaimsList />
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 
@@ -323,6 +355,169 @@ describe('ClaimsList — send invoice', () => {
 
     await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole('dialog', { name: 'Send Invoice' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ClaimsList — create NIO invoice', () => {
+  const nioRow = (id: string, patientName: string): BillingClaimItem => ({
+    ...makeRow(id, patientName, AR_STAGE.nonInsurancePayer, 'non-insurance-payer-pre-invoice'),
+    statuses: {
+      ...emptyClaimStatusValues(),
+      arStage: AR_STAGE.nonInsurancePayer,
+      nonInsuranceArStatus: 'ready-to-invoice',
+    },
+  });
+
+  beforeEach(() => {
+    useInvoicingInBillingAppMock.mockReturnValue(true);
+    checkBillingNioInvoiceMock.mockReset();
+    searchBillingClaimsMock.mockReset().mockResolvedValue({
+      claims: [nioRow('c-1', 'First Patient'), nioRow('c-2', 'Second Patient')],
+      total: 2,
+    });
+  });
+
+  it('keeps Create NIO Invoice disabled with the broken rule until the server confirms the claims', async () => {
+    checkBillingNioInvoiceMock.mockResolvedValue({
+      invoiceable: false,
+      reason: 'All claims must have the same service facility',
+    });
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const second = screen.getByLabelText('select Second Patient');
+    fireEvent.click(second);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+
+    const createInvoice = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
+    expect(createInvoice).toHaveAttribute('aria-disabled', 'true');
+    await waitFor(() =>
+      expect(checkBillingNioInvoiceMock).toHaveBeenCalledWith(mockOystehrZambda, {
+        claimIds: ['c-1', 'c-2'],
+      })
+    );
+    const user = userEvent.setup();
+    await user.hover(createInvoice.parentElement!);
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent('All claims must have the same service facility.');
+    expect(createInvoice).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('spins on Create NIO Invoice while the claims are checked', async () => {
+    let resolveCheck: (result: { invoiceable: boolean }) => void = () => {};
+    checkBillingNioInvoiceMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      })
+    );
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+
+    const checking = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
+    expect(within(checking).getByRole('progressbar', { hidden: true })).toBeInTheDocument();
+
+    resolveCheck({
+      invoiceable: true,
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Create NIO Invoice' })).not.toHaveAttribute('aria-disabled')
+    );
+    const checked = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
+    expect(within(checked).queryByRole('progressbar', { hidden: true })).not.toBeInTheDocument();
+  });
+
+  it('opens the invoice dialog for claims that can be invoiced and reloads the claims once it is created', async () => {
+    checkBillingNioInvoiceMock.mockResolvedValue({
+      invoiceable: true,
+    });
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const second = screen.getByLabelText('select Second Patient');
+    fireEvent.click(second);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Create NIO Invoice' })).not.toHaveAttribute('aria-disabled')
+    );
+    const createInvoice = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
+    fireEvent.click(createInvoice);
+
+    const dialog = await screen.findByRole('dialog', { name: 'Create NIO Invoice' });
+    expect(dialog).toHaveTextContent('c-1,c-2');
+    const created = within(dialog).getByRole('button', { name: 'Created' });
+    fireEvent.click(created);
+
+    await waitFor(() => expect(searchBillingClaimsMock).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('dialog', { name: 'Create NIO Invoice' })).not.toBeInTheDocument();
+  });
+
+  it('checks the claims again each time the menu opens', async () => {
+    checkBillingNioInvoiceMock.mockResolvedValue({
+      invoiceable: true,
+    });
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+    await waitFor(() => expect(checkBillingNioInvoiceMock).toHaveBeenCalledTimes(1));
+    fireEvent.keyDown(screen.getByRole('menu'), {
+      key: 'Escape',
+    });
+    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
+
+    fireEvent.click(actions);
+
+    await waitFor(() => expect(checkBillingNioInvoiceMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('reaches an enabled Create NIO Invoice with the arrow keys', async () => {
+    checkBillingNioInvoiceMock.mockResolvedValue({
+      invoiceable: true,
+    });
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Create NIO Invoice' })).not.toHaveAttribute('aria-disabled')
+    );
+    const user = userEvent.setup();
+    await user.keyboard('{ArrowUp}');
+
+    const createInvoice = screen.getByRole('menuitem', { name: 'Create NIO Invoice' });
+    expect(createInvoice).toHaveFocus();
+  });
+
+  it('offers Create NIO Invoice when invoicing in the billing app is off', async () => {
+    useInvoicingInBillingAppMock.mockReturnValue(false);
+    checkBillingNioInvoiceMock.mockResolvedValue({
+      invoiceable: true,
+    });
+    renderList();
+
+    const first = await screen.findByLabelText('select First Patient');
+    fireEvent.click(first);
+    const actions = screen.getByRole('button', { name: 'Actions' });
+    fireEvent.click(actions);
+
+    await waitFor(() =>
+      expect(screen.getByRole('menuitem', { name: 'Create NIO Invoice' })).not.toHaveAttribute('aria-disabled')
+    );
+    expect(screen.queryByRole('menuitem', { name: 'Send Patient Invoice' })).not.toBeInTheDocument();
   });
 });
 
@@ -816,5 +1011,81 @@ describe('ClaimsList — sorting', () => {
       const stored = JSON.parse(sessionStorage.getItem(FILTERS_STORAGE_KEY) ?? '{}');
       expect(stored.layout).toEqual({ sort: { field: 'billed', direction: 'desc' } });
     });
+  });
+});
+
+describe('ClaimsList — tag filter', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    searchBillingClaimsMock.mockResolvedValue({ claims: [], total: 0 });
+    searchBillingTagsMock.mockResolvedValue({
+      tags: [
+        { id: 't-1', name: 'needs-review' },
+        { id: 't-2', name: 'urgent' },
+        { id: 't-3', name: 'on-hold' },
+      ],
+    });
+  });
+
+  afterEach(() => {
+    searchBillingTagsMock.mockResolvedValue({ tags: [] });
+  });
+
+  it('searches for claims with some tags and without others', async () => {
+    const user = userEvent.setup();
+    renderList();
+
+    const tagsField = await screen.findByLabelText('Tags');
+    await waitFor(() => expect(tagsField).not.toBeDisabled());
+    await user.click(tagsField);
+
+    await user.click(await screen.findByLabelText('Include'));
+    await user.click(await screen.findByRole('option', { name: 'needs-review' }));
+    await user.click(screen.getByLabelText('Exclude'));
+    // A tag already included isn't offered for exclusion.
+    expect(screen.queryByRole('option', { name: 'needs-review' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('option', { name: 'on-hold' }));
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenLastCalledWith(
+        {},
+        expect.objectContaining({ tag: ['needs-review'], excludeTag: ['on-hold'] })
+      )
+    );
+    expect(searchBillingClaimsMock.mock.lastCall?.[1]).not.toHaveProperty('tagMatch');
+    expect(tagsField).toHaveValue('needs-review; not on-hold');
+  });
+
+  it('restores kept include, all-match and exclude tag filters', async () => {
+    sessionStorage.setItem(
+      FILTERS_STORAGE_KEY,
+      JSON.stringify({
+        searchText: '',
+        arStageFilter: [],
+        statusFilter: [],
+        tagFilter: ['needs-review', 'urgent'],
+        tagMatch: 'all',
+        excludeTagFilter: ['on-hold'],
+        createdFrom: '',
+        createdTo: '',
+        serviceDateFrom: '',
+        serviceDateTo: '',
+        selectedPayers: [],
+        selectedPatients: [],
+        typeFilter: [],
+        selectedServices: [],
+        paginationModel: { page: 0, pageSize: 25 },
+      })
+    );
+
+    renderList();
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenCalledWith(
+        {},
+        expect.objectContaining({ tag: ['needs-review', 'urgent'], tagMatch: 'all', excludeTag: ['on-hold'] })
+      )
+    );
+    expect(await screen.findByLabelText('Tags')).toHaveValue('needs-review and urgent; not on-hold');
   });
 });

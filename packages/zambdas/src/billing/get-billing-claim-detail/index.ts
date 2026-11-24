@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Claim, Invoice, Organization, PaymentNotice, PaymentReconciliation, Person, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/billing';
+import { getBillingInvoiceClaims, getBillingInvoiceKind, isInvoicePastDue } from 'utils/lib/fhir/billing-invoice';
 import { SubscriberRelationship } from 'utils/lib/fhir/constants';
 import {
   getCoding,
@@ -36,11 +37,13 @@ import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import {
+  claimNioPaymentFromNotice,
   extractClaimResponseAmounts,
   extractRemitAdjustments,
   fetchClaimEraLinks,
   fetchClaimFirstSubmittedDate,
   fetchClaimResponsesByClaimIds,
+  fetchNioPaymentsByClaimIds,
   fetchPatientPaymentsByEncounterIds,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
@@ -49,7 +52,7 @@ import {
 } from '../claim-amounts';
 import { getClaimServiceDate } from '../claim-search';
 import { buildEraRemitServiceLines } from '../era-remits';
-import { fetchClaimInvoices, toBillingInvoiceSummary } from '../invoices';
+import { fetchClaimInvoices, getInvoiceStatusDatesAndAmount } from '../invoices';
 import { getCLIA } from '../service-facility.helpers';
 import {
   CLAIM_ATTACHMENT_REPORT_TYPE_CODE_SYSTEM,
@@ -60,6 +63,7 @@ import {
   ERA_ICN_EXTENSION,
   ERA_STATUS_CODE_EXTENSION,
   EXTENSION_CLAIM_ADMISSION_TYPE_CODE,
+  EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE,
   EXTENSION_CLAIM_PATIENT_DISCHARGE_STATUS,
   EXTENSION_CLAIM_POINT_OF_ORIGIN_CODE,
   fetchClaimGraph,
@@ -140,6 +144,7 @@ export async function performEffect(
     nonInsurancePayer,
     writeOffResources,
     invoices,
+    nioPaymentsByClaimId,
   ] = await Promise.all([
     fetchOtherClaims(oystehr, patient?.id, claimId),
     fetchClaimResponsesByClaimIds(oystehr, [claimId]),
@@ -152,6 +157,7 @@ export async function performEffect(
     isOttehrBillingInvoicingInBillingApp(params.secrets)
       ? fetchClaimInvoices(oystehr, claimId)
       : Promise.resolve<Invoice[]>([]),
+    fetchNioPaymentsByClaimIds(oystehr, [claimId]),
   ]);
   const claimResponses = sortClaimResponsesByRecency(claimResponsesByClaimId.get(claimId) ?? []);
   const { paymentReconciliations, paymentReconciliationIdByClaimResponseId } = await fetchClaimEraLinks(
@@ -166,6 +172,10 @@ export async function performEffect(
   const patientPaid = sumPatientPayments(patientPaymentNotices);
   const patientPayments = patientPaymentNotices
     .map(toClaimPatientPayment)
+    .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+  const nioPaymentNotices = nioPaymentsByClaimId.get(claimId) ?? [];
+  const nioPayments = nioPaymentNotices
+    .map(claimNioPaymentFromNotice)
     .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
 
   const writeOffsTotal = sumWriteOffs(writeOffResources);
@@ -196,7 +206,13 @@ export async function performEffect(
   const quaternaryPayerClaimControlNumber = getPayerClaimControlNumber(claim, 'quaternary');
 
   const billed = claim.total?.value ?? 0;
-  const payments = summarizeClaimPayments(claimResponses, billed, patientPaid, writeOffsTotal);
+  const payments = summarizeClaimPayments(
+    claimResponses,
+    billed,
+    patientPaid,
+    writeOffsTotal,
+    sumPatientPayments(nioPaymentNotices)
+  );
   const remits = [...claimResponses].reverse().map((cr) => {
     const amounts = extractClaimResponseAmounts(cr);
     const era = paymentReconciliationById.get(paymentReconciliationIdByClaimResponseId.get(cr.id ?? '') ?? '');
@@ -315,6 +331,7 @@ export async function performEffect(
     quaternaryMemberId: quaternaryCoverage?.subscriberId ?? '',
     quaternaryGroupNumber: await getGroupNumber(oystehr, quaternaryCoverage, payersByRef),
     quaternaryPayerClaimControlNumber,
+    medicareSecondaryReasonCode: getExtension(claim, EXTENSION_CLAIM_MEDICARE_SECONDARY_CODE)?.valueString,
     nonInsurancePayerFhirId: nonInsurancePayer.fhirId,
     nonInsurancePayerName: nonInsurancePayer.name,
     renderingProviderId: renderingProvider?.id ?? '',
@@ -368,6 +385,7 @@ export async function performEffect(
     insurancePaid: payments.insurancePaid,
     patientResp: payments.patientResp,
     patientPaid: payments.patientPaid,
+    nioPaid: payments.nioPaid,
     writeOffsTotal: payments.writeOffsTotal,
     balance: payments.balance,
     adjudicated: payments.adjudicated,
@@ -375,8 +393,18 @@ export async function performEffect(
     remits,
     insurancePayments,
     patientPayments,
+    nioPayments,
     writeOffs,
-    invoices: invoices.map(toBillingInvoiceSummary),
+    // An NIO invoice covers several claims, so each claim shows only its own amount.
+    invoices: invoices.map((invoice) => {
+      const kind = getBillingInvoiceKind(invoice);
+      return {
+        ...getInvoiceStatusDatesAndAmount(invoice),
+        amount: (getBillingInvoiceClaims(invoice).find((line) => line.claimId === claimId)?.amountCents ?? 0) / 100,
+        kind,
+        pastDue: kind === 'nio' && isInvoicePastDue(invoice, DateTime.now().toISODate()!),
+      };
+    }),
     otherClaims,
     tags: (claim.meta?.tag ?? [])
       .filter((t) => t.system === CLAIM_TAG_SYSTEM)

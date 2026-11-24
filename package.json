@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.47.6",
+  "version": "1.48.4",
   "private": true,
   "packageManager": "npm@10.9.3",
   "engines": {
@@ -162,7 +162,7 @@
     "@mui/material": "^7.3.11",
     "@mui/system": "^7.3.11",
     "@mui/x-date-pickers": "^7.29.4",
-    "@oystehr/sdk": "^4.3.17",
+    "@oystehr/sdk": "^4.3.19",
     "@pdf-lib/fontkit": "^1.1.1",
     "@sendgrid/mail": "^8.1.6",
     "@sentry/react": "^7.80.1",

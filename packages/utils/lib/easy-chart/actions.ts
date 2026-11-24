@@ -67,6 +67,7 @@ export const PLANNABLE_VITAL_FIELDS = [
   'vital-blood-pressure',
   'vital-weight',
   'vital-height',
+  'vital-head-circumference',
 ] as const satisfies readonly `${VitalFieldNames}`[];
 export type PlannableVitalField = (typeof PLANNABLE_VITAL_FIELDS)[number];
 

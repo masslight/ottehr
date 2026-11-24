@@ -43,6 +43,7 @@ describe('toWire refuses the constructs behind traps 1 and 2 at build time', () 
         'vital-blood-pressure',
         'vital-weight',
         'vital-height',
+        'vital-head-circumference',
       ],
     });
   });

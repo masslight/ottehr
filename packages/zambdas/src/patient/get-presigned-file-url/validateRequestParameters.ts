@@ -27,13 +27,15 @@ const fileTypes = [
   SCHOOL_WORK_NOTE_WORK_ID,
 ] as const;
 
+const PATIENT_PHOTO_FILE_TYPE = new RegExp(`^${PATIENT_PHOTO_ID_PREFIX}[A-Za-z0-9_-]{0,100}$`);
+
 const bodySchema = z.object({
   appointmentID: z.string().uuid(),
   fileType: z
     .string()
     .min(1)
     .refine(
-      (val) => fileTypes.includes(val as any) || val.startsWith(PATIENT_PHOTO_ID_PREFIX),
+      (val) => fileTypes.includes(val as any) || PATIENT_PHOTO_FILE_TYPE.test(val),
       (_val) => ({
         message: `fileType must be one of the following values: ${fileTypes.join(', ')}`,
       })

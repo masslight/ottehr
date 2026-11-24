@@ -40,6 +40,7 @@ import { ExportX12Dialog } from '../components/ExportX12Dialog';
 import { MatchClaimDialog } from '../components/MatchClaimDialog';
 import { ReadOnlySection } from '../components/ReadOnlySection';
 import { Row } from '../components/Row';
+import { formatPatientResp } from '../constants/claimStatus';
 import { ERA_SOURCE_LABELS, paymentMethodLabel } from '../constants/era';
 import { useApiClients } from '../hooks/useAppClients';
 import { formatDate } from '../utils/format';
@@ -115,7 +116,10 @@ export default function ERADetail(): ReactElement {
     currencyCol('allowed', 'Allowed', 100),
     currencyCol('paid', 'Ins Paid', 110),
     currencyCol('posted', 'Posted', 100),
-    currencyCol('patientResp', 'Patient Resp', 110),
+    {
+      ...currencyCol('patientResp', 'Patient Resp', 110),
+      valueFormatter: (value: number | null) => formatPatientResp(value),
+    },
     {
       // whether the remit claim is matched to a claim in the system; the FHIR outcome every ERA
       // carries ("complete") means nothing to billers

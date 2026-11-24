@@ -15,6 +15,7 @@ import { STATE_CODES } from '../../common';
 import {
   BILLING_INVOICE_LIMITS,
   BILLING_INVOICE_LIST_STATUSES,
+  BILLING_INVOICE_PAYMENT_METHODS,
   BILLING_MANUAL_PAYMENT_METHODS,
   BILLING_TASK_STATUSES,
   DRUG_UNIT_CODE_VALUES,
@@ -191,15 +192,24 @@ export const ClaimSortSchema = z.object({
   direction: z.enum(['asc', 'desc']),
 });
 
+export const CLAIM_TAG_MATCH_MODES = ['any', 'all'] as const;
+export const ClaimTagMatchSchema = z.enum(CLAIM_TAG_MATCH_MODES);
+export type ClaimTagMatch = z.output<typeof ClaimTagMatchSchema>;
+
 export const SearchBillingClaimsInputSchema = z.object({
   searchText: nonEmptyString.optional(),
   // Limit search to patient names and claim IDs.
   patientNameOnly: z.boolean().optional(),
-  // Each list filter below matches a claim with any one of its values.
+  // Each list filter below matches a claim with any one of its values (tag: see tagMatch).
   type: oneOrMany(z.enum(CODE_SYSTEM_CLAIM_TYPE_CODE_NAMES)).optional(),
   arStage: oneOrMany(nonEmptyString).optional(),
   status: oneOrMany(nonEmptyString).optional(),
   tag: oneOrMany(nonEmptyString).optional(),
+  // How `tag` matches: 'any' (the default) keeps a claim with at least one of the tags, 'all' only a
+  // claim with every one of them.
+  tagMatch: ClaimTagMatchSchema.optional(),
+  // Claims carrying any of these tags are left out.
+  excludeTag: oneOrMany(nonEmptyString).optional(),
   createdFrom: nonEmptyString.optional(),
   createdTo: nonEmptyString.optional(),
   // only claims last updated on/before this ISO timestamp (stale-claim drilldowns)
@@ -715,6 +725,7 @@ const updateBillingResourceUnion = z.discriminatedUnion('resourceType', [
         nonInsurancePayer: z.object({ id: nonEmptyString.uuid() }).nullable().optional(),
         diagnoses: z.array(claimDiagnosisSchema).optional(),
         serviceLines: z.array(claimServiceLineSchema).optional(),
+        medicareSecondaryReasonCode: nonEmptyString.optional().or(z.literal('')),
         billType: nonEmptyString.min(4).max(4).optional().or(z.literal('')),
         patientDischargeStatusCode: nonEmptyString.max(2).optional().or(z.literal('')),
         admissionType: nonEmptyString.max(1).optional().or(z.literal('')),
@@ -764,6 +775,15 @@ export const UpdateBillingResourceInputSchema = updateBillingResourceUnion.super
         code: z.ZodIssueCode.custom,
         path: ['fields', 'dischargeDate'],
         message: 'Discharge date is required',
+      });
+    }
+    const admission = Date.parse(data.fields.admissionDate ?? '');
+    const discharge = Date.parse(data.fields.dischargeDate ?? '');
+    if (!Number.isNaN(admission) && !Number.isNaN(discharge) && discharge < admission) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['fields', 'dischargeDate'],
+        message: 'Discharge date must be on or after admission date',
       });
     }
   }
@@ -897,6 +917,13 @@ export const NetCollectionsDrilldownParamsSchema = z.object({
   payerKey: nonEmptyString,
 });
 
+// Same key on a retry resumes what that request started. Embedded in a FHIR token search
+// (`system|value`), so no `|` or whitespace.
+const idempotencyKey = z
+  .string()
+  .max(128)
+  .regex(/^[A-Za-z0-9._-]+$/);
+
 export const RecordBillingManualPaymentInputSchema = z.object({
   encounterId: nonEmptyString.uuid(),
   amountInCents: z.number().int().positive(),
@@ -905,11 +932,7 @@ export const RecordBillingManualPaymentInputSchema = z.object({
   paymentDateISO: z.string().datetime({ offset: true }).optional(),
   checkNumber: nonEmptyString.optional(),
   description: nonEmptyString.optional(),
-  // embedded in a FHIR token search (`system|value`), so no `|` or whitespace
-  idempotencyKey: z
-    .string()
-    .max(128)
-    .regex(/^[A-Za-z0-9._-]+$/),
+  idempotencyKey,
 });
 
 export const GetBillingInvoiceRecipientInputSchema = z.object({
@@ -922,11 +945,21 @@ export const CreateBillingInvoiceInputSchema = z.object({
   dueDate: z.string().date(),
   smsMessage: nonEmptyString,
   memo: nonEmptyString,
-  // Same key on a retry resumes the invoice that request started.
-  idempotencyKey: z
-    .string()
-    .max(128)
-    .regex(/^[A-Za-z0-9._-]+$/),
+  idempotencyKey,
+});
+
+export const PreviewBillingNioInvoiceInputSchema = z.object({
+  claimIds: z
+    .array(nonEmptyString.uuid())
+    .min(1)
+    .max(BILLING_INVOICE_LIMITS.nioInvoiceClaimCount)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: 'claimIds must not repeat a claim',
+    }),
+});
+
+export const CreateBillingNioInvoiceInputSchema = PreviewBillingNioInvoiceInputSchema.extend({
+  idempotencyKey,
 });
 
 export const SearchBillingInvoicesInputSchema = z
@@ -951,6 +984,39 @@ export const GetBillingInvoiceInputSchema = z.object({
   invoiceId: nonEmptyString.uuid(),
 });
 
+export const ListBillingOutreachTasksInputSchema = z.object({
+  status: nonEmptyString.optional(),
+  // A full billing patient, claim or invoice ID, or the start of a patient's name.
+  searchText: nonEmptyString.optional(),
+  offset: nonNegativeInt.optional(),
+  pageSize: nonNegativeInt.optional(),
+});
+
+export const BillingOutreachTaskInputSchema = z.object({
+  taskId: nonEmptyString.uuid(),
+});
+
+export const RecordBillingNioInvoicePaymentInputSchema = z.object({
+  invoiceId: nonEmptyString.uuid(),
+  amountInCents: z.number().int().positive(),
+  paymentMethod: z.enum(BILLING_INVOICE_PAYMENT_METHODS),
+  paymentDate: z.string().date(),
+  reference: nonEmptyString.max(BILLING_INVOICE_LIMITS.paymentReferenceLength).optional(),
+  attachment: z
+    .object({
+      path: nonEmptyString,
+      fileName: nonEmptyString.max(255),
+      mimeType: nonEmptyString.optional(),
+    })
+    .optional(),
+  idempotencyKey,
+});
+
+export const PresignBillingInvoicePaymentAttachmentInputSchema = z.object({
+  invoiceId: nonEmptyString.uuid(),
+  fileName: nonEmptyString.max(255),
+});
+
 export const VoidBillingInvoiceInputSchema = z.object({
   invoiceId: nonEmptyString.uuid(),
   reason: nonEmptyString.max(BILLING_INVOICE_LIMITS.voidReasonLength),
@@ -971,6 +1037,13 @@ export const ListBillingPatientAccountPaymentsInputSchema = z.object({
   patientId: nonEmptyString,
 });
 
+// the billing patient's saved cards usable to pay for one of their visits: cards live on the Stripe
+// account the visit takes payments on
+export const ListBillingPatientPaymentMethodsInputSchema = z.object({
+  patientId: nonEmptyString,
+  encounterId: nonEmptyString.uuid(),
+});
+
 export const GetBillingPatientAccountPaymentInputSchema = z.object({
   patientId: nonEmptyString,
   // the visit the payment was taken on
@@ -979,13 +1052,8 @@ export const GetBillingPatientAccountPaymentInputSchema = z.object({
   paymentId: nonEmptyString,
 });
 
-// client key, stable across retries of one logical payment; embedded in a FHIR token search
-// (`system|value`), so no `|` or whitespace
-const patientPaymentIdempotencyKey = z
-  .string()
-  .max(128)
-  .regex(/^[A-Za-z0-9._-]+$/)
-  .optional();
+// client key, stable across retries of one logical payment
+const patientPaymentIdempotencyKey = idempotencyKey.optional();
 // blank free text is treated as absent
 const blankableText = z
   .string()
@@ -1324,10 +1392,17 @@ export type GenderOption = z.input<typeof gender>;
 export type MatchClaimResponseToClaimInput = z.output<typeof MatchClaimResponseToClaimInputSchema>;
 export type UnmatchClaimResponseInput = z.output<typeof UnmatchClaimResponseInputSchema>;
 export type RecordBillingManualPaymentInput = z.output<typeof RecordBillingManualPaymentInputSchema>;
+export type ListBillingPatientPaymentMethodsInput = z.output<typeof ListBillingPatientPaymentMethodsInputSchema>;
 export type CreateBillingInvoiceInput = z.output<typeof CreateBillingInvoiceInputSchema>;
+export type PreviewBillingNioInvoiceInput = z.output<typeof PreviewBillingNioInvoiceInputSchema>;
+export type CreateBillingNioInvoiceInput = z.output<typeof CreateBillingNioInvoiceInputSchema>;
 export type AddClaimAttachmentInput = z.output<typeof AddClaimAttachmentInputSchema>;
 export type SearchBillingInvoicesInput = z.output<typeof SearchBillingInvoicesInputSchema>;
 export type GetBillingInvoiceInput = z.output<typeof GetBillingInvoiceInputSchema>;
+export type RecordBillingNioInvoicePaymentInput = z.output<typeof RecordBillingNioInvoicePaymentInputSchema>;
+export type PresignBillingInvoicePaymentAttachmentInput = z.output<
+  typeof PresignBillingInvoicePaymentAttachmentInputSchema
+>;
 export type VoidBillingInvoiceInput = z.output<typeof VoidBillingInvoiceInputSchema>;
 export type AddClaimWriteOffInput = z.output<typeof AddClaimWriteOffInputSchema>;
 export type VoidClaimWriteOffInput = z.output<typeof VoidClaimWriteOffInputSchema>;

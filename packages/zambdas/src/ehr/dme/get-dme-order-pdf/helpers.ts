@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { DeviceRequest, DocumentReference, Encounter, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Coverage, DeviceRequest, DocumentReference, Encounter, Location, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
@@ -12,7 +12,10 @@ import {
   DME_ORDER_FORM_SOURCE_VERSION_SYSTEM,
   DmeOrderFormInput,
 } from '../../../shared/pdf/dme-order-form-pdf';
-import { makeRadiologyOrderFormSourceVersion, OrderFormSource } from '../../radiology/shared/order-form-resources';
+import { makeOrderFormVersion, OrderFormSource } from '../../radiology/shared/order-form-resources';
+import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
+
+const DME_ORDER_FORM_TEMPLATE_VERSION = 2;
 
 interface DmeOrderFormResources {
   input: DmeOrderFormInput;
@@ -38,9 +41,14 @@ export const gatherDmeOrderFormInput = async (
   }
 
   const practitionerIds = [...new Set(getDmePractitionerIds(deviceRequest))];
-  const [patient, encounter, practitioners] = await Promise.all([
-    oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
-    oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId }),
+  const [{ encounter, location }, practitioners, { patient, account, coverages }] = await Promise.all([
+    oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId }).then(async (encounter) => {
+      const locationId = getIdFromReference(encounter.location?.[0]?.location?.reference);
+      const location = locationId
+        ? await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId })
+        : undefined;
+      return { encounter, location };
+    }),
     practitionerIds.length
       ? oystehr.fhir
           .search<Practitioner>({
@@ -49,23 +57,35 @@ export const gatherDmeOrderFormInput = async (
           })
           .then((bundle) => bundle.unbundle())
       : Promise.resolve([]),
+    getAccountAndCoverageResourcesForPatient(patientId, oystehr),
   ]);
 
-  const locationId = getIdFromReference(encounter.location?.[0]?.location?.reference);
-  const location = locationId
-    ? await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId })
-    : undefined;
   const timezone =
     location?.extension?.find((ext) => ext.url === TIMEZONE_EXTENSION_URL)?.valueString ?? 'America/New_York';
 
   return {
-    input: { deviceRequest, patient, practitioners, location, timezone, oystehr },
+    input: { deviceRequest, patient, practitioners, location, timezone, coverages, oystehr },
     refs: { patientId, encounterId, deviceRequestId },
-    sources: [deviceRequest, encounter, patient, ...practitioners, location].flatMap((resource) =>
-      resource ? [resource] : []
-    ),
+    sources: [
+      deviceRequest,
+      encounter,
+      patient,
+      ...practitioners,
+      location,
+      account,
+      coverages.primary,
+      coverages.secondary,
+      standaloneSubscriber(coverages.primary, coverages.primarySubscriber),
+      standaloneSubscriber(coverages.secondary, coverages.secondarySubscriber),
+    ].flatMap((resource) => (resource ? [resource] : [])),
   };
 };
+
+const standaloneSubscriber = (coverage?: Coverage, subscriber?: RelatedPerson): RelatedPerson | undefined =>
+  coverage?.subscriber?.reference?.startsWith('RelatedPerson/') ? subscriber : undefined;
+
+export const makeDmeOrderFormVersion = (sources: OrderFormSource[]): string | undefined =>
+  makeOrderFormVersion(DME_ORDER_FORM_TEMPLATE_VERSION, sources);
 
 /** Newest first, in case two concurrent prints both left a current form. */
 const findCurrentDmeOrderFormDocRef = async (
@@ -103,7 +123,7 @@ export const getOrCreateDmeOrderForm = async (
     gatherDmeOrderFormInput(deviceRequestId, oystehr),
   ]);
 
-  const sourceVersion = makeRadiologyOrderFormSourceVersion(sources);
+  const sourceVersion = makeDmeOrderFormVersion(sources);
   const existingMediaUrl = existingDocRef?.content?.[0]?.attachment?.url;
   const storedSourceVersion = existingDocRef?.identifier?.find(
     (identifier) => identifier.system === DME_ORDER_FORM_SOURCE_VERSION_SYSTEM

@@ -1,5 +1,5 @@
 import { Box, FormControl, FormControlLabel, FormLabel, Radio, RadioGroup, TextField } from '@mui/material';
-import { ReactElement, useEffect, useMemo } from 'react';
+import { ReactElement, useEffect } from 'react';
 import { Controller, Form, useFormContext } from 'react-hook-form';
 import { ClaimDetailResponse } from 'utils/lib/types/data/billing/billing.types';
 import { RulesEngineInsurance, RulesEngineSubmissionType } from 'utils/lib/types/data/billing/rules-engine.constants';
@@ -20,11 +20,6 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
   const { control, getFieldState, setValue, watch } = useFormContext<ClaimSubmissionForm>();
   const insurance = watch('insurance');
   const type = watch('type');
-  const pccn = watch('payerClaimControlNumber');
-  const pccnIsDirty = useMemo(
-    () => pccn !== (getPccnForInsuranceOrdinal(claim, insurance) ?? ''),
-    [pccn, claim, insurance]
-  );
 
   // Reset pccn and type on insurance selection change
   useEffect(() => {
@@ -112,18 +107,8 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
                 onChange={(event) => field.onChange(event.target.value as RulesEngineSubmissionType)}
               >
                 <FormControlLabel value="new" control={<Radio />} label="New Submission" />
-                <FormControlLabel
-                  disabled={!pccn && !pccnIsDirty}
-                  value="correction"
-                  control={<Radio />}
-                  label="Correction"
-                />
-                <FormControlLabel
-                  disabled={!pccn && !pccnIsDirty}
-                  value="void"
-                  control={<Radio />}
-                  label="Void Claim"
-                />
+                <FormControlLabel value="correction" control={<Radio />} label="Correction" />
+                <FormControlLabel value="void" control={<Radio />} label="Void Claim" />
               </RadioGroup>
             </FormControl>
           )}
@@ -132,12 +117,18 @@ export function ClaimSubmissionFields({ claim }: { claim: ClaimDetailResponse })
           <Controller
             name="payerClaimControlNumber"
             control={control}
-            render={({ field }) => (
+            rules={{
+              validate: (value, values) =>
+                values.type === 'new' || value.length > 0 || 'Payer Claim Control Number is required',
+            }}
+            render={({ field, fieldState }) => (
               <TextField
                 label="Payer Claim Control Number"
                 value={field.value}
                 required={true}
-                onChange={(event) => field.onChange(event.target.value)}
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message}
+                onChange={(event) => field.onChange(event.target.value.trim())}
               />
             )}
           />

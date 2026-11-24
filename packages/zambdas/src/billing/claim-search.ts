@@ -30,6 +30,7 @@ import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import {
   fetchClaimResponsesByClaimIds,
+  fetchNioPaidByClaimId,
   fetchPatientPaymentsByClaimId,
   summarizeClaimPayments,
   sumPatientPaymentsByClaimId,
@@ -144,6 +145,8 @@ export type ClaimFilterInput = Pick<
   | 'payerName'
   | 'nonInsurancePayerId'
   | 'tag'
+  | 'tagMatch'
+  | 'excludeTag'
 >;
 
 export async function buildClaimFilterParams({
@@ -245,7 +248,18 @@ export async function buildClaimFilterParams({
       name: 'insurer',
       value: insurerFilter,
     });
-  pushTagFilter(CLAIM_TAG_SYSTEM, params.tag);
+  if (params.tagMatch === 'all') {
+    params.tag?.forEach((tag) => pushTagFilter(CLAIM_TAG_SYSTEM, [tag]));
+  } else {
+    pushTagFilter(CLAIM_TAG_SYSTEM, params.tag);
+  }
+  // One :not param per tag: separate params AND together, so a claim with any excluded tag drops out.
+  params.excludeTag?.forEach((tag) =>
+    filterParams.push({
+      name: '_tag:not',
+      value: `${CLAIM_TAG_SYSTEM}|${tag}`,
+    })
+  );
   pushTagFilter(CLAIM_NON_INSURANCE_PAYER_TAG_SYSTEM, params.nonInsurancePayerId);
 
   return filterParams;
@@ -260,6 +274,11 @@ export const getClaimServiceDate = (claim: Claim): string =>
 
 const toServiceDay = (value?: string): string | null =>
   value ? DateTime.fromISO(value, { setZone: true }).toISODate() : null;
+
+export const getClaimServiceDay = (claim: Claim): string => {
+  const serviceDate = getClaimServiceDate(claim);
+  return toServiceDay(serviceDate) ?? DateTime.fromISO(serviceDate).toFormat('yyyy-MM-dd');
+};
 
 export const claimMatchesServiceDateRange = (claim: Claim, from?: string, to?: string): boolean => {
   const day = toServiceDay(getClaimServiceDate(claim));
@@ -703,19 +722,22 @@ export async function buildClaimLookups({
     );
   }
 
-  const [resolvedPayersByRef, claimResponsesByClaimId, patientPaymentsByClaimId, writeOffs] = await Promise.all([
-    payersByRef ??
-      resolvePayersByRef(
+  const claimIds = claims.map((c) => c.id).filter(Boolean) as string[];
+  const [resolvedPayersByRef, claimResponsesByClaimId, patientPaymentsByClaimId, writeOffs, nioPaidByClaimId] =
+    await Promise.all([
+      payersByRef ??
+        resolvePayersByRef(
+          oystehr,
+          claims.map((c) => c.insurer?.reference)
+        ),
+      fetchClaimResponsesByClaimIds(oystehr, claimIds),
+      fetchPatientPaymentsByClaimId({
         oystehr,
-        claims.map((c) => c.insurer?.reference)
-      ),
-    fetchClaimResponsesByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
-    fetchPatientPaymentsByClaimId({
-      oystehr,
-      claims,
-    }),
-    fetchWriteOffsByClaimIds(oystehr, claims.map((c) => c.id).filter(Boolean) as string[]),
-  ]);
+        claims,
+      }),
+      fetchWriteOffsByClaimIds(oystehr, claimIds),
+      fetchNioPaidByClaimId(oystehr, claimIds),
+    ]);
 
   return {
     patients,
@@ -727,6 +749,7 @@ export async function buildClaimLookups({
     patientPaidByClaimId: sumPatientPaymentsByClaimId(patientPaymentsByClaimId),
     patientPaymentsByClaimId,
     writeOffs,
+    nioPaidByClaimId,
   };
 }
 
@@ -741,6 +764,7 @@ export interface ClaimLookups {
   // The notices patientPaidByClaimId sums; set by buildClaimLookups.
   patientPaymentsByClaimId?: Map<string, PaymentNotice[]>;
   writeOffs: Map<string, PaymentNotice[]>;
+  nioPaidByClaimId: Map<string, number>;
 }
 
 export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClaimItem {
@@ -753,8 +777,7 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
   const renderingRef = claim.careTeam?.[0]?.provider?.reference;
   const renderingProvider = findRef<Practitioner | Organization>(lookups.providers, renderingRef);
   const patientName = fhirName(patient);
-  const claimServiceDate = getClaimServiceDate(claim);
-  const serviceDate = toServiceDay(claimServiceDate) ?? DateTime.fromISO(claimServiceDate).toFormat('yyyy-MM-dd');
+  const serviceDate = getClaimServiceDay(claim);
   const patientPaid = lookups.patientPaidByClaimId.get(claim.id ?? '') ?? 0;
   const writeOffsTotal = sumWriteOffs(lookups.writeOffs.get(claim.id ?? '') ?? []);
 
@@ -762,7 +785,8 @@ export function mapClaimToItem(claim: Claim, lookups: ClaimLookups): BillingClai
     lookups.claimResponsesByClaimId.get(claim.id ?? '') ?? [],
     billed,
     patientPaid,
-    writeOffsTotal
+    writeOffsTotal,
+    lookups.nioPaidByClaimId.get(claim.id ?? '') ?? 0
   );
 
   return {

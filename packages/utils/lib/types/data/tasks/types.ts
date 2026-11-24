@@ -23,6 +23,7 @@ export interface Task {
   createdById?: string;
   alert?: TaskAlertCode;
   completable: boolean;
+  reopenable?: boolean;
   chat?: {
     hasUnread: boolean;
   };
@@ -43,7 +44,7 @@ export const CreateManualTaskRequestSchema = z
     taskTitle: requiredTextSchema,
     taskDetails: optionalTextSchema,
     assignee: optionalNamedReference,
-    location: namedReference,
+    location: optionalNamedReference,
     patient: optionalNamedReference,
     createdBy: optionalTextSchema,
   })

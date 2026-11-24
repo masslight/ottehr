@@ -13,7 +13,6 @@ import { emptyOrdersForTrackingBoardTable } from 'utils/lib/helpers/tracking-boa
 import { APIErrorCode } from 'utils/lib/types/errors';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
-import { adjustTopForBannerHeight } from '../helpers/misc.helper';
 import PageContainer from '../layout/PageContainer';
 
 const splitParam = (value: string | null): string[] => value?.split(',') ?? [];
@@ -70,55 +69,40 @@ export default function Appointments(): ReactElement {
     <form>
       <PageContainer>
         <>
-          <Box
-            sx={{
-              position: { xs: 'static', sm: 'sticky' },
-              top: adjustTopForBannerHeight(80),
-              zIndex: 1,
-              backgroundColor: '#F9FAFB',
-              alignItems: 'center',
-              width: '100%',
-            }}
-          >
-            <AppointmentsFilters />
-            {/* only displayed on mobile */}
-            <Box sx={{ display: { xs: 'block', sm: 'none' }, mt: 2 }}>
-              <Link to="/visits/add">
-                <Button
-                  sx={{
-                    borderRadius: 100,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    width: '100%',
-                  }}
-                  color="primary"
-                  variant="contained"
-                >
-                  <AddIcon />
-                  <Typography fontWeight="bold">Visit</Typography>
-                </Button>
-              </Link>
-            </Box>
-          </Box>
-          <Box
-            sx={{
-              marginTop: '24px',
-              width: '100%',
-            }}
-          >
-            <AppointmentTabs
-              showSelectFiltersMessage={!locationParam && !providerParam && !serviceCategoryParam}
-              preBookedAppointments={data?.preBooked ?? []}
-              cancelledAppointments={data?.cancelled ?? []}
-              completedAppointments={data?.completed ?? []}
-              inOfficeAppointments={data?.inOffice ?? []}
-              orders={data?.orders ?? EMPTY_ORDERS}
-              vitals={data?.vitals}
-              loading={isFetching}
-              updateAppointments={updateAppointments}
-              setEditingComment={setEditingComment}
-            />
-          </Box>
+          <AppointmentTabs
+            header={
+              <>
+                <AppointmentsFilters />
+                <Box sx={{ display: { xs: 'block', sm: 'none' }, mt: 2 }}>
+                  <Link to="/visits/add">
+                    <Button
+                      sx={{
+                        borderRadius: 100,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        width: '100%',
+                      }}
+                      color="primary"
+                      variant="contained"
+                    >
+                      <AddIcon />
+                      <Typography fontWeight="bold">Visit</Typography>
+                    </Button>
+                  </Link>
+                </Box>
+              </>
+            }
+            showSelectFiltersMessage={!locationParam && !providerParam && !serviceCategoryParam}
+            preBookedAppointments={data?.preBooked ?? []}
+            cancelledAppointments={data?.cancelled ?? []}
+            completedAppointments={data?.completed ?? []}
+            inOfficeAppointments={data?.inOffice ?? []}
+            orders={data?.orders ?? EMPTY_ORDERS}
+            vitals={data?.vitals}
+            loading={isFetching}
+            updateAppointments={updateAppointments}
+            setEditingComment={setEditingComment}
+          />
           {FEATURE_FLAGS.DEMO_VISITS_ENABLED && <CreateDemoVisits />}
         </>
       </PageContainer>

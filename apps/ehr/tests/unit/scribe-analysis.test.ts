@@ -7,6 +7,7 @@ import { RosFindingState } from 'utils/lib/ottehr-config/review-of-systems/in-pe
 import { GetChartDataResponse } from 'utils/lib/types/api/chart-data/get-chart-data.types';
 import { describe, expect, it } from 'vitest';
 import { buildChartSnapshot } from '../../src/features/easy-chart/executor/chartSnapshot';
+import { toStoredVitalValue } from '../../src/features/easy-chart/executor/handlers';
 import {
   appendToNoteField,
   buildAnalysis,
@@ -16,6 +17,7 @@ import {
   sectionForAction,
   toPlannedAction,
 } from '../../src/features/visits/shared/components/scribe-recommendations/analysis';
+import { describeRecommendation } from '../../src/features/visits/shared/components/scribe-recommendations/scribeSections';
 import {
   ExamRecommendation,
   ExamResolution,
@@ -89,10 +91,17 @@ describe('buildAnalysis', () => {
     recs.forEach((rec) => expect(rec.action?.kind).toBeDefined());
   });
 
-  it('shows a kilogram weight in pounds for the editor, and puts pounds back on the wire', () => {
-    const [rec] = analyse([{ kind: 'set-vital', field: 'vital-weight', display: '77 kg', value: 77, unit: 'kg' }]);
-    expect(rec).toMatchObject({ kind: 'vital-weight', weightLbs: 169.8 });
-    expect(toPlannedAction(rec)).toMatchObject({ kind: 'set-vital', field: 'vital-weight', value: 169.8, unit: 'lb' });
+  it('shows a kilogram weight in pounds for the editor, and saves the kilograms said unless the pounds are edited', () => {
+    const [rec] = analyse([{ kind: 'set-vital', field: 'vital-weight', display: '16.3 kg', value: 16.3, unit: 'kg' }]);
+    expect(rec).toMatchObject({ kind: 'vital-weight', weightLbs: 35.94 });
+
+    const unedited = toPlannedAction(rec);
+    expect(unedited).toMatchObject({ kind: 'set-vital', field: 'vital-weight', value: 16.3, unit: 'kg' });
+    expect(toStoredVitalValue(unedited.value as number, unedited.unit)).toBe(16.3);
+
+    const edited = toPlannedAction({ ...rec, weightLbs: 36 } as ScribeRecommendation);
+    expect(edited).toMatchObject({ kind: 'set-vital', field: 'vital-weight', value: 36, unit: 'lb' });
+    expect(toStoredVitalValue(edited.value as number, edited.unit)).toBe(16.329);
   });
 
   it('wraps everything else as a generic row carrying the step label the executor would show', () => {
@@ -265,6 +274,13 @@ describe('buildAnalysis', () => {
 
 // An exam finding is resolved against the exam's checkboxes when the list is built — the same lookup the
 // executor runs at apply time — so the row can name the box, offer the choice, or say where a miss goes.
+describe('weight recommendation label', () => {
+  it('shows the kg it will save at the precision weights are shown everywhere else', () => {
+    const [rec] = analyse([{ kind: 'set-vital', field: 'vital-weight', display: '170 lb', value: 170, unit: 'lb' }]);
+    expect(describeRecommendation(rec).primary).toBe('Weight 170 lbs (77.11 kg)');
+  });
+});
+
 describe('exam findings', () => {
   // A catalogue small enough to reason about: one box that matches on its own, two that tie, and nothing
   // for a finding the exam has no box for.

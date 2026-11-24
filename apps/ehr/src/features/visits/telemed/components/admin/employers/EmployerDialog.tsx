@@ -512,7 +512,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
                   expandIcon={<ExpandMoreIcon fontSize="small" />}
                   sx={{ px: 0, minHeight: 'unset', '.MuiAccordionSummary-content': { my: '2px' } }}
                 >
-                  <Typography variant="subtitle2">
+                  <Typography variant="subtitle2" component="span">
                     Associations
                     {associatedFeeSchedules.length + associatedChargeMasters.length > 0 &&
                       ` (${associatedFeeSchedules.length + associatedChargeMasters.length})`}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SupportChatMessageDto, SupportChatTopic } from 'utils/lib/types/api/support-chat.types';
+import { findActivePromptIndex } from 'utils/lib/utils/support-chat';
 import {
   useMarkSupportChatReadMutation,
   useSendSupportChatMessageMutation,
@@ -32,10 +33,7 @@ export const useSupportChat = (): UseSupportChat => {
   const [firstUnreadId, setFirstUnreadId] = useState<string>();
 
   const messages = useMemo(() => data?.messages ?? [], [data]);
-  const lastMessage = messages.at(-1);
-
-  const activePromptId =
-    lastMessage?.kind === 'greeting' || lastMessage?.kind === 'visit-prompt' ? lastMessage.id : undefined;
+  const activePromptId = messages[findActivePromptIndex(messages.map((message) => message.kind))]?.id;
 
   const unreadId = messages.find((message) => message.author !== 'patient' && !message.isRead)?.id;
 

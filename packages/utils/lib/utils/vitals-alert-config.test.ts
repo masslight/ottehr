@@ -32,6 +32,7 @@ const makeObservation = (field: VitalFieldNames, value: number): VitalsObservati
 const ALERT_TYPE_TO_FIELD: Record<(typeof VITAL_ALERT_TYPES)[number], VitalFieldNames> = {
   'vital-weight': VitalFieldNames.VitalWeight,
   'vital-height': VitalFieldNames.VitalHeight,
+  'vital-head-circumference': VitalFieldNames.VitalHeadCircumference,
   'vital-temperature': VitalFieldNames.VitalTemperature,
   'vital-heartbeat': VitalFieldNames.VitalHeartbeat,
   'vital-respiration-rate': VitalFieldNames.VitalRespirationRate,
@@ -347,6 +348,56 @@ describe('parseVitalsAlertConfigOrDefault', () => {
   it('round-trips a valid stored config', () => {
     const stored = JSON.stringify(DEFAULT_VITALS_ALERT_CONFIG);
     expect(parseVitalsAlertConfigOrDefault(stored)).toEqual(DEFAULT_VITALS_ALERT_CONFIG);
+  });
+
+  it('keeps a config saved before head circumference existed, with no head circumference alerts', () => {
+    const saved: VitalsAlertConfig = JSON.parse(JSON.stringify(DEFAULT_VITALS_ALERT_CONFIG));
+    saved.thresholds['vital-heartbeat']['18+y'] = { criticalLow: 35, abnormalLow: 50, abnormalHigh: 110 };
+    delete (saved.thresholds as Record<string, unknown>)['vital-head-circumference'];
+
+    const parsed = parseVitalsAlertConfigOrDefault(JSON.stringify(saved));
+
+    expect(parsed.thresholds['vital-heartbeat']['18+y']).toEqual({
+      criticalLow: 35,
+      abnormalLow: 50,
+      abnormalHigh: 110,
+    });
+    expect(parsed.thresholds['vital-head-circumference']).toEqual({});
+  });
+});
+
+describe('head circumference alerts', () => {
+  const cloneDefault = (): VitalsAlertConfig => JSON.parse(JSON.stringify(DEFAULT_VITALS_ALERT_CONFIG));
+  const twoMonthsOld = dobForAgeInMonths(2);
+
+  const alertLevelAt = (config: VitalsAlertConfig, value: number): string | undefined =>
+    getVitalObservationAlertLevel({
+      patientDOB: twoMonthsOld,
+      patientSex: 'male',
+      vitalsObservation: makeObservation(VitalFieldNames.VitalHeadCircumference, value),
+      config: vitalsAlertConfigToVitalsDef(config),
+    });
+
+  it('ships without thresholds', () => {
+    expect(DEFAULT_VITALS_ALERT_CONFIG.thresholds['vital-head-circumference']).toEqual({});
+    [1, 40, 500].forEach((value) => expect(alertLevelAt(DEFAULT_VITALS_ALERT_CONFIG, value)).toBeUndefined());
+  });
+
+  it('flags readings by the thresholds an admin sets for the age range, in cm', () => {
+    const config = cloneDefault();
+    config.thresholds['vital-head-circumference']['0-3mo'] = {
+      criticalLow: 30,
+      abnormalLow: 32,
+      abnormalHigh: 43,
+      criticalHigh: 45,
+    };
+
+    expect(VitalsAlertConfigSchema.safeParse(config).success).toBe(true);
+    expect(alertLevelAt(config, 29.5)).toBe('critical');
+    expect(alertLevelAt(config, 31.5)).toBe('abnormal');
+    expect(alertLevelAt(config, 38)).toBeUndefined();
+    expect(alertLevelAt(config, 43.5)).toBe('abnormal');
+    expect(alertLevelAt(config, 141)).toBe('critical');
   });
 });
 

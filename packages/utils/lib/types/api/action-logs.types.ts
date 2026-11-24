@@ -42,6 +42,12 @@ export type GetActionLogsInputValidated = z.infer<typeof GetActionLogsInputValid
 
 export type ActionLogStatus = 'sent' | 'failed' | 'pending' | 'revoked';
 
+export interface ActionLogLinkOpen {
+  openedAt: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
 export interface ActionLogEntry {
   attemptId: string;
   channel: ActionLogChannel;
@@ -58,6 +64,7 @@ export interface ActionLogEntry {
   canRetry: boolean;
   /** A sent document link that staff can revoke, which stops it opening and stops it re-sending. */
   canRevoke: boolean;
+  opens?: ActionLogLinkOpen[];
 }
 
 export interface GetActionLogsOutput {

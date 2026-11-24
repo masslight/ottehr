@@ -1,6 +1,16 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Binary, Claim, ClaimResponse, Coding, FhirResource, Identifier, Provenance, ProvenanceAgent } from 'fhir/r4b';
+import {
+  Binary,
+  Claim,
+  ClaimResponse,
+  Coding,
+  Coverage,
+  FhirResource,
+  Identifier,
+  Provenance,
+  ProvenanceAgent,
+} from 'fhir/r4b';
 import { BILLING_RESOURCE_TAG } from 'utils/lib/fhir/constants';
 import { Secrets } from 'utils/lib/secrets';
 import { CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
@@ -14,6 +24,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+  CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM,
   ERA_CLAIM_RESPONSE_TYPE_TAG,
   ERA_ICN_EXTENSION,
 } from '../../../src/billing/shared';
@@ -527,6 +538,86 @@ describe('sub-claim-response-update-claim-from-era performEffect', () => {
     await performEffect(oystehr, validated(claim, withIcn('PCCN-12345')));
 
     expect(claimUpdates()).toEqual([]);
+  });
+
+  describe('with several payers', () => {
+    const pccn = (value: string, insurance?: string): Identifier => ({
+      system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_IDENTIFIER_SYSTEM,
+      value,
+      ...(insurance
+        ? { type: { coding: [{ system: CLAIM_PAYER_CLAIM_CONTROL_NUMBER_INSURANCE_ORD_SYSTEM, code: insurance }] } }
+        : {}),
+    });
+    const coverage = (index: number, payer: string): Coverage => ({
+      resourceType: 'Coverage',
+      id: `coverage-${index}`,
+      status: 'active',
+      beneficiary: { reference: 'Patient/patient-1' },
+      payor: [{ reference: payer }],
+    });
+    const otherIdentifier: Identifier = { system: 'other', value: 'keep' };
+    const fromPayer = (payer: string, icn: string): ClaimResponse => ({
+      ...withIcn(icn),
+      insurer: { reference: payer },
+    });
+
+    beforeEach(() => {
+      search.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
+        unbundle: () =>
+          resourceType === 'Coverage'
+            ? [coverage(0, 'Organization/insurer-1'), coverage(1, 'Organization/insurer-2')]
+            : [],
+      }));
+    });
+
+    it("replaces only the remitting payer's PCCN", async () => {
+      const claim: Claim = {
+        ...claimWith([], 2),
+        identifier: [otherIdentifier, pccn('PRIMARY-OLD', 'primary'), pccn('SECONDARY-OLD', 'secondary')],
+      };
+
+      await performEffect(oystehr, validated(claim, fromPayer('Organization/insurer-2', 'SECONDARY-NEW')));
+
+      expect(writtenIdentifiers()).toEqual([
+        otherIdentifier,
+        pccn('PRIMARY-OLD', 'primary'),
+        pccn('SECONDARY-NEW', 'secondary'),
+      ]);
+    });
+
+    it("keeps the primary's legacy PCCN when the secondary remits", async () => {
+      const claim: Claim = { ...claimWith([], 2), identifier: [pccn('PRIMARY-LEGACY')] };
+
+      await performEffect(oystehr, validated(claim, fromPayer('Organization/insurer-2', 'SECONDARY-NEW')));
+
+      expect(writtenIdentifiers()).toEqual([pccn('PRIMARY-LEGACY'), pccn('SECONDARY-NEW', 'secondary')]);
+    });
+
+    it("replaces the primary's legacy PCCN when the primary remits", async () => {
+      const claim: Claim = {
+        ...claimWith([], 2),
+        identifier: [pccn('PRIMARY-LEGACY'), pccn('SECONDARY-OLD', 'secondary')],
+      };
+
+      await performEffect(oystehr, validated(claim, fromPayer('Organization/insurer-1', 'PRIMARY-NEW')));
+
+      expect(writtenIdentifiers()).toEqual([pccn('SECONDARY-OLD', 'secondary'), pccn('PRIMARY-NEW', 'primary')]);
+    });
+
+    it('records the secondary PCCN in the claim history', async () => {
+      const claim: Claim = { ...claimWith([], 2), identifier: [pccn('PRIMARY-OLD', 'primary')] };
+
+      await performEffect(oystehr, validated(claim, fromPayer('Organization/insurer-2', 'SECONDARY-NEW')));
+
+      expect(provenanceChanges(claimUpdates()[0])).toEqual([
+        {
+          field: 'secondaryPayerClaimControlNumber',
+          label: 'Secondary Payer Claim Control Number',
+          previousValue: null,
+          newValue: 'SECONDARY-NEW',
+        },
+      ]);
+    });
   });
 });
 
