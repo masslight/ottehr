@@ -1,17 +1,8 @@
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  Radio,
-  RadioGroup,
-} from '@mui/material';
-import { DateTime } from 'luxon';
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AddVisitPatientInfo } from 'src/pages/AddPatient';
+import { getFullNameFromPatientInfo, PatientCandidateRadioGroup } from './PatientCandidateRadioGroup';
 
 interface AddVisitPatientSearchDialogProps {
   openSearchResults: boolean;
@@ -31,10 +22,6 @@ export const AddVisitPatientSearchDialog: FC<AddVisitPatientSearchDialogProps> =
   handleSelectExistingPatient,
   handleManuallyEnterPatientDetails,
 }) => {
-  const getFullNameFromPatientInfo = (patient: AddVisitPatientInfo): string => {
-    return `${patient.firstName}${patient.middleName ? ` ${patient.middleName}` : ''} ${patient.lastName}`;
-  };
-
   return (
     <Dialog
       open={openSearchResults}
@@ -50,20 +37,11 @@ export const AddVisitPatientSearchDialog: FC<AddVisitPatientSearchDialogProps> =
         Select Patient
       </DialogTitle>
       <DialogContent dividers>
-        <RadioGroup
-          onChange={(e) => {
-            const id = e.target.value;
-            const patient = patients.find((p) => p.id === id);
-            setSelectedPatient(patient);
-          }}
-        >
-          {patients.map((patient) => {
-            const label = `${getFullNameFromPatientInfo(patient)} (DOB: ${DateTime.fromISO(
-              patient?.dateOfBirth || ''
-            ).toFormat('MMMM dd, yyyy')})`;
-            return <FormControlLabel key={patient.id} value={patient.id} control={<Radio />} label={label} />;
-          })}
-        </RadioGroup>
+        <PatientCandidateRadioGroup
+          patients={patients}
+          value={selectedPatient?.id ?? ''}
+          onChange={(id) => setSelectedPatient(patients.find((p) => p.id === id))}
+        />
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2 }}>
         <Button

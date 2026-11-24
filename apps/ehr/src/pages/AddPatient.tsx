@@ -27,16 +27,17 @@ import { VisitType } from 'config-types/config/booking';
 import { Location, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { FollowupPrefill } from 'src/features/visits/shared/components/patient/followupPrefill';
 import { useCopyChartDataToFollowup } from 'src/features/visits/shared/components/patient/useCopyChartDataToFollowup';
 import { AddVisitPatientInformationCard } from 'src/features/visits/shared/components/staff-add-visit/AddVisitPatientInformationCard';
+import { fhirPatientToAddVisitInfo } from 'src/features/visits/shared/components/staff-add-visit/fhirPatientToAddVisitInfo';
+import { PatientCandidateRadioGroup } from 'src/features/visits/shared/components/staff-add-visit/PatientCandidateRadioGroup';
 import { useReasonForVisitOptions } from 'src/features/visits/shared/hooks/useReasonForVisitOptions';
 import { serviceCategorySupportsContext } from 'utils/lib/config-helpers/booking';
 import { SERVICE_CATEGORY_SYSTEM, SLUG_SYSTEM } from 'utils/lib/fhir/constants';
 import { SCHEDULED_FOLLOWUP_OTHER_REASON, SCHEDULED_FOLLOWUP_REASONS } from 'utils/lib/fhir/encounter';
-import { getFirstName, getLastName, getMiddleName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPhoneNumberDigits } from 'utils/lib/helpers/helpers';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
@@ -96,6 +97,8 @@ export type AddVisitPatientInfo = Pick<
 export interface LocationWithWalkinSchedule extends Location {
   walkinSchedule: Schedule | undefined;
 }
+
+const normalizeIdentityPart = (value: string | undefined): string => (value ?? '').trim().toLowerCase();
 
 const defaultServiceCategory =
   BOOKING_CONFIG.serviceCategories.length === 1 ? BOOKING_CONFIG.serviceCategories[0]?.category.code : '';
@@ -217,6 +220,8 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
   const [selectSlotDialogOpen, setSelectSlotDialogOpen] = useState<boolean>(false);
   const [validReasonForVisit, setValidReasonForVisit] = useState<boolean>(true);
   const [duplicatePatients, setDuplicatePatients] = useState<Patient[]>([]);
+  const [selectedDuplicateId, setSelectedDuplicateId] = useState<string>('');
+  const selectedDuplicate = duplicatePatients.find((p) => p.id === selectedDuplicateId);
   const [showFields, setShowFields] = useState<AddVisitFormState>(
     isScheduledFollowUp || !!patientIdFromUrl ? 'existingPatientSelected' : 'initialPatientSearch'
   );
@@ -251,16 +256,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
 
   useEffect(() => {
     if (!patientFromUrl) return;
-    setPatientInfo({
-      id: patientFromUrl.id,
-      newPatient: false,
-      firstName: getFirstName(patientFromUrl),
-      middleName: getMiddleName(patientFromUrl),
-      lastName: getLastName(patientFromUrl),
-      dateOfBirth: patientFromUrl.birthDate,
-      sex: patientFromUrl.gender,
-      phoneNumber: getPhoneNumberDigits(patientFromUrl.telecom?.find((t) => t.system === 'phone')?.value),
-    });
+    setPatientInfo(fhirPatientToAddVisitInfo(patientFromUrl));
     setBirthDate(patientFromUrl.birthDate ? DateTime.fromISO(patientFromUrl.birthDate) : null);
     setShowFields('existingPatientSelected');
   }, [patientFromUrl]);
@@ -522,11 +518,21 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
 
   // handle functions
 
-  // Before a brand-new patient is saved, look for an existing patient with the same name and date of
-  // birth. Returns true when it is fine to go ahead; false when the duplicate warning was opened.
-  // A failed lookup never blocks adding the patient.
+  const getIdentityKey = (info: AddVisitPatientInfo | undefined, dob: DateTime | null): string =>
+    JSON.stringify([
+      info?.id ?? null,
+      info?.newPatient ?? null,
+      normalizeIdentityPart(info?.firstName),
+      normalizeIdentityPart(info?.lastName),
+      info?.dateOfBirth || dob?.toISODate() || null,
+    ]);
+  const latestIdentityKeyRef = useRef('');
+  latestIdentityKeyRef.current = getIdentityKey(patientInfo, birthDate);
+  const [duplicateCheckedKey, setDuplicateCheckedKey] = useState('');
+
   const confirmNoDuplicate = async (): Promise<boolean> => {
     if (!patientInfo?.newPatient || !oystehr) return true;
+    const checkedKey = getIdentityKey(patientInfo, birthDate);
     setLoading(true);
     try {
       const matches = await findDuplicatePatients(oystehr, {
@@ -534,8 +540,16 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
         lastName: patientInfo.lastName,
         dateOfBirth: patientInfo.dateOfBirth || birthDate?.toISODate() || undefined,
       });
+      if (latestIdentityKeyRef.current !== checkedKey) {
+        enqueueSnackbar('Patient details changed while checking for duplicates. Please submit again.', {
+          variant: 'warning',
+        });
+        return false;
+      }
       if (matches.length > 0) {
+        setDuplicateCheckedKey(checkedKey);
         setDuplicatePatients(matches);
+        setSelectedDuplicateId(matches.length === 1 ? matches[0].id ?? '' : '');
         return false;
       }
     } catch (error) {
@@ -552,16 +566,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
       navigate(`/patient/${existing.id}`);
       return;
     }
-    setPatientInfo({
-      id: existing.id,
-      newPatient: false,
-      firstName: getFirstName(existing),
-      middleName: getMiddleName(existing),
-      lastName: getLastName(existing),
-      dateOfBirth: existing.birthDate,
-      sex: existing.gender,
-      phoneNumber: getPhoneNumberDigits(existing.telecom?.find((t) => t.system === 'phone')?.value),
-    });
+    setPatientInfo(fhirPatientToAddVisitInfo(existing));
     setBirthDate(existing.birthDate ? DateTime.fromISO(existing.birthDate) : null);
     setShowFields('existingPatientSelected');
   };
@@ -1123,16 +1128,15 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                     ? 'A patient with the same name and date of birth already exists:'
                     : 'Patients with the same name and date of birth already exist:'}
                 </DialogContentText>
-                <Stack spacing={1} marginTop={1}>
-                  {duplicatePatients.map((existing) => (
-                    <Typography key={existing.id} variant="body1" fontWeight={600}>
-                      {getFirstName(existing)} {getLastName(existing)} (DOB:{' '}
-                      {existing.birthDate ? DateTime.fromISO(existing.birthDate).toFormat('MM/dd/yyyy') : 'unknown'})
-                    </Typography>
-                  ))}
-                </Stack>
+                <Box marginTop={1}>
+                  <PatientCandidateRadioGroup
+                    patients={duplicatePatients.map(fhirPatientToAddVisitInfo)}
+                    value={selectedDuplicateId}
+                    onChange={setSelectedDuplicateId}
+                  />
+                </Box>
                 <DialogContentText marginTop={2}>
-                  Use the existing patient, or confirm this is a different person to continue.
+                  Select the existing patient to use, or confirm this is a different person to continue.
                 </DialogContentText>
               </DialogContent>
               <DialogActions sx={{ px: 3, pb: 2, flexWrap: 'wrap', gap: 1 }}>
@@ -1146,7 +1150,8 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                   variant="outlined"
                   onClick={() => {
                     setDuplicatePatients([]);
-                    void submitForm(true);
+                    // Only skip the check for the identity that was actually checked.
+                    void submitForm(latestIdentityKeyRef.current === duplicateCheckedKey);
                   }}
                   sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 100 }}
                 >
@@ -1154,7 +1159,8 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                 </Button>
                 <Button
                   variant="contained"
-                  onClick={() => handleUseExistingDuplicate(duplicatePatients[0])}
+                  disabled={!selectedDuplicate}
+                  onClick={() => selectedDuplicate && handleUseExistingDuplicate(selectedDuplicate)}
                   sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 100 }}
                 >
                   Use existing patient
