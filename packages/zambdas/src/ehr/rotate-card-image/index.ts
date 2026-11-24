@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { DocumentReference } from 'fhir/r4b';
 import { getPresignedURL, uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { RotateInsuranceCardImageResponse } from 'utils/lib/types/data/documents';
+import { RotateCardImageResponse } from 'utils/lib/types/data/documents';
 import { FHIR_RESOURCE_NOT_FOUND, INSURANCE_CARD_IMAGE_ERROR } from 'utils/lib/types/errors';
 import { MimeType } from 'utils/lib/utils/file';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -17,11 +17,11 @@ import {
   buildExtractionPatchOperation,
   getExistingExtraction,
 } from '../extract-insurance-card/helpers';
-import { RotatedInsuranceCardImage, rotateImageClockwise } from '../extract-insurance-card/normalize-image';
+import { RotatedCardImage, rotateImageClockwise } from '../extract-insurance-card/normalize-image';
 import { assertRotatableCardImage } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-const ZAMBDA_NAME = 'rotate-insurance-card-image';
+const ZAMBDA_NAME = 'rotate-card-image';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -68,7 +68,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw INSURANCE_CARD_IMAGE_ERROR('The card image could not be downloaded. Please try again.');
   }
 
-  let rotated: RotatedInsuranceCardImage;
+  let rotated: RotatedCardImage;
   try {
     rotated = await rotateImageClockwise(bytes, rotationDegrees);
   } catch (error) {
@@ -79,7 +79,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   // Re-store the rotated bytes to the SAME Z3 object without touching the url itself, so anything
   // that reads the attachment url ON DEMAND (image display, on-demand PDF composition) picks up the
-  // fix. NOTE: any PRE-composed and stored artifact — e.g. the fullInsuranceCard PDF composed at
+  // fix. NOTE: any PRE-composed and stored artifact — e.g. the fullInsuranceCard / fullPhotoIDCard PDF composed at
   // paperwork submit and surfaced via get-visit-files — still contains the old pixels and stays
   // stale until it is regenerated. A failure here means the stored object is unchanged, so erroring
   // out is retry-safe.
@@ -106,8 +106,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // Keep the DocumentReference honest about the new stored object: attachment contentType/size,
   // plus the insurance-card extraction extension when one exists — the staff member just fixed the
   // orientation by hand, so the model's stale `readable` judgment is reset to null (clearing the
-  // "looks rotated" hint). A DocRef without the extraction extension (extraction pending or
-  // feature off) skips that part gracefully.
+  // "looks rotated" hint). A DocRef without the extraction extension (extraction pending, feature
+  // off, or a photo ID, which never carries it) skips that part gracefully.
   const operations: Operation[] = buildAttachmentMetadataOperations(
     documentReference,
     rotated.contentType,
@@ -138,7 +138,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   }
 
-  const response: RotateInsuranceCardImageResponse = { documentReferenceId, rotated: true };
+  const response: RotateCardImageResponse = { documentReferenceId, rotated: true };
   return {
     statusCode: 200,
     body: JSON.stringify(response),
