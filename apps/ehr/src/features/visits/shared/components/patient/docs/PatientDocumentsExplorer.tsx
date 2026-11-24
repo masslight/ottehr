@@ -16,12 +16,14 @@ import { SendDocumentsDialog } from 'src/features/send-documents/ui/SendDocument
 import { useDownloadDocumentsZip } from 'src/hooks/useDownloadDocumentsZip';
 import {
   DocumentVisitRef,
+  filterFolderDocuments,
   PatientDocumentInfo,
   PatientDocumentsFilters,
   PatientDocumentsFolder,
   useGetPatientDocs,
 } from 'src/hooks/useGetPatientDocs';
 import { PatientVisitOption, usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isSyntheticFolderId } from 'utils/lib/types/data/custom-folder.types';
 import { describeIncompleteArchive, isSingleFileDownload, makeDocumentsZipFileName } from './documentsZip';
 import { PatientDocumentFoldersColumn, PatientDocumentFoldersColumnSkeleton } from './PatientDocumentFoldersColumn';
@@ -53,7 +55,7 @@ export type PatientDocumentsPickerOptions = {
   /** Leaves this visit's documents and the visit itself out of the picker. */
   excludeEncounterId?: string;
   initialSelectedIds?: string[];
-  /** Start filtered to the most recent visit with its offered documents ticked. */
+  /** Start filtered to the most recent past visit that has offered documents, with them ticked. */
   preselectLatestVisit?: boolean;
   /** Every change of the selection; `documentsById` holds each document listed so far. */
   onSelectionChange: (selectedIds: string[], documentsById: ReadonlyMap<string, PatientDocumentInfo>) => void;
@@ -159,26 +161,24 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
 
   const documentsFolders = useMemo(() => {
     if (!picker) return allDocumentsFolders;
-    return allDocumentsFolders
-      .filter((folder) => !!folder.internalName && picker.folderNames.includes(folder.internalName))
-      .map((folder) => {
-        const documentsRefs = (folder.documentsRefs ?? []).filter((ref) => {
-          const document = knownDocuments.get(ref.reference?.reference?.replace('DocumentReference/', '') ?? '');
-          return (
-            !!document &&
-            picker.isDocumentAllowed(folder.internalName!, document) &&
-            !(excludedVisit && isDocumentOfVisit(document, excludedVisit))
-          );
-        });
-        return { ...folder, documentsRefs, documentsCount: documentsRefs.length };
-      });
+    return filterFolderDocuments(
+      allDocumentsFolders.filter((folder) => !!folder.internalName && picker.folderNames.includes(folder.internalName)),
+      (documentId, folder) => {
+        const document = knownDocuments.get(documentId);
+        return (
+          !!document &&
+          picker.isDocumentAllowed(folder.internalName!, document) &&
+          !(excludedVisit && isDocumentOfVisit(document, excludedVisit))
+        );
+      }
+    );
   }, [picker, allDocumentsFolders, knownDocuments, excludedVisit]);
 
   const documents = useMemo(() => {
     if (!picker || !allDocuments) return allDocuments;
     const offeredIds = new Set(
       documentsFolders.flatMap((folder) =>
-        (folder.documentsRefs ?? []).map((ref) => ref.reference?.reference?.replace('DocumentReference/', ''))
+        (folder.documentsRefs ?? []).map((ref) => getIdFromReference(ref.reference?.reference, 'DocumentReference'))
       )
     );
     return allDocuments.filter((document) => offeredIds.has(document.id));
@@ -189,7 +189,13 @@ export const PatientDocumentsExplorer: FC<PatientDocumentsExplorerProps> = ({
     // Folders always include the system ones once loaded, so an empty list means they have not arrived yet.
     if (isLoadingFolders || !allDocumentsFolders.length || isLoadingVisits || !documents) return;
     setHasPreselected(true);
-    const latestVisit = visitOptions[0];
+    const now = DateTime.now();
+    const latestVisit = visitOptions.find((visit) => {
+      const visitDate = visit.dateTime ? DateTime.fromISO(visit.dateTime) : undefined;
+      return (
+        !!visitDate?.isValid && visitDate <= now && documents.some((document) => isDocumentOfVisit(document, visit))
+      );
+    });
     if (!latestVisit) return;
     setSelectedVisit(latestVisit);
     setSelectedDocumentIds(

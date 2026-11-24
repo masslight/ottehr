@@ -2,7 +2,9 @@ import Oystehr from '@oystehr/sdk';
 import { DocumentReference, Encounter, Location, Organization, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TASK_CATEGORY_IDENTIFIER } from 'utils/lib/fhir/constants';
+import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   getReferralDetails,
   getReferralRecipientContactId,
@@ -13,7 +15,6 @@ import {
   REFERRAL_FORM_DOC_REF_DOCTYPE,
   REFERRAL_ORDER_TYPE_TAG_TOKEN,
 } from 'utils/lib/fhir/referral';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { AdHocReferralRow, AdHocReferralsInput } from 'utils/lib/types/adhoc/datasets/referrals';
 import { REFERRAL_DEFAULTS, REFERRAL_TASK } from 'utils/lib/types/api/referrals/referrals.types';
 import { fetchScopedResources, presentFullName } from '../adhoc-report';
@@ -51,10 +52,10 @@ export async function fetchAdHocReferralRows(
   ).filter(isReferralServiceRequest);
 
   const referralRefs = serviceRequests.map((sr) => `ServiceRequest/${sr.id}`);
-  const encounterIds = uniq(serviceRequests.map((sr) => removePrefix('Encounter/', sr.encounter?.reference ?? '')));
+  const encounterIds = uniq(serviceRequests.map((sr) => getIdFromReference(sr.encounter?.reference, 'Encounter')));
   const organizationIds = uniq(serviceRequests.map(getReferralRecipientContactId));
   const practitionerIds = uniq(
-    serviceRequests.map((sr) => removePrefix('Practitioner/', sr.requester?.reference ?? ''))
+    serviceRequests.map((sr) => getIdFromReference(sr.requester?.reference, 'Practitioner'))
   );
 
   const [encounters, organizations, practitioners, relatedDocuments, tasks] = await Promise.all([
@@ -94,11 +95,7 @@ export async function fetchAdHocReferralRows(
     if (ref) taskByReferralRef.set(ref, task);
   }
 
-  const locationIds = uniq(
-    encounters.map((encounter) =>
-      removePrefix('Location/', encounter.location?.find((loc) => loc.location.reference)?.location.reference ?? '')
-    )
-  );
+  const locationIds = uniq(encounters.map(getEncounterLocationId));
   const locations = await fetchScopedResources<Location>(oystehr, 'Location', '_id', locationIds, [
     { name: '_elements', value: 'id,name' },
   ]);
@@ -108,16 +105,13 @@ export async function fetchAdHocReferralRows(
 
   for (const serviceRequest of serviceRequests) {
     const details = getReferralDetails(serviceRequest);
-    const encounterId = removePrefix('Encounter/', serviceRequest.encounter?.reference ?? '');
+    const encounterId = getIdFromReference(serviceRequest.encounter?.reference, 'Encounter');
     const encounter = encounterId ? encounterById.get(encounterId) : undefined;
-    const locationId = removePrefix(
-      'Location/',
-      encounter?.location?.find((loc) => loc.location.reference)?.location.reference ?? ''
-    );
+    const locationId = getEncounterLocationId(encounter);
     const recipientContactId = getReferralRecipientContactId(serviceRequest);
     const organization = recipientContactId ? organizationById.get(recipientContactId) : undefined;
     const recipient = organization ? mapReferralRecipient(organization) : undefined;
-    const referringProviderId = removePrefix('Practitioner/', serviceRequest.requester?.reference ?? '');
+    const referringProviderId = getIdFromReference(serviceRequest.requester?.reference, 'Practitioner');
     const referringProvider = referringProviderId ? practitionerById.get(referringProviderId) : undefined;
 
     const responseReceivedAt = firstResponseAtByReferralRef.get(`ServiceRequest/${serviceRequest.id}`) ?? null;
@@ -129,9 +123,9 @@ export async function fetchAdHocReferralRows(
 
     const row: AdHocReferralRow = {
       referralId: serviceRequest.id ?? '',
-      patientId: removePrefix('Patient/', serviceRequest.subject?.reference ?? '') ?? '',
+      patientId: getIdFromReference(serviceRequest.subject?.reference, 'Patient') ?? '',
       encounterId: encounterId ?? null,
-      appointmentId: removePrefix('Appointment/', encounter?.appointment?.[0]?.reference ?? '') ?? null,
+      appointmentId: getIdFromReference(encounter?.appointment?.[0]?.reference, 'Appointment') ?? null,
       locationId: locationId ?? null,
       locationName: (locationId && locationById.get(locationId)?.name) || '',
       specialty: getReferralSpecialty(serviceRequest),
@@ -144,6 +138,7 @@ export async function fetchAdHocReferralRows(
       whoSchedules: details?.whoSchedules ?? REFERRAL_DEFAULTS.whoSchedules,
       responseRequested: details?.responseRequested ?? REFERRAL_DEFAULTS.responseRequested,
       status: getReferralStatus(serviceRequest),
+      date: serviceRequest.authoredOn || null,
       createdAt: serviceRequest.authoredOn ?? '',
       sentAt,
       responseReceivedAt,

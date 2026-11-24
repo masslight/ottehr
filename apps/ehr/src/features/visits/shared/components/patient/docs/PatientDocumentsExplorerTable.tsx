@@ -295,7 +295,7 @@ const VisitCell: FC<{ visit?: PatientVisitOption }> = ({ visit }) => {
  * Resolves a document's visit from either linkage: EHR uploads carry an encounter, intake paperwork
  * only an appointment. Encounter is tried first — it is the more specific of the two.
  */
-const resolveDocumentVisit = (
+export const resolveDocumentVisit = (
   doc: PatientDocumentInfo,
   visitsByEncounterId: Map<string, PatientVisitOption>,
   visitsByAppointmentId: Map<string, PatientVisitOption>

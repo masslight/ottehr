@@ -39,7 +39,7 @@ const tagString = z
   .toLowerCase()
   .min(1)
   .regex(/^[\p{L}\p{N} .'_-]+$/u, ADDRESS_BOOK_TAG_MESSAGE);
-const optionalPhone = z
+export const optionalPhone = z
   .string()
   .trim()
   .refine((value) => !value || isPhoneNumberValid(value), ADDRESS_BOOK_PHONE_MESSAGE)

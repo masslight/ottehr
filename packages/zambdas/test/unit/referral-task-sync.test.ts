@@ -9,8 +9,10 @@ import {
 import { REFERRAL_TASK, SaveReferralInput } from 'utils/lib/types/api/referrals/referrals.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { syncReferralTask } from '../../src/ehr/referrals/shared';
+import { buildReferralTask, findOpenReferralTask } from '../../src/shared/referrals/referral-task';
 
 const PATIENT_ID = '11111111-1111-4111-8111-111111111111';
+const CONTACT_ID = '33333333-3333-4333-8333-333333333333';
 const REFERRAL_ID = '44444444-4444-4444-8444-444444444444';
 const NOW = '2026-11-01T15:00:00.000Z';
 const SENT_AT = '2026-10-20T12:00:00.000Z';
@@ -21,6 +23,7 @@ const OVERDUE_NOTIFIED_TAG = { system: REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM, cod
 const input: SaveReferralInput = {
   patientId: PATIENT_ID,
   specialty: 'Orthopedics',
+  recipientContactId: CONTACT_ID,
   reason: 'Distal radius fracture',
   urgency: 'urgent',
   whatIsAsked: 'evaluate-and-treat',
@@ -195,5 +198,72 @@ describe('syncReferralTask', () => {
 
     expect(patch).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
+  });
+});
+
+describe('buildReferralTask', () => {
+  const patientWithMiddleName: Patient = { ...patient, name: [{ given: ['Maya', 'Lou'], family: 'Example' }] };
+
+  it('names the patient as the review task does (first and last name) and leaves an unowned awaiting task ready', () => {
+    const task = buildReferralTask({
+      serviceRequest: referral(),
+      patient: patientWithMiddleName,
+      recipientName: 'Riverside',
+    });
+
+    expect(task).toMatchObject({
+      status: 'ready',
+      description: 'Referral: Orthopedics, Riverside',
+      code: { coding: [{ system: REFERRAL_TASK.system, code: REFERRAL_TASK.code.awaitResponse }] },
+      basedOn: [{ reference: `ServiceRequest/${REFERRAL_ID}` }],
+    });
+    expect(task.owner).toBeUndefined();
+    const patientInput = task.input?.find((input) => input.type.coding?.[0]?.code === REFERRAL_TASK.input.patient);
+    expect(patientInput?.valueReference).toEqual({ reference: `Patient/${PATIENT_ID}`, display: 'Maya Example' });
+    expect(task.input?.find((input) => input.type.coding?.[0]?.code === REFERRAL_TASK.input.urgency)?.valueString).toBe(
+      'urgent'
+    );
+  });
+
+  it('builds a review task for a filed response, based on the document and owned by a Practitioner owner', () => {
+    const task = buildReferralTask({
+      serviceRequest: referral(),
+      patient,
+      owner: { reference: 'Practitioner/prac-1', display: 'Jordan Rivera, MD' },
+      responseDocument: { reference: 'urn:uuid:doc' },
+    });
+
+    expect(task).toMatchObject({
+      status: 'in-progress',
+      description: 'Review response: Orthopedics referral',
+      code: { coding: [{ system: REFERRAL_TASK.system, code: REFERRAL_TASK.code.reviewResponse }] },
+      owner: expect.objectContaining({ reference: 'Practitioner/prac-1', display: 'Jordan Rivera, MD' }),
+      basedOn: [{ reference: `ServiceRequest/${REFERRAL_ID}` }, { reference: 'urn:uuid:doc' }],
+    });
+    const codes = task.input?.map((input) => input.type.coding?.[0]?.code);
+    expect(codes).toContain(REFERRAL_TASK.input.responseDocumentReferenceId);
+    expect(codes).not.toContain(REFERRAL_TASK.input.urgency);
+  });
+
+  it('leaves the task unowned when the owner is not a Practitioner', () => {
+    const task = buildReferralTask({ serviceRequest: referral(), patient, owner: { reference: 'Device/d-1' } });
+    expect(task.status).toBe('ready');
+    expect(task.owner).toBeUndefined();
+  });
+});
+
+describe('findOpenReferralTask', () => {
+  it('returns the newest open task, ignoring finished ones', async () => {
+    const search = vi.fn().mockResolvedValue({
+      unbundle: () => [
+        { ...openTask('urgent'), id: 'older', authoredOn: '2026-10-01T00:00:00.000Z' },
+        { ...openTask('urgent'), id: 'done', status: 'completed', authoredOn: '2026-10-20T00:00:00.000Z' },
+        { ...openTask('urgent'), id: 'newer', status: 'ready', authoredOn: '2026-10-10T00:00:00.000Z' },
+      ],
+    });
+
+    const task = await findOpenReferralTask({ fhir: { search } } as unknown as Oystehr, REFERRAL_ID);
+
+    expect(task?.id).toBe('newer');
   });
 });

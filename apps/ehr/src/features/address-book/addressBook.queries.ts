@@ -1,5 +1,6 @@
-import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
+import { UseMutationResult, useQuery, UseQueryResult } from '@tanstack/react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { useInvalidatingZambdaMutation } from 'src/hooks/useInvalidatingZambdaMutation';
 import {
   AddressBookContactInput,
   AddressBookContactOutput,
@@ -29,34 +30,17 @@ export const useSearchAddressBookQuery = (tag?: string): UseQueryResult<SearchAd
   });
 };
 
-const useAddressBookMutation = <Input, Output>(
-  key: string,
-  request: (oystehr: NonNullable<ReturnType<typeof useApiClients>['oystehrZambda']>, data: Input) => Promise<Output>
-): UseMutationResult<Output, Error, Input> => {
-  const { oystehrZambda } = useApiClients();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationKey: [key],
-    mutationFn: async (data: Input) => {
-      if (!oystehrZambda) throw new Error('OystehrZambda is not defined');
-      return request(oystehrZambda, data);
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [ADDRESS_BOOK_QUERY_KEY] }),
-  });
-};
-
 export const useCreateAddressBookContactMutation = (): UseMutationResult<
   AddressBookContactOutput,
   Error,
   AddressBookContactInput
-> => useAddressBookMutation('create-address-book-contact', createAddressBookContact);
+> => useInvalidatingZambdaMutation('create-address-book-contact', createAddressBookContact, ADDRESS_BOOK_QUERY_KEY);
 
 export const useUpdateAddressBookContactMutation = (): UseMutationResult<
   AddressBookContactOutput,
   Error,
   UpdateAddressBookContactInput
-> => useAddressBookMutation('update-address-book-contact', updateAddressBookContact);
+> => useInvalidatingZambdaMutation('update-address-book-contact', updateAddressBookContact, ADDRESS_BOOK_QUERY_KEY);
 
 export const useDeleteAddressBookContactMutation = (): UseMutationResult<void, Error, DeleteAddressBookContactInput> =>
-  useAddressBookMutation('delete-address-book-contact', deleteAddressBookContact);
+  useInvalidatingZambdaMutation('delete-address-book-contact', deleteAddressBookContact, ADDRESS_BOOK_QUERY_KEY);

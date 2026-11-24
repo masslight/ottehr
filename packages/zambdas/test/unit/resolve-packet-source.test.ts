@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { DocumentReference, Encounter, Patient, ServiceRequest } from 'fhir/r4b';
 import { buildFollowupEncounterType } from 'utils/lib/fhir/encounter';
 import { REFERRAL_FORM_DOC_REF_DOCTYPE, REFERRAL_ORDER_TYPE_TAG, withReferralDetails } from 'utils/lib/fhir/referral';
+import { ReferralStatus } from 'utils/lib/types/api/referrals/referrals.types';
 import { FAX_PACKET_CODE, MEDICAL_RECORD_EXPORT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -37,7 +38,10 @@ vi.mock('../../src/shared/presigned-file-urls/helpers', () => ({
   assertZ3UrlInProject: (...args: unknown[]) => mockAssertZ3UrlInProject(...args),
 }));
 
-import { resolveDocumentPacketPlan } from '../../src/shared/document-packet/resolve-packet-source';
+import {
+  assertReferralFaxable,
+  resolveDocumentPacketPlan,
+} from '../../src/shared/document-packet/resolve-packet-source';
 
 const PATIENT_ID = 'patient-1';
 const MAY = { from: '2026-05-01T00:00:00.000Z', to: '2026-05-31T23:59:59.999Z' };
@@ -656,5 +660,36 @@ describe('resolveDocumentPacketPlan for a referral', () => {
       await expect(resolve({ type: 'referral', referralId: REFERRAL_ID })).rejects.toThrow('cannot be sent');
       expect(mockBuildDocumentPacketSection).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('assertReferralFaxable', () => {
+  const withStatus = (status: ReferralStatus): ServiceRequest =>
+    withReferralDetails(
+      {
+        resourceType: 'ServiceRequest',
+        status: 'draft',
+        intent: 'order',
+        meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }] },
+        subject: { reference: 'Patient/patient-1' },
+      },
+      { status }
+    );
+
+  it.each(['not-sent', 'sent', 'given-to-patient'] as ReferralStatus[])(
+    'faxes a referral that is %s, as the form still lets staff edit it',
+    (status) => {
+      expect(() => assertReferralFaxable(withStatus(status))).not.toThrow();
+    }
+  );
+
+  it.each([
+    ['response-received', 'Response received'],
+    ['closed', 'Closed'],
+    ['cancelled', 'Cancelled'],
+  ] as [ReferralStatus, string][])('refuses a referral that is %s, naming its status', (status, label) => {
+    expect(() => assertReferralFaxable(withStatus(status))).toThrow(
+      expect.objectContaining({ message: `A referral that is ${label} cannot be faxed` })
+    );
   });
 });

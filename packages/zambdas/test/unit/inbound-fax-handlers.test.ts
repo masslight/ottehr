@@ -478,7 +478,7 @@ describe('file-inbound-fax handler', () => {
 
     const transactionRequests = (): any[] => mockOystehr.fhir.transaction.mock.calls[0][0].requests;
 
-    function mockReferralReads(referral: ServiceRequest, openTask?: Task): void {
+    function mockReferralReads(referral: ServiceRequest, ...tasks: Task[]): void {
       mockOystehr.fhir.get.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
         if (resourceType === 'Task') return makeFaxTask();
         if (resourceType === 'ServiceRequest') return referral;
@@ -489,7 +489,7 @@ describe('file-inbound-fax handler', () => {
       });
       mockOystehr.fhir.search.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
         if (resourceType === 'List') return makeSearchBundle([makeFolderList()]);
-        if (resourceType === 'Task') return makeSearchBundle(openTask ? [openTask] : []);
+        if (resourceType === 'Task') return makeSearchBundle(tasks);
         throw new Error(`unexpected search for ${resourceType}`);
       });
       mockOystehr.fhir.transaction.mockResolvedValue({
@@ -546,6 +546,21 @@ describe('file-inbound-fax handler', () => {
       expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
       expect(mockOystehr.fhir.patch).not.toHaveBeenCalled();
       expect(mockOystehr.fhir.create).not.toHaveBeenCalled();
+    });
+
+    it('routes the newest open task, skipping finished ones, like the task the referral form shows', async () => {
+      mockReferralReads(
+        makeReferral(),
+        { ...makeReferralTask(), id: 'older-open', status: 'on-hold', authoredOn: '2026-10-01T00:00:00.000Z' },
+        { ...makeReferralTask(), id: 'newest-done', status: 'completed', authoredOn: '2026-10-20T00:00:00.000Z' },
+        { ...makeReferralTask(), id: 'newer-open', authoredOn: '2026-10-10T00:00:00.000Z' }
+      );
+
+      await fileInboundFax(makeInput(referralBody));
+
+      const taskPuts = transactionRequests().filter((r: any) => r.method === 'PUT' && r.url.startsWith('/Task/'));
+      expect(taskPuts.map((r: any) => r.url)).toEqual(['/Task/newer-open']);
+      expect(transactionRequests().some((r: any) => r.method === 'POST' && r.url === '/Task')).toBe(false);
     });
 
     it('creates a review task for the referring provider in the transaction when the referral has no task', async () => {

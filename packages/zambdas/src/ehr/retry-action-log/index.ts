@@ -1,6 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Communication, DocumentReference, Practitioner, Task } from 'fhir/r4b';
+import { Appointment, Communication, DocumentReference, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
@@ -15,6 +15,7 @@ import {
 } from 'utils/lib/fhir/outbound-delivery';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { isReferralServiceRequest } from 'utils/lib/fhir/referral';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
@@ -27,6 +28,7 @@ import { VISIT_NOTE_SUMMARY_CODE } from 'utils/lib/types/data/paperwork/paperwor
 import { DATETIME_FULL_NO_YEAR } from 'utils/lib/validation/constants';
 import { checkOrCreateM2MClientToken, requireUserWithRole } from '../../shared/auth';
 import { getEmailClient } from '../../shared/communication';
+import { assertReferralFaxable } from '../../shared/document-packet/resolve-packet-source';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import {
   createOutboundDeliveryAttemptIdempotently,
@@ -68,6 +70,7 @@ export async function performEffect(
   if (await hasRetryChild(parameters.attemptId, oystehr)) {
     throw new Error('This delivery attempt has already been retried');
   }
+  if (channel === 'fax') await assertBasedOnReferralFaxable(original, oystehr);
 
   const emailClient = channel === 'email' ? getEmailClient(parameters.secrets, oystehr) : undefined;
   if (channel === 'email') {
@@ -196,6 +199,13 @@ export async function performEffect(
   }
   if (!retried.id) throw new Error('Retry attempt was created without an id');
   return { attemptId: retried.id };
+}
+
+async function assertBasedOnReferralFaxable(task: Task, oystehr: Oystehr): Promise<void> {
+  const referralId = getIdFromReference(task.basedOn?.[0]?.reference, 'ServiceRequest');
+  if (!referralId) return;
+  const serviceRequest = await oystehr.fhir.get<ServiceRequest>({ resourceType: 'ServiceRequest', id: referralId });
+  if (isReferralServiceRequest(serviceRequest)) assertReferralFaxable(serviceRequest);
 }
 
 export async function hasRetryChild(attemptId: string, oystehr: Oystehr): Promise<boolean> {

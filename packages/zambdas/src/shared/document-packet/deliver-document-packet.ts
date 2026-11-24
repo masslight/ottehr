@@ -56,7 +56,7 @@ export const deliverDocumentPacket = async (args: {
 
   const { patient, appointmentId, encounterId } = plan;
   const patientId = patient.id!;
-  const timezone = plan.timezone || organizationTimezone(organization) || DEFAULT_TIMEZONE;
+  const timezone = plan.timezone || resourceTimezone(organization) || DEFAULT_TIMEZONE;
 
   if (plan.sections.length === 0) {
     throw new Error('No documents could be collected for the document packet. Nothing was sent.');
@@ -250,9 +250,9 @@ export const buildSharedCoverSheetFields = (args: {
   };
 };
 
-/** The practice's own timezone, for packets with no visit whose office timezone could be used. */
-const organizationTimezone = (organization: Organization): string | undefined =>
-  organization.extension?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL)?.valueString;
+/** The timezone recorded on an office or the practice, for documents with no visit whose timezone could be used. */
+export const resourceTimezone = (resource: Location | Organization | undefined): string | undefined =>
+  resource?.extension?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL)?.valueString;
 
 /** "Follow-Up Visit" for annotation follow-ups, otherwise the appointment's service category, else "Visit". */
 export const resolveVisitTypeLabel = (

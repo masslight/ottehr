@@ -6,12 +6,12 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import { LoadingButton } from '@mui/lab';
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
   Checkbox,
   CircularProgress,
   FormControlLabel,
+  FormHelperText,
   Grid,
   IconButton,
   Link,
@@ -26,7 +26,6 @@ import {
 } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { Task } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -35,6 +34,7 @@ import { deleteInboundFax, fileInboundFax } from 'src/api/api';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { SelectInput } from 'src/components/input/SelectInput';
+import { NO_RECIPIENT_LABEL } from 'src/features/referrals/referralForm.helpers';
 import { REFERRALS_QUERY_KEY, useReferralsQuery } from 'src/features/referrals/referrals.queries';
 import { formatDate, GET_TASKS_KEY } from 'src/features/visits/in-person/hooks/useTasks';
 import { SearchResultParsedPatient } from 'src/features/visits/shared/components/patients-search/types';
@@ -53,6 +53,7 @@ import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { isReferralOpen, REFERRAL_STATUS_LABELS, ReferralDTO } from 'utils/lib/types/api/referrals/referrals.types';
 import { FAX_TASK, isInboundFaxDeleting, isInboundFaxFiled } from 'utils/lib/types/data/tasks/types';
 import { APIErrorCode } from 'utils/lib/types/errors';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { UnsolicitedPatientMatchSearchCard } from '../../external-labs/components/unsolicited-results/UnsolicitedPatientMatchSearchCard';
 
 // Someone else filed, completed or deleted the fax (or changed its folder) after this page loaded.
@@ -66,13 +67,14 @@ const STALE_FAX_MESSAGE = 'This fax was changed by someone else. The page has be
 const referralOptionLabel = (referral: ReferralDTO): string =>
   [
     referral.specialty,
-    referral.recipient?.name ?? 'no recipient',
+    referral.recipient?.name ?? NO_RECIPIENT_LABEL,
     REFERRAL_STATUS_LABELS[referral.status],
-    `created ${DateTime.fromISO(referral.createdAt).toLocal().toFormat('MM/dd/yyyy')}`,
+    `created ${formatDateForDisplay(referral.createdAt)}`,
   ].join(', ');
 
 type MatchFormValues = {
   visitEncounterId: string | null;
+  referralId: string | null;
   reviewAssignee: { id: string; name: string } | null;
 };
 
@@ -105,12 +107,17 @@ export const InboundFaxMatch: React.FC = () => {
 
   const [confirmedSelectedPatient, setConfirmedSelectedPatient] = useState<SearchResultParsedPatient | undefined>();
   const [selectedFolder, setSelectedFolder] = useState<PatientDocumentsFolder | undefined>();
-  const [selectedReferral, setSelectedReferral] = useState<ReferralDTO | null>(null);
   const [documentName, setDocumentName] = useState('');
   const [createReviewTask, setCreateReviewTask] = useState(false);
-  const methods = useForm<MatchFormValues>({ defaultValues: { visitEncounterId: null, reviewAssignee: null } });
+  const methods = useForm<MatchFormValues>({
+    defaultValues: { visitEncounterId: null, referralId: null, reviewAssignee: null },
+  });
   const { setValue } = methods;
-  const [visitEncounterId, reviewAssignee] = methods.watch(['visitEncounterId', 'reviewAssignee']);
+  const [visitEncounterId, referralId, reviewAssignee] = methods.watch([
+    'visitEncounterId',
+    'referralId',
+    'reviewAssignee',
+  ]);
 
   if (!communicationId) {
     throw new Error('communicationId is required');
@@ -234,6 +241,7 @@ export const InboundFaxMatch: React.FC = () => {
     () => (referralsData?.referrals ?? []).filter((referral) => isReferralOpen(referral.status)),
     [referralsData]
   );
+  const selectedReferral = openReferrals.find((referral) => referral.id === referralId);
 
   const { data: visitHistory, isLoading: visitsLoading } = useGetPatientVisitHistory(confirmedSelectedPatient?.id);
   // Follow-ups, scheduled ones included, are only listed under their original visit.
@@ -264,8 +272,8 @@ export const InboundFaxMatch: React.FC = () => {
     (patient: SearchResultParsedPatient | undefined): void => {
       setConfirmedSelectedPatient(patient);
       setSelectedFolder(undefined);
-      setSelectedReferral(null);
       setValue('visitEncounterId', null);
+      setValue('referralId', null);
     },
     [setValue]
   );
@@ -289,7 +297,7 @@ export const InboundFaxMatch: React.FC = () => {
         ...(createReviewTask && reviewAssignee
           ? { reviewTaskAssignee: { id: reviewAssignee.id, name: reviewAssignee.name } }
           : {}),
-        referralId: selectedReferral?.id,
+        ...(referralId ? { referralId } : {}),
       });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [GET_TASKS_KEY], exact: false }),
@@ -502,25 +510,26 @@ export const InboundFaxMatch: React.FC = () => {
 
                       {/* Response to one of the patient's open referrals */}
                       {confirmedSelectedPatient && (referralsLoading || openReferrals.length > 0) && (
-                        <Autocomplete
-                          options={openReferrals}
-                          value={selectedReferral}
-                          onChange={(_event, value) => setSelectedReferral(value)}
-                          getOptionLabel={referralOptionLabel}
-                          isOptionEqualToValue={(option, value) => option.id === value.id}
-                          loading={referralsLoading}
-                          renderInput={(params) => (
-                            <TextField
-                              {...params}
-                              label="Response to referral (optional)"
-                              helperText={
-                                selectedReferral
-                                  ? `Sets the referral to Response received and routes a review task to ${selectedReferral.referringProvider.name}`
-                                  : undefined
-                              }
-                            />
+                        <Box>
+                          <SelectInput
+                            name="referralId"
+                            label="Response to referral (optional)"
+                            options={referralsLoading ? [] : openReferrals.map((referral) => referral.id)}
+                            getOptionLabel={(option) => {
+                              const referral = openReferrals.find((candidate) => candidate.id === option);
+                              return referral ? referralOptionLabel(referral) : option;
+                            }}
+                            loading={referralsLoading}
+                            size="medium"
+                            dataTestId="inbound-fax-referral-select"
+                          />
+                          {selectedReferral && (
+                            <FormHelperText>
+                              Sets the referral to Response received and routes a review task to{' '}
+                              {selectedReferral.referringProvider.name}
+                            </FormHelperText>
                           )}
-                        />
+                        </Box>
                       )}
 
                       {/* Folder selection */}

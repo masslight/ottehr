@@ -41,6 +41,10 @@ export const ReferralBaseRowSchema = z.object({
     .describe(
       'not-sent / sent / given-to-patient / response-received / closed / cancelled. Open = not closed and not cancelled.'
     ),
+  date: z
+    .string()
+    .nullable()
+    .describe('Viewer-local day the referral was created (yyyy-MM-dd); day-level companion of createdAt.'),
   createdAt: z.string().describe('Full ISO instant the referral was created.'),
   sentAt: z
     .string()

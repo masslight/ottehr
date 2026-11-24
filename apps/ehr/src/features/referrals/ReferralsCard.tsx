@@ -1,89 +1,37 @@
-import AddIcon from '@mui/icons-material/Add';
-import { Box, Button, Chip, Skeleton, Typography, useTheme } from '@mui/material';
-import { FC, useState } from 'react';
-import { AccordionCard } from 'src/components/AccordionCard';
+import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { useSendDocuments } from 'src/features/send-documents/hooks/useSendDocuments';
-import { SendDocumentsDialog } from 'src/features/send-documents/ui/SendDocumentsDialog';
 import { useAppointmentData } from 'src/features/visits/shared/stores/appointment/appointment.store';
-import { ReferralForm } from './ReferralForm';
 import { ReferralRow } from './ReferralRow';
 import { useReferralsQuery } from './referrals.queries';
+import { ReferralsPanel } from './ReferralsPanel';
 
 export const ReferralsCard: FC = () => {
-  const theme = useTheme();
-  const { encounter, resources } = useAppointmentData();
+  const { appointment, encounter, resources } = useAppointmentData();
   const encounterId = encounter?.id;
-  const patientId = resources?.patient?.id;
   const { data, isLoading } = useReferralsQuery(encounterId ? { encounterId } : undefined);
   const referrals = data?.referrals ?? [];
 
-  const [adding, setAdding] = useState(false);
-  const [expandedId, setExpandedId] = useState<string>();
-  const [faxReferralId, setFaxReferralId] = useState<string>();
-  const fax = useSendDocuments(faxReferralId ? { type: 'referral', referralId: faxReferralId } : undefined);
-  const sendFax = (referralId: string): void => {
-    setFaxReferralId(referralId);
-    fax.open();
-  };
-
   return (
-    <AccordionCard
+    <ReferralsPanel
       dataTestId={dataTestIds.referrals.card}
-      label={
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="h6" color={theme.palette.primary.dark}>
-            Referrals
-          </Typography>
-          {referrals.length > 0 && <Chip size="small" label={referrals.length} />}
-        </Box>
-      }
-      headerItem={
-        patientId ? (
-          <Button
-            size="small"
-            variant="text"
-            startIcon={<AddIcon fontSize="small" />}
-            disabled={adding}
-            onClick={() => setAdding(true)}
-            sx={{ textTransform: 'none' }}
-            data-testid={dataTestIds.referrals.addButton}
-          >
-            Add referral
-          </Button>
-        ) : undefined
-      }
+      referrals={referrals}
+      isLoading={isLoading}
+      emptyText="No referrals for this visit."
+      patientId={resources?.patient?.id}
+      encounterId={encounterId}
+      appointmentId={appointment?.id}
     >
-      <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {isLoading && <Skeleton variant="rounded" height={36} />}
-        {referrals.map((referral) => (
+      {({ expandedId, toggle, sendFax }) =>
+        referrals.map((referral) => (
           <ReferralRow
             key={referral.id}
             referral={referral}
             expanded={expandedId === referral.id}
-            onToggle={() => setExpandedId((current) => (current === referral.id ? undefined : referral.id))}
+            onToggle={() => toggle(referral.id)}
             onSendFax={sendFax}
           />
-        ))}
-        {!isLoading && referrals.length === 0 && !adding && (
-          <Typography color="text.secondary">No referrals for this visit.</Typography>
-        )}
-        {adding && patientId && (
-          <Box sx={{ border: 1, borderColor: 'primary.main', borderRadius: 1 }}>
-            <ReferralForm
-              patientId={patientId}
-              encounterId={encounterId}
-              onSaved={(saved) => {
-                setAdding(false);
-                setExpandedId(saved.id);
-              }}
-              onDiscard={() => setAdding(false)}
-              onSendFax={sendFax}
-            />
-          </Box>
-        )}
-      </Box>
-      <SendDocumentsDialog controller={fax} title="Send referral" />
-    </AccordionCard>
+        ))
+      }
+    </ReferralsPanel>
   );
 };

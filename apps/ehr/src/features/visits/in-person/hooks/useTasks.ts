@@ -47,6 +47,7 @@ import {
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
+import { patientReferralsPath, visitPlanPath } from '../../../referrals/referralPaths';
 import {
   getDmeOrderDetailsUrl,
   getImmunizationVaccineDetailsUrl,
@@ -1003,9 +1004,9 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     const appointmentId = encounter?.appointment?.[0]?.reference?.split('/')?.[1];
     const patientId = patientReference?.reference?.split('/')?.[1];
     if (appointmentId) {
-      action = { name: GO_TO_TASK, link: addEncounterIdToLink(`/in-person/${appointmentId}/plan`) };
+      action = { name: GO_TO_TASK, link: addEncounterIdToLink(visitPlanPath(appointmentId)) };
     } else if (patientId) {
-      action = { name: GO_TO_TASK, link: `/patient/${patientId}?tab=referrals` };
+      action = { name: GO_TO_TASK, link: patientReferralsPath(patientId) };
     }
   }
 

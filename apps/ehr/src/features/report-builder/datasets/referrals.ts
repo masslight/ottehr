@@ -1,6 +1,7 @@
 import { layerOptions } from 'utils/lib/types/adhoc/datasets/dataset';
 import { AdHocRow } from 'utils/lib/types/adhoc/datasets/llm-schema';
 import {
+  AdHocReferralRow,
   AdHocReferralsOutput,
   REFERRAL_DOMAIN_FIELDS,
   REFERRAL_INTERNAL_FIELDS,
@@ -8,7 +9,7 @@ import {
   ReferralBaseRowSchema,
 } from 'utils/lib/types/adhoc/datasets/referrals';
 import { AdHocLayer } from 'utils/lib/types/adhoc/query/layers';
-import { ADHOC_QUERY_STALE_MS, runAdHocReport } from '../query/dataset-query';
+import { ADHOC_QUERY_STALE_MS, runAdHocReport, toLocalYmd } from '../query/dataset-query';
 import { buildLlmDatasetSchema } from './schema';
 import { AdHocDataset, FetchContext } from './types';
 
@@ -33,7 +34,7 @@ async function fetchAdHocReferrals({
     staleTime: ADHOC_QUERY_STALE_MS,
   });
 
-  return result.referrals;
+  return result.referrals.map((row): AdHocReferralRow => ({ ...row, date: toLocalYmd(row.createdAt) }));
 }
 
 export const referralsDataset: AdHocDataset = {

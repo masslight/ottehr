@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query';
 import {
   DOCUMENT_PACKET_MAX_RECIPIENTS,
   PACKET_PATIENT_EDUCATION_IN_DISCHARGE_SUMMARY_REASON,
@@ -8,7 +9,7 @@ import { actionLogsQueryKey } from '../../action-logs/actionLogs.constants';
 import { availableDocumentLabels, documentLabelGroups, hasNothingToSend } from './documents';
 import { buildDefaultFormValues } from './form';
 import {
-  faxHistoryQueryKey,
+  faxHistoryQueryKeys,
   nextPacketStatusPollInterval,
   PACKET_STATUS_POLL_INTERVALS_MS,
   PACKET_STATUS_POLL_TIMEOUT_MS,
@@ -297,12 +298,33 @@ describe('polling', () => {
 
   it('points timeout guidance and refreshes at the history for the source', () => {
     expect(packetStatusTimeoutMessage(visitSource)).toContain("visit's fax history");
-    expect(faxHistoryQueryKey(visitSource)).toEqual(['get-visit-fax-history', 'appointment-1']);
+    expect(faxHistoryQueryKeys(visitSource)).toEqual([['get-visit-fax-history', 'appointment-1']]);
 
     expect(packetStatusTimeoutMessage(medicalRecordSource)).toContain("patient's fax history");
-    expect(faxHistoryQueryKey(medicalRecordSource)).toEqual(actionLogsQueryKey('fax', 'patient-1'));
+    expect(faxHistoryQueryKeys(medicalRecordSource)).toEqual([actionLogsQueryKey('fax', 'patient-1')]);
+  });
 
-    // A referral names no patient, so every fax log is refreshed.
-    expect(faxHistoryQueryKey({ type: 'referral', referralId: 'referral-1' })).toEqual(actionLogsQueryKey('fax'));
+  it("refreshes every patient's Fax Logs tab and every visit's fax history after a referral fax, which names neither", async () => {
+    const queryClient = new QueryClient();
+    const patientFaxLogs = [...actionLogsQueryKey('fax', 'patient-1'), '', '', undefined, 0];
+    const allFaxLogs = [...actionLogsQueryKey('fax'), '', '', undefined, 0];
+    const visitFaxHistory = ['get-visit-fax-history', 'appointment-1'];
+    const patientEmailLogs = [...actionLogsQueryKey('email', 'patient-1'), '', '', undefined, 0];
+    [patientFaxLogs, allFaxLogs, visitFaxHistory, patientEmailLogs].forEach((queryKey) =>
+      queryClient.setQueryData(queryKey, [])
+    );
+
+    await Promise.all(
+      faxHistoryQueryKeys({ type: 'referral', referralId: 'referral-1' }).map((queryKey) =>
+        queryClient.invalidateQueries({ queryKey })
+      )
+    );
+
+    const isInvalidated = (queryKey: unknown[]): boolean | undefined =>
+      queryClient.getQueryState(queryKey)?.isInvalidated;
+    expect(isInvalidated(patientFaxLogs)).toBe(true);
+    expect(isInvalidated(allFaxLogs)).toBe(true);
+    expect(isInvalidated(visitFaxHistory)).toBe(true);
+    expect(isInvalidated(patientEmailLogs)).toBe(false);
   });
 });

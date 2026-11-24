@@ -26,7 +26,7 @@ import { REFERRAL_TASK, SaveReferralInput } from 'utils/lib/types/api/referrals/
 import { ADDRESS_BOOK_TAG_CODE, ADDRESS_BOOK_TAG_SYSTEM } from 'utils/lib/types/data/address-book';
 import { describe, expect, it } from 'vitest';
 import { buildReferralDTOs, pickReferralTask, sortReferrals, toReferralDTO } from '../src/ehr/referrals/shared';
-import { mapReferralRecipient } from '../src/shared/referrals/recipient';
+import { loadReferralRecipient, mapReferralRecipient } from '../src/shared/referrals/recipient';
 
 const PATIENT_ID = '11111111-1111-4111-8111-111111111111';
 const ENCOUNTER_ID = '22222222-2222-4222-8222-222222222222';
@@ -292,9 +292,46 @@ describe('buildReferralDTOs', () => {
     });
   });
 
+  it('uses what the caller preloaded instead of searching for the recipient, visit and earlier documents again', async () => {
+    const before = searches.length;
+    const referral = makeReferral('sr-1', { earlierDocumentIds: ['doc-1'] });
+
+    const [dto] = await buildReferralDTOs(oystehr, [referral], {
+      recipients: new Map([['sr-1', { contactId: CONTACT_ID, name: 'Preloaded recipient' }]]),
+      encounters: [encounter],
+      earlierDocuments: new Map([['sr-1', [{ id: 'doc-1', title: 'VisitNote.pdf' }]]]),
+    });
+
+    expect(dto).toMatchObject({
+      recipient: { name: 'Preloaded recipient' },
+      appointmentId: 'appt-1',
+      earlierDocuments: [{ id: 'doc-1', title: 'VisitNote.pdf' }],
+      taskId: 'task-1',
+    });
+    const searched = searches.slice(before).map((search) => search.resourceType);
+    expect(searched).not.toContain('Organization');
+    expect(searched).not.toContain('Encounter');
+    expect(searched).not.toContain('List');
+    expect(searched).toContain('Task');
+  });
+
   it('returns nothing for an empty list without searching', async () => {
     const before = searches.length;
     expect(await buildReferralDTOs(oystehr, [])).toEqual([]);
     expect(searches.length).toBe(before);
+  });
+});
+
+describe('loadReferralRecipient', () => {
+  it('loads the recipient contact, with the fax typed on the referral taking precedence', async () => {
+    const search = async (): Promise<unknown> => ({ unbundle: () => [organization] });
+    const oystehr = { fhir: { search } } as unknown as Oystehr;
+
+    expect(
+      await loadReferralRecipient(oystehr, makeReferral('sr-1', { recipientFax: '(555) 010-2000' }))
+    ).toMatchObject({ contactId: CONTACT_ID, name: 'Riverside Orthopedic Associates', fax: '(555) 010-2000' });
+    expect(
+      await loadReferralRecipient(oystehr, makeReferral('sr-2', { recipientContactId: undefined }))
+    ).toBeUndefined();
   });
 });

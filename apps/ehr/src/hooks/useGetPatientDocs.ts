@@ -350,23 +350,20 @@ const useListableDocumentIds = (patientId: string, visit: DocumentVisitRef | und
 };
 
 /**
- * Rewrites folder counters to only count documents the table can list. Folders are kept even at
- * zero so a user can still open one and upload into it.
+ * Rewrites folder contents and counters to only the documents `includeDocument` accepts. Folders are
+ * kept even at zero so a user can still open one and upload into it.
  */
-const applyListableCountsToFolders = (
+export const filterFolderDocuments = (
   folders: PatientDocumentsFolder[],
-  listableDocumentIds: Set<string> | undefined
-): PatientDocumentsFolder[] => {
-  if (!listableDocumentIds) return folders;
-
-  return folders.map((folder) => {
+  includeDocument: (documentId: string, folder: PatientDocumentsFolder) => boolean
+): PatientDocumentsFolder[] =>
+  folders.map((folder) => {
     const documentsRefs = (folder.documentsRefs ?? []).filter((docRef) => {
       const id = getIdFromReference(docRef.reference?.reference, 'DocumentReference');
-      return !!id && listableDocumentIds.has(id);
+      return !!id && includeDocument(id, folder);
     });
     return { ...folder, documentsCount: documentsRefs.length, documentsRefs };
   });
-};
 
 export type UseGetPatientDocsOptions = {
   /**
@@ -407,7 +404,10 @@ export const useGetPatientDocs = (
 
   const listableDocumentIds = useListableDocumentIds(patientId, currentFilters?.visit);
   const visibleFolders = useMemo(
-    () => applyListableCountsToFolders(documentsFolders, listableDocumentIds),
+    () =>
+      listableDocumentIds
+        ? filterFolderDocuments(documentsFolders, (documentId) => listableDocumentIds.has(documentId))
+        : documentsFolders,
     [documentsFolders, listableDocumentIds]
   );
 

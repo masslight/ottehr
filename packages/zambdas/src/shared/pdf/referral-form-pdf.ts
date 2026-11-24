@@ -27,7 +27,7 @@ import {
   ReferralRecipient,
 } from 'utils/lib/types/api/referrals/referrals.types';
 import { formatDateForLabs, formatDOB } from 'utils/lib/utils/dateUtils';
-import { getPatientFolders } from '../document-packet/resolve-packet-source';
+import { getPatientFolders } from '../patient-folders';
 import { getPatientLastFirstName } from '../patients';
 import { byVisitDateAscending, ReferralDocument, referralDocumentTitle } from '../referrals/referral-documents';
 import { drawFieldLine } from './helpers/render/drawFieldLine';

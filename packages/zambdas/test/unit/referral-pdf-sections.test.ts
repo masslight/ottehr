@@ -1,11 +1,16 @@
 import { Organization, ServiceRequest } from 'fhir/r4b';
 import { makeReferralServiceRequest, withReferralDetails } from 'utils/lib/fhir/referral';
 import { ADDRESS_BOOK_TAG_CODE, ADDRESS_BOOK_TAG_SYSTEM } from 'utils/lib/types/data/address-book';
-import { describe, expect, it } from 'vitest';
-import { composeReferralsForDischargeSummary } from '../../src/shared/pdf/sections/discharge-summary/referrals';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  composeReferralsForDischargeSummary,
+  createReferralsSectionForDischargeSummary,
+} from '../../src/shared/pdf/sections/discharge-summary/referrals';
 import { composePlanData } from '../../src/shared/pdf/sections/visit-note/plan';
+import { PdfAssets, PdfClient, PdfStyles, ReferralsData } from '../../src/shared/pdf/types';
 import { AllChartData } from '../../src/shared/pdf/visit-details-pdf/types';
 import { EncounterReferral, mapEncounterReferral } from '../../src/shared/referrals/load-encounter-referrals';
+import { referralOverdueAt } from '../../src/shared/referrals/referral-task';
 
 const organization: Organization = {
   resourceType: 'Organization',
@@ -94,25 +99,64 @@ describe('composeReferralsForDischargeSummary', () => {
     ]);
   });
 
-  it('counts the schedule-by window from the send, else from when the referral was written', () => {
-    const sentLater = { ...base, sentAt: '2026-10-25T15:05:00.000Z' };
+  const scheduleLines = (referral: EncounterReferral, timezone = 'America/New_York'): string[] =>
+    composeReferralsForDischargeSummary({ referrals: [referral], timezone }).referrals[0].lines;
+
+  it('counts the schedule-by window from the send, else the hand-over, else when the referral was written', () => {
+    const sentLater = { ...base, sentAt: '2026-10-25T15:05:00.000Z', givenToPatientAt: '2026-10-27T15:05:00.000Z' };
+    const givenToPatient = { ...base, sentAt: undefined, givenToPatientAt: '2026-10-27T15:05:00.000Z' };
     const notSent = { ...base, sentAt: undefined };
-    const lines = (referral: EncounterReferral): string[] =>
-      composeReferralsForDischargeSummary({ referrals: [referral], timezone: 'America/New_York' }).referrals[0].lines;
-    expect(lines(sentLater)).toContain('Who schedules: Patient (by 11/01/2026)');
-    expect(lines(notSent)).toContain('Who schedules: Patient (by 10/30/2026)');
+    expect(scheduleLines(sentLater)).toContain('Who schedules: Patient (by 11/01/2026)');
+    expect(scheduleLines(givenToPatient)).toContain('Who schedules: Patient (by 11/03/2026)');
+    expect(scheduleLines(notSent)).toContain('Who schedules: Patient (by 10/30/2026)');
   });
 
-  it('tells the patient to choose a specialist when there is no recipient, and drops the date when the practice schedules', () => {
+  it('prints the schedule-by date as the local day of the task due date referralOverdueAt computes', () => {
+    const lateEvening = { ...base, sentAt: '2026-10-24T02:30:00.000Z' };
+    const dueAt = referralOverdueAt(lateEvening.urgency, lateEvening.sentAt);
+    expect(dueAt).toBe('2026-10-31T02:30:00.000Z');
+    expect(scheduleLines(lateEvening)).toContain('Who schedules: Patient (by 10/30/2026)');
+    expect(scheduleLines(lateEvening, 'UTC')).toContain('Who schedules: Patient (by 10/31/2026)');
+  });
+
+  it('tells the patient to choose a specialist in the specialty when there is no recipient, and drops the date when the practice schedules', () => {
     const data = composeReferralsForDischargeSummary({
       referrals: [{ ...base, recipient: undefined, whoSchedules: 'practice' }],
     });
     expect(data.referrals[0].lines).toEqual([
-      'Choose a Orthopedics your insurance covers and bring this summary.',
+      'Choose a specialist in Orthopedics that your insurance covers and bring this summary.',
       'Reason: Persistent knee pain after fall',
       'Urgency: Urgent',
       'Who schedules: This practice',
     ]);
+  });
+});
+
+describe('createReferralsSectionForDischargeSummary', () => {
+  it('draws each referral title then its lines, and is omitted when there are none', () => {
+    const drawText = vi.fn();
+    const client = {
+      drawText,
+      drawSeparatedLine: vi.fn(),
+      getTextDimensions: vi.fn().mockReturnValue({ height: 10, width: 100 }),
+      getY: vi.fn().mockReturnValue(700),
+      addNewPage: vi.fn(),
+    } as unknown as PdfClient;
+    const styles = {
+      textStyles: { regularText: {}, alternativeRegularText: {}, subHeader: {}, blockSubHeader: {} },
+      lineStyles: { separator: {} },
+    } as unknown as PdfStyles;
+    const section = createReferralsSectionForDischargeSummary<{ referrals?: ReferralsData }>();
+    const data: ReferralsData = { referrals: [{ title: 'Orthopedics', lines: ['Reason: Knee', 'Urgency: Urgent'] }] };
+
+    section.render(client, data, styles, {} as PdfAssets);
+
+    expect(section.title).toBe('Referrals');
+    expect(drawText.mock.calls.map((call) => call[0])).toEqual(['Orthopedics', 'Reason: Knee', 'Urgency: Urgent']);
+    expect(client.drawSeparatedLine).toHaveBeenCalledTimes(1);
+    expect(section.dataSelector({ referrals: data })).toBe(data);
+    expect(section.shouldRender?.(data)).toBe(true);
+    expect(section.shouldRender?.({ referrals: [] })).toBe(false);
   });
 });
 

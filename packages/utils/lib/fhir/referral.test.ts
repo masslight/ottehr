@@ -154,9 +154,40 @@ describe('makeReferralServiceRequest', () => {
   });
 });
 
+describe('makeReferralServiceRequest enforces the form rules', () => {
+  it('stores no response request for a referral without a recipient, since nothing can be faxed', () => {
+    const sr = makeReferralServiceRequest(
+      { ...input, recipientContactId: undefined, responseRequested: true },
+      { patientId: PATIENT_ID, encounterId: ENCOUNTER_ID, requester: REQUESTER, now: NOW }
+    );
+    expect(getReferralDetails(sr)?.responseRequested).toBe(false);
+  });
+
+  it('stores no visit documents for a referral without a visit', () => {
+    const sr = makeReferralServiceRequest(
+      { ...input, encounterId: undefined, includeDocuments: ['progress-note'] },
+      { patientId: PATIENT_ID, requester: REQUESTER, now: NOW }
+    );
+    expect(getReferralDetails(sr)?.includeDocuments).toEqual([]);
+  });
+});
+
+describe('getReferralRecipientContactId', () => {
+  it('reads only an Organization performer', () => {
+    const sr = makeReferralServiceRequest(input, { patientId: PATIENT_ID, requester: REQUESTER, now: NOW });
+    expect(getReferralRecipientContactId({ ...sr, performer: [{ reference: 'Practitioner/prac-1' }] })).toBeUndefined();
+    expect(getReferralRecipientContactId({ ...sr, performer: [{ reference: 'urn:uuid:abc' }] })).toBeUndefined();
+  });
+});
+
 describe('withReferralDetails', () => {
   it('patches the details and keeps the FHIR status in step', () => {
-    const created = makeReferralServiceRequest(input, { patientId: PATIENT_ID, requester: REQUESTER, now: NOW });
+    const created = makeReferralServiceRequest(input, {
+      patientId: PATIENT_ID,
+      encounterId: ENCOUNTER_ID,
+      requester: REQUESTER,
+      now: NOW,
+    });
 
     const closed = withReferralDetails(created, {
       status: 'closed',

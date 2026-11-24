@@ -1168,7 +1168,6 @@ export const dataTestIds = {
     closeDialog: 'referral-close-dialog',
     closeReason: 'referral-close-reason',
     closeOutcome: 'referral-close-outcome',
-    closeConfirmButton: 'referral-close-confirm-button',
     patientTab: 'referrals-patient-tab',
     patientTable: 'referrals-patient-table',
     dischargeSection: 'referrals-discharge-section',

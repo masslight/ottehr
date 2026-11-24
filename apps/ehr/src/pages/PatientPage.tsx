@@ -29,7 +29,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AccountSettingsDialog } from 'src/components/dialogs/AccountSettingsDialog';
 import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
@@ -86,12 +86,31 @@ export default function PatientPage(): JSX.Element {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const defaultTab = location.state?.defaultTab ?? new URLSearchParams(location.search).get('tab') ?? undefined;
+  const [searchParams, setSearchParams] = useSearchParams();
   const isLegacyPatientFollowupsEnabled = FEATURE_FLAGS.LEGACY_PATIENT_FOLLOWUPS_ENABLED;
   const sendMedicalRecordLabel = FEATURE_FLAGS.SENDGRID_ENABLED ? 'Send by Fax or Email' : 'Send as Fax';
-  const [tab, setTab] = useState(
-    !isLegacyPatientFollowupsEnabled && defaultTab === 'followups' ? 'encounters' : defaultTab || 'encounters'
-  );
+  const visibleTabs = [
+    'encounters',
+    ...(isLegacyPatientFollowupsEnabled ? ['followups'] : []),
+    ...(FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['labs'] : []),
+    ...(FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['in-house-labs'] : []),
+    ...(FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['radiology'] : []),
+    'referrals',
+  ];
+  const isVisibleTab = (value: unknown): value is string => typeof value === 'string' && visibleTabs.includes(value);
+  const tabFromUrl = searchParams.get('tab');
+  const tabFromState = location.state?.defaultTab;
+  const tab = isVisibleTab(tabFromUrl) ? tabFromUrl : isVisibleTab(tabFromState) ? tabFromState : 'encounters';
+  const setTab = (newTab: string): void => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', newTab);
+        return next;
+      },
+      { replace: true }
+    );
+  };
   const [showAccountSettingsDialog, setShowAccountSettingsDialog] = useState(false);
   const [mergePatientIds, setMergePatientIds] = useState<[string, string] | null>(null);
   const [medicalRecordMenuAnchor, setMedicalRecordMenuAnchor] = useState<HTMLElement | null>(null);

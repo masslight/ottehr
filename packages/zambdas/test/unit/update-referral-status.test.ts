@@ -11,7 +11,7 @@ import { createMockSecrets, createMockZambdaInput } from './validate-request-par
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
 const { mockOystehr } = vi.hoisted(() => ({
-  mockOystehr: { fhir: { get: vi.fn(), search: vi.fn(), update: vi.fn(), patch: vi.fn() } },
+  mockOystehr: { fhir: { get: vi.fn(), search: vi.fn(), update: vi.fn(), patch: vi.fn(), transaction: vi.fn() } },
 }));
 
 vi.mock('../../src/shared/auth', async (importOriginal) => ({
@@ -31,6 +31,7 @@ vi.mock('../../src/shared/sentry', async (importOriginal) => ({
 }));
 
 import { index as rawIndex } from '../../src/ehr/referrals/update-referral-status';
+import { requireUserWithRole } from '../../src/shared/auth';
 
 const updateReferralStatus = rawIndex as unknown as ZambdaHandler;
 
@@ -71,7 +72,25 @@ const openTask: Task = {
 const run = async (body: Record<string, unknown>): Promise<APIGatewayProxyResult> =>
   updateReferralStatus(createMockZambdaInput({ referralId: REFERRAL_ID, ...body }, { secrets: createMockSecrets() }));
 
-const savedReferral = (): ServiceRequest => mockOystehr.fhir.update.mock.calls[0][0];
+interface TransactionRequest {
+  method: string;
+  url: string;
+  resource: ServiceRequest | { data: string };
+  ifMatch?: string;
+}
+const transactionRequests = (): TransactionRequest[] => mockOystehr.fhir.transaction.mock.calls[0][0].requests;
+const savedReferral = (): ServiceRequest => transactionRequests()[0].resource as ServiceRequest;
+const taskPatches = (): { url: string; operations: { op: string; path: string; value: any }[] }[] =>
+  transactionRequests()
+    .filter((request) => request.method === 'PATCH')
+    .map((request) => ({
+      url: request.url,
+      operations: JSON.parse(Buffer.from((request.resource as { data: string }).data, 'base64').toString()),
+    }));
+const expectNothingWrittenOutsideTheTransaction = (): void => {
+  expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+  expect(mockOystehr.fhir.patch).not.toHaveBeenCalled();
+};
 
 describe('update-referral-status', () => {
   beforeEach(() => {
@@ -80,12 +99,13 @@ describe('update-referral-status', () => {
     mockOystehr.fhir.search.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
       unbundle: () => (resourceType === 'Task' ? [openTask] : []),
     }));
-    mockOystehr.fhir.update.mockImplementation(async (resource: ServiceRequest) => resource);
-    mockOystehr.fhir.patch.mockResolvedValue(openTask);
+    mockOystehr.fhir.transaction.mockImplementation(async ({ requests }: { requests: TransactionRequest[] }) => ({
+      entry: requests.map((request) => ({ resource: request.method === 'PUT' ? request.resource : openTask })),
+    }));
   });
 
   describe.each<ReferralStatus>(['not-sent', 'sent', 'given-to-patient', 'response-received'])('from %s', (status) => {
-    it('closes the referral with the reason and completes its task', async () => {
+    it('closes the referral with the reason and completes its task in the same transaction', async () => {
       mockOystehr.fhir.get.mockResolvedValue(referralIn(status));
 
       const result = await run({ action: 'close', reason: 'patient-seen', outcome: 'Cast applied' });
@@ -98,24 +118,29 @@ describe('update-referral-status', () => {
         closedAt: expect.any(String),
       });
       expect(savedReferral().status).toBe('completed');
-      expect(mockOystehr.fhir.patch).toHaveBeenCalledWith({
-        resourceType: 'Task',
-        id: 'task-1',
-        operations: [{ op: 'replace', path: '/status', value: 'completed' }],
+      expect(transactionRequests()[0]).toMatchObject({
+        method: 'PUT',
+        url: `/ServiceRequest/${REFERRAL_ID}`,
+        ifMatch: 'W/"5"',
       });
+      expect(taskPatches()).toEqual([
+        { url: '/Task/task-1', operations: [{ op: 'replace', path: '/status', value: 'completed' }] },
+      ]);
+      expectNothingWrittenOutsideTheTransaction();
       expect(JSON.parse(result.body).referral).toMatchObject({ id: REFERRAL_ID, status: 'closed' });
     });
 
-    it('cancels the referral and cancels its task', async () => {
+    it('cancels the referral and cancels its task in the same transaction', async () => {
       mockOystehr.fhir.get.mockResolvedValue(referralIn(status));
 
       const result = await run({ action: 'cancel' });
 
       expect(result.statusCode).toBe(200);
       expect(getReferralDetails(savedReferral())).toMatchObject({ status: 'cancelled', closedAt: expect.any(String) });
-      expect(mockOystehr.fhir.patch).toHaveBeenCalledWith(
-        expect.objectContaining({ operations: [{ op: 'replace', path: '/status', value: 'cancelled' }] })
-      );
+      expect(taskPatches()).toEqual([
+        { url: '/Task/task-1', operations: [{ op: 'replace', path: '/status', value: 'cancelled' }] },
+      ]);
+      expectNothingWrittenOutsideTheTransaction();
     });
   });
 
@@ -127,11 +152,10 @@ describe('update-referral-status', () => {
       expect(result.statusCode).toBe(400);
       expect(JSON.parse(result.body).code).toBe(APIErrorCode.INVALID_INPUT);
     }
-    expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
-    expect(mockOystehr.fhir.patch).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 
-  it('marks a not-sent referral given to the patient and starts the task clock from now', async () => {
+  it('marks a not-sent referral given to the patient and starts the task clock from now, in one transaction', async () => {
     mockOystehr.fhir.get.mockResolvedValue(referralIn('not-sent'));
     const before = Date.now();
 
@@ -144,8 +168,9 @@ describe('update-referral-status', () => {
     });
     expect(savedReferral().status).toBe('active');
     // The task is not settled, only timed: asap = 2 days from the handover.
-    expect(mockOystehr.fhir.patch).toHaveBeenCalledTimes(1);
-    const [{ operations }] = mockOystehr.fhir.patch.mock.calls[0];
+    expectNothingWrittenOutsideTheTransaction();
+    expect(taskPatches()).toHaveLength(1);
+    const [{ operations }] = taskPatches();
     expect(operations).toEqual([{ op: 'add', path: '/restriction', value: { period: { end: expect.any(String) } } }]);
     const end = Date.parse(operations[0].value.period.end);
     expect(end).toBeGreaterThanOrEqual(before + 2 * DAY_MS);
@@ -161,7 +186,8 @@ describe('update-referral-status', () => {
 
       expect(result.statusCode).toBe(200);
       expect(getReferralDetails(savedReferral())).toMatchObject({ status, givenToPatientAt: expect.any(String) });
-      expect(mockOystehr.fhir.patch).not.toHaveBeenCalled();
+      expect(taskPatches()).toEqual([]);
+      expectNothingWrittenOutsideTheTransaction();
       expect(JSON.parse(result.body).referral).toMatchObject({ status, givenToPatientAt: expect.any(String) });
     }
   );
@@ -175,7 +201,24 @@ describe('update-referral-status', () => {
 
       expect(result.statusCode).toBe(400);
       expect(JSON.parse(result.body).code).toBe(APIErrorCode.INVALID_INPUT);
-      expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+      expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each<ReferralStatus>(['sent', 'given-to-patient'])(
+    'keeps the first hand-over date and person when a %s referral is given to the patient again',
+    async (status) => {
+      const first = {
+        givenToPatientAt: '2026-11-02T10:00:00.000Z',
+        givenToPatientBy: { id: 'prac-9', name: 'A. First' },
+      };
+      mockOystehr.fhir.get.mockResolvedValue(withReferralDetails(referralIn(status), first));
+
+      const result = await run({ action: 'given-to-patient' });
+
+      expect(result.statusCode).toBe(200);
+      expect(getReferralDetails(savedReferral())).toMatchObject({ status, ...first });
+      expect(JSON.parse(result.body).referral).toMatchObject(first);
     }
   );
 
@@ -185,8 +228,12 @@ describe('update-referral-status', () => {
     { action: 'given-to-patient', from: 'not-sent', recorded: 'givenToPatientBy' },
     { action: 'given-to-patient', from: 'sent', recorded: 'givenToPatientBy' },
   ] as const)('records who made the change: $action from $from', async ({ from, recorded, ...body }) => {
-    // Spec: every status change made by staff or a provider records who made it and when.
-    const practitioner = { resourceType: 'Practitioner', id: 'prac-1', name: [{ given: ['Sam'], family: 'Staff' }] };
+    // Spec: every status change made by staff or a provider records who made it and when, named like "Created by".
+    const practitioner = {
+      resourceType: 'Practitioner',
+      id: 'prac-1',
+      name: [{ given: ['Sam'], family: 'Staff', suffix: ['RN'] }],
+    };
     mockOystehr.fhir.get.mockImplementation(async ({ resourceType }: { resourceType: string }) =>
       resourceType === 'Practitioner' ? practitioner : referralIn(from)
     );
@@ -194,20 +241,48 @@ describe('update-referral-status', () => {
     const result = await run(body);
 
     expect(result.statusCode).toBe(200);
-    expect(getReferralDetails(savedReferral())?.[recorded]).toEqual({ id: 'prac-1', name: 'Sam Staff' });
-    expect(JSON.parse(result.body).referral[recorded]).toEqual({ id: 'prac-1', name: 'Sam Staff' });
+    expect(getReferralDetails(savedReferral())?.[recorded]).toEqual({ id: 'prac-1', name: 'Sam Staff, RN' });
+    expect(JSON.parse(result.body).referral[recorded]).toEqual({ id: 'prac-1', name: 'Sam Staff, RN' });
+  });
+
+  it('records a user without a Practitioner profile by their user name', async () => {
+    vi.mocked(requireUserWithRole).mockResolvedValueOnce({
+      id: 'user-2',
+      name: 'front.desk@example.com',
+      profile: 'Device/user-2',
+    } as Awaited<ReturnType<typeof requireUserWithRole>>);
+    mockOystehr.fhir.get.mockResolvedValue(referralIn('sent'));
+
+    const result = await run({ action: 'cancel' });
+
+    expect(result.statusCode).toBe(200);
+    expect(getReferralDetails(savedReferral())?.closedBy).toEqual({ name: 'front.desk@example.com' });
   });
 
   it('writes against the version it read and reports a concurrent edit as a precondition failure', async () => {
     mockOystehr.fhir.get.mockResolvedValue(referralIn('sent'));
-    mockOystehr.fhir.update.mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
+    mockOystehr.fhir.transaction.mockRejectedValue(Object.assign(new Error('conflict'), { code: 412 }));
 
     const result = await run({ action: 'cancel' });
 
-    expect(mockOystehr.fhir.update.mock.calls[0][1]).toEqual({ optimisticLockingVersionId: '5' });
+    expect(transactionRequests()[0].ifMatch).toBe('W/"5"');
     expect(result.statusCode).toBe(400);
     expect(JSON.parse(result.body).code).toBe(APIErrorCode.PRECONDITION_FAILED);
-    expect(mockOystehr.fhir.patch).not.toHaveBeenCalled();
+    expectNothingWrittenOutsideTheTransaction();
+  });
+
+  it('leaves the referral open when its task cannot be settled, since both are written by one transaction', async () => {
+    mockOystehr.fhir.get.mockResolvedValue(referralIn('sent'));
+    mockOystehr.fhir.transaction.mockRejectedValue(new Error('Task patch failed'));
+
+    const result = await run({ action: 'close', reason: 'reviewed' });
+
+    expect(result.statusCode).toBe(500);
+    expect(transactionRequests().map((request) => request.url)).toEqual([
+      `/ServiceRequest/${REFERRAL_ID}`,
+      '/Task/task-1',
+    ]);
+    expectNothingWrittenOutsideTheTransaction();
   });
 
   it('reports a ServiceRequest that is not a referral as not found', async () => {
@@ -217,6 +292,6 @@ describe('update-referral-status', () => {
 
     expect(result.statusCode).toBe(400);
     expect(JSON.parse(result.body).code).toBe(APIErrorCode.FHIR_RESOURCE_NOT_FOUND);
-    expect(mockOystehr.fhir.update).not.toHaveBeenCalled();
+    expect(mockOystehr.fhir.transaction).not.toHaveBeenCalled();
   });
 });

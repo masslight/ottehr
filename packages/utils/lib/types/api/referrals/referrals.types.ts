@@ -75,7 +75,7 @@ export const ReferralCloseReasonSchema = z.enum(REFERRAL_CLOSE_REASONS);
 export type ReferralCloseReason = z.infer<typeof ReferralCloseReasonSchema>;
 export const REFERRAL_CLOSE_REASON_LABELS: Record<ReferralCloseReason, string> = {
   reviewed: 'Response reviewed',
-  'patient-seen': 'Patient seen (confirmed by phone)',
+  'patient-seen': 'Patient seen',
   'patient-declined': 'Patient declined',
   'no-show': 'No-show',
   cancelled: 'Cancelled',

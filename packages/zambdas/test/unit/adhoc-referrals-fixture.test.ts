@@ -9,7 +9,7 @@ import {
 import { AdHocReferralsOutputSchema } from 'utils/lib/types/adhoc/datasets/referrals';
 import { REFERRAL_TASK } from 'utils/lib/types/api/referrals/referrals.types';
 import { ADDRESS_BOOK_TAG_CODE, ADDRESS_BOOK_TAG_SYSTEM } from 'utils/lib/types/data/address-book';
-import { afterAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchAdHocReferralRows } from '../../src/shared/adhoc-datasets/referrals';
 
 // Same shape as adhoc-datasets-fixture.test.ts: the fetch+map pipeline runs against a stubbed Oystehr client and
@@ -100,6 +100,8 @@ const scopedByType: Record<string, FhirResource[]> = {
   Task: [task],
 };
 
+let searchedReferrals = [referral];
+
 const ndjsonByUrl = new Map<string, string>();
 const manifestFor = (jobId: string): { output: { type: string; url: string }[]; requiresAccessToken: boolean } => {
   const resources = scopedByType[jobId] ?? [];
@@ -122,7 +124,7 @@ const fakeOystehr = {
   fhir: {
     search: vi.fn(async ({ resourceType }: { resourceType: string }, options?: { mode?: string }) => {
       if (options?.mode === 'async-bulk') return { jobId: resourceType, contentLocation: '', mode: 'bulk' };
-      const resources = resourceType === 'ServiceRequest' ? [referral] : [];
+      const resources = resourceType === 'ServiceRequest' ? searchedReferrals : [];
       return {
         total: resources.length,
         entry: resources.map((resource) => ({ resource, search: { mode: 'match' } })),
@@ -158,6 +160,7 @@ describe('ad-hoc referrals dataset: mapped rows parse against the Zod schema (fi
       whoSchedules: 'patient',
       responseRequested: true,
       status: 'response-received',
+      date: '2026-10-23T15:00:00.000Z',
       createdAt: '2026-10-23T15:00:00.000Z',
       sentAt: '2026-10-23T15:05:00.000Z',
       responseReceivedAt: '2026-10-30T15:05:00.000Z',
@@ -175,5 +178,46 @@ describe('ad-hoc referrals dataset: mapped rows parse against the Zod schema (fi
     const rows = await fetchAdHocReferralRows(fakeOystehr, { dateRange, includeTask: false });
     expect(rows[0]).not.toHaveProperty('taskId');
     expect(AdHocReferralsOutputSchema.safeParse({ referrals: rows }).success).toBe(true);
+  });
+
+  describe('reference parsing', () => {
+    afterEach(() => {
+      searchedReferrals = [referral];
+      scopedByType.Encounter = [encounter];
+    });
+
+    it('reads ids out of versioned references', async () => {
+      searchedReferrals = [
+        {
+          ...referral,
+          subject: { reference: 'Patient/pat-1/_history/2' },
+          encounter: { reference: 'Encounter/enc-1/_history/3' },
+          requester: { reference: 'Practitioner/prac-1/_history/4' },
+        },
+      ];
+      scopedByType.Encounter = [
+        {
+          ...encounter,
+          appointment: [{ reference: 'Appointment/appt-1/_history/5' }],
+          location: [{ location: { reference: 'Location/loc-1/_history/6' } }],
+        },
+      ];
+      const rows = await fetchAdHocReferralRows(fakeOystehr, { dateRange, includeTask: false });
+      expect(rows[0]).toMatchObject({
+        patientId: 'pat-1',
+        encounterId: 'enc-1',
+        appointmentId: 'appt-1',
+        locationId: 'loc-1',
+        locationName: 'Springfield',
+        referringProviderId: 'prac-1',
+        referringProviderName: 'Jon Rivera',
+      });
+    });
+
+    it('treats a requester that is not a Practitioner as having no referring provider id', async () => {
+      searchedReferrals = [{ ...referral, requester: { reference: 'PractitionerRole/prac-1', display: 'Front desk' } }];
+      const rows = await fetchAdHocReferralRows(fakeOystehr, { dateRange, includeTask: false });
+      expect(rows[0]).toMatchObject({ referringProviderId: null, referringProviderName: 'Front desk' });
+    });
   });
 });

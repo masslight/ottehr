@@ -19,9 +19,10 @@ import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { useSpecialtyTransferOptions } from 'src/hooks/useSpecialtyTransferOptions';
 import { InputMask } from 'ui-components/lib/components/InputMask';
-import { DEFAULT_SPECIALTY_TRANSFER_OPTIONS } from 'utils/lib/fhir/disposition';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { AllStates } from 'utils/lib/types/common';
 import {
   ADDRESS_BOOK_KNOWN_TAGS,
@@ -43,7 +44,6 @@ export const addressBookContactLabel = (contact: AddressBookContactInput): strin
   formatAddressBookPersonName(contact) || contact.organizationName || '';
 
 const STATE_OPTIONS = AllStates.map((state) => state.value);
-const SPECIALTY_TAGS = DEFAULT_SPECIALTY_TRANSFER_OPTIONS.map(normalizeAddressBookTag);
 
 interface FormValues {
   firstName: string;
@@ -114,12 +114,13 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
 
   const { control, getValues, setValue, handleSubmit } = methods;
   const { data } = useSearchAddressBookQuery();
+  const { options: specialtyOptions } = useSpecialtyTransferOptions();
 
   // Referrals filter the directory by the specialty's tag, so the specialty list is offered as tags too.
   const tagSuggestions = Array.from(
     new Set([
       ...ADDRESS_BOOK_KNOWN_TAGS,
-      ...SPECIALTY_TAGS,
+      ...specialtyOptions.map(normalizeAddressBookTag),
       ...(data?.contacts ?? []).flatMap((entry) => entry.tags ?? []),
     ])
   );
@@ -212,7 +213,16 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
                 title="Delete this contact?"
                 description={`${addressBookContactLabel(contact)} will be removed from the address book.`}
                 response={async () => {
-                  await deleteMutation.mutateAsync({ contactId: contact.id });
+                  try {
+                    await deleteMutation.mutateAsync({ contactId: contact.id });
+                  } catch (error) {
+                    captureException(error);
+                    enqueueSnackbar(
+                      getApiError({ error, defaultError: 'Failed to delete the contact. Please try again.' }),
+                      { variant: 'error' }
+                    );
+                    return;
+                  }
                   onDeleted();
                 }}
                 actionButtons={{ proceed: { text: 'Delete', color: 'error', loading: deleteMutation.isPending } }}

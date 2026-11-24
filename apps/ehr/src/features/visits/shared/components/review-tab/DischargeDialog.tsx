@@ -21,17 +21,18 @@ import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { makePatientInstructionsPdf, makeProgressNotePdf } from 'src/api/api';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { NO_FAX_SEND_TEXT, NO_RECIPIENT_SEND_TEXT } from 'src/features/referrals/referralForm.helpers';
+import { faxBlockedReason, NO_RECIPIENT_LABEL } from 'src/features/referrals/referralForm.helpers';
 import { getReferralPdf } from 'src/features/referrals/referrals.api';
-import { openReferralPdf, useReferralsQuery } from 'src/features/referrals/referrals.queries';
+import { useReferralsQuery } from 'src/features/referrals/referrals.queries';
 import { ReferralUrgencyChip } from 'src/features/referrals/ReferralStatusChip';
-import { useSendDocuments } from 'src/features/send-documents/hooks/useSendDocuments';
-import { SendDocumentsDialog } from 'src/features/send-documents/ui/SendDocumentsDialog';
+import { usePrintReferralForm } from 'src/features/referrals/usePrintReferralForm';
+import { ReferralFaxDialog, useReferralFax } from 'src/features/referrals/useReferralFax';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
 import { useExcusePresignedFiles } from 'src/shared/hooks/useExcusePresignedFiles';
 import { formatList } from 'src/shared/utils/formatList';
 import { SCHOOL_NOTE_CODE, WORK_NOTE_CODE } from 'utils/lib/types/api/chart-data/chart-data.types';
+import { isReferralOpen } from 'utils/lib/types/api/referrals/referrals.types';
 import { useProgressNoteSigning } from '../../hooks/useProgressNoteSigning';
 import { useVisitNote } from '../../hooks/useVisitNote';
 import { useAppointmentData } from '../../stores/appointment/appointment.store';
@@ -146,8 +147,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     () =>
       (referralsData?.referrals ?? []).filter(
         (referral) =>
-          referral.status === 'given-to-patient' ||
-          (!!referral.givenToPatientAt && referral.status !== 'cancelled' && referral.status !== 'closed')
+          referral.status === 'given-to-patient' || (!!referral.givenToPatientAt && isReferralOpen(referral.status))
       ),
     [referralsData?.referrals]
   );
@@ -156,21 +156,8 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
     () => givenReferrals.filter((referral) => !skippedReferralIds.includes(referral.id)),
     [givenReferrals, skippedReferralIds]
   );
-  const [faxReferralId, setFaxReferralId] = useState<string>();
-  const referralFax = useSendDocuments(faxReferralId ? { type: 'referral', referralId: faxReferralId } : undefined);
-  const sendReferralFax = (referralId: string): void => {
-    setFaxReferralId(referralId);
-    referralFax.open();
-  };
-  const printReferralForm = async (referralId: string): Promise<void> => {
-    if (!oystehrZambda) return;
-    try {
-      await openReferralPdf(oystehrZambda, referralId);
-    } catch (error) {
-      console.error(error);
-      enqueueSnackbar('Failed to open the referral form. Please try again.', { variant: 'error' });
-    }
-  };
+  const { controller: referralFax, sendFax: sendReferralFax } = useReferralFax();
+  const printReferralForm = usePrintReferralForm();
 
   // Keeps a retry after a partial failure from repeating the steps that already succeeded.
   const completedSteps = useRef({
@@ -480,7 +467,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
                       <Typography component="span" sx={{ fontWeight: 500 }}>
                         {referral.specialty}
                       </Typography>
-                      , {referral.recipient?.name ?? 'no recipient'}
+                      , {referral.recipient?.name ?? NO_RECIPIENT_LABEL}
                     </Typography>
                     <ReferralUrgencyChip urgency={referral.urgency} />
                     {!referral.recipient?.fax && (
@@ -491,11 +478,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
                         </Link>
                       </Typography>
                     )}
-                    <Tooltip
-                      title={
-                        referral.recipient?.fax ? '' : referral.recipient ? NO_FAX_SEND_TEXT : NO_RECIPIENT_SEND_TEXT
-                      }
-                    >
+                    <Tooltip title={faxBlockedReason(!!referral.recipient, referral.recipient?.fax)}>
                       <span>
                         <Button
                           size="small"
@@ -515,7 +498,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
             </Box>
           )}
           {/* Outside the section: a delivered fax empties the list, and the result dialog must outlive it. */}
-          <SendDocumentsDialog controller={referralFax} title="Send referral" />
+          <ReferralFaxDialog controller={referralFax} />
 
           <Box>
             <Typography variant="h6" color="primary.dark">

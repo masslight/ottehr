@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { DateTime } from 'luxon';
 import { BUCKET_NAMES } from 'utils/lib/fhir/constants';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PatientDocumentInfo, PatientDocumentsFolder } from '../../src/hooks/useGetPatientDocs';
@@ -46,13 +47,15 @@ const VISITS = [
   visit(2, '2026-10-06T15:00:00.000Z'),
   visit(3, '2026-09-22T15:00:00.000Z'),
 ];
+let visitOptions = VISITS;
 
 const { mockSearchDocuments, mockDownloadDocument } = vi.hoisted(() => ({
   mockSearchDocuments: vi.fn(),
   mockDownloadDocument: vi.fn(),
 }));
 
-vi.mock('../../src/hooks/useGetPatientDocs', () => ({
+vi.mock('../../src/hooks/useGetPatientDocs', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/hooks/useGetPatientDocs')>()),
   useGetPatientDocs: () => ({
     documents: DOCUMENTS,
     isLoadingDocuments: false,
@@ -66,10 +69,10 @@ vi.mock('../../src/hooks/useGetPatientDocs', () => ({
 }));
 vi.mock('../../src/hooks/usePatientVisitOptions', () => ({
   usePatientVisitOptions: () => ({
-    visitOptions: VISITS,
+    visitOptions,
     isLoading: false,
-    visitsByEncounterId: new Map(VISITS.map((option) => [option.encounterId, option])),
-    visitsByAppointmentId: new Map(VISITS.map((option) => [option.appointmentId, option])),
+    visitsByEncounterId: new Map(visitOptions.map((option) => [option.encounterId, option])),
+    visitsByAppointmentId: new Map(visitOptions.map((option) => [option.appointmentId, option])),
   }),
 }));
 vi.mock('../../src/hooks/useDownloadDocumentsZip', () => ({
@@ -92,7 +95,10 @@ vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentFolde
   PatientDocumentFoldersColumnSkeleton: () => null,
 }));
 // The real table is a DataGrid; this stand-in shows what the explorer hands it and lets a row be ticked.
-vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable', () => ({
+vi.mock('src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable')
+  >()),
   PatientDocumentsExplorerTable: ({ documents, selectedDocumentIds, onSelectedDocumentIdsChange, pickerMode }: any) => (
     <div data-testid="table" data-picker={String(pickerMode)}>
       {(documents ?? []).map((document: PatientDocumentInfo) => (
@@ -127,6 +133,7 @@ describe('ReferralDocumentsPickerDialog', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    visitOptions = VISITS;
   });
 
   it("on a visit referral lists only other visits' visit notes and lab results, with nothing preset", async () => {
@@ -179,6 +186,29 @@ describe('ReferralDocumentsPickerDialog', () => {
       },
       { id: 'note-3', title: 'note-3.pdf', date: '2026-11-02T12:00:00.000Z', visitDate: '2026-09-22T15:00:00.000Z' },
     ]);
+  });
+
+  it('on a patient-record referral skips an upcoming appointment and a past visit with nothing offered', async () => {
+    const upcoming = visit(9, DateTime.now().plus({ days: 7 }).toISO()!);
+    const cancelled = visit(8, '2026-11-01T16:00:00.000Z');
+    visitOptions = [upcoming, cancelled, ...VISITS];
+    render(<ReferralDocumentsPickerDialog patientId={PATIENT_ID} selected={[]} onClose={vi.fn()} onAdd={onAdd} />);
+
+    await waitFor(() => expect(screen.getByText('2 documents selected')).toBeInTheDocument());
+    expect(mockSearchDocuments).toHaveBeenLastCalledWith(
+      expect.objectContaining({ visit: { encounterId: 'encounter-1', appointmentId: 'appointment-1' } })
+    );
+    expect(screen.getByLabelText('note-1.pdf')).toBeChecked();
+    expect(screen.getByLabelText('lab-result-1.pdf')).toBeChecked();
+  });
+
+  it('on a patient-record referral presets nothing when no past visit has an offered document', async () => {
+    visitOptions = [visit(9, DateTime.now().plus({ days: 7 }).toISO()!), visit(8, '2026-11-01T16:00:00.000Z')];
+    render(<ReferralDocumentsPickerDialog patientId={PATIENT_ID} selected={[]} onClose={vi.fn()} onAdd={onAdd} />);
+
+    await waitFor(() => expect(rowNames()).toContain('note-1.pdf'));
+    expect(screen.getByText('0 documents selected')).toBeInTheDocument();
+    expect(mockSearchDocuments).not.toHaveBeenCalledWith(expect.objectContaining({ visit: expect.anything() }));
   });
 
   it('keeps the documents already chosen, in their order, and presets nothing when there are some', async () => {

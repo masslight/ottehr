@@ -9,27 +9,32 @@ import {
   Link,
   Menu,
   MenuItem,
+  Skeleton,
   Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useEffect, useRef, useState } from 'react';
+import { BaseSyntheticEvent, FC, useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, FormProvider, useForm, useFormContext, useWatch } from 'react-hook-form';
 import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { FormTextField } from 'src/components/form/FormTextField';
+import { PhoneInput } from 'src/components/input/PhoneInput';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { addressBookContactLabel } from 'src/features/address-book/AddressBookDialog';
 import { AddressBookPicker } from 'src/features/address-book/AddressBookPicker';
 import { useContactFields } from 'src/features/address-book/useContactFields';
+import { useDocumentPacketPreview } from 'src/features/send-documents/hooks/useDocumentPacketPreview';
 import { UppercaseCaptionTypography } from 'src/features/visits/shared/components/UppercaseCaptionTypography';
-import { DATE_FORMAT } from 'src/helpers/formatDateTime';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
-import { isPhoneNumberValid } from 'utils/lib/helpers/helpers';
-import { PACKET_DOCUMENT_LABELS, PACKET_DOCUMENT_ORDER } from 'utils/lib/types/api/document-packet.types';
+import { useSpecialtyTransferOptions } from 'src/hooks/useSpecialtyTransferOptions';
+import { getSpecialtyTransferSelectOptions, OTHER_SPECIALTY_TRANSFER_OPTION } from 'utils/lib/fhir/disposition';
+import {
+  PACKET_DOCUMENT_LABELS,
+  PACKET_DOCUMENT_ORDER,
+  PACKET_DOCUMENT_UNAVAILABLE_REASONS,
+} from 'utils/lib/types/api/document-packet.types';
 import {
   isReferralEditable,
   isReferralOpen,
@@ -45,32 +50,36 @@ import {
   ReferralEarlierDocument,
 } from 'utils/lib/types/api/referrals/referrals.types';
 import { AddressBookContact } from 'utils/lib/types/data/address-book';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { CloseReferralDialog } from './CloseReferralDialog';
 import { ReferralDocumentsPickerDialog } from './ReferralDocumentsPickerDialog';
 import {
-  NO_FAX_SEND_TEXT,
-  NO_RECIPIENT_SEND_TEXT,
-  REFERRAL_SPECIALTY_OPTIONS,
+  faxBlockedReason,
   ReferralFormValues,
   specialtyTag,
   toReferralFormValues,
   toSaveReferralInput,
 } from './referralForm.helpers';
-import { openReferralPdf, useSaveReferralMutation, useUpdateReferralStatusMutation } from './referrals.queries';
+import { useSaveReferralMutation, useUpdateReferralStatusMutation } from './referrals.queries';
+import { usePrintReferralForm } from './usePrintReferralForm';
 
 const SAVE_ERROR = 'Failed to save the referral. Please try again.';
 const RECIPIENT_ERROR = 'Pick a directory contact or add a new one, or clear the field so the patient chooses.';
 
-const formatLocalDate = (iso: string): string => DateTime.fromISO(iso).toLocal().toFormat(DATE_FORMAT);
+const requiredText =
+  (message: string) =>
+  (value: unknown): true | string =>
+    (typeof value === 'string' && !!value.trim()) || message;
 
 const earlierDocumentLabel = (document: ReferralEarlierDocument): string => {
   const date = document.visitDate ?? document.date;
-  return date ? `${formatLocalDate(date)} · ${document.title}` : document.title;
+  return date ? `${formatDateForDisplay(date)} · ${document.title}` : document.title;
 };
 
 interface ReferralFormProps {
   patientId: string;
   encounterId?: string;
+  appointmentId?: string;
   referral?: ReferralDTO;
   onSaved?: (referral: ReferralDTO) => void;
   onDiscard?: () => void;
@@ -78,9 +87,29 @@ interface ReferralFormProps {
   onSendFax?: (referralId: string) => void;
 }
 
+interface ReferralFormFieldsProps extends ReferralFormProps {
+  specialtyOptions: string[];
+}
+
 export const ReferralForm: FC<ReferralFormProps> = (props) => {
+  const { options, isLoading } = useSpecialtyTransferOptions();
+  if (isLoading) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Skeleton variant="rounded" height={160} />
+      </Box>
+    );
+  }
+  return <ReferralFormWithValues {...props} specialtyOptions={options} />;
+};
+
+const ReferralFormWithValues: FC<ReferralFormFieldsProps> = (props) => {
   const methods = useForm<ReferralFormValues>({
-    defaultValues: toReferralFormValues(props.referral, !!(props.encounterId ?? props.referral?.encounterId)),
+    defaultValues: toReferralFormValues(
+      props.referral,
+      !!(props.encounterId ?? props.referral?.encounterId),
+      props.specialtyOptions
+    ),
   });
   return (
     <FormProvider {...methods}>
@@ -89,15 +118,17 @@ export const ReferralForm: FC<ReferralFormProps> = (props) => {
   );
 };
 
-const ReferralFormFields: FC<ReferralFormProps> = ({
+const ReferralFormFields: FC<ReferralFormFieldsProps> = ({
   patientId,
   encounterId,
+  appointmentId,
   referral,
+  specialtyOptions,
   onSaved,
   onDiscard,
   onSendFax,
 }) => {
-  const { oystehrZambda } = useApiClients();
+  const printReferralForm = usePrintReferralForm();
   const { control, handleSubmit, setValue, setError, reset } = useFormContext<ReferralFormValues>();
 
   const [savedId, setSavedId] = useState(referral?.id);
@@ -110,7 +141,7 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
 
   useEffect(() => {
     if (referral) {
-      reset(toReferralFormValues(referral));
+      reset(toReferralFormValues(referral, true, specialtyOptions));
       pickedName.current = referral.recipient?.name ?? '';
       setSavedId(referral.id);
     }
@@ -152,6 +183,25 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
   const hasRecipient = !!recipientContactId;
   const hasVisit = !!(encounterId ?? referral?.encounterId);
   const canFax = hasRecipient && !!recipientFax.trim();
+  const visitAppointmentId = appointmentId ?? referral?.appointmentId;
+  const specialtySelectOptions = getSpecialtyTransferSelectOptions(specialtyOptions);
+
+  const { data: packetPreview } = useDocumentPacketPreview(
+    visitAppointmentId ? { appointmentId: visitAppointmentId } : undefined,
+    hasVisit && editable
+  );
+  const unavailableDocuments = useMemo(
+    () =>
+      new Map(
+        (packetPreview?.documents ?? []).flatMap((document) => {
+          const kind = PACKET_DOCUMENT_ORDER.find((item) => item === document.kind);
+          return kind && !document.available && !document.title
+            ? [[kind, document.unavailableReason || PACKET_DOCUMENT_UNAVAILABLE_REASONS[kind]] as const]
+            : [];
+        })
+      ),
+    [packetPreview?.documents]
+  );
 
   const save = async (values: ReferralFormValues): Promise<ReferralDTO | undefined> => {
     if (values.recipientName.trim() && !values.recipientContactId) {
@@ -160,10 +210,15 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
     }
     try {
       const { referral: saved } = await saveMutation.mutateAsync(
-        toSaveReferralInput(values, { patientId, encounterId, referralId: savedId })
+        toSaveReferralInput(values, {
+          patientId,
+          encounterId,
+          referralId: savedId,
+          unavailableDocuments: [...unavailableDocuments.keys()],
+        })
       );
       setSavedId(saved.id);
-      reset(toReferralFormValues(saved));
+      reset(toReferralFormValues(saved, true, specialtyOptions));
       pickedName.current = saved.recipient?.name ?? '';
       return saved;
     } catch (error) {
@@ -178,17 +233,17 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
     if (saved) onSaved?.(saved);
   });
 
-  const onPreview = handleSubmit(async (values) => {
-    const saved = await save(values);
-    if (!saved || !oystehrZambda) return;
-    try {
-      await openReferralPdf(oystehrZambda, saved.id);
-    } catch (error) {
-      console.error(error);
-      enqueueSnackbar('Failed to open the referral form. Please try again.', { variant: 'error' });
-    }
-    onSaved?.(saved);
-  });
+  const onPreview = (event: BaseSyntheticEvent): void => {
+    let saved: ReferralDTO | undefined;
+    void printReferralForm(async () => {
+      await handleSubmit(async (values) => {
+        saved = await save(values);
+      })(event);
+      return saved?.id;
+    }).then(() => {
+      if (saved) onSaved?.(saved);
+    });
+  };
 
   const onSendFaxNow = handleSubmit(async (values) => {
     const saved = await save(values);
@@ -218,21 +273,15 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
     onSaved?.(updated);
   };
 
-  const onPrint = async (): Promise<void> => {
-    if (!savedId || !oystehrZambda) return;
-    try {
-      await openReferralPdf(oystehrZambda, savedId);
-    } catch (error) {
-      console.error(error);
-      enqueueSnackbar('Failed to open the referral form. Please try again.', { variant: 'error' });
-    }
+  const onPrint = (): void => {
+    if (savedId) void printReferralForm(savedId);
   };
 
   const lastFaxText = referral?.lastFax
     ? referral.lastFax.status === 'failed'
       ? 'Fax failed, see Fax Logs'
       : referral.lastFax.status === 'sent'
-      ? `Fax sent ${referral.lastFax.sentAt ? formatLocalDate(referral.lastFax.sentAt) : ''}`.trim()
+      ? `Fax sent ${referral.lastFax.sentAt ? formatDateForDisplay(referral.lastFax.sentAt) : ''}`.trim()
       : 'Fax pending'
     : undefined;
 
@@ -240,49 +289,38 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
     <>
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }} data-testid={dataTestIds.referrals.form}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-          <Controller
-            name="specialty"
-            control={control}
-            rules={{ required: 'Specialty is required' }}
-            render={({ field, fieldState: { error } }) => (
-              <TextField
-                {...field}
-                select
-                size="small"
-                label="Specialty"
-                disabled={disabled}
-                error={!!error}
-                helperText={error?.message}
-                sx={{ minWidth: 220 }}
-                data-testid={dataTestIds.referrals.specialty}
-              >
-                {REFERRAL_SPECIALTY_OPTIONS.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option}
-                  </MenuItem>
-                ))}
-                <MenuItem value={OTHER_SPECIALTY_TRANSFER_OPTION}>{OTHER_SPECIALTY_TRANSFER_OPTION}</MenuItem>
-              </TextField>
-            )}
-          />
-          {specialty === OTHER_SPECIALTY_TRANSFER_OPTION && (
-            <Controller
-              name="specialtyOther"
+          <Box sx={{ minWidth: 220 }}>
+            <FormTextField
+              name="specialty"
               control={control}
-              rules={{ validate: (value) => !!value.trim() || 'Enter the specialty' }}
-              render={({ field, fieldState: { error } }) => (
-                <TextField
-                  {...field}
-                  size="small"
-                  label="Other specialty"
-                  disabled={disabled}
-                  error={!!error}
-                  helperText={error?.message}
-                  sx={{ minWidth: 220 }}
-                  inputProps={{ 'data-testid': dataTestIds.referrals.specialtyOther }}
-                />
-              )}
-            />
+              rules={{ required: 'Specialty is required' }}
+              select
+              variant="outlined"
+              size="small"
+              label="Specialty"
+              disabled={disabled}
+              data-testid={dataTestIds.referrals.specialty}
+            >
+              {specialtySelectOptions.map((option) => (
+                <MenuItem key={option} value={option}>
+                  {option}
+                </MenuItem>
+              ))}
+            </FormTextField>
+          </Box>
+          {specialty === OTHER_SPECIALTY_TRANSFER_OPTION && (
+            <Box sx={{ minWidth: 220 }}>
+              <FormTextField
+                name="specialtyOther"
+                control={control}
+                rules={{ validate: requiredText('Enter the specialty') }}
+                variant="outlined"
+                size="small"
+                label="Other specialty"
+                disabled={disabled}
+                inputProps={{ 'data-testid': dataTestIds.referrals.specialtyOther }}
+              />
+            </Box>
           )}
           <Box sx={{ flexGrow: 1, minWidth: 260 }}>
             {!editable ? (
@@ -306,111 +344,86 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
             )}
           </Box>
           {hasRecipient && (
-            <Controller
-              name="recipientFax"
-              control={control}
-              rules={{ validate: (value) => !value.trim() || isPhoneNumberValid(value) || 'Enter a valid fax number' }}
-              render={({ field, fieldState: { error } }) => (
-                <TextField
-                  {...field}
-                  size="small"
-                  label="Fax"
-                  disabled={disabled}
-                  error={!!error}
-                  helperText={
-                    error?.message ??
-                    (field.value ? undefined : 'None on file. The number here is the one this referral faxes to.')
-                  }
-                  sx={{ minWidth: 200 }}
-                  inputProps={{ 'data-testid': dataTestIds.referrals.recipientFax }}
-                />
-              )}
-            />
+            <Box sx={{ minWidth: 200 }}>
+              <PhoneInput
+                name="recipientFax"
+                label="Fax"
+                disabled={disabled}
+                helperText={
+                  recipientFax ? undefined : 'None on file. The number here is the one this referral faxes to.'
+                }
+                dataTestId={dataTestIds.referrals.recipientFax}
+              />
+            </Box>
           )}
         </Box>
 
-        <Controller
+        <FormTextField
           name="reason"
           control={control}
-          rules={{ validate: (value) => !!value.trim() || 'Reason for referral is required' }}
-          render={({ field, fieldState: { error } }) => (
-            <TextField
-              {...field}
-              size="small"
-              fullWidth
-              label="Reason for referral"
-              disabled={disabled}
-              error={!!error}
-              helperText={error?.message}
-              inputProps={{ 'data-testid': dataTestIds.referrals.reason }}
-            />
-          )}
+          rules={{ validate: requiredText('Reason for referral is required') }}
+          variant="outlined"
+          size="small"
+          label="Reason for referral"
+          disabled={disabled}
+          inputProps={{ 'data-testid': dataTestIds.referrals.reason }}
         />
 
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Controller
-            name="urgency"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                select
-                size="small"
-                label="Urgency"
-                disabled={disabled}
-                sx={{ minWidth: 160 }}
-                data-testid={dataTestIds.referrals.urgency}
-              >
-                {REFERRAL_URGENCIES.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {REFERRAL_URGENCY_LABELS[option]}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
-          />
-          <Controller
-            name="whatIsAsked"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                select
-                size="small"
-                label="What is asked"
-                disabled={disabled}
-                sx={{ minWidth: 220 }}
-                data-testid={dataTestIds.referrals.whatIsAsked}
-              >
-                {REFERRAL_ASKS.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {REFERRAL_ASK_LABELS[option]}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
-          />
-          <Controller
-            name="whoSchedules"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                select
-                size="small"
-                label="Who schedules"
-                disabled={disabled}
-                sx={{ minWidth: 180 }}
-                data-testid={dataTestIds.referrals.whoSchedules}
-              >
-                {REFERRAL_SCHEDULERS.map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {REFERRAL_SCHEDULER_LABELS[option]}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
-          />
+          <Box sx={{ minWidth: 160 }}>
+            <FormTextField
+              name="urgency"
+              control={control}
+              select
+              variant="outlined"
+              size="small"
+              label="Urgency"
+              disabled={disabled}
+              data-testid={dataTestIds.referrals.urgency}
+            >
+              {REFERRAL_URGENCIES.map((option) => (
+                <MenuItem key={option} value={option}>
+                  {REFERRAL_URGENCY_LABELS[option]}
+                </MenuItem>
+              ))}
+            </FormTextField>
+          </Box>
+          <Box sx={{ minWidth: 220 }}>
+            <FormTextField
+              name="whatIsAsked"
+              control={control}
+              select
+              variant="outlined"
+              size="small"
+              label="What is asked"
+              disabled={disabled}
+              data-testid={dataTestIds.referrals.whatIsAsked}
+            >
+              {REFERRAL_ASKS.map((option) => (
+                <MenuItem key={option} value={option}>
+                  {REFERRAL_ASK_LABELS[option]}
+                </MenuItem>
+              ))}
+            </FormTextField>
+          </Box>
+          <Box sx={{ minWidth: 180 }}>
+            <FormTextField
+              name="whoSchedules"
+              control={control}
+              select
+              variant="outlined"
+              size="small"
+              label="Who schedules"
+              disabled={disabled}
+              data-testid={dataTestIds.referrals.whoSchedules}
+            >
+              {REFERRAL_SCHEDULERS.map((option) => (
+                <MenuItem key={option} value={option}>
+                  {REFERRAL_SCHEDULER_LABELS[option]}
+                </MenuItem>
+              ))}
+            </FormTextField>
+          </Box>
           {hasRecipient && (
             <Controller
               name="responseRequested"
@@ -440,26 +453,33 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
               control={control}
               render={({ field: { value, onChange } }) => (
                 <>
-                  {PACKET_DOCUMENT_ORDER.map((kind) => (
-                    <FormControlLabel
-                      key={kind}
-                      label={PACKET_DOCUMENT_LABELS[kind]}
-                      control={
-                        <Checkbox
-                          checked={value.includes(kind)}
-                          disabled={disabled}
-                          onChange={(event) =>
-                            onChange(
-                              event.target.checked
-                                ? PACKET_DOCUMENT_ORDER.filter((item) => item === kind || value.includes(item))
-                                : value.filter((item) => item !== kind)
-                            )
-                          }
-                          data-testid={dataTestIds.referrals.includeDocument(kind)}
-                        />
-                      }
-                    />
-                  ))}
+                  {PACKET_DOCUMENT_ORDER.map((kind) => {
+                    const unavailableReason = unavailableDocuments.get(kind);
+                    const unavailable = unavailableDocuments.has(kind);
+                    return (
+                      <Tooltip key={kind} title={unavailableReason ?? ''}>
+                        <span>
+                          <FormControlLabel
+                            label={PACKET_DOCUMENT_LABELS[kind]}
+                            control={
+                              <Checkbox
+                                checked={value.includes(kind) && !unavailable}
+                                disabled={disabled || unavailable}
+                                onChange={(event) =>
+                                  onChange(
+                                    event.target.checked
+                                      ? PACKET_DOCUMENT_ORDER.filter((item) => item === kind || value.includes(item))
+                                      : value.filter((item) => item !== kind)
+                                  )
+                                }
+                                data-testid={dataTestIds.referrals.includeDocument(kind)}
+                              />
+                            }
+                          />
+                        </span>
+                      </Tooltip>
+                    );
+                  })}
                 </>
               )}
             />
@@ -515,28 +535,23 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
           </Box>
         )}
 
-        <Controller
+        <FormTextField
           name="notesToRecipient"
           control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              size="small"
-              fullWidth
-              multiline
-              rows={3}
-              label="Notes to the recipient"
-              disabled={disabled}
-              inputProps={{ 'data-testid': dataTestIds.referrals.notes }}
-            />
-          )}
+          variant="outlined"
+          size="small"
+          multiline
+          rows={3}
+          label="Notes to the recipient"
+          disabled={disabled}
+          inputProps={{ 'data-testid': dataTestIds.referrals.notes }}
         />
 
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <Stack sx={{ flexGrow: 1 }} spacing={0.5}>
             {referral && (
               <Typography variant="body2" color="text.secondary">
-                Created {formatLocalDate(referral.createdAt)} by {referral.referringProvider.name}
+                Created {formatDateForDisplay(referral.createdAt)} by {referral.referringProvider.name}
               </Typography>
             )}
             {lastFaxText && (
@@ -546,14 +561,14 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
             )}
             {referral?.givenToPatientAt && (
               <Typography variant="body2" color="text.secondary">
-                Given to patient {formatLocalDate(referral.givenToPatientAt)}
+                Given to patient {formatDateForDisplay(referral.givenToPatientAt)}
                 {referral.givenToPatientBy?.name ? ` by ${referral.givenToPatientBy.name}` : ''}
               </Typography>
             )}
             {finished && referral && (
               <Typography variant="body2" color="text.secondary">
                 {REFERRAL_STATUS_LABELS[referral.status]}
-                {referral.closedAt ? ` ${formatLocalDate(referral.closedAt)}` : ''}
+                {referral.closedAt ? ` ${formatDateForDisplay(referral.closedAt)}` : ''}
                 {referral.closedBy?.name ? ` by ${referral.closedBy.name}` : ''}
                 {referral.closeReason ? `: ${REFERRAL_CLOSE_REASON_LABELS[referral.closeReason]}` : ''}
                 {referral.outcome ? ` — ${referral.outcome}` : ''}
@@ -613,7 +628,7 @@ const ReferralFormFields: FC<ReferralFormProps> = ({
                 Save
               </RoundedButton>
               <ButtonGroup variant="contained" sx={{ boxShadow: 'none' }}>
-                <Tooltip title={canFax ? '' : hasRecipient ? NO_FAX_SEND_TEXT : NO_RECIPIENT_SEND_TEXT}>
+                <Tooltip title={faxBlockedReason(hasRecipient, recipientFax)}>
                   <span>
                     <Button
                       variant="contained"

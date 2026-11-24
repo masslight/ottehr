@@ -78,8 +78,7 @@ const run = async (body: Record<string, unknown>): Promise<APIGatewayProxyResult
 describe('list-referrals', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // The referral search pages through fetchAllPages (no `next` link = one page); the recipients, tasks,
-    // documents and encounters the DTOs load page through getAllFhirSearchPages (no match entries = done).
+    // Every search pages through getAllFhirSearchPages (no match entries = done).
     mockOystehr.fhir.search.mockImplementation(async ({ resourceType }: { resourceType: string }) => ({
       unbundle: () => (resourceType === 'ServiceRequest' ? stored : []),
       entry: [],
@@ -119,6 +118,7 @@ describe('list-referrals', () => {
           { name: '_tag', value: REFERRAL_ORDER_TYPE_TAG_TOKEN },
           scope,
           { name: '_count', value: expect.any(String) },
+          { name: '_total', value: 'accurate' },
           { name: '_offset', value: '0' },
         ],
       });

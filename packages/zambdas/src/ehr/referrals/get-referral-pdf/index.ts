@@ -1,6 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { GetReferralPdfOutput, REFERRAL_ROLES } from 'utils/lib/types/api/referrals/referrals.types';
+import {
+  GetReferralPdfInputSchema,
+  GetReferralPdfOutput,
+  REFERRAL_ROLES,
+} from 'utils/lib/types/api/referrals/referrals.types';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
@@ -8,14 +12,14 @@ import { loadReferral } from '../../../shared/referrals/load-referral';
 import { getOrCreateReferralForm, presignReferralForm } from '../../../shared/referrals/referral-form';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../../shared/validation';
 
 const ZAMBDA_NAME = 'get-referral-pdf';
 
 let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { referralId, secrets } = validateRequestParameters(input);
+    const { referralId, secrets } = validateWithSchema(GetReferralPdfInputSchema, input);
     await requireUserWithRole(getUserToken(input), secrets, REFERRAL_ROLES);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);

@@ -37,7 +37,11 @@ export async function resolveCallerPractitionerRef(
   secrets: Secrets | null,
   oystehr: Oystehr
 ): Promise<Reference> {
-  const user = await userMe(token, secrets);
+  return userPractitionerRef(await userMe(token, secrets), oystehr);
+}
+
+/** Same as resolveCallerPractitionerRef, for a user the caller has already resolved (e.g. by requireUserWithRole). */
+export async function userPractitionerRef(user: User, oystehr: Oystehr): Promise<Reference> {
   const practitionerId = getIdFromReference(user.profile, 'Practitioner');
   if (!practitionerId) throw new Error("Can't receive practitioner resource id attached to current user");
 
@@ -51,11 +55,24 @@ export async function resolveCallerPractitionerRef(
  * Display is first + last name only — no credentials.
  */
 export async function practitionerRefForUser(user: User, oystehr: Oystehr): Promise<Reference> {
+  return practitionerRefNamedForUser(user, oystehr, practitionerFirstLastName);
+}
+
+/** Same as practitionerRefForUser, named the way resolveCallerPractitionerRef names them (credentials included). */
+export async function fullestPractitionerRefForUser(user: User, oystehr: Oystehr): Promise<Reference> {
+  return practitionerRefNamedForUser(user, oystehr, getFullestAvailableName);
+}
+
+async function practitionerRefNamedForUser(
+  user: User,
+  oystehr: Oystehr,
+  nameOf: (practitioner: Practitioner) => string | undefined
+): Promise<Reference> {
   const practitionerId = getIdFromReference(user.profile, 'Practitioner');
   if (!practitionerId) return { reference: user.profile, display: user.name };
   try {
     const practitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId });
-    return { reference: user.profile, display: practitionerFirstLastName(practitioner) || user.name };
+    return { reference: user.profile, display: nameOf(practitioner) || user.name };
   } catch (error) {
     console.error('Failed to resolve practitioner name for user', user.id, error);
     return { reference: user.profile, display: user.name };

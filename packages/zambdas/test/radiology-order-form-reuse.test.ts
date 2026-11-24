@@ -1,12 +1,14 @@
 import { DocumentReference, Observation } from 'fhir/r4b';
 import { describe, expect, it } from 'vitest';
 import {
-  getStoredOrderFormSourceVersion,
   isPrintableObservation,
-  makeRadiologyOrderFormSourceVersion,
   makeRadiologyOrderFormVersion,
-  OrderFormSource,
 } from '../src/ehr/radiology/shared/order-form-resources';
+import {
+  getStoredOrderFormSourceVersion,
+  makeOrderFormSourceVersion,
+  OrderFormSource,
+} from '../src/shared/order-form-version';
 import { RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM } from '../src/shared/pdf/radiology-order-form-pdf';
 
 const resource = (resourceType: string, id: string | undefined, versionId: string | undefined): OrderFormSource => ({
@@ -23,7 +25,7 @@ const coverage = (versionId: string): OrderFormSource => resource('Coverage', 'c
 describe('makeRadiologyOrderFormVersion', () => {
   it('does not match a form stamped before the template was versioned, for the same sources', () => {
     const sources = [serviceRequest('1'), patient('4')];
-    expect(makeRadiologyOrderFormVersion(sources)).not.toBe(makeRadiologyOrderFormSourceVersion(sources));
+    expect(makeRadiologyOrderFormVersion(sources)).not.toBe(makeOrderFormSourceVersion(sources));
   });
 
   it('is stable for unchanged sources', () => {
@@ -45,47 +47,43 @@ describe('makeRadiologyOrderFormVersion', () => {
   });
 });
 
-describe('makeRadiologyOrderFormSourceVersion', () => {
+describe('makeOrderFormSourceVersion', () => {
   it('is stable regardless of the order the sources were gathered in', () => {
-    expect(makeRadiologyOrderFormSourceVersion([serviceRequest('1'), patient('4')])).toBe(
-      makeRadiologyOrderFormSourceVersion([patient('4'), serviceRequest('1')])
+    expect(makeOrderFormSourceVersion([serviceRequest('1'), patient('4')])).toBe(
+      makeOrderFormSourceVersion([patient('4'), serviceRequest('1')])
     );
   });
 
   it('changes when the order changes', () => {
-    expect(makeRadiologyOrderFormSourceVersion([serviceRequest('1'), patient('4')])).not.toBe(
-      makeRadiologyOrderFormSourceVersion([serviceRequest('2'), patient('4')])
+    expect(makeOrderFormSourceVersion([serviceRequest('1'), patient('4')])).not.toBe(
+      makeOrderFormSourceVersion([serviceRequest('2'), patient('4')])
     );
   });
 
   it('changes when the patient demographics change', () => {
-    expect(makeRadiologyOrderFormSourceVersion([serviceRequest('1'), patient('4')])).not.toBe(
-      makeRadiologyOrderFormSourceVersion([serviceRequest('1'), patient('5')])
+    expect(makeOrderFormSourceVersion([serviceRequest('1'), patient('4')])).not.toBe(
+      makeOrderFormSourceVersion([serviceRequest('1'), patient('5')])
     );
   });
 
   it('changes when a recorded weight changes', () => {
-    expect(makeRadiologyOrderFormSourceVersion([serviceRequest('1'), weight('1')])).not.toBe(
-      makeRadiologyOrderFormSourceVersion([serviceRequest('1'), weight('2')])
+    expect(makeOrderFormSourceVersion([serviceRequest('1'), weight('1')])).not.toBe(
+      makeOrderFormSourceVersion([serviceRequest('1'), weight('2')])
     );
   });
 
   it('changes when a weight is recorded where there was none', () => {
-    expect(makeRadiologyOrderFormSourceVersion([serviceRequest('1')])).not.toBe(
-      makeRadiologyOrderFormSourceVersion([serviceRequest('1'), weight('1')])
+    expect(makeOrderFormSourceVersion([serviceRequest('1')])).not.toBe(
+      makeOrderFormSourceVersion([serviceRequest('1'), weight('1')])
     );
   });
 
   it('is undefined when a source carries no version', () => {
-    expect(makeRadiologyOrderFormSourceVersion([serviceRequest('1'), resource('Patient', 'pat-1', undefined)])).toBe(
-      undefined
-    );
+    expect(makeOrderFormSourceVersion([serviceRequest('1'), resource('Patient', 'pat-1', undefined)])).toBe(undefined);
   });
 
   it('is undefined when a source carries no id', () => {
-    expect(makeRadiologyOrderFormSourceVersion([serviceRequest('1'), resource('Patient', undefined, '4')])).toBe(
-      undefined
-    );
+    expect(makeOrderFormSourceVersion([serviceRequest('1'), resource('Patient', undefined, '4')])).toBe(undefined);
   });
 });
 
@@ -120,10 +118,17 @@ describe('getStoredOrderFormSourceVersion', () => {
         { system: RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM, value: 'ServiceRequest/sr-1@1' },
       ],
     } as DocumentReference;
-    expect(getStoredOrderFormSourceVersion(docRef)).toBe('ServiceRequest/sr-1@1');
+    expect(getStoredOrderFormSourceVersion(docRef, RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM)).toBe(
+      'ServiceRequest/sr-1@1'
+    );
   });
 
   it('is undefined for a form stamped before versioning existed', () => {
-    expect(getStoredOrderFormSourceVersion({ resourceType: 'DocumentReference' } as DocumentReference)).toBe(undefined);
+    expect(
+      getStoredOrderFormSourceVersion(
+        { resourceType: 'DocumentReference' } as DocumentReference,
+        RADIOLOGY_ORDER_FORM_SOURCE_VERSION_SYSTEM
+      )
+    ).toBe(undefined);
   });
 });

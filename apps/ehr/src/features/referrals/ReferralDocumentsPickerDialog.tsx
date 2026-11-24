@@ -4,6 +4,7 @@ import { CustomDialog } from 'src/components/dialogs/CustomDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PatientDocumentsExplorer } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorer';
+import { resolveDocumentVisit } from 'src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable';
 import { PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
 import { usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
 import { isReferralDocumentFolderAllowed, REFERRAL_DOCUMENT_FOLDERS } from 'utils/lib/fhir/referral';
@@ -54,9 +55,7 @@ export const ReferralDocumentsPickerDialog: FC<ReferralDocumentsPickerDialogProp
     const toChip = (id: string): ReferralEarlierDocument | undefined => {
       const document = documentsById.get(id);
       if (!document) return selected.find((chip) => chip.id === id);
-      const visit =
-        (document.encounterId ? visitsByEncounterId.get(document.encounterId) : undefined) ??
-        (document.appointmentId ? visitsByAppointmentId.get(document.appointmentId) : undefined);
+      const visit = resolveDocumentVisit(document, visitsByEncounterId, visitsByAppointmentId);
       return { id, title: document.docName, date: document.whenAddedDate, visitDate: visit?.dateTime };
     };
     const kept = selected.map((chip) => chip.id).filter((id) => selectedIds.includes(id));

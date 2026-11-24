@@ -1,5 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { Coding, Organization } from 'fhir/r4b';
+import { Coding, Organization, ServiceRequest } from 'fhir/r4b';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { getReferralStatus, isReferralServiceRequest, REFERRAL_ORDER_TYPE_TAG_TOKEN } from 'utils/lib/fhir/referral';
 import { formatPhoneNumber } from 'utils/lib/helpers/helpers';
 import {
   ADDRESS_BOOK_TAG_CODE,
@@ -32,6 +34,31 @@ export const getAddressBookOrganizationOrThrow = async (oystehr: Oystehr, contac
     throw INVALID_INPUT_ERROR(`Organization ${contactId} is not an address book contact`);
   }
   return organization;
+};
+
+/** Refuses to delete a contact that a referral other than a cancelled one still sends to. */
+export const assertContactNotReferralRecipient = async (oystehr: Oystehr, contactId: string): Promise<void> => {
+  const referrals = (
+    await getAllFhirSearchPages<ServiceRequest>(
+      {
+        resourceType: 'ServiceRequest',
+        params: [
+          { name: 'performer', value: `Organization/${contactId}` },
+          { name: '_tag', value: REFERRAL_ORDER_TYPE_TAG_TOKEN },
+        ],
+      },
+      oystehr
+    )
+  ).filter(
+    (serviceRequest) => isReferralServiceRequest(serviceRequest) && getReferralStatus(serviceRequest) !== 'cancelled'
+  );
+  if (referrals.length) {
+    throw INVALID_INPUT_ERROR(
+      `This contact is the recipient of ${referrals.length} ${
+        referrals.length === 1 ? 'referral' : 'referrals'
+      } and can't be deleted.`
+    );
+  }
 };
 
 /** Full replacement; only the id and meta tags from other systems survive from `existing`. */

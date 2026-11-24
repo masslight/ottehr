@@ -237,8 +237,8 @@ export const notificationRowMatchesLocation = (row: NotificationRowPref, locatio
 export type ProviderNotificationTarget =
   | { type: 'visit'; appointmentId: string }
   | { type: 'inboundFax'; faxCommunicationId: string }
-  /** A referral task made from the patient record, with no visit to land on. */
-  | { type: 'patient'; patientId: string };
+  /** A referral task: its visit's Plan tab when it was made on a visit, else the patient's Referrals tab. */
+  | { type: 'referral'; patientId: string; appointmentId?: string };
 
 /** One notification as the bell needs it — the whole of what the read endpoint discloses. */
 export interface ProviderNotificationDto {

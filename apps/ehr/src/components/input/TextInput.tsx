@@ -15,6 +15,8 @@ type Props = {
   inputProps?: InputBaseComponentProps;
   InputProps?: InputProps;
   dataTestId?: string;
+  disabled?: boolean;
+  helperText?: string;
 };
 
 export const TextInput: React.FC<Props> = ({
@@ -29,6 +31,8 @@ export const TextInput: React.FC<Props> = ({
   inputProps,
   InputProps,
   dataTestId,
+  disabled,
+  helperText,
 }) => {
   const { control } = useFormContext();
   return !loading ? (
@@ -56,9 +60,14 @@ export const TextInput: React.FC<Props> = ({
             inputProps={inputProps}
             InputProps={InputProps}
             fullWidth
+            disabled={disabled}
             data-testid={dataTestId}
           />
-          {error && <FormHelperText error={true}>{error?.message}</FormHelperText>}
+          {error ? (
+            <FormHelperText error={true}>{error?.message}</FormHelperText>
+          ) : (
+            helperText && <FormHelperText>{helperText}</FormHelperText>
+          )}
         </Box>
       )}
     />

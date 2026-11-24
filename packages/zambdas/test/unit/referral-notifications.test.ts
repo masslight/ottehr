@@ -18,9 +18,9 @@ import {
   buildReferralOverdueMessage,
   buildTaskNotificationAbout,
   findOverdueReferralTasks,
-  hasReferralOverdueNotifiedTag,
 } from '../../src/cron/notifications-updater';
 import { resolveNotificationTarget } from '../../src/ehr/notifications/shared/notifications';
+import { hasOverdueNotifiedTag } from '../../src/shared/referrals/referral-task';
 
 const NOW = DateTime.fromISO('2026-11-02T12:00:00.000Z');
 
@@ -79,7 +79,7 @@ describe('findOverdueReferralTasks', () => {
     const other = referralTask({ id: 'other', groupIdentifier: { value: 'manual-other' } });
     const noEnd = referralTask({ id: 'no-end', restriction: undefined });
     expect(findOverdueReferralTasks([notDue, notified, other, noEnd, owner], NOW)).toEqual([]);
-    expect(hasReferralOverdueNotifiedTag(notified)).toBe(true);
+    expect(hasOverdueNotifiedTag(notified)).toBe(true);
   });
 
   it('builds the overdue message from the task description', () => {
@@ -110,23 +110,60 @@ describe('referral notification target', () => {
     expect(buildTaskNotificationAbout(referralTask({ input: undefined }))).toBeUndefined();
   });
 
-  it('lands on the patient record when the task has no visit, and on the visit when it has one', () => {
-    const encounter: Encounter = {
-      resourceType: 'Encounter',
-      id: 'enc-1',
-      status: 'finished',
-      class: { code: 'AMB' },
-      appointment: [{ reference: 'Appointment/appt-1' }],
-    };
+  const visitEncounter: Encounter = {
+    resourceType: 'Encounter',
+    id: 'enc-1',
+    status: 'finished',
+    class: { code: 'AMB' },
+    appointment: [{ reference: 'Appointment/appt-1' }],
+  };
+
+  it('targets the patient’s referrals when the task has no visit', () => {
     expect(
       resolveNotificationTarget(referralNotification({ about: [{ reference: 'Patient/pat-1' }] }), new Map())
-    ).toEqual({ type: 'patient', patientId: 'pat-1' });
+    ).toEqual({ type: 'referral', patientId: 'pat-1' });
+    expect(resolveNotificationTarget(referralNotification(), new Map())).toBeUndefined();
+  });
+
+  it('targets the referral on its visit, not the visit details page, when the overdue notification carries the encounter', () => {
     expect(
       resolveNotificationTarget(
         referralNotification({ encounter: { reference: 'Encounter/enc-1' }, about: [{ reference: 'Patient/pat-1' }] }),
-        new Map([['enc-1', encounter]])
+        new Map([['enc-1', visitEncounter]])
       )
-    ).toEqual({ type: 'visit', appointmentId: 'appt-1' });
-    expect(resolveNotificationTarget(referralNotification(), new Map())).toBeUndefined();
+    ).toEqual({ type: 'referral', patientId: 'pat-1', appointmentId: 'appt-1' });
+  });
+
+  it('falls back to the patient’s referrals when the encounter was not included in the search', () => {
+    expect(
+      resolveNotificationTarget(
+        referralNotification({ encounter: { reference: 'Encounter/enc-1' }, about: [{ reference: 'Patient/pat-1' }] }),
+        new Map()
+      )
+    ).toEqual({ type: 'referral', patientId: 'pat-1' });
+  });
+
+  it('targets the patient’s referrals from an assignment notification for a routed review task, which carries no encounter', () => {
+    const assigned = referralNotification({
+      category: [
+        {
+          coding: [
+            { system: PROVIDER_NOTIFICATION_TYPE_SYSTEM, code: 'task-assigned' },
+            { system: PROVIDER_NOTIFICATION_CATEGORY_SYSTEM, code: 'referrals' },
+          ],
+        },
+      ],
+      about: [{ reference: 'Patient/pat-1' }],
+    });
+    expect(resolveNotificationTarget(assigned, new Map([['enc-1', visitEncounter]]))).toEqual({
+      type: 'referral',
+      patientId: 'pat-1',
+    });
+    expect(
+      resolveNotificationTarget(
+        { ...assigned, encounter: { reference: 'Encounter/enc-1' } },
+        new Map([['enc-1', visitEncounter]])
+      )
+    ).toEqual({ type: 'referral', patientId: 'pat-1', appointmentId: 'appt-1' });
   });
 });

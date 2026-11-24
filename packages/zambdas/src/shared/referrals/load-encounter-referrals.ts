@@ -31,6 +31,7 @@ export interface EncounterReferral {
   status: ReferralStatus;
   authoredOn?: string;
   sentAt?: string;
+  givenToPatientAt?: string;
   recipient?: { name: string; address?: string; phone?: string };
 }
 
@@ -53,6 +54,7 @@ export const mapEncounterReferral = (
     status: getReferralStatus(serviceRequest),
     authoredOn: serviceRequest.authoredOn,
     sentAt: details?.sentAt,
+    givenToPatientAt: details?.givenToPatientAt,
     recipient: recipient
       ? {
           name: recipient.name || serviceRequest.performer?.[0]?.display || '',

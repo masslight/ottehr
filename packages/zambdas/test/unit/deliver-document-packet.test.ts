@@ -618,6 +618,15 @@ describe('markReferralSentIfDelivered', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it('writes no referral details onto a ServiceRequest that is not a referral', async () => {
+    const { update, patch, oystehr } = oystehrFor({ ...referral('not-sent'), meta: { versionId: '3' } });
+
+    await markReferralSentIfDelivered('referral-1', sent, oystehr);
+
+    expect(update).not.toHaveBeenCalled();
+    expect(patch).not.toHaveBeenCalled();
+  });
+
   it('re-reads and retries when the referral changed underneath it, at most three times', async () => {
     const { get, update, oystehr } = oystehrFor(referral('not-sent'));
     update.mockRejectedValueOnce(conflict).mockRejectedValueOnce(conflict);

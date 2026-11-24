@@ -38,8 +38,9 @@ export const providerNotificationCategoryParam = (): string =>
  * Where a notification sends the user, resolved from the notification plus the Encounters included
  * alongside it — never a follow-up query, because this runs on every tick of a 10-second poll.
  *
- * A notification tied to a visit wins over anything else: that's the destination staff expect from the
- * telemed notifications, and it's the only one with an appointment to land on. Inbound faxes are the
+ * A referral notification lands where the referral is worked: its visit's Plan tab when the Task carries a
+ * visit, else the patient's Referrals tab. Otherwise a notification tied to a visit wins over anything else:
+ * that's the destination staff expect from the telemed notifications. Inbound faxes are the
  * case needing the fallback — the cron stamps them with their UI category and an `about` reference to
  * the fax Communication, which is exactly what the match page is keyed by. Notifications written
  * before that producer change carry no `about` and simply have no target; the bell shows the last 10,
@@ -53,7 +54,6 @@ export const resolveNotificationTarget = (
   const appointmentId = encounterId
     ? removePrefix(APPOINTMENT_REFERENCE_PREFIX, encountersById.get(encounterId)?.appointment?.[0]?.reference ?? '')
     : undefined;
-  if (appointmentId) return { type: 'visit', appointmentId };
 
   // Typed against `UiTaskCategoryId` rather than asserted onto it: the coding carries whatever string
   // the producer wrote, and this way renaming the id is a compile error instead of a target that
@@ -68,8 +68,10 @@ export const resolveNotificationTarget = (
     const patientId = communication.about
       ?.map((about) => removePrefix(PATIENT_REFERENCE_PREFIX, about.reference ?? ''))
       .find((id): id is string => !!id);
-    return patientId ? { type: 'patient', patientId } : undefined;
+    if (!patientId) return undefined;
+    return appointmentId ? { type: 'referral', patientId, appointmentId } : { type: 'referral', patientId };
   }
+  if (appointmentId) return { type: 'visit', appointmentId };
   if (categoryCode !== inboundFaxCategory) return undefined;
 
   // A `Communication/<id>` reference is what names a fax we can route to, so the prefix strip is also

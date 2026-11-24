@@ -70,6 +70,7 @@ import { getInPersonVisitStatus } from 'utils/lib/utils/visitUtils';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { getNoteTaskId, isTaskNote, isTaskNoteUnreadBy, TASK_NOTE_TAG } from '../../shared/notes';
+import { hasOverdueNotifiedTag, OPEN_TASK_STATUSES } from '../../shared/referrals/referral-task';
 import { wrapHandler } from '../../shared/sentry';
 import { getTaskLocation } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types/common';
@@ -400,31 +401,14 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         if (!rowMatchesFilters(row, taskLocationId, false)) continue;
 
         const status = communicationStatusForMethod(row.method);
-        const message = buildCategoryNotificationMessage(uiCategory, task);
-        const request: BatchInputPostRequest<Communication> = {
-          method: 'POST',
-          url: '/Communication',
-          resource: {
-            resourceType: 'Communication',
-            category: [
-              {
-                coding: [
-                  {
-                    system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                    code: AppointmentProviderNotificationTypes.task_category_created,
-                  },
-                  taskCategoryCoding(uiCategory),
-                ],
-              },
-            ],
-            sent: DateTime.utc().toISO()!,
-            status: status,
-            basedOn: [{ reference: `Task/${task.id}` }],
-            about: buildTaskNotificationAbout(task),
-            recipient: [{ reference: `Practitioner/${practitioner.id}` }],
-            payload: [{ contentString: message }],
-          },
-        };
+        const request = buildTaskNotificationRequest({
+          task,
+          type: AppointmentProviderNotificationTypes.task_category_created,
+          uiCategory,
+          recipient: practitioner,
+          status,
+          message: buildCategoryNotificationMessage(uiCategory, task),
+        });
         enqueueNotification(practitioner, request, status, row.method);
         categoryNotifiedThisRun.add(categoryNotifiedKey(task.id!, practitioner.id!));
       }
@@ -482,30 +466,14 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
         // notification is about without fetching its Task.
         const uiCategory = getUiTaskCategoryForCode(task.groupIdentifier?.value);
 
-        const request: BatchInputPostRequest<Communication> = {
-          method: 'POST',
-          url: '/Communication',
-          resource: {
-            resourceType: 'Communication',
-            category: [
-              {
-                coding: [
-                  {
-                    system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                    code: AppointmentProviderNotificationTypes.task_assigned,
-                  },
-                  ...(uiCategory ? [taskCategoryCoding(uiCategory)] : []),
-                ],
-              },
-            ],
-            sent: DateTime.utc().toISO()!,
-            status: status,
-            basedOn: [{ reference: `Task/${task.id}` }],
-            about: buildTaskNotificationAbout(task),
-            recipient: [{ reference: `Practitioner/${recipient.id}` }],
-            payload: [{ contentString: title }],
-          },
-        };
+        const request = buildTaskNotificationRequest({
+          task,
+          type: AppointmentProviderNotificationTypes.task_assigned,
+          uiCategory,
+          recipient,
+          status,
+          message: title,
+        });
 
         enqueueNotification(recipient, request, status, method);
       }
@@ -535,31 +503,14 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
       if (!delivery.notify) return;
 
       const status = communicationStatusForMethod(delivery.method);
-      const request: BatchInputPostRequest<Communication> = {
-        method: 'POST',
-        url: '/Communication',
-        resource: {
-          resourceType: 'Communication',
-          category: [
-            {
-              coding: [
-                {
-                  system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-                  code: AppointmentProviderNotificationTypes.task_category_created,
-                },
-                taskCategoryCoding('referrals'),
-              ],
-            },
-          ],
-          sent: DateTime.utc().toISO()!,
-          status: status,
-          basedOn: [{ reference: `Task/${task.id}` }],
-          encounter: task.encounter,
-          about: buildTaskNotificationAbout(task),
-          recipient: [{ reference: `Practitioner/${owner.id}` }],
-          payload: [{ contentString: buildReferralOverdueMessage(task) }],
-        },
-      };
+      const request = buildTaskNotificationRequest({
+        task,
+        type: AppointmentProviderNotificationTypes.task_category_created,
+        uiCategory: 'referrals',
+        recipient: owner,
+        status,
+        message: buildReferralOverdueMessage(task),
+      });
       enqueueNotification(owner, request, status, delivery.method);
     } catch (error) {
       console.error(`Error trying to process referral overdue notification for task ${task.id}`, error);
@@ -588,21 +539,15 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
           if (!delivery.notify) continue;
           notifiedThisRun.add(key);
           const status = communicationStatusForMethod(delivery.method);
-          const type = {
-            system: PROVIDER_NOTIFICATION_TYPE_SYSTEM,
-            code: AppointmentProviderNotificationTypes.task_note_added,
-          };
-          const resource: Communication = {
-            resourceType: 'Communication',
-            category: [{ coding: [type, ...(uiCategory ? [taskCategoryCoding(uiCategory)] : [])] }],
-            sent: DateTime.utc().toISO()!,
+          const request = buildTaskNotificationRequest({
+            task,
+            type: AppointmentProviderNotificationTypes.task_note_added,
+            uiCategory,
+            recipient,
             status,
-            basedOn: [{ reference: `Task/${task.id}` }],
-            about: buildTaskNotificationAbout(task),
-            recipient: [{ reference: `Practitioner/${recipient.id}` }],
-            payload: [{ contentString: 'New note on task: ' + (task.description ?? `task ID ${task.id}`) }],
-          };
-          enqueueNotification(recipient, { method: 'POST', url: '/Communication', resource }, status, delivery.method);
+            message: 'New note on task: ' + (task.description ?? `task ID ${task.id}`),
+          });
+          enqueueNotification(recipient, request, status, delivery.method);
         }
       }
       const notifiedTag = { system: TASK_NOTE_NOTIFIED_TAG_SYSTEM, code: TASK_NOTE_NOTIFIED_TAG_CODE };
@@ -899,7 +844,8 @@ export async function getOpenReferralTaskResources(oystehr: Oystehr): Promise<(T
       resourceType: 'Task',
       params: [
         { name: 'group-identifier', value: `${TASK_CATEGORY_IDENTIFIER}|${REFERRAL_TASK.category}` },
-        { name: 'status', value: 'ready,in-progress' },
+        { name: 'status', value: OPEN_TASK_STATUSES.join(',') },
+        { name: '_tag:not', value: `${REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM}|${REFERRAL_OVERDUE_NOTIFIED_TAG_CODE}` },
         { name: '_include', value: 'Task:owner' },
       ],
     },
@@ -919,21 +865,15 @@ export function findOverdueReferralTasks(
   });
   return tasks
     .filter((task) => {
-      if (task.groupIdentifier?.value !== REFERRAL_TASK.category || hasReferralOverdueNotifiedTag(task)) return false;
+      if (task.groupIdentifier?.value !== REFERRAL_TASK.category || hasOverdueNotifiedTag(task)) return false;
       const end = task.restriction?.period?.end ? DateTime.fromISO(task.restriction.period.end) : null;
       return !!end && end.isValid && end < now;
     })
     .flatMap((task) => {
-      const ownerId = removePrefix('Practitioner/', task.owner?.reference ?? '');
+      const ownerId = getIdFromReference(task.owner?.reference, 'Practitioner');
       const owner = ownerId ? practitionerById.get(ownerId) : undefined;
       return owner ? [{ task, owner }] : [];
     });
-}
-
-export function hasReferralOverdueNotifiedTag(task: Task): boolean {
-  return !!task.meta?.tag?.some(
-    (tag) => tag.system === REFERRAL_OVERDUE_NOTIFIED_TAG_SYSTEM && tag.code === REFERRAL_OVERDUE_NOTIFIED_TAG_CODE
-  );
 }
 
 export function buildReferralOverdueMessage(task: Task): string {
@@ -1199,6 +1139,46 @@ export function taskCategoryCoding(uiCategory: UiTaskCategoryId): Coding {
     system: PROVIDER_NOTIFICATION_CATEGORY_SYSTEM,
     code: uiCategory,
     display: UI_TASK_CATEGORY_LABELS[uiCategory],
+  };
+}
+
+export function buildTaskNotificationRequest({
+  task,
+  type,
+  uiCategory,
+  recipient,
+  status,
+  message,
+}: {
+  task: Task;
+  type: AppointmentProviderNotificationTypes;
+  uiCategory: UiTaskCategoryId | undefined;
+  recipient: Practitioner;
+  status: Communication['status'];
+  message: string;
+}): BatchInputPostRequest<Communication> {
+  const encounter = uiCategory === 'referrals' ? task.encounter : undefined;
+  return {
+    method: 'POST',
+    url: '/Communication',
+    resource: {
+      resourceType: 'Communication',
+      category: [
+        {
+          coding: [
+            { system: PROVIDER_NOTIFICATION_TYPE_SYSTEM, code: type },
+            ...(uiCategory ? [taskCategoryCoding(uiCategory)] : []),
+          ],
+        },
+      ],
+      sent: DateTime.utc().toISO()!,
+      status,
+      basedOn: [{ reference: `Task/${task.id}` }],
+      ...(encounter ? { encounter } : {}),
+      about: buildTaskNotificationAbout(task),
+      recipient: [{ reference: `Practitioner/${recipient.id}` }],
+      payload: [{ contentString: message }],
+    },
   };
 }
 

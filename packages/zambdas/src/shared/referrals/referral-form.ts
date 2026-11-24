@@ -1,50 +1,23 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { DocumentReference, Encounter, Location, Organization, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
-import { TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   getReferralEarlierDocumentIds,
   REFERRAL_FORM_DOC_REF_DOCTYPE,
   REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/referral';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
-import { DEFAULT_TIMEZONE } from '../document-packet/deliver-document-packet';
+import { DEFAULT_TIMEZONE, resourceTimezone } from '../document-packet/deliver-document-packet';
 import { isFhirNotFoundError } from '../errors';
+import { findCurrentOrderFormDocRef, getReusableOrderFormUrl, makeOrderFormVersion } from '../order-form-version';
 import { createReferralFormPDF } from '../pdf/referral-form-pdf';
-import { loadReferralRecipient } from './recipient';
+import { mapReferralRecipient, withReferralFax } from './recipient';
 import { findReferralDocuments } from './referral-documents';
 
-export const makeReferralFormSourceVersion = (serviceRequest: ServiceRequest): string | undefined =>
-  serviceRequest.id && serviceRequest.meta?.versionId
-    ? `ServiceRequest/${serviceRequest.id}@${serviceRequest.meta.versionId}`
-    : undefined;
-
-export const getStoredReferralFormSourceVersion = (docRef: DocumentReference): string | undefined =>
-  docRef.identifier?.find((identifier) => identifier.system === REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM)?.value;
-
-const findCurrentReferralFormDocRef = async (
-  oystehr: Oystehr,
-  referralId: string
-): Promise<DocumentReference | undefined> =>
-  (
-    await oystehr.fhir.search<DocumentReference>({
-      resourceType: 'DocumentReference',
-      params: [
-        { name: 'related', value: `ServiceRequest/${referralId}` },
-        { name: 'type', value: `${REFERRAL_FORM_DOC_REF_DOCTYPE.system}|${REFERRAL_FORM_DOC_REF_DOCTYPE.code}` },
-        { name: 'status', value: 'current' },
-        { name: '_sort', value: '-date' },
-      ],
-    })
-  ).unbundle()[0];
-
-const timezoneOf = (resource: Location | Organization | undefined): string | undefined =>
-  resource?.extension?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL)?.valueString;
-
-const referenceId = (reference: string | undefined, prefix: string): string | undefined =>
-  removePrefix(prefix, reference ?? '') || undefined;
+export const REFERRAL_FORM_TEMPLATE_VERSION = 1;
 
 export interface ReferralFormDocument {
   documentReference: DocumentReference;
@@ -52,46 +25,79 @@ export interface ReferralFormDocument {
   presignedURL?: string;
 }
 
+const loadPractice = (oystehr: Oystehr, secrets: Secrets | null): Promise<Organization | undefined> =>
+  oystehr.fhir
+    .get<Organization>({ resourceType: 'Organization', id: getSecret(SecretsKeys.ORGANIZATION_ID, secrets) })
+    .catch((error: unknown) => {
+      if (!isFhirNotFoundError(error)) throw error;
+      console.error('[referral-form] ORGANIZATION_ID names no Organization; From block falls back to the office');
+      captureException(error);
+      return undefined;
+    });
+
+const loadOffice = async (oystehr: Oystehr, encounterId: string | undefined): Promise<Location | undefined> => {
+  if (!encounterId) return undefined;
+  const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
+  const locationId = getEncounterLocationId(encounter);
+  return locationId ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }) : undefined;
+};
+
+const loadRecipientOrganization = async (
+  oystehr: Oystehr,
+  serviceRequest: ServiceRequest
+): Promise<Organization | undefined> => {
+  const contactId = getIdFromReference(serviceRequest.performer?.[0]?.reference, 'Organization');
+  if (!contactId) return undefined;
+  const [organization] = (
+    await oystehr.fhir.search<Organization>({
+      resourceType: 'Organization',
+      params: [{ name: '_id', value: contactId }],
+    })
+  ).unbundle();
+  return organization;
+};
+
 export const getOrCreateReferralForm = async (
   serviceRequest: ServiceRequest,
   args: { oystehr: Oystehr; secrets: Secrets | null; token: string }
 ): Promise<ReferralFormDocument> => {
   const { oystehr, secrets, token } = args;
   const referralId = serviceRequest.id;
-  const patientId = referenceId(serviceRequest.subject?.reference, 'Patient/');
+  const patientId = getIdFromReference(serviceRequest.subject?.reference, 'Patient');
   if (!referralId || !patientId) throw new Error('Referral is missing its id or patient');
 
-  const existing = await findCurrentReferralFormDocRef(oystehr, referralId);
-  const sourceVersion = makeReferralFormSourceVersion(serviceRequest);
-  const existingUrl = existing?.content?.[0]?.attachment?.url;
-  if (existing && existingUrl && sourceVersion && getStoredReferralFormSourceVersion(existing) === sourceVersion) {
+  const encounterId = getIdFromReference(serviceRequest.encounter?.reference, 'Encounter');
+  const practitionerId = getIdFromReference(serviceRequest.requester?.reference, 'Practitioner');
+  const earlierDocumentIds = getReferralEarlierDocumentIds(serviceRequest);
+  const [existing, patient, practice, location, practitioner, recipientOrganization, earlierDocuments] =
+    await Promise.all([
+      findCurrentOrderFormDocRef(oystehr, `ServiceRequest/${referralId}`, REFERRAL_FORM_DOC_REF_DOCTYPE),
+      oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
+      loadPractice(oystehr, secrets),
+      loadOffice(oystehr, encounterId),
+      practitionerId ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId }) : undefined,
+      loadRecipientOrganization(oystehr, serviceRequest),
+      findReferralDocuments(oystehr, patientId, earlierDocumentIds).then((found) =>
+        earlierDocumentIds.flatMap((id) => found.get(id) ?? [])
+      ),
+    ]);
+
+  const sourceVersion = makeOrderFormVersion(
+    REFERRAL_FORM_TEMPLATE_VERSION,
+    [
+      serviceRequest,
+      patient,
+      practitioner,
+      practice,
+      location,
+      recipientOrganization,
+      ...earlierDocuments.map((document) => document.documentReference),
+    ].flatMap((resource) => (resource ? [resource] : []))
+  );
+  const existingUrl = getReusableOrderFormUrl(existing, REFERRAL_FORM_SOURCE_VERSION_IDENTIFIER_SYSTEM, sourceVersion);
+  if (existing && existingUrl) {
     return { documentReference: existing, z3Url: existingUrl };
   }
-
-  const encounterId = referenceId(serviceRequest.encounter?.reference, 'Encounter/');
-  const practitionerId = referenceId(serviceRequest.requester?.reference, 'Practitioner/');
-  const earlierDocumentIds = getReferralEarlierDocumentIds(serviceRequest);
-  const [patient, practice, encounter, practitioner, recipient, earlierDocuments] = await Promise.all([
-    oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
-    oystehr.fhir
-      .get<Organization>({ resourceType: 'Organization', id: getSecret(SecretsKeys.ORGANIZATION_ID, secrets) })
-      .catch((error: unknown) => {
-        if (!isFhirNotFoundError(error)) throw error;
-        console.error('[referral-form] ORGANIZATION_ID names no Organization; From block falls back to the office');
-        captureException(error);
-        return undefined;
-      }),
-    encounterId ? oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId }) : undefined,
-    practitionerId ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId }) : undefined,
-    loadReferralRecipient(oystehr, serviceRequest),
-    findReferralDocuments(oystehr, patientId, earlierDocumentIds).then((found) =>
-      earlierDocumentIds.flatMap((id) => found.get(id) ?? [])
-    ),
-  ]);
-  const locationId = referenceId(encounter?.location?.[0]?.location?.reference, 'Location/');
-  const location = locationId
-    ? await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId })
-    : undefined;
 
   const { documentReference, presignedURL } = await createReferralFormPDF(
     {
@@ -100,9 +106,11 @@ export const getOrCreateReferralForm = async (
       practitioner,
       practice,
       location,
-      recipient,
+      recipient: recipientOrganization
+        ? withReferralFax(serviceRequest, mapReferralRecipient(recipientOrganization))
+        : undefined,
       earlierDocuments,
-      timezone: timezoneOf(location) ?? timezoneOf(practice) ?? DEFAULT_TIMEZONE,
+      timezone: resourceTimezone(location) ?? resourceTimezone(practice) ?? DEFAULT_TIMEZONE,
       oystehr,
     },
     { patientId, encounterId, referralId },

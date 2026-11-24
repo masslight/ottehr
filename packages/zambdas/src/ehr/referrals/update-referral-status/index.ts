@@ -1,8 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ServiceRequest } from 'fhir/r4b';
+import { FhirResource, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
-import { getReferralStatus, ReferralDetails, withReferralDetails } from 'utils/lib/fhir/referral';
+import { getReferralDetails, getReferralStatus, ReferralDetails, withReferralDetails } from 'utils/lib/fhir/referral';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import {
   isReferralOpen,
@@ -10,6 +11,7 @@ import {
   REFERRAL_STATUS_LABELS,
   ReferralActor,
   UpdateReferralStatusInput,
+  UpdateReferralStatusInputSchema,
   UpdateReferralStatusOutput,
 } from 'utils/lib/types/api/referrals/referrals.types';
 import { INVALID_INPUT_ERROR, PRECONDITION_FAILED } from 'utils/lib/types/errors';
@@ -17,36 +19,52 @@ import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '
 import { isFhirVersionConflictError } from '../../../shared/errors';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
-import { practitionerRefForUser } from '../../../shared/practitioners';
+import { fullestPractitionerRefForUser } from '../../../shared/practitioners';
 import { loadReferral } from '../../../shared/referrals/load-referral';
-import { setReferralTaskOverdue } from '../../../shared/referrals/referral-task';
+import {
+  findOpenReferralTasks,
+  referralTaskOverdueRequest,
+  referralTaskSettleRequest,
+} from '../../../shared/referrals/referral-task';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { buildReferralDTOs, settleReferralTasks } from '../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../../shared/validation';
+import { buildReferralDTOs } from '../shared';
 
 const ZAMBDA_NAME = 'update-referral-status';
 
 let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const params = validateRequestParameters(input);
-    const user = await requireUserWithRole(getUserToken(input), params.secrets, REFERRAL_ROLES);
+    const { secrets, ...params } = validateWithSchema(UpdateReferralStatusInputSchema, input);
+    const user = await requireUserWithRole(getUserToken(input), secrets, REFERRAL_ROLES);
 
-    m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
-    const oystehr = createClinicalOystehrClient(m2mToken, params.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
     const [referral, actor] = await Promise.all([
       loadReferral(oystehr, params.referralId),
-      practitionerRefForUser(user, oystehr),
+      fullestPractitionerRefForUser(user, oystehr),
     ]);
     const { patch, taskStatus, taskClockStart } = transition(referral, params, {
       id: getIdFromReference(actor.reference, 'Practitioner'),
       name: actor.display ?? '',
     });
-    const saved = await oystehr.fhir
-      .update<ServiceRequest>(withReferralDetails(referral, patch), {
-        optimisticLockingVersionId: referral.meta?.versionId,
+    const openTasks = taskStatus || taskClockStart ? await findOpenReferralTasks(oystehr, params.referralId) : [];
+    const updated = withReferralDetails(referral, patch);
+    const transactionResult = await oystehr.fhir
+      .transaction<FhirResource>({
+        requests: [
+          {
+            method: 'PUT',
+            url: `/ServiceRequest/${referral.id}`,
+            resource: updated,
+            ifMatch: makeOptimisticLockIfMatchHeader(referral),
+          },
+          ...openTasks.map((task) =>
+            taskStatus ? referralTaskSettleRequest(task, taskStatus) : referralTaskOverdueRequest(task, taskClockStart!)
+          ),
+        ],
       })
       .catch((error: unknown) => {
         if (isFhirVersionConflictError(error)) {
@@ -54,8 +72,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         }
         throw error;
       });
-    if (taskStatus) await settleReferralTasks(oystehr, params.referralId, taskStatus);
-    if (taskClockStart) await setReferralTaskOverdue(oystehr, params.referralId, taskClockStart);
+    const saved =
+      transactionResult.entry
+        ?.map((entry) => entry.resource)
+        .find((resource): resource is ServiceRequest => resource?.resourceType === 'ServiceRequest') ?? updated;
 
     const [dto] = await buildReferralDTOs(oystehr, [saved]);
     const output: UpdateReferralStatusOutput = { referral: dto };
@@ -96,7 +116,11 @@ export const transition = (
     case 'given-to-patient':
       // A fax to the provider wins the status: once sent, the copy is only recorded and the clock keeps running.
       if (status === 'sent' || status === 'given-to-patient') {
-        return { patch: { givenToPatientAt: now, givenToPatientBy: actor } };
+        return {
+          patch: getReferralDetails(referral)?.givenToPatientAt
+            ? {}
+            : { givenToPatientAt: now, givenToPatientBy: actor },
+        };
       }
       if (status !== 'not-sent') refuse();
       return {

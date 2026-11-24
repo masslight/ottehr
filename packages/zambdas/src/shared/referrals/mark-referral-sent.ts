@@ -2,7 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
 import { ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getReferralStatus, withReferralDetails } from 'utils/lib/fhir/referral';
+import { getReferralStatus, isReferralServiceRequest, withReferralDetails } from 'utils/lib/fhir/referral';
 import { isFhirVersionConflictError } from '../errors';
 import { setReferralTaskOverdue } from './referral-task';
 
@@ -12,6 +12,7 @@ export const markReferralSent = async (referralId: string, oystehr: Oystehr): Pr
   try {
     for (let attempt = 1; attempt <= MARK_REFERRAL_SENT_RETRIES; attempt++) {
       const serviceRequest = await oystehr.fhir.get<ServiceRequest>({ resourceType: 'ServiceRequest', id: referralId });
+      if (!isReferralServiceRequest(serviceRequest)) return;
       const status = getReferralStatus(serviceRequest);
       if (status !== 'not-sent' && status !== 'given-to-patient') return;
       const sentAt = DateTime.now().toUTC().toISO() ?? new Date().toISOString();

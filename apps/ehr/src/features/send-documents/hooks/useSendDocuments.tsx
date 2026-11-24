@@ -12,7 +12,7 @@ import {
   GetDocumentPacketStatusOutput,
 } from 'utils/lib/types/api/document-packet.types';
 import { DocumentPacketPreviewInput } from '../api/documentPacketApi';
-import { faxHistoryQueryKey, PACKET_STATUS_POLL_TIMEOUT_MS, packetStatusTimeoutMessage } from '../model/polling';
+import { faxHistoryQueryKeys, PACKET_STATUS_POLL_TIMEOUT_MS, packetStatusTimeoutMessage } from '../model/polling';
 import { toSendDocumentPacketInput } from '../model/recipients';
 import { SendDocumentsFormValues } from '../model/types';
 import { useDocumentPacketPreview } from './useDocumentPacketPreview';
@@ -76,7 +76,9 @@ export const useSendDocuments = (source: DocumentPacketSource | undefined): UseS
       setActiveTaskIds((prev) => prev.filter((id) => id !== taskId));
       const taskSource = taskSources.current.get(taskId);
       taskSources.current.delete(taskId);
-      if (taskSource) void queryClient.invalidateQueries({ queryKey: faxHistoryQueryKey(taskSource) });
+      if (taskSource) {
+        faxHistoryQueryKeys(taskSource).forEach((queryKey) => void queryClient.invalidateQueries({ queryKey }));
+      }
       if (taskSource?.type === 'referral') void queryClient.invalidateQueries({ queryKey: [REFERRALS_QUERY_KEY] });
     },
     [queryClient]

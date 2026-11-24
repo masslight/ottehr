@@ -2,37 +2,45 @@ import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Location, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getReferralStatus, makeReferralServiceRequest } from 'utils/lib/fhir/referral';
-import { removePrefix } from 'utils/lib/helpers/helpers';
+import { getEncounterLocationId } from 'utils/lib/fhir/encounter';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
+import { getReferralDetails, getReferralStatus, makeReferralServiceRequest } from 'utils/lib/fhir/referral';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
-import { isReferralEditable, REFERRAL_ROLES, SaveReferralOutput } from 'utils/lib/types/api/referrals/referrals.types';
+import {
+  isReferralEditable,
+  REFERRAL_ROLES,
+  ReferralDTO,
+  SaveReferralInputSchema,
+  SaveReferralOutput,
+} from 'utils/lib/types/api/referrals/referrals.types';
+import { optionalPhone } from 'utils/lib/types/data/address-book';
 import { FHIR_RESOURCE_NOT_FOUND_CUSTOM, INVALID_INPUT_ERROR, PRECONDITION_FAILED } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../shared/auth';
 import { isFhirNotFoundError, isFhirVersionConflictError } from '../../../shared/errors';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { topLevelCatch } from '../../../shared/lambda';
-import { resolveCallerPractitionerRef } from '../../../shared/practitioners';
+import { userPractitionerRef } from '../../../shared/practitioners';
 import { loadReferral } from '../../../shared/referrals/load-referral';
-import { loadRecipientContact } from '../../../shared/referrals/recipient';
-import { loadReferralDocuments } from '../../../shared/referrals/referral-documents';
-import { getOrCreateReferralForm } from '../../../shared/referrals/referral-form';
+import { loadRecipientContact, withReferralFax } from '../../../shared/referrals/recipient';
+import { loadReferralDocuments, toReferralEarlierDocument } from '../../../shared/referrals/referral-documents';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
-import { buildReferralDTOs, syncReferralTask } from '../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { validateWithSchema } from '../../../shared/validation';
+import { buildReferralDTOs, syncReferralTask, toReferralDTO } from '../shared';
 
 const ZAMBDA_NAME = 'save-referral';
+
+const SaveReferralRequestSchema = SaveReferralInputSchema.extend({ recipientFax: optionalPhone });
 
 let m2mToken: string;
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const { secrets, ...params } = validateRequestParameters(input);
-    const userToken = getUserToken(input);
-    await requireUserWithRole(userToken, secrets, REFERRAL_ROLES);
+    const { secrets, ...params } = validateWithSchema(SaveReferralRequestSchema, input);
+    const user = await requireUserWithRole(getUserToken(input), secrets, REFERRAL_ROLES);
 
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-    const requester = await resolveCallerPractitionerRef(userToken, secrets, oystehr);
+    const requester = await userPractitionerRef(user, oystehr);
 
     const [patient, encounter, recipient, existing] = await Promise.all([
       getOrNotFound<Patient>(oystehr, 'Patient', params.patientId),
@@ -44,13 +52,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (encounter && encounter.subject?.reference !== `Patient/${params.patientId}`) {
       throw INVALID_INPUT_ERROR('Visit does not belong to this patient');
     }
-    if (existing) {
-      const existingEncounterId = removePrefix('Encounter/', existing.encounter?.reference ?? '') || undefined;
-      if (existingEncounterId !== params.encounterId) {
-        throw INVALID_INPUT_ERROR('The visit of a referral cannot change');
-      }
+    if (existing && getIdFromReference(existing.encounter?.reference, 'Encounter') !== params.encounterId) {
+      throw INVALID_INPUT_ERROR('The visit of a referral cannot change');
     }
-    await loadReferralDocuments(oystehr, params.patientId, params.earlierDocumentIds ?? []);
+    const documents = await loadReferralDocuments(oystehr, params.patientId, params.earlierDocumentIds ?? []);
 
     const resource = makeReferralServiceRequest(params, {
       patientId: params.patientId,
@@ -70,25 +75,32 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
             throw error;
           })
       : await oystehr.fhir.create<ServiceRequest>(resource);
+    const referralId = saved.id!;
 
-    // The form is a convenience here (the fax path and the PDF view regenerate it on demand), so a transient
-    // failure after the ServiceRequest is written must not fail the save: a retry would make a second referral.
     try {
-      await getOrCreateReferralForm(saved, { oystehr, secrets, token: m2mToken });
+      await syncReferralTask({
+        oystehr,
+        serviceRequest: saved,
+        patient,
+        recipient,
+        owner: saved.requester ?? requester,
+        location: getReferralDetails(saved)?.responseRequested ? await getTaskLocation(oystehr, encounter) : undefined,
+      });
     } catch (error) {
-      console.error(`[${ZAMBDA_NAME}] failed to generate the form for ServiceRequest/${saved.id}`, error);
-      captureException(error);
+      logFailureAfterSave('sync the task', referralId, error);
     }
-    await syncReferralTask({
-      oystehr,
-      serviceRequest: saved,
-      patient,
-      recipient,
-      owner: saved.requester ?? requester,
-      location: await getTaskLocation(oystehr, encounter),
-    });
 
-    const [referral] = await buildReferralDTOs(oystehr, [saved]);
+    let referral: ReferralDTO;
+    try {
+      [referral] = await buildReferralDTOs(oystehr, [saved], {
+        recipients: new Map(recipient ? [[referralId, withReferralFax(saved, recipient)]] : []),
+        encounters: encounter ? [encounter] : [],
+        earlierDocuments: new Map([[referralId, documents.map(toReferralEarlierDocument)]]),
+      });
+    } catch (error) {
+      logFailureAfterSave('build the response', referralId, error);
+      referral = toReferralDTO(saved, {});
+    }
     const output: SaveReferralOutput = { referral };
     return { statusCode: 200, body: JSON.stringify(output) };
   } catch (error: unknown) {
@@ -96,6 +108,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     return topLevelCatch(ZAMBDA_NAME, error, ENVIRONMENT);
   }
 });
+
+const logFailureAfterSave = (step: string, referralId: string, error: unknown): void => {
+  console.error(`[${ZAMBDA_NAME}] failed to ${step} after saving ServiceRequest/${referralId}`, error);
+  captureException(error);
+};
 
 const getOrNotFound = async <T extends Patient | Encounter>(
   oystehr: ReturnType<typeof createClinicalOystehrClient>,
@@ -122,8 +139,8 @@ const getTaskLocation = async (
   oystehr: ReturnType<typeof createClinicalOystehrClient>,
   encounter: Encounter | undefined
 ): Promise<{ id: string; name?: string } | undefined> => {
-  const locationId = removePrefix('Location/', encounter?.location?.[0]?.location?.reference ?? '');
-  if (!locationId || locationId.includes('/')) return undefined;
+  const locationId = getEncounterLocationId(encounter);
+  if (!locationId) return undefined;
   const location = await oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId });
   return { id: locationId, name: location.name };
 };

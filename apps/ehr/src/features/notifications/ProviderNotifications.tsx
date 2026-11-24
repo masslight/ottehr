@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { IconButtonContained } from 'src/features/visits/shared/components/IconButtonContained';
 import { ProviderNotificationTarget } from 'utils/lib/types/api/provider-notifications';
 import { inboundFaxMatchPath } from '../inbound-fax/routes';
+import { patientReferralsPath, visitPlanPath } from '../referrals/referralPaths';
 import { useGetProviderNotifications, useUpdateProviderNotificationsMutation } from './notifications.queries';
 
 const MAX_NOTIFICATION_MESSAGE_LENGTH = 140;
@@ -20,17 +21,17 @@ type ProviderNotificationDisplay = {
 
 /**
  * The route for a notification's destination. The endpoint names the destination rather than spelling
- * a path, so these two route shapes stay owned by the app that defines them.
+ * a path, so these route shapes stay owned by the app that defines them.
  */
-const pathForTarget = (target: ProviderNotificationTarget | undefined): string | undefined => {
+export const pathForTarget = (target: ProviderNotificationTarget | undefined): string | undefined => {
   if (!target) return undefined;
   switch (target.type) {
     case 'visit':
       return `/visit/${target.appointmentId}`;
     case 'inboundFax':
       return inboundFaxMatchPath(target.faxCommunicationId);
-    case 'patient':
-      return `/patient/${target.patientId}?tab=referrals`;
+    case 'referral':
+      return target.appointmentId ? visitPlanPath(target.appointmentId) : patientReferralsPath(target.patientId);
   }
 };
 

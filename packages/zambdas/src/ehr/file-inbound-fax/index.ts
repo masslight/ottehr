@@ -13,14 +13,14 @@ import {
   TaskInput,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { TASK_CATEGORY_IDENTIFIER, TASK_INPUT_SYSTEM } from 'utils/lib/fhir/constants';
+import { TASK_INPUT_SYSTEM } from 'utils/lib/fhir/constants';
 import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getReferralSpecialty, getReferralStatus, withReferralDetails } from 'utils/lib/fhir/referral';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
-import { createOystehrClient, removePrefix } from 'utils/lib/helpers/helpers';
+import { createOystehrClient } from 'utils/lib/helpers/helpers';
 import { getSecret, SecretsKeys } from 'utils/lib/secrets';
 import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { isReferralOpen, REFERRAL_TASK, referralReviewTaskTitle } from 'utils/lib/types/api/referrals/referrals.types';
@@ -32,9 +32,11 @@ import {
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
 } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
+import { isFhirVersionConflictError } from '../../shared/errors';
 import { topLevelCatch } from '../../shared/lambda';
 import { resolveCallerPractitionerRef } from '../../shared/practitioners';
 import { loadReferral } from '../../shared/referrals/load-referral';
+import { buildReferralTask, findOpenReferralTask } from '../../shared/referrals/referral-task';
 import { wrapHandler } from '../../shared/sentry';
 import { createOwnerReference, createTask } from '../../shared/tasks';
 import { ZambdaInput } from '../../shared/types/common';
@@ -276,7 +278,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const transactionResult = await oystehr.fhir.transaction<FhirResource>({ requests }).catch((error: unknown) => {
       // A lost optimistic lock (Task, folder List or referral changed concurrently) is an expected race, not a server fault.
-      if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
+      if (isFhirVersionConflictError(error)) {
         throw PRECONDITION_FAILED(`Task/${taskId}, its folder or the referral changed while filing`);
       }
       throw error;
@@ -343,27 +345,15 @@ const buildReferralResponseRequests = async (args: {
     ifMatch: makeOptimisticLockIfMatchHeader(referral),
   };
 
-  const specialty = getReferralSpecialty(referral);
   const recipientName = referral.performer?.[0]?.display;
-  const title = referralReviewTaskTitle(specialty, recipientName);
-  const requesterId = removePrefix('Practitioner/', referral.requester?.reference ?? '');
-  const owner = requesterId ? createOwnerReference(requesterId, referral.requester?.display ?? '') : undefined;
-  const responseInput = taskInput(REFERRAL_TASK.input.responseDocumentReferenceId, {
-    valueReference: { reference: docRefFullUrl },
-  });
-
-  const openTask = (
-    await oystehr.fhir.search<Task>({
-      resourceType: 'Task',
-      params: [
-        { name: 'based-on', value: `ServiceRequest/${referralId}` },
-        { name: 'group-identifier', value: `${TASK_CATEGORY_IDENTIFIER}|${REFERRAL_TASK.category}` },
-        { name: 'status', value: 'requested,ready,in-progress' },
-      ],
-    })
-  ).unbundle()[0];
+  const openTask = await findOpenReferralTask(oystehr, referralId);
 
   if (openTask?.id) {
+    const requesterId = getIdFromReference(referral.requester?.reference, 'Practitioner');
+    const owner = requesterId ? createOwnerReference(requesterId, referral.requester?.display ?? '') : undefined;
+    const responseInput = taskInput(REFERRAL_TASK.input.responseDocumentReferenceId, {
+      valueReference: { reference: docRefFullUrl },
+    });
     // Drop the notification tags so the cron treats the re-assignment as new and tells the provider (as unassign
     // does), and the overdue window: the response has arrived, so the task is no longer waiting for one.
     const { restriction: _restriction, ...taskWithoutRestriction } = openTask;
@@ -371,7 +361,7 @@ const buildReferralResponseRequests = async (args: {
     const { tag: _tag, ...metaWithoutTags } = openTask.meta ?? {};
     const routed: Task = {
       ...taskWithoutRestriction,
-      description: title,
+      description: referralReviewTaskTitle(getReferralSpecialty(referral), recipientName),
       code: { coding: [{ system: REFERRAL_TASK.system, code: REFERRAL_TASK.code.reviewResponse }] },
       ...(owner ? { owner, status: 'in-progress' } : {}),
       ...(openTask.meta
@@ -389,26 +379,16 @@ const buildReferralResponseRequests = async (args: {
   }
 
   const patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
-  const task = createTask({
-    category: REFERRAL_TASK.category,
-    title,
-    code: { system: REFERRAL_TASK.system, code: REFERRAL_TASK.code.reviewResponse },
-    encounterId: removePrefix('Encounter/', referral.encounter?.reference ?? '') || undefined,
-    input: [
-      taskInput(REFERRAL_TASK.input.referralId, { valueString: referralId }),
-      taskInput(REFERRAL_TASK.input.patient, {
-        valueReference: { reference: `Patient/${patientId}`, display: getFullestAvailableName(patient) },
-      }),
-      taskInput(REFERRAL_TASK.input.specialty, { valueString: specialty }),
-      ...(recipientName ? [taskInput(REFERRAL_TASK.input.recipientName, { valueString: recipientName })] : []),
-      responseInput,
-    ],
-    basedOn: [`ServiceRequest/${referralId}`, docRefFullUrl],
-  });
   const createReviewTask: BatchInputPostRequest<Task> = {
     method: 'POST',
     url: '/Task',
-    resource: owner ? { ...task, owner, status: 'in-progress' } : task,
+    resource: buildReferralTask({
+      serviceRequest: referral,
+      patient,
+      recipientName,
+      owner: referral.requester,
+      responseDocument: { reference: docRefFullUrl },
+    }),
   };
   return [markResponseReceived, createReviewTask];
 };

@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { Button, MenuItem, Stack, TextField } from '@mui/material';
+import { MenuItem, Stack, TextField } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
 import { CustomDialog } from 'src/components/dialogs/CustomDialog';
@@ -65,23 +64,11 @@ export const CloseReferralDialog: FC<CloseReferralDialogProps> = ({ referralId, 
           />
         </Stack>
       }
-      actions={
-        <>
-          <Button onClick={onClose} disabled={isPending} sx={{ borderRadius: 100, textTransform: 'none' }}>
-            Cancel
-          </Button>
-          <LoadingButton
-            variant="contained"
-            onClick={confirm}
-            loading={isPending}
-            disabled={!reason}
-            sx={{ borderRadius: 100, textTransform: 'none' }}
-            data-testid={dataTestIds.referrals.closeConfirmButton}
-          >
-            Close referral
-          </LoadingButton>
-        </>
-      }
+      handleConfirm={confirm}
+      confirmText="Close referral"
+      confirmLoading={isPending}
+      disabled={!reason}
+      closeButtonText="Cancel"
     />
   );
 };

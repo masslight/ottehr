@@ -13,6 +13,7 @@ import {
 import { BUCKET_NAMES } from './constants';
 import { readExtensionJson, withExtensionJson } from './extensions';
 import { ORDER_TYPE_CODE_SYSTEM } from './radiology';
+import { getIdFromReference } from './reference';
 
 /**
  * How a referral is stored.
@@ -66,9 +67,8 @@ export const isReferralDocumentFolderAllowed = (folderName: string, isLabResult:
 
 export const getReferralEarlierDocumentIds = (serviceRequest: ServiceRequest): string[] =>
   (serviceRequest.supportingInfo ?? [])
-    .map((reference) => reference.reference ?? '')
-    .filter((reference) => reference.startsWith('DocumentReference/'))
-    .map((reference) => reference.replace('DocumentReference/', ''));
+    .map((reference) => getIdFromReference(reference.reference, 'DocumentReference'))
+    .filter((id): id is string => !!id);
 
 export interface ReferralDetails {
   status: ReferralStatus;
@@ -111,7 +111,7 @@ export const getReferralUrgency = (serviceRequest: ServiceRequest): ReferralUrge
 export const getReferralNotesToRecipient = (serviceRequest: ServiceRequest): string | undefined =>
   serviceRequest.note?.[0]?.text;
 export const getReferralRecipientContactId = (serviceRequest: ServiceRequest): string | undefined =>
-  serviceRequest.performer?.[0]?.reference?.replace('Organization/', '');
+  getIdFromReference(serviceRequest.performer?.[0]?.reference, 'Organization');
 export const getReferralStatus = (serviceRequest: ServiceRequest): ReferralStatus =>
   getReferralDetails(serviceRequest)?.status ?? 'not-sent';
 export const getReferralRecipientFax = (serviceRequest: ServiceRequest): string | undefined =>
@@ -137,8 +137,8 @@ export const makeReferralServiceRequest = (
     status: existingDetails?.status ?? 'not-sent',
     whatIsAsked: input.whatIsAsked,
     whoSchedules: input.whoSchedules,
-    responseRequested: input.responseRequested,
-    includeDocuments: input.includeDocuments,
+    responseRequested: input.responseRequested && !!input.recipientContactId,
+    includeDocuments: options.encounterId ? input.includeDocuments : [],
     recipientFax: input.recipientContactId && input.recipientFax ? input.recipientFax : undefined,
   };
   const base: ServiceRequest = {

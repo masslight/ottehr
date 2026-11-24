@@ -1,14 +1,10 @@
 import { DateTime } from 'luxon';
-import {
-  REFERRAL_OVERDUE_DAYS,
-  REFERRAL_SCHEDULER_LABELS,
-  REFERRAL_URGENCY_LABELS,
-} from 'utils/lib/types/api/referrals/referrals.types';
+import { REFERRAL_SCHEDULER_LABELS, REFERRAL_URGENCY_LABELS } from 'utils/lib/types/api/referrals/referrals.types';
 import { EncounterReferral } from '../../../referrals/load-encounter-referrals';
-import { drawBlockHeader } from '../../helpers/render/blockHeader';
-import { drawRegularText } from '../../helpers/render/regularText';
-import { createConfiguredSection, DataComposer } from '../../pdf-common';
+import { referralOverdueAt } from '../../../referrals/referral-task';
+import { DataComposer } from '../../pdf-common';
 import { PdfSection, ReferralsData } from '../../types';
+import { createTitledLinesSection } from '../titledLines';
 
 export const composeReferralsForDischargeSummary: DataComposer<
   { referrals?: EncounterReferral[]; timezone?: string },
@@ -21,13 +17,12 @@ export const composeReferralsForDischargeSummary: DataComposer<
           referral.recipient.address,
           referral.recipient.phone && `Phone: ${referral.recipient.phone}`,
         ]
-      : [`Choose a ${referral.specialty} your insurance covers and bring this summary.`];
-    const scheduleAnchor = referral.sentAt ?? referral.authoredOn;
+      : [`Choose a specialist in ${referral.specialty} that your insurance covers and bring this summary.`];
+    const scheduleAnchor = referral.sentAt ?? referral.givenToPatientAt ?? referral.authoredOn;
     const scheduleBy =
       referral.whoSchedules === 'patient' && scheduleAnchor
-        ? DateTime.fromISO(scheduleAnchor)
+        ? DateTime.fromISO(referralOverdueAt(referral.urgency, scheduleAnchor))
             .setZone(timezone ?? 'UTC')
-            .plus({ days: REFERRAL_OVERDUE_DAYS[referral.urgency] })
             .toFormat('MM/dd/yyyy')
         : undefined;
     const lines = [
@@ -43,17 +38,9 @@ export const composeReferralsForDischargeSummary: DataComposer<
 export const createReferralsSectionForDischargeSummary = <TData extends { referrals?: ReferralsData }>(): PdfSection<
   TData,
   ReferralsData
-> => {
-  return createConfiguredSection(null, () => ({
+> =>
+  createTitledLinesSection({
     title: 'Referrals',
-    dataSelector: (data) => data.referrals,
-    shouldRender: (sectionData) => !!sectionData.referrals.length,
-    render: (client, data, styles) => {
-      data.referrals.forEach((referral) => {
-        drawBlockHeader(client, styles, referral.title, styles.textStyles.blockSubHeader);
-        referral.lines.forEach((line) => drawRegularText(client, styles, line));
-      });
-      client.drawSeparatedLine(styles.lineStyles.separator);
-    },
-  }));
-};
+    dataSelector: (data: TData) => data.referrals,
+    blocks: (data) => data.referrals,
+  });

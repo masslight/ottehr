@@ -1,12 +1,13 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, DocumentReference, Encounter, FhirResource, List } from 'fhir/r4b';
+import { Appointment, DocumentReference, Encounter, FhirResource } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { isCustomFolderList, PATIENT_FOLDERS_CODE } from 'utils/lib/fhir/list';
+import { isCustomFolderList } from 'utils/lib/fhir/list';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { isReferralDocumentFolderAllowed, isReferralLabResult } from 'utils/lib/fhir/referral';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import { ReferralEarlierDocument } from 'utils/lib/types/api/referrals/referrals.types';
 import { INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isFaxPacket, isMedicalRecordExport } from '../patient-documents';
+import { getPatientFolders } from '../patient-folders';
 
 /**
  * One message for every document that cannot go out with a referral, whether it does not exist, is another
@@ -43,28 +44,20 @@ const searchByIds = async <T extends FhirResource>(
   return results;
 };
 
-const referencedIds = (references: { reference?: string }[] | undefined, prefix: string): string[] =>
+const referencedIds = (references: { reference?: string }[] | undefined, resourceType: string): string[] =>
   (references ?? [])
-    .map((reference) => removePrefix(prefix, reference.reference ?? ''))
+    .map((reference) => getIdFromReference(reference.reference, resourceType))
     .filter((id): id is string => !!id);
 
 const loadFolderNamesByDocument = async (oystehr: Oystehr, patientId: string): Promise<Map<string, string[]>> => {
-  const folders = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [
-        { name: 'subject', value: `Patient/${patientId}` },
-        { name: 'code', value: PATIENT_FOLDERS_CODE },
-      ],
-    })
-  )
-    .unbundle()
-    .filter((list) => list.status === 'current' && !!list.title && !isCustomFolderList(list));
+  const folders = (await getPatientFolders(oystehr, patientId)).filter(
+    (list) => list.status === 'current' && !!list.title && !isCustomFolderList(list)
+  );
   const byDocument = new Map<string, string[]>();
   for (const folder of folders) {
     for (const id of referencedIds(
       (folder.entry ?? []).map((entry) => entry.item),
-      'DocumentReference/'
+      'DocumentReference'
     )) {
       byDocument.set(id, [...(byDocument.get(id) ?? []), folder.title!]);
     }
@@ -79,26 +72,26 @@ const loadVisitDates = async (
   const encounters = await searchByIds<Encounter>(
     oystehr,
     'Encounter',
-    documents.flatMap((document) => referencedIds(document.context?.encounter, 'Encounter/'))
+    documents.flatMap((document) => referencedIds(document.context?.encounter, 'Encounter'))
   );
   const appointments = await searchByIds<Appointment>(oystehr, 'Appointment', [
-    ...encounters.flatMap((encounter) => referencedIds(encounter.appointment, 'Appointment/')),
-    ...documents.flatMap((document) => referencedIds(document.context?.related, 'Appointment/')),
+    ...encounters.flatMap((encounter) => referencedIds(encounter.appointment, 'Appointment')),
+    ...documents.flatMap((document) => referencedIds(document.context?.related, 'Appointment')),
   ]);
   const appointmentStart = new Map(appointments.map((appointment) => [appointment.id, appointment.start]));
   const encounterStart = new Map(
     encounters.map((encounter) => [
       encounter.id,
-      appointmentStart.get(referencedIds(encounter.appointment, 'Appointment/')[0]) ?? encounter.period?.start,
+      appointmentStart.get(referencedIds(encounter.appointment, 'Appointment')[0]) ?? encounter.period?.start,
     ])
   );
   return new Map(
     documents.map((document) => [
       document.id!,
-      referencedIds(document.context?.encounter, 'Encounter/')
+      referencedIds(document.context?.encounter, 'Encounter')
         .map((id) => encounterStart.get(id))
         .find(Boolean) ??
-        referencedIds(document.context?.related, 'Appointment/')
+        referencedIds(document.context?.related, 'Appointment')
           .map((id) => appointmentStart.get(id))
           .find(Boolean),
     ])

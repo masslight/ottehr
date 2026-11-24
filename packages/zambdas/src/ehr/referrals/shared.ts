@@ -4,7 +4,6 @@ import {
   DocumentReference,
   Encounter,
   FhirResource,
-  Organization,
   Patient,
   Practitioner,
   Reference,
@@ -19,7 +18,8 @@ import {
   getOutboundDeliveryChannel,
   getOutboundDeliveryRecipientSnapshot,
 } from 'utils/lib/fhir/outbound-delivery';
-import { getFullestAvailableName, getFullName } from 'utils/lib/fhir/patient';
+import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getIdFromReference } from 'utils/lib/fhir/reference';
 import {
   getReferralDetails,
   getReferralEarlierDocumentIds,
@@ -32,7 +32,6 @@ import {
   isReferralServiceRequest,
   REFERRAL_FORM_DOC_REF_DOCTYPE,
 } from 'utils/lib/fhir/referral';
-import { removePrefix } from 'utils/lib/helpers/helpers';
 import {
   isReferralOpen,
   REFERRAL_DEFAULTS,
@@ -40,18 +39,19 @@ import {
   ReferralDTO,
   ReferralEarlierDocument,
   ReferralRecipient,
-  referralTaskTitle,
 } from 'utils/lib/types/api/referrals/referrals.types';
 import { getTaskInputValue } from 'utils/lib/types/data/tasks/types';
-import { mapReferralRecipient, withReferralFax } from '../../shared/referrals/recipient';
+import { compareDates } from 'utils/lib/utils/dateUtils';
+import { loadRecipientsFor } from '../../shared/referrals/recipient';
 import { findReferralDocuments, toReferralEarlierDocument } from '../../shared/referrals/referral-documents';
 import {
-  findReferralTasks,
+  buildReferralTask,
+  findOpenReferralTask,
   isOpenTask,
   referralOverdueAt,
+  settleReferralTasks,
   withoutOverdueNotifiedTag,
 } from '../../shared/referrals/referral-task';
-import { createOwnerReference, createTask } from '../../shared/tasks';
 
 /** Ids per `_id` / `based-on` / `related` search, so the query string stays well under URL limits. */
 const ID_SEARCH_CHUNK = 50;
@@ -77,9 +77,6 @@ const searchByValues = async <T extends FhirResource>(
   return results;
 };
 
-const referenceId = (reference: Reference | undefined, prefix: string): string | undefined =>
-  removePrefix(prefix, reference?.reference ?? '') || undefined;
-
 const isReferralTask = (task: Task): boolean =>
   task.groupIdentifier?.system === TASK_CATEGORY_IDENTIFIER && task.groupIdentifier.value === REFERRAL_TASK.category;
 
@@ -90,7 +87,7 @@ const isReferralForm = (docRef: DocumentReference): boolean =>
   );
 
 const newestFirst = <T extends { authoredOn?: string; date?: string }>(a: T, b: T): number =>
-  (b.authoredOn ?? b.date ?? '').localeCompare(a.authoredOn ?? a.date ?? '');
+  compareDates(a.authoredOn ?? a.date, b.authoredOn ?? b.date);
 
 const oldestFirst = <T extends { authoredOn?: string; date?: string }>(a: T, b: T): number => newestFirst(b, a);
 
@@ -126,8 +123,8 @@ export const toReferralDTO = (serviceRequest: ServiceRequest, context: ReferralD
       : undefined);
   return {
     id: serviceRequest.id ?? '',
-    patientId: referenceId(serviceRequest.subject, 'Patient/') ?? '',
-    encounterId: referenceId(serviceRequest.encounter, 'Encounter/'),
+    patientId: getIdFromReference(serviceRequest.subject?.reference, 'Patient') ?? '',
+    encounterId: getIdFromReference(serviceRequest.encounter?.reference, 'Encounter'),
     appointmentId: context.appointmentId,
     specialty: getReferralSpecialty(serviceRequest),
     recipient,
@@ -140,7 +137,7 @@ export const toReferralDTO = (serviceRequest: ServiceRequest, context: ReferralD
     earlierDocuments: context.earlierDocuments ?? [],
     notesToRecipient: getReferralNotesToRecipient(serviceRequest),
     referringProvider: {
-      id: referenceId(serviceRequest.requester, 'Practitioner/'),
+      id: getIdFromReference(serviceRequest.requester?.reference, 'Practitioner'),
       name: serviceRequest.requester?.display ?? context.referringProviderName ?? '',
     },
     status: getReferralStatus(serviceRequest),
@@ -161,21 +158,6 @@ export const toReferralDTO = (serviceRequest: ServiceRequest, context: ReferralD
       .filter((id): id is string => !!id),
     lastFax: context.lastFax,
   };
-};
-
-export const loadRecipientsFor = async (
-  oystehr: Oystehr,
-  serviceRequests: ServiceRequest[]
-): Promise<Map<string, ReferralRecipient>> => {
-  const contactIds = serviceRequests.map(getReferralRecipientContactId).filter((id): id is string => !!id);
-  const organizations = await searchByValues<Organization>(oystehr, 'Organization', '_id', contactIds);
-  const byId = new Map(organizations.map((organization) => [organization.id, mapReferralRecipient(organization)]));
-  return new Map(
-    serviceRequests.flatMap((serviceRequest) => {
-      const recipient = byId.get(getReferralRecipientContactId(serviceRequest) ?? '');
-      return serviceRequest.id && recipient ? [[serviceRequest.id, withReferralFax(serviceRequest, recipient)]] : [];
-    })
-  );
 };
 
 const latestFaxAttempt = async (
@@ -226,7 +208,9 @@ const loadEarlierDocumentsFor = async (
   const withDocuments = serviceRequests.filter(
     (serviceRequest) => getReferralEarlierDocumentIds(serviceRequest).length
   );
-  const byPatient = groupBy(withDocuments, (serviceRequest) => referenceId(serviceRequest.subject, 'Patient/'));
+  const byPatient = groupBy(withDocuments, (serviceRequest) =>
+    getIdFromReference(serviceRequest.subject?.reference, 'Patient')
+  );
   const result = new Map<string, ReferralEarlierDocument[]>();
   for (const [patientId, patientReferrals] of byPatient) {
     const found = await findReferralDocuments(
@@ -248,14 +232,22 @@ const loadEarlierDocumentsFor = async (
 };
 
 const basedOnReferralId = (task: Task): string | undefined =>
-  task.basedOn?.map((ref) => referenceId(ref, 'ServiceRequest/')).find((id) => !!id);
+  task.basedOn?.map((ref) => getIdFromReference(ref.reference, 'ServiceRequest')).find((id) => !!id);
 
 const relatedReferralId = (docRef: DocumentReference): string | undefined =>
-  docRef.context?.related?.map((ref) => referenceId(ref, 'ServiceRequest/')).find((id) => !!id);
+  docRef.context?.related?.map((ref) => getIdFromReference(ref.reference, 'ServiceRequest')).find((id) => !!id);
+
+/** What a caller has already loaded for the referrals, so building their DTOs does not fetch it again. */
+export interface PreloadedReferralResources {
+  recipients?: Map<string, ReferralRecipient>;
+  encounters?: Encounter[];
+  earlierDocuments?: Map<string, ReferralEarlierDocument[]>;
+}
 
 export const buildReferralDTOs = async (
   oystehr: Oystehr,
-  serviceRequests: ServiceRequest[]
+  serviceRequests: ServiceRequest[],
+  preloaded: PreloadedReferralResources = {}
 ): Promise<ReferralDTO[]> => {
   const referrals = serviceRequests.filter(
     (serviceRequest) => serviceRequest.id && isReferralServiceRequest(serviceRequest)
@@ -263,22 +255,22 @@ export const buildReferralDTOs = async (
   if (!referrals.length) return [];
   const referralRefs = referrals.map((serviceRequest) => `ServiceRequest/${serviceRequest.id}`);
   const encounterIds = referrals
-    .map((serviceRequest) => referenceId(serviceRequest.encounter, 'Encounter/'))
+    .map((serviceRequest) => getIdFromReference(serviceRequest.encounter?.reference, 'Encounter'))
     .filter((id): id is string => !!id);
   const practitionerIdsWithoutDisplay = referrals
     .filter((serviceRequest) => !serviceRequest.requester?.display)
-    .map((serviceRequest) => referenceId(serviceRequest.requester, 'Practitioner/'))
+    .map((serviceRequest) => getIdFromReference(serviceRequest.requester?.reference, 'Practitioner'))
     .filter((id): id is string => !!id);
 
   const [recipients, tasks, docRefs, encounters, practitioners, earlierDocuments] = await Promise.all([
-    loadRecipientsFor(oystehr, referrals),
+    preloaded.recipients ?? loadRecipientsFor(oystehr, referrals),
     searchByValues<Task>(oystehr, 'Task', 'based-on', referralRefs),
     searchByValues<DocumentReference>(oystehr, 'DocumentReference', 'related', referralRefs, [
       { name: 'status', value: 'current' },
     ]),
-    searchByValues<Encounter>(oystehr, 'Encounter', '_id', encounterIds),
+    preloaded.encounters ?? searchByValues<Encounter>(oystehr, 'Encounter', '_id', encounterIds),
     searchByValues<Practitioner>(oystehr, 'Practitioner', '_id', practitionerIdsWithoutDisplay),
-    loadEarlierDocumentsFor(oystehr, referrals),
+    preloaded.earlierDocuments ?? loadEarlierDocumentsFor(oystehr, referrals),
   ]);
 
   const referralTasks = groupBy(tasks.filter(isReferralTask), basedOnReferralId);
@@ -293,7 +285,10 @@ export const buildReferralDTOs = async (
     relatedReferralId
   );
   const appointmentByEncounter = new Map(
-    encounters.map((encounter) => [encounter.id, referenceId(encounter.appointment?.[0], 'Appointment/')])
+    encounters.map((encounter) => [
+      encounter.id,
+      getIdFromReference(encounter.appointment?.[0]?.reference, 'Appointment'),
+    ])
   );
   const practitionerNames = new Map(
     practitioners.map((practitioner) => [practitioner.id, getFullestAvailableName(practitioner)])
@@ -304,8 +299,12 @@ export const buildReferralDTOs = async (
       const id = serviceRequest.id!;
       return toReferralDTO(serviceRequest, {
         recipient: recipients.get(id),
-        referringProviderName: practitionerNames.get(referenceId(serviceRequest.requester, 'Practitioner/') ?? ''),
-        appointmentId: appointmentByEncounter.get(referenceId(serviceRequest.encounter, 'Encounter/') ?? ''),
+        referringProviderName: practitionerNames.get(
+          getIdFromReference(serviceRequest.requester?.reference, 'Practitioner') ?? ''
+        ),
+        appointmentId: appointmentByEncounter.get(
+          getIdFromReference(serviceRequest.encounter?.reference, 'Encounter') ?? ''
+        ),
         task: pickReferralTask(referralTasks.get(id) ?? []),
         formDocumentReference: [...(formsByReferral.get(id) ?? [])].sort(newestFirst)[0],
         responseDocumentReferences: [...(responsesByReferral.get(id) ?? [])].sort(oldestFirst),
@@ -313,23 +312,6 @@ export const buildReferralDTOs = async (
         lastFax: lastFaxes.get(id),
       });
     })
-  );
-};
-
-export const settleReferralTasks = async (
-  oystehr: Oystehr,
-  referralId: string,
-  status: Extract<Task['status'], 'completed' | 'cancelled'>
-): Promise<void> => {
-  const openTasks = (await findReferralTasks(oystehr, referralId)).filter(isOpenTask);
-  await Promise.all(
-    openTasks.map((task) =>
-      oystehr.fhir.patch<Task>({
-        resourceType: 'Task',
-        id: task.id!,
-        operations: [{ op: 'replace', path: '/status', value: status }],
-      })
-    )
   );
 };
 
@@ -344,33 +326,15 @@ export const syncReferralTask = async (args: {
   const { oystehr, serviceRequest, patient, recipient, owner, location } = args;
   const referralId = serviceRequest.id!;
   const details = getReferralDetails(serviceRequest);
-  const openTask = (await findReferralTasks(oystehr, referralId)).filter(isOpenTask).sort(newestFirst)[0];
+  const openTask = await findOpenReferralTask(oystehr, referralId);
 
   if (!details?.responseRequested) {
     if (openTask) await settleReferralTasks(oystehr, referralId, 'cancelled');
     return;
   }
 
-  const specialty = getReferralSpecialty(serviceRequest);
   const urgency = getReferralUrgency(serviceRequest);
-  const task = createTask({
-    category: REFERRAL_TASK.category,
-    title: referralTaskTitle(specialty, recipient?.name),
-    code: { system: REFERRAL_TASK.system, code: REFERRAL_TASK.code.awaitResponse },
-    encounterId: referenceId(serviceRequest.encounter, 'Encounter/'),
-    location,
-    input: [
-      { type: REFERRAL_TASK.input.referralId, valueString: referralId },
-      {
-        type: REFERRAL_TASK.input.patient,
-        valueReference: { reference: `Patient/${patient.id}`, display: getFullName(patient) },
-      },
-      { type: REFERRAL_TASK.input.specialty, valueString: specialty },
-      { type: REFERRAL_TASK.input.recipientName, valueString: recipient?.name },
-      { type: REFERRAL_TASK.input.urgency, valueString: urgency },
-    ],
-    basedOn: [`ServiceRequest/${referralId}`],
-  });
+  const task = buildReferralTask({ serviceRequest, patient, recipientName: recipient?.name, owner, location });
   const anchor =
     details.sentAt ?? details.givenToPatientAt ?? DateTime.now().toUTC().toISO() ?? new Date().toISOString();
   const restriction: Task['restriction'] = { period: { end: referralOverdueAt(urgency, anchor) } };
@@ -386,10 +350,5 @@ export const syncReferralTask = async (args: {
     return;
   }
 
-  const ownerId = referenceId(owner, 'Practitioner/');
-  await oystehr.fhir.create<Task>({
-    ...task,
-    restriction,
-    ...(ownerId ? { owner: createOwnerReference(ownerId, owner.display ?? ''), status: 'in-progress' } : {}),
-  });
+  await oystehr.fhir.create<Task>({ ...task, restriction });
 };
