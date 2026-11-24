@@ -322,6 +322,7 @@
             "Zambda:Function:presign-billing-invoice-payment-attachment",
             "Zambda:Function:setup-billing-nio-invoice-card",
             "Zambda:Function:list-billing-nio-invoice-payment-methods",
+            "Zambda:Function:charge-billing-nio-invoice-card",
             "Zambda:Function:get-billing-invoice-statement",
             "Zambda:Function:create-billing-invoice-statement",
             "Zambda:Function:get-billing-work-queues",

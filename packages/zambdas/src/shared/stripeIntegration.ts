@@ -96,6 +96,8 @@ export const STRIPE_METADATA_KEYS = {
   // set on charges the EHR takes: the EHR payment id, and the PaymentNotice it reserved for the charge
   ehrPaymentId: 'oystehr_ehr_payment_id',
   ehrPaymentNoticeId: 'oystehr_ehr_payment_notice_id',
+  // set with invoiceId on charges billing takes for a non-insurance payer invoice
+  invoicePaymentId: 'oystehr_invoice_payment_id',
 } as const;
 
 export const encounterIdFromStripeMetadata = (metadata: Stripe.Metadata | null | undefined): string | undefined =>

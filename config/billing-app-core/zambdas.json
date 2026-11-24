@@ -463,6 +463,13 @@
       "src": "src/billing/list-billing-nio-invoice-payment-methods/index",
       "zip": ".dist/zips/list-billing-nio-invoice-payment-methods.zip"
     },
+    "CHARGE-BILLING-NIO-INVOICE-CARD": {
+      "name": "charge-billing-nio-invoice-card",
+      "type": "http_auth",
+      "runtime": "nodejs22.x",
+      "src": "src/billing/charge-billing-nio-invoice-card/index",
+      "zip": ".dist/zips/charge-billing-nio-invoice-card.zip"
+    },
     "GET-BILLING-INVOICE-STATEMENT": {
       "name": "get-billing-invoice-statement",
       "type": "http_auth",

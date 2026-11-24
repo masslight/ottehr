@@ -2,15 +2,18 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ProvenanceAgent } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import Stripe from 'stripe';
 import { getNioInvoicePaymentId } from 'utils/lib/fhir/billing-invoice';
 import { RecordBillingNioInvoicePaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingNioInvoicePaymentResponse } from 'utils/lib/types/data/billing/billing.types';
 import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { getStripeClient } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { getInvoicePaymentReference, sumPatientPayments, toClaimPatientPayment } from '../claim-amounts';
+import { settleOtherCardReservation } from '../invoice-card-reservation';
 import { recordInvoicePayment } from '../invoice-payments';
 import { fetchInvoicePaymentNotices } from '../invoices';
 import { resolveClaimActor } from '../provenance';
@@ -36,6 +39,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   console.group('performEffect');
   const response = await performEffect({
     oystehr,
+    getStripe: () => getStripeClient(params.secrets),
     params: {
       ...params,
       agent,
@@ -52,10 +56,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
 export async function performEffect({
   oystehr,
+  getStripe,
   params,
   now = DateTime.now(),
 }: {
   oystehr: Oystehr;
+  getStripe: () => Stripe;
   params: RecordNioInvoicePaymentParams;
   now?: DateTime;
 }): Promise<RecordBillingNioInvoicePaymentResponse> {
@@ -75,6 +81,15 @@ export async function performEffect({
       paymentId,
     };
   }
+  await settleOtherCardReservation({
+    oystehr,
+    getStripe,
+    invoiceId: payment.invoiceId,
+    paymentId,
+    agent: payment.agent,
+    secrets: payment.secrets,
+    now,
+  });
   await recordInvoicePayment({
     oystehr,
     payment: {

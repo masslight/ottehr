@@ -1,0 +1,175 @@
+import Oystehr from '@oystehr/sdk';
+import { Invoice, ProvenanceAgent } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import Stripe from 'stripe';
+import { getInvoiceCardPaymentReservation } from 'utils/lib/fhir/billing-invoice';
+import {
+  getStripeCustomerIdFromAccount,
+  patchWithOptimisticLock,
+  withVersionConflictRetries,
+} from 'utils/lib/fhir/helpers';
+import { Secrets } from 'utils/lib/secrets';
+import { STRIPE_METADATA_KEYS, STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
+import {
+  cardPaymentInProgressError,
+  cardPaymentReservationOperations,
+  readPayableInvoice,
+  recordInvoicePayment,
+} from './invoice-payments';
+import { resolveInvoiceStripePayer } from './invoice-stripe';
+import { ehrPaymentDate, stripeAccountExtension } from './payments';
+import { fetchById } from './shared';
+
+// A reserving request creates its PaymentIntent within seconds; until then Stripe has nothing to show.
+export const CARD_RESERVATION_GRACE_MINUTES = 2;
+
+const CHARGING_STATUSES: Stripe.PaymentIntent.Status[] = [
+  'processing',
+  'requires_action',
+  'requires_capture',
+  'requires_confirmation',
+];
+
+// Settles a card payment another request reserved on the invoice: records it when its charge went
+// through, refuses while it may still be charging, and releases it when it never charged.
+export async function settleOtherCardReservation({
+  oystehr,
+  getStripe,
+  invoiceId,
+  paymentId,
+  agent,
+  secrets,
+  now = DateTime.now(),
+}: {
+  oystehr: Oystehr;
+  // only called when another payment holds a reservation
+  getStripe: () => Stripe;
+  invoiceId: string;
+  paymentId: string;
+  agent: ProvenanceAgent;
+  secrets: Secrets | null;
+  now?: DateTime;
+}): Promise<void> {
+  const invoice = await fetchById<Invoice>(oystehr, 'Invoice', invoiceId);
+  const reservation = getInvoiceCardPaymentReservation(invoice);
+  if (!reservation || reservation.paymentId === paymentId) return;
+
+  const { stripeAccount, nio } = await resolveInvoiceStripePayer({
+    oystehr,
+    invoice,
+  });
+  const customerId = getStripeCustomerIdFromAccount(nio, stripeAccount);
+  const reservedAt = DateTime.fromISO(reservation.reservedAt);
+  const paymentIntent = customerId
+    ? (
+        await getStripe().paymentIntents.list(
+          {
+            customer: customerId,
+            created: {
+              gte: reservedAt.minus({ minutes: 1 }).toUnixInteger(),
+            },
+            limit: 100,
+          },
+          {
+            stripeAccount,
+          }
+        )
+      ).data.find((intent) => intent.metadata?.[STRIPE_METADATA_KEYS.invoicePaymentId] === reservation.paymentId)
+    : undefined;
+
+  if (paymentIntent?.status === 'succeeded') {
+    const chargedAt = DateTime.fromSeconds(paymentIntent.created);
+    await recordInvoicePayment({
+      oystehr,
+      payment: {
+        invoiceId,
+        paymentId: reservation.paymentId,
+        amountInCents: paymentIntent.amount,
+        paymentMethod: 'card',
+        paymentDate: ehrPaymentDate(chargedAt),
+        processorPaymentIdentifier: {
+          system: STRIPE_PAYMENT_ID_SYSTEM,
+          value: paymentIntent.id,
+        },
+        extension: [stripeAccountExtension(stripeAccount)],
+        agent,
+        secrets,
+      },
+      createdISO: chargedAt.toUTC().toISO()!,
+    });
+    return;
+  }
+  const withinGrace = now.diff(reservedAt, 'minutes').minutes < CARD_RESERVATION_GRACE_MINUTES;
+  if ((paymentIntent && CHARGING_STATUSES.includes(paymentIntent.status)) || (!paymentIntent && withinGrace)) {
+    throw cardPaymentInProgressError(invoice);
+  }
+  console.log(`Releasing card payment ${reservation.paymentId} on Invoice/${invoiceId}: it never charged`);
+  await releaseCardReservation({
+    oystehr,
+    invoiceId,
+    paymentId: reservation.paymentId,
+  });
+}
+
+// Reserves the invoice for this card payment, locked to the version its balance was read at. Undefined
+// when the payment is already recorded.
+export async function reserveCardPayment({
+  oystehr,
+  invoiceId,
+  paymentId,
+  amountInCents,
+  now = DateTime.now(),
+}: {
+  oystehr: Oystehr;
+  invoiceId: string;
+  paymentId: string;
+  amountInCents: number;
+  now?: DateTime;
+}): Promise<Invoice | undefined> {
+  return withVersionConflictRetries(async () => {
+    const { invoice, recorded } = await readPayableInvoice({
+      oystehr,
+      invoiceId,
+      paymentId,
+      amountInCents,
+    });
+    if (recorded) return undefined;
+    if (getInvoiceCardPaymentReservation(invoice)?.paymentId === paymentId) return invoice;
+    await oystehr.fhir.patch(
+      {
+        resourceType: 'Invoice',
+        id: invoiceId,
+        operations: cardPaymentReservationOperations(invoice, {
+          paymentId,
+          reservedAt: now.toUTC().toISO()!,
+        }),
+      },
+      {
+        optimisticLockingVersionId: invoice.meta?.versionId,
+      }
+    );
+    return invoice;
+  });
+}
+
+export async function releaseCardReservation({
+  oystehr,
+  invoiceId,
+  paymentId,
+}: {
+  oystehr: Oystehr;
+  invoiceId: string;
+  paymentId: string;
+}): Promise<void> {
+  await patchWithOptimisticLock(
+    oystehr,
+    {
+      ...(await fetchById<Invoice>(oystehr, 'Invoice', invoiceId)),
+      id: invoiceId,
+    },
+    (current) =>
+      getInvoiceCardPaymentReservation(current)?.paymentId === paymentId
+        ? cardPaymentReservationOperations(current, undefined)
+        : []
+  );
+}

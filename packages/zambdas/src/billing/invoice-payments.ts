@@ -1,18 +1,28 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { FhirResource, Invoice, PaymentNotice, ProvenanceAgent } from 'fhir/r4b';
+import { Operation } from 'fast-json-patch';
+import { Extension, FhirResource, Identifier, Invoice, PaymentNotice, ProvenanceAgent } from 'fhir/r4b';
 import {
   BillingInvoiceClaim,
   getBillingInvoiceClaims,
+  getInvoiceCardPaymentReservation,
   getInvoiceNumber,
   getNioInvoicePaymentId,
+  InvoiceCardPaymentReservation,
+  invoiceExtensionsWithCardPaymentReservation,
   NIO_INVOICE_PAYMENT_ID_SYSTEM,
   PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
 import { makeOptimisticLockIfMatchHeader, withVersionConflictRetries } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { Secrets } from 'utils/lib/secrets';
-import { INVALID_INPUT_ERROR, RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR } from 'utils/lib/types/errors';
+import {
+  APIError,
+  BILLING_INVOICE_CONFLICT_ERROR,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_SECRETS,
+  RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
+} from 'utils/lib/types/errors';
 import { formatCurrency } from 'utils/lib/utils/convert';
 import { getInvoiceBalanceInCents } from './claim-amounts';
 import {
@@ -35,8 +45,11 @@ export interface InvoicePayment {
     fileName: string;
     mimeType?: string;
   };
+  // the processor's id for the payment, on each notice's reconciliation
+  processorPaymentIdentifier?: Identifier;
+  extension?: Extension[];
   agent: ProvenanceAgent;
-  secrets: Secrets;
+  secrets: Secrets | null;
 }
 
 interface PayableInvoice {
@@ -61,7 +74,14 @@ export async function readPayableInvoice({
     fetchInvoicePaymentNotices(oystehr, [invoiceId]),
   ]);
   const recorded = notices.some((notice) => getNioInvoicePaymentId(notice) === paymentId);
-  if (!recorded) assertInvoicePayableInFull(invoice, notices, amountInCents);
+  if (!recorded) {
+    assertInvoicePayableInFull({
+      invoice,
+      notices,
+      amountInCents,
+      paymentId,
+    });
+  }
   return {
     invoice,
     notices,
@@ -69,13 +89,41 @@ export async function readPayableInvoice({
   };
 }
 
-function assertInvoicePayableInFull(invoice: Invoice, notices: PaymentNotice[], amountInCents: number): void {
+export const cardPaymentInProgressError = (invoice: Invoice): APIError =>
+  BILLING_INVOICE_CONFLICT_ERROR(
+    `A card payment on invoice ${getInvoiceNumber(invoice) ?? invoice.id} is in progress. Try again in a few minutes.`
+  );
+
+export const cardPaymentReservationOperations = (
+  invoice: Invoice,
+  reservation: InvoiceCardPaymentReservation | undefined
+): Operation[] => [
+  {
+    op: 'add',
+    path: '/extension',
+    value: invoiceExtensionsWithCardPaymentReservation(invoice, reservation),
+  },
+];
+
+function assertInvoicePayableInFull({
+  invoice,
+  notices,
+  amountInCents,
+  paymentId,
+}: {
+  invoice: Invoice;
+  notices: PaymentNotice[];
+  amountInCents: number;
+  paymentId: string;
+}): void {
   assertInvoiceTakesRecordedPayments(invoice);
   const invoiceNumber = getInvoiceNumber(invoice) ?? invoice.id;
   if (invoice.status !== 'issued') {
     throw INVALID_INPUT_ERROR(`Invoice ${invoiceNumber} is ${invoice.status}, so it can't take a payment`);
   }
   if (!invoice.issuer) throw RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR(`Invoice ${invoiceNumber} has no issuer`);
+  const reservation = getInvoiceCardPaymentReservation(invoice);
+  if (reservation && reservation.paymentId !== paymentId) throw cardPaymentInProgressError(invoice);
 
   const balanceInCents = getInvoiceBalanceInCents(invoice, notices);
   if (balanceInCents !== sumLines(getBillingInvoiceClaims(invoice))) {
@@ -118,6 +166,7 @@ export async function recordInvoicePayment({
               path: '/status',
               value: 'balanced',
             },
+            ...(getInvoiceCardPaymentReservation(invoice) ? cardPaymentReservationOperations(invoice, undefined) : []),
           ],
         }),
         ...invoicePaymentRequests({
@@ -139,7 +188,19 @@ function invoicePaymentRequests({
   payment: InvoicePayment;
   createdISO: string;
 }): BatchInputRequest<FhirResource>[] {
-  const { invoiceId, paymentId, paymentMethod, paymentDate, reference, attachment, agent, secrets } = payment;
+  const {
+    invoiceId,
+    paymentId,
+    paymentMethod,
+    paymentDate,
+    reference,
+    attachment,
+    processorPaymentIdentifier,
+    extension,
+    agent,
+    secrets,
+  } = payment;
+  if (attachment && !secrets) throw MISSING_REQUEST_SECRETS;
   const lines = getBillingInvoiceClaims(invoice);
   const noticeFullUrls = lines.map(() => `urn:uuid:${randomUUID()}`);
   const noticeRequests = lines.flatMap(({ claimId, amountCents }, index): BatchInputRequest<FhirResource>[] => {
@@ -158,16 +219,23 @@ function invoicePaymentRequests({
       paymentDate,
       createdISO,
       disposition: `Payment toward invoice ${getInvoiceNumber(invoice) ?? invoiceId}`,
-      reconciliation: reference
-        ? {
-            identifier: [
-              {
-                system: PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
-                value: reference,
-              },
-            ],
-          }
-        : undefined,
+      reconciliation: {
+        ...(reference
+          ? {
+              identifier: [
+                {
+                  system: PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
+                  value: reference,
+                },
+              ],
+            }
+          : {}),
+        ...(processorPaymentIdentifier
+          ? {
+              paymentIdentifier: processorPaymentIdentifier,
+            }
+          : {}),
+      },
       invoiceId,
     });
     const fullUrl = noticeFullUrls[index];
@@ -180,26 +248,32 @@ function invoicePaymentRequests({
       {
         method: 'POST',
         url: '/PaymentNotice',
-        resource: notice,
+        resource: extension
+          ? {
+              ...notice,
+              extension: [...(notice.extension ?? []), ...extension],
+            }
+          : notice,
         fullUrl,
       },
       ...(history ? [history] : []),
     ];
   });
-  const attachmentRequests: BatchInputRequest<FhirResource>[] = attachment
-    ? [
-        {
-          method: 'POST',
-          url: '/DocumentReference',
-          resource: buildInvoicePaymentAttachment({
-            invoiceId,
-            paymentId,
-            paymentNoticeReference: noticeFullUrls[0],
-            ...attachment,
-            secrets,
-          }),
-        },
-      ]
-    : [];
+  const attachmentRequests: BatchInputRequest<FhirResource>[] =
+    attachment && secrets
+      ? [
+          {
+            method: 'POST',
+            url: '/DocumentReference',
+            resource: buildInvoicePaymentAttachment({
+              invoiceId,
+              paymentId,
+              paymentNoticeReference: noticeFullUrls[0],
+              ...attachment,
+              secrets,
+            }),
+          },
+        ]
+      : [];
   return [...noticeRequests, ...attachmentRequests];
 }
