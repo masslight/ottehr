@@ -88,7 +88,6 @@ export function PatientChatButton({
 
   const quickTextsContext: QuickTextsContext = useMemo(() => {
     const visit = chatData?.visit;
-    const start = visit?.appointmentStart ? DateTime.fromISO(visit.appointmentStart) : undefined;
     return {
       patientAppUrl: VITE_APP_PATIENT_APP_URL,
       patientFirstName: patient ? getFirstName(patient) : undefined,
@@ -96,7 +95,7 @@ export function PatientChatButton({
       visitId: latestVisitId,
       locationName: visit?.locationName,
       locationReviewLink: visit?.locationReviewLink,
-      bookingTime: start?.isValid ? start.toFormat('h:mm a') : undefined,
+      bookingTime: visit?.bookingTime,
       officePhone: visit?.officePhone,
       supportPhone: visit?.supportPhone,
     };

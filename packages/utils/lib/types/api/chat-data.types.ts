@@ -13,8 +13,7 @@ export const GetChatDataInputSchema = z.object({
 export type GetChatDataInput = z.output<typeof GetChatDataInputSchema>;
 
 export interface ChatVisitData {
-  // ISO start of the visit's appointment
-  appointmentStart?: string;
+  bookingTime?: string;
   locationName?: string;
   locationReviewLink?: string;
   officePhone?: string;

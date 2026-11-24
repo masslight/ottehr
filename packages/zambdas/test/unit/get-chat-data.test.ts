@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Person, RelatedPerson } from 'fhir/r4b';
-import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { PRIVATE_EXTENSION_BASE_URL, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { LOCATION_SUPPORT_PHONE_EXTENSION_URL } from 'utils/lib/utils/support-dialog';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -94,7 +94,10 @@ describe('get-chat-data visit', () => {
     id: 'loc1',
     name: 'Downtown',
     telecom: [{ system: 'phone', value: '5551234567' }],
-    extension: [{ url: LOCATION_SUPPORT_PHONE_EXTENSION_URL, valueString: '(555) 000-1111' }],
+    extension: [
+      { url: LOCATION_SUPPORT_PHONE_EXTENSION_URL, valueString: '(555) 000-1111' },
+      { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
+    ],
   };
   const appointment: Appointment = {
     resourceType: 'Appointment',
@@ -117,12 +120,22 @@ describe('get-chat-data visit', () => {
     const result = await performEffect(oystehr, { patientId: PATIENT_ID, encounterId: ENCOUNTER_ID, secrets });
 
     expect(result.visit).toEqual({
-      appointmentStart: '2026-11-20T15:30:00.000Z',
+      // 15:30Z is 10:30 AM in New York, whatever zone this test runs in
+      bookingTime: '10:30 AM',
       locationName: 'Downtown',
       locationReviewLink: undefined,
       officePhone: '(555) 123-4567',
       supportPhone: '(555) 000-1111',
     });
+  });
+
+  it('leaves the booking time out when the location has no timezone rather than guessing one', async () => {
+    const noTimezone = { ...location, extension: [] };
+    mockSearches({ Encounter: [encounterOf(PATIENT_ID), noTimezone, appointment] });
+
+    const result = await performEffect(oystehr, { patientId: PATIENT_ID, encounterId: ENCOUNTER_ID, secrets });
+
+    expect(result.visit?.bookingTime).toBeUndefined();
   });
 
   it("returns no visit data for another patient's encounter", async () => {

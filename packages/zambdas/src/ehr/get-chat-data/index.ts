@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Person, RelatedPerson } from 'fhir/r4b';
-import { LOCATION_REVIEW_LINK_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { DateTime } from 'luxon';
+import { LOCATION_REVIEW_LINK_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getSMSNumberForIndividual } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { ChatVisitData, GetChatDataInputSchema, GetChatDataResponse } from 'utils/lib/types/api/chat-data.types';
@@ -100,10 +101,17 @@ const getVisitData = async (
   const appointment = resources.find((r): r is Appointment => r.resourceType === 'Appointment');
 
   return {
-    appointmentStart: appointment?.start,
+    bookingTime: formatBookingTime(appointment?.start, location),
     locationName: location?.name,
     locationReviewLink: location?.extension?.find((ext) => ext.url === LOCATION_REVIEW_LINK_EXTENSION_URL)?.valueUrl,
     officePhone: standardizePhoneNumber(location?.telecom?.find((t) => t.system === 'phone')?.value),
     supportPhone: location?.extension?.find((ext) => ext.url === LOCATION_SUPPORT_PHONE_EXTENSION_URL)?.valueString,
   };
+};
+
+const formatBookingTime = (start: string | undefined, location: Location | undefined): string | undefined => {
+  const timezone = location?.extension?.find((ext) => ext.url === TIMEZONE_EXTENSION_URL)?.valueString;
+  if (!start || !timezone) return undefined;
+  const zoned = DateTime.fromISO(start).setZone(timezone);
+  return zoned.isValid ? zoned.toFormat('h:mm a') : undefined;
 };
