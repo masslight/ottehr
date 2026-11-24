@@ -114,9 +114,12 @@ describe('normalizeNotificationPreferencesV2', () => {
 });
 
 describe('taskCategoryHasNoLocation', () => {
-  it('covers inbound fax and nothing else', () => {
-    expect(UNLOCATED_TASK_CATEGORIES).toEqual(['inboundFax']);
+  it('covers inbound fax and referrals, and nothing else', () => {
+    expect(UNLOCATED_TASK_CATEGORIES).toEqual(['inboundFax', 'referrals']);
     expect(taskCategoryHasNoLocation('inboundFax')).toBe(true);
+    // Tasks of referrals made from the patient record, and every review-response task, carry no location, so a
+    // location filter on the Referrals row would mute them.
+    expect(taskCategoryHasNoLocation('referrals')).toBe(true);
     expect(taskCategoryHasNoLocation('erx')).toBe(false);
     expect(taskCategoryHasNoLocation('externalLab')).toBe(false);
   });
