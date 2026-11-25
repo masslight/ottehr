@@ -1018,6 +1018,13 @@ export const PresignBillingInvoicePaymentAttachmentInputSchema = z.object({
   fileName: nonEmptyString.max(255),
 });
 
+export const ChargeBillingNioInvoiceCardInputSchema = z.object({
+  invoiceId: nonEmptyString.uuid(),
+  amountInCents: z.number().int().positive(),
+  paymentMethodId: nonEmptyString,
+  idempotencyKey,
+});
+
 export const VoidBillingInvoiceInputSchema = z.object({
   invoiceId: nonEmptyString.uuid(),
   reason: nonEmptyString.max(BILLING_INVOICE_LIMITS.voidReasonLength),
@@ -1404,6 +1411,7 @@ export type RecordBillingNioInvoicePaymentInput = z.output<typeof RecordBillingN
 export type PresignBillingInvoicePaymentAttachmentInput = z.output<
   typeof PresignBillingInvoicePaymentAttachmentInputSchema
 >;
+export type ChargeBillingNioInvoiceCardInput = z.output<typeof ChargeBillingNioInvoiceCardInputSchema>;
 export type VoidBillingInvoiceInput = z.output<typeof VoidBillingInvoiceInputSchema>;
 export type AddClaimWriteOffInput = z.output<typeof AddClaimWriteOffInputSchema>;
 export type VoidClaimWriteOffInput = z.output<typeof VoidClaimWriteOffInputSchema>;

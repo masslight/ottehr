@@ -45,3 +45,9 @@ variable "ehr_app_url" {
   type        = string
   nullable    = false
 }
+
+variable "stripe_public_key" {
+  description = "Stripe publishable key, for saving a payer's card"
+  type        = string
+  nullable    = false
+}

@@ -1,18 +1,24 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { DocumentReference, FhirResource, Invoice, PaymentNotice } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import Stripe from 'stripe';
 import {
   buildBillingInvoice,
   getNioInvoicePaymentId,
   getPaymentNoticeInvoiceId,
   INVOICE_NUMBER_IDENTIFIER_SYSTEM,
   INVOICE_PAYMENT_TAG_SYSTEM,
+  invoiceExtensionsWithCardPaymentReservation,
   invoicePaymentExtension,
   invoicePaymentTag,
   NIO_INVOICE_PAYMENT_ID_SYSTEM,
   PAYMENT_REFERENCE_IDENTIFIER_SYSTEM,
 } from 'utils/lib/fhir/billing-invoice';
-import { INVALID_INPUT_ERROR, MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
+import {
+  BILLING_INVOICE_CONFLICT_ERROR,
+  INVALID_INPUT_ERROR,
+  MANUAL_PAYMENT_CONFLICT_ERROR,
+} from 'utils/lib/types/errors';
 import { describe, expect, it, vi } from 'vitest';
 import { buildPaymentNotice } from '../../../src/billing/payments';
 import { performEffect } from '../../../src/billing/record-billing-nio-invoice-payment';
@@ -21,6 +27,33 @@ vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
 }));
+
+vi.mock('../../../src/billing/invoice-stripe', async () => {
+  const { ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE, ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT } = await import(
+    'utils/lib/fhir/constants'
+  );
+  return {
+    resolveInvoiceStripePayer: vi.fn(async () => ({
+      stripeAccount: 'acct_issuer',
+      nio: {
+        resourceType: 'Organization',
+        id: 'nio-1',
+        identifier: [
+          {
+            system: ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
+            value: 'cus_nio',
+            extension: [
+              {
+                url: ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE_ACCOUNT,
+                valueString: 'acct_issuer',
+              },
+            ],
+          },
+        ],
+      },
+    })),
+  };
+});
 
 const INVOICE_ID = 'invoice-1';
 const PAYMENT_ID = 'payment-key-1';
@@ -146,6 +179,7 @@ const setup = ({
   oystehr: Oystehr;
   search: ReturnType<typeof vi.fn>;
   transaction: ReturnType<typeof vi.fn>;
+  resultsByType: Record<string, unknown[]>;
 } => {
   const resultsByType: Record<string, unknown[]> = {
     Invoice: [invoice],
@@ -166,7 +200,16 @@ const setup = ({
     } as unknown as Oystehr,
     search,
     transaction,
+    resultsByType,
   };
+};
+
+const VERSION_CONFLICT = {
+  code: 412,
+};
+
+const getStripe = (): Stripe => {
+  throw new Error('Stripe is only needed while another card payment holds a reservation');
 };
 
 const params = {
@@ -197,6 +240,7 @@ describe('record-billing-nio-invoice-payment', () => {
 
     const result = await performEffect({
       oystehr,
+      getStripe,
       params,
       now: NOW,
     });
@@ -242,6 +286,7 @@ describe('record-billing-nio-invoice-payment', () => {
 
     await performEffect({
       oystehr,
+      getStripe,
       params,
       now: NOW,
     });
@@ -258,6 +303,7 @@ describe('record-billing-nio-invoice-payment', () => {
 
     await performEffect({
       oystehr,
+      getStripe,
       params: {
         ...params,
         attachment: {
@@ -300,6 +346,7 @@ describe('record-billing-nio-invoice-payment', () => {
 
     const result = await performEffect({
       oystehr,
+      getStripe,
       params,
       now: NOW,
     });
@@ -337,6 +384,7 @@ describe('record-billing-nio-invoice-payment', () => {
       await expect(
         performEffect({
           oystehr,
+          getStripe,
           params: {
             ...params,
             ...change,
@@ -353,6 +401,7 @@ describe('record-billing-nio-invoice-payment', () => {
 
     await performEffect({
       oystehr,
+      getStripe,
       params: {
         ...params,
         paymentDate: '2026-11-19',
@@ -369,6 +418,7 @@ describe('record-billing-nio-invoice-payment', () => {
     await expect(
       performEffect({
         oystehr,
+        getStripe,
         params: {
           ...params,
           paymentDate: '2026-11-20',
@@ -385,6 +435,7 @@ describe('record-billing-nio-invoice-payment', () => {
     await expect(
       performEffect({
         oystehr,
+        getStripe,
         params: {
           ...params,
           amountInCents: 18000,
@@ -405,6 +456,7 @@ describe('record-billing-nio-invoice-payment', () => {
     await expect(
       performEffect({
         oystehr,
+        getStripe,
         params,
         now: NOW,
       })
@@ -419,6 +471,7 @@ describe('record-billing-nio-invoice-payment', () => {
     await expect(
       performEffect({
         oystehr,
+        getStripe,
         params: {
           ...params,
           amountInCents: 22000,
@@ -442,9 +495,135 @@ describe('record-billing-nio-invoice-payment', () => {
     await expect(
       performEffect({
         oystehr,
+        getStripe,
         params,
         now: NOW,
       })
     ).rejects.toEqual(INVALID_INPUT_ERROR('Only non-insurance payer invoices take recorded payments'));
+  });
+
+  it('returns without writing again when another writer records the same payment first', async () => {
+    const { oystehr, transaction, resultsByType } = setup();
+    transaction.mockImplementationOnce(async () => {
+      resultsByType.PaymentNotice = recordedPayment();
+      throw VERSION_CONFLICT;
+    });
+
+    const result = await performEffect({
+      oystehr,
+      getStripe,
+      params,
+      now: NOW,
+    });
+
+    expect(result).toEqual({
+      paymentId: PAYMENT_ID,
+    });
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses when another writer records different details under the same key first', async () => {
+    const { oystehr, transaction, resultsByType } = setup();
+    transaction.mockImplementationOnce(async () => {
+      resultsByType.PaymentNotice = recordedPayment();
+      throw VERSION_CONFLICT;
+    });
+
+    await expect(
+      performEffect({
+        oystehr,
+        getStripe,
+        params: {
+          ...params,
+          paymentMethod: 'wire',
+        },
+        now: NOW,
+      })
+    ).rejects.toEqual(MANUAL_PAYMENT_CONFLICT_ERROR(PAYMENT_ID));
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes against the current invoice version when the invoice changed under it', async () => {
+    const { oystehr, transaction, resultsByType } = setup();
+    transaction.mockImplementationOnce(async () => {
+      resultsByType.Invoice = [
+        nioInvoice({
+          meta: {
+            versionId: '4',
+          },
+        }),
+      ];
+      throw VERSION_CONFLICT;
+    });
+
+    await performEffect({
+      oystehr,
+      getStripe,
+      params,
+      now: NOW,
+    });
+
+    expect(transaction).toHaveBeenCalledTimes(2);
+    expect(transaction.mock.calls[1][0].requests[0]).toMatchObject({
+      ifMatch: 'W/"4"',
+    });
+  });
+
+  it('refuses when a different payment balanced the invoice first', async () => {
+    const { oystehr, transaction, resultsByType } = setup();
+    transaction.mockImplementationOnce(async () => {
+      resultsByType.Invoice = [
+        nioInvoice({
+          status: 'balanced',
+        }),
+      ];
+      resultsByType.PaymentNotice = [existingPayment('other-payment', 320)];
+      throw VERSION_CONFLICT;
+    });
+
+    await expect(
+      performEffect({
+        oystehr,
+        getStripe,
+        params,
+        now: NOW,
+      })
+    ).rejects.toEqual(INVALID_INPUT_ERROR("Invoice INV-00042 is balanced, so it can't take a payment"));
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses while another request is charging a card for the invoice', async () => {
+    const invoice = nioInvoice();
+    const { oystehr, transaction } = setup({
+      invoice: {
+        ...invoice,
+        extension: invoiceExtensionsWithCardPaymentReservation(invoice, {
+          paymentId: 'card-payment',
+          reservedAt: NOW.minus({ seconds: 30 }).toUTC().toISO()!,
+          renewedAt: NOW.minus({ seconds: 30 }).toUTC().toISO()!,
+        }),
+      },
+    });
+    const list = vi.fn().mockResolvedValue({
+      data: [],
+    });
+
+    await expect(
+      performEffect({
+        oystehr,
+        getStripe: () =>
+          ({
+            paymentIntents: {
+              list,
+            },
+          }) as unknown as Stripe,
+        params,
+        now: NOW,
+      })
+    ).rejects.toEqual(
+      BILLING_INVOICE_CONFLICT_ERROR('A card payment on invoice INV-00042 is in progress. Try again in a few minutes.')
+    );
+    expect(list).toHaveBeenCalled();
+    expect(transaction).not.toHaveBeenCalled();
   });
 });

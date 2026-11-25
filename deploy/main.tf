@@ -102,6 +102,7 @@ module "billing_app" {
   billing_domain      = var.billing_domain
   billing_cert_domain = var.billing_cert_domain
   ehr_app_url         = var.ehr_domain == null ? "http://localhost:4002" : "https://${var.ehr_domain}"
+  stripe_public_key   = module.oystehr.stripe_public_key
 }
 
 module "ottehr_apps" {
