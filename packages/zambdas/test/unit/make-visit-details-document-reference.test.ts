@@ -43,6 +43,9 @@ const fakeOystehr = (
             doc.context?.encounter?.[0]?.reference === param('encounter') &&
             (!typeCode || !!doc.type?.coding?.some((c) => c.system === typeSystem && c.code === typeCode))
         );
+        if (param('_sort') === '-_lastUpdated') {
+          matches.sort((a, b) => Date.parse(b.meta?.lastUpdated ?? '') - Date.parse(a.meta?.lastUpdated ?? ''));
+        }
         return { unbundle: () => matches.slice(0, SEARCH_PAGE_SIZE) };
       },
       patch: async ({ resourceType, id }: { resourceType: string; id: string }) => {
@@ -145,8 +148,22 @@ describe('findSignedVisitDetailsDocument', () => {
     ]);
     expect((await findSignedVisitDetailsDocument(oystehr, 'enc-1'))?.id).toBe('signing-copy');
     expect(searches).toEqual([
-      'DocumentReference?status=current&encounter=Encounter/enc-1&type=http://loinc.org|visit-details',
+      'DocumentReference?status=current&encounter=Encounter/enc-1&type=http://loinc.org|visit-details&_sort=-_lastUpdated',
     ]);
+  });
+
+  it('returns the newest signing-time copy when two are current', async () => {
+    const { oystehr } = fakeOystehr([
+      existingDocument('older-signing-copy', TITLE, {
+        docStatus: 'final',
+        meta: { lastUpdated: '2026-11-25T10:00:00.000Z' },
+      }),
+      existingDocument('newer-signing-copy', TITLE, {
+        docStatus: 'final',
+        meta: { lastUpdated: '2026-11-25T10:00:01.000Z' },
+      }),
+    ]);
+    expect((await findSignedVisitDetailsDocument(oystehr, 'enc-1'))?.id).toBe('newer-signing-copy');
   });
 
   it.each([

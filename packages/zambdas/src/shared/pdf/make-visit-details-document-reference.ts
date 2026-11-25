@@ -68,6 +68,7 @@ export const findSignedVisitDetailsDocument = async (
         { name: 'status', value: 'current' },
         { name: 'encounter', value: `Encounter/${encounterId}` },
         { name: 'type', value: `${LOINC_SYSTEM}|${VISIT_DETAILS_CODE}` },
+        { name: '_sort', value: '-_lastUpdated' },
       ],
     })
   )
