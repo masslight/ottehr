@@ -135,7 +135,16 @@ const ChatModal = memo(
         if (sendResult) {
           setPendingMessageSend(sendResult);
           setMessageText('');
-          void refetchMessages({ throwOnError: true });
+          // The lock is released when this refetch settles, not when the selected ID shows up: get-conversation
+          // dedupes identical multi-recipient sends and may drop the Communication this result points at.
+          void refetchMessages()
+            .then((result) => {
+              if (result.data) {
+                _setMessages(result.data);
+              }
+            })
+            .catch((e) => console.error('failed to refresh messages after send: ', e))
+            .finally(() => setPendingMessageSend(undefined));
         } else {
           throw new Error('send message failed - no id returned');
         }
@@ -154,18 +163,10 @@ const ChatModal = memo(
         if (!messages) {
           return;
         }
-        // Polling also lands here, so this must not clear pendingMessageSend; the effect below does that once
-        // the sent message shows up in the conversation.
+        // Polling also lands here, so this must not clear pendingMessageSend; the post-send refetch does that.
         _setMessages(messages);
       }
     );
-
-    // Keep the pending state until the send finished and its message is in the fetched conversation.
-    useEffect(() => {
-      if (pendingMessageSend?.resolvedId && _messages.some((m) => m.id === pendingMessageSend.resolvedId)) {
-        setPendingMessageSend(undefined);
-      }
-    }, [_messages, pendingMessageSend]);
 
     const [messages]: [MessageModel[]] = useMemo(() => {
       const pending = pendingMessageSend ? [pendingMessageSend] : [];
