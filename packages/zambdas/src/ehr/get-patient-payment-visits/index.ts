@@ -20,6 +20,7 @@ import { fetchAllPages } from '../../shared/fhir';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { fetchPractitionerFirstLastNames } from '../../shared/practitioners';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { getAccountAndCoverageResourcesForPatient } from '../shared/harvest';
@@ -50,7 +51,7 @@ export const getPatientPaymentVisits = async (
   // only this visit, searched by id alongside the patient, so another patient's is never returned
   encounterId?: string
 ): Promise<GetPatientPaymentVisitsResponse> => {
-  const [{ visits, legacyNoticesByEncounter }, { account }] = await Promise.all([
+  const [visitsResult, accountResult] = await Promise.allSettled([
     fetchVisits(oystehr, patientId, encounterId).then(async (visits) => ({
       visits,
       legacyNoticesByEncounter: await fetchLegacyPaymentNotices(
@@ -60,6 +61,8 @@ export const getPatientPaymentVisits = async (
     })),
     getAccountAndCoverageResourcesForPatient(patientId, oystehr),
   ]);
+  const { visits, legacyNoticesByEncounter } = settledValueOrThrow(visitsResult);
+  const { account } = settledValueOrThrow(accountResult);
   await nameSubmitters(oystehr, [...legacyNoticesByEncounter.values()].flat());
   return {
     visits: visits.map((visit) => ({

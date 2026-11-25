@@ -9,6 +9,7 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ensureStripeCustomerId } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
@@ -37,10 +38,12 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
     oystehrClient
   ));
 
-  const [stripeAccount, accountResources] = await Promise.all([
+  const [stripeAccountResult, accountResourcesResult] = await Promise.allSettled([
     getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient),
     getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient),
   ]);
+  const stripeAccount = settledValueOrThrow(stripeAccountResult);
+  const accountResources = settledValueOrThrow(accountResourcesResult);
   console.log('Using stripe account: ', stripeAccount);
 
   const stripeClient = getStripeClient(secrets);

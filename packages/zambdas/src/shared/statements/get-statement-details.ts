@@ -27,6 +27,7 @@ import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harve
 import { getDefaultBillingProviderResource } from '../../patient/get-eligibility/validation';
 import { getCandidEncounterIdFromEncounter, shouldUseOttehrBillingForPatientBalances } from '../candid';
 import { resolveTimezone } from '../helpers';
+import { settledValueOrThrow } from '../settled';
 import { getBillingStatementLines, StatementLineDetails } from './get-billing-statement-lines';
 import { getLogoBase64 } from './get-logo-base64';
 import { getProcedureCodeTitle } from './get-procedure-code-title';
@@ -421,7 +422,7 @@ function createStatementDetails(
 export async function getStatementDetails(input: GetStatementDetailsInput): Promise<StatementDetails> {
   const { encounterId, secrets, oystehr, amountsSource } = input;
   const resources = await getResources(encounterId, oystehr);
-  const [{ guarantorResource, coverages, insuranceOrgs }, { serviceLines, totals }, billerDetails] = await Promise.all([
+  const [accountResult, statementLinesResult, billerDetailsResult] = await Promise.allSettled([
     getAccountAndCoverageResourcesForPatient(resources.patient.id ?? '', oystehr),
     amountsSource.source === 'candid'
       ? getCandidStatementLines(resources.encounter, amountsSource.candidApiClient, oystehr)
@@ -461,6 +462,9 @@ export async function getStatementDetails(input: GetStatementDetailsInput): Prom
       }
     })(),
   ]);
+  const { guarantorResource, coverages, insuranceOrgs } = settledValueOrThrow(accountResult);
+  const { serviceLines, totals } = settledValueOrThrow(statementLinesResult);
+  const billerDetails = settledValueOrThrow(billerDetailsResult);
 
   if (!guarantorResource) {
     throw new Error(`Guarantor resource not found for Patient/${resources.patient.id}`);

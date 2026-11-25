@@ -33,6 +33,7 @@ import { fetchServiceCategoryCatalog } from '../../../shared/pdf/service-categor
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { getStripeClient } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getAccountAndCoverageResourcesForPatient, PATIENT_CONTAINED_PHARMACY_ID } from '../../shared/harvest';
@@ -188,18 +189,18 @@ export const performEffect = async (
     return { accountResources, payments, occupationalMedicineEmployerName, coverageChecks };
   };
 
-  const [
-    consentResources,
-    { accountResources, payments, occupationalMedicineEmployerName, coverageChecks },
-    documentReferences,
-    serviceCategories,
-  ] = await Promise.all([
-    getConsentAndRelatedDocRefsForAppointment({ appointmentId, patientId }, oystehr),
-    loadAccountDetails(),
-    searchDocumentReferencesForVisit(oystehr, patientId, appointmentId),
-    fetchServiceCategoryCatalog(oystehr),
-  ]);
-  const { consents } = consentResources;
+  const [consentResult, accountDetailsResult, documentReferencesResult, serviceCategoriesResult] =
+    await Promise.allSettled([
+      getConsentAndRelatedDocRefsForAppointment({ appointmentId, patientId }, oystehr),
+      loadAccountDetails(),
+      searchDocumentReferencesForVisit(oystehr, patientId, appointmentId),
+      fetchServiceCategoryCatalog(oystehr),
+    ]);
+  const { consents } = settledValueOrThrow(consentResult);
+  const { accountResources, payments, occupationalMedicineEmployerName, coverageChecks } =
+    settledValueOrThrow(accountDetailsResult);
+  const documentReferences = settledValueOrThrow(documentReferencesResult);
+  const serviceCategories = settledValueOrThrow(serviceCategoriesResult);
 
   const {
     coverages,

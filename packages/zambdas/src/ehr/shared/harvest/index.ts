@@ -163,6 +163,7 @@ import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { getInsuranceOverrideList, ListName } from '../../../rcm/get-insurance-override-list/handler';
 import { resolveCustomInsuranceOrgReference } from '../../../shared/custom-insurance-org-directory';
 import { createPdfBytes } from '../../../shared/pdf';
+import { settledValueOrThrow } from '../../../shared/settled';
 
 export const PATIENT_CONTAINED_PHARMACY_ID = 'pharmacy';
 
@@ -4259,7 +4260,7 @@ export const getAccountAndCoverageResourcesForPatient = async (
     throw PATIENT_NOT_FOUND_ERROR;
   }
 
-  const [insuranceOrgs, ehrPayerList] = await Promise.all([
+  const [insuranceOrgsResult, ehrPayerListResult] = await Promise.allSettled([
     searchInsuranceInformation(
       oystehr,
       getCoveragePayorReferences(accountAndCoverageResources),
@@ -4267,6 +4268,8 @@ export const getAccountAndCoverageResourcesForPatient = async (
     ),
     getInsuranceOverrideList(oystehr, ListName.EHR),
   ]);
+  const insuranceOrgs = settledValueOrThrow(insuranceOrgsResult);
+  const ehrPayerList = settledValueOrThrow(ehrPayerListResult);
   for (const org of insuranceOrgs) {
     const override = ehrPayerList.entry?.find((override) => override.item.reference === getPayerUrl(org.id!));
     if (override) {

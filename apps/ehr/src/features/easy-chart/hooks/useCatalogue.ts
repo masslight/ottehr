@@ -1,7 +1,6 @@
 // The catalogues the executor resolves actions against. Exam and ROS matching is pure and config-driven,
 // so the eval harness runs the same matchers; medications and allergens come from the eRx search.
 // Conditions and diagnoses need no catalogue: the server has already confirmed their ICD-10 codes.
-
 import { useMemo } from 'react';
 import { HospitalizationOptions } from 'src/features/visits/in-person/components/hospitalization/hospitalizationOptions';
 import { SURGICAL_HISTORY_OPTIONS } from 'src/features/visits/shared/components/medical-history-tab/SurgicalHistory/surgicalHistoryOptions';
@@ -15,6 +14,7 @@ import {
 } from 'utils/lib/easy-chart/matchers';
 import { DefaultExamComponentsConfig } from 'utils/lib/ottehr-config/examination/default-components.config';
 import { InPersonRosConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { matchStaticOptions } from '../executor/static-options';
 import { Catalogue, CatalogueMatch, CatalogueQuery, CatalogueResult } from '../executor/types';
 
@@ -52,6 +52,8 @@ export function useCatalogue(): Catalogue {
   );
 }
 
+const TERM_SEARCH_CONCURRENCY = 5;
+
 /**
  * The eRx name search, merged across the display and its synonyms and ranked by the search's own order.
  * Terms under three characters are not sent: the search rejects them.
@@ -66,16 +68,14 @@ async function searchErxByName(
     .filter((term): term is string => !!term && term.length >= 3);
   if (terms.length === 0) return [];
 
-  const searches = await Promise.all(
-    terms.map(async (term) => {
-      try {
-        return { term, response: await search(term) };
-      } catch (error) {
-        console.error(`[easy-chart] ${label} search failed`, error);
-        return undefined;
-      }
-    })
-  );
+  const searches = await mapWithConcurrency(terms, TERM_SEARCH_CONCURRENCY, async (term) => {
+    try {
+      return { term, response: await search(term) };
+    } catch (error) {
+      console.error(`[easy-chart] ${label} search failed`, error);
+      return undefined;
+    }
+  });
 
   const byId = new Map<string, CatalogueMatch>();
   for (const searched of searches) {
