@@ -26,7 +26,6 @@ export default defineStory({
   base: 'AppDialog',
   kind: 'viewer',
   where: 'Visit details / telemed patient photos / document thumbnails → click an image',
-  notes:
-    'Images are inline SVG placeholders (external image requests are blocked in the capture sandbox).',
+  notes: 'Images are inline SVG placeholders (external image requests are blocked in the capture sandbox).',
   render: () => <Host />,
 });
