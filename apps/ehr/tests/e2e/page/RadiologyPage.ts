@@ -99,7 +99,7 @@ export class DeleteRadiologyOrderDialog {
   }
 
   async cancelDelete(): Promise<void> {
-    await this.#page.getByRole('button', { name: 'Keep' }).click();
+    await this.#page.getByRole('button', { name: 'Cancel' }).click();
   }
 }
 

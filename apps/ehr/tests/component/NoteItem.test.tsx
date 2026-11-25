@@ -114,8 +114,8 @@ describe('NoteItem', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'delete note' }));
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByText('Delete patient note')).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+    expect(within(dialog).getByText('Delete Patient Note')).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete Note' }));
 
     expect(deleteNote).toHaveBeenCalledWith(expect.anything(), { resourceId: 'note-1' });
   });

@@ -258,7 +258,7 @@ test.describe('Immunization order lifecycle', () => {
       await openImmunizationPage(resourceHandler.appointment.id!, page);
       const marTab = await expectMarTab(page);
       const deleteDialog = await marTab.clickDeleteButton(EDITED_VACCINE.vaccine);
-      await deleteDialog.verifyTitle('Delete immunization order');
+      await deleteDialog.verifyTitle('Delete Immunization Order');
       await deleteDialog.verifyMessage('Are you sure you want to delete the immunization order?');
       await deleteDialog.clickProceedButton();
       await marTab.verifyVaccinePresent({

@@ -107,8 +107,8 @@ vi.mock('src/hooks/usePendingQuickPick', () => ({
   usePendingQuickPick: vi.fn(),
 }));
 
-vi.mock('../../src/components/dialogs/CustomDialog', () => ({
-  CustomDialog: () => <div />,
+vi.mock('../../src/components/dialogs/AppDialog', () => ({
+  AppDialog: () => <div />,
 }));
 
 vi.mock('../../src/components/input/CheckboxInput', () => ({

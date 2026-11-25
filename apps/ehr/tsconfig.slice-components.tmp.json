@@ -1,5 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": { "noEmit": true, "incremental": false, "composite": false },
-  "include": ["src/vite-env.d.ts", "src/**/*.d.ts", "src/components/CancelVisitDialog.tsx","src/components/CardThumbnail.tsx","src/components/CommandPalette.tsx","src/components/CommandPalettePhraseDialog.tsx","src/components/ImageCarousel.tsx","src/components/PatientEncountersGrid.tsx","src/components/patients-merge/PatientInformationUpdates.tsx","src/components/patients-merge/PatientsMergeDifference.tsx","src/components/patients-merge/PatientsMergeSelect.tsx","src/components/schedule/PractitionerRoleList.tsx","src/components/schedule/ScheduleOverridesDialog.tsx","src/components/schedule/ScheduleOverridesComponent.tsx","src/features/nursing-orders/components/orders/NursingOrdersTableRow.tsx","src/components/ScannerModal.tsx","dialog-gallery/stories/components/*.tsx","dialog-gallery/stories/sweep/NursingOrdersTableRow.cancel.story.tsx"]
-}

@@ -162,7 +162,9 @@ export const OrderHistoryTableRow: React.FC<Props> = ({
                     title="Delete Immunization Order"
                     primary={{ label: 'Delete Order', onClick: handleConfirmDelete, loading: isDeleting }}
                   >
-                    Are you sure you want to delete the immunization order?
+                    <span data-testid={dataTestIds.dialog.message}>
+                      Are you sure you want to delete the immunization order?
+                    </span>
                   </AppDialog>
                 </>
               )}

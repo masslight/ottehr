@@ -266,7 +266,9 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
                             title="Delete Immunization Order"
                             primary={{ label: 'Delete Order', onClick: handleDeleteOrder, loading: isDeleting }}
                           >
-                            Are you sure you want to delete the immunization order?
+                            <span data-testid={dataTestIds.dialog.message}>
+                              Are you sure you want to delete the immunization order?
+                            </span>
                           </AppDialog>
                         </>
                       )}

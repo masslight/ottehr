@@ -184,7 +184,7 @@ describe('Tasks board: task notes', () => {
     expect(markTaskNotesRead).toHaveBeenCalledTimes(1);
     expect(markTaskNotesRead).toHaveBeenCalledWith(expect.anything(), { taskId: 'open', noteIds: ['open-note'] });
 
-    await userEvent.click(within(dialog).getByRole('button', { name: 'close' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await userEvent.click(notesButton('done'));
 
@@ -244,7 +244,7 @@ describe('Tasks board: task notes', () => {
     expect(await within(dialog).findByText('Payer called back')).toBeInTheDocument();
     await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledTimes(2));
     expect(markTaskNotesRead).toHaveBeenLastCalledWith(expect.anything(), { taskId: 'open', noteIds: ['newer'] });
-    await userEvent.click(within(dialog).getByRole('button', { name: 'close' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(hasUnreadDot('open')).toBe(false));
   });
 
@@ -265,7 +265,7 @@ describe('Tasks board: task notes', () => {
     expect(markTaskNotesRead).toHaveBeenCalledWith(expect.anything(), { taskId: 'open', noteIds: ['open-note'] });
     await waitFor(() => expect(notes.find((note) => note.resourceId === 'unseen')?.isUnread).toBe(true));
     expect(within(dialog).queryByText('Unseen follow-up')).not.toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole('button', { name: 'close' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     expect(hasUnreadDot('open')).toBe(true);
   });
 
@@ -300,7 +300,7 @@ describe('Tasks board: task notes', () => {
 
     await userEvent.click(title('open'));
     await within(await screen.findByRole('dialog')).findByText('About open');
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'close' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
 
     await waitFor(() => expect(hasUnreadDot('open')).toBe(false));
     expect(markTaskNotesRead).toHaveBeenCalledTimes(1);
@@ -322,13 +322,13 @@ describe('Tasks board: task notes', () => {
     await userEvent.click(title('open'));
     await within(await screen.findByRole('dialog')).findByText('About open');
     await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledTimes(1));
-    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'close' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(hasUnreadDot('open')).toBe(true);
 
     await userEvent.click(title('open'));
     await waitFor(() => expect(markTaskNotesRead).toHaveBeenCalledTimes(2));
-    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'close' }));
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(hasUnreadDot('open')).toBe(false));
   });
 
@@ -361,7 +361,7 @@ describe('Tasks board: task notes', () => {
     const firstDialog = await screen.findByRole('dialog');
     await userEvent.type(within(firstDialog).getByLabelText('Add a Note'), 'Called the payer');
     await userEvent.click(within(firstDialog).getByRole('button', { name: 'Add Note' }));
-    await userEvent.click(within(firstDialog).getByRole('button', { name: 'close' }));
+    await userEvent.click(within(firstDialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await userEvent.click(title('second'));
     await screen.findByRole('dialog');

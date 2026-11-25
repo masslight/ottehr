@@ -192,7 +192,7 @@ describe('FormResponsesSummary', () => {
 });
 
 describe('SendFormDialog form type', () => {
-  it("defaults to the page's type, lists only that type's forms, and passes the chosen type to Fill out now", async () => {
+  it("defaults to the page's type, lists only that type's forms, and passes the chosen type to Fill Out Now", async () => {
     const onFillOut = vi.fn();
     renderWithProviders(
       <SendFormDialog
@@ -214,7 +214,7 @@ describe('SendFormDialog form type', () => {
     await user.click(within(screen.getByRole('listbox')).getByRole('option', { name: 'Screening' }));
     await user.click(screen.getByRole('combobox', { name: 'Form' }));
     await user.click(screen.getByRole('option', { name: 'Staff screening' }));
-    await user.click(screen.getByRole('button', { name: 'Fill out now' }));
+    await user.click(screen.getByRole('button', { name: 'Fill Out Now' }));
 
     expect(onFillOut).toHaveBeenCalledWith('screen-id', 'screening');
     expect(sendPatientForm).not.toHaveBeenCalled();

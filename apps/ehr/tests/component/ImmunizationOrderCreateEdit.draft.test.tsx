@@ -67,8 +67,8 @@ vi.mock('../../src/components/BaseBreadcrumbs', () => ({
   BaseBreadcrumbs: () => <div />,
 }));
 
-vi.mock('../../src/components/dialogs/CustomDialog', () => ({
-  CustomDialog: () => <div />,
+vi.mock('../../src/components/dialogs/AppDialog', () => ({
+  AppDialog: () => <div />,
 }));
 
 vi.mock('../../src/features/visits/in-person/components/medication-administration/PageHeader', () => ({

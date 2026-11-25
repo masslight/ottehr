@@ -712,7 +712,7 @@ describe('InboundFaxMatch page', () => {
       expect(mockDeleteInboundFax).not.toHaveBeenCalled();
 
       const dialog = await screen.findByRole('dialog');
-      expect(within(dialog).getByText('Delete inbound fax?')).toBeDefined();
+      expect(within(dialog).getByText('Delete Inbound Fax?')).toBeDefined();
       // Dialog states sender number, page count, and received date
       expect(within(dialog).getByText(/\+15551234567/)).toBeDefined();
       expect(within(dialog).getByText(/3-page/)).toBeDefined();
