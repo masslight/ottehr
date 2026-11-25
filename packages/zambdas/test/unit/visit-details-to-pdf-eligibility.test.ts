@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
-import { Coverage, Organization, Patient } from 'fhir/r4b';
+import { Coverage, DocumentReference, Organization, Patient } from 'fhir/r4b';
 import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
 import { OYSTEHR_RCM_PAYER_ID_SYSTEM } from 'utils/lib/fhir/constants';
 import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
@@ -10,7 +10,10 @@ import { getAccountAndCoverageResourcesForPatient } from '../../src/ehr/shared/h
 import { searchDocumentReferencesForVisit } from '../../src/ehr/visit-details/get-visit-files';
 import { performEffect } from '../../src/ehr/visit-details/visit-details-to-pdf';
 import { findLatestCoverageCheck } from '../../src/shared/patient-coverage-checks';
-import { makeVisitDetailsPdfDocumentReference } from '../../src/shared/pdf/make-visit-details-document-reference';
+import {
+  findSignedVisitDetailsDocument,
+  makeVisitDetailsPdfDocumentReference,
+} from '../../src/shared/pdf/make-visit-details-document-reference';
 import { createVisitDetailsPdf } from '../../src/shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../src/shared/pdf/visit-details-pdf/get-video-resources';
 
@@ -39,6 +42,7 @@ vi.mock('../../src/shared/pdf/visit-details-pdf', async (importOriginal) => ({
   createVisitDetailsPdf: vi.fn(),
 }));
 vi.mock('../../src/shared/pdf/make-visit-details-document-reference', () => ({
+  findSignedVisitDetailsDocument: vi.fn(),
   makeVisitDetailsPdfDocumentReference: vi.fn(),
 }));
 vi.mock('../../src/shared/pdf/visit-details-pdf/get-video-resources', async (importOriginal) => ({
@@ -94,6 +98,7 @@ beforeEach(() => {
     status: 'current',
     content: [],
   });
+  vi.mocked(findSignedVisitDetailsDocument).mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -149,7 +154,7 @@ describe('visit-details-to-pdf eligibility loading', () => {
     expect(await generate({ primary: PRIMARY })).toEqual([]);
   });
 
-  it('saves the PDF exactly as createVisitDetailsPdf returned it, linked to the encounter', async () => {
+  it('saves the PDF exactly as createVisitDetailsPdf returned it, linked to the encounter, as an unmarked copy', async () => {
     const pdfInfo = { uploadURL: 'https://z3/visit.pdf', title: 'Visit Details: 11-20-2026' };
     vi.mocked(createVisitDetailsPdf).mockResolvedValue({ pdfInfo });
     await generate({});
@@ -160,7 +165,8 @@ describe('visit-details-to-pdf eligibility loading', () => {
       'appt-1',
       'enc-1',
       [],
-      undefined
+      undefined,
+      false
     );
     expect(vi.mocked(makeVisitDetailsPdfDocumentReference).mock.calls[0][1]).toBe(pdfInfo);
     expect(pdfInfo).toEqual({ uploadURL: 'https://z3/visit.pdf', title: 'Visit Details: 11-20-2026' });
@@ -171,5 +177,56 @@ describe('visit-details-to-pdf eligibility loading', () => {
     vi.mocked(findLatestCoverageCheck).mockRejectedValue(error);
     expect(await generate({ primary: PRIMARY })).toBeUndefined();
     expect(captureException).toHaveBeenCalledWith(error);
+  });
+});
+
+describe('visit-details-to-pdf signing-time copy', () => {
+  const SIGNED_COPY = {
+    resourceType: 'DocumentReference',
+    id: 'signing-copy',
+    status: 'current',
+    docStatus: 'final',
+    content: [],
+  } as DocumentReference;
+
+  beforeEach(() => {
+    vi.mocked(getAccountAndCoverageResourcesForPatient).mockResolvedValue({
+      patient: PATIENT,
+      coverages: { primary: PRIMARY },
+      insuranceOrgs: INSURANCE_ORGS,
+    });
+    vi.mocked(findLatestCoverageCheck).mockResolvedValue(CHECK);
+  });
+
+  it('returns the signing-time copy on a later download without regenerating, searching or saving', async () => {
+    vi.mocked(findSignedVisitDetailsDocument).mockResolvedValue(SIGNED_COPY);
+    expect(await performEffect(oystehr, 'appt-1', null, 'token')).toEqual({
+      documentReference: 'DocumentReference/signing-copy',
+    });
+    expect(findSignedVisitDetailsDocument).toHaveBeenCalledWith(oystehr, 'enc-1');
+    expect(getAccountAndCoverageResourcesForPatient).not.toHaveBeenCalled();
+    expect(findLatestCoverageCheck).not.toHaveBeenCalled();
+    expect(createVisitDetailsPdf).not.toHaveBeenCalled();
+    expect(makeVisitDetailsPdfDocumentReference).not.toHaveBeenCalled();
+  });
+
+  it('returns a signing-time copy saved while the download was generated, instead of superseding it', async () => {
+    vi.mocked(findSignedVisitDetailsDocument).mockResolvedValueOnce(undefined).mockResolvedValueOnce(SIGNED_COPY);
+    expect(await performEffect(oystehr, 'appt-1', null, 'token')).toEqual({
+      documentReference: 'DocumentReference/signing-copy',
+    });
+    expect(createVisitDetailsPdf).toHaveBeenCalledOnce();
+    expect(findSignedVisitDetailsDocument).toHaveBeenCalledTimes(2);
+    expect(makeVisitDetailsPdfDocumentReference).not.toHaveBeenCalled();
+  });
+
+  it('saves a final copy when signing, without looking for an earlier signing-time copy', async () => {
+    vi.mocked(findSignedVisitDetailsDocument).mockResolvedValue(SIGNED_COPY);
+    expect(await performEffect(oystehr, 'appt-1', null, 'token', undefined, { signing: true })).toEqual({
+      documentReference: 'DocumentReference/doc-1',
+    });
+    expect(findSignedVisitDetailsDocument).not.toHaveBeenCalled();
+    expect(vi.mocked(createVisitDetailsPdf).mock.calls[0][0].coverageChecks).toEqual([CHECK]);
+    expect(vi.mocked(makeVisitDetailsPdfDocumentReference).mock.calls[0][7]).toBe(true);
   });
 });

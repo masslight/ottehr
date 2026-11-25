@@ -18,7 +18,10 @@ import {
   getVisitEmployerOrganizationId,
 } from '../../../shared/occupational-medicine-employer';
 import { findLatestCoverageCheck } from '../../../shared/patient-coverage-checks';
-import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
+import {
+  findSignedVisitDetailsDocument,
+  makeVisitDetailsPdfDocumentReference,
+} from '../../../shared/pdf/make-visit-details-document-reference';
 import {
   composeInsuranceData,
   getDisplayedInsurancePayerAndMemberId,
@@ -57,7 +60,8 @@ export const performEffect = async (
   appointmentId: string,
   secrets: Secrets | null,
   token: string,
-  timezone?: string
+  timezone?: string,
+  { signing = false }: { signing?: boolean } = {}
 ): Promise<VisitDetailsResponse> => {
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
   if (!visitResources) {
@@ -80,6 +84,14 @@ export const performEffect = async (
   if (!patient?.id) {
     throw new Error(`Patient data is missing for appointment ${appointmentId}`);
   }
+
+  const signedCopyResponse = async (): Promise<VisitDetailsResponse | undefined> => {
+    if (signing) return undefined;
+    const signedCopy = await findSignedVisitDetailsDocument(oystehr, encounter.id!);
+    return signedCopy && { documentReference: `DocumentReference/${signedCopy.id}` };
+  };
+  const existingSignedCopy = await signedCopyResponse();
+  if (existingSignedCopy) return existingSignedCopy;
 
   console.log('Chart data received');
 
@@ -179,6 +191,9 @@ export const performEffect = async (
     token
   );
 
+  const signedMeanwhile = await signedCopyResponse();
+  if (signedMeanwhile) return signedMeanwhile;
+
   console.log(`Creating Visit details PDF Document Reference`);
   const documentReference = await makeVisitDetailsPdfDocumentReference(
     oystehr,
@@ -187,7 +202,8 @@ export const performEffect = async (
     appointmentId,
     encounter.id!,
     listResources,
-    attached
+    attached,
+    signing
   );
   const visitDetailsDocumentId = documentReference.id ?? '';
 

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { DocumentReference, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { createFilesDocumentReferences } from 'utils/lib/fhir/helpers';
+import { LOINC_SYSTEM } from 'utils/lib/fhir/vitals';
 import { VISIT_DETAILS_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
 import { PdfInfo } from './pdf-utils';
 
@@ -13,9 +14,11 @@ export async function makeVisitDetailsPdfDocumentReference(
   appointmentId: string,
   encounterId: string,
   listResources: List[],
-  attached?: string[]
+  attached?: string[],
+  signingCopy = false
 ): Promise<DocumentReference> {
   const { docRefs } = await createFilesDocumentReferences({
+    docStatus: signingCopy ? 'final' : undefined,
     files: [
       {
         url: pdfInfo.uploadURL,
@@ -53,3 +56,24 @@ export async function makeVisitDetailsPdfDocumentReference(
   });
   return docRefs[0];
 }
+
+export const findSignedVisitDetailsDocument = async (
+  oystehr: Oystehr,
+  encounterId: string
+): Promise<DocumentReference | undefined> =>
+  (
+    await oystehr.fhir.search<DocumentReference>({
+      resourceType: 'DocumentReference',
+      params: [
+        { name: 'status', value: 'current' },
+        { name: 'encounter', value: `Encounter/${encounterId}` },
+        { name: 'type', value: `${LOINC_SYSTEM}|${VISIT_DETAILS_CODE}` },
+      ],
+    })
+  )
+    .unbundle()
+    .find(
+      (doc) =>
+        doc.docStatus === 'final' &&
+        !!doc.type?.coding?.some((coding) => coding.system === 'http://loinc.org' && coding.code === VISIT_DETAILS_CODE)
+    );
