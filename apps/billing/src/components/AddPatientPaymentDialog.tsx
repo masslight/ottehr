@@ -28,7 +28,7 @@ import { ReactElement, useEffect, useRef, useState } from 'react';
 import { Control, Controller, useForm } from 'react-hook-form';
 import { CreditCardBrandIcon } from 'ui-components/lib/components/CreditCardBrandIcon';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
-import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
+import { practiceToday } from 'utils/lib/helpers/rcm/payment-day';
 import { ServiceMode } from 'utils/lib/types/common';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { BillingPatientCard, BillingPatientVisit } from 'utils/lib/types/data/billing/billing.types';
@@ -61,14 +61,12 @@ interface PaymentForm {
 
 const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
 
-const todayInPractice = (): string => paymentDayOf(DateTime.now().toISO() ?? '');
-
 const defaultValues = (visits: BillingPatientVisit[]): PaymentForm => ({
   encounterId: visits[0]?.encounterId ?? '',
   amount: '',
   paymentMethod: 'card',
   cardId: '',
-  paymentDate: todayInPractice(),
+  paymentDate: practiceToday(DateTime.now()),
   checkNumber: '',
 });
 
@@ -329,6 +327,7 @@ export function AddPatientPaymentDialog({
                       label="Payment Date *"
                       size="small"
                       fullWidth
+                      timezone={TIMEZONES[0]}
                       value={field.value}
                       onChange={(value) => field.onChange(value)}
                       error={!!error}

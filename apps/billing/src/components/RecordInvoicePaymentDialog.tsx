@@ -23,7 +23,8 @@ import { ReactElement, useEffect, useRef, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { uploadObjectToZ3 } from 'utils/lib/helpers/presigned-file-url/helpers';
-import { paymentDayOf } from 'utils/lib/helpers/rcm/payment-day';
+import { FUTURE_PAYMENT_DATE_ERROR, isFuturePaymentDay, practiceToday } from 'utils/lib/helpers/rcm/payment-day';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import {
   BILLING_INVOICE_LIMITS,
   BILLING_INVOICE_PAYMENT_METHODS,
@@ -53,7 +54,7 @@ const ATTACHMENT_ACCEPT = {
 };
 
 const defaultValues = (): InvoicePaymentForm => ({
-  paymentDate: paymentDayOf(DateTime.now().toISO() ?? ''),
+  paymentDate: practiceToday(DateTime.now()),
   paymentMethod: 'check',
   reference: '',
   file: null,
@@ -208,12 +209,14 @@ export function RecordInvoicePaymentDialog({
                 control={control}
                 rules={{
                   required: REQUIRED_FIELD_ERROR_MESSAGE,
+                  validate: (value) => !isFuturePaymentDay(value, DateTime.now()) || FUTURE_PAYMENT_DATE_ERROR,
                 }}
                 render={({ field, fieldState: { error } }) => (
                   <DateInput
                     label="Payment date *"
                     size="small"
                     fullWidth
+                    timezone={TIMEZONES[0]}
                     value={field.value}
                     onChange={(value) => field.onChange(value)}
                     error={!!error}

@@ -12,6 +12,7 @@ import {
 } from 'utils/lib/fhir/billing-invoice';
 import { makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
+import { FUTURE_PAYMENT_DATE_ERROR, isFuturePaymentDay } from 'utils/lib/helpers/rcm/payment-day';
 import { RecordBillingNioInvoicePaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingNioInvoicePaymentResponse } from 'utils/lib/types/data/billing/billing.types';
 import {
@@ -127,6 +128,7 @@ export async function performEffect({
   if (amountInCents !== balanceInCents) {
     throw INVALID_INPUT_ERROR(`The payment must be the invoice balance of ${formatCurrency(balanceInCents / 100)}`);
   }
+  if (isFuturePaymentDay(paymentDate, now)) throw INVALID_INPUT_ERROR(FUTURE_PAYMENT_DATE_ERROR);
 
   const noticeFullUrls = lines.map(() => `urn:uuid:${randomUUID()}`);
   const attachmentRequests: BatchInputRequest<FhirResource>[] = attachment

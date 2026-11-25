@@ -348,6 +348,37 @@ describe('record-billing-nio-invoice-payment', () => {
     }
   });
 
+  it("records a payment dated the practice's today", async () => {
+    const { oystehr, transaction } = setup();
+
+    await performEffect({
+      oystehr,
+      params: {
+        ...params,
+        paymentDate: '2026-11-19',
+      },
+      now: NOW,
+    });
+
+    expect(transaction).toHaveBeenCalled();
+  });
+
+  it('refuses a payment dated in the future', async () => {
+    const { oystehr, transaction } = setup();
+
+    await expect(
+      performEffect({
+        oystehr,
+        params: {
+          ...params,
+          paymentDate: '2026-11-20',
+        },
+        now: NOW,
+      })
+    ).rejects.toEqual(INVALID_INPUT_ERROR("Payment date can't be in the future"));
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('refuses an amount other than the balance', async () => {
     const { oystehr, transaction } = setup();
 
