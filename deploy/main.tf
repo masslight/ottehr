@@ -167,15 +167,12 @@ module "apps_upload" {
   patient_portal_hash                = one(module.ottehr_apps[*].patient_portal_hash)
 }
 
-# Runs once per environment: the trigger is constant, change it only to run the cleanup again.
-resource "terraform_data" "delete_immunization_quick_picks" {
-  depends_on       = [module.apps_upload]
-  triggers_replace = "delete-immunization-quick-picks-v1"
+# After the apps upload, so a failed migration can't hold back the new EHR.
+module "oystehr_migrations" {
+  source      = "./oystehr/migrations"
+  environment = var.environment
 
-  provisioner "local-exec" {
-    working_dir = "${path.root}/../packages/zambdas"
-    command     = "npm run delete-immunization-quick-picks -- ${var.environment}"
-  }
+  depends_on = [module.apps_upload]
 }
 
 output "sendgrid_config_present" {
