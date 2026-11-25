@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -134,6 +135,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
           console.log(`Visit details pdf created for appointment ${appointmentId}`);
         } catch (visitDetailsError) {
           console.error(`Failed to generate visit details PDF for appointment ${appointmentId}:`, visitDetailsError);
+          captureException(visitDetailsError);
         }
       }
 
