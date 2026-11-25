@@ -8,8 +8,7 @@ export default defineStory({
   base: 'AppDialog',
   kind: 'confirm',
   where: 'In-person chart → Immunization → Vaccine details → "Administered"',
-  notes:
-    'Not in the original list (AdministrationConfirmationDialog renders through the InPersonModal wrapper around CustomDialog). Opened via the real button on VaccineDetailsCard with a fully filled mocked order so form validation passes.',
+  notes: 'Opened via the real button on VaccineDetailsCard with a fully filled mocked order so form validation passes.',
   route: '/in-person/appt-1/immunization/vaccine-details',
   routePath: '/in-person/:id/immunization/vaccine-details',
   mocks: immunizationMocks,

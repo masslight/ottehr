@@ -9,8 +9,7 @@ export default defineStory({
   kind: 'form',
   where:
     'In-person chart → Immunization → Vaccine details → "Not Administered" (same layout for "Partly Administered")',
-  notes:
-    'Not in the original list (AdministrationConfirmationDialog renders through the InPersonModal wrapper around CustomDialog). Variant with the Reason select; no reason chosen yet, so the confirm button is disabled.',
+  notes: 'Variant with the Reason select; no reason chosen yet, so the confirm button is disabled.',
   route: '/in-person/appt-1/immunization/vaccine-details',
   routePath: '/in-person/:id/immunization/vaccine-details',
   mocks: immunizationMocks,

@@ -8,8 +8,7 @@ export default defineStory({
   base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Patient Notes dialog → trash icon on a note',
-  notes:
-    'Not in the original list (rendered through the InPersonModal wrapper, which wraps CustomDialog). A single NoteItem is rendered outside its NotesDialog parent, so only this confirm dialog is open.',
+  notes: 'A single NoteItem is rendered outside its NotesDialog parent, so only this confirm dialog is open.',
   render: () => <NoteItem note={mockNotes[0]} target={{ patientId: 'patient-1' }} />,
   play: async ({ user, screen }) => {
     await user.click(await screen.findByRole('button', { name: 'delete note' }));

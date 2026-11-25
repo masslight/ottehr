@@ -13,8 +13,7 @@ export default defineStory({
       response: { status: 200, output: { phoneNumbers: ['+12025550143', '+12025550178'] } },
     },
   ],
-  notes:
-    'Phone numbers are mocked.',
+  notes: 'Phone numbers are mocked.',
   render: () => <AccountSettingsDialog patientId="patient-1" handleClose={() => undefined} />,
   play: async ({ waitFor }) => {
     await waitFor(() => {

@@ -9,8 +9,7 @@ export default defineStory({
   base: 'AppDialog',
   kind: 'form',
   where: 'Tasks board → ⋮ on a task row → "Assign to someone else"',
-  notes:
-    'Not in the original list (rendered through the InPersonModal wrapper around CustomDialog). Rendered directly with a mock inbound-fax task; no assignee picked yet, so "Assign" is disabled.',
+  notes: 'Rendered directly with a mock inbound-fax task; no assignee picked yet, so "Assign" is disabled.',
   route: '/tasks',
   mocks: userMocks,
   render: () => <AssignTaskDialog task={fhirTaskToTask(mockFaxTask)} handleClose={() => undefined} />,

@@ -54,7 +54,7 @@ export default defineStory({
   kind: 'form',
   where: 'Reports → Ad-Hoc Report → generated report header → "Save" / "Save report" (Administrator only)',
   notes:
-    'Captured for a report opened from Saved reports (?saved=…), so the dialog shows "Save as new" + "Update". For a freshly generated, never-saved report the same dialog has an empty-or-suggested name and a single "Save" button — that variant needs the AI generation flow and was not captured. Saved report, dataset rows and user role are mocked; the sandboxed report frame behind the dialog does not render in the harness.',
+    'Captured for a report opened from Saved reports (?saved=…), so the dialog shows "Save as New" + "Update". For a freshly generated, never-saved report the same dialog has an empty-or-suggested name and a single "Save" button — that variant needs the AI generation flow and was not captured. Saved report, dataset rows and user role are mocked; the sandboxed report frame behind the dialog does not render in the harness.',
   route: '/reports/ad-hoc?saved=rep-1',
   mocks: [
     ...userMocks,

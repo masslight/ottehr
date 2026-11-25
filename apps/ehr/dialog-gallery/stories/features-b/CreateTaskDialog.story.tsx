@@ -8,8 +8,7 @@ export default defineStory({
   base: 'AppDialog',
   kind: 'form',
   where: 'Tasks board → "New Task" (also from the chart header and patient page)',
-  notes:
-    'Not in the original list (rendered through the InPersonModal wrapper around CustomDialog). Shown as opened from the Tasks board: empty form, no visit context, so "Create new task" is disabled.',
+  notes: 'Shown as opened from the Tasks board: empty form, no visit context, so "Create New Task" is disabled.',
   route: '/tasks',
   mocks: userMocks,
   render: () => <CreateTaskDialog open handleClose={() => undefined} />,
