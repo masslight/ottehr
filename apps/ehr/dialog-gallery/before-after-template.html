@@ -1,0 +1,232 @@
+<title>EHR Dialogs Before and After</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a review ledger. One row per dialog: the copy change stated in words first (title,
+     buttons), then the two photographs at one shared scale, old on the left, new on the right. */
+  :root {
+    --bg: #eef1f6;
+    --panel: #ffffff;
+    --ink: #101a2e;
+    --muted: #5a6680;
+    --line: #d5dbe7;
+    --accent: #1f5fe0;
+    --accent-soft: #e3ecff;
+    --old: #9a3412;
+    --old-soft: #fdebe3;
+    --new: #166534;
+    --new-soft: #e2f4e7;
+    --mat: #7b7f86;
+    --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d121c; --panel: #161d2b; --ink: #e8ecf5; --muted: #98a3ba; --line: #2a3447;
+      --accent: #7ea6ff; --accent-soft: #1c2a4a; --old: #fdba8c; --old-soft: #3b2114; --new: #86e0a3; --new-soft: #12301d; --mat: #5d6068;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d121c; --panel: #161d2b; --ink: #e8ecf5; --muted: #98a3ba; --line: #2a3447;
+    --accent: #7ea6ff; --accent-soft: #1c2a4a; --old: #fdba8c; --old-soft: #3b2114; --new: #86e0a3; --new-soft: #12301d; --mat: #5d6068;
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
+  .wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  header.wrap { padding-block: 28px 10px; }
+  h1 { font-family: var(--font-display); font-weight: 600; font-size: 28px; margin: 0 0 6px; text-wrap: balance; letter-spacing: -0.01em; }
+  h2 { font-family: var(--font-display); font-weight: 600; font-size: 18px; margin: 0; text-wrap: balance; }
+  h3 { font-size: 15px; font-weight: 600; margin: 0; overflow-wrap: anywhere; }
+  .lede { color: var(--muted); max-width: 70ch; margin: 0; }
+  .lede b { color: var(--ink); font-weight: 600; }
+  .eyebrow { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+  .bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .bar .wrap { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding-block: 10px; }
+  .ctl { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .ctl label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  select, input[type="search"] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; max-width: 100%; }
+  input[type="search"] { width: 210px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button { font: inherit; font-size: 12.5px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+  .count { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+  main.wrap { padding-block: 8px 30px; }
+  .group-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding: 26px 0 8px; }
+  .group-head .n { color: var(--muted); font-size: 13px; }
+  article { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin-top: 14px; padding: 14px 16px 16px; display: grid; gap: 12px; min-width: 0; }
+  .head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; min-width: 0; }
+  .src { font-family: var(--font-mono); font-size: 11px; color: var(--muted); overflow-wrap: anywhere; min-width: 0; }
+  .chip { font-size: 11px; padding: 1px 7px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+  .chip.plain { background: none; border: 1px solid var(--line); color: var(--muted); }
+
+  .copy { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; align-items: baseline; }
+  .copy dt { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .copy dd { margin: 0; min-width: 0; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; overflow-wrap: anywhere; }
+  .was { background: var(--old-soft); color: var(--old); border-radius: 4px; padding: 1px 6px; }
+  .now { background: var(--new-soft); color: var(--new); border-radius: 4px; padding: 1px 6px; font-weight: 500; }
+  .same { color: var(--muted); }
+  .arrow { color: var(--muted); }
+  .btn-l { border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; font-size: 12.5px; white-space: nowrap; }
+  .btn-l.filled { border-style: solid; font-weight: 600; }
+  .btn-l.text { border-style: dashed; }
+
+  .pair { display: flex; gap: 16px; align-items: flex-start; min-width: 0; }
+  figure { margin: 0; min-width: 0; display: grid; gap: 6px; }
+  figcaption { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--muted); display: flex; gap: 8px; align-items: baseline; }
+  figcaption span { letter-spacing: 0; text-transform: none; font-weight: 400; }
+  .shot { display: block; padding: 0; border: 0; background: var(--mat); border-radius: 4px; overflow: hidden; cursor: zoom-in; width: 100%; }
+  .shot img { display: block; width: 100%; height: auto; }
+  .prompt { border: 1px dashed var(--line); border-radius: 6px; padding: 12px 14px; font-size: 13px; color: var(--muted); align-self: stretch; display: grid; gap: 8px; align-content: start; }
+  .prompt q { color: var(--ink); quotes: "“" "”"; }
+  .note { font-size: 12.5px; color: var(--muted); max-width: 90ch; }
+  .note b { color: var(--ink); font-weight: 600; }
+  footer.wrap { padding-block: 10px 40px; color: var(--muted); font-size: 12px; }
+
+  dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); padding: 0; width: min(1400px, calc(100vw - 24px)); max-height: calc(100vh - 24px); }
+  dialog::backdrop { background: rgba(8, 12, 20, 0.65); }
+  .lb-top { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+  .lb-top h2 { font-size: 15px; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .btn { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .lb-body { overflow: auto; background: var(--mat); padding: 12px; display: flex; justify-content: center; }
+  .lb-body img { display: block; max-width: none; }
+  @media (max-width: 760px) {
+    .pair { flex-direction: column; }
+    .pair figure { max-width: 100% !important; width: 100%; }
+    input[type="search"] { width: 150px; }
+    .count { margin-left: 0; }
+    .lb-body img { max-width: 100%; height: auto; }
+  }
+</style>
+
+<header class="wrap">
+  <div class="eyebrow">Ottehr EHR · dialog standard · migration review</div>
+  <h1>Every dialog, before and after</h1>
+  <p class="lede" id="lede"></p>
+</header>
+
+<div class="bar">
+  <div class="wrap">
+    <div class="seg" id="show" role="group" aria-label="Show"></div>
+    <div class="ctl"><label for="groupby">Group by</label>
+      <select id="groupby"><option value="area">App area</option><option value="kind">Purpose</option><option value="status">Status</option></select></div>
+    <div class="ctl"><label for="q">Find</label><input type="search" id="q" placeholder="title, button, file"></div>
+    <div class="count num" id="count"></div>
+  </div>
+</div>
+
+<main class="wrap" id="list"></main>
+<footer class="wrap" id="foot"></footer>
+
+<dialog id="lb" aria-label="Full-size screenshot">
+  <div class="lb-top"><h2 id="lb-title"></h2><button class="btn" id="lb-swap"></button><button class="btn" id="lb-close">Close</button></div>
+  <div class="lb-body"><img id="lb-img" alt=""></div>
+</dialog>
+
+<script>
+const DATA = /*__DATA__*/null;
+const $ = (id) => document.getElementById(id);
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') n.className = v; else if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else if (v !== false && v != null) n.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) n.append(k.nodeType ? k : document.createTextNode(k));
+  return n;
+};
+const STATUS = { migrated: 'Migrated', new: 'Was a browser prompt', kept: 'Kept as is', 'not-migrated': 'Not migrated', removed: 'Removed' };
+const SHOWS = [
+  ['all', 'All', () => true],
+  ['title', 'Title changed', (i) => i.titleChanged],
+  ['buttons', 'Buttons changed', (i) => i.buttonsChanged],
+  ['new', 'Was a browser prompt', (i) => i.status === 'new'],
+  ['open', 'Kept or not migrated', (i) => i.status === 'kept' || i.status === 'not-migrated' || i.status === 'removed'],
+];
+const state = { show: 'all', group: 'area', q: '' };
+const items = DATA.items;
+const SCALE = 0.5;
+
+const btnChip = (b) => el('span', { class: 'btn-l ' + (b.variant === 'contained' ? 'filled' : b.variant === 'text' ? 'text' : ''), title: `${b.variant}, ${b.color}` }, b.label);
+const btnRow = (s, cls) => s.buttons.length ? el('span', { class: cls, style: 'display:inline-flex;flex-wrap:wrap;gap:4px;padding:3px 6px' }, s.buttons.map(btnChip)) : el('span', { class: 'same' }, 'no buttons');
+
+function copyBlock(i) {
+  const b = i.before, a = i.after, rows = [];
+  if (b && a) {
+    rows.push(el('dt', {}, 'Title'), el('dd', {}, i.titleChanged
+      ? [el('span', { class: 'was' }, b.title || '(none)'), el('span', { class: 'arrow' }, '→'), el('span', { class: 'now' }, a.title || '(none)')]
+      : el('span', { class: 'same' }, (a.title || '(none)') + ' · unchanged')));
+    rows.push(el('dt', {}, 'Buttons'), el('dd', {}, i.buttonsChanged
+      ? [btnRow(b, 'was'), el('span', { class: 'arrow' }, '→'), btnRow(a, 'now')]
+      : [btnRow(a, 'same'), el('span', { class: 'same' }, '· same labels')]));
+    rows.push(el('dt', {}, 'Width'), el('dd', {}, b.w === a.w ? el('span', { class: 'same num' }, `${a.w}px · unchanged`) : [el('span', { class: 'was num' }, `${b.w}px`), el('span', { class: 'arrow' }, '→'), el('span', { class: 'now num' }, `${a.w}px`)]));
+  } else if (a) {
+    rows.push(el('dt', {}, 'Title'), el('dd', {}, el('span', { class: 'now' }, a.title || '(none)')));
+    rows.push(el('dt', {}, 'Buttons'), el('dd', {}, btnRow(a, 'now')));
+  }
+  return el('dl', { class: 'copy' }, rows);
+}
+function figure(s, label, i) {
+  const w = s.w + 48;
+  return el('figure', { style: `flex:${w} 1 0;max-width:${Math.round(w * SCALE)}px` },
+    el('figcaption', {}, label, el('span', { class: 'num' }, `${s.w}×${s.h}`)),
+    el('button', { class: 'shot', 'aria-label': `Open ${label.toLowerCase()} screenshot of ${i.name}`, onclick: () => openLb(i, label === 'Before' ? 'before' : 'after') },
+      el('img', { src: s.shot, alt: `${i.name}, ${label.toLowerCase()}`, loading: 'lazy', width: w, height: s.h + 48, style: `aspect-ratio:${w}/${s.h + 48}` })));
+}
+function card(i) {
+  const pair = [];
+  if (i.before) pair.push(figure(i.before, 'Before', i));
+  else if (i.prompt) pair.push(el('div', { class: 'prompt', style: 'flex:1 1 0;max-width:320px' }, el('div', { class: 'eyebrow' }, 'Before · browser prompt'), el('q', {}, i.prompt), el('div', {}, 'Buttons: OK | Cancel')));
+  if (i.after && i.status !== 'kept') pair.push(figure(i.after, 'After', i));
+  const note = i.keptWhy ? el('div', { class: 'note' }, el('b', {}, 'Kept as is. '), i.keptWhy)
+    : i.status === 'not-migrated' ? el('div', { class: 'note' }, el('b', {}, 'Not migrated. '), 'This dialog still uses its old base.')
+    : i.status === 'removed' ? el('div', { class: 'note' }, el('b', {}, 'Removed. '), 'This story has no “after” picture.') : null;
+  return el('article', {},
+    el('div', { class: 'head' }, el('h3', {}, i.name), el('span', { class: 'chip' }, i.kind), i.status !== 'migrated' ? el('span', { class: 'chip plain' }, STATUS[i.status]) : null, el('span', { class: 'src' }, i.source.replace('apps/ehr/src/', ''))),
+    i.status === 'kept' ? null : copyBlock(i), note,
+    el('div', { class: 'pair' }, pair));
+}
+function render() {
+  const pred = SHOWS.find((s) => s[0] === state.show)[2];
+  const q = state.q.toLowerCase();
+  const list = items.filter((i) => pred(i) && (!q || q.split(/\s+/).every((w) => (i.name + ' ' + i.source + ' ' + i.id + ' ' + (i.before?.title ?? '') + ' ' + (i.after?.title ?? '') + ' ' + [...(i.before?.buttons ?? []), ...(i.after?.buttons ?? [])].map((b) => b.label).join(' ')).toLowerCase().includes(w))));
+  const key = (i) => state.group === 'status' ? STATUS[i.status] : i[state.group];
+  const groups = new Map();
+  for (const i of list) { const k = key(i); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(i); }
+  const host = $('list');
+  host.replaceChildren();
+  for (const [name, g] of [...groups.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))) {
+    host.append(el('div', { class: 'group-head' }, el('h2', {}, String(name)), el('span', { class: 'n num' }, `${g.length} dialog${g.length === 1 ? '' : 's'}`)), ...g.map(card));
+  }
+  if (!list.length) host.append(el('p', { class: 'lede', style: 'padding-block:30px' }, 'Nothing matches.'));
+  $('count').textContent = `${list.length} of ${items.length} shown`;
+  $('show').replaceChildren(...SHOWS.map(([k, label, p]) => el('button', { type: 'button', 'aria-pressed': String(state.show === k), onclick: () => { state.show = k; render(); } }, `${label} ${items.filter(p).length}`)));
+}
+let lb = { item: null, side: 'after' };
+function openLb(item, side) {
+  lb = { item, side };
+  const s = item[side];
+  $('lb-img').src = s.shot; $('lb-img').style.width = (s.w + 48) + 'px'; $('lb-img').alt = `${item.name}, ${side}`;
+  $('lb-title').textContent = `${item.name} · ${side}`;
+  const other = side === 'before' ? 'after' : 'before';
+  $('lb-swap').hidden = !item[other] || item.status === 'kept';
+  $('lb-swap').textContent = `Show ${other}`;
+  if (!$('lb').open) $('lb').showModal();
+}
+$('lb-swap').onclick = () => openLb(lb.item, lb.side === 'before' ? 'after' : 'before');
+$('lb-close').onclick = () => $('lb').close();
+$('lb').addEventListener('click', (e) => { if (e.target === $('lb')) $('lb').close(); });
+$('groupby').onchange = (e) => { state.group = e.target.value; render(); };
+$('q').oninput = (e) => { state.q = e.target.value.trim(); render(); };
+
+const n = (s) => items.filter((i) => i.status === s).length;
+$('lede').replaceChildren(el('b', {}, `${items.length} dialogs`), `: ${n('migrated')} moved to the standard shell, ${n('new')} that used to be browser prompts, ${n('kept')} deliberately kept as they are` + (n('not-migrated') + n('removed') ? `, ${n('not-migrated') + n('removed')} still open` : '') + `. Each row states the title and button changes in words, then shows the old and new dialog at the same scale. Title or button text was changed on ${items.filter((i) => i.titleChanged || i.buttonsChanged).length} of them. Captured ${DATA.builtAt}.`);
+$('foot').textContent = 'Titles and button labels are read from the rendered dialogs. Button outlines: solid = filled or outlined button, dashed = text button. Select a picture to see it at full size.';
+render();
+</script>
