@@ -118,6 +118,7 @@ export interface OutboundDeliveryAttemptData {
   senderDisplay?: string;
   parentAttemptId?: string;
   basedOnReference?: string;
+  basedOnVersionId?: string;
   authoredOn?: string;
   sourceIdentifier?: string;
   initialStatus?: Task['status'];

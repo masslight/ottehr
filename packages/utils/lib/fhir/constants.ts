@@ -1372,6 +1372,7 @@ export const OUTBOUND_DELIVERY_INPUT_CODES = {
   senderOrganization: 'sender-organization',
   packetPageCount: 'fax-packet-page-count',
   packetParts: 'fax-packet-parts',
+  basedOnVersion: 'based-on-version',
 } as const;
 export const OUTBOUND_DELIVERY_OUTPUT_SYSTEM = ottehrCodeSystemUrl('outbound-delivery-output');
 export const OUTBOUND_DELIVERY_OUTPUT_CODES = {

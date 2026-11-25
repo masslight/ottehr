@@ -152,12 +152,17 @@ describe('deliverDocumentPacket', () => {
     expect(mockBuildPacketForRecipient).not.toHaveBeenCalled();
   });
 
-  it('records what a referral packet fulfils on every delivery attempt', async () => {
+  it('records what a referral packet fulfils, and the version it was built from, on every delivery attempt', async () => {
     await deliverDocumentPacket(
-      deliverArgs([{ faxNumber: '+12125551234' }], { plan: plan({ basedOnReference: 'ServiceRequest/referral-1' }) })
+      deliverArgs([{ faxNumber: '+12125551234' }], {
+        plan: plan({ basedOnReference: 'ServiceRequest/referral-1', basedOnVersionId: '3' }),
+      })
     );
 
-    expect(mockSendFaxAttempt.mock.calls[0][0].basedOnReference).toBe('ServiceRequest/referral-1');
+    expect(mockSendFaxAttempt.mock.calls[0][0]).toMatchObject({
+      basedOnReference: 'ServiceRequest/referral-1',
+      basedOnVersionId: '3',
+    });
   });
 
   it('sends a patient-level packet that names no visit', async () => {
@@ -524,6 +529,8 @@ describe('markReferralSentIfDelivered', () => {
   const failed = [{ faxNumber: '+12125551234', status: 'failed' as const }];
   const emailed = [{ email: 'clinic@example.com', status: 'sent' as const }];
   const conflict = Object.assign(new Error('version conflict'), { code: 412 });
+  // The version `referral()` is at, as the packet recorded it when it was built.
+  const FAXED_VERSION = '3';
 
   // The referral's open "awaiting response" task, whose clock restarts in the transaction that marks the referral sent.
   const awaitingTask = {
@@ -563,7 +570,7 @@ describe('markReferralSentIfDelivered', () => {
   it('moves a referral to Sent once any fax recipient received it, guarding against concurrent edits', async () => {
     const { transaction, oystehr } = oystehrFor(referral('given-to-patient'));
 
-    await markReferralSentIfDelivered('referral-1', [...failed, ...sent], oystehr);
+    await markReferralSentIfDelivered('referral-1', FAXED_VERSION, [...failed, ...sent], oystehr);
 
     const [put] = requestsOf(transaction);
     expect(put).toMatchObject({ method: 'PUT', url: '/ServiceRequest/referral-1', ifMatch: 'W/"3"' });
@@ -577,7 +584,7 @@ describe('markReferralSentIfDelivered', () => {
   it('starts the overdue clock on the open task in the same transaction that marks the referral sent', async () => {
     const { transaction, update, patch, oystehr } = oystehrFor(referral('not-sent'));
 
-    await markReferralSentIfDelivered('referral-1', sent, oystehr);
+    await markReferralSentIfDelivered('referral-1', FAXED_VERSION, sent, oystehr);
 
     const [put, taskPatch, ...rest] = requestsOf(transaction);
     const sentAt = getReferralDetails(put.resource as ServiceRequest)!.sentAt!;
@@ -609,7 +616,7 @@ describe('markReferralSentIfDelivered', () => {
     };
     search.mockResolvedValue({ unbundle: () => [notifiedTask] });
 
-    await markReferralSentIfDelivered('referral-1', sent, oystehr);
+    await markReferralSentIfDelivered('referral-1', FAXED_VERSION, sent, oystehr);
 
     const operations = patchOperations(requestsOf(transaction)[1]);
     expect(operations).toHaveLength(2);
@@ -626,7 +633,7 @@ describe('markReferralSentIfDelivered', () => {
     async (_label, results) => {
       const { get, transaction, oystehr } = oystehrFor(referral('not-sent'));
 
-      await markReferralSentIfDelivered('referral-1', results, oystehr);
+      await markReferralSentIfDelivered('referral-1', FAXED_VERSION, results, oystehr);
 
       expect(get).not.toHaveBeenCalled();
       expect(transaction).not.toHaveBeenCalled();
@@ -636,7 +643,7 @@ describe('markReferralSentIfDelivered', () => {
   it('keeps a referral that already has a response as Response received', async () => {
     const { transaction, oystehr } = oystehrFor(referral('response-received'));
 
-    await markReferralSentIfDelivered('referral-1', sent, oystehr);
+    await markReferralSentIfDelivered('referral-1', FAXED_VERSION, sent, oystehr);
 
     expect(transaction).not.toHaveBeenCalled();
   });
@@ -644,32 +651,43 @@ describe('markReferralSentIfDelivered', () => {
   it('writes no referral details onto a ServiceRequest that is not a referral', async () => {
     const { transaction, update, patch, oystehr } = oystehrFor({ ...referral('not-sent'), meta: { versionId: '3' } });
 
-    await markReferralSentIfDelivered('referral-1', sent, oystehr);
+    await markReferralSentIfDelivered('referral-1', FAXED_VERSION, sent, oystehr);
 
     expect(transaction).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
     expect(patch).not.toHaveBeenCalled();
   });
 
-  it('re-reads the referral and its tasks and retries when the referral changed underneath it, at most three times', async () => {
-    const { get, search, transaction, oystehr } = oystehrFor(referral('not-sent'));
-    transaction.mockRejectedValueOnce(conflict).mockRejectedValueOnce(conflict);
+  it.each([
+    ['was edited after its fax was built', '2'],
+    ['cannot say which version its fax was built from', undefined],
+  ])('leaves a referral that %s as it is, since what is on file now was never faxed', async (_label, faxedVersion) => {
+    const { transaction, oystehr } = oystehrFor(referral('not-sent'));
 
-    await markReferralSentIfDelivered('referral-1', sent, oystehr);
+    await markReferralSentIfDelivered('referral-1', faxedVersion, sent, oystehr);
 
-    expect(get).toHaveBeenCalledTimes(3);
-    expect(search).toHaveBeenCalledTimes(3);
-    expect(transaction).toHaveBeenCalledTimes(3);
+    expect(transaction).not.toHaveBeenCalled();
     expect(mockCaptureException).not.toHaveBeenCalled();
   });
 
-  it('never fails the send: a persistent failure is captured instead', async () => {
+  it('leaves the referral as it is when it is edited while being marked sent, without retrying', async () => {
+    const { get, transaction, oystehr } = oystehrFor(referral('not-sent'));
+    transaction.mockRejectedValueOnce(conflict);
+
+    await markReferralSentIfDelivered('referral-1', FAXED_VERSION, sent, oystehr);
+
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(mockCaptureException).not.toHaveBeenCalled();
+  });
+
+  it('never fails the send: any other failure is captured instead', async () => {
     const { transaction, oystehr } = oystehrFor(referral('not-sent'));
-    transaction.mockRejectedValue(conflict);
+    const failure = new Error('FHIR unavailable');
+    transaction.mockRejectedValue(failure);
 
-    await expect(markReferralSentIfDelivered('referral-1', sent, oystehr)).resolves.toBeUndefined();
+    await expect(markReferralSentIfDelivered('referral-1', FAXED_VERSION, sent, oystehr)).resolves.toBeUndefined();
 
-    expect(transaction).toHaveBeenCalledTimes(3);
-    expect(mockCaptureException).toHaveBeenCalledWith(conflict);
+    expect(mockCaptureException).toHaveBeenCalledWith(failure);
   });
 });

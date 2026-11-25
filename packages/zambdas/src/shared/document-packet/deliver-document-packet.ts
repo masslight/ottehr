@@ -194,6 +194,7 @@ const sendPacketToRecipient = async (args: {
       media: uploaded.pdfInfo.uploadURL,
       userPractitioner: senderPractitioner,
       basedOnReference: plan.basedOnReference,
+      basedOnVersionId: plan.basedOnVersionId,
     },
     oystehr
   );
@@ -331,9 +332,10 @@ export const savePcpIfRequested = async (
 
 export const markReferralSentIfDelivered = async (
   referralId: string,
+  faxedVersionId: string | undefined,
   results: DocumentPacketRecipientResult[],
   oystehr: Oystehr
 ): Promise<void> => {
   if (!results.some((result) => result.status === 'sent' && !result.email)) return;
-  await markReferralSent(referralId, oystehr);
+  await markReferralSent(referralId, faxedVersionId, oystehr);
 };

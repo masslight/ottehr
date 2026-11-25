@@ -55,6 +55,7 @@ export interface DocumentPacketPlan {
   listResources: List[];
   /** `ServiceRequest/<id>` for a referral packet, recorded on each delivery attempt as `Task.basedOn`. */
   basedOnReference?: string;
+  basedOnVersionId?: string;
 }
 
 /**
@@ -150,6 +151,7 @@ const resolveReferral = async (args: {
 
   const { serviceRequest, patientId, appointmentId } = await resolveReferralFaxContext(oystehr, referralId);
   const basedOnReference = `ServiceRequest/${referralId}`;
+  const basedOnVersionId = serviceRequest.meta?.versionId;
   const [formPart, earlierParts] = await Promise.all([
     resolveReferralFormPart(serviceRequest, { oystehr, secrets, token }),
     collectReferralDocumentParts(oystehr, patientId, getReferralEarlierDocumentIds(serviceRequest), secrets),
@@ -182,6 +184,7 @@ const resolveReferral = async (args: {
       timezone: visitResources.timezone,
       listResources: visitResources.listResources,
       basedOnReference,
+      basedOnVersionId,
     };
   }
 
@@ -200,6 +203,7 @@ const resolveReferral = async (args: {
     sections: [await buildDocumentPacketSection({ token, subject, parts: [formPart, ...earlierParts], budget })],
     listResources,
     basedOnReference,
+    basedOnVersionId,
   };
 };
 

@@ -488,7 +488,7 @@ describe('resolveDocumentPacketPlan for a referral', () => {
         id: REFERRAL_ID,
         status: 'draft',
         intent: 'order',
-        meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }] },
+        meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }], versionId: '6' },
         subject: { reference: `Patient/${PATIENT_ID}` },
         ...over,
       },
@@ -551,6 +551,7 @@ describe('resolveDocumentPacketPlan for a referral', () => {
     expect(plan.appointmentId).toBe('appointment-1');
     expect(plan.encounterId).toBe(ENCOUNTER_ID);
     expect(plan.basedOnReference).toBe(`ServiceRequest/${REFERRAL_ID}`);
+    expect(plan.basedOnVersionId).toBe('6');
   });
 
   it('sends the form alone for a referral made without a visit', async () => {

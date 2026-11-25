@@ -29,6 +29,7 @@ export interface SendFaxAttemptInput {
   parentAttemptId?: string;
   /** `ServiceRequest/<id>` when the fax sends a referral, so the attempt shows on the referral. */
   basedOnReference?: string;
+  basedOnVersionId?: string;
   senderId: string;
 }
 
@@ -48,6 +49,7 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     packetParts,
     parentAttemptId,
     basedOnReference,
+    basedOnVersionId,
     senderId,
   } = input;
 
@@ -66,6 +68,7 @@ export async function sendFaxAttempt(input: SendFaxAttemptInput, oystehr: Oysteh
     senderOrganizationReference: `Organization/${organizationId}`,
     parentAttemptId,
     basedOnReference,
+    basedOnVersionId,
     senderId,
     senderDisplay: getFullestAvailableName(userPractitioner),
   });

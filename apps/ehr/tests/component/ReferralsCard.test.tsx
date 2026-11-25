@@ -310,6 +310,7 @@ describe('ReferralsCard', () => {
     const form = screen.getByTestId(dataTestIds.referrals.form);
     const fax = faxInput(form);
     expect(fax).toHaveValue('');
+    expect(fax).toHaveAccessibleDescription('None on file. The number here is the one this referral faxes to.');
     expect(within(form).getByTestId(dataTestIds.referrals.sendFaxButton)).toBeDisabled();
 
     await user.type(fax, '2125559876');

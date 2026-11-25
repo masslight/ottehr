@@ -40,9 +40,11 @@ vi.mock('../../src/shared/document-packet/resolve-packet-source', () => ({
 }));
 
 const mockDeliverDocumentPacket = vi.fn();
+const mockMarkReferralSentIfDelivered = vi.fn();
 vi.mock('../../src/shared/document-packet/deliver-document-packet', () => ({
   deliverDocumentPacket: (...args: unknown[]) => mockDeliverDocumentPacket(...args),
   savePcpIfRequested: vi.fn(),
+  markReferralSentIfDelivered: (...args: unknown[]) => mockMarkReferralSentIfDelivered(...args),
 }));
 
 import { DocumentPacketTooLargeError } from '../../src/shared/document-packet/build-document-packet';
@@ -74,8 +76,8 @@ const task: Task = {
   input: [{ type: { coding: [DOCUMENT_PACKET_REQUEST_TASK_INPUT] }, valueString: JSON.stringify(payload) }],
 };
 
-const runHandler = (): Promise<APIGatewayProxyResult> =>
-  handler({ headers: null, body: JSON.stringify(task), secrets: createMockSecrets() });
+const runHandler = (packetTask: Task = task): Promise<APIGatewayProxyResult> =>
+  handler({ headers: null, body: JSON.stringify(packetTask), secrets: createMockSecrets() });
 
 const describePatch = (operations: Operation[]): string => {
   const status = operations.find((op) => op.path === '/status') as { value: string } | undefined;
@@ -175,5 +177,26 @@ describe('sub-send-document-packet', () => {
     expect(patchedLabels()).toEqual(['status:in-progress', 'output:failure-reason', 'status:failed']);
     expect(failedStatusReason()).toBe(finalSizeError.message);
     expect(mockSendErrors).not.toHaveBeenCalled();
+  });
+
+  it('marks a referral Sent only as the version its packet was built from', async () => {
+    const referralPayload: DocumentPacketTaskPayload = {
+      ...payload,
+      source: { type: 'referral', referralId: 'referral-1' },
+    };
+    const results = [{ faxNumber: '+12125551234', status: 'sent' }];
+    mockResolveDocumentPacketPlan.mockResolvedValue({
+      patient: { resourceType: 'Patient', id: 'patient-1' },
+      basedOnReference: 'ServiceRequest/referral-1',
+      basedOnVersionId: '3',
+    });
+    mockDeliverDocumentPacket.mockResolvedValue(results);
+
+    await runHandler({
+      ...task,
+      input: [{ type: { coding: [DOCUMENT_PACKET_REQUEST_TASK_INPUT] }, valueString: JSON.stringify(referralPayload) }],
+    });
+
+    expect(mockMarkReferralSentIfDelivered).toHaveBeenCalledWith('referral-1', '3', results, expect.anything());
   });
 });

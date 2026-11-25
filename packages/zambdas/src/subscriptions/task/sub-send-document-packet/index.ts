@@ -101,7 +101,9 @@ export const index = wrapTaskHandler(
       });
 
       await savePcpIfRequested(payload.recipients, plan.patient, oystehr);
-      if (source.type === 'referral') await markReferralSentIfDelivered(source.referralId, results, oystehr);
+      if (source.type === 'referral') {
+        await markReferralSentIfDelivered(source.referralId, plan.basedOnVersionId, results, oystehr);
+      }
 
       // Per-recipient outcomes for the status poll. Written before wrapTaskHandler marks the task completed;
       // patchTaskStatus only touches /status + /statusReason, so this output survives.

@@ -80,6 +80,7 @@ export function makeOutboundDeliveryAttempt(data: OutboundDeliveryAttemptData): 
       ...(data.senderOrganizationReference
         ? [input(OUTBOUND_DELIVERY_INPUT_CODES.senderOrganization, undefined, data.senderOrganizationReference)]
         : []),
+      ...(data.basedOnVersionId ? [input(OUTBOUND_DELIVERY_INPUT_CODES.basedOnVersion, data.basedOnVersionId)] : []),
     ].filter(hasValue),
     output: data.communicationReference
       ? [

@@ -2,12 +2,13 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, DocumentReference, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
+import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_RETRY_IDENTIFIER_SYSTEM } from 'utils/lib/fhir/constants';
 import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import {
   getOutboundDeliveryAttemptStatus,
   getOutboundDeliveryChannel,
+  getOutboundDeliveryInput,
   getOutboundDeliveryPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
   isDocumentLinkAttempt,
@@ -103,6 +104,8 @@ export async function performEffect(
   let retried: Task;
   if (channel === 'fax') {
     const basedOnReference = original.basedOn?.[0]?.reference;
+    const basedOnVersionId = getOutboundDeliveryInput(original, OUTBOUND_DELIVERY_INPUT_CODES.basedOnVersion)
+      ?.valueString;
     const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, parameters.secrets);
     const faxInput: SendFaxAttemptInput = {
       appointmentId,
@@ -137,6 +140,7 @@ export async function performEffect(
         senderOrganizationReference: `Organization/${organizationId}`,
         parentAttemptId: originalId,
         basedOnReference,
+        basedOnVersionId,
         senderId: user.id,
         senderDisplay,
       }),
@@ -145,7 +149,7 @@ export async function performEffect(
     if (claim.status === 'existing') throw new Error('This delivery attempt has already been retried');
     retried = await deliverFaxAttempt(faxInput, oystehr, claim.attempt);
     const referralId = getIdFromReference(basedOnReference, 'ServiceRequest');
-    if (referralId) await markReferralSent(referralId, oystehr);
+    if (referralId) await markReferralSent(referralId, basedOnVersionId, oystehr);
   } else {
     if (!emailClient) throw new Error('Visit note email client was not initialized');
     const emailAppointmentId = requireOutboundDeliveryValue(appointmentId, 'appointment reference');

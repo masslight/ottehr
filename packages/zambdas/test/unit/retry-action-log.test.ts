@@ -254,9 +254,10 @@ describe('retry-action-log eligibility', () => {
     expect(oystehr.fhir.get).not.toHaveBeenCalledWith(expect.objectContaining({ resourceType: 'ServiceRequest' }));
   });
 
-  it('keeps a retried referral fax on its referral and moves a referral that never went out to Sent', async () => {
-    // Without the link the referral keeps showing the failed original, and a first attempt the fax service refused
-    // would leave the referral Not sent after a retry that went out.
+  const retryReferralFax = async (args: {
+    faxedVersion: string;
+    referralVersion: string;
+  }): Promise<{ create: ReturnType<typeof vi.fn>; send: ReturnType<typeof vi.fn>; transaction: any }> => {
     const original: Task = {
       ...makeOutboundDeliveryAttempt({
         channel: 'fax',
@@ -264,6 +265,7 @@ describe('retry-action-log eligibility', () => {
         recipientAddress: '+12125551234',
         documentReferenceId: 'doc-1',
         basedOnReference: 'ServiceRequest/referral-1',
+        basedOnVersionId: args.faxedVersion,
       }),
       id: 'attempt-1',
       status: 'failed',
@@ -274,7 +276,7 @@ describe('retry-action-log eligibility', () => {
         id: 'referral-1',
         status: 'draft',
         intent: 'order',
-        meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }], versionId: '2' },
+        meta: { tag: [{ ...REFERRAL_ORDER_TYPE_TAG }], versionId: args.referralVersion },
         subject: { reference: 'Patient/patient-1' },
       },
       { status: 'not-sent' }
@@ -298,11 +300,25 @@ describe('retry-action-log eligibility', () => {
       { id: 'user-1', profile: 'Practitioner/practitioner-1' } as any,
       'token'
     );
+    return { create, send, transaction };
+  };
 
-    expect((create.mock.calls[0][0] as Task).basedOn).toEqual([{ reference: 'ServiceRequest/referral-1' }]);
+  it('keeps a retried referral fax on its referral and moves a referral that never went out to Sent', async () => {
+    const { create, transaction } = await retryReferralFax({ faxedVersion: '2', referralVersion: '2' });
+
+    const retryTask = create.mock.calls[0][0] as Task;
+    expect(retryTask.basedOn).toEqual([{ reference: 'ServiceRequest/referral-1' }]);
+    expect(getOutboundDeliveryInput(retryTask, OUTBOUND_DELIVERY_INPUT_CODES.basedOnVersion)?.valueString).toBe('2');
     const [put] = transaction.mock.calls[0][0].requests;
     expect(put).toMatchObject({ method: 'PUT', url: '/ServiceRequest/referral-1', ifMatch: 'W/"2"' });
     expect(getReferralDetails(put.resource)).toMatchObject({ status: 'sent', sentAt: expect.any(String) });
+  });
+
+  it('resends the packet but leaves Not sent a referral edited since that packet was built', async () => {
+    const { send, transaction } = await retryReferralFax({ faxedVersion: '1', referralVersion: '2' });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(transaction).not.toHaveBeenCalled();
   });
 
   describe('a fax sent for a referral', () => {

@@ -1,4 +1,4 @@
-import { Box, FormHelperText, InputBaseComponentProps, InputProps, Skeleton, TextField } from '@mui/material';
+import { Box, InputBaseComponentProps, InputProps, Skeleton, TextField } from '@mui/material';
 import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
@@ -62,12 +62,9 @@ export const TextInput: React.FC<Props> = ({
             fullWidth
             disabled={disabled}
             data-testid={dataTestId}
+            helperText={error ? error.message : helperText}
+            FormHelperTextProps={{ sx: { mx: 0 } }}
           />
-          {error ? (
-            <FormHelperText error={true}>{error?.message}</FormHelperText>
-          ) : (
-            helperText && <FormHelperText>{helperText}</FormHelperText>
-          )}
         </Box>
       )}
     />
