@@ -146,10 +146,10 @@ const runSentryCommandWithRetry = async (label: string, runCommand: () => Promis
   }
 };
 
-const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
+const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<(() => Promise<void>) | undefined> => {
   if (!process.env.SENTRY_ORG || !process.env.SENTRY_PROJECT || !process.env.SENTRY_AUTH_TOKEN) {
     console.warn('Sentry environment variables are not set');
-    return;
+    return undefined;
   }
   // dynamic import because this library is pure ESM
   const { $ } = await import('execa');
@@ -165,41 +165,39 @@ const injectSourceMaps = async (zambdas: ZambdaSpec[]): Promise<void> => {
   };
   const revParse = await $`git rev-parse --verify HEAD`;
   const releaseName = revParse.stdout;
-  if (
-    !(await runSentryCommandWithRetry(
-      `releases new ${releaseName}`,
-      () => $(shellConfig)`sentry-cli releases new ${releaseName}`
-    ))
-  ) {
-    return;
-  }
-
   const zambdaDirs = zambdas.map((z) => path.dirname(`.dist/${z.src.substring('src/'.length)}.js`));
 
   console.log(`Injecting source maps for ${zambdas.length} zambdas...`);
-  if (
-    !(await runSentryCommandWithRetry(
+  const [releaseCreated, sourceMapsInjected] = await Promise.all([
+    runSentryCommandWithRetry(
+      `releases new ${releaseName}`,
+      () => $(shellConfig)`sentry-cli releases new ${releaseName}`
+    ),
+    runSentryCommandWithRetry(
       'sourcemaps inject',
       () => $(shellConfig)`sentry-cli sourcemaps inject ${zambdaDirs} --quiet --log-level error`
-    ))
-  ) {
-    return;
+    ),
+  ]);
+  if (!releaseCreated || !sourceMapsInjected) {
+    return undefined;
   }
 
-  console.log(`Uploading source maps for ${zambdas.length} zambdas...`);
-  if (
-    !(await runSentryCommandWithRetry(
-      'sourcemaps upload',
-      () => $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} ${zambdaDirs}`
-    ))
-  ) {
-    return;
-  }
+  return async () => {
+    console.log(`Uploading source maps for ${zambdas.length} zambdas...`);
+    if (
+      !(await runSentryCommandWithRetry(
+        'sourcemaps upload',
+        () => $(shellConfig)`sentry-cli sourcemaps upload --strict --release ${releaseName} ${zambdaDirs}`
+      ))
+    ) {
+      return;
+    }
 
-  await runSentryCommandWithRetry(
-    `releases finalize ${releaseName}`,
-    () => $(shellConfig)`sentry-cli releases finalize ${releaseName}`
-  );
+    await runSentryCommandWithRetry(
+      `releases finalize ${releaseName}`,
+      () => $(shellConfig)`sentry-cli releases finalize ${releaseName}`
+    );
+  };
 };
 
 const zipInChunks = async (zambdas: ZambdaSpec[], assetsDir: string, assetsPath: string): Promise<void> => {
@@ -271,18 +269,23 @@ const main = async (): Promise<void> => {
   await copyAssets('assets', assetsDir);
 
   console.timeEnd('Bundle time');
+  let uploadSourceMaps: (() => Promise<void>) | undefined;
   if (isSentryEnabled) {
     console.log('Source maps...');
     console.time('Source maps time');
-    await injectSourceMaps(zambdas);
-    console.timeEnd('Source maps time');
+    uploadSourceMaps = await injectSourceMaps(zambdas);
   }
   console.log('Zipping...');
   console.time('Zip time');
 
-  await zipInChunks(zambdas, assetsDir, 'assets');
+  await Promise.all([
+    zipInChunks(zambdas, assetsDir, 'assets').then(() => console.timeEnd('Zip time')),
+    (async () => {
+      await uploadSourceMaps?.();
+      if (isSentryEnabled) console.timeEnd('Source maps time');
+    })(),
+  ]);
 
-  console.timeEnd('Zip time');
   console.log('Zambdas successfully bundled and zipped into .dist/zips');
 };
 
