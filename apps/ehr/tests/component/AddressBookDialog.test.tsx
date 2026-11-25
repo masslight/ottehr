@@ -289,7 +289,10 @@ describe('AddressBookDialog', () => {
 
   it("suggests the practice's configured specialties as tags, as the referral form filters by them", async () => {
     const user = userEvent.setup();
-    progressNoteConfig.current = { data: { specialtyTransferOptions: ['Sleep Medicine'] }, isLoading: false };
+    progressNoteConfig.current = {
+      data: { specialtyTransferOptions: ['Sleep Medicine', 'OB/GYN'] },
+      isLoading: false,
+    };
     api.searchAddressBook.mockResolvedValue({ contacts: [] });
     renderDialog(<AddressBookDialog onClose={vi.fn()} onSaved={vi.fn()} />);
 
@@ -297,6 +300,8 @@ describe('AddressBookDialog', () => {
 
     const options = (await screen.findAllByRole('option')).map((option) => option.textContent);
     expect(options).toContain('sleep medicine');
+    expect(options).toContain('ob gyn');
+    expect(options).not.toContain('ob/gyn');
     expect(options).not.toContain('orthopedics');
   });
 });

@@ -2,10 +2,12 @@ import {
   faxBlockedReason,
   NO_FAX_SEND_TEXT,
   NO_RECIPIENT_SEND_TEXT,
+  specialtyTag,
   toReferralFormValues,
   toSaveReferralInput,
 } from 'src/features/referrals/referralForm.helpers';
 import { ReferralDTO } from 'utils/lib/types/api/referrals/referrals.types';
+import { SearchAddressBookInputSchema } from 'utils/lib/types/data/address-book';
 import { describe, expect, it } from 'vitest';
 
 const referral: ReferralDTO = {
@@ -26,6 +28,21 @@ const referral: ReferralDTO = {
   createdAt: '2026-11-01T15:00:00.000Z',
   responseDocumentReferenceIds: [],
 };
+
+describe('specialtyTag', () => {
+  it.each([
+    ['Orthopedics', 'orthopedics'],
+    ['OB/GYN', 'ob gyn'],
+    ['Allergy & Immunology', 'allergy immunology'],
+  ])('filters the directory for %s by a tag the search accepts', (specialty, tag) => {
+    expect(specialtyTag(specialty)).toBe(tag);
+    expect(SearchAddressBookInputSchema.safeParse({ tag }).success).toBe(true);
+  });
+
+  it.each([['Other'], [''], ['&/']])('does not filter for %j', (specialty) => {
+    expect(specialtyTag(specialty)).toBeUndefined();
+  });
+});
 
 describe('faxBlockedReason', () => {
   it('asks for a recipient first', () => {

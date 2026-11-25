@@ -57,7 +57,7 @@ export const useSendDocuments = (source: DocumentPacketSource | undefined): UseS
   const taskSources = useRef<Map<string, DocumentPacketSource>>(new Map());
 
   const queryClient = useQueryClient();
-  const preview = useDocumentPacketPreview(previewInput, isOpen);
+  const preview = useDocumentPacketPreview(isOpen ? previewInput : undefined, isOpen);
   // Only for the preview-less sources: a visit preview already carries the sender's number, so asking
   // for it separately would be a second request for a value this dialog is about to receive anyway.
   const sender = useFaxSenderFaxNumber(isOpen && !previewInput);

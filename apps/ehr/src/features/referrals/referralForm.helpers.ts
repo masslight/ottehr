@@ -10,10 +10,10 @@ import {
   ReferralUrgency,
   SaveReferralInput,
 } from 'utils/lib/types/api/referrals/referrals.types';
-import { normalizeAddressBookTag } from 'utils/lib/types/data/address-book';
+import { toAddressBookTag } from 'utils/lib/types/data/address-book';
 
 export const specialtyTag = (specialty: string): string | undefined =>
-  specialty && specialty !== OTHER_SPECIALTY_TRANSFER_OPTION ? normalizeAddressBookTag(specialty) : undefined;
+  specialty && specialty !== OTHER_SPECIALTY_TRANSFER_OPTION ? toAddressBookTag(specialty) || undefined : undefined;
 
 export interface ReferralFormValues {
   specialty: string;

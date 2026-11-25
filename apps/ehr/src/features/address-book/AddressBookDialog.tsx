@@ -31,6 +31,7 @@ import {
   AddressBookContactInputSchema,
   formatAddressBookPersonName,
   normalizeAddressBookTag,
+  toAddressBookTag,
 } from 'utils/lib/types/data/address-book';
 import {
   useCreateAddressBookContactMutation,
@@ -120,7 +121,7 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
   const tagSuggestions = Array.from(
     new Set([
       ...ADDRESS_BOOK_KNOWN_TAGS,
-      ...specialtyOptions.map(normalizeAddressBookTag),
+      ...specialtyOptions.map(toAddressBookTag).filter(Boolean),
       ...(data?.contacts ?? []).flatMap((entry) => entry.tags ?? []),
     ])
   );

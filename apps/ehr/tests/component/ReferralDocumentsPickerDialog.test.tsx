@@ -246,4 +246,18 @@ describe('ReferralDocumentsPickerDialog', () => {
     // A chip not listed right now keeps what the form already knew about it.
     expect(onAdd.mock.calls[0][0][0]).toEqual(chosen[0]);
   });
+
+  it('holds Add and says why once more documents are chosen than a referral can carry', async () => {
+    const user = userEvent.setup();
+    const chosen = Array.from({ length: 50 }, (_, i) => ({ id: `earlier-${i}`, title: `Earlier ${i}.pdf` }));
+    render(<ReferralDocumentsPickerDialog patientId={PATIENT_ID} selected={chosen} onClose={vi.fn()} onAdd={onAdd} />);
+
+    expect(await screen.findByText('50 documents selected')).toBeInTheDocument();
+    expect(screen.getByTestId(dataTestIds.referrals.documentsPickerAddButton)).toBeEnabled();
+
+    await user.click(screen.getByLabelText('note-1.pdf'));
+
+    expect(screen.getByText('51 documents selected. A referral can include at most 50 documents.')).toBeInTheDocument();
+    expect(screen.getByTestId(dataTestIds.referrals.documentsPickerAddButton)).toBeDisabled();
+  });
 });

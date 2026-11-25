@@ -11,7 +11,7 @@ import {
 import { PatientDocumentInfo } from 'src/hooks/useGetPatientDocs';
 import { usePatientVisitOptions } from 'src/hooks/usePatientVisitOptions';
 import { isReferralDocumentFolderAllowed, REFERRAL_DOCUMENT_FOLDERS } from 'utils/lib/fhir/referral';
-import { ReferralEarlierDocument } from 'utils/lib/types/api/referrals/referrals.types';
+import { REFERRAL_MAX_EARLIER_DOCUMENTS, ReferralEarlierDocument } from 'utils/lib/types/api/referrals/referrals.types';
 
 const isDocumentAllowed = (folderName: string, document: PatientDocumentInfo): boolean =>
   isReferralDocumentFolderAllowed(folderName, !!document.isLabResult) && isDocumentSendable(document);
@@ -54,6 +54,8 @@ export const ReferralDocumentsPickerDialog: FC<ReferralDocumentsPickerDialogProp
     []
   );
 
+  const tooMany = selectedIds.length > REFERRAL_MAX_EARLIER_DOCUMENTS;
+
   const handleAdd = (): void => {
     const toChip = (id: string): ReferralEarlierDocument | undefined => {
       const document = documentsById.get(id);
@@ -77,13 +79,15 @@ export const ReferralDocumentsPickerDialog: FC<ReferralDocumentsPickerDialogProp
       description={<PatientDocumentsExplorer patientId={patientId} picker={picker} />}
       actions={
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-          <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
+          <Typography variant="body2" color={tooMany ? 'error' : 'text.secondary'} sx={{ flexGrow: 1 }}>
             {selectedIds.length} {selectedIds.length === 1 ? 'document' : 'documents'} selected
+            {tooMany && `. A referral can include at most ${REFERRAL_MAX_EARLIER_DOCUMENTS} documents.`}
           </Typography>
           <RoundedButton onClick={onClose}>Cancel</RoundedButton>
           <RoundedButton
             variant="contained"
             onClick={handleAdd}
+            disabled={tooMany}
             data-testid={dataTestIds.referrals.documentsPickerAddButton}
           >
             Add
