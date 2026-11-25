@@ -5,6 +5,7 @@ import {
   Appointment,
   CodeableConcept,
   Communication,
+  Condition,
   DocumentReference,
   Encounter,
   FhirResource,
@@ -25,6 +26,7 @@ import {
 } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { createCodeableConcept } from 'utils/lib/types/api/chart-data/exam-fields-map';
 import { SCHOOL_WORK_NOTE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import {
   createAccidentCondition,
@@ -66,6 +68,7 @@ import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { saveOrUpdateResourceRequest } from '../../shared/resources.helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { getVitalsEngineConfig } from '../../shared/vitals-alert-config';
 import {
@@ -81,6 +84,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'save-chart-data';
+const DIAGNOSIS_WRITE_CONCURRENCY = 5;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mToken: string;
@@ -398,12 +402,22 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (!encounter.diagnosis) {
       updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
     }
-    const savedConditions = await Promise.all(
-      diagnosis.map((element) => {
+    const conditionResults = await mapWithConcurrency(
+      diagnosis,
+      DIAGNOSIS_WRITE_CONCURRENCY,
+      async (element): Promise<PromiseSettledResult<Condition>> => {
         const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
-        return element.resourceId ? oystehr.fhir.update(conditionResource) : oystehr.fhir.create(conditionResource);
-      })
+        try {
+          const value = await (element.resourceId
+            ? oystehr.fhir.update(conditionResource)
+            : oystehr.fhir.create(conditionResource));
+          return { status: 'fulfilled', value };
+        } catch (reason) {
+          return { status: 'rejected', reason };
+        }
+      }
     );
+    const savedConditions = conditionResults.map(settledValueOrThrow);
     diagnosis.forEach((element, index) => {
       const condition = savedConditions[index];
       additionalResourcesForResponse.push(condition);

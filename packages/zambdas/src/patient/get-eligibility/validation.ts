@@ -25,6 +25,7 @@ import { isFullFhirDateString } from 'utils/lib/utils/date';
 import { getLocalDateOfService } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 
 interface GetEligibilityStandardInput {
@@ -194,11 +195,14 @@ export const complexInsuranceValidation = async (
   } else {
     const { billingProvider: maybeBillingProvider, coverageToCheck } = input;
 
-    const [appointment, billingProvider, coverageResources] = await Promise.all([
+    const [appointmentResult, billingProviderResult, coverageResourcesResult] = await Promise.allSettled([
       getAppointment(),
       resolveBillingProviderReference(maybeBillingProvider, oystehr, input.secrets),
       getAccountAndCoverageResourcesForPatient(patientId, oystehr),
     ]);
+    const appointment = settledValueOrThrow(appointmentResult);
+    const billingProvider = settledValueOrThrow(billingProviderResult);
+    const coverageResources = settledValueOrThrow(coverageResourcesResult);
     const servicedDate = input.servicedDate ?? (await getAppointmentDateOfService(appointment, oystehr));
     return {
       type: 'standard',

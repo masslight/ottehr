@@ -14,6 +14,7 @@ import { ELIGIBILITY_BENEFIT_CODES } from 'utils/lib/telemed/constants';
 import { InsuranceEligibilityCheckStatus } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { InsuranceCheckStatusWithDate } from 'utils/lib/types/data/telemed/eligibility.types';
 import { removeTimeFromDate } from 'utils/lib/utils/date';
+import { settledValueOrThrow } from '../../shared/settled';
 
 interface InsuranceIds {
   primary: string;
@@ -24,12 +25,12 @@ export const getInsurancePlansAndOrgs = async (
   planIds: InsuranceIds,
   oystehrClient: Oystehr
 ): Promise<Organization[]> => {
-  const orgs = await Promise.all([
+  const results = await Promise.allSettled([
     oystehrClient.rcm.getPayer({ id: planIds.primary }),
     ...(planIds.secondary ? [oystehrClient.rcm.getPayer({ id: planIds.secondary })] : []),
   ]);
 
-  return orgs;
+  return results.map(settledValueOrThrow);
 };
 
 export interface MakeCoverageEligibilityRequestInput {
