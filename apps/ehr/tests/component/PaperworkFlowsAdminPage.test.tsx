@@ -6,6 +6,9 @@ import { ServiceMode } from 'utils/lib/types/common';
 import { PaperworkFlow } from 'utils/lib/types/data/paperwork-flows/paperwork-flows.types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const confirmDestructive = vi.hoisted(() => vi.fn());
+vi.mock('src/components/dialogs/confirmDialog', () => ({ confirmDestructive }));
+
 const mockListPaperworkFlows = vi.fn<(...args: any[]) => Promise<any>>();
 const mockDeletePaperworkFlow = vi.fn<(...args: any[]) => Promise<any>>();
 const mockListServiceCategories = vi.fn<(...args: any[]) => Promise<any>>();
@@ -239,19 +242,23 @@ describe('PaperworkFlowsAdminPage', () => {
   });
 
   it('does nothing when delete is not confirmed', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    confirmDestructive.mockResolvedValue(false);
     const user = userEvent.setup();
     render(<PaperworkFlowsAdminPage />, { wrapper: createWrapper() });
 
     await waitFor(() => expect(screen.getByText('Standard Intake')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Delete' }));
 
-    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('Standard Intake'));
+    await waitFor(() =>
+      expect(confirmDestructive).toHaveBeenCalledWith(
+        expect.objectContaining({ body: expect.stringContaining('Standard Intake') })
+      )
+    );
     expect(mockDeletePaperworkFlow).not.toHaveBeenCalled();
   });
 
   it('deletes the flow, shows a success toast, and refreshes the list when confirmed', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    confirmDestructive.mockResolvedValue(true);
     mockListPaperworkFlows
       .mockResolvedValueOnce({ flows: [flowFixture()], ottehrManagedQuestionnaires: [] })
       .mockResolvedValueOnce({ flows: [], ottehrManagedQuestionnaires: [] });
@@ -270,7 +277,7 @@ describe('PaperworkFlowsAdminPage', () => {
   });
 
   it('shows an error toast when the delete request fails', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    confirmDestructive.mockResolvedValue(true);
     mockDeletePaperworkFlow.mockRejectedValue(new Error('boom'));
 
     const user = userEvent.setup();

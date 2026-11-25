@@ -35,6 +35,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
+import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
 import { getDefaultCadenceMinutes } from 'utils/lib/utils/dateUtils';
@@ -364,8 +365,12 @@ export const ServiceCategoriesAdminPage: FC = () => {
   const handleDeactivate = useCallback(
     async (id: string) => {
       if (!oystehrZambda) return;
-      if (!window.confirm('Deactivate this service category? Existing appointments stay intact; new bookings stop.'))
-        return;
+      const confirmed = await confirmDestructive({
+        title: 'Deactivate Service Category?',
+        body: 'Existing appointments stay intact; new bookings stop.',
+        confirmLabel: 'Deactivate',
+      });
+      if (!confirmed) return;
       try {
         await deleteServiceCategory(oystehrZambda, id);
         void queryClient.invalidateQueries({ queryKey: QUERY_KEY });

@@ -23,6 +23,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { deletePaperworkFlow, listPaperworkFlows, listServiceCategories } from 'src/api/api';
+import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { BOOKING_CONFIG } from 'utils/lib/ottehr-config/booking';
@@ -64,10 +65,13 @@ const PaperworkFlowsAdminPage: FC = () => {
       nonce: d.nonce + 1,
     }));
 
-  const handleDelete = (flow: PaperworkFlow): void => {
-    if (!window.confirm(`Delete the "${flow.name}" paperwork flow? Services using it will fall back to the default.`)) {
-      return;
-    }
+  const handleDelete = async (flow: PaperworkFlow): Promise<void> => {
+    const confirmed = await confirmDestructive({
+      title: 'Delete Paperwork Flow?',
+      body: `“${flow.name}” will be deleted. Services using it will fall back to the default.`,
+      confirmLabel: 'Delete Flow',
+    });
+    if (!confirmed) return;
     deleteMutation.mutate(flow.qId);
   };
 
@@ -234,7 +238,11 @@ const PaperworkFlowsAdminPage: FC = () => {
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Delete">
-                    <IconButton size="small" onClick={() => handleDelete(flow)} disabled={deleteMutation.isPending}>
+                    <IconButton
+                      size="small"
+                      onClick={() => void handleDelete(flow)}
+                      disabled={deleteMutation.isPending}
+                    >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>

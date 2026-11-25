@@ -30,6 +30,7 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, useEffect, useState } from 'react';
+import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { useDynamsoftScanner } from '../hooks/useDynamsoftScanner';
 
 export type ScannerOutputFormat = 'pdf' | 'png';
@@ -174,14 +175,16 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
     }
   };
 
-  const handleCancel = (): void => {
+  const handleCancel = async (): Promise<void> => {
     // If there are scanned images, confirm before closing
     if (imageCount > 0) {
-      const confirmed = window.confirm(
-        `You have ${imageCount} scanned ${
-          imageCount === 1 ? 'image' : 'images'
-        }. Are you sure you want to close without saving?`
-      );
+      const confirmed = await confirmDestructive({
+        title: 'Close Without Saving?',
+        body: `You have ${imageCount} scanned ${imageCount === 1 ? 'image' : 'images'}. ${
+          imageCount === 1 ? 'It' : 'They'
+        } will be discarded.`,
+        confirmLabel: 'Discard and Close',
+      });
       if (!confirmed) {
         return;
       }
@@ -191,14 +194,14 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
   };
 
   return (
-    <Dialog open={open} onClose={handleCancel} maxWidth="lg" fullWidth>
+    <Dialog open={open} onClose={() => void handleCancel()} maxWidth="lg" fullWidth>
       <DialogTitle variant="h5" color="primary.dark">
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ScannerIcon />
             Scan Document
           </Box>
-          <IconButton onClick={handleCancel} size="small" edge="end">
+          <IconButton onClick={() => void handleCancel()} size="small" edge="end">
             <CloseIcon fontSize="small" />
           </IconButton>
         </Box>
@@ -495,7 +498,11 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
 
           {/* Action Buttons */}
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            <Button onClick={handleCancel} variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none' }}>
+            <Button
+              onClick={() => void handleCancel()}
+              variant="outlined"
+              sx={{ borderRadius: '50px', textTransform: 'none' }}
+            >
               Cancel
             </Button>
             <LoadingButton

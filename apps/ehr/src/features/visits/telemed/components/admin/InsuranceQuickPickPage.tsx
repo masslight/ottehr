@@ -32,6 +32,7 @@ import {
   removeQuickPick,
   updateInsuranceQuickPick,
 } from 'src/api/api';
+import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
@@ -256,9 +257,13 @@ export default function InsuranceQuickPickPage(): ReactElement {
                     <IconButton
                       size="small"
                       onClick={() => {
-                        if (window.confirm(`Remove quick pick "${item.name}"?`)) {
-                          void handleDelete(item);
-                        }
+                        void confirmDestructive({
+                          title: 'Remove Quick Pick?',
+                          body: `“${item.name}” will be removed from the quick picks.`,
+                          confirmLabel: 'Remove Quick Pick',
+                        }).then((confirmed) => {
+                          if (confirmed) void handleDelete(item);
+                        });
                       }}
                       title="Remove"
                       sx={{ color: theme.palette.error.main }}

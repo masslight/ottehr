@@ -21,6 +21,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
+import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
@@ -149,9 +150,13 @@ export const PatientEducationAdminPage = (): ReactElement => {
                       <IconButton
                         size="small"
                         onClick={() => {
-                          if (window.confirm(`Delete approved PDF for ${item.title}?`)) {
-                            deleteMutation.mutate(item.documentReferenceId);
-                          }
+                          void confirmDestructive({
+                            title: 'Delete Approved PDF?',
+                            body: `The approved PDF for “${item.title}” will be deleted.`,
+                            confirmLabel: 'Delete PDF',
+                          }).then((confirmed) => {
+                            if (confirmed) deleteMutation.mutate(item.documentReferenceId);
+                          });
                         }}
                         disabled={deleteMutation.isPending}
                         title="Remove"

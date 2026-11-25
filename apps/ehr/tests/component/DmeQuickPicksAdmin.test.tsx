@@ -1,8 +1,11 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const confirmDestructive = vi.hoisted(() => vi.fn());
+vi.mock('src/components/dialogs/confirmDialog', () => ({ confirmDestructive }));
 
 vi.mock('src/features/visits/telemed/components/admin/admin.queries', () => ({
   useDmeQuickPicksQuery: vi.fn(),
@@ -128,17 +131,21 @@ describe('DME quick picks list', () => {
     expect(renameMutate).toHaveBeenCalledWith({ quickPick: CRUTCHES, newName: 'Kids crutches' }, expect.any(Object));
   });
 
-  it('removes a quick pick only after confirmation', () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('removes a quick pick only after confirmation', async () => {
+    confirmDestructive.mockResolvedValue(false);
     renderAt('/admin/quick-picks/dme');
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove Walking boot (vendor)' }));
-    expect(confirm).toHaveBeenCalledWith('Remove quick pick "Walking boot (vendor)"?');
+    await waitFor(() =>
+      expect(confirmDestructive).toHaveBeenCalledWith(
+        expect.objectContaining({ body: expect.stringContaining('Walking boot (vendor)') })
+      )
+    );
     expect(removeMutate).not.toHaveBeenCalled();
 
-    confirm.mockReturnValue(true);
+    confirmDestructive.mockResolvedValue(true);
     fireEvent.click(screen.getByRole('button', { name: 'Remove Walking boot (vendor)' }));
-    expect(removeMutate).toHaveBeenCalledWith('qp-boot', expect.any(Object));
+    await waitFor(() => expect(removeMutate).toHaveBeenCalledWith('qp-boot', expect.any(Object)));
   });
 
   it('opens the detail page when a row is clicked', () => {

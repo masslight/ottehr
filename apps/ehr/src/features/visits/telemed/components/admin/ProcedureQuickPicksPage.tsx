@@ -22,6 +22,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ProcedureQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
@@ -138,9 +139,13 @@ export default function ProcedureQuickPicksPage(): ReactElement {
                     <IconButton
                       size="small"
                       onClick={() => {
-                        if (window.confirm(`Remove quick pick "${qp.name}"?`)) {
-                          handleDelete(qp);
-                        }
+                        void confirmDestructive({
+                          title: 'Remove Quick Pick?',
+                          body: `“${qp.name}” will be removed from the quick picks.`,
+                          confirmLabel: 'Remove Quick Pick',
+                        }).then((confirmed) => {
+                          if (confirmed) handleDelete(qp);
+                        });
                       }}
                       title="Remove"
                       sx={{ color: theme.palette.error.main }}

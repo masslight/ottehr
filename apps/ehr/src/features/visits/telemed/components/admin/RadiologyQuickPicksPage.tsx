@@ -23,6 +23,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { RadiologyQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import {
   useRadiologyQuickPicksQuery,
@@ -56,8 +57,14 @@ const RadiologyQuickPicksPage: React.FC = () => {
     );
   };
 
-  const handleDelete = (qp: RadiologyQuickPickData): void => {
-    if (!qp.id || !window.confirm(`Delete quick pick "${qp.name}"?`)) return;
+  const handleDelete = async (qp: RadiologyQuickPickData): Promise<void> => {
+    if (!qp.id) return;
+    const confirmed = await confirmDestructive({
+      title: 'Delete Quick Pick?',
+      body: `“${qp.name}” will be removed from the quick picks.`,
+      confirmLabel: 'Delete Quick Pick',
+    });
+    if (!confirmed) return;
     removeMutation.mutate(qp.id, {
       onSuccess: () => enqueueSnackbar('Quick pick deleted', { variant: 'success' }),
       onError: (error) => {
@@ -124,7 +131,7 @@ const RadiologyQuickPicksPage: React.FC = () => {
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => handleDelete(qp)}>
+                      <IconButton size="small" color="error" onClick={() => void handleDelete(qp)}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>

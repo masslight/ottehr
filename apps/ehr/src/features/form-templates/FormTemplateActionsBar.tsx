@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { FormTemplateItem } from 'utils/lib/types/api/form-template.types';
@@ -82,7 +83,13 @@ export const FormTemplateActionsBar: FC<{ item: FormTemplateItem }> = ({ item })
         startIcon={<DeleteOutlineIcon />}
         disabled={disabled}
         onClick={() => {
-          if (window.confirm(`Remove "${item.title}"?`)) deleteMutation.mutate();
+          void confirmDestructive({
+            title: 'Remove Template?',
+            body: `“${item.title}” will be removed.`,
+            confirmLabel: 'Remove Template',
+          }).then((confirmed) => {
+            if (confirmed) deleteMutation.mutate();
+          });
         }}
         sx={{ color: theme.palette.error.main }}
       >

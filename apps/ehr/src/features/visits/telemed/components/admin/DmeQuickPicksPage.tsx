@@ -24,6 +24,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useMemo, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { DmeQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { useDmeQuickPicksQuery, useRemoveDmeQuickPickMutation, useRenameDmeQuickPickMutation } from './admin.queries';
@@ -87,8 +88,14 @@ export default function DmeQuickPicksPage(): ReactElement {
     );
   };
 
-  const handleDelete = (qp: DmeQuickPickData): void => {
-    if (!qp.id || !window.confirm(`Remove quick pick "${qp.name}"?`)) return;
+  const handleDelete = async (qp: DmeQuickPickData): Promise<void> => {
+    if (!qp.id) return;
+    const confirmed = await confirmDestructive({
+      title: 'Remove Quick Pick?',
+      body: `“${qp.name}” will be removed from the quick picks.`,
+      confirmLabel: 'Remove Quick Pick',
+    });
+    if (!confirmed) return;
     removeMutation.mutate(qp.id, {
       onSuccess: () => enqueueSnackbar('Quick pick removed successfully', { variant: 'success' }),
       onError: (error) => {
@@ -173,7 +180,7 @@ export default function DmeQuickPicksPage(): ReactElement {
                   </IconButton>
                   <IconButton
                     size="small"
-                    onClick={() => handleDelete(qp)}
+                    onClick={() => void handleDelete(qp)}
                     title="Remove"
                     aria-label={`Remove ${qp.name}`}
                     sx={{ color: theme.palette.error.main }}

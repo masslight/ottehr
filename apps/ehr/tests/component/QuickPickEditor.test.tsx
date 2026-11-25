@@ -5,6 +5,9 @@ import { ReactNode } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const confirmDestructive = vi.hoisted(() => vi.fn());
+vi.mock('src/components/dialogs/confirmDialog', () => ({ confirmDestructive }));
+
 // ============================================================================
 // MOCKS
 // ============================================================================
@@ -313,8 +316,7 @@ describe('QuickPickEditor', () => {
         { id: '2', name: 'Aspirin' },
       ]);
       mockRemoveItem.mockResolvedValue(undefined);
-      // Mock window.confirm to return true
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      confirmDestructive.mockResolvedValue(true);
 
       render(<QuickPickEditor {...defaultProps} />, { wrapper: createWrapper() });
 
@@ -331,13 +333,11 @@ describe('QuickPickEditor', () => {
       await waitFor(() => {
         expect(mockRemoveItem).toHaveBeenCalledWith('2');
       });
-
-      confirmSpy.mockRestore();
     });
 
     it('should not call removeItem when delete is cancelled', async () => {
       mockFetchItems.mockResolvedValue([{ id: '1', name: 'Penicillin' }]);
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      confirmDestructive.mockResolvedValue(false);
 
       render(<QuickPickEditor {...defaultProps} />, { wrapper: createWrapper() });
 
@@ -351,8 +351,6 @@ describe('QuickPickEditor', () => {
       });
 
       expect(mockRemoveItem).not.toHaveBeenCalled();
-
-      confirmSpy.mockRestore();
     });
   });
 

@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 
 export interface QuickPickEditorColumn<T> {
@@ -226,12 +227,15 @@ export default function QuickPickEditor<T extends { id?: string }>({
                       size="small"
                       onClick={() => {
                         const displayName = columns[0]?.getValue(item) ?? '';
-                        const message = displayName
-                          ? `Remove ${itemLabel} "${displayName}"?`
-                          : `Remove this ${itemLabel.toLowerCase()}?`;
-                        if (window.confirm(message)) {
-                          void handleDelete(item);
-                        }
+                        void confirmDestructive({
+                          title: `Remove ${itemLabel}?`,
+                          body: displayName
+                            ? `“${displayName}” will be removed.`
+                            : `This ${itemLabel.toLowerCase()} will be removed.`,
+                          confirmLabel: `Remove ${itemLabel}`,
+                        }).then((confirmed) => {
+                          if (confirmed) void handleDelete(item);
+                        });
                       }}
                       title="Remove"
                       sx={{ color: theme.palette.error.main }}

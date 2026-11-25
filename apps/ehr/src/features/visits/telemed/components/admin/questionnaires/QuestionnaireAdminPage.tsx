@@ -23,6 +23,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { AdminHeaderActionSlot } from 'src/features/admin/AdminPageHeader';
 import { ButtonRounded } from 'src/features/visits/in-person/components/RoundedButton';
 import useEvolveUser from 'src/hooks/useEvolveUser';
@@ -66,7 +67,12 @@ export const QuestionnaireAdminPage: FC = () => {
       const { questionnaireId, newStatus } = input;
 
       if (newStatus === 'retired') {
-        if (!window.confirm('Are you sure you want to delete this questionnaire?')) return;
+        const confirmed = await confirmDestructive({
+          title: 'Delete Questionnaire?',
+          body: 'This questionnaire will be deleted.',
+          confirmLabel: 'Delete Questionnaire',
+        });
+        if (!confirmed) return;
       }
 
       if (!questionnaireId) {
