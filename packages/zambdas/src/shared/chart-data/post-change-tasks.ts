@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { captureException } from '@sentry/node-core/light';
-import { Encounter, Task } from 'fhir/r4b';
+import { Appointment, Encounter, Task } from 'fhir/r4b';
 import { getSkipEmailTaskInput, getTaskResource } from 'utils/lib/fhir/helpers';
+import { isVisitChartLocked } from 'utils/lib/fhir/visit-lock';
 import { FreeTextNoteDTO, NOTE_TYPE, NoteDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { TaskIndicator } from 'utils/lib/types/common';
 
@@ -24,16 +25,20 @@ const hasAddendumNoteChange = (changedFields: ChangedFields): boolean => {
 export function getChartDataPostChangeTasks(
   changedFields: ChangedFields,
   encounter: Encounter,
-  appointmentId: string | undefined
+  appointment: Appointment | undefined
 ): Task[] {
   const tasks: Task[] = [];
 
-  // Regenerate the visit note PDF when the addendum changes on an already-signed visit.
   // The SKIP_EMAIL input tells the subscription handler to skip the patient completion email
   // (this is a re-generation, not the initial post-signing send).
-  if (hasAddendumNoteChange(changedFields) && encounter.status === 'finished' && appointmentId) {
+  if (
+    hasAddendumNoteChange(changedFields) &&
+    encounter.status === 'finished' &&
+    appointment?.id &&
+    isVisitChartLocked(encounter, appointment)
+  ) {
     tasks.push({
-      ...getTaskResource(TaskIndicator.visitNotePDFAndEmail, 'Regenerate visit note PDF', appointmentId, encounter.id),
+      ...getTaskResource(TaskIndicator.visitNotePDFAndEmail, 'Regenerate visit note PDF', appointment.id, encounter.id),
       input: [getSkipEmailTaskInput()],
     });
   }
@@ -46,9 +51,9 @@ export async function runChartDataPostChangeTasks(
   addendumNote: FreeTextNoteDTO | undefined,
   notes: NoteDTO[] | undefined,
   encounter: Encounter,
-  appointmentId: string | undefined
+  appointment: Appointment | undefined
 ): Promise<void> {
-  const postChangeTasks = getChartDataPostChangeTasks({ addendumNote, notes }, encounter, appointmentId);
+  const postChangeTasks = getChartDataPostChangeTasks({ addendumNote, notes }, encounter, appointment);
   if (postChangeTasks.length === 0) return;
 
   const results = await Promise.allSettled(postChangeTasks.map((task) => oystehr.fhir.create(task)));

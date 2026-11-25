@@ -8,6 +8,7 @@ import { STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR } from 'utils/lib/types/errors'
 import { formatCurrencyFromCents } from 'utils/lib/utils/convert';
 import {
   fetchClaimResponsesByClaimIds,
+  fetchNioPaidByClaimId,
   fetchPatientPaymentsByEncounterIds,
   patientRespRemit,
   sortClaimResponsesByRecency,
@@ -71,6 +72,9 @@ function sumByClaimLine(
   return byLine;
 }
 
+const stillOwedByLine = (owedCents: number[], appliedCents: number[]): number[] =>
+  owedCents.map((owed, index) => Math.max(owed - appliedCents[index], 0));
+
 function fitToTotal(totalCents: number, attributed: number[], chargeCents: number[]): number[] {
   const perLine = attributed.map((cents) => Math.max(cents, 0));
   const attributedTotal = perLine.reduce((total, cents) => total + cents, 0);
@@ -86,8 +90,9 @@ export function computeBillingStatementAmounts(params: {
   claimResponses: ClaimResponse[];
   patientPaid: number;
   writeOffsTotal: number;
+  nioPaid?: number;
 }): BillingStatementAmounts {
-  const { claim, claimResponses, patientPaid, writeOffsTotal } = params;
+  const { claim, claimResponses, patientPaid, writeOffsTotal, nioPaid = 0 } = params;
   const items = claimItems(claim);
   const remitLines = sortClaimResponsesByRecency(claimResponses).map((remit) =>
     buildEraRemitServiceLines(remit, claim)
@@ -97,7 +102,13 @@ export function computeBillingStatementAmounts(params: {
   const respRemit = patientRespRemit(claimResponses);
   const respRemitLines = respRemit ? buildEraRemitServiceLines(respRemit, claim) : [];
 
-  const payments = summarizeClaimPayments(claimResponses, claim.total?.value ?? 0, patientPaid, writeOffsTotal);
+  const payments = summarizeClaimPayments(
+    claimResponses,
+    claim.total?.value ?? 0,
+    patientPaid,
+    writeOffsTotal,
+    nioPaid
+  );
 
   const insurancePaidCents = Math.max(toCents(payments.insurancePaid), 0);
   // until a remit reports PR, the patient owes what's still open only once the claim is moved to
@@ -113,8 +124,8 @@ export function computeBillingStatementAmounts(params: {
   const chargedCents = insurancePaidCents + patientRespCents;
   const patientPaidCents = toCents(payments.patientPaid);
   const writeOffsCents = toCents(payments.writeOffsTotal);
-  const balanceCents =
-    hasReachedPatientAr(claim) || payments.patientResp !== null ? toCents(payments.balance) : undeterminedRespCents;
+  const patientRespDetermined = hasReachedPatientAr(claim) || payments.patientResp !== null;
+  const balanceCents = patientRespDetermined ? toCents(payments.balance) : undeterminedRespCents;
   const deductibleSumCents = respRemitLines.reduce(
     (total, line) => total + toCents(patientRespBuckets(line.adjustments).deductible),
     0
@@ -152,7 +163,12 @@ export function computeBillingStatementAmounts(params: {
     grossCents
   );
   const patientPaidByLine = applyPaymentToLines(patientPaidCents, owedByLine);
-  const writeOffsByLine = applyPaymentToLines(writeOffsCents, owedByLine);
+  const owedAfterPatientPaid = stillOwedByLine(owedByLine, patientPaidByLine);
+  const writeOffsByLine = applyPaymentToLines(writeOffsCents, owedAfterPatientPaid);
+  const nioPaidByLine = applyPaymentToLines(
+    patientRespDetermined ? toCents(payments.nioPaid) : 0,
+    stillOwedByLine(owedAfterPatientPaid, writeOffsByLine)
+  );
 
   return {
     lines: items.map((_, index) => ({
@@ -160,7 +176,7 @@ export function computeBillingStatementAmounts(params: {
       insurancePaidCents: insurancePaidByLine[index],
       patientPaidCents: patientPaidByLine[index],
       writeOffsCents: writeOffsByLine[index],
-      patientOwesCents: owedByLine[index] - patientPaidByLine[index] - writeOffsByLine[index],
+      patientOwesCents: owedByLine[index] - patientPaidByLine[index] - writeOffsByLine[index] - nioPaidByLine[index],
     })),
     totals,
   };
@@ -172,10 +188,11 @@ export async function getBillingStatementLines(input: BillingStatementLinesInput
   const claim = await findBillingClaimForEncounter(billingOystehr, encounterId);
   if (!claim?.id) throw STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR(encounterId);
 
-  const [claimResponsesByClaimId, paymentsByEncounterId, writeOffs] = await Promise.all([
+  const [claimResponsesByClaimId, paymentsByEncounterId, writeOffs, nioPaidByClaimId] = await Promise.all([
     fetchClaimResponsesByClaimIds(eraReadOystehr, [claim.id]),
     fetchPatientPaymentsByEncounterIds(billingOystehr, [encounterId]),
     fetchWriteOffsByClaimIds(billingOystehr, [claim.id]),
+    fetchNioPaidByClaimId(billingOystehr, [claim.id]),
   ]);
   const writeOffsTotal = sumWriteOffs(writeOffs.get(claim.id ?? '') ?? []);
 
@@ -184,6 +201,7 @@ export async function getBillingStatementLines(input: BillingStatementLinesInput
     claimResponses: claimResponsesByClaimId.get(claim.id) ?? [],
     patientPaid: sumPatientPayments(paymentsByEncounterId.get(encounterId) ?? []),
     writeOffsTotal,
+    nioPaid: nioPaidByClaimId.get(claim.id) ?? 0,
   });
 
   const serviceLines = await Promise.all(

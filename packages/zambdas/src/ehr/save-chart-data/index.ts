@@ -2,6 +2,7 @@ import Oystehr, { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
+  Appointment,
   CodeableConcept,
   Communication,
   DocumentReference,
@@ -153,7 +154,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   if (encounter === undefined) throw new Error(`Encounter with ID ${encounterId} must exist... `);
   const patient = allResources.filter((resource) => resource.resourceType === 'Patient')[0] as Patient;
   const listResources = allResources.filter((res) => res.resourceType === 'List') as List[];
-  const appointment = allResources.find((res) => res.resourceType === 'Appointment');
+  const appointment = allResources.find((res): res is Appointment => res.resourceType === 'Appointment');
   console.log(`Got encounter with id ${encounter.id}`);
 
   if (patient?.id === undefined) throw new Error(`Encounter ${encounter.id} must be associated with a patient... `);
@@ -548,7 +549,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log('Updated chart data as a transaction');
 
-  await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment?.id);
+  await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment);
 
   console.timeLog('time', 'before sorting resources');
   const output = validateBundleAndExtractSavedChartData(

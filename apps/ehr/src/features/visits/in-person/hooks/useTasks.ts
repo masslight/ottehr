@@ -46,6 +46,7 @@ import {
   Task,
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
 import { patientReferralsPath, visitPlanPath } from '../../../referrals/referralPaths';
 import {
@@ -772,7 +773,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     if (category === MANUAL_TASK.category.patientFollowUp && documentReferenceId && patientIdFromRef) {
       title =
         getInputString(MANUAL_TASK.input.title, task) ||
-        `Patient follow-up for ${patientReference?.display?.replaceAll(',', '') ?? ''}`;
+        `Patient follow-up for ${formatTaskPatientDisplay(patientReference?.display)}`;
       subtitle = `Form completed / ${task.location?.display ?? ''}`;
       details = '';
       completable = true;
@@ -803,8 +804,8 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     }
     title =
       getInputString(MANUAL_TASK.input.title, task) +
-      (patientReference ? ' for ' + patientReference.display?.replaceAll(',', '') : '');
-    subtitle = `Manual task by ${providerName} / ${task.location?.display ?? ''}`;
+      (patientReference ? ' for ' + formatTaskPatientDisplay(patientReference.display) : '');
+    subtitle = `Manual task by ${providerName}${task.location?.display ? ` / ${task.location.display}` : ''}`;
     details = getInputString(MANUAL_TASK.input.details, task) ?? '';
     completable = true;
     if (orderId) {
@@ -1068,6 +1069,14 @@ function getInputReference(code: string, task: FhirTask): Reference | undefined 
 function getInput(code: string, task: FhirTask): TaskInput | undefined {
   return task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === code);
 }
+
+const ISO_BIRTH_DATE_SUFFIX = /\((\d{4}-\d{2}-\d{2})\)$/;
+
+const formatTaskPatientDisplay = (display: string | undefined): string =>
+  (display ?? '').replaceAll(',', '').replace(ISO_BIRTH_DATE_SUFFIX, (storedSuffix, isoDate: string) => {
+    const birthDate = formatDateForDisplay(isoDate);
+    return birthDate ? `(${birthDate})` : storedSuffix;
+  });
 
 export function formatDate(dateIso: string): string {
   return DateTime.fromISO(dateIso).toFormat('MM/dd/yyyy h:mm a', { locale: 'en-US' });

@@ -20,6 +20,9 @@ vi.mock('../../src/hooks/useAppClients', () => ({
     oystehrZambda: mocks.client,
   }),
 }));
+vi.mock('../../src/components/DateInput', async () => ({
+  DateInput: (await import('./inputStub')).InputStub,
+}));
 vi.mock('../../src/utils/downloadFile', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/utils/downloadFile')>()),
   downloadUrl: mocks.downloadUrl,
@@ -52,7 +55,7 @@ const invoice: BillingInvoiceDetail = {
   ],
   payments: [
     {
-      paymentNoticeId: 'notice-1',
+      paymentId: 'payment-1',
       paymentDate: '2026-09-19',
       amount: 180,
       method: 'check',
@@ -60,6 +63,12 @@ const invoice: BillingInvoiceDetail = {
     },
   ],
   pdfUrl: 'https://z3.example/INV-00042.pdf',
+};
+
+const unpaidInvoice: BillingInvoiceDetail = {
+  ...invoice,
+  balance: 320,
+  payments: [],
 };
 
 function renderPage(): void {
@@ -155,14 +164,49 @@ describe('InvoiceDetail', () => {
     expect(balanceLabel.parentElement).toHaveTextContent('Balance-');
   });
 
-  it('keeps the payment actions disabled', async () => {
+  it('offers to record a payment on an unpaid invoice, and keeps card payments disabled', async () => {
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
     renderPage();
 
     await screen.findByRole('heading', { name: 'INV-00042' });
     const recordPayment = screen.getByRole('button', { name: 'Record payment' });
     const collectCardPayment = screen.getByRole('button', { name: 'Collect card payment' });
-    expect(recordPayment).toBeDisabled();
+    expect(recordPayment).toBeEnabled();
     expect(collectCardPayment).toBeDisabled();
+  });
+
+  it('takes no recorded payment on a partially paid invoice, since only full payments are recorded', async () => {
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    expect(recordPayment).toBeDisabled();
+  });
+
+  it('takes no payment on a paid invoice', async () => {
+    mocks.getInvoice.mockResolvedValue({
+      ...invoice,
+      status: 'balanced',
+      balance: 0,
+    });
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'INV-00042' });
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    expect(recordPayment).toBeDisabled();
+  });
+
+  it('opens the record payment dialog for the balance', async () => {
+    const user = userEvent.setup();
+    mocks.getInvoice.mockResolvedValue(unpaidInvoice);
+    renderPage();
+    await screen.findByRole('heading', { name: 'INV-00042' });
+
+    const recordPayment = screen.getByRole('button', { name: 'Record payment' });
+    await user.click(recordPayment);
+
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByRole('textbox', { name: 'Amount' })).toHaveValue('320.00');
   });
 
   it('downloads the invoice PDF from a freshly presigned link', async () => {
@@ -178,6 +222,30 @@ describe('InvoiceDetail', () => {
     await user.click(download);
 
     expect(mocks.downloadUrl).toHaveBeenCalledWith('INV-00042.pdf', 'https://z3.example/INV-00042.pdf?fresh');
+  });
+
+  it("downloads a payment's attachment from a freshly presigned link", async () => {
+    const user = userEvent.setup();
+    const withAttachment = (url: string): BillingInvoiceDetail => ({
+      ...invoice,
+      payments: [
+        {
+          ...invoice.payments[0],
+          attachment: {
+            fileName: 'check-88123.pdf',
+            url,
+          },
+        },
+      ],
+    });
+    mocks.getInvoice.mockResolvedValue(withAttachment('https://z3.example/check-88123.pdf'));
+    renderPage();
+    const attachment = await screen.findByRole('button', { name: 'check-88123.pdf' });
+    mocks.getInvoice.mockResolvedValue(withAttachment('https://z3.example/check-88123.pdf?fresh'));
+
+    await user.click(attachment);
+
+    expect(mocks.downloadUrl).toHaveBeenCalledWith('check-88123.pdf', 'https://z3.example/check-88123.pdf?fresh');
   });
 
   it('shows an error when the PDF fails to download', async () => {

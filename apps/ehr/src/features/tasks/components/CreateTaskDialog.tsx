@@ -112,9 +112,8 @@ export const CreateTaskDialog: React.FC<Props> = ({
     };
   });
 
-  const { encounter } = useAppointmentData(
-    appointments?.find((appointment) => appointment.appointmentId === formValue.appointment)?.appointmentId
-  );
+  const { encounter: selectedVisitEncounter } = useAppointmentData(formValue.appointment || undefined);
+  const encounter = formValue.appointment ? selectedVisitEncounter : undefined;
   const encounterId = encounter?.id ?? '';
   const sectionOptions =
     getEncounterVisitType(encounter) === 'follow-up'
@@ -172,11 +171,14 @@ export const CreateTaskDialog: React.FC<Props> = ({
       ? dmeOrdersOptions
       : [];
 
+  const previousPatientId = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!formValue.patient) {
+    const patientId: string | undefined = formValue.patient?.id;
+    if (!patientId || (previousPatientId.current && previousPatientId.current !== patientId)) {
       methods.setValue('appointment', null);
     }
-  }, [formValue.patient, methods]);
+    previousPatientId.current = patientId;
+  }, [formValue.patient?.id, methods]);
 
   useEffect(() => {
     const section = formValue.progressNoteSection;
@@ -198,6 +200,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
   const visitSection = visitRoute?.params.id === appointmentId ? visitRoute?.params['*'] : undefined;
   useEffect(() => {
     if (appointment.patient && open && !prefillApplied.current.appointment) {
+      previousPatientId.current = appointment.patient.id;
       methods.setValue('patient', {
         id: appointment.patient.id,
         name: getPatientLabel(appointment.patient),
@@ -280,7 +283,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
       open={open}
       handleClose={handleClose}
       handleConfirm={handleConfirm}
-      disabled={!formValue.category || !formValue.taskTitle?.trim() || !formValue.location}
+      disabled={!formValue.category || !formValue.taskTitle?.trim()}
       description={''}
       title={'New Task'}
       confirmText={'Create new task'}
@@ -326,7 +329,7 @@ export const CreateTaskDialog: React.FC<Props> = ({
             <TextInput name="taskDetails" label="Task details" />
             <Stack direction="row" spacing={1}>
               <EmployeeSelectInput name="assignee" label="Assign task to" />
-              <LocationSelectInput name="location" label="Location" type="in-person" required />
+              <LocationSelectInput name="location" label="Location" type="in-person" />
             </Stack>
           </Stack>
         </FormProvider>

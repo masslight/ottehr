@@ -49,7 +49,7 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { otherColors } from 'utils/lib/theme/billing-palette';
-import { DrugUnitCode } from 'utils/lib/types/data/billing/billing.constants';
+import { DrugUnitCode, MEDICARE_SECONDARY_REASON_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -147,6 +147,7 @@ import {
   coverageToUpdateInput,
   defaultCoverageFormValues,
 } from '../constants/coverage';
+import { invoicePaymentMethodLabel } from '../constants/invoice';
 import { useApiClients } from '../hooks/useAppClients';
 import { useCoverage } from '../hooks/useCoverage';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
@@ -624,6 +625,7 @@ export default function ClaimDetail(): ReactElement {
             <Amount label="Allowed" value={claim.allowed} />
             <Amount label="Payments" sublabel="Insurance Paid" value={claim.insurancePaid} />
             <Amount label="Patient Paid" value={claim.patientPaid} />
+            {claim.nioPaid > 0 ? <Amount label="NIO Paid" value={claim.nioPaid} /> : <></>}
             {claim.writeOffsTotal > 0 ? <Amount label="Write-offs" value={claim.writeOffsTotal} /> : <></>}
             <Amount label="Balance" value={claim.balance} hint={provisionalBalanceHint(claim)} />
             <Box>
@@ -650,7 +652,7 @@ export default function ClaimDetail(): ReactElement {
             <Tab label="Claim Properties" value="1" />
             <Tab label="Dx, Service Lines & Remits" value="2" />
             <Tab label="Attachments" value="3" />
-            <Tab label="Patient Payments & Write-offs" value="4" />
+            <Tab label="Payments & Write-offs" value="4" />
             <Tab label="Other Claims" value="5" />
             <Tab label="History" value="6" />
           </TabList>
@@ -748,6 +750,9 @@ export default function ClaimDetail(): ReactElement {
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
             <ClaimInvoicesSection claim={claim} refetchClaim={fetchDetail} />
+            {(claim.nonInsurancePayerFhirId || claim.nioPayments.length > 0) && (
+              <NioPaymentsSection payments={claim.nioPayments} />
+            )}
             <PatientPaymentsSection payments={claim.patientPayments} />
             <WriteOffsSection
               claimId={claim.id}
@@ -1103,18 +1108,6 @@ export function InsuranceSection({
     </EditableSection>
   );
 }
-
-const MEDICARE_SECONDARY_REASON_OPTIONS: Record<string, string> = {
-  '12': 'Working Aged Beneficiary or Spouse with Employer Group Health Plan',
-  '13': "End-Stage Renal Disease Beneficiary in the Mandated Coordination Period with an Employer's Group Health Plan",
-  '14': 'No-fault Insurance including Auto is Primary',
-  '15': "Worker's Compensation",
-  '16': 'Public Health Service (PHS)or Other Federal Agency',
-  '41': 'Black Lung',
-  '42': "Veteran's Administration",
-  '43': 'Disabled Beneficiary Under Age 65 with Large Group Health Plan (LGHP)',
-  '47': 'Other Liability Insurance is Primary',
-};
 
 function MedicareSecondaryReasonSection({
   claim,
@@ -2042,6 +2035,53 @@ function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['p
                   <TableCell>{payment.method || '-'}</TableCell>
                   <TableCell>{payment.description || '-'}</TableCell>
                   <TableCell>{payment.checkNumber || '-'}</TableCell>
+                  <TableCell>{payment.status || '-'}</TableCell>
+                  <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </ReadOnlySection>
+  );
+}
+
+function NioPaymentsSection({ payments }: { payments: ClaimDetailResponse['nioPayments'] }): ReactElement {
+  return (
+    <ReadOnlySection title="NIO Payments">
+      {payments.length === 0 ? (
+        'No NIO payments yet'
+      ) : (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={thSx}>Date</TableCell>
+                <TableCell sx={thSx}>Method</TableCell>
+                <TableCell sx={thSx}>Reference #</TableCell>
+                <TableCell sx={thSx}>Invoice</TableCell>
+                <TableCell sx={thSx}>Status</TableCell>
+                <TableCell sx={thSx} align="right">
+                  Amount
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {payments.map((payment) => (
+                <TableRow key={payment.paymentNoticeId}>
+                  <TableCell>{formatDate(payment.paymentDate) || '-'}</TableCell>
+                  <TableCell>{invoicePaymentMethodLabel(payment.method) || '-'}</TableCell>
+                  <TableCell>{payment.reference || '-'}</TableCell>
+                  <TableCell>
+                    {payment.invoiceId ? (
+                      <MuiLink component={RouterLink} to={`/invoices/${payment.invoiceId}`} underline="hover">
+                        View invoice
+                      </MuiLink>
+                    ) : (
+                      '-'
+                    )}
+                  </TableCell>
                   <TableCell>{payment.status || '-'}</TableCell>
                   <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
                 </TableRow>

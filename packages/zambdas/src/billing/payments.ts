@@ -14,7 +14,7 @@ import {
   Reference,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { STRIPE_INVOICE_ID_SYSTEM } from 'utils/lib/fhir/billing-invoice';
+import { invoicePaymentExtension, invoicePaymentTag, STRIPE_INVOICE_ID_SYSTEM } from 'utils/lib/fhir/billing-invoice';
 import {
   BILLING_RESOURCE_TAG,
   PAYMENT_METHOD_EXTENSION_URL,
@@ -507,6 +507,80 @@ const paymentFingerprint = (notice: PaymentNotice): string => {
   });
 };
 
+export function buildPaymentNotice({
+  request,
+  payee,
+  amountInCents,
+  paymentMethod,
+  identifier,
+  paymentDate,
+  createdISO,
+  disposition,
+  reconciliation,
+  invoiceId,
+}: {
+  request: Reference;
+  payee: Reference;
+  amountInCents: number;
+  paymentMethod: string;
+  identifier: PaymentNoticeIdentifier;
+  paymentDate: string;
+  createdISO: string;
+  disposition: string;
+  reconciliation?: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier' | 'detail'>;
+  invoiceId?: string;
+}): PaymentNotice {
+  const amount: Money = {
+    value: amountInCents / 100,
+    currency: 'USD',
+  };
+  const contained: PaymentReconciliation = {
+    resourceType: 'PaymentReconciliation',
+    id: 'contained-reconciliation',
+    status: 'active',
+    created: createdISO,
+    disposition,
+    outcome: 'complete',
+    paymentDate,
+    paymentAmount: amount,
+    ...reconciliation,
+  };
+  return {
+    resourceType: 'PaymentNotice',
+    status: 'active',
+    ...(invoiceId
+      ? {
+          meta: {
+            tag: [invoicePaymentTag(invoiceId)],
+          },
+        }
+      : {}),
+    request,
+    created: createdISO,
+    paymentDate,
+    amount,
+    identifier: [
+      {
+        system: identifier.system,
+        value: identifier.value,
+      },
+    ],
+    extension: [
+      {
+        url: PAYMENT_METHOD_EXTENSION_URL,
+        valueString: paymentMethod,
+      },
+      ...(invoiceId ? [invoicePaymentExtension(invoiceId)] : []),
+    ],
+    contained: [contained],
+    payment: {
+      reference: `#${contained.id}`,
+    },
+    payee,
+    recipient: payee,
+  };
+}
+
 // Documents a payment collected outside any integrated processor (cash, check, ...) as a
 // billing-tagged PaymentNotice, mirroring the stripe webhook's shape. Recorded payments are
 // immutable, which is why the webhook's upsert (it refreshes notices on charge.updated) is not
@@ -532,53 +606,33 @@ export const recordBillingPatientPayment = async (
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
 
-  // the provider owed the money: the claim's provider when a claim exists, else the default
-  // billing organization (the same default claim creation uses)
-  const payeeRef: Reference = claim?.provider ?? {
-    reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets),
-  };
-
-  const paymentAmount: Money = {
-    value: amountInCents / 100,
-    currency: 'USD',
-  };
-
-  const reconciliation: PaymentReconciliation = {
-    resourceType: 'PaymentReconciliation',
-    id: 'contained-reconciliation',
-    status: 'active',
-    created: createdISO,
-    disposition: description ?? recordedManuallyDisposition(paymentMethod),
-    outcome: 'complete',
-    paymentDate,
-    paymentAmount,
-    ...(checkNumber ? { paymentIdentifier: { system: CHECK_NUMBER_IDENTIFIER_SYSTEM, value: checkNumber } } : {}),
-    ...(submitterRef
-      ? {
-          detail: [
-            {
-              type: { coding: [{ system: PAYMENT_TYPE_SYSTEM, code: 'payment' }] },
-              submitter: submitterRef,
-            },
-          ],
-        }
-      : {}),
-  };
-
-  const desiredNotice: PaymentNotice = {
-    resourceType: 'PaymentNotice',
-    status: 'active',
+  const desiredNotice = buildPaymentNotice({
     request: claimRequestFor(claim, encounterId),
-    created: createdISO,
+    // the provider owed the money: the claim's provider when a claim exists, else the default
+    // billing organization (the same default claim creation uses)
+    payee: claim?.provider ?? {
+      reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets),
+    },
+    amountInCents,
+    paymentMethod,
+    identifier: dedupIdentifier,
     paymentDate,
-    amount: paymentAmount,
-    identifier: [{ system: dedupIdentifier.system, value: dedupIdentifier.value }],
-    extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: paymentMethod }],
-    contained: [reconciliation],
-    payment: { reference: `#${reconciliation.id}` },
-    payee: payeeRef,
-    recipient: payeeRef,
-  };
+    createdISO,
+    disposition: description ?? recordedManuallyDisposition(paymentMethod),
+    reconciliation: {
+      ...(checkNumber ? { paymentIdentifier: { system: CHECK_NUMBER_IDENTIFIER_SYSTEM, value: checkNumber } } : {}),
+      ...(submitterRef
+        ? {
+            detail: [
+              {
+                type: { coding: [{ system: PAYMENT_TYPE_SYSTEM, code: 'payment' }] },
+                submitter: submitterRef,
+              },
+            ],
+          }
+        : {}),
+    },
+  });
 
   const returned =
     (await findPaymentNotice(oystehr, dedupIdentifier)) ??
