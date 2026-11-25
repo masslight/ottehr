@@ -309,7 +309,7 @@ describe('charge-billing-nio-invoice-card', () => {
       stripeAccount: STRIPE_ACCOUNT,
       nio: nio('acct_other'),
     });
-    const { oystehr, stripe, createPaymentIntent, resultsByType } = setup();
+    const { oystehr, stripe, createPaymentIntent, patch } = setup();
 
     await expect(
       performEffect({
@@ -320,7 +320,24 @@ describe('charge-billing-nio-invoice-card', () => {
       })
     ).rejects.toEqual(STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR);
     expect(createPaymentIntent).not.toHaveBeenCalled();
-    expect(reservationOf(resultsByType)).toBeUndefined();
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('leaves the invoice unreserved when its payer cannot be resolved', async () => {
+    const payerError = new Error('Invoice INV-00042 has no claims');
+    vi.mocked(resolveInvoiceStripePayer).mockRejectedValue(payerError);
+    const { oystehr, stripe, createPaymentIntent, patch } = setup();
+
+    await expect(
+      performEffect({
+        oystehr,
+        stripe,
+        params,
+        now: NOW,
+      })
+    ).rejects.toBe(payerError);
+    expect(createPaymentIntent).not.toHaveBeenCalled();
+    expect(patch).not.toHaveBeenCalled();
   });
 
   it('records nothing and releases the invoice when the charge does not succeed', async () => {

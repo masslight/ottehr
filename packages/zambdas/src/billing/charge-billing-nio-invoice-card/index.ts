@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { ProvenanceAgent } from 'fhir/r4b';
+import { Invoice, ProvenanceAgent } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { getInvoiceNumber } from 'utils/lib/fhir/billing-invoice';
@@ -22,7 +22,7 @@ import { releaseCardReservation, reserveCardPayment, settleOtherCardReservation 
 import { cardPaymentInProgressError, recordInvoiceCardPayment } from '../invoice-payments';
 import { resolveInvoiceStripePayer } from '../invoice-stripe';
 import { resolveClaimActor } from '../provenance';
-import { createBillingClient } from '../shared';
+import { createBillingClient, fetchById } from '../shared';
 
 type ChargeNioInvoiceCardParams = ValidatedZambdaInput<typeof ChargeBillingNioInvoiceCardInputSchema> & {
   agent: ProvenanceAgent;
@@ -73,6 +73,14 @@ export async function performEffect({
   now?: DateTime;
 }): Promise<RecordBillingNioInvoicePaymentResponse> {
   const { invoiceId, amountInCents, paymentMethodId, idempotencyKey: paymentId, agent, secrets } = params;
+  // resolved before reserving, so a payer that can't be resolved leaves no reservation behind
+  const { stripeAccount, nio } = await resolveInvoiceStripePayer({
+    oystehr,
+    invoice: await fetchById<Invoice>(oystehr, 'Invoice', invoiceId),
+  });
+  const customerId = getStripeCustomerIdFromAccount(nio, stripeAccount);
+  if (!customerId) throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
+
   await settleOtherCardReservation({
     oystehr,
     getStripe: () => stripe,
@@ -101,16 +109,6 @@ export async function performEffect({
       invoiceId,
       reservation,
     });
-
-  const { stripeAccount, nio } = await resolveInvoiceStripePayer({
-    oystehr,
-    invoice,
-  });
-  const customerId = getStripeCustomerIdFromAccount(nio, stripeAccount);
-  if (!customerId) {
-    await release();
-    throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
-  }
 
   const invoiceNumber = getInvoiceNumber(invoice) ?? invoiceId;
   let paymentIntent: Stripe.PaymentIntent;
