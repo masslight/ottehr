@@ -241,6 +241,7 @@ describe('sub-send-patient-statement-by-mail', () => {
   it('mails the statement built from the visit, guarantor, biller and billing claim and records the letter', async () => {
     const { statusCode, output } = await invokeZambdaHandler<{ mailId: string; mailStatus: string }>(index, task, {
       token,
+      secrets: { ...loadZambdaSecrets(), PATIENT_BALANCE_SOURCE: 'ottehr' },
     });
 
     expect(statusCode).toBe(200);

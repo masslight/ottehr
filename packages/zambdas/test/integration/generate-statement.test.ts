@@ -225,7 +225,9 @@ describe('generate-statement', () => {
   });
 
   it('builds the statement from the visit, guarantor, biller and billing claim and files it as a PDF', async () => {
-    const { statusCode, output } = await invokeZambdaHandler<{ documentReference: string }>(index, task);
+    const { statusCode, output } = await invokeZambdaHandler<{ documentReference: string }>(index, task, {
+      secrets: { ...loadZambdaSecrets(), PATIENT_BALANCE_SOURCE: 'ottehr' },
+    });
 
     expect(statusCode).toBe(200);
     expect(output.documentReference).toMatch(/^DocumentReference\/.+/);
