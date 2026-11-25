@@ -19,6 +19,7 @@ import { chunkThings } from '../fhir/chat';
 import { getAllFhirSearchPages } from '../fhir/getAllFhirSearchPages';
 import { getIdFromReference } from '../fhir/reference';
 import { removePrefix, sleep } from '../helpers/helpers';
+import { assertZ3Url } from '../helpers/presigned-file-url/helpers';
 
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
   const allResources = await getAppointmentGraphByTag(oystehr, tag);
@@ -590,9 +591,20 @@ export const cleanupIntegrationTestDocumentReferences = async (
   // M2M token, so an unchecked URL here would hand that token to whatever host a test happened to name.
   for (const doc of documents) {
     for (const attachmentUrl of (doc.content ?? []).map((entry) => entry.attachment?.url)) {
-      if (!attachmentUrl || !attachmentUrl.startsWith(z3BaseUrl)) continue;
+      if (!attachmentUrl) continue;
+
+      let z3Url: string;
+
       try {
-        const response = await fetch(attachmentUrl, {
+        z3Url = assertZ3Url(attachmentUrl);
+      } catch {
+        continue;
+      }
+
+      if (!z3Url.startsWith(z3BaseUrl)) continue;
+
+      try {
+        const response = await fetch(z3Url, {
           method: 'DELETE',
           headers: { authorization: `Bearer ${token}` },
         });

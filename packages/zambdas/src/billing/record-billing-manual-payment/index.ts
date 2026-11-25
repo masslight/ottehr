@@ -1,15 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Reference } from 'fhir/r4b';
+import { Encounter, Reference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { RecordBillingManualPaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingManualPaymentResponse } from 'utils/lib/types/data/billing/billing.types';
 import { checkOrCreateM2MClientToken, getUser } from '../../shared/auth';
+import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { practitionerRefForBillingUser } from '../clinical-practitioners';
+import { ensurePaymentTaskForNotice } from '../patient-payments';
 import { MANUAL_PAYMENT_IDEMPOTENCY_KEY_SYSTEM, recordBillingPatientPayment } from '../payments';
 import { createBillingClient } from '../shared';
 
@@ -48,6 +50,7 @@ const complexValidation = async (
 
 const performEffect = async (
   oystehr: Oystehr,
+  clinicalOystehr: Oystehr,
   effectInput: ComplexValidationOutput
 ): Promise<RecordBillingManualPaymentResponse> => {
   // Keep the creation time separate from the payment date.
@@ -77,7 +80,26 @@ const performEffect = async (
   if (!notice.id) {
     throw new Error('recordBillingPatientPayment returned a PaymentNotice without an id');
   }
+
+  // Scheduled here rather than in recordBillingPatientPayment, which the Task's own subscription calls
+  // to copy older EHR notices into billing. Also scheduled on a replay, so a first attempt that wrote
+  // the notice but died before this point still gets its receipt and Candid sync on retry.
+  if (await hasAppointment(clinicalOystehr, effectInput.encounterId)) {
+    await ensurePaymentTaskForNotice(clinicalOystehr, notice, effectInput.encounterId);
+  }
   return { paymentNoticeId: notice.id, claimId };
+};
+
+// The Task looks up the visit's Stripe account through its appointment and fails without one, so a
+// payment on a visit with no appointment (an appointment-less follow-up) is recorded without the Task.
+const hasAppointment = async (clinicalOystehr: Oystehr, encounterId: string): Promise<boolean> => {
+  const [encounter] = (
+    await clinicalOystehr.fhir.search<Encounter>({
+      resourceType: 'Encounter',
+      params: [{ name: '_id', value: encounterId }],
+    })
+  ).unbundle();
+  return Boolean(encounter?.appointment?.length);
 };
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -85,7 +107,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, params.secrets);
   const oystehr = createBillingClient(m2mToken, params.secrets);
+  // eslint-disable-next-line ottehr/billing-fhir-client-only -- reads the visit's Encounter and schedules the payment Task, a clinical work item
+  const clinicalOystehr = createClinicalOystehrClient(m2mToken, params.secrets);
   const effectInput = await complexValidation(input, params, oystehr);
-  const response = await performEffect(oystehr, effectInput);
+  const response = await performEffect(oystehr, clinicalOystehr, effectInput);
   return { statusCode: 200, body: JSON.stringify(response) };
 });

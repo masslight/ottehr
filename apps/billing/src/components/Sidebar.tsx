@@ -5,6 +5,8 @@ import {
   Business as BusinessIcon,
   BusinessCenterOutlined as BusinessCenterIcon,
   Description as DescriptionIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon,
   HealthAndSafety as HealthAndSafetyIcon,
   Label as LabelIcon,
   List as ListIcon,
@@ -17,64 +19,144 @@ import {
   SettingsOutlined as SettingsIcon,
   ViewList as ViewListIcon,
 } from '@mui/icons-material';
-import { Box, Divider, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
-import { FC, ReactElement } from 'react';
+import { Box, Collapse, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography } from '@mui/material';
+import { FC, ReactElement, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { FEATURE_FLAGS_CONFIG } from 'utils/lib/ottehr-config/feature-flags';
 import { otherColors } from 'utils/lib/theme/billing-palette';
-import { RULES_ENGINE_TYPES, RULES_ENGINES } from 'utils/lib/types/data/billing/rules-engine.constants';
+import {
+  RULES_ENGINE_TYPES,
+  RULES_ENGINES,
+  RulesEngineType,
+} from 'utils/lib/types/data/billing/rules-engine.constants';
 import { ChargeItemDefinitionLabels } from '../constants/chargeItemDefinition';
 import { useInvoicingInBillingApp } from '../hooks/useInvoicingInBillingApp';
 
 const DRAWER_WIDTH = 220;
 
-const navItems = [
-  // { label: 'Home', path: '/', icon: <HomeIcon sx={{ fontSize: 18 }} /> },
-  { label: 'Claims', path: '/claims', icon: <DescriptionIcon sx={{ fontSize: 18 }} /> },
-  { label: 'Invoices', path: '/invoices', icon: <RequestQuoteIcon sx={{ fontSize: 18 }} />, invoicing: true },
-  { label: 'Work Queues', path: '/work-queues', icon: <ViewListIcon sx={{ fontSize: 18 }} /> },
-  { label: 'Claim Creation Queue', path: '/claim-creation-queue', icon: <ListIcon sx={{ fontSize: 18 }} /> },
-  { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
+interface NavItem {
+  label: string;
+  path: string;
+  icon: ReactElement;
+  // Shown only while invoicing runs in the billing app.
+  invoicing?: boolean;
+  hidden?: boolean;
+}
+
+interface NavSection {
+  title: string;
+  items: NavItem[];
+  // Collapsed on load unless the current page is one of its items.
+  defaultCollapsed?: boolean;
+}
+
+// Menu position of each rules engine: submission, the two pre-invoice engines, then post-adjudication.
+// A Record so a new engine fails to compile until it is given a place.
+const RULES_MENU_POSITION: Record<RulesEngineType, number> = {
+  'claim-submission': 0,
+  'non-insurance-payer-pre-invoice': 1,
+  'patient-ar-pre-invoice': 2,
+  'post-adjudication': 3,
+};
+
+const navSections: NavSection[] = [
   {
-    label: 'Insurance Organizations',
-    path: '/insurance-organizations',
-    icon: <HealthAndSafetyIcon sx={{ fontSize: 18 }} />,
-  },
-  { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },
-  { label: 'Rendering Providers', path: '/rendering-providers', icon: <MedicalServicesIcon sx={{ fontSize: 18 }} /> },
-  { label: 'Service Facilities', path: '/service-facilities', icon: <ApartmentIcon sx={{ fontSize: 18 }} /> },
-  {
-    label: 'Non-Insurance Orgs',
-    path: '/non-insurance-organizations',
-    icon: <BusinessCenterIcon sx={{ fontSize: 18 }} />,
+    title: 'Operations',
+    items: [
+      { label: 'Claims', path: '/claims', icon: <DescriptionIcon sx={{ fontSize: 18 }} /> },
+      { label: 'Work Queues', path: '/work-queues', icon: <ViewListIcon sx={{ fontSize: 18 }} /> },
+      { label: 'Invoices', path: '/invoices', icon: <RequestQuoteIcon sx={{ fontSize: 18 }} />, invoicing: true },
+      { label: 'Remits', path: '/eras', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
+      { label: 'Patients', path: '/patients', icon: <PeopleIcon sx={{ fontSize: 18 }} /> },
+      { label: 'Reports', path: '/reports', icon: <AssessmentIcon sx={{ fontSize: 18 }} /> },
+    ],
   },
   {
-    label: ChargeItemDefinitionLabels['charge-master'].listTitle,
-    path: `/${ChargeItemDefinitionLabels['charge-master'].pathComponent}`,
-    icon: <ListIcon sx={{ fontSize: 18 }} />,
+    title: 'Workflow',
+    items: [
+      { label: 'Claim Creation Queue', path: '/claim-creation-queue', icon: <ListIcon sx={{ fontSize: 18 }} /> },
+      ...[...RULES_ENGINE_TYPES]
+        .sort((a, b) => RULES_MENU_POSITION[a] - RULES_MENU_POSITION[b])
+        .map((engine) => ({
+          label: RULES_ENGINES[engine].label,
+          path: `/rules/${engine}`,
+          icon: <RuleIcon sx={{ fontSize: 18 }} />,
+        })),
+    ],
   },
-  { label: 'ERAs', path: '/eras', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
-  { label: 'Tags', path: '/tags', icon: <LabelIcon sx={{ fontSize: 18 }} /> },
-  { label: 'Reports', path: '/reports', icon: <AssessmentIcon sx={{ fontSize: 18 }} /> },
+  {
+    title: 'Settings',
+    defaultCollapsed: true,
+    items: [
+      {
+        label: 'Rendering Providers',
+        path: '/rendering-providers',
+        icon: <MedicalServicesIcon sx={{ fontSize: 18 }} />,
+      },
+      { label: 'Billing Providers', path: '/billing-providers', icon: <BusinessIcon sx={{ fontSize: 18 }} /> },
+      { label: 'Service Facilities', path: '/service-facilities', icon: <ApartmentIcon sx={{ fontSize: 18 }} /> },
+      {
+        label: 'Insurance Organizations',
+        path: '/insurance-organizations',
+        icon: <HealthAndSafetyIcon sx={{ fontSize: 18 }} />,
+      },
+      {
+        label: 'Non-Insurance Organizations',
+        path: '/non-insurance-organizations',
+        icon: <BusinessCenterIcon sx={{ fontSize: 18 }} />,
+      },
+      {
+        label: ChargeItemDefinitionLabels['charge-master'].listTitle,
+        path: `/${ChargeItemDefinitionLabels['charge-master'].pathComponent}`,
+        icon: <ListIcon sx={{ fontSize: 18 }} />,
+      },
+      {
+        label: 'Invoicing Configuration',
+        path: '/invoicing-configuration',
+        icon: <SettingsIcon sx={{ fontSize: 18 }} />,
+        invoicing: true,
+      },
+      {
+        label: 'Outreach',
+        path: '/outreach-configuration',
+        icon: <SettingsIcon sx={{ fontSize: 18 }} />,
+        invoicing: true,
+        hidden: !FEATURE_FLAGS_CONFIG.automatedPatientOutreachEnabled,
+      },
+      { label: 'Tags', path: '/tags', icon: <LabelIcon sx={{ fontSize: 18 }} /> },
+    ],
+  },
 ];
 
-// The rules engines get their own menu section, separated from the rest by a divider.
-const rulesNavItems = RULES_ENGINE_TYPES.map((engine) => ({
-  label: RULES_ENGINES[engine].label,
-  path: `/rules/${engine}`,
-  icon: <RuleIcon sx={{ fontSize: 18 }} />,
-}));
+const isPathActive = (pathname: string, path: string): boolean =>
+  pathname === path || (path !== '/' && pathname.startsWith(path));
 
 export const Sidebar: FC = () => {
   const location = useLocation();
   const { logout } = useAuth0();
   const invoicingInBillingApp = useInvoicingInBillingApp();
 
-  const renderNavItem = ({ label, path, icon }: (typeof navItems)[number]): ReactElement => {
-    const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
+  const visibleSections = navSections.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => !item.hidden && (!item.invoicing || invoicingInBillingApp)),
+  }));
+
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      navSections.map((section) => [
+        section.title,
+        !!section.defaultCollapsed && !section.items.some((item) => isPathActive(location.pathname, item.path)),
+      ])
+    )
+  );
+
+  const toggleSection = (title: string): void => setCollapsed((prev) => ({ ...prev, [title]: !prev[title] }));
+
+  const renderNavItem = ({ label, path, icon }: NavItem): ReactElement => {
+    const isActive = isPathActive(location.pathname, path);
     return (
-      <Link to={path} style={{ display: 'contents', color: 'inherit', textDecoration: 'none' }}>
+      <Link key={path} to={path} style={{ display: 'contents', color: 'inherit', textDecoration: 'none' }}>
         <ListItemButton
-          key={path}
           selected={isActive}
           sx={{
             borderRadius: 1,
@@ -146,19 +228,41 @@ export const Sidebar: FC = () => {
       </Box>
 
       <List sx={{ px: 1.25, flex: 1, overflow: 'auto', minHeight: 0 }}>
-        {navItems.filter((item) => !item.invoicing || invoicingInBillingApp).map(renderNavItem)}
-        <Divider sx={{ my: 1 }} />
-        {rulesNavItems.map(renderNavItem)}
-        {invoicingInBillingApp && (
-          <>
-            <Divider sx={{ my: 1 }} />
-            {renderNavItem({
-              label: 'Invoicing Configuration',
-              path: '/invoicing-configuration',
-              icon: <SettingsIcon sx={{ fontSize: 18 }} />,
-            })}
-          </>
-        )}
+        {visibleSections.map(({ title, items }, index) => {
+          const isOpen = !collapsed[title];
+          const sectionId = `sidebar-section-${title.toLowerCase()}`;
+          return (
+            <Box key={title} component="li" sx={{ listStyle: 'none', mt: index === 0 ? 0 : 1.5 }}>
+              <ListItemButton
+                onClick={() => toggleSection(title)}
+                aria-expanded={isOpen}
+                aria-controls={sectionId}
+                sx={{ borderRadius: 1, py: 0.5, px: 1.25, mb: 0.25 }}
+              >
+                <ListItemText
+                  primary={title}
+                  primaryTypographyProps={{
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: 'text.secondary',
+                  }}
+                />
+                {isOpen ? (
+                  <ExpandLessIcon sx={{ fontSize: 18, color: 'action.disabled' }} />
+                ) : (
+                  <ExpandMoreIcon sx={{ fontSize: 18, color: 'action.disabled' }} />
+                )}
+              </ListItemButton>
+              <Collapse in={isOpen} timeout="auto" unmountOnExit>
+                <List id={sectionId} disablePadding>
+                  {items.map(renderNavItem)}
+                </List>
+              </Collapse>
+            </Box>
+          );
+        })}
       </List>
 
       <List sx={{ px: 1.25 }}>

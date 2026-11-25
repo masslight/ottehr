@@ -3,6 +3,7 @@ import {
   UploadPatientConditionPhotoInput,
 } from 'utils/lib/types/data/upload-patient-condition-photo.types';
 import { INVALID_INPUT_ERROR, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
+import { assertZ3UrlInProject } from '../../shared/presigned-file-urls/helpers';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeJsonParse } from '../../shared/validation';
 
@@ -37,6 +38,13 @@ export function validateRequestParameters(input: ZambdaInput): ValidatedParamete
 
   if (!z3URL) throw MISSING_REQUIRED_PARAMETERS(['z3URL']);
   if (typeof z3URL !== 'string') throw INVALID_INPUT_ERROR('z3URL must be a string');
+
+  try {
+    assertZ3UrlInProject(z3URL, input.secrets);
+  } catch {
+    throw INVALID_INPUT_ERROR('Invalid z3URL');
+  }
+
   if (title !== undefined && typeof title !== 'string') throw INVALID_INPUT_ERROR('title must be a string');
   if (mimeType !== undefined && typeof mimeType !== 'string') throw INVALID_INPUT_ERROR('mimeType must be a string');
 

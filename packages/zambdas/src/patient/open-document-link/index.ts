@@ -3,14 +3,14 @@ import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DocumentReference, Location, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { OUTBOUND_DELIVERY_INPUT_CODES, OUTBOUND_DELIVERY_OUTPUT_CODES } from 'utils/lib/fhir/constants';
+import { OUTBOUND_DELIVERY_INPUT_CODES } from 'utils/lib/fhir/constants';
 import {
   getOutboundDeliveryChannel,
   getOutboundDeliveryInput,
   getOutboundDeliveryPacketSnapshot,
   getOutboundDeliveryRecipientSnapshot,
   getOutboundDeliverySenderOrganizationId,
-  makeOutboundDeliveryOutput,
+  makeLinkOpenedOutput,
 } from 'utils/lib/fhir/outbound-delivery';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
@@ -41,8 +41,6 @@ let m2mToken: string;
 
 /** Whatever is wrong with the Task behind a link, the caller only learns that the link does not resolve. */
 const LINK_NOT_FOUND = { ...FHIR_RESOURCE_NOT_FOUND('Task'), statusCode: 404 };
-/** Extension on a `link-opened` output naming the client that opened it. */
-const LINK_OPENED_CLIENT_EXTENSION_URL = 'https://fhir.ottehr.com/Extension/link-opened-client';
 const LINK_OPENED_WRITE_ATTEMPTS = 3;
 
 export interface LinkClient {
@@ -155,15 +153,7 @@ function isLinkLive(attempt: Task): boolean {
 
 /** The audit record of an open. Best effort: a failure here must not stand between the recipient and the file. */
 async function recordLinkOpened(oystehr: Oystehr, task: Task, client?: LinkClient): Promise<void> {
-  const clientText = [client?.ip && `ip=${client.ip}`, client?.userAgent && `ua=${client.userAgent}`]
-    .filter(Boolean)
-    .join('; ');
-  const opened = {
-    ...makeOutboundDeliveryOutput(OUTBOUND_DELIVERY_OUTPUT_CODES.linkOpened, {
-      valueDateTime: DateTime.now().toUTC().toISO() ?? new Date().toISOString(),
-    }),
-    ...(clientText && { extension: [{ url: LINK_OPENED_CLIENT_EXTENSION_URL, valueString: clientText }] }),
-  };
+  const opened = makeLinkOpenedOutput(DateTime.now().toUTC().toISO() ?? new Date().toISOString(), client);
   try {
     let current = task;
     for (let attempt = 1; ; attempt++) {

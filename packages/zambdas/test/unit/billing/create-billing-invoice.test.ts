@@ -21,9 +21,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { performEffect } from '../../../src/billing/create-billing-invoice';
 import { SOURCE_IDENTIFIER_SYSTEM } from '../../../src/billing/shared';
 
-const { mockApplyClaimStatusField, mockGetOrCreateInvoicingConfig } = vi.hoisted(() => ({
+const {
+  mockApplyClaimStatusField,
+  mockGetOrCreateInvoicingConfig,
+  mockIssueInvoiceNumber,
+  mockProduceOutreach,
+  mockSendErrors,
+} = vi.hoisted(() => ({
   mockApplyClaimStatusField: vi.fn(),
   mockGetOrCreateInvoicingConfig: vi.fn(),
+  mockIssueInvoiceNumber: vi.fn(),
+  mockProduceOutreach: vi.fn(),
+  mockSendErrors: vi.fn(),
+}));
+
+vi.mock('../../../src/billing/invoice-number', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  issueInvoiceNumber: (...args: unknown[]) => mockIssueInvoiceNumber(...args),
 }));
 
 vi.mock('../../../src/shared/sentry', async (importOriginal) => ({
@@ -37,6 +51,13 @@ vi.mock('../../../src/billing/provenance', async (importOriginal) => ({
 vi.mock('../../../src/rcm/invoice-config/helpers', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   getOrCreateInvoicingConfig: (...args: unknown[]) => mockGetOrCreateInvoicingConfig(...args),
+}));
+vi.mock('../../../src/shared/errors', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  sendErrors: (...args: unknown[]) => mockSendErrors(...args),
+}));
+vi.mock('../../../src/billing/invoice-outreach', () => ({
+  produceBillingInvoiceIssuedOutreach: (...args: unknown[]) => mockProduceOutreach(...args),
 }));
 
 const CLAIM_ID = '11111111-1111-4111-8111-111111111111';
@@ -142,12 +163,7 @@ const makeOystehr = (
     return invoices[position];
   });
   const execute = vi.fn(async ({ id }: { id: string }) => ({
-    output:
-      id === PREPARE_BILLING_INVOICE_ZAMBDA_KEY
-        ? visit
-        : id === 'issue-billing-invoice-number'
-        ? { invoiceNumber: 'INV-00042' }
-        : { message: 'ok' },
+    output: id === PREPARE_BILLING_INVOICE_ZAMBDA_KEY ? visit : { message: 'ok' },
   }));
   const search = vi.fn(async ({ resourceType }: { resourceType: string }) => ({
     unbundle: () => (resourceType === 'Location' ? [facilityCopy] : [claim, facilityCopy, billingProvider]),
@@ -188,6 +204,7 @@ describe('create-billing-invoice', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetOrCreateInvoicingConfig.mockResolvedValue({ questionnaireResponse: {} });
+    mockIssueInvoiceNumber.mockResolvedValue('INV-00042');
   });
 
   it('creates, sends and links an invoice, then moves a ready claim to Invoiced', async () => {
@@ -203,7 +220,7 @@ describe('create-billing-invoice', () => {
     expect(getHostedInvoiceUrl(invoices[0])).toBe('https://pay.test/in_new');
     expect(invoices[0].issuer).toEqual({ reference: 'Organization/facility-org' });
     expect(getInvoiceNumber(invoices[0])).toBe('INV-00042');
-    expect(execute).toHaveBeenCalledWith({ id: 'issue-billing-invoice-number' });
+    expect(mockIssueInvoiceNumber).toHaveBeenCalledWith(oystehr);
     expect(oystehr.fhir.search).toHaveBeenCalledWith({
       resourceType: 'Claim',
       params: [
@@ -234,10 +251,63 @@ describe('create-billing-invoice', () => {
       message: 'Pay here https://pay.test/in_new',
     });
     expect(mockApplyClaimStatusField).toHaveBeenCalledWith(oystehr, claim, 'patientArStatus', 'invoiced', agent);
+    expect(mockProduceOutreach).toHaveBeenCalledWith(oystehr, invoices[0]);
+  });
+
+  it('reports the invoice as sent when scheduling outreach fails', async () => {
+    const outreachError = new Error('FHIR unavailable');
+    mockProduceOutreach.mockRejectedValueOnce(outreachError);
+    const { oystehr, invoices } = makeOystehr(makeClaim());
+
+    const result = await performEffect(oystehr, makeStripe().stripe, params, agent);
+
+    expect(result).toEqual({ invoiceId: 'inv-1', stripeInvoiceId: 'in_new', smsSent: true });
+    expect(invoices[0].status).toBe('issued');
+    expect(mockApplyClaimStatusField).toHaveBeenCalled();
+    expect(mockSendErrors).toHaveBeenCalledWith(outreachError, 'local', { invoiceId: 'inv-1' });
+  });
+
+  it('schedules missed outreach when a sent invoice is retried, without sending it again', async () => {
+    const { oystehr, invoices, execute } = makeOystehr(makeClaim('invoiced'), [existingInvoice('issued', 'key-1')]);
+    const { stripe, invoices: stripeInvoices } = makeStripe();
+
+    await performEffect(oystehr, stripe, params, agent);
+
+    expect(mockProduceOutreach).toHaveBeenCalledWith(oystehr, invoices[0]);
+    expect(invoices[0].date).toBe('2026-10-01T00:00:00.000Z');
+    expect(stripeInvoices.sendInvoice).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalledWith(expect.objectContaining({ id: SEND_BILLING_INVOICE_SMS_ZAMBDA_KEY }));
+  });
+
+  it('counts outreach from when the invoice is sent, not from when its draft was created', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-01T07:00:00.000Z'));
+    try {
+      const { oystehr, invoices } = makeOystehr(makeClaim(), [existingInvoice('draft', 'key-1')]);
+      const { stripe } = makeStripe({ id: 'in_old', status: 'draft', lines: { data: [{}] } });
+
+      await performEffect(oystehr, stripe, params, agent);
+
+      expect(invoices[0].status).toBe('issued');
+      expect(invoices[0].date).toBe('2026-10-01T07:00:00.000Z');
+      expect(mockProduceOutreach).toHaveBeenCalledWith(oystehr, invoices[0]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('schedules no outreach for an invoice Stripe reports as already paid', async () => {
+    const { oystehr, invoices } = makeOystehr(makeClaim(), [existingInvoice('draft', 'key-1')]);
+    const { stripe } = makeStripe({ id: 'in_old', status: 'paid', lines: { data: [{}] } });
+
+    await performEffect(oystehr, stripe, params, agent);
+
+    expect(invoices[0].status).toBe('balanced');
+    expect(mockProduceOutreach).not.toHaveBeenCalled();
   });
 
   it('resumes its own draft without creating another Stripe invoice or item', async () => {
-    const { oystehr, invoices, execute } = makeOystehr(makeClaim(), [existingInvoice('draft', 'key-1')]);
+    const { oystehr, invoices } = makeOystehr(makeClaim(), [existingInvoice('draft', 'key-1')]);
     const {
       stripe,
       invoices: stripeInvoices,
@@ -255,7 +325,7 @@ describe('create-billing-invoice', () => {
     expect(invoices[0].status).toBe('issued');
     expect(invoices[0].issuer).toEqual({ reference: 'Organization/original-issuer' });
     expect(getInvoiceNumber(invoices[0])).toBe('INV-00007');
-    expect(execute).not.toHaveBeenCalledWith({ id: 'issue-billing-invoice-number' });
+    expect(mockIssueInvoiceNumber).not.toHaveBeenCalled();
   });
 
   it('uses the billing provider when selected in invoicing configuration', async () => {
@@ -290,7 +360,7 @@ describe('create-billing-invoice', () => {
   });
 
   it('keeps the saved invoice number when Stripe creation fails and is retried', async () => {
-    const { oystehr, invoices, execute } = makeOystehr(makeClaim());
+    const { oystehr, invoices } = makeOystehr(makeClaim());
     const { stripe, invoices: stripeInvoices } = makeStripe();
     stripeInvoices.create.mockRejectedValueOnce(new Error('Stripe unavailable'));
 
@@ -302,16 +372,16 @@ describe('create-billing-invoice', () => {
     expect(invoices).toHaveLength(1);
     expect(invoices[0].status).toBe('issued');
     expect(getInvoiceNumber(invoices[0])).toBe('INV-00042');
-    expect(execute.mock.calls.filter(([input]) => input.id === 'issue-billing-invoice-number')).toHaveLength(1);
+    expect(mockIssueInvoiceNumber).toHaveBeenCalledTimes(1);
   });
 
   it('rejects a claim another request already invoiced', async () => {
-    const { oystehr, execute } = makeOystehr(makeClaim('invoiced'), [existingInvoice('issued', 'key-other')]);
+    const { oystehr } = makeOystehr(makeClaim('invoiced'), [existingInvoice('issued', 'key-other')]);
 
     await expect(performEffect(oystehr, makeStripe().stripe, params, agent)).rejects.toMatchObject({
       statusCode: 409,
       message: 'This claim already has an invoice.',
     });
-    expect(execute).not.toHaveBeenCalledWith({ id: 'issue-billing-invoice-number' });
+    expect(mockIssueInvoiceNumber).not.toHaveBeenCalled();
   });
 });

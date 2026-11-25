@@ -37,20 +37,22 @@ export interface MakeCoverageEligibilityRequestInput {
   payorReference: string;
   providerReference: string;
   patientReference: string;
+  /** Date of service (yyyy-MM-dd) the benefits are checked for. Defaults to today. */
+  servicedDate?: string;
   contained?: DomainResource['contained'];
 }
 
 export const makeCoverageEligibilityRequest = (
   input: MakeCoverageEligibilityRequestInput
 ): CoverageEligibilityRequest => {
-  const { coverageReference, patientReference, payorReference, providerReference, contained } = input;
+  const { coverageReference, patientReference, payorReference, providerReference, servicedDate, contained } = input;
   const today = removeTimeFromDate(DateTime.now().toISO());
   const coverageEligibilityRequest: CoverageEligibilityRequest = {
     resourceType: 'CoverageEligibilityRequest',
     status: 'active',
     purpose: ['benefits'],
     created: today,
-    servicedDate: today,
+    servicedDate: servicedDate ?? today,
     contained,
     patient: {
       reference: patientReference,

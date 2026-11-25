@@ -1,0 +1,118 @@
+import Oystehr from '@oystehr/sdk';
+import { Appointment, Observation } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { chunkThings } from 'utils/lib/fhir/chat';
+import { PRIVATE_EXTENSION_BASE_URL } from 'utils/lib/fhir/constants';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import {
+  isNewPatient,
+  SEEN_VISIT_APPOINTMENT_STATUS,
+  VisitSeenBeforeData,
+} from 'utils/lib/helpers/screening-questions/new-patient.helper';
+import { ADDITIONAL_QUESTIONS_META_SYSTEM } from 'utils/lib/types/api/chart-data/chart-data.types';
+import {
+  PATIENT_SEEN_IN_LAST_THREE_YEARS_FIELD,
+  SEEN_IN_LAST_THREE_YEARS_FIELD,
+} from 'utils/lib/types/data/screening-questions/constants';
+
+const SCREENING_TAG_SYSTEM = `${PRIVATE_EXTENSION_BASE_URL}/${ADDITIONAL_QUESTIONS_META_SYSTEM}`;
+const SEEN_BEFORE_FIELDS = [SEEN_IN_LAST_THREE_YEARS_FIELD, PATIENT_SEEN_IN_LAST_THREE_YEARS_FIELD];
+const ENCOUNTERS_PER_SEARCH = 100;
+const SEARCH_CONCURRENCY = 4;
+
+interface VisitInRange {
+  appointment: Appointment;
+  encounterId?: string;
+}
+
+export interface PatientVisitsInRange {
+  hasPriorVisit: boolean;
+  visits: VisitInRange[];
+}
+
+function visitsBeforeFirstSeen(visits: VisitInRange[]): VisitInRange[] {
+  const earliestFirst = [...visits].sort(
+    (a, b) =>
+      DateTime.fromISO(a.appointment.start ?? '').toMillis() - DateTime.fromISO(b.appointment.start ?? '').toMillis()
+  );
+
+  const firstSeen = earliestFirst.findIndex((visit) => visit.appointment.status === SEEN_VISIT_APPOINTMENT_STATUS);
+
+  return firstSeen === -1 ? earliestFirst : earliestFirst.slice(0, firstSeen + 1);
+}
+
+export async function resolveNewPatients<K>(
+  oystehr: Oystehr,
+  patients: Map<K, PatientVisitsInRange>
+): Promise<Map<K, boolean>> {
+  const relevantVisits = new Map<K, VisitInRange[]>();
+
+  for (const [key, { hasPriorVisit, visits }] of patients) {
+    relevantVisits.set(key, hasPriorVisit ? [] : visitsBeforeFirstSeen(visits));
+  }
+
+  const answersByEncounter = await fetchSeenBeforeAnswers(
+    oystehr,
+    Array.from(relevantVisits.values())
+      .flat()
+      .map((visit) => visit.encounterId)
+      .filter((id): id is string => Boolean(id))
+  );
+
+  const result = new Map<K, boolean>();
+
+  for (const [key, { hasPriorVisit }] of patients) {
+    result.set(
+      key,
+      isNewPatient(
+        hasPriorVisit,
+        (relevantVisits.get(key) ?? []).map(({ appointment, encounterId }) => ({
+          appointment,
+          observations: encounterId ? answersByEncounter.get(encounterId) : undefined,
+        }))
+      )
+    );
+  }
+
+  return result;
+}
+
+async function fetchSeenBeforeAnswers(
+  oystehr: Oystehr,
+  encounterIds: string[]
+): Promise<Map<string, NonNullable<VisitSeenBeforeData['observations']>>> {
+  const searches = chunkThings(Array.from(new Set(encounterIds)), ENCOUNTERS_PER_SEARCH).map(
+    (ids) => (): Promise<Observation[]> =>
+      getAllFhirSearchPages<Observation>(
+        {
+          resourceType: 'Observation',
+          params: [
+            { name: 'encounter', value: ids.map((id) => `Encounter/${id}`).join(',') },
+            { name: '_tag', value: SEEN_BEFORE_FIELDS.map((field) => `${SCREENING_TAG_SYSTEM}|${field}`).join(',') },
+            { name: '_sort', value: '-_lastUpdated' },
+          ],
+        },
+        oystehr
+      )
+  );
+
+  const byEncounter = new Map<string, NonNullable<VisitSeenBeforeData['observations']>>();
+
+  for (const group of chunkThings(searches, SEARCH_CONCURRENCY)) {
+    for (const observation of (await Promise.all(group.map((search) => search()))).flat()) {
+      const encounterId = observation.encounter?.reference?.replace('Encounter/', '');
+
+      const field = observation.meta?.tag?.find(
+        (tag) => tag.system === SCREENING_TAG_SYSTEM && SEEN_BEFORE_FIELDS.includes(tag.code ?? '')
+      )?.code;
+
+      if (!encounterId || !field) continue;
+
+      byEncounter.set(encounterId, [
+        ...(byEncounter.get(encounterId) ?? []),
+        { field, value: observation.valueString ?? observation.valueBoolean },
+      ]);
+    }
+  }
+  return byEncounter;
+}

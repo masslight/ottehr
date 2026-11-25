@@ -13,6 +13,12 @@ import {
   ENCOUNTER_LAYERS,
 } from 'utils/lib/types/adhoc/datasets/encounters';
 import {
+  AdHocMedicationInventoryInputSchema,
+  AdHocMedicationInventoryOutputSchema,
+  MEDICATION_INVENTORY_DATASET_ID,
+  MEDICATION_INVENTORY_LAYERS,
+} from 'utils/lib/types/adhoc/datasets/medication-inventory';
+import {
   AdHocPatientsInputSchema,
   AdHocPatientsOutputSchema,
   PATIENT_LAYERS,
@@ -25,6 +31,7 @@ import {
 import { createBillingClient } from '../../billing/shared';
 import { fetchAdHocBillingRows } from '../../shared/adhoc-datasets/billing';
 import { fetchAdHocEncounterRows } from '../../shared/adhoc-datasets/encounters';
+import { fetchAdHocMedicationInventoryRows } from '../../shared/adhoc-datasets/medication-inventory';
 import { fetchAdHocPatientRows } from '../../shared/adhoc-datasets/patients';
 import { beginReportBudget, uploadAdHocReportJsonToZ3 } from '../../shared/adhoc-report';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
@@ -77,6 +84,18 @@ async function buildOutputJson(
       const input = AdHocBillingInputSchema.parse({ dateRange, ...layerIncludeFlags(BILLING_LAYERS, options) });
       const rows = await fetchAdHocBillingRows(oystehr, input, billingOystehr);
       const json = JSON.stringify(validateOutputWithSchema(AdHocBillingOutputSchema, { rows }, ZAMBDA_NAME));
+      return { json, rowCount: rows.length };
+    }
+
+    case MEDICATION_INVENTORY_DATASET_ID: {
+      const input = AdHocMedicationInventoryInputSchema.parse({
+        dateRange,
+        ...layerIncludeFlags(MEDICATION_INVENTORY_LAYERS, options),
+      });
+      const rows = await fetchAdHocMedicationInventoryRows(oystehr, input);
+      const json = JSON.stringify(
+        validateOutputWithSchema(AdHocMedicationInventoryOutputSchema, { rows }, ZAMBDA_NAME)
+      );
       return { json, rowCount: rows.length };
     }
 

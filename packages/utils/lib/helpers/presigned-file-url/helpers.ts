@@ -3,6 +3,36 @@ import { DiagnosticReport, DocumentReference } from 'fhir/r4b';
 import retry from 'retry';
 import { MIME_TYPES } from '../../utils/file';
 
+const Z3_API_HOST = 'project-api.zapehr.com';
+const Z3_PATH = /^\/v1\/z3\/[^/]+\/[^/]/;
+const ENCODED_PATH_SEPARATOR = /%2e|%2f|%5c/i;
+
+export function assertZ3Url(url: string): string {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('Invalid file URL');
+  }
+
+  const isZ3Host = parsed.hostname === Z3_API_HOST || parsed.hostname.endsWith(`.${Z3_API_HOST}`);
+
+  if (
+    parsed.protocol !== 'https:' ||
+    !isZ3Host ||
+    parsed.port !== '' ||
+    parsed.username !== '' ||
+    parsed.password !== '' ||
+    !Z3_PATH.test(parsed.pathname) ||
+    ENCODED_PATH_SEPARATOR.test(parsed.pathname)
+  ) {
+    throw new Error('Invalid file URL');
+  }
+
+  return parsed.href;
+}
+
 export async function getPresignedURL(
   url: string,
   oystehrToken: string,
@@ -11,7 +41,7 @@ export async function getPresignedURL(
 ): Promise<string> {
   console.log('getting presigned url');
 
-  const presignedURLResponse = await fetch(url, {
+  const presignedURLResponse = await fetch(assertZ3Url(url), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${oystehrToken}`,

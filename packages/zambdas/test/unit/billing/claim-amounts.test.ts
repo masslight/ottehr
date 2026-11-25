@@ -6,6 +6,8 @@ import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { describe, expect, it, Mock, vi } from 'vitest';
 import {
   ADJUDICATION_CODES,
+  applyRemit,
+  claimBalanceSteps,
   ClaimPaymentSummary,
   countEraClaims,
   extractClaimResponseAmounts,
@@ -17,8 +19,12 @@ import {
   fetchPatientPaymentsByEncounterIds,
   firstSubmittedDate,
   getInvoiceBalanceInCents,
+  initialClaimBalances,
   isMatchedToClaim,
   OYSTEHR_ADJUDICATION_SYSTEM,
+  patientRespRemit,
+  readRemitAmounts,
+  remitWriteOffsBeyondAllowed,
   sortClaimResponsesByRecency,
   summarizeClaimPayments,
   summarizePatientBalance,
@@ -402,7 +408,7 @@ describe('extractClaimResponseAmounts', () => {
     expect(extractClaimResponseAmounts(cr).patientResp).toBe(20);
   });
 
-  it('returns undefined allowed when no allowed adjudication exists, but 0 PR when other CAS data exists', () => {
+  it('returns undefined allowed and patientResp when adjustments exist but none are PR', () => {
     const cr = claimResponse('2026-01-01', {
       totalPaid: 60,
       itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 40)]],
@@ -411,8 +417,28 @@ describe('extractClaimResponseAmounts', () => {
       payerId: '12345',
       paid: 60,
       allowed: undefined,
-      patientResp: 0,
+      patientResp: undefined,
     });
+  });
+
+  it('ignores an allowed entry in ClaimResponse.total, since CLP carries no allowed amount', () => {
+    const cr = claimResponse('2026-01-01', { totalPaid: 60 });
+    cr.total = [
+      ...(cr.total ?? []),
+      {
+        category: { coding: [{ system: OYSTEHR_ADJUDICATION_SYSTEM, code: ADJUDICATION_CODES.ALLOWED }] },
+        amount: { value: 80, currency: 'USD' },
+      },
+    ];
+    expect(extractClaimResponseAmounts(cr).allowed).toBeUndefined();
+  });
+
+  it('returns an explicit 0 patientResp when the remit reports PR of 0', () => {
+    const cr = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('PR', 0)]],
+    });
+    expect(extractClaimResponseAmounts(cr).patientResp).toBe(0);
   });
 
   it('returns undefined allowed and patientResp when the response carries no adjudications at all', () => {
@@ -431,8 +457,9 @@ describe('summarizeClaimPayments', () => {
     expect(summarizeClaimPayments([], 150)).toEqual({
       allowed: 0,
       insurancePaid: 0,
-      patientResp: 0,
+      patientResp: null,
       patientPaid: 0,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 150,
       adjudicated: false,
@@ -445,6 +472,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 60,
       patientResp: 20,
       patientPaid: 0,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 20,
       adjudicated: true,
@@ -462,6 +490,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 75,
       patientResp: 5,
       patientPaid: 0,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 5,
       adjudicated: true,
@@ -479,6 +508,7 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 75,
       patientResp: 5,
       patientPaid: 0,
+      nioPaid: 0,
       writeOffsTotal: 5,
       balance: 0,
       adjudicated: true,
@@ -565,37 +595,137 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 110,
       patientResp: 60,
       patientPaid: 0,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 60,
       adjudicated: true,
     });
   });
 
-  it('falls back to allowed minus insurance paid when the latest response has no adjudication data', () => {
+  it('takes no PR on the latest remit as 0 once an earlier remit reported PR', () => {
+    // a secondary that paid the primary's PR reports none of its own (X12 RFI 2548)
     const primary = claimMdClaimResponse('2026-01-01');
-    const bareSecondary = claimResponse('2026-02-01', { totalPaid: 10 });
-    const summary = summarizeClaimPayments([primary, bareSecondary], 100);
+    const secondary = claimResponse('2026-02-01', {
+      totalPaid: 10,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 10), casAdjustment('OA', 80, '23')]],
+    });
+    const summary = summarizeClaimPayments([primary, secondary], 100, 4);
     expect(summary.insurancePaid).toBe(70);
-    expect(summary.patientResp).toBe(10);
-    expect(summary.balance).toBe(10);
+    expect(summary.patientResp).toBe(0);
+    expect(summary.balance).toBe(-4);
   });
 
-  it('limits the fallback at zero when allowed is unknown', () => {
-    const cr = claimResponse('2026-01-01', { totalPaid: 60 });
-    const summary = summarizeClaimPayments([cr], 100);
-    expect(summary.patientResp).toBe(0);
-    expect(summary.balance).toBe(0);
+  it('keeps the latest PR when allowed is unknown', () => {
+    const cr = claimResponse('2026-01-01', {
+      totalPaid: 60,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('PR', 10, '3')]],
+    });
+    expect(summarizeClaimPayments([cr], 100)).toMatchObject({ patientResp: 10, balance: 10 });
+  });
+
+  it('keeps a denied claim open and provisional until a remit reports PR', () => {
+    // CO-B16 "doesn't qualify as a new-patient visit": coded wrong, awaiting a corrected claim
+    const denial = claimResponse('2026-01-01', {
+      totalCharge: 150,
+      totalPaid: 0,
+      itemAdjudications: [
+        [
+          adjudication(ADJUDICATION_CODES.CHARGE, 150),
+          adjudication(ADJUDICATION_CODES.PAID, 0),
+          casAdjustment('CO', 150, 'B16'),
+        ],
+      ],
+    });
+    expect(summarizeClaimPayments([denial], 150, 0, 0)).toEqual({
+      allowed: 0,
+      insurancePaid: 0,
+      patientResp: null,
+      patientPaid: 0,
+      nioPaid: 0,
+      writeOffsTotal: 0,
+      balance: 150,
+      adjudicated: true,
+    });
+  });
+
+  it('determines patient responsibility once any remit reports PR, even after a denial', () => {
+    const denial = claimResponse('2026-01-01', {
+      totalPaid: 0,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 150, 'B16')]],
+    });
+    const corrected = claimResponse('2026-02-01', {
+      totalPaid: 90,
+      itemAdjudications: [
+        [
+          adjudication(ADJUDICATION_CODES.ALLOWED, 120),
+          adjudication(ADJUDICATION_CODES.PAID, 90),
+          casAdjustment('CO', 30, '45'),
+          casAdjustment('PR', 30, '2'),
+        ],
+      ],
+    });
+    expect(summarizeClaimPayments([denial, corrected], 150)).toMatchObject({
+      patientResp: 30,
+      balance: 30,
+    });
+  });
+
+  it('settles a payment without PR: the patient owes nothing and its CO-45 is not left open', () => {
+    // billed 100, paid 80, CO-45 20, no allowed amount and no PR
+    const cr = claimResponse('2026-01-01', {
+      totalPaid: 80,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 80), casAdjustment('CO', 20, '45')]],
+    });
+    expect(summarizeClaimPayments([cr], 100)).toMatchObject({ patientResp: 0, balance: 0 });
+    expect(summarizeClaimPayments([cr], 100, 5, 10)).toMatchObject({ patientResp: 0, balance: -15 });
+  });
+
+  it('subtracts insurance payments from the provisional balance while every remit is a denial', () => {
+    // both remits paid nothing and reported no PR
+    const primaryDenial = claimResponse('2026-01-01', {
+      totalPaid: 0,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 100, 'B16')]],
+    });
+    const secondaryDenial = claimResponse('2026-02-01', {
+      totalPaid: 0,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('OA', 100, '23')]],
+    });
+    expect(summarizeClaimPayments([primaryDenial, secondaryDenial], 100, 5, 10)).toMatchObject({
+      patientResp: null,
+      balance: 85,
+    });
+  });
+
+  it('keeps patient responsibility from the latest non-denial remit when a denial follows it', () => {
+    const primary = claimMdClaimResponse('2026-01-01');
+    const secondaryDenial = claimResponse('2026-02-01', {
+      totalPaid: 0,
+      itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 20, '16')]],
+    });
+    expect(summarizeClaimPayments([primary, secondaryDenial], 100)).toMatchObject({ patientResp: 20, balance: 20 });
   });
 
   it('subtracts patientPaid from billed for an un-adjudicated claim', () => {
     expect(summarizeClaimPayments([], 150, 40)).toEqual({
       allowed: 0,
       insurancePaid: 0,
-      patientResp: 0,
+      patientResp: null,
       patientPaid: 40,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 110,
       adjudicated: false,
+    });
+  });
+
+  it("subtracts what the claim's non-insurance payer paid, with or without a remit", () => {
+    expect(summarizeClaimPayments([], 150, 40, 10, 100)).toMatchObject({
+      nioPaid: 100,
+      balance: 0,
+    });
+    expect(summarizeClaimPayments([claimMdClaimResponse()], 100, 5, 0, 15)).toMatchObject({
+      nioPaid: 15,
+      balance: 0,
     });
   });
 
@@ -605,27 +735,163 @@ describe('summarizeClaimPayments', () => {
       insurancePaid: 60,
       patientResp: 20,
       patientPaid: 15,
+      nioPaid: 0,
       writeOffsTotal: 0,
       balance: 5,
       adjudicated: true,
     });
   });
+});
 
-  it('does not double-subtract patientPaid in the fallback patient-responsibility branch', () => {
-    const primary = claimMdClaimResponse('2026-01-01');
-    const bareSecondary = claimResponse('2026-02-01', { totalPaid: 10 });
-    const summary = summarizeClaimPayments([primary, bareSecondary], 100, 4);
-    // responsibility stays allowed - insurancePaid (80 - 70); only the balance nets out the payment
-    expect(summary.patientResp).toBe(10);
-    expect(summary.balance).toBe(6);
+// billed 120, allowed 100, paid 98: CO-45 20 is the reduction to allowed, CO-253 2 sequestration
+const sequestrationClaimResponse = (created: string, sign: 1 | -1 = 1): ClaimResponse =>
+  claimResponse(created, {
+    totalCharge: sign * 120,
+    totalPaid: sign * 98,
+    itemAdjudications: [
+      [
+        adjudication(ADJUDICATION_CODES.CHARGE, sign * 120),
+        adjudication(ADJUDICATION_CODES.ALLOWED, sign * 100),
+        adjudication(ADJUDICATION_CODES.PAID, sign * 98),
+        casAdjustment('CO', sign * 20, '45'),
+        casAdjustment('CO', sign * 2, '253'),
+      ],
+    ],
+  });
+
+describe('readRemitAmounts', () => {
+  it('splits write-offs into the reduction to allowed and what lies beyond it', () => {
+    expect(readRemitAmounts(sequestrationClaimResponse('2026-01-01'), 120)).toEqual({
+      paid: 98,
+      allowed: 100,
+      patientResp: undefined,
+      writeOffs: 22,
+      reductionToAllowed: 20,
+      writeOffsBeyondAllowed: 2,
+    });
+  });
+
+  it('negates the split for a reversal, so it cancels its original', () => {
+    expect(readRemitAmounts(sequestrationClaimResponse('2026-02-01', -1), 120)).toMatchObject({
+      reductionToAllowed: -20,
+      writeOffsBeyondAllowed: -2,
+    });
+    expect(remitWriteOffsBeyondAllowed(sequestrationClaimResponse('2026-01-01'), 120)).toBe(2);
+    expect(remitWriteOffsBeyondAllowed(sequestrationClaimResponse('2026-02-01', -1), 120)).toBe(-2);
+  });
+
+  it('cancels a write-off with its reversal when allowed equals the charge', () => {
+    const remit = (sign: 1 | -1): ClaimResponse =>
+      claimResponse('2026-01-01', {
+        totalCharge: sign * 100,
+        totalPaid: sign * 98,
+        itemAdjudications: [
+          [
+            adjudication(ADJUDICATION_CODES.CHARGE, sign * 100),
+            adjudication(ADJUDICATION_CODES.ALLOWED, sign * 100),
+            adjudication(ADJUDICATION_CODES.PAID, sign * 98),
+            casAdjustment('CO', sign * 2, '253'),
+          ],
+        ],
+      });
+    expect(remitWriteOffsBeyondAllowed(remit(1), 100)).toBe(2);
+    expect(remitWriteOffsBeyondAllowed(remit(-1), 100)).toBe(-2);
+  });
+
+  it("takes an unbalanced remit's gap as the unreported reduction to allowed", () => {
+    // a manually keyed remit with allowed but only the sequestration adjustment: 120 - 98 - 2 leaves
+    // the 20 reduction to allowed unreported, so the 2 still lies beyond allowed
+    const cr = claimResponse('2026-01-01', {
+      totalCharge: 120,
+      totalPaid: 98,
+      itemAdjudications: [
+        [
+          adjudication(ADJUDICATION_CODES.CHARGE, 120),
+          adjudication(ADJUDICATION_CODES.ALLOWED, 100),
+          adjudication(ADJUDICATION_CODES.PAID, 98),
+          casAdjustment('CO', 2, '253'),
+        ],
+      ],
+    });
+    expect(readRemitAmounts(cr, 120)).toMatchObject({ reductionToAllowed: 0, writeOffsBeyondAllowed: 2 });
+  });
+
+  it('leaves prior-payer impact (OA-23) out of the write-offs', () => {
+    const secondary = claimResponse('2026-02-01', {
+      totalPaid: 10,
+      itemAdjudications: [
+        [adjudication(ADJUDICATION_CODES.PAID, 10), casAdjustment('OA', 80, '23'), casAdjustment('CO', 10, '45')],
+      ],
+    });
+    expect(readRemitAmounts(secondary, 100)).toMatchObject({ writeOffs: 10, writeOffsBeyondAllowed: 10 });
+  });
+});
+
+describe('applyRemit', () => {
+  it('folds a remit into the running balances', () => {
+    const remit = readRemitAmounts(sequestrationClaimResponse('2026-01-01'), 120);
+    expect(applyRemit(initialClaimBalances(), remit)).toEqual({
+      allowed: 100,
+      insurancePaid: 98,
+      // a payment without PR: the payer assigned the patient nothing
+      patientResp: 0,
+    });
+  });
+});
+
+describe('patientRespRemit', () => {
+  it('picks the latest remit that is not a denial', () => {
+    const payment = { ...claimMdClaimResponse('2026-01-01'), id: 'payment' };
+    const denial = {
+      ...claimResponse('2026-02-01', {
+        totalPaid: 0,
+        itemAdjudications: [[adjudication(ADJUDICATION_CODES.PAID, 0), casAdjustment('CO', 100, 'B16')]],
+      }),
+      id: 'denial',
+    };
+    expect(patientRespRemit([denial, payment])?.id).toBe('payment');
+    expect(patientRespRemit([denial])).toBeUndefined();
+    expect(patientRespRemit([])).toBeUndefined();
+  });
+});
+
+describe('claimBalanceSteps', () => {
+  it('records each remit and the balances it left, oldest first', () => {
+    const primary = {
+      ...claimResponse('2026-01-01', {
+        totalPaid: 60,
+        itemAdjudications: [
+          [adjudication(ADJUDICATION_CODES.PAID, 60), casAdjustment('CO', 20, '45'), casAdjustment('PR', 20, '1')],
+        ],
+      }),
+      id: 'primary',
+    };
+    const manual = {
+      ...claimResponse('2026-02-01', {
+        totalPaid: 10,
+        itemAdjudications: [[adjudication(ADJUDICATION_CODES.ALLOWED, 80), adjudication(ADJUDICATION_CODES.PAID, 10)]],
+      }),
+      id: 'manual',
+    };
+
+    const steps = claimBalanceSteps([manual, primary], 100);
+
+    expect(steps.map((step) => [step.claimResponseId, step.balances.patientResp])).toEqual([
+      ['primary', 20],
+      // once PR has been reported, a later remit without PR assigns the patient nothing
+      ['manual', 0],
+    ]);
+    expect(steps[1].balances).toMatchObject({ allowed: 80, insurancePaid: 70 });
   });
 });
 
 const summary = (over: Partial<ClaimPaymentSummary>): ClaimPaymentSummary => ({
   allowed: 0,
   insurancePaid: 0,
-  patientResp: 0,
+  // a remit reporting PR is what an adjudicated summary means in these tests
+  patientResp: over.adjudicated ? 0 : null,
   patientPaid: 0,
+  nioPaid: 0,
   writeOffsTotal: 0,
   balance: 0,
   adjudicated: false,
@@ -659,6 +925,12 @@ describe('summarizePatientBalance', () => {
     expect(result.currentBalance).toBe(-14.69);
     expect(result.claimsWithPatientBalance).toBe(0);
     expect(result.pendingPayments).toBe(0);
+  });
+
+  it('keeps a denied claim with no PR yet off the patient balance until it reaches patient AR', () => {
+    const denied = summary({ adjudicated: true, patientResp: null, balance: 150 });
+    expect(summarizePatientBalance([pendingInsurance(denied)]).currentBalance).toBe(0);
+    expect(summarizePatientBalance([patientOwed(denied)]).currentBalance).toBe(150);
   });
 
   it('counts an adjudicated claim with an outstanding patient balance', () => {

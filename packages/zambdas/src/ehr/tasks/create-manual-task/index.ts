@@ -45,10 +45,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     category: params.category,
     title: params.taskTitle,
     encounterId: params.encounterId,
-    location: {
-      id: params.location.id,
-      name: params.location.name,
-    },
+    location: params.location,
     input: [
       {
         type: MANUAL_TASK.input.title,
@@ -69,6 +66,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       {
         type: MANUAL_TASK.input.orderId,
         valueString: params.orderId,
+      },
+      {
+        type: MANUAL_TASK.input.progressNoteSection,
+        valueString: params.progressNoteSection,
       },
       {
         type: MANUAL_TASK.input.encounterId,

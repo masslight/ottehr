@@ -133,10 +133,13 @@ export const makeRadiologyOrderFormSourceVersion = (sources: OrderFormSource[]):
   return versions.sort().join('|');
 };
 
-export const makeRadiologyOrderFormVersion = (sources: OrderFormSource[]): string | undefined => {
+export const makeOrderFormVersion = (templateVersion: number, sources: OrderFormSource[]): string | undefined => {
   const sourceVersion = makeRadiologyOrderFormSourceVersion(sources);
-  return sourceVersion && `template@${RADIOLOGY_ORDER_FORM_TEMPLATE_VERSION}|${sourceVersion}`;
+  return sourceVersion && `template@${templateVersion}|${sourceVersion}`;
 };
+
+export const makeRadiologyOrderFormVersion = (sources: OrderFormSource[]): string | undefined =>
+  makeOrderFormVersion(RADIOLOGY_ORDER_FORM_TEMPLATE_VERSION, sources);
 
 /** The source version stamped on a stored order form, if any. */
 export const getStoredOrderFormSourceVersion = (docRef: DocumentReference): string | undefined =>

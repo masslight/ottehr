@@ -63,6 +63,7 @@ export const dataTestIds = {
     groupSelect: 'group-select',
     dischargedTab: 'discharged-tab',
     cancelledTab: 'cancelled-tab',
+    stickyHeader: 'tracking-board-sticky-header',
     arrivedButton: 'arrived-button',
     appointmentStatus: 'appointment-status',
     chatButton: 'Chat-outlined-icon',
@@ -105,6 +106,7 @@ export const dataTestIds = {
   },
   patientHeader: {
     patientId: 'header-patient-id',
+    nameLastModified: 'header-patient-name-last-modified',
     patientName: 'header-patient-name',
     nameRow: 'header-patient-name-row',
     patientBirthSex: 'header-patient-birth-sex',
@@ -112,11 +114,14 @@ export const dataTestIds = {
     patientAddress: 'header-patient-address',
     patientPhoneNumber: 'header-patient-phone-number',
     emergencyContact: 'header-patient-emergency-contact',
+    backButton: 'header-patient-back-button',
     closeButton: 'header-patient-close-button',
   },
   insuranceContainer: {
     showMoreButton: 'insurance-show-more-button',
     removeButton: 'insurance-remove-button',
+    dateOfServiceInput: 'insurance-date-of-service-input',
+    recheckEligibilityButton: 'insurance-recheck-eligibility-button',
   },
   userSettingsContainer: {
     releaseOfInfoDropdown: 'release-of-info-dropdown',
@@ -557,6 +562,11 @@ export const dataTestIds = {
     heightInchRemainderInput: 'height-inch-remainder-input',
     heightAddButton: 'height-add-button',
     heightItem: 'height-item',
+    headCircumferenceHeader: 'head-circumference-header',
+    headCircumferenceInput: 'head-circumference-input',
+    headCircumferenceInchesInput: 'head-circumference-inches-input',
+    headCircumferenceAddButton: 'head-circumference-add-button',
+    headCircumferenceItem: 'head-circumference-item',
     bmiCard: 'bmi-card',
     bmiInfoMessage: 'bmi-info-message',
     bmiWeightRefusedWarning: 'bmi-weight-refused-warning',
@@ -603,6 +613,8 @@ export const dataTestIds = {
     convertToFollowUpMenuItem: 'convert-to-follow-up-menu-item',
     sendFormMenuItem: 'send-form-menu-item',
     reportIssueMenuItem: 'report-issue-menu-item',
+    noShowMenuItem: 'no-show-menu-item',
+    returnToArrivedMenuItem: 'return-to-arrived-menu-item',
     docsAndDataMenuButton: 'visit-details-docs-and-data-menu-button',
     visitDetailsPdfMenuItem: 'visit-details-pdf-menu-item',
     patientPaperworkPdfMenuItem: 'patient-paperwork-pdf-menu-item',
@@ -622,6 +634,7 @@ export const dataTestIds = {
     sendPatientDocsButton: 'send-patient-docs-button',
     legacyDataButton: 'legacy-data-button',
     medicalRecordButton: 'medical-record-button',
+    printLabelButton: 'print-label-button',
     downloadMedicalRecordArchiveMenuItem: 'download-medical-record-archive-menu-item',
     medicalRecordExportProgress: 'medical-record-export-progress',
     sendMedicalRecordMenuItem: 'send-medical-record-menu-item',
@@ -921,9 +934,7 @@ export const dataTestIds = {
     administeredTime: 'administered-time',
     visCheckbox: 'vis-checkbox',
     visGivenDate: 'vis-given-date',
-    relationship: 'relationship',
-    fullName: 'fullName',
-    mobile: 'mobile',
+    emergencyContact: 'vaccine-emergency-contact',
     administeredButton: 'administered-button',
     partlyAdministeredButton: 'partly-administered-button',
     notAdministeredButton: 'not-administered-button',
@@ -965,6 +976,26 @@ export const dataTestIds = {
 
   updateMedicationPage: {
     medicationDatabaseAlert: 'medication-database-alert',
+    receiveShipmentButton: 'update-medication-receive-shipment-button',
+  },
+
+  inventoryPage: {
+    locationSelect: 'inventory-location-select',
+    searchField: 'inventory-search-field',
+    ndcSearchField: 'inventory-ndc-search-field',
+    lotSearchField: 'inventory-lot-search-field',
+    medicationRow: (medicationId: string) => `inventory-medication-row-${medicationId}`,
+    lotRow: (lotId: string) => `inventory-lot-row-${lotId}`,
+    countButton: (lotId: string) => `inventory-lot-count-${lotId}`,
+    adjustButton: (lotId: string) => `inventory-lot-adjust-${lotId}`,
+  },
+
+  receiveShipmentDialog: {
+    dialog: 'receive-shipment-dialog',
+    ndcField: 'receive-shipment-ndc-field',
+    lotNumberField: 'receive-shipment-lot-number-field',
+    quantityField: 'receive-shipment-quantity-field',
+    receiveButton: 'receive-shipment-receive-button',
   },
 
   editNoteDialog: {

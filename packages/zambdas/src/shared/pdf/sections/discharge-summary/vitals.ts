@@ -1,4 +1,5 @@
 import { mapVitalsToDisplay } from 'utils/lib/helpers/visit-note/map-vitals-to-display.helper';
+import { bmiAppliesOnDate, withoutBMIUnder24Months } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { getDotVisionScreeningLines } from 'utils/lib/helpers/vitals/vitals-vision.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { VitalsVisionObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -8,14 +9,17 @@ import { PdfSection, VitalsDataInDischargeSummary } from '../../types';
 import { AllChartData } from '../../visit-details-pdf/types';
 
 export const composeVitalsForDischargeSummary: DataComposer<
-  { allChartData: AllChartData },
+  { allChartData: AllChartData; timezone: string; birthDate?: string; visitStart?: string },
   VitalsDataInDischargeSummary
-> = ({ allChartData }) => {
+> = ({ allChartData, timezone, birthDate, visitStart }) => {
   const { additionalChartData } = allChartData;
 
-  const newestFirst = [...(additionalChartData?.vitalsObservations ?? [])].sort((a, b) =>
-    compareDates(a.lastUpdated, b.lastUpdated)
-  );
+  const newestFirst = withoutBMIUnder24Months(
+    additionalChartData?.vitalsObservations ?? [],
+    birthDate,
+    timezone,
+    visitStart
+  ).sort((a, b) => compareDates(a.lastUpdated, b.lastUpdated));
   const vitals = mapVitalsToDisplay(newestFirst, false);
 
   // The Vision grid cell should show the latest Snellen acuity reading only; DOT screening is
@@ -47,7 +51,8 @@ export const composeVitalsForDischargeSummary: DataComposer<
       oxygenSat: vitals?.['vital-oxygen-sat']?.[0] ?? '',
       weight: vitals?.['vital-weight']?.[0] ?? '',
       height: vitals?.['vital-height']?.[0] ?? '',
-      bmi: vitals?.['vital-bmi']?.[0] ?? '',
+      headCircumference: vitals?.['vital-head-circumference']?.[0] ?? '',
+      bmi: bmiAppliesOnDate(birthDate, visitStart, timezone) ? vitals?.['vital-bmi']?.[0] ?? '' : undefined,
       vision: acuityDisplayLines[0] ?? '',
       dotVisionScreening: getDotVisionScreeningLines(latestDotEntry?.dotVisionScreening, { includeDocument: true }),
       lastMenstrualPeriod: vitals?.['vital-last-menstrual-period']?.[0] ?? '',
@@ -64,17 +69,35 @@ export const createVitalsSectionForDischargeSummary = <
     shouldRender: (sectionData) =>
       Object.values(sectionData.vitals || {}).some((val) => (Array.isArray(val) ? val.length > 0 : !!val)),
     render: (client, data, styles) => {
+      const leftColumn = [
+        ['Temp', data.vitals.temp],
+        ['HR', data.vitals.hr],
+        ['RR', data.vitals.rr],
+        ['BP', data.vitals.bp],
+      ];
+      const rightColumn = [
+        ['Oxygen Sat', data.vitals.oxygenSat],
+        ['Weight', data.vitals.weight],
+        ['Height', data.vitals.height],
+        ...(data.vitals.headCircumference ? [['Head circumference', data.vitals.headCircumference]] : []),
+        ...(data.vitals.bmi !== undefined ? [['BMI', data.vitals.bmi]] : []),
+      ];
+      const gridRows = Array.from({ length: Math.max(leftColumn.length, rightColumn.length) }, (_, index) => [
+        ...(leftColumn[index] ?? ['', '']),
+        ...(rightColumn[index] ?? []),
+      ]);
       const vitals = [
-        ['Temp', data.vitals.temp, 'Oxygen Sat', data.vitals.oxygenSat],
-        ['HR', data.vitals.hr, 'Weight', data.vitals.weight],
-        ['RR', data.vitals.rr, 'Height', data.vitals.height],
-        ['BP', data.vitals.bp, 'BMI', data.vitals.bmi],
-        ['Last Menstrual Period', data.vitals.lastMenstrualPeriod, 'Vision', data.vitals.vision],
+        ...gridRows,
+        ...[
+          ['Last Menstrual Period', data.vitals.lastMenstrualPeriod],
+          ['Vision', data.vitals.vision],
+        ].filter(([, value]) => value),
       ];
 
       const leftX = client.getLeftBound();
+      const fullWidth = { leftBound: leftX, rightBound: client.getRightBound() };
       const colGap = 5;
-      const colWidth = (client.getRightBound() - leftX - colGap) / 2;
+      const colWidth = (fullWidth.rightBound - leftX - colGap) / 2;
       const rightX = leftX + colWidth + colGap;
 
       const rowSpacing = 6;
@@ -88,34 +111,39 @@ export const createVitalsSectionForDischargeSummary = <
       vitals.forEach(([label1, value1, label2, value2]) => {
         client.setPageByIndex(rowStartPage);
         client.setY(rowStartY);
+        const col1RightBound = label2 ? leftX + colWidth : fullWidth.rightBound;
 
-        client.drawTextSequential(
-          `${label1}: `,
-          {
-            ...styles.textStyles.bold,
-            newLineAfter: false,
-          },
-          {
-            leftBound: leftX,
-            rightBound: leftX + colWidth,
-          }
-        );
+        let col1EndPage = rowStartPage;
+        let col1EndY = rowStartY;
+        if (label1) {
+          client.drawTextSequential(
+            `${label1}: `,
+            {
+              ...styles.textStyles.bold,
+              newLineAfter: false,
+            },
+            {
+              leftBound: leftX,
+              rightBound: col1RightBound,
+            }
+          );
 
-        const label1Width = client.getTextDimensions(`${label1}: `, styles.textStyles.bold).width;
-        client.drawTextSequential(
-          `${value1}`,
-          {
-            ...styles.textStyles.regular,
-            newLineAfter: true,
-          },
-          {
-            leftBound: leftX + label1Width,
-            rightBound: leftX + label1Width + colWidth,
-          }
-        );
+          const label1Width = client.getTextDimensions(`${label1}: `, styles.textStyles.bold).width;
+          client.drawTextSequential(
+            `${value1 ?? ''}`,
+            {
+              ...styles.textStyles.regular,
+              newLineAfter: true,
+            },
+            {
+              leftBound: leftX + label1Width,
+              rightBound: col1RightBound,
+            }
+          );
 
-        const col1EndPage = client.getCurrentPageIndex();
-        const col1EndY = client.getY();
+          col1EndPage = client.getCurrentPageIndex();
+          col1EndY = client.getY();
+        }
 
         if (!label2) {
           rowStartPage = col1EndPage;
@@ -139,7 +167,7 @@ export const createVitalsSectionForDischargeSummary = <
 
         const label2Width = client.getTextDimensions(`${label2}: `, styles.textStyles.bold).width;
         client.drawTextSequential(
-          `${value2}`,
+          `${value2 ?? ''}`,
           {
             ...styles.textStyles.regular,
             newLineAfter: true,
@@ -167,9 +195,9 @@ export const createVitalsSectionForDischargeSummary = <
 
       const dotLines = data.vitals.dotVisionScreening ?? [];
       if (dotLines.length > 0) {
-        client.drawTextSequential('DOT Vision Screening', { ...styles.textStyles.bold, newLineAfter: true });
+        client.drawTextSequential('DOT Vision Screening', { ...styles.textStyles.bold, newLineAfter: true }, fullWidth);
         dotLines.forEach((line) => {
-          client.drawTextSequential(line, { ...styles.textStyles.regular, newLineAfter: true });
+          client.drawTextSequential(line, { ...styles.textStyles.regular, newLineAfter: true }, fullWidth);
         });
       }
 

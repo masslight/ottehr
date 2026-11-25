@@ -6,6 +6,7 @@ import HistoryEduOutlinedIcon from '@mui/icons-material/HistoryEduOutlined';
 import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import MergeIcon from '@mui/icons-material/MergeType';
+import PrintOutlinedIcon from '@mui/icons-material/PrintOutlined';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
@@ -46,6 +47,7 @@ import { IdentifiersRow } from 'src/features/visits/shared/components/patient/in
 import Summary from 'src/features/visits/shared/components/patient/info/Summary';
 import { PatientFollowupEncountersGrid } from 'src/features/visits/shared/components/patient/PatientFollowupEncountersGrid';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
+import { usePrintEncounterLabel } from 'src/features/visits/shared/hooks/usePrintEncounterLabel';
 import { formatVisitDateTimeWithZone } from 'src/helpers/formatDateTime';
 import { getLegacyDataUrl } from 'src/helpers/legacyData';
 import { useDownloadMedicalRecord } from 'src/hooks/useDownloadMedicalRecord';
@@ -222,6 +224,8 @@ export default function PatientPage(): JSX.Element {
 
   const appointments = useMemo(() => visitHistory?.visits ?? [], [visitHistory?.visits]);
   const latestAppointment = appointments?.[0];
+  const latestEncounterId = latestAppointment?.encounterId;
+  const { printEncounterLabel, isPrinting: isPrintingLabel } = usePrintEncounterLabel();
   const recordDateSpan = useMedicalRecordDateSpan(id, isMedicalRecordRangeOpen);
 
   const sendableVisits: PacketVisitOption[] = useMemo(
@@ -326,7 +330,7 @@ export default function PatientPage(): JSX.Element {
             <Box
               sx={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
+                gridTemplateColumns: 'repeat(5, 1fr)',
                 gap: 1,
                 alignSelf: 'flex-start',
               }}
@@ -344,6 +348,17 @@ export default function PatientPage(): JSX.Element {
                   }
                 >
                   <img src={progressNoteIcon} alt="" />
+                </GoToButton>
+              )}
+              {latestEncounterId && !isMergedPatient && (
+                <GoToButton
+                  text="Print Label"
+                  backgroundColor={otherColors.lightBlue}
+                  dataTestId={dataTestIds.patientRecordPage.printLabelButton}
+                  loading={isPrintingLabel}
+                  onClick={() => void printEncounterLabel(latestEncounterId)}
+                >
+                  <PrintOutlinedIcon />
                 </GoToButton>
               )}
               {!isMergedPatient && (

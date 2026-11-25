@@ -33,7 +33,7 @@ import {
   MISSING_REQUIRED_PARAMETERS,
 } from 'utils/lib/types/errors';
 import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
-import { getTimezone } from 'utils/lib/utils/scheduleUtils';
+import { getLocalDateOfService, getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -113,6 +113,7 @@ const performEffect = (input: EffectInput): EHRVisitDetails => {
     consentDetails: firstConsent ? makeConsentDetails(firstConsent, visitTimezone, qr) : null,
     qrId: qr.id,
     visitLocationId: location?.id,
+    dateOfService: appointment.start ? getLocalDateOfService(appointment.start, location) : undefined,
     responsiblePartyName,
     responsiblePartyEmail,
     consentIsAttested,

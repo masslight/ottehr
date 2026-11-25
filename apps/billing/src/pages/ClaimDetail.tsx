@@ -49,7 +49,7 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { otherColors } from 'utils/lib/theme/billing-palette';
-import { DrugUnitCode } from 'utils/lib/types/data/billing/billing.constants';
+import { DrugUnitCode, MEDICARE_SECONDARY_REASON_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -140,13 +140,14 @@ import { Row } from '../components/Row';
 import { ServiceFacilityDetailForm } from '../components/ServiceFacilityDetailSection';
 import { WriteOffsSection } from '../components/WriteOffsSection';
 import { AccidentInfoData } from '../constants/accidentInfo';
-import { claimStatusValueColor, PROVISIONAL_BALANCE_HINT } from '../constants/claimStatus';
+import { claimStatusValueColor, provisionalBalanceHint } from '../constants/claimStatus';
 import {
   CoverageForm,
   coverageToCreateInput,
   coverageToUpdateInput,
   defaultCoverageFormValues,
 } from '../constants/coverage';
+import { invoicePaymentMethodLabel } from '../constants/invoice';
 import { useApiClients } from '../hooks/useAppClients';
 import { useCoverage } from '../hooks/useCoverage';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
@@ -624,12 +625,9 @@ export default function ClaimDetail(): ReactElement {
             <Amount label="Allowed" value={claim.allowed} />
             <Amount label="Payments" sublabel="Insurance Paid" value={claim.insurancePaid} />
             <Amount label="Patient Paid" value={claim.patientPaid} />
+            {claim.nioPaid > 0 ? <Amount label="NIO Paid" value={claim.nioPaid} /> : <></>}
             {claim.writeOffsTotal > 0 ? <Amount label="Write-offs" value={claim.writeOffsTotal} /> : <></>}
-            <Amount
-              label="Balance"
-              value={claim.balance}
-              hint={claim.adjudicated ? undefined : PROVISIONAL_BALANCE_HINT}
-            />
+            <Amount label="Balance" value={claim.balance} hint={provisionalBalanceHint(claim)} />
             <Box>
               <Typography variant="caption" color="text.secondary">
                 Responsible Party
@@ -654,7 +652,7 @@ export default function ClaimDetail(): ReactElement {
             <Tab label="Claim Properties" value="1" />
             <Tab label="Dx, Service Lines & Remits" value="2" />
             <Tab label="Attachments" value="3" />
-            <Tab label="Patient Payments & Write-offs" value="4" />
+            <Tab label="Payments & Write-offs" value="4" />
             <Tab label="Other Claims" value="5" />
             <Tab label="History" value="6" />
           </TabList>
@@ -726,6 +724,7 @@ export default function ClaimDetail(): ReactElement {
             ) : (
               <></>
             )}
+            <MedicareSecondaryReasonSection claim={claim} updateResource={updateResource} />
             <NonInsurancePayerSection claim={claim} updateResource={updateResource} />
             <RenderingProviderSection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
             <FacilitySection claim={claim} updateResource={updateResource} refetchClaim={fetchDetail} />
@@ -751,6 +750,9 @@ export default function ClaimDetail(): ReactElement {
 
           <TabPanel value="4" sx={{ px: 0, pt: 2 }}>
             <ClaimInvoicesSection claim={claim} refetchClaim={fetchDetail} />
+            {(claim.nonInsurancePayerFhirId || claim.nioPayments.length > 0) && (
+              <NioPaymentsSection payments={claim.nioPayments} />
+            )}
             <PatientPaymentsSection payments={claim.patientPayments} />
             <WriteOffsSection
               claimId={claim.id}
@@ -784,7 +786,7 @@ export default function ClaimDetail(): ReactElement {
           title={runEngine.runButtonLabel}
           confirmLabel={getSubmitClaimLabel(skipRules, rulesEngine, submissionType)}
           loading={submitting}
-          onConfirm={() => void handleRunRulesEngine()}
+          onConfirm={() => void submitMethods.handleSubmit(handleRunRulesEngine)()}
           onCancel={() => setConfirmingSubmit(false)}
         >
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2.25, maxWidth: 680 }}>
@@ -1103,6 +1105,78 @@ export function InsuranceSection({
           </Box>
         </Box>
       )}
+    </EditableSection>
+  );
+}
+
+function MedicareSecondaryReasonSection({
+  claim,
+  updateResource,
+}: {
+  claim: ClaimDetailResponse;
+
+  updateResource: UpdateFn;
+}): ReactElement {
+  const [reason, setReason] = useState(claim.medicareSecondaryReasonCode ?? '');
+  const setLoading = useCallback(() => {}, []);
+  const setError = useCallback(() => {}, []);
+  const [secondaryCoverage] = useCoverage({
+    id: claim.secondaryCoverageFhirId,
+    onLoading: setLoading,
+    onError: setError,
+  });
+  const [tertiaryCoverage] = useCoverage({
+    id: claim.tertiaryCoverageFhirId,
+    onLoading: setLoading,
+    onError: setError,
+  });
+  const [quaternaryCoverage] = useCoverage({
+    id: claim.quaternaryCoverageFhirId,
+    onLoading: setLoading,
+    onError: setError,
+  });
+  const isMedicareSecondary = useMemo(
+    () =>
+      [secondaryCoverage?.planType, tertiaryCoverage?.planType, quaternaryCoverage?.planType].some((type) =>
+        ['MA', 'MB'].includes(type ?? '')
+      ),
+    [secondaryCoverage, tertiaryCoverage, quaternaryCoverage]
+  );
+  const handleSave = useCallback(async () => {
+    await updateResource('Claim', claim.id, { medicareSecondaryReasonCode: reason });
+  }, [claim.id, reason, updateResource]);
+  if (!isMedicareSecondary) {
+    return <></>;
+  }
+  return (
+    <EditableSection
+      title="Medicare as Non-Primary Insurance Reason"
+      defaultValues={{ reason: '' }}
+      onSave={handleSave}
+      onCancel={() => setReason(claim.medicareSecondaryReasonCode ?? '')}
+      editForm={
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
+          <Select size="small" value={reason} onChange={(e) => setReason(e.target.value)}>
+            <MenuItem key={'none'} value={''}>
+              <em>None</em>
+            </MenuItem>
+            {Object.entries(MEDICARE_SECONDARY_REASON_OPTIONS).map(([key, value]) => (
+              <MenuItem key={key} value={key}>
+                {value}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      }
+    >
+      <Row
+        label="Reason"
+        value={
+          claim.medicareSecondaryReasonCode
+            ? MEDICARE_SECONDARY_REASON_OPTIONS[claim.medicareSecondaryReasonCode]
+            : undefined
+        }
+      />
     </EditableSection>
   );
 }
@@ -1961,6 +2035,53 @@ function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['p
                   <TableCell>{payment.method || '-'}</TableCell>
                   <TableCell>{payment.description || '-'}</TableCell>
                   <TableCell>{payment.checkNumber || '-'}</TableCell>
+                  <TableCell>{payment.status || '-'}</TableCell>
+                  <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </ReadOnlySection>
+  );
+}
+
+function NioPaymentsSection({ payments }: { payments: ClaimDetailResponse['nioPayments'] }): ReactElement {
+  return (
+    <ReadOnlySection title="NIO Payments">
+      {payments.length === 0 ? (
+        'No NIO payments yet'
+      ) : (
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={thSx}>Date</TableCell>
+                <TableCell sx={thSx}>Method</TableCell>
+                <TableCell sx={thSx}>Reference #</TableCell>
+                <TableCell sx={thSx}>Invoice</TableCell>
+                <TableCell sx={thSx}>Status</TableCell>
+                <TableCell sx={thSx} align="right">
+                  Amount
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {payments.map((payment) => (
+                <TableRow key={payment.paymentNoticeId}>
+                  <TableCell>{formatDate(payment.paymentDate) || '-'}</TableCell>
+                  <TableCell>{invoicePaymentMethodLabel(payment.method) || '-'}</TableCell>
+                  <TableCell>{payment.reference || '-'}</TableCell>
+                  <TableCell>
+                    {payment.invoiceId ? (
+                      <MuiLink component={RouterLink} to={`/invoices/${payment.invoiceId}`} underline="hover">
+                        View invoice
+                      </MuiLink>
+                    ) : (
+                      '-'
+                    )}
+                  </TableCell>
                   <TableCell>{payment.status || '-'}</TableCell>
                   <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
                 </TableRow>

@@ -5,6 +5,7 @@ import {
   Coding,
   Extension,
   FhirResource,
+  Identifier,
   Money,
   Organization,
   PaymentNotice,
@@ -12,7 +13,8 @@ import {
   ProvenanceAgent,
   Reference,
 } from 'fhir/r4b';
-import { STRIPE_INVOICE_ID_SYSTEM } from 'utils/lib/fhir/billing-invoice';
+import { DateTime } from 'luxon';
+import { invoicePaymentExtension, invoicePaymentTag, STRIPE_INVOICE_ID_SYSTEM } from 'utils/lib/fhir/billing-invoice';
 import {
   BILLING_RESOURCE_TAG,
   PAYMENT_METHOD_EXTENSION_URL,
@@ -29,6 +31,7 @@ import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { ottehrIdentifierSystem } from 'utils/lib/fhir/systemUrls';
 import { getSecret, Secrets, SecretsKeys } from 'utils/lib/secrets';
+import { TIMEZONES } from 'utils/lib/types/constants';
 import { BILLING_RECORDABLE_PAYMENT_METHODS } from 'utils/lib/types/data/billing/billing.constants';
 import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { z } from 'zod';
@@ -51,6 +54,56 @@ export const CHECK_NUMBER_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('check-numb
 // dedup identifier for post-billing-patient-payment calls: value is `<encounterId>_<idempotency key>`,
 // scoped to the encounter because the key is client supplied
 export const EHR_PATIENT_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('ehr-patient-payment-id');
+// The same value on a card payment the EHR reserved before charging the card. The draft carries no
+// claim link and none of the identifier systems payment readers search by, so nothing lists it; once
+// the charge succeeds it is activated in place and gains the EHR_PATIENT_PAYMENT_ID_SYSTEM identifier.
+// The reservation identifier stays, so a replay of the request that reserved it finds the payment
+// instead of reserving it a second time.
+export const EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('ehr-pending-patient-payment-id');
+
+// Activation, and only activation, gives a reservation the EHR payment id; a payment stays activated
+// whatever happens to it later, also once voided (which cancels it).
+export const isActivatedEhrPaymentNotice = (notice: PaymentNotice): boolean =>
+  (notice.identifier ?? []).some((identifier) => identifier.system === EHR_PATIENT_PAYMENT_ID_SYSTEM);
+
+// A reservation not activated yet, whether a draft or cancelled after its charge failed.
+export const isPendingEhrPaymentNotice = (notice: PaymentNotice): boolean =>
+  !isActivatedEhrPaymentNotice(notice) &&
+  (notice.identifier ?? []).some((identifier) => identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM);
+
+// The reservation of a card payment the EHR is about to take: the notice it will record, as a draft no
+// payment reader can find.
+export const pendingEhrPaymentNotice = (notice: PaymentNotice, ehrPaymentId: string): PaymentNotice => {
+  const { request: _request, ...unlinked } = notice;
+  return {
+    ...unlinked,
+    status: 'draft',
+    identifier: [{ system: EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, value: ehrPaymentId }],
+    contained: notice.contained?.map((resource) =>
+      resource.resourceType === 'PaymentReconciliation' ? { ...resource, status: 'draft' } : resource
+    ),
+  };
+};
+
+// The date an EHR patient payment is reported on: for now the day it was taken in the default timezone
+// (US Eastern); the exact date in any other can be derived from the UTC created timestamp.
+export const ehrPaymentDate = (takenAt: DateTime): string => takenAt.setZone(TIMEZONES[0]).toFormat('yyyy-MM-dd');
+
+// An activated reservation is known by the EHR payment id, which payment readers search by, and keeps
+// the reservation identifier replays reserve by.
+export const withActivatedEhrPaymentId = (
+  identifiers: Identifier[] | undefined,
+  ehrPaymentId: string | undefined
+): Identifier[] => {
+  const all = identifiers ?? [];
+  const value =
+    ehrPaymentId ?? all.find((identifier) => identifier.system === EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM)?.value;
+  if (!value) return all;
+  const missing = [EHR_PENDING_PATIENT_PAYMENT_ID_SYSTEM, EHR_PATIENT_PAYMENT_ID_SYSTEM].filter(
+    (system) => !all.some((identifier) => identifier.system === system)
+  );
+  return [...all, ...missing.map((system) => ({ system, value }))];
+};
 
 const PAYMENT_TYPE_SYSTEM = 'http://terminology.hl7.org/CodeSystem/payment-type';
 
@@ -185,8 +238,28 @@ export async function findPaymentNotice(
   return notice;
 }
 
+// The notice carrying any of the identifiers, which are expected to name the same payment.
+export async function findPaymentNoticeByAnyIdentifier(
+  oystehr: Oystehr,
+  identifiers: PaymentNoticeIdentifier[]
+): Promise<PaymentNotice | undefined> {
+  const [notice] = (
+    await oystehr.fhir.search<PaymentNotice>({
+      resourceType: 'PaymentNotice',
+      params: [
+        {
+          name: 'identifier',
+          value: identifiers.map((identifier) => `${identifier.system}|${identifier.value}`).join(','),
+        },
+      ],
+    })
+  ).unbundle();
+  return notice;
+}
+
 // The conditional create still guards against a concurrent writer that got past the caller's
-// lookup; `created` is false when that writer stored the notice first.
+// lookup; `created` is false when that writer stored the notice first. Without an agent nothing is
+// recorded in claim history, as for a reservation that is not a payment yet.
 export async function createPaymentNotice({
   oystehr,
   notice,
@@ -196,19 +269,21 @@ export async function createPaymentNotice({
   oystehr: Oystehr;
   notice: PaymentNotice;
   dedupIdentifier: PaymentNoticeIdentifier;
-  agent: ProvenanceAgent;
+  agent: ProvenanceAgent | undefined;
 }): Promise<{ notice: PaymentNotice; created: boolean }> {
   const fullUrl = `urn:uuid:${randomUUID()}`;
-  const history = paymentNoticeHistoryRequest({
-    targetReference: fullUrl,
-    after: notice,
-    agent,
-    // keyed like the notice, so the writer that stored the notice first is the one that records it
-    dedupTag: {
-      system: dedupIdentifier.system,
-      code: dedupIdentifier.value,
-    },
-  });
+  const history =
+    agent &&
+    paymentNoticeHistoryRequest({
+      targetReference: fullUrl,
+      after: notice,
+      agent,
+      // keyed like the notice, so the writer that stored the notice first is the one that records it
+      dedupTag: {
+        system: dedupIdentifier.system,
+        code: dedupIdentifier.value,
+      },
+    });
   const bundle = await oystehr.fhir.transaction<FhirResource>({
     requests: [
       {
@@ -432,6 +507,80 @@ const paymentFingerprint = (notice: PaymentNotice): string => {
   });
 };
 
+export function buildPaymentNotice({
+  request,
+  payee,
+  amountInCents,
+  paymentMethod,
+  identifier,
+  paymentDate,
+  createdISO,
+  disposition,
+  reconciliation,
+  invoiceId,
+}: {
+  request: Reference;
+  payee: Reference;
+  amountInCents: number;
+  paymentMethod: string;
+  identifier: PaymentNoticeIdentifier;
+  paymentDate: string;
+  createdISO: string;
+  disposition: string;
+  reconciliation?: Pick<PaymentReconciliation, 'identifier' | 'paymentIdentifier' | 'detail'>;
+  invoiceId?: string;
+}): PaymentNotice {
+  const amount: Money = {
+    value: amountInCents / 100,
+    currency: 'USD',
+  };
+  const contained: PaymentReconciliation = {
+    resourceType: 'PaymentReconciliation',
+    id: 'contained-reconciliation',
+    status: 'active',
+    created: createdISO,
+    disposition,
+    outcome: 'complete',
+    paymentDate,
+    paymentAmount: amount,
+    ...reconciliation,
+  };
+  return {
+    resourceType: 'PaymentNotice',
+    status: 'active',
+    ...(invoiceId
+      ? {
+          meta: {
+            tag: [invoicePaymentTag(invoiceId)],
+          },
+        }
+      : {}),
+    request,
+    created: createdISO,
+    paymentDate,
+    amount,
+    identifier: [
+      {
+        system: identifier.system,
+        value: identifier.value,
+      },
+    ],
+    extension: [
+      {
+        url: PAYMENT_METHOD_EXTENSION_URL,
+        valueString: paymentMethod,
+      },
+      ...(invoiceId ? [invoicePaymentExtension(invoiceId)] : []),
+    ],
+    contained: [contained],
+    payment: {
+      reference: `#${contained.id}`,
+    },
+    payee,
+    recipient: payee,
+  };
+}
+
 // Documents a payment collected outside any integrated processor (cash, check, ...) as a
 // billing-tagged PaymentNotice, mirroring the stripe webhook's shape. Recorded payments are
 // immutable, which is why the webhook's upsert (it refreshes notices on charge.updated) is not
@@ -457,53 +606,33 @@ export const recordBillingPatientPayment = async (
 
   const claim = await findBillingClaimForEncounter(oystehr, encounterId);
 
-  // the provider owed the money: the claim's provider when a claim exists, else the default
-  // billing organization (the same default claim creation uses)
-  const payeeRef: Reference = claim?.provider ?? {
-    reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets),
-  };
-
-  const paymentAmount: Money = {
-    value: amountInCents / 100,
-    currency: 'USD',
-  };
-
-  const reconciliation: PaymentReconciliation = {
-    resourceType: 'PaymentReconciliation',
-    id: 'contained-reconciliation',
-    status: 'active',
-    created: createdISO,
-    disposition: description ?? recordedManuallyDisposition(paymentMethod),
-    outcome: 'complete',
-    paymentDate,
-    paymentAmount,
-    ...(checkNumber ? { paymentIdentifier: { system: CHECK_NUMBER_IDENTIFIER_SYSTEM, value: checkNumber } } : {}),
-    ...(submitterRef
-      ? {
-          detail: [
-            {
-              type: { coding: [{ system: PAYMENT_TYPE_SYSTEM, code: 'payment' }] },
-              submitter: submitterRef,
-            },
-          ],
-        }
-      : {}),
-  };
-
-  const desiredNotice: PaymentNotice = {
-    resourceType: 'PaymentNotice',
-    status: 'active',
+  const desiredNotice = buildPaymentNotice({
     request: claimRequestFor(claim, encounterId),
-    created: createdISO,
+    // the provider owed the money: the claim's provider when a claim exists, else the default
+    // billing organization (the same default claim creation uses)
+    payee: claim?.provider ?? {
+      reference: getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets),
+    },
+    amountInCents,
+    paymentMethod,
+    identifier: dedupIdentifier,
     paymentDate,
-    amount: paymentAmount,
-    identifier: [{ system: dedupIdentifier.system, value: dedupIdentifier.value }],
-    extension: [{ url: PAYMENT_METHOD_EXTENSION_URL, valueString: paymentMethod }],
-    contained: [reconciliation],
-    payment: { reference: `#${reconciliation.id}` },
-    payee: payeeRef,
-    recipient: payeeRef,
-  };
+    createdISO,
+    disposition: description ?? recordedManuallyDisposition(paymentMethod),
+    reconciliation: {
+      ...(checkNumber ? { paymentIdentifier: { system: CHECK_NUMBER_IDENTIFIER_SYSTEM, value: checkNumber } } : {}),
+      ...(submitterRef
+        ? {
+            detail: [
+              {
+                type: { coding: [{ system: PAYMENT_TYPE_SYSTEM, code: 'payment' }] },
+                submitter: submitterRef,
+              },
+            ],
+          }
+        : {}),
+    },
+  });
 
   const returned =
     (await findPaymentNotice(oystehr, dedupIdentifier)) ??

@@ -200,6 +200,11 @@ export const takeMostRecentPreliminaryReport = (
   return getMostRecentReport(preliminaryReports);
 };
 
+const CORRECTED_REPORT_STATUSES: DiagnosticReport['status'][] = ['amended', 'corrected', 'appended'];
+
+export const isFinalizedRadiologyReport = (report: DiagnosticReport): boolean =>
+  report.status === 'final' || CORRECTED_REPORT_STATUSES.includes(report.status);
+
 export const takeTheBestFinalDiagnosticReport = (
   diagnosticReports: DiagnosticReport[]
 ): DiagnosticReport | undefined => {
@@ -208,8 +213,8 @@ export const takeTheBestFinalDiagnosticReport = (
   }
 
   // Filter reports by status priority
-  const amendedCorrectedAppended = diagnosticReports.filter(
-    (report) => report.status === 'amended' || report.status === 'corrected' || report.status === 'appended'
+  const amendedCorrectedAppended = diagnosticReports.filter((report) =>
+    CORRECTED_REPORT_STATUSES.includes(report.status)
   );
 
   const finalReports = diagnosticReports.filter((report) => report.status === 'final');

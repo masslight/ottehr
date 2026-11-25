@@ -1,9 +1,15 @@
 import { Communication, Task, TaskInput, TaskOutput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ActionLogChannel, ActionLogStatus, OutboundDeliveryAttemptData } from '../types/api/action-logs.types';
+import {
+  ActionLogChannel,
+  ActionLogLinkOpen,
+  ActionLogStatus,
+  OutboundDeliveryAttemptData,
+} from '../types/api/action-logs.types';
 import {
   OUTBOUND_DELIVERY_INPUT_CODES,
   OUTBOUND_DELIVERY_INPUT_SYSTEM,
+  OUTBOUND_DELIVERY_LINK_OPENED_CLIENT_EXTENSION_URL,
   OUTBOUND_DELIVERY_OUTPUT_CODES,
   OUTBOUND_DELIVERY_OUTPUT_SYSTEM,
   OUTBOUND_DELIVERY_SOURCE_IDENTIFIER_SYSTEM,
@@ -184,6 +190,45 @@ export function getOutboundDeliveryAttemptStatus(task: Task, communication?: Com
   if (!faxStatus && task.status === 'completed') return 'sent';
   if (task.status === 'failed') return 'failed';
   return 'pending';
+}
+
+export function makeLinkOpenedOutput(openedAt: string, client?: { ip?: string; userAgent?: string }): TaskOutput {
+  const clientText = [client?.ip && `ip=${client.ip}`, client?.userAgent && `ua=${client.userAgent}`]
+    .filter(Boolean)
+    .join('; ');
+  return {
+    ...makeOutboundDeliveryOutput(OUTBOUND_DELIVERY_OUTPUT_CODES.linkOpened, { valueDateTime: openedAt }),
+    ...(clientText && {
+      extension: [{ url: OUTBOUND_DELIVERY_LINK_OPENED_CLIENT_EXTENSION_URL, valueString: clientText }],
+    }),
+  };
+}
+
+const LINK_OPENED_CLIENT_PATTERN = /^(?:ip=([^;]*))?(?:;\s*)?(?:ua=(.*))?$/s;
+
+export function getOutboundDeliveryLinkOpens(task: Task): ActionLogLinkOpen[] {
+  return (task.output ?? [])
+    .filter(
+      (item) =>
+        item.valueDateTime &&
+        item.type.coding?.some(
+          (coding) =>
+            coding.system === OUTBOUND_DELIVERY_OUTPUT_SYSTEM &&
+            coding.code === OUTBOUND_DELIVERY_OUTPUT_CODES.linkOpened
+        )
+    )
+    .map((item) => {
+      const clientText = item.extension?.find(
+        (extension) => extension.url === OUTBOUND_DELIVERY_LINK_OPENED_CLIENT_EXTENSION_URL
+      )?.valueString;
+      const [, ipAddress, userAgent] = LINK_OPENED_CLIENT_PATTERN.exec(clientText ?? '') ?? [];
+      return {
+        openedAt: item.valueDateTime!,
+        ...(ipAddress?.trim() && { ipAddress: ipAddress.trim() }),
+        ...(userAgent?.trim() && { userAgent: userAgent.trim() }),
+      };
+    })
+    .sort((a, b) => DateTime.fromISO(b.openedAt).toMillis() - DateTime.fromISO(a.openedAt).toMillis());
 }
 
 export function makeOutboundDeliveryOutput(

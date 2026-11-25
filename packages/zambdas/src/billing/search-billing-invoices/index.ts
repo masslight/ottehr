@@ -1,11 +1,14 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Claim, Invoice, Patient } from 'fhir/r4b';
+import { Claim, Invoice, Organization, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BillingInvoiceKind,
   getBillingInvoiceClaims,
+  getBillingInvoiceKind,
   INVOICE_CLAIM_TAG_SYSTEM,
   INVOICE_FACILITY_TAG_SYSTEM,
+  isInvoicePastDue,
 } from 'utils/lib/fhir/billing-invoice';
 import { BILLING_INVOICE_LIST_STATUSES } from 'utils/lib/types/data/billing/billing.constants';
 import { BillingInvoiceListItem, SearchBillingInvoicesResponse } from 'utils/lib/types/data/billing/billing.types';
@@ -14,12 +17,17 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { ZambdaInput } from '../../shared/types/common';
 import { getClaimServiceDate } from '../claim-search';
-import { toBillingInvoiceSummary } from '../invoices';
+import { getInvoiceStatusDatesAndAmount, getNioInvoiceRecipient } from '../invoices';
 import { createBillingClient, fhirName, findById, patientSearchParam, resolveLinkedPatientIds } from '../shared';
 import { SearchBillingInvoicesParams, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'search-billing-invoices';
 const DEFAULT_PAGE_SIZE = 25;
+// Matches getBillingInvoiceKind.
+const RECIPIENT_TYPES_BY_KIND: Record<BillingInvoiceKind, string[]> = {
+  nio: ['Organization'],
+  patient: ['Patient', 'RelatedPerson'],
+};
 
 let m2mToken: string;
 
@@ -42,6 +50,7 @@ export async function performEffect(
   const searchParams = [
     { name: 'status', value: params.status ?? BILLING_INVOICE_LIST_STATUSES.join(',') },
     { name: '_include', value: 'Invoice:patient' },
+    { name: '_include', value: 'Invoice:recipient' },
     { name: '_sort', value: '-date' },
     { name: '_total', value: 'accurate' },
     { name: '_count', value: String(pageSize) },
@@ -65,8 +74,27 @@ export async function performEffect(
   }
   if (params.issuedFrom) searchParams.push({ name: 'date', value: `ge${params.issuedFrom}` });
   if (params.issuedTo) searchParams.push({ name: 'date', value: `le${params.issuedTo}` });
+  // NIO invoices bill an Organization and have no patient subject.
+  if (params.kind) {
+    searchParams.push({
+      name: 'subject:missing',
+      value: String(params.kind === 'nio'),
+    });
+  }
+  if (params.recipientId) {
+    const recipientTypes = params.kind
+      ? RECIPIENT_TYPES_BY_KIND[params.kind]
+      : Object.values(RECIPIENT_TYPES_BY_KIND).flat();
+    searchParams.push({
+      name: 'recipient',
+      value: recipientTypes.map((type) => `${type}/${params.recipientId}`).join(','),
+    });
+  }
 
-  const bundle = await oystehr.fhir.search<Invoice | Patient>({ resourceType: 'Invoice', params: searchParams });
+  const bundle = await oystehr.fhir.search<Invoice | Patient | Organization>({
+    resourceType: 'Invoice',
+    params: searchParams,
+  });
   const resources = bundle.unbundle();
   const invoices = resources.filter((resource): resource is Invoice => resource.resourceType === 'Invoice');
   const patientsByRef = new Map(
@@ -74,10 +102,25 @@ export async function performEffect(
       .filter((resource): resource is Patient => resource.resourceType === 'Patient')
       .map((patient) => [`Patient/${patient.id}`, patient])
   );
-  const claimsById = await fetchClaims(oystehr, invoices);
+  const organizationsByRef = new Map(
+    resources
+      .filter((resource): resource is Organization => resource.resourceType === 'Organization')
+      .map((organization) => [`Organization/${organization.id}`, organization])
+  );
+  const patientInvoices = invoices.filter((invoice) => getBillingInvoiceKind(invoice) === 'patient');
+  const claimsById = await fetchClaims(oystehr, patientInvoices);
+  const today = DateTime.now().toISODate()!;
 
   return {
-    invoices: invoices.map((invoice) => toListItem(invoice, patientsByRef, claimsById)),
+    invoices: invoices.map((invoice) =>
+      buildInvoiceListRow({
+        invoice,
+        patientsByRef,
+        organizationsByRef,
+        claimsById,
+        today,
+      })
+    ),
     total: bundle.total ?? 0,
     offset,
     pageSize,
@@ -103,20 +146,33 @@ async function fetchClaims(oystehr: Oystehr, invoices: Invoice[]): Promise<Map<s
   return new Map(claims.map((claim) => [claim.id!, claim]));
 }
 
-function toListItem(
-  invoice: Invoice,
-  patientsByRef: Map<string, Patient>,
-  claimsById: Map<string, Claim>
-): BillingInvoiceListItem {
-  const [line] = getBillingInvoiceClaims(invoice);
+function buildInvoiceListRow({
+  invoice,
+  patientsByRef,
+  organizationsByRef,
+  claimsById,
+  today,
+}: {
+  invoice: Invoice;
+  patientsByRef: Map<string, Patient>;
+  organizationsByRef: Map<string, Organization>;
+  claimsById: Map<string, Claim>;
+  today: string;
+}): BillingInvoiceListItem {
+  const kind = getBillingInvoiceKind(invoice);
+  // An NIO invoice covers many claims, so its row names none of them.
+  const [line] = kind === 'patient' ? getBillingInvoiceClaims(invoice) : [];
   const claim = line && claimsById.get(line.claimId);
   const serviceDate = claim && getClaimServiceDate(claim);
   const patient = patientsByRef.get(invoice.subject?.reference ?? '');
   return {
-    ...toBillingInvoiceSummary(invoice),
+    ...getInvoiceStatusDatesAndAmount(invoice),
     patientId: patient?.id,
     patientName: fhirName(patient),
     claimId: line?.claimId,
     serviceDate: serviceDate ? DateTime.fromISO(serviceDate, { setZone: true }).toISODate() ?? '' : '',
+    kind,
+    recipient: getNioInvoiceRecipient(invoice, organizationsByRef.get(invoice.recipient?.reference ?? '')),
+    pastDue: kind === 'nio' && isInvoicePastDue(invoice, today),
   };
 }

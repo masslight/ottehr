@@ -1527,6 +1527,66 @@ describe('apply charge master prices action', () => {
   });
 });
 
+describe('copy member ID to group number action', () => {
+  const PLAN = { system: 'http://terminology.hl7.org/CodeSystem/coverage-class', code: 'plan' };
+
+  it("replaces the coverage's existing group number (class value), keeping the rest of the class entry", () => {
+    const m = makeModel();
+    m.coverages[0].subscriberId = 'WC-CLAIM-42';
+    m.coverages[0].class = [
+      { type: { coding: [PLAN] }, value: '123456', name: 'Acme WC' },
+      { type: { coding: [{ code: 'group' }] }, value: 'OTHER' },
+    ];
+    expect(applyAction({ type: 'copyMemberIdToGroupNumber', insurance: 'primary' }, m)).toBeUndefined();
+    expect(m.coverages[0].class).toEqual([
+      { type: { coding: [PLAN] }, value: 'WC-CLAIM-42', name: 'Acme WC' },
+      { type: { coding: [{ code: 'group' }] }, value: 'OTHER' },
+    ]);
+    expect(m.coverages[0].subscriberId).toBe('WC-CLAIM-42');
+    expect(m.coverages[1].class).toBeUndefined();
+  });
+
+  it('creates a plan class entry when the coverage has none, targeting the chosen insurance position', () => {
+    const m = makeModel();
+    expect(applyAction({ type: 'copyMemberIdToGroupNumber', insurance: 'secondary' }, m)).toBeUndefined();
+    expect(m.coverages[1].class).toEqual([{ type: { coding: [PLAN] }, value: 'MEM-456' }]);
+    expect(m.coverages[0].class).toBeUndefined();
+  });
+
+  it('fails when the claim has no coverage at the position or the coverage has no member ID', () => {
+    const m = makeModel();
+    expect(applyAction({ type: 'copyMemberIdToGroupNumber', insurance: 'tertiary' }, m)).toMatch(
+      /no tertiary insurance coverage/
+    );
+    m.coverages[0].subscriberId = '  ';
+    m.coverages[0].class = [{ type: { coding: [PLAN] }, value: '123456' }];
+    expect(applyAction({ type: 'copyMemberIdToGroupNumber', insurance: 'primary' }, m)).toMatch(/has no member ID/);
+    expect(m.coverages[0].class).toEqual([{ type: { coding: [PLAN] }, value: '123456' }]);
+  });
+
+  it('fails the rule so the engine holds the claim', () => {
+    const m = makeModel();
+    m.coverages = [];
+    const rule: BillingRule = {
+      id: 'wc',
+      name: 'WC claim number',
+      description: '',
+      enabled: true,
+      conditional: {
+        branches: [
+          {
+            condition: { type: 'all' },
+            outcome: { type: 'actions', actions: [{ type: 'copyMemberIdToGroupNumber', insurance: 'primary' }] },
+          },
+        ],
+      },
+    };
+    const result = executeRule(rule, m);
+    expect(result.error).toMatch(/could not copy member ID to group number/);
+    expect(result.appliedActions).toHaveLength(0);
+  });
+});
+
 describe('provider/facility reference swap', () => {
   it("reads the working copy's source reference; copies without one read as absent", () => {
     const m = makeModel();
@@ -2021,6 +2081,34 @@ describe('primary coverage from patient swap', () => {
     expect(m.claim.insurance).toHaveLength(1);
     expect(m.claim.insurance?.[0]?.coverage?.reference).toBe(`urn:uuid:${m.coverages[0].id}`);
     expect(readField(m, 'billingType')).toBe('Insurance Pay');
+  });
+
+  it('keeps the primary insurer when a secondary coverage is attached behind an existing primary', () => {
+    const m = makeModel();
+    m.patientCoverageContext = makeCoverageContext();
+    m.claim.insurer = { reference: getPayerUrl('555666'), display: 'Primary Payer (555666)' };
+
+    expect(writeField(m, 'secondaryInsurance.coverageFromPatient', 'workersComp')).toBe(true);
+
+    const secondary = m.claim.insurance?.find((entry) => entry.sequence === 2);
+    expect(secondary?.focal).toBe(false);
+    expect(secondary?.coverage?.display).toBe('WorkSafe (999001)');
+    expect(m.claim.insurance?.find((entry) => entry.focal)?.coverage?.reference).toBe('Coverage/cov-primary');
+    expect(m.claim.insurer).toEqual({ reference: getPayerUrl('555666'), display: 'Primary Payer (555666)' });
+  });
+
+  it('points the insurer at a secondary coverage that becomes focal on a self-pay claim', () => {
+    const m = makeModel();
+    m.claim.insurance = [buildNoCoverageStub()];
+    m.coverages = [];
+    m.subscribers = [];
+    m.patientCoverageContext = makeCoverageContext();
+
+    expect(writeField(m, 'secondaryInsurance.coverageFromPatient', 'workersComp')).toBe(true);
+
+    expect(m.claim.insurance).toHaveLength(1);
+    expect(m.claim.insurance?.[0]?.focal).toBe(true);
+    expect(m.claim.insurer).toEqual({ reference: getPayerUrl('999001'), display: 'WorkSafe (999001)' });
   });
 
   it('supersedes pending coverage and policy-holder copies when swapped twice in one run', () => {

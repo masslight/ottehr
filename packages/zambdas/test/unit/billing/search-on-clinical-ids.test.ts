@@ -477,11 +477,8 @@ describe('searchPatientsByClinicalIds', () => {
     );
   });
 
-  it('falls back to the extension scan when the indexed search finds nothing', async () => {
-    const search = vi
-      .fn()
-      .mockResolvedValueOnce({ total: 0, unbundle: () => [] })
-      .mockResolvedValueOnce({ unbundle: () => [billingPatient('billing-legacy', 'clinical-1')] });
+  it('does not fall back to an extension scan when the indexed search finds nothing', async () => {
+    const search = vi.fn().mockResolvedValueOnce({ total: 0, unbundle: () => [] });
     const oystehr = { fhir: { search } } as unknown as Oystehr;
 
     const result = await searchPatientsByClinicalIds({
@@ -492,8 +489,8 @@ describe('searchPatientsByClinicalIds', () => {
       uuid: 'clinical-1',
     });
 
-    expect(result.results.map((p) => p.id)).toEqual(['billing-legacy']);
-    expect(search).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ total: 0, results: [] });
+    expect(search).toHaveBeenCalledTimes(1);
   });
 
   it('searches the friendly id as an indexed identifier and does not scan', async () => {
@@ -556,11 +553,8 @@ describe('searchPatientsByClinicalIds', () => {
     );
   });
 
-  it('falls back to the extension scan for a friendly id that is not indexed yet', async () => {
-    const search = vi
-      .fn()
-      .mockResolvedValueOnce({ total: 0, unbundle: () => [] })
-      .mockResolvedValueOnce({ unbundle: () => [billingPatient('billing-legacy', 'clinical-1', '1015')] });
+  it('does not fall back to an extension scan for a friendly id that is not indexed', async () => {
+    const search = vi.fn().mockResolvedValueOnce({ total: 0, unbundle: () => [] });
     const oystehr = { fhir: { search } } as unknown as Oystehr;
 
     const result = await searchPatientsByClinicalIds({
@@ -571,7 +565,7 @@ describe('searchPatientsByClinicalIds', () => {
       friendlyId: '1015',
     });
 
-    expect(result.results.map((p) => p.id)).toEqual(['billing-legacy']);
-    expect(search).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ total: 0, results: [] });
+    expect(search).toHaveBeenCalledTimes(1);
   });
 });

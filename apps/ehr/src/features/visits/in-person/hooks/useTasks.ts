@@ -1,9 +1,10 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { useMutation, UseMutationResult, useQuery, useQueryClient, UseQueryResult } from '@tanstack/react-query';
 import { Operation } from 'fast-json-patch';
-import { Encounter, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
+import { Encounter, Location, Reference, Task as FhirTask, TaskInput } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import { useMemo } from 'react';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 import { useApiClients } from 'src/hooks/useAppClients';
 import {
@@ -13,7 +14,9 @@ import {
   TASK_LOCATION_SYSTEM,
 } from 'utils/lib/fhir/constants';
 import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getCoding, getExtension, makeOptimisticLockIfMatchHeader } from 'utils/lib/fhir/helpers';
+import { getLocationLabel, isLocationInPerson } from 'utils/lib/fhir/location';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { getPatchBinary } from 'utils/lib/fhir/resourcePatch';
 import { safelyCaptureException, safelyCaptureMessage } from 'utils/lib/frontend/sentry';
@@ -24,6 +27,7 @@ import { SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types'
 import { IN_HOUSE_LAB_TASK } from 'utils/lib/types/data/in-house/in-house.constants';
 import { LAB_ORDER_TASK } from 'utils/lib/types/data/labs/labs.constants';
 import { LabType } from 'utils/lib/types/data/labs/labs.types';
+import { isTaskProgressNoteSection } from 'utils/lib/types/data/tasks/progress-note-sections';
 import {
   CreateManualTaskRequest,
   ERX_TASK,
@@ -36,8 +40,14 @@ import {
   Task,
   TaskAlertCode,
 } from 'utils/lib/types/data/tasks/types';
+import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import { inboundFaxMatchPath } from '../../../inbound-fax/routes';
-import { getDmeOrderDetailsUrl, getRadiologyOrderEditUrl, getVisitDocumentsUrl } from '../routing/helpers';
+import {
+  getDmeOrderDetailsUrl,
+  getImmunizationVaccineDetailsUrl,
+  getRadiologyOrderEditUrl,
+  getVisitDocumentsUrl,
+} from '../routing/helpers';
 
 export const GET_TASKS_KEY = 'get-tasks';
 export const OPEN_DOSESPOT = 'Open DoseSpot';
@@ -47,6 +57,7 @@ export const VIEW_FAX = 'View';
 const GO_TO_LAB_TEST = 'Go to Lab Test';
 const GO_TO_TASK = 'Go to task';
 const GO_TO_ORDER = 'Go to Order';
+const TASK_CHANGED_MESSAGE = 'This task was changed by someone else. Refresh the page and try again.';
 
 const PATIENT_REQUEST_ACTION: Record<string, { name: string; path: string }> = {
   [PATIENT_REQUEST_TASK.code.prescriptionRefill]: { name: 'eRX', path: 'erx' },
@@ -67,6 +78,20 @@ const TASK_STATUSES_TO_EXCLUDE = [
   'cancelled',
   'rejected', // labs sets tasks to rejected when we delete orders
 ];
+
+const TASK_BOARD_PARAMS: SearchParam[] = [
+  { name: '_tag', value: 'task' },
+  ...TASK_STATUSES_TO_EXCLUDE.map((status) => ({ name: 'status:not', value: status })),
+  ...TASK_CODES_TO_EXCLUDE.map((code) => ({ name: 'code:not', value: code })),
+];
+
+export const ACTIVE_TASK_STATUSES = ['ready', 'in-progress'];
+
+export interface TaskLocationCount {
+  id: string;
+  name: string;
+  count: number;
+}
 
 export interface TasksSearchParams {
   assignedTo?: string | null;
@@ -96,6 +121,11 @@ export interface AssignTaskRequest {
 
 export interface UnassignTaskRequest {
   taskId: string;
+}
+
+export interface ReopenTaskRequest {
+  taskId: string;
+  status: 'ready' | 'in-progress';
 }
 
 export interface CompleteTaskRequest {
@@ -220,10 +250,7 @@ export const useGetTasks = (
     queryFn: async () => {
       if (!oystehr) throw new Error('oystehr not defined');
       const baseParams: SearchParam[] = [
-        {
-          name: '_tag',
-          value: 'task',
-        },
+        ...TASK_BOARD_PARAMS,
         {
           name: '_sort',
           value: '-authored-on',
@@ -232,8 +259,6 @@ export const useGetTasks = (
           name: '_total',
           value: 'accurate',
         },
-        ...TASK_STATUSES_TO_EXCLUDE.map((status) => ({ name: 'status:not', value: status })),
-        ...TASK_CODES_TO_EXCLUDE.map((code) => ({ name: 'code:not', value: code })),
       ];
       if (assignedTo) {
         baseParams.push({
@@ -316,6 +341,58 @@ export const useGetTasks = (
   });
 };
 
+export const countTasksByLocation = (tasks: FhirTask[], locationNames: Map<string, string>): TaskLocationCount[] => {
+  const counts = new Map<string, number>();
+  for (const task of tasks) {
+    const locationId = task.meta?.tag?.find((tag) => tag.system === TASK_LOCATION_SYSTEM)?.code;
+    if (locationId && locationNames.has(locationId)) counts.set(locationId, (counts.get(locationId) ?? 0) + 1);
+  }
+  return [...counts]
+    .map(([id, count]) => ({ id, name: locationNames.get(id) ?? id, count }))
+    .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+};
+
+export const useMyActiveTaskLocations = (practitionerId: string | undefined): TaskLocationCount[] => {
+  const { oystehr } = useApiClients();
+  const { data: tasks } = useQuery({
+    queryKey: [GET_TASKS_KEY, 'my-active-tasks', practitionerId],
+    queryFn: async () => {
+      if (!oystehr) throw new Error('oystehr not defined');
+      const tasks = await getAllFhirSearchPages<FhirTask>(
+        {
+          resourceType: 'Task',
+          params: [
+            ...TASK_BOARD_PARAMS,
+            { name: 'owner', value: 'Practitioner/' + practitionerId },
+            { name: 'status', value: ACTIVE_TASK_STATUSES.join(',') },
+          ],
+        },
+        oystehr
+      );
+      return tasks.filter((task) => task.resourceType === 'Task').filter(filterTasks);
+    },
+    enabled: oystehr != null && !!practitionerId,
+    staleTime: 5 * 1000,
+    refetchInterval: 30000,
+  });
+  const { data: locationNames } = useQuery({
+    queryKey: ['in-person-location-names'],
+    queryFn: async () => {
+      if (!oystehr) throw new Error('oystehr not defined');
+      const locations = await getAllFhirSearchPages<Location>({ resourceType: 'Location' }, oystehr);
+      return new Map(
+        locations.filter(isLocationInPerson).map((location) => [location.id ?? '', getLocationLabel(location)])
+      );
+    },
+    enabled: oystehr != null,
+    staleTime: 5 * 60 * 1000,
+  });
+  return useMemo(
+    () => (tasks && locationNames ? countTasksByLocation(tasks, locationNames) : []),
+    [tasks, locationNames]
+  );
+};
+
 export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskRequest> => {
   const { oystehr } = useApiClients();
   const queryClient = useQueryClient();
@@ -358,6 +435,17 @@ export const useAssignTask = (): UseMutationResult<void, Error, AssignTaskReques
   });
 };
 
+const removeProviderNotificationTagOperations = (task: FhirTask): Operation[] => {
+  const tags = task.meta?.tag;
+  if (!tags) return [];
+  const remainingTags = tags.filter((tag) => tag.system !== PROVIDER_NOTIFICATION_TAG_SYSTEM);
+  return [
+    remainingTags.length
+      ? { op: 'replace', path: '/meta/tag', value: remainingTags }
+      : { op: 'remove', path: '/meta/tag' },
+  ];
+};
+
 export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRequest> => {
   const { oystehr } = useApiClients();
   const queryClient = useQueryClient();
@@ -379,18 +467,7 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
           value: 'ready',
         },
       ];
-
-      const taskMetaTags = taskResource.meta?.tag;
-      if (taskMetaTags) {
-        const updatedMetaTags = taskResource.meta?.tag?.filter(
-          (tag) => tag.system !== PROVIDER_NOTIFICATION_TAG_SYSTEM
-        );
-        operations.push({
-          op: updatedMetaTags?.length ? 'replace' : 'remove',
-          path: '/meta/tag',
-          value: updatedMetaTags?.length ? updatedMetaTags : undefined,
-        });
-      }
+      operations.push(...removeProviderNotificationTagOperations(taskResource));
       await oystehr.fhir.patch<FhirTask>({
         resourceType: 'Task',
         id: input.taskId,
@@ -398,6 +475,67 @@ export const useUnassignTask = (): UseMutationResult<void, Error, UnassignTaskRe
       });
     },
     onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: [GET_TASKS_KEY],
+        exact: false,
+      });
+    },
+  });
+};
+
+const isReopenableTaskCategory = (category: string | undefined): boolean =>
+  !!category &&
+  (category.startsWith('manual') || category === ERX_TASK.category || category === PATIENT_REQUEST_TASK.category);
+
+export const reopenTaskVersionChecked = async (oystehr: Oystehr, input: ReopenTaskRequest): Promise<void> => {
+  const task = await oystehr.fhir.get<FhirTask>({ resourceType: 'Task', id: input.taskId });
+  if (!isReopenableTaskCategory(task.groupIdentifier?.value)) {
+    throw new Error('This task cannot be reopened.');
+  }
+  if (task.status !== 'completed') {
+    throw new Error(TASK_CHANGED_MESSAGE);
+  }
+  if (input.status === 'in-progress' && !getIdFromReference(task.owner?.reference, 'Practitioner')) {
+    throw new Error('This task has no assignee, so it can only be returned to Pending.');
+  }
+  const patchOperations: Operation[] =
+    input.status === 'in-progress'
+      ? [{ op: 'replace', path: '/status', value: 'in-progress' }]
+      : [
+          { op: 'replace', path: '/status', value: 'ready' },
+          ...(task.owner ? [{ op: 'remove' as const, path: '/owner' }] : []),
+          ...removeProviderNotificationTagOperations(task),
+        ];
+  const reopenRequest = getPatchBinary({
+    resourceType: 'Task',
+    resourceId: input.taskId,
+    patchOperations,
+    ifMatch: makeOptimisticLockIfMatchHeader(task),
+  });
+  try {
+    await oystehr.fhir.transaction<FhirTask>({ requests: [reopenRequest] });
+  } catch (error) {
+    if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
+      throw new Error(TASK_CHANGED_MESSAGE);
+    }
+    throw error;
+  }
+};
+
+export const useReopenTask = (): UseMutationResult<void, Error, ReopenTaskRequest> => {
+  const { oystehr } = useApiClients();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ReopenTaskRequest) => {
+      if (!oystehr) throw new Error('oystehr not defined');
+      await reopenTaskVersionChecked(oystehr, input);
+    },
+    onSuccess: (_data, input) => {
+      enqueueSnackbar(`Task returned to ${input.status === 'ready' ? 'Pending' : 'In Progress'}.`, {
+        variant: 'success',
+      });
+    },
+    onSettled: async () => {
       await queryClient.invalidateQueries({
         queryKey: [GET_TASKS_KEY],
         exact: false,
@@ -466,7 +604,7 @@ export const completeTaskVersionChecked = async (oystehr: Oystehr, input: Comple
     await oystehr.fhir.transaction<FhirTask>({ requests: [completeRequest] });
   } catch (error) {
     if (error instanceof Oystehr.OystehrFHIRError && error.code === 412) {
-      throw new Error('This task was changed by someone else. Refresh the page and try again.');
+      throw new Error(TASK_CHANGED_MESSAGE);
     }
     throw error;
   }
@@ -507,7 +645,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
   // Helper function to add encounterId query parameter if it's a follow-up
   const addEncounterIdToLink = (link: string | undefined): string | undefined => {
     if (!link || !isFollowUp || !encounterId) return link;
-    return `${link}?encounterId=${encounterId}`;
+    return `${link}${link.includes('?') ? '&' : '?'}encounterId=${encounterId}`;
   };
 
   if (category === LAB_ORDER_TASK.category) {
@@ -616,6 +754,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     const patientReference = getInputReference(MANUAL_TASK.input.patient, task);
     const appointmentId = getInputString(MANUAL_TASK.input.appointmentId, task);
     const orderId = getInputString(MANUAL_TASK.input.orderId, task);
+    const progressNoteSection = getInputString(MANUAL_TASK.input.progressNoteSection, task);
     const documentReferenceId = getInputString(MANUAL_TASK.input.documentReferenceId, task);
     // Follow-up tasks emitted by completed practice-managed forms carry a
     // document-reference-id; use it as a signal to route to the patient docs
@@ -626,7 +765,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     if (category === MANUAL_TASK.category.patientFollowUp && documentReferenceId && patientIdFromRef) {
       title =
         getInputString(MANUAL_TASK.input.title, task) ||
-        `Patient follow-up for ${patientReference?.display?.replaceAll(',', '') ?? ''}`;
+        `Patient follow-up for ${formatTaskPatientDisplay(patientReference?.display)}`;
       subtitle = `Form completed / ${task.location?.display ?? ''}`;
       details = '';
       completable = true;
@@ -652,12 +791,13 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           : undefined,
         createdById: getIdFromReference(task.requester?.reference, 'Practitioner'),
         completable,
+        reopenable: isReopenableTaskCategory(category),
       };
     }
     title =
       getInputString(MANUAL_TASK.input.title, task) +
-      (patientReference ? ' for ' + patientReference.display?.replaceAll(',', '') : '');
-    subtitle = `Manual task by ${providerName} / ${task.location?.display ?? ''}`;
+      (patientReference ? ' for ' + formatTaskPatientDisplay(patientReference.display) : '');
+    subtitle = `Manual task by ${providerName}${task.location?.display ? ` / ${task.location.display}` : ''}`;
     details = getInputString(MANUAL_TASK.input.details, task) ?? '';
     completable = true;
     if (orderId) {
@@ -691,6 +831,24 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
           link: addEncounterIdToLink(`/in-person/${appointmentId}/procedures/${orderId}`),
         };
       }
+      if (category === MANUAL_TASK.category.immunization) {
+        action = {
+          name: GO_TO_TASK,
+          link: addEncounterIdToLink(`${getImmunizationVaccineDetailsUrl(appointmentId ?? '')}?scrollTo=${orderId}`),
+        };
+      }
+      if (category === MANUAL_TASK.category.dme) {
+        action = {
+          name: GO_TO_TASK,
+          link: addEncounterIdToLink(getDmeOrderDetailsUrl(appointmentId ?? '', orderId)),
+        };
+      }
+    } else if (appointmentId && isTaskProgressNoteSection(progressNoteSection)) {
+      const sectionLink = `/in-person/${appointmentId}/${progressNoteSection}`;
+      action = {
+        name: GO_TO_TASK,
+        link: encounterId ? `${sectionLink}?encounterId=${encounterId}` : sectionLink,
+      };
     } else if (appointmentId) {
       action = {
         name: GO_TO_TASK,
@@ -840,6 +998,7 @@ export function fhirTaskToTask(task: FhirTask, encountersMap?: Map<string, Encou
     createdById: getIdFromReference(task.requester?.reference, 'Practitioner'),
     alert: getAlertCode(task),
     completable: completable,
+    reopenable: isReopenableTaskCategory(category),
     chat:
       FEATURE_FLAGS.SUPPORT_CHAT_ENABLED && category === PATIENT_REQUEST_TASK.category
         ? {
@@ -870,6 +1029,14 @@ function getInputReference(code: string, task: FhirTask): Reference | undefined 
 function getInput(code: string, task: FhirTask): TaskInput | undefined {
   return task.input?.find((input) => getCoding(input.type, TASK_INPUT_SYSTEM)?.code === code);
 }
+
+const ISO_BIRTH_DATE_SUFFIX = /\((\d{4}-\d{2}-\d{2})\)$/;
+
+const formatTaskPatientDisplay = (display: string | undefined): string =>
+  (display ?? '').replaceAll(',', '').replace(ISO_BIRTH_DATE_SUFFIX, (storedSuffix, isoDate: string) => {
+    const birthDate = formatDateForDisplay(isoDate);
+    return birthDate ? `(${birthDate})` : storedSuffix;
+  });
 
 export function formatDate(dateIso: string): string {
   return DateTime.fromISO(dateIso).toFormat('MM/dd/yyyy h:mm a', { locale: 'en-US' });

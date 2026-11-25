@@ -23,6 +23,7 @@ import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateICD10Codes } from '../create-order/validation';
 import { extractDiagnosticsFromAdvaPACSErrorBody } from '../shared';
+import { finalizeRadiologyReport } from '../shared/finalize-report';
 import { ValidatedInput, validateInput, validateSecrets } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -51,7 +52,13 @@ async function performEffect(
   secrets: Secrets,
   oystehr: Oystehr
 ): Promise<SaveRadiologyReportZambdaOutput> {
-  const { serviceRequestId, report: preliminaryReport, diagnosisCodes, performedById } = validatedInput.body;
+  const {
+    serviceRequestId,
+    report: preliminaryReport,
+    diagnosisCodes,
+    performedById,
+    markAsFinal,
+  } = validatedInput.body;
 
   // Diagnosis is optional here, as it is at order time. Validate any ICD-10 codes up front so we fail
   // fast before touching AdvaPACS.
@@ -136,6 +143,20 @@ async function performEffect(
   await createOurDiagnosticReport(serviceRequest, advaPacsDiagnosticReport, preliminaryReport, oystehr, author);
   console.groupEnd();
   console.debug('DiagnosticReport created successfully in Oystehr');
+
+  if (markAsFinal) {
+    console.group('Marking the preliminary report as final');
+    try {
+      await finalizeRadiologyReport(serviceRequestId, preliminaryReport, author, oystehr);
+    } catch (error) {
+      console.error('Failed to mark the preliminary report as final', error);
+      throw RADIOLOGY_ERROR(
+        'The preliminary read was saved but could not be marked as final. Please save it as the final read again.'
+      );
+    } finally {
+      console.groupEnd();
+    }
+  }
 
   return {};
 }

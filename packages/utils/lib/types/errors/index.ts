@@ -90,7 +90,9 @@ export enum APIErrorCode {
   MANUAL_ERA_VERSION_CONFLICT = 4505,
   ERA_VOID_CONFLICT = 4506,
   ERA_VOID_INCOMPLETE = 4507,
-  BILLING_INVOICE_CONFLICT = 4508,
+  EHR_PAYMENT_RESERVATION_NOT_FOUND = 4508,
+  BILLING_INVOICE_CONFLICT = 4509,
+  TERMINAL_READER_BUSY = 4510,
 
   // 50xx
   MISCONFIGURED_ENVIRONMENT = 5000,
@@ -529,6 +531,14 @@ export const BILLING_INVOICE_CONFLICT_ERROR = (message: string): APIError => ({
   statusCode: 409,
   message,
 });
+// Raised by the billing Stripe webhook when a charge names an EHR payment whose reserved PaymentNotice is
+// not found yet. The webhook never creates that notice itself (a create could race the EHR's activation of
+// its reservation and record the charge twice), so it answers 503 and Stripe redelivers the event later.
+export const EHR_PAYMENT_RESERVATION_NOT_FOUND_ERROR = (chargeId: string, ehrPaymentId: string): APIError => ({
+  code: APIErrorCode.EHR_PAYMENT_RESERVATION_NOT_FOUND,
+  statusCode: 503,
+  message: `No PaymentNotice reserves EHR payment ${ehrPaymentId} of charge ${chargeId} yet; asking Stripe to redeliver`,
+});
 // Raised when a statement is requested for a visit that was never billed through Ottehr billing.
 export const STATEMENT_BILLING_CLAIM_NOT_FOUND_ERROR = (encounterId: string): APIError => ({
   code: APIErrorCode.STATEMENT_BILLING_CLAIM_NOT_FOUND,
@@ -647,6 +657,16 @@ export const SPECIFIC_STRIPE_PAYMENT_ERROR = (message: string): APIError => {
     message,
   };
 };
+
+export const TERMINAL_READER_BUSY_ERROR: APIError = {
+  code: APIErrorCode.TERMINAL_READER_BUSY,
+  statusCode: 409,
+  message:
+    'The card reader is busy with something else right now. Finish or cancel whatever is in progress on the reader, then try again.',
+};
+
+export const isStripeTerminalReaderBusyError = (stripeError: unknown): boolean =>
+  (stripeError as { code?: unknown } | undefined)?.code === 'terminal_reader_busy';
 
 export const parseStripeError = (stripeError: any): APIError => {
   if (stripeError?.type === 'StripeCardError' && stripeError?.decline_code) {
