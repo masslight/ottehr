@@ -10,8 +10,9 @@ import { createMockSecrets, createMockZambdaInput } from './validate-request-par
 
 type ZambdaHandler = (input: ZambdaInput) => Promise<APIGatewayProxyResult>;
 
-const { mockOystehr } = vi.hoisted(() => ({
+const { mockOystehr, mockCaptureException } = vi.hoisted(() => ({
   mockOystehr: { fhir: { get: vi.fn(), search: vi.fn(), update: vi.fn(), patch: vi.fn(), transaction: vi.fn() } },
+  mockCaptureException: vi.fn(),
 }));
 
 vi.mock('../../src/shared/auth', async (importOriginal) => ({
@@ -28,6 +29,11 @@ vi.mock('../../src/shared/helpers', async (importOriginal) => ({
 vi.mock('../../src/shared/sentry', async (importOriginal) => ({
   ...((await importOriginal()) as Record<string, unknown>),
   wrapHandler: (_name: string, fn: (...args: unknown[]) => unknown) => fn,
+}));
+
+vi.mock('@sentry/node-core/light', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  captureException: (...args: unknown[]) => mockCaptureException(...args),
 }));
 
 import { index as rawIndex } from '../../src/ehr/referrals/update-referral-status';
@@ -283,6 +289,21 @@ describe('update-referral-status', () => {
       '/Task/task-1',
     ]);
     expectNothingWrittenOutsideTheTransaction();
+  });
+
+  it('reports a committed close as done even when the response cannot be filled in, as a retry would be refused', async () => {
+    mockOystehr.fhir.get.mockResolvedValue(referralIn('sent'));
+    const failure = new Error('DocumentReference search failed');
+    mockOystehr.fhir.search.mockImplementation(async ({ resourceType }: { resourceType: string }) => {
+      if (mockOystehr.fhir.transaction.mock.calls.length > 0) throw failure;
+      return { unbundle: () => (resourceType === 'Task' ? [openTask] : []) };
+    });
+
+    const result = await run({ action: 'close', reason: 'patient-seen' });
+
+    expect(result.statusCode).toBe(200);
+    expect(JSON.parse(result.body).referral).toMatchObject({ id: REFERRAL_ID, status: 'closed' });
+    expect(mockCaptureException).toHaveBeenCalledWith(failure);
   });
 
   it('reports a ServiceRequest that is not a referral as not found', async () => {

@@ -1,3 +1,4 @@
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -10,6 +11,7 @@ import {
   REFERRAL_ROLES,
   REFERRAL_STATUS_LABELS,
   ReferralActor,
+  ReferralDTO,
   UpdateReferralStatusInput,
   UpdateReferralStatusInputSchema,
   UpdateReferralStatusOutput,
@@ -29,7 +31,7 @@ import {
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
-import { buildReferralDTOs } from '../shared';
+import { buildReferralDTOs, toReferralDTO } from '../shared';
 
 const ZAMBDA_NAME = 'update-referral-status';
 
@@ -77,7 +79,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ?.map((entry) => entry.resource)
         .find((resource): resource is ServiceRequest => resource?.resourceType === 'ServiceRequest') ?? updated;
 
-    const [dto] = await buildReferralDTOs(oystehr, [saved]);
+    let dto: ReferralDTO;
+    try {
+      [dto] = await buildReferralDTOs(oystehr, [saved]);
+    } catch (error) {
+      console.error(
+        `[${ZAMBDA_NAME}] failed to build the response after updating ServiceRequest/${referral.id}`,
+        error
+      );
+      captureException(error);
+      dto = toReferralDTO(saved, {});
+    }
     const output: UpdateReferralStatusOutput = { referral: dto };
     return { statusCode: 200, body: JSON.stringify(output) };
   } catch (error: unknown) {
