@@ -106,7 +106,7 @@ describe('CardThumbnail', () => {
     await user.click(screen.getByRole('button', { name: `Remove ${TITLE} front` }));
 
     expect(screen.getByText('Remove Card Image')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    await user.click(screen.getByRole('button', { name: 'Remove Image' }));
 
     expect(handleDeleteClick).toHaveBeenCalledWith('doc-front');
   });

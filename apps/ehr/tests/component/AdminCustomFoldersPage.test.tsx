@@ -184,10 +184,10 @@ describe('AdminCustomFoldersPage', () => {
     await waitFor(() => expect(screen.getByText('Foo')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /delete/i }));
 
-    expect(screen.getByText('Delete Folder')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Delete Folder' })).toBeInTheDocument();
     expect(screen.getByText(/folder will remain for the patients who have docs in it/i)).toBeInTheDocument();
 
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete Folder' }));
 
     await waitFor(() =>
       expect(mockDeleteCustomFolder).toHaveBeenCalledWith(expect.anything(), { internalName: 'custom-folder-foo' })

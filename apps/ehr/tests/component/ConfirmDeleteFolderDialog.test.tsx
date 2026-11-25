@@ -21,7 +21,7 @@ const baseProps = {
 describe('ConfirmDeleteFolderDialog', () => {
   it('renders the folder name and the soft-delete copy', () => {
     render(<ConfirmDeleteFolderDialog {...baseProps} />);
-    expect(screen.getByText('Delete Folder')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Delete Folder' })).toBeInTheDocument();
     // The dialog spells out the soft-delete semantics: existing patients keep the folder.
     const description = screen.getByText(/Are you sure you want to delete the folder/i);
     expect(description).toHaveTextContent('After-Visit Care');
@@ -34,7 +34,7 @@ describe('ConfirmDeleteFolderDialog', () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(<ConfirmDeleteFolderDialog {...baseProps} onConfirm={onConfirm} onClose={onClose} />);
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByRole('button', { name: 'Delete Folder' }));
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
@@ -44,7 +44,7 @@ describe('ConfirmDeleteFolderDialog', () => {
     const onClose = vi.fn();
     const user = userEvent.setup();
     render(<ConfirmDeleteFolderDialog {...baseProps} onConfirm={onConfirm} onClose={onClose} />);
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByRole('button', { name: 'Delete Folder' }));
     await waitFor(() => expect(screen.getByText('bad delete')).toBeInTheDocument());
     expect(onClose).not.toHaveBeenCalled();
   });

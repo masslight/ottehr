@@ -172,7 +172,7 @@ const deleteButtonOf = (input: HTMLElement): HTMLElement | null =>
   within(rowOf(input)).queryByTestId(dataTestIds.patientRecordPage.freeFormDeleteButton);
 const deleteDialog = (): HTMLElement | null => screen.queryByRole('dialog');
 const confirmDelete = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
-  await user.click(within(deleteDialog()!).getByRole('button', { name: 'Delete' }));
+  await user.click(within(deleteDialog()!).getByRole('button', { name: 'Delete Free Form' }));
 };
 const keepNote = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
   await user.click(within(deleteDialog()!).getByRole('button', { name: 'Cancel' }));
@@ -1011,7 +1011,7 @@ describe('PatientEncountersGrid free-form encounters', () => {
       await waitForVisits();
 
       await user.click(deleteButtonOf(noteInput('Called by mistake'))!);
-      expect(within(deleteDialog()!).getByText('Delete Free Form')).toBeInTheDocument();
+      expect(within(deleteDialog()!).getByRole('heading', { name: 'Delete Free Form' })).toBeInTheDocument();
       expect(
         within(deleteDialog()!).getByText('Are you sure you want to delete this form? This action cannot be undone.')
       ).toBeInTheDocument();
@@ -1176,12 +1176,12 @@ describe('PatientEncountersGrid free-form encounters', () => {
       switchPatient(PATIENT_B);
       await waitFor(() => expect(countOf('Note for B')).toBe(1));
       await user.click(deleteButtonOf(noteInput('Note for B'))!);
-      expect(within(deleteDialog()!).getByRole('button', { name: 'Delete' })).toBeEnabled();
+      expect(within(deleteDialog()!).getByRole('button', { name: 'Delete Free Form' })).toBeEnabled();
 
       await act(async () => pending.resolve({ encounterId: 'note-a' }));
 
       expect(deleteDialog()).toBeInTheDocument();
-      expect(within(deleteDialog()!).getByRole('button', { name: 'Delete' })).toBeEnabled();
+      expect(within(deleteDialog()!).getByRole('button', { name: 'Delete Free Form' })).toBeEnabled();
       expect(countOf('Note for B')).toBe(1);
 
       await keepNote(user);

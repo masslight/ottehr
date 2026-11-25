@@ -67,7 +67,7 @@ export class GlobalTemplatesAdminPage {
     await expect(dialog).toBeVisible(DEFAULT_TIMEOUT);
     await expect(dialog.getByText('Are you sure you want to delete the template')).toBeVisible();
 
-    await dialog.getByRole('button', { name: 'Delete' }).click();
+    await dialog.getByRole('button', { name: 'Delete Template', exact: true }).click();
     await waitForSnackbar(this.#page);
   }
 

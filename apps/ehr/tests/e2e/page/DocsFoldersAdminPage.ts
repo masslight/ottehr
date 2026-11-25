@@ -114,12 +114,12 @@ export class DocsFoldersAdminPage {
     await this.folderRow(name)
       .getByRole('button', { name: /delete/i })
       .click();
-    await expect(this.#page.getByText('Delete Folder')).toBeVisible(DEFAULT_TIMEOUT);
+    await expect(this.deleteDialog().getByRole('heading', { name: 'Delete Folder' })).toBeVisible(DEFAULT_TIMEOUT);
   }
 
   async confirmDelete(): Promise<void> {
-    await this.deleteDialog().getByRole('button', { name: 'Delete' }).click();
-    await expect(this.#page.getByText('Delete Folder')).not.toBeVisible(DEFAULT_TIMEOUT);
+    await this.deleteDialog().getByRole('button', { name: 'Delete Folder', exact: true }).click();
+    await expect(this.deleteDialog().getByRole('heading', { name: 'Delete Folder' })).not.toBeVisible(DEFAULT_TIMEOUT);
   }
 }
 
