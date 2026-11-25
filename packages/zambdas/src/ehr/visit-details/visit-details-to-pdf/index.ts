@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Encounter, Organization, Practitioner } from 'fhir/r4b';
 import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
@@ -16,7 +17,15 @@ import {
   getOccupationalMedicineEmployerName,
   getVisitEmployerOrganizationId,
 } from '../../../shared/occupational-medicine-employer';
-import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
+import { findLatestCoverageCheck } from '../../../shared/patient-coverage-checks';
+import {
+  findSignedVisitDetailsDocument,
+  makeVisitDetailsPdfDocumentReference,
+} from '../../../shared/pdf/make-visit-details-document-reference';
+import {
+  composeInsuranceData,
+  getDisplayedInsurancePayerAndMemberId,
+} from '../../../shared/pdf/sections/insuranceInfo';
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { wrapHandler } from '../../../shared/sentry';
@@ -27,6 +36,7 @@ import { searchDocumentReferencesForVisit } from '../get-visit-files';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'visit-details-to-pdf';
+const ELIGIBILITY_SEARCH_BUDGET_MS = 5_000;
 
 let m2mToken: string;
 
@@ -50,7 +60,8 @@ export const performEffect = async (
   appointmentId: string,
   secrets: Secrets | null,
   token: string,
-  timezone?: string
+  timezone?: string,
+  { signing = false }: { signing?: boolean } = {}
 ): Promise<VisitDetailsResponse> => {
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
   if (!visitResources) {
@@ -74,6 +85,14 @@ export const performEffect = async (
     throw new Error(`Patient data is missing for appointment ${appointmentId}`);
   }
 
+  const signedCopyResponse = async (): Promise<VisitDetailsResponse | undefined> => {
+    if (signing) return undefined;
+    const signedCopy = await findSignedVisitDetailsDocument(oystehr, encounter.id!);
+    return signedCopy && { documentReference: `DocumentReference/${signedCopy.id}` };
+  };
+  const existingSignedCopy = await signedCopyResponse();
+  if (existingSignedCopy) return existingSignedCopy;
+
   console.log('Chart data received');
 
   const [consentResources, accountResources, documentReferences] = await Promise.all([
@@ -93,14 +112,27 @@ export const performEffect = async (
     employerOrganization,
     occupationalMedicineEmployerOrganization,
   } = accountResources;
+  const displayedInsurance = getDisplayedInsurancePayerAndMemberId(
+    coverages,
+    composeInsuranceData({ coverages, insuranceOrgs })
+  );
+  const coverageChecksPromise = displayedInsurance
+    ? findLatestCoverageCheck(patient.id, displayedInsurance, oystehr, Date.now() + ELIGIBILITY_SEARCH_BUDGET_MS)
+        .then((check) => (check ? [check] : []))
+        .catch((error) => {
+          console.error('Failed to load eligibility checks for the Visit Details PDF:', error);
+          captureException(error);
+          return undefined;
+        })
+    : Promise.resolve([]);
   const primaryCarePhysician = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
-  let payments: PatientPaymentDTO[] = [];
-  if (encounter.id && account) {
+  const loadPayments = async (): Promise<PatientPaymentDTO[]> => {
+    if (!encounter.id || !account) return [];
     try {
       const stripeClient = getStripeClient(secrets);
-      payments = await getPaymentsForEncounter({
+      return await getPaymentsForEncounter({
         clinicalOystehr: oystehr,
         billingOystehr: createBillingClient(token, secrets),
         stripeClient,
@@ -115,22 +147,26 @@ export const performEffect = async (
         console.error(`Error: Stripe customer deleted, PDF will be generated without payment info. ${customerError}`);
       }
 
-      payments = [];
+      return [];
     }
-  }
+  };
   const pharmacy = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
   ) as Organization;
 
   const appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
 
-  const occupationalMedicineEmployerName = await resolveOccupationalMedicineEmployerName({
-    oystehr,
-    encounter,
-    appointmentServiceCategory,
-    occupationalMedicineEmployerOrganization,
-    occupationalMedicineAccount: accountResources.occupationalMedicineAccount,
-  });
+  const [payments, occupationalMedicineEmployerName, coverageChecks] = await Promise.all([
+    loadPayments(),
+    resolveOccupationalMedicineEmployerName({
+      oystehr,
+      encounter,
+      appointmentServiceCategory,
+      occupationalMedicineEmployerOrganization,
+      occupationalMedicineAccount: accountResources.occupationalMedicineAccount,
+    }),
+    coverageChecksPromise,
+  ]);
 
   const { pdfInfo, attached } = await createVisitDetailsPdf(
     {
@@ -152,10 +188,14 @@ export const performEffect = async (
       consents: consents || [],
       questionnaireResponse,
       payments,
+      coverageChecks,
     },
     secrets,
     token
   );
+
+  const signedCopyBeforeSave = await signedCopyResponse();
+  if (signedCopyBeforeSave) return signedCopyBeforeSave;
 
   console.log(`Creating Visit details PDF Document Reference`);
   const documentReference = await makeVisitDetailsPdfDocumentReference(
@@ -165,7 +205,8 @@ export const performEffect = async (
     appointmentId,
     encounter.id!,
     listResources,
-    attached
+    attached,
+    signing
   );
   const visitDetailsDocumentId = documentReference.id ?? '';
 

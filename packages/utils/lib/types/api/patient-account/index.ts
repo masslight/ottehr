@@ -21,7 +21,11 @@ export interface CoverageCheckCoverageDetails {
   planId?: string;
 }
 
-export type CoverageCheckWithDetails = InsuranceCheckStatusWithDate & CoverageCheckCoverageDetails;
+export type CoverageCheckWithDetails = InsuranceCheckStatusWithDate &
+  CoverageCheckCoverageDetails & {
+    payerId?: string;
+    relationship?: string;
+  };
 
 export const PATIENT_ACCOUNT_ELIGIBILITY_CHECK_COUNT = 10;
 
