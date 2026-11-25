@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Task } from 'fhir/r4b';
+import { Encounter, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { isFollowupEncounter } from 'utils/lib/fhir/encounter';
+import { isAnnotationFollowupEncounter, isFollowupEncounter } from 'utils/lib/fhir/encounter';
 import { getAddressStringForScheduleResource } from 'utils/lib/fhir/helpers';
 import { OTTEHR_MODULE } from 'utils/lib/fhir/moduleIdentification';
 import { getFullestAvailableName, getPatientContactEmail } from 'utils/lib/fhir/patient';
@@ -126,12 +127,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
       // Also generate the Visit Details PDF at completion so a copy exists for the medical
       // record without a manual on-demand click. Failure here must not block the visit note.
-      if (shouldGenerateVisitDetailsPdf(task)) {
+      if (shouldGenerateVisitDetailsPdf(task, encounter)) {
         try {
-          await generateVisitDetailsPdf(oystehr, appointmentId, secrets, oystehrToken, visitResources.timezone);
+          await generateVisitDetailsPdf(oystehr, appointmentId, secrets, oystehrToken, visitResources.timezone, {
+            signing: true,
+          });
           console.log(`Visit details pdf created for appointment ${appointmentId}`);
         } catch (visitDetailsError) {
           console.error(`Failed to generate visit details PDF for appointment ${appointmentId}:`, visitDetailsError);
+          captureException(visitDetailsError);
         }
       }
 
@@ -290,6 +294,6 @@ export function resolveSkipEmail(task: Task): boolean {
  * from. The addendum path (getChartDataPostChangeTasks) is the only caller that sets the
  * SKIP_EMAIL input, so its presence identifies a re-generation run.
  */
-export function shouldGenerateVisitDetailsPdf(task: Task): boolean {
-  return !resolveSkipEmail(task);
+export function shouldGenerateVisitDetailsPdf(task: Task, encounter: Encounter): boolean {
+  return !resolveSkipEmail(task) && !isAnnotationFollowupEncounter(encounter);
 }

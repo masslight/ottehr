@@ -1,19 +1,14 @@
-import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
-import { pullCoverageIdentifyingDetails } from 'utils/lib/fhir/billing';
-import { parseCoverageEligibilityResponse } from 'utils/lib/fhir/billing';
+import { Practitioner } from 'fhir/r4b';
 import { getPreferredPharmacyFromPatient } from 'utils/lib/fhir/patient';
 import { Secrets } from 'utils/lib/secrets';
-import {
-  CoverageCheckWithDetails,
-  PATIENT_ACCOUNT_ELIGIBILITY_CHECK_COUNT,
-  PatientAccountResponse,
-} from 'utils/lib/types/api/patient-account';
+import { PatientAccountResponse } from 'utils/lib/types/api/patient-account';
 import { INVALID_RESOURCE_ID_ERROR, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils/lib/types/errors';
 import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
+import { getPatientCoverageChecks } from '../../../shared/patient-coverage-checks';
 import { wrapHandler } from '../../../shared/sentry';
 import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
@@ -41,112 +36,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {
   const { patientId } = input;
   console.log('performing effect for patient account get');
-  const [accountAndCoveragesResult, eligibilityChecksResult] = await Promise.allSettled([
+  const [accountAndCoveragesResult, coverageChecksResult] = await Promise.allSettled([
     (async () => {
       console.time('getAccountAndCoverageResourcesForPatient');
       const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
       console.timeEnd('getAccountAndCoverageResourcesForPatient');
       return accountAndCoverages;
     })(),
-    fetchEligibilityChecksWithCoverages(patientId, oystehr),
+    getPatientCoverageChecks(patientId, oystehr),
   ]);
   const accountAndCoverages = settledValueOrThrow(accountAndCoveragesResult);
-  const { eligibilityCheckResults, coverages } = settledValueOrThrow(eligibilityChecksResult);
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
-
-  const mapped = eligibilityCheckResults
-    .map((result) => {
-      const coverage = [...coverages, ...(result.contained ?? [])].find(
-        (resource) =>
-          resource.resourceType === 'Coverage' &&
-          result.insurance?.[0]?.coverage?.reference?.includes(resource.id ?? '')
-      ) as Coverage;
-      // console.log('coverageDetails', JSON.stringify(coverage, null, 2));
-      if (!coverage) {
-        return null;
-      }
-      const coverageDetails = pullCoverageIdentifyingDetails(coverage);
-      if (!coverageDetails) {
-        return null;
-      }
-      return {
-        ...parseCoverageEligibilityResponse(result),
-        ...coverageDetails,
-      } as CoverageCheckWithDetails;
-    })
-    .filter((result) => result !== null) as CoverageCheckWithDetails[];
+  const coverageChecks = settledValueOrThrow(coverageChecksResult);
   const { patient } = accountAndCoverages;
   const pharmacy = getPreferredPharmacyFromPatient(patient);
   return {
     ...accountAndCoverages,
     primaryCarePhysician,
-    coverageChecks: mapped,
+    coverageChecks,
     pharmacy,
   };
-};
-
-const fetchEligibilityChecksWithCoverages = async (
-  patientId: string,
-  oystehr: Oystehr
-): Promise<{ eligibilityCheckResults: CoverageEligibilityResponse[]; coverages: Coverage[] }> => {
-  // due to really huge CEResponses causing response-too-large errors, we need to chop our querying for the CEResponses into
-  // manageable chunks. We'll do this by first querying for just the IDs of the CEResponses, then querying for the full resources in parallel.
-  // Even just two resources returned in a query can still result in response-too-large errors based on prod data we've encountered.
-  console.time('fetching CER IDs');
-  const eligibilityCheckIds = (
-    await oystehr.fhir.search<CoverageEligibilityResponse>({
-      resourceType: 'CoverageEligibilityResponse',
-      params: [
-        {
-          name: `patient._id`,
-          value: patientId,
-        },
-        {
-          name: '_sort',
-          value: '-created',
-        },
-        {
-          name: '_elements',
-          value: 'id',
-        },
-        {
-          name: '_count', // we shouldn't need more than the most recent 10 eligibility checks
-          value: String(PATIENT_ACCOUNT_ELIGIBILITY_CHECK_COUNT),
-        },
-      ],
-    })
-  )
-    .unbundle()
-    .map((cer) => cer.id)
-    .filter((id): id is string => !!id);
-  console.log('fetching the following CERs:', JSON.stringify(eligibilityCheckIds));
-
-  const eligibilityCheckResults: CoverageEligibilityResponse[] = await Promise.all(
-    eligibilityCheckIds.map((id) =>
-      oystehr.fhir.get<CoverageEligibilityResponse>({ resourceType: 'CoverageEligibilityResponse', id })
-    )
-  );
-
-  const coverageIdsToFetch = eligibilityCheckResults.flatMap((ecr) => {
-    if (ecr.insurance?.[0]?.coverage?.reference) {
-      const [resourceType, id] = ecr.insurance[0].coverage.reference.split('/');
-      if (resourceType === 'Coverage') {
-        return id;
-      }
-    }
-    return [];
-  });
-  const coverageRequests: BatchInputGetRequest[] = coverageIdsToFetch.map((id) => ({
-    method: 'GET',
-    url: `Coverage/${id}`,
-  }));
-  const coverages: Coverage[] =
-    (await oystehr.fhir.batch<Coverage>({ requests: coverageRequests })).entry?.flatMap((e) => e.resource ?? []) ?? [];
-  console.timeEnd('fetching CER IDs');
-
-  return { eligibilityCheckResults, coverages };
 };
 
 interface Input {

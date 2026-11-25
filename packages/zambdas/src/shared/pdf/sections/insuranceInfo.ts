@@ -9,8 +9,10 @@ import {
 } from 'utils/lib/helpers/helpers';
 import { insuranceTypeOptionsData } from 'utils/lib/ottehr-config/value-sets';
 import { COVERAGE_ADDITIONAL_INFORMATION_URL } from 'utils/lib/types/constants';
+import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
-import { createConfiguredSection, DataComposer } from '../pdf-common';
+import { PayerAndMemberId } from '../../patient-coverage-checks';
+import { createConfiguredSection, createSectionConfig, DataComposer, fieldFilter } from '../pdf-common';
 import { Insurance, InsuranceDataInput, InsuranceInfo, PdfSection } from '../types';
 
 // Mirrors EHR's `insurancePlanTypeOptions` label format (`${candidCode} - ${label}`)
@@ -140,6 +142,45 @@ export const composeInsuranceData: DataComposer<InsuranceDataInput, InsuranceInf
   };
 };
 
+export const isInsuranceSectionRendered = (insurance: Insurance): boolean => !!insurance.insuranceCarrier;
+
+const INSURANCE_FIELD_KEY_SUFFIX = { primary: '', secondary: '-2' } as const;
+
+type InsuranceFieldVisibility = (baseFieldKey: string) => boolean;
+
+export const isPolicyHolderNameShown = (shows: InsuranceFieldVisibility): boolean =>
+  shows('policy-holder-first-name') || shows('policy-holder-middle-name') || shows('policy-holder-last-name');
+
+export const isPolicyHolderCityStateZipShown = (shows: InsuranceFieldVisibility): boolean =>
+  (shows('policy-holder-city') && shows('policy-holder-state')) || shows('policy-holder-zip');
+
+const getDisplayedInsurance = (
+  insurances: InsuranceInfo
+): { priority: 'primary' | 'secondary'; shows: InsuranceFieldVisibility } | undefined => {
+  const config = createSectionConfig('insurance');
+  if (config.isHidden) return undefined;
+  const priority = (['primary', 'secondary'] as const).find((candidate) =>
+    isInsuranceSectionRendered(insurances[candidate])
+  );
+  if (!priority) return undefined;
+  const shouldShow = fieldFilter(config);
+  return { priority, shows: (baseFieldKey) => shouldShow(`${baseFieldKey}${INSURANCE_FIELD_KEY_SUFFIX[priority]}`) };
+};
+
+export const getDisplayedInsuranceFieldVisibility = (insurances: InsuranceInfo): InsuranceFieldVisibility =>
+  getDisplayedInsurance(insurances)?.shows ?? (() => false);
+
+export const getDisplayedInsurancePayerAndMemberId = (
+  coverages: OrderedCoveragesWithSubscribers,
+  insurances: InsuranceInfo
+): PayerAndMemberId | undefined => {
+  const displayed = getDisplayedInsurance(insurances);
+  if (!displayed || !displayed.shows('insurance-carrier') || !displayed.shows('insurance-member-id')) return undefined;
+  const payerId = coverages[displayed.priority]?.class?.[0]?.value;
+  const memberId = insurances[displayed.priority].memberId;
+  return payerId && memberId ? { payerId, memberId } : undefined;
+};
+
 /**
  * `keySuffix` mirrors how the EHR resolves `hiddenFields`: each item in
  * `PATIENT_RECORD_CONFIG.FormFields.insurance.items[ordinal]` has its own key
@@ -156,7 +197,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
   return createConfiguredSection('insurance', (shouldShow) => ({
     title,
     dataSelector,
-    shouldRender: (coverage) => !!coverage.insuranceCarrier,
+    shouldRender: isInsuranceSectionRendered,
     render: (client, data, styles) => {
       if (shouldShow(k('insurance-carrier'))) {
         client.drawLabelValueRow(
@@ -188,11 +229,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           dividerMargin: 8,
         });
       }
-      if (
-        shouldShow(k('policy-holder-first-name')) ||
-        shouldShow(k('policy-holder-middle-name')) ||
-        shouldShow(k('policy-holder-last-name'))
-      ) {
+      if (isPolicyHolderNameShown((base) => shouldShow(k(base)))) {
         client.drawLabelValueRow(
           `Policy holder's name`,
           data.policyHoldersName,
@@ -252,10 +289,7 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
           }
         );
       }
-      if (
-        (shouldShow(k('policy-holder-city')) && shouldShow(k('policy-holder-state'))) ||
-        shouldShow(k('policy-holder-zip'))
-      ) {
+      if (isPolicyHolderCityStateZipShown((base) => shouldShow(k(base)))) {
         client.drawLabelValueRow(
           'City, State, ZIP',
           `${data.city}, ${data.state}, ${data.zip}`,
@@ -297,9 +331,19 @@ const createInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(
 export const createPrimaryInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(): PdfSection<
   TData,
   Insurance
-> => createInsuranceSection('Primary insurance information', (data) => data.insurances?.primary, '');
+> =>
+  createInsuranceSection(
+    'Primary insurance information',
+    (data) => data.insurances?.primary,
+    INSURANCE_FIELD_KEY_SUFFIX.primary
+  );
 
 export const createSecondaryInsuranceSection = <TData extends { insurances?: InsuranceInfo }>(): PdfSection<
   TData,
   Insurance
-> => createInsuranceSection('Secondary insurance information', (data) => data.insurances?.secondary, '-2');
+> =>
+  createInsuranceSection(
+    'Secondary insurance information',
+    (data) => data.insurances?.secondary,
+    INSURANCE_FIELD_KEY_SUFFIX.secondary
+  );

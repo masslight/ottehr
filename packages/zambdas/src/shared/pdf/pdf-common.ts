@@ -506,7 +506,7 @@ export const uploadPdfToStorage = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> => {
-  const { patientId, fileName, bucketName, stableKey } = metadata;
+  const { patientId, fileName, title, bucketName, stableKey } = metadata;
 
   const baseFileUrl = makeZ3Url({
     secrets,
@@ -518,7 +518,7 @@ export const uploadPdfToStorage = async (
 
   await uploadPDF(pdfBytes, baseFileUrl, token, patientId);
 
-  return { title: fileName, uploadURL: baseFileUrl };
+  return { title: title ?? fileName, uploadURL: baseFileUrl };
 };
 
 export const generatePdf = async <TInput, TData extends PdfData>(
