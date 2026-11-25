@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { Input } from '@mui/material';
+import { Button, Input } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InPersonAppointmentInformation } from 'utils/lib/types/data/appointments/appointments.types';
@@ -87,9 +86,9 @@ const AppointmentNote = ({
           fullWidth
         />
         {editingRow && (
-          <LoadingButton loading={noteSaving} sx={{ marginTop: '8px', padding: '5px' }} onClick={saveNote}>
+          <Button loading={noteSaving} sx={{ marginTop: '8px', padding: '5px' }} onClick={saveNote}>
             Save
-          </LoadingButton>
+          </Button>
         )}
       </>
     ),

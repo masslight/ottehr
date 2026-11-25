@@ -1,5 +1,14 @@
 import ClearIcon from '@mui/icons-material/Clear';
-import { Box, Button, Checkbox, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Button,
+  Checkbox,
+  FormControlLabel,
+  GridLegacy as Grid,
+  lighten,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DateTime } from 'luxon';

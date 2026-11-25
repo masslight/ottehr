@@ -1,6 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ChevronLeft';
 import ArrowForwardIcon from '@mui/icons-material/ChevronRight';
-import { LoadingButton } from '@mui/lab';
 import { alpha, Box, Button, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React from 'react';
@@ -97,7 +96,7 @@ export const BottomNavigation = (): JSX.Element => {
         >
           Back
         </Button>
-        <LoadingButton
+        <Button
           disabled={isNavigationDisabled || isEncounterUpdatePending || (isLastPage && interactionMode === 'main')}
           loading={nextButtonLoading}
           endIcon={<ArrowForwardIcon sx={{ width: '32px', height: '32px' }} />}
@@ -119,7 +118,7 @@ export const BottomNavigation = (): JSX.Element => {
           }}
         >
           {nextButtonText}
-        </LoadingButton>
+        </Button>
       </Box>
     </Box>
   );

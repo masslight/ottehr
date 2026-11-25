@@ -1,6 +1,6 @@
 import { TabContext } from '@mui/lab';
 import { CssBaseline } from '@mui/material';
-import { LicenseInfo } from '@mui/x-data-grid-pro';
+import { LicenseInfo } from '@mui/x-license';
 import { SnackbarProvider } from 'notistack';
 import { lazy, ReactElement, Suspense, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';

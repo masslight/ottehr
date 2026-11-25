@@ -1,6 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
-import { LoadingButton } from '@mui/lab';
 import {
+  Button,
   Chip,
   CircularProgress,
   Paper,
@@ -299,7 +299,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                       </TableCell>
                       {!isReadOnly && patient?.id && (
                         <TableCell>
-                          <LoadingButton
+                          <Button
                             loading={cancellationLoading.includes(row.resourceId!)}
                             variant="text"
                             color="error"
@@ -312,7 +312,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
                             }
                           >
                             Cancel
-                          </LoadingButton>
+                          </Button>
                         </TableCell>
                       )}
                     </TableRow>

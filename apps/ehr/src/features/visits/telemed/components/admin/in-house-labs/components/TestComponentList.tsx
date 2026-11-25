@@ -6,7 +6,7 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   InputLabel,
   lighten,

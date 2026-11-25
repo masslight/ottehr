@@ -1,6 +1,6 @@
 import CheckIcon from '@mui/icons-material/Check';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
+import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   alpha,
   Box,
@@ -398,7 +398,7 @@ export default function Invoicing(): ReactElement {
         />
 
         <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-          <LoadingButton
+          <Button
             type="submit"
             variant="contained"
             loading={saveMutation.isPending}
@@ -406,7 +406,7 @@ export default function Invoicing(): ReactElement {
             sx={{ borderRadius: 28, textTransform: 'none', fontWeight: 'bold' }}
           >
             Save changes
-          </LoadingButton>
+          </Button>
           <Button
             variant="text"
             disabled={!isDirty || saveMutation.isPending}

@@ -1,5 +1,15 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { AppBar, Box, Button, Card, Container, Grid, IconButton, Typography, useTheme } from '@mui/material';
+import {
+  AppBar,
+  Box,
+  Button,
+  Card,
+  Container,
+  GridLegacy as Grid,
+  IconButton,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { lighten } from '@mui/material/styles';
 import { FC, ReactElement, ReactNode, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';

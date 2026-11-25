@@ -1,4 +1,4 @@
-import { Alert, FormControl, Grid, MenuItem, Paper, Select, Typography, useTheme } from '@mui/material';
+import { Alert, FormControl, GridLegacy as Grid, MenuItem, Paper, Select, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';

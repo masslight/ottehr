@@ -7,7 +7,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   Link,
   Paper,

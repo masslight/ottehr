@@ -1,6 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
-import { LoadingButton } from '@mui/lab';
-import { Box, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { Box, Button, Chip, GridLegacy as Grid, Paper, Skeleton, Typography } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useCallback, useMemo, useState } from 'react';
@@ -242,7 +241,7 @@ export default function EditEmployeePage(): JSX.Element {
                     }}
                   >
                     {(showDialog) => (
-                      <LoadingButton
+                      <Button
                         variant="contained"
                         color="error"
                         data-testid={dataTestIds.employeesPage.deleteUserButton}
@@ -257,7 +256,7 @@ export default function EditEmployeePage(): JSX.Element {
                         onClick={showDialog}
                       >
                         Delete
-                      </LoadingButton>
+                      </Button>
                     )}
                   </ConfirmationDialog>
                 </Paper>
@@ -279,7 +278,7 @@ export default function EditEmployeePage(): JSX.Element {
                     </Typography>
                   )}
 
-                  <LoadingButton
+                  <Button
                     variant="contained"
                     color={isActive ? 'error' : 'primary'}
                     data-testid={dataTestIds.employeesPage.deactivateUserButton}
@@ -296,7 +295,7 @@ export default function EditEmployeePage(): JSX.Element {
                     }
                   >
                     {isActive ? 'Deactivate' : 'Activate'}
-                  </LoadingButton>
+                  </Button>
                 </Paper>
               )}
             </Box>

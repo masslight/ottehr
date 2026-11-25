@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Dialog,
@@ -127,7 +126,7 @@ const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): Reac
           </FormControl>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
-          <LoadingButton
+          <Button
             loading={isLoading}
             type="submit"
             variant="contained"
@@ -137,7 +136,7 @@ const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): Reac
             disabled={!formState.isValid}
           >
             Send Invite
-          </LoadingButton>
+          </Button>
           <Button onClick={onClose} variant="text" color="primary" size="medium" sx={buttonSx}>
             Cancel
           </Button>

@@ -1391,7 +1391,8 @@ describe('ClaimDetail: notes drawer', () => {
     fireEvent.change(draft, { target: { value: 'draft for the first claim' } });
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
-    await user.click(screen.getByRole('tab', { name: 'Other Claims' }));
+    // the page behind the drawer stays hidden from the accessibility tree until the drawer has slid out
+    await user.click(await screen.findByRole('tab', { name: 'Other Claims' }));
     await user.click(await screen.findByText('claim-2'));
 
     await user.click(await screen.findByRole('button', { name: 'Notes' }));

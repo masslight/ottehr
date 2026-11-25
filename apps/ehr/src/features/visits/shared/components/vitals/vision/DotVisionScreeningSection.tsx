@@ -1,4 +1,13 @@
-import { Box, Divider, FormControlLabel, Grid, Radio, RadioGroup, Typography, useTheme } from '@mui/material';
+import {
+  Box,
+  Divider,
+  FormControlLabel,
+  GridLegacy as Grid,
+  Radio,
+  RadioGroup,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { FC } from 'react';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { RoundedButton } from 'src/components/RoundedButton';

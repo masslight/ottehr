@@ -251,3 +251,15 @@ export const BILLING_INVOICE_LIMITS = {
   paymentReferenceLength: 300,
   nioInvoiceClaimCount: 100,
 } as const;
+
+export const MEDICARE_SECONDARY_REASON_OPTIONS: Record<string, string> = {
+  '12': 'Working Aged Beneficiary or Spouse with Employer Group Health Plan',
+  '13': "End-Stage Renal Disease Beneficiary in the Mandated Coordination Period with an Employer's Group Health Plan",
+  '14': 'No-fault Insurance including Auto is Primary',
+  '15': "Worker's Compensation",
+  '16': 'Public Health Service (PHS)or Other Federal Agency',
+  '41': 'Black Lung',
+  '42': "Veteran's Administration",
+  '43': 'Disabled Beneficiary Under Age 65 with Large Group Health Plan (LGHP)',
+  '47': 'Other Liability Insurance is Primary',
+} as const;

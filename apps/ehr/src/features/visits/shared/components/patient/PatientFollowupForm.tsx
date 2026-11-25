@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { Autocomplete, Box, Button, Grid, TextField } from '@mui/material';
+import { Autocomplete, Box, Button, GridLegacy as Grid, TextField } from '@mui/material';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
@@ -510,7 +509,7 @@ export default function PatientFollowupForm({
               Cancel
             </Button>
 
-            <LoadingButton
+            <Button
               variant="contained"
               type="submit"
               loading={loading}
@@ -522,7 +521,7 @@ export default function PatientFollowupForm({
               }}
             >
               Create follow-up
-            </LoadingButton>
+            </Button>
           </Box>
         </Grid>
       </Grid>

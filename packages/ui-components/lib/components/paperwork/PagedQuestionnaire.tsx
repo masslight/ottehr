@@ -8,7 +8,7 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   InputBaseComponentProps,
   InputProps,

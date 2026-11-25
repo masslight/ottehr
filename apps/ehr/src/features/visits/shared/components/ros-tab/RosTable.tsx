@@ -1,4 +1,15 @@
-import { alpha, Box, Grid, Paper, Table, TableBody, TableCell, TableHead, TableRow, useTheme } from '@mui/material';
+import {
+  alpha,
+  Box,
+  GridLegacy as Grid,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  useTheme,
+} from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { RosCard, RosItemConfig } from 'utils/lib/ottehr-config/review-of-systems/in-person.config';

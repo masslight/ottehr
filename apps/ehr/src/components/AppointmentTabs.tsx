@@ -1,7 +1,7 @@
 import { otherColors } from '@ehrTheme/colors';
 import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Grid, Tab, Typography } from '@mui/material';
+import { Box, GridLegacy as Grid, Tab, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { ReactElement, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
