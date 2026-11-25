@@ -9,10 +9,6 @@ import {
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControlLabel,
   IconButton,
   InputAdornment,
@@ -30,6 +26,7 @@ import { ChargeItemDefinition } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import { FixedSizeList, ListChildComponentProps } from 'react-window';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useGetCPTHCPCSSearch } from 'src/features/visits/shared/stores/appointment/appointment.queries';
 import {
@@ -746,338 +743,221 @@ export default function ProcedureCodes({
         </Box>
       </Paper>
 
-      <Dialog open={dialogOpen} onClose={closeDialog} maxWidth="xs" fullWidth>
-        <DialogTitle>{editIndex != null ? 'Edit Procedure Code' : 'Add Procedure Code'}</DialogTitle>
-        <DialogContent>
-          {formData.code && (
-            <Box
-              sx={{
-                mb: 1,
-                p: 1.5,
-                backgroundColor: 'grey.50',
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                {formData.code}
-              </Typography>
-              {formData.description && (
-                <Typography variant="caption" color="text.secondary">
-                  {formData.description}
-                </Typography>
-              )}
-            </Box>
-          )}
-          <Autocomplete<CptOption, false, false, true>
-            freeSolo
-            options={cptOptions}
-            getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} — ${option.display}`)}
-            inputValue={cptInputValue}
-            value={null}
-            loading={isSearchingCpt}
-            filterOptions={(x) => x}
-            onInputChange={(_e, value, reason) => {
-              setCptInputValue(value);
-              if (reason === 'input') {
-                debounce(() => setCptSearchTerm(value));
-              }
-            }}
-            onChange={(_e, value) => {
-              if (value && typeof value !== 'string') {
-                setFormData((prev) => ({ ...prev, code: value.code, description: value.display }));
-              } else if (typeof value === 'string') {
-                setFormData((prev) => ({ ...prev, code: value, description: '' }));
-              } else {
-                setFormData((prev) => ({ ...prev, code: '', description: '' }));
-              }
-              setCptInputValue('');
-            }}
-            noOptionsText={
-              cptSearchTerm.length === 0
-                ? 'Start typing to search'
-                : 'No codes found — type a custom code and press Enter'
-            }
-            handleHomeEndKeys
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={formData.code ? 'Change Code (CPT/HCPCS)' : 'Code (CPT/HCPCS)'}
-                required={!formData.code}
-                margin="dense"
-                placeholder="Search or enter a custom code..."
-                helperText={!formData.code ? 'Search for a standard code or type any code and press Enter' : undefined}
-                InputProps={{
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {isSearchingCpt ? <CircularProgress size={18} /> : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                }}
-              />
-            )}
-            renderOption={(props, option) => (
-              <li {...props} key={option.code}>
-                <Box>
-                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                    {option.code}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {option.display}
-                  </Typography>
-                </Box>
-              </li>
-            )}
-            isOptionEqualToValue={(option, value) => option.code === value.code}
-          />
-          <TextField
-            label="Description"
-            value={formData.description}
-            onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-            fullWidth
-            margin="dense"
-            placeholder="e.g. Office visit, new patient"
-          />
-          <TextField
-            label="Modifier"
-            value={formData.modifier}
-            onChange={(e) => setFormData((prev) => ({ ...prev, modifier: e.target.value }))}
-            fullWidth
-            margin="dense"
-            placeholder="e.g. 25"
-            data-testid={dataTestIds.procedureCodes.modifierInput}
-          />
-          <TextField
-            label="Amount"
-            value={formData.amount}
-            onChange={(e) => setFormData((prev) => ({ ...prev, amount: e.target.value }))}
-            fullWidth
-            required
-            margin="dense"
-            type="number"
-            InputProps={{
-              startAdornment: <InputAdornment position="start">$</InputAdornment>,
-            }}
-            inputProps={{ step: '0.01', min: '0' }}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeDialog} sx={{ textTransform: 'none' }}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            disabled={!formData.code || !formData.amount || isSaving}
-            sx={{ textTransform: 'none' }}
-            data-testid={dataTestIds.procedureCodes.saveButton}
-          >
-            {isSaving ? 'Saving...' : editIndex != null ? 'Update' : 'Add'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog open={downloadDialogOpen} onClose={closeDownloadDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>Download CSV</DialogTitle>
-        <DialogContent>
-          <RadioGroup value={downloadMode} onChange={(e) => setDownloadMode(e.target.value as 'latest' | 'delta')}>
-            <FormControlLabel value="latest" control={<Radio />} label="Latest version (all procedure codes)" />
-            <FormControlLabel
-              value="delta"
-              control={<Radio />}
-              label={
-                loadingHistory
-                  ? 'Delta since a previous version (loading...)'
-                  : historyError
-                  ? 'Delta since a previous version (unavailable)'
-                  : !loadingHistory && versionHistory.length === 0
-                  ? 'Delta since a previous version (no prior versions)'
-                  : 'Delta since a previous version'
-              }
-              disabled={loadingHistory || historyError || versionHistory.length === 0}
-            />
-          </RadioGroup>
-
-          {loadingHistory && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, pl: 4 }}>
-              <CircularProgress size={16} />
-              <Typography variant="body2" color="text.secondary">
-                Loading version history...
-              </Typography>
-            </Box>
-          )}
-
-          {downloadMode === 'delta' && !loadingHistory && (
-            <Box sx={{ mt: 1 }}>
-              <TextField
-                select
-                label="Compare against version"
-                value={selectedVersionId}
-                onChange={(e) => setSelectedVersionId(e.target.value)}
-                fullWidth
-                size="small"
-                sx={{ mb: 1 }}
-              >
-                {versionHistory.map((v) => (
-                  <MenuItem key={v.versionId} value={v.versionId}>
-                    {new Date(v.timestamp).toLocaleString()}
-                  </MenuItem>
-                ))}
-              </TextField>
-
-              {loadingDelta && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
-                  <CircularProgress size={18} />
-                  <Typography variant="body2" color="text.secondary">
-                    Computing changes...
-                  </Typography>
-                </Box>
-              )}
-
-              {!loadingDelta && selectedVersionId && deltaError && (
-                <Typography variant="body2" color="error" sx={{ py: 1 }}>
-                  Error loading the selected version. Please try again.
-                </Typography>
-              )}
-
-              {!loadingDelta && selectedVersion && deltaRows.length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-                  No changes found between the selected version and the current version.
-                </Typography>
-              )}
-
-              {!loadingDelta && deltaRows.length > 0 && (
-                <Box
-                  sx={{
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    maxHeight: 200,
-                    overflow: 'auto',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
-                      backgroundColor: 'grey.50',
-                      px: 1.5,
-                      py: 0.75,
-                    }}
-                  >
-                    <Typography variant="caption" sx={{ width: '25%', fontWeight: 600 }}>
-                      Status
-                    </Typography>
-                    <Typography variant="caption" sx={{ width: '25%', fontWeight: 600 }}>
-                      Code
-                    </Typography>
-                    <Typography variant="caption" sx={{ width: '15%', fontWeight: 600 }}>
-                      Modifier
-                    </Typography>
-                    <Typography variant="caption" sx={{ width: '17.5%', fontWeight: 600 }}>
-                      Old Amt
-                    </Typography>
-                    <Typography variant="caption" sx={{ width: '17.5%', fontWeight: 600 }}>
-                      New Amt
-                    </Typography>
-                  </Box>
-                  {deltaRows.map((dr, idx) => (
-                    <Box
-                      key={idx}
-                      sx={{
-                        display: 'flex',
-                        px: 1.5,
-                        py: 0.5,
-                        borderBottom: idx < deltaRows.length - 1 ? '1px solid' : 'none',
-                        borderColor: 'divider',
-                        backgroundColor:
-                          dr.status === 'Added' ? '#E8F5E9' : dr.status === 'Removed' ? '#FFEBEE' : '#FFF8E1',
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ width: '25%', fontWeight: 500 }}>
-                        {dr.status}
-                      </Typography>
-                      <Typography variant="caption" sx={{ width: '25%', fontFamily: 'monospace' }}>
-                        {dr.code}
-                      </Typography>
-                      <Typography variant="caption" sx={{ width: '15%', fontFamily: 'monospace' }}>
-                        {dr.modifier || '—'}
-                      </Typography>
-                      <Typography variant="caption" sx={{ width: '17.5%' }}>
-                        {dr.oldAmount != null ? `$${dr.oldAmount.toFixed(2)}` : '—'}
-                      </Typography>
-                      <Typography variant="caption" sx={{ width: '17.5%' }}>
-                        {dr.newAmount != null ? `$${dr.newAmount.toFixed(2)}` : '—'}
-                      </Typography>
-                    </Box>
-                  ))}
-                  <Box
-                    sx={{
-                      px: 1.5,
-                      py: 0.5,
-                      backgroundColor: 'grey.50',
-                      borderTop: '1px solid',
-                      borderColor: 'divider',
-                    }}
-                  >
-                    <Typography variant="caption" color="text.secondary">
-                      {deltaRows.length} change{deltaRows.length !== 1 ? 's' : ''}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeDownloadDialog} sx={{ textTransform: 'none' }}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={downloadMode === 'latest' ? handleDownloadFeeSchedule : handleDownloadDelta}
-            disabled={downloadMode === 'delta' && (loadingDelta || deltaRows.length === 0)}
-            sx={{ textTransform: 'none' }}
-          >
-            Download
-          </Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog
-        open={uploadPreviewOpen}
-        onClose={closeUploadPreview}
-        maxWidth="sm"
-        fullWidth
-        data-testid={dataTestIds.procedureCodes.uploadPreviewDialog}
+      <AppDialog
+        variant="form"
+        size="s"
+        open={dialogOpen}
+        onClose={closeDialog}
+        title={editIndex != null ? 'Edit Procedure Code' : 'Add Procedure Code'}
+        primary={{
+          label: editIndex != null ? 'Update' : 'Add',
+          onClick: handleSave,
+          disabled: !formData.code || !formData.amount || isSaving,
+          'data-testid': dataTestIds.procedureCodes.saveButton,
+        }}
+        dismiss={{}}
       >
-        <DialogTitle>Upload Preview</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            Parsed <strong>{uploadedCodes.length}</strong> code(s) from CSV.
-          </Typography>
-
-          {uploadDelta.length === 0 && uploadedCodes.length > 0 && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              No changes detected — all uploaded codes match the existing list.
+        {formData.code && (
+          <Box
+            sx={{
+              mb: 1,
+              p: 1.5,
+              backgroundColor: 'grey.50',
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
+              {formData.code}
             </Typography>
-          )}
-
-          {uploadDelta.length > 0 && (
-            <>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {uploadDelta.filter((d) => d.status === 'Added').length} added,{' '}
-                {uploadDelta.filter((d) => d.status === 'Changed').length} changed,{' '}
-                {uploadDelta.filter((d) => d.status === 'Removed').length} removed, {uploadUnchangedCount} unchanged
+            {formData.description && (
+              <Typography variant="caption" color="text.secondary">
+                {formData.description}
               </Typography>
+            )}
+          </Box>
+        )}
+        <Autocomplete<CptOption, false, false, true>
+          freeSolo
+          options={cptOptions}
+          getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} — ${option.display}`)}
+          inputValue={cptInputValue}
+          value={null}
+          loading={isSearchingCpt}
+          filterOptions={(x) => x}
+          onInputChange={(_e, value, reason) => {
+            setCptInputValue(value);
+            if (reason === 'input') {
+              debounce(() => setCptSearchTerm(value));
+            }
+          }}
+          onChange={(_e, value) => {
+            if (value && typeof value !== 'string') {
+              setFormData((prev) => ({ ...prev, code: value.code, description: value.display }));
+            } else if (typeof value === 'string') {
+              setFormData((prev) => ({ ...prev, code: value, description: '' }));
+            } else {
+              setFormData((prev) => ({ ...prev, code: '', description: '' }));
+            }
+            setCptInputValue('');
+          }}
+          noOptionsText={
+            cptSearchTerm.length === 0
+              ? 'Start typing to search'
+              : 'No codes found — type a custom code and press Enter'
+          }
+          handleHomeEndKeys
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={formData.code ? 'Change Code (CPT/HCPCS)' : 'Code (CPT/HCPCS)'}
+              required={!formData.code}
+              margin="dense"
+              placeholder="Search or enter a custom code..."
+              helperText={!formData.code ? 'Search for a standard code or type any code and press Enter' : undefined}
+              InputProps={{
+                ...params.InputProps,
+                endAdornment: (
+                  <>
+                    {isSearchingCpt ? <CircularProgress size={18} /> : null}
+                    {params.InputProps.endAdornment}
+                  </>
+                ),
+              }}
+            />
+          )}
+          renderOption={(props, option) => (
+            <li {...props} key={option.code}>
+              <Box>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
+                  {option.code}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {option.display}
+                </Typography>
+              </Box>
+            </li>
+          )}
+          isOptionEqualToValue={(option, value) => option.code === value.code}
+        />
+        <TextField
+          label="Description"
+          value={formData.description}
+          onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+          fullWidth
+          margin="dense"
+          placeholder="e.g. Office visit, new patient"
+        />
+        <TextField
+          label="Modifier"
+          value={formData.modifier}
+          onChange={(e) => setFormData((prev) => ({ ...prev, modifier: e.target.value }))}
+          fullWidth
+          margin="dense"
+          placeholder="e.g. 25"
+          data-testid={dataTestIds.procedureCodes.modifierInput}
+        />
+        <TextField
+          label="Amount"
+          value={formData.amount}
+          onChange={(e) => setFormData((prev) => ({ ...prev, amount: e.target.value }))}
+          fullWidth
+          required
+          margin="dense"
+          type="number"
+          InputProps={{
+            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+          }}
+          inputProps={{ step: '0.01', min: '0' }}
+        />
+      </AppDialog>
+      <AppDialog
+        variant="form"
+        size="m"
+        open={downloadDialogOpen}
+        onClose={closeDownloadDialog}
+        title="Download CSV"
+        primary={{
+          label: 'Download',
+          onClick: downloadMode === 'latest' ? handleDownloadFeeSchedule : handleDownloadDelta,
+          disabled: downloadMode === 'delta' && (loadingDelta || deltaRows.length === 0),
+        }}
+        dismiss={{}}
+      >
+        <RadioGroup value={downloadMode} onChange={(e) => setDownloadMode(e.target.value as 'latest' | 'delta')}>
+          <FormControlLabel value="latest" control={<Radio />} label="Latest version (all procedure codes)" />
+          <FormControlLabel
+            value="delta"
+            control={<Radio />}
+            label={
+              loadingHistory
+                ? 'Delta since a previous version (loading...)'
+                : historyError
+                ? 'Delta since a previous version (unavailable)'
+                : !loadingHistory && versionHistory.length === 0
+                ? 'Delta since a previous version (no prior versions)'
+                : 'Delta since a previous version'
+            }
+            disabled={loadingHistory || historyError || versionHistory.length === 0}
+          />
+        </RadioGroup>
+
+        {loadingHistory && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, pl: 4 }}>
+            <CircularProgress size={16} />
+            <Typography variant="body2" color="text.secondary">
+              Loading version history...
+            </Typography>
+          </Box>
+        )}
+
+        {downloadMode === 'delta' && !loadingHistory && (
+          <Box sx={{ mt: 1 }}>
+            <TextField
+              select
+              label="Compare against version"
+              value={selectedVersionId}
+              onChange={(e) => setSelectedVersionId(e.target.value)}
+              fullWidth
+              size="small"
+              sx={{ mb: 1 }}
+            >
+              {versionHistory.map((v) => (
+                <MenuItem key={v.versionId} value={v.versionId}>
+                  {new Date(v.timestamp).toLocaleString()}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            {loadingDelta && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                <CircularProgress size={18} />
+                <Typography variant="body2" color="text.secondary">
+                  Computing changes...
+                </Typography>
+              </Box>
+            )}
+
+            {!loadingDelta && selectedVersionId && deltaError && (
+              <Typography variant="body2" color="error" sx={{ py: 1 }}>
+                Error loading the selected version. Please try again.
+              </Typography>
+            )}
+
+            {!loadingDelta && selectedVersion && deltaRows.length === 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                No changes found between the selected version and the current version.
+              </Typography>
+            )}
+
+            {!loadingDelta && deltaRows.length > 0 && (
               <Box
                 sx={{
                   border: '1px solid',
                   borderColor: 'divider',
                   borderRadius: 1,
-                  maxHeight: 300,
+                  maxHeight: 200,
                   overflow: 'auto',
                 }}
               >
@@ -1107,14 +987,14 @@ export default function ProcedureCodes({
                     New Amt
                   </Typography>
                 </Box>
-                {uploadDelta.map((dr, idx) => (
+                {deltaRows.map((dr, idx) => (
                   <Box
                     key={idx}
                     sx={{
                       display: 'flex',
                       px: 1.5,
                       py: 0.5,
-                      borderBottom: idx < uploadDelta.length - 1 ? '1px solid' : 'none',
+                      borderBottom: idx < deltaRows.length - 1 ? '1px solid' : 'none',
                       borderColor: 'divider',
                       backgroundColor:
                         dr.status === 'Added' ? '#E8F5E9' : dr.status === 'Removed' ? '#FFEBEE' : '#FFF8E1',
@@ -1137,36 +1017,135 @@ export default function ProcedureCodes({
                     </Typography>
                   </Box>
                 ))}
+                <Box
+                  sx={{
+                    px: 1.5,
+                    py: 0.5,
+                    backgroundColor: 'grey.50',
+                    borderTop: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Typography variant="caption" color="text.secondary">
+                    {deltaRows.length} change{deltaRows.length !== 1 ? 's' : ''}
+                  </Typography>
+                </Box>
               </Box>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeUploadPreview} sx={{ textTransform: 'none' }}>
-            Cancel
-          </Button>
-          <Button
-            variant="outlined"
-            onClick={handleImportDelta}
-            disabled={
-              bulkAdding || uploadDelta.filter((d) => d.status === 'Added' || d.status === 'Changed').length === 0
-            }
-            sx={{ textTransform: 'none' }}
-            data-testid={dataTestIds.procedureCodes.importDeltaButton}
-          >
-            {bulkAdding ? 'Importing...' : 'Import Delta'}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleReplaceAll}
-            disabled={bulkAdding}
-            sx={{ textTransform: 'none' }}
-            data-testid={dataTestIds.procedureCodes.replaceAllButton}
-          >
-            {bulkAdding ? 'Replacing...' : 'Replace All'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+            )}
+          </Box>
+        )}
+      </AppDialog>
+      {/* Two ways to proceed (Import Delta, Replace All), so this is an XS form rather than a confirm. */}
+      <AppDialog
+        variant="form"
+        size="xs"
+        open={uploadPreviewOpen}
+        onClose={closeUploadPreview}
+        title="Upload Preview"
+        data-testid={dataTestIds.procedureCodes.uploadPreviewDialog}
+        actions={[
+          {
+            label: 'Import Delta',
+            onClick: handleImportDelta,
+            disabled:
+              bulkAdding || uploadDelta.filter((d) => d.status === 'Added' || d.status === 'Changed').length === 0,
+            'data-testid': dataTestIds.procedureCodes.importDeltaButton,
+          },
+        ]}
+        primary={{
+          label: 'Replace All',
+          onClick: handleReplaceAll,
+          disabled: bulkAdding,
+          'data-testid': dataTestIds.procedureCodes.replaceAllButton,
+        }}
+        dismiss={{}}
+      >
+        <Typography variant="body2" sx={{ mb: 1 }}>
+          Parsed <strong>{uploadedCodes.length}</strong> code(s) from CSV.
+        </Typography>
+
+        {uploadDelta.length === 0 && uploadedCodes.length > 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            No changes detected — all uploaded codes match the existing list.
+          </Typography>
+        )}
+
+        {uploadDelta.length > 0 && (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              {uploadDelta.filter((d) => d.status === 'Added').length} added,{' '}
+              {uploadDelta.filter((d) => d.status === 'Changed').length} changed,{' '}
+              {uploadDelta.filter((d) => d.status === 'Removed').length} removed, {uploadUnchangedCount} unchanged
+            </Typography>
+            <Box
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+                maxHeight: 300,
+                overflow: 'auto',
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  backgroundColor: 'grey.50',
+                  px: 1.5,
+                  py: 0.75,
+                }}
+              >
+                <Typography variant="caption" sx={{ width: '25%', fontWeight: 600 }}>
+                  Status
+                </Typography>
+                <Typography variant="caption" sx={{ width: '25%', fontWeight: 600 }}>
+                  Code
+                </Typography>
+                <Typography variant="caption" sx={{ width: '15%', fontWeight: 600 }}>
+                  Modifier
+                </Typography>
+                <Typography variant="caption" sx={{ width: '17.5%', fontWeight: 600 }}>
+                  Old Amt
+                </Typography>
+                <Typography variant="caption" sx={{ width: '17.5%', fontWeight: 600 }}>
+                  New Amt
+                </Typography>
+              </Box>
+              {uploadDelta.map((dr, idx) => (
+                <Box
+                  key={idx}
+                  sx={{
+                    display: 'flex',
+                    px: 1.5,
+                    py: 0.5,
+                    borderBottom: idx < uploadDelta.length - 1 ? '1px solid' : 'none',
+                    borderColor: 'divider',
+                    backgroundColor:
+                      dr.status === 'Added' ? '#E8F5E9' : dr.status === 'Removed' ? '#FFEBEE' : '#FFF8E1',
+                  }}
+                >
+                  <Typography variant="caption" sx={{ width: '25%', fontWeight: 500 }}>
+                    {dr.status}
+                  </Typography>
+                  <Typography variant="caption" sx={{ width: '25%', fontFamily: 'monospace' }}>
+                    {dr.code}
+                  </Typography>
+                  <Typography variant="caption" sx={{ width: '15%', fontFamily: 'monospace' }}>
+                    {dr.modifier || '—'}
+                  </Typography>
+                  <Typography variant="caption" sx={{ width: '17.5%' }}>
+                    {dr.oldAmount != null ? `$${dr.oldAmount.toFixed(2)}` : '—'}
+                  </Typography>
+                  <Typography variant="caption" sx={{ width: '17.5%' }}>
+                    {dr.newAmount != null ? `$${dr.newAmount.toFixed(2)}` : '—'}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </>
+        )}
+      </AppDialog>
     </>
   );
 }

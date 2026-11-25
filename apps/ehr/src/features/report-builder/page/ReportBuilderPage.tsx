@@ -7,10 +7,6 @@ import {
   Button,
   CircularProgress,
   Collapse,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   IconButton,
   InputLabel,
@@ -425,58 +421,61 @@ export default function ReportBuilderPage(): React.ReactElement {
           )}
         </Box>
 
-        <Dialog open={rb.saveDialogOpen} onClose={() => rb.setSaveDialogOpen(false)} fullWidth maxWidth="xs">
-          <DialogTitle>Save report</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              This saves the dataset, the date-range criteria, and the view — not the data. Opening it later re-fetches
-              fresh data for the criteria and re-renders this report. It appears as a tile under Saved reports for
-              everyone with report access.
-            </Typography>
-            <TextField
-              autoFocus
-              fullWidth
-              size="small"
-              label="Report name"
-              value={rb.savedName}
-              onChange={(e) => rb.setSavedName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && rb.savedName.trim() && !rb.saving) {
-                  e.preventDefault();
-                  void rb.handleSave(rb.loadedSavedId ? 'update' : 'new');
-                }
-              }}
-            />
-            <TextField
-              fullWidth
-              size="small"
-              multiline
-              minRows={2}
-              label="Description (optional)"
-              placeholder="A sentence or two describing what this report shows."
-              value={rb.savedDescription}
-              onChange={(e) => rb.setSavedDescription(e.target.value)}
-              sx={{ mt: 2 }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => rb.setSaveDialogOpen(false)} disabled={rb.saving}>
-              Cancel
-            </Button>
-            {rb.loadedSavedId && (
-              <Button onClick={() => void rb.handleSave('new')} disabled={rb.saving || !rb.savedName.trim()}>
-                Save as new
-              </Button>
-            )}
-            <Button
-              variant="contained"
-              onClick={() => void rb.handleSave(rb.loadedSavedId ? 'update' : 'new')}
-              disabled={rb.saving || !rb.savedName.trim()}
-            >
-              {rb.saving ? <CircularProgress size={18} /> : rb.loadedSavedId ? 'Update' : 'Save'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+        <AppDialog
+          variant="form"
+          size="s"
+          open={rb.saveDialogOpen}
+          onClose={() => rb.setSaveDialogOpen(false)}
+          title="Save Report"
+          actions={
+            rb.loadedSavedId
+              ? [
+                  {
+                    label: 'Save as New',
+                    onClick: () => void rb.handleSave('new'),
+                    disabled: rb.saving || !rb.savedName.trim(),
+                  },
+                ]
+              : undefined
+          }
+          primary={{
+            label: rb.loadedSavedId ? 'Update' : 'Save',
+            onClick: () => void rb.handleSave(rb.loadedSavedId ? 'update' : 'new'),
+            loading: rb.saving,
+            disabled: !rb.savedName.trim(),
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            This saves the dataset, the date-range criteria, and the view — not the data. Opening it later re-fetches
+            fresh data for the criteria and re-renders this report. It appears as a tile under Saved reports for
+            everyone with report access.
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            label="Report name"
+            value={rb.savedName}
+            onChange={(e) => rb.setSavedName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && rb.savedName.trim() && !rb.saving) {
+                e.preventDefault();
+                void rb.handleSave(rb.loadedSavedId ? 'update' : 'new');
+              }
+            }}
+          />
+          <TextField
+            fullWidth
+            size="small"
+            multiline
+            minRows={2}
+            label="Description (optional)"
+            placeholder="A sentence or two describing what this report shows."
+            value={rb.savedDescription}
+            onChange={(e) => rb.setSavedDescription(e.target.value)}
+            sx={{ mt: 2 }}
+          />
+        </AppDialog>
       </>
     </PageContainer>
   );

@@ -1,16 +1,10 @@
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
-  Button,
   Chip,
   CircularProgress,
   Collapse,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   IconButton,
   MenuItem,
   Select,
@@ -22,6 +16,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getTemplateDetail } from 'src/api/api';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
 import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -940,12 +935,6 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
     onApply(payload, options);
   };
 
-  const buttonSx = {
-    fontWeight: 500,
-    textTransform: 'none',
-    borderRadius: 6,
-  };
-
   const allSkipped = sectionsWithContent.length > 0 && sectionsWithContent.every((s) => actions[s.key] === 'skip');
 
   // Appending external lab orders requires a confirmed payment method before
@@ -976,22 +965,24 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
   })();
 
   return (
-    <Dialog
+    <AppDialog
+      variant="form"
+      size="m"
       open={open}
-      onClose={isApplying ? undefined : onCancel}
-      disableScrollLock
-      maxWidth="md"
-      fullWidth
-      sx={{
-        '.MuiPaper-root': {
-          padding: 2,
-        },
+      onClose={onCancel}
+      title={`Apply Template: ${templateName}`}
+      primary={{
+        label: 'Apply Template',
+        onClick: handleApply,
+        loading: isApplying,
+        disabled:
+          detailQuery.isLoading ||
+          !!detailQuery.error ||
+          sectionsWithContent.length === 0 ||
+          allSkipped ||
+          externalLabsRequirementUnmet,
       }}
     >
-      <DialogTitle variant="h4" color="primary.dark">
-        Apply Template: {templateName}
-      </DialogTitle>
-      <DialogContent>
         <Typography variant="body1" sx={{ color: 'text.primary', mb: 2 }}>
           Review what will be applied and choose how each section should be merged with the current note.
         </Typography>
@@ -1045,28 +1036,6 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
             ))}
           </Stack>
         )}
-      </DialogContent>
-      <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>
-        <Button variant="outlined" onClick={onCancel} size="medium" sx={buttonSx} disabled={isApplying}>
-          Cancel
-        </Button>
-        <LoadingButton
-          variant="contained"
-          onClick={handleApply}
-          size="medium"
-          sx={buttonSx}
-          loading={isApplying}
-          disabled={
-            detailQuery.isLoading ||
-            !!detailQuery.error ||
-            sectionsWithContent.length === 0 ||
-            allSkipped ||
-            externalLabsRequirementUnmet
-          }
-        >
-          Apply Template
-        </LoadingButton>
-      </DialogActions>
-    </Dialog>
+    </AppDialog>
   );
 };

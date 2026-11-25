@@ -277,9 +277,7 @@ export default function QuickPickEditor<T extends { id?: string }>({
               multiline={field.multiline}
               rows={field.multiline ? field.rows ?? 4 : undefined}
               inputProps={field.maxLength ? { maxLength: field.maxLength } : undefined}
-              helperText={
-                field.maxLength ? `${(fieldValues[field.key] ?? '').length} / ${field.maxLength}` : undefined
-              }
+              helperText={field.maxLength ? `${(fieldValues[field.key] ?? '').length} / ${field.maxLength}` : undefined}
             />
           )
         )}

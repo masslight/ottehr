@@ -170,48 +170,48 @@ export const CallSettings: FC<CallSettingsProps> = ({ onClose }) => {
       primary={{ label: 'Save Changes', onClick: handleSave }}
       dismiss={{ onClick: () => void handleClose() }}
     >
-        <FormControl fullWidth margin="normal">
-          <InputLabel>Camera</InputLabel>
-          <Select value={selectedVideoPreviewDeviceId} onChange={handleVideoDeviceChange} label="Camera">
-            {videoDevices.map((device) => (
-              <MenuItem key={device.deviceId} value={device.deviceId}>
-                {device.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      <FormControl fullWidth margin="normal">
+        <InputLabel>Camera</InputLabel>
+        <Select value={selectedVideoPreviewDeviceId} onChange={handleVideoDeviceChange} label="Camera">
+          {videoDevices.map((device) => (
+            <MenuItem key={device.deviceId} value={device.deviceId}>
+              {device.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
 
-        <FormControl fullWidth margin="normal" sx={{ mb: 2 }}>
-          <InputLabel>Microphone</InputLabel>
-          <Select value={selectedAudioDevice?.toString()} onChange={handleAudioDeviceChange} label="Microphone">
-            {audioDevices.map((device) => (
-              <MenuItem key={device.deviceId} value={device.deviceId}>
-                {device.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      <FormControl fullWidth margin="normal" sx={{ mb: 2 }}>
+        <InputLabel>Microphone</InputLabel>
+        <Select value={selectedAudioDevice?.toString()} onChange={handleAudioDeviceChange} label="Microphone">
+          {audioDevices.map((device) => (
+            <MenuItem key={device.deviceId} value={device.deviceId}>
+              {device.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
 
-        <video
-          ref={videoPreviewRef}
-          autoPlay
-          muted
-          playsInline
-          style={{
-            width: '100%',
-            borderRadius: '10px',
-          }}
-        ></video>
+      <video
+        ref={videoPreviewRef}
+        autoPlay
+        muted
+        playsInline
+        style={{
+          width: '100%',
+          borderRadius: '10px',
+        }}
+      ></video>
 
-        <VirtualBackgroundSettings
-          isBlurSupported={isBackgroundBlurSupported}
-          isReplacementSupported={isBackgroundReplacementSupported}
-        />
+      <VirtualBackgroundSettings
+        isBlurSupported={isBackgroundBlurSupported}
+        isReplacementSupported={isBackgroundReplacementSupported}
+      />
 
-        <Typography sx={{ mt: 3 }}>
-          Functional microphone, sound and camera are required to proceed with the visit. If something is not working
-          for you, please contact our support team.
-        </Typography>
+      <Typography sx={{ mt: 3 }}>
+        Functional microphone, sound and camera are required to proceed with the visit. If something is not working for
+        you, please contact our support team.
+      </Typography>
     </AppDialog>
   );
 };

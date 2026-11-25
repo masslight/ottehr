@@ -28,7 +28,7 @@ const Host = (): ReactElement => {
 export default defineStory({
   title: 'Delete lab order',
   source: 'apps/ehr/src/features/common/useDeleteCommonLabOrderDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'External labs / in-house labs order tables → delete (trash) icon on an order row',
   render: () => <Host />,

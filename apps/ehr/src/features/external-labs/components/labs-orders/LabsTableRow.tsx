@@ -5,7 +5,7 @@ import { Box, Button, TableCell, TableRow, Tooltip, Typography, useTheme } from 
 import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
-import DeleteDialog from 'src/components/dialogs/DeleteDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { PSC_LOCALE } from 'utils/lib/types/data/labs/labs.constants';
 import {
@@ -260,16 +260,15 @@ export const LabsTableRow = ({
           )
         )}
       </TableRow>
-      <DeleteDialog
+      <AppDialog
+        variant="destructive"
         open={rejectAbnDialogOpen}
-        handleClose={() => setRejectAbnDialogOpen(false)}
+        onClose={() => setRejectAbnDialogOpen(false)}
         title="Mark as Rejected ABN"
-        description={rejectAbnDialogDescription}
-        closeButtonText="Keep"
-        handleDelete={rejectAbn}
-        deleteButtonText={'Mark as Rejected ABN'}
-        loadingDelete={rejectingAbn}
-      ></DeleteDialog>
+        primary={{ label: 'Mark as Rejected ABN', onClick: rejectAbn, loading: rejectingAbn }}
+      >
+        {rejectAbnDialogDescription}
+      </AppDialog>
     </>
   );
 };

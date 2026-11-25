@@ -8,10 +8,6 @@ import {
   Box,
   Button,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   Grid,
   InputLabel,
@@ -30,6 +26,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { CHARGE_MASTERS_URL, FEE_SCHEDULES_URL } from 'src/features/admin/adminRoutes';
 import { useListChargeMastersQuery } from 'src/rcm/state/charge-masters/charge-master.queries';
 import { CreateEmployerInput, UpdateEmployerInput } from 'src/rcm/state/employers/employers.api';
@@ -262,7 +259,6 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
   };
 
   const isSubmitting = createEmployerMutation.isPending || updateEmployerMutation.isPending;
-  const pillButtonSx = { borderRadius: 999, textTransform: 'none' };
 
   const onSubmit = async (data: EmployerFormState): Promise<void> => {
     if (isEditMode && !isDirty) {
@@ -350,207 +346,223 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
   };
 
   return (
-    <Dialog open={open} onClose={resetAndClose} maxWidth="sm" fullWidth sx={{ '.MuiPaper-root': { padding: 2 } }}>
-      <DialogTitle
-        variant="h4"
-        color="primary.dark"
-        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 3 }}
-      >
-        {isEditMode ? 'Employer Details' : 'Add Employer'}
-        {isEditMode && employer?.id && (
+    <AppDialog
+      variant="form"
+      size="s"
+      open={open}
+      onClose={resetAndClose}
+      title={isEditMode ? 'Employer Details' : 'Add Employer'}
+      busy={isSubmitting}
+      primary={{
+        label: isEditMode ? (isDirty ? 'Save' : 'Done') : 'Add',
+        onClick: () => handleSubmit(onSubmit)(),
+      }}
+      dismiss={{}}
+      actions={
+        isEditMode && employer?.id
+          ? [
+              {
+                label: form.active ? 'Deactivate' : 'Activate',
+                onClick: handleToggleActivation,
+                tone: form.active ? 'error' : undefined,
+              },
+            ]
+          : undefined
+      }
+    >
+      {isEditMode && employer?.id && (
+        <Box sx={{ display: 'flex', mb: 1 }}>
           <BooleanStateChip label={form.active ? 'ACTIVE' : 'INACTIVE'} state={form.active} />
-        )}
-      </DialogTitle>
-      <DialogContent>
-        <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
-          <Grid item xs={12}>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Employer name"
-              fullWidth
-              size="small"
-              required
-              error={!!errors.name}
-              helperText={errors.name?.message ?? ''}
-              {...register('name', {
-                required: 'Employer name is required',
-                validate: (v) => !!v.trim() || 'Employer name is required',
-              })}
+        </Box>
+      )}
+      <Grid container spacing={1.5}>
+        <Grid item xs={12}>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Employer name"
+            fullWidth
+            size="small"
+            required
+            error={!!errors.name}
+            helperText={errors.name?.message ?? ''}
+            {...register('name', {
+              required: 'Employer name is required',
+              validate: (v) => !!v.trim() || 'Employer name is required',
+            })}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <FormControl fullWidth margin="dense">
+            <InputLabel id="add-employer-category">Category</InputLabel>
+            <Controller
+              name="category"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  labelId="add-employer-category"
+                  input={<OutlinedInput label="Category" />}
+                  size="small"
+                  {...field}
+                >
+                  <MenuItem value="Occupational Medicine">Occupational Medicine</MenuItem>
+                </Select>
+              )}
             />
-          </Grid>
-          <Grid item xs={12}>
-            <FormControl fullWidth margin="dense">
-              <InputLabel id="add-employer-category">Category</InputLabel>
-              <Controller
-                name="category"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    labelId="add-employer-category"
-                    input={<OutlinedInput label="Category" />}
-                    size="small"
-                    {...field}
-                  >
-                    <MenuItem value="Occupational Medicine">Occupational Medicine</MenuItem>
-                  </Select>
-                )}
-              />
-            </FormControl>
-          </Grid>
+          </FormControl>
+        </Grid>
 
-          <Grid item xs={12}>
-            <Accordion
-              disableGutters
-              elevation={0}
-              expanded={addressExpanded}
-              onChange={(_, expanded) => setAddressExpanded(expanded)}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0, m: '0px' }}
+        <Grid item xs={12}>
+          <Accordion
+            disableGutters
+            elevation={0}
+            expanded={addressExpanded}
+            onChange={(_, expanded) => setAddressExpanded(expanded)}
+            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0, m: '0px' }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon fontSize="small" />}
+              sx={{ px: 0, minHeight: 'unset', '.MuiAccordionSummary-content': { my: '0px' } }}
             >
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon fontSize="small" />}
-                sx={{ px: 0, minHeight: 'unset', '.MuiAccordionSummary-content': { my: '0px' } }}
-              >
-                <Typography variant="subtitle2">Address (optional)</Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 0 }}>
-                <Grid container spacing={0.5}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      margin="dense"
-                      label="Address line 1"
-                      fullWidth
-                      size="small"
-                      {...register('addressLine1')}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      margin="dense"
-                      label="Address line 2"
-                      fullWidth
-                      size="small"
-                      {...register('addressLine2')}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={5}>
-                    <TextField margin="dense" label="City" fullWidth size="small" {...register('city')} />
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <TextField margin="dense" label="State" fullWidth size="small" {...register('state')} />
-                  </Grid>
-                  <Grid item xs={6} sm={4}>
-                    <TextField
-                      margin="dense"
-                      label="Postal code"
-                      fullWidth
-                      size="small"
-                      placeholder="12345 or 12345-6789"
-                      {...register('postalCode')}
-                    />
-                  </Grid>
+              <Typography variant="subtitle2">Address (optional)</Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 0 }}>
+              <Grid container spacing={0.5}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    margin="dense"
+                    label="Address line 1"
+                    fullWidth
+                    size="small"
+                    {...register('addressLine1')}
+                  />
                 </Grid>
-              </AccordionDetails>
-            </Accordion>
-          </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    margin="dense"
+                    label="Address line 2"
+                    fullWidth
+                    size="small"
+                    {...register('addressLine2')}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={5}>
+                  <TextField margin="dense" label="City" fullWidth size="small" {...register('city')} />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField margin="dense" label="State" fullWidth size="small" {...register('state')} />
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <TextField
+                    margin="dense"
+                    label="Postal code"
+                    fullWidth
+                    size="small"
+                    placeholder="12345 or 12345-6789"
+                    {...register('postalCode')}
+                  />
+                </Grid>
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
+        </Grid>
 
+        <Grid item xs={12}>
+          <Accordion
+            disableGutters
+            elevation={0}
+            expanded={contactExpanded}
+            onChange={(_, expanded) => setContactExpanded(expanded)}
+            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0, m: '2px' }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon fontSize="small" />}
+              sx={{ px: 0, minHeight: 'unset', '.MuiAccordionSummary-content': { my: '2px' } }}
+            >
+              <Typography variant="subtitle2">Contact Details (optional)</Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 0 }}>
+              <Grid container spacing={0.5}>
+                <Grid item xs={12} sm={4}>
+                  <TextField margin="dense" label="Phone" fullWidth size="small" {...register('phone')} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField margin="dense" label="Fax" fullWidth size="small" {...register('fax')} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField margin="dense" label="Email" fullWidth size="small" {...register('email')} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    margin="dense"
+                    label="Notes"
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    size="small"
+                    {...register('notes')}
+                  />
+                </Grid>
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
+        </Grid>
+
+        {isEditMode && employer?.id && (
           <Grid item xs={12}>
             <Accordion
               disableGutters
               elevation={0}
-              expanded={contactExpanded}
-              onChange={(_, expanded) => setContactExpanded(expanded)}
+              expanded={associationsExpanded}
+              onChange={(_, expanded) => setAssociationsExpanded(expanded)}
               sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0, m: '2px' }}
             >
               <AccordionSummary
                 expandIcon={<ExpandMoreIcon fontSize="small" />}
                 sx={{ px: 0, minHeight: 'unset', '.MuiAccordionSummary-content': { my: '2px' } }}
               >
-                <Typography variant="subtitle2">Contact Details (optional)</Typography>
+                <Typography variant="subtitle2">
+                  Associations
+                  {associatedFeeSchedules.length + associatedChargeMasters.length > 0 &&
+                    ` (${associatedFeeSchedules.length + associatedChargeMasters.length})`}
+                </Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 0 }}>
-                <Grid container spacing={0.5}>
-                  <Grid item xs={12} sm={4}>
-                    <TextField margin="dense" label="Phone" fullWidth size="small" {...register('phone')} />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <TextField margin="dense" label="Fax" fullWidth size="small" {...register('fax')} />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <TextField margin="dense" label="Email" fullWidth size="small" {...register('email')} />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      margin="dense"
-                      label="Notes"
-                      fullWidth
-                      multiline
-                      minRows={2}
-                      size="small"
-                      {...register('notes')}
-                    />
-                  </Grid>
-                </Grid>
+                {feeSchedulesFetching || chargeMastersFetching ? (
+                  <Skeleton height={60} />
+                ) : associatedFeeSchedules.length === 0 && associatedChargeMasters.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+                    No fee schedules or charge masters associated with this employer.
+                  </Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pb: 1 }}>
+                    {associatedFeeSchedules.length > 0 && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5 }}>
+                          Fee Schedules
+                        </Typography>
+                        {associatedFeeSchedules.map((fs) => (
+                          <AssociationRow key={fs.id} item={fs} type="fee-schedule" linkBase={FEE_SCHEDULES_URL} />
+                        ))}
+                      </Box>
+                    )}
+                    {associatedChargeMasters.length > 0 && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5 }}>
+                          Charge Masters
+                        </Typography>
+                        {associatedChargeMasters.map((cm) => (
+                          <AssociationRow key={cm.id} item={cm} type="charge-master" linkBase={CHARGE_MASTERS_URL} />
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+                )}
               </AccordionDetails>
             </Accordion>
           </Grid>
-
-          {isEditMode && employer?.id && (
-            <Grid item xs={12}>
-              <Accordion
-                disableGutters
-                elevation={0}
-                expanded={associationsExpanded}
-                onChange={(_, expanded) => setAssociationsExpanded(expanded)}
-                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0, m: '2px' }}
-              >
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon fontSize="small" />}
-                  sx={{ px: 0, minHeight: 'unset', '.MuiAccordionSummary-content': { my: '2px' } }}
-                >
-                  <Typography variant="subtitle2">
-                    Associations
-                    {associatedFeeSchedules.length + associatedChargeMasters.length > 0 &&
-                      ` (${associatedFeeSchedules.length + associatedChargeMasters.length})`}
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails sx={{ p: 0 }}>
-                  {feeSchedulesFetching || chargeMastersFetching ? (
-                    <Skeleton height={60} />
-                  ) : associatedFeeSchedules.length === 0 && associatedChargeMasters.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                      No fee schedules or charge masters associated with this employer.
-                    </Typography>
-                  ) : (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pb: 1 }}>
-                      {associatedFeeSchedules.length > 0 && (
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5 }}>
-                            Fee Schedules
-                          </Typography>
-                          {associatedFeeSchedules.map((fs) => (
-                            <AssociationRow key={fs.id} item={fs} type="fee-schedule" linkBase={FEE_SCHEDULES_URL} />
-                          ))}
-                        </Box>
-                      )}
-                      {associatedChargeMasters.length > 0 && (
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5 }}>
-                            Charge Masters
-                          </Typography>
-                          {associatedChargeMasters.map((cm) => (
-                            <AssociationRow key={cm.id} item={cm} type="charge-master" linkBase={CHARGE_MASTERS_URL} />
-                          ))}
-                        </Box>
-                      )}
-                    </Box>
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            </Grid>
-          )}
-        </Grid>
-      </DialogContent>
+        )}
+      </Grid>
       {isEditMode && employer?.id && (
         <Box
           sx={{
@@ -558,8 +570,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
             flexDirection: 'column',
             backgroundColor: 'grey.100',
             borderRadius: 1,
-            mx: 3,
-            mb: 2,
+            mt: 2,
             px: 1,
             py: 0.5,
             gap: 0.25,
@@ -667,45 +678,6 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
           </Box>
         </Box>
       )}
-      <DialogActions sx={{ justifyContent: 'space-between', marginLeft: 1 }}>
-        <Button onClick={resetAndClose} disabled={isSubmitting} variant="outlined" sx={pillButtonSx}>
-          Cancel
-        </Button>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          {isEditMode && employer?.id && (
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => void handleToggleActivation()}
-              disabled={isSubmitting}
-              sx={{
-                ...pillButtonSx,
-                ...(form.active
-                  ? {
-                      color: 'error.main',
-                      borderColor: 'error.main',
-                      '&:hover': {
-                        borderColor: 'error.main',
-                        backgroundColor: 'error.light',
-                        color: 'error.dark',
-                      },
-                    }
-                  : {}),
-              }}
-            >
-              {form.active ? 'Deactivate' : 'Activate'}
-            </Button>
-          )}
-          <Button
-            onClick={() => void handleSubmit(onSubmit)()}
-            variant="contained"
-            disabled={isSubmitting}
-            sx={pillButtonSx}
-          >
-            {isEditMode ? (isDirty ? 'Save' : 'Done') : 'Add'}
-          </Button>
-        </Box>
-      </DialogActions>
-    </Dialog>
+    </AppDialog>
   );
 }

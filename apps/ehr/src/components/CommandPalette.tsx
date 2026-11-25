@@ -2,7 +2,6 @@ import PersonSearchIcon from '@mui/icons-material/PersonSearch';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
-  Dialog,
   IconButton,
   InputAdornment,
   List,
@@ -15,6 +14,7 @@ import {
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { captureInsertContext } from '../helpers/insertTextAtCaret';
+import { AppDialog } from './dialogs/AppDialog';
 import { shortcutLabel } from '../helpers/keyboardShortcut';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
 
@@ -321,26 +321,7 @@ export const CommandPalette: FC = () => {
   );
 
   return (
-    <Dialog
-      open={isOpen}
-      onClose={close}
-      fullWidth
-      maxWidth="sm"
-      PaperProps={{
-        sx: {
-          borderRadius: 2,
-          maxHeight: '60vh',
-          overflow: 'hidden',
-        },
-      }}
-      slotProps={{
-        backdrop: {
-          sx: {
-            backgroundColor: 'rgba(0, 0, 0, 0.3)',
-          },
-        },
-      }}
-    >
+    <AppDialog variant="form" size="m" open={isOpen} onClose={close} title="Search" disableContentPadding>
       <Box>
         <TextField
           inputRef={inputRef}
@@ -502,6 +483,6 @@ export const CommandPalette: FC = () => {
           )}
         </List>
       </Box>
-    </Dialog>
+    </AppDialog>
   );
 };

@@ -4,10 +4,6 @@ import {
   Button,
   Checkbox,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControlLabel,
   Grid,
   Paper,
@@ -20,6 +16,7 @@ import {
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
@@ -409,95 +406,69 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = ({ onF
   const dialogs = (
     <>
       {/* Save as Quick Pick dialog */}
-      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle
-          sx={{
-            color: 'primary.dark',
-            fontWeight: 600,
-          }}
-        >
-          Add to Quick Picks
-        </DialogTitle>
-        <DialogContent>
-          <Autocomplete
-            freeSolo
-            options={existingQuickPicks.map((qp) => qp.name)}
-            value={quickPickName}
-            onChange={(_e, newValue) => setQuickPickName(newValue ?? '')}
-            onInputChange={(_e, newInputValue) => setQuickPickName(newInputValue)}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Quick Pick Name"
-                fullWidth
-                sx={{ mt: 1 }}
-                autoFocus
-                placeholder="Enter a name or select an existing quick pick"
-              />
-            )}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
-          <Button
-            variant="outlined"
-            onClick={() => setQuickPickDialogOpen(false)}
-            disabled={quickPickSaving}
-            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            disabled={!quickPickName.trim() || quickPickSaving}
-            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
-            onClick={() => {
-              const existing = existingQuickPicks.find(
-                (qp) => qp.name.toLowerCase() === quickPickName.trim().toLowerCase()
-              );
-              if (existing?.id) {
-                setOverwriteTarget(existing);
-                setConfirmOverwriteOpen(true);
-              } else {
-                void onSaveAsQuickPick();
-              }
-            }}
-          >
-            {quickPickSaving ? <CircularProgress size={20} /> : 'Save Quick Pick'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        variant="form"
+        size="s"
+        open={quickPickDialogOpen}
+        onClose={() => setQuickPickDialogOpen(false)}
+        title="Add to Quick Picks"
+        primary={{
+          label: 'Save Quick Pick',
+          loading: quickPickSaving,
+          disabled: !quickPickName.trim(),
+          onClick: () => {
+            const existing = existingQuickPicks.find(
+              (qp) => qp.name.toLowerCase() === quickPickName.trim().toLowerCase()
+            );
+            if (existing?.id) {
+              setOverwriteTarget(existing);
+              setConfirmOverwriteOpen(true);
+            } else {
+              void onSaveAsQuickPick();
+            }
+          },
+        }}
+      >
+        <Autocomplete
+          freeSolo
+          options={existingQuickPicks.map((qp) => qp.name)}
+          value={quickPickName}
+          onChange={(_e, newValue) => setQuickPickName(newValue ?? '')}
+          onInputChange={(_e, newInputValue) => setQuickPickName(newInputValue)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Quick Pick Name"
+              fullWidth
+              sx={{ mt: 1 }}
+              autoFocus
+              placeholder="Enter a name or select an existing quick pick"
+            />
+          )}
+        />
+      </AppDialog>
 
       {/* Overwrite confirmation dialog */}
-      <Dialog open={confirmOverwriteOpen} onClose={() => setConfirmOverwriteOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ color: 'primary.dark', fontWeight: 600 }}>Update Existing Quick Pick?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            A quick pick named "{overwriteTarget?.name}" already exists. Do you want to replace it with the current
-            radiology order data?
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
-          <Button
-            variant="outlined"
-            onClick={() => setConfirmOverwriteOpen(false)}
-            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
-          >
-            Back
-          </Button>
-          <Button
-            variant="contained"
-            sx={{ borderRadius: 25, textTransform: 'none', fontWeight: 'bold' }}
-            onClick={() => {
-              setConfirmOverwriteOpen(false);
-              if (overwriteTarget?.id) {
-                void onSaveAsQuickPick(overwriteTarget.id);
-              }
-            }}
-          >
-            Replace
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        variant="confirm"
+        open={confirmOverwriteOpen}
+        onClose={() => setConfirmOverwriteOpen(false)}
+        title="Update Existing Quick Pick?"
+        primary={{
+          label: 'Replace',
+          onClick: () => {
+            setConfirmOverwriteOpen(false);
+            if (overwriteTarget?.id) {
+              void onSaveAsQuickPick(overwriteTarget.id);
+            }
+          },
+        }}
+      >
+        <Typography>
+          A quick pick named "{overwriteTarget?.name}" already exists. Do you want to replace it with the current
+          radiology order data?
+        </Typography>
+      </AppDialog>
     </>
   );
 

@@ -5,7 +5,7 @@ export default defineStory({
   title: 'Import questionnaire JSON',
   source:
     'apps/ehr/src/features/visits/telemed/components/admin/questionnaires/components/ImportQuestionnaireJsonDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Questionnaires → Import JSON',
   render: () => <ImportQuestionnaireJsonDialog open onClose={() => undefined} onImported={() => undefined} />,

@@ -5,7 +5,7 @@ import { quickPicks } from './_mocks';
 export default defineStory({
   title: 'Add allergy quick pick',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/QuickPickEditor.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Quick Picks → Allergies tab → Add',
   notes:

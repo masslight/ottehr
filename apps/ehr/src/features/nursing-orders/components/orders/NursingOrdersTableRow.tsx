@@ -2,7 +2,7 @@ import { Box, IconButton, TableCell, TableRow } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { deleteIcon } from 'src/themes/ottehr';
 import { NursingOrder } from 'utils/lib/types/data/orders/types';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
@@ -106,16 +106,27 @@ export const NursingOrdersTableRow = ({
           <TableCell key={column}>{renderCellContent(column)}</TableCell>
         ))}
       </TableRow>
-      <InPersonModal
+      <AppDialog
+        variant="destructive"
         title="Cancel Nursing Order"
-        description={`Are you sure you want to cancel this order "${nursingOrderData.note}"?`}
         open={isDeleteDialogOpen}
-        confirmText="Cancel Order"
-        handleConfirm={handleCancelOrder}
-        closeButtonText="Keep Order"
-        handleClose={() => setIsDeleteDialogOpen(false)}
-        disabled={isDeleting}
-      />
+        onClose={() => setIsDeleteDialogOpen(false)}
+        primary={{
+          label: 'Cancel Order',
+          loading: isDeleting,
+          // As with the old InPersonModal wrapper, the dialog closes once the request has settled,
+          // whether or not it succeeded (handleCancelOrder never rejects).
+          onClick: async () => {
+            await handleCancelOrder();
+            setIsDeleteDialogOpen(false);
+          },
+        }}
+        dismiss={{ label: 'Keep Order' }}
+      >
+        <Box data-testid={dataTestIds.dialog.inPersonModalContent}>
+          {`Are you sure you want to cancel this order "${nursingOrderData.note}"?`}
+        </Box>
+      </AppDialog>
     </>
   );
 };

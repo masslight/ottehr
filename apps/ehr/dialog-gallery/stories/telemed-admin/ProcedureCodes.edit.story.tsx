@@ -5,7 +5,7 @@ import { feeSchedule, zambda } from './_mocks';
 export default defineStory({
   title: 'Edit procedure code',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/charge-items/ProcedureCodes.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where:
     'Admin → Billing → Fee Schedules / Charge Masters → an entry → Procedure Codes tab → edit (pencil) icon on a row',

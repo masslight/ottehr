@@ -1,14 +1,6 @@
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-} from '@mui/material';
+import { Typography } from '@mui/material';
 import { ReactElement, useCallback, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { ExternalLabsStatus } from 'utils/lib/types/data/labs/labs.types';
 
@@ -48,9 +40,8 @@ const defaultLocalesConstants = {
       <strong>This action is final and cannot be undone.</strong>
     </>
   ),
-  deleteOrderDialogKeepButton: 'Keep',
+  deleteOrderDialogKeepButton: 'Cancel',
   deleteOrderDialogDeleteButton: 'Delete Order',
-  deleteOrderDialogDeletingButton: 'Deleting Order...',
 };
 
 interface UseDeleteCommonLabOrderDialogResult {
@@ -132,57 +123,27 @@ export const useDeleteCommonLabOrderDialog = ({
   }, [serviceRequestIdToDelete, testItemNameToDelete, deleteOrder, locales]);
 
   const DeleteOrderDialog = isDeleteDialogOpen ? (
-    <Dialog
+    <AppDialog
+      variant="destructive"
       data-testid={dataTestIds.commonLabOrder.deleteDialog}
       open={isDeleteDialogOpen}
       onClose={closeDeleteDialog}
-      maxWidth="sm"
-      fullWidth
+      title={locales.deleteOrderDialogTitle}
+      dismiss={{ label: locales.deleteOrderDialogKeepButton }}
+      primary={{
+        label: locales.deleteOrderDialogDeleteButton,
+        onClick: confirmDeleteOrder,
+        loading: isDeleting,
+        'data-testid': dataTestIds.commonLabOrder.deleteDialogButton,
+      }}
     >
-      <form
-        style={{ padding: '10px' }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          void confirmDeleteOrder();
-        }}
-      >
-        <DialogTitle variant="h5" color="primary.dark">
-          {locales.deleteOrderDialogTitle}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {locales.deleteOrderDialogContent(testItemNameToDelete, testItemToDeleteStatus)}
-          </DialogContentText>
-          {deleteError && (
-            <Box sx={{ mt: 2, color: 'error.main' }}>
-              <DialogContentText color="error">{deleteError}</DialogContentText>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, width: '100%', display: 'flex', justifyContent: 'space-between' }}>
-          <Button
-            variant="outlined"
-            onClick={closeDeleteDialog}
-            color="primary"
-            disabled={isDeleting}
-            sx={{ borderRadius: '50px', textTransform: 'none' }}
-          >
-            {locales.deleteOrderDialogKeepButton}
-          </Button>
-          <Button
-            data-testid={dataTestIds.commonLabOrder.deleteDialogButton}
-            type="submit"
-            variant="contained"
-            color="error"
-            disabled={isDeleting}
-            startIcon={isDeleting ? <CircularProgress size={16} color="inherit" /> : null}
-            sx={{ borderRadius: '50px', textTransform: 'none' }}
-          >
-            {isDeleting ? locales.deleteOrderDialogDeletingButton : locales.deleteOrderDialogDeleteButton}
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
+      {locales.deleteOrderDialogContent(testItemNameToDelete, testItemToDeleteStatus)}
+      {deleteError && (
+        <Typography color="error" sx={{ mt: 2, fontSize: 'inherit' }}>
+          {deleteError}
+        </Typography>
+      )}
+    </AppDialog>
   ) : null;
 
   return {

@@ -1,14 +1,6 @@
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-} from '@mui/material';
+import { Box, DialogContentText } from '@mui/material';
 import { ReactElement, useCallback, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 
 interface UseDeleteRadiologyOrderDialogProps {
   deleteOrder: ({ serviceRequestId }: { serviceRequestId: string }) => Promise<boolean>;
@@ -77,50 +69,22 @@ export const useDeleteRadiologyOrderDialog = ({
   }, [serviceRequestIdToDelete, deleteOrder]);
 
   const DeleteOrderDialog = isDeleteDialogOpen ? (
-    <Dialog open={isDeleteDialogOpen} onClose={closeDeleteDialog} maxWidth="sm" fullWidth>
-      <form
-        style={{ padding: '10px' }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          void confirmDeleteOrder();
-        }}
-      >
-        <DialogTitle variant="h5" color="primary.dark">
-          Delete Radiology Order
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete this order <strong>"{studyTypeToDelete}"</strong>?
-          </DialogContentText>
-          {deleteError && (
-            <Box sx={{ mt: 2, color: 'error.main' }}>
-              <DialogContentText color="error">{deleteError}</DialogContentText>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, width: '100%', display: 'flex', justifyContent: 'space-between' }}>
-          <Button
-            variant="outlined"
-            onClick={closeDeleteDialog}
-            color="primary"
-            disabled={isDeleting}
-            sx={{ borderRadius: '50px', textTransform: 'none' }}
-          >
-            Keep
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            color="error"
-            disabled={isDeleting}
-            startIcon={isDeleting ? <CircularProgress size={16} color="inherit" /> : null}
-            sx={{ borderRadius: '50px', textTransform: 'none' }}
-          >
-            {isDeleting ? 'Deleting Order...' : 'Delete Order'}
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
+    <AppDialog
+      variant="destructive"
+      open={isDeleteDialogOpen}
+      onClose={closeDeleteDialog}
+      title="Delete Radiology Order"
+      primary={{ label: 'Delete Order', onClick: () => void confirmDeleteOrder(), loading: isDeleting }}
+    >
+      <DialogContentText>
+        Are you sure you want to delete this order <strong>"{studyTypeToDelete}"</strong>?
+      </DialogContentText>
+      {deleteError && (
+        <Box sx={{ mt: 2, color: 'error.main' }}>
+          <DialogContentText color="error">{deleteError}</DialogContentText>
+        </Box>
+      )}
+    </AppDialog>
   ) : null;
 
   return {

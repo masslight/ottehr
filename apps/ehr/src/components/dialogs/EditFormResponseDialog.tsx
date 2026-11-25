@@ -1,21 +1,10 @@
-import { Close } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
-import {
-  Alert,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Alert, Typography } from '@mui/material';
 import { QuestionnaireResponseItem } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormContext, UseFormReturn, useFormState } from 'react-hook-form';
 import { updateVisitForm } from 'src/api/api';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { PaperworkContext, PaperworkProvider } from 'ui-components/lib/components/paperwork/context';
@@ -29,8 +18,6 @@ import {
   QuestionnaireFormFields,
 } from 'utils/lib/types/data/paperwork/paperwork.types';
 import { StandaloneFormDTO } from 'utils/lib/types/data/practice-managed-questionnaires/practice-managed-questionnaire.types';
-
-const BUTTON_SX = { fontWeight: 500, textTransform: 'none', borderRadius: 6 };
 
 const INERT_COMPONENT_HELPERS: PaperworkContext['paperworkComponentHelpers'] = {
   handleSearchPlaces: undefined,
@@ -87,7 +74,6 @@ interface EditFormResponseDialogProps {
 }
 
 export const EditFormResponseDialog: FC<EditFormResponseDialogProps> = ({ form, patientId, onClose, onSaved }) => {
-  const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const { allItems, questionnaireId, questionnaireResponse, questionnaireTitle } = form;
 
@@ -216,70 +202,44 @@ export const EditFormResponseDialog: FC<EditFormResponseDialogProps> = ({ form, 
   );
 
   return (
-    <Dialog
+    <AppDialog
+      variant="form"
+      size="s"
       open={true}
-      onClose={saving ? undefined : onClose}
-      disableScrollLock
-      maxWidth="sm"
-      fullWidth
-      sx={{ '.MuiPaper-root': { padding: 2 } }}
+      onClose={onClose}
+      title={questionnaireTitle}
       data-testid={dataTestIds.visitDetailsPage.editFormResponseDialog}
+      primary={{
+        label: 'Save',
+        onClick: submitFromActions,
+        loading: saving,
+        disabled: !isDirty,
+        'data-testid': dataTestIds.visitDetailsPage.editFormResponseSaveButton,
+      }}
     >
-      <DialogTitle
-        variant="h5"
-        sx={{ fontSize: '20px', color: theme.palette.primary.dark, fontWeight: '600 !important' }}
-      >
-        {questionnaireTitle}
-        <IconButton
-          aria-label="Close"
-          onClick={onClose}
-          disabled={saving}
-          sx={{ position: 'absolute', right: 8, top: 8 }}
-        >
-          <Close />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent>
-        {saveError && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError(undefined)}>
-            {saveError}
-          </Alert>
-        )}
-        {items.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            This form has no questions to edit.
-          </Typography>
-        ) : (
-          <PaperworkProvider value={paperworkContextValue}>
-            <PagedQuestionnaire
-              pageId={questionnaireId}
-              items={items}
-              defaultValues={defaultValues}
-              options={questionnaireOptions}
-              isSaving={saving}
-              onSubmit={handleFormSubmit}
-              saveProgress={() => {}}
-              skipValidation={false}
-            />
-          </PaperworkProvider>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button variant="outlined" size="medium" onClick={onClose} disabled={saving} sx={BUTTON_SX}>
-          Cancel
-        </Button>
-        <LoadingButton
-          variant="contained"
-          size="medium"
-          onClick={submitFromActions}
-          loading={saving}
-          disabled={!isDirty}
-          sx={BUTTON_SX}
-          data-testid={dataTestIds.visitDetailsPage.editFormResponseSaveButton}
-        >
-          Save
-        </LoadingButton>
-      </DialogActions>
-    </Dialog>
+      {saveError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError(undefined)}>
+          {saveError}
+        </Alert>
+      )}
+      {items.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          This form has no questions to edit.
+        </Typography>
+      ) : (
+        <PaperworkProvider value={paperworkContextValue}>
+          <PagedQuestionnaire
+            pageId={questionnaireId}
+            items={items}
+            defaultValues={defaultValues}
+            options={questionnaireOptions}
+            isSaving={saving}
+            onSubmit={handleFormSubmit}
+            saveProgress={() => {}}
+            skipValidation={false}
+          />
+        </PaperworkProvider>
+      )}
+    </AppDialog>
   );
 };

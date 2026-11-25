@@ -1,21 +1,10 @@
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SchoolIcon from '@mui/icons-material/School';
-import {
-  Box,
-  Checkbox,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  Link,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { Box, Checkbox, CircularProgress, FormControlLabel, Link, Tooltip, Typography } from '@mui/material';
 import { DocumentReference } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getPresignedURL } from 'utils/lib/helpers/presigned-file-url/helpers';
 import { CommunicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -226,96 +215,18 @@ export const PatientEducationCard: FC = () => {
         </Box>
       </AccordionCard>
 
-      <Dialog
+      <AppDialog
+        variant="form"
+        size="s"
         open={educationModalOpen && !generatedSections}
-        onClose={() => !isEducationLoading && setEducationModalOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Generate Patient Education Materials</DialogTitle>
-        <DialogContent>
-          {allDiagnoses.length > 0 && (
-            <Box sx={{ mb: 2 }}>
-              <PatientEducationLanguageSelector
-                value={language}
-                onChange={(next) => {
-                  setLanguage(next);
-                  // Warm the cache for the newly-selected language so Generate is fast.
-                  prefetchAllDiagnoses(next);
-                }}
-                disabled={isEducationLoading}
-                showPreferredSpanishHint={defaultLanguage === 'es'}
-              />
-            </Box>
-          )}
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select the diagnoses to include in the patient education document.
-          </Typography>
-          {allDiagnoses.length === 0 ? (
-            <Typography color="text.secondary">
-              No diagnoses on this visit. Add diagnoses in the Assessment tab first.
-            </Typography>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {allDiagnoses.map((diagnosis) => (
-                <FormControlLabel
-                  key={diagnosis.code}
-                  control={
-                    <Checkbox
-                      checked={selectedDiagnoses.includes(diagnosis.code)}
-                      onChange={(e) => {
-                        setSelectedDiagnoses((prev) => {
-                          const next = e.target.checked
-                            ? prev.includes(diagnosis.code)
-                              ? prev
-                              : [...prev, diagnosis.code]
-                            : prev.filter((code) => code !== diagnosis.code);
-                          // Keep selection in the picker's display order so a previously-edited
-                          // diagnosis stays at the same position in the review step when it is
-                          // toggled off and back on. Otherwise the re-checked diagnosis jumps to
-                          // the end and clinicians perceive their edits as lost.
-                          const positionByCode = new Map(allDiagnoses.map((d, i) => [d.code, i]));
-                          return [...next].sort((a, b) => (positionByCode.get(a) ?? 0) - (positionByCode.get(b) ?? 0));
-                        });
-                      }}
-                      disabled={isEducationLoading}
-                    />
-                  }
-                  label={
-                    <Typography variant="body2">
-                      <strong>{diagnosis.code}</strong> — {diagnosis.display}
-                      {diagnosis.isPrimary && (
-                        <Typography component="span" variant="caption" color="primary" sx={{ ml: 1 }}>
-                          (Primary)
-                        </Typography>
-                      )}
-                      {approvedFor(diagnosis.code, language) && (
-                        <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>
-                          (Pre-approved PDF)
-                        </Typography>
-                      )}
-                    </Typography>
-                  }
-                />
-              ))}
-            </Box>
-          )}
-          {educationProgress && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
-              <CircularProgress size={16} />
-              <Typography variant="body2" color="text.secondary">
-                {educationProgress}
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <RoundedButton onClick={() => setEducationModalOpen(false)} disabled={isEducationLoading}>
-            Cancel
-          </RoundedButton>
-          <RoundedButton
-            variant="contained"
-            onClick={async () => {
+        onClose={() => setEducationModalOpen(false)}
+        busy={isEducationLoading}
+        title="Generate Patient Education Materials"
+        primary={{
+          label: `Generate (${selectedDiagnoses.length})`,
+          // Not returned: the button keeps its own disabled + spinner-icon state, as before.
+          onClick: () => {
+            void (async () => {
               const selected = selectedDiagnoses
                 .map((code) => allDiagnoses.find((diagnosis) => diagnosis.code === code))
                 .filter((diagnosis): diagnosis is NonNullable<typeof diagnosis> => !!diagnosis);
@@ -324,74 +235,139 @@ export const PatientEducationCard: FC = () => {
                 resetEducationFlow();
                 setEducationModalOpen(false);
               }
-            }}
-            disabled={selectedDiagnoses.length === 0 || isEducationLoading || isEducationSaving}
-            startIcon={isEducationLoading || isEducationSaving ? <CircularProgress size={16} /> : <SchoolIcon />}
-          >
-            Generate ({selectedDiagnoses.length})
-          </RoundedButton>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={!!generatedSections}
-        onClose={() => !isEducationSaving && clearGeneratedSections()}
-        maxWidth="md"
-        fullWidth
+            })();
+          },
+          disabled: selectedDiagnoses.length === 0 || isEducationLoading || isEducationSaving,
+          startIcon: isEducationLoading || isEducationSaving ? <CircularProgress size={16} /> : <SchoolIcon />,
+        }}
       >
-        <DialogTitle component={Typography} variant="h4" color="primary.dark" sx={{ pb: 2 }}>
-          Review Patient Education Materials
-        </DialogTitle>
-        <DialogContent>
-          <PatientEducationSectionsEditor
-            sections={editableSections.length > 0 ? editableSections : generatedSections ?? []}
-            onSectionsChange={(nextSections) => {
-              setEditableSections(nextSections);
-              nextSections.forEach((section) => {
-                draftSectionsRef.current[section.icdCode] = section;
-              });
-            }}
-            disabled={isEducationSaving}
-            errorMessage={educationError}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Box sx={{ mr: 'auto', display: 'flex', gap: 1 }}>
-            <RoundedButton
-              onClick={() => {
-                resetEducationFlow();
-                setEducationModalOpen(false);
+        {allDiagnoses.length > 0 && (
+          <Box sx={{ mb: 2 }}>
+            <PatientEducationLanguageSelector
+              value={language}
+              onChange={(next) => {
+                setLanguage(next);
+                // Warm the cache for the newly-selected language so Generate is fast.
+                prefetchAllDiagnoses(next);
               }}
-              disabled={isEducationSaving}
-            >
-              Cancel
-            </RoundedButton>
-            <RoundedButton
-              onClick={() => {
-                clearGeneratedSections();
-              }}
-              disabled={isEducationSaving}
-            >
-              Back
-            </RoundedButton>
+              disabled={isEducationLoading}
+              showPreferredSpanishHint={defaultLanguage === 'es'}
+            />
           </Box>
-          <RoundedButton
-            variant="contained"
-            onClick={async () => {
+        )}
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Select the diagnoses to include in the patient education document.
+        </Typography>
+        {allDiagnoses.length === 0 ? (
+          <Typography color="text.secondary">
+            No diagnoses on this visit. Add diagnoses in the Assessment tab first.
+          </Typography>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {allDiagnoses.map((diagnosis) => (
+              <FormControlLabel
+                key={diagnosis.code}
+                control={
+                  <Checkbox
+                    checked={selectedDiagnoses.includes(diagnosis.code)}
+                    onChange={(e) => {
+                      setSelectedDiagnoses((prev) => {
+                        const next = e.target.checked
+                          ? prev.includes(diagnosis.code)
+                            ? prev
+                            : [...prev, diagnosis.code]
+                          : prev.filter((code) => code !== diagnosis.code);
+                        // Keep selection in the picker's display order so a previously-edited
+                        // diagnosis stays at the same position in the review step when it is
+                        // toggled off and back on. Otherwise the re-checked diagnosis jumps to
+                        // the end and clinicians perceive their edits as lost.
+                        const positionByCode = new Map(allDiagnoses.map((d, i) => [d.code, i]));
+                        return [...next].sort((a, b) => (positionByCode.get(a) ?? 0) - (positionByCode.get(b) ?? 0));
+                      });
+                    }}
+                    disabled={isEducationLoading}
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    <strong>{diagnosis.code}</strong> — {diagnosis.display}
+                    {diagnosis.isPrimary && (
+                      <Typography component="span" variant="caption" color="primary" sx={{ ml: 1 }}>
+                        (Primary)
+                      </Typography>
+                    )}
+                    {approvedFor(diagnosis.code, language) && (
+                      <Typography component="span" variant="caption" color="success.main" sx={{ ml: 1 }}>
+                        (Pre-approved PDF)
+                      </Typography>
+                    )}
+                  </Typography>
+                }
+              />
+            ))}
+          </Box>
+        )}
+        {educationProgress && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
+            <CircularProgress size={16} />
+            <Typography variant="body2" color="text.secondary">
+              {educationProgress}
+            </Typography>
+          </Box>
+        )}
+      </AppDialog>
+
+      <AppDialog
+        variant="form"
+        size="m"
+        open={!!generatedSections}
+        // ✕, Esc and the backdrop step back to the diagnosis picker, as before; Cancel leaves the flow.
+        onClose={() => clearGeneratedSections()}
+        busy={isEducationSaving}
+        title="Review Patient Education Materials"
+        dismiss={{
+          onClick: () => {
+            resetEducationFlow();
+            setEducationModalOpen(false);
+          },
+        }}
+        actions={[
+          {
+            label: 'Back',
+            onClick: () => {
+              clearGeneratedSections();
+            },
+            disabled: isEducationSaving,
+          },
+        ]}
+        primary={{
+          label: 'Create PDF',
+          onClick: () => {
+            void (async () => {
               const sections = editableSections.length > 0 ? editableSections : generatedSections ?? [];
               const didSave = await saveFromSections(sections, language);
               if (didSave) {
                 resetEducationFlow();
                 setEducationModalOpen(false);
               }
-            }}
-            disabled={isEducationSaving}
-            startIcon={isEducationSaving ? <CircularProgress size={16} /> : <PictureAsPdfIcon />}
-          >
-            Create PDF
-          </RoundedButton>
-        </DialogActions>
-      </Dialog>
+            })();
+          },
+          disabled: isEducationSaving,
+          startIcon: isEducationSaving ? <CircularProgress size={16} /> : <PictureAsPdfIcon />,
+        }}
+      >
+        <PatientEducationSectionsEditor
+          sections={editableSections.length > 0 ? editableSections : generatedSections ?? []}
+          onSectionsChange={(nextSections) => {
+            setEditableSections(nextSections);
+            nextSections.forEach((section) => {
+              draftSectionsRef.current[section.icdCode] = section;
+            });
+          }}
+          disabled={isEducationSaving}
+          errorMessage={educationError}
+        />
+      </AppDialog>
     </>
   );
 };

@@ -5,7 +5,7 @@ import { feeSchedule, locations } from './_mocks';
 export default defineStory({
   title: 'Associate locations with a fee schedule',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/charge-items/LocationAssociations.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'Admin → Billing → Fee Schedules / Charge Masters → an entry → Location Associations tab → Add location',
   notes: 'Rendered in fee-schedule mode; charge-master mode only changes the words "fee schedule" in the body text.',

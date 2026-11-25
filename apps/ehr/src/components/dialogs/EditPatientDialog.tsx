@@ -1,14 +1,7 @@
-import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   Grid,
-  IconButton,
   // MenuItem,
   // Select,
   TextField,
@@ -26,7 +19,7 @@ import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { AllStatesToVirtualLocationLabels } from 'utils/lib/types/common';
 import { EMAIL_REGEX, ZIP_REGEX } from '../../constants';
 import DateSearch from '../DateSearch';
-import { RoundedButton } from '../RoundedButton';
+import { AppDialog } from './AppDialog';
 
 interface EditPatientDialogProps {
   modalOpen: boolean;
@@ -288,151 +281,329 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
   );
 
   return (
-    <Dialog
+    <AppDialog
+      variant="form"
+      size="s"
       open={modalOpen}
       onClose={onClose}
-      fullWidth
-      disableScrollLock
-      sx={{ '.MuiPaper-root': { padding: 1, width: '512px', height: '800px', maxWidth: 'initial' } }}
+      title="Edit Patient Information"
+      onSubmit={(e) => {
+        // The shell's form is `noValidate`; keep the browser's own check of the required fields.
+        if (!e.currentTarget.reportValidity()) {
+          e.preventDefault();
+          return;
+        }
+        void handleSubmit(onSubmit)(e);
+      }}
+      primary={{ label: 'Save', loading: isSavingData, disabled: !formState.isValid }}
     >
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <DialogTitle
-          variant="h4"
-          color="primary.dark"
-          sx={{ width: '100%', py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}
-        >
-          Edit Patient Information
-          <IconButton onClick={onClose} aria-label="close" sx={{ mr: -3, mt: -3 }}>
-            <CloseOutlinedIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent sx={{ overflow: 'auto' }}>
-          <FormControl fullWidth required sx={{ mt: 1 }}>
-            <TextField
-              {...register('firstName', { required: true })}
-              id="first-name"
-              label="First Name"
-              variant="outlined"
-              fullWidth
-              error={!!formState.errors.firstName}
+      <FormControl fullWidth required sx={{ mt: 1 }}>
+        <TextField
+          {...register('firstName', { required: true })}
+          id="first-name"
+          label="First Name"
+          variant="outlined"
+          fullWidth
+          error={!!formState.errors.firstName}
+          required
+        />
+      </FormControl>
+      <FormControl fullWidth sx={{ mt: 2 }}>
+        <TextField
+          {...register('middleName')}
+          id="middle-name"
+          label="Middle Name"
+          variant="outlined"
+          fullWidth
+          error={!!formState.errors.middleName}
+        />
+      </FormControl>
+      <FormControl fullWidth required sx={{ mt: 2 }}>
+        <TextField
+          {...register('lastName', { required: true })}
+          id="last-name"
+          label="Last Name"
+          variant="outlined"
+          fullWidth
+          error={!!formState.errors.lastName}
+          required
+        />
+      </FormControl>
+      <FormControl fullWidth sx={{ mt: 2 }}>
+        <TextField
+          {...register('preferredName')}
+          id="preferred-name"
+          label="Preferred name"
+          variant="outlined"
+          fullWidth
+          error={!!formState.errors.preferredName}
+        />
+      </FormControl>
+      {/* <FormControl fullWidth sx={{ mt: 2 }}>
+        <Controller
+          name={'suffix'}
+          control={control}
+          render={({ field: { value } }) => (
+            <>
+              <InputLabel>Suffix</InputLabel>
+              <Select
+                value={value}
+                label="Suffix"
+                variant="outlined"
+                fullWidth
+                error={!!formState.errors.suffix}
+                defaultValue=""
+                onChange={(event) => {
+                  const selectedSuffix = event.target.value;
+                  const valueToSet = selectedSuffix && selectedSuffix.length > 0 ? selectedSuffix : '';
+                  resetField('suffix');
+                  setValue('suffix', valueToSet);
+                }}
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {suffixOptions.map((suffix, index) => (
+                  <MenuItem key={index} value={suffix}>
+                    {suffix}
+                  </MenuItem>
+                ))}
+              </Select>
+            </>
+          )}
+        />
+      </FormControl> */}
+      <FormControl fullWidth required sx={{ mt: 2 }}>
+        <Controller
+          name={'dateOfBirth'}
+          control={control}
+          render={({ field: { value } }) => (
+            <DateSearch
+              date={value || null}
+              setDate={(date) => setValue('dateOfBirth', date)}
+              setIsValidDate={(valid) => {
+                if (valid) {
+                  const val = getValues('dateOfBirth');
+                  resetField('dateOfBirth');
+                  setValue('dateOfBirth', val);
+                } else {
+                  setFormError('dateOfBirth', { message: 'Date of birth is not valid' });
+                }
+              }}
+              defaultValue={null}
+              label="Date of birth"
               required
-            />
-          </FormControl>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <TextField
-              {...register('middleName')}
-              id="middle-name"
-              label="Middle Name"
+            ></DateSearch>
+          )}
+        />
+      </FormControl>
+      <FormControl fullWidth sx={{ mt: 2 }} required>
+        <Controller
+          name={'primaryPhoneNumber'}
+          control={control}
+          render={({ field: { value } }) => (
+            <PatternFormat
+              customInput={TextField}
+              value={value}
+              format="(###) ###-####"
+              mask=" "
+              label="Primary phone"
               variant="outlined"
-              fullWidth
-              error={!!formState.errors.middleName}
-            />
-          </FormControl>
-          <FormControl fullWidth required sx={{ mt: 2 }}>
-            <TextField
-              {...register('lastName', { required: true })}
-              id="last-name"
-              label="Last Name"
-              variant="outlined"
-              fullWidth
-              error={!!formState.errors.lastName}
+              placeholder="(XXX) XXX-XXXX"
               required
+              fullWidth
+              error={!!formState.errors.primaryPhoneNumber}
+              helperText={formState.errors.primaryPhoneNumber ? phoneNumberErrorMessage : ''}
+              onValueChange={(values, sourceInfo) => {
+                if (sourceInfo.source === 'event') {
+                  const enteredPhoneNumber = values.value;
+                  const isNoValueSet = !enteredPhoneNumber || enteredPhoneNumber.length === 0;
+                  if (isNoValueSet || isValidPhoneNumber(enteredPhoneNumber)) {
+                    resetField('primaryPhoneNumber');
+                    setValue('primaryPhoneNumber', enteredPhoneNumber);
+                  } else {
+                    setFormError('primaryPhoneNumber', { message: phoneNumberErrorMessage });
+                  }
+                }
+              }}
             />
-          </FormControl>
-          <FormControl fullWidth sx={{ mt: 2 }}>
+          )}
+        />
+      </FormControl>
+      <FormControl fullWidth sx={{ mt: 2 }}>
+        <Controller
+          name={'secondaryPhoneNumber'}
+          control={control}
+          render={({ field: { value } }) => (
+            <PatternFormat
+              customInput={TextField}
+              value={value}
+              format="(###) ###-####"
+              mask=" "
+              label="Secondary phone"
+              variant="outlined"
+              placeholder="(XXX) XXX-XXXX"
+              fullWidth
+              error={!!formState.errors.secondaryPhoneNumber}
+              helperText={formState.errors.secondaryPhoneNumber ? phoneNumberErrorMessage : ''}
+              onValueChange={(values, sourceInfo) => {
+                if (sourceInfo.source === 'event') {
+                  const enteredPhoneNumber = values.value;
+                  const isNoValueSet = !enteredPhoneNumber || enteredPhoneNumber.length === 0;
+                  if (isNoValueSet || isValidPhoneNumber(enteredPhoneNumber)) {
+                    resetField('secondaryPhoneNumber');
+                    setValue('secondaryPhoneNumber', enteredPhoneNumber);
+                  } else {
+                    setFormError('secondaryPhoneNumber', { message: phoneNumberErrorMessage });
+                  }
+                }
+              }}
+            />
+          )}
+        />
+      </FormControl>
+      <FormControl fullWidth sx={{ mt: 2 }} required>
+        <Controller
+          name={'primaryEmail'}
+          control={control}
+          render={({ field: { value } }) => (
             <TextField
-              {...register('preferredName')}
-              id="preferred-name"
-              label="Preferred name"
+              label="Primary email"
+              value={value}
+              variant="outlined"
+              error={!!formState.errors.primaryEmail}
+              helperText={formState.errors.primaryEmail ? emailErrorMessage : ''}
+              type="email"
+              fullWidth
+              required
+              onChange={(event) => {
+                const enteredEmail = event.target.value;
+                const isValueEntered = enteredEmail && enteredEmail.length !== 0;
+                resetField('primaryEmail');
+                setValue('primaryEmail', enteredEmail);
+                if (isValueEntered && !isValidEmail(enteredEmail)) {
+                  setFormError('primaryEmail', { message: emailErrorMessage });
+                }
+              }}
+            />
+          )}
+        />
+      </FormControl>
+      <FormControl fullWidth sx={{ mt: 2 }}>
+        <Controller
+          name={'secondaryEmail'}
+          control={control}
+          render={({ field: { value } }) => (
+            <TextField
+              label="Secondary email"
+              value={value}
+              variant="outlined"
+              error={!!formState.errors.secondaryEmail}
+              helperText={formState.errors.secondaryEmail ? emailErrorMessage : ''}
+              type="email"
+              fullWidth
+              onChange={(event) => {
+                const enteredEmail = event.target.value;
+                const isValueEntered = enteredEmail && enteredEmail.length !== 0;
+                resetField('secondaryEmail');
+                setValue('secondaryEmail', enteredEmail);
+                if (isValueEntered && !isValidEmail(enteredEmail)) {
+                  setFormError('secondaryEmail', { message: emailErrorMessage });
+                }
+              }}
+            />
+          )}
+        />
+      </FormControl>
+      <FormControl fullWidth sx={{ mt: 2 }} required>
+        <TextField
+          {...register('addressLineOne')}
+          id="address-one"
+          label="Address"
+          variant="outlined"
+          fullWidth
+          required
+          error={!!formState.errors.addressLineOne}
+        />
+      </FormControl>
+      <FormControl fullWidth sx={{ mt: 2 }}>
+        <TextField
+          {...register('addressLineTwo')}
+          id="address-two"
+          label="Address 2"
+          variant="outlined"
+          fullWidth
+          error={!!formState.errors.addressLineTwo}
+        />
+      </FormControl>
+      <Grid container spacing={2} sx={{ mt: 1 }}>
+        <Grid item xs={12} sm={4} md={4}>
+          <FormControl fullWidth required>
+            <TextField
+              {...register('city')}
+              id="city"
+              label="City"
               variant="outlined"
               fullWidth
-              error={!!formState.errors.preferredName}
+              required
+              error={!!formState.errors.city}
             />
           </FormControl>
-          {/* <FormControl fullWidth sx={{ mt: 2 }}>
+        </Grid>
+        <Grid item xs={12} sm={4} md={4}>
+          <FormControl fullWidth required>
             <Controller
-              name={'suffix'}
+              name={'state'}
               control={control}
               render={({ field: { value } }) => (
-                <>
-                  <InputLabel>Suffix</InputLabel>
-                  <Select
-                    value={value}
-                    label="Suffix"
-                    variant="outlined"
-                    fullWidth
-                    error={!!formState.errors.suffix}
-                    defaultValue=""
-                    onChange={(event) => {
-                      const selectedSuffix = event.target.value;
-                      const valueToSet = selectedSuffix && selectedSuffix.length > 0 ? selectedSuffix : '';
-                      resetField('suffix');
-                      setValue('suffix', valueToSet);
-                    }}
-                  >
-                    <MenuItem value="">
-                      <em>None</em>
-                    </MenuItem>
-                    {suffixOptions.map((suffix, index) => (
-                      <MenuItem key={index} value={suffix}>
-                        {suffix}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </>
-              )}
-            />
-          </FormControl> */}
-          <FormControl fullWidth required sx={{ mt: 2 }}>
-            <Controller
-              name={'dateOfBirth'}
-              control={control}
-              render={({ field: { value } }) => (
-                <DateSearch
-                  date={value || null}
-                  setDate={(date) => setValue('dateOfBirth', date)}
-                  setIsValidDate={(valid) => {
-                    if (valid) {
-                      const val = getValues('dateOfBirth');
-                      resetField('dateOfBirth');
-                      setValue('dateOfBirth', val);
-                    } else {
-                      setFormError('dateOfBirth', { message: 'Date of birth is not valid' });
-                    }
+                <Autocomplete
+                  value={value}
+                  onChange={(event, selectedState) => {
+                    setValue('state', selectedState ? selectedState : undefined);
                   }}
-                  defaultValue={null}
-                  label="Date of birth"
-                  required
-                ></DateSearch>
+                  getOptionLabel={(state) => state || 'Unknown'}
+                  isOptionEqualToValue={(option, tempValue) => option === tempValue}
+                  options={statesDropdownOptions}
+                  renderOption={(props, option) => {
+                    return (
+                      <li {...props} key={option}>
+                        {option}
+                      </li>
+                    );
+                  }}
+                  fullWidth
+                  disableClearable={true}
+                  renderInput={(params) => <TextField name="state" {...params} label="State" required />}
+                />
               )}
             />
           </FormControl>
-          <FormControl fullWidth sx={{ mt: 2 }} required>
+        </Grid>
+        <Grid item xs={12} sm={4} md={4}>
+          <FormControl fullWidth required>
             <Controller
-              name={'primaryPhoneNumber'}
+              name="zipCode"
               control={control}
-              render={({ field: { value } }) => (
+              render={({ field: { value, onChange } }) => (
                 <PatternFormat
                   customInput={TextField}
-                  value={value}
-                  format="(###) ###-####"
-                  mask=" "
-                  label="Primary phone"
+                  label="ZIP"
+                  value={value || ''}
+                  format="#####-####"
+                  placeholder="#####-####"
                   variant="outlined"
-                  placeholder="(XXX) XXX-XXXX"
-                  required
                   fullWidth
-                  error={!!formState.errors.primaryPhoneNumber}
-                  helperText={formState.errors.primaryPhoneNumber ? phoneNumberErrorMessage : ''}
+                  required
+                  error={!!formState.errors.zipCode}
+                  helperText={formState.errors.zipCode ? zipCodeErrorMessage : ''}
                   onValueChange={(values, sourceInfo) => {
                     if (sourceInfo.source === 'event') {
-                      const enteredPhoneNumber = values.value;
-                      const isNoValueSet = !enteredPhoneNumber || enteredPhoneNumber.length === 0;
-                      if (isNoValueSet || isValidPhoneNumber(enteredPhoneNumber)) {
-                        resetField('primaryPhoneNumber');
-                        setValue('primaryPhoneNumber', enteredPhoneNumber);
-                      } else {
-                        setFormError('primaryPhoneNumber', { message: phoneNumberErrorMessage });
+                      const digits = values.value;
+
+                      onChange(digits); // let RHF update normally
+
+                      if (!isValidZipCode(digits)) {
+                        setFormError('zipCode', { message: zipCodeErrorMessage });
                       }
                     }
                   }}
@@ -440,217 +611,14 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
               )}
             />
           </FormControl>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <Controller
-              name={'secondaryPhoneNumber'}
-              control={control}
-              render={({ field: { value } }) => (
-                <PatternFormat
-                  customInput={TextField}
-                  value={value}
-                  format="(###) ###-####"
-                  mask=" "
-                  label="Secondary phone"
-                  variant="outlined"
-                  placeholder="(XXX) XXX-XXXX"
-                  fullWidth
-                  error={!!formState.errors.secondaryPhoneNumber}
-                  helperText={formState.errors.secondaryPhoneNumber ? phoneNumberErrorMessage : ''}
-                  onValueChange={(values, sourceInfo) => {
-                    if (sourceInfo.source === 'event') {
-                      const enteredPhoneNumber = values.value;
-                      const isNoValueSet = !enteredPhoneNumber || enteredPhoneNumber.length === 0;
-                      if (isNoValueSet || isValidPhoneNumber(enteredPhoneNumber)) {
-                        resetField('secondaryPhoneNumber');
-                        setValue('secondaryPhoneNumber', enteredPhoneNumber);
-                      } else {
-                        setFormError('secondaryPhoneNumber', { message: phoneNumberErrorMessage });
-                      }
-                    }
-                  }}
-                />
-              )}
-            />
-          </FormControl>
-          <FormControl fullWidth sx={{ mt: 2 }} required>
-            <Controller
-              name={'primaryEmail'}
-              control={control}
-              render={({ field: { value } }) => (
-                <TextField
-                  label="Primary email"
-                  value={value}
-                  variant="outlined"
-                  error={!!formState.errors.primaryEmail}
-                  helperText={formState.errors.primaryEmail ? emailErrorMessage : ''}
-                  type="email"
-                  fullWidth
-                  required
-                  onChange={(event) => {
-                    const enteredEmail = event.target.value;
-                    const isValueEntered = enteredEmail && enteredEmail.length !== 0;
-                    resetField('primaryEmail');
-                    setValue('primaryEmail', enteredEmail);
-                    if (isValueEntered && !isValidEmail(enteredEmail)) {
-                      setFormError('primaryEmail', { message: emailErrorMessage });
-                    }
-                  }}
-                />
-              )}
-            />
-          </FormControl>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <Controller
-              name={'secondaryEmail'}
-              control={control}
-              render={({ field: { value } }) => (
-                <TextField
-                  label="Secondary email"
-                  value={value}
-                  variant="outlined"
-                  error={!!formState.errors.secondaryEmail}
-                  helperText={formState.errors.secondaryEmail ? emailErrorMessage : ''}
-                  type="email"
-                  fullWidth
-                  onChange={(event) => {
-                    const enteredEmail = event.target.value;
-                    const isValueEntered = enteredEmail && enteredEmail.length !== 0;
-                    resetField('secondaryEmail');
-                    setValue('secondaryEmail', enteredEmail);
-                    if (isValueEntered && !isValidEmail(enteredEmail)) {
-                      setFormError('secondaryEmail', { message: emailErrorMessage });
-                    }
-                  }}
-                />
-              )}
-            />
-          </FormControl>
-          <FormControl fullWidth sx={{ mt: 2 }} required>
-            <TextField
-              {...register('addressLineOne')}
-              id="address-one"
-              label="Address"
-              variant="outlined"
-              fullWidth
-              required
-              error={!!formState.errors.addressLineOne}
-            />
-          </FormControl>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <TextField
-              {...register('addressLineTwo')}
-              id="address-two"
-              label="Address 2"
-              variant="outlined"
-              fullWidth
-              error={!!formState.errors.addressLineTwo}
-            />
-          </FormControl>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} sm={4} md={4}>
-              <FormControl fullWidth required>
-                <TextField
-                  {...register('city')}
-                  id="city"
-                  label="City"
-                  variant="outlined"
-                  fullWidth
-                  required
-                  error={!!formState.errors.city}
-                />
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={4} md={4}>
-              <FormControl fullWidth required>
-                <Controller
-                  name={'state'}
-                  control={control}
-                  render={({ field: { value } }) => (
-                    <Autocomplete
-                      value={value}
-                      onChange={(event, selectedState) => {
-                        setValue('state', selectedState ? selectedState : undefined);
-                      }}
-                      getOptionLabel={(state) => state || 'Unknown'}
-                      isOptionEqualToValue={(option, tempValue) => option === tempValue}
-                      options={statesDropdownOptions}
-                      renderOption={(props, option) => {
-                        return (
-                          <li {...props} key={option}>
-                            {option}
-                          </li>
-                        );
-                      }}
-                      fullWidth
-                      disableClearable={true}
-                      renderInput={(params) => <TextField name="state" {...params} label="State" required />}
-                    />
-                  )}
-                />
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={4} md={4}>
-              <FormControl fullWidth required>
-                <Controller
-                  name="zipCode"
-                  control={control}
-                  render={({ field: { value, onChange } }) => (
-                    <PatternFormat
-                      customInput={TextField}
-                      label="ZIP"
-                      value={value || ''}
-                      format="#####-####"
-                      placeholder="#####-####"
-                      variant="outlined"
-                      fullWidth
-                      required
-                      error={!!formState.errors.zipCode}
-                      helperText={formState.errors.zipCode ? zipCodeErrorMessage : ''}
-                      onValueChange={(values, sourceInfo) => {
-                        if (sourceInfo.source === 'event') {
-                          const digits = values.value;
-
-                          onChange(digits); // let RHF update normally
-
-                          if (!isValidZipCode(digits)) {
-                            setFormError('zipCode', { message: zipCodeErrorMessage });
-                          }
-                        }
-                      }}
-                    />
-                  )}
-                />
-              </FormControl>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'space-between', marginLeft: 1 }}>
-          <RoundedButton
-            sx={{ fontWeight: 500, textTransform: 'none', borderRadius: 6, ml: 1, mb: 1 }}
-            onClick={onClose}
-            color="primary"
-          >
-            Cancel
-          </RoundedButton>
-          <LoadingButton
-            loading={isSavingData}
-            type="submit"
-            variant="contained"
-            color="primary"
-            size="medium"
-            sx={{ fontWeight: 500, textTransform: 'none', borderRadius: 6, mr: 2, mb: 1, px: 4 }}
-            disabled={!formState.isValid}
-          >
-            Save
-          </LoadingButton>
-        </DialogActions>
-        {error && (
-          <Typography color="error" variant="body2" my={1} mx={2}>
-            There was an error editing this patient, please try again.
-          </Typography>
-        )}
-      </form>
-    </Dialog>
+        </Grid>
+      </Grid>
+      {error && (
+        <Typography color="error" variant="body2" mt={2}>
+          There was an error editing this patient, please try again.
+        </Typography>
+      )}
+    </AppDialog>
   );
 };
 

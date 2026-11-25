@@ -5,7 +5,7 @@ import { reportsMocks } from './_reports';
 export default defineStory({
   title: 'Delete saved ad-hoc report',
   source: 'apps/ehr/src/pages/Reports.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Reports → Saved reports → delete (trash) icon on a saved report tile',
   route: '/reports',
@@ -13,7 +13,7 @@ export default defineStory({
   render: () => <Reports />,
   play: async ({ user, screen }) => {
     await user.click(await screen.findByRole('button', { name: 'Delete' }, { timeout: 10000 }));
-    await screen.findByText('Delete saved report');
+    await screen.findByText('Delete Saved Report');
   },
   notes: 'Signed-in user mocked as Administrator; one saved report returned by a mocked list-adhoc-reports zambda.',
 });

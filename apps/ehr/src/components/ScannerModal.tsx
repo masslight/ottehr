@@ -1,4 +1,3 @@
-import CloseIcon from '@mui/icons-material/Close';
 import CropIcon from '@mui/icons-material/Crop';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FlipIcon from '@mui/icons-material/Flip';
@@ -7,16 +6,12 @@ import Rotate90DegreesCcwIcon from '@mui/icons-material/Rotate90DegreesCcw';
 import Rotate90DegreesCwIcon from '@mui/icons-material/Rotate90DegreesCw';
 import ScannerIcon from '@mui/icons-material/Scanner';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
   Button,
   Checkbox,
   CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   FormControl,
   FormControlLabel,
   IconButton,
@@ -30,6 +25,7 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, useEffect, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { confirmDestructive } from 'src/components/dialogs/confirmDialog';
 import { useDynamsoftScanner } from '../hooks/useDynamsoftScanner';
 
@@ -194,20 +190,20 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
   };
 
   return (
-    <Dialog open={open} onClose={() => void handleCancel()} maxWidth="lg" fullWidth>
-      <DialogTitle variant="h5" color="primary.dark">
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ScannerIcon />
-            Scan Document
-          </Box>
-          <IconButton onClick={() => void handleCancel()} size="small" edge="end">
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-      <DialogContent sx={{ pt: 3 }}>
-        <Stack spacing={3}>
+    <AppDialog
+      variant="form"
+      size="l"
+      open={open}
+      onClose={() => void handleCancel()}
+      title="Scan Document"
+      primary={{
+        label: imageCount > 0 ? `Save (${imageCount})` : 'Save',
+        onClick: () => void handleSaveAndClose(),
+        loading: isSaving,
+        disabled: imageCount === 0 || isScanning || !fileName.trim(),
+      }}
+    >
+      <Stack spacing={3}>
           {error && (
             <Alert severity="error" onClose={() => {}}>
               {error}
@@ -495,28 +491,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
               </Box>
             </Box>
           </Box>
-
-          {/* Action Buttons */}
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            <Button
-              onClick={() => void handleCancel()}
-              variant="outlined"
-              sx={{ borderRadius: '50px', textTransform: 'none' }}
-            >
-              Cancel
-            </Button>
-            <LoadingButton
-              onClick={handleSaveAndClose}
-              variant="contained"
-              loading={isSaving}
-              disabled={imageCount === 0 || isScanning || !fileName.trim()}
-              sx={{ borderRadius: '50px', textTransform: 'none' }}
-            >
-              Save {imageCount > 0 && `(${imageCount})`}
-            </LoadingButton>
-          </Box>
-        </Stack>
-      </DialogContent>
-    </Dialog>
+      </Stack>
+    </AppDialog>
   );
 };

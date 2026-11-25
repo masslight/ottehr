@@ -20,8 +20,7 @@ import { DataGridPro, GridColDef, GridRowSelectionModel } from '@mui/x-data-grid
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useMemo, useState } from 'react';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
-import { RoundedButton } from 'src/components/RoundedButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { stripFileExtension } from 'src/helpers/files.helper';
 import { formatISOStringToDateAndTime } from 'src/helpers/formatDateTime';
@@ -183,70 +182,41 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
         )}
       </Menu>
 
-      <CustomDialog
+      <AppDialog
+        variant="form"
+        size="s"
         open={isRenameDialogOpen}
-        handleClose={handleRenameDialogClose}
+        onClose={handleRenameDialogClose}
         title="Rename Document"
-        description={
-          <Box sx={{ width: '436px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              autoFocus
-              label="Document name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              error={!newName.trim()}
-              helperText={newName.trim().length === 0 ? 'Document name cannot be empty.' : ''}
-              fullWidth
-              required
-              sx={{ mt: 1 }}
-            />
-          </Box>
-        }
-        actions={
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              width: '100%',
-            }}
-          >
-            <RoundedButton onClick={handleRenameDialogClose}>Cancel</RoundedButton>
-            <RoundedButton
-              variant="contained"
-              onClick={handleRenameSubmit}
-              loading={renameLoading}
-              disabled={!newName.trim()}
-            >
-              Save
-            </RoundedButton>
-          </Box>
-        }
-      />
+        primary={{
+          label: 'Save',
+          onClick: () => void handleRenameSubmit(),
+          loading: renameLoading,
+          disabled: !newName.trim(),
+        }}
+      >
+        <TextField
+          autoFocus
+          label="Document name"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          error={!newName.trim()}
+          helperText={newName.trim().length === 0 ? 'Document name cannot be empty.' : ''}
+          fullWidth
+          required
+          sx={{ mt: 1 }}
+        />
+      </AppDialog>
 
-      <CustomDialog
+      <AppDialog
+        variant="destructive"
         open={isDeleteDialogOpen}
-        handleClose={handleDeleteDialogClose}
+        onClose={handleDeleteDialogClose}
         title="Delete Document"
-        description={
-          <Box sx={{ width: '436px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Typography>{`"${docInfo.docName}" will be permanently deleted. This action cannot be undone.`}</Typography>
-          </Box>
-        }
-        actions={
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              width: '100%',
-            }}
-          >
-            <RoundedButton onClick={handleDeleteDialogClose}>Cancel</RoundedButton>
-            <RoundedButton variant="contained" onClick={handleDeleteSubmit} loading={deleteLoading}>
-              Delete
-            </RoundedButton>
-          </Box>
-        }
-      />
+        primary={{ label: 'Delete', onClick: () => void handleDeleteSubmit(), loading: deleteLoading }}
+      >
+        {`"${docInfo.docName}" will be permanently deleted. This action cannot be undone.`}
+      </AppDialog>
     </>
   );
 };

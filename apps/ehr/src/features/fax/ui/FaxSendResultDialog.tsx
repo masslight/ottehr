@@ -1,5 +1,6 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography, useTheme } from '@mui/material';
+import { Typography } from '@mui/material';
 import { FC } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
 import { FaxRecipientResult } from 'utils/lib/types/api/fax.types';
@@ -14,41 +15,26 @@ interface FaxSendResultDialogProps {
  * point of this dialog is to name exactly who did not receive the fax.
  */
 export const FaxSendResultDialog: FC<FaxSendResultDialogProps> = ({ failures, onClose }) => {
-  const theme = useTheme();
-
   return (
-    <Dialog
+    <AppDialog
+      variant="alert"
+      severity="error"
       open={failures.length > 0}
       onClose={onClose}
-      maxWidth="sm"
-      fullWidth
+      title="Some Faxes Could Not Be Sent"
+      dismiss={{ label: 'Close', 'data-testid': dataTestIds.faxResultDialog.closeButton }}
       data-testid={dataTestIds.faxResultDialog.root}
     >
-      <DialogTitle sx={{ color: theme.palette.primary.dark, fontWeight: 600, fontSize: '24px' }}>
-        Some faxes could not be sent
-      </DialogTitle>
-      <DialogContent>
-        <Typography sx={{ mb: 2 }}>The following recipient(s) could not be reached:</Typography>
-        {failures.map((failure, index) => (
-          <Typography
-            key={`${failure.faxNumber}-${index}`}
-            sx={{ fontWeight: 600, mb: 1 }}
-            data-testid={dataTestIds.faxResultDialog.failedRecipient}
-          >
-            {failure.name || 'Unnamed recipient'} — {formatPhoneNumberDisplay(failure.faxNumber)}
-          </Typography>
-        ))}
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button
-          variant="contained"
-          onClick={onClose}
-          sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
-          data-testid={dataTestIds.faxResultDialog.closeButton}
+      <Typography sx={{ mb: 2 }}>The following recipient(s) could not be reached:</Typography>
+      {failures.map((failure, index) => (
+        <Typography
+          key={`${failure.faxNumber}-${index}`}
+          sx={{ fontWeight: 600, mb: 1 }}
+          data-testid={dataTestIds.faxResultDialog.failedRecipient}
         >
-          Close
-        </Button>
-      </DialogActions>
-    </Dialog>
+          {failure.name || 'Unnamed recipient'} — {formatPhoneNumberDisplay(failure.faxNumber)}
+        </Typography>
+      ))}
+    </AppDialog>
   );
 };

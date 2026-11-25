@@ -5,7 +5,7 @@ import { VISIT_NOTES, VISIT_ROUTE, VISIT_ROUTE_PATH, visitDetailsMocks } from '.
 export default defineStory({
   title: 'Move patient to next in queue',
   source: 'apps/ehr/src/pages/VisitDetailsPage.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'Visit details page (visit in "arrived" status) → "Move to next" button in the header',
   route: VISIT_ROUTE,

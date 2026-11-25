@@ -1,8 +1,9 @@
 import { DeleteOutlined as DeleteIcon, EditOutlined as EditIcon } from '@mui/icons-material';
 import { Box, CircularProgress, IconButton, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
-import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { BoxStyled } from 'src/features/visits/shared/components/generic-notes-list/components/ui/BoxStyled';
 import { NoteDTO } from 'utils/lib/types/api/patient-notes/patient-notes.types';
 import { useDeleteNote } from '../hooks/useDeleteNote';
@@ -13,6 +14,8 @@ interface NoteItemProps {
   note: NoteDTO;
   target: NoteTarget;
 }
+
+const DELETE_ERROR = 'Failed to delete note. Please try again.';
 
 export const formatNoteByline = (note: NoteDTO): string => {
   const written = note.sent ?? note.lastUpdated;
@@ -27,9 +30,19 @@ export const NoteItem: React.FC<NoteItemProps> = ({ note, target }) => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const { mutateAsync: deleteNote, isPending: isDeleting } = useDeleteNote(target);
 
-  const handleDelete = async (entity: NoteDTO): Promise<void> => {
-    if (!entity.resourceId) return;
-    await deleteNote(entity.resourceId);
+  const [deleteError, setDeleteError] = useState<string>();
+
+  const closeDelete = (): void => setIsDeleteOpen(false);
+
+  const handleDelete = async (): Promise<void> => {
+    setDeleteError(undefined);
+    try {
+      if (note.resourceId) await deleteNote(note.resourceId);
+      closeDelete();
+    } catch {
+      setDeleteError(DELETE_ERROR);
+      enqueueSnackbar(DELETE_ERROR, { variant: 'error' });
+    }
   };
 
   return (
@@ -67,18 +80,25 @@ export const NoteItem: React.FC<NoteItemProps> = ({ note, target }) => {
 
       {isEditOpen && <EditNoteModal note={note} target={target} onClose={() => setIsEditOpen(false)} />}
 
-      <InPersonModal
+      <AppDialog
+        variant="destructive"
         open={isDeleteOpen}
-        handleClose={() => setIsDeleteOpen(false)}
-        title={`Delete ${noteKind(target)} note`}
-        description="Are you sure you want to delete this note? This action cannot be undone."
-        entity={note}
-        handleConfirm={handleDelete}
-        getEntityPreviewText={(n) => n.text}
-        closeButtonText="Keep"
-        confirmText="Delete"
-        errorMessage="Failed to delete note. Please try again."
-      />
+        onClose={closeDelete}
+        title={`Delete ${noteKind(target) === 'task' ? 'Task' : 'Patient'} Note`}
+        primary={{ label: 'Delete Note', onClick: handleDelete }}
+      >
+        <Typography>Are you sure you want to delete this note? This action cannot be undone.</Typography>
+        <Box mt={2} p={2} bgcolor="grey.100" borderRadius={1}>
+          <Typography variant="body1" color="text.main" whiteSpace="pre-wrap">
+            {note.text}
+          </Typography>
+        </Box>
+        {deleteError && (
+          <Typography color="error" variant="body2" mt={2}>
+            {deleteError}
+          </Typography>
+        )}
+      </AppDialog>
     </>
   );
 };

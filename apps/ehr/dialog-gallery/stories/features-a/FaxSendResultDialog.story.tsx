@@ -10,7 +10,7 @@ const failures: FaxRecipientResult[] = [
 export default defineStory({
   title: 'Fax send result: some recipients failed',
   source: 'apps/ehr/src/features/fax/ui/FaxSendResultDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'info',
   where: 'After sending a fax packet, when at least one recipient could not be reached',
   render: () => <FaxSendResultDialog failures={failures} onClose={() => undefined} />,

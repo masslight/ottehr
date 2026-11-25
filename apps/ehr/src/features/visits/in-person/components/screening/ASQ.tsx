@@ -1,6 +1,7 @@
-import { Alert, FormControl, Grid, MenuItem, Paper, Select, Typography, useTheme } from '@mui/material';
+import { Alert, Box, FormControl, Grid, MenuItem, Paper, Select, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useChartData } from 'src/features/visits/shared/hooks/useChartData';
 import { useGetAppointmentAccessibility } from 'src/features/visits/shared/hooks/useGetAppointmentAccessibility';
@@ -9,7 +10,6 @@ import { useAppointmentData } from 'src/features/visits/shared/stores/appointmen
 import { ASQ_FIELD, ASQKeys, asqLabels } from 'utils/lib/types/api/chart-data/chart-data.constants';
 import { ASQObservationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { ObservationDTO } from 'utils/lib/types/data/screening-questions/types';
-import { InPersonModal } from '../InPersonModal';
 
 const isASQObservationDTO = (obs: ObservationDTO): obs is ASQObservationDTO => {
   return obs.field === ASQ_FIELD;
@@ -138,16 +138,23 @@ export const ASQ: React.FC = () => {
         </Grid>
       </Grid>
 
-      <InPersonModal
+      <AppDialog
+        variant="confirm"
         open={isModalOpen}
-        handleClose={handleModalClose}
-        handleConfirm={handleModalConfirm}
+        onClose={handleModalClose}
         title="Confirm ASQ Positive"
-        description="Are you sure you want to set ASQ as Positive?"
-        closeButtonText="Cancel"
-        confirmText="Confirm"
-        errorMessage="An error occurred"
-      />
+        primary={{
+          label: 'Set as Positive',
+          onClick: () => {
+            handleModalConfirm();
+            handleModalClose();
+          },
+        }}
+      >
+        <Box data-testid={dataTestIds.dialog.inPersonModalContent}>
+          Are you sure you want to set ASQ as Positive?
+        </Box>
+      </AppDialog>
     </Paper>
   );
 };

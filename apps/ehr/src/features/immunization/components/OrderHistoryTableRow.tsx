@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { OrderStatusChip } from 'src/features/immunization/components/OrderStatusChip';
 import {
@@ -155,17 +155,15 @@ export const OrderHistoryTableRow: React.FC<Props> = ({
                   <IconButton size="small" aria-label="delete" onClick={() => setIsDeleteDialogOpened(true)}>
                     <DeleteIcon sx={{ color: theme.palette.error.main }} />
                   </IconButton>
-                  <CustomDialog
+                  <AppDialog
+                    variant="destructive"
                     open={isDeleteDialogOpened}
-                    handleClose={() => setIsDeleteDialogOpened(false)}
-                    title="Delete immunization order"
-                    description={`Are you sure you want to delete the immunization order?`}
-                    closeButtonText="Cancel"
-                    closeButton={false}
-                    handleConfirm={handleConfirmDelete}
-                    confirmText={isDeleting ? 'Deleting...' : 'Delete'}
-                    confirmLoading={isDeleting}
-                  />
+                    onClose={() => setIsDeleteDialogOpened(false)}
+                    title="Delete Immunization Order"
+                    primary={{ label: 'Delete Order', onClick: handleConfirmDelete, loading: isDeleting }}
+                  >
+                    Are you sure you want to delete the immunization order?
+                  </AppDialog>
                 </>
               )}
             </Stack>

@@ -6,7 +6,7 @@ import { flowForms, flowServices } from './_flows';
 export default defineStory({
   title: 'Edit paperwork flow',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/paperwork-flows/components/PaperworkFlowDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Paperwork Flows → edit a flow',
   render: () => (

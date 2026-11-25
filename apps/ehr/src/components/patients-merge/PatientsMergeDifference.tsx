@@ -1,14 +1,8 @@
-import CloseIcon from '@mui/icons-material/Close';
 import {
   Alert,
   Box,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControlLabel,
-  IconButton,
   Radio,
   RadioGroup,
   Stack,
@@ -28,6 +22,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useOystehrAPIClient } from 'src/features/visits/shared/hooks/useOystehrAPIClient';
 import { structureQuestionnaireResponse } from 'src/helpers/qr-structure';
 import { prepopulatePatientRecordItems } from 'utils/lib/config-helpers/patient-record';
@@ -38,7 +33,6 @@ import { PATIENT_RECORD_QUESTIONNAIRE } from 'utils/lib/ottehr-config/patient-re
 import { MergePatientsResponse } from 'utils/lib/types/api/patient-account';
 import { OrderedCoveragesWithSubscribers } from 'utils/lib/types/data/account';
 import { useGetPatientAccount, useGetPatientCoverages } from '../../hooks/useGetPatient';
-import { RoundedButton } from '../RoundedButton';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -421,16 +415,20 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
 
   return (
     <FormProvider {...methods}>
-      <Dialog open={open} onClose={close} maxWidth="lg" fullWidth>
-        <IconButton size="small" onClick={close} sx={{ position: 'absolute', right: 16, top: 16 }}>
-          <CloseIcon fontSize="small" />
-        </IconButton>
-
-        <Stack spacing={2} sx={{ p: 3 }}>
+      <AppDialog
+        variant="form"
+        size="m"
+        open={open}
+        onClose={close}
+        title="Merge Patients"
+        primary={{
+          label: mergeMutation.isPending ? 'Merging...' : 'Merge Patients',
+          disabled: isLoading || mergeMutation.isPending,
+          onClick: () => setConfirmOpen(true),
+        }}
+      >
+        <Stack spacing={2}>
           <Stack spacing={1}>
-            <Typography variant="h4" color="primary.dark">
-              Merge Patients
-            </Typography>
             <Typography>
               Compare patient records and select which value to keep for each field. The selected values will be saved
               to the Main Patient record.
@@ -544,35 +542,19 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
                   </TableBody>
                 </Table>
               </TableContainer>
-
-              <Stack direction="row" spacing={2} justifyContent="space-between">
-                <RoundedButton onClick={close}>Cancel</RoundedButton>
-                <RoundedButton
-                  variant="contained"
-                  onClick={() => setConfirmOpen(true)}
-                  disabled={isLoading || mergeMutation.isPending}
-                >
-                  {mergeMutation.isPending ? 'Merging...' : 'Merge Patients'}
-                </RoundedButton>
-              </Stack>
             </>
           )}
         </Stack>
-      </Dialog>
+      </AppDialog>
 
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="xs" fullWidth>
-        <IconButton
-          size="small"
-          onClick={() => setConfirmOpen(false)}
-          sx={{ position: 'absolute', right: 16, top: 16 }}
-        >
-          <CloseIcon fontSize="small" />
-        </IconButton>
-        <DialogTitle component={Typography} variant="h5" color="primary.dark" sx={{ pb: 1 }}>
-          Merge Patient
-        </DialogTitle>
-        <DialogContent sx={{ pb: 2 }}>
-          <Stack spacing={2}>
+      <AppDialog
+        variant="destructive"
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Merge Patient"
+        primary={{ label: 'Confirm Merge', onClick: onSave }}
+      >
+        <Stack spacing={2}>
             <Typography>Are you sure you want to merge patient records? Merged records will be deactivated.</Typography>
             <Stack>
               <Typography fontWeight={600}>Merged patient record PID:</Typography>
@@ -582,17 +564,8 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
               <Typography fontWeight={600}>Main patient record PID:</Typography>
               <Typography sx={{ wordBreak: 'break-all' }}>{mainPatientId}</Typography>
             </Stack>
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Stack direction="row" spacing={2}>
-            <RoundedButton onClick={() => setConfirmOpen(false)}>Cancel</RoundedButton>
-            <RoundedButton variant="contained" onClick={onSave}>
-              Confirm merge
-            </RoundedButton>
-          </Stack>
-        </DialogActions>
-      </Dialog>
+        </Stack>
+      </AppDialog>
     </FormProvider>
   );
 };

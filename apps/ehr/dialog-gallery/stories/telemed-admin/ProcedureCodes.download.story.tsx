@@ -5,7 +5,7 @@ import { feeSchedule, zambda } from './_mocks';
 export default defineStory({
   title: 'Download procedure codes CSV',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/charge-items/ProcedureCodes.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'Admin → Billing → Fee Schedules / Charge Masters → an entry → Procedure Codes tab → Download CSV',
   notes:

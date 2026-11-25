@@ -5,7 +5,7 @@ import { quickPicks } from './_mocks';
 export default defineStory({
   title: 'Rename radiology quick pick',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/RadiologyQuickPicksPage.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Quick Picks → Radiology tab → rename (pencil) icon on a row',
   mocks: [

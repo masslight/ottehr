@@ -4,11 +4,6 @@ import {
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   IconButton,
   Paper,
   Switch,
@@ -32,6 +27,7 @@ import {
   setPractitionerRoleActive,
   updatePractitionerRole,
 } from 'src/api/api';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { SCHEDULE_DISPLAY_NAME_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getPractitionerRoleAllCategories } from 'utils/lib/fhir/healthcareService';
 import { TIMEZONES } from 'utils/lib/types/constants';
@@ -394,10 +390,22 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
         </Table>
       )}
 
-      <Dialog open={!!renameRow} onClose={() => !renameRole.isPending && setRenameRow(null)} fullWidth maxWidth="xs">
-        <DialogTitle>Rename schedule</DialogTitle>
-        <DialogContent>
-          <TextField
+      <AppDialog
+        variant="form"
+        size="s"
+        open={!!renameRow}
+        onClose={() => setRenameRow(null)}
+        title="Rename Schedule"
+        busy={renameRole.isPending}
+        primary={{
+          label: 'Save',
+          disabled: renameRole.isPending || !renameValue.trim(),
+          onClick: () => {
+            if (renameRow?.role.id) renameRole.mutate({ roleId: renameRow.role.id, displayName: renameValue.trim() });
+          },
+        }}
+      >
+        <TextField
             autoFocus
             fullWidth
             label="Name"
@@ -409,53 +417,31 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
                 renameRole.mutate({ roleId: renameRow.role.id, displayName: renameValue.trim() });
               }
             }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRenameRow(null)} disabled={renameRole.isPending}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            disabled={renameRole.isPending || !renameValue.trim()}
-            onClick={() =>
-              renameRow?.role.id && renameRole.mutate({ roleId: renameRow.role.id, displayName: renameValue.trim() })
-            }
-          >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+        />
+      </AppDialog>
 
-      <Dialog open={!!pendingDeactivate} onClose={() => !setActive.isPending && setPendingDeactivate(null)}>
-        <DialogTitle>Deactivate schedule?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            This will deactivate{' '}
-            <strong>
-              {pendingDeactivate?.location?.name || 'this schedule'}
-              {pendingDeactivate?.categoryLabels.length ? ` (${pendingDeactivate.categoryLabels.join(', ')})` : ''}
-            </strong>
-            . Past appointments and encounters that referenced this schedule are preserved; it just stops appearing as a
-            bookable option going forward. You can switch it back on at any time.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPendingDeactivate(null)} disabled={setActive.isPending}>
-            Cancel
-          </Button>
-          <Button
-            color="error"
-            variant="contained"
-            disabled={setActive.isPending}
-            onClick={() =>
-              pendingDeactivate?.role.id && setActive.mutate({ roleId: pendingDeactivate.role.id, active: false })
-            }
-          >
-            Deactivate
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        variant="destructive"
+        open={!!pendingDeactivate}
+        onClose={() => setPendingDeactivate(null)}
+        title="Deactivate Schedule?"
+        busy={setActive.isPending}
+        primary={{
+          label: 'Deactivate',
+          disabled: setActive.isPending,
+          onClick: () => {
+            if (pendingDeactivate?.role.id) setActive.mutate({ roleId: pendingDeactivate.role.id, active: false });
+          },
+        }}
+      >
+        This will deactivate{' '}
+        <strong>
+          {pendingDeactivate?.location?.name || 'this schedule'}
+          {pendingDeactivate?.categoryLabels.length ? ` (${pendingDeactivate.categoryLabels.join(', ')})` : ''}
+        </strong>
+        . Past appointments and encounters that referenced this schedule are preserved; it just stops appearing as a
+        bookable option going forward. You can switch it back on at any time.
+      </AppDialog>
     </Paper>
   );
 }

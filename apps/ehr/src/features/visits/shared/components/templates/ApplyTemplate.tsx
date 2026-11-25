@@ -1,24 +1,9 @@
-import { LoadingButton } from '@mui/lab';
-import {
-  Autocomplete,
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  List,
-  ListItem,
-  ListItemText,
-  TextField,
-  Typography,
-  useTheme,
-} from '@mui/material';
+import { Autocomplete, Box, List, ListItem, ListItemText, TextField, Typography } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { applyTemplate, createTemplate, deleteTemplate } from 'src/api/api';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { invalidateChart } from 'src/features/visits/shared/hooks/chartSectionCache';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useCommandPaletteSource } from 'src/hooks/useCommandPaletteSource';
@@ -52,7 +37,6 @@ export const ApplyTemplate: React.FC = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState<boolean>(false);
   const [newTemplateName, setNewTemplateName] = useState<string>('');
   const [isCreatingTemplate, setIsCreatingTemplate] = useState<boolean>(false);
-  const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const { encounter } = useAppointmentData();
   const queryClient = useQueryClient();
@@ -78,12 +62,6 @@ export const ApplyTemplate: React.FC = () => {
     isCurrentVersion: true,
   };
   const allOptions: TemplateOption[] = [addNewOption, ...templates];
-
-  const buttonSx = {
-    fontWeight: 500,
-    textTransform: 'none',
-    borderRadius: 6,
-  };
 
   const handleTemplateChange = (event: React.SyntheticEvent, newValue: TemplateOption | null): void => {
     if (newValue) {
@@ -327,79 +305,77 @@ export const ApplyTemplate: React.FC = () => {
         onApply={handleApplyTemplate}
       />
 
-      {/* Create/Update Template Dialog */}
-      <Dialog open={createDialogOpen} onClose={handleCreateDialogClose} disableScrollLock maxWidth="sm" fullWidth>
-        <DialogTitle variant="h4" color="primary.dark">
-          {showOverwriteConfirm ? 'Update Existing Template?' : 'Save Note As Template'}
-        </DialogTitle>
-        <DialogContent>
-          {showOverwriteConfirm ? (
-            <DialogContentText sx={{ color: theme.palette.text.primary }}>
-              A template named <strong>{overwriteTemplateName}</strong> already exists. Do you want to replace it with
-              the current note&apos;s data?
-            </DialogContentText>
-          ) : (
-            <>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Enter a new name to create a template, or select an existing template to update it.
-              </Typography>
-              <Autocomplete
-                freeSolo
-                options={templates.map((t) => t.label)}
-                value={newTemplateName}
-                onInputChange={(_e, value) => setNewTemplateName(value)}
-                onChange={(_e, value) => {
-                  if (value) setNewTemplateName(value);
-                }}
-                disabled={isCreatingTemplate}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    autoFocus
-                    label="Template name"
-                    fullWidth
-                    required
-                    placeholder="Type a new name or select existing..."
-                  />
-                )}
-                sx={{ mb: 2 }}
-              />
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                The following sections from the current note will be saved in the template:
-              </Typography>
-              <List dense disablePadding sx={{ mt: 1 }}>
-                {TEMPLATE_SECTIONS.map((section) => (
-                  <ListItem key={section} sx={{ py: 0, pl: 2 }}>
-                    <ListItemText
-                      primary={`\u2022 ${section}`}
-                      primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-          <Button
-            variant="outlined"
-            onClick={showOverwriteConfirm ? () => setShowOverwriteConfirm(false) : handleCreateDialogClose}
-            sx={buttonSx}
+      {/* Create/Update Template Dialog: one dialog whose second step is the overwrite confirmation */}
+      {showOverwriteConfirm ? (
+        <AppDialog
+          variant="confirm"
+          open={createDialogOpen}
+          onClose={handleCreateDialogClose}
+          title="Update Existing Template?"
+          dismiss={{ label: 'Back', onClick: () => setShowOverwriteConfirm(false) }}
+          primary={{
+            label: 'Replace',
+            onClick: () => void handleSaveTemplate(),
+            loading: isCreatingTemplate,
+            disabled: !newTemplateName.trim(),
+          }}
+        >
+          A template named <strong>{overwriteTemplateName}</strong> already exists. Do you want to replace it with the
+          current note&apos;s data?
+        </AppDialog>
+      ) : (
+        <AppDialog
+          variant="form"
+          size="s"
+          open={createDialogOpen}
+          onClose={handleCreateDialogClose}
+          title="Save Note as Template"
+          primary={{
+            label: 'Save',
+            onClick: () => void handleSaveTemplate(),
+            loading: isCreatingTemplate,
+            disabled: !newTemplateName.trim(),
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Enter a new name to create a template, or select an existing template to update it.
+          </Typography>
+          <Autocomplete
+            freeSolo
+            options={templates.map((t) => t.label)}
+            value={newTemplateName}
+            onInputChange={(_e, value) => setNewTemplateName(value)}
+            onChange={(_e, value) => {
+              if (value) setNewTemplateName(value);
+            }}
             disabled={isCreatingTemplate}
-          >
-            {showOverwriteConfirm ? 'Back' : 'Cancel'}
-          </Button>
-          <LoadingButton
-            variant="contained"
-            onClick={handleSaveTemplate}
-            sx={buttonSx}
-            loading={isCreatingTemplate}
-            disabled={!newTemplateName.trim()}
-          >
-            {showOverwriteConfirm ? 'Replace' : 'Save'}
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                autoFocus
+                label="Template name"
+                fullWidth
+                required
+                placeholder="Type a new name or select existing..."
+              />
+            )}
+            sx={{ mb: 2 }}
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            The following sections from the current note will be saved in the template:
+          </Typography>
+          <List dense disablePadding sx={{ mt: 1 }}>
+            {TEMPLATE_SECTIONS.map((section) => (
+              <ListItem key={section} sx={{ py: 0, pl: 2 }}>
+                <ListItemText
+                  primary={`\u2022 ${section}`}
+                  primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </AppDialog>
+      )}
     </Box>
   );
 };

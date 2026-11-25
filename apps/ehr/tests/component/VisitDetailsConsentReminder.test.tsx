@@ -227,7 +227,7 @@ describe('Visit details consent reminder', () => {
     await savePatientRecord();
 
     const dialog = await screen.findByTestId(dataTestIds.visitDetailsPage.consentReminderDialog);
-    expect(dialog).toHaveTextContent('Reminder: consent not signed');
+    expect(dialog).toHaveTextContent('Reminder: Consent Not Signed');
     expect(dialog).toHaveTextContent(CONSENT_REMINDER_MESSAGE);
     // Nothing is written while the reminder is up.
     expect(patientRecordSaveMock).not.toHaveBeenCalled();

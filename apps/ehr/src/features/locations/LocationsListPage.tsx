@@ -1,13 +1,8 @@
 import AddIcon from '@mui/icons-material/Add';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   MenuItem,
   Paper,
   Table,
@@ -22,6 +17,7 @@ import {
 import { Address } from 'fhir/r4b';
 import { ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
 import { useCreateLocationMutation, useLocationsListQuery } from './location.queries';
 
@@ -157,40 +153,38 @@ export default function LocationsListPage(): ReactElement {
         </Table>
       </TableContainer>
 
-      <Dialog open={addOpen} onClose={() => setAddOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Add location</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            label="Name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleCreate();
-              }
-            }}
-            fullWidth
-            sx={{ mt: 1 }}
-          />
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-            Creates an active, in-person location with a slug derived from the name — configure address, modes, and the
-            rest on the next page.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddOpen(false)}>Cancel</Button>
-          <LoadingButton
-            variant="contained"
-            onClick={handleCreate}
-            loading={createMutation.isPending}
-            disabled={!newName.trim()}
-          >
-            Create
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        variant="form"
+        size="s"
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Add Location"
+        primary={{
+          label: 'Create',
+          onClick: handleCreate,
+          loading: createMutation.isPending,
+          disabled: !newName.trim(),
+        }}
+      >
+        <TextField
+          autoFocus
+          label="Name"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleCreate();
+            }
+          }}
+          fullWidth
+          sx={{ mt: 1 }}
+        />
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          Creates an active, in-person location with a slug derived from the name — configure address, modes, and the
+          rest on the next page.
+        </Typography>
+      </AppDialog>
     </Paper>
   );
 }

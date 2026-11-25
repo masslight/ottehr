@@ -1,5 +1,4 @@
-import LoadingButton from '@mui/lab/LoadingButton';
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material';
+import { TextField, Typography } from '@mui/material';
 import { AlertColor } from '@mui/material/Alert';
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
@@ -7,6 +6,7 @@ import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { COMMUNICATION_ISSUE_REPORT_CODE } from 'utils/lib/types/common';
 import useEvolveUser from '../../hooks/useEvolveUser';
+import { AppDialog } from './AppDialog';
 
 interface ReportIssueDialogProps {
   open: boolean;
@@ -36,11 +36,6 @@ export default function ReportIssueDialog({
   const [reportIssueLoading, setReportIssueLoading] = useState<boolean>(false);
   const [issueDetails, setIssueDetails] = useState<string>('');
   const [error, setError] = useState<boolean>(false);
-  const buttonSx = {
-    fontWeight: 500,
-    textTransform: 'none',
-    borderRadius: 6,
-  };
 
   const user = useEvolveUser();
 
@@ -120,61 +115,36 @@ export default function ReportIssueDialog({
   };
 
   return (
-    <Dialog
+    <AppDialog
+      variant="form"
+      size="s"
       open={open}
       onClose={handleClose}
-      disableScrollLock
-      sx={{
-        '.MuiPaper-root': {
-          padding: 1,
-          width: '444px',
-          maxWidth: 'initial',
-        },
-      }}
+      title="Report Issue"
+      onSubmit={(e) => void handleReportIssue(e)}
+      primary={{ label: 'Submit Issue', loading: reportIssueLoading, disabled: issueDetails.trim() === '' }}
+      dismiss={{ onClick: handleDialogClose }}
     >
-      <form onSubmit={(e) => handleReportIssue(e)}>
-        <DialogTitle variant="h4" color="primary.dark" sx={{ width: '100%' }}>
-          Report Issue
-        </DialogTitle>
-        <DialogContent>
-          <div>
-            <Typography>
-              Did you or the patient have an issue interacting with the software? Please let us know what you
-              experienced. This feedback will be submitted directly to the development team.
-            </Typography>
-            <TextField
-              required
-              multiline
-              minRows={3}
-              placeholder={'Enter issue details here...'}
-              value={issueDetails}
-              onChange={(e) => setIssueDetails(e.target.value)}
-              sx={{ marginTop: 1, width: '100%' }}
-            />
-          </div>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
-          <LoadingButton
-            loading={reportIssueLoading}
-            disabled={issueDetails.trim() === ''}
-            type="submit"
-            variant="contained"
-            color="primary"
-            size="medium"
-            sx={buttonSx}
-          >
-            Submit Issue
-          </LoadingButton>
-          <Button variant="text" onClick={handleDialogClose} size="medium" sx={buttonSx}>
-            Cancel
-          </Button>
-        </DialogActions>
-        {error && (
-          <Typography color="error" variant="body2" my={1} mx={2}>
-            There was an error sending this issue report, please try again.
-          </Typography>
-        )}
-      </form>
-    </Dialog>
+      <div>
+        <Typography>
+          Did you or the patient have an issue interacting with the software? Please let us know what you experienced.
+          This feedback will be submitted directly to the development team.
+        </Typography>
+        <TextField
+          required
+          multiline
+          minRows={3}
+          placeholder={'Enter issue details here...'}
+          value={issueDetails}
+          onChange={(e) => setIssueDetails(e.target.value)}
+          sx={{ marginTop: 1, width: '100%' }}
+        />
+      </div>
+      {error && (
+        <Typography color="error" variant="body2" mt={2}>
+          There was an error sending this issue report, please try again.
+        </Typography>
+      )}
+    </AppDialog>
   );
 }

@@ -1,15 +1,16 @@
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { Button, IconButton } from '@mui/material';
+import { Button, IconButton, Typography } from '@mui/material';
 import { Box, Stack } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { getPatientLoginPhoneNumbers, updatePatientLoginPhoneNumbers } from 'src/api/api';
-import { InPersonModal } from 'src/features/visits/in-person/components/InPersonModal';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { normalizePhoneNumber } from 'utils/lib/fhir/resourcePatch';
 import { PhoneInput } from '../input/PhoneInput';
+import { AppDialog } from './AppDialog';
 
 interface Props {
   patientId: string;
@@ -64,20 +65,21 @@ export const AccountSettingsDialog: React.FC<Props> = ({ patientId, handleClose 
   }, [oystehrZambda, patientId, methods]);
 
   return (
-    <InPersonModal
-      color="primary.main"
-      icon={null}
-      showEntityPreview={false}
+    <AppDialog
+      variant="form"
+      size="s"
       open={true}
-      handleClose={handleClose}
-      handleConfirm={handleConfirm}
-      disabled={!formValue.phones || formValue.phones.length === 0}
-      description="Phone numbers that have access to this patient"
+      onClose={handleClose}
       title="Account Settings"
-      confirmText="Save"
-      closeButtonText="Cancel"
-      closeOnConfirm={false}
-      ContentComponent={
+      titleTestId={dataTestIds.inPersonModal.confirmationDialogue}
+      primary={{
+        label: 'Save',
+        onClick: handleConfirm,
+        disabled: !formValue.phones || formValue.phones.length === 0,
+      }}
+    >
+      <Box data-testid={dataTestIds.dialog.inPersonModalContent}>
+        <Typography>Phone numbers that have access to this patient</Typography>
         <FormProvider {...methods}>
           <Stack minWidth="500px" spacing={1} paddingTop="8px">
             {fields.map((field, index) => {
@@ -97,12 +99,12 @@ export const AccountSettingsDialog: React.FC<Props> = ({ patientId, handleClose 
                 style={{ textTransform: 'none' }}
                 onClick={() => append({ value: '' })}
               >
-                Add number
+                Add Number
               </Button>
             </Box>
           </Stack>
         </FormProvider>
-      }
-    />
+      </Box>
+    </AppDialog>
   );
 };

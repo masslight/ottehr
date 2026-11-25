@@ -55,8 +55,8 @@ export const CompleteIntakeButton: React.FC<{
 
         <ConfirmationModal
           title="Abnormal Vital Value"
-          confirmText="Back"
-          closeButtonText="Continue"
+          stayLabel="Back"
+          proceedLabel="Continue"
           ContentComponent={<AbnormalVitalsContent />}
         />
       </Box>

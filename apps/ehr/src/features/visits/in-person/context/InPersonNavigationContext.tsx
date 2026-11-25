@@ -1,5 +1,7 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useLocation, useMatch, useNavigate, useParams } from 'react-router-dom';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { filterActiveMedications } from 'utils/lib/helpers/medications/current-medications.helper';
 import { sidebarMenuIcons } from '../../shared/components/sidebarMenuIcons';
 import { useChartData } from '../../shared/hooks/useChartData';
@@ -7,7 +9,6 @@ import { useChartSection } from '../../shared/hooks/useChartSection';
 import { useGetAppointmentAccessibility } from '../../shared/hooks/useGetAppointmentAccessibility';
 import { useMarkChartStaleOnNavigate } from '../../shared/hooks/useMarkChartStaleOnNavigate';
 import { useAppointmentData } from '../../shared/stores/appointment/appointment.store';
-import { InPersonModal } from '../components/InPersonModal';
 import { ROUTER_PATH, routesInPerson } from '../routing/routesInPerson';
 
 export type InteractionMode = 'main' | 'readonly' | 'follow-up';
@@ -297,15 +298,14 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
       }}
     >
       {children}
-      <InPersonModal
+      <AppDialog
+        variant="alert"
         open={isModalOpen}
-        handleClose={closeModal}
+        onClose={closeModal}
         title="Validation Error"
-        description={modalContent as React.ReactElement}
-        closeButtonText="Close"
-        confirmText="OK"
-        handleConfirm={closeModal}
-      />
+      >
+        <div data-testid={dataTestIds.dialog.inPersonModalContent}>{modalContent}</div>
+      </AppDialog>
     </InPersonNavigationContext.Provider>
   );
 };

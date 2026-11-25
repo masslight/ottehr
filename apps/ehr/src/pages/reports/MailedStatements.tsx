@@ -1,6 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckIcon from '@mui/icons-material/Check';
-import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import PreviewIcon from '@mui/icons-material/Preview';
@@ -8,9 +7,6 @@ import {
   Box,
   Button,
   Chip,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   FormControl,
   IconButton,
   InputLabel,
@@ -323,16 +319,16 @@ function PreviewButton({ htmlContent, description }: { htmlContent: string; desc
       </Tooltip>
       <AppDialog variant="form" size="m" open={open} onClose={() => setOpen(false)} title="Statement Preview">
         <Box
-            component="iframe"
-            title="Statement Preview"
-            sandbox="allow-scripts"
-            srcDoc={htmlContent}
-            sx={{
-              width: '100%',
-              minHeight: 800,
-              border: 'none',
-              backgroundColor: '#fff',
-              borderRadius: 1,
+          component="iframe"
+          title="Statement Preview"
+          sandbox="allow-scripts"
+          srcDoc={htmlContent}
+          sx={{
+            width: '100%',
+            minHeight: 800,
+            border: 'none',
+            backgroundColor: '#fff',
+            borderRadius: 1,
             filter: 'grayscale(100%)',
           }}
         />

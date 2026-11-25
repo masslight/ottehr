@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Edit E&M code',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/EMCodeDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → E&M Codes → edit icon on a row',
   render: () => (

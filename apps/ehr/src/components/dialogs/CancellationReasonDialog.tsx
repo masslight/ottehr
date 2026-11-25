@@ -1,10 +1,4 @@
-import LoadingButton from '@mui/lab/LoadingButton';
 import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   InputLabel,
   ListItemText,
@@ -23,6 +17,7 @@ import { CancelAppointmentZambdaInput } from 'utils/lib/types/api/cancel-appoint
 import { cancelAppointment } from '../../api/api';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
+import { AppDialog } from './AppDialog';
 
 interface CancellationReasonDialogProps {
   handleClose: () => void;
@@ -46,11 +41,6 @@ export default function CancellationReasonDialog({
   const [cancellationReasonAdditional, setCancellationReasonAdditional] = useState<string>('');
   const [cancelLoading, setCancelLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
-  const buttonSx = {
-    fontWeight: 500,
-    textTransform: 'none',
-    borderRadius: 6,
-  };
   const ITEM_HEIGHT = 34;
   const ITEM_PADDING_Y = 16;
 
@@ -127,78 +117,57 @@ export default function CancellationReasonDialog({
   };
 
   return (
-    <Dialog
+    <AppDialog
+      variant="form"
+      size="s"
       open={open}
       onClose={handleDialogClose}
-      disableScrollLock
-      sx={{
-        '.MuiPaper-root': {
-          padding: 1,
-          width: '444px',
-          maxWidth: 'initial',
-        },
+      title="Patient's Cancelation Reason"
+      onSubmit={(e) => void handleCancel(e)}
+      primary={{
+        label: 'Cancel Visit',
+        loading: cancelLoading,
+        disabled: !cancellationReason,
+        'data-testid': dataTestIds.visitDetailsPage.cancelVisitDialogue,
       }}
+      dismiss={{ label: 'Keep' }}
     >
-      <form onSubmit={(e) => handleCancel(e)}>
-        <DialogTitle variant="h4" color="primary.dark" sx={{ width: '100%' }}>
-          Patient's cancelation reason
-        </DialogTitle>
-        <DialogContent>
-          <div>
-            <FormControl required sx={{ mt: 2, width: '100%' }}>
-              <InputLabel id="select-label">Cancelation reason</InputLabel>
-              <Select
-                data-testid={dataTestIds.visitDetailsPage.cancelationReasonDropdown}
-                labelId="select-label"
-                id="select"
-                label="Cancelation reason"
-                value={cancellationReason}
-                onChange={handleChange}
-                renderValue={(selected) => selected}
-                MenuProps={MenuProps}
-              >
-                {cancelOptions.map((reason) => (
-                  <MenuItem key={reason.value} value={reason.value}>
-                    <ListItemText primary={reason.label} />
-                  </MenuItem>
-                ))}
-              </Select>
-              {cancellationReason === 'Other' && (
-                <TextField
-                  fullWidth
-                  sx={{ mt: 2 }}
-                  label="Please specify"
-                  value={cancellationReasonAdditional}
-                  onChange={(e) => setCancellationReasonAdditional(e.target.value)}
-                  inputProps={{ maxLength: 200 }}
-                />
-              )}
-            </FormControl>
-          </div>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
-          <LoadingButton
-            data-testid={dataTestIds.visitDetailsPage.cancelVisitDialogue}
-            loading={cancelLoading}
-            disabled={!cancellationReason}
-            type="submit"
-            variant="contained"
-            color="primary"
-            size="medium"
-            sx={buttonSx}
+      <div>
+        <FormControl required sx={{ mt: 2, width: '100%' }}>
+          <InputLabel id="select-label">Cancelation reason</InputLabel>
+          <Select
+            data-testid={dataTestIds.visitDetailsPage.cancelationReasonDropdown}
+            labelId="select-label"
+            id="select"
+            label="Cancelation reason"
+            value={cancellationReason}
+            onChange={handleChange}
+            renderValue={(selected) => selected}
+            MenuProps={MenuProps}
           >
-            Cancel visit
-          </LoadingButton>
-          <Button variant="text" onClick={handleDialogClose} size="medium" sx={buttonSx}>
-            Keep
-          </Button>
-        </DialogActions>
-        {error && (
-          <Typography color="error" variant="body2" my={1} mx={2}>
-            There was an error cancelling this appointment, please try again.
-          </Typography>
-        )}
-      </form>
-    </Dialog>
+            {cancelOptions.map((reason) => (
+              <MenuItem key={reason.value} value={reason.value}>
+                <ListItemText primary={reason.label} />
+              </MenuItem>
+            ))}
+          </Select>
+          {cancellationReason === 'Other' && (
+            <TextField
+              fullWidth
+              sx={{ mt: 2 }}
+              label="Please specify"
+              value={cancellationReasonAdditional}
+              onChange={(e) => setCancellationReasonAdditional(e.target.value)}
+              inputProps={{ maxLength: 200 }}
+            />
+          )}
+        </FormControl>
+      </div>
+      {error && (
+        <Typography color="error" variant="body2" mt={2}>
+          There was an error cancelling this appointment, please try again.
+        </Typography>
+      )}
+    </AppDialog>
   );
 }

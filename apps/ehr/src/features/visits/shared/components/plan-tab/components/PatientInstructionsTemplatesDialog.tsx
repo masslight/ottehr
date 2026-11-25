@@ -2,9 +2,6 @@ import { Close, Search } from '@mui/icons-material';
 import {
   Box,
   CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   Divider,
   IconButton,
   InputAdornment,
@@ -15,6 +12,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { ChangeEvent, FC, useMemo, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { CommunicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
@@ -72,17 +70,15 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
   }, [patientInstructions, searchTerm]);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
-      <DialogTitle component="div" sx={{ p: 3, pb: 2, display: 'flex', alignItems: 'flex-start' }}>
-        <Typography variant="h4" color={theme.palette.primary.dark} sx={{ flex: 1 }}>
-          {isMyTemplates ? 'My Quick Picks' : 'Practice Quick Picks'}
-        </Typography>
-        <IconButton size="small" onClick={onClose}>
-          <Close fontSize="small" />
-        </IconButton>
-      </DialogTitle>
-      <Divider />
-      <Box sx={{ px: 3, pt: 3, pb: 2 }}>
+    <AppDialog
+      variant="form"
+      size="m"
+      open={open}
+      onClose={onClose}
+      title={isMyTemplates ? 'My Quick Picks' : 'Practice Quick Picks'}
+    >
+      {/* The search stays in view while the list scrolls under it. */}
+      <Box sx={{ position: 'sticky', top: 0, zIndex: 1, mx: -3, px: 3, pt: 1, bgcolor: 'background.paper' }}>
         <TextField
           placeholder="Search Quick Picks"
           fullWidth
@@ -111,13 +107,9 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
             ),
           }}
         />
+        <Divider sx={{ mx: -3, mt: 2 }} />
       </Box>
-      <Divider />
-      <DialogContent
-        sx={{
-          p: 3,
-        }}
-      >
+      <Box sx={{ pt: 3 }}>
         {isFetching && patientInstructions.length === 0 ? (
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <CircularProgress />
@@ -157,7 +149,7 @@ export const PatientInstructionsTemplatesDialog: FC<MyTemplatesDialogProps> = (p
             alignItems="flex-start"
           />
         )}
-      </DialogContent>
-    </Dialog>
+      </Box>
+    </AppDialog>
   );
 };

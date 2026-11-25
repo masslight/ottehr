@@ -2,9 +2,10 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { Box, Button, IconButton, MenuItem, Stack, TextField, Tooltip, Typography } from '@mui/material';
 import { AgeUnitSchema as VitalsAgeUnitSchema } from 'config-types/config/vitals';
-import { ReactElement } from 'react';
+import { enqueueSnackbar } from 'notistack';
+import { ReactElement, useState } from 'react';
 import { Control, Controller } from 'react-hook-form';
-import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   MAX_VITAL_ALERT_AGE_RANGES,
@@ -61,6 +62,7 @@ export const AgeRangesEditor = ({
   onMaxAgeValueEntered,
 }: AgeRangesEditorProps): ReactElement => {
   const atMax = ageRanges.length >= MAX_VITAL_ALERT_AGE_RANGES;
+  const [removeIndex, setRemoveIndex] = useState<number | null>(null);
 
   return (
     <Stack spacing={1.5}>
@@ -164,27 +166,18 @@ export const AgeRangesEditor = ({
                 )}
               />
 
-              <ConfirmationDialog
-                title="Remove this age range?"
-                description={<AgeRangeRemovalDescription ageRanges={ageRanges} index={index} />}
-                response={() => onRemove(index)}
-                actionButtons={{ proceed: { text: 'Remove', color: 'error' }, back: { text: 'Cancel' } }}
-              >
-                {(showDialog) => (
-                  <Tooltip title={ageRanges.length === 1 ? 'At least one age range is required' : 'Remove age range'}>
-                    <span>
-                      <IconButton
-                        aria-label={`Remove age range ${formatVitalAlertAgeRange(range)}`}
-                        disabled={ageRanges.length === 1}
-                        onClick={showDialog}
-                        data-testid={dataTestIds.vitalsAlertConfig.removeAgeRangeButton(index)}
-                      >
-                        <DeleteOutlineIcon />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                )}
-              </ConfirmationDialog>
+              <Tooltip title={ageRanges.length === 1 ? 'At least one age range is required' : 'Remove age range'}>
+                <span>
+                  <IconButton
+                    aria-label={`Remove age range ${formatVitalAlertAgeRange(range)}`}
+                    disabled={ageRanges.length === 1}
+                    onClick={() => setRemoveIndex(index)}
+                    data-testid={dataTestIds.vitalsAlertConfig.removeAgeRangeButton(index)}
+                  >
+                    <DeleteOutlineIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
             </Stack>
           );
         })}
@@ -204,6 +197,30 @@ export const AgeRangesEditor = ({
           </span>
         </Tooltip>
       </Box>
+
+      {/* Mounted only while open: once the range is removed, its index points at another range. */}
+      {removeIndex !== null && (
+        <AppDialog
+          variant="destructive"
+          open
+          onClose={() => setRemoveIndex(null)}
+          title="Remove This Age Range?"
+          primary={{
+            label: 'Remove',
+            onClick: () => {
+              try {
+                onRemove(removeIndex);
+                setRemoveIndex(null);
+              } catch (error: unknown) {
+                console.error(error);
+                enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+              }
+            },
+          }}
+        >
+          <AgeRangeRemovalDescription ageRanges={ageRanges} index={removeIndex} />
+        </AppDialog>
+      )}
     </Stack>
   );
 };

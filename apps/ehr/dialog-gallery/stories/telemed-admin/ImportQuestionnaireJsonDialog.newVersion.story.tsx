@@ -5,7 +5,7 @@ export default defineStory({
   title: 'Upload new questionnaire version',
   source:
     'apps/ehr/src/features/visits/telemed/components/admin/questionnaires/components/ImportQuestionnaireJsonDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Questionnaires → imported questionnaire detail → Upload New Version',
   notes: 'Same dialog as the import story, in its "existingQuestionnaire" mode (different title, info alert, button).',

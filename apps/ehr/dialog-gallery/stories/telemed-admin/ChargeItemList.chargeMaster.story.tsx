@@ -18,7 +18,7 @@ function WithHeaderSlot(): ReactElement {
 export default defineStory({
   title: 'Create charge master',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/ChargeItemList.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Billing → Charge Masters → Add new',
   notes: 'One dialog serves both fee schedules and charge masters; only the title differs. Opens empty, as in the app.',

@@ -5,11 +5,6 @@ import {
   Box,
   Button,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   IconButton,
   LinearProgress,
   Paper,
@@ -20,6 +15,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { DocumentReference } from 'fhir/r4b';
 import { FC, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { describeAction } from 'src/features/easy-chart/executor/labels';
@@ -279,29 +275,17 @@ const NarrativeStep: FC = () => {
           </RoundedButton>
         </LockedHint>
       </Box>
-      <Dialog open={replanOpen} onClose={() => setReplanOpen(false)} data-testid={testIds.replanDialog}>
-        <DialogTitle>Replace the suggestions?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>Anything you’ve ticked or edited but not yet applied will be lost.</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            onClick={() => setReplanOpen(false)}
-            sx={{ textTransform: 'none' }}
-            data-testid={testIds.replanCancelButton}
-          >
-            Cancel
-          </Button>
-          <RoundedButton
-            variant="contained"
-            onClick={runAnalysis}
-            sx={roundedButtonSx}
-            data-testid={testIds.replanConfirmButton}
-          >
-            Replace
-          </RoundedButton>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        variant="confirm"
+        open={replanOpen}
+        onClose={() => setReplanOpen(false)}
+        title="Replace the Suggestions?"
+        data-testid={testIds.replanDialog}
+        dismiss={{ 'data-testid': testIds.replanCancelButton }}
+        primary={{ label: 'Replace', onClick: runAnalysis, 'data-testid': testIds.replanConfirmButton }}
+      >
+        Anything you’ve ticked or edited but not yet applied will be lost.
+      </AppDialog>
       {isAnalyzing && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <LinearProgress />

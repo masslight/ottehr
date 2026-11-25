@@ -5,7 +5,7 @@ import { zambda } from './_mocks';
 export default defineStory({
   title: 'Rename global template',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/GlobalTemplatesAdminPage.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Global Templates → rename icon on a row',
   mocks: [

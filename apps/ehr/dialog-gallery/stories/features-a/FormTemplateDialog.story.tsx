@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'New form template (upload PDF)',
   source: 'apps/ehr/src/features/form-templates/FormTemplateDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Form Templates → "New template"',
   render: () => <FormTemplateDialog open onClose={() => undefined} />,

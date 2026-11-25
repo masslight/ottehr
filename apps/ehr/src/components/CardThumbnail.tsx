@@ -1,10 +1,10 @@
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
-import { Box, ButtonBase, IconButton, Tooltip } from '@mui/material';
+import { Box, ButtonBase, IconButton, Tooltip, useTheme } from '@mui/material';
 import { UseMutationResult } from '@tanstack/react-query';
 import { Attachment } from 'fhir/r4b';
 import React, { ReactNode, useState } from 'react';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { SavedCardItem } from 'src/hooks/useVisitCards';
 import { UpdateVisitFilesInput } from 'utils/lib/types/api/update-visit-details.types';
 import FloatingCardPreview, { CardPreviewFace } from './FloatingCardPreview';
@@ -75,6 +75,7 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
   handleDeleteClick,
   deletingFileId,
 }) => {
+  const theme = useTheme();
   const [previewOpen, setPreviewOpen] = useState<boolean>(false);
   const [confirmDeleteFace, setConfirmDeleteFace] = useState<CardPreviewFace | null>(null);
 
@@ -214,24 +215,27 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
         emptyStateSlot={emptyStateSlot}
       />
       {handleDeleteClick && (
-        <CustomDialog
+        <AppDialog
+          variant="destructive"
           open={confirmDeleteFace !== null}
-          handleClose={() => setConfirmDeleteFace(null)}
-          title="Remove card image"
-          description="Are you sure you want to remove this image?"
-          closeButtonText="Cancel"
-          confirmText="Remove"
+          onClose={() => setConfirmDeleteFace(null)}
+          title="Remove Card Image"
           // The floating card preview sits above the normal modal layer (see FloatingCardPreview's
           // zIndex comment) so it doesn't get closed by other dialogs; this confirmation is opened
           // FROM that preview, so it needs to sit one layer above it in turn, or it renders hidden behind it.
-          sx={{ zIndex: (theme) => theme.zIndex.modal + 2 }}
-          confirmLoading={confirmDeleteFace !== null && deletingFileId === faceDocRefId(confirmDeleteFace)}
-          handleConfirm={async () => {
-            if (confirmDeleteFace === null) return;
-            await handleDeleteClick(faceDocRefId(confirmDeleteFace));
-            setConfirmDeleteFace(null);
+          zIndex={theme.zIndex.modal + 2}
+          primary={{
+            label: 'Remove',
+            loading: confirmDeleteFace !== null && deletingFileId === faceDocRefId(confirmDeleteFace),
+            onClick: async () => {
+              if (confirmDeleteFace === null) return;
+              await handleDeleteClick(faceDocRefId(confirmDeleteFace));
+              setConfirmDeleteFace(null);
+            },
           }}
-        />
+        >
+          Are you sure you want to remove this image?
+        </AppDialog>
       )}
     </>
   );

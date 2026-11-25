@@ -59,55 +59,55 @@ const InviteParticipant = ({ modalOpen, onClose }: InviteParticipantProps): Reac
       onSubmit={handleSubmit(onSubmit)}
       primary={{ label: 'Send Invite', loading: isLoading, disabled: !formState.isValid }}
     >
-          <FormControl fullWidth required sx={{ mt: 2 }}>
-            <TextField
-              {...register('firstName', { required: true })}
-              id="first-name"
-              label="First Name"
-              variant="outlined"
-              fullWidth
-              error={!!formState.errors.firstName}
-              required
-            />
-          </FormControl>
-          <FormControl fullWidth required sx={{ mt: 2 }}>
-            <TextField
-              {...register('lastName', { required: true })}
-              id="last-name"
-              label="Last Name"
-              variant="outlined"
-              fullWidth
-              error={!!formState.errors.lastName}
-              required
-            />
-          </FormControl>
-          <FormControl fullWidth required sx={{ mt: 2 }}>
-            <TextField
-              {...register('phone', { required: true })}
-              id="phone"
-              label="Phone"
-              variant="outlined"
-              fullWidth
-              error={!!formState.errors.phone}
-              required
-            />
-          </FormControl>
-          <FormControl fullWidth required sx={{ mt: 2 }}>
-            <TextField
-              {...register('email', { required: true })}
-              id="email"
-              label="Email"
-              variant="outlined"
-              fullWidth
-              error={!!formState.errors.email}
-              required
-            />
-          </FormControl>
-        {error && (
-          <Typography color="error" variant="body2" mt={2}>
-            There was an error inviting this participant, please try again.
-          </Typography>
-        )}
+      <FormControl fullWidth required sx={{ mt: 2 }}>
+        <TextField
+          {...register('firstName', { required: true })}
+          id="first-name"
+          label="First Name"
+          variant="outlined"
+          fullWidth
+          error={!!formState.errors.firstName}
+          required
+        />
+      </FormControl>
+      <FormControl fullWidth required sx={{ mt: 2 }}>
+        <TextField
+          {...register('lastName', { required: true })}
+          id="last-name"
+          label="Last Name"
+          variant="outlined"
+          fullWidth
+          error={!!formState.errors.lastName}
+          required
+        />
+      </FormControl>
+      <FormControl fullWidth required sx={{ mt: 2 }}>
+        <TextField
+          {...register('phone', { required: true })}
+          id="phone"
+          label="Phone"
+          variant="outlined"
+          fullWidth
+          error={!!formState.errors.phone}
+          required
+        />
+      </FormControl>
+      <FormControl fullWidth required sx={{ mt: 2 }}>
+        <TextField
+          {...register('email', { required: true })}
+          id="email"
+          label="Email"
+          variant="outlined"
+          fullWidth
+          error={!!formState.errors.email}
+          required
+        />
+      </FormControl>
+      {error && (
+        <Typography color="error" variant="body2" mt={2}>
+          There was an error inviting this participant, please try again.
+        </Typography>
+      )}
     </AppDialog>
   );
 };

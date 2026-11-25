@@ -1,15 +1,7 @@
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControlLabel,
-  Radio,
-  RadioGroup,
-} from '@mui/material';
+import { FormControlLabel, Radio, RadioGroup } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { AddVisitPatientInfo } from 'src/pages/AddPatient';
 
@@ -36,63 +28,46 @@ export const AddVisitPatientSearchDialog: FC<AddVisitPatientSearchDialogProps> =
   };
 
   return (
-    <Dialog
+    <AppDialog
+      variant="form"
+      size="m"
       open={openSearchResults}
       onClose={() => {
         setSelectedPatient(undefined);
         setOpenSearchResults(false);
       }}
-      fullWidth
-      maxWidth="sm"
-      PaperProps={{ sx: { maxHeight: 'min(650px, calc(100% - 64px))' } }}
+      title="Select Patient"
+      actions={
+        selectedPatient
+          ? [
+              {
+                label: `Prefill for ${getFullNameFromPatientInfo(selectedPatient)}`,
+                onClick: handleSelectExistingPatient,
+                'data-testid': dataTestIds.addPatientPage.prefillForButton,
+              },
+            ]
+          : undefined
+      }
+      primary={{
+        label: 'Patient Not Found - Add Manually',
+        onClick: handleManuallyEnterPatientDetails,
+        'data-testid': dataTestIds.addPatientPage.patientNotFoundButton,
+      }}
     >
-      <DialogTitle variant="h4" sx={{ fontWeight: '600 !important', color: 'primary.main' }}>
-        Select Patient
-      </DialogTitle>
-      <DialogContent dividers>
-        <RadioGroup
-          onChange={(e) => {
-            const id = e.target.value;
-            const patient = patients.find((p) => p.id === id);
-            setSelectedPatient(patient);
-          }}
-        >
-          {patients.map((patient) => {
-            const label = `${getFullNameFromPatientInfo(patient)} (DOB: ${DateTime.fromISO(
-              patient?.dateOfBirth || ''
-            ).toFormat('MMMM dd, yyyy')})`;
-            return <FormControlLabel key={patient.id} value={patient.id} control={<Radio />} label={label} />;
-          })}
-        </RadioGroup>
-      </DialogContent>
-      <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2 }}>
-        <Button
-          data-testid={dataTestIds.addPatientPage.patientNotFoundButton}
-          variant="contained"
-          sx={{
-            borderRadius: 100,
-            textTransform: 'none',
-            fontWeight: 600,
-          }}
-          onClick={handleManuallyEnterPatientDetails}
-        >
-          Patient Not Found - Add Manually
-        </Button>
-        {selectedPatient && (
-          <Button
-            data-testid={dataTestIds.addPatientPage.prefillForButton}
-            variant="outlined"
-            sx={{
-              borderRadius: 100,
-              textTransform: 'none',
-              fontWeight: 600,
-            }}
-            onClick={handleSelectExistingPatient}
-          >
-            Prefill for {getFullNameFromPatientInfo(selectedPatient)}
-          </Button>
-        )}
-      </DialogActions>
-    </Dialog>
+      <RadioGroup
+        onChange={(e) => {
+          const id = e.target.value;
+          const patient = patients.find((p) => p.id === id);
+          setSelectedPatient(patient);
+        }}
+      >
+        {patients.map((patient) => {
+          const label = `${getFullNameFromPatientInfo(patient)} (DOB: ${DateTime.fromISO(
+            patient?.dateOfBirth || ''
+          ).toFormat('MMMM dd, yyyy')})`;
+          return <FormControlLabel key={patient.id} value={patient.id} control={<Radio />} label={label} />;
+        })}
+      </RadioGroup>
+    </AppDialog>
   );
 };

@@ -5,7 +5,7 @@ import { quickPicks } from './_mocks';
 export default defineStory({
   title: 'Add quick text',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/QuickPickEditor.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Quick Picks → Quick Texts tab → Add',
   notes:

@@ -5,7 +5,7 @@ import { LabsTableHost, makeLabOrder } from './_labs';
 export default defineStory({
   title: 'Mark lab test as Rejected ABN',
   source: 'apps/ehr/src/features/external-labs/components/labs-orders/LabsTableRow.tsx',
-  base: 'DeleteDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'In-person visit → External labs → sent order with an ABN → row action (⊗ icon)',
   render: () => (

@@ -11,16 +11,10 @@ import PeopleIcon from '@mui/icons-material/People';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import {
   Box,
-  Button,
   Card,
   CardActionArea,
   CardContent,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Grid,
   IconButton,
   TextField,

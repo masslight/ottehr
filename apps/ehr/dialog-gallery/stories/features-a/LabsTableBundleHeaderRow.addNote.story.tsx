@@ -4,7 +4,7 @@ import { LabsTableHost, makeLabOrder } from './_labs';
 export default defineStory({
   title: 'Lab order level note (add)',
   source: 'apps/ehr/src/features/external-labs/components/labs-orders/LabsTableBundleHeaderRow.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'In-person visit → External labs → order bundle header → "Add order level note"',
   render: () => <LabsTableHost labOrders={[makeLabOrder({})]} />,

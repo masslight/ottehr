@@ -31,7 +31,7 @@ const labSets: LabSetDTO[] = [
 export default defineStory({
   title: 'Lab sets picker',
   source: 'apps/ehr/src/features/external-labs/components/LabSets.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'In-person visit → order external / in-house lab → "Lab Sets"',
   render: () => <LabSets labSets={labSets} setSelectedLabs={async () => undefined} />,

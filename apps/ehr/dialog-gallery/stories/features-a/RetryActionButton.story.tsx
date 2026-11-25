@@ -17,7 +17,7 @@ const log: ActionLogEntry = {
 export default defineStory({
   title: 'Resend a failed delivery (action log retry)',
   source: 'apps/ehr/src/features/action-logs/RetryActionButton.tsx',
-  base: 'ConfirmationDialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'Action logs → failed fax row → "Try again"',
   render: () => <RetryActionButton log={log} onResent={() => undefined} />,

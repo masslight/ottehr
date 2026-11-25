@@ -1,10 +1,5 @@
 import { LoadingButton } from '@mui/lab';
 import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Grid,
   List,
   ListItem,
@@ -21,7 +16,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { PhoneInput } from 'src/components/input/PhoneInput';
 import { SelectInput } from 'src/components/input/SelectInput';
 import { TextInput } from 'src/components/input/TextInput';
@@ -264,17 +259,15 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
                           >
                             Delete Order
                           </LoadingButton>
-                          <CustomDialog
+                          <AppDialog
+                            variant="destructive"
                             open={isDeleteDialogOpen}
-                            handleClose={() => setIsDeleteDialogOpen(false)}
-                            title="Delete immunization order"
-                            description="Are you sure you want to delete the immunization order?"
-                            closeButtonText="Cancel"
-                            closeButton={false}
-                            handleConfirm={handleDeleteOrder}
-                            confirmText={isDeleting ? 'Deleting...' : 'Delete'}
-                            confirmLoading={isDeleting}
-                          />
+                            onClose={() => setIsDeleteDialogOpen(false)}
+                            title="Delete Immunization Order"
+                            primary={{ label: 'Delete Order', onClick: handleDeleteOrder, loading: isDeleting }}
+                          >
+                            Are you sure you want to delete the immunization order?
+                          </AppDialog>
                         </>
                       )}
                     </Stack>
@@ -331,51 +324,49 @@ export const VaccineDetailsCard: React.FC<Props> = ({ order, onFinished }) => {
         </fieldset>
       </form>
 
-      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Save as Quick Pick</DialogTitle>
-        <DialogContent>
-          <MuiTextField
-            autoFocus
-            label="Quick pick name"
-            fullWidth
-            value={quickPickName}
-            onChange={(e) => setQuickPickName(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-          {existingQuickPicks.length > 0 && (
-            <>
-              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-                Or overwrite an existing quick pick:
-              </Typography>
-              <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                {existingQuickPicks.map((qp) => (
-                  <ListItem key={qp.id} disablePadding>
-                    <ListItemButton
-                      selected={overwriteTarget?.id === qp.id}
-                      onClick={() => {
-                        setOverwriteTarget(qp);
-                        setQuickPickName(qp.name);
-                      }}
-                    >
-                      <ListItemText primary={qp.name} />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQuickPickDialogOpen(false)}>Cancel</Button>
-          <LoadingButton
-            loading={quickPickSaving}
-            variant="contained"
-            onClick={() => void onSaveAsQuickPick(overwriteTarget?.id)}
-          >
-            {overwriteTarget ? 'Overwrite' : 'Save'}
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        variant="form"
+        size="s"
+        open={quickPickDialogOpen}
+        onClose={() => setQuickPickDialogOpen(false)}
+        title="Save as Quick Pick"
+        primary={{
+          label: overwriteTarget ? 'Overwrite' : 'Save',
+          onClick: () => void onSaveAsQuickPick(overwriteTarget?.id),
+          loading: quickPickSaving,
+        }}
+      >
+        <MuiTextField
+          autoFocus
+          label="Quick pick name"
+          fullWidth
+          value={quickPickName}
+          onChange={(e) => setQuickPickName(e.target.value)}
+          sx={{ mt: 1 }}
+        />
+        {existingQuickPicks.length > 0 && (
+          <>
+            <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+              Or overwrite an existing quick pick:
+            </Typography>
+            <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 1 }}>
+              {existingQuickPicks.map((qp) => (
+                <ListItem key={qp.id} disablePadding>
+                  <ListItemButton
+                    selected={overwriteTarget?.id === qp.id}
+                    onClick={() => {
+                      setOverwriteTarget(qp);
+                      setQuickPickName(qp.name);
+                    }}
+                  >
+                    <ListItemText primary={qp.name} />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </>
+        )}
+      </AppDialog>
     </FormProvider>
   );
 };

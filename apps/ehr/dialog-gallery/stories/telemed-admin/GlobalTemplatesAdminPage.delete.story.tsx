@@ -5,7 +5,7 @@ import { zambda } from './_mocks';
 export default defineStory({
   title: 'Delete global template',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/GlobalTemplatesAdminPage.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Admin → Global Templates → delete icon on a row',
   mocks: [

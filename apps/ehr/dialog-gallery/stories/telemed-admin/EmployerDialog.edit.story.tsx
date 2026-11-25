@@ -7,7 +7,7 @@ const employerContext = { code: { code: 'program' }, valueReference: { reference
 export default defineStory({
   title: 'Employer details (edit)',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/employers/EmployerDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Employers → click an employer row',
   notes:

@@ -6,7 +6,7 @@ import { mockPatient } from './_patient';
 export default defineStory({
   title: 'Patient profile — discard unsaved changes',
   source: 'apps/ehr/src/pages/PatientInformationPage.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Patient → Patient Profile → edit any field → Back / close (X) without saving',
   route: '/patient/patient-1/info',

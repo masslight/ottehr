@@ -5,7 +5,7 @@ import { VISIT_NOTES, VISIT_ROUTE, VISIT_ROUTE_PATH, visitDetailsMocks } from '.
 export default defineStory({
   title: 'Consent not signed — reminder before saving patient record',
   source: 'apps/ehr/src/pages/VisitDetailsPage.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'Visit details page → "About this patient" → any Save / Save All while consent is neither signed nor attested',
   route: VISIT_ROUTE,

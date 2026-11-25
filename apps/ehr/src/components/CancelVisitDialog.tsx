@@ -1,10 +1,4 @@
-import { LoadingButton } from '@mui/lab';
 import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   InputLabel,
   MenuItem,
@@ -13,9 +7,10 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import React, { ReactElement, useState } from 'react';
+import React, { ReactElement, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { cancelTelemedAppointment } from 'src/api/api';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 
@@ -31,6 +26,7 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
   const { oystehrZambda } = useApiClients();
   const { id: appointmentID } = useParams();
   const navigate = useNavigate();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const cancellationReasons = VALUE_SETS.cancelReasonOptionsVirtualProvider;
 
@@ -81,86 +77,56 @@ const CancelVisitDialog = ({ onClose }: CancelVisitDialogProps): ReactElement =>
     }
   };
 
-  const buttonSx = {
-    fontWeight: 500,
-    textTransform: 'none',
-    borderRadius: 6,
-    mb: 2,
-    ml: 1,
-  };
-
   return (
-    <Dialog
+    <AppDialog
+      variant="destructive"
       open={true}
       onClose={onClose}
-      fullWidth
-      disableScrollLock
-      sx={{
-        '.MuiPaper-root': {
-          padding: 1,
-          width: '444px',
-          maxWidth: 'initial',
-        },
-      }}
+      title="Cancellation Reason"
+      // Submitting through the form keeps the browser's required-field validation.
+      primary={{ label: 'Cancel Visit', onClick: () => formRef.current?.requestSubmit(), loading: isCancelling }}
+      dismiss={{ label: 'Keep' }}
     >
-      <form onSubmit={(e) => handleCancelAppointment(e)}>
-        <DialogTitle variant="h4" color="primary.dark" sx={{ width: '100%' }}>
-          Cancellation reason
-        </DialogTitle>
-        <DialogContent>
-          <FormControl fullWidth required sx={{ mt: 2 }}>
-            <InputLabel id="cancellation-reason-label">Cancellation Reason</InputLabel>
-            <Select
-              labelId="cancellation-reason-label"
-              id="cancellation-reason"
-              value={reason}
-              label="Cancellation Reason"
-              onChange={handleReasonChange}
-            >
-              {cancellationReasons.map((reason) => (
-                <MenuItem key={reason.value} value={reason.value}>
-                  {reason.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {reason === 'Other' && (
-            <FormControl fullWidth required>
-              <TextField
-                id="other-reason"
-                label="Reason"
-                variant="outlined"
-                fullWidth
-                required={true}
-                margin="normal"
-                value={otherReason}
-                onChange={handleOtherReasonChange}
-              />
-            </FormControl>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
-          <LoadingButton
-            loading={isCancelling}
-            type="submit"
-            variant="contained"
-            color="primary"
-            size="medium"
-            sx={buttonSx}
+      <form ref={formRef} onSubmit={(e) => handleCancelAppointment(e)}>
+        <FormControl fullWidth required sx={{ mt: 2 }}>
+          <InputLabel id="cancellation-reason-label">Cancellation Reason</InputLabel>
+          <Select
+            labelId="cancellation-reason-label"
+            id="cancellation-reason"
+            value={reason}
+            label="Cancellation Reason"
+            onChange={handleReasonChange}
           >
-            Cancel visit
-          </LoadingButton>
-          <Button onClick={onClose} variant="text" color="primary" size="medium" sx={buttonSx}>
-            Keep
-          </Button>
-        </DialogActions>
+            {cancellationReasons.map((reason) => (
+              <MenuItem key={reason.value} value={reason.value}>
+                {reason.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {reason === 'Other' && (
+          <FormControl fullWidth required>
+            <TextField
+              id="other-reason"
+              label="Reason"
+              variant="outlined"
+              fullWidth
+              required={true}
+              margin="normal"
+              value={otherReason}
+              onChange={handleOtherReasonChange}
+            />
+          </FormControl>
+        )}
+        {/* Lets Enter in a field submit, as the old submit button did. */}
+        <input type="submit" hidden />
         {error && (
-          <Typography color="error" variant="body2" my={1} mx={2}>
+          <Typography color="error" variant="body2" mt={1}>
             There was an error cancelling this appointment, please try again.
           </Typography>
         )}
       </form>
-    </Dialog>
+    </AppDialog>
   );
 };
 

@@ -5,7 +5,7 @@ import { Phrase } from 'utils/lib/fhir/practitioners';
 import { useSavePhrases } from '../hooks/usePhraseMutations';
 import { usePhrases } from '../hooks/usePhrases';
 import { useCommandPaletteStore } from '../state/command-palette.store';
-import { CustomDialog } from './dialogs/CustomDialog';
+import { AppDialog } from './dialogs/AppDialog';
 
 export const CommandPalettePhraseDialog: FC = () => {
   const phraseDialog = useCommandPaletteStore((state) => state.phraseDialog);
@@ -37,18 +37,21 @@ export const CommandPalettePhraseDialog: FC = () => {
     };
 
     return (
-      <CustomDialog
+      <AppDialog
+        variant="destructive"
         open
-        handleClose={close}
-        title="Delete phrase?"
-        description={`"${
+        onClose={close}
+        title="Delete Phrase?"
+        primary={{
+          label: 'Delete',
+          loading: isPending,
+          onClick: () => void handleDelete().catch(() => undefined),
+        }}
+      >
+        {`"${
           phrases[phraseDialog.index].key
         }" will be removed from your phrases. Text already inserted into notes is not affected.`}
-        confirmText="Delete"
-        closeButtonText="Cancel"
-        confirmLoading={isPending}
-        handleConfirm={() => void handleDelete().catch(() => undefined)}
-      />
+      </AppDialog>
     );
   }
 
@@ -119,13 +122,16 @@ const PhraseFormDialog: FC<PhraseFormDialogProps> = ({ initialPhrase, otherKeys,
   };
 
   return (
-    <CustomDialog
+    <AppDialog
+      variant="form"
+      size="s"
       open
-      handleClose={onCancel}
-      title={initialPhrase ? 'Edit phrase' : 'New phrase'}
-      description={
-        <Box sx={{ width: '436px', display: 'flex', flexDirection: 'column', gap: 2 }} onKeyDown={handleDialogKeyDown}>
-          <TextField
+      onClose={onCancel}
+      title={initialPhrase ? 'Edit Phrase' : 'New Phrase'}
+      primary={{ label: 'Save', onClick: submit, loading: saving }}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }} onKeyDown={handleDialogKeyDown}>
+        <TextField
             sx={{ mt: 0.5 }}
             label="Key"
             autoFocus
@@ -147,12 +153,7 @@ const PhraseFormDialog: FC<PhraseFormDialogProps> = ({ initialPhrase, otherKeys,
             error={showErrors && !!valueError}
             helperText={showErrors ? valueError : undefined}
           />
-        </Box>
-      }
-      handleConfirm={submit}
-      confirmText="Save"
-      confirmLoading={saving}
-      closeButtonText="Cancel"
-    />
+      </Box>
+    </AppDialog>
   );
 };

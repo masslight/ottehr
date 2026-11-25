@@ -40,7 +40,7 @@ const questionnaire: Questionnaire = {
 export default defineStory({
   title: 'Test questionnaire (patient preview)',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/questionnaires/components/QuestionnaireTestDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'Admin → Questionnaires → builder / read-only view → Test',
   notes: 'Shown on page 1 of a two-page mock questionnaire.',

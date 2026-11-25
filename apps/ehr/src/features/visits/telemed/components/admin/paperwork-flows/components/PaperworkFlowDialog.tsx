@@ -134,9 +134,7 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
                         checked={field.value.includes(mode)}
                         onChange={() =>
                           field.onChange(
-                            field.value.includes(mode)
-                              ? field.value.filter((m) => m !== mode)
-                              : [...field.value, mode]
+                            field.value.includes(mode) ? field.value.filter((m) => m !== mode) : [...field.value, mode]
                           )
                         }
                       />
@@ -191,9 +189,7 @@ export const PaperworkFlowDialog: FC<PaperworkFlowDialogProps> = ({
                       field.onChange(allSelected ? [] : serviceCategories);
                     } else {
                       field.onChange(
-                        val
-                          .map((id) => serviceCategories.find((s) => s.id === id))
-                          .filter((s): s is FlowService => !!s)
+                        val.map((id) => serviceCategories.find((s) => s.id === id)).filter((s): s is FlowService => !!s)
                       );
                     }
                   }}

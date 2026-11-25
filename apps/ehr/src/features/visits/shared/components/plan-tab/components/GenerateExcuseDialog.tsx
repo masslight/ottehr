@@ -131,7 +131,7 @@ export const GenerateExcuseDialog: FC<GenerateExcuseDialogExtendedProps> = (prop
       open={open}
       onSubmit={handleSubmit(onSubmit)}
       onClose={onClose}
-      label={isSchool ? 'School Excuse' : 'Work excuse'}
+      label={isSchool ? 'School Excuse' : 'Work Excuse'}
     >
       <FormProvider {...methods}>
         <Box

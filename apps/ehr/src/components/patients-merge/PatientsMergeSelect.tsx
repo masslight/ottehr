@@ -1,9 +1,6 @@
-import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   CircularProgress,
-  Dialog,
-  IconButton,
   InputAdornment,
   Skeleton,
   Stack,
@@ -18,12 +15,11 @@ import {
 import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
-import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
-import { RoundedButton } from '../RoundedButton';
 import { useGetPatientById, useGetPatientsForMerge } from './queries';
 
 type PatientsMergeSelectProps = {
@@ -42,6 +38,7 @@ export const PatientsMergeSelect: FC<PatientsMergeSelectProps> = (props) => {
   const getPatientById = useGetPatientById();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [value, setValue] = useState('');
+  const [notDuplicatesOpen, setNotDuplicatesOpen] = useState(false);
 
   const patientRows = useMemo(
     () =>
@@ -82,21 +79,27 @@ export const PatientsMergeSelect: FC<PatientsMergeSelectProps> = (props) => {
   const disabled = isFetching || getPatientById.isPending;
 
   return (
-    <Dialog open={open} onClose={close} maxWidth="lg" fullWidth>
-      <IconButton size="small" onClick={close} sx={{ position: 'absolute', right: 16, top: 16 }}>
-        <CloseIcon fontSize="small" />
-      </IconButton>
-
-      <Stack spacing={2} sx={{ p: 3 }}>
-        <Stack spacing={1}>
-          <Typography variant="h4" color="primary.dark">
-            Merge Patients
-          </Typography>
-          <Typography>
-            Select duplicated patients profiles. On the next step you will select which information should carry over to
-            the remaining patient record after merge.
-          </Typography>
-        </Stack>
+    <AppDialog
+      variant="form"
+      size="l"
+      open={open}
+      onClose={close}
+      title="Merge Patients"
+      actions={[
+        {
+          label: 'Mark All as Not Duplicates',
+          tone: 'error',
+          disabled,
+          onClick: () => setNotDuplicatesOpen(true),
+        },
+      ]}
+      primary={{ label: 'Continue', disabled, onClick: () => next(patientRows.map(({ pid }) => pid)) }}
+    >
+      <Stack spacing={2}>
+        <Typography>
+          Select duplicated patients profiles. On the next step you will select which information should carry over to
+          the remaining patient record after merge.
+        </Typography>
 
         <TextField
           value={value}
@@ -165,51 +168,37 @@ export const PatientsMergeSelect: FC<PatientsMergeSelectProps> = (props) => {
           )}
         </Table>
 
-        <Stack direction="row" spacing={2} justifyContent="space-between">
-          <RoundedButton onClick={close}>Cancel</RoundedButton>
-          <Stack direction="row" spacing={2}>
-            <ConfirmationDialog
-              title="Not duplicates"
-              description={
-                <Stack spacing={2}>
-                  <Typography>Confirm the patients as not duplicates and dismiss the alert.</Typography>
-                  <Stack>
-                    <Typography fontWeight={600}>PIDs:</Typography>
-                    {patientRows.map(({ pid }) => (
-                      <Typography key={pid}>{pid}</Typography>
-                    ))}
-                  </Stack>
-                </Stack>
-              }
-              response={close}
-              actionButtons={{
-                proceed: {
-                  color: 'error',
-                  text: 'Dismiss Alert',
-                },
-                back: {
-                  text: 'Keep',
-                },
-                reverse: true,
-              }}
-            >
-              {(showDialog) => (
-                <RoundedButton disabled={disabled} variant="contained" color="error" onClick={showDialog}>
-                  Mark all as not duplicates
-                </RoundedButton>
-              )}
-            </ConfirmationDialog>
+      </Stack>
 
-            <RoundedButton
-              disabled={disabled}
-              variant="contained"
-              onClick={() => next(patientRows.map(({ pid }) => pid))}
-            >
-              Continue
-            </RoundedButton>
+      <AppDialog
+        variant="confirm"
+        open={notDuplicatesOpen}
+        onClose={() => setNotDuplicatesOpen(false)}
+        title="Not Duplicates"
+        primary={{
+          label: 'Dismiss Alert',
+          // What the old ConfirmationDialog wrapper did: run the response, then close; snackbar on failure.
+          onClick: () => {
+            try {
+              close();
+              setNotDuplicatesOpen(false);
+            } catch (error: unknown) {
+              console.error(error);
+              enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+            }
+          },
+        }}
+      >
+        <Stack spacing={2}>
+          <Typography>Confirm the patients as not duplicates and dismiss the alert.</Typography>
+          <Stack>
+            <Typography fontWeight={600}>PIDs:</Typography>
+            {patientRows.map(({ pid }) => (
+              <Typography key={pid}>{pid}</Typography>
+            ))}
           </Stack>
         </Stack>
-      </Stack>
-    </Dialog>
+      </AppDialog>
+    </AppDialog>
   );
 };

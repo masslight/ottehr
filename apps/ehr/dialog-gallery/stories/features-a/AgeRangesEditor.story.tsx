@@ -30,14 +30,14 @@ const Host = (): ReactElement => {
 export default defineStory({
   title: 'Remove vitals alert age range',
   source: 'apps/ehr/src/features/admin/vitals-alert-config/AgeRangesEditor.tsx',
-  base: 'ConfirmationDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Admin → Vitals alert config → age ranges → remove (trash) icon',
   render: () => <Host />,
   play: async ({ user, screen }) => {
     const buttons = await screen.findAllByRole('button', { name: /Remove age range/ });
     await user.click(buttons[1]);
-    await screen.findByText('Remove this age range?');
+    await screen.findByText('Remove This Age Range?');
   },
   notes: 'AgeRangesEditor rendered with a react-hook-form control from a minimal host instead of the full admin page.',
 });

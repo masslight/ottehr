@@ -1,7 +1,6 @@
-import { Box, TextField } from '@mui/material';
+import { TextField } from '@mui/material';
 import { ChangeEvent, FC, useEffect, useState } from 'react';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
-import { RoundedButton } from 'src/components/RoundedButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import {
   FOLDER_DISPLAY_NAME_INVALID_CHARS_MSG,
   FOLDER_DISPLAY_NAME_MAX_LENGTH,
@@ -87,45 +86,35 @@ export const FolderNameDialog: FC<FolderNameDialogProps> = ({
   const isValid = !validate(value);
 
   return (
-    <CustomDialog
+    <AppDialog
+      variant="form"
+      size="s"
       open={open}
-      handleClose={onClose}
+      onClose={onClose}
       title={displayMode === 'create' ? 'Create New Folder' : 'Rename Folder'}
-      description={
-        <Box sx={{ width: '436px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <TextField
-            sx={{ mt: 0.5 }}
-            autoFocus
-            fullWidth
-            label="Folder Name"
-            required
-            value={value}
-            onChange={handleChange}
-            error={Boolean(error || serverError)}
-            helperText={error ?? serverError ?? ' '}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && isValid && !isSubmitting) {
-                void handleSubmit();
-              }
-            }}
-          />
-        </Box>
-      }
-      actions={
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-          <RoundedButton onClick={onClose} disabled={isSubmitting}>
-            Cancel
-          </RoundedButton>
-          <RoundedButton
-            variant="contained"
-            onClick={() => void handleSubmit()}
-            loading={isSubmitting}
-            disabled={!isValid}
-          >
-            {displayMode === 'create' ? 'Create' : 'Save'}
-          </RoundedButton>
-        </Box>
-      }
-    />
+      primary={{
+        label: displayMode === 'create' ? 'Create' : 'Save',
+        onClick: () => void handleSubmit(),
+        loading: isSubmitting,
+        disabled: !isValid,
+      }}
+    >
+      <TextField
+        sx={{ mt: 0.5 }}
+        autoFocus
+        fullWidth
+        label="Folder Name"
+        required
+        value={value}
+        onChange={handleChange}
+        error={Boolean(error || serverError)}
+        helperText={error ?? serverError ?? ' '}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && isValid && !isSubmitting) {
+            void handleSubmit();
+          }
+        }}
+      />
+    </AppDialog>
   );
 };

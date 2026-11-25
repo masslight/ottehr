@@ -5,7 +5,7 @@ import { quickPicks } from './_mocks';
 export default defineStory({
   title: 'Edit patient instruction quick pick',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/QuickPickEditor.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Quick Picks → Patient Instructions tab → edit (pencil) icon on a row',
   notes:

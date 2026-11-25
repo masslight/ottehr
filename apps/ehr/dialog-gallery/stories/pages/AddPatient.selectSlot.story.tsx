@@ -57,7 +57,7 @@ function AddVisitAsScheduledFollowUp(): ReactElement {
 export default defineStory({
   title: 'Add visit — no time slot selected',
   source: 'apps/ehr/src/pages/AddPatient.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'info',
   where: 'Visits → Add Visit (pre-booked / scheduled visit type) → submit without picking a time slot',
   route: '/visits/add',
@@ -80,7 +80,7 @@ export default defineStory({
     // Let the location picker finish loading so the prefilled location is settled before submitting.
     await new Promise((r) => setTimeout(r, 1500));
     await user.click(screen.getByTestId('add-button'));
-    await waitFor(() => screen.getByText('Please select a date and time'), { timeout: 5000 });
+    await waitFor(() => screen.getByText('Select Date and Time'), { timeout: 5000 });
   },
   notes:
     'Reached through the scheduled follow-up entry (patient, location, visit type and service prefilled via router state; one mocked Location); a reason is picked and the form submitted with no slot chosen, which is what opens this dialog.',

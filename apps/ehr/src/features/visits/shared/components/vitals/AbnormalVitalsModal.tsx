@@ -90,8 +90,8 @@ export const AbnormalVitalsModal: React.FC<AbnormalVitalsModalProps> = ({ abnorm
           )}
         </Stack>
       }
-      confirmText="Back"
-      closeButtonText="Continue"
+      stayLabel="Back"
+      proceedLabel="Continue"
     />
   );
 };

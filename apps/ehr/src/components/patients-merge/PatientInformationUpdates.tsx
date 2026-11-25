@@ -3,7 +3,6 @@ import {
   FormControlLabel,
   Radio,
   RadioGroup,
-  Stack,
   Table,
   TableBody,
   TableCell,
@@ -15,8 +14,7 @@ import {
 import { Patient, Task } from 'fhir/r4b';
 import { FC, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { InnerStateDialog } from 'src/features/visits/shared/components/InnerStateDialog';
-import { RoundedButton } from '../RoundedButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useGetPatientForUpdate } from './queries';
 
 type PatientInformationUpdatesProps = {
@@ -48,6 +46,8 @@ export const PatientInformationUpdates: FC<PatientInformationUpdatesProps> = (pr
 
   const [patient, setPatient] = useState<Patient>();
   const [task, setTask] = useState<Task>();
+  const [open, setOpen] = useState(false);
+  const hideDialog = (): void => setOpen(false);
 
   useGetPatientForUpdate({ patientId }, (data) => {
     if (!data) return;
@@ -80,22 +80,26 @@ export const PatientInformationUpdates: FC<PatientInformationUpdatesProps> = (pr
   };
 
   return (
-    <InnerStateDialog
-      DialogProps={{ maxWidth: 'lg' }}
-      showCloseButton
-      title={
-        <Stack spacing={1} sx={{ p: 3, pb: 0 }}>
-          <Typography variant="h4" color="primary.dark">
-            Review Patient Information Updates
-          </Typography>
-          <Typography>
+    <>
+      <Button disabled={!patientId} onClick={() => setOpen(true)}>
+        Patient information updates
+      </Button>
+      {/* Mounted only while open, as before, so each opening starts from a fresh dialog. */}
+      {open && (
+        <AppDialog
+          variant="form"
+          size="m"
+          open
+          onClose={hideDialog}
+          title="Review Patient Information Updates"
+          primary={{ label: 'Confirm Updates', onClick: () => void handleSubmit(onSubmit)() }}
+          actions={[{ label: 'Dismiss All Updates', tone: 'error', onClick: hideDialog }]}
+        >
+          <Typography sx={{ mb: 2 }}>
             Please select which information should carry over to the record after confirmation. You will be able to edit
             information after that, if needed.
           </Typography>
-        </Stack>
-      }
-      content={
-        <TableContainer sx={{ maxHeight: '60vh' }}>
+          <TableContainer sx={{ maxHeight: '60vh' }}>
           <Table size="small">
             <TableHead>
               <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold' } }}>
@@ -151,27 +155,9 @@ export const PatientInformationUpdates: FC<PatientInformationUpdatesProps> = (pr
                   })}
             </TableBody>
           </Table>
-        </TableContainer>
-      }
-      actions={(hideDialog) => (
-        <Stack direction="row" spacing={2} justifyContent="space-between">
-          <RoundedButton onClick={hideDialog}>Cancel</RoundedButton>
-          <Stack direction="row" spacing={2}>
-            <RoundedButton variant="contained" color="error" onClick={hideDialog}>
-              Dismiss All Updates
-            </RoundedButton>
-            <RoundedButton variant="contained" onClick={handleSubmit(onSubmit)}>
-              Confirm Updates
-            </RoundedButton>
-          </Stack>
-        </Stack>
+          </TableContainer>
+        </AppDialog>
       )}
-    >
-      {(showDialog) => (
-        <Button disabled={!patientId} onClick={showDialog}>
-          Patient information updates
-        </Button>
-      )}
-    </InnerStateDialog>
+    </>
   );
 };

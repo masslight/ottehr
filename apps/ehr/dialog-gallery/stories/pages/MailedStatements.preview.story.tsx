@@ -17,7 +17,7 @@ const statementHtml = `<!doctype html><html><body style="font-family: Arial, san
 export default defineStory({
   title: 'Mailed statement preview',
   source: 'apps/ehr/src/pages/reports/MailedStatements.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'Reports → Mailed Statements → "Preview" button in a statement row',
   route: '/reports/mailed-statements',

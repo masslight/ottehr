@@ -5,7 +5,7 @@ import { chargeMaster, locations, payers, zambda } from './_mocks';
 export default defineStory({
   title: 'Confirm charge master designation',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/EditChargeItem.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'Admin → Billing → Charge Masters → a charge master → Settings → "Set as Default Insurance Charge Master"',
   route: '/admin/billing/charge-masters/cm-1',

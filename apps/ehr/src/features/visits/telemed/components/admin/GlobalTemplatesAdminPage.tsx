@@ -4,7 +4,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import { LoadingButton } from '@mui/lab';
 import {
   Box,
-  Button,
   Chip,
   CircularProgress,
   IconButton,

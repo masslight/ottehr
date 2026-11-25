@@ -1,17 +1,9 @@
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import {
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Stack, TextField, Typography } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
@@ -74,9 +66,21 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose }) => {
   };
 
   return (
-    <Dialog open={open} onClose={() => !isBusy && onClose()} maxWidth="sm" fullWidth>
-      <DialogTitle>New Form Template</DialogTitle>
-      <DialogContent>
+    <AppDialog
+      variant="form"
+      size="s"
+      open={open}
+      onClose={onClose}
+      busy={isBusy}
+      title="New Form Template"
+      primary={{
+        label: 'Upload',
+        onClick: handleSubmit,
+        disabled: !canSubmit,
+        loading: isBusy,
+        startIcon: <UploadFileIcon />,
+      }}
+    >
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
             label="Title"
@@ -123,20 +127,6 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose }) => {
             </Typography>
           )}
         </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <RoundedButton onClick={onClose} disabled={isBusy}>
-          Cancel
-        </RoundedButton>
-        <RoundedButton
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          startIcon={isBusy ? <CircularProgress size={16} /> : <UploadFileIcon />}
-        >
-          Upload
-        </RoundedButton>
-      </DialogActions>
-    </Dialog>
+    </AppDialog>
   );
 };

@@ -33,7 +33,7 @@ const buildSampleTiff = (): string => {
 export default defineStory({
   title: 'Legacy record TIFF viewer',
   source: 'apps/ehr/src/pages/LegacyDataPage.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'Legacy Data → search → click a .tif/.tiff file name in a patient record',
   route: '/legacy-data',

@@ -1,10 +1,9 @@
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import CircleIcon from '@mui/icons-material/Circle';
-import CloseIcon from '@mui/icons-material/Close';
-import { Box, Dialog, DialogContent, DialogTitle, IconButton, useTheme } from '@mui/material';
-import React from 'react';
-import { dataTestIds } from 'src/constants/data-test-ids';
+import { Box, IconButton } from '@mui/material';
+import React, { useEffect } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 
 export interface ImageCarouselObject {
   alt: string;
@@ -25,8 +24,8 @@ export default function ImageCarousel({
   open,
   setOpen,
 }: ImageCarouselProps): React.ReactElement {
-  // handle functions
-  const theme = useTheme();
+  const lastIndex = imagesObj.length - 1;
+
   const handleLeftArrowClick = (): void => {
     if (imageIndex === 0) {
       return;
@@ -35,57 +34,38 @@ export default function ImageCarousel({
   };
 
   const handleRightArrowClick = (): void => {
-    if (imageIndex === imagesObj.length - 1) {
+    if (imageIndex === lastIndex) {
       return;
     }
     setImageIndex(imageIndex + 1);
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
-    const key: string = event.key;
-    if (key === 'ArrowLeft') {
-      handleLeftArrowClick();
-    } else if (key === 'ArrowRight') {
-      handleRightArrowClick();
-    }
-  };
+  // The arrow keys page through the images wherever the focus is while the preview is open.
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'ArrowLeft') {
+        setImageIndex((index) => Math.max(index - 1, 0));
+      } else if (event.key === 'ArrowRight') {
+        setImageIndex((index) => Math.min(index + 1, lastIndex));
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, lastIndex, setImageIndex]);
 
-  // html
   return (
-    <Dialog
+    <AppDialog
+      variant="form"
+      size="m"
       open={open}
-      onClose={() => {
-        setOpen(false);
-      }}
-      PaperProps={{
-        style: {
-          backgroundColor: 'transparent',
-          boxShadow: 'none',
-          maxWidth: '900px',
-        },
-      }}
-      onKeyDown={handleKeyDown}
+      onClose={() => setOpen(false)}
+      title="Image Preview"
+      disableContentPadding
     >
-      <DialogTitle marginBottom={4}>
-        <IconButton
-          onClick={() => {
-            setOpen(false);
-          }}
-          sx={{
-            position: 'absolute',
-            right: 0,
-          }}
-        >
-          <CloseIcon
-            data-testid={dataTestIds.telemedEhrFlow.closeImagePreviewButton}
-            style={{ color: theme.palette.background.paper }}
-          />
-        </IconButton>
-      </DialogTitle>
-
       <Box
         sx={{
-          width: 900,
+          width: '100%',
           height: 600,
           overflow: 'hidden',
           position: 'relative',
@@ -99,24 +79,22 @@ export default function ImageCarousel({
         <img src={imagesObj[imageIndex]?.url} alt={imagesObj[imageIndex]?.alt} />
       </Box>
 
-      <DialogContent style={{ overflow: 'hidden' }}>
-        <Box alignItems="center" display="flex" justifyContent="center">
-          <IconButton onClick={handleLeftArrowClick}>
-            <ArrowBackIosIcon sx={{ color: imageIndex === 0 ? 'transparent' : 'white' }} />
-          </IconButton>
+      <Box alignItems="center" display="flex" justifyContent="center" sx={{ p: '20px 24px' }}>
+        <IconButton onClick={handleLeftArrowClick}>
+          <ArrowBackIosIcon sx={{ color: imageIndex === 0 ? 'transparent' : 'text.secondary' }} />
+        </IconButton>
 
-          {imagesObj.map((image, index) => (
-            <CircleIcon
-              key={image.alt}
-              sx={{ fontSize: index === imageIndex ? 10 : 6, color: 'white', marginRight: 1 }}
-            />
-          ))}
+        {imagesObj.map((image, index) => (
+          <CircleIcon
+            key={image.alt}
+            sx={{ fontSize: index === imageIndex ? 10 : 6, color: 'text.secondary', marginRight: 1 }}
+          />
+        ))}
 
-          <IconButton onClick={handleRightArrowClick}>
-            <ArrowForwardIosIcon style={{ color: imageIndex === imagesObj.length - 1 ? 'transparent' : 'white' }} />
-          </IconButton>
-        </Box>
-      </DialogContent>
-    </Dialog>
+        <IconButton onClick={handleRightArrowClick}>
+          <ArrowForwardIosIcon sx={{ color: imageIndex === lastIndex ? 'transparent' : 'text.secondary' }} />
+        </IconButton>
+      </Box>
+    </AppDialog>
   );
 }

@@ -1,7 +1,7 @@
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
-import { ConfirmationDialog } from '../../../../../components/ConfirmationDialog';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { useGetAppointmentAccessibility } from '../../hooks/useGetAppointmentAccessibility';
 import { useOystehrAPIClient } from '../../hooks/useOystehrAPIClient';
@@ -16,6 +16,7 @@ export const UnlockAppointmentButton: FC<UnlockAppointmentButtonProps> = ({ onUn
   const { isAppointmentReadOnly, visitType } = useGetAppointmentAccessibility();
   const apiClient = useOystehrAPIClient();
   const [isLoading, setIsLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const isFollowup = visitType === 'follow-up';
 
   if (!isAppointmentReadOnly) {
@@ -61,26 +62,33 @@ export const UnlockAppointmentButton: FC<UnlockAppointmentButtonProps> = ({ onUn
   };
 
   return (
-    <ConfirmationDialog
-      title="Unlock Appointment"
-      description="Many organizations require notes to be signed and locked within 24-72 hours. If you are unlocking outside this time frame, consider first discussing with your organization."
-      response={handleUnlock}
-      actionButtons={{
-        proceed: { text: 'Unlock', loading: isLoading, color: 'error' },
-        back: { text: 'Cancel' },
-        reverse: true,
-      }}
-    >
-      {(showDialog) => (
-        <RoundedButton
-          disabled={isLoading}
-          onClick={showDialog}
-          variant="contained"
-          data-testid={dataTestIds.progressNotePage.unlockAppointmentButton}
-        >
-          Unlock
-        </RoundedButton>
-      )}
-    </ConfirmationDialog>
+    <>
+      <RoundedButton
+        disabled={isLoading}
+        onClick={() => setDialogOpen(true)}
+        variant="contained"
+        data-testid={dataTestIds.progressNotePage.unlockAppointmentButton}
+      >
+        Unlock
+      </RoundedButton>
+      <AppDialog
+        variant="confirm"
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        title="Unlock Appointment"
+        primary={{
+          label: 'Unlock',
+          // Closes once the attempt has settled, as before; handleUnlock reports its own errors.
+          onClick: async () => {
+            await handleUnlock();
+            setDialogOpen(false);
+          },
+          loading: isLoading,
+        }}
+      >
+        Many organizations require notes to be signed and locked within 24-72 hours. If you are unlocking outside this
+        time frame, consider first discussing with your organization.
+      </AppDialog>
+    </>
   );
 };

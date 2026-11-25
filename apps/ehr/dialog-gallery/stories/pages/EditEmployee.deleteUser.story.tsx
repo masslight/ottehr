@@ -5,7 +5,7 @@ import { adminUserMock, zambdaOutput } from './_mocks';
 export default defineStory({
   title: 'Delete user (never set up as employee)',
   source: 'apps/ehr/src/pages/EditEmployee.tsx',
-  base: 'ConfirmationDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Admin → Employees → a "needs review" user → Delete user card → Delete',
   route: '/employee/user-2',
@@ -35,7 +35,7 @@ export default defineStory({
   render: () => <EditEmployeePage />,
   play: async ({ user, screen }) => {
     await user.click(await screen.findByTestId('delete-user-button', {}, { timeout: 10000 }));
-    await screen.findByText('Delete user?');
+    await screen.findByText('Delete User?');
   },
   notes: 'get-user zambda mocked with a user that has no Practitioner profile (the "needs review" state).',
 });

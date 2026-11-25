@@ -6,11 +6,7 @@ import {
   Button,
   Checkbox,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
   DialogContentText,
-  DialogTitle,
   Divider,
   FormControlLabel,
   IconButton,
@@ -24,6 +20,7 @@ import { Location } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { LocationBookingLinks } from 'src/features/locations/LocationBookingLinks';
 import LocationPaymentsSection from 'src/features/locations/LocationPaymentsSection';
@@ -457,27 +454,21 @@ export default function LocationConfigPage(): ReactElement {
         )}
       </Box>
 
-      <Dialog
+      <AppDialog
+        variant="destructive"
         open={deleteDialogOpen}
-        onClose={() => {
-          if (!deleteMutation.isPending) setDeleteDialogOpen(false);
+        onClose={() => setDeleteDialogOpen(false)}
+        title={deleteWarning ? 'Delete Anyway?' : 'Delete This Location?'}
+        primary={{
+          label: deleteWarning ? 'Delete Anyway' : 'Delete Location',
+          onClick: runDelete,
+          loading: deleteMutation.isPending,
         }}
       >
-        <DialogTitle>{deleteWarning ? 'Delete anyway?' : 'Delete this location?'}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {deleteWarning ?? `“${name || 'This location'}” will be permanently deleted. This can't be undone.`}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleteMutation.isPending}>
-            Cancel
-          </Button>
-          <LoadingButton color="error" onClick={runDelete} loading={deleteMutation.isPending}>
-            {deleteWarning ? 'Delete anyway' : 'Delete'}
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+        <DialogContentText>
+          {deleteWarning ?? `“${name || 'This location'}” will be permanently deleted. This can't be undone.`}
+        </DialogContentText>
+      </AppDialog>
     </Box>
   );
 }

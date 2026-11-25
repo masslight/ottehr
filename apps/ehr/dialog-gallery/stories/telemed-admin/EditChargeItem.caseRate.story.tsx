@@ -5,7 +5,7 @@ import { feeSchedule, locations, payers, zambda } from './_mocks';
 export default defineStory({
   title: 'Switch fee schedule to case rate',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/EditChargeItem.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Admin → Billing → Fee Schedules → a fee schedule → Settings → "Switch to Case Rate"',
   notes: 'Only shown when the fee schedule already has procedure codes (the mock has five).',

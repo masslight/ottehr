@@ -15,6 +15,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { updatePatientVisitDetails } from 'src/api/api';
 import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { PatientMergedBanner } from 'src/components/PatientMergedBanner';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { AboutPatientContainer } from 'src/features/visits/shared/components/patient/AboutPatientContainer';
 import { ActionBar } from 'src/features/visits/shared/components/patient/ActionBar';
 import { AttorneyInformationContainer } from 'src/features/visits/shared/components/patient/AttorneyInformationContainer';

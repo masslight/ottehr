@@ -5,7 +5,7 @@ import { Box, Button, TableCell, TableRow, TextField, Typography } from '@mui/ma
 import type Oystehr from '@oystehr/sdk';
 import { ReactElement, useState } from 'react';
 import { updateLabOrderResources } from 'src/api/api';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { openPdf } from 'utils/lib/helpers/labs/helpers';
 import { HL7_NOTE_CHAR_LIMIT } from 'utils/lib/types/data/labs/labs.constants';
@@ -176,42 +176,49 @@ export const LabsTableBundleHeaderRow = ({
           </TableCell>
         </TableRow>
       )}
-      <CustomDialog
+      <AppDialog
+        variant="form"
+        size="s"
         open={openOrderNoteDialog}
-        confirmLoading={savingNote}
-        handleConfirm={noteState === 'view' ? makeNoteEditable : handleAddOrEditOrderNote}
-        confirmText={noteState === 'view' ? 'Edit note' : 'Save note'}
-        handleClose={closeEditNoteDialog}
+        onClose={closeEditNoteDialog}
         title="Order Level Note"
-        description={
-          <Box sx={{ width: '400px', display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Typography variant="caption">
-              This note will be sent to the lab and will apply to all tests within the order.
-            </Typography>
-            {noteState === 'view' ? (
-              <Typography>{existingNote}</Typography>
-            ) : (
-              <TextField
-                multiline
-                rows={2}
-                value={orderNote}
-                inputProps={{ maxLength: HL7_NOTE_CHAR_LIMIT }}
-                onChange={(e) => {
-                  setOrderNote(e.target.value);
-                }}
-                error={!!(orderNote && orderNote?.length >= HL7_NOTE_CHAR_LIMIT)}
-                helperText={
-                  orderNote && orderNote?.length >= HL7_NOTE_CHAR_LIMIT
-                    ? `Input cannot be more than ${HL7_NOTE_CHAR_LIMIT} characters`
-                    : ''
-                }
-              ></TextField>
-            )}
-          </Box>
+        primary={
+          noteState === 'view'
+            ? { label: 'Edit Note', onClick: makeNoteEditable }
+            : { label: 'Save Note', onClick: handleAddOrEditOrderNote, loading: savingNote }
         }
-        error={noteError}
-        closeButtonText={noteState === 'view' ? 'Close' : 'Cancel'}
-      />
+        dismiss={{ label: noteState === 'view' ? 'Close' : 'Cancel' }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="caption">
+            This note will be sent to the lab and will apply to all tests within the order.
+          </Typography>
+          {noteState === 'view' ? (
+            <Typography>{existingNote}</Typography>
+          ) : (
+            <TextField
+              multiline
+              rows={2}
+              value={orderNote}
+              inputProps={{ maxLength: HL7_NOTE_CHAR_LIMIT }}
+              onChange={(e) => {
+                setOrderNote(e.target.value);
+              }}
+              error={!!(orderNote && orderNote?.length >= HL7_NOTE_CHAR_LIMIT)}
+              helperText={
+                orderNote && orderNote?.length >= HL7_NOTE_CHAR_LIMIT
+                  ? `Input cannot be more than ${HL7_NOTE_CHAR_LIMIT} characters`
+                  : ''
+              }
+            ></TextField>
+          )}
+          {noteError && (
+            <Typography color="error" variant="body2">
+              {noteError}
+            </Typography>
+          )}
+        </Box>
+      </AppDialog>
     </>
   );
 };

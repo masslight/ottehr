@@ -58,7 +58,7 @@ import { useApiClients } from '../hooks/useAppClients';
 import { useMergedServiceCategories } from '../hooks/useMergedServiceCategories';
 import { useServiceCategoryAbbreviationResolver } from '../hooks/useServiceCategoryAbbreviation';
 import { useDeletedFreeFormEncountersStore } from '../state/deleted-free-form-encounters.store';
-import DeleteDialog from './dialogs/DeleteDialog';
+import { AppDialog } from './dialogs/AppDialog';
 import { FreeFormEncounterRow, FreeFormSaveSession } from './FreeFormEncounterRow';
 import GoToButton from './GoToButton';
 import {
@@ -869,16 +869,15 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         onRowsPerPageChange={handleChangeRowsPerPage}
       />
 
-      <DeleteDialog
+      <AppDialog
+        variant="destructive"
         open={freeFormToDelete !== null}
-        handleClose={closeDeleteFreeFormDialog}
-        handleDelete={() => void confirmDeleteFreeForm()}
+        onClose={closeDeleteFreeFormDialog}
         title="Delete Free Form"
-        description="Are you sure you want to delete this form? This action cannot be undone."
-        closeButtonText="Keep"
-        deleteButtonText="Delete"
-        loadingDelete={deletingFreeForm}
-      />
+        primary={{ label: 'Delete', onClick: () => void confirmDeleteFreeForm(), loading: deletingFreeForm }}
+      >
+        Are you sure you want to delete this form? This action cannot be undone.
+      </AppDialog>
     </Paper>
   );
 };

@@ -5,7 +5,7 @@ import { quickPicks, zambda } from './_mocks';
 export default defineStory({
   title: 'Add insurance quick pick',
   source: 'apps/ehr/src/features/visits/telemed/components/admin/InsuranceQuickPickPage.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Quick Picks → Insurance tab → Add button',
   mocks: [

@@ -1,7 +1,6 @@
 import { Box, Typography } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
-import { RoundedButton } from 'src/components/RoundedButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 
 type ConfirmDeleteFolderDialogProps = {
   open: boolean;
@@ -40,36 +39,27 @@ export const ConfirmDeleteFolderDialog: FC<ConfirmDeleteFolderDialogProps> = ({
   };
 
   return (
-    <CustomDialog
+    <AppDialog
+      variant="destructive"
       open={open}
-      handleClose={onClose}
+      onClose={onClose}
       title="Delete Folder"
-      description={
-        <Box sx={{ width: '436px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography variant="body1">
-            {`Are you sure you want to delete the folder ${folderName}?`}
-            <br />
-            This action cannot be undone.
-            <br />
-            The folder will remain for the patients who have docs in it.
+      primary={{ label: 'Delete', onClick: () => void handleConfirm(), loading: isSubmitting }}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box>
+          {`Are you sure you want to delete the folder ${folderName}?`}
+          <br />
+          This action cannot be undone.
+          <br />
+          The folder will remain for the patients who have docs in it.
+        </Box>
+        {serverError && (
+          <Typography variant="body2" color="error">
+            {serverError}
           </Typography>
-          {serverError && (
-            <Typography variant="body2" color="error">
-              {serverError}
-            </Typography>
-          )}
-        </Box>
-      }
-      actions={
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-          <RoundedButton onClick={onClose} disabled={isSubmitting}>
-            Cancel
-          </RoundedButton>
-          <RoundedButton variant="contained" color="error" onClick={() => void handleConfirm()} loading={isSubmitting}>
-            Delete
-          </RoundedButton>
-        </Box>
-      }
-    />
+        )}
+      </Box>
+    </AppDialog>
   );
 };

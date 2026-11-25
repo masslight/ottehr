@@ -1,5 +1,5 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, useTheme } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
+import { AppDialog } from './AppDialog';
 
 interface LogoutWarningProps {
   modalOpen: boolean;
@@ -14,7 +14,6 @@ export default function LogoutWarning({
   onContinue,
   timeoutInSeconds,
 }: LogoutWarningProps): ReactElement {
-  const theme = useTheme();
   const [countdown, setCountdown] = useState(timeoutInSeconds);
 
   useEffect(() => {
@@ -47,39 +46,18 @@ export default function LogoutWarning({
     onContinue();
   };
 
-  const buttonSx = {
-    fontWeight: 500,
-    textTransform: 'none',
-    borderRadius: 6,
-  };
-
+  // Esc and a backdrop click have always ended the session here, so `onClose` (which the shell's ✕
+  // shares with them) still does; only "Continue Session" keeps it.
   return (
-    <Dialog
+    <AppDialog
+      variant="alert"
       open={modalOpen}
       onClose={onEnd}
-      disableScrollLock
-      sx={{
-        '.MuiPaper-root': {
-          padding: 2,
-        },
-      }}
+      title="Your Session Is About to Expire"
+      primary={{ label: 'End Session', onClick: onEnd }}
+      dismiss={{ label: 'Continue Session', onClick: handleContinue }}
     >
-      <DialogTitle variant="h4" color="primary.dark" sx={{ width: '80%' }}>
-        Your session is about to expire
-      </DialogTitle>
-      <DialogContent>
-        <DialogContentText sx={{ color: theme.palette.text.primary }}>
-          You will be logged out in {countdown} seconds due to inactivity.
-        </DialogContentText>
-      </DialogContent>
-      <DialogActions>
-        <Button variant="outlined" onClick={handleContinue} size="medium" sx={buttonSx}>
-          Continue session
-        </Button>
-        <Button variant="contained" onClick={onEnd} size="medium" color="error" sx={buttonSx}>
-          End session
-        </Button>
-      </DialogActions>
-    </Dialog>
+      You will be logged out in {countdown} seconds due to inactivity.
+    </AppDialog>
   );
 }

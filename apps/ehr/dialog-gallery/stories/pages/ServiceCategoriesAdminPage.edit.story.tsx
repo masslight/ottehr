@@ -4,7 +4,7 @@ import { serviceCategoriesMocks, ServiceCategoriesPageWithHeaderSlot } from './_
 export default defineStory({
   title: 'Edit service (service category)',
   source: 'apps/ehr/src/pages/ServiceCategoriesAdminPage.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Services → click a row or its edit (pencil) icon',
   route: '/admin/services',

@@ -2,7 +2,7 @@ import { Box, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { ReactElement, useState } from 'react';
 import { submitLabOrder } from 'src/api/api';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { openPdf } from 'utils/lib/helpers/labs/helpers';
 import {
@@ -153,6 +153,13 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
     </Box>
   );
 
+  const closeErrorDialog = (): void => {
+    void (async (): Promise<void> => {
+      await fetchLabOrders(searchBy);
+      setErrorDialogOpen(false);
+    })();
+  };
+
   const bundleHeaderRowProps = {
     columnsLen: columns.length,
     orderBundleName,
@@ -192,21 +199,30 @@ export const LabsTableContainer = <SearchBy extends LabOrdersSearchBy>({
           {error}
         </Typography>
       )}
-      {failedOrderNumbers && (
-        <CustomDialog
-          open={errorDialogOpen}
-          confirmLoading={submitLoading}
-          handleConfirm={manualError ? undefined : manualSubmit}
-          confirmText="Confirm manual submit"
-          handleClose={async () => {
-            await fetchLabOrders(searchBy);
-            setErrorDialogOpen(false);
-          }}
-          title="Manually submitting lab order"
-          description={manualSubmitDialogDescription}
-          closeButtonText="Cancel"
-        />
-      )}
+      {failedOrderNumbers &&
+        (manualError ? (
+          // The manual submit failed too: nothing is left to confirm, so the dialog only reports it.
+          <AppDialog
+            variant="alert"
+            severity="error"
+            open={errorDialogOpen}
+            onClose={closeErrorDialog}
+            title="Manually Submitting Lab Order"
+            dismiss={{ label: 'Close' }}
+          >
+            {manualSubmitDialogDescription}
+          </AppDialog>
+        ) : (
+          <AppDialog
+            variant="confirm"
+            open={errorDialogOpen}
+            onClose={closeErrorDialog}
+            title="Manually Submitting Lab Order"
+            primary={{ label: 'Confirm Manual Submit', onClick: manualSubmit, loading: submitLoading }}
+          >
+            {manualSubmitDialogDescription}
+          </AppDialog>
+        ))}
     </Box>
   );
 };

@@ -14,8 +14,8 @@ import { getAllNotificationRows } from 'utils/lib/types/api/provider-notificatio
 import { hasPractitionerProfile } from 'utils/lib/types/api/user.types';
 import { UserActivationMode } from 'utils/lib/types/api/user-activation.types';
 import { deleteUser, userActivation } from '../api/api';
-import { AppDialog } from '../components/dialogs/AppDialog';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
+import { AppDialog } from '../components/dialogs/AppDialog';
 import EmployeeInformationForm from '../components/EmployeeInformation';
 import PractitionerRoleList from '../components/schedule/PractitionerRoleList';
 import { dataTestIds } from '../constants/data-test-ids';

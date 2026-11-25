@@ -1,9 +1,22 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Box } from '@mui/material';
+import React, { ReactElement, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { UNSAFE_NavigationContext, useLocation, useNavigate } from 'react-router-dom';
-import { InPersonModal } from '../../in-person/components/InPersonModal';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
+import { dataTestIds } from 'src/constants/data-test-ids';
 
-type InPersonModalProps =
-  | Partial<Omit<React.ComponentProps<typeof InPersonModal>, 'handleConfirm' | 'open' | 'handleClose'>>
+type ConfirmationModalProps =
+  | {
+      /** Title Case. */
+      title?: string;
+      /** Replaces the hook's `modalText`. */
+      description?: ReactNode;
+      /** Rendered under the description. */
+      ContentComponent?: ReactElement;
+      /** The button that keeps the user where they are. */
+      stayLabel?: string;
+      /** The button that lets the blocked action go ahead. */
+      proceedLabel?: string;
+    }
   | undefined;
 
 type Options = {
@@ -15,7 +28,7 @@ export const useReactNavigationBlocker = (
   modalText = 'You have unsaved changes that will be lost if you leave this page.',
   options?: Options
 ): {
-  ConfirmationModal: React.FC<InPersonModalProps>;
+  ConfirmationModal: React.FC<ConfirmationModalProps>;
   requestConfirmation: () => Promise<boolean>;
 } => {
   const { interceptNavigation = true } = options ?? {};
@@ -36,13 +49,13 @@ export const useReactNavigationBlocker = (
     });
   }, [shouldBlock]);
 
-  const handleConfirm = useCallback(() => {
+  const handleStay = useCallback(() => {
     setIsModalOpen(false);
     resolveRef.current?.(false);
     resolveRef.current = null;
   }, []);
 
-  const handleClose = useCallback(() => {
+  const handleProceed = useCallback(() => {
     setIsModalOpen(false);
     resolveRef.current?.(true);
     resolveRef.current = null;
@@ -88,26 +101,30 @@ export const useReactNavigationBlocker = (
     }
   }, [location, navigate, interceptNavigation, shouldBlock, requestConfirmation]);
 
-  const ConfirmationModal: React.FC<InPersonModalProps> = (props) => {
+  const ConfirmationModal: React.FC<ConfirmationModalProps> = (props) => {
     const {
       title = 'Confirmation Required',
-      confirmText = 'Continue edit',
-      closeButtonText = 'Leave',
-      ...rest
+      description = modalText,
+      ContentComponent,
+      stayLabel = 'Continue Editing',
+      proceedLabel = 'Leave',
     } = props ?? {};
 
+    // ✕, Esc and a backdrop click all mean "stay": only the primary button lets the action go ahead.
     return (
-      <InPersonModal
+      <AppDialog
+        variant="alert"
         open={isModalOpen}
-        handleClose={handleClose}
+        onClose={handleStay}
         title={title}
-        description={modalText}
-        handleConfirm={handleConfirm}
-        confirmText={confirmText}
-        closeButtonText={closeButtonText}
-        closeButton={false}
-        {...rest}
-      />
+        dismiss={{ label: stayLabel }}
+        primary={{ label: proceedLabel, onClick: handleProceed }}
+      >
+        <Box data-testid={dataTestIds.dialog.inPersonModalContent}>
+          <Box>{description}</Box>
+          {ContentComponent}
+        </Box>
+      </AppDialog>
     );
   };
 

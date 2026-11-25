@@ -1,23 +1,9 @@
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { LoadingButton } from '@mui/lab';
-import {
-  Box,
-  Button,
-  Checkbox,
-  dialogActionsClasses,
-  dialogContentClasses,
-  dialogTitleClasses,
-  FormControlLabel,
-  FormGroup,
-  iconButtonClasses,
-  Stack,
-  svgIconClasses,
-  Typography,
-} from '@mui/material';
+import { Box, Checkbox, FormControlLabel, FormGroup, Stack, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { makePatientInstructionsPdf, makeProgressNotePdf } from 'src/api/api';
-import { CustomDialog } from 'src/components/dialogs/CustomDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useGetPatientDocs } from 'src/hooks/useGetPatientDocs';
@@ -331,128 +317,102 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
   );
 
   return (
-    <CustomDialog
+    <AppDialog
+      variant="form"
+      size="s"
       open
-      handleClose={handleClose}
-      closeButton={!isLoading}
+      onClose={handleClose}
       title="Discharge"
-      maxWidth="xs"
-      fullWidth
-      sx={(theme) => ({
-        [`& .${dialogTitleClasses.root}`]: { px: 1, fontSize: theme.typography.h4.fontSize },
-        [`& .${dialogContentClasses.root}`]: { pt: 0, px: 1 },
-        [`& .${dialogActionsClasses.root}`]: { justifyContent: 'space-between', px: 1 },
-        [`& .${dialogTitleClasses.root} .${iconButtonClasses.root}`]: {
-          p: 0.5,
-          [`& .${svgIconClasses.root}`]: { fontSize: theme.typography.subtitle1.fontSize },
-        },
-      })}
-      description={
-        <Stack spacing={1}>
-          <Box>
-            <Typography variant="h6" color="primary.dark">
-              Print documents
-            </Typography>
-            <FormGroup sx={{ pl: 0.5 }}>
-              <SelectionCheckbox
-                label="Discharge Summary"
-                checked={printDischargeSummary}
-                disabled={!hasAppointment}
-                onChange={(checked) => select({ dischargeSummary: checked })}
-                dataTestId={dataTestIds.dischargeDialog.printDischargeSummaryCheckbox}
-              />
-              <SelectionCheckbox
-                label="Work Note"
-                checked={printWorkNote}
-                disabled={!hasWorkNote || workNoteUnavailable}
-                onChange={(checked) => select({ workNote: checked })}
-                dataTestId={dataTestIds.dischargeDialog.printWorkNoteCheckbox}
-                hint={workNoteUnavailable ? UNAVAILABLE_HINT : pendingWorkNote ? PREPARING_HINT : undefined}
-              />
-              <SelectionCheckbox
-                label="School Note"
-                checked={printSchoolNote}
-                disabled={!hasSchoolNote || schoolNoteUnavailable}
-                onChange={(checked) => select({ schoolNote: checked })}
-                dataTestId={dataTestIds.dischargeDialog.printSchoolNoteCheckbox}
-                hint={schoolNoteUnavailable ? UNAVAILABLE_HINT : pendingSchoolNote ? PREPARING_HINT : undefined}
-              />
-              <SelectionCheckbox
-                label="Patient Instructions"
-                checked={printPatientInstructions}
-                disabled={!hasAppointment || !hasPatientInstructions}
-                onChange={(checked) => select({ patientInstructions: checked })}
-                dataTestId={dataTestIds.dischargeDialog.printPatientInstructionsCheckbox}
-              />
-              <SelectionCheckbox
-                label="Progress Note"
-                checked={printProgressNote}
-                disabled={!hasAppointment}
-                onChange={(checked) => select({ progressNote: checked })}
-                dataTestId={dataTestIds.dischargeDialog.printProgressNoteCheckbox}
-              />
-            </FormGroup>
-          </Box>
+      primary={{
+        label: actionLabel,
+        onClick: handleConfirm,
+        loading: isLoading,
+        disabled: pendingDocuments.length > 0,
+        'data-testid': dataTestIds.dischargeDialog.confirmButton,
+      }}
+    >
+      <Stack spacing={1}>
+        <Box>
+          <Typography variant="h6" color="primary.dark">
+            Print documents
+          </Typography>
+          <FormGroup sx={{ pl: 0.5 }}>
+            <SelectionCheckbox
+              label="Discharge Summary"
+              checked={printDischargeSummary}
+              disabled={!hasAppointment}
+              onChange={(checked) => select({ dischargeSummary: checked })}
+              dataTestId={dataTestIds.dischargeDialog.printDischargeSummaryCheckbox}
+            />
+            <SelectionCheckbox
+              label="Work Note"
+              checked={printWorkNote}
+              disabled={!hasWorkNote || workNoteUnavailable}
+              onChange={(checked) => select({ workNote: checked })}
+              dataTestId={dataTestIds.dischargeDialog.printWorkNoteCheckbox}
+              hint={workNoteUnavailable ? UNAVAILABLE_HINT : pendingWorkNote ? PREPARING_HINT : undefined}
+            />
+            <SelectionCheckbox
+              label="School Note"
+              checked={printSchoolNote}
+              disabled={!hasSchoolNote || schoolNoteUnavailable}
+              onChange={(checked) => select({ schoolNote: checked })}
+              dataTestId={dataTestIds.dischargeDialog.printSchoolNoteCheckbox}
+              hint={schoolNoteUnavailable ? UNAVAILABLE_HINT : pendingSchoolNote ? PREPARING_HINT : undefined}
+            />
+            <SelectionCheckbox
+              label="Patient Instructions"
+              checked={printPatientInstructions}
+              disabled={!hasAppointment || !hasPatientInstructions}
+              onChange={(checked) => select({ patientInstructions: checked })}
+              dataTestId={dataTestIds.dischargeDialog.printPatientInstructionsCheckbox}
+            />
+            <SelectionCheckbox
+              label="Progress Note"
+              checked={printProgressNote}
+              disabled={!hasAppointment}
+              onChange={(checked) => select({ progressNote: checked })}
+              dataTestId={dataTestIds.dischargeDialog.printProgressNoteCheckbox}
+            />
+          </FormGroup>
+        </Box>
 
-          <Box>
-            <Typography variant="h6" color="primary.dark">
-              Review &amp; Sign
-            </Typography>
-            <FormGroup sx={{ pl: 0.5 }}>
+        <Box>
+          <Typography variant="h6" color="primary.dark">
+            Review &amp; Sign
+          </Typography>
+          <FormGroup sx={{ pl: 0.5 }}>
+            <SelectionCheckbox
+              label="Sign the Progress Note"
+              checked={signProgressNote}
+              disabled={!canSign}
+              onChange={(checked) => select({ signProgressNote: checked })}
+              dataTestId={dataTestIds.dischargeDialog.signProgressNoteCheckbox}
+            />
+            {supervisorApprovalApplies && (
               <SelectionCheckbox
-                label="Sign the Progress Note"
-                checked={signProgressNote}
-                disabled={!canSign}
-                onChange={(checked) => select({ signProgressNote: checked })}
-                dataTestId={dataTestIds.dischargeDialog.signProgressNoteCheckbox}
+                label="Require Supervisor Approval"
+                checked={requireSupervisorApproval}
+                disabled={!signProgressNote}
+                onChange={(checked) => select({ requireSupervisorApproval: checked })}
+                dataTestId={dataTestIds.dischargeDialog.supervisorApprovalCheckbox}
               />
-              {supervisorApprovalApplies && (
-                <SelectionCheckbox
-                  label="Require Supervisor Approval"
-                  checked={requireSupervisorApproval}
-                  disabled={!signProgressNote}
-                  onChange={(checked) => select({ requireSupervisorApproval: checked })}
-                  dataTestId={dataTestIds.dischargeDialog.supervisorApprovalCheckbox}
-                />
-              )}
-            </FormGroup>
-            {signDisabledReason && (
-              <Stack direction="row" spacing={1} alignItems="flex-start">
-                <ErrorOutlineIcon color="error" fontSize="small" />
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  data-testid={dataTestIds.dischargeDialog.signDisabledReason}
-                >
-                  {signDisabledReason}
-                </Typography>
-              </Stack>
             )}
-          </Box>
-        </Stack>
-      }
-      actions={
-        <>
-          <Button
-            onClick={handleClose}
-            disabled={isLoading}
-            variant="outlined"
-            sx={{ borderRadius: 100, textTransform: 'none' }}
-          >
-            Cancel
-          </Button>
-          <LoadingButton
-            onClick={handleConfirm}
-            loading={isLoading}
-            disabled={pendingDocuments.length > 0}
-            variant="contained"
-            data-testid={dataTestIds.dischargeDialog.confirmButton}
-            sx={{ borderRadius: 100, textTransform: 'none' }}
-          >
-            {actionLabel}
-          </LoadingButton>
-        </>
-      }
-    />
+          </FormGroup>
+          {signDisabledReason && (
+            <Stack direction="row" spacing={1} alignItems="flex-start">
+              <ErrorOutlineIcon color="error" fontSize="small" />
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                data-testid={dataTestIds.dischargeDialog.signDisabledReason}
+              >
+                {signDisabledReason}
+              </Typography>
+            </Stack>
+          )}
+        </Box>
+      </Stack>
+    </AppDialog>
   );
 };
