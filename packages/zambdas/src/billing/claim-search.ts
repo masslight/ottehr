@@ -14,7 +14,7 @@ import { DateTime } from 'luxon';
 import { getClaimNonInsurancePayer, getCoveragePlanType } from 'utils/lib/fhir/billing';
 import { deduplicateUnbundledResources } from 'utils/lib/fhir/deduplicateUnbundledResources';
 import { getAllFhirSearchPages, searchPageWithSizeRetry } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { getPayerId, getPayerUrl } from 'utils/lib/helpers/helpers';
+import { getPayerId, getPayerUrl, removePrefix } from 'utils/lib/helpers/helpers';
 import { CODE_SYSTEM_CLAIM_TYPE, CODE_SYSTEM_SERVICE_CATEGORY_TAG_SYSTEM } from 'utils/lib/helpers/rcm/constants';
 import { CLAIM_SCAN_MATCH_LIMIT, CLAIM_TAG_SYSTEM } from 'utils/lib/types/data/billing/billing.constants';
 import { ClaimSort, ClaimSortField, SearchBillingClaimsInput } from 'utils/lib/types/data/billing/billing.schemas';
@@ -546,7 +546,7 @@ const PLAN_TYPE_COVERAGE_CONCURRENCY = 4;
 
 const primaryCoverageId = (claim: Pick<Claim, 'insurance'>): string | undefined => {
   const ref = sortClaimInsurance(claim)[0]?.coverage?.reference;
-  return ref?.startsWith('Coverage/') ? ref.slice('Coverage/'.length) : undefined;
+  return ref ? removePrefix('Coverage/', ref) : undefined;
 };
 
 /**
