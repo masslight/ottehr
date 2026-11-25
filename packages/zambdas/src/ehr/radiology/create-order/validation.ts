@@ -159,8 +159,6 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
 };
 
 export const validateICD10Codes = async (diagnosisCodes: unknown, oystehr: Oystehr): Promise<ValidatedICD10Code[]> => {
-  // Diagnosis is optional — an absent list yields no diagnoses. A caller that needs at least one
-  // must enforce that before calling this helper.
   if (diagnosisCodes == null) {
     return [];
   }

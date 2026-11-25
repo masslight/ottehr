@@ -128,8 +128,7 @@ describe('radiology-save-preliminary-report integration', () => {
     expect(serviceRequest.performer?.map((ref) => ref.reference)).toEqual([`Practitioner/${orderingPractitionerId}`]);
   });
 
-  // Diagnosis is optional on the preliminary read, as it is at order time. A second order (placed without a
-  // diagnosis) is used because an order accepts only one preliminary report.
+  // A second order is used because an order accepts only one preliminary report.
   it('saves a preliminary radiology report without a diagnosis', async () => {
     const created = await oystehrZambdas.zambda.execute({
       id: 'radiology-create-order',

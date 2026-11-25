@@ -60,8 +60,7 @@ async function performEffect(
     markAsFinal,
   } = validatedInput.body;
 
-  // Diagnosis is optional here, as it is at order time. Validate any ICD-10 codes up front so we fail
-  // fast before touching AdvaPACS.
+  // Validate the ICD-10 codes up front so we fail fast before touching AdvaPACS.
   const diagnoses = await validateICD10Codes(diagnosisCodes, oystehr);
 
   // Both fetched up front, so a failure here happens before the single-shot AdvaPACS report POST.
@@ -101,9 +100,6 @@ async function performEffect(
   // diagnosis after it and that patch failed, the order would be stranded without a diagnosis and
   // could never be retried. Writing it first makes a failed run safe to re-run: the patch is
   // idempotent (replace) and dedupes on retry, and the report creation still runs afterwards.
-  //
-  // Diagnosis is optional: omitting `diagnosisCodes` leaves the order's diagnoses as they are, while a
-  // list replaces them — an empty one clears them (FHIR forbids an empty `reasonCode` array).
   const reasonCodeOperation = diagnosisCodes
     ? buildReasonCodeOperation(
         diagnoses.map((diagnosis) => ({ coding: [diagnosis] })),

@@ -13,7 +13,6 @@ export interface ValidatedInput {
 }
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
-  // Diagnosis is optional when saving a preliminary read, just as it is at order time.
   const body = safeValidate(SavePreliminaryRadiologyReportZambdaInputSchema, validateJsonBody(input));
 
   const callerAccessToken = input.headers.Authorization.replace('Bearer ', '');

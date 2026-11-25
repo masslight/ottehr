@@ -141,8 +141,8 @@ export const RadiologyOrderDetailsPage: React.FC<RadiologyOrderDetailsPageProps>
     }
   };
 
-  // Seed the preliminary-read diagnosis picker with any diagnosis already on the order (diagnosis is
-  // optional, so this may be empty). Runs once when the order first loads.
+  // Seed the preliminary-read diagnosis picker with any diagnosis already on the order. Runs once when
+  // the order first loads.
   useEffect(() => {
     if (order?.status === 'performed' && !order.preliminaryReport && order.diagnoses) {
       setPreliminaryReportDx(order.diagnoses.map((d) => ({ code: d.code, display: d.display })));

@@ -425,7 +425,6 @@ describe('RadiologyOrderDetailsPage - final report', () => {
       expect(screen.getByRole('button', { name: SAVE_PRELIMINARY_REPORT_BTN_LABEL })).toBeInTheDocument();
     });
 
-    // Diagnosis is optional on the preliminary read, as it is at order time.
     it('saves the preliminary read without a diagnosis', async () => {
       const user = userEvent.setup();
       const mockHandleSaveReport = vi.fn();
@@ -445,7 +444,6 @@ describe('RadiologyOrderDetailsPage - final report', () => {
           false
         )
       );
-      // Nothing to add to the encounter's chart/Assessment.
       expect(mockSaveChartData).not.toHaveBeenCalled();
     });
 

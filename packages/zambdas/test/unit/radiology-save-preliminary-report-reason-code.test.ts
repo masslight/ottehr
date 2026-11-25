@@ -6,8 +6,6 @@ const reasonCode: CodeableConcept[] = [
   { coding: [{ code: 'E11.9', display: 'Type 2 diabetes mellitus', system: 'http://hl7.org/fhir/sid/icd-10-cm' }] },
 ];
 
-// Diagnosis is optional on the preliminary read, so the order's reasonCode may need adding, replacing,
-// clearing or leaving alone.
 describe('buildReasonCodeOperation', () => {
   test('adds the diagnoses when the order has none', () => {
     expect(buildReasonCodeOperation(reasonCode, false)).toEqual({ op: 'add', path: '/reasonCode', value: reasonCode });
