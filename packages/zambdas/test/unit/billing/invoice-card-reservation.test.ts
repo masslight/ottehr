@@ -137,12 +137,13 @@ const setup = ({
   };
 };
 
-const settle = (oystehr: Oystehr, stripe: Stripe, paymentId = 'my-payment'): Promise<void> =>
+const settle = (oystehr: Oystehr, stripe: Stripe, paymentId = 'my-payment', graceMinutes?: number): Promise<void> =>
   settleOtherCardReservation({
     oystehr,
     getStripe: () => stripe,
     invoiceId: INVOICE_ID,
     paymentId,
+    graceMinutes,
     agent: {
       who: {
         reference: 'Practitioner/biller-1',
@@ -307,6 +308,25 @@ describe('settleOtherCardReservation', () => {
 
     await expect(settle(oystehr, stripe)).rejects.toEqual(IN_PROGRESS);
     expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('refuses within a longer grace period while nothing has reached Stripe', async () => {
+    const { oystehr, stripe, patch } = setup({
+      invoice: reservedInvoice(NOW.minus({ minutes: 10 })),
+    });
+
+    await expect(settle(oystehr, stripe, 'my-payment', 15)).rejects.toEqual(IN_PROGRESS);
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('releases a reservation with nothing in Stripe once a longer grace period passes', async () => {
+    const { oystehr, stripe, patch } = setup({
+      invoice: reservedInvoice(NOW.minus({ minutes: 16 })),
+    });
+
+    await settle(oystehr, stripe, 'my-payment', 15);
+
+    expect(patch).toHaveBeenCalledTimes(1);
   });
 
   it('releases a reservation that never charged', async () => {

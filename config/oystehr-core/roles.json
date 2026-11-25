@@ -319,6 +319,7 @@
             "Zambda:Function:search-billing-invoices",
             "Zambda:Function:get-billing-invoice",
             "Zambda:Function:record-billing-nio-invoice-payment",
+            "Zambda:Function:void-billing-nio-invoice",
             "Zambda:Function:presign-billing-invoice-payment-attachment",
             "Zambda:Function:setup-billing-nio-invoice-card",
             "Zambda:Function:list-billing-nio-invoice-payment-methods",
