@@ -12,7 +12,11 @@ import {
   parseInventoryLot,
 } from 'utils/lib/fhir/medication-inventory';
 import { CODE_SYSTEM_NDC } from 'utils/lib/helpers/rcm/constants';
-import { UpdateInHouseMedicationInput } from 'utils/lib/types/api/config/in-house-medications';
+import {
+  MEDICATION_COUNTED_AS_LABELS,
+  MEDICATION_COUNTED_AS_OPTIONS,
+  UpdateInHouseMedicationInput,
+} from 'utils/lib/types/api/config/in-house-medications';
 import {
   MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_DISPENSABLE_DRUG_ID_FOR_INTERACTIONS,
@@ -154,8 +158,15 @@ export const performEffect = async (
         ? lots.length > 0
         : lots.some((lot) => parseInventoryLot(lot)?.unit !== inventory.countedAs);
       if (conflictsWithHistory) {
+        const recordedUnits = new Set(lots.map((lot) => parseInventoryLot(lot)?.unit));
+        const suggestedUnit =
+          existingInventory || recordedUnits.size !== 1
+            ? undefined
+            : MEDICATION_COUNTED_AS_OPTIONS.find((option) => recordedUnits.has(option));
         throw INVALID_INPUT_ERROR(
-          "The Counting Unit can't be changed after inventory has been recorded for this medication."
+          `The Counting Unit can't be changed after inventory has been recorded for this medication.${
+            suggestedUnit ? ` Please select ${MEDICATION_COUNTED_AS_LABELS[suggestedUnit].singular}.` : ''
+          }`
         );
       }
     }
