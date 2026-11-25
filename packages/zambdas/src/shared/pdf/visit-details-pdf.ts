@@ -187,7 +187,8 @@ export const createVisitDetailsPdf = async (
   secrets: Secrets | null,
   token: string
 ): Promise<PdfResult> => {
-  const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
+  const serviceCategories =
+    input.serviceCategories ?? (await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets)));
   return generatePdf(
     { ...input, serviceCategories },
     composeVisitDetailsData,

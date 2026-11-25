@@ -64,58 +64,63 @@ export async function resolveTemplatePlaceholders(
 
   const encounterId = encounterRef?.startsWith('Encounter/') ? encounterRef.replace('Encounter/', '') : undefined;
 
-  // Resolve encounter → appointment → location (skip if visitDate and location already provided)
-  if (encounterId && (!input.visitDate || !input.location)) {
-    try {
-      const encBundle = await oystehr.fhir.search<Encounter | Appointment | Location>({
-        resourceType: 'Encounter',
-        params: [
-          { name: '_id', value: encounterId },
-          { name: '_include', value: 'Encounter:appointment' },
-          { name: '_include:iterate', value: 'Appointment:location' },
-        ],
-      });
-      const resources = encBundle.unbundle();
-      const appointment = resources.find((r): r is Appointment => r.resourceType === 'Appointment');
-      const location = resources.find((r): r is Location => r.resourceType === 'Location');
+  await Promise.all([
+    (async () => {
+      // Resolve encounter → appointment → location (skip if visitDate and location already provided)
+      if (encounterId && (!input.visitDate || !input.location)) {
+        try {
+          const encBundle = await oystehr.fhir.search<Encounter | Appointment | Location>({
+            resourceType: 'Encounter',
+            params: [
+              { name: '_id', value: encounterId },
+              { name: '_include', value: 'Encounter:appointment' },
+              { name: '_include:iterate', value: 'Appointment:location' },
+            ],
+          });
+          const resources = encBundle.unbundle();
+          const appointment = resources.find((r): r is Appointment => r.resourceType === 'Appointment');
+          const location = resources.find((r): r is Location => r.resourceType === 'Location');
 
-      if (!input.visitDate && appointment?.start) {
-        input.visitDate = appointment.start;
-      }
-      if (!input.location && location?.name) {
-        input.location = location.name;
-      }
-      if (!input.locationReviewLink && location) {
-        const reviewExt = location.extension?.find((e) => e.url === LOCATION_REVIEW_LINK_EXTENSION_URL);
-        if (reviewExt?.valueUrl) {
-          input.locationReviewLink = reviewExt.valueUrl;
+          if (!input.visitDate && appointment?.start) {
+            input.visitDate = appointment.start;
+          }
+          if (!input.location && location?.name) {
+            input.location = location.name;
+          }
+          if (!input.locationReviewLink && location) {
+            const reviewExt = location.extension?.find((e) => e.url === LOCATION_REVIEW_LINK_EXTENSION_URL);
+            if (reviewExt?.valueUrl) {
+              input.locationReviewLink = reviewExt.valueUrl;
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to resolve encounter details for placeholders:', err);
         }
       }
-    } catch (err) {
-      console.warn('Failed to resolve encounter details for placeholders:', err);
-    }
-  }
-
-  // Resolve Stripe invoice for amount, due date, invoice link (skip if all already provided)
-  if (!skipStripeLookup && encounterId && (!input.amountCents || !input.dueDate || !input.invoiceLink)) {
-    try {
-      const stripe = getStripeClient(secrets);
-      const stripeInvoice = await findStripeInvoiceByEncounterId(stripe, encounterId, stripeAccount);
-      if (stripeInvoice) {
-        if (!input.amountCents) {
-          input.amountCents = stripeInvoice.amount_due;
-        }
-        if (!input.dueDate && stripeInvoice.due_date) {
-          input.dueDate = DateTime.fromSeconds(stripeInvoice.due_date).toISODate()!;
-        }
-        if (!input.invoiceLink && stripeInvoice.hosted_invoice_url) {
-          input.invoiceLink = stripeInvoice.hosted_invoice_url;
+    })(),
+    (async () => {
+      // Resolve Stripe invoice for amount, due date, invoice link (skip if all already provided)
+      if (!skipStripeLookup && encounterId && (!input.amountCents || !input.dueDate || !input.invoiceLink)) {
+        try {
+          const stripe = getStripeClient(secrets);
+          const stripeInvoice = await findStripeInvoiceByEncounterId(stripe, encounterId, stripeAccount);
+          if (stripeInvoice) {
+            if (!input.amountCents) {
+              input.amountCents = stripeInvoice.amount_due;
+            }
+            if (!input.dueDate && stripeInvoice.due_date) {
+              input.dueDate = DateTime.fromSeconds(stripeInvoice.due_date).toISODate()!;
+            }
+            if (!input.invoiceLink && stripeInvoice.hosted_invoice_url) {
+              input.invoiceLink = stripeInvoice.hosted_invoice_url;
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to resolve Stripe invoice for placeholders:', err);
         }
       }
-    } catch (err) {
-      console.warn('Failed to resolve Stripe invoice for placeholders:', err);
-    }
-  }
+    })(),
+  ]);
 
   return input;
 }

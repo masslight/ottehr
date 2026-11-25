@@ -119,12 +119,23 @@ export const getMainEncounterDetails = async (appointmentID: string, oystehr: Oy
     throw new Error('Encounter status history not found');
   }
 
+  const [locationResult, appointmentResult] = await Promise.allSettled([
+    (async () => {
+      const locationId = encounter.location?.[0]?.location.reference?.replace('Location/', '') || '';
+      return oystehr.fhir.get<Location>({
+        resourceType: 'Location',
+        id: locationId,
+      });
+    })(),
+    oystehr.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentID,
+    }),
+  ]);
+
   try {
-    const locationId = encounter.location?.[0]?.location.reference?.replace('Location/', '') || '';
-    const fhirLocation: Location = await oystehr.fhir.get({
-      resourceType: 'Location',
-      id: locationId,
-    });
+    if (locationResult.status === 'rejected') throw locationResult.reason;
+    const fhirLocation = locationResult.value;
     location = {
       name: fhirLocation?.name || 'Unknown',
       slug:
@@ -139,10 +150,8 @@ export const getMainEncounterDetails = async (appointmentID: string, oystehr: Oy
     throw new Error('Error getting location details');
   }
   try {
-    appointment = (await oystehr.fhir.get({
-      resourceType: 'Appointment',
-      id: appointmentID,
-    })) as Appointment;
+    if (appointmentResult.status === 'rejected') throw appointmentResult.reason;
+    appointment = appointmentResult.value;
     if (!appointment) {
       throw new Error('error searching for appointment resource');
     }

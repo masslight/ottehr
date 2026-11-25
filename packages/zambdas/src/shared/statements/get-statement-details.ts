@@ -421,54 +421,53 @@ function createStatementDetails(
 export async function getStatementDetails(input: GetStatementDetailsInput): Promise<StatementDetails> {
   const { encounterId, secrets, oystehr, amountsSource } = input;
   const resources = await getResources(encounterId, oystehr);
-  const { guarantorResource, coverages, insuranceOrgs } = await getAccountAndCoverageResourcesForPatient(
-    resources.patient.id ?? '',
-    oystehr
-  );
+  const [{ guarantorResource, coverages, insuranceOrgs }, { serviceLines, totals }, billerDetails] = await Promise.all([
+    getAccountAndCoverageResourcesForPatient(resources.patient.id ?? '', oystehr),
+    amountsSource.source === 'candid'
+      ? getCandidStatementLines(resources.encounter, amountsSource.candidApiClient, oystehr)
+      : getBillingStatementLines({
+          encounterId,
+          billingOystehr: amountsSource.billingOystehr,
+          eraReadOystehr: amountsSource.eraReadOystehr,
+          clinicalOystehr: oystehr,
+        }),
+    (async (): Promise<StatementBillerDetails> => {
+      try {
+        const defaultBillingResource = await getDefaultBillingProviderResource(secrets, oystehr);
+        if (defaultBillingResource.resourceType !== 'Organization') {
+          throw new Error(
+            `DEFAULT_BILLING_RESOURCE must reference an Organization for statements. Received ${defaultBillingResource.resourceType}.`
+          );
+        }
+
+        return getBillerDetails(defaultBillingResource);
+      } catch (error: unknown) {
+        captureException(error);
+        console.error(
+          'Failed to resolve default billing resource for statement details; using unknown biller fields',
+          error
+        );
+        return {
+          name: UNKNOWN_BILLER_VALUE,
+          addressLine1: UNKNOWN_BILLER_VALUE,
+          addressLine2: UNKNOWN_BILLER_VALUE,
+          city: UNKNOWN_BILLER_VALUE,
+          provinceOrState: UNKNOWN_BILLER_VALUE,
+          postalOrZip: UNKNOWN_BILLER_VALUE,
+          countryCode: 'US',
+          website: UNKNOWN_BILLER_VALUE,
+          email: UNKNOWN_BILLER_VALUE,
+        };
+      }
+    })(),
+  ]);
 
   if (!guarantorResource) {
     throw new Error(`Guarantor resource not found for Patient/${resources.patient.id}`);
   }
 
   const insuranceDetails = getInsuranceDetails(coverages, insuranceOrgs);
-  const { serviceLines, totals } =
-    amountsSource.source === 'candid'
-      ? await getCandidStatementLines(resources.encounter, amountsSource.candidApiClient, oystehr)
-      : await getBillingStatementLines({
-          encounterId,
-          billingOystehr: amountsSource.billingOystehr,
-          eraReadOystehr: amountsSource.eraReadOystehr,
-          clinicalOystehr: oystehr,
-        });
   const paymentUrl = getSecret(SecretsKeys.PATIENT_LOGIN_REDIRECT_URL, secrets);
-
-  let billerDetails: StatementBillerDetails = {
-    name: UNKNOWN_BILLER_VALUE,
-    addressLine1: UNKNOWN_BILLER_VALUE,
-    addressLine2: UNKNOWN_BILLER_VALUE,
-    city: UNKNOWN_BILLER_VALUE,
-    provinceOrState: UNKNOWN_BILLER_VALUE,
-    postalOrZip: UNKNOWN_BILLER_VALUE,
-    countryCode: 'US',
-    website: UNKNOWN_BILLER_VALUE,
-    email: UNKNOWN_BILLER_VALUE,
-  };
-  try {
-    const defaultBillingResource = await getDefaultBillingProviderResource(secrets, oystehr);
-    if (defaultBillingResource.resourceType !== 'Organization') {
-      throw new Error(
-        `DEFAULT_BILLING_RESOURCE must reference an Organization for statements. Received ${defaultBillingResource.resourceType}.`
-      );
-    }
-
-    billerDetails = getBillerDetails(defaultBillingResource);
-  } catch (error: unknown) {
-    captureException(error);
-    console.error(
-      'Failed to resolve default billing resource for statement details; using unknown biller fields',
-      error
-    );
-  }
 
   return createStatementDetails(
     input,

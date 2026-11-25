@@ -5,6 +5,7 @@ import { chunkThings } from 'utils/lib/fhir/chat';
 import { getFirstName, getFullestAvailableName, getLastName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 
 /**
  * Resolve the calling user's Practitioner id.
@@ -68,6 +69,7 @@ export function practitionerFirstLastName(practitioner: Practitioner): string {
 }
 
 const PRACTITIONER_NAMES_BATCH_SIZE = 100;
+const PRACTITIONER_NAMES_CONCURRENCY = 5;
 
 // First + last names by Practitioner id, batched into id searches; ids without a named record are left out.
 export async function fetchPractitionerFirstLastNames(
@@ -75,16 +77,21 @@ export async function fetchPractitionerFirstLastNames(
   practitionerIds: string[]
 ): Promise<Map<string, string>> {
   const names = new Map<string, string>();
-  for (const batch of chunkThings([...new Set(practitionerIds)], PRACTITIONER_NAMES_BATCH_SIZE)) {
-    const practitioners = (
-      await oystehr.fhir.search<Practitioner>({
-        resourceType: 'Practitioner',
-        params: [
-          { name: '_id', value: batch.join(',') },
-          { name: '_count', value: String(batch.length) },
-        ],
-      })
-    ).unbundle();
+  const batchResults = await mapWithConcurrency(
+    chunkThings([...new Set(practitionerIds)], PRACTITIONER_NAMES_BATCH_SIZE),
+    PRACTITIONER_NAMES_CONCURRENCY,
+    async (batch) =>
+      (
+        await oystehr.fhir.search<Practitioner>({
+          resourceType: 'Practitioner',
+          params: [
+            { name: '_id', value: batch.join(',') },
+            { name: '_count', value: String(batch.length) },
+          ],
+        })
+      ).unbundle()
+  );
+  for (const practitioners of batchResults) {
     for (const practitioner of practitioners) {
       const name = practitionerFirstLastName(practitioner);
       if (practitioner.id && name) names.set(practitioner.id, name);

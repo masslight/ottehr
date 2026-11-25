@@ -58,8 +58,6 @@ export async function gatherInHouseLabOrderContext(input: {
     }
   };
 
-  const currentUserPractitionerId = await currentUserPractitionerIdPromise();
-
   const encounters: Encounter[] = [];
   const patients: Patient[] = [];
   const locations: Location[] = [];
@@ -94,8 +92,15 @@ export async function gatherInHouseLabOrderContext(input: {
     throw IN_HOUSE_LAB_ERROR('No attending practitioner has been assigned to this encounter');
   }
 
-  const [currentUserPractitioner, attendingPractitioner] = await Promise.all([
-    oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: currentUserPractitionerId }),
+  const [{ currentUserPractitionerId, currentUserPractitioner }, attendingPractitioner] = await Promise.all([
+    (async () => {
+      const currentUserPractitionerId = await currentUserPractitionerIdPromise();
+      const currentUserPractitioner = await oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: currentUserPractitionerId,
+      });
+      return { currentUserPractitionerId, currentUserPractitioner };
+    })(),
     oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: attendingPractitionerId }),
   ]);
 

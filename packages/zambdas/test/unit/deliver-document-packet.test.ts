@@ -20,6 +20,11 @@ vi.mock('../../src/shared/document-link-email', () => ({
   sendDocumentLinkEmailAttempt: (...args: unknown[]) => mockSendDocumentLinkEmailAttempt(...args),
 }));
 
+const mockGetPatientFolders = vi.fn();
+vi.mock('../../src/shared/document-packet/resolve-packet-source', () => ({
+  getPatientFolders: (...args: unknown[]) => mockGetPatientFolders(...args),
+}));
+
 const mockCaptureException = vi.fn();
 vi.mock('@sentry/node-core/light', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -178,6 +183,7 @@ describe('deliverDocumentPacket', () => {
       resourceType: 'Task',
       id: `task-${input.email}`,
     }));
+    mockGetPatientFolders.mockResolvedValue([]);
   });
 
   it('emails a link for an email recipient and faxes the others, one packet each', async () => {
@@ -366,6 +372,39 @@ describe('deliverDocumentPacket', () => {
       ['+12125551111', 'https://z3/+12125551111.pdf'],
       ['+12125553333', 'https://z3/+12125553333.pdf'],
     ]);
+  });
+
+  it('files each later recipient against the folders as the previous upload left them', async () => {
+    const planFolders = [{ resourceType: 'List', id: 'fax-folder', entry: [] }];
+    const foldersAfterFirstUpload = [
+      { resourceType: 'List', id: 'fax-folder', entry: [{ item: { reference: 'DocumentReference/docref-1' } }] },
+    ];
+    const foldersAfterSecondUpload = [
+      {
+        resourceType: 'List',
+        id: 'fax-folder',
+        entry: [
+          { item: { reference: 'DocumentReference/docref-1' } },
+          { item: { reference: 'DocumentReference/docref-2' } },
+        ],
+      },
+    ];
+    mockGetPatientFolders
+      .mockResolvedValueOnce(foldersAfterFirstUpload)
+      .mockResolvedValueOnce(foldersAfterSecondUpload);
+
+    await deliverDocumentPacket(
+      deliverArgs([{ faxNumber: '+12125551111' }, { faxNumber: '+12125552222' }, { faxNumber: '+12125553333' }], {
+        plan: plan({ listResources: planFolders }),
+      })
+    );
+
+    expect(mockUploadDocumentPacket.mock.calls.map(([input]) => input.listResources)).toEqual([
+      planFolders,
+      foldersAfterFirstUpload,
+      foldersAfterSecondUpload,
+    ]);
+    expect(mockGetPatientFolders.mock.calls.map(([, patientId]) => patientId)).toEqual(['patient-1', 'patient-1']);
   });
 });
 

@@ -175,6 +175,9 @@ export const getSampleCollectionTimestampForLabelDisplay = (
   return zonedSampleCollectionDate ? zonedSampleCollectionDate.toFormat('MM/dd/yyyy') : '';
 };
 
+const getExternalLabsLabelFileName = (input: ExternalLabsLabelConfig): string =>
+  `${EXTERNAL_LAB_LABEL_PDF_BASE_NAME}-${input.content.orderNumber}.pdf`;
+
 async function createExternalLabsLabelPDFHelper(
   input: ExternalLabsLabelConfig,
   patientUuid: string,
@@ -189,7 +192,7 @@ async function createExternalLabsLabelPDFHelper(
 
   console.log(`Created external labs label pdf bytes`);
 
-  const fileName = `${EXTERNAL_LAB_LABEL_PDF_BASE_NAME}-${input.content.orderNumber}.pdf`;
+  const fileName = getExternalLabsLabelFileName(input);
 
   console.log(`Creating base file url for file ${fileName}`);
 
@@ -224,11 +227,12 @@ export async function createExternalLabsLabelPDF(
   token: string,
   oystehr: Oystehr
 ): Promise<{ docRef: DocumentReference; presignedURL: string }> {
-  const pdfInfo = await createExternalLabsLabelPDFHelper(labelConfig, patientUuid, secrets, token);
+  const [pdfInfo, labListResource] = await Promise.all([
+    createExternalLabsLabelPDFHelper(labelConfig, patientUuid, secrets, token),
+    getLabListResource(oystehr, patientUuid, secrets, getExternalLabsLabelFileName(labelConfig)),
+  ]);
 
   console.log(`This is the made pdfInfo`, JSON.stringify(pdfInfo));
-
-  const labListResource = await getLabListResource(oystehr, patientUuid, secrets, pdfInfo.title);
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [{ url: pdfInfo.uploadURL, title: pdfInfo.title }],

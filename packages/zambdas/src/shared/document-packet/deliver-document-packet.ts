@@ -29,7 +29,7 @@ import {
   toDocumentPacketBody,
   uploadDocumentPacket,
 } from './build-document-packet';
-import { DocumentPacketPlan } from './resolve-packet-source';
+import { DocumentPacketPlan, getPatientFolders } from './resolve-packet-source';
 
 const DEFAULT_TIMEZONE = 'America/New_York';
 const DEFAULT_VISIT_TYPE_LABEL = 'Visit';
@@ -95,6 +95,7 @@ export const deliverDocumentPacket = async (args: {
   }
 
   const results: DocumentPacketRecipientResult[] = [];
+  let uploadAttempted = false;
   for (const [index, recipient] of recipients.entries()) {
     const base: DocumentPacketRecipientResult = {
       name: formatRecipientName(recipient),
@@ -110,6 +111,9 @@ export const deliverDocumentPacket = async (args: {
       continue;
     }
     try {
+      // Each upload patches the folder List, so later uploads must start from its current entries.
+      const listResources = uploadAttempted ? await getPatientFolders(oystehr, patientId) : plan.listResources;
+      uploadAttempted = true;
       const uploaded = await uploadDocumentPacket({
         oystehr,
         token,
@@ -118,7 +122,7 @@ export const deliverDocumentPacket = async (args: {
         patientId,
         appointmentId,
         encounterId,
-        listResources: plan.listResources,
+        listResources,
       });
 
       await sendPacketToRecipient({
