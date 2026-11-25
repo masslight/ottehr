@@ -1359,6 +1359,7 @@ export interface BillingInvoiceDetail extends BillingInvoiceListItem {
   claims: BillingInvoiceClaimLine[];
   payments: BillingInvoicePayment[];
   pdfUrl?: string;
+  voidReason?: string;
 }
 
 export interface IssueBillingInvoiceNumberResponse {

@@ -126,11 +126,12 @@ export async function performEffect({
     kind: 'nio',
     number: getInvoiceNumber(invoice),
     recipient: getNioInvoiceRecipient(invoice, organization),
-    balance: getInvoiceBalanceInCents(invoice, notices) / 100,
+    balance: invoice.status === 'cancelled' ? undefined : getInvoiceBalanceInCents(invoice, notices) / 100,
     pastDue: isInvoicePastDue(invoice, today),
     claims,
     payments,
     pdfUrl,
+    voidReason: invoice.cancelledReason,
   };
 }
 

@@ -277,6 +277,32 @@ describe('get-billing-invoice', () => {
     expect(result.pastDue).toBe(false);
   });
 
+  it('gives a void invoice its reason and no balance, since nothing is owed on it', async () => {
+    const { oystehr } = setup({
+      invoices: [
+        {
+          ...nioInvoice(),
+          status: 'cancelled',
+          cancelledReason: 'Billed the wrong payer',
+        },
+      ],
+    });
+
+    const result = await performEffect({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      secrets,
+      today: TODAY,
+    });
+
+    expect(result).toMatchObject({
+      status: 'cancelled',
+      voidReason: 'Billed the wrong payer',
+      pastDue: false,
+    });
+    expect(result.balance).toBeUndefined();
+  });
+
   it('finds payments by the invoice payment tag', async () => {
     const { oystehr, search } = setup();
 
