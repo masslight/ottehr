@@ -103,15 +103,13 @@ const performEffect = async (
   }
 
   // Created before the bytes exist: the browser does the uploading and needs somewhere to send them.
-  const [presignedUploadUrl, createdId] = await Promise.all([
-    createPresignedUrl(token, z3Url, 'upload'),
-    createFormTemplateDraft({
-      oystehr,
-      title: validatedInput.title,
-      description: validatedInput.description,
-      z3Url,
-    }),
-  ]);
+  const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
+  const createdId = await createFormTemplateDraft({
+    oystehr,
+    title: validatedInput.title,
+    description: validatedInput.description,
+    z3Url,
+  });
 
   return { documentReferenceId: createdId, objectName, presignedUploadUrl };
 };

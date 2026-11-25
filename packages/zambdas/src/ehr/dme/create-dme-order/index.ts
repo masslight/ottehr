@@ -10,10 +10,10 @@ import { makeCPTCodeDTO } from '../../../shared/chart-data';
 import { makeDmeBillingProcedures, makeDmeDeviceRequest, makeDmeProvenance } from '../../../shared/dme';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../../shared/validation';
 import { assertVisitIsEditable } from '../../easy-chart-shared/visit-lock';
-import { settledValueOrThrow } from '../../shared/settled';
 import {
   DmeEncounterContext,
   fetchDmeEncounterContext,

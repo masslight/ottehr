@@ -31,6 +31,7 @@ import { resolveFlowCanonicalForServiceMode } from '../../../ehr/paperwork-flow/
 import { checkIsEHRUser, checkOrCreateM2MClientToken, getUser } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { assertScheduleLocationActorBookable } from './helpers';
 
@@ -324,10 +325,12 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
         throw INVALID_INPUT_ERROR(`"atLocationId" did not match any Location: ${atLocationId}`);
       });
     if (actorType === 'HealthcareService') {
-      const [atLocation, group] = await Promise.all([
+      const [atLocationResult, groupResult] = await Promise.allSettled([
         getAtLocation(),
         oystehr.fhir.get<HealthcareService>({ resourceType: 'HealthcareService', id: actorId }),
       ]);
+      const atLocation = settledValueOrThrow(atLocationResult);
+      const group = settledValueOrThrow(groupResult);
       const isAllLocations = getGroupAllLocations(group) === true;
       const groupLocationRefs = new Set((group.location ?? []).map((l) => l.reference).filter((r): r is string => !!r));
       const isMember = isAllLocations || groupLocationRefs.has(`Location/${atLocation.id}`);
@@ -338,10 +341,12 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
       }
     } else {
       // PractitionerRole
-      const [atLocation, role] = await Promise.all([
+      const [atLocationResult, roleResult] = await Promise.allSettled([
         getAtLocation(),
         oystehr.fhir.get<PractitionerRole>({ resourceType: 'PractitionerRole', id: actorId }),
       ]);
+      const atLocation = settledValueOrThrow(atLocationResult);
+      const role = settledValueOrThrow(roleResult);
       const hasLocation = (role.location ?? []).some((ref) => ref.reference === `Location/${atLocation.id}`);
       if (!hasLocation) {
         throw INVALID_INPUT_ERROR(

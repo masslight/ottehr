@@ -22,8 +22,8 @@ import { isValidUUID } from 'utils/lib/validation/helper';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
-import { settledValueOrThrow } from '../../shared/settled';
 
 const ZAMBDA_NAME = 'update-visit-files';
 

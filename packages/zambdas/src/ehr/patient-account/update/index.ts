@@ -38,6 +38,7 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { sendErrors } from '../../../shared/errors';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { getStripeClient } from '../../../shared/stripeIntegration';
 import { ZambdaInput } from '../../../shared/types/common';
 import { safeJsonParse } from '../../../shared/validation';
@@ -49,7 +50,6 @@ import {
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../../shared/harvest';
-import { settledValueOrThrow } from '../../shared/settled';
 
 const ZAMBDA_NAME = 'update-patient-account';
 

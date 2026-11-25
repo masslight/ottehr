@@ -13,9 +13,9 @@ import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken, getUserToken, requireUserWithRole } from '../../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
+import { settledValueOrThrow } from '../../../../shared/settled';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { validateWithSchema } from '../../../../shared/validation';
-import { settledValueOrThrow } from '../../../shared/settled';
 import { compareNdcProduct, fetchNdcProduct, ndcPackageCandidates } from './helpers';
 
 let m2mToken: string;

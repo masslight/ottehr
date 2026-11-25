@@ -52,8 +52,8 @@ import { makeCptModifierExtension } from '../../../shared/candid';
 import { makeCPTCodeDTO } from '../../../shared/chart-data';
 import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
-import { settledValueOrThrow } from '../../shared/settled';
 import { validateInput, validateSecrets } from './validation';
 
 // Types

@@ -163,6 +163,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         fileName: sanitizedFileName,
       })
     : makeZ3Url({ secrets, patientID: patientId, bucketName: folderName, fileName: sanitizedFileName });
+  const presignedFileUploadUrl = await createPresignedUrl(m2mToken, fileZ3Url, 'upload');
+
+  logIt(`created fileZ3Url: [${fileZ3Url}] :: presignedFileUploadUrl: [${presignedFileUploadUrl}]`);
+
   // const alterationRequests: BatchInputPostRequest<UpdateResourcesData>[] = [];
 
   const docRefReq = createDocumentReferenceRequest({
@@ -179,14 +183,9 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   logIt(`making DocumentReference ...`);
 
-  const [presignedFileUploadUrl, results] = await Promise.all([
-    createPresignedUrl(m2mToken, fileZ3Url, 'upload'),
-    oystehr.fhir.transaction<DocumentReference>({
-      requests: [docRefReq],
-    }),
-  ]);
-
-  logIt(`created fileZ3Url: [${fileZ3Url}] :: presignedFileUploadUrl: [${presignedFileUploadUrl}]`);
+  const results = await oystehr.fhir.transaction<DocumentReference>({
+    requests: [docRefReq],
+  });
 
   logIt(`making DocumentReference results => `);
   logIt(JSON.stringify(results));

@@ -1,11 +1,4 @@
-/**
- * Runs `worker` over `items` with at most `limit` running at once, preserving input order in the
- * result. Use instead of `Promise.all` whenever the item count is driven by patient data: a record
- * with hundreds of documents would otherwise open hundreds of simultaneous requests.
- *
- * Rejects as soon as any worker rejects. Work already in flight is not cancelled, so a caller that
- * needs to stop early should check its own budget inside the worker.
- */
+// Preserves input order; the first rejection rejects the whole call without cancelling work in flight.
 export async function mapWithConcurrency<T, R>(
   items: readonly T[],
   limit: number,

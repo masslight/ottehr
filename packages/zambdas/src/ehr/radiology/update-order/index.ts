@@ -12,8 +12,8 @@ import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { makeCptModifierExtension } from '../../../shared/candid';
 import { isRadiologyOrderReviewed, savePerformedBy } from '../../../shared/radiology';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
-import { settledValueOrThrow } from '../../shared/settled';
 import { buildRadiologyOrderContent, ValidatedCPTCode } from '../create-order';
 import {
   validateCPTCode,

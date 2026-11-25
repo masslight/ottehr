@@ -18,7 +18,7 @@ import {
   takeMostRecentPreliminaryReport,
   takeTheBestFinalDiagnosticReport,
 } from '../../../shared/radiology';
-import { settledValueOrThrow } from '../../shared/settled';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { configReviewResultTask, parseRadiologyResourcesForTask, validateResourcesAgainstDR } from './index';
 
 export const finalizeRadiologyReport = async (

@@ -25,6 +25,7 @@ import {
 import { InsurancePlanDTO } from 'utils/lib/types/data/telemed/insurances.types';
 import { CreateRelatedPersonObject } from '../../shared/coverage';
 import { createInsurancePlanDto } from '../../shared/insurances';
+import { settledValueOrThrow } from '../../shared/settled';
 import {
   getInsurancePlansAndOrgs,
   makeCoverageEligibilityRequest,
@@ -73,7 +74,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
 
   console.log('rps: ', JSON.stringify(rps));
 
-  const [[primary, secondary], defaultBillingResource] = await Promise.all([
+  const [insurancePlansResult, defaultBillingResourceResult] = await Promise.allSettled([
     getInsurancePlansAndOrgs(
       {
         primary: primaryInsuranceData.insuranceId,
@@ -83,6 +84,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     ),
     getDefaultBillingProviderResource(input.secrets ?? null, oystehrClient),
   ]);
+  const [primary, secondary] = settledValueOrThrow(insurancePlansResult);
 
   console.log('primary and secondary insurances: ', primary, secondary);
 
@@ -137,7 +139,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
       { primary, secondary },
       appointmentId ?? '',
       input.secrets ?? null,
-      defaultBillingResource
+      settledValueOrThrow(defaultBillingResourceResult)
     );
   } catch (e) {
     console.log('error getting billing provider data', e);
