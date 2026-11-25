@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv } from 'vite';
 import svgr from 'vite-plugin-svgr';
 import { devStampRestartPlugin } from './vite/dev-stamp-restart';
+import { keepMuiIconTestIds } from './vite/keep-mui-icon-test-ids';
 
 const coreRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -15,7 +16,7 @@ export default ({ mode }: { mode: string }) => {
   return defineConfig({
     envDir: envDir,
     publicDir: 'public',
-    plugins: [devStampRestartPlugin(coreRoot), react(), svgr()],
+    plugins: [devStampRestartPlugin(coreRoot), keepMuiIconTestIds(), react(), svgr()],
     server: {
       open: true,
       port: env.PORT ? parseInt(env.PORT) : undefined,

@@ -1,9 +1,21 @@
+import Oystehr from '@oystehr/sdk';
+import { Patient, Practitioner, Reference, Task } from 'fhir/r4b';
+import { TASK_ASSIGNED_DATE_TIME_EXTENSION_URL, TASK_LOCATION_SYSTEM } from 'utils/lib/fhir/constants';
+import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { SupportChatTopic } from 'utils/lib/types/api/support-chat.types';
+import { RoleType } from 'utils/lib/types/api/user.types';
 import { PATIENT_REQUEST_TASK } from 'utils/lib/types/data/tasks/types';
 import { findActivePromptIndex } from 'utils/lib/utils/support-chat';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BOT_TEXT, resolveStep } from '../../src/shared/support-chat/bot';
-import { buildRequestTitle } from '../../src/shared/support-chat/request-task';
+import {
+  buildRequestTask,
+  buildRequestTitle,
+  canAutoAssign,
+  getVisitProviderOwner,
+  moveRequestTask,
+  Visit,
+} from '../../src/shared/support-chat/request-task';
 import { ThreadMessage } from '../../src/shared/support-chat/thread';
 
 const visits = [
@@ -205,5 +217,191 @@ describe('buildRequestTitle', () => {
   it('shortens a long follow-up message', () => {
     const title = buildRequestTitle(PATIENT_REQUEST_TASK.code.followUp, 'Oliver Black', 'x'.repeat(150));
     expect(title).toBe(`“${'x'.repeat(100)}…” for Oliver Black`);
+  });
+});
+
+describe('patient request assignment', () => {
+  const patient: Patient = { resourceType: 'Patient', id: 'patient-1', name: [{ given: ['Sarah'], family: 'Black' }] };
+  const practitioner: Practitioner = {
+    resourceType: 'Practitioner',
+    id: 'practitioner-1',
+    name: [{ given: ['Jane'], family: 'Doe' }],
+  };
+  const visit: Visit = {
+    appointmentId: 'appointment-1',
+    encounterId: 'encounter-1',
+    patient,
+    location: { id: 'location-1', name: 'Clinic' },
+    providerId: 'practitioner-1',
+    label: 'Sarah Black 07/11/2026',
+  };
+  const otherVisit: Visit = {
+    appointmentId: 'appointment-2',
+    encounterId: 'encounter-2',
+    patient,
+    location: { id: 'location-2', name: 'Other clinic' },
+    providerId: 'practitioner-2',
+    label: 'Sarah Black 07/09/2026',
+  };
+  const owner = (id: string): Reference => ({ reference: `Practitioner/${id}` });
+  const notifiedTag = { system: PROVIDER_NOTIFICATION_TAG_SYSTEM, code: 'task_assigned' };
+
+  const makeOystehr = (
+    roles: string[] | undefined,
+    getPractitioner = async (): Promise<Practitioner> => practitioner
+  ): { oystehr: Oystehr; get: ReturnType<typeof vi.fn> } => {
+    const get = vi.fn(getPractitioner);
+    const oystehr = {
+      fhir: { get },
+      user: {
+        listV2: vi.fn(async () => ({ data: roles ? [{ id: 'user-1' }] : [] })),
+        get: vi.fn(async () => ({ roles: (roles ?? []).map((name) => ({ name })) })),
+      },
+    } as unknown as Oystehr;
+    return { oystehr, get };
+  };
+
+  const build = (input: { visit?: Visit; owner?: Reference } = {}): Task =>
+    buildRequestTask({
+      code: PATIENT_REQUEST_TASK.code.followUp,
+      threadId: 'thread-1',
+      patient,
+      visit: input.visit ?? visit,
+      owner: input.owner,
+      text: 'Hi',
+    });
+
+  describe('getVisitProviderOwner', () => {
+    it("resolves the visit's provider", async () => {
+      const { oystehr, get } = makeOystehr([RoleType.Provider]);
+      const result = await getVisitProviderOwner(oystehr, visit);
+
+      expect(get).toHaveBeenCalledWith({ resourceType: 'Practitioner', id: 'practitioner-1' });
+      expect(result).toMatchObject({ reference: 'Practitioner/practitioner-1', display: 'Jane Doe' });
+      expect(result?.extension?.[0]).toMatchObject({ url: TASK_ASSIGNED_DATE_TIME_EXTENSION_URL });
+    });
+
+    it('resolves a provider whose roles cannot be resolved', async () => {
+      const { oystehr } = makeOystehr(undefined);
+      expect(await getVisitProviderOwner(oystehr, visit)).toMatchObject({ reference: 'Practitioner/practitioner-1' });
+    });
+
+    it.each([
+      ['deactivated', [RoleType.Provider, RoleType.Inactive]],
+      ['no longer a provider', [RoleType.Staff]],
+    ])('returns nothing when the provider is %s', async (_, roles) => {
+      const { oystehr } = makeOystehr(roles);
+      expect(await getVisitProviderOwner(oystehr, visit)).toBeUndefined();
+    });
+
+    it('returns nothing when the visit has no provider', async () => {
+      const { oystehr, get } = makeOystehr([RoleType.Provider]);
+
+      expect(await getVisitProviderOwner(oystehr, { ...visit, providerId: undefined })).toBeUndefined();
+      expect(await getVisitProviderOwner(oystehr, undefined)).toBeUndefined();
+      expect(get).not.toHaveBeenCalled();
+    });
+
+    it('returns nothing when the provider cannot be read', async () => {
+      const { oystehr } = makeOystehr([RoleType.Provider], async () => {
+        throw new Error('gone');
+      });
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      expect(await getVisitProviderOwner(oystehr, visit)).toBeUndefined();
+    });
+  });
+
+  describe('buildRequestTask', () => {
+    it('creates an assigned task in progress', () => {
+      expect(build({ owner: owner('practitioner-1') })).toMatchObject({
+        status: 'in-progress',
+        owner: owner('practitioner-1'),
+      });
+    });
+
+    it('creates an unassigned task as pending', () => {
+      const task = build();
+      expect(task.status).toBe('ready');
+      expect(task.owner).toBeUndefined();
+    });
+  });
+
+  describe('canAutoAssign', () => {
+    const visits = [visit, otherVisit];
+
+    it('allows an unassigned task', () => {
+      expect(canAutoAssign(build(), visits)).toBe(true);
+    });
+
+    it("allows a task still assigned to its linked visit's provider", () => {
+      expect(canAutoAssign(build({ owner: owner('practitioner-1') }), visits)).toBe(true);
+    });
+
+    it('keeps a task staff reassigned to someone else', () => {
+      expect(canAutoAssign(build({ owner: owner('practitioner-9') }), visits)).toBe(false);
+    });
+
+    it('keeps a task whose linked visit is unknown', () => {
+      expect(canAutoAssign(build({ owner: owner('practitioner-1') }), [otherVisit])).toBe(false);
+    });
+
+    it('keeps a completed task', () => {
+      expect(canAutoAssign({ ...build(), status: 'completed' }, visits)).toBe(false);
+    });
+  });
+
+  describe('moveRequestTask', () => {
+    const withTag = (task: Task): Task => ({ ...task, meta: { ...task.meta, tag: [...task.meta!.tag!, notifiedTag] } });
+
+    it('links the selected visit and reassigns to its provider', () => {
+      const task = withTag(build({ owner: owner('practitioner-1') }));
+      const next = build({ visit: otherVisit, owner: owner('practitioner-2') });
+      const moved = moveRequestTask({ ...task, id: 'task-1' }, next, true);
+
+      expect(moved).toMatchObject({
+        id: 'task-1',
+        status: 'in-progress',
+        owner: owner('practitioner-2'),
+        encounter: { reference: 'Encounter/encounter-2' },
+        location: { reference: 'Location/location-2' },
+      });
+      expect(moved.meta?.tag).not.toContainEqual(notifiedTag);
+      expect(moved.meta?.tag?.filter((tag) => tag.system === TASK_LOCATION_SYSTEM)).toEqual([
+        { system: TASK_LOCATION_SYSTEM, code: 'location-2', display: 'Other clinic' },
+      ]);
+    });
+
+    it('assigns a task created unassigned', () => {
+      const moved = moveRequestTask(build(), build({ visit: otherVisit, owner: owner('practitioner-2') }), true);
+      expect(moved).toMatchObject({ status: 'in-progress', owner: owner('practitioner-2') });
+    });
+
+    it('returns the task to unassigned when the selected visit has no provider', () => {
+      const moved = moveRequestTask(build({ owner: owner('practitioner-1') }), build({ visit: otherVisit }), true);
+
+      expect(moved.status).toBe('ready');
+      expect(moved.owner).toBeUndefined();
+    });
+
+    it('keeps the assignment when both visits share the provider', () => {
+      const current = { ...owner('practitioner-1'), display: 'Original' };
+      const task = withTag(build({ owner: current }));
+      const moved = moveRequestTask(task, build({ visit: otherVisit, owner: owner('practitioner-1') }), true);
+
+      expect(moved.owner).toEqual(current);
+      expect(moved.meta?.tag).toContainEqual(notifiedTag);
+    });
+
+    it('keeps a staff assignment and status', () => {
+      const task = withTag({ ...build({ owner: owner('practitioner-9') }), status: 'completed' });
+      const moved = moveRequestTask(task, build({ visit: otherVisit }), false);
+
+      expect(moved).toMatchObject({
+        status: 'completed',
+        owner: owner('practitioner-9'),
+        encounter: { reference: 'Encounter/encounter-2' },
+      });
+      expect(moved.meta?.tag).toContainEqual(notifiedTag);
+    });
   });
 });

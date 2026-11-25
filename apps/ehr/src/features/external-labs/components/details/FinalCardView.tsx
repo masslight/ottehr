@@ -1,7 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import InfoIcon from '@mui/icons-material/InfoOutlined';
-import { LoadingButton } from '@mui/lab';
 import { Box, Button, Divider, Stack, Typography } from '@mui/material';
 import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
@@ -138,7 +137,7 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
             </Box>
 
             {isUnsolicited && (
-              <LoadingButton
+              <Button
                 loading={isCancelling}
                 variant="outlined"
                 sx={{
@@ -155,10 +154,10 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
                 onClick={handleRejectUnsolicitedResult}
               >
                 Reject
-              </LoadingButton>
+              </Button>
             )}
 
-            <LoadingButton
+            <Button
               loading={loading}
               variant="contained"
               onClick={onMarkAsReviewed}
@@ -169,7 +168,7 @@ export const FinalCardView: FC<FinalCardViewProps> = ({
               color="primary"
             >
               {isUnsolicited ? 'Mark as Reviewed & Accept' : 'Mark as Reviewed'}
-            </LoadingButton>
+            </Button>
           </Box>
         </>
       ) : null}

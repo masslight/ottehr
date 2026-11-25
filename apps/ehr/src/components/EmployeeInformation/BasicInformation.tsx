@@ -1,10 +1,11 @@
-import { Autocomplete, Box, Grid, TextField, Typography, useTheme } from '@mui/material';
+import { Autocomplete, Box, GridLegacy as Grid, TextField, Typography, useTheme } from '@mui/material';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTime } from 'luxon';
 import { Controller } from 'react-hook-form';
 import { InputMask } from 'ui-components/lib/components/InputMask';
+import { isValidNANPNumber } from 'utils/lib/helpers/helpers';
 import { AllStates } from 'utils/lib/types/common';
 import { phoneRegex, zipRegex } from 'utils/lib/validation/regex';
 import { dataTestIds } from '../../constants/data-test-ids';
@@ -99,6 +100,7 @@ export function BasicInformation({ control, existingUser, isActive }: BasicInfor
                 value: phoneRegex,
                 message: 'Phone number must be 10 digits in the format (xxx) xxx-xxxx',
               },
+              validate: (value) => !value || isValidNANPNumber(value) || 'Phone number is not valid',
             }}
             render={({ field: { onChange, value }, fieldState: { error } }) => (
               <TextField
@@ -131,6 +133,7 @@ export function BasicInformation({ control, existingUser, isActive }: BasicInfor
                 value: phoneRegex,
                 message: 'Fax number must be 10 digits in the format (xxx) xxx-xxxx and a valid number',
               },
+              validate: (value) => !value || isValidNANPNumber(value) || 'Fax number is not valid',
             }}
             render={({ field: { onChange, value }, fieldState: { error } }) => (
               <TextField

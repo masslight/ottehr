@@ -79,7 +79,7 @@ const completeProfileExceptNpi: Practitioner = {
   id: 'prac-1',
   birthDate: '1980-01-01',
   telecom: [
-    { system: 'phone', value: '555-111-2222' },
+    { system: 'phone', value: '555-211-2222' },
     { system: 'fax', value: '555-333-4444' },
   ],
   address: [{ line: ['1 Main St'], city: 'Townsville', state: 'CA', postalCode: '90000' }],
@@ -122,5 +122,29 @@ describe('ERX (prescriber flow)', () => {
       ([message]) => typeof message === 'string' && message.includes('Please complete your profile')
     );
     expect(missingFieldsCall).toBeFalsy();
+  });
+
+  it('blocks enrollment when the fax number is not a valid number', () => {
+    userReturn = {
+      profileResource: {
+        ...completeProfileExceptNpi,
+        identifier: [{ system: NPI_SYSTEM, value: '1234567890' }],
+        telecom: [
+          { system: 'phone', value: '555-211-2222' },
+          { system: 'fax', value: '(000) 000-0000' },
+        ],
+      },
+      hasRole: () => false,
+      id: 'prac-1',
+    };
+
+    const onStatusChanged = vi.fn();
+    render(<ERX onStatusChanged={onStatusChanged} showDefaultAlert={false} />);
+
+    expect(onStatusChanged).toHaveBeenCalledWith(ERXStatus.ERROR);
+    const missingFieldsCall = enqueueSnackbar.mock.calls.find(
+      ([message]) => typeof message === 'string' && message.includes('Please complete your profile')
+    );
+    expect(missingFieldsCall?.[0]).toContain('valid fax');
   });
 });

@@ -10,7 +10,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   Skeleton,
   Switch,
   Table,

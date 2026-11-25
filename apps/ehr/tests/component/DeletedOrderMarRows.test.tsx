@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
@@ -88,6 +88,15 @@ describe('In-house medication MAR row', () => {
     expect(screen.queryByText('Patient refused')).not.toBeInTheDocument();
     expect(screen.queryByText(GIVEN_DATE)).not.toBeInTheDocument();
     expect(screen.queryByText('Nurse Joy')).not.toBeInTheDocument();
+  });
+
+  it('ripples while it is pressed', () => {
+    renderRow(<MarTableRow medication={medicationOrder('pending')} columnStyles={{}} />);
+    const row = screen.getByRole('row');
+
+    fireEvent.mouseDown(row);
+
+    expect(row.querySelector('.MuiTouchRipple-ripple')).toBeInTheDocument();
   });
 });
 

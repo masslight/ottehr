@@ -1,6 +1,5 @@
 import { Close } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
-import { Box, Dialog, IconButton, Paper, Typography } from '@mui/material';
+import { Box, Button, Dialog, IconButton, Paper, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 
 interface EditPatientInfoDialogProps {
@@ -58,7 +57,7 @@ export default function EditPatientInfoDialog({
                     {errorMessage}
                   </Typography>
                 )}
-                <LoadingButton
+                <Button
                   sx={{
                     borderRadius: 100,
                     textTransform: 'none',
@@ -70,7 +69,7 @@ export default function EditPatientInfoDialog({
                   disabled={submitDisabled}
                 >
                   {submitButtonName}
-                </LoadingButton>
+                </Button>
               </Box>
             </form>
           </Box>

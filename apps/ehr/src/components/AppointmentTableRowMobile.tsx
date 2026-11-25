@@ -1,5 +1,5 @@
 import { otherColors } from '@ehrTheme/colors';
-import { Box, capitalize, Grid, Modal, TableCell, TableRow, Typography } from '@mui/material';
+import { Box, capitalize, GridLegacy as Grid, Modal, TableCell, TableRow, Typography } from '@mui/material';
 import { CSSProperties, ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RecordAudioContainer } from 'src/features/visits/in-person/components/progress-note/RecordAudioContainer';

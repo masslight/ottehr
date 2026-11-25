@@ -38,7 +38,7 @@ Some catalog data the pipeline depends on is **created by synth on-demand**; som
 | --- | --- | --- | --- |
 | **Created on-demand by synth** (idempotent) | Charge master + fee schedule + per-CPT prices for the payer; `CoverageEligibilityRequest` + `CoverageEligibilityResponse` with realistic copay/deductible/OOP-max benefits; payer `Organization.telecom` backfill; `Coverage.class` plan/group entries | Phase 10. Searches by name/tag for existing entries; creates if missing, adds missing CPT codes to existing CMs/FSs, supersedes prior CERs so the newest wins. Reruns are no-ops on the catalog side. | n/a — synth owns these |
 | **Must exist** (loud failure if missing) | Global templates (`scenario.template.name`); payer Organizations matching `scenario.patient.insurance.primary.carrier` (with the Candid `XX` payer-id identifier the harvest needs); Demo Admin Practitioner with role assignments; Locations + Schedules | Phase 0 verifies each by FHIR search. A missing template throws `"template X not found"`; a missing payer Org throws with bootstrap-script guidance; a missing practitioner fails attending assignment. | One-time per project: `create-demo-user.ts`, `copy-templates.ts`, `copy-payer-organizations.ts` (Locations + Schedules are IaC). See §1.7. |
-| **Silently skipped if absent** (warning, visit still completes) | In-house Medications (formulary lookup by name); in-house lab tests (encounter catalog lookup); vaccines (Medication catalog lookup) | The orders module logs a warning like `"medication X not found in formulary — skipping order"` and continues. The visit signs off without those orders attached. | One-time per project: `copy-medications.ts --also-create '<med spec>'` for the specific meds your scenarios reference. The default copy doesn't seed every common UC drug. |
+| **Silently skipped if absent** (warning, visit still completes) | In-house Medications (formulary lookup by name); in-house lab tests (encounter catalog lookup); vaccines (CVX list lookup by name) | The orders module logs a warning like `"medication X not found in formulary — skipping order"` and continues. The visit signs off without those orders attached. | One-time per project: `copy-medications.ts --also-create '<med spec>'` for the specific meds your scenarios reference. The default copy doesn't seed every common UC drug. Vaccines need no seeding: use a `CVX_VACCINES` name exactly. |
 
 **Why this split.** Templates and payers are reference data the EHR ships and curates — they're a project-level dependency, and the synth pipeline shouldn't fabricate them (a fake "Aetna" Organization without a real Candid payer-id would silently break the harvest's account-coverage handler). Charge masters and fee schedules, on the other hand, are RCM demo data the synth pipeline is the only consumer of, so it's safe to create-and-own them automatically. The "silently skipped" tier exists because forgetting to seed Ondansetron in the formulary shouldn't kill a 17-phase visit run that doesn't otherwise need it.
 
@@ -490,7 +490,6 @@ Before any zambda calls, the script needs to resolve the project's existing refe
 | Payer `Organization` (if insured) | Coverage.payor reference |
 | `ChargeItemDefinition` fee schedule (optional) | Patient-responsibility computation |
 | `Questionnaire` (intake-paperwork-inperson, with version) | QuestionnaireResponse.questionnaire canonical reference |
-| Vaccine `Medication` catalog (if synthesizing immunizations) | Immunization.vaccineCode lookup |
 | Global template `List` (matching the visit type) | Source for the visit narrative — see §6 |
 
 ### 4.2 Lookup recipes (SDK FHIR search)
@@ -590,7 +589,7 @@ const payers = await oystehr.fhir.search<Organization>({
 });
 ```
 
-#### Intake Questionnaire and vaccine catalog
+#### Intake Questionnaire
 
 ```ts
 const questionnaires = await oystehr.fhir.search<Questionnaire>({
@@ -600,14 +599,6 @@ const questionnaires = await oystehr.fhir.search<Questionnaire>({
     { name: 'version', value: '1.1.7' },
   ],
 });
-
-const vaccines = await oystehr.fhir.search<Medication>({
-  resourceType: 'Medication',
-  params: [{ name: 'identifier', value: 'virtual-medication-type|virtual-vaccine-inventory' }],
-});
-const vaccinesByCvx = new Map(
-  vaccines.unbundle().map(m => [m.code?.coding?.find(c => c.system === 'http://hl7.org/fhir/sid/cvx')?.code, m])
-);
 ```
 
 #### Global template
@@ -652,7 +643,6 @@ type Config = {
   payer?:             Organization;
   feeSchedule?:       ChargeItemDefinition;
   intakeQuestionnaire: Questionnaire;
-  vaccinesByCvx:      Map<string, Medication>;
   templateName:       string;
 };
 
@@ -665,7 +655,6 @@ async function bootstrap(): Promise<Config> {
     payer:              await pickPayer(oystehr),
     feeSchedule:        await pickFeeSchedule(oystehr, /* payer id */),
     intakeQuestionnaire: await pickIntakeQuestionnaire(oystehr),
-    vaccinesByCvx:      await loadVaccineCatalog(oystehr),
     templateName:       'URI Walk-in Standard',
   };
 }
@@ -682,7 +671,6 @@ For each prerequisite, fail loudly with a clear error pointing to the EHR admin 
 | Payer Organization | EHR `/admin/insurances` (`EditInsurance.tsx`) or IaC `config/oystehr/payers.json` |
 | Fee schedule | EHR `/admin/fee-schedule` → create + associate to payer + add ChargeItems |
 | Intake Questionnaire | IaC `config/oystehr/in-person-intake-questionnaire.json` + `npm run bump-canonical-version` + redeploy |
-| Vaccine catalog | IaC `config/oystehr/vaccines.json` |
 | Global template | EHR Global Templates admin (see §6.3) — built from a fully-charted reference encounter |
 
 ---
@@ -1477,8 +1465,7 @@ const order = await oystehr.zambda.execute({
   orderId: null,
   details: {
     encounterId,
-    vaccineCode: '115',
-    medicationId: config.vaccinesByCvx.get('115')?.id,
+    medication: { id: '115', name: 'Tdap' }, // CVX code and name from CVX_VACCINES
     lotNumber:    'U7034AA',
     expirationDate: '2027-06-30',
     manufacturer: 'Sanofi Pasteur (Adacel)',

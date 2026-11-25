@@ -1186,13 +1186,13 @@ describe('ClaimDetail — patient payments', () => {
     const paymentCells = within(paymentRow as HTMLElement)
       .getAllByRole('cell')
       .map((cell) => cell.textContent);
-    expect(paymentCells).toEqual(['07/10/2026', 'check', 'check collected at front desk', '1234', 'active', '$60.00']);
+    expect(paymentCells).toEqual(['07/10/2026', 'check', 'check collected at front desk', '1234', 'Paid', '$60.00']);
 
     const refundRow = (await screen.findByText('partial refund')).closest('tr');
     const refundCells = within(refundRow as HTMLElement)
       .getAllByRole('cell')
       .map((cell) => cell.textContent);
-    expect(refundCells).toEqual(['07/11/2026', 'card', 'partial refund', '-', 'active', '-$20.00']);
+    expect(refundCells).toEqual(['07/11/2026', 'card', 'partial refund', '-', 'Refunded', '-$20.00']);
   });
 
   it('shows the empty state when the claim has no patient payments', async () => {
@@ -1232,7 +1232,7 @@ describe('ClaimDetail — patient payments', () => {
     const nioCells = within(invoiceLink.closest('tr') as HTMLElement)
       .getAllByRole('cell')
       .map((cell) => cell.textContent);
-    expect(nioCells).toEqual(['07/20/2026', 'Wire', 'WIRE-88', 'View invoice', 'active', '$150.00']);
+    expect(nioCells).toEqual(['07/20/2026', 'Wire', 'WIRE-88', 'View invoice', 'Paid', '$150.00']);
     expect(screen.getByText('No patient payments yet')).toBeInTheDocument();
   });
 
@@ -1391,7 +1391,8 @@ describe('ClaimDetail: notes drawer', () => {
     fireEvent.change(draft, { target: { value: 'draft for the first claim' } });
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
-    await user.click(screen.getByRole('tab', { name: 'Other Claims' }));
+    // the page behind the drawer stays hidden from the accessibility tree until the drawer has slid out
+    await user.click(await screen.findByRole('tab', { name: 'Other Claims' }));
     await user.click(await screen.findByText('claim-2'));
 
     await user.click(await screen.findByRole('button', { name: 'Notes' }));

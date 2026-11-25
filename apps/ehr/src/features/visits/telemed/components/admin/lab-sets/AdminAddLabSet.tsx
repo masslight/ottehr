@@ -1,4 +1,4 @@
-import { Grid, Paper } from '@mui/material';
+import { GridLegacy as Grid, Paper } from '@mui/material';
 import { ReactElement, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';

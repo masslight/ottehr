@@ -1,6 +1,5 @@
 import ClearIcon from '@mui/icons-material/Clear';
-import { LoadingButton } from '@mui/lab';
-import { Box, Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 
@@ -76,10 +75,10 @@ export default function PaperworkFlagIndicator({
         </Typography>
       </Box>
       {onDismiss && (
-        <LoadingButton loading={loading} onClick={dismissAlert}>
+        <Button loading={loading} onClick={dismissAlert}>
           {/* svg icon doesn't support layered linear gradients. need to provide hex color here */}
           {!loading && <ClearIcon sx={{ color: color }}></ClearIcon>}
-        </LoadingButton>
+        </Button>
       )}
     </Box>
   );

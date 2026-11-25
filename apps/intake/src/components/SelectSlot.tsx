@@ -1,4 +1,4 @@
-import { Button, Grid, styled, Typography, useTheme } from '@mui/material';
+import { Button, GridLegacy as Grid, styled, Typography, useTheme } from '@mui/material';
 import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 

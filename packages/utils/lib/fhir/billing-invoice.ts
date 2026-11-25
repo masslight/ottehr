@@ -34,6 +34,9 @@ export const PAYMENT_REFERENCE_IDENTIFIER_SYSTEM = ottehrIdentifierSystem('payme
 // Shared by a payment's per-claim notices and attachment. Patient payment readers skip it.
 export const NIO_INVOICE_PAYMENT_ID_SYSTEM = ottehrIdentifierSystem('nio-invoice-payment-id');
 export const STRIPE_INVOICE_ID_SYSTEM = 'https://api.stripe.com/v1/invoices';
+// A card payment being charged for the invoice. Other payments wait until it is recorded or released.
+export const INVOICE_CARD_PAYMENT_RESERVATION_EXTENSION_URL =
+  'https://fhir.ottehr.com/billing/invoice-card-payment-reservation';
 
 export interface BillingInvoiceClaim {
   claimId: string;
@@ -185,6 +188,55 @@ export const invoicePaymentExtension = (invoiceId: string): Extension => ({
     reference: `Invoice/${invoiceId}`,
   },
 });
+
+// reservedAt stays fixed across retries; renewedAt is the lease each retry extends
+export interface InvoiceCardPaymentReservation {
+  paymentId: string;
+  reservedAt: string;
+  renewedAt: string;
+}
+
+export function getInvoiceCardPaymentReservation(invoice: Invoice): InvoiceCardPaymentReservation | undefined {
+  const parts = invoice.extension?.find((ext) => ext.url === INVOICE_CARD_PAYMENT_RESERVATION_EXTENSION_URL)?.extension;
+  const paymentId = parts?.find((ext) => ext.url === 'paymentId')?.valueString;
+  const reservedAt = parts?.find((ext) => ext.url === 'reservedAt')?.valueDateTime;
+  const renewedAt = parts?.find((ext) => ext.url === 'renewedAt')?.valueDateTime;
+  return paymentId && reservedAt && renewedAt
+    ? {
+        paymentId,
+        reservedAt,
+        renewedAt,
+      }
+    : undefined;
+}
+
+export function invoiceExtensionsWithCardPaymentReservation(
+  invoice: Invoice,
+  reservation: InvoiceCardPaymentReservation | undefined
+): Extension[] {
+  const others = (invoice.extension ?? []).filter((ext) => ext.url !== INVOICE_CARD_PAYMENT_RESERVATION_EXTENSION_URL);
+  if (!reservation) return others;
+  return [
+    ...others,
+    {
+      url: INVOICE_CARD_PAYMENT_RESERVATION_EXTENSION_URL,
+      extension: [
+        {
+          url: 'paymentId',
+          valueString: reservation.paymentId,
+        },
+        {
+          url: 'reservedAt',
+          valueDateTime: reservation.reservedAt,
+        },
+        {
+          url: 'renewedAt',
+          valueDateTime: reservation.renewedAt,
+        },
+      ],
+    },
+  ];
+}
 
 export const getNioInvoicePaymentId = (resource: { identifier?: Identifier[] }): string | undefined =>
   resource.identifier?.find((identifier) => identifier.system === NIO_INVOICE_PAYMENT_ID_SYSTEM)?.value;

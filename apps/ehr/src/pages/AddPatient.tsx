@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -6,7 +5,7 @@ import {
   FormControl,
   FormControlLabel,
   FormHelperText,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   MenuItem,
   Paper,
@@ -1007,7 +1006,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                     }}
                   >
                     <Box>
-                      <LoadingButton
+                      <Button
                         data-testid={dataTestIds.addPatientPage.addButton}
                         variant="contained"
                         type="submit"
@@ -1020,7 +1019,7 @@ export default function AddPatient({ patientOnly = false }: AddPatientProps): JS
                         }}
                       >
                         {patientOnly ? patientInfo?.id ? 'Open patient record' : 'Add patient' : <>Add {visitType}</>}
-                      </LoadingButton>
+                      </Button>
                       <Button
                         data-testid={dataTestIds.addPatientPage.cancelButton}
                         sx={{

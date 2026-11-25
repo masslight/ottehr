@@ -15,7 +15,7 @@ import {
   Divider,
   FormControl,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   MenuItem,
   Paper,

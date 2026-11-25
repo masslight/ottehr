@@ -1,5 +1,5 @@
 import { yupResolver } from '@hookform/resolvers/yup';
-import { Grid } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import { DateTime } from 'luxon';
 import React, { memo, ReactElement, useMemo, useRef } from 'react';
 import { FieldValues, FormProvider, FormState, SubmitHandler, useForm } from 'react-hook-form';

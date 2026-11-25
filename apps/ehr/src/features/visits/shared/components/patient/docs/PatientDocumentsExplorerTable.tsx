@@ -319,6 +319,7 @@ const configureTableColumns = (
       field: 'docName',
       headerName: 'Doc Name',
       width: 400,
+      display: 'flex',
       renderCell: ({ row: { id, docName } }) =>
         actions.isActionAllowed(id, DocumentTableActionType.ActionDownload) ? (
           <Link component="button" underline="hover" onClick={() => openInNewTab(id, actions.onDocumentDownload)}>
@@ -334,7 +335,9 @@ const configureTableColumns = (
       headerName: 'Visit',
       width: 200,
       // Sort by the visit's date/time rather than a raw resource id, which is meaningless to order.
-      valueGetter: ({ row }) => resolveDocumentVisit(row, visitsByEncounterId, visitsByAppointmentId)?.dateTime ?? '',
+      valueGetter: (_value, row) =>
+        resolveDocumentVisit(row, visitsByEncounterId, visitsByAppointmentId)?.dateTime ?? '',
+      display: 'flex',
       renderCell: ({ row }) => (
         <VisitCell visit={resolveDocumentVisit(row, visitsByEncounterId, visitsByAppointmentId)} />
       ),
@@ -350,6 +353,7 @@ const configureTableColumns = (
       field: 'whenAddedDate',
       headerName: 'When added',
       width: 150,
+      display: 'flex',
       renderCell: ({ row: { whenAddedDate } }) => (whenAddedDate ? formatISOStringToDateAndTime(whenAddedDate) : '-'),
     },
     {
@@ -357,6 +361,7 @@ const configureTableColumns = (
       field: 'whoAdded',
       headerName: 'Who added',
       width: 150,
+      display: 'flex',
       renderCell: ({ row: { whoAdded } }) => whoAdded ?? '-',
     },
     {
@@ -364,6 +369,7 @@ const configureTableColumns = (
       field: 'actions',
       headerName: 'Action',
       width: 150,
+      display: 'flex',
       renderCell: ({ row }) => <DocActionsCell docInfo={row} actions={actions} />,
     },
   ];

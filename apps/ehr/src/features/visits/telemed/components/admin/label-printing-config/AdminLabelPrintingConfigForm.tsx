@@ -1,11 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LoadingButton } from '@mui/lab';
 import {
+  Button,
   Checkbox,
   FormControl,
   FormControlLabel,
   FormHelperText,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   MenuItem,
   Select,
@@ -233,7 +233,7 @@ export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigF
                 </>
               )}
               <Grid item>
-                <LoadingButton
+                <Button
                   type="submit"
                   variant="contained"
                   loading={isSubmitting}
@@ -241,7 +241,7 @@ export default function AdminLabelPrintingConfigForm(props: AdminPrintingConfigF
                   data-testid={dataTestIds.adminLabelPrintingConfig.submitButton}
                 >
                   Submit
-                </LoadingButton>
+                </Button>
                 {hasFormErrors && <FormHelperText error={true}>Please fix errors: </FormHelperText>}
                 {submitError && <FormHelperText error={true}>{submitError.message}</FormHelperText>}
               </Grid>

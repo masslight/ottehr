@@ -49,7 +49,7 @@ import {
 } from 'utils/lib/helpers/rcm/constants';
 import { VALUE_SETS } from 'utils/lib/ottehr-config/value-sets';
 import { otherColors } from 'utils/lib/theme/billing-palette';
-import { DrugUnitCode } from 'utils/lib/types/data/billing/billing.constants';
+import { DrugUnitCode, MEDICARE_SECONDARY_REASON_OPTIONS } from 'utils/lib/types/data/billing/billing.constants';
 import {
   CreateBillingProviderInput,
   SaveServiceFacilityInput,
@@ -148,6 +148,7 @@ import {
   defaultCoverageFormValues,
 } from '../constants/coverage';
 import { invoicePaymentMethodLabel } from '../constants/invoice';
+import { paymentStatusLabel } from '../constants/payment';
 import { useApiClients } from '../hooks/useAppClients';
 import { useCoverage } from '../hooks/useCoverage';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
@@ -1109,18 +1110,6 @@ export function InsuranceSection({
   );
 }
 
-const MEDICARE_SECONDARY_REASON_OPTIONS: Record<string, string> = {
-  '12': 'Working Aged Beneficiary or Spouse with Employer Group Health Plan',
-  '13': "End-Stage Renal Disease Beneficiary in the Mandated Coordination Period with an Employer's Group Health Plan",
-  '14': 'No-fault Insurance including Auto is Primary',
-  '15': "Worker's Compensation",
-  '16': 'Public Health Service (PHS)or Other Federal Agency',
-  '41': 'Black Lung',
-  '42': "Veteran's Administration",
-  '43': 'Disabled Beneficiary Under Age 65 with Large Group Health Plan (LGHP)',
-  '47': 'Other Liability Insurance is Primary',
-};
-
 function MedicareSecondaryReasonSection({
   claim,
   updateResource,
@@ -2047,7 +2036,7 @@ function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['p
                   <TableCell>{payment.method || '-'}</TableCell>
                   <TableCell>{payment.description || '-'}</TableCell>
                   <TableCell>{payment.checkNumber || '-'}</TableCell>
-                  <TableCell>{payment.status || '-'}</TableCell>
+                  <TableCell>{paymentStatusLabel(payment) || '-'}</TableCell>
                   <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
                 </TableRow>
               ))}
@@ -2094,7 +2083,7 @@ function NioPaymentsSection({ payments }: { payments: ClaimDetailResponse['nioPa
                       '-'
                     )}
                   </TableCell>
-                  <TableCell>{payment.status || '-'}</TableCell>
+                  <TableCell>{paymentStatusLabel(payment) || '-'}</TableCell>
                   <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
                 </TableRow>
               ))}

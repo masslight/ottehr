@@ -7,7 +7,6 @@ import Rotate90DegreesCcwIcon from '@mui/icons-material/Rotate90DegreesCcw';
 import Rotate90DegreesCwIcon from '@mui/icons-material/Rotate90DegreesCw';
 import ScannerIcon from '@mui/icons-material/Scanner';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
@@ -507,7 +506,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({
             <Button onClick={handleCancel} variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none' }}>
               Cancel
             </Button>
-            <LoadingButton
+            <Button
               onClick={handleSaveAndClose}
               variant="contained"
               loading={isSaving}
@@ -515,7 +514,7 @@ export const ScannerModal: FC<ScannerModalProps> = ({
               sx={{ borderRadius: '50px', textTransform: 'none' }}
             >
               Save {imageCount > 0 && `(${imageCount})`}
-            </LoadingButton>
+            </Button>
           </Box>
         </Stack>
       </DialogContent>

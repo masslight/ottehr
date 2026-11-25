@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
   AllergyIntolerance,
+  Appointment,
   Bundle,
   ClinicalImpression,
   Communication,
@@ -356,8 +357,8 @@ export const index = wrapHandler('delete-chart-data', async (input: ZambdaInput)
     ]);
     console.log('Updated chart data as a transaction');
 
-    const appointment = allResources.find((res) => res.resourceType === 'Appointment');
-    await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment?.id);
+    const appointment = allResources.find((res): res is Appointment => res.resourceType === 'Appointment');
+    await runChartDataPostChangeTasks(oystehr, addendumNote, notes, encounter, appointment);
 
     // perform deleting z3 pdf objects after deleting all fhir resources
     if (schoolWorkNotes) {

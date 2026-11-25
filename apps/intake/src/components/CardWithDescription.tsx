@@ -1,4 +1,4 @@
-import { Box, Card, Grid, Typography, useTheme } from '@mui/material';
+import { Box, Card, GridLegacy as Grid, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement } from 'react';
 
 export interface CardWithDescriptionProps {
