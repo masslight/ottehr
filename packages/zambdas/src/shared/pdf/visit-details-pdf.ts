@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { getReasonForVisitOptionsForServiceCategory } from 'utils/lib/config-helpers/booking';
 import { AppointmentContext } from 'utils/lib/config-helpers/patient-record';
 import { getReasonForVisitAndAdditionalDetailsFromAppointment } from 'utils/lib/fhir/appointments';
@@ -14,6 +15,7 @@ import { composeAttorneyData, createAttorneyInfoSection } from './sections/attor
 import { composeConsentFormsData, createConsentFormsSection } from './sections/consentFormsInfo';
 import { composeContactData, createContactInfoSection } from './sections/contactInfo';
 import { composeDocumentsData, createDocumentsSection } from './sections/documents';
+import { composeEligibilityData, createEligibilitySection } from './sections/eligibilityInfo';
 import { composeEmergencyContactData, createEmergencyContactInfoSection } from './sections/emergencyContactInfo';
 import { composeEmployerData, createEmployerInfoSection } from './sections/employerInfo';
 import {
@@ -84,7 +86,9 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     consents,
     questionnaireResponse,
     payments,
+    coverageChecks,
   } = input;
+  const insurances = composeInsuranceData({ coverages, insuranceOrgs });
 
   return {
     appointmentContext: buildAppointmentContext(input),
@@ -94,7 +98,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     details: composePatientDetailsData({ patient }),
     pcp: composePrimaryCarePhysicianData({ physician }),
     pharmacy: composePharmacyData(pharmacy),
-    insurances: composeInsuranceData({ coverages, insuranceOrgs }),
+    insurances,
     responsibleParty: composeResponsiblePartyData({ guarantorResource }),
     consentForms: composeConsentFormsData({ encounter, consents, questionnaireResponse, timezone }),
     documents: composeDocumentsData(documents),
@@ -107,6 +111,7 @@ const composeVisitDetailsData: DataComposer<VisitDetailsInput, VisitDetailsData>
     }),
     omEmployer: composeOccupationalMedicineEmployerData({ employerName: occupationalMedicineEmployerName }),
     paymentHistory: composePatientPaymentsData({ payments }),
+    eligibility: composeEligibilityData({ coverages, insurances, coverageChecks, timezone }),
   };
 };
 
@@ -154,7 +159,7 @@ const createVisitDetailsStyles: StyleFactory = (assets) => ({
   },
 });
 
-const visitDetailsRenderConfig: PdfRenderConfig<VisitDetailsData> = {
+export const visitDetailsRenderConfig: PdfRenderConfig<VisitDetailsData> = {
   header: {
     title: 'VISIT DETAILS',
     leftSection: createPatientHeader(),
@@ -172,6 +177,7 @@ const visitDetailsRenderConfig: PdfRenderConfig<VisitDetailsData> = {
     { ...createPatientDetailsSection(), preferredWidth: 'column' },
     { ...createPrimaryCarePhysicianSection(), preferredWidth: 'column' },
     { ...createResponsiblePartySection(), preferredWidth: 'column' },
+    { ...createEligibilitySection(), preferredWidth: 'column' },
     { ...createEmployerInfoSection(), preferredWidth: 'column' },
     { ...createOccupationalMedicineEmployerSection(), preferredWidth: 'column' },
     { ...createEmergencyContactInfoSection(), preferredWidth: 'column' },
@@ -189,6 +195,10 @@ export const createVisitDetailsPdf = async (
 ): Promise<PdfResult> => {
   const serviceCategories =
     input.serviceCategories ?? (await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets)));
+
+  const visitDate = DateTime.fromISO(input.appointment.start ?? '').setZone(input.timezone);
+  const title = visitDate.isValid ? `Visit Details: ${visitDate.toFormat('MM-dd-yyyy')}` : 'Visit Details';
+
   return generatePdf(
     { ...input, serviceCategories },
     composeVisitDetailsData,
@@ -196,6 +206,7 @@ export const createVisitDetailsPdf = async (
     {
       patientId: input.patient.id!,
       fileName: 'VisitDetails.pdf',
+      title,
       bucketName: BUCKET_NAMES.VISIT_NOTES,
     },
     secrets,

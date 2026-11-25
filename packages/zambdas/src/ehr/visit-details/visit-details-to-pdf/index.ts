@@ -1,10 +1,12 @@
 import Oystehr from '@oystehr/sdk';
+import { captureException } from '@sentry/node-core/light';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Encounter, Organization, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { Secrets } from 'utils/lib/secrets';
+import { CoverageCheckWithDetails } from 'utils/lib/types/api/patient-account';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { VisitDetailsResponse } from 'utils/lib/types/api/visit-details/visit-details.types';
 import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
@@ -18,7 +20,15 @@ import {
   getOccupationalMedicineEmployerName,
   getVisitEmployerOrganizationId,
 } from '../../../shared/occupational-medicine-employer';
-import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
+import { findLatestCoverageCheck } from '../../../shared/patient-coverage-checks';
+import {
+  findSignedVisitDetailsDocument,
+  makeVisitDetailsPdfDocumentReference,
+} from '../../../shared/pdf/make-visit-details-document-reference';
+import {
+  composeInsuranceData,
+  getDisplayedInsurancePayerAndMemberId,
+} from '../../../shared/pdf/sections/insuranceInfo';
 import { fetchServiceCategoryCatalog } from '../../../shared/pdf/service-category-catalog';
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -30,6 +40,7 @@ import { searchDocumentReferencesForVisit } from '../get-visit-files';
 import { validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'visit-details-to-pdf';
+const ELIGIBILITY_SEARCH_BUDGET_MS = 5_000;
 
 let m2mToken: string;
 
@@ -53,7 +64,8 @@ export const performEffect = async (
   appointmentId: string,
   secrets: Secrets | null,
   token: string,
-  timezone?: string
+  timezone?: string,
+  { signing = false }: { signing?: boolean } = {}
 ): Promise<VisitDetailsResponse> => {
   const visitResources = await getAppointmentAndRelatedResources(oystehr, appointmentId, true);
   if (!visitResources) {
@@ -77,6 +89,14 @@ export const performEffect = async (
     throw new Error(`Patient data is missing for appointment ${appointmentId}`);
   }
 
+  const signedCopyResponse = async (): Promise<VisitDetailsResponse | undefined> => {
+    if (signing) return undefined;
+    const signedCopy = await findSignedVisitDetailsDocument(oystehr, encounter.id!);
+    return signedCopy && { documentReference: `DocumentReference/${signedCopy.id}` };
+  };
+  const existingSignedCopy = await signedCopyResponse();
+  if (existingSignedCopy) return existingSignedCopy;
+
   console.log('Chart data received');
 
   const patientId = patient.id;
@@ -98,7 +118,7 @@ export const performEffect = async (
     }
   };
 
-  const getPayments = async (
+  const loadPayments = async (
     account: Account | undefined,
     paymentNotices: { notices: PaymentNotice[] } | { error: unknown } | undefined
   ): Promise<PatientPaymentDTO[]> => {
@@ -126,17 +146,36 @@ export const performEffect = async (
     }
   };
 
+  const loadCoverageChecks = (
+    accountResources: PatientAccountAndCoverageResources
+  ): Promise<CoverageCheckWithDetails[] | undefined> => {
+    const { coverages, insuranceOrgs } = accountResources;
+    const displayedInsurance = getDisplayedInsurancePayerAndMemberId(
+      coverages,
+      composeInsuranceData({ coverages, insuranceOrgs })
+    );
+    if (!displayedInsurance) return Promise.resolve([]);
+    return findLatestCoverageCheck(patientId, displayedInsurance, oystehr, Date.now() + ELIGIBILITY_SEARCH_BUDGET_MS)
+      .then((check) => (check ? [check] : []))
+      .catch((error) => {
+        console.error('Failed to load eligibility checks for the Visit Details PDF:', error);
+        captureException(error);
+        return undefined;
+      });
+  };
+
   const loadAccountDetails = async (): Promise<{
     accountResources: PatientAccountAndCoverageResources;
     payments: PatientPaymentDTO[];
     occupationalMedicineEmployerName: string | undefined;
+    coverageChecks: CoverageCheckWithDetails[] | undefined;
   }> => {
     const [accountResources, paymentNotices] = await Promise.all([
       getAccountAndCoverageResourcesForPatient(patientId, oystehr),
       encounterId ? fetchPaymentNotices(encounterId) : undefined,
     ]);
-    const [payments, occupationalMedicineEmployerName] = await Promise.all([
-      getPayments(accountResources.account, paymentNotices),
+    const [payments, occupationalMedicineEmployerName, coverageChecks] = await Promise.all([
+      loadPayments(accountResources.account, paymentNotices),
       resolveOccupationalMedicineEmployerName({
         oystehr,
         encounter,
@@ -144,20 +183,21 @@ export const performEffect = async (
         occupationalMedicineEmployerOrganization: accountResources.occupationalMedicineEmployerOrganization,
         occupationalMedicineAccount: accountResources.occupationalMedicineAccount,
       }),
+      loadCoverageChecks(accountResources),
     ]);
-    return { accountResources, payments, occupationalMedicineEmployerName };
+    return { accountResources, payments, occupationalMedicineEmployerName, coverageChecks };
   };
 
   const [
     consentResources,
-    { accountResources, payments, occupationalMedicineEmployerName },
+    { accountResources, payments, occupationalMedicineEmployerName, coverageChecks },
     documentReferences,
     serviceCategories,
   ] = await Promise.all([
     getConsentAndRelatedDocRefsForAppointment({ appointmentId, patientId }, oystehr),
     loadAccountDetails(),
     searchDocumentReferencesForVisit(oystehr, patientId, appointmentId),
-    fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets)),
+    fetchServiceCategoryCatalog(oystehr),
   ]);
   const { consents } = consentResources;
 
@@ -196,11 +236,15 @@ export const performEffect = async (
       consents: consents || [],
       questionnaireResponse,
       payments,
+      coverageChecks,
       serviceCategories,
     },
     secrets,
     token
   );
+
+  const signedCopyBeforeSave = await signedCopyResponse();
+  if (signedCopyBeforeSave) return signedCopyBeforeSave;
 
   console.log(`Creating Visit details PDF Document Reference`);
   const documentReference = await makeVisitDetailsPdfDocumentReference(
@@ -210,7 +254,8 @@ export const performEffect = async (
     appointmentId,
     encounter.id!,
     listResources,
-    attached
+    attached,
+    signing
   );
   const visitDetailsDocumentId = documentReference.id ?? '';
 

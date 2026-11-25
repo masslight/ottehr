@@ -333,7 +333,7 @@ describe('visit-details-to-pdf integration', () => {
     expect(docRef.subject?.reference).toBe(`Patient/${base.patient.id}`);
     expect(docRef.context?.related).toContainEqual({ reference: `Appointment/${base.appointment.id}` });
     expect(docRef.context?.encounter).toEqual([{ reference: `Encounter/${base.encounter.id}` }]);
-    expect(docRef.content[0].attachment.title).toBe('VisitDetails.pdf');
+    expect(docRef.content[0].attachment.title).toMatch(/^Visit Details: \d{2}-\d{2}-\d{4}$/);
     expect(docRef.content[0].attachment.url).toContain(
       `/z3/${SECRETS.PROJECT_ID}-${BUCKET_NAMES.VISIT_NOTES}/${base.patient.id}/`
     );

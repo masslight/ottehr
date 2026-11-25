@@ -61,8 +61,7 @@ async function performEffect(
     markAsFinal,
   } = validatedInput.body;
 
-  // Diagnosis is optional at order time but required to save a preliminary read (enforced in
-  // validateInput). Validate the ICD-10 codes up front so we fail fast before touching AdvaPACS.
+  // Validate the ICD-10 codes up front so we fail fast before touching AdvaPACS.
   // The order and author are fetched up front too, so a failure happens before the single-shot AdvaPACS POST.
   console.group('Fetching service request from Oystehr');
   const [diagnosesResult, serviceRequestResult, authorResult, existingReportsResult] = await Promise.allSettled([
@@ -105,24 +104,27 @@ async function performEffect(
   // diagnosis after it and that patch failed, the order would be stranded without a diagnosis and
   // could never be retried. Writing it first makes a failed run safe to re-run: the patch is
   // idempotent (replace) and dedupes on retry, and the report creation still runs afterwards.
+  const reasonCodeOperation = diagnosisCodes
+    ? buildReasonCodeOperation(
+        diagnoses.map((diagnosis) => ({ coding: [diagnosis] })),
+        Array.isArray(serviceRequest.reasonCode) && serviceRequest.reasonCode.length > 0
+      )
+    : undefined;
   console.group('Updating service request diagnosis in Oystehr');
-  const reasonCode: CodeableConcept[] = diagnoses.map((diagnosis) => ({ coding: [diagnosis] }));
-  const hasExistingReasonCode = Array.isArray(serviceRequest.reasonCode) && serviceRequest.reasonCode.length > 0;
-  const reasonCodeOperation: Operation = hasExistingReasonCode
-    ? { op: 'replace', path: '/reasonCode', value: reasonCode }
-    : { op: 'add', path: '/reasonCode', value: reasonCode };
   const [reasonCodePatchResult, advaPacsServiceRequestResult] = await Promise.allSettled([
-    oystehr.fhir.patch({
-      resourceType: 'ServiceRequest',
-      id: serviceRequestId,
-      operations: [reasonCodeOperation],
-    }),
+    reasonCodeOperation
+      ? oystehr.fhir.patch({
+          resourceType: 'ServiceRequest',
+          id: serviceRequestId,
+          operations: [reasonCodeOperation],
+        })
+      : undefined,
     // Fetch the corresponding service request from AdvaPACS using the accession number
     fetchServiceRequestFromAdvaPACS(accessionNumber, secrets),
   ]);
   settledValueOrThrow(reasonCodePatchResult);
   console.groupEnd();
-  console.debug('Service request diagnosis updated successfully');
+  if (reasonCodeOperation) console.debug('Service request diagnosis updated successfully');
 
   const advaPacsServiceRequest = settledValueOrThrow(advaPacsServiceRequestResult);
   console.debug('AdvaPACS service request fetched successfully');
@@ -170,6 +172,22 @@ const searchExistingReports = async (serviceRequestId: string, oystehr: Oystehr)
   )
     .unbundle()
     .filter((report) => report.status !== 'entered-in-error');
+
+/**
+ * The patch that makes the order's `reasonCode` match the diagnoses saved with the read: `add`/`replace` for a
+ * non-empty list, `remove` to clear existing ones (FHIR forbids an empty array), nothing when both are empty.
+ */
+export const buildReasonCodeOperation = (
+  reasonCode: CodeableConcept[],
+  hasExistingReasonCode: boolean
+): Operation | undefined => {
+  if (reasonCode.length === 0) {
+    return hasExistingReasonCode ? { op: 'remove', path: '/reasonCode' } : undefined;
+  }
+  return hasExistingReasonCode
+    ? { op: 'replace', path: '/reasonCode', value: reasonCode }
+    : { op: 'add', path: '/reasonCode', value: reasonCode };
+};
 
 /**
  * In-house, performed, not yet reported — checked here because the performer patch below runs before AdvaPACS
