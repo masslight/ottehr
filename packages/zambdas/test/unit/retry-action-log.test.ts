@@ -23,6 +23,14 @@ vi.mock('../../src/shared/communication', () => ({
   makeAddressUrl: (address: string) => `https://maps.example.test/?q=${encodeURIComponent(address)}`,
 }));
 
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/feature-flags')>();
+  return {
+    ...original,
+    FEATURE_FLAGS_CONFIG: { ...original.FEATURE_FLAGS_CONFIG, skipSendingVisitNoteToPatientPortalEnabled: false },
+  };
+});
+
 vi.mock('../../src/shared/pdf/visit-details-pdf/get-video-resources', () => ({
   getAppointmentAndRelatedResources: vi.fn().mockResolvedValue({
     appointment: { resourceType: 'Appointment', id: 'appointment-1', status: 'fulfilled' },

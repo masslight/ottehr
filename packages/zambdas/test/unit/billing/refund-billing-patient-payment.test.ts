@@ -40,6 +40,13 @@ vi.mock('utils/lib/helpers/candidApi', () => ({ getOrCreateCandidApiClient: vi.f
 // transitive imports of shared/candid that pull heavy modules
 vi.mock('../../../src/ehr/shared/harvest', () => ({ getAccountAndCoverageResourcesForPatient: vi.fn() }));
 vi.mock('../../../src/shared/chart-data', () => ({ chartDataResourceHasMetaTagByCode: vi.fn() }));
+vi.mock('utils/lib/ottehr-config/feature-flags', async (importOriginal) => {
+  const original = await importOriginal<typeof import('utils/lib/ottehr-config/feature-flags')>();
+  return {
+    ...original,
+    FEATURE_FLAGS_CONFIG: { ...original.FEATURE_FLAGS_CONFIG, customOrganizationsEnabled: false },
+  };
+});
 
 // ── Imports ────────────────────────────────────────────────────────────────────
 
