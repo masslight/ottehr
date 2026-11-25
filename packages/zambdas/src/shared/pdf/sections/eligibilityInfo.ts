@@ -4,7 +4,7 @@ import {
   EligibilityCheckSimpleStatus,
   mapEligibilityCheckResultToSimpleStatus,
 } from 'utils/lib/types/data/telemed/eligibility.types';
-import { DISPLAY_DATE_FORMAT } from 'utils/lib/utils/dateUtils';
+import { DISPLAY_DATE_AND_TIME_FORMAT } from 'utils/lib/utils/dateUtils';
 import { coverageCheckMatches } from '../../patient-coverage-checks';
 import { createConfiguredSection, DataComposer } from '../pdf-common';
 import { EligibilityDataInput, EligibilityInfo, EligibilityRowGroup, PdfSection } from '../types';
@@ -28,7 +28,7 @@ const formatName = (first?: string, middle?: string, last?: string): string =>
 
 const formatCheckedAt = (iso: string, timezone: string): string | undefined => {
   const checkedAt = DateTime.fromISO(iso);
-  return checkedAt.isValid ? checkedAt.setZone(timezone).toFormat(`${DISPLAY_DATE_FORMAT} HH:mm`) : undefined;
+  return checkedAt.isValid ? checkedAt.setZone(timezone).toFormat(DISPLAY_DATE_AND_TIME_FORMAT) : undefined;
 };
 
 const eligibilityGroups = (check: CoverageCheckWithDetails | undefined, timezone: string): EligibilityRowGroup[] => {

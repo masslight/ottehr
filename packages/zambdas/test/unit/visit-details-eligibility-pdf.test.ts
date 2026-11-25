@@ -772,23 +772,30 @@ describe('Visit Details PDF "Eligibility Check Details" rendering', () => {
     } = {}
   ): Promise<{ text: string; x: number; width: number }[]> => {
     const drawText = vi.spyOn(PDFPage.prototype, 'drawText');
-    drawText.mockClear();
-    await renderPdf(
-      { eligibility, insurances } as VisitDetailsData,
-      {
-        ...visitDetailsRenderConfig,
-        sections,
-        assetPaths: { fonts: fromPackageRoot(visitDetailsRenderConfig.assetPaths.fonts) as never },
-      },
-      ''
-    );
-    const drawn = drawText.mock.calls.map(([rawText, options]) => {
-      const text = rawText.trimEnd();
-      return { text, x: options?.x ?? 0, width: options?.font?.widthOfTextAtSize(text, options?.size ?? 0) ?? 0 };
-    });
-    drawText.mockRestore();
-    return drawn;
+    try {
+      drawText.mockClear();
+      await renderPdf(
+        { eligibility, insurances } as VisitDetailsData,
+        {
+          ...visitDetailsRenderConfig,
+          sections,
+          assetPaths: { fonts: fromPackageRoot(visitDetailsRenderConfig.assetPaths.fonts) as never },
+        },
+        ''
+      );
+      return drawText.mock.calls.map(([rawText, options]) => {
+        const text = rawText.trimEnd();
+        return { text, x: options?.x ?? 0, width: options?.font?.widthOfTextAtSize(text, options?.size ?? 0) ?? 0 };
+      });
+    } finally {
+      drawText.mockRestore();
+    }
   };
+
+  it('restores the drawText spy when rendering throws', async () => {
+    await expect(render({ groups: undefined } as unknown as EligibilityInfo)).rejects.toThrow();
+    expect(vi.isMockFunction(PDFPage.prototype.drawText)).toBe(false);
+  });
 
   it('is a two-column section placed right after Responsible party', () => {
     const titles = visitDetailsRenderConfig.sections.map((section) => section.title);
