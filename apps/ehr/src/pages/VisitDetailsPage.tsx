@@ -58,6 +58,7 @@ import ReportIssueDialog from 'src/components/dialogs/ReportIssueDialog';
 import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import InsuranceCardOrientationHint from 'src/components/InsuranceCardOrientationHint';
 import PatientBalances from 'src/components/PatientBalances';
+import RotateCardButton from 'src/components/RotateCardButton';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { ScannerModal } from 'src/components/ScannerModal';
 import { getInPersonUrlByAppointmentType } from 'src/features/visits/in-person/routing/helpers';
@@ -1079,9 +1080,10 @@ export default function VisitDetailsPage(): ReactElement {
   // Clean photo-ID thumbnail rendered in the "Patient summary" section HEADER (right-aligned, next to
   // the title), threaded down through PatientAccountComponent -> AboutPatientContainer. Same treatment
   // as the insurance cards: front image + enlarge affordance only; clicking opens the non-modal
-  // FloatingCardPreview (front/back toggle lives there — no OCR/rotate for the ID, so no
-  // previewHeaderActions). Remove-and-reload is wired the same as the insurance cards. An ID with no
-  // image gets a compact upload/scan affordance instead.
+  // FloatingCardPreview (front/back toggle and rotate control live there; the ID has no OCR
+  // orientation hint, so just the bare rotate button). Each face rotates its own DocumentReference.
+  // Remove-and-reload is wired the same as the insurance cards. An ID with no image gets a compact
+  // upload/scan affordance instead.
   const photoIdCardSlot = (
     <CardThumbnail
       item={idCards}
@@ -1095,6 +1097,12 @@ export default function VisitDetailsPage(): ReactElement {
       backFileType="photo-id-back"
       handleDeleteClick={handleDeleteClick}
       deletingFileId={deletingFileId}
+      previewHeaderActions={(face) => (
+        <RotateCardButton
+          documentReferenceId={face === 'front' ? idCards.frontId : idCards.backId}
+          onRotated={refetchFileData}
+        />
+      )}
     />
   );
 

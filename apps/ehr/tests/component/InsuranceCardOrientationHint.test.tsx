@@ -8,8 +8,8 @@ import type { CardOrientationHint } from '../../src/features/visits/shared/compo
 // ============================================================================
 // MOCKS
 // ============================================================================
-const { mockRotateInsuranceCardImage, mockEnqueueSnackbar, mockOystehrZambda, extractionState } = vi.hoisted(() => ({
-  mockRotateInsuranceCardImage: vi.fn(),
+const { mockRotateCardImage, mockEnqueueSnackbar, mockOystehrZambda, extractionState } = vi.hoisted(() => ({
+  mockRotateCardImage: vi.fn(),
   mockEnqueueSnackbar: vi.fn(),
   mockOystehrZambda: { zambda: { execute: vi.fn() } },
   // Mutable per-test state the mocked extraction hook returns.
@@ -25,7 +25,7 @@ const { mockRotateInsuranceCardImage, mockEnqueueSnackbar, mockOystehrZambda, ex
 }));
 
 vi.mock('src/api/api', () => ({
-  rotateInsuranceCardImage: mockRotateInsuranceCardImage,
+  rotateCardImage: mockRotateCardImage,
 }));
 
 vi.mock('src/hooks/useAppClients', () => ({
@@ -49,8 +49,8 @@ vi.mock('src/features/visits/shared/components/patient/useInsuranceCardExtractio
 // Imported AFTER the mocks so they take effect.
 import InsuranceCardOrientationHint, {
   CARD_MAY_BE_ROTATED_LABEL,
-  ROTATE_CARD_BUTTON_LABEL,
 } from '../../src/components/InsuranceCardOrientationHint';
+import { ROTATE_CARD_BUTTON_LABEL } from '../../src/components/RotateCardButton';
 
 // ============================================================================
 // HARNESS
@@ -121,13 +121,13 @@ describe('InsuranceCardOrientationHint', () => {
 
   it('rotates 90 degrees clockwise on click and refreshes the displayed image', async () => {
     setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
-    mockRotateInsuranceCardImage.mockResolvedValue({ documentReferenceId: DOC_REF_ID, rotated: true });
+    mockRotateCardImage.mockResolvedValue({ documentReferenceId: DOC_REF_ID, rotated: true });
     const { onRotated } = renderHint();
 
     await userEvent.click(screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL }));
 
     await waitFor(() => {
-      expect(mockRotateInsuranceCardImage).toHaveBeenCalledWith(mockOystehrZambda, {
+      expect(mockRotateCardImage).toHaveBeenCalledWith(mockOystehrZambda, {
         documentReferenceId: DOC_REF_ID,
         rotationDegrees: 90,
       });
@@ -140,7 +140,7 @@ describe('InsuranceCardOrientationHint', () => {
 
   it('surfaces a rotate failure via the snackbar, does not refresh the image, and keeps the badge', async () => {
     setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
-    mockRotateInsuranceCardImage.mockRejectedValue(new Error('rotate failed'));
+    mockRotateCardImage.mockRejectedValue(new Error('rotate failed'));
     const { onRotated } = renderHint();
 
     await userEvent.click(screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL }));
@@ -209,19 +209,19 @@ describe('InsuranceCardOrientationHint', () => {
 
   it('keeps the rotate control mounted across rotates so a 180°/270° card can be fixed with repeated clicks', async () => {
     setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
-    mockRotateInsuranceCardImage.mockResolvedValue({ documentReferenceId: DOC_REF_ID, rotated: true });
+    mockRotateCardImage.mockResolvedValue({ documentReferenceId: DOC_REF_ID, rotated: true });
     const { onRotated } = renderHint();
 
     await userEvent.click(screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL }));
-    await waitFor(() => expect(mockRotateInsuranceCardImage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockRotateCardImage).toHaveBeenCalledTimes(1));
     // Wait for the in-flight spinner to clear so the second click hits an enabled button.
     await waitFor(() => expect(screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL })).toBeEnabled());
 
     await userEvent.click(screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL }));
-    await waitFor(() => expect(mockRotateInsuranceCardImage).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mockRotateCardImage).toHaveBeenCalledTimes(2));
 
     await userEvent.click(screen.getByRole('button', { name: ROTATE_CARD_BUTTON_LABEL }));
-    await waitFor(() => expect(mockRotateInsuranceCardImage).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(mockRotateCardImage).toHaveBeenCalledTimes(3));
     await waitFor(() => expect(onRotated).toHaveBeenCalledTimes(3));
   });
 
@@ -229,7 +229,7 @@ describe('InsuranceCardOrientationHint', () => {
     // Simulate the backend readable-reset patch failing: the mocked extraction keeps returning
     // readable=false for this DocRef even after the rotate + refetch.
     setOrientationHint({ docRefId: DOC_REF_ID, readable: false });
-    mockRotateInsuranceCardImage.mockResolvedValue({ documentReferenceId: DOC_REF_ID, rotated: true });
+    mockRotateCardImage.mockResolvedValue({ documentReferenceId: DOC_REF_ID, rotated: true });
     renderHint();
 
     expect(screen.getByText(CARD_MAY_BE_ROTATED_LABEL)).toBeInTheDocument();
