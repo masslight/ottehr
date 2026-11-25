@@ -5,9 +5,12 @@ interface ConfirmDialogProps {
   open: boolean;
   title: string;
   children: ReactNode;
+  // Inputs and alerts shown below the message, outside its paragraph.
+  fields?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   confirmColor?: 'primary' | 'error';
+  confirmDisabled?: boolean;
   loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -17,9 +20,11 @@ export function ConfirmDialog({
   open,
   title,
   children,
+  fields,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   confirmColor = 'primary',
+  confirmDisabled = false,
   loading = false,
   onConfirm,
   onCancel,
@@ -37,6 +42,7 @@ export function ConfirmDialog({
       </DialogTitle>
       <DialogContent sx={{ px: 3 }}>
         <DialogContentText variant="body2">{children}</DialogContentText>
+        {fields}
       </DialogContent>
       <DialogActions
         sx={{
@@ -55,7 +61,13 @@ export function ConfirmDialog({
         >
           {cancelLabel}
         </Button>
-        <Button size="small" variant="contained" color={confirmColor} onClick={onConfirm} disabled={loading}>
+        <Button
+          size="small"
+          variant="contained"
+          color={confirmColor}
+          onClick={onConfirm}
+          disabled={loading || confirmDisabled}
+        >
           {confirmLabel}
         </Button>
       </DialogActions>
