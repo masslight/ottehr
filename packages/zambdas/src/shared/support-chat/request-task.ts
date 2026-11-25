@@ -1,17 +1,21 @@
 import Oystehr from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Location, Patient, Resource, Schedule, Task } from 'fhir/r4b';
+import { Appointment, Location, Patient, Practitioner, Reference, Resource, Schedule, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { TASK_INPUT_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
+import { TASK_INPUT_SYSTEM, TASK_LOCATION_SYSTEM, TIMEZONE_EXTENSION_URL } from 'utils/lib/fhir/constants';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
 import { getFullestAvailableName } from 'utils/lib/fhir/patient';
+import { getAttendingPractitionerId } from 'utils/lib/fhir/practitioners';
 import { getPatchOperationForNewMetaTag } from 'utils/lib/fhir/resourcePatch';
 import { getParticipantIdFromAppointment } from 'utils/lib/helpers/helpers';
+import { canBeAssignedAsProvider } from 'utils/lib/types/api/get-employees/get-employees.types';
+import { PROVIDER_NOTIFICATION_TAG_SYSTEM } from 'utils/lib/types/api/practitioner.types';
 import { SUPPORT_CHAT_TOPIC_LABEL, SUPPORT_CHAT_UNREAD_TAG } from 'utils/lib/types/api/support-chat.types';
 import { TIMEZONES } from 'utils/lib/types/constants';
 import { getTaskInputValue, MANUAL_TASK, PATIENT_REQUEST_TASK } from 'utils/lib/types/data/tasks/types';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
-import { createTask } from '../tasks';
+import { getPractitionerRoles } from '../auth';
+import { createOwnerReference, createTask } from '../tasks';
 import { getFhirResources, mapEncountersToAppointmentIds } from '../visits';
 import { PatientRequestCode } from './bot';
 import { makeThreadTag, threadTagSearchParam } from './thread';
@@ -24,6 +28,7 @@ export interface Visit {
   encounterId: string;
   patient: Patient;
   location?: { id: string; name?: string };
+  providerId?: string;
   label: string;
 }
 
@@ -60,6 +65,7 @@ export async function getVisits(oystehr: Oystehr, patients: Patient[]): Promise<
           encounterId: encounter.id!,
           patient,
           location: locationId ? { id: locationId, name: location?.name } : undefined,
+          providerId: getAttendingPractitionerId(encounter),
           label: `${getFullestAvailableName(patient)} ${date.toFormat('MM/dd/yyyy')}`,
         },
       ];
@@ -109,15 +115,70 @@ export const hasUnreadTag = (task: Task): boolean =>
     )
   );
 
+export async function getVisitProviderOwner(
+  oystehr: Oystehr,
+  visit: Visit | undefined
+): Promise<Reference | undefined> {
+  const providerId = visit?.providerId;
+
+  if (!providerId) return undefined;
+
+  try {
+    const [practitioner, roles] = await Promise.all([
+      oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: providerId }),
+      getPractitionerRoles(oystehr, providerId),
+    ]);
+
+    if (roles && !canBeAssignedAsProvider({ roles })) return undefined;
+
+    return createOwnerReference(providerId, getFullestAvailableName(practitioner) ?? '');
+  } catch (error) {
+    console.warn(`Could not resolve provider ${providerId} of visit ${visit.appointmentId}; leaving unassigned`, error);
+    return undefined;
+  }
+}
+
+export function canAutoAssign(task: Task, visits: Visit[]): boolean {
+  if (task.status !== 'ready' && task.status !== 'in-progress') return false;
+  if (!task.owner) return true;
+
+  const linkedVisit = visits.find((visit) => task.encounter?.reference === `Encounter/${visit.encounterId}`);
+
+  return !!linkedVisit?.providerId && task.owner.reference === `Practitioner/${linkedVisit.providerId}`;
+}
+
+export function moveRequestTask(task: Task, next: Task, reassign: boolean): Task {
+  const changeOwner = reassign && task.owner?.reference !== next.owner?.reference;
+  const droppedTagSystems = changeOwner
+    ? [TASK_LOCATION_SYSTEM, PROVIDER_NOTIFICATION_TAG_SYSTEM]
+    : [TASK_LOCATION_SYSTEM];
+  const keptTags = (task.meta?.tag ?? []).filter((tag) => !droppedTagSystems.includes(tag.system ?? ''));
+
+  const addedTags = (next.meta?.tag ?? []).filter(
+    (tag) => !keptTags.some((kept) => kept.system === tag.system && kept.code === tag.code)
+  );
+
+  return {
+    ...task,
+    description: next.description,
+    encounter: next.encounter,
+    location: next.location,
+    input: next.input,
+    ...(changeOwner ? { owner: next.owner, status: next.status } : {}),
+    meta: { ...task.meta, tag: [...keptTags, ...addedTags] },
+  };
+}
+
 export function buildRequestTask(input: {
   code: PatientRequestCode;
   threadId: string;
   patient: Patient;
   visit?: Visit;
+  owner?: Reference;
   text?: string;
   details?: string;
 }): Task {
-  const { code, threadId, patient, visit, text, details } = input;
+  const { code, threadId, patient, visit, owner, text, details } = input;
   const patientName = getFullestAvailableName(patient) ?? '';
   const title = buildRequestTitle(code, visit?.label ?? patientName, text);
 
@@ -138,7 +199,7 @@ export function buildRequestTask(input: {
 
   task.meta!.tag!.push(makeThreadTag(threadId), SUPPORT_CHAT_UNREAD_TAG);
 
-  return task;
+  return owner ? { ...task, owner, status: 'in-progress' } : task;
 }
 
 export function getAttachOperations(task: Task, text: string): Operation[] {
