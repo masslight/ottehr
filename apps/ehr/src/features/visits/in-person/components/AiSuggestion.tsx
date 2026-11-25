@@ -338,31 +338,26 @@ export default function AiSuggestion({
       if (termsToSearch.length === 0) return [];
       const maxPerTerm = Math.max(5, Math.floor(15 / termsToSearch.length));
 
-      const resultsPerTerm = await Promise.all(
-        termsToSearch.map(async (term): Promise<SearchResult[]> => {
-          if (fieldType === 'medications' && oystehr) {
-            return await oystehr.erx.searchMedications({ name: term });
-          } else if (fieldType === 'allergies' && oystehr) {
-            return await oystehr.erx.searchAllergens({ name: term });
-          } else if (fieldType === 'conditions' && oystehr) {
-            const response = await oystehr.terminology.searchIcd10({
-              query: term,
-              searchType: 'all',
-              includeSynonyms: true,
-              specialty: ['urgent-care'],
-              limit: 100,
-            });
-            return (response.codes || []).map((c) => ({ name: c.display, code: c.code }));
-          } else if (fieldType === 'surgicalHistory') {
-            return filterStaticOptions(SURGICAL_HISTORY_OPTIONS, term);
-          } else if (fieldType === 'episodeOfCare') {
-            return filterStaticOptions(HospitalizationOptions, term);
-          }
-          return [];
-        })
-      );
-
-      for (const results of resultsPerTerm) {
+      for (const term of termsToSearch) {
+        let results: SearchResult[] = [];
+        if (fieldType === 'medications' && oystehr) {
+          results = await oystehr.erx.searchMedications({ name: term });
+        } else if (fieldType === 'allergies' && oystehr) {
+          results = await oystehr.erx.searchAllergens({ name: term });
+        } else if (fieldType === 'conditions' && oystehr) {
+          const response = await oystehr.terminology.searchIcd10({
+            query: term,
+            searchType: 'all',
+            includeSynonyms: true,
+            specialty: ['urgent-care'],
+            limit: 100,
+          });
+          results = (response.codes || []).map((c) => ({ name: c.display, code: c.code }));
+        } else if (fieldType === 'surgicalHistory') {
+          results = filterStaticOptions(SURGICAL_HISTORY_OPTIONS, term);
+        } else if (fieldType === 'episodeOfCare') {
+          results = filterStaticOptions(HospitalizationOptions, term);
+        }
         let added = 0;
         for (const r of results) {
           if (added >= maxPerTerm) break;

@@ -11,6 +11,7 @@ import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { lambdaResponse } from '../../../shared/lambda';
 import { wrapHandler } from '../../../shared/sentry';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -46,10 +47,12 @@ export const index = wrapHandler('payment-list', async (input: ZambdaInput): Pro
 
   const stripeClient = getStripeClient(secrets);
 
-  const [stripeAccount, accountResources] = await Promise.all([
+  const [stripeAccountResult, accountResourcesResult] = await Promise.allSettled([
     getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient),
     getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient),
   ]);
+  const stripeAccount = settledValueOrThrow(stripeAccountResult);
+  const accountResources = settledValueOrThrow(accountResourcesResult);
   const account: Account | undefined = accountResources.account;
 
   if (!account?.id) {
