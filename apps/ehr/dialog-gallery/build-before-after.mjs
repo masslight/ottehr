@@ -1,6 +1,6 @@
 // Builds the before/after review page from shots-before/ and shots/.
 // Usage (from apps/ehr):  node dialog-gallery/build-before-after.mjs [outDir]
-// Output: <outDir>/index.html, <outDir>/before/*.png, <outDir>/after/*.png, <outDir>/files-*.json
+// Output: <outDir>/index.html, <outDir>/b/*.png (before), <outDir>/a/*.png (after), <outDir>/files-*.json
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -10,8 +10,7 @@ const beforeDir = path.join(here, 'shots-before');
 const afterDir = path.join(here, 'shots');
 const outDir = path.resolve(process.argv[2] ?? path.join(here, 'before-after-out'));
 fs.rmSync(outDir, { recursive: true, force: true });
-fs.mkdirSync(path.join(outDir, 'before'), { recursive: true });
-fs.mkdirSync(path.join(outDir, 'after'), { recursive: true });
+fs.mkdirSync(outDir, { recursive: true });
 
 const load = (dir) => {
   const map = new Map();
@@ -46,9 +45,14 @@ const AREA = {
   'telemed-call-rcm': 'telemed call + RCM',
 };
 
-const side = (e, dir, sub) => {
+// Published image names are short sequence numbers (b/007.png, a/007.png): hundreds of files have to
+// be listed by path when the page is published.
+let seq = 0;
+const side = (e, dir, sub, n) => {
   if (!e) return null;
-  fs.copyFileSync(path.join(dir, e.shot), path.join(outDir, sub, e.shot));
+  const name = `${sub[0]}/${String(n).padStart(3, '0')}.png`;
+  fs.mkdirSync(path.join(outDir, sub[0]), { recursive: true });
+  fs.copyFileSync(path.join(dir, e.shot), path.join(outDir, name));
   const m = e.measured;
   const footer = m.buttons.filter((b) => b.inActions);
   const buttons = (footer.length ? footer : m.buttons)
@@ -56,7 +60,7 @@ const side = (e, dir, sub) => {
     .sort((a, b) => a.x - b.x)
     .map((b) => ({ label: b.label || '(icon)', variant: b.variant, color: b.color.toLowerCase() }));
   return {
-    shot: `${sub}/${e.shot}`,
+    shot: name,
     w: m.paper.width,
     h: m.paper.height,
     title: m.title ? m.title.text : '',
@@ -72,8 +76,10 @@ for (const id of ids) {
   const b = before.get(id);
   const a = after.get(id);
   const meta = a ?? b;
-  const bs = side(b, beforeDir, 'before');
-  const as = side(a, afterDir, 'after');
+  seq += 1;
+  const bs = side(b, beforeDir, 'before', seq);
+  // A dialog kept as is shows only its one picture.
+  const as = kept[id] && b ? null : side(a, afterDir, 'after', seq);
   const labels = (s) => (s ? s.buttons.map((x) => x.label).join(' | ') : '');
   const migrated = Boolean(a && a.base === 'AppDialog');
   const status = kept[id] ? 'kept' : !bs ? 'new' : !as ? 'removed' : migrated ? 'migrated' : 'not-migrated';

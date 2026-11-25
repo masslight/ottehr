@@ -1,6 +1,6 @@
 {
-  "components/AppointmentTableRowMobile.statusTime": "The design proposal lists this as not a standard dialog (Mobile read-only pop-up on the tracking board: outside the dialog standard, keep as is.).",
-  "components/ReasonForVisit": "The design proposal lists this as not a standard dialog (Mobile read-only pop-up on the tracking board: outside the dialog standard, keep as is.).",
+  "components/AppointmentTableRowMobile.statusTime": "The design proposal lists this as not a standard dialog ; it is a mobile read-only pop-up on the tracking board.",
+  "components/ReasonForVisit": "The design proposal lists this as not a standard dialog ; it is a mobile read-only pop-up on the tracking board.",
   "dialogs/CardErrorDialog": "This is a patient-intake component from the shared ui-components package, not an EHR dialog.",
   "features-a/ChatModal": "The design proposal lists this as not a standard dialog; it keeps its own layout.",
   "features-a/EmployeeChatDrawer.conversation": "The design proposal lists this as not a standard dialog; it keeps its own layout.",

@@ -147,7 +147,7 @@ const SHOWS = [
   ['title', 'Title changed', (i) => i.titleChanged],
   ['buttons', 'Buttons changed', (i) => i.buttonsChanged],
   ['new', 'Was a browser prompt', (i) => i.status === 'new'],
-  ['open', 'Kept or not migrated', (i) => i.status === 'kept' || i.status === 'not-migrated' || i.status === 'removed'],
+  ['open', 'Kept or removed', (i) => i.status === 'kept' || i.status === 'not-migrated' || i.status === 'removed'],
 ];
 const state = { show: 'all', group: 'area', q: '' };
 const items = DATA.items;
@@ -226,7 +226,7 @@ $('groupby').onchange = (e) => { state.group = e.target.value; render(); };
 $('q').oninput = (e) => { state.q = e.target.value.trim(); render(); };
 
 const n = (s) => items.filter((i) => i.status === s).length;
-$('lede').replaceChildren(el('b', {}, `${items.length} dialogs`), `: ${n('migrated')} moved to the standard shell, ${n('new')} that used to be browser prompts, ${n('kept')} deliberately kept as they are` + (n('not-migrated') + n('removed') ? `, ${n('not-migrated') + n('removed')} still open` : '') + `. Each row states the title and button changes in words, then shows the old and new dialog at the same scale. Title or button text was changed on ${items.filter((i) => i.titleChanged || i.buttonsChanged).length} of them. Captured ${DATA.builtAt}.`);
+$('lede').replaceChildren(el('b', {}, `${items.length} dialogs`), `: ${n('migrated')} moved to the standard shell, ${n('new')} that used to be browser prompts, ${n('kept')} deliberately kept as they are, and ${n('removed')} shared wrappers that were deleted` + (n('not-migrated') ? `; ${n('not-migrated')} are not migrated yet` : '') + `. Each row states the title and button changes in words, then shows the old and new dialog at the same scale. Title or button text was changed on ${items.filter((i) => i.titleChanged || i.buttonsChanged).length} of them. Captured ${DATA.builtAt}.`);
 $('foot').textContent = 'Titles and button labels are read from the rendered dialogs. Button outlines: solid = filled or outlined button, dashed = text button. Select a picture to see it at full size.';
 render();
 </script>
