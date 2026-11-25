@@ -1,8 +1,8 @@
 {
   "name": "Tdap (adult / adolescent ≥7 yo)",
   "vaccine": {
-    "id": "0aea8ebf-525d-44b3-95ed-e1c664a446d8",
-    "name": "Tdap (Tetanus, Diphtheria, Pertussis)"
+    "id": "115",
+    "name": "Tdap"
   },
   "dose": "0.5",
   "units": "ml",

@@ -18,7 +18,7 @@ import {
   medicationApplianceLocations,
   medicationApplianceRoutes,
 } from 'utils/lib/types/api/medication-administration.types';
-import vaccines from '../../../../../../config/oystehr/vaccines.json';
+import { findCvxVaccine } from 'utils/lib/types/data/immunization/cvx-vaccine-lookup';
 
 interface VaccineInfo {
   vaccine: string;
@@ -43,15 +43,16 @@ interface AdministrationDetails {
   visGivenDate: string;
 }
 
-const vaccineKeys = Object.keys(vaccines.fhirResources);
-// Clamp to the available vaccines: an instance may configure only a single vaccine, in which case
-// the administration tests reuse it (the locators tolerate the resulting duplicate MAR and
-// progress-note entries). When more vaccines exist, each test gets a distinct one.
-const vaccineNameAt = (index: number): string =>
-  vaccines.fhirResources[vaccineKeys[Math.min(index, vaccineKeys.length - 1)] as keyof typeof vaccines.fhirResources]
-    ?.resource.identifier[1].value;
+const vaccineName = (cvx: string): string => {
+  const vaccine = findCvxVaccine(cvx);
+  if (!vaccine) throw new Error(`CVX ${cvx} is not in the vaccine list`);
+  return vaccine.name;
+};
 
-const vaccine = vaccineNameAt(0);
+// MAR rows are matched by a substring of the vaccine name, so none of these names may contain another
+const [TDAP, VARICELLA, HEP_A_ADULT] = ['115', '21', '52'].map(vaccineName);
+
+const vaccine = TDAP;
 
 const DIAGNOSIS_CODE_ONE = 'J45.901';
 const DIAGNOSIS_CODE_TWO = 'J45.991';
@@ -79,11 +80,10 @@ const EDITED_VACCINE: VaccineInfo = {
 };
 
 // The administration tests share one appointment, so the orders they leave behind accumulate on the
-// MAR and the progress note. Each uses a distinct vaccine where the instance configures enough of
-// them, which keeps the list entries unique.
-const ADMINISTERED_VACCINE: VaccineInfo = { ...VACCINE, vaccine: vaccineNameAt(0) };
-const PARTLY_ADMINISTERED_VACCINE: VaccineInfo = { ...VACCINE, vaccine: vaccineNameAt(1) };
-const NOT_ADMINISTERED_VACCINE: VaccineInfo = { ...VACCINE, vaccine: vaccineNameAt(2) };
+// MAR and the progress note. Each uses a distinct vaccine, which keeps the list entries unique.
+const ADMINISTERED_VACCINE: VaccineInfo = { ...VACCINE, vaccine: TDAP };
+const PARTLY_ADMINISTERED_VACCINE: VaccineInfo = { ...VACCINE, vaccine: VARICELLA };
+const NOT_ADMINISTERED_VACCINE: VaccineInfo = { ...VACCINE, vaccine: HEP_A_ADULT };
 
 const ADMINISTRATION_DETAILS: AdministrationDetails = {
   lotNumber: '1234567',
@@ -200,8 +200,6 @@ async function getCurrentPractitionerName(resourceHandler: ResourceHandler): Pro
  * Keeping it in its own describe also lets it run in parallel with the administration tests.
  */
 test.describe('Immunization order lifecycle', () => {
-  test.skip(!vaccineKeys.length, 'Need vaccines to run immunization tests');
-
   const resourceHandler = new ResourceHandler(`immunization-lifecycle-${DateTime.now().toMillis()}`);
   let context: BrowserContext | undefined;
   let page: Page;
@@ -266,7 +264,6 @@ test.describe('Immunization order lifecycle', () => {
  * and each creates its own order, identified on the MAR by vaccine plus status.
  */
 test.describe('Immunization administration outcomes', () => {
-  test.skip(!vaccineKeys.length, 'Need vaccines to run immunization tests');
   test.describe.configure({ mode: 'serial' });
 
   const resourceHandler = new ResourceHandler(`immunization-administration-${DateTime.now().toMillis()}`);

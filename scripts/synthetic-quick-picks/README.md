@@ -12,15 +12,15 @@ scripts/synthetic-quick-picks/
 ├── synthesize-quick-picks.ts                       # generic runner; --type <category>
 ├── bootstrap-allergy-examples.ts                   # eRx-lookup bootstraps (write the JSONs
 ├── bootstrap-medication-history-examples.ts        # below from external coding systems +
-├── bootstrap-immunization-examples.ts              # project-local Medication FHIR ids;
-├── bootstrap-in-house-medication-examples.ts       # one per category that needs lookups)
+├── bootstrap-in-house-medication-examples.ts       # project-local Medication FHIR ids;
+│                                                   # one per category that needs lookups)
 ├── examples/
 │   ├── procedures/                                 # 32 picks; idempotent on name
 │   ├── medical-conditions/                         # 47 picks; idempotent on display
 │   ├── radiology/                                  # 22 picks; idempotent on name
 │   ├── allergies/                                  # 26 picks; needs allergyId from eRx
 │   ├── medication-history/                         # 31 picks; needs medicationId from eRx
-│   ├── immunizations/                              # 3 picks; needs vaccine.id from project FHIR
+│   ├── immunizations/                              # 3 picks; vaccine.id is a CVX code from CVX_VACCINES
 │   └── in-house-medications/                       # 12 picks; needs medicationId from project FHIR
 └── README.md
 ```
@@ -99,11 +99,6 @@ npx env-cmd -f packages/zambdas/.env/<env>.json \
 npx env-cmd -f packages/zambdas/.env/<env>.json \
   npx tsx scripts/synthetic-quick-picks/bootstrap-medication-history-examples.ts --execute
 
-# Immunization: resolves vaccine names → project-local Medication FHIR ids
-# (Medications tagged virtual-medication-type|virtual-vaccine-inventory)
-npx env-cmd -f packages/zambdas/.env/<env>.json \
-  npx tsx scripts/synthetic-quick-picks/bootstrap-immunization-examples.ts --execute
-
 # In-house medication: resolves med names → project-local Medication FHIR ids
 # (Medications tagged virtual-medication-type|virtual-medication-inventory)
 npx env-cmd -f packages/zambdas/.env/<env>.json \
@@ -114,12 +109,13 @@ Each bootstrap prints its resolution table and refuses to write JSON for entries
 
 ### Project-local catalog dependencies
 
-Two categories are bounded by what the target project already has:
+In-house medication is bounded by what the target project already has:
 
-- **Immunization**: needs vaccine `Medication` resources tagged `virtual-medication-type|virtual-vaccine-inventory`. The Ottehr IaC ships only 3 (Tdap / DTaP / Td — see `config/oystehr/vaccines.json`). To get more picks, expand that config and redeploy first.
 - **In-house medication**: needs in-house `Medication` resources tagged `virtual-medication-type|virtual-medication-inventory`. Synth has 12; bootstrap script targets all 12.
 
-The bootstraps reuse the project-local Medication FHIR ids that are already there. To add picks, add Medications first.
+The bootstrap reuses the project-local Medication FHIR ids that are already there. To add picks, add Medications first.
+
+Immunization picks need no lookup: `vaccine` is `{ id: <CVX code>, name: <its name> }` from `CVX_VACCINES` (`packages/utils/lib/types/data/immunization/cvx-vaccines.generated.ts`), so the JSONs work on any project.
 
 ## Where the picks land in the EHR
 
@@ -131,7 +127,7 @@ The bootstraps reuse the project-local Medication FHIR ids that are already ther
 
 1. Drop a new file in `examples/<category>/<short-kebab-name>.json` matching the category's payload shape. The Zod schema in `schema.ts` lists the valid enum values for every constrained field.
 2. For static-content categories: if the JSON references a code not in the corresponding `config/oystehr/*-*.json` ValueSet, either add the entry to the ValueSet (and deploy via IaC) or use the category's free-text override field (e.g., procedure's `otherSuppliesUsed`).
-3. For lookup-driven categories: add the spec to the corresponding `bootstrap-*-examples.ts` MEDS / VACCINES / ALLERGENS list and re-run the bootstrap to (re)write the JSON.
+3. For lookup-driven categories: add the spec to the corresponding `bootstrap-*-examples.ts` MEDS / ALLERGENS list and re-run the bootstrap to (re)write the JSON.
 4. Dry-run to verify schema validation, then execute against the target project.
 
 ## Adding a new category
