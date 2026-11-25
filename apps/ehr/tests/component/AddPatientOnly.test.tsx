@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { enqueueSnackbar } from 'notistack';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createPatient } from '../../src/api/api';
+import { checkDuplicatePatients, createPatient } from '../../src/api/api';
 import { dataTestIds } from '../../src/constants/data-test-ids';
 import AddPatient from '../../src/pages/AddPatient';
 
@@ -21,6 +21,7 @@ vi.mock('notistack', () => ({
 vi.mock('../../src/api/api', async () => ({
   ...(await vi.importActual('../../src/api/api')),
   createPatient: vi.fn(),
+  checkDuplicatePatients: vi.fn(),
   listServiceCategories: vi.fn().mockResolvedValue({ serviceCategories: [] }),
 }));
 
@@ -83,6 +84,7 @@ describe('Add Patient: a patient without a visit', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(checkDuplicatePatients).mockResolvedValue({ candidates: [] });
     vi.mocked(useNavigate).mockReturnValue(navigateMock);
   });
 
@@ -180,4 +182,88 @@ describe('Add Patient: a patient without a visit', () => {
     await waitFor(() => expect(enqueueSnackbar).toHaveBeenCalledWith('First name is required', { variant: 'error' }));
     expect(navigateMock).not.toHaveBeenCalled();
   }, 10000);
+
+  describe('duplicate check', () => {
+    const duplicate = {
+      patientId: 'dup-1',
+      firstName: 'John',
+      lastName: 'Doe',
+      dateOfBirth: '2000-01-01',
+      sex: 'male',
+    };
+
+    it('warns before creating a patient who matches an existing one, and creates nothing yet', async () => {
+      vi.mocked(checkDuplicatePatients).mockResolvedValue({ candidates: [duplicate] } as any);
+      const user = userEvent.setup();
+      renderAt('/patients/add');
+      await enterNewPatient(user);
+
+      await user.click(screen.getByTestId(dataTestIds.addPatientPage.addButton));
+
+      expect(await screen.findByText('Patient may already exist')).toBeVisible();
+      expect(createPatient).not.toHaveBeenCalled();
+    }, 10000);
+
+    it('opens the selected existing patient instead of creating one', async () => {
+      vi.mocked(checkDuplicatePatients).mockResolvedValue({ candidates: [duplicate] } as any);
+      const user = userEvent.setup();
+      renderAt('/patients/add');
+      await enterNewPatient(user);
+      await user.click(screen.getByTestId(dataTestIds.addPatientPage.addButton));
+      await screen.findByText('Patient may already exist');
+
+      await user.click(screen.getByRole('radio'));
+      await user.click(screen.getByRole('button', { name: 'Use existing patient' }));
+
+      expect(navigateMock).toHaveBeenCalledWith('/patient/dup-1');
+      expect(createPatient).not.toHaveBeenCalled();
+    }, 10000);
+
+    it('creates the patient once staff confirm this is a different person', async () => {
+      vi.mocked(checkDuplicatePatients).mockResolvedValue({ candidates: [duplicate] } as any);
+      vi.mocked(createPatient).mockResolvedValue({ patientId: 'new-patient' });
+      const user = userEvent.setup();
+      renderAt('/patients/add');
+      await enterNewPatient(user);
+      await user.click(screen.getByTestId(dataTestIds.addPatientPage.addButton));
+      await screen.findByText('Patient may already exist');
+
+      await user.click(screen.getByRole('button', { name: 'This is a different person' }));
+
+      await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/patient/new-patient/info'));
+      expect(createPatient).toHaveBeenCalledTimes(1);
+      expect(checkDuplicatePatients).toHaveBeenCalledTimes(1);
+    }, 10000);
+
+    it('does not create the patient when the lookup fails until staff choose to continue', async () => {
+      vi.mocked(checkDuplicatePatients).mockRejectedValue(new Error('boom'));
+      vi.mocked(createPatient).mockResolvedValue({ patientId: 'new-patient' });
+      const user = userEvent.setup();
+      renderAt('/patients/add');
+      await enterNewPatient(user);
+
+      await user.click(screen.getByTestId(dataTestIds.addPatientPage.addButton));
+
+      expect(await screen.findByText("Couldn't check for existing patients")).toBeVisible();
+      expect(createPatient).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole('button', { name: 'Continue without checking' }));
+      await waitFor(() => expect(createPatient).toHaveBeenCalledTimes(1));
+    }, 10000);
+
+    it('checks again when staff pick Try again after a failed lookup', async () => {
+      vi.mocked(checkDuplicatePatients).mockRejectedValueOnce(new Error('boom'));
+      vi.mocked(createPatient).mockResolvedValue({ patientId: 'new-patient' });
+      const user = userEvent.setup();
+      renderAt('/patients/add');
+      await enterNewPatient(user);
+      await user.click(screen.getByTestId(dataTestIds.addPatientPage.addButton));
+      await screen.findByText("Couldn't check for existing patients");
+
+      await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+      await waitFor(() => expect(createPatient).toHaveBeenCalledTimes(1));
+      expect(checkDuplicatePatients).toHaveBeenCalledTimes(2);
+    }, 10000);
+  });
 });
