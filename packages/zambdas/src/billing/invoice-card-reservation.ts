@@ -66,6 +66,7 @@ export async function settleOtherCardReservation({
         stripeAccount,
         customerId,
         createdFrom: reservedAt.minus({ minutes: 1 }),
+        invoiceId,
         paymentId: reservation.paymentId,
       })
     : undefined;
@@ -109,12 +110,14 @@ async function findPaymentIntentForPayment({
   stripeAccount,
   customerId,
   createdFrom,
+  invoiceId,
   paymentId,
 }: {
   stripe: Stripe;
   stripeAccount: string | undefined;
   customerId: string;
   createdFrom: DateTime;
+  invoiceId: string;
   paymentId: string;
 }): Promise<Stripe.PaymentIntent | undefined> {
   let startingAfter: string | undefined;
@@ -137,7 +140,11 @@ async function findPaymentIntentForPayment({
         stripeAccount,
       }
     );
-    const found = page.data.find((intent) => intent.metadata?.[STRIPE_METADATA_KEYS.invoicePaymentId] === paymentId);
+    const found = page.data.find(
+      (intent) =>
+        intent.metadata?.[STRIPE_METADATA_KEYS.invoiceId] === invoiceId &&
+        intent.metadata?.[STRIPE_METADATA_KEYS.invoicePaymentId] === paymentId
+    );
     if (found) return found;
     startingAfter = page.data.at(-1)?.id;
     hasMore = page.has_more && startingAfter !== undefined;

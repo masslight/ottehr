@@ -238,7 +238,7 @@ describe('charge-billing-nio-invoice-card', () => {
       }),
       {
         stripeAccount: STRIPE_ACCOUNT,
-        idempotencyKey: `nio-invoice-payment-${PAYMENT_ID}`,
+        idempotencyKey: `nio-invoice-payment-${INVOICE_ID}-${PAYMENT_ID}`,
       }
     );
   });

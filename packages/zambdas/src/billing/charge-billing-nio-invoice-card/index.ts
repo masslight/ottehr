@@ -136,7 +136,7 @@ export async function performEffect({
       },
       {
         stripeAccount,
-        idempotencyKey: `nio-invoice-payment-${paymentId}`,
+        idempotencyKey: `nio-invoice-payment-${invoiceId}-${paymentId}`,
       }
     );
   } catch (error) {

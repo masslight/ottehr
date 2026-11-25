@@ -153,6 +153,7 @@ const otherIntent = (status: Stripe.PaymentIntent.Status): Partial<Stripe.Paymen
   amount: 18000,
   created: NOW.minus({ minutes: 10 }).toUnixInteger(),
   metadata: {
+    [STRIPE_METADATA_KEYS.invoiceId]: INVOICE_ID,
     [STRIPE_METADATA_KEYS.invoicePaymentId]: OTHER_PAYMENT_ID,
   },
 });
@@ -232,6 +233,26 @@ describe('settleOtherCardReservation', () => {
       }
     );
     expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores another invoice's charge under the same payment id", async () => {
+    const { oystehr, stripe, transaction, patch } = setup({
+      invoice: reservedInvoice(NOW.minus({ minutes: 10 })),
+      paymentIntents: [
+        {
+          ...otherIntent('succeeded'),
+          metadata: {
+            [STRIPE_METADATA_KEYS.invoiceId]: 'other-invoice',
+            [STRIPE_METADATA_KEYS.invoicePaymentId]: OTHER_PAYMENT_ID,
+          },
+        },
+      ],
+    });
+
+    await settle(oystehr, stripe);
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(patch).toHaveBeenCalledTimes(1);
   });
 
   it('refuses while the reserved charge is processing', async () => {
