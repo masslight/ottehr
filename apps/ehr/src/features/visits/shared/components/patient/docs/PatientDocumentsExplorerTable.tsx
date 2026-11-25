@@ -213,7 +213,7 @@ const DocActionsCell: FC<{ docInfo: PatientDocumentInfo; actions: DocumentTableA
         open={isDeleteDialogOpen}
         onClose={handleDeleteDialogClose}
         title="Delete Document"
-        primary={{ label: 'Delete', onClick: () => void handleDeleteSubmit(), loading: deleteLoading }}
+        primary={{ label: 'Delete Document', onClick: () => void handleDeleteSubmit(), loading: deleteLoading }}
       >
         {`"${docInfo.docName}" will be permanently deleted. This action cannot be undone.`}
       </AppDialog>

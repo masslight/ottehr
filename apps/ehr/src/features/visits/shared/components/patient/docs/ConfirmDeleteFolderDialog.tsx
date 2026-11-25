@@ -44,7 +44,7 @@ export const ConfirmDeleteFolderDialog: FC<ConfirmDeleteFolderDialogProps> = ({
       open={open}
       onClose={onClose}
       title="Delete Folder"
-      primary={{ label: 'Delete', onClick: () => void handleConfirm(), loading: isSubmitting }}
+      primary={{ label: 'Delete Folder', onClick: () => void handleConfirm(), loading: isSubmitting }}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         <Box>

@@ -225,7 +225,7 @@ const CardThumbnail: React.FC<CardThumbnailProps> = ({
           // FROM that preview, so it needs to sit one layer above it in turn, or it renders hidden behind it.
           zIndex={theme.zIndex.modal + 2}
           primary={{
-            label: 'Remove',
+            label: 'Remove Image',
             loading: confirmDeleteFace !== null && deletingFileId === faceDocRefId(confirmDeleteFace),
             onClick: async () => {
               if (confirmDeleteFace === null) return;

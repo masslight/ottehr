@@ -141,7 +141,7 @@ const el = (tag, attrs = {}, ...kids) => {
   for (const k of kids.flat()) if (k != null && k !== false) n.append(k.nodeType ? k : document.createTextNode(k));
   return n;
 };
-const STATUS = { migrated: 'Migrated', new: 'Was a browser prompt', kept: 'Kept as is', 'not-migrated': 'Not migrated', removed: 'Removed' };
+const STATUS = { migrated: 'Migrated', new: 'Was a browser prompt', kept: 'Kept as is', 'not-migrated': 'Not migrated', removed: 'Wrapper removed' };
 const SHOWS = [
   ['all', 'All', () => true],
   ['title', 'Title changed', (i) => i.titleChanged],
@@ -186,7 +186,7 @@ function card(i) {
   if (i.after && i.status !== 'kept') pair.push(figure(i.after, 'After', i));
   const note = i.keptWhy ? el('div', { class: 'note' }, el('b', {}, 'Kept as is. '), i.keptWhy)
     : i.status === 'not-migrated' ? el('div', { class: 'note' }, el('b', {}, 'Not migrated. '), 'This dialog still uses its old base.')
-    : i.status === 'removed' ? el('div', { class: 'note' }, el('b', {}, 'Removed. '), 'This story has no “after” picture.') : null;
+    : i.status === 'removed' ? el('div', { class: 'note' }, el('b', {}, 'Wrapper removed. '), 'Nothing uses this shared wrapper any more; its callers render the standard shell directly.') : null;
   return el('article', {},
     el('div', { class: 'head' }, el('h3', {}, i.name), el('span', { class: 'chip' }, i.kind), i.status !== 'migrated' ? el('span', { class: 'chip plain' }, STATUS[i.status]) : null, el('span', { class: 'src' }, i.source.replace('apps/ehr/src/', ''))),
     i.status === 'kept' ? null : copyBlock(i), note,

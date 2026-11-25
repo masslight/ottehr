@@ -25,7 +25,7 @@ export default function EMCodeDeleteDialog({ code, onClose }: EMCodeDeleteDialog
       title="Delete E&M Code"
       data-testid={dataTestIds.emCodesAdminPage.confirmDeleteDialog}
       primary={{
-        label: 'Delete',
+        label: 'Delete Code',
         onClick: handleConfirm,
         loading: deleteMutation.isPending,
         'data-testid': dataTestIds.emCodesAdminPage.confirmDeleteButton,

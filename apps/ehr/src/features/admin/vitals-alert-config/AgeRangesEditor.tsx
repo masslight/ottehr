@@ -206,7 +206,7 @@ export const AgeRangesEditor = ({
           onClose={() => setRemoveIndex(null)}
           title="Remove This Age Range?"
           primary={{
-            label: 'Remove',
+            label: 'Remove Age Range',
             onClick: () => {
               try {
                 onRemove(removeIndex);

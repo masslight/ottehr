@@ -352,7 +352,7 @@ export const ServiceCategoriesAdminPage: FC = () => {
       const confirmed = await confirmDestructive({
         title: 'Deactivate Service Category?',
         body: 'Existing appointments stay intact; new bookings stop.',
-        confirmLabel: 'Deactivate',
+        confirmLabel: 'Deactivate Category',
       });
       if (!confirmed) return;
       try {

@@ -51,14 +51,6 @@ vi.mock('../../src/features/visits/shared/components/Loader', () => ({
   Loader: () => <div />,
 }));
 
-vi.mock('../../src/components/dialogs/DeleteDialog', () => ({
-  default: () => <div />,
-}));
-
-vi.mock('../../src/features/visits/in-person/components/InPersonModal', () => ({
-  InPersonModal: () => <div />,
-}));
-
 vi.mock('../../src/features/visits/in-person/components/medication-administration/InteractionAlertsDialog', () => ({
   InteractionAlertsDialog: () => <div />,
 }));

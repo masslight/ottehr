@@ -229,7 +229,7 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
           open={deleteOpen}
           onClose={() => setDeleteOpen(false)}
           title="Delete This Contact?"
-          primary={{ label: 'Delete', onClick: confirmDelete }}
+          primary={{ label: 'Delete Contact', onClick: confirmDelete }}
         >
           {`${addressBookContactLabel(contact)} will be removed from the address book.`}
         </AppDialog>

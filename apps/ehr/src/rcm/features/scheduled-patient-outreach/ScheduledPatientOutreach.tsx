@@ -1742,7 +1742,7 @@ export default function ScheduledPatientOutreach({ outreachTab }: { outreachTab?
             onClose={() => setDeleteConfirmAction(null)}
             title="Delete Outreach Action"
             primary={{
-              label: 'Delete',
+              label: 'Delete Action',
               onClick: () => {
                 if (deleteConfirmAction) {
                   deleteAction(deleteConfirmAction.id);

@@ -99,7 +99,7 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
         open={isDeleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         title="Delete Medication"
-        primary={{ label: 'Delete', onClick: handleConfirmDelete, loading: isDeleting }}
+        primary={{ label: 'Delete Medication', onClick: handleConfirmDelete, loading: isDeleting }}
       >
         <span data-testid={dataTestIds.dialog.message}>
           {`Are you sure you want to delete the medication "${medication.medicationName}"?`}

@@ -427,7 +427,7 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
         title="Deactivate Schedule?"
         busy={setActive.isPending}
         primary={{
-          label: 'Deactivate',
+          label: 'Deactivate Schedule',
           disabled: setActive.isPending,
           onClick: () => {
             if (pendingDeactivate?.role.id) setActive.mutate({ roleId: pendingDeactivate.role.id, active: false });

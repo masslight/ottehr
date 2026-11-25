@@ -1,0 +1,15 @@
+{
+  "telemed-admin/DmeQuickPicksPage.confirmRemove": "Remove quick pick \"{name}\"?",
+  "telemed-admin/ImmunizationQuickPicksPage.confirmRemove": "Remove quick pick \"{name}\"?",
+  "telemed-admin/InHouseMedicationQuickPicksPage.confirmRemove": "Remove quick pick \"{name}\"?",
+  "telemed-admin/InsuranceQuickPickPage.confirmRemove": "Remove quick pick \"{name}\"?",
+  "telemed-admin/ProcedureQuickPicksPage.confirmRemove": "Remove quick pick \"{name}\"?",
+  "telemed-admin/RadiologyQuickPicksPage.confirmRemove": "Delete quick pick \"{name}\"?",
+  "telemed-admin/QuickPickEditor.allergy.confirmRemove": "Remove Quick Pick \"{name}\"?",
+  "telemed-admin/QuickPickEditor.quickText.confirmRemove": "Remove Quick Text \"{name}\"?",
+  "telemed-admin/PaperworkFlowsAdminPage.confirmDelete": "Delete the \"{name}\" paperwork flow? Services using it will fall back to the default.",
+  "telemed-admin/QuestionnaireAdminPage.confirmDelete": "Are you sure you want to delete this questionnaire?",
+  "pages/ServiceCategoriesAdminPage.deactivate": "Deactivate this service category? Existing appointments stay intact; new bookings stop.",
+  "features-a/PatientEducationAdminPage.deletePdf": "Delete approved PDF for {title}?",
+  "features-a/FormTemplateActionsBar.remove": "Remove \"{title}\"?"
+}

@@ -874,7 +874,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         open={freeFormToDelete !== null}
         onClose={closeDeleteFreeFormDialog}
         title="Delete Free Form"
-        primary={{ label: 'Delete', onClick: () => void confirmDeleteFreeForm(), loading: deletingFreeForm }}
+        primary={{ label: 'Delete Free Form', onClick: () => void confirmDeleteFreeForm(), loading: deletingFreeForm }}
       >
         Are you sure you want to delete this form? This action cannot be undone.
       </AppDialog>

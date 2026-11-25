@@ -335,7 +335,7 @@ export default function GlobalTemplatesAdminPage(): ReactElement {
         open={deleteDialogOpen}
         onClose={handleCloseDeleteDialog}
         title="Delete Template"
-        primary={{ label: 'Delete', onClick: handleDelete, loading: isDeleting }}
+        primary={{ label: 'Delete Template', onClick: handleDelete, loading: isDeleting }}
       >
         Are you sure you want to delete the template <strong>{selectedTemplate?.title}</strong>? This action cannot be
         undone.

@@ -189,7 +189,7 @@ export const PatientFormResponses: FC<PatientFormResponsesProps> = ({ placement,
         open={Boolean(formToDelete)}
         title="Delete Form?"
         onClose={() => setFormToDelete(undefined)}
-        primary={{ label: 'Delete', onClick: () => void deleteForm(), loading: deleting }}
+        primary={{ label: 'Delete Form', onClick: () => void deleteForm(), loading: deleting }}
       >
         {`"${
           formToDelete?.questionnaireTitle ?? 'This form'

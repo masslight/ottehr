@@ -43,7 +43,7 @@ export const CommandPalettePhraseDialog: FC = () => {
         onClose={close}
         title="Delete Phrase?"
         primary={{
-          label: 'Delete',
+          label: 'Delete Phrase',
           loading: isPending,
           onClick: () => void handleDelete().catch(() => undefined),
         }}

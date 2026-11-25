@@ -32,7 +32,7 @@ export const DeleteVitalModal: React.FC<{
       open={open}
       onClose={onClose}
       title="Delete Vital"
-      primary={{ label: 'Delete', onClick: handleDelete }}
+      primary={{ label: 'Delete Vital', onClick: handleDelete }}
       data-testid={dataTestIds.vitalsPage.deleteVitalModal}
     >
       <Box data-testid={dataTestIds.dialog.inPersonModalContent}>
