@@ -1,4 +1,13 @@
-import { Box, FormControlLabel, Grid, Radio, RadioGroup, SxProps, Theme, Typography } from '@mui/material';
+import {
+  Box,
+  FormControlLabel,
+  GridLegacy as Grid,
+  Radio,
+  RadioGroup,
+  SxProps,
+  Theme,
+  Typography,
+} from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { CodeableConceptDataEntryComponent } from 'utils/lib/types/data/in-house/in-house.types';

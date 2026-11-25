@@ -1,5 +1,5 @@
 import { Close, Pause, PlayArrow, Stop } from '@mui/icons-material';
-import { Grid, IconButton, Typography } from '@mui/material';
+import { GridLegacy as Grid, IconButton, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement, useEffect, useRef } from 'react';
 import { RoundedButton } from 'src/components/RoundedButton';

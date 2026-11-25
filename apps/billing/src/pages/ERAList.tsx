@@ -52,7 +52,7 @@ const columns: GridColDef<EraListItem>[] = [
     width: 120,
     align: 'right',
     headerAlign: 'right',
-    valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+    valueFormatter: (value: number) => formatCurrency(value),
   },
   { field: 'payerName', headerName: 'Payer', flex: 1, minWidth: 200 },
   {
@@ -60,13 +60,14 @@ const columns: GridColDef<EraListItem>[] = [
     headerName: 'Billing Provider',
     flex: 1,
     minWidth: 180,
-    valueFormatter: (params: { value: string }) => params.value || '-',
+    valueFormatter: (value: string) => value || '-',
   },
   {
     field: 'source',
     headerName: 'Source',
     width: 170,
-    valueGetter: (params: { row: EraListItem }) => ERA_SOURCE_LABELS[params.row.source] ?? params.row.source,
+    valueGetter: (_value: unknown, row: EraListItem) => ERA_SOURCE_LABELS[row.source] ?? row.source,
+    display: 'flex',
     renderCell: ({ row }) => (
       <Chip
         label={ERA_SOURCE_LABELS[row.source] ?? row.source}
@@ -83,7 +84,8 @@ const columns: GridColDef<EraListItem>[] = [
     width: 140,
     align: 'right',
     headerAlign: 'right',
-    valueGetter: (params: { row: EraListItem }) => claimsMatchedLabel(params.row),
+    valueGetter: (_value: unknown, row: EraListItem) => claimsMatchedLabel(row),
+    display: 'flex',
     renderCell: ({ row }) => (
       <Typography
         variant="body2"

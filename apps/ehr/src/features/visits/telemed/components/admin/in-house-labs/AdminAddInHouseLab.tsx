@@ -1,4 +1,4 @@
-import { Grid, Paper } from '@mui/material';
+import { GridLegacy as Grid, Paper } from '@mui/material';
 import type Oystehr from '@oystehr/sdk';
 import { ReactElement, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';

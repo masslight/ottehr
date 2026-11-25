@@ -1,5 +1,5 @@
 import { Check } from '@mui/icons-material';
-import { capitalize, CircularProgress, Divider, Grid, Typography, useTheme } from '@mui/material';
+import { capitalize, CircularProgress, Divider, GridLegacy as Grid, Typography, useTheme } from '@mui/material';
 import { ReactElement } from 'react';
 
 interface RecordedAudioProps {

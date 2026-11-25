@@ -7,7 +7,6 @@ import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import FormatStrikethroughIcon from '@mui/icons-material/FormatStrikethrough';
 import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { LoadingButton } from '@mui/lab';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Box,
@@ -20,7 +19,7 @@ import {
   DialogTitle,
   Divider,
   FormLabel,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   InputAdornment,
   Paper,
@@ -577,7 +576,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                           {error}
                         </Box>
                       )}
-                      <LoadingButton
+                      <Button
                         variant="contained"
                         color="primary"
                         loading={updatePending}
@@ -592,7 +591,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                         disabled={!formData.name || !formData.effectiveDate}
                       >
                         Save changes
-                      </LoadingButton>
+                      </Button>
                       <Link to={`${BILLING_URL}/${billingSubTab}`}>
                         <Button
                           variant="text"
@@ -629,7 +628,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                       </Typography>
                     )}
                     <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
-                      <LoadingButton
+                      <Button
                         variant={currentDesignation === 'default-insurance' ? 'contained' : 'outlined'}
                         sx={{
                           textTransform: 'none',
@@ -654,8 +653,8 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                         {currentDesignation === 'default-insurance'
                           ? 'Default Insurance Charge Master ✓'
                           : 'Set as Default Insurance Charge Master'}
-                      </LoadingButton>
-                      <LoadingButton
+                      </Button>
+                      <Button
                         variant={currentDesignation === 'self-pay' ? 'contained' : 'outlined'}
                         sx={{
                           textTransform: 'none',
@@ -680,7 +679,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                         {currentDesignation === 'self-pay'
                           ? 'Self-Pay Charge Master ✓'
                           : 'Set as Self-Pay Charge Master'}
-                      </LoadingButton>
+                      </Button>
                     </Box>
                   </Paper>
                 )}
@@ -695,7 +694,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                         : 'This fee schedule uses fee-for-service billing. Each procedure code has its own rate.'}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, mt: 3 }}>
-                      <LoadingButton
+                      <Button
                         variant={isCaseRate ? 'contained' : 'outlined'}
                         sx={{
                           textTransform: 'none',
@@ -724,8 +723,8 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                         disabled={isCaseRate}
                       >
                         {isCaseRate ? 'Case Rate ✓' : 'Switch to Case Rate'}
-                      </LoadingButton>
-                      <LoadingButton
+                      </Button>
+                      <Button
                         variant={!isCaseRate ? 'contained' : 'outlined'}
                         sx={{
                           textTransform: 'none',
@@ -748,7 +747,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                         disabled={!isCaseRate}
                       >
                         {!isCaseRate ? 'Fee-for-Service ✓' : 'Switch to Fee-for-Service'}
-                      </LoadingButton>
+                      </Button>
                     </Box>
                   </Paper>
                 )}
@@ -762,7 +761,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                         ? `When you deactivate this ${entityLabelLower}, it will no longer be available for use.`
                         : `Activate this ${entityLabelLower} to make it available for use.`}
                     </Typography>
-                    <LoadingButton
+                    <Button
                       variant="contained"
                       color={isActive ? 'error' : 'primary'}
                       sx={{
@@ -776,7 +775,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
                       onClick={() => handleStatusChange(isActive ? 'retired' : 'active')}
                     >
                       {isActive ? 'Deactivate' : 'Activate'}
-                    </LoadingButton>
+                    </Button>
                   </Paper>
                 )}
               </TabPanel>
@@ -817,7 +816,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
             <Button onClick={() => setPendingDesignation(null)} sx={{ textTransform: 'none' }}>
               Cancel
             </Button>
-            <LoadingButton
+            <Button
               variant="contained"
               color="warning"
               loading={designatePending}
@@ -830,7 +829,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
               sx={{ textTransform: 'none', fontWeight: 'bold' }}
             >
               Proceed
-            </LoadingButton>
+            </Button>
           </DialogActions>
         </Dialog>
         <Dialog open={pendingCaseRateToggle} onClose={() => setPendingCaseRateToggle(false)} maxWidth="sm" fullWidth>
@@ -848,7 +847,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
             <Button onClick={() => setPendingCaseRateToggle(false)} sx={{ textTransform: 'none' }}>
               Cancel
             </Button>
-            <LoadingButton
+            <Button
               variant="contained"
               color="warning"
               loading={updatePending}
@@ -859,7 +858,7 @@ export default function EditChargeItem({ mode = 'fee-schedule' }: EditChargeItem
               sx={{ textTransform: 'none', fontWeight: 'bold' }}
             >
               Proceed
-            </LoadingButton>
+            </Button>
           </DialogActions>
         </Dialog>
       </>

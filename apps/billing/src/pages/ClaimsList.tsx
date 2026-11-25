@@ -328,7 +328,7 @@ const currencyCol = (field: string, headerName: string, width: number): GridColD
   width,
   align: 'right',
   headerAlign: 'right',
-  valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+  valueFormatter: (value: number) => formatCurrency(value),
 });
 
 const statusColumns: GridColDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
@@ -336,7 +336,8 @@ const statusColumns: GridColDef[] = CLAIM_STATUS_FIELDS.map((field) => ({
   headerName: field.label,
   width: field.key === 'arStage' ? 170 : 160,
   sortable: false,
-  valueGetter: (params) => (params.row as BillingClaimItem).statuses?.[field.key] ?? '',
+  valueGetter: (_value, row: BillingClaimItem) => row.statuses?.[field.key] ?? '',
+  display: 'flex',
   renderCell: ({ value }) => <ClaimStatusValueChip field={field} code={value as string} />,
 }));
 
@@ -351,24 +352,25 @@ const allColumns: GridColDef[] = [
     field: 'type',
     headerName: 'Claim Type',
     minWidth: 130,
-    valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
+    valueFormatter: (value: string) => formatAntCaseString(value),
   },
   {
     field: 'service',
     headerName: 'Service',
     minWidth: 130,
-    valueFormatter: (params: { value: string }) => formatAntCaseString(params.value),
+    valueFormatter: (value: string) => formatAntCaseString(value),
   },
   currencyCol('billed', 'Billed', 100),
   currencyCol('allowed', 'Allowed', 100),
   currencyCol('insurancePaid', 'Insurance Paid', 120),
   {
     ...currencyCol('patientResp', 'Patient Resp', 110),
-    valueFormatter: (params: { value: number | null }) => formatPatientResp(params.value),
+    valueFormatter: (value: number | null) => formatPatientResp(value),
   },
   currencyCol('patientPaid', 'Patient Paid', 110),
   {
     ...currencyCol('claimBalance', 'Claim Balance', 120),
+    display: 'flex',
     renderCell: ({ value, row }) => {
       const hint = provisionalBalanceHint(row as BillingClaimItem);
       return (

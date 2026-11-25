@@ -1,5 +1,4 @@
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -547,7 +546,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
           >
             Cancel
           </Button>
-          <LoadingButton
+          <Button
             onClick={handleConfirm}
             loading={isLoading}
             disabled={pendingDocuments.length > 0}
@@ -556,7 +555,7 @@ export const DischargeDialog: FC<DischargeDialogProps> = ({ onClose, encounterId
             sx={{ borderRadius: 100, textTransform: 'none' }}
           >
             {actionLabel}
-          </LoadingButton>
+          </Button>
         </>
       }
     />

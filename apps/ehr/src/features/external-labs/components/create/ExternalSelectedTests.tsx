@@ -1,4 +1,4 @@
-import { Grid, Typography } from '@mui/material';
+import { GridLegacy as Grid, Typography } from '@mui/material';
 import { ActionsList } from 'src/components/ActionsList';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
 import { dataTestIds } from 'src/constants/data-test-ids';

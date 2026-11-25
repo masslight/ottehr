@@ -1,4 +1,4 @@
-import { Box, Grid, Typography } from '@mui/material';
+import { Box, GridLegacy as Grid, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';

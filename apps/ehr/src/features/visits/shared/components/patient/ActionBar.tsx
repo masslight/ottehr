@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import { Box, Button, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -50,7 +49,7 @@ export const ActionBar: FC<ActionBarProps> = ({
         Back
       </Button>
       {backButtonHidden && <span />} {/* Placeholder to keep Save changes button on the right */}
-      <LoadingButton
+      <Button
         data-testid={dataTestIds.patientInformationPage.saveChangesButton}
         variant="contained"
         color="primary"
@@ -64,7 +63,7 @@ export const ActionBar: FC<ActionBarProps> = ({
         onClick={handleSave}
       >
         Save All
-      </LoadingButton>
+      </Button>
     </Box>
   );
 };

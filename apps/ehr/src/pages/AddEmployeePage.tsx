@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { Box, Paper, TextField, Typography } from '@mui/material';
+import { Box, Button, Paper, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -110,9 +109,9 @@ export default function AddEmployeePage(): ReactElement {
                 }}
               />
               <br />
-              <LoadingButton type="submit" loading={loading} variant="contained" sx={{ marginTop: 2 }}>
+              <Button type="submit" loading={loading} variant="contained" sx={{ marginTop: 2 }}>
                 Save
-              </LoadingButton>
+              </Button>
             </form>
           </Paper>
         </Box>

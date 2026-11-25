@@ -1,4 +1,13 @@
-import { FormControl, Grid, Input, InputBaseProps, InputLabel, MenuItem, Select, useMediaQuery } from '@mui/material';
+import {
+  FormControl,
+  GridLegacy as Grid,
+  Input,
+  InputBaseProps,
+  InputLabel,
+  MenuItem,
+  Select,
+  useMediaQuery,
+} from '@mui/material';
 import { RefCallBack } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { BoldPurpleInputLabel } from 'ui-components/lib/components/paperwork/form-components/BoldPurpleInputLabel';
@@ -115,7 +124,7 @@ const DateInputFields = ({
         direction={isMobile ? 'column' : 'row'}
         key="input_grid"
         sx={{
-          '& .MuiGrid-item': {
+          '& .MuiGridLegacy-item': {
             marginTop: isMobile ? 2 : 0,
             paddingTop: 0,
           },

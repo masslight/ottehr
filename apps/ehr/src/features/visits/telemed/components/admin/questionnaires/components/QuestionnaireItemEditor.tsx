@@ -20,7 +20,7 @@ import {
   Box,
   Checkbox,
   FormControlLabel,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   MenuItem,
   Select,
@@ -281,7 +281,9 @@ export const QuestionnaireItemEditor: FC<QuestionnaireItemEditorProps> = ({ item
         mb: 1.5,
       }}
     >
+      {/* a div, not the default button: the summary holds the item's action buttons */}
       <AccordionSummary
+        component="div"
         expandIcon={<ExpandMoreIcon />}
         sx={{ '& .MuiAccordionSummary-content': { minWidth: 0, overflow: 'hidden' } }}
       >

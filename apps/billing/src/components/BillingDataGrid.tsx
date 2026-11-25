@@ -13,6 +13,7 @@ export const drilldownIndicatorColumn: GridColDef = {
   filterable: false,
   disableColumnMenu: true,
   align: 'center',
+  display: 'flex',
   renderCell: () => <DrilldownIcon className="row-drilldown-hint" sx={{ fontSize: 15, color: 'text.disabled' }} />,
 };
 
@@ -21,10 +22,15 @@ export const dataGridSx = {
   border: `1px solid ${otherColors.lightDivider}`,
   borderRadius: 1,
   fontSize: 14,
+  // the header row paints this over `.MuiDataGrid-columnHeaders`, so the colour is set here too
+  '--DataGrid-containerBackground': '#FAFAFA',
   '& .MuiDataGrid-columnHeaders': {
     backgroundColor: '#FAFAFA',
     borderBottom: `1px solid ${otherColors.lightDivider}`,
   },
+  // column dividers show only while the header is hovered
+  '& .MuiDataGrid-columnSeparator': { visibility: 'hidden' },
+  '& .MuiDataGrid-columnHeaders:hover .MuiDataGrid-columnSeparator': { visibility: 'visible' },
   '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 500, fontSize: 13, color: 'text.secondary' },
   '& .MuiDataGrid-cell': {
     borderBottom: `1px solid ${otherColors.lightDivider}`,
@@ -32,9 +38,12 @@ export const dataGridSx = {
     color: 'text.primary',
   },
   '& .MuiDataGrid-row': { cursor: 'pointer' },
-  // .Mui-hovered covers pinned-column row segments, which don't share the :hover of the main section
-  '& .MuiDataGrid-row:hover, & .MuiDataGrid-row.Mui-hovered': { bgcolor: otherColors.apptHover },
-  '& .MuiDataGrid-row:hover .row-drilldown-hint, & .MuiDataGrid-row.Mui-hovered .row-drilldown-hint': {
+  '& .MuiDataGrid-row:hover': { bgcolor: otherColors.apptHover },
+  // pinned cells paint their own background, so they are given the row's hover colour as well
+  '& .MuiDataGrid-virtualScrollerContent .MuiDataGrid-row:hover': {
+    '& .MuiDataGrid-cell--pinnedLeft, & .MuiDataGrid-cell--pinnedRight': { bgcolor: otherColors.apptHover },
+  },
+  '& .MuiDataGrid-row:hover .row-drilldown-hint': {
     color: 'primary.main',
   },
 } as const;

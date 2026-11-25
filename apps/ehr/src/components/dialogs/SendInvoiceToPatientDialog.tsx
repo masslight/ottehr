@@ -6,7 +6,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   Skeleton,
   TextField,

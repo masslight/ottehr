@@ -3,7 +3,6 @@ import ClearIcon from '@mui/icons-material/Clear';
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { LoadingButton } from '@mui/lab';
 import {
   Alert,
   Box,
@@ -12,7 +11,7 @@ import {
   CircularProgress,
   FormControlLabel,
   FormHelperText,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   Link,
   List,
@@ -643,7 +642,7 @@ export const InboundFaxMatch: React.FC = () => {
                           }}
                         >
                           {(showDialog) => (
-                            <LoadingButton
+                            <Button
                               loading={isDeleting}
                               variant="outlined"
                               color="error"
@@ -651,10 +650,10 @@ export const InboundFaxMatch: React.FC = () => {
                               sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
                             >
                               Delete
-                            </LoadingButton>
+                            </Button>
                           )}
                         </ConfirmationDialog>
-                        <LoadingButton
+                        <Button
                           loading={isFiling}
                           variant="contained"
                           color="primary"
@@ -663,7 +662,7 @@ export const InboundFaxMatch: React.FC = () => {
                           sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
                         >
                           Save
-                        </LoadingButton>
+                        </Button>
                       </Stack>
                     </Stack>
                   </FormProvider>
