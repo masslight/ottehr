@@ -1,7 +1,6 @@
-import { Close } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
-import { Box, Dialog, IconButton, Paper, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { ReactElement } from 'react';
+import { AppDialog } from './AppDialog';
 
 interface EditPatientInfoDialogProps {
   title: string;
@@ -31,51 +30,29 @@ export default function EditPatientInfoDialog({
   modalDetails,
 }: EditPatientInfoDialogProps): ReactElement {
   return (
-    <Dialog open={modalOpen} onClose={onClose}>
-      <Paper>
-        <Box maxWidth="sm">
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '16px', paddingRight: '16px' }}>
-            <IconButton aria-label="Close" onClick={onClose}>
-              <Close />
-            </IconButton>
-          </Box>
-          <Box margin={'0 40px 40px 40px'}>
-            <form onSubmit={onSubmit}>
-              <Typography sx={{ width: '100%' }} variant="h4" color="primary.main">
-                {title}
-              </Typography>
-              {modalDetails}
-              <Box sx={{ my: '24px' }}>{input}</Box>
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-end',
-                }}
-              >
-                {error && (
-                  <Typography color="error" variant="body2" mb={2}>
-                    {errorMessage}
-                  </Typography>
-                )}
-                <LoadingButton
-                  sx={{
-                    borderRadius: 100,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                  }}
-                  variant="contained"
-                  type="submit"
-                  loading={loading}
-                  disabled={submitDisabled}
-                >
-                  {submitButtonName}
-                </LoadingButton>
-              </Box>
-            </form>
-          </Box>
-        </Box>
-      </Paper>
-    </Dialog>
+    <AppDialog
+      variant="form"
+      size="s"
+      open={modalOpen}
+      onClose={onClose}
+      title={title}
+      onSubmit={(e) => {
+        // The shell's form is `noValidate`; keep the browser's own check of the callers' required inputs.
+        if (!e.currentTarget.reportValidity()) {
+          e.preventDefault();
+          return;
+        }
+        void onSubmit(e);
+      }}
+      primary={{ label: submitButtonName, loading, disabled: submitDisabled }}
+    >
+      {modalDetails}
+      <Box sx={{ mt: 1 }}>{input}</Box>
+      {error && (
+        <Typography color="error" variant="body2" mt={2}>
+          {errorMessage}
+        </Typography>
+      )}
+    </AppDialog>
   );
 }

@@ -474,7 +474,7 @@ describe('DischargeDialog', () => {
     await user.click(confirmButton());
     await waitFor(() => expect(handleDischarge).toHaveBeenCalledTimes(1));
 
-    expect(screen.queryByTestId(dataTestIds.dialog.closeButton)).not.toBeInTheDocument();
+    expect(screen.getByTestId(dataTestIds.dialog.closeButton)).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     await user.keyboard('{Escape}');
     expect(onClose).not.toHaveBeenCalled();

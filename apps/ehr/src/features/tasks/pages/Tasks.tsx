@@ -17,7 +17,7 @@ import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { GenericToolTip } from 'src/components/GenericToolTip';
 import { EmployeeSelectInput } from 'src/components/input/EmployeeSelectInput';
 import { LocationSelectInput } from 'src/components/input/LocationSelectInput';
@@ -70,6 +70,34 @@ const CATEGORIES: Record<string, string> = Object.entries(TASK_CATEGORY_LABEL).r
   {}
 );
 
+// A completed fax can no longer be filed or deleted, so completing an unfiled one is confirmed first.
+const CompleteUnfiledFaxButton: React.FC<{ complete: () => Promise<void> }> = ({ complete }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <RoundedButton variant="contained" onClick={() => setOpen(true)}>
+        Complete
+      </RoundedButton>
+      <AppDialog
+        variant="confirm"
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Complete Without Filing?"
+        primary={{
+          label: 'Complete',
+          onClick: async () => {
+            await complete();
+            setOpen(false);
+          },
+        }}
+      >
+        This fax hasn't been filed to a patient's chart. Once the task is completed, the fax can no longer be filed or
+        deleted.
+      </AppDialog>
+    </>
+  );
+};
+
 export const Tasks: React.FC = () => {
   const navigate = useNavigate();
   const { mutateAsync: completeTask } = useCompleteTask();
@@ -120,23 +148,8 @@ export const Tasks: React.FC = () => {
           });
         }
       };
-      // A completed fax can no longer be filed or deleted, so completing an unfiled one is confirmed first.
       if (task.category === FAX_TASK.category && task.action?.name !== VIEW_FAX) {
-        return (
-          <ConfirmationDialog
-            key={task.id}
-            title="Complete without filing?"
-            description="This fax hasn't been filed to a patient's chart. Once the task is completed, the fax can no longer be filed or deleted."
-            response={complete}
-            actionButtons={{ proceed: { text: 'Complete' }, back: { text: 'Cancel' } }}
-          >
-            {(showDialog) => (
-              <RoundedButton variant="contained" onClick={showDialog}>
-                Complete
-              </RoundedButton>
-            )}
-          </ConfirmationDialog>
-        );
+        return <CompleteUnfiledFaxButton key={task.id} complete={complete} />;
       }
       return (
         <RoundedButton variant="contained" onClick={complete}>

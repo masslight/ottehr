@@ -5,7 +5,7 @@ import { appointment, encounter, patient } from './_fixtures';
 export default defineStory({
   title: 'Report issue',
   source: 'apps/ehr/src/components/dialogs/ReportIssueDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Visit details page → "Report Issue" button',
   notes: 'Initial empty state (submit disabled until details are typed).',

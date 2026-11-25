@@ -4,7 +4,7 @@ import { practitionerRoleListMocks, renderPractitionerRoleList } from './_practi
 export default defineStory({
   title: 'Deactivate schedule?',
   source: 'apps/ehr/src/components/schedule/PractitionerRoleList.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Admin → Employees → edit employee → Schedules → switch the Active toggle off',
   mocks: practitionerRoleListMocks,

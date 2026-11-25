@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Create documents folder',
   source: 'apps/ehr/src/features/visits/shared/components/patient/docs/FolderNameDialog.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Patient → Documents → New folder',
   notes: 'Opens empty, as in the product; Create stays disabled until a name is typed.',

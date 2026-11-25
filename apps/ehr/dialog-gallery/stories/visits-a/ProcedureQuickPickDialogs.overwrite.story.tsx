@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Update existing procedure quick pick?',
   source: 'apps/ehr/src/features/visits/in-person/components/procedures/ProcedureQuickPickDialogs.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'In-person visit → Procedure form → Add to Quick Picks → Save with a name that already exists',
   render: () => (

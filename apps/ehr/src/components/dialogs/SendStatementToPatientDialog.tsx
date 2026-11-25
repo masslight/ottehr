@@ -1,15 +1,8 @@
-import CloseIcon from '@mui/icons-material/Close';
 import {
   Box,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   FormControlLabel,
-  Grid,
-  IconButton,
   InputLabel,
   MenuItem,
   Select,
@@ -26,7 +19,7 @@ import { generateStatement, StatementDetails } from 'utils/lib/statements/genera
 import { InvoiceablePatientReport } from 'utils/lib/types/api/invoicing.types';
 import { APIErrorCode } from 'utils/lib/types/errors';
 import { useApiClients } from '../../hooks/useAppClients';
-import { RoundedButton } from '../RoundedButton';
+import { AppDialog } from './AppDialog';
 
 interface SendStatementToPatientDialogProps {
   modalOpen: boolean;
@@ -220,237 +213,186 @@ export default function SendStatementToPatientDialog({
 
   return (
     <>
-      <Dialog
+      <AppDialog
+        variant="form"
+        size="l"
         open={modalOpen}
-        maxWidth="xl"
-        fullWidth
-        PaperProps={{
-          sx: {
-            width: '74vw',
-            maxWidth: '1080px',
-            height: '92vh',
+        onClose={handleClose}
+        title="Send Statement"
+        dismiss={{ label: 'Close' }}
+        actions={[
+          {
+            label: hasGeneratedStatement ? 'Regenerate Statement' : 'Generate Statement',
+            onClick: handleGenerateStatement,
+            loading: isGeneratingStatement,
+            disabled: hasPreviewError,
           },
+        ]}
+        primary={{
+          label: hasMailedStatement ? 'Resend by Mail' : 'Send by Mail',
+          onClick: handleSendByMailClick,
+          disabled: mailDisabled,
         }}
       >
-        <IconButton onClick={handleClose} size="medium" sx={{ position: 'absolute', right: 12, top: 12 }}>
-          <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
-        </IconButton>
-
-        <Grid container direction="column" sx={{ padding: 1 }} spacing={0.5}>
-          <DialogTitle variant="h4" color="primary.dark">
-            Send Statement
-          </DialogTitle>
-
+        <Box
+          sx={{
+            // Stays in view while the preview scrolls underneath, as the old fixed header did.
+            position: 'sticky',
+            top: 0,
+            zIndex: 1,
+            bgcolor: 'background.paper',
+            pb: 1,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 2,
+          }}
+        >
           <Box
             sx={{
-              pl: 3,
-              pr: 2,
-              pt: 0,
-              pb: 1,
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 2,
+              minWidth: 0,
+              overflow: 'hidden',
             }}
           >
+            <Typography
+              variant="body2"
+              sx={{ lineHeight: 1.35, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
+            >
+              <strong>Patient:</strong> {patient?.fullName ?? '-'}, DOB {patient?.dob ?? '-'}, {patient?.gender ?? '-'}{' '}
+              - {patientCityStateZip}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{ lineHeight: 1.35, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
+            >
+              <strong>Responsible Party:</strong> {responsibleParty?.fullName ?? '-'} - {responsiblePartyCityStateZip}
+            </Typography>
+          </Box>
+
+          <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
+            {generatedStatusText && (
+              <Typography
+                variant="body2"
+                sx={{
+                  lineHeight: 1.35,
+                  textAlign: 'right',
+                  color: '#000000',
+                }}
+              >
+                {generatedStatusText}
+              </Typography>
+            )}
+            {(isMailStatusLoading || hasMailedStatement || mailStatusText === 'Unable to load mail status') && (
+              <Typography
+                variant="body2"
+                sx={{
+                  lineHeight: 1.35,
+                  textAlign: 'right',
+                  color: hasMailedStatement ? '#8B1E1E' : 'inherit',
+                }}
+              >
+                {isMailStatusLoading ? 'Loading...' : mailStatusText}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+
+        {report !== undefined ? (
+          <Box>
             <Box
               sx={{
-                minWidth: 0,
+                mb: 2,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                flexWrap: 'wrap',
+              }}
+            >
+              <FormControl size="small" sx={{ minWidth: 260, flex: '1 1 260px', maxWidth: 360 }}>
+                <InputLabel id="statement-type-label">Statement Type</InputLabel>
+                <Select
+                  labelId="statement-type-label"
+                  label="Statement Type"
+                  value={statementType}
+                  onChange={(event) => {
+                    setStatementType(event.target.value as 'standard' | 'past-due' | 'final-notice');
+                  }}
+                >
+                  <MenuItem value="standard">Standard</MenuItem>
+                  <MenuItem value="past-due">Past Due</MenuItem>
+                  <MenuItem value="final-notice">Final Notice</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControlLabel
+                sx={{ m: 0, flexShrink: 0 }}
+                control={
+                  <Switch
+                    checked={useColor}
+                    onChange={(event) => {
+                      setUseColor(event.target.checked);
+                    }}
+                    size="small"
+                    disabled
+                  />
+                }
+                label="Color"
+              />
+            </Box>
+
+            <Box
+              sx={{
+                border: '1px solid',
+                borderColor: '#2B3440',
+                borderRadius: 1,
+                minHeight: 700,
+                backgroundColor: '#1E2630',
+                p: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 overflow: 'hidden',
               }}
             >
-              <Typography
-                variant="body2"
-                sx={{ lineHeight: 1.35, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
-              >
-                <strong>Patient:</strong> {patient?.fullName ?? '-'}, DOB {patient?.dob ?? '-'},{' '}
-                {patient?.gender ?? '-'} - {patientCityStateZip}
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{ lineHeight: 1.35, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
-              >
-                <strong>Responsible Party:</strong> {responsibleParty?.fullName ?? '-'} - {responsiblePartyCityStateZip}
-              </Typography>
-            </Box>
-
-            <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <RoundedButton
-                  variant="contained"
-                  color="primary"
-                  onClick={() => void handleGenerateStatement()}
-                  disabled={isGeneratingStatement || hasPreviewError}
-                >
-                  {isGeneratingStatement
-                    ? 'Generating...'
-                    : hasGeneratedStatement
-                    ? 'Regenerate Statement'
-                    : 'Generate Statement'}
-                </RoundedButton>
-                <RoundedButton
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSendByMailClick}
-                  disabled={mailDisabled}
+              {isPreviewLoading ? (
+                <CircularProgress size={28} />
+              ) : previewError ? (
+                <Typography color="error">{previewError}</Typography>
+              ) : generatedHtml ? (
+                <Box
+                  component="iframe"
+                  title="Statement Preview"
+                  sandbox="allow-scripts"
+                  srcDoc={generatedHtml}
                   sx={{
-                    ...(hasMailedStatement
-                      ? {
-                          backgroundColor: '#8B1E1E',
-                          '&:hover': {
-                            backgroundColor: '#6E1717',
-                          },
-                        }
-                      : {}),
-                    ...(mailDisabled
-                      ? {
-                          backgroundColor: '#e0e0e0',
-                          color: '#888',
-                          cursor: 'not-allowed',
-                          boxShadow: 'none',
-                          '&:hover': {
-                            backgroundColor: '#e0e0e0',
-                            color: '#888',
-                          },
-                        }
-                      : {}),
+                    width: '100%',
+                    minHeight: 800,
+                    border: 'none',
+                    backgroundColor: '#fff',
+                    borderRadius: 1,
+                    filter: useColor ? 'none' : 'grayscale(100%)',
                   }}
-                >
-                  {hasMailedStatement ? 'Resend by Mail' : 'Send by Mail'}
-                </RoundedButton>
-              </Box>
-              {generatedStatusText && (
-                <Typography
-                  variant="body2"
-                  sx={{
-                    lineHeight: 1.35,
-                    textAlign: 'right',
-                    color: '#000000',
-                  }}
-                >
-                  {generatedStatusText}
-                </Typography>
-              )}
-              {(isMailStatusLoading || hasMailedStatement || mailStatusText === 'Unable to load mail status') && (
-                <Typography
-                  variant="body2"
-                  sx={{
-                    lineHeight: 1.35,
-                    textAlign: 'right',
-                    color: hasMailedStatement ? '#8B1E1E' : 'inherit',
-                  }}
-                >
-                  {isMailStatusLoading ? 'Loading...' : mailStatusText}
-                </Typography>
+                />
+              ) : (
+                <Typography color="text.secondary">Statement HTML preview will go here</Typography>
               )}
             </Box>
           </Box>
-
-          <DialogContent sx={{ flex: 1, overflow: 'auto' }}>
-            {report !== undefined ? (
-              <Box>
-                <Box
-                  sx={{
-                    mb: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <FormControl size="small" sx={{ minWidth: 260, flex: '1 1 260px', maxWidth: 360 }}>
-                    <InputLabel id="statement-type-label">Statement Type</InputLabel>
-                    <Select
-                      labelId="statement-type-label"
-                      label="Statement Type"
-                      value={statementType}
-                      onChange={(event) => {
-                        setStatementType(event.target.value as 'standard' | 'past-due' | 'final-notice');
-                      }}
-                    >
-                      <MenuItem value="standard">Standard</MenuItem>
-                      <MenuItem value="past-due">Past Due</MenuItem>
-                      <MenuItem value="final-notice">Final Notice</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  <FormControlLabel
-                    sx={{ m: 0, flexShrink: 0 }}
-                    control={
-                      <Switch
-                        checked={useColor}
-                        onChange={(event) => {
-                          setUseColor(event.target.checked);
-                        }}
-                        size="small"
-                        disabled
-                      />
-                    }
-                    label="Color"
-                  />
-                </Box>
-
-                <Box
-                  sx={{
-                    border: '1px solid',
-                    borderColor: '#2B3440',
-                    borderRadius: 1,
-                    minHeight: 700,
-                    backgroundColor: '#1E2630',
-                    p: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {isPreviewLoading ? (
-                    <CircularProgress size={28} />
-                  ) : previewError ? (
-                    <Typography color="error">{previewError}</Typography>
-                  ) : generatedHtml ? (
-                    <Box
-                      component="iframe"
-                      title="Statement Preview"
-                      sandbox="allow-scripts"
-                      srcDoc={generatedHtml}
-                      sx={{
-                        width: '100%',
-                        minHeight: 800,
-                        border: 'none',
-                        backgroundColor: '#fff',
-                        borderRadius: 1,
-                        filter: useColor ? 'none' : 'grayscale(100%)',
-                      }}
-                    />
-                  ) : (
-                    <Typography color="text.secondary">Statement HTML preview will go here</Typography>
-                  )}
-                </Box>
-              </Box>
-            ) : (
-              <Skeleton variant="rectangular" animation="wave" height={400} />
-            )}
-          </DialogContent>
-        </Grid>
-      </Dialog>
-      <Dialog open={confirmMailOpen} onClose={() => setConfirmMailOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Confirm Send by Mail</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Send {statementTypeLabel} statement for {patient?.fullName ?? 'this patient'} to{' '}
-            {responsibleParty?.fullName ?? 'the responsible party'}, printed in {printModeLabel}?
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <RoundedButton variant="outlined" color="primary" onClick={() => setConfirmMailOpen(false)}>
-            Cancel
-          </RoundedButton>
-          <RoundedButton variant="contained" color="primary" onClick={() => void handleConfirmSendByMail()}>
-            {isSendingMail ? 'Sending...' : 'OK'}
-          </RoundedButton>
-        </DialogActions>
-      </Dialog>
+        ) : (
+          <Skeleton variant="rectangular" animation="wave" height={400} />
+        )}
+      </AppDialog>
+      <AppDialog
+        variant="confirm"
+        open={confirmMailOpen}
+        onClose={() => setConfirmMailOpen(false)}
+        title="Confirm Send by Mail"
+        primary={{ label: 'Send by Mail', onClick: handleConfirmSendByMail, loading: isSendingMail }}
+      >
+        Send {statementTypeLabel} statement for {patient?.fullName ?? 'this patient'} to{' '}
+        {responsibleParty?.fullName ?? 'the responsible party'}, printed in {printModeLabel}?
+      </AppDialog>
     </>
   );
 }

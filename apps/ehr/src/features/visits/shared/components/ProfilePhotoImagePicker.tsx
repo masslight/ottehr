@@ -1,26 +1,13 @@
 import './ProfilePhotoImagePicker.css';
-import CloseIcon from '@mui/icons-material/Close';
 import PhotoLibraryOutlinedIcon from '@mui/icons-material/PhotoLibraryOutlined';
-import { LoadingButton } from '@mui/lab';
-import {
-  Box,
-  Button,
-  ButtonBase,
-  CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Grid,
-  IconButton,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, ButtonBase, CircularProgress, Typography } from '@mui/material';
 import { styled } from '@mui/material';
 import { Attachment, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import React, { ChangeEvent, FC, ReactElement, useCallback, useState } from 'react';
+import React, { ChangeEvent, FC, useCallback, useRef, useState } from 'react';
 import Cropper from 'react-easy-crop';
 import { Area, Point } from 'react-easy-crop';
+import { AppDialog, AppDialogAction, AppDialogPrimary } from 'src/components/dialogs/AppDialog';
 import { MIME_TYPES } from 'utils/lib/utils/file';
 import { uploadPatientProfilePhoto } from '../../../../api/api';
 import { getCroppedImg, ImageCropResult } from '../../../../helpers/canvasUtils';
@@ -63,12 +50,8 @@ const VisuallyHiddenInput = styled('input')({
   width: 1,
 });
 
-const pillButtonSx = {
-  borderRadius: '999px',
-  textTransform: 'none',
-  fontWeight: 'bold',
-  py: 1.25,
-} as const;
+// The dialog is wider than the photo needs; the body keeps the width it had before.
+const BODY_MAX_WIDTH = 432;
 
 const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, patient, onUpdate }) => {
   const { oystehrZambda } = useApiClients();
@@ -253,85 +236,52 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
     setCroppedAreaPixels(areaPixels);
   }, []);
 
-  const renderControlButtons = (): ReactElement | null => {
-    if (!hasAttachedPhoto) {
-      return null;
-    }
+  const updatePhotoInputRef = useRef<HTMLInputElement>(null);
 
-    if (
-      photoProcessingState === PhotoProcessingState.cropping ||
-      photoProcessingState === PhotoProcessingState.uploading
-    ) {
-      return (
-        <LoadingButton loading={isSavingImage} variant="contained" onClick={handlePhotoSaveClicked} sx={pillButtonSx}>
-          Save
-        </LoadingButton>
-      );
-    }
+  const isCropping = photoProcessingState === PhotoProcessingState.cropping;
+  const isSaveStep = isCropping || photoProcessingState === PhotoProcessingState.uploading;
 
-    return (
-      <>
-        <Button variant="outlined" component="label" color="primary" sx={pillButtonSx}>
-          Update Photo
-          <VisuallyHiddenInput onChange={handleInputChange} type="file" accept="image/*" />
-        </Button>
-
-        <Button variant="outlined" color="error" onClick={handleRemovePhotoClick} sx={pillButtonSx}>
-          Remove photo
-        </Button>
-      </>
-    );
-  };
-
-  const controlButtons = renderControlButtons();
+  // No photo: nothing to act on, ✕ closes. Picked photo: Save. Stored photo: update or remove it.
+  let primary: AppDialogPrimary | undefined;
+  let actions: AppDialogAction[] | undefined;
+  if (hasAttachedPhoto && isSaveStep) {
+    primary = { label: 'Save', onClick: () => void handlePhotoSaveClicked(), loading: isSavingImage };
+  } else if (hasAttachedPhoto) {
+    actions = [
+      { label: 'Update Photo', onClick: () => updatePhotoInputRef.current?.click() },
+      { label: 'Remove Photo', tone: 'error', onClick: () => void handleRemovePhotoClick() },
+    ];
+  }
 
   const handleClose = (): void => setOpen(false);
 
   return (
-    <Dialog
+    <AppDialog
+      variant="form"
+      size={isSaveStep ? 's' : 'm'}
       open={open}
       onClose={handleClose}
-      PaperProps={{
-        sx: {
-          backgroundColor: 'white',
-          boxShadow: '0px 20px 60px rgba(0, 0, 0, 0.18)',
-          borderRadius: '8px',
-          width: 'min(calc(100vw - 4rem), 30rem)',
-          margin: 0,
-        },
-      }}
+      title={isCropping ? 'Please Crop the Image' : 'Patient Photo'}
+      primary={primary}
+      actions={actions}
+      dismiss={primary ? {} : actions ? { label: 'Close' } : undefined}
     >
-      <DialogTitle sx={{ py: 1, pb: 0 }}>
-        <Grid container alignItems="center" justifyContent="space-between">
-          <Grid item xs />
-          <Grid item>
-            {photoProcessingState === PhotoProcessingState.cropping && (
-              <Typography variant="h6" align="center">
-                Please crop the image
-              </Typography>
-            )}
-            {isSavingError && (
-              <Typography color="error" variant="h6" align="center">
-                There was an error updating photo, please try again.
-              </Typography>
-            )}
-          </Grid>
-          <Grid item xs container justifyContent="flex-end">
-            <IconButton onClick={handleClose} aria-label="Close">
-              <CloseIcon sx={{ color: 'text.secondary' }} />
-            </IconButton>
-          </Grid>
-        </Grid>
-      </DialogTitle>
+      <VisuallyHiddenInput ref={updatePhotoInputRef} onChange={handleInputChange} type="file" accept="image/*" />
+
+      {isSavingError && (
+        <Typography color="error" sx={{ mb: 2 }}>
+          There was an error updating photo, please try again.
+        </Typography>
+      )}
 
       <Box
         sx={{
           width: '100%',
+          maxWidth: BODY_MAX_WIDTH,
+          mx: 'auto',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          px: 3,
-          pb: hasAttachedPhoto ? 0 : 1,
         }}
       >
         {/* Show cropper to give ability to modify the image */}
@@ -409,15 +359,7 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
           </Box>
         )}
       </Box>
-
-      {controlButtons && (
-        <DialogContent sx={{ overflow: 'hidden', pt: 1.5, pb: 2 }}>
-          <Stack direction="row" spacing={2}>
-            {controlButtons}
-          </Stack>
-        </DialogContent>
-      )}
-    </Dialog>
+    </AppDialog>
   );
 };
 

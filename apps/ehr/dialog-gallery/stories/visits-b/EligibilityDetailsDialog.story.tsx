@@ -79,7 +79,7 @@ const eligibilityCheck = {
 export default defineStory({
   title: 'Insurance eligibility check details',
   source: 'apps/ehr/src/features/visits/shared/components/patient/EligibilityDetailsDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'Patient record / visit details → insurance card → eligibility status chip',
   notes: 'Mock eligibility response (confirmed, no error section). Taller than the viewport, so the paper scrolls.',

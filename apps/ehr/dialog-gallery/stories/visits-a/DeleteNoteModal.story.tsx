@@ -5,7 +5,7 @@ import { locales, note } from './EditNoteModal.story';
 export default defineStory({
   title: 'Delete note',
   source: 'apps/ehr/src/features/visits/shared/components/generic-notes-list/components/DeleteNoteModal.tsx',
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Visit chart → any notes list (intake, internal, vitals, screening...) → delete icon on a note',
   render: () => (

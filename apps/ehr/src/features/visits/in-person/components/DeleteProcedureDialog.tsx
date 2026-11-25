@@ -1,14 +1,6 @@
-import {
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-} from '@mui/material';
+import { Box } from '@mui/material';
 import { ReactElement, useCallback, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 
 interface UseDeleteProcedureDialogProps {
   deleteProcedure: ({ procedureId, procedureName }: { procedureId: string; procedureName: string }) => Promise<boolean>;
@@ -72,54 +64,22 @@ export const useDeleteProcedureDialog = ({
   }, [procedureIdToDelete, procedureNameToDelete, deleteProcedure]);
 
   const DeleteProcedureDialog = isDeleteDialogOpen ? (
-    <Dialog open={isDeleteDialogOpen} onClose={closeDeleteDialog} maxWidth="sm" fullWidth>
-      <form
-        style={{ padding: '10px' }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          void confirmDeleteProcedure();
-        }}
-      >
-        <DialogTitle variant="h5" color="primary.dark">
-          Delete Procedure
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete this procedure{' '}
-            {procedureNameToDelete ? <strong>"{procedureNameToDelete}"</strong> : ''}?
-          </DialogContentText>
-          <DialogContentText sx={{ mt: 2, fontSize: '0.875rem', color: 'text.secondary' }}>
-            The procedure will be deleted and will no longer appear in reports.
-          </DialogContentText>
-          {deleteError && (
-            <Box sx={{ mt: 2, color: 'error.main' }}>
-              <DialogContentText color="error">{deleteError}</DialogContentText>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, width: '100%', display: 'flex', justifyContent: 'space-between' }}>
-          <Button
-            variant="outlined"
-            onClick={closeDeleteDialog}
-            color="primary"
-            disabled={isDeleting}
-            sx={{ borderRadius: '50px', textTransform: 'none' }}
-          >
-            Keep
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            color="error"
-            disabled={isDeleting}
-            startIcon={isDeleting ? <CircularProgress size={16} color="inherit" /> : null}
-            sx={{ borderRadius: '50px', textTransform: 'none' }}
-          >
-            {isDeleting ? 'Deleting Procedure...' : 'Delete Procedure'}
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
+    <AppDialog
+      variant="destructive"
+      open={isDeleteDialogOpen}
+      onClose={closeDeleteDialog}
+      title="Delete Procedure"
+      primary={{ label: 'Delete Procedure', onClick: confirmDeleteProcedure, loading: isDeleting }}
+    >
+      <Box>
+        Are you sure you want to delete this procedure{' '}
+        {procedureNameToDelete ? <strong>"{procedureNameToDelete}"</strong> : ''}?
+      </Box>
+      <Box sx={{ mt: 2, color: 'text.secondary' }}>
+        The procedure will be deleted and will no longer appear in reports.
+      </Box>
+      {deleteError && <Box sx={{ mt: 2, color: 'error.main' }}>{deleteError}</Box>}
+    </AppDialog>
   ) : null;
 
   return {

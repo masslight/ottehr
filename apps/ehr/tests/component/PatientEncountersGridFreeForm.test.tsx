@@ -175,7 +175,7 @@ const confirmDelete = async (user: ReturnType<typeof userEvent.setup>): Promise<
   await user.click(within(deleteDialog()!).getByRole('button', { name: 'Delete' }));
 };
 const keepNote = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
-  await user.click(within(deleteDialog()!).getByRole('button', { name: 'Keep' }));
+  await user.click(within(deleteDialog()!).getByRole('button', { name: 'Cancel' }));
   await waitFor(() => expect(deleteDialog()).not.toBeInTheDocument());
 };
 const RECONCILE_WARNING = 'Note saved; it may take a moment to appear after a reload';

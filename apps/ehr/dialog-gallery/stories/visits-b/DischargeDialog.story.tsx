@@ -25,7 +25,7 @@ const plan = {
 export default defineStory({
   title: 'Discharge patient (print + sign options)',
   source: 'apps/ehr/src/features/visits/shared/components/review-tab/DischargeDialog.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'In-person visit → "Discharge" button in the visit header / Review & Sign',
   ...visitRoute,

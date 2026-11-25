@@ -7,7 +7,7 @@ import { appointmentMocks, userMocks } from './shared-mocks';
 export default defineStory({
   title: 'External radiology order — delete uploaded result',
   source: 'apps/ehr/src/features/radiology/pages/RadiologyExternalOrderDetails.tsx',
-  base: 'ConfirmationDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'In-person chart → Radiology → external order details → Results → trash icon on an uploaded result',
   notes: 'Page rendered with a mocked external order and one mocked uploaded result file.',
@@ -46,6 +46,6 @@ export default defineStory({
     // so the dialog is not torn down right after opening.
     await new Promise((resolve) => setTimeout(resolve, 2000));
     await user.click(await screen.findByRole('button', { name: 'delete result' }, { timeout: 10000 }));
-    await screen.findByText('Delete result');
+    await screen.findByRole('heading', { name: 'Delete Result' });
   },
 });

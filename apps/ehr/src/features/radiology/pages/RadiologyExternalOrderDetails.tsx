@@ -11,7 +11,7 @@ import { useTheme } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useIsInlineFlow } from 'src/components/InlineFlow';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { SendFaxButton } from 'src/features/visits/shared/components/review-tab/SendFaxButton';
@@ -90,6 +90,9 @@ export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderD
   const [printing, setPrinting] = useState(false);
   const [results, setResults] = useState<RadiologyResultDTO[]>([]);
   const [uploading, setUploading] = useState(false);
+  // The result stays set while the dialog closes, so its text does not change during the fade-out.
+  const [resultToDelete, setResultToDelete] = useState<RadiologyResultDTO>();
+  const [deleteResultOpen, setDeleteResultOpen] = useState(false);
   const resultInputRef = useRef<HTMLInputElement>(null);
 
   const order = orders.find((o) => o.serviceRequestId === serviceRequestId);
@@ -275,18 +278,15 @@ export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderD
                       </Typography>
                     </Box>
                     {!isReadOnly && (
-                      <ConfirmationDialog
-                        title="Delete result"
-                        description={`Delete "${result.title}"? This cannot be undone.`}
-                        response={() => handleDeleteResult(result.documentReferenceId)}
-                        actionButtons={{ proceed: { text: 'Delete' }, back: { text: 'Cancel' }, reverse: true }}
+                      <IconButton
+                        aria-label="delete result"
+                        onClick={() => {
+                          setResultToDelete(result);
+                          setDeleteResultOpen(true);
+                        }}
                       >
-                        {(showDialog) => (
-                          <IconButton aria-label="delete result" onClick={showDialog}>
-                            <DeleteOutlinedIcon sx={{ color: theme.palette.error.main }} />
-                          </IconButton>
-                        )}
-                      </ConfirmationDialog>
+                        <DeleteOutlinedIcon sx={{ color: theme.palette.error.main }} />
+                      </IconButton>
                     )}
                   </Box>
                 ))}
@@ -376,6 +376,21 @@ export const RadiologyExternalOrderDetailsPage: React.FC<RadiologyExternalOrderD
           )}
         </Stack>
       </div>
+      <AppDialog
+        variant="destructive"
+        open={deleteResultOpen}
+        onClose={() => setDeleteResultOpen(false)}
+        title="Delete Result"
+        primary={{
+          label: 'Delete Result',
+          onClick: async () => {
+            if (resultToDelete) await handleDeleteResult(resultToDelete.documentReferenceId);
+            setDeleteResultOpen(false);
+          },
+        }}
+      >
+        {`Delete "${resultToDelete?.title}"? This cannot be undone.`}
+      </AppDialog>
     </>
   );
 

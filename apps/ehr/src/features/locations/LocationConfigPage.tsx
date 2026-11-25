@@ -20,8 +20,8 @@ import { Location } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { AppDialog } from 'src/components/dialogs/AppDialog';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { LocationBookingLinks } from 'src/features/locations/LocationBookingLinks';
 import LocationPaymentsSection from 'src/features/locations/LocationPaymentsSection';
 import {

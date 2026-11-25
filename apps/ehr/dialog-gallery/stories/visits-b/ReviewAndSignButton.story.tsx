@@ -5,7 +5,7 @@ import { visitMocks, visitRoute } from './_visit';
 export default defineStory({
   title: 'Review and sign visit note',
   source: 'apps/ehr/src/features/visits/shared/components/review-tab/ReviewAndSignButton.tsx',
-  base: 'ConfirmationDialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'Visit → Review & Sign tab → "Review & Sign" button',
   ...visitRoute,

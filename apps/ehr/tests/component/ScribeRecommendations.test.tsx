@@ -1922,7 +1922,7 @@ describe('PickerDialog', () => {
       ],
     };
     const answer = useScribeRecommendationsStore.getState().askPick(request);
-    expect(await screen.findByTestId(testIds.pickerDialog)).toHaveTextContent('Which allergy did you mean?');
+    expect(await screen.findByTestId(testIds.pickerDialog)).toHaveTextContent('Which Allergy Did You Mean?');
     expect(screen.getByTestId(testIds.pickerDialog)).toHaveTextContent('The transcript said “penicillin”.');
 
     await user.click(screen.getByTestId(testIds.pickerOption('a2')));

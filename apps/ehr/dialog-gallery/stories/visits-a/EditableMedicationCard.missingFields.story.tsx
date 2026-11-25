@@ -7,7 +7,7 @@ const order = { ...pendingOrder, lotNumber: undefined, expDate: undefined };
 export default defineStory({
   title: 'Missing Required Fields',
   source: SOURCE,
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'info',
   where:
     'In-person visit → In-house Medications → open a pending order (dispense form) → Administered with required fields empty',

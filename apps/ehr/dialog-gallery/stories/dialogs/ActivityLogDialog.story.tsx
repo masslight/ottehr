@@ -34,7 +34,7 @@ const logs: ActivityLogData[] = [
 export default defineStory({
   title: 'Visit activity log',
   source: 'apps/ehr/src/components/dialogs/ActivityLogDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'Visit details page → "Activity logs" link',
   notes: 'Log rows are mock data; "See Details" rows left collapsed (default).',

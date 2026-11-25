@@ -1,13 +1,13 @@
 import { DeleteOutlined as DeleteIcon, EditOutlined as EditIcon } from '@mui/icons-material';
-import WarningIcon from '@mui/icons-material/Warning';
-import { Box, IconButton, Typography, useTheme } from '@mui/material';
+import { Box, IconButton, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { enqueueOrderDeleteWarnings } from 'src/features/visits/shared/utils/orderDeleteWarnings';
 import { getApiError } from 'utils/lib/helpers/oystehrApi';
 import { ExtendedMedicationDataForResponse } from 'utils/lib/types/api/medication-administration.types';
-import { CustomDialog } from '../../../../../../components/dialogs/CustomDialog';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { getEditOrderUrl } from '../../../routing/helpers';
 
@@ -70,13 +70,6 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
     setIsDeleting(false);
   };
 
-  const dialogTitle = (
-    <Box display="flex" alignItems="center" color="error.main">
-      <WarningIcon sx={{ mr: 1 }} />
-      <Typography variant="h4">Delete Medication</Typography>
-    </Box>
-  );
-
   const navigateToEditOrder = (): void => {
     if (onEditOrder) {
       onEditOrder(medication.id);
@@ -101,17 +94,17 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
           <DeleteIcon sx={{ color: theme.palette.warning.dark }} />
         </IconButton>
       )}
-      <CustomDialog
+      <AppDialog
+        variant="destructive"
         open={isDeleteDialogOpen}
-        handleClose={handleCloseDeleteDialog}
-        title={dialogTitle}
-        description={`Are you sure you want to delete the medication "${medication.medicationName}"?`}
-        closeButtonText="Cancel"
-        closeButton={false}
-        handleConfirm={handleConfirmDelete}
-        confirmText={isDeleting ? 'Deleting...' : 'Delete'}
-        confirmLoading={isDeleting}
-      />
+        onClose={handleCloseDeleteDialog}
+        title="Delete Medication"
+        primary={{ label: 'Delete', onClick: handleConfirmDelete, loading: isDeleting }}
+      >
+        <span data-testid={dataTestIds.dialog.message}>
+          {`Are you sure you want to delete the medication "${medication.medicationName}"?`}
+        </span>
+      </AppDialog>
     </Box>
   );
 };

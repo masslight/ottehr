@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Patient account settings (login phone numbers)',
   source: 'apps/ehr/src/components/dialogs/AccountSettingsDialog.tsx',
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Patient page → "Account settings"',
   mocks: [
@@ -14,7 +14,7 @@ export default defineStory({
     },
   ],
   notes:
-    'Not in the scanned file list (no direct dialog tag): renders through InPersonModal, which wraps CustomDialog. Phone numbers are mocked.',
+    'Phone numbers are mocked.',
   render: () => <AccountSettingsDialog patientId="patient-1" handleClose={() => undefined} />,
   play: async ({ waitFor }) => {
     await waitFor(() => {

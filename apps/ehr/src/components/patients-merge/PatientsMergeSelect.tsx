@@ -15,8 +15,8 @@ import {
 import { Patient } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
-import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { getFullName } from 'utils/lib/fhir/patient';
 import { standardizePhoneNumber } from 'utils/lib/helpers/helpers';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
@@ -167,7 +167,6 @@ export const PatientsMergeSelect: FC<PatientsMergeSelectProps> = (props) => {
             </TableBody>
           )}
         </Table>
-
       </Stack>
 
       <AppDialog

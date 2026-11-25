@@ -36,6 +36,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { DEFAULT_BATCH_DAYS, splitDateRangeIntoBatches } from 'utils/lib/helpers/reports';
 import { MailedStatementItem } from 'utils/lib/types/api/mailed-statements-report.types';
 import { getMailedStatementsReport } from '../../api/api';
+import { AppDialog } from '../../components/dialogs/AppDialog';
 import { useApiClients } from '../../hooks/useAppClients';
 import PageContainer from '../../layout/PageContainer';
 

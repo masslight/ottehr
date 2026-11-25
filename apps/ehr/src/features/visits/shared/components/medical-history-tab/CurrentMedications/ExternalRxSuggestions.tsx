@@ -1,19 +1,9 @@
 import { otherColors } from '@ehrTheme/colors';
 import { MedicationOutlined, WarningAmberOutlined } from '@mui/icons-material';
-import {
-  Box,
-  CircularProgress,
-  Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Link,
-  Typography,
-} from '@mui/material';
+import { Box, CircularProgress, Container, Link, Typography } from '@mui/material';
 import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { FC, useCallback, useMemo, useState } from 'react';
-import { RoundedButton } from 'src/components/RoundedButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { MedicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { formatDateForDisplay } from 'utils/lib/utils/dateUtils';
 import {
@@ -196,53 +186,48 @@ export const ExternalRxSuggestions: FC<ExternalRxSuggestionsProps> = ({ chartedM
       </Container>
 
       {/* Inexact match confirmation dialog */}
-      <Dialog open={!!inexactConfirmMed} onClose={() => setInexactConfirmMed(null)} maxWidth="sm" fullWidth>
-        <DialogTitle variant="h4" color="primary.dark">
-          Confirm Inexact Medication Match
-        </DialogTitle>
-        <DialogContent>
-          {inexactConfirmMed && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+      <AppDialog
+        variant="confirm"
+        open={!!inexactConfirmMed}
+        onClose={() => setInexactConfirmMed(null)}
+        title="Confirm Inexact Medication Match"
+        primary={{
+          label: 'Add Medication',
+          onClick: () => {
+            if (inexactConfirmMed) {
+              addMedication(inexactConfirmMed);
+              setInexactConfirmMed(null);
+            }
+          },
+        }}
+      >
+        {inexactConfirmMed && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Typography variant="body2">
+              The medication from the patient&apos;s history does not exactly match a medication in our system. Please
+              confirm you want to add the matched medication.
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
               <Typography variant="body2">
-                The medication from the patient&apos;s history does not exactly match a medication in our system. Please
-                confirm you want to add the matched medication.
+                <strong>From history:</strong>{' '}
+                {[inexactConfirmMed.name, inexactConfirmMed.strength, inexactConfirmMed.doseForm]
+                  .filter(Boolean)
+                  .join(' ')}
               </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                <Typography variant="body2">
-                  <strong>From history:</strong>{' '}
-                  {[inexactConfirmMed.name, inexactConfirmMed.strength, inexactConfirmMed.doseForm]
-                    .filter(Boolean)
-                    .join(' ')}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Matched to:</strong>{' '}
-                  {inexactConfirmMed.matchedMedication
-                    ? `${inexactConfirmMed.matchedMedication.name}${
-                        inexactConfirmMed.matchedMedication.strength
-                          ? ` ${inexactConfirmMed.matchedMedication.strength}`
-                          : ''
-                      }`
-                    : ''}
-                </Typography>
-              </Box>
+              <Typography variant="body2">
+                <strong>Matched to:</strong>{' '}
+                {inexactConfirmMed.matchedMedication
+                  ? `${inexactConfirmMed.matchedMedication.name}${
+                      inexactConfirmMed.matchedMedication.strength
+                        ? ` ${inexactConfirmMed.matchedMedication.strength}`
+                        : ''
+                    }`
+                  : ''}
+              </Typography>
             </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ py: 2, px: 3, display: 'flex', justifyContent: 'space-between' }}>
-          <RoundedButton onClick={() => setInexactConfirmMed(null)}>Cancel</RoundedButton>
-          <RoundedButton
-            variant="contained"
-            onClick={() => {
-              if (inexactConfirmMed) {
-                addMedication(inexactConfirmMed);
-                setInexactConfirmMed(null);
-              }
-            }}
-          >
-            Confirm
-          </RoundedButton>
-        </DialogActions>
-      </Dialog>
+          </Box>
+        )}
+      </AppDialog>
     </Box>
   );
 };

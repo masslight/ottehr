@@ -5,7 +5,7 @@ import { patient } from './_fixtures';
 export default defineStory({
   title: 'Take payment',
   source: 'apps/ehr/src/components/dialogs/PaymentDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Patient payments list / patient balances → "Add Payment"',
   mocks: [

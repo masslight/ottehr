@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Send receipt by email',
   source: 'apps/ehr/src/components/dialogs/SendReceiptByEmailDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Patient payments list → send receipt',
   notes:
@@ -12,7 +12,7 @@ export default defineStory({
   render: () => (
     <SendReceiptByEmailDialog
       modalOpen
-      title="Send receipt"
+      title="Send Receipt"
       submitButtonName="Send Receipt"
       handleClose={() => undefined}
       onSubmit={async () => undefined}

@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ScheduleOverridesComponent } from '../../src/components/schedule/ScheduleOverridesComponent';
 import { ClosureType } from '../../src/types/types';
 
-const CONFIRM_DIALOG_TITLE = 'Schedule change may affect visits';
+const CONFIRM_DIALOG_TITLE = 'Schedule Change May Affect Visits';
 
 const renderOverrides = (
   model: ScheduleExtension

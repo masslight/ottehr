@@ -4,7 +4,7 @@ import { practitionerRoleListMocks, renderPractitionerRoleList } from './_practi
 export default defineStory({
   title: 'Rename schedule',
   source: 'apps/ehr/src/components/schedule/PractitionerRoleList.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Employees → edit employee → Schedules → rename icon',
   mocks: practitionerRoleListMocks,

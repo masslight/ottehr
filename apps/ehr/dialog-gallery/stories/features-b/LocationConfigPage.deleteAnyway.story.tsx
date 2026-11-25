@@ -6,7 +6,7 @@ import { locationConfigMocks } from './location-mocks';
 export default defineStory({
   title: 'Delete location — has dependents ("Delete anyway?")',
   source: 'apps/ehr/src/features/locations/LocationConfigPage.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where:
     'Admin → Locations → a location → "Delete location" → Delete, when the location still has schedules / provider roles / appointments',
@@ -25,7 +25,7 @@ export default defineStory({
   render: () => <LocationConfigPage />,
   play: async ({ user, screen }) => {
     await user.click(await screen.findByRole('button', { name: 'Delete location' }, { timeout: 10000 }));
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    await screen.findByText('Delete anyway?');
+    await user.click(await screen.findByRole('button', { name: 'Delete Location' }));
+    await screen.findByText('Delete Anyway?');
   },
 });

@@ -17,8 +17,8 @@ import {
 import { Address } from 'fhir/r4b';
 import { ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { BooleanStateChip } from 'src/components/BooleanStateChip';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { useCreateLocationMutation, useLocationsListQuery } from './location.queries';
 
 const addressString = (address: Address): string =>

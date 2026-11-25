@@ -5,7 +5,7 @@ import { medicationMocks, pendingOrder, quickPicks, renderCard, SOURCE } from '.
 export default defineStory({
   title: 'Save medication as Quick Pick (overwrite an existing one)',
   source: SOURCE,
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where:
     'In-person visit → In-house Medications → order form → Quick Picks → "+ Add or Update Quick Pick" → pick an existing quick pick',

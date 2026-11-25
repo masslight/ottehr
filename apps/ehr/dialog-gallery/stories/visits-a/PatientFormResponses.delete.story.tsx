@@ -55,7 +55,7 @@ const response = {
 export default defineStory({
   title: 'Delete form?',
   source: 'apps/ehr/src/features/visits/shared/components/patient-forms/PatientFormResponses.tsx',
-  base: 'DeleteDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Visit chart → Screening / Questionnaires → ⋮ menu on a form card → Delete',
   ...visitRoute,

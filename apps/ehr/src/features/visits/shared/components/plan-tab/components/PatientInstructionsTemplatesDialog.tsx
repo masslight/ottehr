@@ -12,8 +12,8 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { ChangeEvent, FC, useMemo, useState } from 'react';
 import { ActionsList } from 'src/components/ActionsList';
-import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { DeleteIconButton } from 'src/components/DeleteIconButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { CommunicationDTO } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { InstructionType } from 'utils/lib/types/api/patient-instructions/patient-instructions.types';

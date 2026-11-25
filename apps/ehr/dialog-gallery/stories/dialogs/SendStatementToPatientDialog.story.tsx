@@ -6,7 +6,7 @@ import { statementMocks } from './_statement';
 export default defineStory({
   title: 'Send statement (preview + generate / mail)',
   source: 'apps/ehr/src/components/dialogs/SendStatementToPatientDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'Reports → Invoiceable patients → send statement',
   mocks: statementMocks,

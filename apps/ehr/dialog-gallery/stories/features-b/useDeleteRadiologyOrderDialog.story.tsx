@@ -5,7 +5,7 @@ import { mockRadiologyOrder, radiologyOrderListMock } from './radiology-mocks';
 export default defineStory({
   title: 'Delete radiology order',
   source: 'apps/ehr/src/features/radiology/components/useDeleteRadiologyOrderDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'In-person chart → Radiology orders table → trash icon on a row',
   notes:

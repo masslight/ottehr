@@ -1,5 +1,5 @@
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
 import { ReactElement } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { getQuestionnaireResponseByLinkId } from 'utils/lib/helpers/paperwork/paperwork-response';
 import { useAppointmentData } from '../stores/appointment/appointment.store';
 
@@ -16,40 +16,15 @@ const HearingRelayPopup = ({ onClose, isOpen }: HearingRelayPopupProps): ReactEl
     getQuestionnaireResponseByLinkId('guardian-number', questionnaireResponse)?.answer?.[0]?.valueString ||
     '';
 
-  const buttonSx = {
-    fontWeight: 500,
-    textTransform: 'none',
-    borderRadius: 6,
-    mb: 2,
-    ml: 1,
-  };
-
   return (
-    <Dialog
+    <AppDialog
+      variant="alert"
       open={isOpen}
       onClose={onClose}
-      fullWidth
-      disableScrollLock
-      sx={{
-        '.MuiPaper-root': {
-          padding: 1,
-          width: '444px',
-          maxWidth: 'initial',
-        },
-      }}
+      title="Patient Requires a Hearing Impaired Relay Service (711)"
     >
-      <DialogTitle variant="h4" color="primary.dark" sx={{ width: '100%' }}>
-        Patient requires a Hearing Impaired Relay Service (711)
-      </DialogTitle>
-      <DialogContent>
-        <Typography>{`Patient requires a Hearing Impaired Relay Service (711). Patient number is ${patientPhoneNumber}.`}</Typography>
-      </DialogContent>
-      <DialogActions sx={{ justifyContent: 'flex-end', mr: 3 }}>
-        <Button onClick={onClose} color="primary" variant="contained" size="medium" sx={buttonSx}>
-          OK, Got it
-        </Button>
-      </DialogActions>
-    </Dialog>
+      {`Patient requires a Hearing Impaired Relay Service (711). Patient number is ${patientPhoneNumber}.`}
+    </AppDialog>
   );
 };
 

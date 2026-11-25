@@ -19,7 +19,7 @@ const patientWithPhoto = {
 export default defineStory({
   title: 'Patient profile photo — existing photo (update / remove)',
   source: 'apps/ehr/src/features/visits/shared/components/ProfilePhotoImagePicker.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'Visit header → click the patient avatar',
   ...visitRoute,
@@ -29,7 +29,7 @@ export default defineStory({
   ],
   render: () => <ProfilePhotoImagePicker open setOpen={() => undefined} patient={patientWithPhoto} />,
   play: async ({ screen, waitFor }) => {
-    await waitFor(() => screen.getByRole('button', { name: 'Remove photo' }), { timeout: 10000 });
+    await waitFor(() => screen.getByRole('button', { name: 'Remove Photo' }), { timeout: 10000 });
   },
   notes: 'The photo itself is a grey placeholder silhouette (data: URI) returned as the mocked presigned URL.',
 });

@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Cancel visit',
   source: 'apps/ehr/src/components/CancelVisitDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Telemed appointment → cancel visit',
   // The component reads :id from the URL.

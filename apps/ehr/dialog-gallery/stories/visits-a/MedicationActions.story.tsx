@@ -22,7 +22,7 @@ export const pendingMedication: ExtendedMedicationDataForResponse = {
 export default defineStory({
   title: 'Delete medication (MAR row)',
   source: 'apps/ehr/src/features/visits/in-person/components/medication-administration/mar/MedicationActions.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'In-person visit → In-house Medications → MAR table → delete icon on a medication row',
   ...visitRoute,

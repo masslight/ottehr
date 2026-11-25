@@ -1,6 +1,6 @@
-import CloseIcon from '@mui/icons-material/Close';
-import { Alert, Box, CircularProgress, Dialog, DialogContent, DialogTitle, IconButton, useTheme } from '@mui/material';
-import { FC } from 'react';
+import { Alert, Box, CircularProgress } from '@mui/material';
+import { FC, useId, useState } from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { UseSendFaxResult } from '../hooks/useSendFax';
 import { hasNothingToSend } from '../model/faxDocuments';
@@ -18,47 +18,50 @@ interface SendFaxDialogProps {
 
 /** Dialog shell: shows the loading/error/empty states, and mounts the form once the preview has loaded. */
 export const SendFaxDialog: FC<SendFaxDialogProps> = ({ controller, title = 'Send Fax', visits }) => {
-  const theme = useTheme();
   const { preview } = controller;
   const nothingToSend = Boolean(preview) && hasNothingToSend(preview!.documents);
   // Sources without a document checklist have nothing to wait for, so the form mounts immediately.
   const showForm = preview ? !nothingToSend : !controller.isLoadingPreview && !controller.previewError;
 
+  const formId = useId();
+  const [canSend, setCanSend] = useState(false);
+
   return (
     <>
-      <Dialog
+      <AppDialog
+        variant="form"
+        size="s"
         open={controller.isOpen}
         onClose={controller.close}
-        maxWidth="sm"
-        fullWidth
+        title={title}
         data-testid={dataTestIds.faxDialog.root}
+        // The buttons belong to the form, so the loading / error / empty states have none, only the ✕.
+        dismiss={showForm ? { 'data-testid': dataTestIds.faxDialog.cancelButton } : undefined}
+        primary={
+          showForm
+            ? {
+                label: 'Send Fax',
+                onClick: () => (document.getElementById(formId) as HTMLFormElement | null)?.requestSubmit(),
+                // Not `loading`: that would lock the dialog, and closing it while the fax is still being
+                // sent is allowed (the job carries on in the background).
+                disabled: !canSend || controller.isSending,
+                startIcon: controller.isSending ? <CircularProgress size={16} color="inherit" /> : undefined,
+                'data-testid': dataTestIds.faxDialog.sendButton,
+              }
+            : undefined
+        }
       >
-        <DialogTitle sx={{ color: theme.palette.primary.dark, fontWeight: 600, fontSize: '24px' }}>
-          {title}
-          <IconButton aria-label="Close" onClick={controller.close} sx={{ position: 'absolute', right: 8, top: 8 }}>
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-
         {controller.isLoadingPreview && (
-          <DialogContent>
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          </DialogContent>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
+          </Box>
         )}
 
         {controller.previewError && (
-          <DialogContent>
-            <Alert severity="error">Could not load the documents for this visit. Close the dialog and try again.</Alert>
-          </DialogContent>
+          <Alert severity="error">Could not load the documents for this visit. Close the dialog and try again.</Alert>
         )}
 
-        {preview && nothingToSend && (
-          <DialogContent>
-            <Alert severity="info">There are no documents to fax for this visit yet.</Alert>
-          </DialogContent>
-        )}
+        {preview && nothingToSend && <Alert severity="info">There are no documents to fax for this visit yet.</Alert>}
 
         {showForm && (
           <SendFaxForm
@@ -67,10 +70,11 @@ export const SendFaxDialog: FC<SendFaxDialogProps> = ({ controller, title = 'Sen
             visits={visits}
             isSending={controller.isSending}
             onSubmit={controller.send}
-            onCancel={controller.close}
+            formId={formId}
+            onCanSendChange={setCanSend}
           />
         )}
-      </Dialog>
+      </AppDialog>
 
       <FaxSendResultDialog failures={controller.failures} onClose={controller.dismissFailures} />
     </>

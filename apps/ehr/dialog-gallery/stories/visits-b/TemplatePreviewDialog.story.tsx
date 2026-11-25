@@ -6,7 +6,7 @@ import { visitMocks, visitRoute } from './_visit';
 export default defineStory({
   title: 'Apply template: preview and per-section merge options',
   source: 'apps/ehr/src/features/visits/shared/components/templates/TemplatePreviewDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Visit → template picker ("Select condition") → choose a template; also AutoChart template suggestion',
   ...visitRoute,

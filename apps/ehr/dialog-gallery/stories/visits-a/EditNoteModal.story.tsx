@@ -24,9 +24,9 @@ export const locales: NoteLocales = {
   getMoreButtonText: (shown) => (shown ? 'See less' : 'See more'),
   getDeleteModalTitle: (entityLabel) => `Delete ${entityLabel}`,
   getDeleteModalContent: (entityLabel) => `Are you sure you want to permanently delete this ${entityLabel}?`,
-  getKeepButtonText: () => 'Keep',
+  getKeepButtonText: () => 'Cancel',
   getDeleteButtonText: (isDeleting) => (isDeleting ? 'Deleting...' : 'Delete'),
-  getLeaveButtonText: () => 'Leave',
+  getLeaveButtonText: () => 'Cancel',
   getSaveButtonText: (isSaving) => (isSaving ? 'Saving...' : 'Save'),
   getErrorMessage: (action, entityLabel) => `Error during ${entityLabel} ${action}. Please try again.`,
   getGenericErrorMessage: () => 'An error occurred while saving the information. Please try again.',
@@ -35,7 +35,7 @@ export const locales: NoteLocales = {
 export default defineStory({
   title: 'Edit note',
   source: 'apps/ehr/src/features/visits/shared/components/generic-notes-list/components/EditNoteModal.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Visit chart → any notes list (intake, internal, vitals, screening...) → edit icon on a note',
   render: () => (

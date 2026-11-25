@@ -5,7 +5,7 @@ import { visitMocks, visitRoute } from './_visit';
 export default defineStory({
   title: 'Unlock signed appointment',
   source: 'apps/ehr/src/features/visits/shared/components/review-tab/UnlockAppointmentButton.tsx',
-  base: 'ConfirmationDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Visit → Review & Sign tab of a signed (locked) visit → "Unlock" button',
   ...visitRoute,

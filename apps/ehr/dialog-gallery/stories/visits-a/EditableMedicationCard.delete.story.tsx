@@ -7,7 +7,7 @@ const order = pendingOrder;
 export default defineStory({
   title: 'Delete Medication (order form)',
   source: SOURCE,
-  base: 'DeleteDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'In-person visit → In-house Medications → open a pending order (dispense form) → Delete Order',
   ...visitRoute,

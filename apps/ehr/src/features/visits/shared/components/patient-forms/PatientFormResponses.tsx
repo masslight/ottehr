@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { deleteVisitForm, getPatientFormResponses, sendPatientForm } from 'src/api/api';
 import { AccordionCard } from 'src/components/AccordionCard';
 import { CustomFormCard } from 'src/components/CustomFormCard';
-import DeleteDialog from 'src/components/dialogs/DeleteDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { EditFormResponseDialog } from 'src/components/dialogs/EditFormResponseDialog';
 import { SendFormDialog } from 'src/components/dialogs/SendFormDialog';
 import { Section } from 'src/components/layout/Section';
@@ -184,18 +184,17 @@ export const PatientFormResponses: FC<PatientFormResponsesProps> = ({ placement,
           }}
         />
       )}
-      <DeleteDialog
+      <AppDialog
+        variant="destructive"
         open={Boolean(formToDelete)}
-        title="Delete form?"
-        description={`"${
+        title="Delete Form?"
+        onClose={() => setFormToDelete(undefined)}
+        primary={{ label: 'Delete', onClick: () => void deleteForm(), loading: deleting }}
+      >
+        {`"${
           formToDelete?.questionnaireTitle ?? 'This form'
         }" and the answers submitted on it will no longer show on this visit.`}
-        closeButtonText="Cancel"
-        handleClose={() => setFormToDelete(undefined)}
-        deleteButtonText="Delete"
-        handleDelete={() => void deleteForm()}
-        loadingDelete={deleting}
-      />
+      </AppDialog>
       {appointment?.id && sendOpen && (
         <SendFormDialog
           open={sendOpen}

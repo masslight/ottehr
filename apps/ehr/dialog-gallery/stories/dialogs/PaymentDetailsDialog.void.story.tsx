@@ -5,7 +5,7 @@ import { cashPayment } from './_payments';
 export default defineStory({
   title: 'Void payment (cash)',
   source: 'apps/ehr/src/components/dialogs/PaymentDetailsDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Payment Details dialog (cash/check payment) → "Void Payment"',
   notes:

@@ -1,8 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import PriorityHighOutlinedIcon from '@mui/icons-material/PriorityHighOutlined';
 import {
-  Dialog,
-  DialogContent,
   FormControl,
   InputLabel,
   MenuItem,
@@ -17,7 +15,7 @@ import {
 } from '@mui/material';
 import { Box, Stack } from '@mui/system';
 import React, { ReactElement, useState } from 'react';
-import { RoundedButton } from 'src/components/RoundedButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { MedicationInteractions } from 'utils/lib/types/api/medication-administration.types';
 
 const OTHER = 'Other';
@@ -329,21 +327,21 @@ export const InteractionAlertsDialog: React.FC<Props> = ({
   };
 
   return (
-    <Dialog open={true} maxWidth="lg" fullWidth>
-      <DialogContent style={{ padding: '8px 24px 24px 24px' }}>
-        {medicationsInteractions()}
-        {allergiesInteractions()}
-        <Box style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
-          <RoundedButton variant="outlined" onClick={onCancel}>
-            Cancel
-          </RoundedButton>
-          {onContinue && !readonly ? (
-            <RoundedButton variant="contained" onClick={() => onContinue(interactions)} disabled={!allReasonsValid}>
-              Continue
-            </RoundedButton>
-          ) : null}
-        </Box>
-      </DialogContent>
-    </Dialog>
+    <AppDialog
+      variant="form"
+      size="l"
+      open
+      onClose={onCancel}
+      title="Interaction Alerts"
+      dismiss={{ label: readonly ? 'Close' : 'Cancel' }}
+      primary={
+        onContinue && !readonly
+          ? { label: 'Continue', onClick: () => onContinue(interactions), disabled: !allReasonsValid }
+          : undefined
+      }
+    >
+      {medicationsInteractions()}
+      {allergiesInteractions()}
+    </AppDialog>
   );
 };

@@ -31,7 +31,7 @@ export default defineStory({
   title: 'Confirm inexact medication match',
   source:
     'apps/ehr/src/features/visits/shared/components/medical-history-tab/CurrentMedications/ExternalRxSuggestions.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where:
     'Visit chart → Medical history → Current medications → External Rx panel → click an inexactly matched medication',

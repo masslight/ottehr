@@ -53,46 +53,56 @@ export const AdministrationConfirmationDialog: React.FC<Props> = ({
     disabled: needsReason && (!reason || (reason === ReasonListCodes.OTHER && !otherReason)),
   };
   const content = (
-      <Box display="flex" flexDirection="column" gap={1}>
-        <Typography data-testid={dataTestIds.administrationConfirmationDialog.patient}>
-          <strong>Patient:</strong> {patientName}
-        </Typography>
-        <Typography data-testid={dataTestIds.administrationConfirmationDialog.vaccine}>
-          <strong>Immunization:</strong> {medicationName} / {dose}
-          {unit} / {route}
-        </Typography>
-        <Typography data-testid={dataTestIds.administrationConfirmationDialog.message}>
-          Please confirm that you want to mark this immunization order as{' '}
-          {<strong>{administrationType.label}</strong>}
-          {administrationType.type !== 'administered' ? ' and select the reason.' : '.'}
-        </Typography>
-        {administrationType.type !== 'administered' ? (
-          <Stack spacing={2} sx={{ mt: 2 }}>
-            <SelectInput
-              dataTestId={dataTestIds.administrationConfirmationDialog.reasonField}
-              name="reason"
-              label="Reason"
-              options={Object.keys(reasonListValues)}
-              getOptionLabel={(option) => reasonListValues[option as ReasonListCodes]}
-              required
-            />
-            {reason === ReasonListCodes.OTHER && <TextInput name="otherReason" label="Specify reason" required />}
-          </Stack>
-        ) : null}
-      </Box>
+    <Box display="flex" flexDirection="column" gap={1}>
+      <Typography data-testid={dataTestIds.administrationConfirmationDialog.patient}>
+        <strong>Patient:</strong> {patientName}
+      </Typography>
+      <Typography data-testid={dataTestIds.administrationConfirmationDialog.vaccine}>
+        <strong>Immunization:</strong> {medicationName} / {dose}
+        {unit} / {route}
+      </Typography>
+      <Typography data-testid={dataTestIds.administrationConfirmationDialog.message}>
+        Please confirm that you want to mark this immunization order as {<strong>{administrationType.label}</strong>}
+        {administrationType.type !== 'administered' ? ' and select the reason.' : '.'}
+      </Typography>
+      {administrationType.type !== 'administered' ? (
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          <SelectInput
+            dataTestId={dataTestIds.administrationConfirmationDialog.reasonField}
+            name="reason"
+            label="Reason"
+            options={Object.keys(reasonListValues)}
+            getOptionLabel={(option) => reasonListValues[option as ReasonListCodes]}
+            required
+          />
+          {reason === ReasonListCodes.OTHER && <TextInput name="otherReason" label="Specify reason" required />}
+        </Stack>
+      ) : null}
+    </Box>
   );
 
   // Marking as administered is a plain confirmation; the other two outcomes ask for a reason.
   return needsReason ? (
-    <AppDialog variant="form" size="s" open={open} onClose={handleClose} title={title}
- titleTestId={dataTestIds.inPersonModal.confirmationDialogue}
- primary={primary}>
+    <AppDialog
+      variant="form"
+      size="s"
+      open={open}
+      onClose={handleClose}
+      title={title}
+      titleTestId={dataTestIds.inPersonModal.confirmationDialogue}
+      primary={primary}
+    >
       {content}
     </AppDialog>
   ) : (
-    <AppDialog variant="confirm" open={open} onClose={handleClose} title={title}
- titleTestId={dataTestIds.inPersonModal.confirmationDialogue}
- primary={primary}>
+    <AppDialog
+      variant="confirm"
+      open={open}
+      onClose={handleClose}
+      title={title}
+      titleTestId={dataTestIds.inPersonModal.confirmationDialogue}
+      primary={primary}
+    >
       {content}
     </AppDialog>
   );

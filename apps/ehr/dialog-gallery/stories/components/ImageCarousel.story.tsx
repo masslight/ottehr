@@ -23,10 +23,10 @@ const Host = (): ReactElement => {
 export default defineStory({
   title: 'Image carousel (full-size image preview)',
   source: 'apps/ehr/src/components/ImageCarousel.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'Visit details / telemed patient photos / document thumbnails → click an image',
   notes:
-    'Images are inline SVG placeholders (external image requests are blocked in the capture sandbox). The dialog paper is transparent by design, so the crop shows the backdrop behind it.',
+    'Images are inline SVG placeholders (external image requests are blocked in the capture sandbox).',
   render: () => <Host />,
 });

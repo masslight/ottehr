@@ -298,12 +298,7 @@ export const InPersonNavigationProvider: React.FC<{ children: ReactNode }> = ({ 
       }}
     >
       {children}
-      <AppDialog
-        variant="alert"
-        open={isModalOpen}
-        onClose={closeModal}
-        title="Validation Error"
-      >
+      <AppDialog variant="alert" open={isModalOpen} onClose={closeModal} title="Validation Error">
         <div data-testid={dataTestIds.dialog.inPersonModalContent}>{modalContent}</div>
       </AppDialog>
     </InPersonNavigationContext.Provider>

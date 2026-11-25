@@ -14,7 +14,7 @@ const note: NoteDTO = {
 export default defineStory({
   title: 'Edit task note',
   source: 'apps/ehr/src/features/patient-notes/components/EditNoteModal.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Tasks board → task notes dialog → pencil icon on a note',
   notes: 'Rendered directly with a mock note. Save is disabled until the text changes (normal initial state).',

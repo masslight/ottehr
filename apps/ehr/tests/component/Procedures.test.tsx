@@ -288,7 +288,7 @@ describe('Procedures - Delete Procedure Tests', () => {
       expect(screen.getByRole('heading', { name: 'Delete Procedure' })).toBeInTheDocument();
     });
 
-    const keepButton = screen.getByText('Keep');
+    const keepButton = screen.getByRole('button', { name: 'Cancel' });
     await user.click(keepButton);
 
     // Verify dialog is closed

@@ -33,7 +33,7 @@ const practiceManagedQuestionnaires: PracticeManagedQuestionnaireDTO[] = [
 export default defineStory({
   title: 'Send form to patient (send-only variant)',
   source: 'apps/ehr/src/components/dialogs/SendFormDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'Not currently reachable: every caller passes onFillOut',
   notes:

@@ -5,7 +5,7 @@ import { cardPayment } from './_payments';
 export default defineStory({
   title: 'Refund payment (card)',
   source: 'apps/ehr/src/components/dialogs/PaymentDetailsDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Payment Details dialog → "Refund Payment"',
   notes:

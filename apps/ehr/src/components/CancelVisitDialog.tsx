@@ -1,12 +1,4 @@
-import {
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  SelectChangeEvent,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { FormControl, InputLabel, MenuItem, Select, SelectChangeEvent, TextField, Typography } from '@mui/material';
 import React, { ReactElement, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { cancelTelemedAppointment } from 'src/api/api';

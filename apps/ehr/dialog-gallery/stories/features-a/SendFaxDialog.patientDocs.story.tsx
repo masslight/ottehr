@@ -28,7 +28,7 @@ const Host = (): ReactElement => {
 export default defineStory({
   title: 'Send fax (patient docs: caller title + visit picker)',
   source: 'apps/ehr/src/features/fax/ui/SendFaxDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Patient page → "Fax" → "Patient Docs"',
   mocks: [...addressBookMocks],

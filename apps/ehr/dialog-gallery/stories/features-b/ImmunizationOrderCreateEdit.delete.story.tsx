@@ -5,7 +5,7 @@ import { immunizationMocks } from './immunization-mocks';
 export default defineStory({
   title: 'Delete immunization order (edit order page)',
   source: 'apps/ehr/src/features/immunization/pages/ImmunizationOrderCreateEdit.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'In-person chart → Immunization → edit a pending order → "Delete Order"',
   notes: 'Edit page rendered with a mocked order (get-immunization-orders); opened via the real Delete Order button.',
@@ -15,6 +15,6 @@ export default defineStory({
   render: () => <ImmunizationOrderCreateEdit />,
   play: async ({ user, screen }) => {
     await user.click(await screen.findByRole('button', { name: 'Delete Order' }, { timeout: 10000 }));
-    await screen.findByText('Delete immunization order');
+    await screen.findByText('Delete Immunization Order');
   },
 });

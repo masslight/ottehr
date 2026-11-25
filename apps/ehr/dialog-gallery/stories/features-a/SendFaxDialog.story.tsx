@@ -37,7 +37,7 @@ const Host = (): ReactElement => {
 export default defineStory({
   title: 'Send fax (visit documents)',
   source: 'apps/ehr/src/features/fax/ui/SendFaxDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where:
     'In-person visit header → "Fax"; also patient page ("Fax Medical Record") and patient documents ("Fax Document")',

@@ -79,7 +79,7 @@ export class HospitalizationPage {
 
   async deleteHospitalizationNote(originalNote: string): Promise<void> {
     const deleteDialog = await this.#clickDeleteNoteButton(originalNote);
-    await deleteDialog.verifyTitle('Delete hospitalization note');
+    await deleteDialog.verifyTitle('Delete Hospitalization Note');
     await deleteDialog.verifyModalContent('Are you sure you want to permanently delete this hospitalization note?');
     await deleteDialog.verifyModalContent(originalNote);
     await deleteDialog.clickProceedButton();

@@ -69,9 +69,9 @@ const internalNotesConfig: GenericNotesConfig = {
     getMoreButtonText: (isMoreEntitiesShown: boolean) => (isMoreEntitiesShown ? 'See less' : 'See more'),
     getDeleteModalTitle: (entityLabel: string) => `Delete ${entityLabel}`,
     getDeleteModalContent: (entityLabel: string) => `Are you sure you want to permanently delete this ${entityLabel}?`,
-    getKeepButtonText: () => 'Keep',
+    getKeepButtonText: () => 'Cancel',
     getDeleteButtonText: (isDeleting: boolean) => (isDeleting ? 'Deleting...' : 'Delete'),
-    getLeaveButtonText: () => 'Leave',
+    getLeaveButtonText: () => 'Cancel',
     getSaveButtonText: (isSaving: boolean) => (isSaving ? 'Saving...' : 'Save'),
     getErrorMessage: (action: string, entityLabel: string) =>
       `Error during ${entityLabel} ${action}. Please try again.`,

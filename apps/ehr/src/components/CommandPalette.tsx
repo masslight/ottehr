@@ -14,9 +14,9 @@ import {
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { captureInsertContext } from '../helpers/insertTextAtCaret';
-import { AppDialog } from './dialogs/AppDialog';
 import { shortcutLabel } from '../helpers/keyboardShortcut';
 import { CommandPaletteItem, useCommandPaletteStore } from '../state/command-palette.store';
+import { AppDialog } from './dialogs/AppDialog';
 
 const PATIENT_SEARCH_ITEM_ID = '__patient-search__';
 

@@ -5,7 +5,7 @@ import { visitMocks, visitRoute } from './_fixtures';
 export default defineStory({
   title: 'Confirm ASQ Positive',
   source: 'apps/ehr/src/features/visits/in-person/components/screening/ASQ.tsx',
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'In-person visit → Screening → ASQ dropdown → select "Positive"',
   ...visitRoute,

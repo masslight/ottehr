@@ -210,7 +210,7 @@ export default function AppointmentNotesHistory({
       )}
 
       <EditPatientInfoDialog
-        title="Update current tracking board note"
+        title="Update Current Tracking Board Note"
         modalOpen={editNoteDialogOpen}
         onClose={() => {
           setEditNoteDialogOpen(false);
@@ -231,7 +231,7 @@ export default function AppointmentNotesHistory({
           </>
         }
         onSubmit={handleNoteUpdate}
-        submitButtonName="Update note"
+        submitButtonName="Update Note"
         loading={updateAppointmentNoteMutation.isPending}
         error={updateAppointmentNoteMutation.isError}
         errorMessage="Failed to update note"

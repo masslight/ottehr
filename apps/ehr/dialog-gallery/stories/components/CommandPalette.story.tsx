@@ -5,7 +5,7 @@ import { userMocks } from './_shared';
 export default defineStory({
   title: 'Command palette (search)',
   source: 'apps/ehr/src/components/CommandPalette.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'Global — navbar search icon or Cmd/Ctrl+K',
   mocks: userMocks,

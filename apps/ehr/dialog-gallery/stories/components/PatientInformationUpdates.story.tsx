@@ -28,7 +28,7 @@ const task = {
 export default defineStory({
   title: 'Review patient information updates',
   source: 'apps/ehr/src/components/patients-merge/PatientInformationUpdates.tsx',
-  base: 'InnerStateDialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Patient record → "Patient information updates" button (component is not currently mounted by any page)',
   mocks: [{ url: /\/fhir\/Patient/, response: bundleOf([patientA, task]) }],

@@ -418,7 +418,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
             elevation={0}
             expanded={addressExpanded}
             onChange={(_, expanded) => setAddressExpanded(expanded)}
-            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0, m: '0px' }}
+            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2, m: '0px' }}
           >
             <AccordionSummary
               expandIcon={<ExpandMoreIcon fontSize="small" />}
@@ -473,7 +473,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
             elevation={0}
             expanded={contactExpanded}
             onChange={(_, expanded) => setContactExpanded(expanded)}
-            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0, m: '2px' }}
+            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2, m: '2px' }}
           >
             <AccordionSummary
               expandIcon={<ExpandMoreIcon fontSize="small" />}
@@ -515,7 +515,7 @@ export default function EmployerDialog({ open, onClose, employer }: EmployerDial
               elevation={0}
               expanded={associationsExpanded}
               onChange={(_, expanded) => setAssociationsExpanded(expanded)}
-              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0, m: '2px' }}
+              sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2, m: '2px' }}
             >
               <AccordionSummary
                 expandIcon={<ExpandMoreIcon fontSize="small" />}

@@ -24,7 +24,7 @@ const makePhotoFile = async (): Promise<File> => {
 export default defineStory({
   title: 'Patient profile photo — cropping a newly picked photo',
   source: 'apps/ehr/src/features/visits/shared/components/ProfilePhotoImagePicker.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Visit header → click the patient avatar → choose a photo file',
   ...visitRoute,

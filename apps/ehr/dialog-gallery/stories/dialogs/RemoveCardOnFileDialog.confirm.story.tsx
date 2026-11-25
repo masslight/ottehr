@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Confirm card removal (step 2)',
   source: 'apps/ehr/src/components/dialogs/RemoveCardOnFileDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Card on File dialog → "Remove Card on File"',
   notes: 'Same Dialog element as step 1, after clicking "Remove Card on File".',

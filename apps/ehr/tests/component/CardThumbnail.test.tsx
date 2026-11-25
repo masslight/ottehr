@@ -105,7 +105,7 @@ describe('CardThumbnail', () => {
     await user.click(screen.getByRole('button', { name: `Enlarge ${TITLE}` }));
     await user.click(screen.getByRole('button', { name: `Remove ${TITLE} front` }));
 
-    expect(screen.getByText('Remove card image')).toBeInTheDocument();
+    expect(screen.getByText('Remove Card Image')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Remove' }));
 
     expect(handleDeleteClick).toHaveBeenCalledWith('doc-front');
@@ -124,7 +124,7 @@ describe('CardThumbnail', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(handleDeleteClick).not.toHaveBeenCalled();
-    await waitFor(() => expect(screen.queryByText('Remove card image')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('Remove Card Image')).not.toBeInTheDocument());
   });
 
   it('keeps the Front/Back toggle reachable when delete is wired, even with only one face present', async () => {

@@ -25,7 +25,7 @@ const practiceManagedQuestionnaires: PracticeManagedQuestionnaireDTO[] = [
 export default defineStory({
   title: 'Add form — after the link was sent',
   source: 'apps/ehr/src/components/dialogs/SendFormDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'Visit details page / patient forms card → "Add form" → pick a form → "Send via SMS"',
   notes:
@@ -56,6 +56,6 @@ export default defineStory({
     await user.click(await screen.findByRole('combobox', { name: 'Form' }));
     await user.click(await screen.findByRole('option', { name: 'Work Status Form' }));
     await user.click(screen.getByRole('button', { name: 'Send via SMS' }));
-    await screen.findByRole('button', { name: 'Close' });
+    await screen.findByText('Close');
   },
 });

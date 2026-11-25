@@ -5,7 +5,7 @@ import { bundleOf, patientA, patientB } from './_shared';
 export default defineStory({
   title: 'Merge patients — select duplicates',
   source: 'apps/ehr/src/components/patients-merge/PatientsMergeSelect.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'Patient record → merge patients, step 1 (component is not currently mounted by any page)',
   mocks: [{ url: /\/fhir\/Patient/, response: bundleOf([patientA, patientB]) }],

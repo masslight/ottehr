@@ -1,6 +1,6 @@
-import CloseIcon from '@mui/icons-material/Close';
-import { Box, Dialog, DialogContent, DialogTitle, IconButton, Typography } from '@mui/material';
+import { Box } from '@mui/material';
 import React from 'react';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { NOTE_TYPE } from 'utils/lib/types/api/chart-data/chart-data.types';
 import { GenericNoteList } from '../../shared/components/generic-notes-list/GenericNoteList';
 import { GenericNotesConfig } from '../../shared/components/generic-notes-list/types';
@@ -31,22 +31,12 @@ interface IntakeNotesModalProps {
 
 const IntakeNotesModal: React.FC<IntakeNotesModalProps> = ({ open, onClose }) => {
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
-      <DialogTitle>
-        <Box px={3} display="flex" alignItems="center" justifyContent="space-between">
-          <Typography variant="h4" component="div">
-            Intake Notes
-          </Typography>
-          <IconButton sx={{ color: 'grey.500' }} edge="end" color="inherit" onClick={onClose} aria-label="close">
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-
-      <DialogContent sx={{ mt: -3 }}>
+    <AppDialog variant="form" size="m" open={open} onClose={onClose} title="Intake Notes">
+      {/* The notes list brings its own top margin. */}
+      <Box sx={{ mt: -3 }}>
         <IntakeNotes />
-      </DialogContent>
-    </Dialog>
+      </Box>
+    </AppDialog>
   );
 };
 
@@ -62,9 +52,9 @@ const intakeNotesConfig: GenericNotesConfig = {
     getMoreButtonText: (isMoreEntitiesShown: boolean) => (isMoreEntitiesShown ? 'See less' : 'See more'),
     getDeleteModalTitle: (entityLabel: string) => `Delete ${entityLabel}`,
     getDeleteModalContent: (entityLabel: string) => `Are you sure you want to permanently delete this ${entityLabel}?`,
-    getKeepButtonText: () => 'Keep',
+    getKeepButtonText: () => 'Cancel',
     getDeleteButtonText: (isDeleting: boolean) => (isDeleting ? 'Deleting...' : 'Delete'),
-    getLeaveButtonText: () => 'Leave',
+    getLeaveButtonText: () => 'Cancel',
     getSaveButtonText: (isSaving: boolean) => (isSaving ? 'Saving...' : 'Save'),
     getErrorMessage: (action: string, entityLabel: string) =>
       `Error during ${entityLabel} ${action}. Please try again.`,

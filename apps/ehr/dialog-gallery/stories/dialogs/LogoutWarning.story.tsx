@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Session about to expire (inactivity logout warning)',
   source: 'apps/ehr/src/components/dialogs/LogoutWarning.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'App-wide, shown after a period of inactivity',
   notes:

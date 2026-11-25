@@ -32,7 +32,7 @@ const actions: DocumentTableActions = {
 export default defineStory({
   title: 'Delete document',
   source: 'apps/ehr/src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Patient → Documents → document row → ⋮ menu → Delete document',
   mocks: [

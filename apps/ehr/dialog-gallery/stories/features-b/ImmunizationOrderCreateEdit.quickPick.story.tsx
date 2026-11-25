@@ -5,7 +5,7 @@ import { immunizationMocks } from './immunization-mocks';
 export default defineStory({
   title: 'Immunization order — save as quick pick',
   source: 'apps/ehr/src/features/immunization/pages/ImmunizationOrderCreateEdit.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where:
     'In-person chart → Immunization → Order Immunization → Quick Picks field → "+ Add or Update Quick Pick" (Administrator only)',

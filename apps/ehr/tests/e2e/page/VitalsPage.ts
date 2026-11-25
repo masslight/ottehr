@@ -360,7 +360,7 @@ export class VitalsPage {
 
   async deleteVitalsNote(originalNote: string): Promise<void> {
     const deleteDialog = await this.#clickDeleteNoteButton(originalNote);
-    await deleteDialog.verifyTitle('Delete vitals note');
+    await deleteDialog.verifyTitle('Delete Vitals Note');
     await deleteDialog.verifyModalContent('Are you sure you want to permanently delete this vitals note?');
     await deleteDialog.verifyModalContent(originalNote);
     await deleteDialog.clickProceedButton();

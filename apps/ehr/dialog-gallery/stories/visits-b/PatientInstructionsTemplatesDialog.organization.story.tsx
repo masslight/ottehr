@@ -13,7 +13,7 @@ const picks = [
 export default defineStory({
   title: 'Patient instructions: Practice Quick Picks',
   source: 'apps/ehr/src/features/visits/shared/components/plan-tab/components/PatientInstructionsTemplatesDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'Visit → Plan tab → Patient Instructions → "Practice Quick Picks"',
   mocks: [

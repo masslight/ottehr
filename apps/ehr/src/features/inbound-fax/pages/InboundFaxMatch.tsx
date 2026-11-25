@@ -27,7 +27,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { deleteInboundFax, fileInboundFax } from 'src/api/api';
-import { ConfirmationDialog } from 'src/components/ConfirmationDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { formatDate, GET_TASKS_KEY } from 'src/features/visits/in-person/hooks/useTasks';
 import { SearchResultParsedPatient } from 'src/features/visits/shared/components/patients-search/types';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -61,6 +61,7 @@ export const InboundFaxMatch: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isFiling, setIsFiling] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [error, setError] = useState<string>();
   // Set when the fax is already filed or its task completed: show the PDF read-only with this notice,
   // no match form.
@@ -477,29 +478,33 @@ export const InboundFaxMatch: React.FC = () => {
                       </Typography>
                     )}
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
-                      <ConfirmationDialog
-                        title="Delete inbound fax?"
-                        description={`This will permanently delete the ${pageCount || '?'}-page fax received from ${
-                          senderFaxNumber || 'unknown'
-                        } on ${receivedDate ? formatDate(receivedDate) : 'an unknown date'}. This cannot be undone.`}
-                        response={handleDelete}
-                        actionButtons={{
-                          proceed: { text: 'Delete', color: 'error', loading: isDeleting },
-                          back: { text: 'Cancel' },
+                      <LoadingButton
+                        loading={isDeleting}
+                        variant="outlined"
+                        color="error"
+                        onClick={() => setDeleteDialogOpen(true)}
+                        sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
+                      >
+                        Delete
+                      </LoadingButton>
+                      <AppDialog
+                        variant="destructive"
+                        open={deleteDialogOpen}
+                        onClose={() => setDeleteDialogOpen(false)}
+                        title="Delete Inbound Fax?"
+                        primary={{
+                          label: 'Delete Fax',
+                          loading: isDeleting,
+                          onClick: async () => {
+                            await handleDelete();
+                            setDeleteDialogOpen(false);
+                          },
                         }}
                       >
-                        {(showDialog) => (
-                          <LoadingButton
-                            loading={isDeleting}
-                            variant="outlined"
-                            color="error"
-                            onClick={showDialog}
-                            sx={{ borderRadius: '50px', textTransform: 'none', px: 4 }}
-                          >
-                            Delete
-                          </LoadingButton>
-                        )}
-                      </ConfirmationDialog>
+                        {`This will permanently delete the ${pageCount || '?'}-page fax received from ${
+                          senderFaxNumber || 'unknown'
+                        } on ${receivedDate ? formatDate(receivedDate) : 'an unknown date'}. This cannot be undone.`}
+                      </AppDialog>
                       <LoadingButton
                         loading={isFiling}
                         variant="contained"

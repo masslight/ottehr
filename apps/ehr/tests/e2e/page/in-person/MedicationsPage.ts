@@ -84,7 +84,7 @@ export class MedicationsPage {
 
   async deleteMedicationNote(originalNote: string): Promise<void> {
     const deleteDialog = await this.#clickDeleteNoteButton(originalNote);
-    await deleteDialog.verifyTitle('Delete medication note');
+    await deleteDialog.verifyTitle('Delete Medication Note');
     await deleteDialog.verifyModalContent('Are you sure you want to permanently delete this medication note?');
     await deleteDialog.verifyModalContent(originalNote);
     await deleteDialog.clickProceedButton();

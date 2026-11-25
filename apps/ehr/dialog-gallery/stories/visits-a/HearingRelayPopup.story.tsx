@@ -5,7 +5,7 @@ import { appointmentMock, visitRoute } from './_fixtures';
 export default defineStory({
   title: 'Patient requires a Hearing Impaired Relay Service (711)',
   source: 'apps/ehr/src/features/visits/shared/components/HearingRelayPopup.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'info',
   where: 'Visit header / telemed appointment → relay-service indicator next to the patient',
   ...visitRoute,

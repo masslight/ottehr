@@ -1631,7 +1631,7 @@ export default function PatientPaymentList({
         />
       )}
       <SendReceiptByEmailDialog
-        title="Send receipt"
+        title="Send Receipt"
         modalOpen={sendReceiptByEmailDialogOpen}
         handleClose={() => setSendReceiptByEmailDialogOpen(false)}
         onSubmit={sendReceipt}

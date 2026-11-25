@@ -73,7 +73,7 @@ const renderDialog = async (
 
   render(<GenerateExcuseDialog type="schoolTemplate" open={true} onClose={vi.fn()} generate={generate as any} />);
 
-  await userEvent.click(screen.getByRole('button', { name: 'Generate note' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Generate Note' }));
 
   expect(generate).toHaveBeenCalledTimes(1);
   return generate.mock.calls[0][0].newSchoolWorkNote as SchoolWorkNoteExcuseDocDTO;

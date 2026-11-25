@@ -5,7 +5,7 @@ import { invoiceReport } from './_fixtures';
 export default defineStory({
   title: 'Send invoice to patient',
   source: 'apps/ehr/src/components/dialogs/SendInvoiceToPatientDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Reports → Invoiceable patients → send invoice',
   // An empty invoice config makes the dialog fall back to the built-in default SMS/memo templates and due days.
@@ -15,7 +15,7 @@ export default defineStory({
   render: () => (
     <SendInvoiceToPatientDialog
       modalOpen
-      title="Send invoice"
+      title="Send Invoice"
       submitButtonName="Send Invoice"
       handleClose={() => undefined}
       onSubmit={async () => undefined}

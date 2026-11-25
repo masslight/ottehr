@@ -176,52 +176,52 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
             : undefined
         }
       >
-      <Stack spacing={2} sx={{ pt: 1 }}>
-        <TextInput name="organizationName" label="Organization" />
-        <TextInput name="firstName" label="First name" />
-        <TextInput name="lastName" label="Last name" />
-        <TextInput name="credential" label="Credential" />
-        <TextInput name="title" label="Title" />
-        <TextInput name="address.line1" label="Address line 1" />
-        <TextInput name="address.line2" label="Address line 2" />
-        <TextInput name="address.city" label="City" />
-        <SelectInput name="address.state" label="State" options={STATE_OPTIONS} />
-        <TextInput
-          name="address.zip"
-          label="ZIP"
-          inputProps={{ mask: '00000-0000' }}
-          InputProps={{ inputComponent: InputMask as any }}
-        />
-        <PhoneInput name="phone" label="Phone" />
-        <PhoneInput name="fax" label="Fax" />
-        <TextInput name="email" label="Email" />
-        <Controller
-          name="tags"
-          control={control}
-          render={({ field, fieldState: { error } }) => (
-            <Autocomplete
-              multiple
-              freeSolo
-              options={tagSuggestions}
-              value={field.value}
-              onChange={(_event, value) => field.onChange(normalizeTags(value))}
-              inputValue={pendingTag}
-              onInputChange={(_event, value) => setPendingTag(value)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Tags"
-                  size="small"
-                  placeholder="Type a tag and press Enter"
-                  error={!!error}
-                  // A bad tag is reported per array item; show the first one under the box.
-                  helperText={error?.message ?? (Array.isArray(error) ? error.find(Boolean)?.message : undefined)}
-                />
-              )}
-            />
-          )}
-        />
-      </Stack>
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          <TextInput name="organizationName" label="Organization" />
+          <TextInput name="firstName" label="First name" />
+          <TextInput name="lastName" label="Last name" />
+          <TextInput name="credential" label="Credential" />
+          <TextInput name="title" label="Title" />
+          <TextInput name="address.line1" label="Address line 1" />
+          <TextInput name="address.line2" label="Address line 2" />
+          <TextInput name="address.city" label="City" />
+          <SelectInput name="address.state" label="State" options={STATE_OPTIONS} />
+          <TextInput
+            name="address.zip"
+            label="ZIP"
+            inputProps={{ mask: '00000-0000' }}
+            InputProps={{ inputComponent: InputMask as any }}
+          />
+          <PhoneInput name="phone" label="Phone" />
+          <PhoneInput name="fax" label="Fax" />
+          <TextInput name="email" label="Email" />
+          <Controller
+            name="tags"
+            control={control}
+            render={({ field, fieldState: { error } }) => (
+              <Autocomplete
+                multiple
+                freeSolo
+                options={tagSuggestions}
+                value={field.value}
+                onChange={(_event, value) => field.onChange(normalizeTags(value))}
+                inputValue={pendingTag}
+                onInputChange={(_event, value) => setPendingTag(value)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Tags"
+                    size="small"
+                    placeholder="Type a tag and press Enter"
+                    error={!!error}
+                    // A bad tag is reported per array item; show the first one under the box.
+                    helperText={error?.message ?? (Array.isArray(error) ? error.find(Boolean)?.message : undefined)}
+                  />
+                )}
+              />
+            )}
+          />
+        </Stack>
       </AppDialog>
       {contact && canDelete && (
         <AppDialog

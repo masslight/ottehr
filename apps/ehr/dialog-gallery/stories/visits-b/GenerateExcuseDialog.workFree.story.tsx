@@ -6,13 +6,13 @@ import { VisitReady } from './_VisitReady';
 export default defineStory({
   title: 'Generate Work excuse (free text)',
   source: 'apps/ehr/src/features/visits/shared/components/plan-tab/components/GenerateExcuseDialogContainer.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Visit → Plan tab → School / Work Excuse card → generate',
   ...visitRoute,
   mocks: visitMocks(),
   notes:
-    'Shell (title, dividers, Cancel / Generate note) is GenerateExcuseDialogContainer.tsx; the form body is its only caller, plan-tab/components/GenerateExcuseDialog.tsx (type="workFree"), rendered here for real against a mock visit (mounted once the visit has loaded, since the form reads patient/provider names at mount).',
+    'Shell (title, dividers, Cancel / Generate Note) is GenerateExcuseDialogContainer.tsx; the form body is its only caller, plan-tab/components/GenerateExcuseDialog.tsx (type="workFree"), rendered here for real against a mock visit (mounted once the visit has loaded, since the form reads patient/provider names at mount).',
   render: () => (
     <VisitReady>
       <GenerateExcuseDialog

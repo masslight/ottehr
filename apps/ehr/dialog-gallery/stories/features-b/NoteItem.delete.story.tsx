@@ -5,7 +5,7 @@ import { mockNotes } from './notes-mocks';
 export default defineStory({
   title: 'Delete patient note',
   source: 'apps/ehr/src/features/patient-notes/components/NoteItem.tsx',
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Patient Notes dialog → trash icon on a note',
   notes:

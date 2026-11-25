@@ -151,9 +151,7 @@ export const ASQ: React.FC = () => {
           },
         }}
       >
-        <Box data-testid={dataTestIds.dialog.inPersonModalContent}>
-          Are you sure you want to set ASQ as Positive?
-        </Box>
+        <Box data-testid={dataTestIds.dialog.inPersonModalContent}>Are you sure you want to set ASQ as Positive?</Box>
       </AppDialog>
     </Paper>
   );

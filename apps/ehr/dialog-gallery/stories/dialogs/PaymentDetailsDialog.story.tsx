@@ -5,7 +5,7 @@ import { cardPayment } from './_payments';
 export default defineStory({
   title: 'Payment details',
   source: 'apps/ehr/src/components/dialogs/PaymentDetailsDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'Patient payments list → click a payment row',
   notes:

@@ -5,14 +5,14 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'EditPatientInfoDialog (base wrapper)',
   source: 'apps/ehr/src/components/dialogs/EditPatientInfoDialog.tsx',
-  base: 'EditPatientInfoDialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Shared wrapper (built on MUI Dialog + Paper); callers pass the title, the input element and the submit label',
   notes: 'The `input` slot is filled with a single placeholder TextField; real callers pass their own inputs.',
   render: () => (
     <EditPatientInfoDialog
       modalOpen
-      title="Dialog title"
+      title="Dialog Title"
       onClose={() => undefined}
       onSubmit={async (e) => e.preventDefault()}
       submitButtonName="Save"

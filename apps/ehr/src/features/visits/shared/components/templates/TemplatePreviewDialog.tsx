@@ -16,8 +16,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useState } from 'react';
 import { getTemplateDetail } from 'src/api/api';
-import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { ContainedPrimaryToggleButton } from 'src/components/ContainedPrimaryToggleButton';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { formatCptCodeAndModifiersForDisplay, getProcedureDisplayFields } from 'src/helpers/templates';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { groupExamFindingsBySection } from 'utils/lib/config-helpers/exam-observations';
@@ -983,59 +983,59 @@ export const TemplatePreviewDialog: React.FC<TemplatePreviewDialogProps> = ({
           externalLabsRequirementUnmet,
       }}
     >
-        <Typography variant="body1" sx={{ color: 'text.primary', mb: 2 }}>
-          Review what will be applied and choose how each section should be merged with the current note.
-        </Typography>
-        {detailQuery.isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-            <CircularProgress size={32} />
-          </Box>
-        ) : detailQuery.error ? (
-          <Alert severity="error">
-            Failed to load template preview: {(detailQuery.error as Error).message ?? 'Unknown error'}
-          </Alert>
-        ) : sectionsWithContent.length === 0 ? (
-          <Alert severity="info">This template is empty — nothing to apply.</Alert>
-        ) : (
-          <Stack spacing={1}>
-            {sectionsWithContent.map((section) => (
-              <SectionCard
-                key={section.key}
-                descriptor={section}
-                sections={detailQuery.data!.sections}
-                action={actions[section.key]}
-                onActionChange={(action) => handleActionChange(section.key, action)}
-                disabled={isApplying}
-                summaryPrefix={section.key === 'externalLabs' ? externalLabsSummaryPrefix : undefined}
-                content={
-                  section.key === 'externalLabs' ? (
-                    <>
-                      <Box data-testid="template-section-externalLabs-controls" sx={{ mb: 2 }}>
-                        <ExternalLabsApplyControls
-                          resourcesLoading={externalLabResourcesQuery.isLoading}
-                          resourcesError={externalLabResourcesQuery.isError}
-                          hasInsurance={hasInsurance}
-                          isWorkersComp={isWorkersComp}
-                          coverageInfo={coverageInfo}
-                          orderingOfficeName={orderingOfficeName}
-                          paymentMethod={externalLabPaymentMethod}
-                          onPaymentMethodChange={setExternalLabPaymentMethod}
-                          disabled={isApplying || actions.externalLabs === 'skip'}
-                        />
-                      </Box>
-                      <ExternalLabPlansList
-                        plans={detailQuery.data!.sections.externalLabs}
+      <Typography variant="body1" sx={{ color: 'text.primary', mb: 2 }}>
+        Review what will be applied and choose how each section should be merged with the current note.
+      </Typography>
+      {detailQuery.isLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
+          <CircularProgress size={32} />
+        </Box>
+      ) : detailQuery.error ? (
+        <Alert severity="error">
+          Failed to load template preview: {(detailQuery.error as Error).message ?? 'Unknown error'}
+        </Alert>
+      ) : sectionsWithContent.length === 0 ? (
+        <Alert severity="info">This template is empty — nothing to apply.</Alert>
+      ) : (
+        <Stack spacing={1}>
+          {sectionsWithContent.map((section) => (
+            <SectionCard
+              key={section.key}
+              descriptor={section}
+              sections={detailQuery.data!.sections}
+              action={actions[section.key]}
+              onActionChange={(action) => handleActionChange(section.key, action)}
+              disabled={isApplying}
+              summaryPrefix={section.key === 'externalLabs' ? externalLabsSummaryPrefix : undefined}
+              content={
+                section.key === 'externalLabs' ? (
+                  <>
+                    <Box data-testid="template-section-externalLabs-controls" sx={{ mb: 2 }}>
+                      <ExternalLabsApplyControls
+                        resourcesLoading={externalLabResourcesQuery.isLoading}
+                        resourcesError={externalLabResourcesQuery.isError}
+                        hasInsurance={hasInsurance}
+                        isWorkersComp={isWorkersComp}
+                        coverageInfo={coverageInfo}
+                        orderingOfficeName={orderingOfficeName}
                         paymentMethod={externalLabPaymentMethod}
+                        onPaymentMethodChange={setExternalLabPaymentMethod}
+                        disabled={isApplying || actions.externalLabs === 'skip'}
                       />
-                    </>
-                  ) : (
-                    <SectionPreview sectionKey={section.key} sections={detailQuery.data!.sections} />
-                  )
-                }
-              />
-            ))}
-          </Stack>
-        )}
+                    </Box>
+                    <ExternalLabPlansList
+                      plans={detailQuery.data!.sections.externalLabs}
+                      paymentMethod={externalLabPaymentMethod}
+                    />
+                  </>
+                ) : (
+                  <SectionPreview sectionKey={section.key} sections={detailQuery.data!.sections} />
+                )
+              }
+            />
+          ))}
+        </Stack>
+      )}
     </AppDialog>
   );
 };

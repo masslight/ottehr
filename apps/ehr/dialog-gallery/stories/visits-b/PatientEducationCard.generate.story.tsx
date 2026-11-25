@@ -6,7 +6,7 @@ import { visitMocks, visitRoute } from './_visit';
 export default defineStory({
   title: 'Generate patient education materials (select diagnoses)',
   source: 'apps/ehr/src/features/visits/shared/components/plan-tab/PatientEducationCard.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Visit → Plan tab → Patient Education card → "Patient Education" button',
   ...visitRoute,

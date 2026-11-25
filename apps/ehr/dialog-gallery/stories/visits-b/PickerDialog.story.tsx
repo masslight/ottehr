@@ -5,7 +5,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'AutoChart: choose between near-equal catalogue matches',
   source: 'apps/ehr/src/features/visits/shared/components/scribe-recommendations/PickerDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'Visit → AutoChart panel → apply a single recommendation whose catalogue match is ambiguous',
   setup: () => {

@@ -5,7 +5,7 @@ import { userMocks } from './shared-mocks';
 export default defineStory({
   title: 'New task',
   source: 'apps/ehr/src/features/tasks/components/CreateTaskDialog.tsx',
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Tasks board → "New Task" (also from the chart header and patient page)',
   notes:

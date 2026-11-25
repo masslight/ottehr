@@ -21,7 +21,7 @@ function Host(): ReactElement {
 export default defineStory({
   title: 'Delete procedure',
   source: 'apps/ehr/src/features/visits/in-person/components/DeleteProcedureDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'In-person visit → Procedures → delete icon on a procedure row',
   render: () => <Host />,

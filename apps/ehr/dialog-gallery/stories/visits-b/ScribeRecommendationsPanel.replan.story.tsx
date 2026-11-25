@@ -7,7 +7,7 @@ import { ENCOUNTER_ID, visitMocks, visitRoute } from './_visit';
 export default defineStory({
   title: 'AutoChart: replace the suggestions? (plan note again)',
   source: 'apps/ehr/src/features/visits/shared/components/scribe-recommendations/ScribeRecommendationsPanel.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'Visit → AutoChart panel → "Plan note" when a plan is already showing',
   ...visitRoute,
@@ -39,6 +39,6 @@ export default defineStory({
       { timeout: 10000 }
     );
     await user.click(button);
-    await screen.findByText('Replace the suggestions?');
+    await screen.findByText('Replace the Suggestions?');
   },
 });

@@ -899,7 +899,7 @@ export default function InvoiceablePatients({ source }: InvoiceablePatientsProps
         </Box>
       </Paper>
       <SendInvoiceToPatientDialog
-        title="Send invoice"
+        title="Send Invoice"
         modalOpen={selectedReportToSend !== undefined}
         handleClose={() => {
           setSelectedReportToSend(undefined);

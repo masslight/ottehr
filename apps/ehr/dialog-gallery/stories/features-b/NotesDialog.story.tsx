@@ -5,7 +5,7 @@ import { notesMocks } from './notes-mocks';
 export default defineStory({
   title: 'Patient notes',
   source: 'apps/ehr/src/features/patient-notes/components/NotesDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Chart header / patient page → patient notes button (note icon with count)',
   notes: 'Opened through the real PatientNotesButton; notes list comes from a mocked get-patient-notes zambda.',

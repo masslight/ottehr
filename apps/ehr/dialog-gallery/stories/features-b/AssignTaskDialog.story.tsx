@@ -6,7 +6,7 @@ import { mockFaxTask, userMocks } from './shared-mocks';
 export default defineStory({
   title: 'Assign task',
   source: 'apps/ehr/src/features/tasks/components/AssignTaskDialog.tsx',
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Tasks board → ⋮ on a task row → "Assign to someone else"',
   notes:

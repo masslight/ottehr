@@ -342,7 +342,7 @@ describe('ApplyTemplate', () => {
     await user.click(screen.getByText('+ Add or Update Template From Note'));
 
     await waitFor(() => {
-      expect(screen.getByText('Save Note As Template')).toBeInTheDocument();
+      expect(screen.getByText('Save Note as Template')).toBeInTheDocument();
     });
   });
 

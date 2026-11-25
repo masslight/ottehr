@@ -12,7 +12,7 @@ function Host(): ReactElement {
 export default defineStory({
   title: 'Intake notes',
   source: 'apps/ehr/src/features/visits/in-person/hooks/useIntakeNotes.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'In-person visit header → "Intake notes" button',
   ...visitRoute,

@@ -21,7 +21,7 @@ function Host(): ReactElement {
 export default defineStory({
   title: 'Edit patient information',
   source: 'apps/ehr/src/components/dialogs/EditPatientDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'In-person / telemed chart → patient information card → edit (pencil)',
   // The dialog reads the patient from the appointment query, keyed by :id in the URL.
@@ -41,7 +41,7 @@ export default defineStory({
     },
   ],
   notes:
-    'Patient comes from a mocked FHIR appointment search; opened via a stand-in button after the patient loads (the real trigger lives in the patient info card). Dialog has a fixed 800px height and scrolls internally; the capture shows the top of the form.',
+    'Patient comes from a mocked FHIR appointment search; opened via a stand-in button after the patient loads (the real trigger lives in the patient info card). The form is taller than the window, so the dialog scrolls internally; the capture shows the top of the form.',
   render: () => <Host />,
   play: async ({ user, screen }) => {
     await user.click(await screen.findByRole('button', { name: 'edit patient' }, { timeout: 8000 }));

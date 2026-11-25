@@ -7,7 +7,7 @@ const order = pendingOrder;
 export default defineStory({
   title: 'Medication Administered (confirm)',
   source: SOURCE,
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'In-person visit → In-house Medications → open a pending order (dispense form) → Administered',
   ...visitRoute,

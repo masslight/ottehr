@@ -100,61 +100,61 @@ export const PatientInformationUpdates: FC<PatientInformationUpdatesProps> = (pr
             information after that, if needed.
           </Typography>
           <TableContainer sx={{ maxHeight: '60vh' }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold' } }}>
-                <TableCell variant="head">Parameter</TableCell>
-                <TableCell variant="head">Current Information</TableCell>
-                <TableCell variant="head">New Information</TableCell>
-              </TableRow>
-            </TableHead>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold' } }}>
+                  <TableCell variant="head">Parameter</TableCell>
+                  <TableCell variant="head">Current Information</TableCell>
+                  <TableCell variant="head">New Information</TableCell>
+                </TableRow>
+              </TableHead>
 
-            <TableBody>
-              {patient &&
-                task?.input
-                  ?.filter((item) => item.valueString)
-                  ?.map((item) => {
-                    const action = JSON.parse(item.valueString || '') as {
-                      op: string;
-                      path: string;
-                      value?: string;
-                    };
-                    const path = action.path;
-                    const oldValue = path
-                      .split('/')
-                      .filter(Boolean)
-                      .reduce((prev, curr) => prev?.[curr], patient as any) as unknown as string | undefined;
+              <TableBody>
+                {patient &&
+                  task?.input
+                    ?.filter((item) => item.valueString)
+                    ?.map((item) => {
+                      const action = JSON.parse(item.valueString || '') as {
+                        op: string;
+                        path: string;
+                        value?: string;
+                      };
+                      const path = action.path;
+                      const oldValue = path
+                        .split('/')
+                        .filter(Boolean)
+                        .reduce((prev, curr) => prev?.[curr], patient as any) as unknown as string | undefined;
 
-                    return (
-                      <TableRow key={action.path}>
-                        <TableCell>{getTableValues[action.path].label}</TableCell>
-                        <TableCell>
-                          <Controller
-                            render={({ field: { onChange, value } }) => (
-                              <RadioGroup value={value} onChange={onChange}>
-                                <FormControlLabel value="current" control={<Radio />} label={oldValue || '-'} />
-                              </RadioGroup>
-                            )}
-                            name={action.path}
-                            control={control}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Controller
-                            render={({ field: { onChange, value } }) => (
-                              <RadioGroup value={value} onChange={onChange}>
-                                <FormControlLabel value="new" control={<Radio />} label={action?.value || '-'} />
-                              </RadioGroup>
-                            )}
-                            name={action.path}
-                            control={control}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-            </TableBody>
-          </Table>
+                      return (
+                        <TableRow key={action.path}>
+                          <TableCell>{getTableValues[action.path].label}</TableCell>
+                          <TableCell>
+                            <Controller
+                              render={({ field: { onChange, value } }) => (
+                                <RadioGroup value={value} onChange={onChange}>
+                                  <FormControlLabel value="current" control={<Radio />} label={oldValue || '-'} />
+                                </RadioGroup>
+                              )}
+                              name={action.path}
+                              control={control}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Controller
+                              render={({ field: { onChange, value } }) => (
+                                <RadioGroup value={value} onChange={onChange}>
+                                  <FormControlLabel value="new" control={<Radio />} label={action?.value || '-'} />
+                                </RadioGroup>
+                              )}
+                              name={action.path}
+                              control={control}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+              </TableBody>
+            </Table>
           </TableContainer>
         </AppDialog>
       )}

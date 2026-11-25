@@ -6,7 +6,7 @@ import { statementMocks } from './_statement';
 export default defineStory({
   title: 'Confirm send statement by mail',
   source: 'apps/ehr/src/components/dialogs/SendStatementToPatientDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'Send Statement dialog → "Send by Mail"',
   mocks: statementMocks,

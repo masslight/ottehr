@@ -4,7 +4,7 @@ import { mockPatientAccounts, renderMergeDifference } from './_mergeDifference';
 export default defineStory({
   title: 'Merge patients — compare records',
   source: 'apps/ehr/src/components/patients-merge/PatientsMergeDifference.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Patient record → duplicate-patient alert → Merge',
   setup: mockPatientAccounts,

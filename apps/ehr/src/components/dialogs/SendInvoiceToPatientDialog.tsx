@@ -1,17 +1,4 @@
-import CloseIcon from '@mui/icons-material/Close';
-import {
-  Alert,
-  Box,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Grid,
-  IconButton,
-  Skeleton,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Grid, Skeleton, TextField, Typography } from '@mui/material';
 import { useEditor } from '@tiptap/react';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
@@ -25,7 +12,7 @@ import { parseInvoiceTaskInput } from 'utils/lib/helpers/tasks/invoices-tasks';
 import { BRANDING_CONFIG } from 'utils/lib/ottehr-config/branding';
 import { InvoiceablePatientReport, InvoiceTaskInput } from 'utils/lib/types/api/invoicing.types';
 import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils/lib/validation/constants';
-import { RoundedButton } from '../RoundedButton';
+import { AppDialog } from './AppDialog';
 
 // ---------------------------------------------------------------------------
 // Form types
@@ -149,189 +136,163 @@ export default function SendInvoiceToPatientDialog({
   };
 
   return (
-    <Dialog open={modalOpen} maxWidth="md" fullWidth>
-      <IconButton onClick={() => handleClose()} size="medium" sx={{ position: 'absolute', right: 12, top: 12 }}>
-        <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
-      </IconButton>
-
-      <Grid container direction="column" sx={{ padding: 1 }} spacing={0.5}>
-        <DialogTitle variant="h4" color="primary.dark">
-          {title}
-        </DialogTitle>
-
-        <DialogContent>
-          {report !== undefined ? (
-            <Box>
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Patient
-                </Typography>
-                <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{patient?.fullName}</Typography>
-                <Box sx={{ flexDirection: 'row', display: 'flex' }}>
-                  <Typography variant="body2">{patient?.dob}</Typography>
-                  <Typography variant="body2" sx={{ pl: 2 }}>
-                    {patient?.gender}
-                  </Typography>
-                  <Typography variant="body2" sx={{ pl: 2 }}>
-                    {patient?.phoneNumber}
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box sx={{ mt: 2, mb: 3 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Responsible party name
-                </Typography>
-                <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{responsibleParty?.fullName}</Typography>
-                <Box sx={{ flexDirection: 'row', display: 'flex' }}>
-                  {responsibleParty?.email ? (
-                    <Typography variant="body2">{responsibleParty.email}</Typography>
-                  ) : (
-                    <Typography variant="body2" color="text.disabled">
-                      Doesn&apos;t have email
-                    </Typography>
-                  )}
-                  <Typography variant="body2" sx={{ pl: 2 }}>
-                    {responsibleParty?.phoneNumber}
-                  </Typography>
-                </Box>
-              </Box>
+    <AppDialog
+      variant="form"
+      size="m"
+      open={modalOpen}
+      onClose={handleClose}
+      title={title}
+      onSubmit={(e) => {
+        // The shell's form is `noValidate`; keep the browser's own check of the required fields.
+        if (!e.currentTarget.reportValidity()) {
+          e.preventDefault();
+          return;
+        }
+        void handleSubmit(handleSubmitWrapped)(e);
+      }}
+      primary={{
+        label: submitButtonName,
+        loading: isSubmitting,
+        disabled: disableAllFields || !responsibleParty?.email,
+      }}
+    >
+      {report !== undefined ? (
+        <Box>
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary">
+              Patient
+            </Typography>
+            <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{patient?.fullName}</Typography>
+            <Box sx={{ flexDirection: 'row', display: 'flex' }}>
+              <Typography variant="body2">{patient?.dob}</Typography>
+              <Typography variant="body2" sx={{ pl: 2 }}>
+                {patient?.gender}
+              </Typography>
+              <Typography variant="body2" sx={{ pl: 2 }}>
+                {patient?.phoneNumber}
+              </Typography>
             </Box>
-          ) : (
-            <Skeleton variant="rectangular" animation="wave" />
-          )}
-
-          <Grid
-            component="form"
-            id="send-invoice-form"
-            container
-            spacing={2}
-            onSubmit={handleSubmit(handleSubmitWrapped)}
-          >
-            <Grid item xs={12} sm={6}>
-              <Controller
-                name="amount"
-                control={control}
-                rules={{
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                  min: { value: 0.01, message: 'Amount must be greater than 0' },
-                }}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    type="number"
-                    label="Amount, $"
-                    error={!!errors.amount}
-                    helperText={errors.amount?.message}
-                    required
-                    disabled={disableAllFields}
-                  />
-                )}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6}>
-              <BasicDatePicker
-                name="dueDate"
-                label="Due date"
-                variant="outlined"
-                control={control}
-                rules={{
-                  required: REQUIRED_FIELD_ERROR_MESSAGE,
-                  validate: (value: string) => {
-                    if (!value) return true;
-                    return (
-                      DateTime.fromISO(value).startOf('day') > DateTime.now().startOf('day') ||
-                      'Invoice Due Date must be in the future'
-                    );
-                  },
-                }}
-                component="Picker"
-                disabled={disableAllFields}
-                minDate={DateTime.now().plus({ days: 1 }).toISODate() ?? undefined}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Controller
-                name="smsTextMessage"
-                control={control}
-                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                disabled={disableAllFields}
-                render={({ field, fieldState }) => (
-                  <TemplateEditorField
-                    label="SMS message"
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                    editorRef={smsEditorRef}
-                    previewValues={previewValues}
-                    disabled={disableAllFields}
-                    required
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
-                  />
-                )}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Controller
-                name="memo"
-                control={control}
-                rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-                disabled={disableAllFields}
-                render={({ field, fieldState }) => (
-                  <TemplateEditorField
-                    label="Invoice memo"
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                    editorRef={memoEditorRef}
-                    previewValues={previewValues}
-                    disabled={disableAllFields}
-                    required
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
-                  />
-                )}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-
-        {!responsibleParty?.email && (
-          <Alert severity="error" sx={{ mx: 3, mb: 1 }}>
-            Invoice cannot be sent — the responsible party does not have an email address on file.
-          </Alert>
-        )}
-
-        <DialogActions>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              width: '100%',
-              marginX: 2,
-              mb: 1,
-            }}
-          >
-            <RoundedButton variant="outlined" onClick={handleClose} size="medium">
-              Cancel
-            </RoundedButton>
-            <RoundedButton
-              disabled={disableAllFields || !responsibleParty?.email}
-              loading={isSubmitting}
-              form="send-invoice-form"
-              type="submit"
-              variant="contained"
-              color="primary"
-            >
-              {submitButtonName}
-            </RoundedButton>
           </Box>
-        </DialogActions>
+
+          <Box sx={{ mt: 2, mb: 3 }}>
+            <Typography variant="subtitle2" color="text.secondary">
+              Responsible party name
+            </Typography>
+            <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{responsibleParty?.fullName}</Typography>
+            <Box sx={{ flexDirection: 'row', display: 'flex' }}>
+              {responsibleParty?.email ? (
+                <Typography variant="body2">{responsibleParty.email}</Typography>
+              ) : (
+                <Typography variant="body2" color="text.disabled">
+                  Doesn&apos;t have email
+                </Typography>
+              )}
+              <Typography variant="body2" sx={{ pl: 2 }}>
+                {responsibleParty?.phoneNumber}
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      ) : (
+        <Skeleton variant="rectangular" animation="wave" />
+      )}
+
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="amount"
+            control={control}
+            rules={{
+              required: REQUIRED_FIELD_ERROR_MESSAGE,
+              min: { value: 0.01, message: 'Amount must be greater than 0' },
+            }}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                fullWidth
+                type="number"
+                label="Amount, $"
+                error={!!errors.amount}
+                helperText={errors.amount?.message}
+                required
+                disabled={disableAllFields}
+              />
+            )}
+          />
+        </Grid>
+
+        <Grid item xs={12} sm={6}>
+          <BasicDatePicker
+            name="dueDate"
+            label="Due date"
+            variant="outlined"
+            control={control}
+            rules={{
+              required: REQUIRED_FIELD_ERROR_MESSAGE,
+              validate: (value: string) => {
+                if (!value) return true;
+                return (
+                  DateTime.fromISO(value).startOf('day') > DateTime.now().startOf('day') ||
+                  'Invoice Due Date must be in the future'
+                );
+              },
+            }}
+            component="Picker"
+            disabled={disableAllFields}
+            minDate={DateTime.now().plus({ days: 1 }).toISODate() ?? undefined}
+          />
+        </Grid>
+
+        <Grid item xs={12}>
+          <Controller
+            name="smsTextMessage"
+            control={control}
+            rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+            disabled={disableAllFields}
+            render={({ field, fieldState }) => (
+              <TemplateEditorField
+                label="SMS message"
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                editorRef={smsEditorRef}
+                previewValues={previewValues}
+                disabled={disableAllFields}
+                required
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message}
+              />
+            )}
+          />
+        </Grid>
+
+        <Grid item xs={12}>
+          <Controller
+            name="memo"
+            control={control}
+            rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+            disabled={disableAllFields}
+            render={({ field, fieldState }) => (
+              <TemplateEditorField
+                label="Invoice memo"
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                editorRef={memoEditorRef}
+                previewValues={previewValues}
+                disabled={disableAllFields}
+                required
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message}
+              />
+            )}
+          />
+        </Grid>
       </Grid>
-    </Dialog>
+
+      {!responsibleParty?.email && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          Invoice cannot be sent — the responsible party does not have an email address on file.
+        </Alert>
+      )}
+    </AppDialog>
   );
 }

@@ -6,7 +6,7 @@ import { appointmentMocks, userMocks } from './shared-mocks';
 export default defineStory({
   title: 'Radiology order — update existing quick pick?',
   source: 'apps/ehr/src/features/radiology/pages/CreateRadiologyOrder.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where:
     'In-person chart → Radiology → Order → "+ Add or Update Quick Pick" → Save Quick Pick with a name that already exists',

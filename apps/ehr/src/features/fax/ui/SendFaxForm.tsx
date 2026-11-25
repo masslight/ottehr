@@ -1,12 +1,9 @@
 import AddIcon from '@mui/icons-material/Add';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
   Checkbox,
-  DialogActions,
-  DialogContent,
   FormControlLabel,
   FormGroup,
   FormHelperText,
@@ -15,7 +12,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { FC } from 'react';
+import { FC, useEffect } from 'react';
 import { Controller, FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { dataTestIds } from 'src/constants/data-test-ids';
 import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
@@ -35,7 +32,10 @@ interface SendFaxFormProps {
   visits?: FaxVisitOption[];
   isSending: boolean;
   onSubmit: (values: FaxFormValues) => void;
-  onCancel: () => void;
+  /** The `id` of the `<form>`: the dialog's Send Fax button, which lives in the dialog footer, submits it. */
+  formId: string;
+  /** Tells the dialog whether the form can be sent as it stands, for that button's disabled state. */
+  onCanSendChange: (canSend: boolean) => void;
 }
 
 export const SendFaxForm: FC<SendFaxFormProps> = ({
@@ -44,7 +44,8 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
   visits,
   isSending,
   onSubmit,
-  onCancel,
+  formId,
+  onCanSendChange,
 }) => {
   const theme = useTheme();
 
@@ -64,6 +65,9 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
   const { included, excluded } = documentLabelGroups(preview?.documents ?? []);
   const sendEnabled =
     canSend(recipients, preview ? included.length > 0 : true) && visitSelectionValid && !tooManyVisits;
+
+  const canSendNow = sendEnabled && !(preview ? hasNothingToSend(preview.documents) : false);
+  useEffect(() => onCanSendChange(canSendNow), [canSendNow, onCanSendChange]);
 
   const documentsTooltip = (
     <Box>
@@ -100,122 +104,103 @@ export const SendFaxForm: FC<SendFaxFormProps> = ({
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <DialogContent>
-          {preview && (
-            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 2 }}>
-              <Typography>Fax all visit-related documents</Typography>
-              <Tooltip title={documentsTooltip} placement="top">
-                <InfoOutlinedIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
-              </Tooltip>
-            </Stack>
-          )}
+      <form id={formId} onSubmit={handleSubmit(onSubmit)}>
+        {preview && (
+          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 2 }}>
+            <Typography>Fax all visit-related documents</Typography>
+            <Tooltip title={documentsTooltip} placement="top">
+              <InfoOutlinedIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
+            </Tooltip>
+          </Stack>
+        )}
 
-          {showVisitPicker && (
-            <>
-              <Typography variant="subtitle1" sx={{ color: theme.palette.primary.dark, fontWeight: 600, mb: 1 }}>
-                Select Visits
-              </Typography>
-              <Controller
-                name="selectedAppointmentIds"
-                control={control}
-                render={({ field }) => (
-                  <FormGroup sx={{ mb: 2 }}>
-                    {visits?.map((visit) => (
-                      <FormControlLabel
-                        key={visit.appointmentId}
-                        label={visit.label}
-                        control={
-                          <Checkbox
-                            checked={(field.value ?? []).includes(visit.appointmentId)}
-                            data-testid={`${dataTestIds.faxDialog.visitCheckbox}-${visit.appointmentId}`}
-                            onChange={(event) =>
-                              field.onChange(
-                                event.target.checked
-                                  ? [...(field.value ?? []), visit.appointmentId]
-                                  : (field.value ?? []).filter((id: string) => id !== visit.appointmentId)
-                              )
-                            }
-                          />
-                        }
-                      />
-                    ))}
-                    {!visitSelectionValid && <FormHelperText error>Select at least one visit</FormHelperText>}
-                    {tooManyVisits && (
-                      <FormHelperText error>{`A fax can carry at most ${FAX_MAX_VISITS} visits`}</FormHelperText>
-                    )}
-                  </FormGroup>
-                )}
-              />
-            </>
-          )}
-
-          <Typography variant="subtitle1" sx={{ color: theme.palette.primary.dark, fontWeight: 600, mb: 2 }}>
-            Recipient Information
-          </Typography>
-
-          {recipientsArray.fields.map((field, index) => (
-            <RecipientFields
-              key={field.id}
-              index={index}
-              isPcp={Boolean(recipients[index]?.saveAsPcp)}
-              // Only a single-visit preview offers PCP management. The record holds exactly one PCP,
-              // so selecting one recipient clears the flag from the others.
-              onSaveAsPcpChange={
-                preview
-                  ? (value) => recipientsArray.replace(applySaveAsPcp(getValues('recipients'), index, value))
-                  : undefined
-              }
-              onRemove={index > 0 ? () => recipientsArray.remove(index) : undefined}
-            />
-          ))}
-
-          <Box>
-            <Button
-              variant="text"
-              startIcon={<AddIcon fontSize="small" />}
-              onClick={() => recipientsArray.append(emptyRecipient())}
-              disabled={!canAddRecipient(recipients)}
-              sx={{ textTransform: 'none', fontWeight: 500 }}
-              data-testid={dataTestIds.faxDialog.addRecipient}
-            >
-              Add Recipient
-            </Button>
-          </Box>
-
-          {/* Not editable: every fax leaves from the practice's one configured number. It sits at the end
-              as a footnote so it doesn't compete with the fields the user actually fills in. */}
-          {senderFaxNumber && (
-            <Typography
-              variant="body2"
-              sx={{ color: theme.palette.text.secondary, mt: 1 }}
-              data-testid={dataTestIds.faxDialog.senderFax}
-            >
-              Sender fax number: {formatPhoneNumberDisplay(senderFaxNumber)}
+        {showVisitPicker && (
+          <>
+            <Typography variant="subtitle1" sx={{ color: theme.palette.primary.dark, fontWeight: 600, mb: 1 }}>
+              Select Visits
             </Typography>
-          )}
-        </DialogContent>
+            <Controller
+              name="selectedAppointmentIds"
+              control={control}
+              render={({ field }) => (
+                <FormGroup sx={{ mb: 2 }}>
+                  {visits?.map((visit) => (
+                    <FormControlLabel
+                      key={visit.appointmentId}
+                      label={visit.label}
+                      control={
+                        <Checkbox
+                          checked={(field.value ?? []).includes(visit.appointmentId)}
+                          data-testid={`${dataTestIds.faxDialog.visitCheckbox}-${visit.appointmentId}`}
+                          onChange={(event) =>
+                            field.onChange(
+                              event.target.checked
+                                ? [...(field.value ?? []), visit.appointmentId]
+                                : (field.value ?? []).filter((id: string) => id !== visit.appointmentId)
+                            )
+                          }
+                        />
+                      }
+                    />
+                  ))}
+                  {!visitSelectionValid && <FormHelperText error>Select at least one visit</FormHelperText>}
+                  {tooManyVisits && (
+                    <FormHelperText error>{`A fax can carry at most ${FAX_MAX_VISITS} visits`}</FormHelperText>
+                  )}
+                </FormGroup>
+              )}
+            />
+          </>
+        )}
 
-        <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+        <Typography variant="subtitle1" sx={{ color: theme.palette.primary.dark, fontWeight: 600, mb: 2 }}>
+          Recipient Information
+        </Typography>
+
+        {recipientsArray.fields.map((field, index) => (
+          <RecipientFields
+            key={field.id}
+            index={index}
+            isPcp={Boolean(recipients[index]?.saveAsPcp)}
+            // Only a single-visit preview offers PCP management. The record holds exactly one PCP,
+            // so selecting one recipient clears the flag from the others.
+            onSaveAsPcpChange={
+              preview
+                ? (value) => recipientsArray.replace(applySaveAsPcp(getValues('recipients'), index, value))
+                : undefined
+            }
+            onRemove={index > 0 ? () => recipientsArray.remove(index) : undefined}
+          />
+        ))}
+
+        <Box>
           <Button
-            variant="outlined"
-            onClick={onCancel}
-            sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
-            data-testid={dataTestIds.faxDialog.cancelButton}
+            variant="text"
+            startIcon={<AddIcon fontSize="small" />}
+            onClick={() => recipientsArray.append(emptyRecipient())}
+            disabled={!canAddRecipient(recipients)}
+            sx={{ textTransform: 'none', fontWeight: 500 }}
+            data-testid={dataTestIds.faxDialog.addRecipient}
           >
-            Cancel
+            Add Recipient
           </Button>
-          <LoadingButton
-            type="submit"
-            variant="contained"
-            loading={isSending}
-            disabled={!sendEnabled || (preview ? hasNothingToSend(preview.documents) : false)}
-            sx={{ borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
-            data-testid={dataTestIds.faxDialog.sendButton}
+        </Box>
+
+        {/* Not editable: every fax leaves from the practice's one configured number. It sits at the end
+            as a footnote so it doesn't compete with the fields the user actually fills in. */}
+        {senderFaxNumber && (
+          <Typography
+            variant="body2"
+            sx={{ color: theme.palette.text.secondary, mt: 1 }}
+            data-testid={dataTestIds.faxDialog.senderFax}
           >
-            Send Fax
-          </LoadingButton>
-        </DialogActions>
+            Sender fax number: {formatPhoneNumberDisplay(senderFaxNumber)}
+          </Typography>
+        )}
+
+        {/* The visible Send Fax button is in the dialog footer, outside this form. This one keeps Enter in a
+            field sending the fax under the same conditions as before. */}
+        <button type="submit" hidden disabled={!canSendNow || isSending} />
       </form>
     </FormProvider>
   );

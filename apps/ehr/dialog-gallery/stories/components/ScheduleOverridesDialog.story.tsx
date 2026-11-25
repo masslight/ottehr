@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Schedule change may affect visits',
   source: 'apps/ehr/src/components/schedule/ScheduleOverridesDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'Admin → Schedule → Schedule overrides → Save',
   render: () => (

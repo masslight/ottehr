@@ -6,7 +6,7 @@ import { visitMocks, visitRoute } from './_visit';
 export default defineStory({
   title: 'Save note as template',
   source: 'apps/ehr/src/features/visits/shared/components/templates/ApplyTemplate.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Visit → template picker ("Select condition") → "+ Add or Update Template From Note" (admins only)',
   ...visitRoute,
@@ -19,6 +19,6 @@ export default defineStory({
     await screen.findByPlaceholderText('Search templates...', undefined, { timeout: 10000 });
     await user.click(input);
     await user.click(await screen.findByText('+ Add or Update Template From Note', undefined, { timeout: 10000 }));
-    await screen.findByText('Save Note As Template');
+    await screen.findByText('Save Note as Template');
   },
 });

@@ -555,15 +555,15 @@ export const PatientsMergeDifference: FC<PatientMergeDifferenceProps> = (props) 
         primary={{ label: 'Confirm Merge', onClick: onSave }}
       >
         <Stack spacing={2}>
-            <Typography>Are you sure you want to merge patient records? Merged records will be deactivated.</Typography>
-            <Stack>
-              <Typography fontWeight={600}>Merged patient record PID:</Typography>
-              <Typography sx={{ wordBreak: 'break-all' }}>{otherPatientId}</Typography>
-            </Stack>
-            <Stack>
-              <Typography fontWeight={600}>Main patient record PID:</Typography>
-              <Typography sx={{ wordBreak: 'break-all' }}>{mainPatientId}</Typography>
-            </Stack>
+          <Typography>Are you sure you want to merge patient records? Merged records will be deactivated.</Typography>
+          <Stack>
+            <Typography fontWeight={600}>Merged patient record PID:</Typography>
+            <Typography sx={{ wordBreak: 'break-all' }}>{otherPatientId}</Typography>
+          </Stack>
+          <Stack>
+            <Typography fontWeight={600}>Main patient record PID:</Typography>
+            <Typography sx={{ wordBreak: 'break-all' }}>{mainPatientId}</Typography>
+          </Stack>
         </Stack>
       </AppDialog>
     </FormProvider>

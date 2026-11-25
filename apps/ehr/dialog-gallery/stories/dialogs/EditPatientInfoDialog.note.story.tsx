@@ -7,7 +7,7 @@ const comment = 'Patient is waiting in the car; call when the room is ready.';
 export default defineStory({
   title: 'Update current tracking board note',
   source: 'apps/ehr/src/components/dialogs/EditPatientInfoDialog.tsx',
-  base: 'EditPatientInfoDialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Visit details page → "Current tracking board note" card → pencil icon',
   notes:

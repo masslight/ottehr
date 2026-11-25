@@ -197,13 +197,13 @@ type EditDialogConfig =
 const dialogTitleFromType = (type: EditDialogConfig['type']): string => {
   switch (type) {
     case 'dob':
-      return "Please enter patient's confirmed date of birth";
+      return "Please Enter Patient's Confirmed Date of Birth";
     case 'reason-for-visit':
-      return "Please enter patient's reason for today's visit";
+      return "Please Enter Patient's Reason for Today's Visit";
     case 'nlg':
-      return "Please enter patient's Authorized Non-Legal Guardians";
+      return "Please Enter Patient's Authorized Non-Legal Guardians";
     case 'service-category':
-      return 'Please select Service Category';
+      return 'Please Select Service Category';
     default:
       return '';
   }

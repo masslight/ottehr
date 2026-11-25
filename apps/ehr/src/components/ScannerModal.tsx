@@ -204,293 +204,290 @@ export const ScannerModal: FC<ScannerModalProps> = ({ open, onClose, outputForma
       }}
     >
       <Stack spacing={3}>
-          {error && (
-            <Alert severity="error" onClose={() => {}}>
-              {error}
-            </Alert>
-          )}
+        {error && (
+          <Alert severity="error" onClose={() => {}}>
+            {error}
+          </Alert>
+        )}
 
-          {/* Main Content: Settings and Viewer Side by Side - Always render viewer container for Dynamsoft */}
-          <Box
-            sx={{
-              display: 'flex',
-              gap: 3,
-              flexDirection: { xs: 'column', md: 'row' },
-            }}
-          >
-            {/* Left Column: Scanner Settings and Controls */}
-            <Box sx={{ flex: '0 0 300px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {/* Scanner Selection */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
-                  Scanner Settings
-                </Typography>
-                <Stack spacing={2}>
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-                    <FormControl fullWidth>
-                      <InputLabel>Scanner</InputLabel>
-                      <Select
-                        value={currentScanner || ''}
-                        onChange={(e) => setCurrentScanner(e.target.value)}
-                        label="Scanner"
-                        disabled={isScanning}
-                        endAdornment={
-                          isRefreshingScanners ? (
-                            <CircularProgress
-                              size={20}
-                              sx={{ position: 'absolute', right: 32, pointerEvents: 'none' }}
-                            />
-                          ) : null
-                        }
-                      >
-                        {scanners.length === 0 ? (
-                          <MenuItem value="">No scanners found</MenuItem>
-                        ) : (
-                          scanners.map((scanner) => (
-                            <MenuItem key={scanner.displayName} value={scanner.displayName}>
-                              {scanner.displayName}
-                            </MenuItem>
-                          ))
-                        )}
-                      </Select>
-                    </FormControl>
-                    <Tooltip title="Refresh scanner list">
-                      <IconButton
-                        onClick={() => void refreshScanners()}
-                        disabled={isScanning || isRefreshingScanners}
-                        size="large"
-                        sx={{ mb: 0.5 }}
-                      >
-                        <RefreshIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-
+        {/* Main Content: Settings and Viewer Side by Side - Always render viewer container for Dynamsoft */}
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 3,
+            flexDirection: { xs: 'column', md: 'row' },
+          }}
+        >
+          {/* Left Column: Scanner Settings and Controls */}
+          <Box sx={{ flex: '0 0 300px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {/* Scanner Selection */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                Scanner Settings
+              </Typography>
+              <Stack spacing={2}>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
                   <FormControl fullWidth>
-                    <InputLabel>Color Mode</InputLabel>
+                    <InputLabel>Scanner</InputLabel>
                     <Select
-                      value={pixelType}
-                      onChange={(e) => setPixelType(Number(e.target.value))}
-                      label="Color Mode"
+                      value={currentScanner || ''}
+                      onChange={(e) => setCurrentScanner(e.target.value)}
+                      label="Scanner"
                       disabled={isScanning}
+                      endAdornment={
+                        isRefreshingScanners ? (
+                          <CircularProgress size={20} sx={{ position: 'absolute', right: 32, pointerEvents: 'none' }} />
+                        ) : null
+                      }
                     >
-                      <MenuItem value={0}>Black & White</MenuItem>
-                      <MenuItem value={1}>Grayscale</MenuItem>
-                      <MenuItem value={2}>Color</MenuItem>
+                      {scanners.length === 0 ? (
+                        <MenuItem value="">No scanners found</MenuItem>
+                      ) : (
+                        scanners.map((scanner) => (
+                          <MenuItem key={scanner.displayName} value={scanner.displayName}>
+                            {scanner.displayName}
+                          </MenuItem>
+                        ))
+                      )}
                     </Select>
                   </FormControl>
-
-                  <FormControl fullWidth>
-                    <InputLabel>Resolution</InputLabel>
-                    <Select
-                      value={resolution}
-                      onChange={(e) => setResolution(Number(e.target.value))}
-                      label="Resolution"
-                      disabled={isScanning}
+                  <Tooltip title="Refresh scanner list">
+                    <IconButton
+                      onClick={() => void refreshScanners()}
+                      disabled={isScanning || isRefreshingScanners}
+                      size="large"
+                      sx={{ mb: 0.5 }}
                     >
-                      <MenuItem value={100}>100 DPI</MenuItem>
-                      <MenuItem value={200}>200 DPI</MenuItem>
-                      <MenuItem value={300}>300 DPI</MenuItem>
-                      <MenuItem value={600}>600 DPI</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Stack>
-              </Box>
-
-              {/* Scanner Options */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
-                  Options
-                </Typography>
-                <Stack spacing={1}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox checked={showUI} onChange={(e) => setShowUI(e.target.checked)} disabled={isScanning} />
-                    }
-                    label="Show Scanner UI"
-                  />
-                  <FormControlLabel
-                    control={
-                      <Checkbox checked={useADF} onChange={(e) => setUseADF(e.target.checked)} disabled={isScanning} />
-                    }
-                    label="Use Document Feeder"
-                  />
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={useDuplex}
-                        onChange={(e) => setUseDuplex(e.target.checked)}
-                        disabled={isScanning}
-                      />
-                    }
-                    label="Duplex (Both Sides)"
-                  />
-                </Stack>
-              </Box>
-
-              {/* File Name */}
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
-                  File Name
-                </Typography>
-                <TextField
-                  fullWidth
-                  value={fileName}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFileName(e.target.value)}
-                  placeholder="Enter file name"
-                  required
-                  error={!fileName.trim()}
-                  helperText={!fileName.trim() ? 'File name is required' : 'Do not include .pdf extension'}
-                  disabled={isScanning}
-                />
-              </Box>
-
-              {/* Scan Button */}
-              <Button
-                variant="contained"
-                onClick={handleScan}
-                disabled={!currentScanner || isScanning || scanners.length === 0}
-                startIcon={isScanning ? <CircularProgress size={20} /> : <ScannerIcon />}
-                fullWidth
-                size="large"
-              >
-                {isScanning ? 'Scanning...' : 'Scan Document'}
-              </Button>
-            </Box>
-
-            {/* Right Column: Viewer and Image Controls */}
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {/* Viewer */}
-              <Box
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 1,
-                  minHeight: 500,
-                  position: 'relative',
-                  backgroundColor: '#f5f5f5',
-                  overflow: 'hidden',
-                }}
-              >
-                <div id={SCANNER_CONTAINER_ID} style={{ width: '100%', height: '500px' }} />
-                {imageCount > 0 && (
-                  <Typography
-                    sx={{
-                      position: 'absolute',
-                      top: 8,
-                      right: 8,
-                      backgroundColor: 'primary.main',
-                      color: 'white',
-                      padding: '4px 12px',
-                      borderRadius: 1,
-                      fontSize: '0.875rem',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {imageCount} {imageCount === 1 ? 'image' : 'images'}
-                  </Typography>
-                )}
-              </Box>
-
-              {/* Image Editing Tools */}
-              <Box>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Tooltip title="Rotate Left 90°">
-                    <span>
-                      <IconButton
-                        onClick={rotateLeft}
-                        size="small"
-                        disabled={imageCount === 0}
-                        sx={{ border: '1px solid', borderColor: 'divider' }}
-                      >
-                        <Rotate90DegreesCcwIcon />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Rotate Right 90°">
-                    <span>
-                      <IconButton
-                        onClick={rotateRight}
-                        size="small"
-                        disabled={imageCount === 0}
-                        sx={{ border: '1px solid', borderColor: 'divider' }}
-                      >
-                        <Rotate90DegreesCwIcon />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Rotate 180°">
-                    <span>
-                      <IconButton
-                        onClick={rotate180}
-                        size="small"
-                        disabled={imageCount === 0}
-                        sx={{ border: '1px solid', borderColor: 'divider' }}
-                      >
-                        <Rotate90DegreesCwIcon sx={{ transform: 'rotate(180deg)' }} />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Flip Vertical">
-                    <span>
-                      <IconButton
-                        onClick={flipVertical}
-                        size="small"
-                        disabled={imageCount === 0}
-                        sx={{ border: '1px solid', borderColor: 'divider' }}
-                      >
-                        <FlipIcon />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Mirror (Flip Horizontal)">
-                    <span>
-                      <IconButton
-                        onClick={mirror}
-                        size="small"
-                        disabled={imageCount === 0}
-                        sx={{ border: '1px solid', borderColor: 'divider' }}
-                      >
-                        <SwapHorizIcon />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip
-                    title={
-                      selectedZone
-                        ? 'Crop to Selected Area'
-                        : 'Select area on image first (click and drag on the image to create a selection rectangle)'
-                    }
-                  >
-                    <span>
-                      <IconButton
-                        onClick={crop}
-                        size="small"
-                        disabled={!selectedZone}
-                        sx={{ border: '1px solid', borderColor: selectedZone ? 'primary.main' : 'divider' }}
-                        color={selectedZone ? 'primary' : 'default'}
-                      >
-                        <CropIcon />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Delete Current Image">
-                    <span>
-                      <IconButton
-                        onClick={removeCurrentImage}
-                        size="small"
-                        disabled={imageCount === 0}
-                        color={imageCount > 0 ? 'error' : 'default'}
-                        sx={{ border: '1px solid', borderColor: imageCount > 0 ? 'error.main' : 'divider' }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </span>
+                      <RefreshIcon />
+                    </IconButton>
                   </Tooltip>
                 </Box>
+
+                <FormControl fullWidth>
+                  <InputLabel>Color Mode</InputLabel>
+                  <Select
+                    value={pixelType}
+                    onChange={(e) => setPixelType(Number(e.target.value))}
+                    label="Color Mode"
+                    disabled={isScanning}
+                  >
+                    <MenuItem value={0}>Black & White</MenuItem>
+                    <MenuItem value={1}>Grayscale</MenuItem>
+                    <MenuItem value={2}>Color</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth>
+                  <InputLabel>Resolution</InputLabel>
+                  <Select
+                    value={resolution}
+                    onChange={(e) => setResolution(Number(e.target.value))}
+                    label="Resolution"
+                    disabled={isScanning}
+                  >
+                    <MenuItem value={100}>100 DPI</MenuItem>
+                    <MenuItem value={200}>200 DPI</MenuItem>
+                    <MenuItem value={300}>300 DPI</MenuItem>
+                    <MenuItem value={600}>600 DPI</MenuItem>
+                  </Select>
+                </FormControl>
+              </Stack>
+            </Box>
+
+            {/* Scanner Options */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                Options
+              </Typography>
+              <Stack spacing={1}>
+                <FormControlLabel
+                  control={
+                    <Checkbox checked={showUI} onChange={(e) => setShowUI(e.target.checked)} disabled={isScanning} />
+                  }
+                  label="Show Scanner UI"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox checked={useADF} onChange={(e) => setUseADF(e.target.checked)} disabled={isScanning} />
+                  }
+                  label="Use Document Feeder"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={useDuplex}
+                      onChange={(e) => setUseDuplex(e.target.checked)}
+                      disabled={isScanning}
+                    />
+                  }
+                  label="Duplex (Both Sides)"
+                />
+              </Stack>
+            </Box>
+
+            {/* File Name */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
+                File Name
+              </Typography>
+              <TextField
+                fullWidth
+                value={fileName}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFileName(e.target.value)}
+                placeholder="Enter file name"
+                required
+                error={!fileName.trim()}
+                helperText={!fileName.trim() ? 'File name is required' : 'Do not include .pdf extension'}
+                disabled={isScanning}
+              />
+            </Box>
+
+            {/* Scan Button */}
+            <Button
+              variant="contained"
+              onClick={handleScan}
+              disabled={!currentScanner || isScanning || scanners.length === 0}
+              startIcon={isScanning ? <CircularProgress size={20} /> : <ScannerIcon />}
+              fullWidth
+              size="large"
+            >
+              {isScanning ? 'Scanning...' : 'Scan Document'}
+            </Button>
+          </Box>
+
+          {/* Right Column: Viewer and Image Controls */}
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Viewer */}
+            <Box
+              sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 1,
+                minHeight: 500,
+                position: 'relative',
+                backgroundColor: '#f5f5f5',
+                overflow: 'hidden',
+              }}
+            >
+              <div id={SCANNER_CONTAINER_ID} style={{ width: '100%', height: '500px' }} />
+              {imageCount > 0 && (
+                <Typography
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    backgroundColor: 'primary.main',
+                    color: 'white',
+                    padding: '4px 12px',
+                    borderRadius: 1,
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {imageCount} {imageCount === 1 ? 'image' : 'images'}
+                </Typography>
+              )}
+            </Box>
+
+            {/* Image Editing Tools */}
+            <Box>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Tooltip title="Rotate Left 90°">
+                  <span>
+                    <IconButton
+                      onClick={rotateLeft}
+                      size="small"
+                      disabled={imageCount === 0}
+                      sx={{ border: '1px solid', borderColor: 'divider' }}
+                    >
+                      <Rotate90DegreesCcwIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Rotate Right 90°">
+                  <span>
+                    <IconButton
+                      onClick={rotateRight}
+                      size="small"
+                      disabled={imageCount === 0}
+                      sx={{ border: '1px solid', borderColor: 'divider' }}
+                    >
+                      <Rotate90DegreesCwIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Rotate 180°">
+                  <span>
+                    <IconButton
+                      onClick={rotate180}
+                      size="small"
+                      disabled={imageCount === 0}
+                      sx={{ border: '1px solid', borderColor: 'divider' }}
+                    >
+                      <Rotate90DegreesCwIcon sx={{ transform: 'rotate(180deg)' }} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Flip Vertical">
+                  <span>
+                    <IconButton
+                      onClick={flipVertical}
+                      size="small"
+                      disabled={imageCount === 0}
+                      sx={{ border: '1px solid', borderColor: 'divider' }}
+                    >
+                      <FlipIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Mirror (Flip Horizontal)">
+                  <span>
+                    <IconButton
+                      onClick={mirror}
+                      size="small"
+                      disabled={imageCount === 0}
+                      sx={{ border: '1px solid', borderColor: 'divider' }}
+                    >
+                      <SwapHorizIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip
+                  title={
+                    selectedZone
+                      ? 'Crop to Selected Area'
+                      : 'Select area on image first (click and drag on the image to create a selection rectangle)'
+                  }
+                >
+                  <span>
+                    <IconButton
+                      onClick={crop}
+                      size="small"
+                      disabled={!selectedZone}
+                      sx={{ border: '1px solid', borderColor: selectedZone ? 'primary.main' : 'divider' }}
+                      color={selectedZone ? 'primary' : 'default'}
+                    >
+                      <CropIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Delete Current Image">
+                  <span>
+                    <IconButton
+                      onClick={removeCurrentImage}
+                      size="small"
+                      disabled={imageCount === 0}
+                      color={imageCount > 0 ? 'error' : 'default'}
+                      sx={{ border: '1px solid', borderColor: imageCount > 0 ? 'error.main' : 'divider' }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               </Box>
             </Box>
           </Box>
+        </Box>
       </Stack>
     </AppDialog>
   );

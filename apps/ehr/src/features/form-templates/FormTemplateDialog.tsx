@@ -81,52 +81,52 @@ export const FormTemplateDialog: FC<DialogProps> = ({ open, onClose }) => {
         startIcon: <UploadFileIcon />,
       }}
     >
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            label="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            disabled={isBusy}
-            required
-            error={!!titleError}
-            helperText={titleError ?? 'Shown to providers in the patient chart.'}
-            fullWidth
-          />
-          <TextField
-            label="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            disabled={isBusy}
-            multiline
-            minRows={2}
-            fullWidth
-          />
+      <Stack spacing={2} sx={{ mt: 1 }}>
+        <TextField
+          label="Title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          disabled={isBusy}
+          required
+          error={!!titleError}
+          helperText={titleError ?? 'Shown to providers in the patient chart.'}
+          fullWidth
+        />
+        <TextField
+          label="Description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          disabled={isBusy}
+          multiline
+          minRows={2}
+          fullWidth
+        />
 
-          <RoundedButton component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={isBusy}>
-            {file ? file.name : 'Choose PDF'}
-            <input
-              type="file"
-              accept="application/pdf,.pdf"
-              hidden
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-          </RoundedButton>
-          {fileError && (
-            <Typography color="error" variant="body2">
-              {fileError}
-            </Typography>
-          )}
-
-          <Typography variant="body2" color="text.secondary">
-            New templates are saved as drafts. Publish a template to make it available in the patient chart.
+        <RoundedButton component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={isBusy}>
+          {file ? file.name : 'Choose PDF'}
+          <input
+            type="file"
+            accept="application/pdf,.pdf"
+            hidden
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+        </RoundedButton>
+        {fileError && (
+          <Typography color="error" variant="body2">
+            {fileError}
           </Typography>
+        )}
 
-          {errorMsg && (
-            <Typography color="error" variant="body2">
-              {errorMsg}
-            </Typography>
-          )}
-        </Stack>
+        <Typography variant="body2" color="text.secondary">
+          New templates are saved as drafts. Publish a template to make it available in the patient chart.
+        </Typography>
+
+        {errorMsg && (
+          <Typography color="error" variant="body2">
+            {errorMsg}
+          </Typography>
+        )}
+      </Stack>
     </AppDialog>
   );
 };

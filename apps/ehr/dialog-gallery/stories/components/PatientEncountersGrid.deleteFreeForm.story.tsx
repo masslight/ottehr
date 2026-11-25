@@ -5,7 +5,7 @@ import { patientA } from './_shared';
 export default defineStory({
   title: 'Delete free-form note',
   source: 'apps/ehr/src/components/PatientEncountersGrid.tsx',
-  base: 'DeleteDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Patient record → Visits grid → free-form note row → delete icon',
   route: `/patient/${patientA.id}`,

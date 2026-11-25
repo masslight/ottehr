@@ -6,7 +6,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Cancel nursing order',
   source: 'apps/ehr/src/features/nursing-orders/components/orders/NursingOrdersTableRow.tsx',
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'In-person chart → Nursing orders → trash icon on a pending order row',
   notes: 'A single real row is rendered inside a bare table; the order is mock data.',

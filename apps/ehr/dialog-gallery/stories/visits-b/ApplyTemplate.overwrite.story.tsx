@@ -6,7 +6,7 @@ import { visitMocks, visitRoute } from './_visit';
 export default defineStory({
   title: 'Update existing template? (overwrite confirmation)',
   source: 'apps/ehr/src/features/visits/shared/components/templates/ApplyTemplate.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'Visit → template picker → "+ Add or Update Template From Note" → Save with a name that already exists',
   ...visitRoute,

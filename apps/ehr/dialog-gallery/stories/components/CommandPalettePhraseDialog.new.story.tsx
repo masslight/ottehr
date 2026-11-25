@@ -5,7 +5,7 @@ import { userMocks } from './_shared';
 export default defineStory({
   title: 'New phrase',
   source: 'apps/ehr/src/components/CommandPalettePhraseDialog.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Command palette → Phrases group → "New phrase" (+) icon',
   mocks: userMocks,

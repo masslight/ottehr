@@ -3,6 +3,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FAX_RECIPIENT_CREDENTIAL_NEEDS_NAME_MESSAGE, FaxDocumentAvailability } from 'utils/lib/types/api/fax.types';
 import { describe, expect, it, vi } from 'vitest';
+import { UseSendFaxResult } from '../../src/features/fax/hooks/useSendFax';
+import { SendFaxDialog } from '../../src/features/fax/ui/SendFaxDialog';
 import { SendFaxForm } from '../../src/features/fax/ui/SendFaxForm';
 
 // The organization picker reads the address book; keep it small and offline here.
@@ -43,7 +45,8 @@ const renderForm = (
         senderFaxNumber={senderFaxNumber}
         isSending={false}
         onSubmit={vi.fn()}
-        onCancel={vi.fn()}
+        formId="fax-form"
+        onCanSendChange={vi.fn()}
       />
     </QueryClientProvider>
   );
@@ -87,9 +90,21 @@ describe('SendFaxForm credential', () => {
   it('does not send a credential without a recipient name', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn();
+    // The Send Fax button belongs to the dialog's footer, so the form is rendered inside its dialog.
+    const controller: UseSendFaxResult = {
+      isOpen: true,
+      open: vi.fn(),
+      close: vi.fn(),
+      isLoadingPreview: false,
+      previewError: false,
+      isSending: false,
+      send: onSubmit,
+      failures: [],
+      dismissFailures: vi.fn(),
+    };
     render(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <SendFaxForm isSending={false} onSubmit={onSubmit} onCancel={vi.fn()} />
+        <SendFaxDialog controller={controller} />
       </QueryClientProvider>
     );
 

@@ -5,7 +5,7 @@ import { faxTaskMocks, userMocks } from './shared-mocks';
 export default defineStory({
   title: 'Complete inbound-fax task without filing',
   source: 'apps/ehr/src/features/tasks/pages/Tasks.tsx',
-  base: 'ConfirmationDialog',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'Tasks board → "Complete" on an unfiled inbound-fax task assigned to you',
   notes:
@@ -22,6 +22,6 @@ export default defineStory({
   render: () => <Tasks />,
   play: async ({ user, screen }) => {
     await user.click(await screen.findByRole('button', { name: 'Complete' }, { timeout: 10000 }));
-    await screen.findByText('Complete without filing?');
+    await screen.findByText('Complete Without Filing?');
   },
 });

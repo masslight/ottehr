@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Delete vital',
   source: 'apps/ehr/src/features/visits/shared/components/vitals/DeleteVitalModal.tsx',
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Visit chart → Vitals → delete icon on a recorded vital',
   render: () => (

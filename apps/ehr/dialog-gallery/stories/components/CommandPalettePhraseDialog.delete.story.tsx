@@ -5,7 +5,7 @@ import { userMocks } from './_shared';
 export default defineStory({
   title: 'Delete phrase?',
   source: 'apps/ehr/src/components/CommandPalettePhraseDialog.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Command palette → phrase row → delete icon',
   mocks: userMocks,

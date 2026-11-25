@@ -35,7 +35,7 @@ const Host = (): ReactElement => {
 export default defineStory({
   title: 'Add visit: select existing patient (nothing selected yet)',
   source: 'apps/ehr/src/features/visits/shared/components/staff-add-visit/AddVisitPatientSearchDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'Add visit → search for patient → results',
   notes: 'As the dialog first opens: no patient picked, so the conditional "Prefill for …" button is absent.',

@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import {
   AD_HOC_REPORT_LLM_MODELS,
   AD_HOC_REPORT_MODELS,

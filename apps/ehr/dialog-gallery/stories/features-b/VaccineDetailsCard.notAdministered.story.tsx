@@ -5,7 +5,7 @@ import { immunizationMocks, mockImmunizationOrder } from './immunization-mocks';
 export default defineStory({
   title: 'Mark immunization order as not administered (reason required)',
   source: 'apps/ehr/src/features/immunization/components/AdministrationConfirmationDialog.tsx',
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'form',
   where:
     'In-person chart → Immunization → Vaccine details → "Not Administered" (same layout for "Partly Administered")',

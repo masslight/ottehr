@@ -33,7 +33,7 @@ const practiceManagedQuestionnaires: PracticeManagedQuestionnaireDTO[] = [
 export default defineStory({
   title: 'Add form (fill out now or send via SMS)',
   source: 'apps/ehr/src/components/dialogs/SendFormDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'picker',
   where: 'Visit details page / patient forms card → "Add form"',
   notes:

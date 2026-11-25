@@ -50,7 +50,7 @@ const form: StandaloneFormDTO = {
 export default defineStory({
   title: 'Edit form response',
   source: 'apps/ehr/src/components/dialogs/EditFormResponseDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Visit details page / patient forms card → edit a submitted form',
   notes:

@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Rename documents folder',
   source: 'apps/ehr/src/features/visits/shared/components/patient/docs/FolderNameDialog.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Patient → Documents → custom folder menu → Rename',
   render: () => (

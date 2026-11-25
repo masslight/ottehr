@@ -3,7 +3,6 @@ import {
   Box,
   Button,
   Checkbox,
-  CircularProgress,
   FormControlLabel,
   Grid,
   Paper,

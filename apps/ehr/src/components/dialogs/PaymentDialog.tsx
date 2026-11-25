@@ -1,13 +1,7 @@
 import { yupResolver } from '@hookform/resolvers/yup';
-import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Box,
-  Button,
   capitalize,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   FormControlLabel,
   FormHelperText,
@@ -31,6 +25,7 @@ import * as yup from 'yup';
 import { dataTestIds } from '../../constants/data-test-ids';
 import CardReaderTerminal, { CardReaderTerminalHandle } from '../CardReaderTerminal';
 import SelectCreditCard from '../SelectCreditCard';
+import { AppDialog } from './AppDialog';
 
 interface PaymentDialogProps {
   handleClose: () => void;
@@ -113,12 +108,6 @@ export default function ({
   isSubmitting,
   onTerminalPaymentSuccess,
 }: PaymentDialogProps): ReactElement {
-  const buttonSx = {
-    fontWeight: 500,
-    textTransform: 'none',
-    borderRadius: 6,
-  };
-
   const { handleSubmit, register, watch, formState, control, setValue, reset } = useForm({
     defaultValues: {
       amount: 0,
@@ -221,133 +210,111 @@ export default function ({
   };
 
   return (
-    <Dialog
+    <AppDialog
+      variant="form"
+      size="s"
       open={open}
       onClose={handleDialogClose}
-      disableScrollLock
-      sx={{
-        '.MuiPaper-root': {
-          padding: 1,
-          width: '700px',
-          maxWidth: 'initial',
-        },
+      title="Payment"
+      onSubmit={handleSubmit(structureDataAndSubmit)}
+      primary={{
+        label: submitButtonLabel,
+        loading: isSubmitting || isTerminalPaymentSubmitting,
+        disabled: shouldDisableSubmit,
+        'data-testid': dataTestIds.visitDetailsPage.cancelVisitDialogue,
       }}
     >
-      <form onSubmit={handleSubmit(structureDataAndSubmit)} noValidate>
-        <DialogTitle variant="h4" color="primary.dark" sx={{ width: '100%' }}>
-          Payment
-        </DialogTitle>
-        <DialogContent>
-          <Grid container direction="column" spacing={2} sx={{ marginBottom: 2 }}>
-            <Grid item>
-              <PatientHeader patient={patient} />
-            </Grid>
-            <Grid item sx={{ marginBottom: 1 }}>
-              <FormControl variant="outlined" fullWidth required>
-                <InputLabel shrink required error={Boolean(formState.errors.amount)}>
-                  Amount
-                </InputLabel>
-                <OutlinedInput
-                  id="amount"
-                  label="Amount, $"
-                  placeholder="Enter amount in dollars"
-                  size="small"
-                  notched
-                  error={Boolean(formState.errors.amount)}
-                  onFocus={(event) => {
-                    event.target.select();
-                  }}
-                  {...register('amount', { required: true })}
-                />
-                {formState.errors.amount && (
-                  <FormHelperText error={true}>{formState.errors.amount?.message}</FormHelperText>
-                )}
-              </FormControl>
-            </Grid>
-            <Grid item>
-              <FormControl variant="outlined" fullWidth required error={Boolean(formState.errors.paymentMethod)}>
-                <InputLabel shrink id="payment-method-radio-group">
-                  Payment method
-                </InputLabel>
-                <Controller
-                  name="paymentMethod"
-                  control={control}
-                  aria-labelledby="payment-method-radio-group"
-                  render={({ field }) => (
-                    <RadioGroup row {...field}>
-                      <FormControlLabel value="card" control={<Radio />} label="Card" />
-                      <FormControlLabel value="card-reader" control={<Radio />} label="Card Reader" />
-                      <FormControlLabel value="cash" control={<Radio />} label="Cash" />
-                      <FormControlLabel value="check" control={<Radio />} label="Check" />
-                    </RadioGroup>
-                  )}
-                />
-              </FormControl>
-            </Grid>
-          </Grid>
-          <Grid
-            item
+      <Grid container direction="column" spacing={2} sx={{ marginBottom: 2 }}>
+        <Grid item>
+          <PatientHeader patient={patient} />
+        </Grid>
+        <Grid item sx={{ marginBottom: 1 }}>
+          <FormControl variant="outlined" fullWidth required>
+            <InputLabel shrink required error={Boolean(formState.errors.amount)}>
+              Amount
+            </InputLabel>
+            <OutlinedInput
+              id="amount"
+              label="Amount, $"
+              placeholder="Enter amount in dollars"
+              size="small"
+              notched
+              error={Boolean(formState.errors.amount)}
+              onFocus={(event) => {
+                event.target.select();
+              }}
+              {...register('amount', { required: true })}
+            />
+            {formState.errors.amount && (
+              <FormHelperText error={true}>{formState.errors.amount?.message}</FormHelperText>
+            )}
+          </FormControl>
+        </Grid>
+        <Grid item>
+          <FormControl variant="outlined" fullWidth required error={Boolean(formState.errors.paymentMethod)}>
+            <InputLabel shrink id="payment-method-radio-group">
+              Payment method
+            </InputLabel>
+            <Controller
+              name="paymentMethod"
+              control={control}
+              aria-labelledby="payment-method-radio-group"
+              render={({ field }) => (
+                <RadioGroup row {...field}>
+                  <FormControlLabel value="card" control={<Radio />} label="Card" />
+                  <FormControlLabel value="card-reader" control={<Radio />} label="Card Reader" />
+                  <FormControlLabel value="cash" control={<Radio />} label="Cash" />
+                  <FormControlLabel value="check" control={<Radio />} label="Check" />
+                </RadioGroup>
+              )}
+            />
+          </FormControl>
+        </Grid>
+      </Grid>
+      <Grid
+        item
+        sx={{
+          minHeight: '150px',
+        }}
+      >
+        <Box
+          sx={{
+            display: paymentMethod === 'card' ? 'initial' : 'none',
+          }}
+        >
+          <SelectCreditCard
+            patient={patient}
+            appointmentId={appointmentId}
+            selectedCardId={creditCard ?? ''}
+            handleCardSelected={(newVal: string | undefined) => {
+              setValue('creditCard', newVal ?? '');
+            }}
+            error={formState.errors.creditCard?.message}
+          />
+        </Box>
+        {paymentMethod === 'card-reader' && (
+          <Box
             sx={{
-              minHeight: '150px',
+              display: 'initial',
             }}
           >
-            <Box
-              sx={{
-                display: paymentMethod === 'card' ? 'initial' : 'none',
+            <CardReaderTerminal
+              ref={cardReaderTerminalRef}
+              patient={patient}
+              appointmentId={appointmentId}
+              selectedCardId={creditCard ?? ''}
+              handleCardSelected={(newVal: string | undefined) => {
+                setValue('creditCard', newVal ?? '');
               }}
-            >
-              <SelectCreditCard
-                patient={patient}
-                appointmentId={appointmentId}
-                selectedCardId={creditCard ?? ''}
-                handleCardSelected={(newVal: string | undefined) => {
-                  setValue('creditCard', newVal ?? '');
-                }}
-                error={formState.errors.creditCard?.message}
-              />
-            </Box>
-            {paymentMethod === 'card-reader' && (
-              <Box
-                sx={{
-                  display: 'initial',
-                }}
-              >
-                <CardReaderTerminal
-                  ref={cardReaderTerminalRef}
-                  patient={patient}
-                  appointmentId={appointmentId}
-                  selectedCardId={creditCard ?? ''}
-                  handleCardSelected={(newVal: string | undefined) => {
-                    setValue('creditCard', newVal ?? '');
-                  }}
-                  error={formState.errors.creditCard?.message}
-                  encounterId={encounterId}
-                  onTerminalConfiguredChange={setIsTerminalConfigured}
-                  onReaderConnectionChange={setIsTerminalReaderConnected}
-                  onConfigLoadingChange={setIsTerminalConfigLoading}
-                />
-              </Box>
-            )}
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'space-between', marginLeft: 1 }}>
-          <Button variant="text" onClick={handleDialogClose} size="medium" sx={buttonSx}>
-            Cancel
-          </Button>
-          <LoadingButton
-            data-testid={dataTestIds.visitDetailsPage.cancelVisitDialogue}
-            loading={isSubmitting || isTerminalPaymentSubmitting}
-            type="submit"
-            variant="contained"
-            color="primary"
-            size="medium"
-            sx={buttonSx}
-            disabled={shouldDisableSubmit}
-          >
-            {submitButtonLabel}
-          </LoadingButton>
-        </DialogActions>
-      </form>
-    </Dialog>
+              error={formState.errors.creditCard?.message}
+              encounterId={encounterId}
+              onTerminalConfiguredChange={setIsTerminalConfigured}
+              onReaderConnectionChange={setIsTerminalReaderConnected}
+              onConfigLoadingChange={setIsTerminalConfigLoading}
+            />
+          </Box>
+        )}
+      </Grid>
+    </AppDialog>
   );
 }

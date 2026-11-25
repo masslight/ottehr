@@ -26,7 +26,7 @@ export const interactions: MedicationInteractions = {
 export default defineStory({
   title: 'Medication interaction alerts (override reasons)',
   source: 'apps/ehr/src/features/visits/in-person/components/medication-administration/InteractionAlertsDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'In-person visit → In-house medication order → click the interactions warning',
   render: () => (

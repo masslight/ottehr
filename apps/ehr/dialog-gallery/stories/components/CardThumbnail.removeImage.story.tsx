@@ -7,7 +7,7 @@ const doc = (url: string, type: string): any => ({ z3Url: `z3://mock/${type}.png
 export default defineStory({
   title: 'Remove card image',
   source: 'apps/ehr/src/components/CardThumbnail.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Visit details → insurance / ID card thumbnail → enlarge → delete icon in the floating preview',
   notes:

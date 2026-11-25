@@ -4,7 +4,7 @@ import { defineStory } from '../../harness/story';
 export default defineStory({
   title: 'Medical record export — choose date range',
   source: 'apps/ehr/src/features/medical-record-export/components/MedicalRecordDateRangeDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Patient record / visit details / progress note → "Medical Record" export button',
   notes: 'Rendered directly with props; record date span (earliest/latest) is mock data. "To" defaults to today.',

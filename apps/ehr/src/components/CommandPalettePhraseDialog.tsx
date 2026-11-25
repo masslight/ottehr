@@ -132,27 +132,27 @@ const PhraseFormDialog: FC<PhraseFormDialogProps> = ({ initialPhrase, otherKeys,
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }} onKeyDown={handleDialogKeyDown}>
         <TextField
-            sx={{ mt: 0.5 }}
-            label="Key"
-            autoFocus
-            fullWidth
-            value={key}
-            onChange={(event) => setKey(event.target.value)}
-            onKeyDown={handleKeyFieldKeyDown}
-            error={showErrors && !!keyError}
-            helperText={showErrors ? keyError : undefined}
-          />
-          <TextField
-            label="Text"
-            fullWidth
-            multiline
-            minRows={4}
-            inputRef={textRef}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            error={showErrors && !!valueError}
-            helperText={showErrors ? valueError : undefined}
-          />
+          sx={{ mt: 0.5 }}
+          label="Key"
+          autoFocus
+          fullWidth
+          value={key}
+          onChange={(event) => setKey(event.target.value)}
+          onKeyDown={handleKeyFieldKeyDown}
+          error={showErrors && !!keyError}
+          helperText={showErrors ? keyError : undefined}
+        />
+        <TextField
+          label="Text"
+          fullWidth
+          multiline
+          minRows={4}
+          inputRef={textRef}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          error={showErrors && !!valueError}
+          helperText={showErrors ? valueError : undefined}
+        />
       </Box>
     </AppDialog>
   );

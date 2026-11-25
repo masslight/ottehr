@@ -32,7 +32,7 @@ const actions: DocumentTableActions = {
 export default defineStory({
   title: 'Rename document',
   source: 'apps/ehr/src/features/visits/shared/components/patient/docs/PatientDocumentsExplorerTable.tsx',
-  base: 'CustomDialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Patient → Documents → document row → ⋮ menu → Rename document',
   mocks: [

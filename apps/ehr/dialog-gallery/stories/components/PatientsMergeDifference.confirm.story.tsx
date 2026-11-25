@@ -4,7 +4,7 @@ import { mockPatientAccounts, renderMergeDifference } from './_mergeDifference';
 export default defineStory({
   title: 'Merge patients — confirm merge',
   source: 'apps/ehr/src/components/patients-merge/PatientsMergeDifference.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'destructive-confirm',
   where: 'Merge patients (compare step) → "Merge Patients"',
   setup: mockPatientAccounts,

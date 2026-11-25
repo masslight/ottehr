@@ -406,17 +406,17 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
         }}
       >
         <TextField
-            autoFocus
-            fullWidth
-            label="Name"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            sx={{ mt: 1 }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && renameValue.trim() && renameRow?.role.id) {
-                renameRole.mutate({ roleId: renameRow.role.id, displayName: renameValue.trim() });
-              }
-            }}
+          autoFocus
+          fullWidth
+          label="Name"
+          value={renameValue}
+          onChange={(e) => setRenameValue(e.target.value)}
+          sx={{ mt: 1 }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && renameValue.trim() && renameRow?.role.id) {
+              renameRole.mutate({ roleId: renameRow.role.id, displayName: renameValue.trim() });
+            }
+          }}
         />
       </AppDialog>
 

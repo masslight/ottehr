@@ -50,7 +50,7 @@ function AfterUserLoaded(): ReactElement | null {
 export default defineStory({
   title: 'Save ad-hoc report',
   source: 'apps/ehr/src/features/report-builder/page/ReportBuilderPage.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Reports → Ad-Hoc Report → generated report header → "Save" / "Save report" (Administrator only)',
   notes:
@@ -76,6 +76,6 @@ export default defineStory({
   render: () => <AfterUserLoaded />,
   play: async ({ user, screen }) => {
     await user.click(await screen.findByRole('button', { name: 'Save' }, { timeout: 20000 }));
-    await screen.findByText('Save report');
+    await screen.findByText('Save Report');
   },
 });

@@ -5,7 +5,7 @@ import { interactions } from './InteractionAlertsDialog.story';
 export default defineStory({
   title: 'Medication interaction alerts (read-only)',
   source: 'apps/ehr/src/features/visits/in-person/components/medication-administration/InteractionAlertsDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'viewer',
   where: 'In-person visit → In-house medication dispense / completed order → click the interactions warning',
   render: () => (

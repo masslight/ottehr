@@ -20,7 +20,7 @@ function Host(): ReactElement {
 export default defineStory({
   title: 'Critical & abnormal vital values (leave-page warning)',
   source: 'apps/ehr/src/features/visits/shared/components/vitals/AbnormalVitalsModal.tsx',
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'In-person visit → Vitals page with abnormal values → navigate to another page',
   ...visitRoute,

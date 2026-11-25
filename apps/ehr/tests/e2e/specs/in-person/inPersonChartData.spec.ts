@@ -269,7 +269,7 @@ test.describe('In-Person Visit Chart Data', async () => {
           await abnormalVitalDialog.verifyModalContent('Temp (C)');
           await abnormalVitalDialog.verifyModalContent(TEMPERATURE_ABNORMAL_C);
           await abnormalVitalDialog.verifyAlertIconVisible();
-          await abnormalVitalDialog.clickCancelButton(); // clickCancelButton() is used because it corresponds to 'Continue' button in UI.
+          await abnormalVitalDialog.clickProceedButton(); // 'Continue' is the dialog's primary button ('Back' is its dismiss button).
           await expectAllergiesPage(page);
         });
       });

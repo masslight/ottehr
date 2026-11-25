@@ -1,18 +1,10 @@
-import CloseIcon from '@mui/icons-material/Close';
-import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Alert,
   alpha,
   Box,
-  Button,
   capitalize,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
-  IconButton,
   InputAdornment,
   MenuItem,
   Table,
@@ -21,7 +13,6 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { useMutation } from '@tanstack/react-query';
@@ -39,6 +30,7 @@ import {
   PaymentRefundVoidReason,
 } from 'utils/lib/types/api/patient-payment-types';
 import { APIError, isApiError } from 'utils/lib/types/errors';
+import { AppDialog, AppDialogAction, AppDialogPrimary } from './AppDialog';
 
 interface PaymentDetailsDialogProps {
   open: boolean;
@@ -48,12 +40,6 @@ interface PaymentDetailsDialogProps {
   onPaymentChanged: () => Promise<void>;
   handleClose: () => void;
 }
-
-const buttonSx = {
-  fontWeight: 500,
-  textTransform: 'none',
-  borderRadius: 6,
-} as const;
 
 const usdFormatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const formatCents = (cents: number): string => usdFormatter.format(cents / 100);
@@ -196,121 +182,100 @@ function PaymentActionDialog({
   const processing = mutation.isPending;
   const showAmountError = !!amountError && !processing;
 
-  return (
-    <Dialog
-      open
-      onClose={processing ? undefined : onClose}
-      maxWidth="xs"
-      fullWidth
-      sx={{ '.MuiPaper-root': { padding: 1 } }}
-    >
-      <IconButton
-        aria-label="close"
-        onClick={onClose}
-        disabled={processing}
-        size="medium"
-        sx={{ position: 'absolute', right: 12, top: 12 }}
-      >
-        <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
-      </IconButton>
-      <DialogTitle variant="h4" color="primary.dark">
+  const title =
+    action === 'external-refund' ? 'Record External Refund' : action === 'refund' ? 'Refund Payment' : 'Void Payment';
+  const primary: AppDialogPrimary = {
+    label: action === 'external-refund' ? 'Record Refund' : action === 'refund' ? 'Issue Refund' : 'Void Payment',
+    onClick: () => mutation.mutate(),
+    loading: processing,
+    disabled: !reason || !amountValid || (action === 'external-refund' && !medium),
+  };
+  const content = (
+    <>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {action === 'external-refund'
-          ? 'Record External Refund'
+          ? `Up to ${formatCents(
+              remainingCents
+            )} can be recorded as refunded. No money will move through Stripe — issue the refund to the patient separately; this only documents it.`
           : action === 'refund'
-          ? 'Refund Payment'
-          : 'Void Payment'}
-      </DialogTitle>
-      <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {action === 'external-refund'
+          ? isManualRefundPayment(payment)
             ? `Up to ${formatCents(
                 remainingCents
-              )} can be recorded as refunded. No money will move through Stripe — issue the refund to the patient separately; this only documents it.`
-            : action === 'refund'
-            ? isManualRefundPayment(payment)
-              ? `Up to ${formatCents(
-                  remainingCents
-                )} can be recorded as refunded. Return the money to the patient directly — this only records the refund.`
-              : `Up to ${formatCents(remainingCents)} can be refunded to the original credit card.`
-            : 'The payment will be voided and no longer counted toward the total collected.'}
-        </Typography>
-        {isRefund && (
-          <TextField
-            fullWidth
-            required
-            label="Refund amount"
-            type="number"
-            value={amountText}
-            onChange={(e) => setAmountText(e.target.value)}
-            disabled={processing}
-            error={showAmountError}
-            helperText={showAmountError ? amountError : undefined}
-            inputProps={{ min: 0.01, max: remainingCents / 100, step: 0.01 }}
-            InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-            sx={{ mb: 2, mt: 0.5 }}
-          />
-        )}
-        {action === 'external-refund' && (
-          <TextField
-            select
-            fullWidth
-            required
-            label="Refunded via"
-            value={medium}
-            onChange={(e) => setMedium(e.target.value as PaymentRefundMedium)}
-            disabled={processing}
-            sx={{ mb: 2, mt: 0.5 }}
-          >
-            {PAYMENT_REFUND_MEDIUMS.map((option) => (
-              <MenuItem key={option} value={option}>
-                {REFUND_MEDIUM_LABELS[option]}
-              </MenuItem>
-            ))}
-          </TextField>
-        )}
+              )} can be recorded as refunded. Return the money to the patient directly — this only records the refund.`
+            : `Up to ${formatCents(remainingCents)} can be refunded to the original credit card.`
+          : 'The payment will be voided and no longer counted toward the total collected.'}
+      </Typography>
+      {isRefund && (
+        <TextField
+          fullWidth
+          required
+          label="Refund amount"
+          type="number"
+          value={amountText}
+          onChange={(e) => setAmountText(e.target.value)}
+          disabled={processing}
+          error={showAmountError}
+          helperText={showAmountError ? amountError : undefined}
+          inputProps={{ min: 0.01, max: remainingCents / 100, step: 0.01 }}
+          InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+          sx={{ mb: 2, mt: 0.5 }}
+        />
+      )}
+      {action === 'external-refund' && (
         <TextField
           select
           fullWidth
           required
-          label="Reason"
-          value={reason}
-          onChange={(e) => setReason(e.target.value as PaymentRefundVoidReason)}
+          label="Refunded via"
+          value={medium}
+          onChange={(e) => setMedium(e.target.value as PaymentRefundMedium)}
           disabled={processing}
           sx={{ mb: 2, mt: 0.5 }}
         >
-          {PAYMENT_REFUND_VOID_REASONS.map((option) => (
+          {PAYMENT_REFUND_MEDIUMS.map((option) => (
             <MenuItem key={option} value={option}>
-              {option}
+              {REFUND_MEDIUM_LABELS[option]}
             </MenuItem>
           ))}
         </TextField>
-        <TextField
-          fullWidth
-          multiline
-          minRows={2}
-          label="Notes (optional)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          disabled={processing}
-        />
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button variant="outlined" sx={buttonSx} disabled={processing} onClick={onClose}>
-          Cancel
-        </Button>
-        <Box sx={{ flexGrow: 1 }} />
-        <LoadingButton
-          variant="contained"
-          color="error"
-          sx={buttonSx}
-          disabled={!reason || !amountValid || (action === 'external-refund' && !medium)}
-          loading={processing}
-          onClick={() => mutation.mutate()}
-        >
-          {action === 'external-refund' ? 'Record Refund' : action === 'refund' ? 'Issue Refund' : 'Void Payment'}
-        </LoadingButton>
-      </DialogActions>
-    </Dialog>
+      )}
+      <TextField
+        select
+        fullWidth
+        required
+        label="Reason"
+        value={reason}
+        onChange={(e) => setReason(e.target.value as PaymentRefundVoidReason)}
+        disabled={processing}
+        sx={{ mb: 2, mt: 0.5 }}
+      >
+        {PAYMENT_REFUND_VOID_REASONS.map((option) => (
+          <MenuItem key={option} value={option}>
+            {option}
+          </MenuItem>
+        ))}
+      </TextField>
+      <TextField
+        fullWidth
+        multiline
+        minRows={2}
+        label="Notes (optional)"
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        disabled={processing}
+      />
+    </>
+  );
+
+  // Voiding takes the payment out of the total collected; the two refund actions are forms.
+  return action === 'void' ? (
+    <AppDialog variant="destructive" open onClose={onClose} title={title} primary={primary}>
+      {content}
+    </AppDialog>
+  ) : (
+    <AppDialog variant="form" size="s" open onClose={onClose} title={title} primary={primary}>
+      {content}
+    </AppDialog>
   );
 }
 
@@ -374,21 +339,68 @@ export default function PaymentDetailsDialog({
       : []),
   ];
 
+  const refundRoleNote = 'Only users with the Billing Admin role can refund payments';
+  const voidRoleNote = 'Only users with the Billing Admin role can void payments';
+  const actions: AppDialogAction[] = [
+    ...(refundApplies
+      ? [
+          {
+            label: isManualRefundPayment(payment) ? 'Record Refund' : 'Refund Payment',
+            onClick: () => setAction('refund'),
+            tone: 'error' as const,
+            disabled: !canManagePayments,
+          },
+        ]
+      : []),
+    ...(externalRefundApplies
+      ? [
+          {
+            label: 'Record External Refund',
+            onClick: () => setAction('external-refund'),
+            tone: 'error' as const,
+            disabled: !canManagePayments,
+          },
+        ]
+      : []),
+    ...(voidApplies
+      ? [
+          {
+            label: 'Void Payment',
+            onClick: () => setAction('void'),
+            tone: 'error' as const,
+            disabled: !canManagePayments,
+          },
+        ]
+      : []),
+  ];
+  // The disabled buttons used to explain themselves in a tooltip; the shell's buttons have none.
+  const roleNote = canManagePayments
+    ? undefined
+    : refundApplies && voidApplies
+    ? 'Only users with the Billing Admin role can refund or void payments'
+    : refundApplies
+    ? refundRoleNote
+    : voidApplies
+    ? voidRoleNote
+    : undefined;
+
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth sx={{ '.MuiPaper-root': { padding: 1 } }}>
-      <IconButton
-        aria-label="close"
-        onClick={handleClose}
-        size="medium"
-        sx={{ position: 'absolute', right: 12, top: 12 }}
+    <>
+      <AppDialog
+        variant="form"
+        size="m"
+        open={open}
+        onClose={handleClose}
+        title="Payment Details"
+        dismiss={{ label: 'Close' }}
+        actions={actions}
+        footerNote={roleNote}
       >
-        <CloseIcon fontSize="medium" sx={{ color: '#938B7D' }} />
-      </IconButton>
-      <DialogTitle variant="h4" color="primary.dark" sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        Payment Details
-        <RefundChip state={refundState} />
-      </DialogTitle>
-      <DialogContent>
+        {refundState !== 'none' && (
+          <Box sx={{ mb: 1.5 }}>
+            <RefundChip state={refundState} />
+          </Box>
+        )}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {detailRows.map((row) => (
             <Box key={row.label} sx={{ display: 'flex', gap: 2 }}>
@@ -521,58 +533,7 @@ export default function PaymentDetailsDialog({
             </Table>
           </>
         )}
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        {refundApplies && (
-          <Tooltip title={canManagePayments ? '' : 'Only users with the Billing Admin role can refund payments'}>
-            <span>
-              <Button
-                variant="outlined"
-                color="error"
-                sx={buttonSx}
-                disabled={!canManagePayments}
-                onClick={() => setAction('refund')}
-              >
-                {isManualRefundPayment(payment) ? 'Record Refund' : 'Refund Payment'}
-              </Button>
-            </span>
-          </Tooltip>
-        )}
-        {externalRefundApplies && (
-          <Tooltip title={canManagePayments ? '' : 'Only users with the Billing Admin role can refund payments'}>
-            <span>
-              <Button
-                variant="outlined"
-                color="error"
-                sx={buttonSx}
-                disabled={!canManagePayments}
-                onClick={() => setAction('external-refund')}
-              >
-                Record External Refund
-              </Button>
-            </span>
-          </Tooltip>
-        )}
-        {voidApplies && (
-          <Tooltip title={canManagePayments ? '' : 'Only users with the Billing Admin role can void payments'}>
-            <span>
-              <Button
-                variant="outlined"
-                color="error"
-                sx={buttonSx}
-                disabled={!canManagePayments}
-                onClick={() => setAction('void')}
-              >
-                Void Payment
-              </Button>
-            </span>
-          </Tooltip>
-        )}
-        <Box sx={{ flexGrow: 1 }} />
-        <Button variant="contained" sx={buttonSx} onClick={handleClose}>
-          Close
-        </Button>
-      </DialogActions>
+      </AppDialog>
       {action && (
         <PaymentActionDialog
           action={action}
@@ -582,6 +543,6 @@ export default function PaymentDetailsDialog({
           onDone={onPaymentChanged}
         />
       )}
-    </Dialog>
+    </>
   );
 }

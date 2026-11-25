@@ -5,7 +5,7 @@ import { fhirBundle, mockLocation } from './shared-mocks';
 export default defineStory({
   title: 'Add location',
   source: 'apps/ehr/src/features/locations/LocationsListPage.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Admin → Locations → "Add location" button',
   notes: 'Opened via the real button; a name was typed so the Create button shows its enabled state.',

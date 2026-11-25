@@ -6,7 +6,7 @@ import { abnormalVitals } from './_vitals';
 export default defineStory({
   title: 'Abnormal vital value (before completing intake)',
   source: 'apps/ehr/src/features/visits/in-person/components/CompleteIntakeButton.tsx',
-  base: 'InPersonModal',
+  base: 'AppDialog',
   kind: 'confirm',
   where: 'In-person visit sidebar → "Complete Intake" while the visit has abnormal vitals',
   ...visitRoute,

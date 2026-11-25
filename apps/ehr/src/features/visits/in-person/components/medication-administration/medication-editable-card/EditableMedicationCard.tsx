@@ -1,10 +1,5 @@
-import { LoadingButton } from '@mui/lab';
 import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
+  Box,
   List,
   ListItem,
   ListItemButton,
@@ -14,15 +9,16 @@ import {
 } from '@mui/material';
 import { Medication } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import React, { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   createInHouseMedicationQuickPick,
   getInHouseMedicationQuickPicks,
   updateInHouseMedicationQuickPick,
 } from 'src/api/api';
-import DeleteDialog from 'src/components/dialogs/DeleteDialog';
+import { AppDialog } from 'src/components/dialogs/AppDialog';
 import { UnsavedDraftWarning } from 'src/components/UnsavedDraftWarning';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { MedicationWithTypeDTO, useMedicationHistory } from 'src/features/visits/in-person/hooks/useMedicationHistory';
 import { ERXStatus } from 'src/features/visits/shared/components/ERX';
 import { ERXInteractionsReadiness } from 'src/features/visits/shared/components/ERXInteractionsReadiness';
@@ -59,7 +55,6 @@ import {
 import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
-import { InPersonModal } from '../../InPersonModal';
 import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 import { interactionsSummary } from '../util';
 import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
@@ -101,6 +96,8 @@ export const EditableMedicationCard: React.FC<{
   const [isConfirmSaveModalOpen, setIsConfirmSaveModalOpen] = useState(false);
   const confirmedMedicationUpdateRequestRef = useRef<Partial<UpdateMedicationOrderInput>>({});
   const [confirmationModalConfig, setConfirmationModalConfig] = useState<ConfirmSaveModalConfig | null>(null);
+  // Which status the open confirmation is for: "administered" is a plain confirm, the others also ask for a reason.
+  const [confirmationModalStatus, setConfirmationModalStatus] = useState<MedicationOrderStatusesType>();
   const [isReasonSelected, setIsReasonSelected] = useState(true);
   const { mappedData, resources } = useAppointmentData();
   const selectsOptions = useFieldsSelectsOptions();
@@ -173,6 +170,19 @@ export const EditableMedicationCard: React.FC<{
     clearDraft(encounterId);
     wasProvidedByFieldTouched.current = false;
     setLocalValues({});
+  };
+
+  const closeMissingFieldsModal = (): void => {
+    setIsModalOpen(false);
+    setShowErrors(false);
+    setFieldErrors({});
+    typeRef.current = typeFromProps;
+  };
+
+  const closeConfirmSaveModal = (): void => {
+    setIsConfirmSaveModalOpen(false);
+    confirmedMedicationUpdateRequestRef.current = {};
+    typeRef.current = typeFromProps;
   };
 
   const handleUnsavedStatusChange = async (newStatus: MedicationOrderStatusesType): Promise<void> => {
@@ -459,6 +469,7 @@ export const EditableMedicationCard: React.FC<{
       });
 
       setConfirmationModalConfig(confirmSaveModalConfigs[updatedRequestInput.newStatus] as ConfirmSaveModalConfig);
+      setConfirmationModalStatus(updatedRequestInput.newStatus);
       setIsConfirmSaveModalOpen(true);
     }
   };
@@ -776,43 +787,34 @@ export const EditableMedicationCard: React.FC<{
         isAdmin={isAdmin}
         onQuickPickAddOrUpdate={() => void openQuickPickDialog()}
       />
-      <InPersonModal
-        icon={null}
-        color="error.main"
-        open={isModalOpen}
-        handleClose={() => {
-          setIsModalOpen(false);
-          setShowErrors(false);
-          setFieldErrors({});
-          typeRef.current = typeFromProps;
-        }}
-        title="Missing Required Fields"
-        description={`Please fill in the following required fields: ${missingFields.join(', ')}`}
-        handleConfirm={() => {
-          setIsModalOpen(false);
-          setShowErrors(false);
-          setFieldErrors({});
-          typeRef.current = typeFromProps;
-        }}
-        confirmText="OK"
-        closeButtonText="Close"
-      />
+      <AppDialog variant="alert" open={isModalOpen} onClose={closeMissingFieldsModal} title="Missing Required Fields">
+        <Box data-testid={dataTestIds.dialog.inPersonModalContent}>
+          {`Please fill in the following required fields: ${missingFields.join(', ')}`}
+        </Box>
+      </AppDialog>
       {confirmationModalConfig ? (
-        <InPersonModal
-          entity={confirmedMedicationUpdateRequestRef}
-          showEntityPreview={false}
-          disabled={isModalSaveButtonDisabled}
+        <AppDialog
+          {...(confirmationModalStatus === 'administered'
+            ? { variant: 'confirm' as const }
+            : { variant: 'form' as const, size: 's' as const })}
           open={isConfirmSaveModalOpen}
-          handleClose={() => {
-            setIsConfirmSaveModalOpen(false);
-            confirmedMedicationUpdateRequestRef.current = {};
-            typeRef.current = typeFromProps;
+          onClose={closeConfirmSaveModal}
+          title={confirmationModalConfig.title}
+          titleTestId={dataTestIds.inPersonModal.confirmationDialogue}
+          dismiss={{ label: confirmationModalConfig.closeButtonText }}
+          primary={{
+            label: confirmationModalConfig.confirmText,
+            disabled: isModalSaveButtonDisabled,
+            onClick: async () => {
+              await handleConfirmSave(confirmedMedicationUpdateRequestRef);
+              closeConfirmSaveModal();
+            },
           }}
-          handleConfirm={handleConfirmSave}
-          description={''}
-          {...confirmationModalConfig}
-          ContentComponent={confirmationModalConfig.ContentComponent?.({}) as ReactElement}
-        />
+        >
+          <Box data-testid={dataTestIds.dialog.inPersonModalContent}>
+            {confirmationModalConfig.ContentComponent?.({})}
+          </Box>
+        </AppDialog>
       ) : null}
       {showInteractionAlerts && interactionsCheckState.interactions ? (
         <InteractionAlertsDialog
@@ -835,63 +837,60 @@ export const EditableMedicationCard: React.FC<{
         <ERXInteractionsReadiness onStatusChanged={setERXStatus} />
       ) : null}
       {medication?.id && (
-        <DeleteDialog
+        <AppDialog
+          variant="destructive"
           open={isDeleteDialogOpen}
-          handleClose={handleDeleteCancel}
-          handleDelete={handleDeleteConfirm}
+          onClose={handleDeleteCancel}
           title="Delete Medication"
-          description={`Are you sure you want to delete "${medication?.medicationName || 'this medication'}"?`}
-          closeButtonText="Keep"
-          deleteButtonText="Delete Medication"
-          loadingDelete={isDeleting}
-        />
+          primary={{ label: 'Delete Medication', onClick: handleDeleteConfirm, loading: isDeleting }}
+        >
+          {`Are you sure you want to delete "${medication?.medicationName || 'this medication'}"?`}
+        </AppDialog>
       )}
 
-      <Dialog open={quickPickDialogOpen} onClose={() => setQuickPickDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Save as Quick Pick</DialogTitle>
-        <DialogContent>
-          <MuiTextField
-            autoFocus
-            label="Quick pick name"
-            fullWidth
-            value={quickPickName}
-            onChange={(e) => setQuickPickName(e.target.value)}
-            sx={{ mt: 1 }}
-          />
-          {existingQuickPicksForDialog.length > 0 && (
-            <>
-              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-                Or overwrite an existing quick pick:
-              </Typography>
-              <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                {existingQuickPicksForDialog.map((qp) => (
-                  <ListItem key={qp.id} disablePadding>
-                    <ListItemButton
-                      selected={overwriteTarget?.id === qp.id}
-                      onClick={() => {
-                        setOverwriteTarget(qp);
-                        setQuickPickName(qp.name);
-                      }}
-                    >
-                      <ListItemText primary={qp.name} />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            </>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQuickPickDialogOpen(false)}>Cancel</Button>
-          <LoadingButton
-            loading={quickPickSaving}
-            variant="contained"
-            onClick={() => void onSaveAsQuickPick(overwriteTarget?.id)}
-          >
-            {overwriteTarget ? 'Overwrite' : 'Save'}
-          </LoadingButton>
-        </DialogActions>
-      </Dialog>
+      <AppDialog
+        variant="form"
+        size="s"
+        open={quickPickDialogOpen}
+        onClose={() => setQuickPickDialogOpen(false)}
+        title="Save as Quick Pick"
+        primary={{
+          label: overwriteTarget ? 'Overwrite' : 'Save',
+          onClick: () => void onSaveAsQuickPick(overwriteTarget?.id),
+          loading: quickPickSaving,
+        }}
+      >
+        <MuiTextField
+          autoFocus
+          label="Quick pick name"
+          fullWidth
+          value={quickPickName}
+          onChange={(e) => setQuickPickName(e.target.value)}
+          sx={{ mt: 1 }}
+        />
+        {existingQuickPicksForDialog.length > 0 && (
+          <>
+            <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+              Or overwrite an existing quick pick:
+            </Typography>
+            <List dense sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #e0e0e0', borderRadius: 1 }}>
+              {existingQuickPicksForDialog.map((qp) => (
+                <ListItem key={qp.id} disablePadding>
+                  <ListItemButton
+                    selected={overwriteTarget?.id === qp.id}
+                    onClick={() => {
+                      setOverwriteTarget(qp);
+                      setQuickPickName(qp.name);
+                    }}
+                  >
+                    <ListItemText primary={qp.name} />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </>
+        )}
+      </AppDialog>
     </>
   );
 };

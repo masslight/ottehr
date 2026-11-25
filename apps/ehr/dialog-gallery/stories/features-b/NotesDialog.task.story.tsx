@@ -5,7 +5,7 @@ import { mockNotes } from './notes-mocks';
 export default defineStory({
   title: 'Task internal notes',
   source: 'apps/ehr/src/features/patient-notes/components/NotesDialog.tsx',
-  base: 'MUI Dialog',
+  base: 'AppDialog',
   kind: 'form',
   where: 'Tasks board → notes icon on a task row',
   notes:
