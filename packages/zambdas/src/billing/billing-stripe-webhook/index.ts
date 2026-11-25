@@ -42,7 +42,7 @@ import {
 import { StripeWebhookParams } from '../../shared/stripeWebhook';
 import { ZambdaInput } from '../../shared/types/common';
 import { cancelPendingInvoiceOutreach } from '../invoice-outreach';
-import { recordInvoicePayment } from '../invoice-payments';
+import { recordInvoiceCardPayment } from '../invoice-payments';
 import { unionIdentifiers } from '../patient-payments';
 import {
   billingProviderRefForStripeAccount,
@@ -238,26 +238,18 @@ const recordInvoiceCharge = async ({
     console.log(`Charge ${charge.id} for invoice ${invoiceId} is ${charge.status}; nothing to record`);
     return;
   }
-  const chargedAt = DateTime.fromSeconds(charge.created);
   const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id;
   try {
-    await recordInvoicePayment({
+    await recordInvoiceCardPayment({
       oystehr,
-      payment: {
-        invoiceId,
-        paymentId,
-        amountInCents: charge.amount,
-        paymentMethod: 'card',
-        paymentDate: ehrPaymentDate(chargedAt),
-        processorPaymentIdentifier: {
-          system: STRIPE_PAYMENT_ID_SYSTEM,
-          value: paymentIntentId ?? charge.id,
-        },
-        extension: [stripeAccountExtension(stripeAccount)],
-        agent: await resolveClaimActor('system', oystehr, undefined, null),
-        secrets,
-      },
-      createdISO: chargedAt.toUTC().toISO()!,
+      invoiceId,
+      paymentId,
+      amountInCents: charge.amount,
+      chargedAt: DateTime.fromSeconds(charge.created),
+      stripePaymentId: paymentIntentId ?? charge.id,
+      stripeAccount,
+      agent: await resolveClaimActor('system', oystehr, undefined, null),
+      secrets,
     });
   } catch (error) {
     // another card payment's reservation settles, so a redelivery can record this one; any other

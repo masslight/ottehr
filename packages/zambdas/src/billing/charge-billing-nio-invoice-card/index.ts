@@ -15,18 +15,12 @@ import {
 } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
-import {
-  getStripeClient,
-  isIdempotencyConflict,
-  STRIPE_METADATA_KEYS,
-  STRIPE_PAYMENT_ID_SYSTEM,
-} from '../../shared/stripeIntegration';
+import { getStripeClient, isIdempotencyConflict, STRIPE_METADATA_KEYS } from '../../shared/stripeIntegration';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { releaseCardReservation, reserveCardPayment, settleOtherCardReservation } from '../invoice-card-reservation';
-import { cardPaymentInProgressError, recordInvoicePayment } from '../invoice-payments';
+import { cardPaymentInProgressError, recordInvoiceCardPayment } from '../invoice-payments';
 import { resolveInvoiceStripePayer } from '../invoice-stripe';
-import { ehrPaymentDate, stripeAccountExtension } from '../payments';
 import { resolveClaimActor } from '../provenance';
 import { createBillingClient } from '../shared';
 
@@ -160,23 +154,16 @@ export async function performEffect({
   }
 
   try {
-    await recordInvoicePayment({
+    await recordInvoiceCardPayment({
       oystehr,
-      payment: {
-        invoiceId,
-        paymentId,
-        amountInCents,
-        paymentMethod: 'card',
-        paymentDate: ehrPaymentDate(now),
-        processorPaymentIdentifier: {
-          system: STRIPE_PAYMENT_ID_SYSTEM,
-          value: paymentIntent.id,
-        },
-        extension: [stripeAccountExtension(stripeAccount)],
-        agent,
-        secrets,
-      },
-      createdISO: now.toUTC().toISO()!,
+      invoiceId,
+      paymentId,
+      amountInCents,
+      chargedAt: DateTime.fromSeconds(paymentIntent.created),
+      stripePaymentId: paymentIntent.id,
+      stripeAccount,
+      agent,
+      secrets,
     });
   } catch (error) {
     console.error(`Charged ${paymentIntent.id} for invoice ${invoiceNumber} but could not record it`, error);

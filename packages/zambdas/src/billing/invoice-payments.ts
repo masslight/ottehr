@@ -2,6 +2,7 @@ import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import { Extension, FhirResource, Identifier, Invoice, PaymentNotice, ProvenanceAgent } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   BillingInvoiceClaim,
   getBillingInvoiceClaims,
@@ -24,13 +25,14 @@ import {
   RESOURCE_INCOMPLETE_FOR_OPERATION_ERROR,
 } from 'utils/lib/types/errors';
 import { formatCurrency } from 'utils/lib/utils/convert';
+import { STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
 import { getInvoiceBalanceInCents } from './claim-amounts';
 import {
   assertInvoiceTakesRecordedPayments,
   buildInvoicePaymentAttachment,
   fetchInvoicePaymentNotices,
 } from './invoices';
-import { buildPaymentNotice, paymentNoticeHistoryRequest } from './payments';
+import { buildPaymentNotice, ehrPaymentDate, paymentNoticeHistoryRequest, stripeAccountExtension } from './payments';
 import { fetchById } from './shared';
 
 export interface InvoicePayment {
@@ -176,6 +178,48 @@ export async function recordInvoicePayment({
         }),
       ],
     });
+  });
+}
+
+// Dated by the charge, so every writer of one charge records the same payment.
+export async function recordInvoiceCardPayment({
+  oystehr,
+  invoiceId,
+  paymentId,
+  amountInCents,
+  chargedAt,
+  stripePaymentId,
+  stripeAccount,
+  agent,
+  secrets,
+}: {
+  oystehr: Oystehr;
+  invoiceId: string;
+  paymentId: string;
+  amountInCents: number;
+  chargedAt: DateTime;
+  stripePaymentId: string;
+  stripeAccount: string | undefined;
+  agent: ProvenanceAgent;
+  secrets: Secrets | null;
+}): Promise<void> {
+  await recordInvoicePayment({
+    oystehr,
+    payment: {
+      invoiceId,
+      paymentId,
+      amountInCents,
+      paymentMethod: 'card',
+      paymentDate: ehrPaymentDate(chargedAt),
+      processorPaymentIdentifier: {
+        system: STRIPE_PAYMENT_ID_SYSTEM,
+        value: stripePaymentId,
+      },
+      extension: [stripeAccountExtension(stripeAccount)],
+      agent,
+      secrets,
+    },
+    createdISO: chargedAt.toUTC().toISO()!,
   });
 }
 

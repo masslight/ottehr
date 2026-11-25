@@ -9,15 +9,14 @@ import {
   withVersionConflictRetries,
 } from 'utils/lib/fhir/helpers';
 import { Secrets } from 'utils/lib/secrets';
-import { STRIPE_METADATA_KEYS, STRIPE_PAYMENT_ID_SYSTEM } from '../shared/stripeIntegration';
+import { STRIPE_METADATA_KEYS } from '../shared/stripeIntegration';
 import {
   cardPaymentInProgressError,
   cardPaymentReservationOperations,
   readPayableInvoice,
-  recordInvoicePayment,
+  recordInvoiceCardPayment,
 } from './invoice-payments';
 import { resolveInvoiceStripePayer } from './invoice-stripe';
-import { ehrPaymentDate, stripeAccountExtension } from './payments';
 import { fetchById } from './shared';
 
 // A reserving request creates its PaymentIntent within seconds; until then Stripe has nothing to show.
@@ -72,24 +71,16 @@ export async function settleOtherCardReservation({
     : undefined;
 
   if (paymentIntent?.status === 'succeeded') {
-    const chargedAt = DateTime.fromSeconds(paymentIntent.created);
-    await recordInvoicePayment({
+    await recordInvoiceCardPayment({
       oystehr,
-      payment: {
-        invoiceId,
-        paymentId: reservation.paymentId,
-        amountInCents: paymentIntent.amount,
-        paymentMethod: 'card',
-        paymentDate: ehrPaymentDate(chargedAt),
-        processorPaymentIdentifier: {
-          system: STRIPE_PAYMENT_ID_SYSTEM,
-          value: paymentIntent.id,
-        },
-        extension: [stripeAccountExtension(stripeAccount)],
-        agent,
-        secrets,
-      },
-      createdISO: chargedAt.toUTC().toISO()!,
+      invoiceId,
+      paymentId: reservation.paymentId,
+      amountInCents: paymentIntent.amount,
+      chargedAt: DateTime.fromSeconds(paymentIntent.created),
+      stripePaymentId: paymentIntent.id,
+      stripeAccount,
+      agent,
+      secrets,
     });
     return;
   }

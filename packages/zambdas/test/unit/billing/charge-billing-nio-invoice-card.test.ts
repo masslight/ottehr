@@ -42,6 +42,7 @@ const INVOICE_ID = 'invoice-1';
 const PAYMENT_ID = 'payment-key-1';
 const STRIPE_ACCOUNT = 'acct_issuer';
 const NOW = DateTime.fromISO('2026-11-19T15:00:00.000Z');
+const CHARGED_AT = DateTime.fromISO('2026-11-19T04:59:00.000Z');
 const IN_PROGRESS = BILLING_INVOICE_CONFLICT_ERROR(
   'A card payment on invoice INV-00042 is in progress. Try again in a few minutes.'
 );
@@ -160,6 +161,7 @@ const setup = ({
   const createPaymentIntent = vi.fn().mockResolvedValue({
     id: 'pi_1',
     status: paymentIntentStatus,
+    created: CHARGED_AT.toUnixInteger(),
   });
   return {
     oystehr: {
@@ -266,6 +268,7 @@ describe('charge-billing-nio-invoice-card', () => {
     ]);
     for (const notice of notices) {
       expect(getNioInvoicePaymentId(notice)).toBe(PAYMENT_ID);
+      expect(notice.paymentDate).toBe('2026-11-18');
       expect(notice.extension).toContainEqual({
         url: PAYMENT_METHOD_EXTENSION_URL,
         valueString: 'card',
