@@ -266,11 +266,12 @@ export default async function setup(project: TestProject): Promise<() => Promise
 
   // The two clients are independent (distinct per-run names, profiles, and roles), so provision
   // them concurrently to keep the suite's serial startup cost down.
-  const [provider, patient, invoiceNumberCounterId] = await Promise.all([
+  const [provider, patient] = await Promise.all([
     provisionSharedClient(oystehrAdmin, M2MClientMockType.provider, runId),
     provisionSharedClient(oystehrAdmin, M2MClientMockType.patient, runId),
-    provisionRunInvoiceNumberCounter(oystehrAdmin, runId),
   ]);
+
+  const invoiceNumberCounterId = await provisionRunInvoiceNumberCounter(oystehrAdmin, runId);
 
   project.provide('ADMIN_TOKEN', adminToken);
   project.provide('INTEGRATION_TEST_RUN_ID', runId);

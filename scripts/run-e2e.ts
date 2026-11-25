@@ -239,7 +239,7 @@ const runE2eTestSetup = async (): Promise<void> => {
     await new Promise<void>((resolve, reject) => {
       const child = spawn(
         `bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV} ${
-          SMOKE_TEST === 'true' && '--mode smoke'
+          SMOKE_TEST === 'true' ? '--mode smoke' : ''
         }`,
         {
           shell: true,
