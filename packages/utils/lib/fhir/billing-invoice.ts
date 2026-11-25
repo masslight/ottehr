@@ -189,19 +189,23 @@ export const invoicePaymentExtension = (invoiceId: string): Extension => ({
   },
 });
 
+// reservedAt stays fixed across retries; renewedAt is the lease each retry extends
 export interface InvoiceCardPaymentReservation {
   paymentId: string;
   reservedAt: string;
+  renewedAt: string;
 }
 
 export function getInvoiceCardPaymentReservation(invoice: Invoice): InvoiceCardPaymentReservation | undefined {
   const parts = invoice.extension?.find((ext) => ext.url === INVOICE_CARD_PAYMENT_RESERVATION_EXTENSION_URL)?.extension;
   const paymentId = parts?.find((ext) => ext.url === 'paymentId')?.valueString;
   const reservedAt = parts?.find((ext) => ext.url === 'reservedAt')?.valueDateTime;
-  return paymentId && reservedAt
+  const renewedAt = parts?.find((ext) => ext.url === 'renewedAt')?.valueDateTime;
+  return paymentId && reservedAt && renewedAt
     ? {
         paymentId,
         reservedAt,
+        renewedAt,
       }
     : undefined;
 }
@@ -224,6 +228,10 @@ export function invoiceExtensionsWithCardPaymentReservation(
         {
           url: 'reservedAt',
           valueDateTime: reservation.reservedAt,
+        },
+        {
+          url: 'renewedAt',
+          valueDateTime: reservation.renewedAt,
         },
       ],
     },

@@ -58,13 +58,12 @@ export async function settleOtherCardReservation({
     invoice,
   });
   const customerId = getStripeCustomerIdFromAccount(nio, stripeAccount);
-  const reservedAt = DateTime.fromISO(reservation.reservedAt);
   const paymentIntent = customerId
     ? await findPaymentIntentForPayment({
         stripe: getStripe(),
         stripeAccount,
         customerId,
-        createdFrom: reservedAt.minus({ minutes: 1 }),
+        createdFrom: DateTime.fromISO(reservation.reservedAt).minus({ minutes: 1 }),
         invoiceId,
         paymentId: reservation.paymentId,
       })
@@ -84,7 +83,8 @@ export async function settleOtherCardReservation({
     });
     return;
   }
-  const withinGrace = now.diff(reservedAt, 'minutes').minutes < CARD_RESERVATION_GRACE_MINUTES;
+  const withinGrace =
+    now.diff(DateTime.fromISO(reservation.renewedAt), 'minutes').minutes < CARD_RESERVATION_GRACE_MINUTES;
   if ((paymentIntent && CHARGING_STATUSES.includes(paymentIntent.status)) || (!paymentIntent && withinGrace)) {
     throw cardPaymentInProgressError(invoice);
   }
@@ -163,10 +163,7 @@ export async function reserveCardPayment({
     }
   | undefined
 > {
-  const reservation = {
-    paymentId,
-    reservedAt: now.toUTC().toISO()!,
-  };
+  const nowISO = now.toUTC().toISO()!;
   return withVersionConflictRetries(async () => {
     const { invoice, recorded } = await readPayableInvoice({
       oystehr,
@@ -175,6 +172,12 @@ export async function reserveCardPayment({
       amountInCents,
     });
     if (recorded) return undefined;
+    const held = getInvoiceCardPaymentReservation(invoice);
+    const reservation = {
+      paymentId,
+      reservedAt: held?.paymentId === paymentId ? held.reservedAt : nowISO,
+      renewedAt: nowISO,
+    };
     await oystehr.fhir.patch(
       {
         resourceType: 'Invoice',
@@ -210,7 +213,7 @@ export async function releaseCardReservation({
     },
     (current) => {
       const held = getInvoiceCardPaymentReservation(current);
-      return held?.paymentId === reservation.paymentId && held.reservedAt === reservation.reservedAt
+      return held?.paymentId === reservation.paymentId && held.renewedAt === reservation.renewedAt
         ? cardPaymentReservationOperations(current, undefined)
         : [];
     }

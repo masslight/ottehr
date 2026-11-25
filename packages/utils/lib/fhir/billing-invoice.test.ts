@@ -421,6 +421,7 @@ describe('invoiceExtensionsWithCardPaymentReservation', () => {
   const reservation = {
     paymentId: 'payment-1',
     reservedAt: '2026-11-23T15:00:00.000Z',
+    renewedAt: '2026-11-23T15:05:00.000Z',
   };
 
   it('keeps one reservation next to the claims and due date', () => {
@@ -432,6 +433,7 @@ describe('invoiceExtensionsWithCardPaymentReservation', () => {
           extension: invoiceExtensionsWithCardPaymentReservation(invoice, {
             paymentId: 'payment-old',
             reservedAt: '2026-11-23T14:00:00.000Z',
+            renewedAt: '2026-11-23T14:00:00.000Z',
           }),
         },
         reservation

@@ -35,7 +35,7 @@ const IN_PROGRESS = BILLING_INVOICE_CONFLICT_ERROR(
   'A card payment on invoice INV-00042 is in progress. Try again in a few minutes.'
 );
 
-const reservedInvoice = (reservedAt: DateTime): Invoice => {
+const reservedInvoice = (reservedAt: DateTime, renewedAt = reservedAt): Invoice => {
   const invoice: Invoice = {
     ...buildBillingInvoice({
       status: 'issued',
@@ -70,6 +70,7 @@ const reservedInvoice = (reservedAt: DateTime): Invoice => {
     extension: invoiceExtensionsWithCardPaymentReservation(invoice, {
       paymentId: OTHER_PAYMENT_ID,
       reservedAt: reservedAt.toUTC().toISO()!,
+      renewedAt: renewedAt.toUTC().toISO()!,
     }),
   };
 };
@@ -269,6 +270,36 @@ describe('settleOtherCardReservation', () => {
     expect(patch).not.toHaveBeenCalled();
   });
 
+  it('searches from the first reservation after a retry renewed it', async () => {
+    const reservedAt = NOW.minus({ minutes: 10 });
+    const { oystehr, stripe, list, patch } = setup({
+      invoice: reservedInvoice(reservedAt, NOW.minus({ minutes: 5 })),
+      paymentIntents: [otherIntent('processing')],
+    });
+
+    await expect(settle(oystehr, stripe)).rejects.toEqual(IN_PROGRESS);
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({
+        created: {
+          gte: reservedAt.minus({ minutes: 1 }).toUnixInteger(),
+        },
+      }),
+      {
+        stripeAccount: STRIPE_ACCOUNT,
+      }
+    );
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it('refuses while a retry renewed the reservation within the grace period', async () => {
+    const { oystehr, stripe, patch } = setup({
+      invoice: reservedInvoice(NOW.minus({ minutes: 10 }), NOW.minus({ seconds: 30 })),
+    });
+
+    await expect(settle(oystehr, stripe)).rejects.toEqual(IN_PROGRESS);
+    expect(patch).not.toHaveBeenCalled();
+  });
+
   it('refuses while a fresh reservation has not reached Stripe yet', async () => {
     const { oystehr, stripe, patch } = setup({
       invoice: reservedInvoice(NOW.minus({ seconds: 30 })),
@@ -300,8 +331,9 @@ describe('settleOtherCardReservation', () => {
 });
 
 describe('reserveCardPayment', () => {
-  it('renews the reservation a retry already holds', async () => {
-    const invoice = reservedInvoice(NOW.minus({ minutes: 10 }));
+  it('renews the reservation a retry already holds, keeping when it was first made', async () => {
+    const reservedAt = NOW.minus({ minutes: 10 });
+    const invoice = reservedInvoice(reservedAt);
     const { oystehr, patch } = setup({
       invoice,
     });
@@ -316,7 +348,8 @@ describe('reserveCardPayment', () => {
 
     const renewed = {
       paymentId: OTHER_PAYMENT_ID,
-      reservedAt: NOW.toUTC().toISO(),
+      reservedAt: reservedAt.toUTC().toISO(),
+      renewedAt: NOW.toUTC().toISO(),
     };
     expect(reserved?.reservation).toEqual(renewed);
     const [[{ operations }]] = patch.mock.calls;
@@ -332,7 +365,7 @@ describe('reserveCardPayment', () => {
 describe('releaseCardReservation', () => {
   it('keeps a reservation renewed since it was read', async () => {
     const { oystehr, patch } = setup({
-      invoice: reservedInvoice(NOW),
+      invoice: reservedInvoice(NOW.minus({ minutes: 10 }), NOW),
     });
 
     await releaseCardReservation({
@@ -341,6 +374,7 @@ describe('releaseCardReservation', () => {
       reservation: {
         paymentId: OTHER_PAYMENT_ID,
         reservedAt: NOW.minus({ minutes: 10 }).toUTC().toISO()!,
+        renewedAt: NOW.minus({ minutes: 10 }).toUTC().toISO()!,
       },
     });
 

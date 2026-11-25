@@ -1919,6 +1919,7 @@ describe('billing-stripe-webhook charges for non-insurance payer invoices', () =
       extension: invoiceExtensionsWithCardPaymentReservation(invoice, {
         paymentId: 'other-payment',
         reservedAt: '2026-11-19T15:00:00.000Z',
+        renewedAt: '2026-11-19T15:00:00.000Z',
       }),
     });
 

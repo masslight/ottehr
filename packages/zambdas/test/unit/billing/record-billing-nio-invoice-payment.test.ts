@@ -567,6 +567,7 @@ describe('record-billing-nio-invoice-payment', () => {
         extension: invoiceExtensionsWithCardPaymentReservation(invoice, {
           paymentId: 'card-payment',
           reservedAt: NOW.minus({ seconds: 30 }).toUTC().toISO()!,
+          renewedAt: NOW.minus({ seconds: 30 }).toUTC().toISO()!,
         }),
       },
     });

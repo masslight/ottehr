@@ -428,6 +428,7 @@ describe('charge-billing-nio-invoice-card', () => {
     expect(reservationOf(resultsByType)).toEqual({
       paymentId: PAYMENT_ID,
       reservedAt: NOW.toUTC().toISO(),
+      renewedAt: NOW.toUTC().toISO(),
     });
   });
 
@@ -440,6 +441,7 @@ describe('charge-billing-nio-invoice-card', () => {
         extension: invoiceExtensionsWithCardPaymentReservation(invoice, {
           paymentId: 'other-payment',
           reservedAt: NOW.minus({ seconds: 30 }).toUTC().toISO()!,
+          renewedAt: NOW.minus({ seconds: 30 }).toUTC().toISO()!,
         }),
       },
     ];
