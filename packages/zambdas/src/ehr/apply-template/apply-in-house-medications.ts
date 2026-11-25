@@ -124,9 +124,19 @@ export async function applyInHouseMedicationPlans(
     }[] = [];
 
     // product said to use the person applying the template for the ordering provider
-    const currentUserProviderId = await getMyPractitionerId(userToken, secrets);
+    const [currentUserProviderId, medicationResources] = await Promise.all([
+      getMyPractitionerId(userToken, secrets),
+      Promise.all(
+        templateMedAdministrations.map((templateMA) => {
+          const medicationForMa = medicationsByIdMap.get(
+            templateMA.medicationReference?.reference?.replace('#', '') ?? ''
+          );
+          return medicationForMa ? withoutSourceVisitLot(oystehr, medicationForMa) : undefined;
+        })
+      ),
+    ]);
 
-    for (const templateMA of templateMedAdministrations) {
+    for (const [templateMaIndex, templateMA] of templateMedAdministrations.entries()) {
       const containedMedId = templateMA.medicationReference?.reference?.replace('#', '');
       const medicationForMa = medicationsByIdMap.get(containedMedId ?? '');
       const medName = deriveMedicationName(containedMedId, medicationsByIdMap);
@@ -190,7 +200,7 @@ export async function applyInHouseMedicationPlans(
         ...(associatedDx ? { associatedDx } : {}),
       };
 
-      const medicationResource = await withoutSourceVisitLot(oystehr, medicationForMa);
+      const medicationResource = medicationResources[templateMaIndex]!;
 
       const medicationAdministrationData: MedicationAdministrationData = {
         orderData,

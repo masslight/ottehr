@@ -24,20 +24,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const userToken = getUserToken(input);
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-  const callerId = await getMyPractitionerId(userToken, secrets);
-
-  const notes = await getAllFhirSearchPages<Communication>(
-    {
-      resourceType: 'Communication',
-      params: [
-        { name: '_id', value: [...new Set(noteIds)].join(',') },
-        { name: 'based-on', value: `Task/${taskId}` },
-        { name: '_tag', value: TASK_NOTE_TAG },
-        { name: 'status', value: 'completed' },
-      ],
-    },
-    oystehr
-  );
+  const [callerId, notes] = await Promise.all([
+    getMyPractitionerId(userToken, secrets),
+    getAllFhirSearchPages<Communication>(
+      {
+        resourceType: 'Communication',
+        params: [
+          { name: '_id', value: [...new Set(noteIds)].join(',') },
+          { name: 'based-on', value: `Task/${taskId}` },
+          { name: '_tag', value: TASK_NOTE_TAG },
+          { name: 'status', value: 'completed' },
+        ],
+      },
+      oystehr
+    ),
+  ]);
 
   const requests = notes
     .filter((note) => isTaskNoteUnreadBy(note, callerId))

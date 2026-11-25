@@ -398,14 +398,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     if (!encounter.diagnosis) {
       updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
     }
-    for (const element of diagnosis) {
-      const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
-      const condition = element.resourceId
-        ? await oystehr.fhir.update(conditionResource)
-        : await oystehr.fhir.create(conditionResource);
+    const savedConditions = await Promise.all(
+      diagnosis.map((element) => {
+        const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
+        return element.resourceId ? oystehr.fhir.update(conditionResource) : oystehr.fhir.create(conditionResource);
+      })
+    );
+    diagnosis.forEach((element, index) => {
+      const condition = savedConditions[index];
       additionalResourcesForResponse.push(condition);
       updateEncounterOperations.push(...updateEncounterDiagnosis(encounter, condition.id!, element));
-    }
+    });
   }
 
   if (patientInfoConfirmed) {

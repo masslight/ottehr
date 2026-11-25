@@ -34,6 +34,7 @@ import { getNonInsuranceOrganizationById } from '../../../shared/nio-directory';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { accountMatchesType } from '../../shared/harvest';
+import { settledValueOrThrow } from '../../shared/settled';
 import { UpdateVisitDetailsValidatedInput, validateRequestParameters } from './validateRequestParameters';
 
 const ZAMBDA_NAME = 'update-visit-details';
@@ -362,20 +363,22 @@ export const performEffect = async (input: EffectInput, oystehr: Oystehr): Promi
 
 const complexValidation = async (input: UpdateVisitDetailsValidatedInput, oystehr: Oystehr): Promise<EffectInput> => {
   const { appointmentId, userToken } = input;
-  const user = await userMe(userToken, input.secrets);
-  if (!user) {
-    throw new Error('user unexpectedly not found');
-  }
-  const patientAndThings = (
-    await oystehr.fhir.search<Appointment | Patient | Encounter>({
+  const [userResult, patientAndThingsResult] = await Promise.allSettled([
+    userMe(userToken, input.secrets),
+    oystehr.fhir.search<Appointment | Patient | Encounter>({
       resourceType: 'Appointment',
       params: [
         { name: '_id', value: appointmentId },
         { name: '_include', value: 'Appointment:patient' },
         { name: '_revinclude', value: 'Encounter:appointment' },
       ],
-    })
-  ).unbundle();
+    }),
+  ]);
+  const user = settledValueOrThrow(userResult);
+  if (!user) {
+    throw new Error('user unexpectedly not found');
+  }
+  const patientAndThings = settledValueOrThrow(patientAndThingsResult).unbundle();
   const appointment = patientAndThings.find((entry) => entry.resourceType === 'Appointment') as Appointment;
   const patientResource = patientAndThings.find((entry) => entry.resourceType === 'Patient') as Patient;
   const encounterResource = patientAndThings.find((entry) => entry.resourceType === 'Encounter') as Encounter;

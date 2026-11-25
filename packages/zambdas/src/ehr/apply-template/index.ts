@@ -309,7 +309,7 @@ const performEffect = async (
   // ERX interaction checks (async) determine whether any MAs get created, and
   // the resulting MA/MR/CPT Procedure requests must land in the same transaction
   // as the Conditions they reference via urn:uuid fullUrls.
-  const inHouseMedicationsResult = await applyInHouseMedicationPlans({
+  const inHouseMedicationsPromise = applyInHouseMedicationPlans({
     templateList,
     encounter,
     oystehr,
@@ -367,14 +367,17 @@ const performEffect = async (
     fullUrl: `urn:uuid:${uuidV4()}`,
   }));
 
-  const miniTransactionPromise = oystehr.fhir.transaction({
-    requests: [...miniTransactionRequests, ...inHouseMedicationsResult.requests, ...externalLabCptRequests],
-  });
+  const miniTransactionPromise = inHouseMedicationsPromise.then((inHouseMedicationsResult) =>
+    oystehr.fhir.transaction({
+      requests: [...miniTransactionRequests, ...inHouseMedicationsResult.requests, ...externalLabCptRequests],
+    })
+  );
 
-  const [bundles, inHouseLabsResult, externalLabsResult] = await Promise.all([
+  const [bundles, inHouseLabsResult, externalLabsResult, inHouseMedicationsResult] = await Promise.all([
     Promise.all([...deleteBatches, ...createObservationBatches, miniTransactionPromise]),
     inHouseLabsPromise,
     externalLabsPromise,
+    inHouseMedicationsPromise,
   ]);
 
   console.log('Outcome bundles, ', JSON.stringify(bundles));

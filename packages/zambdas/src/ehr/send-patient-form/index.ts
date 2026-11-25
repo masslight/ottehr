@@ -25,13 +25,23 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const userPractitionerId = await getMyPractitionerId(userToken, secrets);
-
-  const [questionnaire, userPractitioner] = await Promise.all([
+  const [questionnaire, { userPractitionerId, userPractitioner }, encounterBundle] = await Promise.all([
     oystehr.fhir.get<Questionnaire>({ resourceType: 'Questionnaire', id: questionnaireId }),
-    oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: userPractitionerId,
+    (async () => {
+      const userPractitionerId = await getMyPractitionerId(userToken, secrets);
+      const userPractitioner = await oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: userPractitionerId,
+      });
+      return { userPractitionerId, userPractitioner };
+    })(),
+    oystehr.fhir.search<Encounter | Patient | QuestionnaireResponse>({
+      resourceType: 'Encounter',
+      params: [
+        { name: 'appointment', value: `Appointment/${appointmentId}` },
+        { name: '_include', value: 'Encounter:subject' },
+        { name: '_revinclude', value: 'QuestionnaireResponse:encounter' },
+      ],
     }),
   ]);
 
@@ -41,16 +51,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const questionnaireName = questionnaire.title || 'a form';
 
-  const resources = (
-    await oystehr.fhir.search<Encounter | Patient | QuestionnaireResponse>({
-      resourceType: 'Encounter',
-      params: [
-        { name: 'appointment', value: `Appointment/${appointmentId}` },
-        { name: '_include', value: 'Encounter:subject' },
-        { name: '_revinclude', value: 'QuestionnaireResponse:encounter' },
-      ],
-    })
-  ).unbundle();
+  const resources = encounterBundle.unbundle();
 
   const patient = resources.find((r) => r.resourceType === 'Patient');
   // The encounter on screen when given; otherwise the visit's own encounter, never an attached follow-up note.

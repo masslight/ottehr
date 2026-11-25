@@ -40,12 +40,13 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const currentUser = await userMe(userToken, secrets);
-
   const now = DateTime.now();
 
   console.log('getting resources needed for submit lab');
-  const bundledOrdersByOrderNumber = await getBundledOrderResources(oystehr, m2mToken, serviceRequestIDs, manualOrder);
+  const [currentUser, bundledOrdersByOrderNumber] = await Promise.all([
+    userMe(userToken, secrets),
+    getBundledOrderResources(oystehr, m2mToken, serviceRequestIDs, manualOrder),
+  ]);
   console.log('successfully retrieved resources');
 
   // submit to oystehr labs when NOT manual order

@@ -75,15 +75,15 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, secrets);
 
-  const effectInput = await complexValidation(
-    {
-      ...validatedParameters,
-      secrets: input.secrets,
-    },
-    oystehrClient
-  );
+  const effectInput = {
+    ...validatedParameters,
+    secrets: input.secrets,
+  };
 
-  const response = await performEffect(effectInput, oystehrClient);
+  const [, response] = await Promise.all([
+    complexValidation(effectInput, oystehrClient),
+    performEffect(effectInput, oystehrClient),
+  ]);
 
   return lambdaResponse(200, response);
 });

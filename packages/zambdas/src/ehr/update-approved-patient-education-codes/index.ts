@@ -64,10 +64,19 @@ export const index = wrapHandler(
 const complexValidation = async (validatedInput: ValidatedInput, oystehr: Oystehr): Promise<EffectInput> => {
   const { documentReferenceId, icdCodes } = validatedInput;
 
-  const target = await oystehr.fhir.get<DocumentReference>({
-    resourceType: 'DocumentReference',
-    id: documentReferenceId,
-  });
+  const [target, others] = await Promise.all([
+    oystehr.fhir.get<DocumentReference>({
+      resourceType: 'DocumentReference',
+      id: documentReferenceId,
+    }),
+    getAllFhirSearchPages<DocumentReference>(
+      {
+        resourceType: 'DocumentReference',
+        params: [{ name: 'type', value: PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE }],
+      },
+      oystehr
+    ),
+  ]);
 
   const isApproved = (target.type?.coding ?? []).some((c) => c.code === PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE);
   if (!isApproved) {
@@ -76,13 +85,6 @@ const complexValidation = async (validatedInput: ValidatedInput, oystehr: Oysteh
 
   // Reject duplicates against other approved-education DocumentReferences of the same language —
   // English and Spanish PDFs for the same ICD code are allowed to coexist.
-  const others = await getAllFhirSearchPages<DocumentReference>(
-    {
-      resourceType: 'DocumentReference',
-      params: [{ name: 'type', value: PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE }],
-    },
-    oystehr
-  );
   const conflictingCodes = findConflictingApprovedEducationIcdCodes(target, others, icdCodes);
   if (conflictingCodes.length > 0) {
     throw ALREADY_EXISTS_WITH_MESSAGE(

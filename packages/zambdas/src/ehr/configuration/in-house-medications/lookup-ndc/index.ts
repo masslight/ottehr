@@ -15,6 +15,7 @@ import { createClinicalOystehrClient } from '../../../../shared/helpers';
 import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { validateWithSchema } from '../../../../shared/validation';
+import { settledValueOrThrow } from '../../../shared/settled';
 import { compareNdcProduct, fetchNdcProduct, ndcPackageCandidates } from './helpers';
 
 let m2mToken: string;
@@ -39,21 +40,23 @@ export const performEffect = async (
   oystehr: Oystehr,
   { ndc, medicationId }: LookupNdcInput
 ): Promise<LookupNdcResponse> => {
-  const catalog = await oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: medicationId });
+  const candidates = ndcPackageCandidates(ndc);
+  const [catalogResult, productResult] = await Promise.allSettled([
+    oystehr.fhir.get<Medication>({ resourceType: 'Medication', id: medicationId }),
+    candidates.length > 0 ? fetchNdcProduct(candidates) : undefined,
+  ]);
+  const catalog = settledValueOrThrow(catalogResult);
   if (!isCatalogMedication(catalog)) throw FHIR_RESOURCE_NOT_FOUND('Medication');
 
-  const candidates = ndcPackageCandidates(ndc);
   if (candidates.length === 0) return { status: 'not-found' };
 
-  let product;
-  try {
-    product = await fetchNdcProduct(candidates);
-  } catch (error) {
+  if (productResult.status === 'rejected') {
     // An unavailable directory must not block receiving.
-    console.error('openFDA NDC lookup failed', error);
-    captureException(error);
+    console.error('openFDA NDC lookup failed', productResult.reason);
+    captureException(productResult.reason);
     return { status: 'unavailable' };
   }
+  const product = productResult.value;
   if (!product) return { status: 'not-found' };
 
   return { ...compareNdcProduct(product, catalog), product };

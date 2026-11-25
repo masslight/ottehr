@@ -51,14 +51,15 @@ const buildDiagnosisCarryOver = async (
     });
     if (parentEntries.length === 0) return { requests, entries };
 
-    const existingCodes = await getExistingDiagnosisCodes(oystehr, encounter);
+    const [existingCodes, parentConditions] = await Promise.all([
+      getExistingDiagnosisCodes(oystehr, encounter),
+      Promise.all(
+        parentEntries.map((entry) =>
+          oystehr.fhir.get<Condition>({ resourceType: 'Condition', id: entry.condition!.reference!.split('/')[1] })
+        )
+      ),
+    ]);
     let hasPrimary = (encounter.diagnosis ?? []).some((entry) => entry.rank === 1);
-
-    const parentConditions = await Promise.all(
-      parentEntries.map((entry) =>
-        oystehr.fhir.get<Condition>({ resourceType: 'Condition', id: entry.condition!.reference!.split('/')[1] })
-      )
-    );
 
     parentEntries.forEach((entry, idx) => {
       const parentCondition = parentConditions[idx];

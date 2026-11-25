@@ -50,15 +50,17 @@ const performEffect = async (
 ): Promise<{ message: string }> => {
   const { templateId } = validatedInput;
 
-  const templateList = await oystehr.fhir.get<List>({
-    resourceType: 'List',
-    id: templateId,
-  });
+  const [templateList, holderList] = await Promise.all([
+    oystehr.fhir.get<List>({
+      resourceType: 'List',
+      id: templateId,
+    }),
+    findHolderList(oystehr),
+  ]);
 
   verifyIsTemplate(templateList, templateId);
 
   // Remove the template reference from the holder list.
-  const holderList = await findHolderList(oystehr);
 
   if (holderList?.id) {
     const holderId = holderList.id;

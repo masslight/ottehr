@@ -25,6 +25,7 @@ import {
   normalizePatientEducationLanguage,
   PATIENT_EDUCATION_LANGUAGES,
 } from 'utils/lib/types/data/patient-education.types';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -47,6 +48,8 @@ export const saveApprovedPatientEducationInputSchema: z.ZodType<SaveApprovedPati
   icdCodes: z.array(icdCodeSchema).min(1, 'icdCodes must be a non-empty array'),
   language: z.enum(PATIENT_EDUCATION_LANGUAGES).optional(),
 });
+
+const REPLACED_Z3_DELETE_CONCURRENCY = 5;
 
 let m2mToken: string;
 
@@ -84,21 +87,24 @@ const performEffect = async (
   const primaryIcdSlug = (icdCodes[0]?.code ?? 'unknown').replace(/[^A-Za-z0-9.]/g, '-');
   const fileName = `approved-patient-education-${primaryIcdSlug}-${randomUUID()}.pdf`;
   const z3Url = makeZ3FileUrl({ secrets, bucketName: BUCKET_NAMES.PATIENT_EDUCATION_ADMIN, fileName });
-  const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
-  await uploadObjectToZ3(pdfBytes, presignedUploadUrl);
-  console.log('Uploaded approved patient education PDF to Z3:', z3Url);
-
-  // 2. Load existing index List + all approved DocumentReferences (one round trip)
-  const searchResult = await oystehr.fhir.search<List | DocumentReference>({
-    resourceType: 'List',
-    params: [
-      {
-        name: 'identifier',
-        value: `${PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER.system}|${PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER.value}`,
-      },
-      { name: '_include', value: 'List:item' },
-    ],
-  });
+  const [, searchResult] = await Promise.all([
+    (async () => {
+      const presignedUploadUrl = await createPresignedUrl(token, z3Url, 'upload');
+      await uploadObjectToZ3(pdfBytes, presignedUploadUrl);
+      console.log('Uploaded approved patient education PDF to Z3:', z3Url);
+    })(),
+    // 2. Load existing index List + all approved DocumentReferences (one round trip)
+    oystehr.fhir.search<List | DocumentReference>({
+      resourceType: 'List',
+      params: [
+        {
+          name: 'identifier',
+          value: `${PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER.system}|${PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER.value}`,
+        },
+        { name: '_include', value: 'List:item' },
+      ],
+    }),
+  ]);
   const resources = searchResult.unbundle();
   const existingList = resources.find((r): r is List => r.resourceType === 'List');
   const existingDocRefs = resources.filter(
@@ -244,13 +250,13 @@ const performEffect = async (
   }
 
   // 6. Best-effort cleanup of Z3 objects for replaced DocRefs (after FHIR transaction succeeds)
-  for (const url of toReplaceZ3Urls) {
+  await mapWithConcurrency(toReplaceZ3Urls, REPLACED_Z3_DELETE_CONCURRENCY, async (url) => {
     try {
       await deleteZ3Object(url, token);
     } catch (cleanupErr) {
       console.warn('Failed to delete replaced Z3 object', url, cleanupErr);
     }
-  }
+  });
 
   return {
     documentReferenceId: createdDocRef.id,

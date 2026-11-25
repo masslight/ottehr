@@ -14,6 +14,7 @@ import {
   PatientPaymentVisit,
 } from 'utils/lib/types/api/patient-payment-visits.types';
 import { ServiceMode } from 'utils/lib/types/common';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fetchAllPages } from '../../shared/fhir';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -27,6 +28,7 @@ import { getAllFhirEncountersAndAppointmentsForPatient } from '../shared/patient
 const ZAMBDA_NAME = 'get-patient-payment-visits';
 // keeps each request= OR list within URL limits
 const ENCOUNTER_BATCH_SIZE = 50;
+const ENCOUNTER_BATCH_CONCURRENCY = 5;
 
 let m2mToken: string;
 
@@ -48,14 +50,16 @@ export const getPatientPaymentVisits = async (
   // only this visit, searched by id alongside the patient, so another patient's is never returned
   encounterId?: string
 ): Promise<GetPatientPaymentVisitsResponse> => {
-  const [visits, { account }] = await Promise.all([
-    fetchVisits(oystehr, patientId, encounterId),
+  const [{ visits, legacyNoticesByEncounter }, { account }] = await Promise.all([
+    fetchVisits(oystehr, patientId, encounterId).then(async (visits) => ({
+      visits,
+      legacyNoticesByEncounter: await fetchLegacyPaymentNotices(
+        oystehr,
+        visits.map((visit) => visit.encounterId)
+      ),
+    })),
     getAccountAndCoverageResourcesForPatient(patientId, oystehr),
   ]);
-  const legacyNoticesByEncounter = await fetchLegacyPaymentNotices(
-    oystehr,
-    visits.map((visit) => visit.encounterId)
-  );
   await nameSubmitters(oystehr, [...legacyNoticesByEncounter.values()].flat());
   return {
     visits: visits.map((visit) => ({
@@ -157,8 +161,8 @@ const fetchLegacyPaymentNotices = async (
   encounterIds: string[]
 ): Promise<Map<string, PaymentNotice[]>> => {
   const noticesByEncounter = new Map<string, PaymentNotice[]>();
-  for (const batch of chunkThings(encounterIds, ENCOUNTER_BATCH_SIZE)) {
-    await fetchAllPages(async (offset, count) => {
+  await mapWithConcurrency(chunkThings(encounterIds, ENCOUNTER_BATCH_SIZE), ENCOUNTER_BATCH_CONCURRENCY, (batch) =>
+    fetchAllPages(async (offset, count) => {
       const bundle = await oystehr.fhir.search<PaymentNotice>({
         resourceType: 'PaymentNotice',
         params: [
@@ -173,8 +177,8 @@ const fetchLegacyPaymentNotices = async (
         noticesByEncounter.set(encounterId, [...(noticesByEncounter.get(encounterId) ?? []), notice]);
       }
       return bundle;
-    }, 100);
-  }
+    }, 100)
+  );
   return noticesByEncounter;
 };
 

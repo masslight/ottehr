@@ -30,6 +30,7 @@ import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
 import { validateWithSchema } from '../../../../shared/validation';
 import { performEffect as listActiveLocations } from '../../../locations/list-active-locations';
+import { settledValueOrThrow } from '../../../shared/settled';
 
 let m2mToken: string;
 
@@ -61,22 +62,27 @@ export const performEffect = async (
 ): Promise<ReceiveMedicationShipmentResponse> => {
   const { medicationId, locationId, lotNumber, expirationDate, quantity, ndc, manufacturer, vendor } = params;
 
-  const catalog = await oystehr.fhir.get<Medication & { id: string }>({ resourceType: 'Medication', id: medicationId });
+  const [catalogResult, activeLocationsResult, sameNumberResult] = await Promise.allSettled([
+    oystehr.fhir.get<Medication & { id: string }>({ resourceType: 'Medication', id: medicationId }),
+    listActiveLocations(oystehr, { inPersonOnly: true }),
+    findInventoryLotsByNumber(oystehr, {
+      catalogMedicationId: medicationId,
+      locationId,
+      lotNumber,
+    }),
+  ]);
+  const catalog = settledValueOrThrow(catalogResult);
   if (!catalog.id || !isCatalogMedication(catalog)) throw FHIR_RESOURCE_NOT_FOUND('Medication');
   const inventory = getMedicationInventoryConfig(catalog);
   if (!inventory) {
     throw INVALID_INPUT_ERROR('This medication is not set up for inventory. Save its inventory setup first.');
   }
-  const { locations } = await listActiveLocations(oystehr, { inPersonOnly: true });
+  const { locations } = settledValueOrThrow(activeLocationsResult);
   if (!locations.some((location) => location.id === locationId)) {
     throw INVALID_INPUT_ERROR('This location is not an active in-person location.');
   }
 
-  const sameNumber = await findInventoryLotsByNumber(oystehr, {
-    catalogMedicationId: catalog.id,
-    locationId,
-    lotNumber,
-  });
+  const sameNumber = settledValueOrThrow(sameNumberResult);
   const existingLot = sameNumber.find((lot) => lot.batch?.expirationDate === expirationDate);
   const confirmedLot = sameNumber.find((lot) => lot.id === params.lotId);
   if (

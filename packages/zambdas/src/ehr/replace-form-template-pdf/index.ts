@@ -94,11 +94,12 @@ const performEffect = async (
   // Assembled from the bucket this server chose, not from anything the caller could name.
   const candidateUrl = makeZ3ObjectUrl({ secrets, bucketName: BUCKET_NAMES.FORM_TEMPLATES, objectName });
 
-  const docRef = await getFormTemplateOrThrow(oystehr, documentReferenceId);
+  const [docRef, response] = await Promise.all([
+    getFormTemplateOrThrow(oystehr, documentReferenceId),
+    getPresignedURL(candidateUrl, token).then((downloadUrl) => fetch(downloadUrl)),
+  ]);
   const previousUrl = docRef.content?.[0]?.attachment?.url;
 
-  const downloadUrl = await getPresignedURL(candidateUrl, token);
-  const response = await fetch(downloadUrl);
   if (!response.ok) {
     throw new Error(`Could not download the replacement PDF (${response.status} ${response.statusText})`);
   }

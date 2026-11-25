@@ -49,6 +49,7 @@ import {
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../../shared/harvest';
+import { settledValueOrThrow } from '../../shared/settled';
 
 const ZAMBDA_NAME = 'update-patient-account';
 
@@ -208,19 +209,22 @@ const performEffect = async (input: FinishedInput, oystehr: Oystehr): Promise<vo
 
   console.log('resultBundle', JSON.stringify(resultBundle, null, 2));
 
-  const ae = await writeAuditEvent(
-    { resultBundle, providerProfileReference, questionnaireResponse, patientId },
-    oystehr
-  );
+  const encounterId = questionnaireResponse.encounter?.reference?.split('/')[1];
+  const [aeResult, encounterResult] = await Promise.allSettled([
+    writeAuditEvent({ resultBundle, providerProfileReference, questionnaireResponse, patientId }, oystehr),
+    encounterId !== undefined
+      ? oystehr.fhir.get<Encounter>({
+          resourceType: 'Encounter',
+          id: encounterId,
+        })
+      : undefined,
+  ]);
+  const ae = settledValueOrThrow(aeResult);
 
   console.log('wrote audit event: ', `AuditEvent/${ae.id}`);
 
-  if (questionnaireResponse.encounter?.reference) {
-    const encounterId = questionnaireResponse.encounter.reference.split('/')[1];
-    const encounterResource = await oystehr.fhir.get<Encounter>({
-      resourceType: 'Encounter',
-      id: encounterId,
-    });
+  const encounterResource = settledValueOrThrow(encounterResult);
+  if (encounterId !== undefined && encounterResource) {
     const patientAccountReference = updatedAccount?.id ? `Account/${updatedAccount.id}` : undefined;
     const workersCompAccountReference = workersCompAccount?.id ? `Account/${workersCompAccount.id}` : undefined;
     const { accounts: updatedEncounterAccounts, changed: accountsChanged } = mergeEncounterAccounts(

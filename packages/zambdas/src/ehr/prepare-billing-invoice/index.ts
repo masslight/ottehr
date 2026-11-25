@@ -51,41 +51,42 @@ async function performEffect(
 ): Promise<PrepareBillingInvoiceResponse> {
   // Only a ready task without a Stripe invoice id is safe to take over. A failed one may have sent
   // its invoice before the id was saved.
-  const ehrInvoiceTasks = (
-    await oystehr.fhir.search<Task>({
-      resourceType: 'Task',
-      params: [...sendInvoiceTaskDedupeQuery(encounterId), { name: 'status:not', value: 'cancelled' }],
-    })
-  ).unbundle();
+  const [ehrInvoiceTasks, { patient, account, appointment, location, schedule, stripeAccountId }] = await Promise.all([
+    oystehr.fhir
+      .search<Task>({
+        resourceType: 'Task',
+        params: [...sendInvoiceTaskDedupeQuery(encounterId), { name: 'status:not', value: 'cancelled' }],
+      })
+      .then((bundle) => bundle.unbundle()),
+    getInvoiceVisitResources(oystehr, encounterId),
+  ]);
   if (ehrInvoiceTasks.some((task) => task.status !== 'ready' || getInvoiceTaskOutputs(task).invoiceId)) {
     throw BILLING_INVOICE_CONFLICT_ERROR('This visit is invoiced from the EHR.');
   }
 
-  const { patient, account, appointment, location, schedule, stripeAccountId } = await getInvoiceVisitResources(
-    oystehr,
-    encounterId
-  );
-  const stripeCustomerId = await resolveInvoiceStripeCustomerId({
-    oystehr,
-    stripe: getStripeClient(secrets),
-    patient,
-    account,
-    stripeAccountId,
-  });
   const timezone = resolveTimezone(schedule, location);
   const visitDate = formatDateToMDYWithTime(appointment.start, timezone)?.date;
   if (!visitDate) throw new Error('visit date is missing required field');
 
-  // Without an encounter reference this reads nothing from older Stripe invoices.
-  const placeholders = await resolveTemplatePlaceholders({
-    patient,
-    oystehr,
-    secrets,
-    overrides: {
-      location: location?.name,
-      visitDate,
-    },
-  });
+  const [stripeCustomerId, placeholders] = await Promise.all([
+    resolveInvoiceStripeCustomerId({
+      oystehr,
+      stripe: getStripeClient(secrets),
+      patient,
+      account,
+      stripeAccountId,
+    }),
+    // Without an encounter reference this reads nothing from older Stripe invoices.
+    resolveTemplatePlaceholders({
+      patient,
+      oystehr,
+      secrets,
+      overrides: {
+        location: location?.name,
+        visitDate,
+      },
+    }),
+  ]);
 
   // Cancelled only while still untouched, so a send the EHR started during the awaits above wins and
   // nothing is written here. The EHR hides cancelled tasks, so none can be sent before the marker lands.

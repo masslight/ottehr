@@ -58,7 +58,10 @@ export const complexValidation = async (
 }> => {
   const { encounterId, userToken, updatedStatus, secrets } = params;
 
-  const visitResources = await getVisitResources(oystehr, encounterId);
+  const [visitResources, user] = await Promise.all([
+    getVisitResources(oystehr, encounterId),
+    userMe(userToken, secrets),
+  ]);
   if (!visitResources) {
     throw new Error(`Visit resources are not properly defined for encounter ${encounterId}`);
   }
@@ -67,7 +70,6 @@ export const complexValidation = async (
 
   if (!encounter?.id) throw new Error('Encounter not found');
 
-  const user = await userMe(userToken, secrets);
   if (!user) {
     throw new Error('user unexpectedly not found');
   }

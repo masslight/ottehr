@@ -51,22 +51,29 @@ export const gatherRadiologyOrderFormInput = async (
     throw new Error('ServiceRequest is missing subject or encounter reference');
   }
 
-  const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId });
-  const locationId = getIdFromReference(encounter.location?.[0]?.location?.reference);
-  // The ordering provider on the form is the provider assigned to the visit — orders are often placed
-  // by an MA on the provider's behalf, and the requester is whoever placed the order.
-  const practitionerId =
-    getAttendingPractitionerId(encounter) ?? getIdFromReference(serviceRequest.requester?.reference);
-
-  const [patient, practitioner, location, weightObservation, { account, coverages }] = await Promise.all([
-    oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
-    practitionerId
-      ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId })
-      : Promise.resolve(undefined),
-    locationId ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId }) : Promise.resolve(undefined),
-    fetchLatestWeightObservation(encounterId, oystehr),
-    getAccountAndCoverageResourcesForPatient(patientId, oystehr),
-  ]);
+  const [{ encounter, practitioner, location }, patient, weightObservation, { account, coverages }] = await Promise.all(
+    [
+      oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: encounterId }).then(async (encounter) => {
+        const locationId = getIdFromReference(encounter.location?.[0]?.location?.reference);
+        // The ordering provider on the form is the provider assigned to the visit — orders are often placed
+        // by an MA on the provider's behalf, and the requester is whoever placed the order.
+        const practitionerId =
+          getAttendingPractitionerId(encounter) ?? getIdFromReference(serviceRequest.requester?.reference);
+        const [practitioner, location] = await Promise.all([
+          practitionerId
+            ? oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId })
+            : Promise.resolve(undefined),
+          locationId
+            ? oystehr.fhir.get<Location>({ resourceType: 'Location', id: locationId })
+            : Promise.resolve(undefined),
+        ]);
+        return { encounter, practitioner, location };
+      }),
+      oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }),
+      fetchLatestWeightObservation(encounterId, oystehr),
+      getAccountAndCoverageResourcesForPatient(patientId, oystehr),
+    ]
+  );
 
   const timezone =
     location?.extension?.find((ext) => ext.url === TIMEZONE_EXTENSION_URL)?.valueString ?? 'America/New_York';

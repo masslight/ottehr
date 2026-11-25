@@ -213,15 +213,11 @@ export async function performEffect(
   console.groupEnd();
   console.debug('saveBalancesInMap success');
 
-  console.group('getPendingPatientPayments');
-  const pendingPatientPayments = await getPendingPatientPayments(candidApiClient, patientId);
-  console.groupEnd();
-  console.debug('getPendingPatientPayments success');
-
-  console.group('getPatientCreditCents');
-  const patientCreditCents = await getPatientCreditCents(candidApiClient, patientId);
-  console.groupEnd();
-  console.debug('getPatientCreditCents success');
+  const [pendingPatientPayments, patientCreditCents] = await Promise.all([
+    getPendingPatientPayments(candidApiClient, patientId),
+    getPatientCreditCents(candidApiClient, patientId),
+  ]);
+  console.debug('getPendingPatientPayments and getPatientCreditCents success');
 
   console.log('encounterDataMap', encounterDataMap);
 

@@ -12,6 +12,7 @@ import { createOwnerReference } from '../../../shared/tasks';
 import { ZambdaInput } from '../../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../../shared/validation';
 import { assertVisitIsEditable } from '../../easy-chart-shared/visit-lock';
+import { settledValueOrThrow } from '../../shared/settled';
 import {
   fetchDmeBillingProcedures,
   fetchDmeEncounterContext,
@@ -107,18 +108,23 @@ const updateDmeOrder = async (
 
   if (params.action === 'update') {
     const { fields } = params;
-    const providerName = getFullestAvailableName(
-      await fetchOrderingPractitioner(fields.orderedByPractitionerId, oystehr)
-    );
-    const newDispenseTask = needsNewDispenseTask(resources, fields)
-      ? makeDmeDispenseTask({
-          deviceRequestReference: `DeviceRequest/${deviceRequest.id}`,
-          itemName: fields.itemName,
-          orderDate: deviceRequest.authoredOn,
-          providerName,
-          context: await fetchDmeEncounterContext(encounterId, oystehr),
-        })
-      : undefined;
+    const shouldCreateDispenseTask = needsNewDispenseTask(resources, fields);
+    const [orderingPractitionerResult, contextResult] = await Promise.allSettled([
+      fetchOrderingPractitioner(fields.orderedByPractitionerId, oystehr),
+      shouldCreateDispenseTask ? fetchDmeEncounterContext(encounterId, oystehr) : undefined,
+    ]);
+    const providerName = getFullestAvailableName(settledValueOrThrow(orderingPractitionerResult));
+    const context = settledValueOrThrow(contextResult);
+    const newDispenseTask =
+      shouldCreateDispenseTask && context
+        ? makeDmeDispenseTask({
+            deviceRequestReference: `DeviceRequest/${deviceRequest.id}`,
+            itemName: fields.itemName,
+            orderDate: deviceRequest.authoredOn,
+            providerName,
+            context,
+          })
+        : undefined;
     await runDmeTransaction(
       [
         ...makeEditRequests({ resources, fields, providerName, newDispenseTask }),

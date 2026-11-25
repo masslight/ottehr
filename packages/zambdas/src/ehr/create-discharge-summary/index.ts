@@ -10,6 +10,7 @@ import {
   CreateDischargeSummaryResponse,
 } from 'utils/lib/types/api/create-discharge-summary/create-discharge-summary.types';
 import { PATIENT_EDUCATION_DOC_TYPE_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { buildVisitNote } from '../../shared/chart-sections/visit-note';
 import { fetchErxPharmacies } from '../../shared/erx';
@@ -25,6 +26,8 @@ import { ZambdaInput } from '../../shared/types/common';
 import { createPresignedUrl } from '../../shared/z3Utils';
 import { getMedicationOrders } from '../get-medication-orders';
 import { validateRequestParameters } from './validateRequestParameters';
+
+const EDUCATION_PDF_DOWNLOAD_CONCURRENCY = 5;
 
 let m2mToken: string;
 
@@ -141,25 +144,34 @@ export const performEffect = async (
     if (educationDocRefs.length > 0) {
       console.log(`Found ${educationDocRefs.length} patient education PDF(s) to append`);
 
-      const dischargeBytes = await downloadFileBytes(pdfInfo.uploadURL, m2mToken);
-      const parts: Uint8Array[] = [dischargeBytes];
+      const [dischargeBytes, educationParts] = await Promise.all([
+        downloadFileBytes(pdfInfo.uploadURL, m2mToken),
+        mapWithConcurrency(
+          educationDocRefs,
+          EDUCATION_PDF_DOWNLOAD_CONCURRENCY,
+          async (docRef): Promise<Uint8Array | undefined> => {
+            const z3Url = docRef.content?.[0]?.attachment?.url;
+            if (!z3Url) return undefined;
+            try {
+              const eduBytes = await downloadFileBytes(z3Url, m2mToken);
 
-      for (const docRef of educationDocRefs) {
-        const z3Url = docRef.content?.[0]?.attachment?.url;
-        if (!z3Url) continue;
-        try {
-          const eduBytes = await downloadFileBytes(z3Url, m2mToken);
+              // parses the document so a malformed PDF is caught (and skipped) here rather than at merge time
+              await countPdfPages(eduBytes);
 
-          // parses the document so a malformed PDF is caught (and skipped) here rather than at merge time
-          await countPdfPages(eduBytes);
-
-          parts.push(eduBytes);
-          console.log(`Appended education PDF from DocumentReference/${docRef.id}`);
-        } catch (err) {
-          console.error(`Failed to append education PDF DocumentReference/${docRef.id}:`, err);
-          captureException(err);
-        }
-      }
+              console.log(`Appended education PDF from DocumentReference/${docRef.id}`);
+              return eduBytes;
+            } catch (err) {
+              console.error(`Failed to append education PDF DocumentReference/${docRef.id}:`, err);
+              captureException(err);
+              return undefined;
+            }
+          }
+        ),
+      ]);
+      const parts: Uint8Array[] = [
+        dischargeBytes,
+        ...educationParts.filter((bytes): bytes is Uint8Array => bytes !== undefined),
+      ];
 
       // Re-upload the merged PDF to the same Z3 URL
       const { bytes: mergedBytes } = await mergePdfDocuments(parts);

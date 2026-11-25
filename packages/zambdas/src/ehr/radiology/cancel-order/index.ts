@@ -21,6 +21,7 @@ import { validateInput, validateSecrets } from './validation';
 export interface ValidatedInput {
   body: CancelRadiologyOrderZambdaInput;
   callerAccessToken: string;
+  serviceRequest: ServiceRequest;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -47,6 +48,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
 const performEffect = async (validatedInput: ValidatedInput, secrets: Secrets, oystehr: Oystehr): Promise<void> => {
   const oystehrServiceRequest = await patchServiceRequestToRevokedInOystehr(
     validatedInput.body.serviceRequestId,
+    validatedInput.serviceRequest,
     oystehr
   );
 
@@ -63,15 +65,10 @@ const performEffect = async (validatedInput: ValidatedInput, secrets: Secrets, o
 
 const patchServiceRequestToRevokedInOystehr = async (
   serviceRequestId: string,
+  currentServiceRequest: ServiceRequest,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
   console.log('setting status to revoked for service request', serviceRequestId);
-
-  // First, get the current ServiceRequest to save its status for potential restoration
-  const currentServiceRequest = await oystehr.fhir.get<ServiceRequest>({
-    resourceType: 'ServiceRequest',
-    id: serviceRequestId,
-  });
 
   const currentStatus = currentServiceRequest.status;
   console.log(`Saving previous status '${currentStatus}' for potential restoration`);

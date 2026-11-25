@@ -66,16 +66,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   await assertCallerAuthorized(callerToken, secrets);
 
   // Confirm the Location exists first — a clear 404 beats a confusing empty cascade.
-  try {
-    await oystehr.fhir.get({ resourceType: 'Location', id: locationId });
-  } catch (err) {
-    if (/not found/i.test(err instanceof Error ? err.message : String(err))) {
-      throw FHIR_RESOURCE_NOT_FOUND('Location');
-    }
-    throw err;
-  }
-
-  const [schedules, practitionerRoles, appointments] = await Promise.all([
+  const [, schedules, practitionerRoles, appointments] = await Promise.all([
+    (async () => {
+      try {
+        await oystehr.fhir.get({ resourceType: 'Location', id: locationId });
+      } catch (err) {
+        if (/not found/i.test(err instanceof Error ? err.message : String(err))) {
+          throw FHIR_RESOURCE_NOT_FOUND('Location');
+        }
+        throw err;
+      }
+    })(),
     getAllFhirSearchPages<Schedule>(
       { resourceType: 'Schedule', params: [{ name: 'actor', value: `Location/${locationId}` }] },
       oystehr

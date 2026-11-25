@@ -35,12 +35,20 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
   const userToken = input.headers.Authorization.replace('Bearer ', '');
-  const userPractitionerId = await getMyPractitionerId(userToken, validatedParameters.secrets);
+  const [userPractitionerId, encounter] = await Promise.all([
+    getMyPractitionerId(userToken, validatedParameters.secrets),
+    validatedParameters.orderId
+      ? undefined
+      : oystehr.fhir.get<Encounter>({
+          resourceType: 'Encounter',
+          id: validatedParameters.encounterId,
+        }),
+  ]);
   let response;
   if (validatedParameters.orderId) {
     response = await updateImmunizationOrder(oystehr, validatedParameters);
   } else {
-    response = await createImmunizationOrder(oystehr, validatedParameters, userPractitionerId);
+    response = await createImmunizationOrder(oystehr, validatedParameters, userPractitionerId, encounter!);
   }
   return {
     statusCode: 200,
@@ -51,13 +59,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 async function createImmunizationOrder(
   oystehr: Oystehr,
   input: CreateUpdateImmunizationOrderRequest,
-  userPractitionerId: string
+  userPractitionerId: string,
+  encounter: Encounter
 ): Promise<CreateUpdateImmunizationOrderResponse> {
-  const { encounterId, details, administrationDetails } = input;
-  const encounter = await oystehr.fhir.get<Encounter>({
-    resourceType: 'Encounter',
-    id: encounterId,
-  });
+  const { details, administrationDetails } = input;
   if (!encounter.subject) {
     throw new Error(`Encounter ${encounter.id} has no subject`);
   }

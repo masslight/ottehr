@@ -42,20 +42,25 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  let existing: Communication;
-  try {
-    existing = await oystehr.fhir.get<Communication>({ resourceType: 'Communication', id: note.resourceId });
-  } catch (error) {
-    if (error && typeof error === 'object' && (error as { code?: unknown }).code === 404) {
-      throw FHIR_RESOURCE_NOT_FOUND('Communication');
-    }
-    throw error;
-  }
+  const [existing, { callerId, callerPractitioner }] = await Promise.all([
+    (async () => {
+      try {
+        return await oystehr.fhir.get<Communication>({ resourceType: 'Communication', id: note.resourceId });
+      } catch (error) {
+        if (error && typeof error === 'object' && (error as { code?: unknown }).code === 404) {
+          throw FHIR_RESOURCE_NOT_FOUND('Communication');
+        }
+        throw error;
+      }
+    })(),
+    (async () => {
+      const callerId = await getMyPractitionerId(userToken, secrets);
+      const callerPractitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: callerId });
+      return { callerId, callerPractitioner };
+    })(),
+  ]);
 
   assertNoteEditable(existing, note);
-
-  const callerId = await getMyPractitionerId(userToken, secrets);
-  const callerPractitioner = await oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: callerId });
   const editor: Extension = {
     url: NOTE_EDITOR_EXTENSION_URL,
     valueReference: { reference: `Practitioner/${callerId}`, display: getPractitionerName(callerPractitioner) },

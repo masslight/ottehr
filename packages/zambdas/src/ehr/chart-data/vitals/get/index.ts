@@ -16,6 +16,7 @@ import {
   VITAL_SYSTOLIC_BLOOD_PRESSURE_LOINC_CODE,
   VITAL_WEIGHT_PATIENT_REFUSED_OPTION_SNOMED_CODE,
 } from 'utils/lib/fhir/vitals';
+import { VitalsSchema } from 'utils/lib/helpers/vitals/config-schema';
 import { convertVitalsListToMap } from 'utils/lib/helpers/vitals/utils';
 import { withoutBMIUnder24Months } from 'utils/lib/helpers/vitals/vitals-bmi.helper';
 import { VitalFieldNames } from 'utils/lib/types/api/chart-data/chart-data.constants';
@@ -57,8 +58,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   console.log(`Performing complex validation for encounterId: ${encounterId}, mode: ${mode}`);
-  const effectInput = await complexValidation({ encounterId, mode, secrets }, oystehr);
-  const results = await performEffect(effectInput, oystehr);
+  const [effectInput, vitalsAlertConfig] = await Promise.all([
+    complexValidation({ encounterId, mode, secrets }, oystehr),
+    getVitalsEngineConfig(oystehr),
+  ]);
+  const results = await performEffect(effectInput, vitalsAlertConfig, oystehr);
 
   return {
     body: JSON.stringify(results),
@@ -66,12 +70,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   };
 });
 
-const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<GetVitalsResponseData> => {
+const performEffect = async (
+  input: EffectInput,
+  vitalsAlertConfig: VitalsSchema,
+  oystehr: Oystehr
+): Promise<GetVitalsResponseData> => {
   const { encounter, mode, patient, timezone, visitStart } = input;
   const alertContext: VitalAlertContext = {
     patientDOB: patient.birthDate,
     patientSex: patient.gender,
-    vitalsAlertConfig: await getVitalsEngineConfig(oystehr),
+    vitalsAlertConfig,
   };
   if (!mode.historical) {
     // Fetch current vitals for the encounter

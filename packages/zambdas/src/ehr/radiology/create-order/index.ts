@@ -53,6 +53,7 @@ import { makeCPTCodeDTO } from '../../../shared/chart-data';
 import { createClinicalOystehrClient, fillMeta } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
+import { settledValueOrThrow } from '../../shared/settled';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -100,9 +101,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const validatedInput = await validateInput(unsafeInput, oystehr);
-
-  const callerUser = await userMe(validatedInput.callerAccessToken, secrets);
+  const [validatedInputResult, callerUserResult] = await Promise.allSettled([
+    validateInput(unsafeInput, oystehr),
+    (async () => userMe(unsafeInput.headers.Authorization.replace('Bearer ', ''), secrets))(),
+  ]);
+  const validatedInput = settledValueOrThrow(validatedInputResult);
+  const callerUser = settledValueOrThrow(callerUserResult);
 
   const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
 
@@ -120,11 +124,16 @@ const performEffect = async (
 ): Promise<CreateRadiologyZambdaOrderOutput> => {
   const { body } = validatedInput;
 
-  // Grab the practitioner
-  const ourPractitioner = await oystehr.fhir.get<Practitioner>({
-    resourceType: 'Practitioner',
-    id: practitionerRelativeReference.split('/')[1],
-  });
+  // Grab the practitioner, and the advapacs location id from schedule owner extension if any
+  const [ourPractitioner, advaPACSLocationId] = await Promise.all([
+    oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: practitionerRelativeReference.split('/')[1],
+    }),
+    body.external
+      ? undefined
+      : getAdvaPACSLocationForAppointmentOrEncounter({ encounterId: body.encounter.id }, oystehr),
+  ]);
 
   // Create the order in FHIR
   const ourServiceRequest = await writeOurServiceRequest(body, practitionerRelativeReference, oystehr);
@@ -143,12 +152,6 @@ const performEffect = async (
   }
 
   const { cptCodeDTO, procedure } = await writeOurProcedure(ourServiceRequest, body, secrets, oystehr);
-
-  // Grab advapacs location id from schedule owner extension if any
-  const advaPACSLocationId = await getAdvaPACSLocationForAppointmentOrEncounter(
-    { encounterId: body.encounter.id },
-    oystehr
-  );
 
   // Send the order to AdvaPACS
   try {

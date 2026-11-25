@@ -17,6 +17,7 @@ import { createClinicalOystehrClient } from '../../../shared/helpers';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
+import { settledValueOrThrow } from '../../shared/settled';
 
 const ZAMBDA_NAME = 'get-patient-account';
 
@@ -40,12 +41,56 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAccountResponse> => {
   const { patientId } = input;
   console.log('performing effect for patient account get');
-  console.time('getAccountAndCoverageResourcesForPatient');
-  const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
-  console.timeEnd('getAccountAndCoverageResourcesForPatient');
+  const [accountAndCoveragesResult, eligibilityChecksResult] = await Promise.allSettled([
+    (async () => {
+      console.time('getAccountAndCoverageResourcesForPatient');
+      const accountAndCoverages = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+      console.timeEnd('getAccountAndCoverageResourcesForPatient');
+      return accountAndCoverages;
+    })(),
+    fetchEligibilityChecksWithCoverages(patientId, oystehr),
+  ]);
+  const accountAndCoverages = settledValueOrThrow(accountAndCoveragesResult);
+  const { eligibilityCheckResults, coverages } = settledValueOrThrow(eligibilityChecksResult);
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
+
+  const mapped = eligibilityCheckResults
+    .map((result) => {
+      const coverage = [...coverages, ...(result.contained ?? [])].find(
+        (resource) =>
+          resource.resourceType === 'Coverage' &&
+          result.insurance?.[0]?.coverage?.reference?.includes(resource.id ?? '')
+      ) as Coverage;
+      // console.log('coverageDetails', JSON.stringify(coverage, null, 2));
+      if (!coverage) {
+        return null;
+      }
+      const coverageDetails = pullCoverageIdentifyingDetails(coverage);
+      if (!coverageDetails) {
+        return null;
+      }
+      return {
+        ...parseCoverageEligibilityResponse(result),
+        ...coverageDetails,
+      } as CoverageCheckWithDetails;
+    })
+    .filter((result) => result !== null) as CoverageCheckWithDetails[];
+  const { patient } = accountAndCoverages;
+  const pharmacy = getPreferredPharmacyFromPatient(patient);
+  return {
+    ...accountAndCoverages,
+    primaryCarePhysician,
+    coverageChecks: mapped,
+    pharmacy,
+  };
+};
+
+const fetchEligibilityChecksWithCoverages = async (
+  patientId: string,
+  oystehr: Oystehr
+): Promise<{ eligibilityCheckResults: CoverageEligibilityResponse[]; coverages: Coverage[] }> => {
   // due to really huge CEResponses causing response-too-large errors, we need to chop our querying for the CEResponses into
   // manageable chunks. We'll do this by first querying for just the IDs of the CEResponses, then querying for the full resources in parallel.
   // Even just two resources returned in a query can still result in response-too-large errors based on prod data we've encountered.
@@ -99,37 +144,9 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
   }));
   const coverages: Coverage[] =
     (await oystehr.fhir.batch<Coverage>({ requests: coverageRequests })).entry?.flatMap((e) => e.resource ?? []) ?? [];
-
-  const mapped = eligibilityCheckResults
-    .map((result) => {
-      const coverage = [...coverages, ...(result.contained ?? [])].find(
-        (resource) =>
-          resource.resourceType === 'Coverage' &&
-          result.insurance?.[0]?.coverage?.reference?.includes(resource.id ?? '')
-      ) as Coverage;
-      // console.log('coverageDetails', JSON.stringify(coverage, null, 2));
-      if (!coverage) {
-        return null;
-      }
-      const coverageDetails = pullCoverageIdentifyingDetails(coverage);
-      if (!coverageDetails) {
-        return null;
-      }
-      return {
-        ...parseCoverageEligibilityResponse(result),
-        ...coverageDetails,
-      } as CoverageCheckWithDetails;
-    })
-    .filter((result) => result !== null) as CoverageCheckWithDetails[];
   console.timeEnd('fetching CER IDs');
-  const { patient } = accountAndCoverages;
-  const pharmacy = getPreferredPharmacyFromPatient(patient);
-  return {
-    ...accountAndCoverages,
-    primaryCarePhysician,
-    coverageChecks: mapped,
-    pharmacy,
-  };
+
+  return { eligibilityCheckResults, coverages };
 };
 
 interface Input {

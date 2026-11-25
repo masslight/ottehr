@@ -48,16 +48,19 @@ export const performEffect = async (
 ): Promise<UnlockAppointmentZambdaOutput> => {
   const { appointmentId, encounterId, userToken, secrets } = params;
 
-  // Get the current user for tracking who unlocked the chart
-  const user = await userMe(userToken, secrets);
-  const unlockedByText = getStaffCriticalUpdateBy(user);
-
   // Annotation follow-ups have no own Appointment, so their lock lives on the Encounter.
   if (encounterId) {
-    const encounter = await oystehr.fhir.get<Encounter>({
-      resourceType: 'Encounter',
-      id: encounterId,
-    });
+    // Unlocking voids the recorded signature, so drop its Provenances; a re-sign then records a
+    // fresh signing time instead of surfacing the stale one on the regenerated visit note.
+    const [user, encounter, provenanceDeleteRequests] = await Promise.all([
+      userMe(userToken, secrets),
+      oystehr.fhir.get<Encounter>({
+        resourceType: 'Encounter',
+        id: encounterId,
+      }),
+      getSignatureProvenanceDeleteRequests(oystehr, [encounterId]),
+    ]);
+    const unlockedByText = getStaffCriticalUpdateBy(user);
 
     if (!encounter) {
       throw new Error(`Encounter with ID ${encounterId} not found`);
@@ -73,10 +76,6 @@ export const performEffect = async (
       patchOperations: [unlockOp],
     });
 
-    // Unlocking voids the recorded signature, so drop its Provenances; a re-sign then records a
-    // fresh signing time instead of surfacing the stale one on the regenerated visit note.
-    const provenanceDeleteRequests = await getSignatureProvenanceDeleteRequests(oystehr, [encounterId]);
-
     await oystehr.fhir.batch({
       requests: [patchRequest, ...provenanceDeleteRequests],
     });
@@ -90,10 +89,29 @@ export const performEffect = async (
     throw new Error('Either appointmentId or encounterId is required');
   }
 
-  const appointment = await oystehr.fhir.get<Appointment>({
-    resourceType: 'Appointment',
-    id: appointmentId,
-  });
+  const [user, appointment, provenanceDeleteRequests] = await Promise.all([
+    userMe(userToken, secrets),
+    oystehr.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentId,
+    }),
+    // Unlocking voids the recorded signature, so drop its Provenances (on the visit encounter, not any
+    // follow-up encounters); a re-sign then records a fresh signing time instead of surfacing the stale
+    // one on the regenerated visit note.
+    oystehr.fhir
+      .search<Encounter>({
+        resourceType: 'Encounter',
+        params: [{ name: 'appointment', value: `Appointment/${appointmentId}` }],
+      })
+      .then((bundle) => {
+        const visitEncounterIds = bundle
+          .unbundle()
+          .filter((enc) => enc.id && !isFollowupEncounter(enc))
+          .map((enc) => enc.id!);
+        return getSignatureProvenanceDeleteRequests(oystehr, visitEncounterIds);
+      }),
+  ]);
+  const unlockedByText = getStaffCriticalUpdateBy(user);
 
   if (!appointment) {
     throw new Error(`Appointment with ID ${appointmentId} not found`);
@@ -109,18 +127,6 @@ export const performEffect = async (
     resourceId: appointmentId,
     patchOperations: [unlockOp],
   });
-
-  // Unlocking voids the recorded signature, so drop its Provenances (on the visit encounter, not any
-  // follow-up encounters); a re-sign then records a fresh signing time instead of surfacing the stale
-  // one on the regenerated visit note.
-  const encounters = (
-    await oystehr.fhir.search<Encounter>({
-      resourceType: 'Encounter',
-      params: [{ name: 'appointment', value: `Appointment/${appointmentId}` }],
-    })
-  ).unbundle();
-  const visitEncounterIds = encounters.filter((enc) => enc.id && !isFollowupEncounter(enc)).map((enc) => enc.id!);
-  const provenanceDeleteRequests = await getSignatureProvenanceDeleteRequests(oystehr, visitEncounterIds);
 
   // Execute the patch
   await oystehr.fhir.batch({

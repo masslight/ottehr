@@ -1,14 +1,16 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Account, Encounter, Organization, Practitioner } from 'fhir/r4b';
+import { Account, Encounter, Organization, PaymentNotice, Practitioner } from 'fhir/r4b';
 import { getConsentAndRelatedDocRefsForAppointment } from 'utils/lib/fhir/appointments';
 import { SERVICE_CATEGORY_SYSTEM } from 'utils/lib/fhir/constants';
 import { getCoding } from 'utils/lib/fhir/helpers';
 import { Secrets } from 'utils/lib/secrets';
 import { PatientPaymentDTO } from 'utils/lib/types/api/patient-payment-types';
 import { VisitDetailsResponse } from 'utils/lib/types/api/visit-details/visit-details.types';
+import { PatientAccountAndCoverageResources } from 'utils/lib/types/data/account';
 import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
 import { getPaymentsForEncounter } from '../../../billing/patient-payment-dtos';
+import { fetchEncounterPaymentNotices } from '../../../billing/patient-payments';
 import { createBillingClient } from '../../../billing/shared';
 import { checkOrCreateM2MClientToken } from '../../../shared/auth';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -17,6 +19,7 @@ import {
   getVisitEmployerOrganizationId,
 } from '../../../shared/occupational-medicine-employer';
 import { makeVisitDetailsPdfDocumentReference } from '../../../shared/pdf/make-visit-details-document-reference';
+import { fetchServiceCategoryCatalog } from '../../../shared/pdf/service-category-catalog';
 import { createVisitDetailsPdf } from '../../../shared/pdf/visit-details-pdf';
 import { getAppointmentAndRelatedResources } from '../../../shared/pdf/visit-details-pdf/get-video-resources';
 import { wrapHandler } from '../../../shared/sentry';
@@ -76,36 +79,40 @@ export const performEffect = async (
 
   console.log('Chart data received');
 
-  const [consentResources, accountResources, documentReferences] = await Promise.all([
-    getConsentAndRelatedDocRefsForAppointment({ appointmentId, patientId: patient.id }, oystehr),
-    getAccountAndCoverageResourcesForPatient(patient.id, oystehr),
-    searchDocumentReferencesForVisit(oystehr, patient.id, appointmentId),
-  ]);
-  const { consents } = consentResources;
+  const patientId = patient.id;
+  const encounterId = encounter.id;
+  const appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
 
-  const {
-    account,
-    coverages,
-    insuranceOrgs,
-    guarantorResource,
-    emergencyContactResource,
-    attorneyRelatedPerson,
-    employerOrganization,
-    occupationalMedicineEmployerOrganization,
-  } = accountResources;
-  const primaryCarePhysician = accountResources.patient?.contained?.find(
-    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
-  ) as Practitioner;
-  let payments: PatientPaymentDTO[] = [];
-  if (encounter.id && account) {
+  const fetchPaymentNotices = async (
+    paymentEncounterId: string
+  ): Promise<{ notices: PaymentNotice[] } | { error: unknown }> => {
+    try {
+      const noticesByEncounter = await fetchEncounterPaymentNotices({
+        clinicalOystehr: oystehr,
+        billingOystehr: createBillingClient(token, secrets),
+        encounterIds: [paymentEncounterId],
+      });
+      return { notices: noticesByEncounter.get(paymentEncounterId) ?? [] };
+    } catch (error) {
+      return { error };
+    }
+  };
+
+  const getPayments = async (
+    account: Account | undefined,
+    paymentNotices: { notices: PaymentNotice[] } | { error: unknown } | undefined
+  ): Promise<PatientPaymentDTO[]> => {
+    if (!encounterId || !account || !paymentNotices) return [];
     try {
       const stripeClient = getStripeClient(secrets);
-      payments = await getPaymentsForEncounter({
+      if ('error' in paymentNotices) throw paymentNotices.error;
+      return await getPaymentsForEncounter({
         clinicalOystehr: oystehr,
         billingOystehr: createBillingClient(token, secrets),
         stripeClient,
         account,
-        encounterId: encounter.id,
+        encounterId,
+        fhirPaymentNotices: paymentNotices.notices,
       });
     } catch (error) {
       console.error('Failed to fetch payments for PDF generation:', error);
@@ -115,22 +122,59 @@ export const performEffect = async (
         console.error(`Error: Stripe customer deleted, PDF will be generated without payment info. ${customerError}`);
       }
 
-      payments = [];
+      return [];
     }
-  }
+  };
+
+  const loadAccountDetails = async (): Promise<{
+    accountResources: PatientAccountAndCoverageResources;
+    payments: PatientPaymentDTO[];
+    occupationalMedicineEmployerName: string | undefined;
+  }> => {
+    const [accountResources, paymentNotices] = await Promise.all([
+      getAccountAndCoverageResourcesForPatient(patientId, oystehr),
+      encounterId ? fetchPaymentNotices(encounterId) : undefined,
+    ]);
+    const [payments, occupationalMedicineEmployerName] = await Promise.all([
+      getPayments(accountResources.account, paymentNotices),
+      resolveOccupationalMedicineEmployerName({
+        oystehr,
+        encounter,
+        appointmentServiceCategory,
+        occupationalMedicineEmployerOrganization: accountResources.occupationalMedicineEmployerOrganization,
+        occupationalMedicineAccount: accountResources.occupationalMedicineAccount,
+      }),
+    ]);
+    return { accountResources, payments, occupationalMedicineEmployerName };
+  };
+
+  const [
+    consentResources,
+    { accountResources, payments, occupationalMedicineEmployerName },
+    documentReferences,
+    serviceCategories,
+  ] = await Promise.all([
+    getConsentAndRelatedDocRefsForAppointment({ appointmentId, patientId }, oystehr),
+    loadAccountDetails(),
+    searchDocumentReferencesForVisit(oystehr, patientId, appointmentId),
+    fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets)),
+  ]);
+  const { consents } = consentResources;
+
+  const {
+    coverages,
+    insuranceOrgs,
+    guarantorResource,
+    emergencyContactResource,
+    attorneyRelatedPerson,
+    employerOrganization,
+  } = accountResources;
+  const primaryCarePhysician = accountResources.patient?.contained?.find(
+    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
+  ) as Practitioner;
   const pharmacy = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
   ) as Organization;
-
-  const appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
-
-  const occupationalMedicineEmployerName = await resolveOccupationalMedicineEmployerName({
-    oystehr,
-    encounter,
-    appointmentServiceCategory,
-    occupationalMedicineEmployerOrganization,
-    occupationalMedicineAccount: accountResources.occupationalMedicineAccount,
-  });
 
   const { pdfInfo, attached } = await createVisitDetailsPdf(
     {
@@ -152,6 +196,7 @@ export const performEffect = async (
       consents: consents || [],
       questionnaireResponse,
       payments,
+      serviceCategories,
     },
     secrets,
     token

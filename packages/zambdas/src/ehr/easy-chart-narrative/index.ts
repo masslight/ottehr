@@ -58,7 +58,10 @@ async function stampNarrativeBestEffort(
     }
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
-    const doc = await oystehr.fhir.get<DocumentReference>({ resourceType: 'DocumentReference', id: documentId });
+    const [doc, visitLocked] = await Promise.all([
+      oystehr.fhir.get<DocumentReference>({ resourceType: 'DocumentReference', id: documentId }),
+      isVisitLocked(oystehr, encounterId),
+    ]);
 
     if (!doc.context?.encounter?.some((ref) => ref.reference === `Encounter/${encounterId}`)) {
       console.log(`[${ZAMBDA_NAME}] not stamping DocumentReference ${documentId}: not on Encounter ${encounterId}`);
@@ -71,7 +74,7 @@ async function stampNarrativeBestEffort(
       return;
     }
     // A signed visit's documents are not written to, even best-effort; the narrative is still returned.
-    if (await isVisitLocked(oystehr, encounterId)) {
+    if (visitLocked) {
       console.log(`[${ZAMBDA_NAME}] not stamping DocumentReference ${documentId}: the visit is locked`);
       return;
     }

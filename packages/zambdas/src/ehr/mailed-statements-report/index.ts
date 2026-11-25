@@ -1,9 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, Patient } from 'fhir/r4b';
+import { chunkThings } from 'utils/lib/fhir/chat';
 import { getPatientFirstName, getPatientLastName } from 'utils/lib/fhir/patient';
 import { getIdFromReference } from 'utils/lib/fhir/reference';
 import { Secrets } from 'utils/lib/secrets';
 import { MailedStatementItem } from 'utils/lib/types/api/mailed-statements-report.types';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { z } from 'zod';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
@@ -23,6 +25,7 @@ export const dateRangeSchema = z.object({
 let m2mToken: string;
 
 const ZAMBDA_NAME = 'mailed-statements-report';
+const SEARCH_BATCH_CONCURRENCY = 5;
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const validatedParameters = validateWithSchema(dateRangeSchema, input);
@@ -100,12 +103,31 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const patientIdArray = Array.from(patientIds);
   const PATIENT_BATCH_SIZE = 50;
 
-  for (let i = 0; i < patientIdArray.length; i += PATIENT_BATCH_SIZE) {
-    const batch = patientIdArray.slice(i, i + PATIENT_BATCH_SIZE);
-    const patientBundle = await oystehr.fhir.search<Patient>({
-      resourceType: 'Patient',
-      params: [{ name: '_id', value: batch.join(',') }],
-    });
+  // Fetch encounters with their appointments in a single query per batch using _include
+  const encounterAppointmentData = new Map<string, { appointmentDate: string; appointmentId: string }>();
+  const encounterIdArray = Array.from(encounterIds);
+  const ENCOUNTER_BATCH_SIZE = 50;
+
+  const [patientBundles, encounterBundles, syncState] = await Promise.all([
+    mapWithConcurrency(chunkThings(patientIdArray, PATIENT_BATCH_SIZE), SEARCH_BATCH_CONCURRENCY, (batch) =>
+      oystehr.fhir.search<Patient>({
+        resourceType: 'Patient',
+        params: [{ name: '_id', value: batch.join(',') }],
+      })
+    ),
+    mapWithConcurrency(chunkThings(encounterIdArray, ENCOUNTER_BATCH_SIZE), SEARCH_BATCH_CONCURRENCY, (batch) =>
+      oystehr.fhir.search<Encounter | Appointment>({
+        resourceType: 'Encounter',
+        params: [
+          { name: '_id', value: batch.join(',') },
+          { name: '_include', value: 'Encounter:appointment' },
+        ],
+      })
+    ),
+    getMailedStatementSyncState(oystehr),
+  ]);
+
+  for (const patientBundle of patientBundles) {
     for (const patient of patientBundle.unbundle()) {
       if (patient.id) {
         patientMap.set(patient.id, patient);
@@ -113,21 +135,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     }
   }
 
-  // Fetch encounters with their appointments in a single query per batch using _include
-  const encounterAppointmentData = new Map<string, { appointmentDate: string; appointmentId: string }>();
-  const encounterIdArray = Array.from(encounterIds);
-  const ENCOUNTER_BATCH_SIZE = 50;
-
-  for (let i = 0; i < encounterIdArray.length; i += ENCOUNTER_BATCH_SIZE) {
-    const batch = encounterIdArray.slice(i, i + ENCOUNTER_BATCH_SIZE);
-    const encounterBundle = await oystehr.fhir.search<Encounter | Appointment>({
-      resourceType: 'Encounter',
-      params: [
-        { name: '_id', value: batch.join(',') },
-        { name: '_include', value: 'Encounter:appointment' },
-      ],
-    });
-
+  for (const encounterBundle of encounterBundles) {
     const appointments = new Map<string, Appointment>();
     const encounters: Encounter[] = [];
 
@@ -209,8 +217,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       htmlContent,
     };
   });
-
-  const syncState = await getMailedStatementSyncState(oystehr);
 
   return {
     statusCode: 200,

@@ -95,6 +95,7 @@ import {
 import { LabelPdf } from 'utils/lib/types/data/printing';
 import { EXTERNAL_LAB_ERROR, INVALID_INPUT_ERROR } from 'utils/lib/types/errors';
 import { isBlankText } from 'utils/lib/types/text-schemas';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { getTimezone } from 'utils/lib/utils/scheduleUtils';
 import { parseLabOrderStatusWithSpecificTask } from '../external/get-lab-orders/helpers';
 import { getInHouseLabTestUrlAndVersionForADFromServiceRequest } from './in-house-labs';
@@ -671,6 +672,8 @@ const buildComponentNameMap = (activityDefinition: ActivityDefinition): Map<stri
   return nameMap;
 };
 
+const LAB_RESULT_PDF_CONCURRENCY = 5;
+
 export const makeEncounterLabResults = async (
   resources: FhirResource[],
   m2mToken: string,
@@ -758,7 +761,10 @@ export const makeEncounterLabResults = async (
   const inHouseLabOrderResults: InHouseLabResult[] = [];
   const reflexOrderResults: ExternalLabOrderResultConfig[] = [];
 
-  for (const docRef of documentReferences) {
+  const docRefResults = await mapWithConcurrency(documentReferences, LAB_RESULT_PDF_CONCURRENCY, async (docRef) => {
+    const externalResults: ExternalLabOrderResultConfig[] = [];
+    const reflexResults: ExternalLabOrderResultConfig[] = [];
+    const inHouseResults: InHouseLabResult[] = [];
     const diagnosticReportRef = docRef.context?.related?.find(
       (related) => related.reference?.startsWith('DiagnosticReport')
     )?.reference;
@@ -768,7 +774,7 @@ export const makeEncounterLabResults = async (
         ?.reference;
       if (serviceRequestRef) {
         const relatedSRDetail = serviceRequestMap[serviceRequestRef];
-        if (!relatedSRDetail) continue;
+        if (!relatedSRDetail) return { externalResults, reflexResults, inHouseResults };
         if (relatedSRDetail.type === LabType.external) {
           const sr = relatedSRDetail.resource;
           const isReflex = diagnosticReportIsReflex(relatedDR);
@@ -791,9 +797,9 @@ export const makeEncounterLabResults = async (
             resultValues,
           });
           if (isReflex) {
-            reflexOrderResults.push(...externalResultConfigs);
+            reflexResults.push(...externalResultConfigs);
           } else {
-            externalLabOrderResults.push(...externalResultConfigs);
+            externalResults.push(...externalResultConfigs);
           }
         } else if (relatedSRDetail.type === LabType.inHouse) {
           const sr = relatedSRDetail.resource;
@@ -808,7 +814,7 @@ export const makeEncounterLabResults = async (
             m2mToken,
             { type: LabType.inHouse, nonNormalResultContained: nonNonNormalTagsContained(relatedDR), resultValues }
           );
-          inHouseLabOrderResults.push(...inHouseResultConfigs);
+          inHouseResults.push(...inHouseResultConfigs);
         }
       } else {
         // todo what to do here for unsolicited results
@@ -820,6 +826,13 @@ export const makeEncounterLabResults = async (
       // so this shouldn't happen but if it does we will still surface the report
       console.log('no diagnosticReportRef for', docRef.id);
     }
+    return { externalResults, reflexResults, inHouseResults };
+  });
+
+  for (const { externalResults, reflexResults, inHouseResults } of docRefResults) {
+    externalLabOrderResults.push(...externalResults);
+    reflexOrderResults.push(...reflexResults);
+    inHouseLabOrderResults.push(...inHouseResults);
   }
 
   // map reflex tests to their original ordered test

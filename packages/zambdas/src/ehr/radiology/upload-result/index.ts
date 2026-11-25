@@ -27,25 +27,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (unsafeInput: ZambdaInput): 
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const serviceRequest = await oystehr.fhir.get<ServiceRequest>({
-    resourceType: 'ServiceRequest',
-    id: body.serviceRequestId,
-  });
-
-  // Record who uploaded the result — the order history's "reviewed" row shows this provider,
-  // since the provider reviews and signs the result before uploading it.
-  let author: Reference[] | undefined;
-  try {
-    const callerUser = await userMe(callerAccessToken, secrets);
-    const practitionerId = callerUser.profile.split('/')[1];
-    const practitioner = await oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: practitionerId,
-    });
-    author = [{ reference: callerUser.profile, display: getFullestAvailableName(practitioner) }];
-  } catch (error) {
-    console.error('Could not resolve uploading practitioner for result author, proceeding without it:', error);
-  }
+  const [serviceRequest, author] = await Promise.all([
+    oystehr.fhir.get<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: body.serviceRequestId,
+    }),
+    // Record who uploaded the result — the order history's "reviewed" row shows this provider,
+    // since the provider reviews and signs the result before uploading it.
+    (async (): Promise<Reference[] | undefined> => {
+      try {
+        const callerUser = await userMe(callerAccessToken, secrets);
+        const practitionerId = callerUser.profile.split('/')[1];
+        const practitioner = await oystehr.fhir.get<Practitioner>({
+          resourceType: 'Practitioner',
+          id: practitionerId,
+        });
+        return [{ reference: callerUser.profile, display: getFullestAvailableName(practitioner) }];
+      } catch (error) {
+        console.error('Could not resolve uploading practitioner for result author, proceeding without it:', error);
+        return undefined;
+      }
+    })(),
+  ]);
 
   const patientReference = serviceRequest.subject?.reference;
   const encounterReference = serviceRequest.encounter?.reference;

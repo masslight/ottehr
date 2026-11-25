@@ -46,8 +46,14 @@ const performEffect = async (
   const { serviceRequestId, faxNumber } = body;
   const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
-  // Fax the form on file so the recipient gets the document that was printed and reviewed here.
-  const { mediaUrl: media, patientId } = await getOrCreateRadiologyOrderForm(serviceRequestId, secrets, token, oystehr);
+  const [{ mediaUrl: media, patientId }, userPractitioner] = await Promise.all([
+    // Fax the form on file so the recipient gets the document that was printed and reviewed here.
+    getOrCreateRadiologyOrderForm(serviceRequestId, secrets, token, oystehr),
+    oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: user.profile.split('/')[1],
+    }),
+  ]);
 
   console.log('Sending radiology order fax to', faxNumber);
   const fax = await sendLetterFax({
@@ -58,7 +64,17 @@ const performEffect = async (
     organizationId,
   });
 
-  await writeFaxProvenance(fax.id!, fax.sent, serviceRequestId, patientId, faxNumber, organizationId, user, oystehr);
+  await writeFaxProvenance(
+    fax.id!,
+    fax.sent,
+    serviceRequestId,
+    patientId,
+    faxNumber,
+    organizationId,
+    user,
+    userPractitioner,
+    oystehr
+  );
 
   return { communicationId: fax.id! };
 };
@@ -71,12 +87,9 @@ const writeFaxProvenance = async (
   faxNumber: string,
   organizationId: string,
   user: User,
+  userPractitioner: Practitioner,
   oystehr: Oystehr
 ): Promise<void> => {
-  const userPractitioner = await oystehr.fhir.get<Practitioner>({
-    resourceType: 'Practitioner',
-    id: user.profile.split('/')[1],
-  });
   // Strip the +1 country code and non-digits to produce a valid FHIR contained id.
   const containedId = faxNumber.replace(/^\+1/, '').replace(/\D/g, '');
 

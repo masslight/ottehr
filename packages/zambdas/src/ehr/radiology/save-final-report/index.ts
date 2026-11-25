@@ -46,9 +46,12 @@ async function performEffect(
 ): Promise<SaveRadiologyReportZambdaOutput> {
   const { serviceRequestId, report: finalReport } = validatedInput.body;
 
-  const author = await resolveCallerPractitionerRef(validatedInput.callerAccessToken, secrets, oystehr);
-
-  await finalizeRadiologyReport(serviceRequestId, finalReport, author, oystehr);
+  await finalizeRadiologyReport(
+    serviceRequestId,
+    finalReport,
+    () => resolveCallerPractitionerRef(validatedInput.callerAccessToken, secrets, oystehr),
+    oystehr
+  );
 
   return {};
 }

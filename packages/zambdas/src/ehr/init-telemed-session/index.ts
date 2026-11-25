@@ -39,7 +39,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error(`Appointment ${appointmentId} doesn't have virtual video encounter`);
   }
   console.log(`Creating video room`);
-  const encounterResource = await createVideoRoom(appointment, videoEncounter, oystehr, secrets);
+  const encounterResource = await createVideoRoom(appointment, videoEncounter, oystehr, secrets, m2mToken);
   console.log(`Encounter for video room id: ${encounterResource.id}`);
 
   console.log(`Getting video room token`);

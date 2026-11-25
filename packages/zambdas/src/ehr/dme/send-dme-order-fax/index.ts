@@ -12,6 +12,7 @@ import { sendFaxAttempt } from '../../../shared/send-fax-attempt';
 import { wrapHandler } from '../../../shared/sentry';
 import { ZambdaInput } from '../../../shared/types/common';
 import { validateWithSchema } from '../../../shared/validation';
+import { settledValueOrThrow } from '../../shared/settled';
 import { getOrCreateDmeOrderForm } from '../get-dme-order-pdf/helpers';
 import { fetchDmeEncounterContext } from '../shared/order-helpers';
 
@@ -28,14 +29,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const user = await getUser(userToken, secrets);
-  const practitionerId = getIdFromReference(user.profile, 'Practitioner');
-  if (!practitionerId) throw new Error('User practitioner reference is invalid');
-
-  const [deviceRequest, userPractitioner] = await Promise.all([
+  const [userAndPractitionerResult, deviceRequestResult] = await Promise.allSettled([
+    (async () => {
+      const user = await getUser(userToken, secrets);
+      const practitionerId = getIdFromReference(user.profile, 'Practitioner');
+      if (!practitionerId) throw new Error('User practitioner reference is invalid');
+      const userPractitioner = await oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: practitionerId,
+      });
+      return { user, userPractitioner };
+    })(),
     oystehr.fhir.get<DeviceRequest>({ resourceType: 'DeviceRequest', id: deviceRequestId }),
-    oystehr.fhir.get<Practitioner>({ resourceType: 'Practitioner', id: practitionerId }),
   ]);
+  const { user, userPractitioner } = settledValueOrThrow(userAndPractitionerResult);
+  const deviceRequest = settledValueOrThrow(deviceRequestResult);
   if (isDmeOrderDeleted(deviceRequest)) throw INVALID_INPUT_ERROR('This DME order has been deleted');
   if (!isDmeOrderExternal(deviceRequest)) throw INVALID_INPUT_ERROR('Only external DME orders can be faxed');
 

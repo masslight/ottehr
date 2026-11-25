@@ -4259,15 +4259,14 @@ export const getAccountAndCoverageResourcesForPatient = async (
     throw PATIENT_NOT_FOUND_ERROR;
   }
 
-  // Get payer info for coverages
-  const insuranceOrgs = await searchInsuranceInformation(
-    oystehr,
-    getCoveragePayorReferences(accountAndCoverageResources),
-    accountAndCoverageResources.filter(isInsuranceOrganization)
-  );
-
-  // Get EHR-facing payer notes
-  const ehrPayerList = await getInsuranceOverrideList(oystehr, ListName.EHR);
+  const [insuranceOrgs, ehrPayerList] = await Promise.all([
+    searchInsuranceInformation(
+      oystehr,
+      getCoveragePayorReferences(accountAndCoverageResources),
+      accountAndCoverageResources.filter(isInsuranceOrganization)
+    ),
+    getInsuranceOverrideList(oystehr, ListName.EHR),
+  ]);
   for (const org of insuranceOrgs) {
     const override = ehrPayerList.entry?.find((override) => override.item.reference === getPayerUrl(org.id!));
     if (override) {

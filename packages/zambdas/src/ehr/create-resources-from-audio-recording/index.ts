@@ -33,9 +33,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, validatedParameters.secrets);
 
-  const providerUserProfile = (await userMe(userToken, secrets)).profile;
-
-  const encounter = await oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: visitID });
+  const [providerUser, encounter] = await Promise.all([
+    userMe(userToken, secrets),
+    oystehr.fhir.get<Encounter>({ resourceType: 'Encounter', id: visitID }),
+  ]);
+  const providerUserProfile = providerUser.profile;
   const patientId = assertDefined(getIdFromReference(encounter.subject?.reference), 'patientId');
 
   const pendingDocumentReference: DocumentReference = {

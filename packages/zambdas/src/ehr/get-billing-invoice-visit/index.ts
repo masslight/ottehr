@@ -42,9 +42,11 @@ export async function performEffect(
   encounterId: string
 ): Promise<GetBillingInvoiceRecipientResponse> {
   const { patient, account, appointment, location, schedule } = await getInvoiceVisitResources(oystehr, encounterId);
-  const responsibleParty = await getResponsibleParty(oystehr, account, patient);
   // The SMS goes to the patient's portal users, so show their number like the EHR dialog does.
-  const [portalUser] = await getRelatedPersonsForPatient(patient.id!, oystehr);
+  const [responsibleParty, [portalUser]] = await Promise.all([
+    getResponsibleParty(oystehr, account, patient),
+    getRelatedPersonsForPatient(patient.id!, oystehr),
+  ]);
 
   return {
     patient: {

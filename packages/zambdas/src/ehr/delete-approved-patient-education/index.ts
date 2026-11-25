@@ -52,10 +52,21 @@ const performEffect = async (
 ): Promise<DeleteApprovedPatientEducationOutput> => {
   const { documentReferenceId } = validatedInput;
 
-  const docRef = await oystehr.fhir.get<DocumentReference>({
-    resourceType: 'DocumentReference',
-    id: documentReferenceId,
-  });
+  const [docRef, listSearch] = await Promise.all([
+    oystehr.fhir.get<DocumentReference>({
+      resourceType: 'DocumentReference',
+      id: documentReferenceId,
+    }),
+    oystehr.fhir.search<List>({
+      resourceType: 'List',
+      params: [
+        {
+          name: 'identifier',
+          value: `${PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER.system}|${PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER.value}`,
+        },
+      ],
+    }),
+  ]);
   const isApprovedPatientEducation = (docRef.type?.coding ?? []).some(
     (c) => c.code === PATIENT_EDUCATION_APPROVED_DOC_TYPE_CODE
   );
@@ -64,15 +75,6 @@ const performEffect = async (
   }
   const z3Url = docRef.content?.[0]?.attachment?.url;
 
-  const listSearch = await oystehr.fhir.search<List>({
-    resourceType: 'List',
-    params: [
-      {
-        name: 'identifier',
-        value: `${PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER.system}|${PATIENT_EDUCATION_APPROVED_LIST_IDENTIFIER.value}`,
-      },
-    ],
-  });
   const list = listSearch.unbundle()[0];
 
   const requests: BatchInputRequest<List | DocumentReference>[] = [];

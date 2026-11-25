@@ -74,21 +74,22 @@ export async function createDocument(
     throw new Error(`Invalid canonical URL format: ${canonicalUrl}. Expected format: "url|version"`);
   }
 
-  // Assemble the flow into a concrete item[] so section titles, labels, and image detection resolve
-  // for flow-backed paperwork; a non-flow questionnaire is returned unchanged.
-  const questionnaire = await resolveEffectiveQuestionnaire(
-    await getCanonicalQuestionnaire({ url, version }, oystehr),
-    oystehr
-  );
-
   const [subjectType, subjectId] = (questionnaireResponse.subject?.reference ?? '').split('/');
   if (subjectType !== 'Patient') {
     throw new Error(`Only "Patient" subject is supported but was "${subjectType}"`);
   }
-  const patient = await oystehr.fhir.get<Patient>({
-    resourceType: 'Patient',
-    id: subjectId,
-  });
+
+  // Assemble the flow into a concrete item[] so section titles, labels, and image detection resolve
+  // for flow-backed paperwork; a non-flow questionnaire is returned unchanged.
+  const [questionnaire, patient] = await Promise.all([
+    getCanonicalQuestionnaire({ url, version }, oystehr).then((canonical) =>
+      resolveEffectiveQuestionnaire(canonical, oystehr)
+    ),
+    oystehr.fhir.get<Patient>({
+      resourceType: 'Patient',
+      id: subjectId,
+    }),
+  ]);
 
   const { type } = getAppointmentType(appointment);
   const timezone = resolveTimezone(schedule, location);

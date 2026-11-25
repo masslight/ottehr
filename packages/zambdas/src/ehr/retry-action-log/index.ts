@@ -60,11 +60,14 @@ export async function performEffect(
   user: User,
   accessToken: string
 ): Promise<RetryActionLogOutput> {
-  const original = await oystehr.fhir.get<Task>({ resourceType: 'Task', id: parameters.attemptId });
+  const [original, retryChildExists] = await Promise.all([
+    oystehr.fhir.get<Task>({ resourceType: 'Task', id: parameters.attemptId }),
+    hasRetryChild(parameters.attemptId, oystehr),
+  ]);
   const channel = getOutboundDeliveryChannel(original);
   if (!channel) throw new Error('Task is not an outbound delivery attempt');
   if (!(await isRetryable(original, channel, oystehr))) throw new Error('Only failed delivery attempts can be retried');
-  if (await hasRetryChild(parameters.attemptId, oystehr)) {
+  if (retryChildExists) {
     throw new Error('This delivery attempt has already been retried');
   }
 
@@ -86,13 +89,19 @@ export async function performEffect(
   const packetSnapshot = getOutboundDeliveryPacketSnapshot(original);
   const recipientAddress = requireOutboundDeliveryValue(recipient.address, 'recipient address');
   const recipientName = recipient.name;
-  const documentReference = await resolveDocumentReference(original, appointmentId, oystehr);
+  const userPractitionerId = requireOutboundDeliveryValue(
+    getIdFromReference(user.profile, 'Practitioner'),
+    'user practitioner reference'
+  );
+  const [documentReference, userPractitioner] = await Promise.all([
+    resolveDocumentReference(original, appointmentId, oystehr),
+    oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: userPractitionerId,
+    }),
+  ]);
   const documentReferenceId = requireOutboundDeliveryValue(documentReference.id, 'DocumentReference id');
   const media = requireOutboundDeliveryValue(documentReference.content[0]?.attachment.url, 'document URL');
-  const userPractitioner = await oystehr.fhir.get<Practitioner>({
-    resourceType: 'Practitioner',
-    id: requireOutboundDeliveryValue(getIdFromReference(user.profile, 'Practitioner'), 'user practitioner reference'),
-  });
   const requesterReference = userPractitioner.id ? `Practitioner/${userPractitioner.id}` : undefined;
   const senderDisplay = getFullestAvailableName(userPractitioner);
 
@@ -141,9 +150,11 @@ export async function performEffect(
   } else {
     if (!emailClient) throw new Error('Visit note email client was not initialized');
     const emailAppointmentId = requireOutboundDeliveryValue(appointmentId, 'appointment reference');
-    const visit = await getAppointmentAndRelatedResources(oystehr, emailAppointmentId, true);
+    const [visit, visitNoteUrl] = await Promise.all([
+      getAppointmentAndRelatedResources(oystehr, emailAppointmentId, true),
+      getPresignedURL(media, accessToken),
+    ]);
     if (!visit?.patient || !visit.location) throw new Error('Visit resources are incomplete');
-    const visitNoteUrl = await getPresignedURL(media, accessToken);
     const locationName = getNameForOwner(visit.location);
     const isInPerson = Boolean(visit.appointment.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.IP));
     const emailTemplate = buildVisitNoteEmailTemplate({

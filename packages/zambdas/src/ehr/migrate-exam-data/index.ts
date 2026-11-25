@@ -20,14 +20,17 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
+    const [visitNote, patientEncounter] = await Promise.all([
+      buildVisitNote({ oystehr, m2mToken }, encounterId),
+      getPatientEncounter(encounterId, oystehr),
+    ]);
     // Load current chart data; the response echoes the whole chart in the legacy whole-chart shape.
-    const { chartData } = visitNoteToLegacyChartData(await buildVisitNote({ oystehr, m2mToken }, encounterId), {
+    const { chartData } = visitNoteToLegacyChartData(visitNote, {
       module: 'in-person',
     });
     const examObservations = chartData.examObservations ?? [];
 
     // Get encounter for migration version check
-    const patientEncounter = await getPatientEncounter(encounterId, oystehr);
     const encounter = patientEncounter.encounter;
     if (!encounter) throw new Error(`Encounter ${encounterId} not found`);
     const patient = patientEncounter.patient;

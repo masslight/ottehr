@@ -53,22 +53,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const { accounts, coverages, labGuids, searchableLabs, orderingLocationDetails, appointmentIsWorkersComp, labLists } =
-    await getResources(oystehr, patientId, encounterId, testItemSearch, labOrgIdsString);
-
-  console.log('labGuids and labOrgIdString', labGuids, labOrgIdsString);
-
-  let coverageInfo: CreateLabCoverageInfo[] | undefined;
-  if (patientId) {
-    coverageInfo = getCoverageInfo(accounts, coverages);
-  }
-
-  let labs: OrderableItemSearchResult[] = [];
-  if (testItemSearch) {
-    labs = await searchOrderableItems(testItemSearch, labGuids, searchableLabs, m2mToken);
-  }
-
-  if (selectedLabSet) {
+  const searchLabSetOrderableItems = async (): Promise<OrderableItemSearchResult[] | undefined> => {
+    if (!selectedLabSet) return undefined;
     console.log('searching orderable items for the lab set', selectedLabSet.listName);
     const labRequests = selectedLabSet.labs.map(async (lab) => {
       const labSearchRes = await getOrderableItems([lab.labGuid], { itemCodes: [lab.itemCode] }, m2mToken);
@@ -85,7 +71,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     const allLabsResults = await Promise.all(labRequests);
 
-    labs = allLabsResults.flatMap((res) => {
+    return allLabsResults.flatMap((res) => {
       const { labSearchRes, staticLabName } = res;
       if (staticLabName) {
         return labSearchRes.map((oi) => ({
@@ -99,6 +85,30 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         return labSearchRes;
       }
     });
+  };
+
+  const [
+    { accounts, coverages, labGuids, searchableLabs, orderingLocationDetails, appointmentIsWorkersComp, labLists },
+    labSetLabs,
+  ] = await Promise.all([
+    getResources(oystehr, patientId, encounterId, testItemSearch, labOrgIdsString),
+    searchLabSetOrderableItems(),
+  ]);
+
+  console.log('labGuids and labOrgIdString', labGuids, labOrgIdsString);
+
+  let coverageInfo: CreateLabCoverageInfo[] | undefined;
+  if (patientId) {
+    coverageInfo = getCoverageInfo(accounts, coverages);
+  }
+
+  let labs: OrderableItemSearchResult[] = [];
+  if (testItemSearch) {
+    labs = await searchOrderableItems(testItemSearch, labGuids, searchableLabs, m2mToken);
+  }
+
+  if (labSetLabs) {
+    labs = labSetLabs;
   }
 
   let cptCodesToAddPerEncounter: CPTCodeOption[] | undefined = undefined;

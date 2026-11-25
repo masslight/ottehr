@@ -84,6 +84,7 @@ import {
 } from 'utils/lib/types/data/labs/labs.types';
 import { Pagination } from 'utils/lib/types/data/pagination.types';
 import { EXTERNAL_LAB_ERROR } from 'utils/lib/types/errors';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { compareDates } from 'utils/lib/utils/dateUtils';
 import { isPositiveNumberOrZero } from 'utils/lib/validation/helper';
 import { sendErrors } from '../../../../shared/errors';
@@ -180,12 +181,19 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>({
   return result;
 };
 
+const DR_RESULT_DETAIL_CONCURRENCY = 5;
+
 export const mapResourcesToDrLabDTO = async (resourcesByDr: ResourcesByDr, token: string): Promise<ReflexLabDTO[]> => {
   const reflexLabDTOs: ReflexLabDTO[] = [];
   console.log('these are resourcesByDr in mapResourcesToDrLabDTO', JSON.stringify(resourcesByDr));
   const resourcesForDiagnosticReport = Object.values(resourcesByDr);
-  for (const resources of resourcesForDiagnosticReport) {
-    const diagnosticReportLabDetailDTO = await formatResourcesIntoDiagnosticReportLabDTO(resources, token);
+  const diagnosticReportLabDetailDTOs = await mapWithConcurrency(
+    resourcesForDiagnosticReport,
+    DR_RESULT_DETAIL_CONCURRENCY,
+    (resources) => formatResourcesIntoDiagnosticReportLabDTO(resources, token)
+  );
+  for (const [index, resources] of resourcesForDiagnosticReport.entries()) {
+    const diagnosticReportLabDetailDTO = diagnosticReportLabDetailDTOs[index];
     const orderNumber = getOrderNumberFromDr(resources.diagnosticReport) || '';
     const encounterId = resources.diagnosticReport.encounter?.reference?.replace('Encounter/', '') || '';
     const appointmentId = resources.encounter?.appointment?.[0].reference?.replace('Appointment/', '') || '';
@@ -595,12 +603,27 @@ export const getLabResources = async (
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
   console.log('isDetailPageRequest', isDetailPageRequest);
 
+  const getLabDocuments = async (): Promise<ExternalLabDocuments | undefined> => {
+    if (isDetailPageRequest) {
+      return configAllExternalLabDocuments(documentReferences, serviceRequests, m2mToken);
+    }
+    // we don't need all types of doc refs for the list view page therefore no need to fetch their presigned urls
+    const filteredDocRefs = documentReferences.filter((docRef) => {
+      return docRefIsAbnAndCurrent(docRef) || docRefIsOrderPDFAndCurrent(docRef);
+    });
+    if (filteredDocRefs.length) {
+      return configAllExternalLabDocuments(documentReferences, serviceRequests, m2mToken);
+    }
+    return undefined;
+  };
+
   const [
     serviceRequestPractitioners,
     finalAndPrelimAndCorrectedTasks,
     diagnosticReportDrivenResultResources,
     questionnaires,
     srLocationsBundle,
+    labDocuments,
   ] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests, params.secrets.ENVIRONMENT),
     fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
@@ -613,22 +636,10 @@ export const getLabResources = async (
       fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
     ),
     srLocationsBundlePromise,
+    getLabDocuments(),
   ]);
 
   const allPractitioners = [...practitioners, ...serviceRequestPractitioners];
-
-  let labDocuments: ExternalLabDocuments | undefined;
-  if (isDetailPageRequest) {
-    labDocuments = await configAllExternalLabDocuments(documentReferences, serviceRequests, m2mToken);
-  } else {
-    // we don't need all types of doc refs for the list view page therefore no need to fetch their presigned urls
-    const filteredDocRefs = documentReferences.filter((docRef) => {
-      return docRefIsAbnAndCurrent(docRef) || docRefIsOrderPDFAndCurrent(docRef);
-    });
-    if (filteredDocRefs.length) {
-      labDocuments = await configAllExternalLabDocuments(documentReferences, serviceRequests, m2mToken);
-    }
-  }
 
   const locations = srLocationIds.length ? srLocationsBundle.unbundle() : [];
   console.log('These are the returned locations', JSON.stringify(locations));

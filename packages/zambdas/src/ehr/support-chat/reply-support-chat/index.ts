@@ -58,8 +58,10 @@ export const index = wrapHandler('reply-support-chat', async (input: ZambdaInput
     })
   );
 
-  await notifyPatient({ patient, location, secrets, oystehr });
-  const messages = await searchThread(oystehr, threadId);
+  const [, messages] = await Promise.all([
+    notifyPatient({ patient, location, secrets, oystehr }),
+    searchThread(oystehr, threadId),
+  ]);
 
   return { statusCode: 200, body: JSON.stringify(toChatResponse(messages, 'staff')) };
 });

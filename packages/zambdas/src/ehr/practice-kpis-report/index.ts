@@ -268,67 +268,69 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   // First, fetch all locations
   console.log('Fetching all locations...');
   let allLocations: Location[] = [];
-  await fetchAllPages(async (offset, count) => {
-    console.log(`Fetching locations offset=${offset}, count=${count}`);
-    const locationSearchBundle = await oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [
-        { name: '_count', value: count.toString() },
-        { name: '_offset', value: offset.toString() },
-      ],
-    });
-    const locationResources = locationSearchBundle.unbundle();
-    allLocations = allLocations.concat(locationResources);
-    console.log(`Fetched ${locationResources.length} more locations (total: ${allLocations.length})`);
-    return locationSearchBundle;
-  }, 1000);
-
-  console.log(`Total locations found: ${allLocations.length}`);
-
   // Now fetch appointments with encounters and locations
   let allResources: (Appointment | Location | Encounter)[] = [];
 
-  await fetchAllPages(async (offset, count) => {
-    console.log(`Fetching appointments offset = ${offset}, count = ${count}`);
-    const searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter>({
-      resourceType: 'Appointment',
-      params: [
-        { name: 'date', value: `ge${dateRange.start}` },
-        { name: 'date', value: `le${dateRange.end}` },
-        { name: '_tag', value: OTTEHR_MODULE.IP }, // Only in-person appointments
-        { name: '_include', value: 'Appointment:location' },
-        { name: '_revinclude', value: 'Encounter:appointment' },
-        {
-          name: '_elements',
-          value: [
-            'id',
-            'status',
-            'participant',
-            'appointmentType',
-            'start',
-            'Location.id',
-            'Location.name',
-            'Encounter.id',
-            'Encounter.type',
-            'Encounter.status',
-            'Encounter.appointment',
-            'Encounter.participant',
-            'Encounter.statusHistory',
-            'Encounter.extension',
-          ].join(','),
-        },
-        { name: '_count', value: count.toString() },
-        { name: '_offset', value: offset.toString() },
-      ],
-    });
-    const pageResources = searchBundle.unbundle();
-    allResources = allResources.concat(pageResources);
-    const pageAppointmentsCount = pageResources.filter(
-      (resource): resource is Appointment => resource.resourceType === 'Appointment'
-    ).length;
-    console.log(`Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`);
-    return searchBundle;
-  }, 1000);
+  await Promise.all([
+    fetchAllPages(async (offset, count) => {
+      console.log(`Fetching locations offset=${offset}, count=${count}`);
+      const locationSearchBundle = await oystehr.fhir.search<Location>({
+        resourceType: 'Location',
+        params: [
+          { name: '_count', value: count.toString() },
+          { name: '_offset', value: offset.toString() },
+        ],
+      });
+      const locationResources = locationSearchBundle.unbundle();
+      allLocations = allLocations.concat(locationResources);
+      console.log(`Fetched ${locationResources.length} more locations (total: ${allLocations.length})`);
+      return locationSearchBundle;
+    }, 1000),
+
+    fetchAllPages(async (offset, count) => {
+      console.log(`Fetching appointments offset = ${offset}, count = ${count}`);
+      const searchBundle = await oystehr.fhir.search<Appointment | Location | Encounter>({
+        resourceType: 'Appointment',
+        params: [
+          { name: 'date', value: `ge${dateRange.start}` },
+          { name: 'date', value: `le${dateRange.end}` },
+          { name: '_tag', value: OTTEHR_MODULE.IP }, // Only in-person appointments
+          { name: '_include', value: 'Appointment:location' },
+          { name: '_revinclude', value: 'Encounter:appointment' },
+          {
+            name: '_elements',
+            value: [
+              'id',
+              'status',
+              'participant',
+              'appointmentType',
+              'start',
+              'Location.id',
+              'Location.name',
+              'Encounter.id',
+              'Encounter.type',
+              'Encounter.status',
+              'Encounter.appointment',
+              'Encounter.participant',
+              'Encounter.statusHistory',
+              'Encounter.extension',
+            ].join(','),
+          },
+          { name: '_count', value: count.toString() },
+          { name: '_offset', value: offset.toString() },
+        ],
+      });
+      const pageResources = searchBundle.unbundle();
+      allResources = allResources.concat(pageResources);
+      const pageAppointmentsCount = pageResources.filter(
+        (resource): resource is Appointment => resource.resourceType === 'Appointment'
+      ).length;
+      console.log(`Found ${pageResources.length} total resources (${pageAppointmentsCount} appointments)`);
+      return searchBundle;
+    }, 1000),
+  ]);
+
+  console.log(`Total locations found: ${allLocations.length}`);
 
   // Separate resources by type
   const appointments = allResources.filter(

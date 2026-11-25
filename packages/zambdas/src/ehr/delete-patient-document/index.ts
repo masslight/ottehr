@@ -48,35 +48,36 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   console.log(`Found ${z3Urls.length} files to delete`);
 
-  await Promise.all(
-    z3Urls.map(async (url) => {
-      try {
-        await deleteZ3Object(url, m2mToken);
-      } catch (e) {
-        if (e instanceof Z3Error && e.statusCode === 404) {
-          console.warn(`Z3 file not found (already deleted?), continuing: ${url}`);
-        } else if (e instanceof Z3Error && e.statusCode === 403) {
-          // Permanent, and no retry clears it: either the M2M policy doesn't cover this bucket
-          // (config/oystehr-core/m2ms.json) or the url isn't a deletable object in this project.
-          console.error(`Z3 refused to delete ${url}`);
-          sendWarning('Z3 refused a patient document file delete', getSecret(SecretsKeys.ENVIRONMENT, secrets), {
-            documentRefId,
-            bucket: url.split('/z3/')[1]?.split('/')[0],
-          });
-          throw FILE_STORAGE_REQUEST_REJECTED_ERROR('Unable to delete the stored file for this document');
-        } else {
-          throw e;
+  const [, listResources] = await Promise.all([
+    Promise.all(
+      z3Urls.map(async (url) => {
+        try {
+          await deleteZ3Object(url, m2mToken);
+        } catch (e) {
+          if (e instanceof Z3Error && e.statusCode === 404) {
+            console.warn(`Z3 file not found (already deleted?), continuing: ${url}`);
+          } else if (e instanceof Z3Error && e.statusCode === 403) {
+            // Permanent, and no retry clears it: either the M2M policy doesn't cover this bucket
+            // (config/oystehr-core/m2ms.json) or the url isn't a deletable object in this project.
+            console.error(`Z3 refused to delete ${url}`);
+            sendWarning('Z3 refused a patient document file delete', getSecret(SecretsKeys.ENVIRONMENT, secrets), {
+              documentRefId,
+              bucket: url.split('/z3/')[1]?.split('/')[0],
+            });
+            throw FILE_STORAGE_REQUEST_REJECTED_ERROR('Unable to delete the stored file for this document');
+          } else {
+            throw e;
+          }
         }
-      }
-    })
-  );
-
-  const listResources = (
-    await oystehr.fhir.search<List>({
-      resourceType: 'List',
-      params: [{ name: 'subject', value: docRef.subject?.reference || '' }],
-    })
-  ).unbundle() as List[];
+      })
+    ),
+    oystehr.fhir
+      .search<List>({
+        resourceType: 'List',
+        params: [{ name: 'subject', value: docRef.subject?.reference || '' }],
+      })
+      .then((bundle) => bundle.unbundle() as List[]),
+  ]);
 
   const targetLists = listResources.filter(
     (list) => list.entry?.some((entry) => entry.item?.reference === `DocumentReference/${documentRefId}`)

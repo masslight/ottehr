@@ -31,19 +31,21 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   if (taskIds) {
-    const callerId = await getMyPractitionerId(getUserToken(input), secrets);
-    const resources = await getAllFhirSearchPages<Communication>(
-      {
-        resourceType: 'Communication',
-        params: [
-          { name: 'based-on', value: taskIds.map((taskId) => `Task/${taskId}`).join(',') },
-          { name: '_tag', value: TASK_NOTE_TAG },
-          { name: 'status', value: 'completed' },
-          { name: '_sort', value: '-sent' },
-        ],
-      },
-      oystehr
-    );
+    const [callerId, resources] = await Promise.all([
+      getMyPractitionerId(getUserToken(input), secrets),
+      getAllFhirSearchPages<Communication>(
+        {
+          resourceType: 'Communication',
+          params: [
+            { name: 'based-on', value: taskIds.map((taskId) => `Task/${taskId}`).join(',') },
+            { name: '_tag', value: TASK_NOTE_TAG },
+            { name: 'status', value: 'completed' },
+            { name: '_sort', value: '-sent' },
+          ],
+        },
+        oystehr
+      ),
+    ]);
     const output: GetNotesOutput = { notes: resources.map((note) => toNoteDto(note, callerId)), hasMore: false };
     return { body: JSON.stringify(output), statusCode: 200 };
   }

@@ -169,10 +169,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const currentUserPractitionerId = await getMyPractitionerId(userToken, secrets);
+  const [currentUserPractitionerId, resources] = await Promise.all([
+    getMyPractitionerId(userToken, secrets),
+    getInHouseLabOrderRelatedResources(oystehr, serviceRequestId),
+  ]);
   console.log(`User initiating delete action is Practitioner/${currentUserPractitionerId}`);
-
-  const resources = await getInHouseLabOrderRelatedResources(oystehr, serviceRequestId);
 
   if (!resources.serviceRequest) {
     return {

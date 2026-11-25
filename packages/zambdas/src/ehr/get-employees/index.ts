@@ -34,38 +34,43 @@ export const index = wrapHandler('get-employees', async (input: ZambdaInput): Pr
 
   const oystehr = createClinicalOystehrClient(oystehrToken, secrets);
 
-  const promises: [Promise<UserListItem[]>, Promise<RoleListItem[]>] = [getEmployees(oystehr), getRoles(oystehr)];
-  const [allEmployees, existingRoles] = await Promise.all(promises);
+  const [{ allEmployees, practitioners }, { inactiveRoleMembers, assignableRoleMembers }] = await Promise.all([
+    getEmployees(oystehr).then(async (allEmployees) => {
+      console.log(`Fetched ${allEmployees.length} employees.`);
 
-  console.log(`Fetched ${allEmployees.length} employees and ${existingRoles.length} roles.`);
+      const practitionerIds = allEmployees
+        .filter((employee) => employee.profile?.startsWith('Practitioner/'))
+        .map((employee) => getIdFromReference(employee.profile, 'Practitioner'));
 
-  const inactiveRoleId = existingRoles.find((role) => role.name === RoleType.Inactive)?.id;
-  if (!inactiveRoleId) {
-    throw new Error('Error searching for the Inactive role.');
-  }
+      const practitioners = (await getResourcesFromBatchInlineRequests(oystehr, [
+        `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`,
+      ])) as Practitioner[];
+      return { allEmployees, practitioners };
+    }),
+    getRoles(oystehr).then(async (existingRoles) => {
+      console.log(`Fetched ${existingRoles.length} roles.`);
 
-  // Every assignable role, so callers can filter and display roles directly rather than working from
-  // a handful of derived booleans. A project that hasn't provisioned one of these roles yet simply
-  // has no members for it, which is not an error — only Inactive is required, since `status` needs it.
-  const assignableRoles = AVAILABLE_EMPLOYEE_ROLES.map(({ value }) => ({
-    role: value,
-    id: existingRoles.find((role) => role.name === value)?.id,
-  })).filter((entry): entry is { role: RoleType; id: string } => Boolean(entry.id));
+      const inactiveRoleId = existingRoles.find((role) => role.name === RoleType.Inactive)?.id;
+      if (!inactiveRoleId) {
+        throw new Error('Error searching for the Inactive role.');
+      }
 
-  const practitionerIds = allEmployees
-    .filter((employee) => employee.profile?.startsWith('Practitioner/'))
-    .map((employee) => getIdFromReference(employee.profile, 'Practitioner'));
+      // Every assignable role, so callers can filter and display roles directly rather than working from
+      // a handful of derived booleans. A project that hasn't provisioned one of these roles yet simply
+      // has no members for it, which is not an error — only Inactive is required, since `status` needs it.
+      const assignableRoles = AVAILABLE_EMPLOYEE_ROLES.map(({ value }) => ({
+        role: value,
+        id: existingRoles.find((role) => role.name === value)?.id,
+      })).filter((entry): entry is { role: RoleType; id: string } => Boolean(entry.id));
 
-  const getPractitionersRequest = getResourcesFromBatchInlineRequests(oystehr, [
-    `Practitioner?_id=${practitionerIds.join(',')}&_elements=id,meta,qualification,name,extension,telecom`,
-  ]);
-
-  console.log('Do mixed promises in parallel...');
-
-  const [inactiveRoleMembers, assignableRoleMembers, practitioners] = await Promise.all([
-    getRoleMembers(inactiveRoleId, oystehr),
-    Promise.all(assignableRoles.map(async ({ role, id }) => ({ role, members: await getRoleMembers(id, oystehr) }))),
-    getPractitionersRequest as Promise<Practitioner[]>,
+      const [inactiveRoleMembers, assignableRoleMembers] = await Promise.all([
+        getRoleMembers(inactiveRoleId, oystehr),
+        Promise.all(
+          assignableRoles.map(async ({ role, id }) => ({ role, members: await getRoleMembers(id, oystehr) }))
+        ),
+      ]);
+      return { inactiveRoleMembers, assignableRoleMembers };
+    }),
   ]);
 
   const inactiveMemberIds = new Set(inactiveRoleMembers.map((member) => member.id));

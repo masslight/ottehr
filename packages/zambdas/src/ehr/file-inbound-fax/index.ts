@@ -54,15 +54,28 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     );
 
     // Verify the task exists and is an inbound-fax task
-    let task: Task;
-    try {
-      task = await oystehr.fhir.get<Task>({
-        resourceType: 'Task',
-        id: taskId,
-      });
-    } catch {
-      throw { ...FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Task/${taskId} not found`), statusCode: 404 };
-    }
+    const [task, encounterSearchResults] = await Promise.all([
+      oystehr.fhir
+        .get<Task>({
+          resourceType: 'Task',
+          id: taskId,
+        })
+        .catch(() => {
+          throw { ...FHIR_RESOURCE_NOT_FOUND_CUSTOM(`Task/${taskId} not found`), statusCode: 404 };
+        }),
+      encounterId
+        ? oystehr.fhir
+            .search<Encounter>({
+              resourceType: 'Encounter',
+              params: [
+                { name: '_id', value: encounterId },
+                { name: 'subject', value: `Patient/${patientId}` },
+                { name: '_include', value: 'Encounter:part-of' },
+              ],
+            })
+            .then((bundle) => bundle.unbundle())
+        : undefined,
+    ]);
 
     if (task.groupIdentifier?.value !== FAX_TASK.category) {
       throw INVALID_INPUT_ERROR(`Task/${taskId} is not an inbound-fax task`);
@@ -100,17 +113,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     // Everything that can reject the request runs before the folder is resolved: resolving can lazily
     // create the per-patient folder List, which a rejection afterwards would leave behind.
     let appointmentId: string | undefined;
-    if (encounterId) {
-      const encounters = (
-        await oystehr.fhir.search<Encounter>({
-          resourceType: 'Encounter',
-          params: [
-            { name: '_id', value: encounterId },
-            { name: 'subject', value: `Patient/${patientId}` },
-            { name: '_include', value: 'Encounter:part-of' },
-          ],
-        })
-      ).unbundle();
+    if (encounterId && encounterSearchResults) {
+      const encounters = encounterSearchResults;
       const encounter = encounters.find((candidate) => candidate.id === encounterId);
       if (!encounter) {
         throw INVALID_INPUT_ERROR(`Encounter/${encounterId} not found for Patient/${patientId}`);

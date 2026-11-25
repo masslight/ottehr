@@ -38,6 +38,7 @@ import {
 import { ZambdaInput } from '../../../../shared/types/common';
 import { safeJsonParse } from '../../../../shared/validation';
 import { getAccountAndCoverageResourcesForPatient } from '../../../shared/harvest';
+import { settledValueOrThrow } from '../../../shared/settled';
 
 const ZAMBDA_NAME = 'patient-payments-terminal-finalize-payment';
 
@@ -61,7 +62,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, input.secrets);
-  const stripeContext = await getStripePaymentContext(validatedParameters, oystehrClient);
+  const [stripeContext, submitterRef] = await Promise.all([
+    getStripePaymentContext(validatedParameters, oystehrClient),
+    practitionerRefForUser(user, oystehrClient),
+  ]);
 
   const stripeClient = getStripeClient(input.secrets);
   const paymentIntent = await retrieveTerminalPaymentIntent(
@@ -99,7 +103,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       encounterId: validatedParameters.encounterId,
       amountInCents,
       stripePaymentIntentId: paymentIntent.id,
-      submitterRef: await practitionerRefForUser(user, oystehrClient),
+      submitterRef,
     },
     oystehrClient,
     input
@@ -159,15 +163,16 @@ const getStripePaymentContext = async (
   input: FinalizePatientPaymentTerminalInput,
   oystehrClient: Oystehr
 ): Promise<{ stripeCustomerId: string; stripeAccount?: string }> => {
-  const patientAccount = await getAccountAndCoverageResourcesForPatient(input.patientId, oystehrClient);
+  const [patientAccountResult, stripeAccountResult] = await Promise.allSettled([
+    getAccountAndCoverageResourcesForPatient(input.patientId, oystehrClient),
+    getStripeAccountForAppointmentOrEncounter({ encounterId: input.encounterId }, oystehrClient),
+  ]);
+  const patientAccount = settledValueOrThrow(patientAccountResult);
   if (!patientAccount.account) {
     throw FHIR_RESOURCE_NOT_FOUND('Account');
   }
 
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter(
-    { encounterId: input.encounterId },
-    oystehrClient
-  );
+  const stripeAccount = settledValueOrThrow(stripeAccountResult);
 
   const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount.account, stripeAccount);
   if (!stripeCustomerId) {

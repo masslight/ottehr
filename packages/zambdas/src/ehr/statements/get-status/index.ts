@@ -119,17 +119,49 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const encounterReference = `Encounter/${encounterId}`;
 
-  const communications = (
-    await oystehr.fhir.search<Communication>({
-      resourceType: 'Communication',
-      params: [
-        {
-          name: 'encounter',
-          value: encounterReference,
-        },
-      ],
-    })
-  ).unbundle();
+  const [communications, sendStatementByEmailTasks, statementDocumentReferences] = await Promise.all([
+    oystehr.fhir
+      .search<Communication>({
+        resourceType: 'Communication',
+        params: [
+          {
+            name: 'encounter',
+            value: encounterReference,
+          },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+    oystehr.fhir
+      .search<Task>({
+        resourceType: 'Task',
+        params: [
+          {
+            name: 'encounter',
+            value: encounterReference,
+          },
+          {
+            name: 'code',
+            value: `|${SEND_STATEMENT_BY_EMAIL_TASK_CODE}`,
+          },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+    oystehr.fhir
+      .search<DocumentReference>({
+        resourceType: 'DocumentReference',
+        params: [
+          {
+            name: 'encounter',
+            value: encounterReference,
+          },
+          {
+            name: 'type',
+            value: STATEMENT_CODE,
+          },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+  ]);
 
   const statementCommunications = sortByDateDesc(
     communications.filter((resource) => isStatementCommunication(resource)),
@@ -137,42 +169,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   );
   const latestCommunication = statementCommunications[0];
 
-  const sendStatementByEmailTasks = (
-    await oystehr.fhir.search<Task>({
-      resourceType: 'Task',
-      params: [
-        {
-          name: 'encounter',
-          value: encounterReference,
-        },
-        {
-          name: 'code',
-          value: `|${SEND_STATEMENT_BY_EMAIL_TASK_CODE}`,
-        },
-      ],
-    })
-  ).unbundle();
-
   const latestSendStatementByEmailTask = sortByDateDesc(
     sendStatementByEmailTasks,
     (resource) => resource.authoredOn ?? resource.meta?.lastUpdated
   )[0];
-
-  const statementDocumentReferences = (
-    await oystehr.fhir.search<DocumentReference>({
-      resourceType: 'DocumentReference',
-      params: [
-        {
-          name: 'encounter',
-          value: encounterReference,
-        },
-        {
-          name: 'type',
-          value: STATEMENT_CODE,
-        },
-      ],
-    })
-  ).unbundle();
 
   const latestStatementDocumentReference = sortByDateDesc(
     statementDocumentReferences,

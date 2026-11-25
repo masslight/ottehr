@@ -1,10 +1,7 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import Stripe from 'stripe';
-import {
-  getStripeAccountForAppointmentOrEncounter,
-  getStripeTerminalLocationIdForAppointmentOrEncounter,
-} from 'utils/lib/fhir/payments';
+import { getScheduleOwnerFromAppointmentOrEncounter } from 'utils/lib/fhir/helpers';
+import { getStripeAccountForScheduleOwner, getStripeTerminalLocationIdForLocation } from 'utils/lib/fhir/payments';
 import {
   GetPatientPaymentTerminalConfigInput,
   GetPatientPaymentTerminalConfigResponse,
@@ -34,12 +31,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   const oystehrClient = createClinicalOystehrClient(oystehrM2MClientToken, input.secrets);
-  const terminalLocationId = await getStripeTerminalLocationIdForAppointmentOrEncounter(
+  const scheduleOwner = await getScheduleOwnerFromAppointmentOrEncounter(
     {
       encounterId: validatedParameters.encounterId,
     },
     oystehrClient
   );
+  const terminalLocationId =
+    scheduleOwner.resourceType === 'Location' && scheduleOwner.id
+      ? await getStripeTerminalLocationIdForLocation(scheduleOwner.id, oystehrClient)
+      : undefined;
 
   const normalizedTerminalLocationId = terminalLocationId?.trim();
   const isLocationSimulationHint = normalizedTerminalLocationId
@@ -52,7 +53,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   if (isConfigured) {
     const stripeClient = getStripeClient(input.secrets);
-    const stripeAccount = await getStripeAccountForEncounter(validatedParameters.encounterId, oystehrClient);
+    const stripeAccount = getStripeAccountForScheduleOwner(scheduleOwner);
 
     if (isLocationSimulationHint) {
       // Location value is a simulation hint — list all readers and filter to simulated ones
@@ -106,13 +107,6 @@ const validateRequestParameters = (input: ZambdaInput): GetPatientPaymentTermina
   return {
     encounterId,
   };
-};
-
-const getStripeAccountForEncounter = async (
-  encounterId: string,
-  oystehrClient: Oystehr
-): Promise<string | undefined> => {
-  return getStripeAccountForAppointmentOrEncounter({ encounterId }, oystehrClient);
 };
 
 const isSimulatedDeviceType = (deviceType: string): boolean => deviceType.startsWith('simulated_');

@@ -69,14 +69,16 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw INVALID_INPUT_ERROR(`Appointment reference not found in Encounter/${validatedInput.encounterId}`);
   }
 
-  const patient = await oystehr.fhir.get<Patient>({
-    resourceType: 'Patient',
-    id: patientId,
-  });
-  const appointment = await oystehr.fhir.get<Appointment>({
-    resourceType: 'Appointment',
-    id: appointmentId,
-  });
+  const [patient, appointment] = await Promise.all([
+    oystehr.fhir.get<Patient>({
+      resourceType: 'Patient',
+      id: patientId,
+    }),
+    oystehr.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentId,
+    }),
+  ]);
 
   const patientName = getFullestAvailableName(patient);
   const appointmentDate = appointment.start
