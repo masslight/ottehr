@@ -226,13 +226,16 @@ export async function readInvoicingConfig(oystehr: Oystehr): Promise<ParsedInvoi
  */
 export async function getOrCreateInvoicingConfig(oystehr: Oystehr): Promise<InvoiceConfigResponse> {
   // Search for existing Questionnaire tagged as rcm + invoice-config
-  const questionnaireBundle = await oystehr.fhir.search<Questionnaire>({
-    resourceType: 'Questionnaire',
-    params: [
-      { name: '_tag', value: `${RCM_TAG_SYSTEM}|invoice-config` },
-      { name: 'url', value: INVOICING_CONFIG_QUESTIONNAIRE_URL },
-    ],
-  });
+  const [questionnaireBundle, responses] = await Promise.all([
+    oystehr.fhir.search<Questionnaire>({
+      resourceType: 'Questionnaire',
+      params: [
+        { name: '_tag', value: `${RCM_TAG_SYSTEM}|invoice-config` },
+        { name: 'url', value: INVOICING_CONFIG_QUESTIONNAIRE_URL },
+      ],
+    }),
+    searchInvoicingConfigResponses(oystehr),
+  ]);
   const questionnaires = questionnaireBundle.unbundle();
 
   let questionnaire: Questionnaire;
@@ -250,8 +253,6 @@ export async function getOrCreateInvoicingConfig(oystehr: Oystehr): Promise<Invo
     console.log('No invoicing config Questionnaire found, creating one with defaults');
     questionnaire = await oystehr.fhir.create<Questionnaire>(buildDefaultQuestionnaire());
   }
-
-  const responses = await searchInvoicingConfigResponses(oystehr);
 
   let questionnaireResponse: QuestionnaireResponse;
 

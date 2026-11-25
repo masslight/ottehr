@@ -43,6 +43,8 @@ interface ComplexValidationInput {
   appointmentId: string;
   oystehrClient: Oystehr;
 }
-export async function complexValidation(input: ComplexValidationInput): Promise<{ stripeCustomerId: string }> {
+export async function complexValidation(
+  input: ComplexValidationInput
+): Promise<{ stripeCustomerId: string; stripeAccount: string | undefined }> {
   return getStripeCustomerId(input);
 }

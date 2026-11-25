@@ -245,8 +245,19 @@ export async function createAppointment(
     attendingPractitioner,
   } = input;
 
-  const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
-    await generatePatientRelatedRequests(user, patient, oystehr);
+  console.log('getting questionnaire ID to create blank questionnaire response');
+
+  const [
+    { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient },
+    currentQuestionnaire,
+  ] = await Promise.all([
+    generatePatientRelatedRequests(user, patient, oystehr),
+    // If the resolved questionnaire is a paperwork flow, assemble its constituent forms into a concrete
+    // item[] so pre-fill runs against the flattened pages; a non-flow questionnaire is returned as-is.
+    getCanonicalQuestionnaire(questionnaireUrl, oystehr).then((canonicalQuestionnaire) =>
+      resolveEffectiveQuestionnaire(canonicalQuestionnaire, oystehr)
+    ),
+  ]);
 
   let startTime: string | null; // iso string in UTC
 
@@ -281,14 +292,6 @@ export async function createAppointment(
     ? `Staff ${user?.email}`
     : `${visitType === VisitType.WalkIn ? 'QR - ' : ''}Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
-  console.log('getting questionnaire ID to create blank questionnaire response');
-
-  // If the resolved questionnaire is a paperwork flow, assemble its constituent forms into a concrete
-  // item[] so pre-fill runs against the flattened pages; a non-flow questionnaire is returned as-is.
-  const currentQuestionnaire = await resolveEffectiveQuestionnaire(
-    await getCanonicalQuestionnaire(questionnaireUrl, oystehr),
-    oystehr
-  );
   let verifiedFormattedPhoneNumber = verifiedPhoneNumber;
 
   if (!patient.id && !verifiedPhoneNumber) {
@@ -474,48 +477,60 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   } = input;
 
   const parentEncounterId = followUpOptions?.parentEncounterId;
+  const bookedViaGroupId = slot ? getSlotBookedViaGroupId(slot) : undefined;
 
-  let carriedOverDiagnoses: { condition: Condition; rank?: number }[] = [];
+  const [carriedOverDiagnoses, bookedViaGroup, { documents, accountInfo }] = await Promise.all([
+    (async (): Promise<{ condition: Condition; rank?: number }[]> => {
+      if (!parentEncounterId) return [];
+      // Validation (not part of copy flow): parent must exist and not itself be a follow-up.
+      const parentEncounter = await oystehr.fhir.get<Encounter>({
+        resourceType: 'Encounter',
+        id: parentEncounterId,
+      });
 
-  if (parentEncounterId) {
-    // Validation (not part of copy flow): parent must exist and not itself be a follow-up.
-    const parentEncounter = await oystehr.fhir.get<Encounter>({
-      resourceType: 'Encounter',
-      id: parentEncounterId,
-    });
+      if (parentEncounter.partOf) {
+        throw new Error('Cannot create a follow-up of a follow-up. Please select a top-level encounter as the parent.');
+      }
 
-    if (parentEncounter.partOf) {
-      throw new Error('Cannot create a follow-up of a follow-up. Please select a top-level encounter as the parent.');
-    }
-
-    // Best-effort diagnosis carry-over: isolated so a failure here does not roll back the visit.
-    if (!followUpOptions?.skipPatientDiagnosis) {
+      // Best-effort diagnosis carry-over: isolated so a failure here does not roll back the visit.
+      if (followUpOptions?.skipPatientDiagnosis) return [];
       try {
         const parentDiagnosisEntries = (parentEncounter.diagnosis ?? []).filter((entry) => {
           const ref = entry.condition?.reference;
           return typeof ref === 'string' && ref.startsWith('Condition/');
         });
-        if (parentDiagnosisEntries.length > 0) {
-          const fetchedConditions = await Promise.all(
-            parentDiagnosisEntries.map((entry) =>
-              oystehr.fhir.get<Condition>({
-                resourceType: 'Condition',
-                id: entry.condition!.reference!.split('/')[1],
-              })
-            )
-          );
-          carriedOverDiagnoses = parentDiagnosisEntries.map((entry, idx) => ({
-            condition: fetchedConditions[idx],
-            rank: entry.rank,
-          }));
-        }
+        if (parentDiagnosisEntries.length === 0) return [];
+        const fetchedConditions = await Promise.all(
+          parentDiagnosisEntries.map((entry) =>
+            oystehr.fhir.get<Condition>({
+              resourceType: 'Condition',
+              id: entry.condition!.reference!.split('/')[1],
+            })
+          )
+        );
+        return parentDiagnosisEntries.map((entry, idx) => ({
+          condition: fetchedConditions[idx],
+          rank: entry.rank,
+        }));
       } catch (e) {
         console.error(`Failed to carry over diagnoses from parent encounter ${parentEncounterId}:`, e);
         captureException(e);
-        carriedOverDiagnoses = [];
+        return [];
       }
-    }
-  }
+    })(),
+    bookedViaGroupId
+      ? oystehr.fhir
+          .get<HealthcareService>({
+            resourceType: 'HealthcareService',
+            id: bookedViaGroupId,
+          })
+          .then((group): HealthcareService | undefined => group)
+          // Group resource missing — treat as "unknown group, don't pre-stamp"
+          // (conservative; mirrors anonymous-mode behavior).
+          .catch(() => undefined)
+      : Promise.resolve(undefined),
+    getRelatedResources(oystehr, patient?.id),
+  ]);
 
   if (!patient && !createPatientRequest?.fullUrl) {
     throw new Error('Unexpectedly have no patient and no request to make one');
@@ -558,7 +573,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   }
 
   const apptUrl = `urn:uuid:${uuid()}`;
-  const bookedViaGroupId = slot ? getSlotBookedViaGroupId(slot) : undefined;
   const participants: AppointmentParticipant[] = [];
 
   participants.push({
@@ -706,20 +720,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   // groups, the Slot's Schedule.actor is the member PR itself, so
   // scheduleOwner alone can't distinguish "direct PR" from "group via
   // pools-providers" — the extension is the disambiguator.
-  let bookedViaGroup: HealthcareService | undefined;
-
-  if (bookedViaGroupId) {
-    try {
-      bookedViaGroup = await oystehr.fhir.get<HealthcareService>({
-        resourceType: 'HealthcareService',
-        id: bookedViaGroupId,
-      });
-    } catch {
-      // Group resource missing — treat as "unknown group, don't pre-stamp"
-      // (conservative; mirrors anonymous-mode behavior).
-    }
-  }
-
   let encounterParticipants: Encounter['participant'] | undefined;
 
   if (attendingPractitioner) {
@@ -808,8 +808,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       type: buildFollowupEncounterType('scheduled'),
     }),
   };
-
-  const { documents, accountInfo } = await getRelatedResources(oystehr, patient?.id);
 
   const patientToUse = patient ?? (createPatientRequest?.resource as Patient);
 

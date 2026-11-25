@@ -81,25 +81,28 @@ export async function updateAppointment(
   const { patient, locationState } = params;
 
   // if it is a returning patient
-  const resources = (
-    await oystehr.fhir.search<Appointment | Patient | Encounter>({
-      resourceType: 'Appointment',
-      params: [
-        {
-          name: '_id',
-          value: params.appointmentId,
-        },
-        {
-          name: '_include',
-          value: 'Appointment:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Encounter:appointment',
-        },
-      ],
-    })
-  ).unbundle();
+  const [resources, location] = await Promise.all([
+    oystehr.fhir
+      .search<Appointment | Patient | Encounter>({
+        resourceType: 'Appointment',
+        params: [
+          {
+            name: '_id',
+            value: params.appointmentId,
+          },
+          {
+            name: '_include',
+            value: 'Appointment:patient',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Encounter:appointment',
+          },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+    locationState ? getTelemedLocation(oystehr, locationState) : Promise.resolve(undefined),
+  ]);
 
   const fhirAppointment = resources.find((res) => {
     return res.resourceType === 'Appointment';
@@ -142,7 +145,6 @@ export async function updateAppointment(
   };
 
   if (locationState) {
-    const location = await getTelemedLocation(oystehr, locationState);
     const locationId = location?.id;
 
     const locationParticipantIndex = fhirAppointment.participant?.findIndex(

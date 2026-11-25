@@ -114,21 +114,29 @@ interface StripeAccountValidationInput {
   appointmentId: string;
   oystehrClient: Oystehr;
 }
-export async function getStripeCustomerId(input: StripeAccountValidationInput): Promise<{ stripeCustomerId: string }> {
+export async function getStripeCustomerId(
+  input: StripeAccountValidationInput
+): Promise<{ stripeCustomerId: string; stripeAccount: string | undefined }> {
   const { patientId, appointmentId, oystehrClient } = input;
 
-  const patientAccount = await getBillingAccountForPatient(patientId, oystehrClient);
+  const [patientAccountResult, stripeAccountResult] = await Promise.allSettled([
+    getBillingAccountForPatient(patientId, oystehrClient),
+    getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient),
+  ]);
+  if (patientAccountResult.status === 'rejected') throw patientAccountResult.reason;
+  const patientAccount = patientAccountResult.value;
   if (!patientAccount) {
     throw FHIR_RESOURCE_NOT_FOUND('Account');
   }
 
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
+  if (stripeAccountResult.status === 'rejected') throw stripeAccountResult.reason;
+  const stripeAccount = stripeAccountResult.value;
 
   const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount, stripeAccount);
   if (!stripeCustomerId) {
     throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
   }
-  return { stripeCustomerId };
+  return { stripeCustomerId, stripeAccount };
 }
 
 interface PatientAccountCheckInput {

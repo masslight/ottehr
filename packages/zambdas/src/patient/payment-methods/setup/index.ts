@@ -37,12 +37,14 @@ export const index = wrapHandler('payment-setup', async (input: ZambdaInput): Pr
     oystehrClient
   ));
 
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
+  const [stripeAccount, accountResources] = await Promise.all([
+    getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient),
+    getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient),
+  ]);
   console.log('Using stripe account: ', stripeAccount);
 
   const stripeClient = getStripeClient(secrets);
 
-  const accountResources = await getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient);
   const account: Account | undefined = accountResources.account;
 
   if (!account?.id) {

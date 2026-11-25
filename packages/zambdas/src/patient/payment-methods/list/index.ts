@@ -46,9 +46,10 @@ export const index = wrapHandler('payment-list', async (input: ZambdaInput): Pro
 
   const stripeClient = getStripeClient(secrets);
 
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
-
-  const accountResources = await getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient);
+  const [stripeAccount, accountResources] = await Promise.all([
+    getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient),
+    getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient),
+  ]);
   const account: Account | undefined = accountResources.account;
 
   if (!account?.id) {
@@ -60,26 +61,27 @@ export const index = wrapHandler('payment-list', async (input: ZambdaInput): Pro
   // we're performing effect at this point...
   try {
     if (customerId !== undefined) {
-      const customer = await stripeClient.customers.retrieve(
-        customerId,
-        {
-          expand: ['invoice_settings.default_payment_method', 'sources'],
-        },
-        {
-          stripeAccount, // Connected account ID if any
-        }
-      );
-      const paymentMethods = (
-        await stripeClient.customers.listPaymentMethods(
-          customer.id,
+      const [customer, paymentMethodsResponse] = await Promise.all([
+        stripeClient.customers.retrieve(
+          customerId,
+          {
+            expand: ['invoice_settings.default_payment_method', 'sources'],
+          },
+          {
+            stripeAccount, // Connected account ID if any
+          }
+        ),
+        stripeClient.customers.listPaymentMethods(
+          customerId,
           {
             type: 'card',
           },
           {
             stripeAccount, // Connected account ID if any
           }
-        )
-      )?.data;
+        ),
+      ]);
+      const paymentMethods = paymentMethodsResponse?.data;
       console.log('payment methods', paymentMethods, JSON.stringify(customer, null, 2));
       if (
         customer !== undefined &&

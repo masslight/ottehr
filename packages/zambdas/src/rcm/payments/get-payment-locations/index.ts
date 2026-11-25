@@ -32,21 +32,18 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
-  const resources = await oystehr.fhir.search<Location>({
-    resourceType: 'Location',
-    params: [
-      {
-        name: 'status',
-        value: 'active',
-      },
-    ],
-  });
-
-  const allLocations = resources.unbundle();
-
-  // Fetch all terminal config Devices in one query
-  const terminalDevices = (
-    await oystehr.fhir.search<Device>({
+  const [resources, terminalDeviceBundle] = await Promise.all([
+    oystehr.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [
+        {
+          name: 'status',
+          value: 'active',
+        },
+      ],
+    }),
+    // Fetch all terminal config Devices in one query
+    oystehr.fhir.search<Device>({
       resourceType: 'Device',
       params: [
         {
@@ -55,8 +52,11 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         },
         { name: 'status', value: 'active' },
       ],
-    })
-  ).unbundle();
+    }),
+  ]);
+
+  const allLocations = resources.unbundle();
+  const terminalDevices = terminalDeviceBundle.unbundle();
 
   // Build a map from Location ID to terminal location ID and Device ID
   const terminalLocationByLocationId = new Map<string, string>();

@@ -66,20 +66,28 @@ export async function getAllInsurancePayers(
   oystehr: Oystehr,
   prependIdentifier?: boolean
 ): Promise<QuestionnaireItemAnswerOption[]> {
-  console.group('listPayers');
-  const payers = [];
-  let hasMore = true;
-  let nextCursor: string | null = null;
-  while (hasMore) {
-    const result: RcmListPayersResponse = await oystehr.rcm.listPayers({
-      limit: 200,
-      cursor: nextCursor ?? undefined,
-    });
-    payers.push(...result.data);
-    nextCursor = result.metadata.nextCursor;
-    hasMore = !!nextCursor;
-  }
-  console.groupEnd();
+  const [payers, customOrgs] = await Promise.all([
+    (async (): Promise<Organization[]> => {
+      console.group('listPayers');
+      const allPayers: Organization[] = [];
+      let hasMore = true;
+      let nextCursor: string | null = null;
+      while (hasMore) {
+        const result: RcmListPayersResponse = await oystehr.rcm.listPayers({
+          limit: 200,
+          cursor: nextCursor ?? undefined,
+        });
+        allPayers.push(...result.data);
+        nextCursor = result.metadata.nextCursor;
+        hasMore = !!nextCursor;
+      }
+      console.groupEnd();
+      return allPayers;
+    })(),
+    FEATURE_FLAGS_CONFIG.customOrganizationsEnabled
+      ? listCustomInsuranceOrganizations(oystehr, {})
+      : Promise.resolve([]),
+  ]);
 
   let error: APIError | undefined;
   const mappedResults = payers
@@ -104,9 +112,6 @@ export async function getAllInsurancePayers(
   // per-deployment: with the flag off, only Oystehr payers are offered (existing coverages that
   // already reference a custom insurance organization still resolve and display correctly).
   if (FEATURE_FLAGS_CONFIG.customOrganizationsEnabled) {
-    console.group('listCustomInsuranceOrganizations');
-    const customOrgs = await listCustomInsuranceOrganizations(oystehr, {});
-    console.groupEnd();
     mappedResults.push(...customOrgs.map((org) => formatCustomInsuranceOrgAsAnswerOption(org, prependIdentifier)));
   }
 

@@ -1,5 +1,4 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getStripeAccountForAppointmentOrEncounter } from 'utils/lib/fhir/payments';
 import { checkForStripeCustomerDeletedError } from 'utils/lib/types/errors';
 import { getAuth0Token } from '../../../shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../../shared/helpers';
@@ -31,15 +30,13 @@ export const index = wrapHandler('payment-set-default', async (input: ZambdaInpu
     { beneficiaryPatientId, secrets, zambdaInput: input },
     oystehrClient
   ));
-  const { stripeCustomerId } = await complexValidation({
+  const { stripeCustomerId, stripeAccount } = await complexValidation({
     patientId: beneficiaryPatientId,
     appointmentId,
     oystehrClient,
   });
 
   const stripeClient = getStripeClient(secrets);
-
-  const stripeAccount = await getStripeAccountForAppointmentOrEncounter({ appointmentId }, oystehrClient);
 
   try {
     const customer = await stripeClient.customers.update(

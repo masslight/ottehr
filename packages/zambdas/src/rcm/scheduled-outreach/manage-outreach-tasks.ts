@@ -120,22 +120,23 @@ export async function listOutreachTasks(
     tasks = filteredTasks.slice(offset, offset + pageSize);
   } else {
     // Standard FHIR-level pagination
-    const countBundle = await oystehr.fhir.search<Task>({
-      resourceType: 'Task',
-      params: [...baseSearchParams, { name: '_summary', value: 'count' }],
-    });
+    const [countBundle, bundle] = await Promise.all([
+      oystehr.fhir.search<Task>({
+        resourceType: 'Task',
+        params: [...baseSearchParams, { name: '_summary', value: 'count' }],
+      }),
+      oystehr.fhir.search<Task | Patient>({
+        resourceType: 'Task',
+        params: [
+          ...baseSearchParams,
+          { name: '_count', value: String(pageSize) },
+          { name: '_offset', value: String(offset) },
+          { name: '_sort', value: '-_lastUpdated' },
+          { name: '_include', value: 'Task:patient' },
+        ],
+      }),
+    ]);
     totalCount = countBundle.total ?? 0;
-
-    const bundle = await oystehr.fhir.search<Task | Patient>({
-      resourceType: 'Task',
-      params: [
-        ...baseSearchParams,
-        { name: '_count', value: String(pageSize) },
-        { name: '_offset', value: String(offset) },
-        { name: '_sort', value: '-_lastUpdated' },
-        { name: '_include', value: 'Task:patient' },
-      ],
-    });
     const resources = bundle.unbundle();
     tasks = resources.filter((r): r is Task => r.resourceType === 'Task');
     patients = resources.filter((r): r is Patient => r.resourceType === 'Patient');

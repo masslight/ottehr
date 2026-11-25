@@ -1,6 +1,6 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
+import { Encounter, RelatedPerson } from 'fhir/r4b';
 import { decodeJwt, jwtVerify } from 'jose';
 import { getRelatedPersonsForPatient } from 'utils/lib/auth/user-auth.helper';
 import { getAppointmentResourceById, getVirtualServiceResourceExtension } from 'utils/lib/fhir/appointments';
@@ -99,7 +99,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   );
 
   console.log(`getting appointment resource for id ${appointmentId}`);
-  const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentId, oystehr);
+  const [appointment, appointmentVideoEncounter] = await Promise.all([
+    getAppointmentResourceById(appointmentId, oystehr),
+    getVideoEncounterForAppointment(appointmentId, oystehr),
+  ]);
 
   if (!appointment) {
     console.log('Appointment is not found');
@@ -118,7 +121,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     throw new Error(`Appointment resource returned without id for appointment ${appointmentId}`);
   }
 
-  let videoEncounter: Encounter | undefined = await getVideoEncounterForAppointment(appointment.id, oystehr);
+  let videoEncounter: Encounter | undefined = appointmentVideoEncounter;
 
   console.log('Encounter status:', videoEncounter?.status);
 

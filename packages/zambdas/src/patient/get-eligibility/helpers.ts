@@ -24,10 +24,10 @@ export const getInsurancePlansAndOrgs = async (
   planIds: InsuranceIds,
   oystehrClient: Oystehr
 ): Promise<Organization[]> => {
-  const orgs = [
-    await oystehrClient.rcm.getPayer({ id: planIds.primary }),
-    ...(planIds.secondary ? [await oystehrClient.rcm.getPayer({ id: planIds.secondary })] : []),
-  ];
+  const orgs = await Promise.all([
+    oystehrClient.rcm.getPayer({ id: planIds.primary }),
+    ...(planIds.secondary ? [oystehrClient.rcm.getPayer({ id: planIds.secondary })] : []),
+  ]);
 
   return orgs;
 };

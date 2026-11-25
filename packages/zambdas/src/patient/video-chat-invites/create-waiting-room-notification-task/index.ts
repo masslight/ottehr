@@ -119,12 +119,6 @@ export async function performEffect(
   console.groupEnd();
   console.debug('createNewTask success');
 
-  const task = await oystehr.fhir.create(newTask);
-  if (!task.id) {
-    failureResponse.taskNotCreatedReason = 'Failed to create task';
-    return failureResponse;
-  }
-
   const appointmentPatchOperations: Operation[] = [getPatchOperationForNewMetaTag(appointment, notificationSentTag)];
   const encounterPatchOperations: Operation[] = [];
 
@@ -140,6 +134,7 @@ export async function performEffect(
   }
 
   const requests: BatchInputRequest<FhirResource>[] = [
+    { method: 'POST', url: '/Task', resource: newTask },
     getPatchBinary({
       resourceId: appointment.id,
       resourceType: 'Appointment',

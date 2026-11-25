@@ -493,20 +493,40 @@ export const createAppointmentComplexValidation = async (
   let attendingPractitioner: ResolvedAttendingPractitioner | undefined;
 
   const bookingLocationId = resolveBookingLocationId({ scheduleOwner, slot });
+  const bookingLocationIsScheduleOwner =
+    scheduleOwner.resourceType === 'Location' && scheduleOwner.id === bookingLocationId;
+  const practitionerId =
+    scheduleOwner.resourceType === 'PractitionerRole'
+      ? getIdFromReference((scheduleOwner as PractitionerRole).practitioner?.reference)
+      : undefined;
+  const [fetchedBookingLocation, fetchedPractitioner] = await Promise.all([
+    bookingLocationId && !bookingLocationIsScheduleOwner
+      ? oystehrClient.fhir
+          .search<Location>({
+            resourceType: 'Location',
+            params: [{ name: '_id', value: bookingLocationId }],
+          })
+          .then((b) => b.unbundle()[0])
+          .catch(() => undefined)
+      : Promise.resolve(undefined),
+    practitionerId
+      ? oystehrClient.fhir
+          .search<Practitioner>({
+            resourceType: 'Practitioner',
+            params: [{ name: '_id', value: practitionerId }],
+          })
+          .then((b) => b.unbundle()[0])
+          .catch(() => undefined)
+      : Promise.resolve(undefined),
+  ]);
   if (bookingLocationId) {
     let resolved: Location | undefined;
-    if (scheduleOwner.resourceType === 'Location' && scheduleOwner.id === bookingLocationId) {
+    if (bookingLocationIsScheduleOwner) {
       // The Location resource is already in hand as the schedule owner; no
       // need to round-trip the server to re-fetch it.
       resolved = scheduleOwner as Location;
     } else {
-      resolved = await oystehrClient.fhir
-        .search<Location>({
-          resourceType: 'Location',
-          params: [{ name: '_id', value: bookingLocationId }],
-        })
-        .then((b) => b.unbundle()[0])
-        .catch(() => undefined);
+      resolved = fetchedBookingLocation;
     }
     if (resolved && !resolved.id) {
       throw INVALID_INPUT_ERROR(`Resolved booking Location is missing an id (expected ${bookingLocationId})`);
@@ -550,22 +570,12 @@ export const createAppointmentComplexValidation = async (
     throw INVALID_INPUT_ERROR('"locationState" is required for virtual appointments');
   }
 
-  if (scheduleOwner.resourceType === 'PractitionerRole') {
-    const role = scheduleOwner as PractitionerRole;
-    const practitionerId = getIdFromReference(role.practitioner?.reference);
-    if (practitionerId) {
-      const resolved = await oystehrClient.fhir
-        .search<Practitioner>({
-          resourceType: 'Practitioner',
-          params: [{ name: '_id', value: practitionerId }],
-        })
-        .then((b) => b.unbundle()[0])
-        .catch(() => undefined);
-      if (resolved && !resolved.id) {
-        throw INVALID_INPUT_ERROR(`Resolved attending Practitioner is missing an id (expected ${practitionerId})`);
-      }
-      attendingPractitioner = resolved as ResolvedAttendingPractitioner | undefined;
+  if (practitionerId) {
+    const resolved = fetchedPractitioner;
+    if (resolved && !resolved.id) {
+      throw INVALID_INPUT_ERROR(`Resolved attending Practitioner is missing an id (expected ${practitionerId})`);
     }
+    attendingPractitioner = resolved as ResolvedAttendingPractitioner | undefined;
   }
 
   return {

@@ -110,17 +110,31 @@ const performEffect = async (
   const [patchedPaperwork] = await updatePaperworkAndAppointment();
 
   const patientId = patchedPaperwork?.subject?.reference?.replace('Patient/', '') ?? '';
-  try {
-    await createAuditEvent(AuditableZambdaEndpoints.submitPaperwork, oystehr, input, patientId, secrets);
-  } catch (e) {
-    console.log('error writing audit event', JSON.stringify(e, null, 2));
-    captureException(e);
-  }
-
-  if (createReviewTaskAndPdf) {
-    console.log('entering createReviewTaskAndPdf');
-    await handleReviewTaskAndPdf({ questionnaireResponse: patchedPaperwork, oystehr, secrets, oystehrToken: token });
-  }
+  const postSubmitResults = await Promise.allSettled([
+    (async () => {
+      try {
+        await createAuditEvent(AuditableZambdaEndpoints.submitPaperwork, oystehr, input, patientId, secrets);
+      } catch (e) {
+        console.log('error writing audit event', JSON.stringify(e, null, 2));
+        captureException(e);
+      }
+    })(),
+    (async () => {
+      if (createReviewTaskAndPdf) {
+        console.log('entering createReviewTaskAndPdf');
+        await handleReviewTaskAndPdf({
+          questionnaireResponse: patchedPaperwork,
+          oystehr,
+          secrets,
+          oystehrToken: token,
+        });
+      }
+    })(),
+  ]);
+  const postSubmitFailure = postSubmitResults.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected'
+  );
+  if (postSubmitFailure) throw postSubmitFailure.reason;
 
   return patchedPaperwork;
 };

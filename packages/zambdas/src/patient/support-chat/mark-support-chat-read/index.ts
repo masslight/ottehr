@@ -22,9 +22,12 @@ export const index = wrapHandler(
     const { threadId, viewer } = await resolveThread(user, taskId, oystehr);
 
     if (threadId) {
-      if (viewer === 'staff' && taskId) await clearTaskUnread(oystehr, taskId);
-
-      await markThreadRead(oystehr, await searchUnread(oystehr, threadId), viewer);
+      const results = await Promise.allSettled([
+        viewer === 'staff' && taskId ? clearTaskUnread(oystehr, taskId) : Promise.resolve(),
+        searchUnread(oystehr, threadId).then((messages) => markThreadRead(oystehr, messages, viewer)),
+      ]);
+      const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+      if (failure) throw failure.reason;
     }
 
     return { statusCode: 200, body: JSON.stringify({}) };

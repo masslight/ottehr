@@ -33,6 +33,7 @@ import {
 import {
   complexBillingProviderValidation,
   EligibilityCheckPrevalidationStructuredInput,
+  getDefaultBillingProviderResource,
   validateInsuranceRequirements,
 } from './validation';
 
@@ -72,13 +73,16 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
 
   console.log('rps: ', JSON.stringify(rps));
 
-  const [primary, secondary] = await getInsurancePlansAndOrgs(
-    {
-      primary: primaryInsuranceData.insuranceId,
-      secondary: secondaryInsuranceData?.insuranceId,
-    },
-    oystehrClient
-  );
+  const [[primary, secondary], defaultBillingResource] = await Promise.all([
+    getInsurancePlansAndOrgs(
+      {
+        primary: primaryInsuranceData.insuranceId,
+        secondary: secondaryInsuranceData?.insuranceId,
+      },
+      oystehrClient
+    ),
+    getDefaultBillingProviderResource(input.secrets ?? null, oystehrClient),
+  ]);
 
   console.log('primary and secondary insurances: ', primary, secondary);
 
@@ -133,7 +137,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
       { primary, secondary },
       appointmentId ?? '',
       input.secrets ?? null,
-      oystehrClient
+      defaultBillingResource
     );
   } catch (e) {
     console.log('error getting billing provider data', e);

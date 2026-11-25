@@ -1,6 +1,6 @@
 import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, EncounterParticipant, RelatedPerson } from 'fhir/r4b';
+import { Encounter, EncounterParticipant, RelatedPerson } from 'fhir/r4b';
 import { JSONPath } from 'jsonpath-plus';
 import { getAppointmentResourceById } from 'utils/lib/fhir/appointments';
 import { createOystehrClient } from 'utils/lib/helpers/helpers';
@@ -61,7 +61,10 @@ export const index = wrapHandler('cancel-invite', async (input: ZambdaInput): Pr
   );
 
   console.log(`getting appointment resource for id ${appointmentId}`);
-  const appointment: Appointment | undefined = await getAppointmentResourceById(appointmentId, oystehr);
+  const [appointment, encounter] = await Promise.all([
+    getAppointmentResourceById(appointmentId, oystehr),
+    getVideoEncounterForAppointment(appointmentId, oystehr),
+  ]);
   if (!appointment) {
     console.log('Appointment is not found');
     return lambdaResponse(404, { message: 'Appointment is not found' });
@@ -71,7 +74,6 @@ export const index = wrapHandler('cancel-invite', async (input: ZambdaInput): Pr
     throw new Error(`Appointment resource returned without id for appointment ${appointmentId}`);
   }
 
-  const encounter = await getVideoEncounterForAppointment(appointment.id, oystehr);
   if (!encounter || !encounter.id) {
     throw new Error('Encounter not found.'); // 500
   }

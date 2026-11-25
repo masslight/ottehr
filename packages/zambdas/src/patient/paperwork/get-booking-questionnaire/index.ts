@@ -262,7 +262,12 @@ interface EffectInput {
 const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promise<EffectInput> => {
   const { patientId, slotId, userToken, secrets } = input;
 
-  const slot = await oystehr.fhir.get<Slot>({ resourceType: 'Slot', id: slotId });
+  const [slotResult, patientResult] = await Promise.allSettled([
+    oystehr.fhir.get<Slot>({ resourceType: 'Slot', id: slotId }),
+    patientId ? oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId }) : Promise.resolve(undefined),
+  ]);
+  if (slotResult.status === 'rejected') throw slotResult.reason;
+  const slot = slotResult.value;
   if (!slot) {
     throw FHIR_RESOURCE_NOT_FOUND('Slot');
   }
@@ -283,10 +288,8 @@ const complexValidation = async (input: ValidatedInput, oystehr: Oystehr): Promi
     );
   }
 
-  let patient: Patient | undefined;
-  if (patientId) {
-    patient = await oystehr.fhir.get<Patient>({ resourceType: 'Patient', id: patientId });
-  }
+  if (patientResult.status === 'rejected') throw patientResult.reason;
+  let patient: Patient | undefined = patientResult.value;
 
   if (!userToken) {
     patient = undefined;

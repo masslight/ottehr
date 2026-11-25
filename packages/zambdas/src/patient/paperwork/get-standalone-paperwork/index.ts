@@ -77,7 +77,12 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   }
 
   console.log(`getting related questionnaire for QuestionnaireResponse/${questionnaireResponseId}`);
-  const questionnaire = await getQuestionnaireForQR(questionnaireResponse, oystehr);
+  const [questionnaireResult, resourcesResult] = await Promise.allSettled([
+    getQuestionnaireForQR(questionnaireResponse, oystehr),
+    getResources(oystehr, questionnaireResponse),
+  ]);
+  if (questionnaireResult.status === 'rejected') throw questionnaireResult.reason;
+  const questionnaire = questionnaireResult.value;
 
   const isManaged = hasTag(questionnaire, PRACTICE_MANAGED_QUESTIONNAIRE_TAG);
   if (!isManaged) {
@@ -90,7 +95,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
   const allItems = mapQuestionnaireAndValueSetsToItemsList(questionnaire.item ?? [], []);
 
-  const resources = await getResources(oystehr, questionnaireResponse);
+  if (resourcesResult.status === 'rejected') throw resourcesResult.reason;
+  const resources = resourcesResult.value;
   const partialAppointment = getPaperworkSupportingInfoForUserWithAccess(resources);
 
   const updateTimestamp = getLastUpdateTimestampForResource(questionnaireResponse);

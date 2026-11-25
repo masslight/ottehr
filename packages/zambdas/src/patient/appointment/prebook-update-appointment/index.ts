@@ -172,39 +172,47 @@ export const index = wrapHandler('update-appointment', async (input: ZambdaInput
   }
 
   console.log(`updating appointment with id ${appointmentID}`);
-  const updatedAppointment: Appointment = await updateAppointmentTime(
-    fhirAppointment,
-    startTime,
-    endTime,
-    oystehr,
-    slot
-  );
   console.log('getting patient');
-  const fhirPatient: Patient = await oystehr.fhir.get({
-    resourceType: 'Patient',
-    id: getParticipantFromAppointment(updatedAppointment, 'Patient'),
-  });
+  const [updatedAppointmentResult, fhirPatientResult] = await Promise.allSettled([
+    updateAppointmentTime(fhirAppointment, startTime, endTime, oystehr, slot),
+    (async () =>
+      oystehr.fhir.get<Patient>({
+        resourceType: 'Patient',
+        id: getParticipantFromAppointment(fhirAppointment, 'Patient'),
+      }))(),
+  ]);
+  if (updatedAppointmentResult.status === 'rejected') throw updatedAppointmentResult.reason;
+  const updatedAppointment: Appointment = updatedAppointmentResult.value;
+  if (fhirPatientResult.status === 'rejected') throw fhirPatientResult.reason;
+  const fhirPatient: Patient = fhirPatientResult.value;
 
-  if (fhirAppointment.id) {
-    const confirmationTextTask = getTaskResource(
-      TaskIndicator.confirmationMessages,
-      `Send confirmation text for appointment ${getFullestAvailableName(fhirPatient)}`,
-      fhirAppointment.id!
-    );
-    try {
-      await oystehr.fhir.create(confirmationTextTask);
-    } catch (error) {
-      console.error('Error creating confirmation text task:', error);
-      captureException(error);
-    }
-  }
+  const postUpdateResults = await Promise.allSettled([
+    (async () => {
+      if (fhirAppointment.id) {
+        const confirmationTextTask = getTaskResource(
+          TaskIndicator.confirmationMessages,
+          `Send confirmation text for appointment ${getFullestAvailableName(fhirPatient)}`,
+          fhirAppointment.id!
+        );
+        try {
+          await oystehr.fhir.create(confirmationTextTask);
+        } catch (error) {
+          console.error('Error creating confirmation text task:', error);
+          captureException(error);
+        }
+      }
+    })(),
+    createAuditEvent(AuditableZambdaEndpoints.appointmentUpdate, oystehr, input, fhirPatient.id || '', secrets),
+  ]);
+  const postUpdateFailure = postUpdateResults.find(
+    (result): result is PromiseRejectedResult => result.status === 'rejected'
+  );
+  if (postUpdateFailure) throw postUpdateFailure.reason;
 
   const response = {
     message: 'Successfully updated an appointment',
     appointmentID: updatedAppointment.id,
   };
-
-  await createAuditEvent(AuditableZambdaEndpoints.appointmentUpdate, oystehr, input, fhirPatient.id || '', secrets);
 
   // todo 1.10: define an output type for this, as it's actually a very tricky type that is differently shaped
   // depending on whether the slot was unavailable or not
