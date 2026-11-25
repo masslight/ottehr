@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { ActivityDefinition } from 'fhir/r4b';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
-import { ImmunizationQuickPickData } from 'utils/lib/types/api/quick-picks.types';
 import { findCvxVaccine } from 'utils/lib/types/data/immunization/cvx-vaccine-lookup';
 import { IMMUNIZATION_QUICK_PICK_CATEGORY } from '../ehr/shared/quick-pick-categories';
 import { activityDefinitionToQuickPick, QUICK_PICK_TAG_SYSTEM } from '../ehr/shared/quick-pick-helpers';
@@ -9,9 +8,16 @@ import { activityDefinitionToQuickPick, QUICK_PICK_TAG_SYSTEM } from '../ehr/sha
 export interface ImmunizationQuickPickDeletion {
   found: number;
   kept: number;
-  unreadable: number;
   deleted: number;
   failed: number;
+}
+
+function vaccineIdOf(quickPick: ActivityDefinition): string | undefined {
+  try {
+    return activityDefinitionToQuickPick(quickPick, IMMUNIZATION_QUICK_PICK_CATEGORY).vaccine?.id;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function deleteImmunizationQuickPicks(
@@ -25,26 +31,13 @@ export async function deleteImmunizationQuickPicks(
     },
     oystehr
   );
-  const result: ImmunizationQuickPickDeletion = {
-    found: quickPicks.length,
-    kept: 0,
-    unreadable: 0,
-    deleted: 0,
-    failed: 0,
-  };
+  const result: ImmunizationQuickPickDeletion = { found: quickPicks.length, kept: 0, deleted: 0, failed: 0 };
   for (const quickPick of quickPicks) {
-    let vaccine: ImmunizationQuickPickData['vaccine'];
-    try {
-      ({ vaccine } = activityDefinitionToQuickPick(quickPick, IMMUNIZATION_QUICK_PICK_CATEGORY));
-    } catch (error) {
-      result.unreadable += 1;
-      console.error(`unreadable quick pick ActivityDefinition/${quickPick.id}`, error);
-      continue;
-    }
+    const vaccineId = vaccineIdOf(quickPick);
     const label = `"${quickPick.title}" (ActivityDefinition/${quickPick.id}, ${quickPick.status}, vaccine ${
-      vaccine?.id ?? 'none'
+      vaccineId ?? 'none'
     })`;
-    if (!vaccine?.id || findCvxVaccine(vaccine.id)) {
+    if (findCvxVaccine(vaccineId)) {
       result.kept += 1;
       console.log(`keeping ${label}`);
       continue;

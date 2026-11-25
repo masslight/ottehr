@@ -54,59 +54,35 @@ describe('deleteImmunizationQuickPicks', () => {
   it('deletes nothing on a dry run', async () => {
     const { oystehr, del } = mockOystehr();
 
-    expect(await deleteImmunizationQuickPicks(oystehr, true)).toEqual({
-      found: 4,
-      kept: 2,
-      unreadable: 0,
-      deleted: 0,
-      failed: 0,
-    });
+    expect(await deleteImmunizationQuickPicks(oystehr, true)).toEqual({ found: 4, kept: 1, deleted: 0, failed: 0 });
     expect(del).not.toHaveBeenCalled();
   });
 
-  it('deletes the quick picks saved against a vaccine that is not in the CVX list', async () => {
+  it('deletes every quick pick that is not on a CVX vaccine, removed ones and ones without a vaccine included', async () => {
     const { oystehr, del } = mockOystehr();
 
-    expect(await deleteImmunizationQuickPicks(oystehr, false)).toEqual({
-      found: 4,
-      kept: 2,
-      unreadable: 0,
-      deleted: 2,
-      failed: 0,
-    });
+    expect(await deleteImmunizationQuickPicks(oystehr, false)).toEqual({ found: 4, kept: 1, deleted: 3, failed: 0 });
     expect(del.mock.calls).toEqual([
       [{ resourceType: 'ActivityDefinition', id: 'legacy' }],
       [{ resourceType: 'ActivityDefinition', id: 'legacy-removed' }],
+      [{ resourceType: 'ActivityDefinition', id: 'no-vaccine' }],
     ]);
   });
 
-  it('leaves a quick pick whose config cannot be read and counts it as unreadable', async () => {
+  it('deletes a quick pick whose config cannot be read', async () => {
     const { oystehr, del } = mockOystehr();
     getAllFhirSearchPages.mockResolvedValue([
-      { ...LEGACY, id: 'broken', extension: [{ url: QUICK_PICK_CONFIG_EXTENSION_URL, valueString: '{' }] },
-      LEGACY,
+      { ...ON_CVX, id: 'broken', extension: [{ url: QUICK_PICK_CONFIG_EXTENSION_URL, valueString: '{' }] },
     ]);
 
-    expect(await deleteImmunizationQuickPicks(oystehr, false)).toEqual({
-      found: 2,
-      kept: 0,
-      unreadable: 1,
-      deleted: 1,
-      failed: 0,
-    });
-    expect(del.mock.calls).toEqual([[{ resourceType: 'ActivityDefinition', id: 'legacy' }]]);
+    expect(await deleteImmunizationQuickPicks(oystehr, false)).toEqual({ found: 1, kept: 0, deleted: 1, failed: 0 });
+    expect(del.mock.calls).toEqual([[{ resourceType: 'ActivityDefinition', id: 'broken' }]]);
   });
 
   it('counts the quick picks that fail to delete', async () => {
     const { oystehr, del } = mockOystehr();
     del.mockRejectedValueOnce(new Error('boom'));
 
-    expect(await deleteImmunizationQuickPicks(oystehr, false)).toEqual({
-      found: 4,
-      kept: 2,
-      unreadable: 0,
-      deleted: 1,
-      failed: 1,
-    });
+    expect(await deleteImmunizationQuickPicks(oystehr, false)).toEqual({ found: 4, kept: 1, deleted: 2, failed: 1 });
   });
 });
