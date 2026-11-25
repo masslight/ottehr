@@ -244,7 +244,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = ({ onF
     e.preventDefault();
     setSubmitting(true);
 
-    // Diagnosis is optional at order time — it is captured when the preliminary read is saved.
     const paramsSatisfied = orderCpt && encounter.id && clinicalHistory && clinicalHistory.length <= 255;
 
     if (oystehrZambda && paramsSatisfied && encounter.id) {
