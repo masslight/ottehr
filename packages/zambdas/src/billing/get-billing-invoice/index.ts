@@ -104,11 +104,13 @@ export async function performEffect({
   const [claims, notices, pdfUrl] = await Promise.all([
     fetchInvoiceClaimLines(oystehr, invoice),
     fetchInvoicePaymentNotices(oystehr, [invoiceId]),
-    findInvoicePdfDownloadUrl({
-      oystehr,
-      invoiceId,
-      secrets,
-    }),
+    invoice.status === 'cancelled'
+      ? undefined
+      : findInvoicePdfDownloadUrl({
+          oystehr,
+          invoiceId,
+          secrets,
+        }),
   ]);
   const organization = resources.find(
     (resource): resource is Organization =>

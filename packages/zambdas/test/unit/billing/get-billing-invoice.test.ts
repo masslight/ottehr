@@ -474,6 +474,26 @@ describe('get-billing-invoice', () => {
     expect(result.pdfUrl).toBeUndefined();
   });
 
+  it('leaves the PDF link out of a void invoice, so a refetch after a void cannot download it', async () => {
+    const { oystehr } = setup({
+      invoices: [
+        {
+          ...nioInvoice(),
+          status: 'cancelled',
+        },
+      ],
+    });
+
+    const result = await performEffect({
+      oystehr,
+      invoiceId: INVOICE_ID,
+      secrets,
+      today: TODAY,
+    });
+
+    expect(result.pdfUrl).toBeUndefined();
+  });
+
   it('refuses a patient invoice, whose Stripe payments it cannot see', async () => {
     const { oystehr } = setup({
       invoices: [
