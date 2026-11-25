@@ -93,6 +93,11 @@ export async function performEffect({
       now,
     });
     ({ invoice, notices } = await readInvoice(oystehr, invoiceId));
+    if (invoice.status === 'cancelled') {
+      return {
+        ok: true,
+      };
+    }
   }
   assertInvoiceIsVoidable(invoice, notices);
 

@@ -337,6 +337,26 @@ describe('void-billing-nio-invoice', () => {
     expect(transaction).toHaveBeenCalled();
   });
 
+  it('succeeds when another void landed while the reservation was settled', async () => {
+    const { oystehr, transaction } = setup({
+      reads: [
+        {
+          invoice: reservedInvoice(),
+        },
+        {
+          invoice: nioInvoice({
+            status: 'cancelled',
+          }),
+        },
+      ],
+    });
+
+    await expect(voidInvoice(oystehr)).resolves.toEqual({
+      ok: true,
+    });
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('refuses when a card payment is reserved after the reservation was settled', async () => {
     const { oystehr, transaction } = setup({
       reads: [
