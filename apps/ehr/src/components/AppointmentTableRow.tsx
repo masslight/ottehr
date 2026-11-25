@@ -4,14 +4,13 @@ import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
-import { LoadingButton } from '@mui/lab';
 import {
   Badge,
   Box,
   Button,
   capitalize,
   darken,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   MenuItem,
   Stack,
@@ -589,7 +588,7 @@ export default function AppointmentTableRow({
     loading = primaryActionButtonLoading
   ): ReactElement => {
     return (
-      <LoadingButton
+      <Button
         data-testid={dataTestId}
         onClick={() => void onClick()}
         loading={loading}
@@ -604,7 +603,7 @@ export default function AppointmentTableRow({
         }}
       >
         {text}
-      </LoadingButton>
+      </Button>
     );
   };
 
@@ -775,7 +774,7 @@ export default function AppointmentTableRow({
   const renderArrivedButton = (): ReactElement | undefined => {
     if (tab === 'prebooked' && !isVirtual(appointment)) {
       return (
-        <LoadingButton
+        <Button
           data-testid={dataTestIds.dashboard.arrivedButton}
           onClick={handleArrivedClick}
           loading={arrivedStatusSaving}
@@ -788,7 +787,7 @@ export default function AppointmentTableRow({
           }}
         >
           Arrived
-        </LoadingButton>
+        </Button>
       );
     }
     return undefined;

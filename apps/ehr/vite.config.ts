@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { defineConfig, loadEnv, UserConfig } from 'vite';
 import svgr from 'vite-plugin-svgr';
 import { devStampRestartPlugin } from '../../vite/dev-stamp-restart';
+import { keepMuiIconTestIds } from '../../vite/keep-mui-icon-test-ids';
 import { adHocReportRuntime } from './adhoc-report-runtime-plugin';
 
 const coreRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -17,7 +18,7 @@ export default ({ mode }: { mode: string }): UserConfig => {
   const envDir = './env';
   const env = loadEnv(mode, path.join(process.cwd(), envDir), '');
 
-  const plugins = [devStampRestartPlugin(coreRoot), react(), svgr(), adHocReportRuntime()];
+  const plugins = [devStampRestartPlugin(coreRoot), keepMuiIconTestIds(), react(), svgr(), adHocReportRuntime()];
 
   const shouldUploadSentrySourceMaps =
     Boolean(env.SENTRY_AUTH_TOKEN) && Boolean(env.SENTRY_ORG) && Boolean(env.SENTRY_PROJECT);

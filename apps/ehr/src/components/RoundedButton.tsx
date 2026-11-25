@@ -1,5 +1,4 @@
-import { LoadingButton } from '@mui/lab';
-import { ButtonProps, styled } from '@mui/material';
+import { Button, ButtonProps, styled } from '@mui/material';
 import { Link } from 'react-router-dom';
 
 export const RoundedButton = styled(
@@ -13,7 +12,7 @@ export const RoundedButton = styled(
       'data-testid'?: string;
     }
   ) => (
-    <LoadingButton
+    <Button
       variant="outlined"
       size="large"
       loadingPosition={props.loadingPosition || 'center'}

@@ -1,4 +1,4 @@
-import { Box, Grid, Paper, Typography } from '@mui/material';
+import { Box, GridLegacy as Grid, Paper, Typography } from '@mui/material';
 import React from 'react';
 import { ReportsMenu } from 'src/components/ReportsMenu';
 import PageContainer from '../../layout/PageContainer';

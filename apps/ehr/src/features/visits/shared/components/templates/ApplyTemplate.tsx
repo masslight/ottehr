@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Box,
@@ -389,7 +388,7 @@ export const ApplyTemplate: React.FC = () => {
           >
             {showOverwriteConfirm ? 'Back' : 'Cancel'}
           </Button>
-          <LoadingButton
+          <Button
             variant="contained"
             onClick={handleSaveTemplate}
             sx={buttonSx}
@@ -397,7 +396,7 @@ export const ApplyTemplate: React.FC = () => {
             disabled={!newTemplateName.trim()}
           >
             {showOverwriteConfirm ? 'Replace' : 'Save'}
-          </LoadingButton>
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

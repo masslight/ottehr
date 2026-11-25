@@ -139,7 +139,7 @@ describe('NonInsuranceOrganizationsList', () => {
     const dialog = within(screen.getByRole('dialog'));
 
     await user.type(dialog.getByLabelText('Organization Name *'), 'UPS');
-    await user.click(dialog.getByRole('checkbox', { name: 'Employer' }));
+    await user.click(dialog.getByRole('switch', { name: 'Employer' }));
 
     await user.click(dialog.getByRole('checkbox', { name: 'Other' }));
     await user.type(dialog.getByLabelText('Name'), 'Medical Clearance');

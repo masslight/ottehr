@@ -1,7 +1,7 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Box,
+  Button,
   FormControl,
   FormControlLabel,
   FormLabel,
@@ -141,7 +141,7 @@ export default function CreateProviderGroupPage(): ReactElement {
               />
             )}
 
-            <LoadingButton
+            <Button
               type="submit"
               loading={loading}
               variant="contained"
@@ -149,7 +149,7 @@ export default function CreateProviderGroupPage(): ReactElement {
               disabled={!canSubmit}
             >
               Create group
-            </LoadingButton>
+            </Button>
             <Typography variant="caption" color="text.secondary">
               Services, members, and the booking link are configured on the next page.
             </Typography>

@@ -1,13 +1,13 @@
 import * as defaults from '@ehrDefaultTheme/index';
 import * as customTheme from '@ehrTheme/index';
 import { createTheme, ThemeProvider } from '@mui/material';
-import { TypographyOptions } from '@mui/material/styles/createTypography';
+import { TypographyVariantsOptions } from '@mui/material/styles';
 import React from 'react';
 
 const textFonts = ['Rubik', 'sans-serif'];
 const headerFonts = ['Rubik', 'sans-serif'];
 
-const typography: TypographyOptions = {
+const typography: TypographyVariantsOptions = {
   fontFamily: textFonts.join(','),
   fontWeightMedium: 500,
   // Headers. Gotta have the "!important" in the fontWeight.

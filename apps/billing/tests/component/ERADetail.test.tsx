@@ -55,7 +55,7 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
         field: string;
         headerName?: string;
         renderCell?: (params: unknown) => ReactNode;
-        valueFormatter?: (params: { value: unknown }) => ReactNode;
+        valueFormatter?: (value: unknown) => ReactNode;
       }[];
       getRowId?: (row: Record<string, unknown>) => string;
       onRowClick?: (params: { row: Record<string, unknown>; id: string }) => void;
@@ -74,7 +74,7 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => {
                     {col.renderCell
                       ? col.renderCell({ value, row, id })
                       : col.valueFormatter
-                      ? col.valueFormatter({ value })
+                      ? col.valueFormatter(value)
                       : (value as ReactNode)}
                   </span>
                 );

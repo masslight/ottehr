@@ -72,7 +72,8 @@ const columns: GridColDef<Encounter>[] = [
     field: 'dateTime',
     headerName: 'Date & Time',
     flex: 1,
-    valueGetter: ({ row: { period } }) => period?.start || null,
+    valueGetter: (_value, row) => row.period?.start || null,
+    display: 'flex',
     renderCell: ({ value }) => {
       if (!value) return '-';
       return formatISOStringToDateAndTime(value);
@@ -83,6 +84,7 @@ const columns: GridColDef<Encounter>[] = [
     field: 'type',
     headerName: 'Type',
     flex: 1,
+    display: 'flex',
     renderCell: ({ row: { type } }) => {
       const typeCoding = type?.find(
         (t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
@@ -99,6 +101,7 @@ const columns: GridColDef<Encounter>[] = [
     field: 'reason',
     headerName: 'Reason',
     flex: 1,
+    display: 'flex',
     renderCell: ({ row: { reasonCode } }) => {
       if (!reasonCode) {
         return;
@@ -112,6 +115,7 @@ const columns: GridColDef<Encounter>[] = [
     field: 'answered',
     headerName: 'Answered',
     flex: 1,
+    display: 'flex',
     renderCell: ({ row: { participant } }) => {
       const answered = participant?.find(
         (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.answeredUrl))
@@ -125,6 +129,7 @@ const columns: GridColDef<Encounter>[] = [
     field: 'caller',
     headerName: 'Caller',
     flex: 1,
+    display: 'flex',
     renderCell: ({ row: { participant } }) => {
       const caller = participant?.find(
         (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.callerUrl))
@@ -138,6 +143,7 @@ const columns: GridColDef<Encounter>[] = [
     field: 'status',
     headerName: 'Status',
     flex: 0.5,
+    display: 'flex',
     renderCell: ({ row: { status } }) => {
       if (!status) {
         return;

@@ -2,7 +2,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   FormControl,
-  Grid,
+  GridLegacy as Grid,
   InputLabel,
   MenuItem,
   Paper,

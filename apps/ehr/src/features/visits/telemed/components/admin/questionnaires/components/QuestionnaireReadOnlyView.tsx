@@ -1,6 +1,6 @@
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
-import { Alert, Box, Grid, Paper, TextField, Typography } from '@mui/material';
+import { Alert, Box, GridLegacy as Grid, Paper, TextField, Typography } from '@mui/material';
 import { Questionnaire } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useState } from 'react';

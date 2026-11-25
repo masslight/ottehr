@@ -52,7 +52,7 @@ const currencyCol = (field: string, headerName: string, width = 130): GridColDef
   width,
   align: 'right',
   headerAlign: 'right',
-  valueFormatter: (params: { value: number }) => formatCurrency(params.value),
+  valueFormatter: (value: number) => formatCurrency(value),
 });
 
 const payerColumns: GridColDef[] = [
@@ -69,10 +69,10 @@ const payerColumns: GridColDef[] = [
     width: 100,
     align: 'right',
     headerAlign: 'right',
-    valueGetter: (params) => {
-      const row = params.row as NetCollectionsPayerRow;
+    valueGetter: (_value, row: NetCollectionsPayerRow) => {
       return row.expected > 0 ? (row.paid / row.expected) * 100 : null;
     },
+    display: 'flex',
     renderCell: (params) => {
       const rate = params.value as number | null;
       return (

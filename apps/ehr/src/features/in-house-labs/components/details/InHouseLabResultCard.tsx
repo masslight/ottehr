@@ -1,7 +1,6 @@
 import { otherColors } from '@ehrTheme/colors';
 import { WarningAmberOutlined } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
-import { Box, Divider, Paper, Typography } from '@mui/material';
+import { Box, Button, Divider, Paper, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { enqueueSnackbar } from 'notistack';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -171,7 +170,7 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
           {shouldShowButton && (
             <Box display="flex" justifyContent="flex-end" sx={{ p: '16px 24px' }}>
               <Box textAlign="end">
-                <LoadingButton
+                <Button
                   data-testid={dataTestIds.performTestPage.submitButton}
                   variant="contained"
                   color="primary"
@@ -181,7 +180,7 @@ export const InHouseLabResultCard: React.FC<InHouseLabResultCardProps> = ({
                   sx={{ borderRadius: '50px', px: 4, textTransform: 'none' }}
                 >
                   {entryMode === EntryMode.Initial ? 'Submit' : 'Save changes'}
-                </LoadingButton>
+                </Button>
                 {error &&
                   error.length > 0 &&
                   error.map((msg, idx) => (

@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
 import { ReactElement } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -34,7 +33,7 @@ export default function EMCodeDeleteDialog({ code, onClose }: EMCodeDeleteDialog
         >
           Cancel
         </Button>
-        <LoadingButton
+        <Button
           loading={deleteMutation.isPending}
           onClick={handleConfirm}
           color="error"
@@ -42,7 +41,7 @@ export default function EMCodeDeleteDialog({ code, onClose }: EMCodeDeleteDialog
           data-testid={dataTestIds.emCodesAdminPage.confirmDeleteButton}
         >
           Delete
-        </LoadingButton>
+        </Button>
       </DialogActions>
     </Dialog>
   );

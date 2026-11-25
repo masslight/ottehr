@@ -1,5 +1,4 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Button,
@@ -223,14 +222,14 @@ export const AddressBookDialog: FC<AddressBookDialogProps> = ({
               </ConfirmationDialog>
             )}
             <Button onClick={onClose}>Cancel</Button>
-            <LoadingButton
+            <Button
               type="submit"
               variant="contained"
               loading={createMutation.isPending || updateMutation.isPending}
               data-testid={dataTestIds.addressBook.saveContactButton}
             >
               Save
-            </LoadingButton>
+            </Button>
           </DialogActions>
         </form>
       </FormProvider>

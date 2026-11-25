@@ -18,7 +18,8 @@ export const EmployeeSearch: FC<EmployeeSearchProps> = ({ employees, loading, di
       options={employees}
       value={null}
       inputValue={inputValue}
-      onInputChange={(_event, value, reason) => setInputValue(reason === 'reset' ? '' : value)}
+      // keeps what the user types or clears; picking an option and blurring empty the field
+      onInputChange={(_event, value, reason) => setInputValue(reason === 'input' || reason === 'clear' ? value : '')}
       onChange={(_event, employee) => {
         if (employee) {
           setInputValue('');

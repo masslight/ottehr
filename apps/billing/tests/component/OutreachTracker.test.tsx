@@ -26,14 +26,14 @@ vi.mock('@mui/x-data-grid-pro', async (importOriginal) => ({
     columns: {
       field: string;
       renderCell?: (params: { row: BillingOutreachTask; value: ReactNode }) => ReactNode;
-      valueGetter?: (params: { row: BillingOutreachTask }) => ReactNode;
+      valueGetter?: (value: undefined, row: BillingOutreachTask) => ReactNode;
     }[];
   }) => (
     <div>
       {rows.map((row) => (
         <div key={row.id} data-testid={`row-${row.id}`}>
           {columns.map((column) => {
-            const value = column.valueGetter?.({ row });
+            const value = column.valueGetter?.(undefined, row);
             return <span key={column.field}>{column.renderCell?.({ row, value }) ?? value}</span>;
           })}
         </div>

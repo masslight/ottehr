@@ -1,4 +1,3 @@
-import { LoadingButton } from '@mui/lab';
 import {
   Button,
   Dialog,
@@ -236,14 +235,14 @@ export const PreCallSettingsDialog: FC<PreCallSettingsDialogProps> = ({ open, on
         <Button onClick={onClose} variant="text" disabled={isConnecting} sx={{ marginRight: 1 }}>
           Cancel
         </Button>
-        <LoadingButton
+        <Button
           loading={isConnecting}
           onClick={() => void handleConnect()}
           variant="contained"
           data-testid={dataTestIds.dialog.proceedButton}
         >
           Connect to Patient
-        </LoadingButton>
+        </Button>
       </DialogActions>
     </Dialog>
   );

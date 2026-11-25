@@ -1,6 +1,6 @@
 import SearchIcon from '@mui/icons-material/Search';
 import {
-  Grid,
+  GridLegacy as Grid,
   Paper,
   Skeleton,
   Table,

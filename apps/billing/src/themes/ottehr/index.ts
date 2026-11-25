@@ -1,10 +1,10 @@
 import { createTheme } from '@mui/material';
-import { TypographyOptions } from '@mui/material/styles/createTypography';
+import { TypographyVariantsOptions } from '@mui/material/styles';
 import { palette } from 'utils/lib/theme/billing-palette';
 
 const fontFamily = ['Rubik', 'sans-serif'].join(',');
 
-const typography: TypographyOptions = {
+const typography: TypographyVariantsOptions = {
   fontFamily,
   fontWeightMedium: 500,
   h1: { fontSize: 42, fontWeight: '500 !important', fontFamily, lineHeight: '140%' },

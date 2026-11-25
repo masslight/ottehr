@@ -1,11 +1,10 @@
 import { RefreshRounded } from '@mui/icons-material';
-import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
   Chip,
   CircularProgress,
-  Grid,
+  GridLegacy as Grid,
   IconButton,
   LinearProgress,
   Paper,
@@ -947,7 +946,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             Cancel
           </Button>
         ) : (
-          <LoadingButton
+          <Button
             data-testid={dataTestIds.insuranceContainer.removeButton}
             onClick={handleRemoveInsurance}
             variant="text"
@@ -965,7 +964,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
             }}
           >
             Remove This Insurance
-          </LoadingButton>
+          </Button>
         )}
       </Box>
 

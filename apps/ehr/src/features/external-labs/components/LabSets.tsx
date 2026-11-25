@@ -1,7 +1,16 @@
 import CloseIcon from '@mui/icons-material/Close';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
-import { LoadingButton } from '@mui/lab';
-import { Box, Dialog, DialogContent, DialogTitle, Divider, Grid, IconButton, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  GridLegacy as Grid,
+  IconButton,
+  Typography,
+} from '@mui/material';
 import Oystehr from '@oystehr/sdk';
 import { FC, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
@@ -107,7 +116,7 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
                       ))}
                 </Grid>
                 <Grid item xs={3} sx={{ textAlign: 'right' }}>
-                  <LoadingButton
+                  <Button
                     data-testid={`${dataTestIds.commonLabOrder.labSets.selectionModal}-${set.listId}`}
                     loading={loadingId === set.listId}
                     variant="contained"
@@ -117,7 +126,7 @@ export const LabSets: FC<LabSetsProps> = ({ labSets, setSelectedLabs }) => {
                     }}
                   >
                     Select
-                  </LoadingButton>
+                  </Button>
                 </Grid>
               </Grid>
               {idx < labSets.length - 1 && <Divider sx={{ my: 2 }} />}

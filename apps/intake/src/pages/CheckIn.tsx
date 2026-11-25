@@ -1,7 +1,7 @@
 import { CheckCircle } from '@mui/icons-material';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Box, Button, Chip, CircularProgress, Grid, Typography } from '@mui/material';
+import { Box, Button, Chip, CircularProgress, GridLegacy as Grid, Typography } from '@mui/material';
 import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
