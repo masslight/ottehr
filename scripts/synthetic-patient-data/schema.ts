@@ -443,7 +443,7 @@ const RadiologyOrderSchema = z
 
 const ImmunizationOrderSchema = z
   .object({
-    vaccineName: z.string().describe('Stage 2 resolves to medication formulary item'),
+    vaccineName: z.string().describe('Stage 2 resolves to a vaccine in the CVX list by name'),
     dose: z.string(),
     units: z.string(),
     route: z.string().optional(),

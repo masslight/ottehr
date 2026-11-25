@@ -112,8 +112,7 @@ async function main(): Promise<void> {
     }
   }
 
-  // Medications (vaccines + others)
-  section('Medications (vaccine catalog and other formulary items)');
+  section('Medications (formulary items)');
   const medications = (
     await oystehr.fhir.search<Medication>({
       resourceType: 'Medication',
