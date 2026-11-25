@@ -148,6 +148,7 @@ import {
   defaultCoverageFormValues,
 } from '../constants/coverage';
 import { invoicePaymentMethodLabel } from '../constants/invoice';
+import { paymentStatusLabel } from '../constants/payment';
 import { useApiClients } from '../hooks/useAppClients';
 import { useCoverage } from '../hooks/useCoverage';
 import { useFacilityOptionsSearch, useProviderOptionsSearch } from '../hooks/useOptionSearch';
@@ -2035,7 +2036,7 @@ function PatientPaymentsSection({ payments }: { payments: ClaimDetailResponse['p
                   <TableCell>{payment.method || '-'}</TableCell>
                   <TableCell>{payment.description || '-'}</TableCell>
                   <TableCell>{payment.checkNumber || '-'}</TableCell>
-                  <TableCell>{payment.status || '-'}</TableCell>
+                  <TableCell>{paymentStatusLabel(payment) || '-'}</TableCell>
                   <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
                 </TableRow>
               ))}
@@ -2082,7 +2083,7 @@ function NioPaymentsSection({ payments }: { payments: ClaimDetailResponse['nioPa
                       '-'
                     )}
                   </TableCell>
-                  <TableCell>{payment.status || '-'}</TableCell>
+                  <TableCell>{paymentStatusLabel(payment) || '-'}</TableCell>
                   <TableCell align="right">{formatCurrency(payment.amount)}</TableCell>
                 </TableRow>
               ))}
