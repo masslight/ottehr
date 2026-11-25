@@ -50,34 +50,45 @@ describe('search-billing-claims search text', () => {
     renderingFamily = `${unique}RenderingFam`;
     billingOrgName = `${unique} Billing Group`;
 
-    patientId = await seed<Patient>({
-      resourceType: 'Patient',
-      active: true,
-      name: [
-        {
-          family: patientFamily,
-          given: [patientGiven],
-        },
-      ],
-      birthDate: '1990-01-01',
-    });
-
-    practitionerId = await seed<Practitioner>({
-      resourceType: 'Practitioner',
-      active: true,
-      name: [
-        {
-          family: renderingFamily,
-          given: ['Rendering'],
-        },
-      ],
-    });
-
-    organizationId = await seed<Organization>({
-      resourceType: 'Organization',
-      active: true,
-      name: billingOrgName,
-    });
+    [patientId, practitionerId, organizationId, claimPatientId] = await Promise.all([
+      seed<Patient>({
+        resourceType: 'Patient',
+        active: true,
+        name: [
+          {
+            family: patientFamily,
+            given: [patientGiven],
+          },
+        ],
+        birthDate: '1990-01-01',
+      }),
+      seed<Practitioner>({
+        resourceType: 'Practitioner',
+        active: true,
+        name: [
+          {
+            family: renderingFamily,
+            given: ['Rendering'],
+          },
+        ],
+      }),
+      seed<Organization>({
+        resourceType: 'Organization',
+        active: true,
+        name: billingOrgName,
+      }),
+      seed<Patient>({
+        resourceType: 'Patient',
+        active: true,
+        name: [
+          {
+            family: patientFamily,
+            given: [patientGiven],
+          },
+        ],
+        birthDate: '1990-01-01',
+      }),
+    ]);
 
     const claimBase = {
       resourceType: 'Claim' as const,
@@ -111,80 +122,67 @@ describe('search-billing-claims search text', () => {
       ],
     };
 
-    claimPatientId = await seed<Patient>({
-      resourceType: 'Patient',
-      active: true,
-      name: [
-        {
-          family: patientFamily,
-          given: [patientGiven],
-        },
-      ],
-      birthDate: '1990-01-01',
-    });
-
-    await seed<Person>({
-      resourceType: 'Person',
-      link: [
-        {
-          target: {
-            reference: `Patient/${patientId}`,
-          },
-        },
-        {
-          target: {
-            reference: `Patient/${claimPatientId}`,
-          },
-        },
-      ],
-    });
-
-    // The claim every name and id search should find. No PCN identifier, so its PCN is its own id
-    // with the dashes stripped.
-    const claimId = await seed<Claim>({
-      ...claimBase,
-      patient: {
-        reference: `Patient/${claimPatientId}`,
-      },
-      provider: {
-        reference: `Organization/${organizationId}`,
-      },
-      careTeam: [
-        {
-          sequence: 1,
-          provider: {
-            reference: `Practitioner/${practitionerId}`,
-          },
-        },
-      ],
-      meta: {
-        tag: [
+    const [, claimId, pcnClaimId] = await Promise.all([
+      seed<Person>({
+        resourceType: 'Person',
+        link: [
           {
-            system: CLAIM_STATUS_TAG_SYSTEMS.arStage,
-            code: AR_STAGE.insurancePayer,
+            target: {
+              reference: `Patient/${patientId}`,
+            },
+          },
+          {
+            target: {
+              reference: `Patient/${claimPatientId}`,
+            },
           },
         ],
-      },
-    } as Claim);
-    createdClaimIds.push(claimId);
-
-    // A second claim carrying an explicit patient control number, for the identifier clause.
-    const pcnClaimId = await seed<Claim>({
-      ...claimBase,
-      identifier: [
-        {
-          system: CLAIM_PCN_IDENTIFIER_SYSTEM,
-          value: `${customPcn}-${unique}`,
+      }),
+      // The claim every name and id search should find. No PCN identifier, so its PCN is its own id
+      // with the dashes stripped.
+      seed<Claim>({
+        ...claimBase,
+        patient: {
+          reference: `Patient/${claimPatientId}`,
         },
-      ],
-      patient: {
-        display: 'Unrelated',
-      },
-      provider: {
-        display: 'Unknown',
-      },
-    } as Claim);
-    createdClaimIds.push(pcnClaimId);
+        provider: {
+          reference: `Organization/${organizationId}`,
+        },
+        careTeam: [
+          {
+            sequence: 1,
+            provider: {
+              reference: `Practitioner/${practitionerId}`,
+            },
+          },
+        ],
+        meta: {
+          tag: [
+            {
+              system: CLAIM_STATUS_TAG_SYSTEMS.arStage,
+              code: AR_STAGE.insurancePayer,
+            },
+          ],
+        },
+      } as Claim),
+      // A second claim carrying an explicit patient control number, for the identifier clause.
+      seed<Claim>({
+        ...claimBase,
+        identifier: [
+          {
+            system: CLAIM_PCN_IDENTIFIER_SYSTEM,
+            value: `${customPcn}-${unique}`,
+          },
+        ],
+        patient: {
+          display: 'Unrelated',
+        },
+        provider: {
+          display: 'Unknown',
+        },
+      } as Claim),
+    ]);
+    createdClaimIds.push(claimId, pcnClaimId);
   }, 120_000);
 
   afterAll(async () => {

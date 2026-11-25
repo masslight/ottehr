@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { Encounter, Group, Practitioner } from 'fhir/r4b';
 import { M2MClientMockType } from 'utils/lib/auth/user-me.helper';
 import { EMPLOYEE_CHAT_PAIR_SYSTEM } from 'utils/lib/types/api/employee-chat.types';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, assert, beforeAll, describe, expect, it, vi } from 'vitest';
 import { listEmployeeChats } from '../../src/ehr/get-employee-chats';
@@ -17,7 +18,9 @@ import {
   selectCanonicalGroup,
   withConversation,
 } from '../../src/ehr/shared/employee-chat';
-import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+import { deleteResourcesBestEffort, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+
+const CLEANUP_SEARCH_CONCURRENCY = 5;
 
 const resolveSid = async (...args: Parameters<typeof resolveEmployeeChat>): Promise<string> =>
   (await resolveEmployeeChat(...args)).conversationSid;
@@ -80,13 +83,11 @@ describe('employee chat pair resolution', () => {
     cleanup = setup.cleanup;
     processId = setup.processId;
 
-    for (const [key, given] of [
-      ['alice', 'Alice'],
-      ['bob', 'Bob'],
-      ['carol', 'Carol'],
-    ] as const) {
-      practitioners[key] = await createPractitioner(given);
-    }
+    [practitioners.alice, practitioners.bob, practitioners.carol] = await Promise.all([
+      createPractitioner('Alice'),
+      createPractitioner('Bob'),
+      createPractitioner('Carol'),
+    ]);
 
     createSpy = vi.spyOn(oystehr.conversation, 'create').mockImplementation(async ({ encounter }) => {
       const created = await oystehr.fhir.create<Encounter>({
@@ -112,8 +113,8 @@ describe('employee chat pair resolution', () => {
     createSpy?.mockRestore();
     addParticipantSpy?.mockRestore();
     removeParticipantSpy?.mockRestore();
-    for (const profile of profiles) {
-      const groups = (
+    const groupsByProfile = await mapWithConcurrency(profiles, CLEANUP_SEARCH_CONCURRENCY, async (profile) =>
+      (
         await oystehr.fhir.search<Group>({
           resourceType: 'Group',
           params: [
@@ -121,17 +122,21 @@ describe('employee chat pair resolution', () => {
             { name: '_count', value: '1000' },
           ],
         })
-      ).unbundle();
-      for (const group of groups) {
-        await oystehr.fhir.delete({ resourceType: 'Group', id: group.id! }).catch(() => undefined);
-      }
-    }
-    for (const id of encounterIds) {
-      await oystehr.fhir.delete({ resourceType: 'Encounter', id }).catch(() => undefined);
-    }
-    for (const profile of profiles) {
-      await oystehr.fhir.delete({ resourceType: 'Practitioner', id: profile.split('/')[1] }).catch(() => undefined);
-    }
+      ).unbundle()
+    );
+    const groupIds = [...new Set(groupsByProfile.flat().map((group) => group.id!))];
+    await deleteResourcesBestEffort(
+      oystehr,
+      groupIds.map((id) => ({ resourceType: 'Group', id }))
+    );
+    await deleteResourcesBestEffort(
+      oystehr,
+      encounterIds.map((id) => ({ resourceType: 'Encounter', id }))
+    );
+    await deleteResourcesBestEffort(
+      oystehr,
+      profiles.map((profile) => ({ resourceType: 'Practitioner', id: profile.split('/')[1] }))
+    );
     await cleanup();
   });
 
@@ -184,7 +189,7 @@ describe('employee chat pair resolution', () => {
 
   it('converges repeated concurrent first opens for fresh pairs', async () => {
     for (let round = 0; round < 3; round++) {
-      const [first, second] = [await createPractitioner('Racer'), await createPractitioner('Racer')];
+      const [first, second] = await Promise.all([createPractitioner('Racer'), createPractitioner('Racer')]);
       const sids = await Promise.all([
         resolveSid(oystehr, first, second),
         resolveSid(oystehr, second, first),
@@ -201,7 +206,7 @@ describe('employee chat pair resolution', () => {
   });
 
   it('heals a pair whose duplicate Groups hold different conversations without losing either', async () => {
-    const [dave, erin] = [await createPractitioner('Dave'), await createPractitioner('Erin')];
+    const [dave, erin] = await Promise.all([createPractitioner('Dave'), createPractitioner('Erin')]);
     const seeded = [await seedPairGroup(dave, erin, true), await seedPairGroup(dave, erin, true)];
     const { canonical, duplicates } = selectCanonicalGroup(seeded);
     const kept = readConversationSid(canonical)!;
@@ -232,7 +237,7 @@ describe('employee chat pair resolution', () => {
   });
 
   it('keeps the only conversation of a duplicated pair current wherever it lives and lists the pair once', async () => {
-    const [frank, gina] = [await createPractitioner('Frank'), await createPractitioner('Gina')];
+    const [frank, gina] = await Promise.all([createPractitioner('Frank'), createPractitioner('Gina')]);
     const empty = await seedPairGroup(frank, gina, false);
     const populated = await seedPairGroup(frank, gina, true);
     const sid = readConversationSid(populated)!;

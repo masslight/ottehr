@@ -103,23 +103,25 @@ describe('convert-visit-to-follow-up integration', () => {
 
     it('allows conversion regardless of visit status', async () => {
       const visit = await insertInPersonAppointmentBase(oystehrAdmin, processId);
-      const parent = await oystehrAdmin.fhir.create<Encounter>(
-        addProcessIdMetaTagToResource(
-          {
-            resourceType: 'Encounter',
-            status: 'finished',
-            class: { system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html', code: 'ACUTE' },
-            subject: { reference: `Patient/${visit.patient.id}` },
-          } as Encounter,
-          processId
-        ) as Encounter
-      );
-      // Push the visit past charting — a finished visit is still convertible.
-      await oystehrAdmin.fhir.patch<Encounter>({
-        resourceType: 'Encounter',
-        id: visit.encounter.id!,
-        operations: [{ op: 'replace', path: '/status', value: 'finished' }],
-      });
+      const [parent] = await Promise.all([
+        oystehrAdmin.fhir.create<Encounter>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Encounter',
+              status: 'finished',
+              class: { system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html', code: 'ACUTE' },
+              subject: { reference: `Patient/${visit.patient.id}` },
+            } as Encounter,
+            processId
+          ) as Encounter
+        ),
+        // Push the visit past charting — a finished visit is still convertible.
+        oystehrAdmin.fhir.patch<Encounter>({
+          resourceType: 'Encounter',
+          id: visit.encounter.id!,
+          operations: [{ op: 'replace', path: '/status', value: 'finished' }],
+        }),
+      ]);
 
       await expect(
         convert({ encounterId: visit.encounter.id, parentEncounterId: parent.id, skipPatientDiagnosis: true })
@@ -134,32 +136,34 @@ describe('convert-visit-to-follow-up integration', () => {
 
     beforeAll(async () => {
       convertedVisit = await insertInPersonAppointmentBase(oystehrAdmin, processId);
-      // Re-point the parent at this visit's patient so it is an eligible initial visit.
-      parentEncounter = await oystehrAdmin.fhir.create<Encounter>(
-        addProcessIdMetaTagToResource(
-          {
-            resourceType: 'Encounter',
-            status: 'finished',
-            class: { system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html', code: 'ACUTE' },
-            subject: { reference: `Patient/${convertedVisit.patient.id}` },
-          } as Encounter,
-          processId
-        ) as Encounter
-      );
-
-      // Documentation entered while the visit was still a standalone encounter.
-      const preExisting = await oystehrAdmin.fhir.create<Condition>(
-        addProcessIdMetaTagToResource(
-          {
-            resourceType: 'Condition',
-            subject: { reference: `Patient/${convertedVisit.patient.id}` },
-            encounter: { reference: `Encounter/${convertedVisit.encounter.id}` },
-            code: { text: 'documented before conversion' },
-            meta: { tag: [{ code: 'diagnosis', system: `${PRIVATE_EXTENSION_BASE_URL}/diagnosis` }] },
-          } as Condition,
-          processId
-        ) as Condition
-      );
+      const [createdParent, preExisting] = await Promise.all([
+        // Re-point the parent at this visit's patient so it is an eligible initial visit.
+        oystehrAdmin.fhir.create<Encounter>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Encounter',
+              status: 'finished',
+              class: { system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html', code: 'ACUTE' },
+              subject: { reference: `Patient/${convertedVisit.patient.id}` },
+            } as Encounter,
+            processId
+          ) as Encounter
+        ),
+        // Documentation entered while the visit was still a standalone encounter.
+        oystehrAdmin.fhir.create<Condition>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Condition',
+              subject: { reference: `Patient/${convertedVisit.patient.id}` },
+              encounter: { reference: `Encounter/${convertedVisit.encounter.id}` },
+              code: { text: 'documented before conversion' },
+              meta: { tag: [{ code: 'diagnosis', system: `${PRIVATE_EXTENSION_BASE_URL}/diagnosis` }] },
+            } as Condition,
+            processId
+          ) as Condition
+        ),
+      ]);
+      parentEncounter = createdParent;
       preExistingChartResourceId = preExisting.id!;
 
       await convert({
@@ -264,49 +268,54 @@ describe('convert-visit-to-follow-up integration', () => {
       const dxCode = { coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'J02.9' }], text: 'Pharyngitis' };
       const dxTag = { tag: [{ code: 'diagnosis', system: `${PRIVATE_EXTENSION_BASE_URL}/diagnosis` }] };
 
-      const existingDx = await oystehrAdmin.fhir.create<Condition>(
-        addProcessIdMetaTagToResource(
-          {
-            resourceType: 'Condition',
-            subject: { reference: `Patient/${visit.patient.id}` },
-            encounter: { reference: `Encounter/${visit.encounter.id}` },
-            code: dxCode,
-            meta: dxTag,
-          } as Condition,
-          processId
-        ) as Condition
-      );
-      await oystehrAdmin.fhir.patch<Encounter>({
-        resourceType: 'Encounter',
-        id: visit.encounter.id!,
-        operations: [
-          { op: 'add', path: '/diagnosis', value: [{ condition: { reference: `Condition/${existingDx.id}` } }] },
-        ],
-      });
-
-      const parentDx = await oystehrAdmin.fhir.create<Condition>(
-        addProcessIdMetaTagToResource(
-          {
-            resourceType: 'Condition',
-            subject: { reference: `Patient/${visit.patient.id}` },
-            code: dxCode,
-            meta: dxTag,
-          } as Condition,
-          processId
-        ) as Condition
-      );
-      const parent = await oystehrAdmin.fhir.create<Encounter>(
-        addProcessIdMetaTagToResource(
-          {
-            resourceType: 'Encounter',
-            status: 'finished',
-            class: { system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html', code: 'ACUTE' },
-            subject: { reference: `Patient/${visit.patient.id}` },
-            diagnosis: [{ condition: { reference: `Condition/${parentDx.id}` } }],
-          } as Encounter,
-          processId
-        ) as Encounter
-      );
+      const documentExistingDx = async (): Promise<Condition> => {
+        const existingDx = await oystehrAdmin.fhir.create<Condition>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Condition',
+              subject: { reference: `Patient/${visit.patient.id}` },
+              encounter: { reference: `Encounter/${visit.encounter.id}` },
+              code: dxCode,
+              meta: dxTag,
+            } as Condition,
+            processId
+          ) as Condition
+        );
+        await oystehrAdmin.fhir.patch<Encounter>({
+          resourceType: 'Encounter',
+          id: visit.encounter.id!,
+          operations: [
+            { op: 'add', path: '/diagnosis', value: [{ condition: { reference: `Condition/${existingDx.id}` } }] },
+          ],
+        });
+        return existingDx;
+      };
+      const createParent = async (): Promise<Encounter> => {
+        const parentDx = await oystehrAdmin.fhir.create<Condition>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Condition',
+              subject: { reference: `Patient/${visit.patient.id}` },
+              code: dxCode,
+              meta: dxTag,
+            } as Condition,
+            processId
+          ) as Condition
+        );
+        return oystehrAdmin.fhir.create<Encounter>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Encounter',
+              status: 'finished',
+              class: { system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html', code: 'ACUTE' },
+              subject: { reference: `Patient/${visit.patient.id}` },
+              diagnosis: [{ condition: { reference: `Condition/${parentDx.id}` } }],
+            } as Encounter,
+            processId
+          ) as Encounter
+        );
+      };
+      const [existingDx, parent] = await Promise.all([documentExistingDx(), createParent()]);
 
       await convert({ encounterId: visit.encounter.id, parentEncounterId: parent.id });
 
@@ -323,53 +332,58 @@ describe('convert-visit-to-follow-up integration', () => {
       const visit = await insertInPersonAppointmentBase(oystehrAdmin, processId);
       const dxTag = { tag: [{ code: 'diagnosis', system: `${PRIVATE_EXTENSION_BASE_URL}/diagnosis` }] };
 
-      const existingDx = await oystehrAdmin.fhir.create<Condition>(
-        addProcessIdMetaTagToResource(
-          {
-            resourceType: 'Condition',
-            subject: { reference: `Patient/${visit.patient.id}` },
-            encounter: { reference: `Encounter/${visit.encounter.id}` },
-            code: { coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'J02.9' }], text: 'Pharyngitis' },
-            meta: dxTag,
-          } as Condition,
-          processId
-        ) as Condition
-      );
-      await oystehrAdmin.fhir.patch<Encounter>({
-        resourceType: 'Encounter',
-        id: visit.encounter.id!,
-        operations: [
-          {
-            op: 'add',
-            path: '/diagnosis',
-            value: [{ condition: { reference: `Condition/${existingDx.id}` }, rank: 1 }],
-          },
-        ],
-      });
-
-      const parentDx = await oystehrAdmin.fhir.create<Condition>(
-        addProcessIdMetaTagToResource(
-          {
-            resourceType: 'Condition',
-            subject: { reference: `Patient/${visit.patient.id}` },
-            code: { coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'R05.9' }], text: 'Cough' },
-            meta: dxTag,
-          } as Condition,
-          processId
-        ) as Condition
-      );
-      const parent = await oystehrAdmin.fhir.create<Encounter>(
-        addProcessIdMetaTagToResource(
-          {
-            resourceType: 'Encounter',
-            status: 'finished',
-            class: { system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html', code: 'ACUTE' },
-            subject: { reference: `Patient/${visit.patient.id}` },
-            diagnosis: [{ condition: { reference: `Condition/${parentDx.id}` }, rank: 1 }],
-          } as Encounter,
-          processId
-        ) as Encounter
-      );
+      const documentExistingDx = async (): Promise<Condition> => {
+        const existingDx = await oystehrAdmin.fhir.create<Condition>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Condition',
+              subject: { reference: `Patient/${visit.patient.id}` },
+              encounter: { reference: `Encounter/${visit.encounter.id}` },
+              code: { coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'J02.9' }], text: 'Pharyngitis' },
+              meta: dxTag,
+            } as Condition,
+            processId
+          ) as Condition
+        );
+        await oystehrAdmin.fhir.patch<Encounter>({
+          resourceType: 'Encounter',
+          id: visit.encounter.id!,
+          operations: [
+            {
+              op: 'add',
+              path: '/diagnosis',
+              value: [{ condition: { reference: `Condition/${existingDx.id}` }, rank: 1 }],
+            },
+          ],
+        });
+        return existingDx;
+      };
+      const createParent = async (): Promise<Encounter> => {
+        const parentDx = await oystehrAdmin.fhir.create<Condition>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Condition',
+              subject: { reference: `Patient/${visit.patient.id}` },
+              code: { coding: [{ system: 'http://hl7.org/fhir/sid/icd-10-cm', code: 'R05.9' }], text: 'Cough' },
+              meta: dxTag,
+            } as Condition,
+            processId
+          ) as Condition
+        );
+        return oystehrAdmin.fhir.create<Encounter>(
+          addProcessIdMetaTagToResource(
+            {
+              resourceType: 'Encounter',
+              status: 'finished',
+              class: { system: 'http://hl7.org/fhir/R4/v3/ActEncounterCode/vs.html', code: 'ACUTE' },
+              subject: { reference: `Patient/${visit.patient.id}` },
+              diagnosis: [{ condition: { reference: `Condition/${parentDx.id}` }, rank: 1 }],
+            } as Encounter,
+            processId
+          ) as Encounter
+        );
+      };
+      const [existingDx, parent] = await Promise.all([documentExistingDx(), createParent()]);
 
       await convert({ encounterId: visit.encounter.id, parentEncounterId: parent.id });
 

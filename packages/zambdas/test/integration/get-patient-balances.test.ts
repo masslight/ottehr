@@ -9,7 +9,6 @@ import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { performEffect } from '../../src/ehr/get-patient-balances';
 import { validateInput, validateSecrets } from '../../src/ehr/get-patient-balances/validateRequestParameters';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM } from '../../src/shared/candid';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { ZambdaInput } from '../../src/shared/types/common';
 import { SECRETS } from '../data/secrets';
@@ -239,15 +238,10 @@ describe('get-patient-balances integration tests', () => {
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, FHIR_API, PROJECT_ID } = SECRETS;
+    const { FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
+    token = inject('ADMIN_TOKEN');
 
     oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,

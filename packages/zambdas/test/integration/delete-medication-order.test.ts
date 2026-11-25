@@ -196,22 +196,35 @@ describe('deleting in-house medication and vaccine orders', () => {
 
       expect(await deleteOrder(deletedOrderId)).toEqual({ retainedCptCodes: ['96372'], billingReviewRequired: false });
 
-      const deletedOrder = await getOrder(deletedOrderId);
+      const [deletedOrder, deletedStatements, linesAfterDelete, deletedRechecks, otherStatements, otherRechecks] =
+        await Promise.all([
+          getOrder(deletedOrderId),
+          getStatementStatuses(deletedOrderId),
+          getCptLines(visit),
+          getRecheckStatuses(visit, deletedOrderId),
+          getStatementStatuses(otherOrderId),
+          getRecheckStatuses(visit, otherOrderId),
+        ]);
       expect(deletedOrder.status).toBe('stopped');
-      expect(await getStatementStatuses(deletedOrderId)).toEqual(['entered-in-error', 'entered-in-error']);
-      expect(sortedIds(await getCptLines(visit))).toEqual(sortedIds([providerLine, ...otherOrderLines]));
-      expect(await getRecheckStatuses(visit, deletedOrderId)).toEqual({ serviceRequest: 'revoked', task: 'cancelled' });
-      expect(await getStatementStatuses(otherOrderId)).toEqual(['active']);
-      expect(await getRecheckStatuses(visit, otherOrderId)).toEqual({ serviceRequest: 'draft', task: 'requested' });
+      expect(deletedStatements).toEqual(['entered-in-error', 'entered-in-error']);
+      expect(sortedIds(linesAfterDelete)).toEqual(sortedIds([providerLine, ...otherOrderLines]));
+      expect(deletedRechecks).toEqual({ serviceRequest: 'revoked', task: 'cancelled' });
+      expect(otherStatements).toEqual(['active']);
+      expect(otherRechecks).toEqual({ serviceRequest: 'draft', task: 'requested' });
 
       expect(await deleteOrder(deletedOrderId)).toEqual({ retainedCptCodes: [], billingReviewRequired: false });
       expect((await getOrder(deletedOrderId)).meta?.versionId).toBe(deletedOrder.meta?.versionId);
 
       await deleteOrder(otherOrderId, inHouseOrderData(visit, ['J3301']));
 
-      expect(await getStatementStatuses(otherOrderId)).toEqual(['entered-in-error']);
-      expect(sortedIds(await getCptLines(visit))).toEqual([providerLine.id]);
-      expect(await getRecheckStatuses(visit, otherOrderId)).toEqual({ serviceRequest: 'revoked', task: 'cancelled' });
+      const [otherStatementsAfterDelete, linesAfterOtherDelete, otherRechecksAfterDelete] = await Promise.all([
+        getStatementStatuses(otherOrderId),
+        getCptLines(visit),
+        getRecheckStatuses(visit, otherOrderId),
+      ]);
+      expect(otherStatementsAfterDelete).toEqual(['entered-in-error']);
+      expect(sortedIds(linesAfterOtherDelete)).toEqual([providerLine.id]);
+      expect(otherRechecksAfterDelete).toEqual({ serviceRequest: 'revoked', task: 'cancelled' });
     });
   });
 
@@ -295,21 +308,30 @@ describe('deleting in-house medication and vaccine orders', () => {
         billingReviewRequired: false,
       });
 
-      expect((await getOrder(deletedOrderId)).status).toBe('stopped');
-      expect(await getStatementStatuses(deletedOrderId)).toEqual(['entered-in-error']);
-      const linesAfterDelete = await getCptLines(visit);
+      const [deletedOrder, deletedStatements, linesAfterDelete, otherStatements] = await Promise.all([
+        getOrder(deletedOrderId),
+        getStatementStatuses(deletedOrderId),
+        getCptLines(visit),
+        getStatementStatuses(otherOrderId),
+      ]);
+      expect(deletedOrder.status).toBe('stopped');
+      expect(deletedStatements).toEqual(['entered-in-error']);
       expect(sortedIds(linesAfterDelete)).toEqual(
         sortedIds([lineWithCode('90471'), lineWithCode('90672'), lineWithCode('90715')])
       );
       expect(
         linesAfterDelete.find((line) => line.id === lineWithCode('90471').id)?.partOf?.map((part) => part.reference)
       ).toEqual([`MedicationAdministration/${otherOrderId}`]);
-      expect(await getStatementStatuses(otherOrderId)).toEqual(['active']);
+      expect(otherStatements).toEqual(['active']);
 
       await expect(administerVaccine(deletedOrderId, ['90686'])).rejects.toThrow();
 
-      expect((await getOrder(deletedOrderId)).status).toBe('stopped');
-      expect(await getStatementStatuses(deletedOrderId)).toEqual(['entered-in-error']);
+      const [orderAfterRejectedAdminister, statementsAfterRejectedAdminister] = await Promise.all([
+        getOrder(deletedOrderId),
+        getStatementStatuses(deletedOrderId),
+      ]);
+      expect(orderAfterRejectedAdminister.status).toBe('stopped');
+      expect(statementsAfterRejectedAdminister).toEqual(['entered-in-error']);
 
       expect(await deleteOrder(otherOrderId)).toEqual({ retainedCptCodes: [], billingReviewRequired: true });
       expect(sortedIds(await getCptLines(visit))).toEqual([lineWithCode('90672').id]);

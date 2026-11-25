@@ -19,16 +19,18 @@ describe('cm-disassociate-payer integration — happy path', () => {
     oystehrAdmin = setup.oystehr;
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
-    const created = await oystehrZambdas.zambda.execute({
-      id: 'create-charge-master',
-      name: `IT Charge Master ${randomUUID().slice(0, 8)}`,
-      effectiveDate: '2026-01-01',
-    });
+    const [created, org] = await Promise.all([
+      oystehrZambdas.zambda.execute({
+        id: 'create-charge-master',
+        name: `IT Charge Master ${randomUUID().slice(0, 8)}`,
+        effectiveDate: '2026-01-01',
+      }),
+      oystehrAdmin.fhir.create<Organization>({
+        resourceType: 'Organization',
+        name: `IT Payer ${randomUUID().slice(0, 8)}`,
+      }),
+    ]);
     chargeMasterId = (created.output as { id: string }).id;
-    const org = await oystehrAdmin.fhir.create<Organization>({
-      resourceType: 'Organization',
-      name: `IT Payer ${randomUUID().slice(0, 8)}`,
-    });
     organizationId = org.id!;
     await oystehrZambdas.zambda.execute({ id: 'cm-associate-payer', chargeMasterId, organizationId });
   }, 60_000);

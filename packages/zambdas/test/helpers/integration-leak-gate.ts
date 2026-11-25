@@ -1,5 +1,6 @@
 import Oystehr, { BatchInputDeleteRequest, FhirResource, FhirSearchParams } from '@oystehr/sdk';
 import { getAllFhirSearchPages } from 'utils/lib/fhir/getAllFhirSearchPages';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { INTEGRATION_TEST_PROCESS_ID_SYSTEM, INTEGRATION_TEST_RUN_SYSTEM } from './integration-tags';
 
 /**
@@ -58,6 +59,8 @@ const LEAK_SWEEP_RESOURCE_TYPES: FhirResource['resourceType'][] = [
 // stay valid comparisons — otherwise TS narrows this const to its literal and flags one as TS2367.
 const LEAK_GATE_MODE = 'warn' as 'fail' | 'warn';
 
+const LEAK_SWEEP_SEARCH_CONCURRENCY = 8;
+
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -78,19 +81,23 @@ export const assertNoLeakedResourcesForRun = async (oystehr: Oystehr, runId: str
   const tagValue = `${INTEGRATION_TEST_RUN_SYSTEM}|${runId}`;
 
   const findSurvivors = async (): Promise<FhirResource[]> => {
-    const found: FhirResource[] = [];
-    for (const resourceType of LEAK_SWEEP_RESOURCE_TYPES) {
-      try {
-        const searchParams: FhirSearchParams<FhirResource> = {
-          resourceType,
-          params: [{ name: '_tag', value: tagValue }],
-        };
-        found.push(...(await getAllFhirSearchPages(searchParams, oystehr)));
-      } catch (e) {
-        console.error(`[leak-gate] search failed for ${resourceType}: ${e}`);
+    const foundByType = await mapWithConcurrency(
+      LEAK_SWEEP_RESOURCE_TYPES,
+      LEAK_SWEEP_SEARCH_CONCURRENCY,
+      async (resourceType): Promise<FhirResource[]> => {
+        try {
+          const searchParams: FhirSearchParams<FhirResource> = {
+            resourceType,
+            params: [{ name: '_tag', value: tagValue }],
+          };
+          return await getAllFhirSearchPages(searchParams, oystehr);
+        } catch (e) {
+          console.error(`[leak-gate] search failed for ${resourceType}: ${e}`);
+          return [];
+        }
       }
-    }
-    return found;
+    );
+    return foundByType.flat();
   };
 
   // FHIR search is eventually consistent; let just-deleted resources settle, and only treat a

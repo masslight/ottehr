@@ -44,7 +44,6 @@ import {
   SlotListItem,
 } from 'utils/lib/utils/scheduleUtils';
 import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 import {
@@ -355,15 +354,10 @@ describe('prebook integration - from getting list of slots to booking with selec
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
+    const { FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
+    token = inject('ADMIN_TOKEN');
 
     oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,

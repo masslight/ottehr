@@ -105,10 +105,6 @@ describe('get-booking-questionnaire — FHIR-backed RFV enrichment', () => {
     name: string,
     reasons: Array<{ label: string; value: string }>
   ): Promise<{ slotId: string }> => {
-    const hs = await oystehrAdmin.fhir.create<HealthcareService>(buildFhirBackedServiceCategory(code, name, reasons));
-    assert(hs.id);
-    createdResourceIds.push({ resourceType: 'HealthcareService', id: hs.id });
-
     const scheduleExt = buildSimpleScheduleExt({ prebookSlots: 4 });
     const ownerLocation: Location = {
       resourceType: 'Location',
@@ -116,10 +112,13 @@ describe('get-booking-questionnaire — FHIR-backed RFV enrichment', () => {
       name: 'BookingQTestLocation',
       identifier: [{ system: SLUG_SYSTEM, value: `bkqtest-${randomUUID().slice(0, 8)}` }],
     };
-    const { schedule, owner } = await persistSchedule(
-      { scheduleExtension: scheduleExt, processId, scheduleOwner: ownerLocation },
-      oystehrAdmin
-    );
+    const [hs, { schedule, owner }] = await Promise.all([
+      oystehrAdmin.fhir.create<HealthcareService>(buildFhirBackedServiceCategory(code, name, reasons)),
+      persistSchedule({ scheduleExtension: scheduleExt, processId, scheduleOwner: ownerLocation }, oystehrAdmin),
+    ]);
+    assert(hs.id);
+    createdResourceIds.push({ resourceType: 'HealthcareService', id: hs.id });
+
     assert(schedule.id);
     assert(owner);
     const persistedLocation = owner as Location;

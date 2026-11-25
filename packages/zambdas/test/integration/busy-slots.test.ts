@@ -14,8 +14,7 @@ import {
   getTimezone,
   HourOfDay,
 } from 'utils/lib/utils/scheduleUtils';
-import { assert, vi } from 'vitest';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
+import { assert, inject, vi } from 'vitest';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import { SECRETS } from '../data/secrets';
@@ -38,13 +37,8 @@ describe('busy slots tests', () => {
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, AUTH0_AUDIENCE, FHIR_API, PROJECT_API } = SECRETS;
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
+    const { FHIR_API, PROJECT_API } = SECRETS;
+    token = inject('ADMIN_TOKEN');
 
     oystehr = createClinicalOystehrClient(token, SECRETS, {
       services: { fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API, zambdaApiUrl: PROJECT_API },

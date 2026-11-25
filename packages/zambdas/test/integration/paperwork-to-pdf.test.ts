@@ -25,8 +25,11 @@ describe('paperwork-to-pdf integration — happy path', () => {
     oystehrAdmin = setup.oystehr;
     oystehrProvider = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
-    base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
-    const questionnaire = await getCurrentQuestionnaireForServiceType(ServiceMode['in-person'], oystehrAdmin);
+    const [insertedBase, questionnaire] = await Promise.all([
+      insertInPersonAppointmentBase(setup.oystehr, setup.processId),
+      getCurrentQuestionnaireForServiceType(ServiceMode['in-person'], oystehrAdmin),
+    ]);
+    base = insertedBase;
     const qr = await oystehrAdmin.fhir.update<QuestionnaireResponse>({
       ...base.questionnaireResponse,
       questionnaire: `${questionnaire.url}|${questionnaire.version}`,

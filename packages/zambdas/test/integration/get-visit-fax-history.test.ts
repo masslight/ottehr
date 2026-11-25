@@ -25,44 +25,46 @@ describe('get-visit-fax-history integration — happy path', () => {
     oystehrZambdas = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
     base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
-    await oystehr.fhir.create<Task>(
-      addProcessIdMetaTagToResource(
-        makeOutboundDeliveryAttempt({
-          channel: 'fax',
-          patientId: base.patient.id!,
-          appointmentId: base.appointment.id,
-          recipientAddress: '+12125550101',
-          senderId: 'task-sender',
-          senderDisplay: 'Task Sender',
-          authoredOn: '2025-02-01T12:00:00Z',
-          initialStatus: 'completed',
-        }),
-        setup.processId
-      ) as Task
-    );
-    await oystehr.fhir.create<Provenance>(
-      addProcessIdMetaTagToResource(
-        {
-          resourceType: 'Provenance',
-          target: [{ reference: `Appointment/${base.appointment.id}` }],
-          recorded: '2025-01-01T12:00:00Z',
-          occurredDateTime: '2025-01-01T12:00:00Z',
-          activity: { coding: [{ system: PROVENANCE_FAX_SYSTEM, code: PROVENANCE_FAX_ACTIVITY_CODES.faxSent }] },
-          agent: [
-            { who: { display: 'Legacy Sender', identifier: { value: 'legacy-sender' } } },
-            { who: { reference: '#legacy-recipient' } },
-          ],
-          contained: [
-            {
-              resourceType: 'Practitioner',
-              id: 'legacy-recipient',
-              telecom: [{ system: 'fax', value: '+12125550202' }],
-            },
-          ],
-        },
-        setup.processId
-      ) as Provenance
-    );
+    await Promise.all([
+      oystehr.fhir.create<Task>(
+        addProcessIdMetaTagToResource(
+          makeOutboundDeliveryAttempt({
+            channel: 'fax',
+            patientId: base.patient.id!,
+            appointmentId: base.appointment.id,
+            recipientAddress: '+12125550101',
+            senderId: 'task-sender',
+            senderDisplay: 'Task Sender',
+            authoredOn: '2025-02-01T12:00:00Z',
+            initialStatus: 'completed',
+          }),
+          setup.processId
+        ) as Task
+      ),
+      oystehr.fhir.create<Provenance>(
+        addProcessIdMetaTagToResource(
+          {
+            resourceType: 'Provenance',
+            target: [{ reference: `Appointment/${base.appointment.id}` }],
+            recorded: '2025-01-01T12:00:00Z',
+            occurredDateTime: '2025-01-01T12:00:00Z',
+            activity: { coding: [{ system: PROVENANCE_FAX_SYSTEM, code: PROVENANCE_FAX_ACTIVITY_CODES.faxSent }] },
+            agent: [
+              { who: { display: 'Legacy Sender', identifier: { value: 'legacy-sender' } } },
+              { who: { reference: '#legacy-recipient' } },
+            ],
+            contained: [
+              {
+                resourceType: 'Practitioner',
+                id: 'legacy-recipient',
+                telecom: [{ system: 'fax', value: '+12125550202' }],
+              },
+            ],
+          },
+          setup.processId
+        ) as Provenance
+      ),
+    ]);
   }, 60_000);
 
   afterAll(async () => {

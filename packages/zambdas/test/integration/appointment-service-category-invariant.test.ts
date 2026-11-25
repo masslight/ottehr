@@ -14,8 +14,8 @@ import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-ap
 import { ServiceMode } from 'utils/lib/types/common';
 import { PatientInfo } from 'utils/lib/types/data/telemed/appointments/create-appointment.types';
 import { afterAll, assert, beforeAll, describe, expect, inject, test } from 'vitest';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { SECRETS } from '../data/secrets';
+import { deleteResourcesBestEffort } from '../helpers/integration-test-seed-data-setup';
 import {
   buildSimpleScheduleExt,
   cleanupTestScheduleResources,
@@ -62,15 +62,10 @@ describe('Appointment service category invariant', () => {
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
+    const { FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE,
-    });
+    token = inject('ADMIN_TOKEN');
     oystehr = new Oystehr({
       accessToken: token,
       fhirApiUrl: FHIR_API,
@@ -84,20 +79,14 @@ describe('Appointment service category invariant', () => {
     // No-op cleanup if beforeAll didn't complete — avoid masking the real
     // setup failure with a misleading "oystehr is null" error in vitest.
     if (!oystehr || !processId) return;
-    for (const id of extraAppointmentIds) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Appointment', id });
-      } catch {
-        // best-effort
-      }
-    }
-    for (const id of extraSlotIds) {
-      try {
-        await oystehr.fhir.delete({ resourceType: 'Slot', id });
-      } catch {
-        // best-effort
-      }
-    }
+    await deleteResourcesBestEffort(
+      oystehr,
+      extraAppointmentIds.map((id) => ({ resourceType: 'Appointment', id }))
+    );
+    await deleteResourcesBestEffort(
+      oystehr,
+      extraSlotIds.map((id) => ({ resourceType: 'Slot', id }))
+    );
     await cleanupTestScheduleResources(processId, oystehr);
   });
 

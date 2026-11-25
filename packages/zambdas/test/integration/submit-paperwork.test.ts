@@ -32,9 +32,10 @@ describe('submit-paperwork integration — happy path', () => {
     oystehrAdmin = setup.oystehr;
     oystehrPatient = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
-    base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
-
-    questionnaire = await getCurrentQuestionnaireForServiceType(ServiceMode['in-person'], oystehrAdmin);
+    [base, questionnaire] = await Promise.all([
+      insertInPersonAppointmentBase(setup.oystehr, setup.processId),
+      getCurrentQuestionnaireForServiceType(ServiceMode['in-person'], oystehrAdmin),
+    ]);
     const qr = await oystehrAdmin.fhir.update<QuestionnaireResponse>({
       ...base.questionnaireResponse,
       questionnaire: `${questionnaire.url}|${questionnaire.version}`,

@@ -130,13 +130,15 @@ describe('provider notification endpoints — per-caller scoping', () => {
   });
 
   it('returns the caller’s own notifications as DTOs, and no one else’s', async () => {
-    const mineUnread = await makeNotification({ recipient: myProfile, status: 'in-progress', message: 'mine unread' });
-    const mineRead = await makeNotification({ recipient: myProfile, status: 'completed', message: 'mine read' });
-    const theirs = await makeNotification({
-      recipient: `Practitioner/${otherPractitionerId}`,
-      status: 'in-progress',
-      message: 'not mine',
-    });
+    const [mineUnread, mineRead, theirs] = await Promise.all([
+      makeNotification({ recipient: myProfile, status: 'in-progress', message: 'mine unread' }),
+      makeNotification({ recipient: myProfile, status: 'completed', message: 'mine read' }),
+      makeNotification({
+        recipient: `Practitioner/${otherPractitionerId}`,
+        status: 'in-progress',
+        message: 'not mine',
+      }),
+    ]);
 
     const { notifications } = await getNotifications();
     const byId = new Map(notifications.map((notification) => [notification.id, notification]));
@@ -161,18 +163,21 @@ describe('provider notification endpoints — per-caller scoping', () => {
   });
 
   it('leaves another practitioner’s notification untouched when the caller names its id', async () => {
-    const mine = await makeNotification({ recipient: myProfile, status: 'in-progress', message: 'mine to read' });
-    const theirs = await makeNotification({
-      recipient: `Practitioner/${otherPractitionerId}`,
-      status: 'in-progress',
-      message: 'hands off',
-    });
+    const [mine, theirs] = await Promise.all([
+      makeNotification({ recipient: myProfile, status: 'in-progress', message: 'mine to read' }),
+      makeNotification({
+        recipient: `Practitioner/${otherPractitionerId}`,
+        status: 'in-progress',
+        message: 'hands off',
+      }),
+    ]);
 
     const { markedReadIds } = await markRead([mine.id!, theirs.id!]);
 
     expect(markedReadIds).toEqual([mine.id]);
-    expect(await statusOf(mine.id!)).toBe('completed');
-    expect(await statusOf(theirs.id!)).toBe('in-progress');
+    const [mineStatus, theirStatus] = await Promise.all([statusOf(mine.id!), statusOf(theirs.id!)]);
+    expect(mineStatus).toBe('completed');
+    expect(theirStatus).toBe('in-progress');
   });
 
   it('leaves a Communication addressed to the caller alone when it is not a provider notification', async () => {

@@ -8,7 +8,7 @@ import { ListScheduleOwnersResponse } from 'utils/lib/types/api/schedules';
 import { ServiceMode, ServiceVisitType } from 'utils/lib/types/common';
 import { INTEGRATION_TEST_TAG_SYSTEM } from 'utils/lib/utils/e2eCleanup';
 import { afterAll, assert, beforeAll, describe, expect, it } from 'vitest';
-import { setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
+import { deleteResourcesBestEffort, setupIntegrationTest } from '../helpers/integration-test-seed-data-setup';
 
 // list-schedule-owners with ownerType=HealthcareService returns owners of
 // HealthcareService-actored schedules ("groups" in the admin UI). Pre-fix it
@@ -35,13 +35,10 @@ describe('list-schedule-owners — HealthcareService owner type', () => {
   }, 60_000);
 
   afterAll(async () => {
-    for (const id of createdHealthcareServiceIds) {
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: 'HealthcareService', id });
-      } catch {
-        // best-effort cleanup
-      }
-    }
+    await deleteResourcesBestEffort(
+      oystehrAdmin,
+      createdHealthcareServiceIds.map((id) => ({ resourceType: 'HealthcareService', id }))
+    );
     await cleanup();
   });
 

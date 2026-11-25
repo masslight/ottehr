@@ -10,7 +10,6 @@ import { EHRImageUploadType, UpdateVisitFilesInput } from 'utils/lib/types/api/u
 import { VisitDocuments } from 'utils/lib/types/data/documents';
 import { DOB_DATE_FORMAT } from 'utils/lib/utils/date';
 import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import QRInput from '../data/questionnaire-response-1.json';
 import { SECRETS } from '../data/secrets';
@@ -149,13 +148,23 @@ describe('saving card files from EHR', () => {
       method: 'POST',
       resource: encounter,
       url: 'Encounter',
+      fullUrl: `urn:uuid:${randomUUID()}`,
+    };
+    const batchInputQR: BatchInputPostRequest<QuestionnaireResponse> = {
+      method: 'POST',
+      resource: {
+        ...QRInput,
+        subject: { reference: `Patient/${patientId}` },
+        encounter: { reference: `${batchInputEnc.fullUrl}` },
+      } as QuestionnaireResponse,
+      url: 'QuestionnaireResponse',
     };
 
     try {
       const batchResults =
         (
-          await oystehr.fhir.transaction<Appointment | Encounter>({
-            requests: [batchInputApp, batchInputEnc],
+          await oystehr.fhir.transaction<Appointment | Encounter | QuestionnaireResponse>({
+            requests: [batchInputApp, batchInputEnc, batchInputQR],
           })
         ).entry?.flatMap((entry) => entry.resource ?? []) || [];
       expect(batchResults).toBeDefined();
@@ -166,13 +175,9 @@ describe('saving card files from EHR', () => {
       expect(createdAppointment?.id).toBeDefined();
       assert(createdAppointment);
 
-      const testQR = {
-        ...QRInput,
-        subject: { reference: `Patient/${patientId}` },
-        encounter: { reference: `Encounter/${createdEncounter.id}` },
-      } as QuestionnaireResponse;
-
-      const createdQR = await oystehr.fhir.create(testQR);
+      const createdQR = batchResults.find(
+        (entry) => entry.resourceType === 'QuestionnaireResponse'
+      ) as QuestionnaireResponse;
       expect(createdQR).toBeDefined();
       expect(createdQR.id).toBeDefined();
 
@@ -203,15 +208,10 @@ describe('saving card files from EHR', () => {
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_AUDIENCE, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, FHIR_API, PROJECT_ID } = SECRETS;
+    const { FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
+    token = inject('ADMIN_TOKEN');
 
     oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
@@ -255,7 +255,11 @@ describe('saving card files from EHR', () => {
     expect(appointment).toBeDefined();
     assert(appointment.id);
 
-    const visitFiles = await getVisitFiles(appointment.id);
+    const [visitFiles, frontAttachment, backAttachment] = await Promise.all([
+      getVisitFiles(appointment.id),
+      makeCardInZ3AndReturnAttachment('insurance-card-front', appointment.id),
+      makeCardInZ3AndReturnAttachment('insurance-card-back', appointment.id),
+    ]);
     const { photoIdCards, insuranceCards, insuranceCardsSecondary } = visitFiles;
     expect(photoIdCards).toBeDefined();
     expect(insuranceCards).toBeDefined();
@@ -264,7 +268,6 @@ describe('saving card files from EHR', () => {
     expect(insuranceCards.length).toBe(0);
     expect(insuranceCardsSecondary.length).toBe(0);
 
-    const frontAttachment = await makeCardInZ3AndReturnAttachment('insurance-card-front', appointment.id);
     await updateVisitFiles({
       appointmentId: appointment.id,
       fileType: 'insurance-card-front',
@@ -276,7 +279,6 @@ describe('saving card files from EHR', () => {
     expect(filesWithFront.insuranceCards[0].z3Url).toBe(frontAttachment.url);
     expect(filesWithFront.insuranceCards[0].type).toBe('insurance-card-front');
 
-    const backAttachment = await makeCardInZ3AndReturnAttachment('insurance-card-back', appointment.id);
     await updateVisitFiles({
       appointmentId: appointment.id,
       fileType: 'insurance-card-back',
@@ -306,7 +308,11 @@ describe('saving card files from EHR', () => {
     expect(patient).toBeDefined();
     assert(patient?.id);
 
-    const visitFiles = await getVisitFiles(appointment.id);
+    const [visitFiles, frontAttachment, backAttachment] = await Promise.all([
+      getVisitFiles(appointment.id),
+      makeCardInZ3AndReturnAttachment('insurance-card-front', appointment.id),
+      makeCardInZ3AndReturnAttachment('insurance-card-back', appointment.id),
+    ]);
     const { photoIdCards, insuranceCards, insuranceCardsSecondary } = visitFiles;
     expect(photoIdCards).toBeDefined();
     expect(insuranceCards).toBeDefined();
@@ -315,7 +321,6 @@ describe('saving card files from EHR', () => {
     expect(insuranceCards.length).toBe(0);
     expect(insuranceCardsSecondary.length).toBe(0);
 
-    const frontAttachment = await makeCardInZ3AndReturnAttachment('insurance-card-front', appointment.id);
     await updateVisitFiles({
       patientId: patient.id,
       fileType: 'insurance-card-front',
@@ -327,7 +332,6 @@ describe('saving card files from EHR', () => {
     expect(filesWithFront.insuranceCards[0].z3Url).toBe(frontAttachment.url);
     expect(filesWithFront.insuranceCards[0].type).toBe('insurance-card-front');
 
-    const backAttachment = await makeCardInZ3AndReturnAttachment('insurance-card-back', appointment.id);
     await updateVisitFiles({
       patientId: patient.id,
       fileType: 'insurance-card-back',
@@ -355,7 +359,14 @@ describe('saving card files from EHR', () => {
     expect(appointment).toBeDefined();
     assert(appointment.id);
 
-    const visitFiles = await getVisitFiles(appointment.id);
+    const FRONT_CARD_NAME = 'insurance-card-front-2';
+    const BACK_CARD_NAME = 'insurance-card-back-2';
+
+    const [visitFiles, frontAttachment, backAttachment] = await Promise.all([
+      getVisitFiles(appointment.id),
+      makeCardInZ3AndReturnAttachment(FRONT_CARD_NAME, appointment.id),
+      makeCardInZ3AndReturnAttachment(BACK_CARD_NAME, appointment.id),
+    ]);
     const { photoIdCards, insuranceCards, insuranceCardsSecondary } = visitFiles;
     expect(photoIdCards).toBeDefined();
     expect(insuranceCards).toBeDefined();
@@ -364,10 +375,6 @@ describe('saving card files from EHR', () => {
     expect(insuranceCards.length).toBe(0);
     expect(insuranceCardsSecondary.length).toBe(0);
 
-    const FRONT_CARD_NAME = 'insurance-card-front-2';
-    const BACK_CARD_NAME = 'insurance-card-back-2';
-
-    const frontAttachment = await makeCardInZ3AndReturnAttachment(FRONT_CARD_NAME, appointment.id);
     await updateVisitFiles({
       appointmentId: appointment.id,
       fileType: FRONT_CARD_NAME,
@@ -379,7 +386,6 @@ describe('saving card files from EHR', () => {
     expect(filesWithFront.insuranceCardsSecondary[0].z3Url).toBe(frontAttachment.url);
     expect(filesWithFront.insuranceCardsSecondary[0].type).toBe(FRONT_CARD_NAME);
 
-    const backAttachment = await makeCardInZ3AndReturnAttachment(BACK_CARD_NAME, appointment.id);
     await updateVisitFiles({
       appointmentId: appointment.id,
       fileType: BACK_CARD_NAME,
@@ -407,7 +413,14 @@ describe('saving card files from EHR', () => {
     expect(appointment).toBeDefined();
     assert(appointment.id);
 
-    const visitFiles = await getVisitFiles(appointment.id);
+    const FRONT_CARD_NAME = 'photo-id-front';
+    const BACK_CARD_NAME = 'photo-id-back';
+
+    const [visitFiles, frontAttachment, backAttachment] = await Promise.all([
+      getVisitFiles(appointment.id),
+      makeCardInZ3AndReturnAttachment(FRONT_CARD_NAME, appointment.id),
+      makeCardInZ3AndReturnAttachment(BACK_CARD_NAME, appointment.id),
+    ]);
     const { photoIdCards, insuranceCards, insuranceCardsSecondary } = visitFiles;
     expect(photoIdCards).toBeDefined();
     expect(insuranceCards).toBeDefined();
@@ -416,10 +429,6 @@ describe('saving card files from EHR', () => {
     expect(insuranceCards.length).toBe(0);
     expect(insuranceCardsSecondary.length).toBe(0);
 
-    const FRONT_CARD_NAME = 'photo-id-front';
-    const BACK_CARD_NAME = 'photo-id-back';
-
-    const frontAttachment = await makeCardInZ3AndReturnAttachment(FRONT_CARD_NAME, appointment.id);
     await updateVisitFiles({
       appointmentId: appointment.id,
       fileType: FRONT_CARD_NAME,
@@ -431,7 +440,6 @@ describe('saving card files from EHR', () => {
     expect(filesWithFront.photoIdCards[0].z3Url).toBe(frontAttachment.url);
     expect(filesWithFront.photoIdCards[0].type).toBe(FRONT_CARD_NAME);
 
-    const backAttachment = await makeCardInZ3AndReturnAttachment(BACK_CARD_NAME, appointment.id);
     await updateVisitFiles({
       appointmentId: appointment.id,
       fileType: BACK_CARD_NAME,

@@ -164,10 +164,14 @@ describe('get-chart-section and get-visit-note golden integration', () => {
     ]);
     [patientA, patientB] = await Promise.all([saveChart(baseA, 'alpha'), saveChart(baseB, 'bravo')]);
     const encounterId = patientA.base.encounter.id!;
-    for (const section of CHART_SECTIONS) {
-      (sectionsA as Record<ChartSection, ChartSectionData>)[section] = await getSection(encounterId, section);
-    }
-    visitNoteA = await getVisitNote(encounterId);
+    const [sections, visitNote] = await Promise.all([
+      Promise.all(CHART_SECTIONS.map((section) => getSection(encounterId, section))),
+      getVisitNote(encounterId),
+    ]);
+    CHART_SECTIONS.forEach((section, index) => {
+      (sectionsA as Record<ChartSection, ChartSectionData>)[section] = sections[index];
+    });
+    visitNoteA = visitNote;
   }, 180_000);
 
   afterAll(async () => {

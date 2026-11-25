@@ -49,67 +49,76 @@ describe('save-completed-form wrong-patient guard integration', () => {
     cleanup = setup.cleanup;
     processId = setup.processId;
 
-    visitA = await insertInPersonAppointmentBase(setup.oystehr, processId);
-    visitB = await insertInPersonAppointmentBase(setup.oystehr, processId);
+    const setUpTemplate = async (): Promise<void> => {
+      // A template with one mapped field, so the produced PDF is a real filled form rather than a copy.
+      const created = (
+        await oystehrZambdas.zambda.execute({
+          id: 'create-form-template-upload-url',
+          title: 'Guard test template',
+          fileName: 'guard-test.pdf',
+        })
+      ).output as CreateFormTemplateUploadUrlOutput;
+      templateId = created.documentReferenceId;
 
-    // A template with one mapped field, so the produced PDF is a real filled form rather than a copy.
-    const created = (
+      const uploadTemplatePdf = async (): Promise<Response> => {
+        const doc = await PDFDocument.create();
+        const page = doc.addPage();
+        doc.getForm().createTextField('first.name').addToPage(page, { x: 50, y: 700, width: 200, height: 20 });
+        return fetch(created.presignedUploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/pdf' },
+          body: (await doc.save()) as unknown as BodyInit,
+        });
+      };
+      const [, uploaded] = await Promise.all([tagForCleanup(templateId), uploadTemplatePdf()]);
+      expect(uploaded.ok, `template upload failed: ${uploaded.status}`).toBe(true);
+
+      await oystehrZambdas.zambda.execute({ id: 'analyze-form-template', documentReferenceId: templateId });
+
+      const mapping: FormTemplateMapping = {
+        version: 1,
+        bindings: [{ fieldName: 'first.name', tokenKey: 'patient.firstName' }],
+      };
       await oystehrZambdas.zambda.execute({
-        id: 'create-form-template-upload-url',
-        title: 'Guard test template',
-        fileName: 'guard-test.pdf',
-      })
-    ).output as CreateFormTemplateUploadUrlOutput;
-    templateId = created.documentReferenceId;
-    await tagForCleanup(templateId);
-
-    const doc = await PDFDocument.create();
-    const page = doc.addPage();
-    doc.getForm().createTextField('first.name').addToPage(page, { x: 50, y: 700, width: 200, height: 20 });
-    const uploaded = await fetch(created.presignedUploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/pdf' },
-      body: (await doc.save()) as unknown as BodyInit,
-    });
-    expect(uploaded.ok, `template upload failed: ${uploaded.status}`).toBe(true);
-
-    await oystehrZambdas.zambda.execute({ id: 'analyze-form-template', documentReferenceId: templateId });
-
-    const mapping: FormTemplateMapping = {
-      version: 1,
-      bindings: [{ fieldName: 'first.name', tokenKey: 'patient.firstName' }],
+        id: 'save-form-template-mapping',
+        documentReferenceId: templateId,
+        mapping,
+      });
+      await oystehrZambdas.zambda.execute({
+        id: 'update-form-template',
+        documentReferenceId: templateId,
+        published: true,
+      });
     };
-    await oystehrZambdas.zambda.execute({
-      id: 'save-form-template-mapping',
-      documentReferenceId: templateId,
-      mapping,
-    });
-    await oystehrZambdas.zambda.execute({
-      id: 'update-form-template',
-      documentReferenceId: templateId,
-      published: true,
-    });
+
+    [visitA, visitB] = await Promise.all([
+      insertInPersonAppointmentBase(setup.oystehr, processId),
+      insertInPersonAppointmentBase(setup.oystehr, processId),
+      setUpTemplate(),
+    ]);
   }, 120_000);
 
   afterAll(async () => {
     // Every document this file caused to be written, template and instances alike. The leak gate only
     // sweeps its own run tag, and these were created by zambdas rather than by the test.
-    for (const patientId of [visitA?.patient?.id, visitB?.patient?.id]) {
-      if (!patientId) continue;
-      try {
-        const docs = (
-          await oystehrAdmin.fhir.search<DocumentReference>({
-            resourceType: 'DocumentReference',
-            params: [{ name: 'subject', value: `Patient/${patientId}` }],
-          })
-        ).unbundle();
-        await Promise.all(
-          docs.map((doc) => oystehrAdmin.fhir.delete({ resourceType: 'DocumentReference', id: doc.id! }))
-        );
-      } catch {
-        // Best-effort.
-      }
-    }
+    await Promise.all(
+      [visitA?.patient?.id, visitB?.patient?.id].map(async (patientId) => {
+        if (!patientId) return;
+        try {
+          const docs = (
+            await oystehrAdmin.fhir.search<DocumentReference>({
+              resourceType: 'DocumentReference',
+              params: [{ name: 'subject', value: `Patient/${patientId}` }],
+            })
+          ).unbundle();
+          await Promise.all(
+            docs.map((doc) => oystehrAdmin.fhir.delete({ resourceType: 'DocumentReference', id: doc.id! }))
+          );
+        } catch {
+          // Best-effort.
+        }
+      })
+    );
     try {
       await oystehrAdmin.fhir.delete({ resourceType: 'DocumentReference', id: templateId });
     } catch {

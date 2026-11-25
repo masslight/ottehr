@@ -121,8 +121,10 @@ async function provisionSharedClient(
     }
   }
 
-  const { secret } = await oystehrAdmin.m2m.rotateSecret({ id: m2mId });
-  const clientId = (await oystehrAdmin.m2m.get({ id: m2mId })).clientId;
+  const [{ secret }, { clientId }] = await Promise.all([
+    oystehrAdmin.m2m.rotateSecret({ id: m2mId }),
+    oystehrAdmin.m2m.get({ id: m2mId }),
+  ]);
   const token = await getAuth0Token({
     AUTH0_ENDPOINT,
     AUTH0_CLIENT: clientId,
@@ -264,12 +266,11 @@ export default async function setup(project: TestProject): Promise<() => Promise
 
   // The two clients are independent (distinct per-run names, profiles, and roles), so provision
   // them concurrently to keep the suite's serial startup cost down.
-  const [provider, patient] = await Promise.all([
+  const [provider, patient, invoiceNumberCounterId] = await Promise.all([
     provisionSharedClient(oystehrAdmin, M2MClientMockType.provider, runId),
     provisionSharedClient(oystehrAdmin, M2MClientMockType.patient, runId),
+    provisionRunInvoiceNumberCounter(oystehrAdmin, runId),
   ]);
-
-  const invoiceNumberCounterId = await provisionRunInvoiceNumberCounter(oystehrAdmin, runId);
 
   project.provide('ADMIN_TOKEN', adminToken);
   project.provide('INTEGRATION_TEST_RUN_ID', runId);
@@ -283,28 +284,31 @@ export default async function setup(project: TestProject): Promise<() => Promise
   // Teardown: delete the two shared M2M clients and their profile resources,
   // then stop the server.
   return async () => {
-    for (const c of [provider, patient]) {
-      try {
-        await oystehrAdmin.m2m.delete({ id: c.m2mId });
-      } catch {
-        // best-effort
-      }
-      try {
-        await oystehrAdmin.fhir.delete({ resourceType: c.profileResourceType, id: c.profileId });
-      } catch {
-        // best-effort
-      }
-    }
+    await Promise.all([
+      ...[provider, patient].map(async (c) => {
+        try {
+          await oystehrAdmin.m2m.delete({ id: c.m2mId });
+        } catch {
+          // best-effort
+        }
+        try {
+          await oystehrAdmin.fhir.delete({ resourceType: c.profileResourceType, id: c.profileId });
+        } catch {
+          // best-effort
+        }
+      }),
+      (async () => {
+        try {
+          await oystehrAdmin.fhir.delete({
+            resourceType: 'Basic',
+            id: invoiceNumberCounterId,
+          });
+        } catch {
+          // best-effort; the leak gate reports it
+        }
+      })(),
+    ]);
     console.log('Deleted shared integration-test M2M clients');
-
-    try {
-      await oystehrAdmin.fhir.delete({
-        resourceType: 'Basic',
-        id: invoiceNumberCounterId,
-      });
-    } catch {
-      // best-effort; the leak gate reports it
-    }
 
     restoreFetch();
 

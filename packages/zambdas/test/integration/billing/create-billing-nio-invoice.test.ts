@@ -131,62 +131,69 @@ describe('create-billing-nio-invoice', () => {
     cleanup = setup.cleanup;
     processId = setup.processId;
 
-    nioId = await seed<Organization>({
-      resourceType: 'Organization',
-      active: true,
-      name: 'Integration NIO',
-      address: [
-        {
-          line: ['4820 Commerce Parkway'],
-          city: 'Austin',
-          state: 'TX',
-          postalCode: '78744',
-        },
-      ],
-    });
-    const providerId = await seed<Organization>({
-      resourceType: 'Organization',
-      active: true,
-      name: 'Integration Medical Group',
-      address: [
-        {
-          line: ['2 Provider Way'],
-        },
-      ],
-    });
-    const facilityId = await seed<Location>({
-      resourceType: 'Location',
-      name: 'Integration Clinic',
-      address: {
-        line: ['1 Clinic Way'],
-      },
-      managingOrganization: {
-        reference: `Organization/${providerId}`,
-      },
-      extension: [
-        {
-          url: SOURCE_IDENTIFIER_SYSTEM,
-          valueReference: {
-            reference: `Location/${randomUUID()}`,
+    const seedProviderAndFacility = async (): Promise<{ providerId: string; facilityId: string }> => {
+      const providerId = await seed<Organization>({
+        resourceType: 'Organization',
+        active: true,
+        name: 'Integration Medical Group',
+        address: [
+          {
+            line: ['2 Provider Way'],
           },
+        ],
+      });
+      const facilityId = await seed<Location>({
+        resourceType: 'Location',
+        name: 'Integration Clinic',
+        address: {
+          line: ['1 Clinic Way'],
         },
-      ],
-    });
-    const patientId = await seed<Patient>({
-      resourceType: 'Patient',
-      active: true,
-      name: [
-        {
-          family: 'Pruitt',
-          given: ['Jordan'],
+        managingOrganization: {
+          reference: `Organization/${providerId}`,
         },
-      ],
-      birthDate: '1990-01-01',
-    });
-    claimIds = [
-      await seedClaim(patientId, providerId, facilityId, 180),
-      await seedClaim(patientId, providerId, facilityId, 95),
-    ];
+        extension: [
+          {
+            url: SOURCE_IDENTIFIER_SYSTEM,
+            valueReference: {
+              reference: `Location/${randomUUID()}`,
+            },
+          },
+        ],
+      });
+      return { providerId, facilityId };
+    };
+    const [seededNioId, { providerId, facilityId }, patientId] = await Promise.all([
+      seed<Organization>({
+        resourceType: 'Organization',
+        active: true,
+        name: 'Integration NIO',
+        address: [
+          {
+            line: ['4820 Commerce Parkway'],
+            city: 'Austin',
+            state: 'TX',
+            postalCode: '78744',
+          },
+        ],
+      }),
+      seedProviderAndFacility(),
+      seed<Patient>({
+        resourceType: 'Patient',
+        active: true,
+        name: [
+          {
+            family: 'Pruitt',
+            given: ['Jordan'],
+          },
+        ],
+        birthDate: '1990-01-01',
+      }),
+    ]);
+    nioId = seededNioId;
+    claimIds = await Promise.all([
+      seedClaim(patientId, providerId, facilityId, 180),
+      seedClaim(patientId, providerId, facilityId, 95),
+    ]);
   }, 120_000);
 
   afterAll(async () => {

@@ -43,57 +43,62 @@ describe('save-free-form-encounter integration', () => {
     cleanup = setup.cleanup;
     base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
 
-    otherPatient = await oystehrAdmin.fhir.create<Patient>(
-      addProcessIdMetaTagToResource(
-        { resourceType: 'Patient', name: [{ given: ['Other'], family: 'FreeForm' }] },
-        processId
-      ) as Patient
-    );
-
     const subject = { reference: `Patient/${base.patient.id}` };
-    legacyFollowup = await seedEncounter({
-      resourceType: 'Encounter',
-      status: 'in-progress',
-      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'VR' },
-      type: [
-        {
-          coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }],
-          text: 'Follow-up Encounter',
-        },
-      ],
-      subject,
-      period: { start: DateTime.now().minus({ years: 2 }).toUTC().toISO() },
-      reasonCode: [{ coding: [{ system: FOLLOWUP_SYSTEMS.reasonUrl, display: 'Other' }], text: 'Asked about X-ray' }],
-      participant: [{ type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.callerUrl, display: 'Mother' }] }] }],
-      extension: [OTHER_EXTENSION],
-    });
-    enteredInError = await seedEncounter({
-      resourceType: 'Encounter',
-      status: 'entered-in-error',
-      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'VR' },
-      type: buildFollowupEncounterType('free-form'),
-      subject,
-      period: { start: DateTime.now().toUTC().toISO() },
-      extension: [{ url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'Entered in error' }],
-    });
-    scheduledWithoutParent = await seedEncounter({
-      resourceType: 'Encounter',
-      status: 'planned',
-      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
-      type: buildFollowupEncounterType('scheduled'),
-      subject,
-      appointment: [{ reference: `Appointment/${base.appointment.id}` }],
-      period: { start: DateTime.now().toUTC().toISO() },
-    });
-    annotationWithoutParent = await seedEncounter({
-      resourceType: 'Encounter',
-      status: 'in-progress',
-      class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'VR' },
-      type: buildFollowupEncounterType('annotation'),
-      subject,
-      period: { start: DateTime.now().toUTC().toISO() },
-      extension: [{ url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'Annotation without a parent' }],
-    });
+    [otherPatient, legacyFollowup, enteredInError, scheduledWithoutParent, annotationWithoutParent] = await Promise.all(
+      [
+        oystehrAdmin.fhir.create<Patient>(
+          addProcessIdMetaTagToResource(
+            { resourceType: 'Patient', name: [{ given: ['Other'], family: 'FreeForm' }] },
+            processId
+          ) as Patient
+        ),
+        seedEncounter({
+          resourceType: 'Encounter',
+          status: 'in-progress',
+          class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'VR' },
+          type: [
+            {
+              coding: [{ system: FOLLOWUP_SYSTEMS.type.url, code: FOLLOWUP_SYSTEMS.type.code }],
+              text: 'Follow-up Encounter',
+            },
+          ],
+          subject,
+          period: { start: DateTime.now().minus({ years: 2 }).toUTC().toISO() },
+          reasonCode: [
+            { coding: [{ system: FOLLOWUP_SYSTEMS.reasonUrl, display: 'Other' }], text: 'Asked about X-ray' },
+          ],
+          participant: [{ type: [{ coding: [{ system: FOLLOWUP_SYSTEMS.callerUrl, display: 'Mother' }] }] }],
+          extension: [OTHER_EXTENSION],
+        }),
+        seedEncounter({
+          resourceType: 'Encounter',
+          status: 'entered-in-error',
+          class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'VR' },
+          type: buildFollowupEncounterType('free-form'),
+          subject,
+          period: { start: DateTime.now().toUTC().toISO() },
+          extension: [{ url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'Entered in error' }],
+        }),
+        seedEncounter({
+          resourceType: 'Encounter',
+          status: 'planned',
+          class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'AMB' },
+          type: buildFollowupEncounterType('scheduled'),
+          subject,
+          appointment: [{ reference: `Appointment/${base.appointment.id}` }],
+          period: { start: DateTime.now().toUTC().toISO() },
+        }),
+        seedEncounter({
+          resourceType: 'Encounter',
+          status: 'in-progress',
+          class: { system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode', code: 'VR' },
+          type: buildFollowupEncounterType('annotation'),
+          subject,
+          period: { start: DateTime.now().toUTC().toISO() },
+          extension: [{ url: FOLLOWUP_SYSTEMS.messageUrl, valueString: 'Annotation without a parent' }],
+        }),
+      ]
+    );
   }, 60_000);
 
   afterAll(async () => {

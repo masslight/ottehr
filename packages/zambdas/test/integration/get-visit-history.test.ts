@@ -24,7 +24,6 @@ import {
   getTimezone,
 } from 'utils/lib/utils/scheduleUtils';
 import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared/getAuth0Token';
 import { createClinicalOystehrClient } from '../../src/shared/helpers';
 import { SECRETS } from '../data/secrets';
 import { ensureM2MPractitionerProfile } from '../helpers/configureTestM2MClient';
@@ -389,24 +388,21 @@ describe('tests for getting the visit history for a patient', () => {
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT_TESTS, AUTH0_SECRET_TESTS, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
+    const { FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT_TESTS,
-      AUTH0_SECRET: AUTH0_SECRET_TESTS,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
+    token = inject('ADMIN_TOKEN');
 
     oystehr = createClinicalOystehrClient(token, SECRETS, {
       projectId: PROJECT_ID,
       services: { fhirApiUrl: FHIR_API, projectApiUrl: EXECUTE_ZAMBDA_URL, zambdaApiUrl: EXECUTE_ZAMBDA_URL },
     });
-    await ensureM2MPractitionerProfile(token);
-    inPersonSchedule = await setUpInPersonResources();
-    virtualSchedule = await setUpVirtualResources();
-    testPatient = await persistTestPatient({ patient: makeTestPatient(), processId }, oystehr);
+    [, inPersonSchedule, virtualSchedule, testPatient] = await Promise.all([
+      ensureM2MPractitionerProfile(token),
+      setUpInPersonResources(),
+      setUpVirtualResources(),
+      persistTestPatient({ patient: makeTestPatient(), processId }, oystehr),
+    ]);
     expect(testPatient.id).toBeDefined();
   });
 

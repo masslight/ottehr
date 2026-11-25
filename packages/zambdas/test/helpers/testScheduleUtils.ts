@@ -1388,61 +1388,62 @@ export const cleanupTestScheduleResources = async (processId: string, oystehr: O
   if (!oystehr || !processId) {
     throw new Error('oystehr or processId is null! could not clean up!');
   }
-  const schedulesAndSuch = (
-    await oystehr.fhir.search<FhirResource>({
-      resourceType: 'Schedule',
-      params: [
-        {
-          name: '_tag',
-          value: tagForProcessId(processId),
-        },
-        {
-          name: '_include',
-          value: 'Schedule:actor',
-        },
-        {
-          name: '_revinclude',
-          value: 'Slot:schedule',
-        },
-      ],
-    })
-  ).unbundle();
-
-  const patientsAndThings = (
-    await oystehr.fhir.search<FhirResource>({
-      resourceType: 'Patient',
-      params: [
-        {
-          name: '_tag',
-          value: tagForProcessId(processId),
-        },
-        {
-          name: '_revinclude',
-          value: 'RelatedPerson:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Person:link:RelatedPerson',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Person:patient',
-        },
-        {
-          name: '_revinclude',
-          value: 'Appointment:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Encounter:appointment',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'QuestionnaireResponse:encounter',
-        },
-      ],
-    })
-  ).unbundle();
+  const [schedulesAndSuch, patientsAndThings] = await Promise.all([
+    oystehr.fhir
+      .search<FhirResource>({
+        resourceType: 'Schedule',
+        params: [
+          {
+            name: '_tag',
+            value: tagForProcessId(processId),
+          },
+          {
+            name: '_include',
+            value: 'Schedule:actor',
+          },
+          {
+            name: '_revinclude',
+            value: 'Slot:schedule',
+          },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+    oystehr.fhir
+      .search<FhirResource>({
+        resourceType: 'Patient',
+        params: [
+          {
+            name: '_tag',
+            value: tagForProcessId(processId),
+          },
+          {
+            name: '_revinclude',
+            value: 'RelatedPerson:patient',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Person:link:RelatedPerson',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Person:patient',
+          },
+          {
+            name: '_revinclude',
+            value: 'Appointment:patient',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Encounter:appointment',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'QuestionnaireResponse:encounter',
+          },
+        ],
+      })
+      .then((bundle) => bundle.unbundle()),
+  ]);
   const deleteRequests: BatchInputDeleteRequest[] = [...schedulesAndSuch, ...patientsAndThings].map((res) => {
     return {
       method: 'DELETE',
@@ -1571,26 +1572,37 @@ export const persistTestPatient = async (input: PersistTestPatientInput, oystehr
     },
   };
   try {
-    const createdPatient = await oystehr.fhir.create<Patient>(resource);
-    console.log('createdPatient', createdPatient);
-    await oystehr.fhir.create<RelatedPerson>({
-      resourceType: 'RelatedPerson',
-      patient: { reference: `Patient/${createdPatient.id}` },
-      name: [
+    const patientFullUrl = `urn:uuid:${randomUUID()}`;
+    const results = await oystehr.fhir.transaction<Patient | RelatedPerson>({
+      requests: [
+        { method: 'POST', url: 'Patient', fullUrl: patientFullUrl, resource },
         {
-          family: 'Horseman',
-          // cSpell:disable-next Bojack
-          given: ['Bojack'],
-        },
-      ],
-      telecom: [
-        {
-          system: 'phone',
-          value: '+12027139680',
-          use: 'mobile',
+          method: 'POST',
+          url: 'RelatedPerson',
+          resource: {
+            resourceType: 'RelatedPerson',
+            patient: { reference: patientFullUrl },
+            name: [
+              {
+                family: 'Horseman',
+                // cSpell:disable-next Bojack
+                given: ['Bojack'],
+              },
+            ],
+            telecom: [
+              {
+                system: 'phone',
+                value: '+12027139680',
+                use: 'mobile',
+              },
+            ],
+          },
         },
       ],
     });
+    const createdPatient = results.entry?.find((entry) => entry.resource?.resourceType === 'Patient')
+      ?.resource as Patient;
+    console.log('createdPatient', createdPatient);
     return createdPatient;
   } catch (error) {
     console.error('Error creating test patient', error);

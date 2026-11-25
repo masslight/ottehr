@@ -201,8 +201,10 @@ describe('form template lifecycle integration', () => {
   it('hands back a candidate location when replacing, and changes nothing', async () => {
     const created = await presign({ title: 'Replacement subject', fileName: 'original.pdf' });
     createdTemplateIds.push(created.documentReferenceId);
-    await tagForCleanup(created.documentReferenceId);
-    await putPdf(created.presignedUploadUrl, await acroFormPdf());
+    await Promise.all([
+      tagForCleanup(created.documentReferenceId),
+      acroFormPdf().then((bytes) => putPdf(created.presignedUploadUrl, bytes)),
+    ]);
 
     const replacement = await presign({
       documentReferenceId: created.documentReferenceId,
@@ -233,8 +235,10 @@ describe('form template lifecycle integration', () => {
     // a structured error rather than becoming a generic 500, and the draft record has to actually be gone.
     const created = await presign({ title: 'Not really a PDF', fileName: 'broken.pdf' });
     createdTemplateIds.push(created.documentReferenceId);
-    await tagForCleanup(created.documentReferenceId);
-    await putPdf(created.presignedUploadUrl, new TextEncoder().encode('this is not a pdf'));
+    await Promise.all([
+      tagForCleanup(created.documentReferenceId),
+      putPdf(created.presignedUploadUrl, new TextEncoder().encode('this is not a pdf')),
+    ]);
 
     let caught: any;
     try {
@@ -263,8 +267,10 @@ describe('form template lifecycle integration', () => {
   it('refuses an unusable replacement and leaves the template pointing at its working PDF', async () => {
     const created = await presign({ title: 'Keeps its original', fileName: 'original.pdf' });
     createdTemplateIds.push(created.documentReferenceId);
-    await tagForCleanup(created.documentReferenceId);
-    await putPdf(created.presignedUploadUrl, await acroFormPdf());
+    await Promise.all([
+      tagForCleanup(created.documentReferenceId),
+      acroFormPdf().then((bytes) => putPdf(created.presignedUploadUrl, bytes)),
+    ]);
     await oystehrZambdas.zambda.execute({
       id: 'analyze-form-template',
       documentReferenceId: created.documentReferenceId,

@@ -25,10 +25,13 @@ describe('get-paperwork integration — happy path', () => {
     oystehrAdmin = setup.oystehr;
     oystehrPatient = setup.oystehrTestUserM2M;
     cleanup = setup.cleanup;
-    base = await insertInPersonAppointmentBase(setup.oystehr, setup.processId);
     // Point the seed QR at this instance's active in-person intake questionnaire
     // (a QR is treated as "paperwork" when it references that canonical).
-    const questionnaire = await getCurrentQuestionnaireForServiceType(ServiceMode['in-person'], oystehrAdmin);
+    const [insertedBase, questionnaire] = await Promise.all([
+      insertInPersonAppointmentBase(setup.oystehr, setup.processId),
+      getCurrentQuestionnaireForServiceType(ServiceMode['in-person'], oystehrAdmin),
+    ]);
+    base = insertedBase;
     await oystehrAdmin.fhir.update<QuestionnaireResponse>({
       ...base.questionnaireResponse,
       questionnaire: `${questionnaire.url}|${questionnaire.version}`,
