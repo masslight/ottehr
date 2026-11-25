@@ -1089,3 +1089,52 @@ describe('ClaimsList — tag filter', () => {
     expect(await screen.findByLabelText('Tags')).toHaveValue('needs-review and urgent; not on-hold');
   });
 });
+
+describe('ClaimsList — plan type filter', () => {
+  beforeEach(() => {
+    searchBillingClaimsMock.mockReset();
+    searchBillingClaimsMock.mockResolvedValue({ claims: [], total: 0 });
+  });
+
+  it('searches for claims by the plan type of their primary coverage', async () => {
+    const user = userEvent.setup();
+    renderList();
+
+    await user.click(await screen.findByLabelText('Plan Type'));
+    await user.click(await screen.findByRole('option', { name: 'PPO' }));
+    await user.click(await screen.findByRole('option', { name: 'Medicaid' }));
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenLastCalledWith({}, expect.objectContaining({ planType: ['12', 'MC'] }))
+    );
+  });
+
+  it('restores a kept plan type filter', async () => {
+    sessionStorage.setItem(
+      FILTERS_STORAGE_KEY,
+      JSON.stringify({
+        searchText: '',
+        arStageFilter: [],
+        statusFilter: [],
+        tagFilter: [],
+        planTypeFilter: ['HM'],
+        createdFrom: '',
+        createdTo: '',
+        serviceDateFrom: '',
+        serviceDateTo: '',
+        selectedPayers: [],
+        selectedPatients: [],
+        typeFilter: [],
+        selectedServices: [],
+        paginationModel: { page: 0, pageSize: 25 },
+      })
+    );
+
+    renderList();
+
+    await waitFor(() =>
+      expect(searchBillingClaimsMock).toHaveBeenCalledWith({}, expect.objectContaining({ planType: ['HM'] }))
+    );
+    expect(await screen.findByText('HMO')).toBeInTheDocument();
+  });
+});

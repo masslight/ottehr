@@ -9,8 +9,6 @@ import { wrapHandler } from '../../../../shared/sentry';
 import { ZambdaInput } from '../../../../shared/types/common';
 import {
   handleGetPossibleRelatedRequestsToUnsolicitedResult,
-  handleGetTasks,
-  handleIconResourceRequest,
   handleUnsolicitedRequestMatch,
   handleUnsolicitedResultDetailRequest,
   handleUnsolicitedResultPatientListRequest,
@@ -35,16 +33,6 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   let response: GetUnsolicitedResultsResourcesOutput | null;
 
   switch (requestType) {
-    case UnsolicitedResultsRequestType.UNSOLICITED_RESULTS_ICON: {
-      console.log('handling unsolicited-results-icon request');
-      response = await handleIconResourceRequest(oystehr);
-      break;
-    }
-    case UnsolicitedResultsRequestType.GET_UNSOLICITED_RESULTS_TASKS: {
-      console.log('handling get-unsolicited-results-tasks request');
-      response = await handleGetTasks(oystehr);
-      break;
-    }
     case UnsolicitedResultsRequestType.MATCH_UNSOLICITED_RESULTS: {
       console.log('handling match-unsolicited-result request');
       response = await handleUnsolicitedRequestMatch(oystehr, validatedParameters.diagnosticReportId);

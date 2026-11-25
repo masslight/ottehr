@@ -16,6 +16,7 @@ import {
   BillingInvoiceStatementInputSchema,
   BillingOutreachTaskInputSchema,
   BulkAddChargeItemDefinitionProcedureCodesInputSchema,
+  ChargeBillingNioInvoiceCardInputSchema,
   CreateBillingClaimInputSchema,
   CreateBillingCoverageInputSchema,
   CreateBillingInvoiceInputSchema,
@@ -132,6 +133,7 @@ import {
   GetBillingProductivityReportResponse,
   GetBillingReportHistoryResponse,
   GetPatientCoveragesResponse,
+  ListBillingNioInvoicePaymentMethodsResponse,
   ListBillingOutreachTasksResponse,
   ListBillingPatientAccountPaymentsResponse,
   ListBillingPatientPaymentMethodsResponse,
@@ -158,6 +160,7 @@ import {
   SearchCodeResponse,
   SearchServiceFacilitiesResponse,
   ServiceFacilityItem,
+  SetupBillingNioInvoiceCardResponse,
 } from 'utils/lib/types/data/billing/billing.types';
 import { GetClaimHistoryResponse } from 'utils/lib/types/data/billing/claim-history';
 import { Cms1500FormData } from 'utils/lib/types/data/billing/cms1500.types';
@@ -290,6 +293,24 @@ export const presignBillingInvoicePaymentAttachment = (
   parameters: z.input<typeof PresignBillingInvoicePaymentAttachmentInputSchema>
 ): Promise<PresignBillingInvoicePaymentAttachmentResponse> =>
   executeBillingZambda(oystehr, 'presign-billing-invoice-payment-attachment', parameters);
+
+export const setupBillingNioInvoiceCard = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingInvoiceInputSchema>
+): Promise<SetupBillingNioInvoiceCardResponse> =>
+  executeBillingZambda(oystehr, 'setup-billing-nio-invoice-card', parameters);
+
+export const listBillingNioInvoicePaymentMethods = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof GetBillingInvoiceInputSchema>
+): Promise<ListBillingNioInvoicePaymentMethodsResponse> =>
+  executeBillingZambda(oystehr, 'list-billing-nio-invoice-payment-methods', parameters);
+
+export const chargeBillingNioInvoiceCard = (
+  oystehr: Oystehr,
+  parameters: z.input<typeof ChargeBillingNioInvoiceCardInputSchema>
+): Promise<RecordBillingNioInvoicePaymentResponse> =>
+  executeBillingZambda(oystehr, 'charge-billing-nio-invoice-card', parameters);
 
 export const getBillingInvoiceStatement = (
   oystehr: Oystehr,

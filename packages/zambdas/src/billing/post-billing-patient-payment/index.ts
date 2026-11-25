@@ -34,6 +34,7 @@ import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
 import {
   getStripeClient,
+  isIdempotencyConflict,
   STRIPE_METADATA_KEYS,
   STRIPE_PAYMENT_ID_SYSTEM,
   stripeEncounterMetadata,
@@ -392,17 +393,6 @@ const findReservations = async (billingOystehr: Oystehr, reservationIdentifier: 
       params: [{ name: 'identifier', value: `${reservationIdentifier.system}|${reservationIdentifier.value}` }],
     })
   ).unbundle();
-
-// Stripe refuses a key that another request is using, or used with other parameters: that request is
-// charging the payment, or charged the card with other parameters (its own reservation, or a changed amount).
-const isIdempotencyConflict = (error: unknown): boolean => {
-  const stripeError = error as { type?: string; rawType?: string; code?: string } | undefined;
-  return (
-    stripeError?.type === 'StripeIdempotencyError' ||
-    stripeError?.rawType === 'idempotency_error' ||
-    stripeError?.code === 'idempotency_key_in_use'
-  );
-};
 
 // How long a request that met another one charging the payment waits for it to record the payment,
 // which it does right after its charge returns.

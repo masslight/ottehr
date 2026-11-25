@@ -434,8 +434,8 @@ export interface ListBillingPatientAccountPaymentsResponse {
   visits: BillingPatientVisit[];
 }
 
-// a saved card on the Stripe customer a visit takes payments on
-export interface BillingPatientCard {
+// a saved card on a patient's or non-insurance payer's Stripe customer
+export interface BillingCard {
   // Stripe PaymentMethod id
   id: string;
   brand: string;
@@ -448,7 +448,7 @@ export interface BillingPatientCard {
 
 export interface ListBillingPatientPaymentMethodsResponse {
   // unexpired cards, the default first
-  cards: BillingPatientCard[];
+  cards: BillingCard[];
 }
 
 export interface GetBillingPatientAccountPaymentResponse {
@@ -1343,6 +1343,16 @@ export interface RecordBillingNioInvoicePaymentResponse {
 export interface PresignBillingInvoicePaymentAttachmentResponse {
   uploadUrl: string;
   path: string;
+}
+
+export interface SetupBillingNioInvoiceCardResponse {
+  clientSecret: string;
+  // undefined for the platform account
+  stripeAccount?: string;
+}
+
+export interface ListBillingNioInvoicePaymentMethodsResponse {
+  cards: BillingCard[];
 }
 
 export interface BillingInvoiceDetail extends BillingInvoiceListItem {

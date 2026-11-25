@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { DateTime } from 'luxon';
 import { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecordInvoicePaymentDialog } from '../../src/components/RecordInvoicePaymentDialog';
@@ -97,6 +98,22 @@ describe('RecordInvoicePaymentDialog', () => {
     });
     expect(mocks.presign).not.toHaveBeenCalled();
     expect(mocks.onClose).toHaveBeenCalled();
+  });
+
+  it('refuses a payment date in the future without recording', async () => {
+    renderDialog();
+    fillPayment();
+    const paymentDate = screen.getByLabelText('Payment date *');
+    fireEvent.change(paymentDate, {
+      target: {
+        value: DateTime.now().plus({ days: 2 }).toISODate(),
+      },
+    });
+
+    submit();
+
+    expect(await screen.findByText("Payment date can't be in the future")).toBeInTheDocument();
+    expect(mocks.record).not.toHaveBeenCalled();
   });
 
   it('uploads the attachment before recording the payment with it', async () => {
