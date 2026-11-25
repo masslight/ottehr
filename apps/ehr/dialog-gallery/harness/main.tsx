@@ -7,6 +7,7 @@ import { SnackbarProvider } from 'notistack';
 import { Component, ReactElement, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { ConfirmDialogHost } from 'src/components/dialogs/ConfirmDialogHost';
 import { CustomThemeProvider } from 'src/CustomThemeProvider';
 import { installFetchMock } from './fetch-mock';
 import type { DialogStory } from './story';
@@ -94,6 +95,8 @@ async function main(): Promise<void> {
           <CustomThemeProvider>
             <CssBaseline />
             <SnackbarProvider maxSnack={5} autoHideDuration={6000}>
+              {/* App.tsx mounts this at the root; confirmDialog() / confirmDestructive() need it. */}
+              <ConfirmDialogHost />
               <MemoryRouter initialEntries={[story.route ?? '/']}>
                 <Routes>
                   <Route path={story.routePath ?? '*'} element={story.render()} />

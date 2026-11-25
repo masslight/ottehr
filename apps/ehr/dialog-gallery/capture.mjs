@@ -8,7 +8,8 @@ import { chromium } from 'playwright';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const base = 'http://127.0.0.1:4555/dialog-gallery/index.html';
-const outDir = path.join(here, 'shots');
+// SHOTS_DIR=shots-before keeps a second set, e.g. to compare a refactor before and after.
+const outDir = path.join(here, process.env.SHOTS_DIR ?? 'shots');
 const filters = process.argv.slice(2);
 
 const SURFACE =

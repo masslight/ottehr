@@ -69,6 +69,28 @@ describe('AppDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('shows loading and blocks closing while a promise-returning primary action runs', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    let finish: () => void = () => undefined;
+    const onClick = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
+    render(
+      <AppDialog
+        variant="destructive"
+        open
+        onClose={onClose}
+        title="Delete This Note?"
+        primary={{ label: 'Delete Note', onClick }}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Delete Note' }));
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    await user.keyboard('{Escape}');
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => finish());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled());
+  });
+
   it('shows a single Close button for an alert with nothing to decide', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

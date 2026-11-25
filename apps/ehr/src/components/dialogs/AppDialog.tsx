@@ -17,7 +17,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { FormEventHandler, ReactElement, ReactNode } from 'react';
+import { FormEventHandler, ReactElement, ReactNode, useState } from 'react';
 import { dataTestIds } from 'src/constants/data-test-ids';
 
 /**
@@ -33,10 +33,14 @@ export type AppDialogSize = 'xs' | 's' | 'm' | 'l' | 'full';
 export interface AppDialogPrimary {
   /** A verb, in Title Case: "Save", "Delete Note". Never "OK" or "Yes". */
   label: string;
-  /** Omit when the dialog has `onSubmit`: the primary button then submits the form. */
-  onClick?: () => void;
+  /**
+   * Omit when the dialog has `onSubmit`: the primary button then submits the form. If it returns a
+   * promise, the button shows its loading state and the dialog cannot be closed until it settles.
+   */
+  onClick?: () => void | Promise<unknown>;
   loading?: boolean;
   disabled?: boolean;
+  startIcon?: ReactNode;
   'data-testid'?: string;
 }
 
@@ -50,7 +54,8 @@ export interface AppDialogDismiss {
 
 export interface AppDialogAction {
   label: string;
-  onClick: () => void;
+  /** May return a promise; see `AppDialogPrimary.onClick`. */
+  onClick: () => void | Promise<unknown>;
   /** `error` for a destructive secondary action, such as Delete in an edit form. */
   tone?: 'error';
   loading?: boolean;
@@ -68,7 +73,11 @@ interface AppDialogCommonProps {
   children?: ReactNode;
   /** Blocks ✕, Esc, backdrop and dismiss. Implied while `primary` or any action is loading. */
   busy?: boolean;
+  /** Only to sit above a non-modal floating panel the dialog is opened from. */
+  zIndex?: number;
   'data-testid'?: string;
+  /** Replaces the shared `dialog-title` test id. */
+  titleTestId?: string;
 }
 
 interface AppDialogConfirmProps extends AppDialogCommonProps {
@@ -155,7 +164,20 @@ export function AppDialog(props: AppDialogProps): ReactElement {
     variant === 'destructive' ? 'error' : variant === 'alert' ? props.severity ?? 'warning' : undefined;
   const primaryIsWarning = variant === 'alert' && Boolean(primary);
 
-  const busy = Boolean(props.busy || primary?.loading || actions.some((action) => action.loading));
+  // The label of the button whose promise-returning onClick has not settled yet.
+  const [pending, setPending] = useState<string>();
+  const run = (label: string, onClick?: () => void | Promise<unknown>): (() => void) | undefined =>
+    onClick &&
+    ((): void => {
+      const result = onClick();
+      if (result instanceof Promise) {
+        setPending(label);
+        // Rejections are the caller's to handle; this only tracks the loading state.
+        void result.catch(() => undefined).finally(() => setPending(undefined));
+      }
+    });
+
+  const busy = Boolean(props.busy || pending || primary?.loading || actions.some((action) => action.loading));
   const handleClose = (): void => {
     if (!busy) onClose();
   };
@@ -174,6 +196,7 @@ export function AppDialog(props: AppDialogProps): ReactElement {
       fullScreen={size === 'full' || (isNarrow && size === 'l')}
       disableScrollLock
       data-testid={props['data-testid']}
+      sx={props.zIndex === undefined ? undefined : { zIndex: props.zIndex }}
       PaperProps={{
         ...(onSubmit ? { component: 'form', onSubmit, noValidate: true } : {}),
         sx: {
@@ -215,7 +238,7 @@ export function AppDialog(props: AppDialogProps): ReactElement {
               color: 'primary.dark',
               overflowWrap: 'anywhere',
             }}
-            data-testid={dataTestIds.dialog.title}
+            data-testid={props.titleTestId ?? dataTestIds.dialog.title}
           >
             {title}
           </DialogTitle>
@@ -271,9 +294,9 @@ export function AppDialog(props: AppDialogProps): ReactElement {
               key={action.label}
               variant="outlined"
               color={action.tone === 'error' ? 'error' : 'primary'}
-              onClick={action.onClick}
-              loading={action.loading}
-              disabled={action.disabled || (busy && !action.loading)}
+              onClick={run(action.label, action.onClick)}
+              loading={action.loading || pending === action.label}
+              disabled={action.disabled || (busy && !action.loading && pending !== action.label)}
               startIcon={action.startIcon}
               sx={buttonSx}
               data-testid={action['data-testid']}
@@ -296,9 +319,10 @@ export function AppDialog(props: AppDialogProps): ReactElement {
                 variant="contained"
                 color={variant === 'destructive' ? 'error' : 'primary'}
                 type={onSubmit && !primary.onClick ? 'submit' : 'button'}
-                onClick={primary.onClick}
-                loading={primary.loading}
-                disabled={primary.disabled || (busy && !primary.loading)}
+                onClick={run(primary.label, primary.onClick)}
+                loading={primary.loading || pending === primary.label}
+                disabled={primary.disabled || (busy && !primary.loading && pending !== primary.label)}
+                startIcon={primary.startIcon}
                 sx={primaryIsWarning ? [buttonSx, warningButtonSx].flat() : buttonSx}
                 data-testid={primary['data-testid'] ?? dataTestIds.dialog.proceedButton}
               >
