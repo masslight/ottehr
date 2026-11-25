@@ -123,7 +123,6 @@ export const useDeletePatientConditionPhotoMutation = () => {
 };
 
 interface GetPaymentMethodsParams {
-  setupCompleted: boolean;
   beneficiaryPatientId: string | undefined;
   appointmentId: string | undefined;
   onSuccess?: (data: PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>> | null) => void;
@@ -133,7 +132,7 @@ export const useGetPaymentMethods = (
   input: GetPaymentMethodsParams
 ): UseQueryResult<PromiseReturnType<ReturnType<OystehrAPIClient['getPaymentMethods']>>, Error> => {
   const apiClient = useOystehrAPIClient();
-  const { beneficiaryPatientId, appointmentId, setupCompleted, onSuccess } = input;
+  const { beneficiaryPatientId, appointmentId, onSuccess } = input;
 
   const queryResult = useQuery({
     queryKey: ['payment-methods', beneficiaryPatientId, appointmentId],
@@ -149,7 +148,7 @@ export const useGetPaymentMethods = (
       throw new Error('api client not defined or patient id is not provided');
     },
 
-    enabled: Boolean(beneficiaryPatientId) && setupCompleted && Boolean(apiClient) && Boolean(appointmentId),
+    enabled: Boolean(beneficiaryPatientId) && Boolean(apiClient) && Boolean(appointmentId),
   });
 
   useSuccessQuery(queryResult.data, onSuccess);

@@ -156,15 +156,9 @@ export default function PatientDetail(): ReactElement {
     [oystehrZambda, id, refetch]
   );
 
-  if (loading && !patient) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const waitingForPatient = loading && !patient;
 
-  if (error || !patient) {
+  if (!waitingForPatient && (error || !patient)) {
     return (
       <Box sx={{ p: 0 }}>
         <Alert severity="error">{error ?? 'Patient not found'}</Alert>
@@ -177,32 +171,44 @@ export default function PatientDetail(): ReactElement {
 
   return (
     <Box sx={{ p: 0 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-        <IconButton onClick={() => navigate('/patients')} size="small" sx={{ mt: 0.5 }}>
-          <ArrowBackIcon />
-        </IconButton>
-        <Box>
-          <Typography variant="h5" color="primary.dark" fontWeight={600}>
-            {commaFormattedName(patient)}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            DOB {patient.dob} | MRN {patient.clinicalId}
-            {patient.clinicalFriendlyId ? ` | ID ${patient.clinicalFriendlyId}` : ''}
-          </Typography>
-        </Box>
-      </Box>
-
-      <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
-        <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
-          <Box sx={{ display: 'flex', gap: 4 }}>
-            <BalanceItem label="Current Balance" value={formatCurrency(patient.balance.currentBalance)} />
-            <BalanceItem label="Claims with Patient Balance" value={String(patient.balance.claimsWithPatientBalance)} />
-            <BalanceItem label="Pending Payments" value={formatCurrency(patient.balance.pendingPayments)} />
+      {patient ? (
+        <>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+            <IconButton onClick={() => navigate('/patients')} size="small" sx={{ mt: 0.5 }}>
+              <ArrowBackIcon />
+            </IconButton>
+            <Box>
+              <Typography variant="h5" color="primary.dark" fontWeight={600}>
+                {commaFormattedName(patient)}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                DOB {patient.dob} | MRN {patient.clinicalId}
+                {patient.clinicalFriendlyId ? ` | ID ${patient.clinicalFriendlyId}` : ''}
+              </Typography>
+            </Box>
           </Box>
-        </CardContent>
-      </Card>
 
-      <Box sx={{ ml: 5 }}>
+          <Card variant="outlined" sx={{ mb: 2, ml: 5 }}>
+            <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+              <Box sx={{ display: 'flex', gap: 4 }}>
+                <BalanceItem label="Current Balance" value={formatCurrency(patient.balance.currentBalance)} />
+                <BalanceItem
+                  label="Claims with Patient Balance"
+                  value={String(patient.balance.claimsWithPatientBalance)}
+                />
+                <BalanceItem label="Pending Payments" value={formatCurrency(patient.balance.pendingPayments)} />
+              </Box>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+          <CircularProgress />
+        </Box>
+      )}
+
+      {/* mounted while the patient loads so the insurance and payments tabs fetch alongside it */}
+      <Box sx={{ ml: 5, ...(patient ? {} : { display: 'none' }) }}>
         <TabContext value={tab}>
           <TabList
             onChange={(_, v) => setTab(v)}
@@ -218,33 +224,35 @@ export default function PatientDetail(): ReactElement {
           </TabList>
 
           <TabPanel value="demographics" sx={{ px: 0, pt: 2 }}>
-            <PatientDemographicsSection patient={patient} onSave={savePatient} />
+            {patient && <PatientDemographicsSection patient={patient} onSave={savePatient} />}
           </TabPanel>
 
           <TabPanel value="insurance" sx={{ px: 0, pt: 2 }}>
-            <InsuranceTab patientId={patient.id} />
+            <InsuranceTab patientId={id!} />
           </TabPanel>
 
           <TabPanel value="claims" sx={{ px: 0, pt: 2 }}>
-            <DataGridPro
-              rows={patient.claims}
-              columns={claimColumns}
-              onRowClick={(params) => navigate(`/claims/${params.id}`)}
-              disableRowSelectionOnClick
-              disableColumnMenu
-              autoHeight
-              pageSizeOptions={[25, 50]}
-              initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-              slots={dataGridSlots()}
-              sx={{ ...dataGridSx }}
-            />
+            {patient && (
+              <DataGridPro
+                rows={patient.claims}
+                columns={claimColumns}
+                onRowClick={(params) => navigate(`/claims/${params.id}`)}
+                disableRowSelectionOnClick
+                disableColumnMenu
+                autoHeight
+                pageSizeOptions={[25, 50]}
+                initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+                slots={dataGridSlots()}
+                sx={{ ...dataGridSx }}
+              />
+            )}
           </TabPanel>
 
           <TabPanel value="payments" sx={{ px: 0, pt: 2 }}>
             <PatientPaymentsTab
-              key={patient.id}
-              patientId={patient.id}
-              clinicalPatientId={patient.clinicalId || undefined}
+              key={id}
+              patientId={id!}
+              clinicalPatientId={patient?.clinicalId || undefined}
               onPaymentAdded={refetch}
             />
           </TabPanel>
