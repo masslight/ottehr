@@ -128,11 +128,11 @@ export const performEffect = async (
   const primaryCarePhysician = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
-  let payments: PatientPaymentDTO[] = [];
-  if (encounter.id && account) {
+  const loadPayments = async (): Promise<PatientPaymentDTO[]> => {
+    if (!encounter.id || !account) return [];
     try {
       const stripeClient = getStripeClient(secrets);
-      payments = await getPaymentsForEncounter({
+      return await getPaymentsForEncounter({
         clinicalOystehr: oystehr,
         billingOystehr: createBillingClient(token, secrets),
         stripeClient,
@@ -147,23 +147,26 @@ export const performEffect = async (
         console.error(`Error: Stripe customer deleted, PDF will be generated without payment info. ${customerError}`);
       }
 
-      payments = [];
+      return [];
     }
-  }
+  };
   const pharmacy = accountResources.patient?.contained?.find(
     (resource) => resource.resourceType === 'Organization' && resource.id === PATIENT_CONTAINED_PHARMACY_ID
   ) as Organization;
 
   const appointmentServiceCategory = getCoding(appointment?.serviceCategory, SERVICE_CATEGORY_SYSTEM)?.code;
 
-  const occupationalMedicineEmployerName = await resolveOccupationalMedicineEmployerName({
-    oystehr,
-    encounter,
-    appointmentServiceCategory,
-    occupationalMedicineEmployerOrganization,
-    occupationalMedicineAccount: accountResources.occupationalMedicineAccount,
-  });
-  const coverageChecks = await coverageChecksPromise;
+  const [payments, occupationalMedicineEmployerName, coverageChecks] = await Promise.all([
+    loadPayments(),
+    resolveOccupationalMedicineEmployerName({
+      oystehr,
+      encounter,
+      appointmentServiceCategory,
+      occupationalMedicineEmployerOrganization,
+      occupationalMedicineAccount: accountResources.occupationalMedicineAccount,
+    }),
+    coverageChecksPromise,
+  ]);
 
   const { pdfInfo, attached } = await createVisitDetailsPdf(
     {
