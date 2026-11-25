@@ -7,11 +7,10 @@ export enum ListName {
   EHR = 'ehr',
 }
 
-export async function getInsuranceOverrideList(
+export async function findInsuranceOverrideList(
   oystehr: Oystehr,
   listName: string
-): Promise<FhirResourceReturnValue<List>> {
-  console.group('get insurance override list');
+): Promise<FhirResourceReturnValue<List> | undefined> {
   const lists = (
     await oystehr.fhir.search<List>({
       resourceType: 'List',
@@ -23,7 +22,16 @@ export async function getInsuranceOverrideList(
       ],
     })
   ).unbundle();
-  if (!lists.length) {
+  return lists[0] as FhirResourceReturnValue<List> | undefined;
+}
+
+export async function getInsuranceOverrideList(
+  oystehr: Oystehr,
+  listName: string
+): Promise<FhirResourceReturnValue<List>> {
+  console.group('get insurance override list');
+  const existingList = await findInsuranceOverrideList(oystehr, listName);
+  if (!existingList) {
     // Create if not found
     console.group('create insurance override list');
     const list = await oystehr.fhir.create<List>({
@@ -41,5 +49,5 @@ export async function getInsuranceOverrideList(
     return list;
   }
   console.groupEnd();
-  return lists[0] as FhirResourceReturnValue<List>;
+  return existingList;
 }
