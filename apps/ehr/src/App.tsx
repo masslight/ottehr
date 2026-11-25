@@ -25,6 +25,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { CommandPaletteCreateTask } from './components/CommandPaletteCreateTask';
 import { CommandPalettePhraseDialog } from './components/CommandPalettePhraseDialog';
 import { CommandPaletteRegistrations } from './components/CommandPaletteRegistrations';
+import { ConfirmDialogHost } from './components/dialogs/ConfirmDialogHost';
 import LogoutWarning from './components/dialogs/LogoutWarning';
 import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
@@ -159,6 +160,7 @@ function App(): ReactElement {
         onContinue={handleContinue}
         timeoutInSeconds={timeLeft}
       />
+      <ConfirmDialogHost />
       {showEnvironmentBanner && (
         <>
           <Banner
