@@ -13,7 +13,7 @@ Numbers marked "(SC)" come from the document "Ad hoc reports: speed and complete
   - a layer is bound to a **base field** (`encounterId`, `patientId`), not to a dataset, so the patients dataset's layers are also offered on the encounters and billing rows (`patients.allergies`, …);
   - a visit row can also carry the columns of the **linked datasets**, joined in the worker by `encounterId`: the visit's claim from the billing app (`billing-claims.*`) on the encounters and visit-payments rows, and the visit's payments and charges (`billing.*`) on the encounters rows (section 2.9, plan and reasons in [adhoc-dataset-links.md](adhoc-dataset-links.md));
   - the report data is stored gzip.
-- **Result on synth** (90 days, ~4 700 visits, five typical reports, 2026-11-20): even with Report Studio's runner or faster — by the median of three passes, faster on four reports of five and within noise on the fifth; every result matched the hand-written searches (section 6, [adhoc-bench-reports.md](adhoc-bench-reports.md)).
+- **Result on synth** (90 days, ~4 700 visits, five typical reports, 2026-11-20): even with Report Studio's runner or faster — by the median of three passes, faster on four reports of five and within noise on the fifth; every result matched the hand-written searches.
 - **Result on local:** the encounters dataset with 5 layers loads 5× faster over 60 days with identical rows; a year (~43 500 visits) takes ~100 s, where the old code did not finish within the 13-minute budget. Settings may need tuning on production data (section 7).
 - **Difference from Report Studio:** the fetch mechanics are the same kind (bounded searches, parallel jobs, split rules). The layer code decides what to fetch, not an LLM plan, so there are no server-side value filters and no count-only steps.
 
@@ -302,7 +302,7 @@ flowchart LR
 |---|---|
 | Saved reports | No change: `datasetId` and `criteria.options` keep their meaning |
 | Report code (JSX) | No change: same flat rows, same schema |
-| Rows | The fixture tests pass unchanged; the bench compare shows identical rows against the old code (section 6) |
+| Rows | The fixture tests pass unchanged; the rows were compared against the old code and are identical (section 6) |
 | System reports / Report Studio | Not affected |
 | Links between datasets (section 2.9) | A link layer is one more key in `criteria.options`; rows stay flat; reports saved before contain none of them |
 
@@ -346,11 +346,10 @@ Learned on synth (2026-11-20), each found by timing the steps first:
 - **Mapping can be quadratic without looking like it.** The EHR lab mappers scan the lists they are handed; with a report's thousands of orders that was 589 s (UC 18). Clinic open hours re-parsed the Schedule extension on every row: ~1 s of the 2 s base map. Both are now indexed or cached.
 - **Steps that wait for each other cost their sum.** Visit history ran the prior visits, then the screening answers (4.3–5.7 s); side by side it is the longer of the two (1.7–3.0 s).
 - **Payload size did not matter here.** The codes layer loads whole Conditions and every Procedure, Report Studio only `_elements` and the CPT tag: both take ~3 s. Trimming would add code for nothing.
-- **Bench totals included code loading.** The bench imported each way's modules inside the timer; tsx transpiling this version's larger graph added ~1.5 s per run. A deployed zambda is bundled ahead of time; the bench now loads the modules before the clock starts.
 
 ## 4. Risks and open questions
 
-- **Production-like data.** `local` has many visits and few clinical records per visit. On real data a 500-id search carries far more records and may reach the 30 s limit: it then splits (slower, still complete). Run the bench there and watch for `split` / `FAILED` lines; lower `ADHOC_IDS_PER_SEARCH` if splits are frequent.
+- **Production-like data.** `local` has many visits and few clinical records per visit. On real data a 500-id search carries far more records and may reach the 30 s limit: it then splits (slower, still complete). Watch the worker logs there for `split` / `FAILED` lines; lower `ADHOC_IDS_PER_SEARCH` if splits are frequent.
 - **Load on the Oystehr project.** 16 jobs per report; several reports at once multiply that.
 - **Dangling references in the data.** A medication order whose patient is not among the loaded patients is skipped by the app's order mapper, as before; on local this logs one stack trace per order.
 - **The LLM picks the dataset and layers.** The infer catalog is longer with the foreign layers and longer again with the link layers (encounters: 38 → 53 layers, ~290 → 432 fields). There is no infer eval set in the repository yet; it has to be put together before this can be checked (acceptance in [adhoc-dataset-links.md](adhoc-dataset-links.md), section 6).
@@ -370,18 +369,7 @@ Learned on synth (2026-11-20), each found by timing the steps first:
 | New data kind | new module (code) | change in the data map |
 | LLM errors in the fetch | not possible | possible |
 
-## 6. Tools and measurements
-
-All in `packages/zambdas`, read-only against Oystehr, `<env>` is a file in `config/.env` (e.g. `local`):
-
-| Tool | What it does |
-|---|---|
-| `npm run adhoc-bench-compare -- <env> [days] [layers] [rounds]` | checks the old code out in a temporary worktree, runs the encounters fetch in both, alternately on the same range; prints the time of each and whether the rows are identical (and which columns differ). Both get network retries and no 13-minute budget; a run over the budget is flagged |
-| `npx tsx src/scripts/adhoc-bench.ts <env> <start> <end> <layers> <out.json>` | the current code only: time, rows, settings used; the log has the `encounters timing` line |
-| `npm run adhoc-bench-reports -- <env> [ranges] [reports]` | three typical reports fetched three ways (this version, ideal searches, Report Studio from a worktree of its branch); time, requests, errors, whether the result matches the ideal one, where the time went |
-| `npm run adhoc-m0-spike -- <env> [days]` | compares each root window and a by-id search with an exact count; prints `MISSING` on any loss |
-
-Comparison of this version with hand-written ideal searches and Report Studio on five typical reports, on synth and on local: [adhoc-bench-reports.md](adhoc-bench-reports.md).
+## 6. Measurements
 
 Measured on local (encounters dataset with codes, vitals, medications, labs, signing; server-side fetch only):
 
