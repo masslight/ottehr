@@ -45,7 +45,14 @@ export function ConfirmDialog({
           pt: 1,
         }}
       >
-        <Button size="small" onClick={onCancel} disabled={loading}>
+        <Button
+          size="small"
+          onClick={onCancel}
+          disabled={loading}
+          sx={{
+            mr: 'auto',
+          }}
+        >
           {cancelLabel}
         </Button>
         <Button size="small" variant="contained" color={confirmColor} onClick={onConfirm} disabled={loading}>
