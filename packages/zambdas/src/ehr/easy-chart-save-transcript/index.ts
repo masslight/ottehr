@@ -19,6 +19,7 @@ import { createResourcesFromAiInterview } from '../../shared/ai';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { validateWithSchema } from '../../shared/validation';
 import { authorizeEasyChartRequest } from '../easy-chart-shared/authorize';
@@ -37,7 +38,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
   const oystehr = createClinicalOystehrClient(m2mToken, secrets);
 
   // Every write below runs under the M2M token, so a signed visit has to be refused here, not just in the EHR.
-  const [, fetchedDocument, fetchedStaleObservationIds, callerUserProfile] = await Promise.all([
+  const [editableResult, documentResult, staleObsResult, callerProfileResult] = await Promise.allSettled([
     assertVisitIsEditable(oystehr, encounterId, ZAMBDA_NAME),
     documentId ? oystehr.fhir.get<DocumentReference>({ resourceType: 'DocumentReference', id: documentId }) : undefined,
     documentId
@@ -50,6 +51,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
       : [],
     !documentId && !isServiceClient ? userMe(userToken, secrets).then((user) => user.profile) : null,
   ]);
+  settledValueOrThrow(editableResult);
+  const fetchedDocument = settledValueOrThrow(documentResult);
 
   let existing: DocumentReference | undefined;
   let staleObservationIds: string[] = [];
@@ -66,10 +69,10 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
     providerUserProfile =
       existing.extension?.find((e) => e.url === `${PUBLIC_EXTENSION_BASE_URL}/provider`)?.valueReference?.reference ??
       null;
-    staleObservationIds = fetchedStaleObservationIds;
+    staleObservationIds = settledValueOrThrow(staleObsResult);
   } else {
     // A service client has no user profile, so its transcript is stored as a chat transcript.
-    providerUserProfile = callerUserProfile;
+    providerUserProfile = settledValueOrThrow(callerProfileResult);
   }
 
   const created = await createResourcesFromAiInterview(

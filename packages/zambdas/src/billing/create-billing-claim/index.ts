@@ -36,6 +36,7 @@ import {
 import { FHIR_RESOURCE_NOT_FOUND } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { claimProvenanceRequest, recordedNow, resolveClaimActor } from '../provenance';
@@ -111,10 +112,12 @@ async function performEffect(
   // Resolve the payer's display up front so the claim's references (and therefore its history
   // records) carry friendly names.
   const payerRef = copies.coverage?.payor?.[0]?.reference;
-  const [payersByRef] = await Promise.all([
+  const [payersByRefResult, linkResult] = await Promise.allSettled([
     payerRef ? resolvePayersByRef(oystehr, [payerRef]) : undefined,
     copies.patient?.id ? linkPatientCopyViaPerson(oystehr, params.patientId, copies.patient.id) : undefined,
   ]);
+  settledValueOrThrow(linkResult);
+  const payersByRef = settledValueOrThrow(payersByRefResult);
   const payerName = payerRef ? payerDisplay(payersByRef?.get(payerRef)) : undefined;
   const claim = buildClaim(copies, params, payerName);
 

@@ -33,6 +33,7 @@ import { v4 as uuidV4 } from 'uuid';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { createClinicalOystehrClient } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import {
   getTemplateEncounterBundle,
@@ -373,12 +374,14 @@ const performEffect = async (
     })
   );
 
-  const [bundles, inHouseLabsResult, externalLabsResult, inHouseMedicationsResult] = await Promise.all([
-    Promise.all([...deleteBatches, ...createObservationBatches, miniTransactionPromise]),
-    inHouseLabsPromise,
-    externalLabsPromise,
-    inHouseMedicationsPromise,
+  const [bundleResults, [inHouseLabsOutcome, externalLabsOutcome, inHouseMedicationsOutcome]] = await Promise.all([
+    Promise.allSettled([...deleteBatches, ...createObservationBatches, miniTransactionPromise]),
+    Promise.allSettled([inHouseLabsPromise, externalLabsPromise, inHouseMedicationsPromise]),
   ]);
+  const inHouseMedicationsResult = settledValueOrThrow(inHouseMedicationsOutcome);
+  const bundles = bundleResults.map(settledValueOrThrow<unknown>);
+  const inHouseLabsResult = settledValueOrThrow(inHouseLabsOutcome);
+  const externalLabsResult = settledValueOrThrow(externalLabsOutcome);
 
   console.log('Outcome bundles, ', JSON.stringify(bundles));
 

@@ -11,6 +11,7 @@ import { MISSING_REQUEST_BODY, MISSING_REQUEST_SECRETS } from 'utils/lib/types/e
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { validateJsonBody } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { safeValidate } from '../../shared/validation';
 import { claimMatchHistoryRequests, MATCH_FIELDS, matchFieldsPatchOperations } from '../claim-response-match';
@@ -40,7 +41,7 @@ export async function performEffect(
   oystehr: Oystehr,
   params: Params & { agent: ProvenanceAgent | Promise<ProvenanceAgent> }
 ): Promise<ClaimResponse> {
-  const [claim, claimResponse, agent] = await Promise.all([
+  const [claimResult, claimResponseResult, agentResult] = await Promise.allSettled([
     oystehr.fhir.get<Claim>({
       resourceType: 'Claim',
       id: params.claimId,
@@ -56,6 +57,9 @@ export async function performEffect(
       }),
     params.agent,
   ]);
+  const agent = settledValueOrThrow(agentResult);
+  const claim = settledValueOrThrow(claimResult);
+  const claimResponse = settledValueOrThrow(claimResponseResult);
   const matched: ClaimResponse = {
     ...claimResponse,
     request: {

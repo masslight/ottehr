@@ -41,6 +41,7 @@ import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { fhirValidationErrorToApiError } from '../../shared/errors';
 import { removeExtension, updateExtension } from '../../shared/helpers';
 import { wrapHandler } from '../../shared/sentry';
+import { settledValueOrThrow } from '../../shared/settled';
 import { ZambdaInput } from '../../shared/types/common';
 import { ValidatedZambdaInput, validateWithSchema } from '../../shared/validation';
 import { resolvePayerOrganization } from '../custom-insurance-org.helpers';
@@ -240,7 +241,7 @@ async function attachClaimResources(
 ): Promise<{ id: string | undefined }> {
   const { fields } = params;
   const orderingProviders = fields.serviceLines?.map((line) => line.orderingProvider);
-  const [claim, payerOrg, nonInsurancePayerOrg] = await Promise.all([
+  const [claimResult, payerOrgResult, nonInsurancePayerOrgResult, orderingProvidersResult] = await Promise.allSettled([
     fetchById<Claim>(oystehr, 'Claim', params.resourceId),
     fields.payerId ? resolvePayerOrganization(oystehr, fields.payerId) : undefined,
     fields.nonInsurancePayer
@@ -248,6 +249,10 @@ async function attachClaimResources(
       : undefined,
     orderingProviders ? assertOrderingProvidersExist(oystehr, orderingProviders) : undefined,
   ]);
+  const claim = settledValueOrThrow(claimResult);
+  settledValueOrThrow(orderingProvidersResult);
+  const payerOrg = settledValueOrThrow(payerOrgResult);
+  const nonInsurancePayerOrg = settledValueOrThrow(nonInsurancePayerOrgResult);
   if (nonInsurancePayerOrg && !isNonInsuranceOrganization(nonInsurancePayerOrg)) {
     throw INVALID_INPUT_ERROR('nonInsurancePayer must reference a non-insurance organization');
   }

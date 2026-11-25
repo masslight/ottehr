@@ -177,6 +177,7 @@ const DOCUMENT_SEARCH_PAGE_SIZE = 200;
 // real patient chart; reaching it is a bug, not a big chart.
 const DOCUMENT_SEARCH_MAX = 20000;
 const RELATED_DOCUMENT_SEARCH_CONCURRENCY = 5;
+const ATTACHMENT_DOWNLOAD_CONCURRENCY = 5;
 
 /**
  * A working copy its producer has asked to keep hidden until it is finished.
@@ -495,30 +496,28 @@ export const useGetPatientDocs = (
               };
             });
 
-          const fileBlobs = await Promise.all(
-            filesInfoToDownload.map((fileInfo) =>
-              fetch(new URL(fileInfo.urlToDownload), {
-                method: 'GET',
-                headers: { 'Cache-Control': 'no-cache' },
+          const fileBlobs = await mapWithConcurrency(filesInfoToDownload, ATTACHMENT_DOWNLOAD_CONCURRENCY, (fileInfo) =>
+            fetch(new URL(fileInfo.urlToDownload), {
+              method: 'GET',
+              headers: { 'Cache-Control': 'no-cache' },
+            })
+              .then((response) => {
+                if (!response.ok) {
+                  throw new Error(`failed to download Document attachment [${fileInfo.fileName}]`);
+                }
+                return response.blob();
               })
-                .then((response) => {
-                  if (!response.ok) {
-                    throw new Error(`failed to download Document attachment [${fileInfo.fileName}]`);
-                  }
-                  return response.blob();
-                })
-                .then((blob) => {
-                  const mimeType = getMimeType(fileInfo.fileName) || blob.type;
-                  if (!mimeType) {
-                    throw new Error(`Failed to open file: unknown MIME type for file ${fileInfo.fileName}`);
-                  }
-                  return window.URL.createObjectURL(new Blob([blob], { type: safeBlobType(mimeType) }));
-                })
-                .catch((error) => {
-                  console.log(error);
-                  return undefined;
-                })
-            )
+              .then((blob) => {
+                const mimeType = getMimeType(fileInfo.fileName) || blob.type;
+                if (!mimeType) {
+                  throw new Error(`Failed to open file: unknown MIME type for file ${fileInfo.fileName}`);
+                }
+                return window.URL.createObjectURL(new Blob([blob], { type: safeBlobType(mimeType) }));
+              })
+              .catch((error) => {
+                console.log(error);
+                return undefined;
+              })
           );
 
           for (const fileBlob of fileBlobs) {
