@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { makeVisitDetailsPdfDocumentReference } from '../../src/shared/pdf/make-visit-details-document-reference';
 
 const TITLE = 'Visit Details: 11-20-2026';
+const UPLOAD_URL =
+  'https://project-api.zapehr.com/v1/z3/project-1-visit-notes/patient-1/2026-11-20-1763650000000-VisitDetails.pdf';
 
 const existingDocument = (id: string, title: string): DocumentReference => ({
   resourceType: 'DocumentReference',
@@ -53,7 +55,7 @@ const fakeOystehr = (
 const make = (oystehr: Oystehr): Promise<DocumentReference> =>
   makeVisitDetailsPdfDocumentReference(
     oystehr,
-    { uploadURL: 'https://z3/new.pdf', title: TITLE },
+    { uploadURL: UPLOAD_URL, title: TITLE },
     'patient-1',
     'appt-1',
     'enc-1',
@@ -66,6 +68,8 @@ describe('makeVisitDetailsPdfDocumentReference', () => {
     await make(oystehr);
     expect(created).toHaveLength(1);
     expect(created[0].content[0].attachment.title).toBe(TITLE);
+    expect(created[0].content[0].attachment.url).toBe(UPLOAD_URL);
+    expect(created[0].content[0].attachment.url).toMatch(/^\S*$/);
     expect(created[0].context?.encounter).toEqual([{ reference: 'Encounter/enc-1' }]);
     expect(created[0].context?.related).toContainEqual({ reference: 'Appointment/appt-1' });
     expect(superseded).toEqual([]);

@@ -912,6 +912,7 @@ export interface EligibilityDataInput {
 export interface UploadMetadata {
   patientId: string;
   fileName: string;
+  title?: string;
   bucketName: string;
   /** Reuse one object per patient instead of writing a new timestamped one. */
   stableKey?: boolean;

@@ -196,7 +196,7 @@ export const createVisitDetailsPdf = async (
   const serviceCategories = await fetchServiceCategoryCatalog(createClinicalOystehrClient(token, secrets));
 
   const visitDate = DateTime.fromISO(input.appointment.start ?? '').setZone(input.timezone);
-  const fileName = visitDate.isValid ? `Visit Details: ${visitDate.toFormat('MM-dd-yyyy')}.pdf` : 'Visit Details.pdf';
+  const title = visitDate.isValid ? `Visit Details: ${visitDate.toFormat('MM-dd-yyyy')}` : 'Visit Details';
 
   return generatePdf(
     { ...input, serviceCategories },
@@ -204,7 +204,8 @@ export const createVisitDetailsPdf = async (
     visitDetailsRenderConfig,
     {
       patientId: input.patient.id!,
-      fileName,
+      fileName: 'VisitDetails.pdf',
+      title,
       bucketName: BUCKET_NAMES.VISIT_NOTES,
     },
     secrets,
