@@ -454,14 +454,14 @@ describe('update-in-house-medication - Counting Unit after inventory has been re
     ...existingMedication,
     extension: [makeMedicationInventoryExtension(inventory)],
   } as Medication & { id: string };
-  const lotAt = (locationId: string, onHand: number): Medication => ({
+  const lotAt = (locationId: string, onHand: number, unit = 'vial'): Medication => ({
     ...withLotOnHand(
       makeInventoryLot(trackedCatalog, {
         locationId,
         lotNumber: 'A123',
         expirationDate: '2027-03-31',
         ndc: '12345-678-90',
-        unit: 'vial',
+        unit,
       }),
       onHand
     ),
@@ -548,11 +548,30 @@ describe('update-in-house-medication - Counting Unit after inventory has been re
     const differentUnit = makeMockOystehr(existingMedication, [lotAt('loc-main', 10)]);
     await expect(
       updatePerformEffect(differentUnit, { medicationID: 'med-123', inventory: asTablets })
-    ).rejects.toMatchObject(rejected);
+    ).rejects.toMatchObject({
+      ...rejected,
+      message:
+        "The Counting Unit can't be changed after inventory has been recorded for this medication. Please select Vial.",
+    });
     expect(differentUnit.fhir.patch).not.toHaveBeenCalled();
 
     const recordedUnit = makeMockOystehr(existingMedication, [lotAt('loc-main', 10)]);
     await updatePerformEffect(recordedUnit, { medicationID: 'med-123', inventory });
     expect(recordedUnit.fhir.patch).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['mixed units', [lotAt('loc-main', 10), lotAt('loc-north', 10, 'syringe')]],
+    ['a missing unit', [lotAt('loc-main', 10, '')]],
+    ['an unrecognized unit', [lotAt('loc-main', 10, 'box')]],
+  ])('after tracking was turned off, suggests no unit when the inventory was recorded in %s', async (_case, lots) => {
+    const oystehr = makeMockOystehr(existingMedication, lots);
+    await expect(updatePerformEffect(oystehr, { medicationID: 'med-123', inventory: asTablets })).rejects.toMatchObject(
+      {
+        ...rejected,
+        message: "The Counting Unit can't be changed after inventory has been recorded for this medication.",
+      }
+    );
+    expect(oystehr.fhir.patch).not.toHaveBeenCalled();
   });
 });

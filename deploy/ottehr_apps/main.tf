@@ -19,6 +19,8 @@ locals {
     local_sensitive_file.ehr_env.content_md5,
     base64encode(join("", [for k, v in module.ehr_src_dir.files : v.digests.md5])),
     base64encode(join("", [for k, v in module.ehr_public_dir.files : v.digests.md5])),
+    # The vaccine picker bundles the CVX list that the zambdas check orders against
+    filesha256("${path.module}/../../packages/utils/lib/types/data/immunization/cvx-vaccines.generated.ts"),
   ]
 }
 

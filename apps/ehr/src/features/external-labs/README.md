@@ -138,10 +138,7 @@ At a high level:
 
 1. The Oystehr Lab Service receives an unsolicited result and writes the appropriate FHIR resources.
 2. The `handle-lab-result` zambda is triggered.
-3. A new task to match the result to a patient is created and is available in the `<UnsolicitedResultsInbox>`
-
-- **Note**: The `<UnsolicitedResultsInbox>` is a legacy component. It is discussed here for simplicity, but the correct component for all Task-based workflows is the `<Tasks>` component which renders the Ottehr task inbox.
-
+3. A new task to match the result to a patient is created and is available in the `<Tasks>` component, which renders the Ottehr task inbox.
 4. A provider matches the result to an existing order if applicable, or to a patient. If no match can be made, the provider rejects the result.
 5. The `handle-lab-result` zambda is triggered again due to the update. Task resources are updated as necessary, and the result form PDF is created.
 6. Provider reviews the result.
@@ -388,24 +385,16 @@ To submit an order in Ottehr, follow the instructions above to properly configur
 
 ---
 
-## Flow: Unsolicited Results Inbox (from `UnsolicitedResultsInbox`)
+## Flow: Unsolicited Results (from the `<Tasks>` inbox)
 
-**Note**: The `<UnsolicitedResultsInbox>` is a legacy component. It is discussed here for simplicity, but the correct component for all Task-based workflows is the `<Tasks>` component which renders the Ottehr task inbox.
+Unsolicited result tasks (match and review) are listed in the Ottehr task inbox (`<Tasks>`), which links to the match and review pages below.
 
 ### Pages
 
 | Component                  | Path                                                                     | Role                                                                                                                   |
 | -------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `UnsolicitedResultsInbox`  | `apps/ehr/src/features/external-labs/pages/UnsolicitedResultsInbox.tsx`  | Entry point. Lists all pending unsolicited result tasks across all patients.                                           |
 | `UnsolicitedResultsMatch`  | `apps/ehr/src/features/external-labs/pages/UnsolicitedResultsMatch.tsx`  | Patient/visit matching page. Provider searches for the patient and optionally selects the originating service request. |
 | `UnsolicitedResultsReview` | `apps/ehr/src/features/external-labs/pages/UnsolicitedResultsReview.tsx` | Result review page. Shows the matched result details and allows marking as reviewed to close the task.                 |
-
-### Inbox Components
-
-| Component                    | Path                                                                                                | Role                                                                                               |
-| ---------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `UnsolicitedResultsTaskCard` | `apps/ehr/src/features/external-labs/components/unsolicited-results/UnsolicitedResultsTaskCard.tsx` | Card for a single pending task — shows description, received date, and navigation to match/review. |
-| `UnsolicitedResultsIcon`     | `apps/ehr/src/features/external-labs/components/unsolicited-results/UnsolicitedResultsIcon.tsx`     | Icon/badge indicating unsolicited result status.                                                   |
 
 ### Match Flow Components
 
@@ -427,10 +416,10 @@ Result review reuses shared detail components from the order flow:
 
 ### Zambdas Called — Unsolicited Labs Flow
 
-| Zambda                              | Path                                                                               | When called                                                                                                                                                                                                                                                                       |
-| ----------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get-unsolicited-results-resources` | `packages/zambdas/src/ehr/lab/external/get-unsolicited-results-resources/index.ts` | Inbox task list (`UnsolicitedResultsInbox`), match data (`UnsolicitedResultsMatch`), visit/request list (`UnsolicitedVisitMatchCard`), result detail (`UnsolicitedResultsReview`), and patient-record unsolicited list (`UnsolicitedLabsTable`) — differentiated by `requestType` |
-| `update-lab-order-resources`        | `packages/zambdas/src/ehr/lab/external/update-lab-order-resources/index.ts`        | Finalize patient/visit match (`UnsolicitedResultsMatch`), cancel match, mark as reviewed (`UnsolicitedResultsReview`, `FinalCardView`)                                                                                                                                            |
+| Zambda                              | Path                                                                               | When called                                                                                                                                                                                                                          |
+| ----------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `get-unsolicited-results-resources` | `packages/zambdas/src/ehr/lab/external/get-unsolicited-results-resources/index.ts` | Match data (`UnsolicitedResultsMatch`), visit/request list (`UnsolicitedVisitMatchCard`), result detail (`UnsolicitedResultsReview`), and patient-record unsolicited list (`UnsolicitedLabsTable`) — differentiated by `requestType` |
+| `update-lab-order-resources`        | `packages/zambdas/src/ehr/lab/external/update-lab-order-resources/index.ts`        | Finalize patient/visit match (`UnsolicitedResultsMatch`), cancel match, mark as reviewed (`UnsolicitedResultsReview`, `FinalCardView`)                                                                                               |
 
 ---
 
@@ -516,13 +505,13 @@ Any existing Task linked to the DiagnosticReport (via `Task:based-on`) that is `
 
 A new Task is created with a code determined by the DR status and category:
 
-| Task code                 | DR status / condition                 | Visible on task board?                    |
-| ------------------------- | ------------------------------------- | ----------------------------------------- |
-| `reviewFinalResult`       | `final`, solicited or matched         | Yes                                       |
-| `reviewCorrectedResult`   | `corrected`                           | Yes                                       |
-| `reviewPreliminaryResult` | `preliminary`                         | **No** (hidden unless unsolicited)        |
-| `reviewCancelledResult`   | `cancelled`                           | Created as `completed` immediately        |
-| `matchUnsolicitedResult`  | Any status, unsolicited and unmatched | Yes — feeds the Unsolicited Results Inbox |
+| Task code                 | DR status / condition                 | Visible on task board?              |
+| ------------------------- | ------------------------------------- | ----------------------------------- |
+| `reviewFinalResult`       | `final`, solicited or matched         | Yes                                 |
+| `reviewCorrectedResult`   | `corrected`                           | Yes                                 |
+| `reviewPreliminaryResult` | `preliminary`                         | **No** (hidden unless unsolicited)  |
+| `reviewCancelledResult`   | `cancelled`                           | Created as `completed` immediately  |
+| `matchUnsolicitedResult`  | Any status, unsolicited and unmatched | Yes — listed in the `<Tasks>` inbox |
 
 Task `input` carries: test name, lab name, received date, patient name, appointment ID, DR type tag, and an `alert` flag (`abnormalLabResult`) if the DiagnosticReport contains abnormal result tags.
 
@@ -560,5 +549,5 @@ For solicited results and matched unsolicited results, any `DocumentReference` r
 
 - **`reviewFinalResult` / `reviewCorrectedResult` / `reviewCancelledResult` tasks** → surfaced on the order row in `LabsTableRow` and on the `OrderDetails` page via `get-lab-orders` (which includes task data in its response)
 - **`reviewPreliminaryResult` tasks** → included in order data but not shown on the EHR task board
-- **`matchUnsolicitedResult` tasks** → drive the entire **Flow 2** (Unsolicited Results Inbox); fetched by `get-unsolicited-results-resources` with `requestType: taskList`
+- **`matchUnsolicitedResult` tasks** → drive the Unsolicited Results flow; listed in the `<Tasks>` inbox, which links to `UnsolicitedResultsMatch`
 - **Generated PDFs** → linked from `LabsTableBundleHeaderRow` and `FinalCardView` via DocumentReference attachments on the order

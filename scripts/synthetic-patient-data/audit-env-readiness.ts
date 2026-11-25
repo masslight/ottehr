@@ -1,7 +1,7 @@
 // Audits whether a target Oystehr env has everything the synth harness/census
 // needs to produce COMPLETE visits — not just bare ones. Checks (direct FHIR via
 // M2M, no server needed): in-person Locations + Schedules, progress-note
-// templates, in-house lab catalog, medication formulary + vaccines, payer
+// templates, in-house lab catalog, medication formulary, payer
 // Organizations, and the intake questionnaire. Reports present vs MISSING with
 // the fill-the-gap command for each.
 //
@@ -48,7 +48,6 @@ const REQUIRED = {
     'Prednisone 50mg Oral Tablet',
     'Sodium Chloride 0.9% IV Solution 500mL',
   ],
-  vaccines: ['Influenza Vaccine', 'Tdap', 'Tetanus, Diphtheria (Td)'],
   payers: ['Aetna', 'Anthem', 'Blue Cross Blue Shield', 'Cigna', 'Humana', 'Medicaid', 'Medicare', 'UnitedHealthcare'],
 };
 
@@ -107,13 +106,12 @@ function report(label: string, want: string[], have: string[]): { ok: number; mi
   const labs = await search('ActivityDefinition', [{ name: '_tag', value: IN_HOUSE_LAB_TAG }]);
   report('In-house lab catalog', REQUIRED.labs, labs.map((a: any) => a.title || a.name).filter(Boolean));
 
-  // Medications (formulary, by name identifier) + vaccines
+  // Medications (formulary, by name identifier)
   const meds = await search('Medication', [{ name: 'identifier', value: `${MED_NAME_SYSTEM}|` }]);
   const medNames = meds
     .map((m: any) => m.identifier?.find((i: any) => i.system === MED_NAME_SYSTEM)?.value || m.code?.text)
     .filter(Boolean);
   report('In-house medications', REQUIRED.meds, medNames);
-  report('Vaccines', REQUIRED.vaccines, medNames);
 
   // Payers
   const orgs = await search('Organization', [{ name: 'type', value: 'pay' }]);

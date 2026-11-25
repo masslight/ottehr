@@ -4,9 +4,10 @@ import { ProvenanceAgent } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Stripe from 'stripe';
 import { getNioInvoicePaymentId } from 'utils/lib/fhir/billing-invoice';
+import { FUTURE_PAYMENT_DATE_ERROR, isFuturePaymentDay } from 'utils/lib/helpers/rcm/payment-day';
 import { RecordBillingNioInvoicePaymentInputSchema } from 'utils/lib/types/data/billing/billing.schemas';
 import { RecordBillingNioInvoicePaymentResponse } from 'utils/lib/types/data/billing/billing.types';
-import { MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
+import { INVALID_INPUT_ERROR, MANUAL_PAYMENT_CONFLICT_ERROR } from 'utils/lib/types/errors';
 import { checkOrCreateM2MClientToken } from '../../shared/auth';
 import { wrapHandler } from '../../shared/sentry';
 import { getStripeClient } from '../../shared/stripeIntegration';
@@ -76,6 +77,7 @@ export async function performEffect({
       paymentId,
     };
   }
+  if (isFuturePaymentDay(payment.paymentDate, now)) throw INVALID_INPUT_ERROR(FUTURE_PAYMENT_DATE_ERROR);
   await settleOtherCardReservation({
     oystehr,
     getStripe,

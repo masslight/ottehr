@@ -168,6 +168,14 @@ module "apps_upload" {
   patient_portal_hash                = one(module.ottehr_apps[*].patient_portal_hash)
 }
 
+# After the apps upload, so a failed migration can't hold back the new EHR.
+module "oystehr_migrations" {
+  source      = "./oystehr/migrations"
+  environment = var.environment
+
+  depends_on = [module.apps_upload]
+}
+
 output "sendgrid_config_present" {
   value = true
   precondition {

@@ -80,9 +80,8 @@ const administer = async ({
   const search = searchError
     ? vi.fn().mockRejectedValue(searchError)
     : vi.fn().mockResolvedValue({ unbundle: () => relatedPersons });
-  const get = vi.fn(async ({ resourceType, id }: { resourceType: string; id: string }) => {
+  const get = vi.fn(async ({ resourceType }: { resourceType: string }) => {
     if (resourceType === 'MedicationAdministration') return medicationAdministration;
-    if (resourceType === 'Medication') return { resourceType: 'Medication', id };
     return practitioner;
   });
   const oystehr = { fhir: { get, search, transaction } } as unknown as Oystehr;
@@ -198,7 +197,7 @@ describe('administerImmunizationOrder - emergency contact', () => {
 
     const { administration } = await administer({
       medicationAdministration: order('completed', [recorded]),
-      medicationId: 'med-2',
+      medicationId: '115',
     });
 
     expect(recordedContacts(administration)).toEqual([recorded]);
