@@ -213,6 +213,7 @@ export function usePatientEducation(): UsePatientEducationResult {
           copiedPages.forEach((page) => finalDoc.addPage(page));
         };
 
+        const pdfLoaders: (() => Promise<Uint8Array | ArrayBuffer>)[] = [];
         for (const dx of selection) {
           const approved = approvedFor(dx.code, language);
           if (approved) {
@@ -220,16 +221,18 @@ export function usePatientEducation(): UsePatientEducationResult {
             if (appendedApprovedIds.has(approved.documentReferenceId)) continue;
             appendedApprovedIds.add(approved.documentReferenceId);
 
-            if (!approved.pdfPresignedUrl) {
+            const pdfPresignedUrl = approved.pdfPresignedUrl;
+            if (!pdfPresignedUrl) {
               throw new Error(`Approved PDF for ${dx.code} is missing a presigned URL.`);
             }
 
-            const response = await fetch(approved.pdfPresignedUrl);
-            if (!response.ok) {
-              throw new Error(`Failed to fetch approved PDF for ${dx.code}: ${response.status}`);
-            }
-
-            await appendPdfPages(await response.arrayBuffer());
+            pdfLoaders.push(async () => {
+              const response = await fetch(pdfPresignedUrl);
+              if (!response.ok) {
+                throw new Error(`Failed to fetch approved PDF for ${dx.code}: ${response.status}`);
+              }
+              return await response.arrayBuffer();
+            });
             continue;
           }
 
@@ -238,8 +241,12 @@ export function usePatientEducation(): UsePatientEducationResult {
             throw new Error(`Generated content for ${dx.code} is missing.`);
           }
 
-          const generatedBytes = await generateCombinedPdf([generatedSection], language);
-          await appendPdfPages(generatedBytes);
+          pdfLoaders.push(() => generateCombinedPdf([generatedSection], language));
+        }
+
+        const loadedPdfs = await Promise.all(pdfLoaders.map((load) => load()));
+        for (const pdfBytes of loadedPdfs) {
+          await appendPdfPages(pdfBytes);
         }
 
         mergedPdfBytes = await finalDoc.save();

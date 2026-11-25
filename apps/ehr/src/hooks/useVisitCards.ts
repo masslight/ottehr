@@ -156,20 +156,22 @@ export const useVisitCards = ({ appointmentId, patientId }: UseVisitCardsInput):
       // won't be populated.
       const isInsuranceCard = input.fileType.startsWith('insurance-card');
       const extract = isInsuranceCard ? extractInsuranceCard : extractPhotoId;
-      try {
-        await extract(oystehrZambda, { documentReferenceId });
-        // useInsuranceCardExtraction / usePhotoIdExtraction cache the extraction under their own
-        // query key, separate from the visit-files query refetched below — without this the AI
-        // suggestion chips stay stale until something else happens to refetch them.
-        await queryClient.invalidateQueries({
-          queryKey: [isInsuranceCard ? 'insurance-card-extraction' : 'photo-id-extraction', patientId],
-        });
-      } catch (error) {
-        console.error('error extracting card suggestions', error);
-      }
-    },
-    onSuccess: async () => {
-      await refetchFileData();
+      await Promise.all([
+        (async () => {
+          try {
+            await extract(oystehrZambda, { documentReferenceId });
+            // useInsuranceCardExtraction / usePhotoIdExtraction cache the extraction under their own
+            // query key, separate from the visit-files query refetched below — without this the AI
+            // suggestion chips stay stale until something else happens to refetch them.
+            await queryClient.invalidateQueries({
+              queryKey: [isInsuranceCard ? 'insurance-card-extraction' : 'photo-id-extraction', patientId],
+            });
+          } catch (error) {
+            console.error('error extracting card suggestions', error);
+          }
+        })(),
+        refetchFileData(),
+      ]);
     },
   });
 

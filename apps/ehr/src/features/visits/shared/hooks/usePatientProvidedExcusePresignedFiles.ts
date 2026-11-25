@@ -18,18 +18,14 @@ export const usePatientProvidedExcusePresignedFiles = (): {
       try {
         const authToken = await getAccessTokenSilently();
         const schoolZ3Url = schoolWorkNoteUrls.find((name) => name.includes(`${SCHOOL_WORK_NOTE}-template-school`));
-
-        if (schoolZ3Url) {
-          const schoolPresignedUrl = await getPresignedURL(schoolZ3Url, authToken);
-          setPatientSchoolPresignedUrl(schoolPresignedUrl);
-        }
-
         const workZ3Url = schoolWorkNoteUrls.find((name) => name.includes(`${SCHOOL_WORK_NOTE}-template-work`));
 
-        if (workZ3Url) {
-          const workPresignedUrl = await getPresignedURL(workZ3Url, authToken);
-          setPatientWorkPresignedUrl(workPresignedUrl);
-        }
+        await Promise.all([
+          schoolZ3Url
+            ? getPresignedURL(schoolZ3Url, authToken).then((url) => setPatientSchoolPresignedUrl(url))
+            : undefined,
+          workZ3Url ? getPresignedURL(workZ3Url, authToken).then((url) => setPatientWorkPresignedUrl(url)) : undefined,
+        ]);
       } catch {
         console.error('Error while trying to get template presigned urls');
       }

@@ -34,27 +34,30 @@ export const useMedicationAPI = (): MedicationAPI => {
     const encounterId = encounter.id;
     if (!encounterId) return;
 
-    // Invalidate MAR data (get-medication-orders)
-    await queryClient.invalidateQueries({
-      predicate: (query) => {
-        const [prefix, searchByString] = query.queryKey as [string, string?];
-        if (prefix !== 'telemed-get-medication-orders' || !searchByString) return false;
+    await Promise.all([
+      // Invalidate MAR data (get-medication-orders)
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const [prefix, searchByString] = query.queryKey as [string, string?];
+          if (prefix !== 'telemed-get-medication-orders' || !searchByString) return false;
 
-        try {
-          const searchBy = JSON.parse(searchByString);
-          return (
-            (searchBy.field === 'encounterId' && searchBy.value === encounterId) ||
-            (searchBy.field === 'encounterIds' && Array.isArray(searchBy.value) && searchBy.value.includes(encounterId))
-          );
-        } catch {
-          return false;
-        }
-      },
-    });
-
-    // The medication history is the history section, and create-update-medication-order adds billing codes,
-    // which are the assessment section: re-read both where they are shown.
-    await invalidateChartSections(queryClient, encounterId, ['history', 'assessment']);
+          try {
+            const searchBy = JSON.parse(searchByString);
+            return (
+              (searchBy.field === 'encounterId' && searchBy.value === encounterId) ||
+              (searchBy.field === 'encounterIds' &&
+                Array.isArray(searchBy.value) &&
+                searchBy.value.includes(encounterId))
+            );
+          } catch {
+            return false;
+          }
+        },
+      }),
+      // The medication history is the history section, and create-update-medication-order adds billing codes,
+      // which are the assessment section: re-read both where they are shown.
+      invalidateChartSections(queryClient, encounterId, ['history', 'assessment']),
+    ]);
   };
 
   return {

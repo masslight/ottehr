@@ -23,6 +23,7 @@ import {
   makeSyntheticFolderId,
 } from 'utils/lib/types/data/custom-folder.types';
 import { STATEMENT_CODE } from 'utils/lib/types/data/paperwork/paperwork.constants';
+import { mapWithConcurrency } from 'utils/lib/utils/concurrency';
 import { getFileNameFromUrl, getMimeType } from 'utils/lib/utils/file';
 import { parseFileExtension } from '../helpers/files.helper';
 import { useApiClients } from './useAppClients';
@@ -175,6 +176,7 @@ const DOCUMENT_SEARCH_PAGE_SIZE = 200;
 // Backstop against an unbounded loop if the server keeps advertising a next page. Far above any
 // real patient chart; reaching it is a bug, not a big chart.
 const DOCUMENT_SEARCH_MAX = 20000;
+const RELATED_DOCUMENT_SEARCH_CONCURRENCY = 5;
 
 /**
  * A working copy its producer has asked to keep hidden until it is finished.
@@ -493,28 +495,34 @@ export const useGetPatientDocs = (
               };
             });
 
-          for (const fileInfo of filesInfoToDownload) {
-            await fetch(new URL(fileInfo.urlToDownload), {
-              method: 'GET',
-              headers: { 'Cache-Control': 'no-cache' },
-            })
-              .then((response) => {
-                if (!response.ok) {
-                  throw new Error(`failed to download Document attachment [${fileInfo.fileName}]`);
-                }
-                return response.blob();
+          const fileBlobs = await Promise.all(
+            filesInfoToDownload.map((fileInfo) =>
+              fetch(new URL(fileInfo.urlToDownload), {
+                method: 'GET',
+                headers: { 'Cache-Control': 'no-cache' },
               })
-              .then((blob) => {
-                const mimeType = getMimeType(fileInfo.fileName) || blob.type;
-                if (!mimeType) {
-                  throw new Error(`Failed to open file: unknown MIME type for file ${fileInfo.fileName}`);
-                }
-                const fileBlob = window.URL.createObjectURL(new Blob([blob], { type: safeBlobType(mimeType) }));
-                openFile(fileBlob);
-              })
-              .catch((error) => {
-                console.log(error);
-              });
+                .then((response) => {
+                  if (!response.ok) {
+                    throw new Error(`failed to download Document attachment [${fileInfo.fileName}]`);
+                  }
+                  return response.blob();
+                })
+                .then((blob) => {
+                  const mimeType = getMimeType(fileInfo.fileName) || blob.type;
+                  if (!mimeType) {
+                    throw new Error(`Failed to open file: unknown MIME type for file ${fileInfo.fileName}`);
+                  }
+                  return window.URL.createObjectURL(new Blob([blob], { type: safeBlobType(mimeType) }));
+                })
+                .catch((error) => {
+                  console.log(error);
+                  return undefined;
+                })
+            )
+          );
+
+          for (const fileBlob of fileBlobs) {
+            if (fileBlob) openFile(fileBlob);
           }
         };
 
@@ -537,14 +545,19 @@ export const useGetPatientDocs = (
             })
             .filter((id): id is string => !!id && id !== documentId) ?? [];
 
-        for (const attachedDocumentId of attachedDocumentIds) {
-          const attachedDocumentReferenceResource = (
-            await oystehr!.fhir.search<DocumentReference>({
-              resourceType: 'DocumentReference',
-              params: [{ name: '_id', value: attachedDocumentId }],
-            })
-          ).unbundle()[0];
+        const attachedDocumentReferenceResources = await mapWithConcurrency(
+          attachedDocumentIds,
+          RELATED_DOCUMENT_SEARCH_CONCURRENCY,
+          async (attachedDocumentId) =>
+            (
+              await oystehr!.fhir.search<DocumentReference>({
+                resourceType: 'DocumentReference',
+                params: [{ name: '_id', value: attachedDocumentId }],
+              })
+            ).unbundle()[0]
+        );
 
+        for (const attachedDocumentReferenceResource of attachedDocumentReferenceResources) {
           if (attachedDocumentReferenceResource) {
             const attachedDocumentInfo = createDocumentInfo(attachedDocumentReferenceResource);
             if (attachedDocumentInfo.attachments?.length) {

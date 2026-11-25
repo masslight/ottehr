@@ -82,7 +82,7 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
       // so the queryFn types narrow cleanly without non-null assertions.
       if (!oystehr) throw new Error('oystehr client not ready');
       if (!oystehrZambda) throw new Error('zambda client not ready');
-      const [roleBundle, locationBundle] = await Promise.all([
+      const [roleBundle, locationBundle, categoriesResp] = await Promise.all([
         oystehr.fhir.search<PractitionerRole | Location | Schedule>({
           resourceType: 'PractitionerRole',
           params: [
@@ -95,6 +95,7 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
           resourceType: 'Location',
           params: [{ name: 'status', value: 'active' }],
         }),
+        listServiceCategories(oystehrZambda).catch(() => ({ serviceCategories: [] })),
       ]);
       const resources = roleBundle.unbundle();
       // PRs without a Location reference are group-membership records (linking
@@ -109,8 +110,6 @@ export default function PractitionerRoleList({ practitionerId }: PractitionerRol
       const includedLocations = resources.filter((r): r is Location => r.resourceType === 'Location');
       const schedules = resources.filter((r): r is Schedule => r.resourceType === 'Schedule');
 
-      // Resolve category labels once.
-      const categoriesResp = await listServiceCategories(oystehrZambda).catch(() => ({ serviceCategories: [] }));
       const categoriesById = new Map<string, { code: string; name: string }>();
       for (const sc of categoriesResp.serviceCategories || []) {
         if ((sc as any).id) {

@@ -99,11 +99,13 @@ export const useCancelImmunizationOrder = (
       return chooseJson<CancelImmunizationOrderResponse>(response);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: [GET_IMMUNIZATION_ORDERS_KEY],
-        exact: false,
-      });
-      await invalidateChartSections(queryClient, encounterId, ['assessment']);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: [GET_IMMUNIZATION_ORDERS_KEY],
+          exact: false,
+        }),
+        invalidateChartSections(queryClient, encounterId, ['assessment']),
+      ]);
     },
   });
 };

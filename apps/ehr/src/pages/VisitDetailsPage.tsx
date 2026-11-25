@@ -235,9 +235,7 @@ const usePatientData = (
     patientId: patientId ?? null,
   });
 
-  const coveragesQuery = useGetPatientCoverages({ apiClient, patientId: patientId ?? null }, undefined, {
-    enabled: accountQuery.status === 'success',
-  });
+  const coveragesQuery = useGetPatientCoverages({ apiClient, patientId: patientId ?? null });
 
   return {
     account: accountQuery.data,
@@ -559,8 +557,7 @@ export default function VisitDetailsPage(): ReactElement {
   });
 
   const refetchAllPaymentData = useCallback(async () => {
-    await refetchPaymentList();
-    await refetchPatientBalances();
+    await Promise.all([refetchPaymentList(), refetchPatientBalances()]);
   }, [refetchPaymentList, refetchPatientBalances]);
 
   const { insurance: insuranceData, isFetching } = usePatientData(patientId);
@@ -629,8 +626,10 @@ export default function VisitDetailsPage(): ReactElement {
       bookingDetails,
     });
     if (editDialogConfig.type === 'dob') {
-      await queryClient.invalidateQueries({ queryKey: ['patient-account-get'] });
-      await queryClient.invalidateQueries({ queryKey: ['useGetPatientPatientResources', patientId] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['patient-account-get'] }),
+        queryClient.invalidateQueries({ queryKey: ['useGetPatientPatientResources', patientId] }),
+      ]);
     }
   };
 

@@ -66,19 +66,27 @@ async function searchErxByName(
     .filter((term): term is string => !!term && term.length >= 3);
   if (terms.length === 0) return [];
 
+  const searches = await Promise.all(
+    terms.map(async (term) => {
+      try {
+        return { term, response: await search(term) };
+      } catch (error) {
+        console.error(`[easy-chart] ${label} search failed`, error);
+        return undefined;
+      }
+    })
+  );
+
   const byId = new Map<string, CatalogueMatch>();
-  for (const term of terms) {
-    try {
-      const response = await search(term);
-      if (!response) return undefined;
-      response.forEach((row, index) => {
-        const id = String(row.id ?? row.name);
-        // The first term (what the provider said) wins a tie; synonyms only widen the net.
-        if (!byId.has(id)) byId.set(id, { id, display: row.name ?? term, score: 1 / (index + 1), payload: row });
-      });
-    } catch (error) {
-      console.error(`[easy-chart] ${label} search failed`, error);
-    }
+  for (const searched of searches) {
+    if (!searched) continue;
+    const { term, response } = searched;
+    if (!response) return undefined;
+    response.forEach((row, index) => {
+      const id = String(row.id ?? row.name);
+      // The first term (what the provider said) wins a tie; synonyms only widen the net.
+      if (!byId.has(id)) byId.set(id, { id, display: row.name ?? term, score: 1 / (index + 1), payload: row });
+    });
   }
   return [...byId.values()].sort((a, b) => b.score - a.score);
 }
